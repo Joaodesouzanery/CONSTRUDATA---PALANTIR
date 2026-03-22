@@ -1,0 +1,47 @@
+import type { LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+interface StatCardProps {
+  label: string
+  value: string
+  sub?: string
+  icon: LucideIcon
+  accent?: boolean
+  className?: string
+}
+
+export function StatCard({ label, value, sub, icon: Icon, accent, className }: StatCardProps) {
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-2 rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] p-4',
+        className
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
+          {label}
+        </span>
+        <div
+          className={cn(
+            'flex items-center justify-center w-8 h-8 rounded-lg',
+            accent ? 'bg-[#f97316]/15 text-[#f97316]' : 'bg-[#252525] text-[#6b6b6b]'
+          )}
+        >
+          <Icon size={16} />
+        </div>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span
+          className={cn(
+            'text-2xl font-bold font-mono',
+            accent ? 'text-[#f97316]' : 'text-[#f5f5f5]'
+          )}
+        >
+          {value}
+        </span>
+        {sub && <span className="text-xs text-[#a3a3a3]">{sub}</span>}
+      </div>
+    </div>
+  )
+}
