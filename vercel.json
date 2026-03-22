@@ -1,5 +1,4 @@
 {
-  "nodejs": "20.x",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm ci",
