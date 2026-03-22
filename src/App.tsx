@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/shared/AppShell'
 import { Relatorio360Page } from '@/features/relatorio360/index'
+import { AgendaPage } from '@/features/agenda/index'
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/relatorio360" replace />} />
           <Route path="/relatorio360" element={<Relatorio360Page />} />
+          <Route path="/agenda" element={<AgendaPage />} />
           <Route path="*" element={<Navigate to="/relatorio360" replace />} />
         </Route>
       </Routes>

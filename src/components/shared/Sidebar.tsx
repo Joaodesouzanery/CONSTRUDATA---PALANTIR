@@ -9,12 +9,14 @@ import {
   FileText,
   Settings,
   HardHat,
+  Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
   { label: 'Relatório 360', icon: ClipboardList, to: '/relatorio360' },
+  { label: 'Agenda', icon: Calendar, to: '/agenda' },
   { label: 'Relatórios', icon: FileText, to: '/relatorios' },
   { label: 'Analytics', icon: BarChart3, to: '/analytics' },
   { label: 'Equipes', icon: Users, to: '/equipes' },

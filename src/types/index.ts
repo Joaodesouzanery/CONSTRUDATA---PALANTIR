@@ -73,3 +73,26 @@ export interface DailyReport {
   materialLogs: MaterialLog[]
   photos: ReportPhoto[]
 }
+
+// ─── Agenda / Gantt ───────────────────────────────────────────────────────────
+
+export type TaskColor = 'blue' | 'orange' | 'green' | 'red' | 'purple'
+
+export interface AgendaTask {
+  id: string
+  title: string
+  resourceId: string
+  startDate: string   // 'yyyy-MM-dd'
+  endDate: string     // 'yyyy-MM-dd'
+  color: TaskColor
+  status: 'scheduled' | 'unscheduled' | 'completed'
+  notes?: string
+}
+
+export interface AgendaResource {
+  id: string
+  code: string
+  name: string
+  type: 'equipment' | 'crew' | 'other'
+  status: 'active' | 'inactive'
+}
