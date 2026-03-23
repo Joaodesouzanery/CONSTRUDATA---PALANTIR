@@ -904,3 +904,130 @@ export interface FleetScheduleEntry {
   notes?: string
   status: 'scheduled' | 'completed' | 'cancelled'
 }
+
+// ─── Planejamento ─────────────────────────────────────────────────────────────
+
+export type WorkWeekMode = 'mon_fri' | 'mon_sat'
+export type AbcZone      = 'A' | 'B' | 'C'
+export type PlanSoilType = 'normal' | 'rocky' | 'mixed'
+
+export interface PlanTrecho {
+  id: string
+  code: string              // 'T01', 'T02' — user-editable
+  description: string
+  lengthM: number           // meters
+  depthM: number            // avg excavation depth (m)
+  diameterMm: number        // pipe diameter in mm
+  soilType: PlanSoilType
+  requiresShoring: boolean
+  unitCostBRL?: number      // from SINAPI / custom
+  notes?: string
+  // Derived — set by schedule engine, stored for display
+  assignedTeamIndex?: number
+  plannedStartDate?: string // yyyy-MM-dd
+  plannedEndDate?: string   // yyyy-MM-dd
+  abcZone?: AbcZone
+}
+
+export interface PlanTeam {
+  id: string
+  name: string
+  foremanCount: number
+  workerCount: number
+  helperCount: number
+  operatorCount: number
+  retroescavadeira: number
+  compactador: number
+  caminhaoBasculante: number
+  laborHourlyRateBRL: number
+  equipmentDailyRateBRL: number
+}
+
+export interface PlanProductivityTable {
+  escavacao: number    // m/day
+  assentamento: number // m/day
+  reaterro: number     // m³/day (converted to m/day via depth × 0.8)
+  escoramento: number  // m²/day (converted to m/day via depth)
+  pavimentacao: number // m²/day
+}
+
+export interface PlanScheduleConfig {
+  startDate: string        // yyyy-MM-dd
+  workHoursPerDay: number
+  workWeekMode: WorkWeekMode
+}
+
+export interface PlanHoliday {
+  date: string             // yyyy-MM-dd
+  description: string
+}
+
+export interface GanttCell {
+  date: string
+  trechoId: string
+  teamIndex: number
+  metersPlanned: number
+  isHydroTest: boolean
+}
+
+export interface GanttRow {
+  trecho: PlanTrecho
+  cells: GanttCell[]
+  startDate: string
+  endDate: string
+  hydroTestDate: string
+  durationDays: number     // execution days only (excl. hydro test)
+  dailyCostBRL: number
+  totalCostBRL: number
+  teamIndex: number
+}
+
+export interface SCurvePoint {
+  dayIndex: number
+  date: string
+  cumulativePhysicalPct: number
+  cumulativeFinancialPct: number
+  cumulativeMeters: number
+  cumulativeCostBRL: number
+}
+
+export interface HistogramPoint {
+  dayIndex: number
+  date: string
+  headcount: number
+  equipmentUnits: number
+  dailyCostBRL: number
+}
+
+export interface AbcItem {
+  trecho: PlanTrecho
+  totalCostBRL: number
+  sharePct: number
+  cumulativePct: number
+  zone: AbcZone
+}
+
+export interface ServiceNote {
+  id: string
+  date: string
+  trechoId: string
+  teamId: string
+  type: 'instruction' | 'safety' | 'material' | 'inspection' | 'other'
+  title: string
+  body: string             // plain text — no HTML
+  createdAt: string
+  createdBy: string
+}
+
+export interface PlanScenario {
+  id: string
+  name: string
+  description?: string
+  createdAt: string
+  updatedAt: string
+  trechos: PlanTrecho[]
+  teams: PlanTeam[]
+  productivityTable: PlanProductivityTable
+  scheduleConfig: PlanScheduleConfig
+  holidays: PlanHoliday[]
+}

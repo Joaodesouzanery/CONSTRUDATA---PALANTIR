@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
-  Cpu, ChevronRight, ChevronLeft, LayoutDashboard,
+  Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,7 @@ const navItems = [
   { label: 'Pré-Constr.',     icon: FileSearch,       to: '/pre-construcao'      },
   { label: 'Suprimentos',     icon: PackageSearch,    to: '/suprimentos'         },
   { label: 'Mão de Obra',     icon: Users,            to: '/mao-de-obra'         },
+  { label: 'Planejamento',    icon: CalendarClock,    to: '/planejamento'        },
   { label: 'Frota',           icon: Cpu,              to: '/otimizacao-frota'    },
   { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
 ]
