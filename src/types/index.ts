@@ -238,3 +238,89 @@ export interface AgendaResource {
   type: 'equipment' | 'crew' | 'other'
   status: 'active' | 'inactive'
 }
+
+// ─── Gestão de Equipamentos ───────────────────────────────────────────────────
+
+export type WorkOrderStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type MaintenanceType = 'preventive' | 'corrective' | 'predictive'
+
+export interface MaintenanceOrder {
+  id: string
+  equipmentId: string
+  type: MaintenanceType
+  description: string
+  scheduledDate: string      // yyyy-MM-dd
+  completedDate?: string
+  responsible: string
+  estimatedCost: number
+  actualCost?: number
+  status: WorkOrderStatus
+  notes?: string
+}
+
+// ─── Pré-Construção ───────────────────────────────────────────────────────────
+
+export type PipelineStep   = 'upload' | 'extraction' | 'normalization' | 'matching' | 'proposal'
+export type ClauseSeverity = 'critical' | 'warning' | 'info'
+export type CostSource     = 'sinapi' | 'seinfra' | 'custom'
+
+export interface TakeoffItem {
+  id: string
+  description: string
+  quantity: number
+  unit: string
+  confidence: number          // 0–100
+  source: string              // filename
+  normalized?: boolean
+  normalizedDescription?: string
+  normalizedQuantity?: number
+  normalizedUnit?: string
+}
+
+export interface CostMatch {
+  takeoffItemId: string
+  source: CostSource
+  code: string
+  description: string
+  unit: string
+  unitCost: number
+  score: number               // 0–100
+  selected: boolean
+  overrideUnitCost?: number
+}
+
+export interface ContractClause {
+  id: string
+  severity: ClauseSeverity
+  type: string
+  excerpt: string
+  explanation: string
+  recommendation: string
+}
+
+export interface BDIConfig {
+  adminCentral: number
+  iss: number
+  pisCofins: number
+  seguro: number
+  lucro: number
+}
+
+export interface AnalysisSession {
+  id: string
+  createdAt: string
+  fileNames: string[]
+  totalItems: number
+  totalCost: number
+  status: PipelineStep
+}
+
+export interface SinapiEntry {
+  code: string
+  description: string
+  unit: string
+  unitCost: number
+  category: string
+  state: string
+  referenceDate: string
+}

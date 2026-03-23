@@ -1,15 +1,17 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 
 const navItems = [
-  { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360'      },
-  { label: 'Agenda',                  icon: Calendar,      to: '/agenda'            },
-  { label: 'Perfil dos Equipamentos', icon: Truck,         to: '/equipamentos'      },
-  { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'          },
-  { label: 'Torre de Controle',       icon: Radio,         to: '/torre-de-controle' },
+  { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360'          },
+  { label: 'Agenda',                  icon: Calendar,      to: '/agenda'                },
+  { label: 'Perfil dos Equipamentos', icon: Truck,         to: '/equipamentos'          },
+  { label: 'Gestão de Equipamentos',  icon: Wrench,        to: '/gestao-equipamentos'   },
+  { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'              },
+  { label: 'Torre de Controle',       icon: Radio,         to: '/torre-de-controle'     },
+  { label: 'Pré-Construção',          icon: FileSearch,    to: '/pre-construcao'        },
 ]
 
 export function Sidebar() {

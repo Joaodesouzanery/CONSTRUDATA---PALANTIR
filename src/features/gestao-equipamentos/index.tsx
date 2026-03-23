@@ -1,0 +1,23 @@
+import { useState } from 'react'
+import { GestaoHeader }      from './components/GestaoHeader'
+import { FleetDashboard }    from './components/FleetDashboard'
+import { MaintenancePanel }  from './components/MaintenancePanel'
+import { UtilizacaoPanel }   from './components/UtilizacaoPanel'
+import { CustosPanel }       from './components/CustosPanel'
+
+export function GestaoEquipamentosPage() {
+  const [activeTab, setActiveTab] = useState('dashboard')
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden bg-[#1a1a1a]">
+      <GestaoHeader activeTab={activeTab} onTabChange={setActiveTab} />
+
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'dashboard'   && <FleetDashboard />}
+        {activeTab === 'manutencoes' && <MaintenancePanel />}
+        {activeTab === 'utilizacao'  && <UtilizacaoPanel />}
+        {activeTab === 'custos'      && <CustosPanel />}
+      </div>
+    </div>
+  )
+}

@@ -99,9 +99,9 @@ const MAP_CSS = `
   .torre-popup .leaflet-popup-content { margin: 0; }
   .torre-popup .leaflet-popup-tip { background: #1f1f1f; }
   .torre-popup .leaflet-popup-close-button { color: #6b6b6b !important; font-size: 16px; top: 8px; right: 10px; }
-  .leaflet-control-zoom a { background: #1f1f1f !important; border-color: #2a2a2a !important; color: #a3a3a3 !important; }
-  .leaflet-control-zoom a:hover { background: #252525 !important; color: #f97316 !important; }
-  .leaflet-control-attribution { background: rgba(17,17,17,0.8) !important; color: #3f3f3f !important; font-size: 9px !important; }
+  .leaflet-control-zoom a { background: #ffffff !important; border-color: #d4d8df !important; color: #505863 !important; }
+  .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
+  .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
 `
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -122,11 +122,11 @@ export function ObrasMap() {
       <MapContainer
         center={[-23.5505, -46.6333]}
         zoom={11}
-        style={{ height: '100%', width: '100%', background: '#111111' }}
+        style={{ height: '100%', width: '100%', background: '#f5f5f5' }}
         zoomControl={true}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           subdomains="abcd"
           maxZoom={20}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'

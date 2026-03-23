@@ -81,22 +81,22 @@ export function EquipmentMap() {
         @keyframes ping {
           75%, 100% { transform: scale(1.8); opacity: 0; }
         }
-        /* Dark theme for Leaflet UI controls */
+        /* Light theme for Leaflet UI controls (Voyager tiles) */
         .leaflet-control-zoom a {
-          background-color: #1f1f1f !important;
-          border-color: #2a2a2a !important;
-          color: #a3a3a3 !important;
+          background-color: #ffffff !important;
+          border-color: #d4d8df !important;
+          color: #505863 !important;
         }
         .leaflet-control-zoom a:hover {
-          background-color: #2a2a2a !important;
+          background-color: #f0f2f5 !important;
           color: #f97316 !important;
         }
         .leaflet-control-attribution {
-          background: rgba(17,17,17,0.8) !important;
-          color: #3f3f3f !important;
+          background: rgba(255,255,255,0.85) !important;
+          color: #78828f !important;
           font-size: 9px !important;
         }
-        .leaflet-control-attribution a { color: #6b6b6b !important; }
+        .leaflet-control-attribution a { color: #505863 !important; }
         /* Dark popup */
         .equip-popup .leaflet-popup-content-wrapper {
           background: #1f1f1f;
@@ -119,11 +119,11 @@ export function EquipmentMap() {
       <MapContainer
         center={[-23.5190, -46.6290]}
         zoom={13}
-        style={{ height: '100%', width: '100%', background: '#111111' }}
+        style={{ height: '100%', width: '100%', background: '#f5f5f5' }}
         zoomControl
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           subdomains="abcd"
           maxZoom={20}
