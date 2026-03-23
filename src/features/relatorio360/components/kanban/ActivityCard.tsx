@@ -1,5 +1,3 @@
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Activity } from '@/types'
@@ -7,26 +5,19 @@ import { useCurrentReport } from '@/hooks/useRelatorio360'
 
 interface ActivityCardProps {
   activity: Activity
-  overlay?: boolean
+  isDragging?: boolean
+  isOverlay?: boolean
+  onGripPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void
 }
 
-export function ActivityCard({ activity, overlay }: ActivityCardProps) {
+export function ActivityCard({
+  activity,
+  isDragging,
+  isOverlay,
+  onGripPointerDown,
+}: ActivityCardProps) {
   const report = useCurrentReport()
   const crew = report?.crews.find((c) => c.id === activity.crewId)
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: activity.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
 
   const pct =
     activity.plannedQty > 0
@@ -35,15 +26,13 @@ export function ActivityCard({ activity, overlay }: ActivityCardProps) {
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
       className={cn(
-        'rounded-xl border bg-[#1a1a1a] p-3 flex flex-col gap-2.5 select-none cursor-default',
-        overlay
-          ? 'border-[#f97316] shadow-lg shadow-[#f97316]/10 rotate-1 scale-105'
+        'rounded-xl border bg-[#1a1a1a] p-3 flex flex-col gap-2.5 select-none',
+        isOverlay
+          ? 'border-[#f97316] shadow-lg shadow-[#f97316]/10 rotate-1 scale-105 cursor-grabbing'
           : isDragging
-          ? 'border-[#f97316]/40 opacity-40'
-          : 'border-[#2a2a2a] hover:border-[#3a3a3a] hover:bg-[#222222] transition-colors'
+          ? 'border-[#f97316]/40 opacity-40 cursor-grabbing'
+          : 'border-[#2a2a2a] hover:border-[#3a3a3a] hover:bg-[#222222] transition-colors cursor-default'
       )}
     >
       {/* Title row */}
@@ -52,16 +41,15 @@ export function ActivityCard({ activity, overlay }: ActivityCardProps) {
           {activity.name}
         </span>
         <div
-          {...attributes}
-          {...listeners}
-          className="shrink-0 mt-0.5 text-[#3f3f3f] hover:text-[#6b6b6b] cursor-grab active:cursor-grabbing transition-colors"
+          onPointerDown={onGripPointerDown}
+          className="shrink-0 mt-0.5 text-[#3f3f3f] hover:text-[#6b6b6b] cursor-grab active:cursor-grabbing transition-colors touch-none"
         >
           <GripVertical size={14} />
         </div>
       </div>
 
       {/* Qty row */}
-      <div className="flex items-center gap-3 text-xs text-[#a3a3a3]">
+      <div className="flex items-center gap-3 text-xs">
         <div className="flex flex-col gap-0.5">
           <span className="text-[#6b6b6b] text-[10px] uppercase tracking-wider">Planejado</span>
           <span className="font-mono text-[#f5f5f5] font-semibold">
@@ -89,12 +77,10 @@ export function ActivityCard({ activity, overlay }: ActivityCardProps) {
               style={{ width: `${pct}%` }}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-[#6b6b6b] flex items-center gap-1">
-              <TrendingUp size={9} />
-              {pct}% concluído
-            </span>
-          </div>
+          <span className="text-[10px] text-[#6b6b6b] flex items-center gap-1">
+            <TrendingUp size={9} />
+            {pct}% concluído
+          </span>
         </div>
       )}
 

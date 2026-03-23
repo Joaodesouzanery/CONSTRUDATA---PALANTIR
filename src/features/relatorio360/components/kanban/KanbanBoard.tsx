@@ -1,13 +1,4 @@
-import { useState } from 'react'
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Kanban } from 'lucide-react'
 import { useCurrentReport } from '@/hooks/useRelatorio360'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
@@ -17,63 +8,81 @@ import { ActivityCard } from './ActivityCard'
 
 const STATUSES: ActivityStatus[] = ['planned', 'in_progress', 'completed']
 
-function findStatusOfActivity(activities: Activity[], id: string): ActivityStatus | null {
-  const act = activities.find((a) => a.id === id)
-  return act?.status ?? null
+interface DragState {
+  activity: Activity
+  x: number
+  y: number
+  targetColumn: ActivityStatus | null
 }
 
 export function KanbanBoard() {
   const report = useCurrentReport()
-  const { moveActivity, reorderActivity } = useRelatorio360Store()
-  const [activeActivity, setActiveActivity] = useState<Activity | null>(null)
+  const { moveActivity } = useRelatorio360Store()
+  const [drag, setDrag] = useState<DragState | null>(null)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
-  )
+  const colRefs = useRef<Partial<Record<ActivityStatus, HTMLDivElement | null>>>({
+    planned: null,
+    in_progress: null,
+    completed: null,
+  })
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => { cleanupRef.current?.() }
+  }, [])
 
   const activities = report?.activities ?? []
 
-  function handleDragStart(event: DragStartEvent) {
-    const act = activities.find((a) => a.id === event.active.id)
-    setActiveActivity(act ?? null)
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    setActiveActivity(null)
-    const { active, over } = event
-    if (!over) return
-
-    const activeId = active.id as string
-    const overId = over.id as string
-
-    // Check if over is a column (status) or a card
-    const isOverColumn = STATUSES.includes(overId as ActivityStatus)
-
-    if (isOverColumn) {
-      const newStatus = overId as ActivityStatus
-      const activeStatus = findStatusOfActivity(activities, activeId)
-      if (activeStatus !== newStatus) {
-        moveActivity(activeId, newStatus)
-      }
-    } else {
-      // Over a card
-      const overStatus = findStatusOfActivity(activities, overId)
-      const activeStatus = findStatusOfActivity(activities, activeId)
-
-      if (activeStatus !== overStatus && overStatus) {
-        // Cross-column move
-        moveActivity(activeId, overStatus)
-      } else if (activeId !== overId) {
-        // Reorder within same column
-        reorderActivity(activeId, overId)
+  function getTargetColumn(x: number, y: number): ActivityStatus | null {
+    for (const status of STATUSES) {
+      const el = colRefs.current[status]
+      if (el) {
+        const rect = el.getBoundingClientRect()
+        if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+          return status
+        }
       }
     }
+    return null
   }
 
+  const handleGripPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, activity: Activity) => {
+      if (e.button !== 0) return
+      e.preventDefault()
+      e.stopPropagation()
+
+      const el = e.currentTarget
+      el.setPointerCapture(e.pointerId)
+      setDrag({ activity, x: e.clientX, y: e.clientY, targetColumn: activity.status })
+
+      function onMove(ev: PointerEvent) {
+        const target = getTargetColumn(ev.clientX, ev.clientY)
+        setDrag((d) => d ? { ...d, x: ev.clientX, y: ev.clientY, targetColumn: target } : null)
+      }
+
+      function onUp(ev: PointerEvent) {
+        el.removeEventListener('pointermove', onMove)
+        cleanupRef.current = null
+        const target = getTargetColumn(ev.clientX, ev.clientY)
+        setDrag(null)
+        if (target && target !== activity.status) {
+          moveActivity(activity.id, target)
+        }
+      }
+
+      el.addEventListener('pointermove', onMove)
+      el.addEventListener('pointerup', onUp, { once: true })
+      cleanupRef.current = () => {
+        el.removeEventListener('pointermove', onMove)
+        el.removeEventListener('pointerup', onUp)
+      }
+    },
+    [moveActivity]
+  )
+
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3" style={{ userSelect: 'none' }}>
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3] flex items-center gap-2">
           <Kanban size={13} />
@@ -82,27 +91,36 @@ export function KanbanBoard() {
         <span className="text-xs font-mono text-[#6b6b6b]">{activities.length} atividades</span>
       </div>
 
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid grid-cols-3 gap-4">
-          {STATUSES.map((status) => (
-            <KanbanColumn
-              key={status}
-              status={status}
-              activities={activities.filter((a) => a.status === status)}
-            />
-          ))}
-        </div>
+      <div className="grid grid-cols-3 gap-4">
+        {STATUSES.map((status) => (
+          <KanbanColumn
+            key={status}
+            status={status}
+            activities={activities.filter((a) => a.status === status)}
+            isOver={drag?.targetColumn === status}
+            draggingId={drag?.activity.id ?? null}
+            colRef={(el) => { colRefs.current[status] = el }}
+            onGripPointerDown={handleGripPointerDown}
+          />
+        ))}
+      </div>
 
-        <DragOverlay>
-          {activeActivity && (
-            <ActivityCard activity={activeActivity} overlay />
-          )}
-        </DragOverlay>
-      </DndContext>
+      {/* Drag overlay — follows cursor */}
+      {drag && (
+        <div
+          style={{
+            position: 'fixed',
+            left: drag.x + 14,
+            top: drag.y - 24,
+            width: 280,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            transform: 'rotate(2deg) scale(1.03)',
+          }}
+        >
+          <ActivityCard activity={drag.activity} isOverlay />
+        </div>
+      )}
     </div>
   )
 }
