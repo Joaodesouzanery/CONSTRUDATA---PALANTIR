@@ -324,3 +324,115 @@ export interface SinapiEntry {
   state: string
   referenceDate: string
 }
+
+// ─── Suprimentos / Three-Way Match ────────────────────────────────────────────
+
+export type MatchStatus     = 'matched' | 'partial' | 'discrepancy' | 'pending'
+export type ExceptionStatus = 'open' | 'in_review' | 'resolved' | 'escalated'
+export type ExceptionType   = 'quantity_diff' | 'price_diff' | 'item_missing' | 'duplicate'
+export type POStatus        = 'open' | 'partial' | 'closed' | 'cancelled'
+export type InvoiceStatus   = 'pending' | 'pre_approved' | 'approved' | 'rejected'
+
+export interface POItem {
+  id: string
+  description: string
+  quantity: number
+  unit: string
+  unitPrice: number
+  totalPrice: number
+}
+
+export interface PurchaseOrder {
+  id: string
+  code: string
+  supplier: string
+  responsible: string
+  issuedDate: string
+  expectedDelivery: string
+  items: POItem[]
+  status: POStatus
+  projectRef?: string
+}
+
+export interface GoodsReceiptItem {
+  poItemId: string
+  receivedQty: number
+  unit: string
+  notes?: string
+}
+
+export interface GoodsReceipt {
+  id: string
+  poId: string
+  code: string
+  receivedDate: string
+  receivedBy: string
+  items: GoodsReceiptItem[]
+}
+
+export interface InvoiceItem {
+  poItemId: string
+  description: string
+  quantity: number
+  unit: string
+  unitPrice: number
+  totalPrice: number
+}
+
+export interface Invoice {
+  id: string
+  poId: string
+  number: string
+  supplier: string
+  issueDate: string
+  dueDate: string
+  items: InvoiceItem[]
+  totalAmount: number
+  status: InvoiceStatus
+}
+
+export interface Discrepancy {
+  itemId: string
+  field: 'quantity' | 'price' | 'missing'
+  poValue: number
+  receivedValue?: number
+  invoicedValue?: number
+  delta: number
+  deltaPercent: number
+}
+
+export interface ThreeWayMatch {
+  id: string
+  poId: string
+  receiptId?: string
+  invoiceId?: string
+  status: MatchStatus
+  matchedAt?: string
+  discrepancies: Discrepancy[]
+}
+
+export interface MatchException {
+  id: string
+  matchId: string
+  poId: string
+  type: ExceptionType
+  description: string
+  status: ExceptionStatus
+  assignedTo: string[]
+  suggestedAction: string
+  createdAt: string
+  resolvedAt?: string
+  notes?: string
+}
+
+export interface DemandForecast {
+  id: string
+  weekLabel: string
+  materialCategory: string
+  estimatedQty: number
+  unit: string
+  suggestedOrderDate: string
+  relatedPhase: string
+  estimatedValue: number
+  status: 'suggested' | 'ordered' | 'dismissed'
+}

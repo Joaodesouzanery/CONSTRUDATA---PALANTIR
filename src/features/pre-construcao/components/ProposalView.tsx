@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Printer } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore, calcBDI } from '@/store/preConstrucaoStore'
 
 interface ProposalLine {
@@ -114,12 +115,12 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
 export function ProposalView() {
   const [showPrint, setShowPrint] = useState(false)
 
-  const { takeoffItems, costMatches, bdiConfig, setBDI } = usePreConstrucaoStore((s) => ({
+  const { takeoffItems, costMatches, bdiConfig, setBDI } = usePreConstrucaoStore(useShallow((s) => ({
     takeoffItems: s.takeoffItems,
     costMatches:  s.costMatches,
     bdiConfig:    s.bdiConfig,
     setBDI:       s.setBDI,
-  }))
+  })))
 
   const bdiTotal = calcBDI(bdiConfig)
 

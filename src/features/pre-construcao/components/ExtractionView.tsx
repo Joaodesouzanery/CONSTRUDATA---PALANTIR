@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import type { ClauseSeverity } from '@/types'
 
@@ -44,11 +45,11 @@ function SeverityBadge({ severity }: { severity: ClauseSeverity }) {
 export function ExtractionView() {
   const [clausesOpen, setClausesOpen] = useState(true)
 
-  const { takeoffItems, clauses, setStep } = usePreConstrucaoStore((s) => ({
+  const { takeoffItems, clauses, setStep } = usePreConstrucaoStore(useShallow((s) => ({
     takeoffItems: s.takeoffItems,
     clauses:      s.clauses,
     setStep:      s.setStep,
-  }))
+  })))
 
   return (
     <div className="flex gap-4 h-full">

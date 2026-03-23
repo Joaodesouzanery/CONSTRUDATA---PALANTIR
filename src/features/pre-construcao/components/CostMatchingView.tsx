@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import { mockSinapi } from '@/data/mockSinapi'
 import { mockSeinfra } from '@/data/mockSeinfra'
@@ -332,7 +333,7 @@ export function CostMatchingView() {
     setStep,
     saveSession,
     uploadedFiles,
-  } = usePreConstrucaoStore((s) => ({
+  } = usePreConstrucaoStore(useShallow((s) => ({
     takeoffItems:      s.takeoffItems,
     costMatches:       s.costMatches,
     customBase:        s.customBase,
@@ -344,7 +345,7 @@ export function CostMatchingView() {
     setStep:           s.setStep,
     saveSession:       s.saveSession,
     uploadedFiles:     s.uploadedFiles,
-  }))
+  })))
 
   // Run matching once on mount if no matches yet
   useEffect(() => {

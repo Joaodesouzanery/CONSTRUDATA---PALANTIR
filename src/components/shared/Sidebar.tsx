@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch, PackageSearch } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'              },
   { label: 'Torre de Controle',       icon: Radio,         to: '/torre-de-controle'     },
   { label: 'Pré-Construção',          icon: FileSearch,    to: '/pre-construcao'        },
+  { label: 'Suprimentos',             icon: PackageSearch, to: '/suprimentos'           },
 ]
 
 export function Sidebar() {

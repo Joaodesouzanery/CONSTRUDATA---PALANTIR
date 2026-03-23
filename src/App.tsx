@@ -7,6 +7,7 @@ import { ProjetosPage }              from '@/features/projetos/index'
 import { TorreDeControlePage }       from '@/features/torre-de-controle/index'
 import { GestaoEquipamentosPage }    from '@/features/gestao-equipamentos/index'
 import { PreConstrucaoPage }         from '@/features/pre-construcao/index'
+import { SuprimentosPage }           from '@/features/suprimentos/index'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path="/projetos"            element={<ProjetosPage />} />
           <Route path="/torre-de-controle"   element={<TorreDeControlePage />} />
           <Route path="/pre-construcao"      element={<PreConstrucaoPage />} />
+          <Route path="/suprimentos"         element={<SuprimentosPage />} />
           <Route path="*"                    element={<Navigate to="/relatorio360" replace />} />
         </Route>
       </Routes>

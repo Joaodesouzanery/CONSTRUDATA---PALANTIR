@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import type { PipelineStep } from '@/types'
 
@@ -24,10 +25,10 @@ function formatBRL(value: number): string {
 }
 
 export function AnalysisHistory() {
-  const { sessions, resetPipeline } = usePreConstrucaoStore((s) => ({
+  const { sessions, resetPipeline } = usePreConstrucaoStore(useShallow((s) => ({
     sessions:       s.sessions,
     resetPipeline:  s.resetPipeline,
-  }))
+  })))
 
   return (
     <div className="w-56 shrink-0 flex flex-col bg-[#1a1a1a] border-r border-[#2a2a2a] overflow-hidden">

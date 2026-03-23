@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import type { TakeoffItem } from '@/types'
 
@@ -116,12 +117,12 @@ function buildSuggestions(items: TakeoffItem[]): Suggestion[] {
 
 export function NormalizacaoView() {
   const { takeoffItems, acceptNormalization, rejectNormalization, setStep } =
-    usePreConstrucaoStore((s) => ({
+    usePreConstrucaoStore(useShallow((s) => ({
       takeoffItems:        s.takeoffItems,
       acceptNormalization: s.acceptNormalization,
       rejectNormalization: s.rejectNormalization,
       setStep:             s.setStep,
-    }))
+    })))
 
   const suggestions = useMemo(() => buildSuggestions(takeoffItems), [takeoffItems])
 

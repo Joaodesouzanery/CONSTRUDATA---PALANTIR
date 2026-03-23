@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { UploadCloud, FileText, Box, Table2, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import type { UploadedFile } from '@/store/preConstrucaoStore'
 import { extractFromPdf, mockBimExtraction } from '../hooks/usePdfExtraction'
@@ -38,14 +39,14 @@ export function UploadZone() {
   const [isLoading, setIsLoading] = useState(false)
 
   const { uploadedFiles, addFiles, removeFile, setTakeoffItems, setClauses, setStep } =
-    usePreConstrucaoStore((s) => ({
+    usePreConstrucaoStore(useShallow((s) => ({
       uploadedFiles:   s.uploadedFiles,
       addFiles:        s.addFiles,
       removeFile:      s.removeFile,
       setTakeoffItems: s.setTakeoffItems,
       setClauses:      s.setClauses,
       setStep:         s.setStep,
-    }))
+    })))
 
   function processFileList(fileList: FileList | null) {
     if (!fileList) return
