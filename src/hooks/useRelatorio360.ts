@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
 
 export function useCurrentReport() {
@@ -9,8 +10,12 @@ export function useCurrentDate() {
 }
 
 export function useSummaryMetrics() {
-  return useRelatorio360Store((s) => {
-    const report = s.reports[s.currentDate]
+  // useCurrentReport returns a stable object reference (same ref when state unchanged),
+  // so useMemo only recomputes when the report actually changes. This avoids returning
+  // a new object literal from a Zustand selector, which would cause an infinite re-render
+  // loop via useSyncExternalStore's Object.is snapshot comparison (React error #185).
+  const report = useCurrentReport()
+  return useMemo(() => {
     if (!report) {
       return {
         activityCount: 0,
@@ -41,5 +46,5 @@ export function useSummaryMetrics() {
       totalEquipmentHours,
       totalEquipmentCost,
     }
-  })
+  }, [report])
 }
