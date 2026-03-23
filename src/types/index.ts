@@ -522,3 +522,63 @@ export interface ReallocationSuggestion {
   reason: string
   accepted?: boolean
 }
+
+// ─── Otimização de Frota e Equipamentos ───────────────────────────────────────
+
+export type RoutingPriority = 'critical' | 'high' | 'medium' | 'low'
+export type HealthRisk      = 'critical' | 'high' | 'medium' | 'low'
+export type BuyLeaseRec     = 'buy' | 'lease' | 'neutral'
+
+export interface RoutingRecommendation {
+  id: string
+  equipmentId: string
+  equipmentCode: string
+  equipmentName: string
+  equipmentType: string
+  fromSiteId: string
+  fromSiteName: string
+  fromLat: number | null
+  fromLng: number | null
+  toSiteId: string
+  toSiteName: string
+  toLat: number | null
+  toLng: number | null
+  reason: string
+  utilizationGainPct: number     // e.g. 42 = +42% projected utilisation
+  estimatedDistanceKm: number
+  suggestedDate: string          // yyyy-MM-dd
+  priority: RoutingPriority
+  bimPhaseRef?: string           // 4D BIM phase name triggering the need
+  accepted?: boolean
+}
+
+export interface PredictiveHealth {
+  equipmentId: string
+  equipmentCode: string
+  equipmentName: string
+  healthScore: number            // 0-100
+  riskLevel: HealthRisk
+  predictedFailureWindow: string // e.g. "próximos 15 dias"
+  mainFactors: string[]
+  recommendedAction: string
+  estimatedDowntimeDays: number
+  estimatedRepairCostBRL: number
+}
+
+export interface BuyLeaseAnalysis {
+  id: string
+  equipmentType: string
+  currentStatus: 'owned' | 'rented' | 'none'
+  monthlyRentalCostBRL: number
+  purchasePriceBRL: number
+  annualMaintenanceCostBRL: number
+  residualValueBRL: number
+  projectedUsageDays: number     // derived from project portfolio
+  annualRentalCostBRL: number
+  annualOwnershipCostBRL: number
+  breakEvenMonths: number
+  recommendation: BuyLeaseRec
+  reasoning: string
+  bimPhases: string[]            // 4D/5D BIM phase names needing this equipment
+  relatedProjects: string[]
+}

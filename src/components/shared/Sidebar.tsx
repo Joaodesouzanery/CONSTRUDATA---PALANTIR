@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical, Cpu } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Pré-Construção',          icon: FileSearch,    to: '/pre-construcao'        },
   { label: 'Suprimentos',             icon: PackageSearch, to: '/suprimentos'           },
   { label: 'Mão de Obra',             icon: Users,         to: '/mao-de-obra'           },
+  { label: 'Otimização de Frota',     icon: Cpu,           to: '/otimizacao-frota'      },
 ]
 
 export function Sidebar() {

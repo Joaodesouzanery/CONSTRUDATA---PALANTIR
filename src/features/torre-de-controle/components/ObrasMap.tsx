@@ -1,9 +1,31 @@
-import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { useEffect, useRef, useState } from 'react'
+import {
+  MapContainer, TileLayer, Marker, Popup, Tooltip,
+  Circle, Polyline, LayersControl, ScaleControl,
+  useMap, useMapEvents,
+} from 'react-leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { Maximize2, Minimize2, Ruler, X } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useEquipamentosStore } from '@/store/equipamentosStore'
+import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
+import { haversineKm } from '@/store/otimizacaoFrotaStore'
 import type { ConstructionSite, ObraStatus } from '@/types'
+
+// ─── Tile URLs ────────────────────────────────────────────────────────────────
+
+const TILES = {
+  voyager:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+} as const
+
+const TILE_ATTR = {
+  voyager:   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  dark:      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  satellite: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, GeoEye',
+}
 
 // ─── Status colors ────────────────────────────────────────────────────────────
 
@@ -14,6 +36,20 @@ const STATUS_COLOR: Record<ObraStatus, string> = {
   completed: '#22c55e',
 }
 
+const STATUS_LABEL: Record<ObraStatus, string> = {
+  active:    'Ativa',
+  planning:  'Planejamento',
+  paused:    'Pausada',
+  completed: 'Concluída',
+}
+
+const PRIORITY_COLOR: Record<string, string> = {
+  critical: '#ef4444',
+  high:     '#f97316',
+  medium:   '#eab308',
+  low:      '#22c55e',
+}
+
 // ─── Custom SVG construction helmet marker ────────────────────────────────────
 
 function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
@@ -22,48 +58,28 @@ function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
   const hasCritical = site.risks.some((r) => r.level === 'critical' && r.status === 'active')
 
   const pulse = hasCritical ? `
-    <div style="
-      position:absolute;
-      inset:-6px;
-      border-radius:50%;
-      background:${color};
-      opacity:0.35;
-      animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;
-    "></div>` : ''
+    <div style="position:absolute;inset:-6px;border-radius:50%;background:${color};opacity:0.35;
+      animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;"></div>` : ''
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
-      <!-- Base plate -->
       <rect x="6" y="30" width="32" height="5" rx="2.5" fill="${color}" opacity="0.9"/>
-      <!-- Helmet dome -->
       <path d="M8 30 C8 18 36 18 36 30 Z" fill="${color}"/>
-      <!-- Helmet highlight -->
       <path d="M12 24 C12 17 32 17 32 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
-      <!-- Hard hat brim detail -->
       <path d="M5 30 Q22 27 39 30" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <!-- Center strap -->
       <rect x="20" y="18" width="4" height="12" rx="1" fill="rgba(0,0,0,0.2)"/>
-    </svg>
-  `
+    </svg>`
 
   const html = `
     <div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6));">
-      ${pulse}
-      ${svg}
+      ${pulse}${svg}
       ${isSelected ? `<div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color};opacity:0.7;"></div>` : ''}
-    </div>
-  `
+    </div>`
 
-  return L.divIcon({
-    html,
-    className: '',
-    iconSize:  [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -(size / 2 + 8)],
-  })
+  return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 8)] })
 }
 
-// ─── MapController — fly-to when selectedId changes ───────────────────────────
+// ─── MapController — fly-to on selection ─────────────────────────────────────
 
 function MapController() {
   const sites      = useTorreStore((s) => s.sites)
@@ -83,56 +99,193 @@ function MapController() {
   return null
 }
 
-// ─── Map CSS ──────────────────────────────────────────────────────────────────
+// ─── Distance measure controller ─────────────────────────────────────────────
+
+interface MeasurePoint { lat: number; lng: number }
+
+function DistanceMeasureController({
+  active,
+  points,
+  onPoint,
+}: {
+  active: boolean
+  points: MeasurePoint[]
+  onPoint: (p: MeasurePoint) => void
+}) {
+  const map = useMapEvents({
+    click(e) {
+      if (!active || points.length >= 2) return
+      onPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
+    },
+  })
+
+  // Change cursor when active
+  useEffect(() => {
+    if (active) {
+      map.getContainer().style.cursor = 'crosshair'
+    } else {
+      map.getContainer().style.cursor = ''
+    }
+    return () => { map.getContainer().style.cursor = '' }
+  }, [active, map])
+
+  return null
+}
+
+// ─── CSS ───────────────────────────────────────────────────────────────────────
 
 const MAP_CSS = `
-  @keyframes ping {
-    75%, 100% { transform: scale(1.8); opacity: 0; }
-  }
+  @keyframes ping { 75%, 100% { transform: scale(1.8); opacity: 0; } }
   .torre-popup .leaflet-popup-content-wrapper {
-    background: #1f1f1f;
-    border: 1px solid #2a2a2a;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    padding: 0;
+    background: #1f1f1f; border: 1px solid #2a2a2a;
+    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); padding: 0;
   }
   .torre-popup .leaflet-popup-content { margin: 0; }
   .torre-popup .leaflet-popup-tip { background: #1f1f1f; }
   .torre-popup .leaflet-popup-close-button { color: #6b6b6b !important; font-size: 16px; top: 8px; right: 10px; }
-  .leaflet-control-zoom a { background: #ffffff !important; border-color: #d4d8df !important; color: #505863 !important; }
+  .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
   .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
+  .leaflet-control-layers { background: #1f1f1f !important; border: 1px solid #2a2a2a !important; border-radius: 8px !important; color: #f5f5f5 !important; }
+  .leaflet-control-layers label { color: #f5f5f5 !important; }
+  .leaflet-tooltip { background: #1f1f1f; border: 1px solid #2a2a2a; color: #f5f5f5; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
+  .leaflet-tooltip-top:before { border-top-color: #2a2a2a; }
 `
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ObrasMap() {
-  const sites      = useTorreStore((s) => s.sites)
-  const selectedId = useTorreStore((s) => s.selectedId)
-  const selectSite = useTorreStore((s) => s.selectSite)
-  const setEditing = useTorreStore((s) => s.setEditing)
+  const sites         = useTorreStore((s) => s.sites)
+  const selectedId    = useTorreStore((s) => s.selectedId)
+  const selectSite    = useTorreStore((s) => s.selectSite)
+  const setEditing    = useTorreStore((s) => s.setEditing)
   const updateLocation = useTorreStore((s) => s.updateLocation)
+  const equipamentos  = useEquipamentosStore((s) => s.equipamentos)
+  const routingRecs   = useOtimizacaoFrotaStore((s) => s.routingRecs)
+
+  const [isFullscreen,   setIsFullscreen]   = useState(false)
+  const [measureActive,  setMeasureActive]  = useState(false)
+  const [measurePoints,  setMeasurePoints]  = useState<MeasurePoint[]>([])
 
   const withCoords = sites.filter((s) => s.lat != null && s.lng != null)
 
+  const routeLines = routingRecs.filter(
+    (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
+  )
+
+  const measuredKm =
+    measurePoints.length === 2
+      ? haversineKm(measurePoints[0].lat, measurePoints[0].lng, measurePoints[1].lat, measurePoints[1].lng)
+      : null
+
+  function handleMeasurePoint(p: MeasurePoint) {
+    setMeasurePoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))
+  }
+
+  function clearMeasure() {
+    setMeasurePoints([])
+    setMeasureActive(false)
+  }
+
+  // Equipment count per site (match by siteName)
+  function equipCountForSite(site: ConstructionSite) {
+    return equipamentos.filter((e) => e.siteName === site.name).length
+  }
+
+  // Circle radius: proportional to totalArea (min 200m, max 800m)
+  function siteRadius(totalArea: number) {
+    return Math.min(800, Math.max(200, Math.sqrt(totalArea) * 3))
+  }
+
   return (
-    <div className="flex-1 relative overflow-hidden" style={{ background: '#111' }}>
+    <div
+      className="flex-1 relative overflow-hidden"
+      style={{
+        background: '#111',
+        ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999 } : {}),
+      }}
+    >
       <style>{MAP_CSS}</style>
 
       <MapContainer
         center={[-23.5505, -46.6333]}
         zoom={11}
         style={{ height: '100%', width: '100%', background: '#f5f5f5' }}
-        zoomControl={true}
+        zoomControl
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={20}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="Voyager">
+            <TileLayer url={TILES.voyager} attribution={TILE_ATTR.voyager} subdomains="abcd" maxZoom={20} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Dark Matter">
+            <TileLayer url={TILES.dark} attribution={TILE_ATTR.dark} subdomains="abcd" maxZoom={20} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satélite">
+            <TileLayer url={TILES.satellite} attribution={TILE_ATTR.satellite} maxZoom={19} />
+          </LayersControl.BaseLayer>
+
+          <LayersControl.Overlay checked name="Áreas dos Canteiros">
+            <>
+              {withCoords.map((site) => (
+                <Circle
+                  key={`area-${site.id}`}
+                  center={[site.lat!, site.lng!]}
+                  radius={siteRadius(site.totalArea)}
+                  pathOptions={{
+                    color:       STATUS_COLOR[site.status],
+                    fillColor:   STATUS_COLOR[site.status],
+                    fillOpacity: 0.08,
+                    weight:      1.5,
+                    dashArray:   '6 4',
+                  }}
+                />
+              ))}
+            </>
+          </LayersControl.Overlay>
+
+          <LayersControl.Overlay checked name="Rotas Sugeridas">
+            <>
+              {routeLines.map((r) => (
+                <Polyline
+                  key={`route-${r.id}`}
+                  positions={[[r.fromLat!, r.fromLng!], [r.toLat!, r.toLng!]]}
+                  pathOptions={{
+                    color:     PRIORITY_COLOR[r.priority] ?? '#f97316',
+                    weight:    2.5,
+                    dashArray: '8 6',
+                    opacity:   0.8,
+                  }}
+                >
+                  <Tooltip sticky>
+                    {r.equipmentCode} → {r.toSiteName}<br />
+                    {r.estimatedDistanceKm}km · +{r.utilizationGainPct}% utilização
+                  </Tooltip>
+                </Polyline>
+              ))}
+            </>
+          </LayersControl.Overlay>
+        </LayersControl>
+
+        <ScaleControl position="bottomleft" imperial={false} />
+        <MapController />
+
+        <DistanceMeasureController
+          active={measureActive}
+          points={measurePoints}
+          onPoint={handleMeasurePoint}
         />
 
-        <MapController />
+        {/* Distance measure polyline */}
+        {measurePoints.length === 2 && (
+          <Polyline
+            positions={measurePoints.map((p) => [p.lat, p.lng])}
+            pathOptions={{ color: '#22c55e', weight: 2, dashArray: '6 4' }}
+          >
+            <Tooltip permanent direction="center">
+              {measuredKm} km
+            </Tooltip>
+          </Polyline>
+        )}
 
         {withCoords.map((site) => (
           <Marker
@@ -141,15 +294,19 @@ export function ObrasMap() {
             icon={createHelmetIcon(site, site.id === selectedId)}
             draggable
             eventHandlers={{
-              click: () => selectSite(site.id),
+              click:   () => selectSite(site.id),
               dragend: (e) => {
                 const { lat, lng } = e.target.getLatLng()
                 updateLocation(site.id, lat, lng)
               },
             }}
           >
+            <Tooltip direction="top" offset={[0, -10]}>
+              {site.code} — {site.name}
+            </Tooltip>
+
             <Popup className="torre-popup">
-              <div style={{ padding: '12px 14px', minWidth: 200 }}>
+              <div style={{ padding: '12px 14px', minWidth: 210, fontFamily: 'Inter, system-ui, sans-serif' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontFamily: 'monospace', fontSize: 11, color: STATUS_COLOR[site.status], fontWeight: 700 }}>
                     {site.code}
@@ -159,21 +316,30 @@ export function ObrasMap() {
                     background: STATUS_COLOR[site.status] + '20', color: STATUS_COLOR[site.status],
                     textTransform: 'uppercase', letterSpacing: '0.05em',
                   }}>
-                    {site.status === 'active' ? 'Ativa' : site.status === 'planning' ? 'Planejamento' : site.status === 'paused' ? 'Pausada' : 'Concluída'}
+                    {STATUS_LABEL[site.status]}
                   </span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f5', marginBottom: 6, lineHeight: 1.3 }}>
                   {site.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 2 }}>
-                  📍 {site.street}, {site.number}
-                </div>
+                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 2 }}>📍 {site.street}, {site.number}</div>
+                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 8 }}>{site.district} — {site.city}/{site.state}</div>
+                <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 4 }}>👷 Gerente: {site.manager}</div>
+
+                {/* Equipment count */}
+                {(() => {
+                  const cnt = equipCountForSite(site)
+                  return cnt > 0 ? (
+                    <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 8 }}>
+                      🚜 {cnt} equipamento{cnt !== 1 ? 's' : ''} no canteiro
+                    </div>
+                  ) : null
+                })()}
+
                 <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 8 }}>
-                  {site.district} — {site.city}/{site.state}
+                  📐 {site.totalArea.toLocaleString('pt-BR')} m² · {site.floors} {site.floors === 1 ? 'piso' : 'pisos'}
                 </div>
-                <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 8 }}>
-                  👷 Gerente: {site.manager}
-                </div>
+
                 {site.risks.filter((r) => r.status === 'active').length > 0 && (
                   <div style={{ background: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: '4px 8px', marginBottom: 8 }}>
                     <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>
@@ -200,9 +366,66 @@ export function ObrasMap() {
         ))}
       </MapContainer>
 
+      {/* Fullscreen toggle */}
+      <button
+        onClick={() => setIsFullscreen((v) => !v)}
+        title={isFullscreen ? 'Sair do modo tela cheia' : 'Tela cheia'}
+        style={{
+          position: 'absolute', top: 10, left: 10, zIndex: 1000,
+          background: '#1f1f1f', border: '1px solid #2a2a2a', borderRadius: 8,
+          padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+          color: '#f5f5f5',
+        }}
+      >
+        {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+      </button>
+
+      {/* Distance measure toggle */}
+      <button
+        onClick={() => {
+          if (measureActive) { clearMeasure() } else { setMeasureActive(true); setMeasurePoints([]) }
+        }}
+        title="Medir distância entre dois pontos"
+        style={{
+          position: 'absolute', top: 50, left: 10, zIndex: 1000,
+          background: measureActive ? '#22c55e' : '#1f1f1f',
+          border: `1px solid ${measureActive ? '#22c55e' : '#2a2a2a'}`,
+          borderRadius: 8, padding: '6px 8px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', color: '#fff',
+        }}
+      >
+        <Ruler size={14} />
+      </button>
+
+      {/* Distance result banner */}
+      {measuredKm !== null && (
+        <div style={{
+          position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          background: 'rgba(26,26,26,0.95)', border: '1px solid #22c55e', borderRadius: 8,
+          padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 12, color: '#22c55e', fontWeight: 700 }}>📏 {measuredKm} km</span>
+          <button onClick={clearMeasure} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b6b6b', display: 'flex' }}>
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Measure instructions */}
+      {measureActive && measurePoints.length < 2 && measuredKm === null && (
+        <div style={{
+          position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          background: 'rgba(26,26,26,0.9)', border: '1px solid #2a2a2a', borderRadius: 8,
+          padding: '6px 14px', fontSize: 11, color: '#a3a3a3',
+        }}>
+          {measurePoints.length === 0 ? 'Clique no 1º ponto' : 'Clique no 2º ponto'}
+        </div>
+      )}
+
+      {/* Empty state */}
       {withCoords.length === 0 && (
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 1000, pointerEvents: 'none',
+          position: 'absolute', inset: 0, zIndex: 500, pointerEvents: 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
