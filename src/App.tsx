@@ -10,6 +10,7 @@ import { PreConstrucaoPage }         from '@/features/pre-construcao/index'
 import { SuprimentosPage }           from '@/features/suprimentos/index'
 import { MaoDeObraPage }             from '@/features/mao-de-obra/index'
 import OtimizacaoFrotaPage           from '@/features/otimizacao-frota/index'
+import { Gestao360Page }             from '@/features/gestao-360/index'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/suprimentos"         element={<SuprimentosPage />} />
           <Route path="/mao-de-obra"         element={<MaoDeObraPage />} />
           <Route path="/otimizacao-frota"   element={<OtimizacaoFrotaPage />} />
+          <Route path="/gestao-360"         element={<Gestao360Page />} />
           <Route path="*"                    element={<Navigate to="/relatorio360" replace />} />
         </Route>
       </Routes>

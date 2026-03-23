@@ -582,3 +582,35 @@ export interface BuyLeaseAnalysis {
   bimPhases: string[]            // 4D/5D BIM phase names needing this equipment
   relatedProjects: string[]
 }
+
+// ─── Gestão de Projeto 360 / Change Orders ────────────────────────────────────
+
+export type ChangeOrderStatus = 'draft' | 'submitted' | 'approved' | 'rejected'
+export type ChangeOrderType   = 'scope' | 'cost' | 'schedule' | 'safety'
+
+export interface ChangeOrderPhoto {
+  id: string
+  base64: string
+  label: string
+  capturedAt: string
+}
+
+export interface ChangeOrder {
+  id: string
+  projectId: string
+  projectCode: string
+  title: string
+  type: ChangeOrderType
+  status: ChangeOrderStatus
+  description: string
+  impactCostBRL: number      // positive = cost increase; negative = savings
+  impactDays: number         // positive = delay; negative = acceleration
+  photos: ChangeOrderPhoto[]
+  submittedBy: string
+  submittedAt: string        // ISO datetime
+  reviewedBy?: string
+  reviewedAt?: string
+  reviewNotes?: string
+  linkedModule?: string      // which module surfaced this issue
+  linkedEntityId?: string    // e.g. riskId, equipmentId
+}

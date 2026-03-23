@@ -38,6 +38,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./preConstrucaoStore').then(({ usePreConstrucaoStore }) => usePreConstrucaoStore.getState().loadDemoData())
         import('./maoDeObraStore').then(({ useMaoDeObraStore }) => useMaoDeObraStore.getState().loadDemoData())
         import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().loadDemoData())
+        import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().loadDemoData())
       } else {
         // Clear all stores to empty state
         import('./projetosStore').then(({ useProjetosStore }) => useProjetosStore.getState().clearData())
@@ -50,6 +51,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./preConstrucaoStore').then(({ usePreConstrucaoStore }) => usePreConstrucaoStore.getState().clearData())
         import('./maoDeObraStore').then(({ useMaoDeObraStore }) => useMaoDeObraStore.getState().clearData())
         import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().clearData())
+        import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().clearData())
       }
 
       return { isDemoMode: next }

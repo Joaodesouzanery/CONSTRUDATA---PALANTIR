@@ -4,6 +4,7 @@ import * as L from 'leaflet'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
+import { useThemeStore } from '@/store/themeStore'
 import type { ObraStatus } from '@/types'
 
 // ─── Tile URLs ────────────────────────────────────────────────────────────────
@@ -54,15 +55,20 @@ function createEquipIcon(isIdle: boolean) {
 
 // ─── Map CSS ──────────────────────────────────────────────────────────────────
 
-const MAP_CSS = `
+function getMapCSS(isDark: boolean) {
+  const bg     = isDark ? '#1f1f1f' : '#ffffff'
+  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const text   = isDark ? '#f5f5f5' : '#1a1d23'
+  return `
   .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
   .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
-  .leaflet-control-layers { background: #1f1f1f !important; border: 1px solid #2a2a2a !important; border-radius: 8px !important; }
-  .leaflet-control-layers label { color: #f5f5f5 !important; }
-  .leaflet-tooltip { background: #1f1f1f; border: 1px solid #2a2a2a; color: #f5f5f5; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
-  .leaflet-tooltip-top:before { border-top-color: #2a2a2a; }
+  .leaflet-control-layers { background: ${bg} !important; border: 1px solid ${border} !important; border-radius: 8px !important; }
+  .leaflet-control-layers label { color: ${text} !important; }
+  .leaflet-tooltip { background: ${bg}; border: 1px solid ${border}; color: ${text}; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
+  .leaflet-tooltip-top:before { border-top-color: ${border}; }
 `
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -70,6 +76,7 @@ export function FleetRoutingMap() {
   const routingRecs  = useOtimizacaoFrotaStore((s) => s.routingRecs)
   const sites        = useTorreStore((s) => s.sites)
   const equipamentos = useEquipamentosStore((s) => s.equipamentos)
+  const isDark       = useThemeStore((s) => s.theme === 'dark')
 
   const withCoords    = sites.filter((s) => s.lat != null && s.lng != null)
   const equipsOnMap   = equipamentos.filter((e) => e.lat !== null && e.lng !== null)
@@ -79,7 +86,7 @@ export function FleetRoutingMap() {
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-[#2a2a2a]" style={{ height: 380 }}>
-      <style>{MAP_CSS}</style>
+      <style>{getMapCSS(isDark)}</style>
       <MapContainer
         center={[-23.5400, -46.6300]}
         zoom={11}

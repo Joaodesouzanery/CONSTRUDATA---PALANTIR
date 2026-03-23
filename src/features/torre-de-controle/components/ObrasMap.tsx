@@ -11,6 +11,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { haversineKm } from '@/store/otimizacaoFrotaStore'
+import { useThemeStore } from '@/store/themeStore'
 import type { ConstructionSite, ObraStatus } from '@/types'
 
 // ─── Tile URLs ────────────────────────────────────────────────────────────────
@@ -134,23 +135,29 @@ function DistanceMeasureController({
 
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 
-const MAP_CSS = `
+function getMapCSS(isDark: boolean) {
+  const bg     = isDark ? '#1f1f1f' : '#ffffff'
+  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const text   = isDark ? '#f5f5f5' : '#1a1d23'
+  const muted  = isDark ? '#6b6b6b' : '#78828f'
+  return `
   @keyframes ping { 75%, 100% { transform: scale(1.8); opacity: 0; } }
   .torre-popup .leaflet-popup-content-wrapper {
-    background: #1f1f1f; border: 1px solid #2a2a2a;
-    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); padding: 0;
+    background: ${bg}; border: 1px solid ${border};
+    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,${isDark ? '0.6' : '0.15'}); padding: 0;
   }
   .torre-popup .leaflet-popup-content { margin: 0; }
-  .torre-popup .leaflet-popup-tip { background: #1f1f1f; }
-  .torre-popup .leaflet-popup-close-button { color: #6b6b6b !important; font-size: 16px; top: 8px; right: 10px; }
+  .torre-popup .leaflet-popup-tip { background: ${bg}; }
+  .torre-popup .leaflet-popup-close-button { color: ${muted} !important; font-size: 16px; top: 8px; right: 10px; }
   .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
   .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
-  .leaflet-control-layers { background: #1f1f1f !important; border: 1px solid #2a2a2a !important; border-radius: 8px !important; color: #f5f5f5 !important; }
-  .leaflet-control-layers label { color: #f5f5f5 !important; }
-  .leaflet-tooltip { background: #1f1f1f; border: 1px solid #2a2a2a; color: #f5f5f5; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
-  .leaflet-tooltip-top:before { border-top-color: #2a2a2a; }
+  .leaflet-control-layers { background: ${bg} !important; border: 1px solid ${border} !important; border-radius: 8px !important; color: ${text} !important; }
+  .leaflet-control-layers label { color: ${text} !important; }
+  .leaflet-tooltip { background: ${bg}; border: 1px solid ${border}; color: ${text}; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
+  .leaflet-tooltip-top:before { border-top-color: ${border}; }
 `
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -162,6 +169,7 @@ export function ObrasMap() {
   const updateLocation = useTorreStore((s) => s.updateLocation)
   const equipamentos  = useEquipamentosStore((s) => s.equipamentos)
   const routingRecs   = useOtimizacaoFrotaStore((s) => s.routingRecs)
+  const isDark        = useThemeStore((s) => s.theme === 'dark')
 
   const [isFullscreen,   setIsFullscreen]   = useState(false)
   const [measureActive,  setMeasureActive]  = useState(false)
@@ -205,7 +213,7 @@ export function ObrasMap() {
         ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999 } : {}),
       }}
     >
-      <style>{MAP_CSS}</style>
+      <style>{getMapCSS(isDark)}</style>
 
       <MapContainer
         center={[-23.5505, -46.6333]}

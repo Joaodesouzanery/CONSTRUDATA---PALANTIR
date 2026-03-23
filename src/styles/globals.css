@@ -128,4 +128,8 @@ input[type="file"] {
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2c8d0; }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #f97316; }
 
+/* Additional surfaces used in otimizacao-frota module */
+[data-theme="light"] .bg-\[\#222222\] { background-color: #f8f9fb !important; }
+[data-theme="light"] .bg-\[\#171717\] { background-color: #f0f2f5 !important; }
+
 /* Accent, status colors stay the same in both modes */

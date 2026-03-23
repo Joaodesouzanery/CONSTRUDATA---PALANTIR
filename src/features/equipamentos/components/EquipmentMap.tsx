@@ -9,6 +9,7 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 import type { EquipmentStatus } from '@/types'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
+import { useThemeStore } from '@/store/themeStore'
 import { STATUS_CONFIG } from '../constants'
 
 // ─── Tile layer URLs ───────────────────────────────────────────────────────────
@@ -93,32 +94,38 @@ function MapController() {
 
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 
-const MAP_CSS = `
+function getMapCSS(isDark: boolean) {
+  const bg     = isDark ? '#1f1f1f' : '#ffffff'
+  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const text   = isDark ? '#f5f5f5' : '#1a1d23'
+  const muted  = isDark ? '#6b6b6b' : '#78828f'
+  return `
   @keyframes ping {
     75%, 100% { transform: scale(1.8); opacity: 0; }
   }
   .equip-popup .leaflet-popup-content-wrapper {
-    background: #1f1f1f; border: 1px solid #2a2a2a;
-    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    color: #f5f5f5; padding: 0;
+    background: ${bg}; border: 1px solid ${border};
+    border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,${isDark ? '0.6' : '0.15'});
+    color: ${text}; padding: 0;
   }
   .equip-popup .leaflet-popup-content { margin: 0; }
-  .equip-popup .leaflet-popup-tip { background: #1f1f1f; }
+  .equip-popup .leaflet-popup-tip { background: ${bg}; }
   .equip-popup .leaflet-popup-close-button {
-    color: #6b6b6b !important; font-size: 16px !important;
+    color: ${muted} !important; font-size: 16px !important;
     top: 8px !important; right: 10px !important;
   }
-  .equip-popup .leaflet-popup-close-button:hover { color: #f5f5f5 !important; }
+  .equip-popup .leaflet-popup-close-button:hover { color: ${text} !important; }
   .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
   .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
   .leaflet-control-attribution a { color: #505863 !important; }
-  .leaflet-control-layers { background: #1f1f1f !important; border: 1px solid #2a2a2a !important; border-radius: 8px !important; color: #f5f5f5 !important; }
-  .leaflet-control-layers-toggle { background-color: #1f1f1f !important; }
-  .leaflet-control-layers label { color: #f5f5f5 !important; }
-  .leaflet-tooltip { background: #1f1f1f; border: 1px solid #2a2a2a; color: #f5f5f5; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
-  .leaflet-tooltip-top:before { border-top-color: #2a2a2a; }
+  .leaflet-control-layers { background: ${bg} !important; border: 1px solid ${border} !important; border-radius: 8px !important; color: ${text} !important; }
+  .leaflet-control-layers-toggle { background-color: ${bg} !important; }
+  .leaflet-control-layers label { color: ${text} !important; }
+  .leaflet-tooltip { background: ${bg}; border: 1px solid ${border}; color: ${text}; font-size: 11px; padding: 3px 8px; border-radius: 6px; }
+  .leaflet-tooltip-top:before { border-top-color: ${border}; }
 `
+}
 
 // ─── Filter pill ───────────────────────────────────────────────────────────────
 
@@ -140,6 +147,9 @@ export function EquipmentMap() {
   const updateLocation    = useEquipamentosStore((s) => s.updateLocation)
   const setEditing        = useEquipamentosStore((s) => s.setEditing)
   const routingRecs       = useOtimizacaoFrotaStore((s) => s.routingRecs)
+
+  const theme = useThemeStore((s) => s.theme)
+  const isDark = theme === 'dark'
 
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | null>(null)
   const [isFullscreen,  setIsFullscreen] = useState(false)
@@ -167,10 +177,10 @@ export function EquipmentMap() {
         ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999, background: '#111' } : {}),
       }}
     >
-      <style>{MAP_CSS}</style>
+      <style>{getMapCSS(isDark)}</style>
 
       {/* Filter bar */}
-      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', background: '#1a1a1a', flexWrap: 'wrap', flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', background: isDark ? '#1a1a1a' : '#ffffff', flexWrap: 'wrap', flexShrink: 0, borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#e5e8ed'}` }}>
         {FILTER_OPTIONS.map((opt) => (
           <button
             key={String(opt.value)}
@@ -178,9 +188,9 @@ export function EquipmentMap() {
             style={{
               padding: '3px 10px', borderRadius: 99, border: '1px solid',
               fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-              borderColor: filterStatus === opt.value ? '#f97316' : '#2a2a2a',
+              borderColor: filterStatus === opt.value ? '#f97316' : (isDark ? '#2a2a2a' : '#d4d8df'),
               background:  filterStatus === opt.value ? '#f97316' : 'transparent',
-              color:       filterStatus === opt.value ? '#fff' : '#a3a3a3',
+              color:       filterStatus === opt.value ? '#fff' : (isDark ? '#a3a3a3' : '#505863'),
             }}
           >
             {opt.label}

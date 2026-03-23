@@ -1,6 +1,7 @@
 import { useShallow } from 'zustand/react/shallow'
 import { RefreshCw, AlertTriangle } from 'lucide-react'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
+import { useThemeStore } from '@/store/themeStore'
 import type { PredictiveHealth, HealthRisk } from '@/types'
 
 // ─── Risk meta ────────────────────────────────────────────────────────────────
@@ -15,6 +16,10 @@ const RISK_META: Record<HealthRisk, { label: string; color: string; bg: string }
 // ─── SVG arc health gauge ─────────────────────────────────────────────────────
 
 function HealthGauge({ score, color }: { score: number; color: string }) {
+  const theme = useThemeStore((s) => s.theme)
+  const trackColor = theme === 'dark' ? '#2a2a2a' : '#e5e8ed'
+  const textColor  = theme === 'dark' ? '#f5f5f5' : '#1a1d23'
+
   const r = 24
   const cx = 32
   const cy = 32
@@ -24,7 +29,7 @@ function HealthGauge({ score, color }: { score: number; color: string }) {
   return (
     <svg width="64" height="64" viewBox="0 0 64 64" style={{ flexShrink: 0 }}>
       {/* Track */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2a2a2a" strokeWidth="6" />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={trackColor} strokeWidth="6" />
       {/* Progress */}
       <circle
         cx={cx} cy={cy} r={r}
@@ -32,13 +37,13 @@ function HealthGauge({ score, color }: { score: number; color: string }) {
         stroke={color}
         strokeWidth="6"
         strokeDasharray={`${filled} ${circ - filled}`}
-        strokeDashoffset={circ / 4}   // start at top
+        strokeDashoffset={circ / 4}
         strokeLinecap="round"
         style={{ transition: 'stroke-dasharray 0.5s ease' }}
       />
       {/* Score text */}
       <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
-        fill="#f5f5f5" fontSize="13" fontWeight="700" fontFamily="Inter, sans-serif">
+        fill={textColor} fontSize="13" fontWeight="700" fontFamily="Inter, sans-serif">
         {score}
       </text>
     </svg>
