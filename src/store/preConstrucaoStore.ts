@@ -51,6 +51,9 @@ interface PreConstrucaoState {
   // Actions — sessions
   saveSession: (fileNames: string[], totalItems: number, totalCost: number) => void
   resetPipeline: () => void
+  // Demo mode
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export interface UploadedFile {
@@ -175,6 +178,34 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
       takeoffItems:  [],
       clauses:       [],
       costMatches:   [],
+    }),
+
+  loadDemoData: () => {
+    // Import lazily to avoid bundling pdfjs in stores
+    import('../features/pre-construcao/hooks/usePdfExtraction').then(({ mockBimExtraction }) => {
+      import('../features/pre-construcao/hooks/useClauseDetection').then(({ detectClauses }) => {
+        const items   = mockBimExtraction('demo-project.ifc')
+        const clauses = detectClauses('inadimplemento contratante reajuste unilateral rescisão imediata dano emergente')
+        set({
+          currentStep:  'extraction',
+          uploadedFiles: [],
+          takeoffItems:  items,
+          clauses,
+          costMatches:   [],
+          sessions:      [],
+        })
+      })
+    })
+  },
+
+  clearData: () =>
+    set({
+      currentStep:   'upload',
+      uploadedFiles: [],
+      takeoffItems:  [],
+      clauses:       [],
+      costMatches:   [],
+      sessions:      [],
     }),
 }))
 

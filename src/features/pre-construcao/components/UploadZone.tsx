@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
-import { UploadCloud, FileText, Box, Table2, X, Loader2 } from 'lucide-react'
+import { UploadCloud, FileText, Box, Table2, X, Loader2, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
+import { useAppModeStore } from '@/store/appModeStore'
 import type { UploadedFile } from '@/store/preConstrucaoStore'
 import { extractFromPdf, mockBimExtraction } from '../hooks/usePdfExtraction'
 import { detectClauses } from '../hooks/useClauseDetection'
@@ -37,6 +38,8 @@ export function UploadZone() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const isDemoMode = useAppModeStore((s) => s.isDemoMode)
+  const loadDemoData = usePreConstrucaoStore((s) => s.loadDemoData)
 
   const { uploadedFiles, addFiles, removeFile, setTakeoffItems, setClauses, setStep } =
     usePreConstrucaoStore(useShallow((s) => ({
@@ -176,6 +179,17 @@ export function UploadZone() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Demo shortcut — only shown when demo mode is ON and no files uploaded yet */}
+      {isDemoMode && uploadedFiles.length === 0 && (
+        <button
+          onClick={() => loadDemoData()}
+          className="w-full py-2.5 rounded-lg text-sm font-semibold border-2 border-dashed border-[#f97316]/50 text-[#f97316] hover:bg-[#f97316]/5 transition-colors flex items-center justify-center gap-2"
+        >
+          <FlaskConical size={15} />
+          Carregar Dados de Demonstração
+        </button>
       )}
 
       {/* Action button */}

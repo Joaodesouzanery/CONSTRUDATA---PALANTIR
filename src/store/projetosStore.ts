@@ -55,6 +55,9 @@ interface ProjetosActions {
   // Documents
   addDocument: (projectId: string, doc: ProjectDocument) => void
   deleteDocument: (projectId: string, docId: string) => void
+  // Demo mode
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -158,4 +161,11 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>((set) =>
           : p
       ),
     })),
+
+  // ── Demo mode ──────────────────────────────────────────────────────────────
+  loadDemoData: () =>
+    set({ projects: MOCK_PROJETOS, selectedProjectId: MOCK_PROJETOS[0]?.id ?? null }),
+
+  clearData: () =>
+    set({ projects: [], selectedProjectId: null }),
 }))

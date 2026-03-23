@@ -11,6 +11,8 @@ interface GestaoState {
   updateOrder: (id: string, patch: Partial<MaintenanceOrder>) => void
   deleteOrder: (id: string) => void
   setEditingOrder: (id: string | null) => void
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useGestaoEquipamentosStore = create<GestaoState>((set) => ({
@@ -33,6 +35,12 @@ export const useGestaoEquipamentosStore = create<GestaoState>((set) => ({
     })),
 
   setEditingOrder: (id) => set({ editingOrderId: id }),
+
+  loadDemoData: () =>
+    set({ orders: mockMaintenanceOrders }),
+
+  clearData: () =>
+    set({ orders: [] }),
 }))
 
 // ─── Selector helpers ─────────────────────────────────────────────────────────

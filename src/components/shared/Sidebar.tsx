@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch, PackageSearch } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
+import { useAppModeStore } from '@/store/appModeStore'
 
 const navItems = [
   { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360'          },
@@ -13,11 +14,15 @@ const navItems = [
   { label: 'Torre de Controle',       icon: Radio,         to: '/torre-de-controle'     },
   { label: 'Pré-Construção',          icon: FileSearch,    to: '/pre-construcao'        },
   { label: 'Suprimentos',             icon: PackageSearch, to: '/suprimentos'           },
+  { label: 'Mão de Obra',             icon: Users,         to: '/mao-de-obra'           },
 ]
 
 export function Sidebar() {
   const { theme, toggleTheme } = useThemeStore(
     useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
+  )
+  const { isDemoMode, toggleDemoMode } = useAppModeStore(
+    useShallow((s) => ({ isDemoMode: s.isDemoMode, toggleDemoMode: s.toggleDemoMode }))
   )
 
   return (
@@ -49,8 +54,23 @@ export function Sidebar() {
           </NavLink>
         ))}
 
-        {/* Theme toggle at bottom */}
-        <div className="mt-auto">
+        {/* Bottom controls */}
+        <div className="mt-auto flex flex-col gap-1">
+          {/* Demo mode toggle */}
+          <button
+            onClick={toggleDemoMode}
+            title={isDemoMode ? 'Desativar Modo Demo' : 'Ativar Modo Demo'}
+            className={cn(
+              'flex items-center justify-center w-12 h-12 rounded-lg transition-colors',
+              isDemoMode
+                ? 'bg-[#f97316]/15 text-[#f97316]'
+                : 'text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5]',
+            )}
+          >
+            <FlaskConical size={18} />
+          </button>
+
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}

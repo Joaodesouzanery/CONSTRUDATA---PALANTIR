@@ -23,6 +23,8 @@ interface AgendaState {
 
   selectTask: (id: string | null) => void
   setEditingTask: (id: string | null) => void
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useAgendaStore = create<AgendaState>((set) => ({
@@ -74,6 +76,12 @@ export const useAgendaStore = create<AgendaState>((set) => ({
 
   selectTask: (id) => set({ selectedTaskId: id }),
   setEditingTask: (id) => set({ editingTaskId: id }),
+
+  loadDemoData: () =>
+    set({ tasks: mockTasks, resources: mockResources }),
+
+  clearData: () =>
+    set({ tasks: [], resources: [] }),
 }))
 
 // Derived selectors

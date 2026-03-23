@@ -14,6 +14,8 @@ interface EquipamentosState {
   acknowledgeAlert: (equipmentId: string, alertId: string) => void
   selectEquipamento: (id: string | null) => void
   setEditing: (id: string | null) => void
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useEquipamentosStore = create<EquipamentosState>((set) => ({
@@ -60,4 +62,10 @@ export const useEquipamentosStore = create<EquipamentosState>((set) => ({
 
   selectEquipamento: (id) => set({ selectedId: id }),
   setEditing: (id) => set({ editingId: id }),
+
+  loadDemoData: () =>
+    set({ equipamentos: mockEquipamentos }),
+
+  clearData: () =>
+    set({ equipamentos: [], selectedId: null }),
 }))

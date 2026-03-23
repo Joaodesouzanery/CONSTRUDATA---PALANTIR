@@ -436,3 +436,89 @@ export interface DemandForecast {
   estimatedValue: number
   status: 'suggested' | 'ordered' | 'dismissed'
 }
+
+// ─── Mão de Obra ──────────────────────────────────────────────────────────────
+
+export type WorkerStatus   = 'active' | 'inactive' | 'suspended'
+export type CertStatus     = 'valid' | 'expiring' | 'expired'
+export type OccurrenceType = 'weather' | 'material_delay' | 'equipment_failure' | 'holiday' | 'accident' | 'other'
+
+export interface WorkerCertification {
+  id: string
+  type: string           // 'NR18', 'NR35', 'NR10', 'NR12', 'CIPA', 'ASO', etc.
+  issuedDate: string     // yyyy-MM-dd
+  expiryDate: string     // yyyy-MM-dd
+  status: CertStatus
+}
+
+export interface Worker {
+  id: string
+  name: string
+  role: string
+  cpfMasked: string      // "***.***.***-XX" — last 2 digits only
+  crewId: string
+  status: WorkerStatus
+  certifications: WorkerCertification[]
+  hourlyRate: number
+  biometricToken?: string  // opaque hash reference — raw biometric never stored
+}
+
+export interface TimecardEntry {
+  id: string
+  workerId: string
+  date: string           // yyyy-MM-dd
+  hoursWorked: number
+  projectRef: string
+  phaseRef: string
+  activityDescription: string
+  reportedQty: number
+  unit: string           // 'm²', 'ml', 'un', etc.
+  notes?: string
+}
+
+export interface PhysicalProgress {
+  id: string
+  date: string           // yyyy-MM-dd
+  phaseId: string
+  activityName: string
+  plannedQty: number
+  reportedQty: number
+  unit: string
+}
+
+export interface LaborCrew {
+  id: string
+  name: string
+  foreman: string
+  specialty: string
+  workerIds: string[]
+  projectRef: string
+}
+
+export interface LaborOccurrence {
+  id: string
+  date: string           // yyyy-MM-dd
+  type: OccurrenceType
+  description: string
+  impactHours: number
+  affectedCrewIds: string[]
+}
+
+export interface RiskArea {
+  id: string
+  name: string
+  requiredCertTypes: string[]
+}
+
+export interface ReallocationSuggestion {
+  id: string
+  delayedTaskId: string
+  delayedTaskName: string
+  delayDays: number
+  sourceCrew: string
+  sourceTaskId: string
+  sourceTaskName: string
+  sourceTaskFloat: number
+  reason: string
+  accepted?: boolean
+}

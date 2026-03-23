@@ -27,6 +27,8 @@ interface TorreActions {
   addRisk: (siteId: string, risk: Omit<ConstructionRisk, 'id'>) => void
   updateRisk: (siteId: string, riskId: string, patch: Partial<Omit<ConstructionRisk, 'id'>>) => void
   deleteRisk: (siteId: string, riskId: string) => void
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -99,4 +101,10 @@ export const useTorreStore = create<TorreState & TorreActions>((set) => ({
           : site
       ),
     })),
+
+  loadDemoData: () =>
+    set({ sites: MOCK_OBRAS, selectedId: MOCK_OBRAS[0]?.id ?? null }),
+
+  clearData: () =>
+    set({ sites: [], selectedId: null }),
 }))

@@ -8,6 +8,7 @@ import { TorreDeControlePage }       from '@/features/torre-de-controle/index'
 import { GestaoEquipamentosPage }    from '@/features/gestao-equipamentos/index'
 import { PreConstrucaoPage }         from '@/features/pre-construcao/index'
 import { SuprimentosPage }           from '@/features/suprimentos/index'
+import { MaoDeObraPage }             from '@/features/mao-de-obra/index'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route path="/torre-de-controle"   element={<TorreDeControlePage />} />
           <Route path="/pre-construcao"      element={<PreConstrucaoPage />} />
           <Route path="/suprimentos"         element={<SuprimentosPage />} />
+          <Route path="/mao-de-obra"         element={<MaoDeObraPage />} />
           <Route path="*"                    element={<Navigate to="/relatorio360" replace />} />
         </Route>
       </Routes>

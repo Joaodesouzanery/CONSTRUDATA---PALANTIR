@@ -20,6 +20,8 @@ interface Relatorio360State {
   addPhoto: (photo: ReportPhoto) => void
   removePhoto: (photoId: string) => void
   updatePhotoLabel: (photoId: string, label: string) => void
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
@@ -124,4 +126,10 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
       }
     })
   },
+
+  loadDemoData: () =>
+    set({ reports: initialReports, currentDate: Object.keys(initialReports)[0] }),
+
+  clearData: () =>
+    set({ reports: {} }),
 }))

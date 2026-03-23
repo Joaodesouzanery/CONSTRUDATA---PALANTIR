@@ -118,6 +118,9 @@ interface SuprimentosState {
 
   // Forecasts
   updateForecast: (id: string, status: DemandForecast['status']) => void
+  // Demo mode
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
@@ -189,4 +192,24 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
     set((s) => ({
       forecasts: s.forecasts.map((f) => (f.id === id ? { ...f, status } : f)),
     })),
+
+  loadDemoData: () =>
+    set({
+      purchaseOrders: mockPurchaseOrders,
+      receipts:       mockGoodsReceipts,
+      invoices:       mockInvoices,
+      matches:        mockMatches,
+      exceptions:     mockExceptions,
+      forecasts:      mockForecasts,
+    }),
+
+  clearData: () =>
+    set({
+      purchaseOrders: [],
+      receipts:       [],
+      invoices:       [],
+      matches:        [],
+      exceptions:     [],
+      forecasts:      [],
+    }),
 }))
