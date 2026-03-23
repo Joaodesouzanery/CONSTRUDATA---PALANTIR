@@ -7,6 +7,12 @@ import type {
   LaborOccurrence,
   RiskArea,
   ReallocationSuggestion,
+  Shift,
+  CLTViolation,
+  WorkPost,
+  WorkerAbsence,
+  CLTSettings,
+  PayrollMonth,
 } from '@/types'
 import {
   mockWorkers,
@@ -16,7 +22,16 @@ import {
   mockOccurrences,
   mockRiskAreas,
   mockReallocationSuggestions,
+  MOCK_SHIFTS,
+  MOCK_WORK_POSTS,
+  MOCK_ABSENCES,
+  MOCK_CLT_SETTINGS,
 } from '@/data/mockMaoDeObra'
+import {
+  runAllCLTChecks,
+  autoGenerateSchedule,
+} from '@/features/mao-de-obra/utils/cltEngine'
+import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 
 // ─── Access Check Result ───────────────────────────────────────────────────────
 
@@ -24,9 +39,26 @@ export interface AccessCheckResult {
   allowed: boolean
   worker: Worker
   riskArea: RiskArea
-  missingCerts: string[]       // cert types that are missing or expired
-  expiredCerts: string[]       // cert types present but expired
+  missingCerts: string[]
+  expiredCerts: string[]
 }
+
+// ─── Tab type ──────────────────────────────────────────────────────────────────
+
+export type MaoDeObraTab =
+  | 'dashboard'
+  | 'funcionarios'
+  | 'escala'
+  | 'postos'
+  | 'cmo'
+  | 'faltas'
+  | 'folha'
+  | 'rh-financeiro'
+  | 'frotas'
+  | 'ausencias'
+  | 'apontamentos'
+  | 'escalamento'
+  | 'seguranca'
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +70,15 @@ interface MaoDeObraState {
   occurrences: LaborOccurrence[]
   riskAreas:   RiskArea[]
   suggestions: ReallocationSuggestion[]
+
+  // New HR state
+  shifts:         Shift[]
+  violations:     CLTViolation[]
+  workPosts:      WorkPost[]
+  absences:       WorkerAbsence[]
+  cltSettings:    CLTSettings
+  activeTab:      MaoDeObraTab
+  payrollHistory: PayrollMonth[]
 
   // Worker CRUD
   addWorker:    (worker: Omit<Worker, 'id'>) => void
@@ -63,6 +104,37 @@ interface MaoDeObraState {
   // Safety — access check (pure computation, no state mutation)
   checkAccess: (workerId: string, riskAreaId: string) => AccessCheckResult | null
 
+  // ── New HR actions ──────────────────────────────────────────────────────────
+
+  // Navigation
+  setActiveTab: (tab: MaoDeObraTab) => void
+
+  // Shifts
+  addShift:       (shift: Omit<Shift, 'id'>) => string
+  updateShift:    (id: string, updates: Partial<Omit<Shift, 'id'>>) => void
+  removeShift:    (id: string) => void
+  bulkAddShifts:  (shifts: Omit<Shift, 'id'>[]) => void
+  generateSchedule: (month: string) => void
+
+  // CLT validation
+  revalidateCLT: () => void
+
+  // Work posts
+  addWorkPost:    (post: Omit<WorkPost, 'id'>) => void
+  updateWorkPost: (id: string, updates: Partial<Omit<WorkPost, 'id'>>) => void
+  removeWorkPost: (id: string) => void
+
+  // Absences
+  registerAbsence:   (absence: Omit<WorkerAbsence, 'id' | 'registeredAt'>) => string
+  assignSubstitute:  (absenceId: string, substituteWorkerId: string) => void
+  resolveAbsence:    (absenceId: string) => void
+
+  // CLT settings
+  updateCLTSettings: (settings: Partial<CLTSettings>) => void
+
+  // Payroll
+  generatePayroll: (month: string) => void
+
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
@@ -70,18 +142,11 @@ interface MaoDeObraState {
 
 // ─── Reallocation Engine ───────────────────────────────────────────────────────
 
-/**
- * Deterministic algorithm that:
- * 1. Finds activities with actual qty < 70% of planned qty (= delayed)
- * 2. Finds activities with actual qty >= 95% of planned (= on-track / has slack)
- * 3. Emits one ReallocationSuggestion per delayed activity
- */
 function computeSuggestions(
   progress: PhysicalProgress[],
   crews: LaborCrew[],
   existingSuggestions: ReallocationSuggestion[],
 ): ReallocationSuggestion[] {
-  // Group progress by phaseId+activityName for the last 7 days
   const activityMap = new Map<string, { planned: number; reported: number; unit: string; activityName: string }>()
 
   for (const p of progress) {
@@ -116,7 +181,6 @@ function computeSuggestions(
   const suggestions: ReallocationSuggestion[] = []
 
   for (const del of delayed) {
-    // Skip if a suggestion for this delayed activity already exists and was acted on
     const already = existingSuggestions.find(
       (s) => s.delayedTaskName === del.activityName && (s.accepted === true || s.accepted === false)
     )
@@ -126,9 +190,8 @@ function computeSuggestions(
     if (!sourceTask) continue
 
     const sourceCrew = crews[Math.floor(Math.random() * crews.length)]
-    const floatDays  = 7 + Math.floor(Math.random() * 8)   // deterministic-ish mock float 7–14
-
-    const delayDays = Math.max(1, Math.round(del.deviation / 15))
+    const floatDays  = 7 + Math.floor(Math.random() * 8)
+    const delayDays  = Math.max(1, Math.round(del.deviation / 15))
 
     suggestions.push({
       id:               `rs-gen-${del.key.replace(/[^a-z0-9]/gi, '-')}`,
@@ -158,7 +221,19 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
   riskAreas:   mockRiskAreas,
   suggestions: mockReallocationSuggestions,
 
-  // ── Worker ──────────────────────────────────────────────────────────────────
+  shifts:         MOCK_SHIFTS,
+  violations:     [],
+  workPosts:      MOCK_WORK_POSTS,
+  absences:       MOCK_ABSENCES,
+  cltSettings:    MOCK_CLT_SETTINGS,
+  activeTab:      'dashboard',
+  payrollHistory: [],
+
+  // ── Navigation ──────────────────────────────────────────────────────────────
+
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // ── Worker CRUD ─────────────────────────────────────────────────────────────
 
   addWorker: (worker) =>
     set((s) => ({
@@ -170,7 +245,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
       workers: s.workers.map((w) => (w.id === id ? { ...w, ...updates } : w)),
     })),
 
-  // ── Crew ────────────────────────────────────────────────────────────────────
+  // ── Crew CRUD ───────────────────────────────────────────────────────────────
 
   addCrew: (crew) =>
     set((s) => ({
@@ -214,7 +289,6 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
   runReallocationEngine: () => {
     const { progress, crews, suggestions } = get()
     const generated = computeSuggestions(progress, crews, suggestions)
-    // Merge: keep existing suggestions that are acted on, append newly generated ones
     const acted = suggestions.filter((s) => s.accepted === true || s.accepted === false)
     set({ suggestions: [...acted, ...generated] })
   },
@@ -237,7 +311,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
 
   checkAccess: (workerId, riskAreaId) => {
     const { workers, riskAreas } = get()
-    const worker  = workers.find((w) => w.id === workerId)
+    const worker   = workers.find((w) => w.id === workerId)
     const riskArea = riskAreas.find((r) => r.id === riskAreaId)
     if (!worker || !riskArea) return null
 
@@ -262,9 +336,113 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
     }
   },
 
+  // ── Shifts ──────────────────────────────────────────────────────────────────
+
+  addShift: (shift) => {
+    const id = `sh-${crypto.randomUUID().slice(0, 8)}`
+    set((s) => ({ shifts: [...s.shifts, { ...shift, id }] }))
+    return id
+  },
+
+  updateShift: (id, updates) =>
+    set((s) => ({
+      shifts: s.shifts.map((sh) => (sh.id === id ? { ...sh, ...updates } : sh)),
+    })),
+
+  removeShift: (id) =>
+    set((s) => ({ shifts: s.shifts.filter((sh) => sh.id !== id) })),
+
+  bulkAddShifts: (newShifts) =>
+    set((s) => ({
+      shifts: [
+        ...s.shifts,
+        ...newShifts.map((sh) => ({ ...sh, id: `sh-${crypto.randomUUID().slice(0, 8)}` })),
+      ],
+    })),
+
+  generateSchedule: (month) => {
+    const { workers, workPosts, cltSettings } = get()
+    const generated = autoGenerateSchedule(workers, workPosts, month, cltSettings)
+    // Replace existing scheduled (not confirmed) shifts for the month
+    set((s) => ({
+      shifts: [
+        ...s.shifts.filter((sh) => !sh.date.startsWith(month) || sh.status !== 'scheduled'),
+        ...generated.map((sh) => ({ ...sh, id: `sh-${crypto.randomUUID().slice(0, 8)}` })),
+      ],
+    }))
+    // Re-run CLT validation
+    get().revalidateCLT()
+  },
+
+  // ── CLT Validation ──────────────────────────────────────────────────────────
+
+  revalidateCLT: () => {
+    const { workers, shifts, cltSettings } = get()
+    const violations = runAllCLTChecks(workers, shifts, cltSettings)
+    set({ violations })
+  },
+
+  // ── Work Posts ──────────────────────────────────────────────────────────────
+
+  addWorkPost: (post) =>
+    set((s) => ({
+      workPosts: [...s.workPosts, { ...post, id: `wp-${crypto.randomUUID().slice(0, 8)}` }],
+    })),
+
+  updateWorkPost: (id, updates) =>
+    set((s) => ({
+      workPosts: s.workPosts.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+    })),
+
+  removeWorkPost: (id) =>
+    set((s) => ({ workPosts: s.workPosts.filter((p) => p.id !== id) })),
+
+  // ── Absences ────────────────────────────────────────────────────────────────
+
+  registerAbsence: (absence) => {
+    const id = `abs-${crypto.randomUUID().slice(0, 8)}`
+    set((s) => ({
+      absences: [...s.absences, { ...absence, id, registeredAt: new Date().toISOString() }],
+    }))
+    return id
+  },
+
+  assignSubstitute: (absenceId, substituteWorkerId) =>
+    set((s) => ({
+      absences: s.absences.map((a) =>
+        a.id === absenceId ? { ...a, substituteWorkerId, status: 'covered' as const } : a
+      ),
+    })),
+
+  resolveAbsence: (absenceId) =>
+    set((s) => ({
+      absences: s.absences.map((a) =>
+        a.id === absenceId ? { ...a, status: 'covered' as const } : a
+      ),
+    })),
+
+  // ── CLT Settings ─────────────────────────────────────────────────────────────
+
+  updateCLTSettings: (settings) =>
+    set((s) => ({ cltSettings: { ...s.cltSettings, ...settings } })),
+
+  // ── Payroll ──────────────────────────────────────────────────────────────────
+
+  generatePayroll: (month) => {
+    const { workers, shifts, cltSettings, payrollHistory } = get()
+    const result = generateMonthPayroll(workers, shifts, cltSettings, month)
+    // Replace existing entry for this month, or append
+    const existing = payrollHistory.findIndex((p) => p.month === month)
+    const updated  = existing >= 0
+      ? payrollHistory.map((p, i) => i === existing ? result : p)
+      : [...payrollHistory, result]
+    set({ payrollHistory: updated })
+  },
+
   // ── Demo / Clear ─────────────────────────────────────────────────────────────
 
-  loadDemoData: () =>
+  loadDemoData: () => {
+    const violations = runAllCLTChecks(mockWorkers, MOCK_SHIFTS, MOCK_CLT_SETTINGS)
     set({
       workers:     mockWorkers,
       crews:       mockLaborCrews,
@@ -273,7 +451,13 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
       occurrences: mockOccurrences,
       riskAreas:   mockRiskAreas,
       suggestions: mockReallocationSuggestions,
-    }),
+      shifts:      MOCK_SHIFTS,
+      violations,
+      workPosts:   MOCK_WORK_POSTS,
+      absences:    MOCK_ABSENCES,
+      cltSettings: MOCK_CLT_SETTINGS,
+    })
+  },
 
   clearData: () =>
     set({
@@ -282,14 +466,18 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
       timecards:   [],
       progress:    [],
       occurrences: [],
-      riskAreas:   mockRiskAreas,   // keep risk area definitions — they're configuration
+      riskAreas:   mockRiskAreas,
       suggestions: [],
+      shifts:         [],
+      violations:     [],
+      workPosts:      [],
+      absences:       [],
+      payrollHistory: [],
     }),
 }))
 
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 
-/** HH trabalhadas na última semana */
 export function calcWeeklyHH(timecards: TimecardEntry[]): number {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 7)
@@ -298,7 +486,6 @@ export function calcWeeklyHH(timecards: TimecardEntry[]): number {
     .reduce((sum, tc) => sum + tc.hoursWorked, 0)
 }
 
-/** Média HH por m² (apenas registros com unit === 'm²' e qty > 0) */
 export function calcProductivity(timecards: TimecardEntry[]): number {
   const relevant = timecards.filter((tc) => tc.unit === 'm²' && tc.reportedQty > 0)
   if (relevant.length === 0) return 0
@@ -307,7 +494,6 @@ export function calcProductivity(timecards: TimecardEntry[]): number {
   return totalM2 > 0 ? parseFloat((totalHH / totalM2).toFixed(2)) : 0
 }
 
-/** % de funcionários ativos com todas certificações válidas */
 export function calcComplianceRate(workers: Worker[]): number {
   const active = workers.filter((w) => w.status === 'active')
   if (active.length === 0) return 0
@@ -317,14 +503,12 @@ export function calcComplianceRate(workers: Worker[]): number {
   return Math.round((compliant.length / active.length) * 100)
 }
 
-/** Ocorrências sem impacto resolvido (últimos 30 dias) */
 export function calcActiveOccurrences(occurrences: LaborOccurrence[]): number {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - 30)
   return occurrences.filter((o) => new Date(o.date) >= cutoff).length
 }
 
-/** Certificações expirando nos próximos `days` dias */
 export function getCertExpiringSoon(
   workers: Worker[],
   days = 30,

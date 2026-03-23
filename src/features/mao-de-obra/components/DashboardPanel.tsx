@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore, getCertExpiringSoon } from '@/store/maoDeObraStore'
 
@@ -184,6 +185,72 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
+// ─── New HR KPI cards ─────────────────────────────────────────────────────────
+
+function HRKpiCards() {
+  const { workers, shifts, absences, workPosts } = useMaoDeObraStore(
+    useShallow((s) => ({
+      workers:   s.workers,
+      shifts:    s.shifts,
+      absences:  s.absences,
+      workPosts: s.workPosts,
+    }))
+  )
+
+  const kpis = useMemo(() => {
+    const today     = new Date().toISOString().slice(0, 10)
+    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10) })()
+
+    const active = workers.filter((w) => w.status === 'active').length
+    const total  = workers.length
+
+    const faltasSemana = absences.filter(
+      (a) => a.date >= weekStart && a.date <= today && a.type !== 'vacation',
+    ).length
+    const attendancePct = total > 0 ? Math.round(((total - faltasSemana) / total) * 100) : 100
+
+    const heShifts = shifts.filter((s) => s.type === 'overtime' && s.date >= weekStart && s.date <= today)
+    const heHours  = heShifts.reduce((sum, s) => {
+      const [sh, sm] = s.startTime.split(':').map(Number)
+      const [eh, em] = s.endTime.split(':').map(Number)
+      let h = (eh * 60 + em - sh * 60 - sm) / 60
+      if (h < 0) h += 24
+      return sum + Math.max(0, h - s.breakMinutes / 60)
+    }, 0)
+
+    const todayActive = shifts.filter(
+      (s) => s.date === today && s.status !== 'cancelled' && s.status !== 'absent',
+    )
+    const postosDesc = workPosts.filter((p) => {
+      const covered = todayActive.filter((s) => s.workFront === p.workFront).length
+      return covered < p.minWorkers
+    }).length
+
+    return [
+      { label: 'Total Colaboradores', value: `${active} / ${total}`, sub: 'ativos / total',    color: '#3b82f6' },
+      { label: 'Faltas esta Semana',  value: String(faltasSemana),   sub: `${attendancePct}% presença`, color: faltasSemana === 0 ? '#22c55e' : faltasSemana <= 3 ? '#f59e0b' : '#ef4444' },
+      { label: 'HE esta Semana',      value: `${heHours.toFixed(1)}h`, sub: `${heShifts.length} turno(s)`, color: heHours === 0 ? '#22c55e' : heHours <= 20 ? '#f59e0b' : '#ef4444' },
+      { label: 'Postos Descobertos',  value: String(postosDesc),     sub: 'hoje',              color: postosDesc === 0 ? '#22c55e' : '#ef4444' },
+    ]
+  }, [workers, shifts, absences, workPosts])
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {kpis.map((kpi) => (
+        <div key={kpi.label} className="bg-[#222222] border border-[#2a2a2a] rounded-xl px-4 py-3">
+          <p className="text-[#6b6b6b] text-xs mb-1">{kpi.label}</p>
+          <p className="text-[#f5f5f5] text-xl font-bold leading-tight" style={{ color: kpi.color }}>
+            {kpi.value}
+          </p>
+          <p className="text-[#6b6b6b] text-xs mt-0.5">{kpi.sub}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+
 export function DashboardPanel() {
   const { workers, timecards, progress } = useMaoDeObraStore(
     useShallow((s) => ({ workers: s.workers, timecards: s.timecards, progress: s.progress }))
@@ -191,6 +258,7 @@ export function DashboardPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      <HRKpiCards />
       <HHBarChart timecards={timecards} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PhysicalProgressSummary progress={progress} />

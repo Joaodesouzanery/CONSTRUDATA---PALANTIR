@@ -6,6 +6,10 @@ import type {
   LaborOccurrence,
   RiskArea,
   ReallocationSuggestion,
+  Shift,
+  WorkPost,
+  WorkerAbsence,
+  CLTSettings,
 } from '@/types'
 
 // ─── Workers ──────────────────────────────────────────────────────────────────
@@ -25,6 +29,14 @@ export const mockWorkers: Worker[] = [
       { id: 'cert-1-2', type: 'NR35', issuedDate: '2024-06-15', expiryDate: '2026-06-15', status: 'valid' },
       { id: 'cert-1-3', type: 'ASO', issuedDate: '2025-01-20', expiryDate: '2026-01-20', status: 'expiring' },
     ],
+    registrationNumber: 'MAT-0001',
+    department: 'Alvenaria',
+    email: 'jose.aparecido@construdata.com.br',
+    phone: '(11) 9 8832-4411',
+    admissionDate: '2021-03-15',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Bloco A — Fundações',
   },
   {
     id: 'w-2',
@@ -38,6 +50,14 @@ export const mockWorkers: Worker[] = [
       { id: 'cert-2-1', type: 'NR18', issuedDate: '2023-11-05', expiryDate: '2025-11-05', status: 'expiring' },
       { id: 'cert-2-2', type: 'NR35', issuedDate: '2024-01-12', expiryDate: '2026-01-12', status: 'valid' },
     ],
+    registrationNumber: 'MAT-0002',
+    department: 'Alvenaria',
+    email: 'ronaldo.mendes@construdata.com.br',
+    phone: '(11) 9 9210-7765',
+    admissionDate: '2022-06-01',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Bloco A — Fundações',
   },
   {
     id: 'w-3',
@@ -50,6 +70,14 @@ export const mockWorkers: Worker[] = [
     certifications: [
       { id: 'cert-3-1', type: 'NR18', issuedDate: '2024-07-20', expiryDate: '2026-07-20', status: 'valid' },
     ],
+    registrationNumber: 'MAT-0003',
+    department: 'Apoio Geral',
+    email: 'marcos.pereira@construdata.com.br',
+    phone: '(11) 9 7744-3390',
+    admissionDate: '2023-01-09',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Canteiro Geral',
   },
   {
     id: 'w-4',
@@ -64,6 +92,14 @@ export const mockWorkers: Worker[] = [
       { id: 'cert-4-2', type: 'NR35', issuedDate: '2024-02-28', expiryDate: '2026-02-28', status: 'valid' },
       { id: 'cert-4-3', type: 'NR10', issuedDate: '2023-08-10', expiryDate: '2025-08-10', status: 'expiring' },
     ],
+    registrationNumber: 'MAT-0004',
+    department: 'Estrutura',
+    email: 'carlos.santos@construdata.com.br',
+    phone: '(11) 9 9501-8823',
+    admissionDate: '2020-11-22',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Estrutura — Lajes',
   },
   {
     id: 'w-5',
@@ -77,6 +113,14 @@ export const mockWorkers: Worker[] = [
       { id: 'cert-5-1', type: 'NR18', issuedDate: '2024-09-01', expiryDate: '2026-09-01', status: 'valid' },
       { id: 'cert-5-2', type: 'NR35', issuedDate: '2024-09-01', expiryDate: '2026-09-01', status: 'valid' },
     ],
+    registrationNumber: 'MAT-0005',
+    department: 'Estrutura',
+    email: 'antonio.rodrigues@construdata.com.br',
+    phone: '(11) 9 8167-2254',
+    admissionDate: '2021-08-03',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Estrutura — Pilares',
   },
   {
     id: 'w-6',
@@ -89,6 +133,14 @@ export const mockWorkers: Worker[] = [
     certifications: [
       { id: 'cert-6-1', type: 'NR18', issuedDate: '2024-05-14', expiryDate: '2026-05-14', status: 'valid' },
     ],
+    registrationNumber: 'MAT-0006',
+    department: 'Acabamentos',
+    email: 'fernando.lima@construdata.com.br',
+    phone: '(11) 9 6623-9918',
+    admissionDate: '2022-04-18',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Bloco B — Acabamentos',
   },
   {
     id: 'w-7',
@@ -101,6 +153,14 @@ export const mockWorkers: Worker[] = [
     certifications: [
       { id: 'cert-7-1', type: 'NR18', issuedDate: '2024-08-19', expiryDate: '2026-08-19', status: 'valid' },
     ],
+    registrationNumber: 'MAT-0007',
+    department: 'Acabamentos',
+    email: 'gilberto.nascimento@construdata.com.br',
+    phone: '(11) 9 9340-5501',
+    admissionDate: '2023-05-29',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Bloco B — Acabamentos',
   },
   {
     id: 'w-8',
@@ -114,6 +174,14 @@ export const mockWorkers: Worker[] = [
       { id: 'cert-8-1', type: 'NR18', issuedDate: '2022-06-01', expiryDate: '2024-06-01', status: 'expired' },
       { id: 'cert-8-2', type: 'NR10', issuedDate: '2022-06-01', expiryDate: '2024-06-01', status: 'expired' },
     ],
+    registrationNumber: 'MAT-0008',
+    department: 'Instalações Elétricas',
+    email: 'paulo.gomes@construdata.com.br',
+    phone: '(11) 9 7891-0034',
+    admissionDate: '2019-07-14',
+    contractType: 'clt',
+    scheduleType: 'standard',
+    workFront: 'Instalações Elétricas',
   },
 ]
 
@@ -305,5 +373,133 @@ export const mockReallocationSuggestions: ReallocationSuggestion[] = [
     sourceTaskFloat: 7,
     reason: '"Chapisco Paredes Internas" tem folga de 7 dias — realocar 1 pedreiro da Equipe Alvenaria A para auxiliar no "Revestimento Cerâmico Banheiros" e recuperar o atraso de 1 dia.',
     accepted: undefined,
+  },
+]
+
+// ─── CLT Settings ─────────────────────────────────────────────────────────────
+
+export const MOCK_CLT_SETTINGS: CLTSettings = {
+  maxDailyHours:    8,
+  maxOvertimeHours: 2,
+  maxWeeklyHours:   44,
+  minRestMinutes:   660,  // 11h
+  nightStart:       22,
+  nightEnd:         5,
+  nightDifferential: 20, // %
+  overtimeRate:     50,  // %
+}
+
+// ─── Work Posts ───────────────────────────────────────────────────────────────
+
+export const MOCK_WORK_POSTS: WorkPost[] = [
+  { id: 'wp-1', name: 'Pedreiro — Bloco A',    workFront: 'Bloco A — Fundações',  role: 'Pedreiro Oficial',       minWorkers: 2, shift: 'morning'   },
+  { id: 'wp-2', name: 'Armador — Estrutura',   workFront: 'Estrutura — Pilares',  role: 'Armador de Ferro',       minWorkers: 1, shift: 'morning'   },
+  { id: 'wp-3', name: 'Carpinteiro — Lajes',   workFront: 'Estrutura — Lajes',    role: 'Carpinteiro de Formas',  minWorkers: 1, shift: 'morning'   },
+  { id: 'wp-4', name: 'Servente — Apoio',      workFront: 'Canteiro Geral',       role: 'Servente de Obras',      minWorkers: 1, shift: 'all'       },
+]
+
+// ─── Shifts (current month sample) ───────────────────────────────────────────
+// Regular shifts: 07:00–16:00 (1h break = 8h worked)
+// Overtime: 07:00–18:00 (1h break = 10h clock, 9h worked → 2h OT)
+// Night: 22:00–06:00 next day (1h break = 7h worked)
+// CLT violation: shift ending 23:00, next starting 07:00 (only 8h rest — < 11h required)
+
+export const MOCK_SHIFTS: Shift[] = [
+  // ── Week of Mar 17–21 ─────────────────────────────────────────────────────
+  // Mar 17 (Mon)
+  { id: 'sh-001', workerId: 'w-1', date: daysAgo(6),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-002', workerId: 'w-2', date: daysAgo(6),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-003', workerId: 'w-3', date: daysAgo(6),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Canteiro Geral' },
+  { id: 'sh-004', workerId: 'w-4', date: daysAgo(6),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-005', workerId: 'w-5', date: daysAgo(6),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Pilares' },
+  // Mar 18 (Tue)
+  { id: 'sh-006', workerId: 'w-1', date: daysAgo(5),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-007', workerId: 'w-2', date: daysAgo(5),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-008', workerId: 'w-4', date: daysAgo(5),  startTime: '07:00', endTime: '18:00', breakMinutes: 60, type: 'overtime', status: 'confirmed', workFront: 'Estrutura — Lajes', overtimeReason: 'Concretagem urgente laje L4' },
+  { id: 'sh-009', workerId: 'w-5', date: daysAgo(5),  startTime: '07:00', endTime: '18:00', breakMinutes: 60, type: 'overtime', status: 'confirmed', workFront: 'Estrutura — Pilares', overtimeReason: 'Concretagem urgente laje L4' },
+  { id: 'sh-010', workerId: 'w-6', date: daysAgo(5),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  // Mar 19 (Wed)
+  { id: 'sh-011', workerId: 'w-1', date: daysAgo(4),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-012', workerId: 'w-3', date: daysAgo(4),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Canteiro Geral' },
+  { id: 'sh-013', workerId: 'w-4', date: daysAgo(4),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-014', workerId: 'w-6', date: daysAgo(4),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-015', workerId: 'w-7', date: daysAgo(4),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  // Mar 20 (Thu)
+  { id: 'sh-016', workerId: 'w-1', date: daysAgo(3),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-017', workerId: 'w-2', date: daysAgo(3),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-018', workerId: 'w-5', date: daysAgo(3),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'absent',    workFront: 'Estrutura — Pilares' },
+  { id: 'sh-019', workerId: 'w-7', date: daysAgo(3),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  // Mar 20 — night shift (CLT violation: sh-018 absence means w-5 not scheduled, but w-4 ends 18:00 on Mar 18 and was scheduled 07:00 Mar 19 — only 13h rest, ok)
+  // Intentional CLT violation: w-4 ends 18:00 on Mar 18 (sh-008), next shift starts 07:00 Mar 19 (sh-013) → only 13h rest (ok)
+  // True violation: w-4 night shift ending 06:00 Mar 21, then regular 07:00 Mar 21 = only 1h rest (blocking!)
+  { id: 'sh-020', workerId: 'w-4', date: daysAgo(3),  startTime: '22:00', endTime: '06:00', breakMinutes: 60, type: 'night',    status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  // Mar 21 (Fri) — w-4 has < 1h rest after night shift! CLT violation
+  { id: 'sh-021', workerId: 'w-4', date: daysAgo(2),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-022', workerId: 'w-1', date: daysAgo(2),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-023', workerId: 'w-2', date: daysAgo(2),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-024', workerId: 'w-6', date: daysAgo(2),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  // Mar 22 (Sat) — DSR day off
+  { id: 'sh-025', workerId: 'w-1', date: daysAgo(1),  startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-026', workerId: 'w-2', date: daysAgo(1),  startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-027', workerId: 'w-4', date: daysAgo(1),  startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  // Mar 23 (today — Mon)
+  { id: 'sh-028', workerId: 'w-1', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-029', workerId: 'w-2', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-030', workerId: 'w-3', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Canteiro Geral' },
+  { id: 'sh-031', workerId: 'w-4', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-032', workerId: 'w-5', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'absent',    workFront: 'Estrutura — Pilares' },
+  { id: 'sh-033', workerId: 'w-6', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-034', workerId: 'w-7', date: daysAgo(0),  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'scheduled', workFront: 'Bloco B — Acabamentos' },
+  // ── Week of Mar 10–14 ─────────────────────────────────────────────────────
+  { id: 'sh-035', workerId: 'w-1', date: daysAgo(13), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-036', workerId: 'w-2', date: daysAgo(13), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-037', workerId: 'w-4', date: daysAgo(13), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-038', workerId: 'w-5', date: daysAgo(13), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Pilares' },
+  { id: 'sh-039', workerId: 'w-6', date: daysAgo(13), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-040', workerId: 'w-1', date: daysAgo(12), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-041', workerId: 'w-2', date: daysAgo(12), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-042', workerId: 'w-3', date: daysAgo(12), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Canteiro Geral' },
+  { id: 'sh-043', workerId: 'w-5', date: daysAgo(12), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Pilares' },
+  { id: 'sh-044', workerId: 'w-7', date: daysAgo(12), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-045', workerId: 'w-1', date: daysAgo(11), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-046', workerId: 'w-4', date: daysAgo(11), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  { id: 'sh-047', workerId: 'w-6', date: daysAgo(11), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-048', workerId: 'w-7', date: daysAgo(11), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-049', workerId: 'w-2', date: daysAgo(10), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-050', workerId: 'w-3', date: daysAgo(10), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Canteiro Geral' },
+  { id: 'sh-051', workerId: 'w-5', date: daysAgo(10), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Pilares' },
+  { id: 'sh-052', workerId: 'w-6', date: daysAgo(10), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco B — Acabamentos' },
+  { id: 'sh-053', workerId: 'w-1', date: daysAgo( 9), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-054', workerId: 'w-2', date: daysAgo( 9), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Bloco A — Fundações' },
+  { id: 'sh-055', workerId: 'w-4', date: daysAgo( 9), startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular',  status: 'confirmed', workFront: 'Estrutura — Lajes' },
+  // DSR (Sun Mar 16)
+  { id: 'sh-056', workerId: 'w-1', date: daysAgo( 7), startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-057', workerId: 'w-2', date: daysAgo( 7), startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-058', workerId: 'w-4', date: daysAgo( 7), startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-059', workerId: 'w-5', date: daysAgo( 7), startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+  { id: 'sh-060', workerId: 'w-6', date: daysAgo( 7), startTime: '00:00', endTime: '00:00', breakMinutes: 0,  type: 'day_off',  status: 'confirmed' },
+]
+
+// ─── Absences ─────────────────────────────────────────────────────────────────
+
+export const MOCK_ABSENCES: WorkerAbsence[] = [
+  {
+    id: 'abs-1',
+    workerId: 'w-5',
+    date: daysAgo(3),
+    type: 'sick_leave',
+    description: 'Atestado médico — lombalgia. Colaborador apresentou CID M54.5.',
+    substituteWorkerId: 'w-3',
+    status: 'covered',
+    registeredAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+  },
+  {
+    id: 'abs-2',
+    workerId: 'w-5',
+    date: daysAgo(0),
+    type: 'unjustified',
+    description: 'Falta sem justificativa. Colaborador não compareceu e não avisou.',
+    status: 'uncovered',
+    registeredAt: new Date().toISOString(),
   },
 ]

@@ -451,6 +451,9 @@ export interface WorkerCertification {
   status: CertStatus
 }
 
+export type ContractType = 'clt' | 'pj' | 'freelancer' | 'apprentice'
+export type ScheduleType = 'standard' | '6x1' | '5x2' | '12x36' | 'daily' | 'custom'
+
 export interface Worker {
   id: string
   name: string
@@ -461,6 +464,15 @@ export interface Worker {
   certifications: WorkerCertification[]
   hourlyRate: number
   biometricToken?: string  // opaque hash reference — raw biometric never stored
+  // Extended HR fields (all optional for backward compatibility)
+  registrationNumber?: string   // matrícula
+  department?: string
+  email?: string
+  phone?: string
+  admissionDate?: string        // yyyy-MM-dd
+  contractType?: ContractType
+  scheduleType?: ScheduleType
+  workFront?: string            // frente de trabalho
 }
 
 export interface TimecardEntry {
@@ -613,4 +625,282 @@ export interface ChangeOrder {
   reviewNotes?: string
   linkedModule?: string      // which module surfaced this issue
   linkedEntityId?: string    // e.g. riskId, equipmentId
+}
+
+// ─── Mão de Obra — HR Expansion ───────────────────────────────────────────────
+
+export type ShiftType         = 'regular' | 'overtime' | 'night' | 'holiday' | 'day_off'
+export type ShiftStatus       = 'scheduled' | 'confirmed' | 'absent' | 'cancelled'
+export type AbsenceType       = 'sick_leave' | 'justified' | 'unjustified' | 'vacation' | 'accident' | 'other'
+export type CLTViolationLevel = 'blocking' | 'warning' | 'info'
+export type CLTViolationType  = 'max_daily_hours' | 'max_weekly_hours' | 'min_rest' | 'max_overtime' | 'missing_dsr' | 'break_required'
+
+export interface Shift {
+  id: string
+  workerId: string
+  date: string          // yyyy-MM-dd
+  startTime: string     // "HH:mm"
+  endTime: string       // "HH:mm"
+  breakMinutes: number
+  type: ShiftType
+  workFront?: string
+  status: ShiftStatus
+  overtimeReason?: string
+}
+
+export interface CLTViolation {
+  id: string
+  workerId: string
+  workerName: string
+  type: CLTViolationType
+  severity: CLTViolationLevel
+  description: string
+  date: string
+}
+
+export interface WorkPost {
+  id: string
+  name: string           // e.g. "Pedreiro — Fundações"
+  workFront: string
+  role: string
+  minWorkers: number
+  shift: 'morning' | 'afternoon' | 'night' | 'all'
+}
+
+export interface WorkerAbsence {
+  id: string
+  workerId: string
+  date: string
+  type: AbsenceType
+  description?: string
+  substituteWorkerId?: string
+  status: 'open' | 'covered' | 'uncovered'
+  registeredAt: string
+}
+
+export interface CLTSettings {
+  maxDailyHours: number      // default 8
+  maxOvertimeHours: number   // default 2
+  maxWeeklyHours: number     // default 44
+  minRestMinutes: number     // default 660 (11h)
+  nightStart: number         // hour, default 22
+  nightEnd: number           // hour, default 5
+  nightDifferential: number  // %, default 20
+  overtimeRate: number       // %, default 50
+}
+
+export interface CMORoleItem {
+  role: string
+  workerCount: number
+  regularHours: number
+  overtimeHours: number
+  nightHours: number
+  baseCost: number
+  overtimeCost: number
+  nightCost: number
+  dsrCost: number
+  totalCost: number
+}
+
+export interface CMOSummary {
+  month: string              // "YYYY-MM"
+  regularHours: number
+  overtimeHours: number
+  nightHours: number
+  baseCost: number
+  overtimeCost: number
+  nightCost: number
+  dsrCost: number
+  totalCost: number
+  roleBreakdown: CMORoleItem[]
+}
+
+// ─── Folha de Pagamento ────────────────────────────────────────────────────────
+
+export type DeductionType = 'inss' | 'fgts' | 'irrf' | 'vt' | 'va' | 'health' | 'other'
+export type AllowanceType = 'overtime' | 'night_diff' | 'dsr' | 'hazard' | 'transport' | 'meal' | 'other'
+
+export interface PayslipDeduction {
+  type: DeductionType
+  description: string
+  amount: number
+  /** false = employer-only cost (e.g. FGTS), not deducted from worker's net */
+  workerPays: boolean
+}
+
+export interface PayslipAllowance {
+  type: AllowanceType
+  description: string
+  amount: number
+}
+
+export interface WorkerPayslip {
+  id: string
+  workerId: string
+  month: string              // "YYYY-MM"
+  baseSalary: number         // hourlyRate × regular hours
+  allowances: PayslipAllowance[]
+  deductions: PayslipDeduction[]
+  grossTotal: number         // baseSalary + Σ allowances
+  netTotal: number           // grossTotal − Σ deductions where workerPays
+  employerCost: number       // grossTotal + FGTS + employer-side INSS
+  hoursWorked: number
+  overtimeHours: number
+  nightHours: number
+  workingDays: number
+  generatedAt: string
+}
+
+export interface PayrollMonth {
+  month: string
+  payslips: WorkerPayslip[]
+  totalGross: number
+  totalNet: number
+  totalEmployerCost: number
+  headcount: number
+}
+
+// ─── Gestão de Frotas Veicular ────────────────────────────────────────────────
+
+export type VehicleType    = 'car' | 'truck' | 'van' | 'motorcycle' | 'heavy' | 'pickup'
+export type VehicleStatus  = 'active' | 'maintenance' | 'inactive' | 'unavailable'
+export type FuelType       = 'gasoline' | 'diesel' | 'ethanol' | 'flex' | 'electric' | 'gnv'
+export type VehicleMaintenanceType   = 'preventive' | 'corrective'
+export type VehicleMaintenanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+export type ServiceOrderStatus       = 'open' | 'in_progress' | 'awaiting_parts' | 'completed' | 'cancelled'
+export type FineStatus               = 'pending' | 'paid' | 'contested'
+export type FleetAlertSeverity       = 'critical' | 'high' | 'medium' | 'low'
+export type FleetCostType            = 'fuel' | 'maintenance' | 'fine' | 'insurance' | 'tax' | 'other'
+export type RouteStatus              = 'planned' | 'in_progress' | 'completed' | 'cancelled'
+
+export interface Vehicle {
+  id: string
+  plate: string              // "ABC-1234" or "ABC1D234" (Mercosul)
+  make: string               // "Volkswagen"
+  model: string              // "Constellation 17.280"
+  year: number
+  type: VehicleType
+  fuelType: FuelType
+  currentKm: number
+  status: VehicleStatus
+  assignedDriverId?: string
+  department?: string
+  acquisitionDate: string
+  acquisitionValue: number
+  notes?: string
+}
+
+export interface FuelRecord {
+  id: string
+  vehicleId: string
+  driverId?: string
+  date: string
+  liters: number
+  pricePerLiter: number
+  totalCost: number
+  kmAtFill: number           // odometer reading at time of fill
+  fullTank: boolean
+  station?: string
+  notes?: string
+}
+
+export interface VehicleMaintenanceRecord {
+  id: string
+  vehicleId: string
+  type: VehicleMaintenanceType
+  description: string
+  serviceDate: string
+  nextServiceDate?: string
+  nextServiceKm?: number
+  kmAtService: number
+  cost: number
+  provider?: string
+  status: VehicleMaintenanceStatus
+  notes?: string
+}
+
+export interface VehicleDriver {
+  id: string
+  name: string
+  cpfMasked: string          // "***.***.**-XX"
+  licenseNumber: string      // CNH number (display only — never logged raw)
+  licenseCategory: string    // "B", "C", "D", "E", "AB", etc.
+  licenseExpiry: string
+  phone: string
+  email?: string
+  status: 'active' | 'inactive' | 'suspended'
+  workerId?: string          // optional link to Worker
+}
+
+export interface VehicleRoute {
+  id: string
+  vehicleId: string
+  driverId?: string
+  date: string
+  origin: string
+  destination: string
+  departureTime: string
+  arrivalTime?: string
+  startKm: number
+  endKm?: number
+  purpose: string
+  status: RouteStatus
+  notes?: string
+}
+
+export interface VehicleServiceOrder {
+  id: string
+  vehicleId: string
+  code: string               // "OS-0001"
+  type: VehicleMaintenanceType
+  description: string
+  requestedBy: string
+  requestedAt: string
+  scheduledDate?: string
+  completedDate?: string
+  estimatedCost?: number
+  finalCost?: number
+  provider?: string
+  status: ServiceOrderStatus
+  priority: 'urgent' | 'high' | 'normal' | 'low'
+  notes?: string
+}
+
+export interface VehicleFine {
+  id: string
+  vehicleId: string
+  driverId?: string
+  date: string
+  description: string
+  infraction: string
+  points?: number
+  amount: number
+  dueDate: string
+  status: FineStatus
+  autoNumber?: string
+  notes?: string
+}
+
+export interface FleetMaintenanceAlert {
+  id: string
+  vehicleId: string
+  title: string
+  description: string
+  severity: FleetAlertSeverity
+  triggerType: 'km' | 'date' | 'both'
+  triggerKm?: number
+  triggerDate?: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface FleetScheduleEntry {
+  id: string
+  vehicleId: string
+  type: 'maintenance' | 'inspection' | 'route'
+  title: string
+  scheduledDate: string
+  driverId?: string
+  notes?: string
+  status: 'scheduled' | 'completed' | 'cancelled'
 }

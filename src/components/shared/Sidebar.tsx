@@ -9,6 +9,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
+import { useAlertCounts } from '@/hooks/useAlertCounts'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -33,6 +34,8 @@ export function Sidebar() {
   const { isDemoMode, toggleDemoMode } = useAppModeStore(
     useShallow((s) => ({ isDemoMode: s.isDemoMode, toggleDemoMode: s.toggleDemoMode }))
   )
+
+  const alertCounts = useAlertCounts()
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) === 'true' } catch { return false }
@@ -83,7 +86,14 @@ export function Sidebar() {
               )
             }
           >
-            <item.icon size={20} className="shrink-0" />
+            <span className="relative shrink-0">
+              <item.icon size={20} />
+              {(alertCounts[item.to] ?? 0) > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#ef4444] text-white text-[9px] font-bold leading-none">
+                  {alertCounts[item.to] > 9 ? '9+' : alertCounts[item.to]}
+                </span>
+              )}
+            </span>
             {isOpen && (
               <span className="text-xs font-medium whitespace-nowrap overflow-hidden text-ellipsis">
                 {item.label}
