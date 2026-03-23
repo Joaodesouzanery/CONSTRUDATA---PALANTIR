@@ -74,6 +74,44 @@ export interface DailyReport {
   photos: ReportPhoto[]
 }
 
+// ─── Equipment Profile Module ─────────────────────────────────────────────────
+
+export type EquipmentStatus = 'active' | 'idle' | 'maintenance' | 'alert' | 'offline'
+
+export type AlertSeverity = 'critical' | 'warning' | 'info'
+
+export interface EquipmentAlert {
+  id: string
+  equipmentId: string
+  severity: AlertSeverity
+  type: string
+  message: string
+  timestamp: string        // ISO string
+  acknowledged: boolean
+}
+
+export interface EquipmentProfile {
+  id: string
+  code: string             // e.g. 'EQ-017'
+  name: string
+  type: string             // e.g. 'Plataforma Elevatória'
+  brand: string
+  model: string
+  year: number
+  serialNumber: string
+  status: EquipmentStatus
+  lat: number | null
+  lng: number | null
+  siteName: string | null
+  description: string
+  maxLoad: string
+  lastMaintenance: string  // yyyy-MM-dd
+  nextMaintenance: string  // yyyy-MM-dd
+  operator: string | null
+  engineHours: number
+  alerts: EquipmentAlert[]
+}
+
 // ─── Agenda / Gantt ───────────────────────────────────────────────────────────
 
 export type TaskColor = 'blue' | 'orange' | 'green' | 'red' | 'purple'

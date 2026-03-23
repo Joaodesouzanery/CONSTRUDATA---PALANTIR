@@ -1,31 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  ClipboardList,
-  BarChart3,
-  Users,
-  Wrench,
-  Package,
-  FileText,
-  Settings,
-  HardHat,
-  Calendar,
-} from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'Dashboard', icon: LayoutDashboard, to: '/' },
-  { label: 'Relatório 360', icon: ClipboardList, to: '/relatorio360' },
-  { label: 'Agenda', icon: Calendar, to: '/agenda' },
-  { label: 'Relatórios', icon: FileText, to: '/relatorios' },
-  { label: 'Analytics', icon: BarChart3, to: '/analytics' },
-  { label: 'Equipes', icon: Users, to: '/equipes' },
-  { label: 'Equipamentos', icon: Wrench, to: '/equipamentos' },
-  { label: 'Materiais', icon: Package, to: '/materiais' },
-]
-
-const bottomItems = [
-  { label: 'Configurações', icon: Settings, to: '/configuracoes' },
+  { label: 'Relatório 360',         icon: ClipboardList, to: '/relatorio360' },
+  { label: 'Agenda',                icon: Calendar,      to: '/agenda'       },
+  { label: 'Perfil dos Equipamentos', icon: Truck,       to: '/equipamentos' },
 ]
 
 export function Sidebar() {
@@ -44,28 +24,6 @@ export function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === '/'}
-            title={item.label}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center justify-center w-12 h-12 rounded-lg transition-colors group relative',
-                isActive
-                  ? 'bg-[#f97316]/15 text-[#f97316]'
-                  : 'text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5]'
-              )
-            }
-          >
-            <item.icon size={20} />
-          </NavLink>
-        ))}
-      </nav>
-
-      {/* Bottom */}
-      <div className="flex flex-col gap-1 p-2 pb-3 border-t border-[#2a2a2a]">
-        {bottomItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
             title={item.label}
             className={({ isActive }) =>
               cn(
@@ -79,7 +37,7 @@ export function Sidebar() {
             <item.icon size={20} />
           </NavLink>
         ))}
-      </div>
+      </nav>
     </aside>
   )
 }
