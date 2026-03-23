@@ -13,7 +13,7 @@ const TABS = [
   'Planejamento',
   'Execução',
   'Orçamento',
-  'Visualização de Design',
+  '3D / 4D / 5D',
   'Documentos',
 ]
 

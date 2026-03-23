@@ -20,253 +20,435 @@ const BAR_COLORS = {
   spent:     '#22c55e',
 }
 
+const PHASE_COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#eab308']
+
 // ─── 3D Building View ─────────────────────────────────────────────────────────
 
 function View3D({ project }: { project: Project }) {
-  const totalFloors = 12
-  const progress = project.executionPhases[0]?.progress ?? 0
-  const builtFloors = Math.round((progress / 100) * totalFloors)
+  const TOTAL_FLOORS = 10
+  const progress   = project.executionPhases[0]?.progress ?? 0
+  const builtFloors = Math.round((progress / 100) * TOTAL_FLOORS)
+
+  // Isometric constants
+  const FW = 140   // front face width
+  const FH = 12    // floor height
+  const SX = 50    // side face x-width
+  const SY = 6     // side face y-offset per floor
+  const OX = 80    // origin x
+  const OY = 40    // top-of-building y (first floor top)
+  const TW = 200   // total SVG width
+  const TH = 320   // total SVG height
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-6">
-      <svg
-        width="260"
-        height="300"
-        viewBox="0 0 260 300"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        style={{ filter: 'drop-shadow(0 8px 32px rgba(0,0,0,0.6))' }}
-      >
-        {/* Ground shadow */}
-        <ellipse cx="130" cy="285" rx="90" ry="8" fill="#000" opacity="0.4" />
+    <div className="flex flex-col items-center gap-4 py-6 px-4">
+      <div className="flex items-start gap-8">
+        {/* Building SVG */}
+        <svg width={TW} height={TH} viewBox={`0 0 ${TW} ${TH}`} style={{ filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.7))' }}>
+          {/* Ground slab */}
+          <polygon
+            points={`${OX},${OY + TOTAL_FLOORS * FH + 6} ${OX + FW},${OY + TOTAL_FLOORS * FH + 6} ${OX + FW + SX},${OY + TOTAL_FLOORS * FH + 6 - SY} ${OX + SX},${OY + TOTAL_FLOORS * FH + 6 - SY}`}
+            fill="#1a2a1a" stroke="#333" strokeWidth="1"
+          />
 
-        {/* Building floors — back face (3D right side) */}
-        {Array.from({ length: totalFloors }).map((_, i) => {
-          const floorIdx = totalFloors - 1 - i
-          const y = 40 + floorIdx * 20
-          const built = floorIdx < builtFloors
-          return (
-            <polygon
-              key={`side-${i}`}
-              points={`190,${y + 4} 220,${y - 10} 220,${y + 10} 190,${y + 24}`}
-              fill={built ? '#2a4a2a' : '#1a2a1a'}
-              stroke="#333"
-              strokeWidth="0.5"
-            />
-          )
-        })}
+          {/* Scaffolding poles (left side) — only when not complete */}
+          {progress < 100 && [0, 1].map((i) => (
+            <line key={i} x1={OX - 10 + i * 5} y1={OY} x2={OX - 10 + i * 5} y2={OY + TOTAL_FLOORS * FH + 8}
+              stroke="#444" strokeWidth="1.5" />
+          ))}
+          {progress < 100 && Array.from({ length: TOTAL_FLOORS + 1 }).map((_, i) => (
+            <line key={i} x1={OX - 14} y1={OY + i * FH} x2={OX - 6} y2={OY + i * FH}
+              stroke="#333" strokeWidth="1" />
+          ))}
 
-        {/* Building floors — top face */}
-        {Array.from({ length: totalFloors }).map((_, i) => {
-          const floorIdx = totalFloors - 1 - i
-          const y = 40 + floorIdx * 20
-          const built = floorIdx < builtFloors
-          if (floorIdx !== builtFloors - 1 && floorIdx !== totalFloors - 1) return null
-          return (
-            <polygon
-              key={`top-${i}`}
-              points={`70,${y - 4} 190,${y - 4} 220,${y - 18} 100,${y - 18}`}
-              fill={built ? '#4a7a4a' : '#2a3a2a'}
-              stroke="#444"
-              strokeWidth="0.5"
-            />
-          )
-        })}
+          {/* Floors — right side face + front face */}
+          {Array.from({ length: TOTAL_FLOORS }).map((_, i) => {
+            const floorIdx = TOTAL_FLOORS - 1 - i   // 0 = bottom, TOTAL_FLOORS-1 = top
+            const y = OY + i * FH
+            const built = floorIdx < builtFloors
+            const isTopFloor = i === 0
 
-        {/* Building floors — front face */}
-        {Array.from({ length: totalFloors }).map((_, i) => {
-          const floorIdx = totalFloors - 1 - i
-          const y = 40 + floorIdx * 20
-          const built = floorIdx < builtFloors
-          return (
-            <rect
-              key={`front-${i}`}
-              x={70}
-              y={y}
-              width={120}
-              height={20}
-              fill={built ? '#1a3a1a' : '#111'}
-              stroke={built ? '#22c55e' : '#2a2a2a'}
-              strokeWidth="0.5"
-            />
-          )
-        })}
+            const frontFill  = built ? '#1c3a1c' : '#111'
+            const frontStroke = built ? '#22c55e' : '#2a2a2a'
+            const sideFill   = built ? '#142814' : '#0a0a0a'
 
-        {/* Windows */}
-        {Array.from({ length: totalFloors }).map((_, i) => {
-          const floorIdx = totalFloors - 1 - i
-          const y = 40 + floorIdx * 20 + 4
-          const built = floorIdx < builtFloors
-          return Array.from({ length: 4 }).map((_, w) => (
-            <rect
-              key={`win-${i}-${w}`}
-              x={80 + w * 26}
-              y={y}
-              width={16}
-              height={10}
-              rx={1}
-              fill={built ? '#0f4f0f' : '#1a1a1a'}
-              stroke={built ? '#22c55e' : '#333'}
-              strokeWidth="0.3"
-            />
-          ))
-        })}
+            // Right side face (parallelogram)
+            const sx1 = OX + FW, sy1 = y
+            const sx2 = OX + FW + SX, sy2 = y - SY
+            const sx3 = OX + FW + SX, sy3 = y - SY + FH
+            const sx4 = OX + FW, sy4 = y + FH
 
-        {/* Progress label */}
-        <text x="130" y="275" textAnchor="middle" fill="#22c55e" fontSize="11" fontFamily="monospace">
-          {progress}% concluído
-        </text>
-      </svg>
+            return (
+              <g key={i}>
+                {/* Side face */}
+                <polygon
+                  points={`${sx1},${sy1} ${sx2},${sy2} ${sx3},${sy3} ${sx4},${sy4}`}
+                  fill={sideFill} stroke={built ? '#1a3a1a' : '#1a1a1a'} strokeWidth="0.5"
+                />
+                {/* Front face */}
+                <rect x={OX} y={y} width={FW} height={FH}
+                  fill={frontFill} stroke={frontStroke} strokeWidth="0.5" />
 
-      <div className="text-center">
-        <p className="text-xs text-[#6b6b6b]">
-          {builtFloors} de {totalFloors} andares construídos
-        </p>
-        <p className="text-[10px] text-[#3f3f3f] mt-0.5">{project.name}</p>
+                {/* Top face (only for the top built floor or top of building) */}
+                {(isTopFloor || floorIdx === builtFloors - 1) && (
+                  <polygon
+                    points={`${OX},${y} ${OX + FW},${y} ${OX + FW + SX},${y - SY} ${OX + SX},${y - SY}`}
+                    fill={built ? '#2a4a2a' : '#181818'}
+                    stroke={built ? '#22c55e' : '#222'}
+                    strokeWidth="0.5"
+                  />
+                )}
+
+                {/* Windows (5 per floor) */}
+                {Array.from({ length: 5 }).map((_, w) => (
+                  <rect
+                    key={w}
+                    x={OX + 6 + w * 26}
+                    y={y + 2}
+                    width={16}
+                    height={FH - 5}
+                    rx={1}
+                    fill={built ? (floorIdx % 2 === 0 ? '#0f5a0f' : '#0a3a0a') : '#111'}
+                    stroke={built ? '#22c55e' : '#222'}
+                    strokeWidth="0.3"
+                  />
+                ))}
+              </g>
+            )
+          })}
+
+          {/* Crane (when not 100%) */}
+          {progress < 100 && (
+            <g>
+              {/* Mast */}
+              <rect x={OX + FW + SX - 6} y={OY - 60} width={8} height={60} fill="#555" rx="1" />
+              {/* Jib (horizontal arm) */}
+              <rect x={OX + FW + SX - 50} y={OY - 62} width={80} height={4} fill="#555" rx="1" />
+              {/* Counter-jib */}
+              <rect x={OX + FW + SX - 50} y={OY - 62} width={20} height={4} fill="#666" rx="1" />
+              {/* Hook cable */}
+              <line x1={OX + FW + SX + 26} y1={OY - 58} x2={OX + FW + SX + 26} y2={OY - 38} stroke="#888" strokeWidth="1" />
+              {/* Hook */}
+              <path d={`M${OX + FW + SX + 24},${OY - 38} q-2,4 2,4 q4,0 2,-4`} fill="none" stroke="#888" strokeWidth="1.5" />
+              {/* Warning stripes */}
+              <rect x={OX + FW + SX - 6} y={OY - 16} width={8} height={4} fill="#f97316" rx="0.5" />
+              <rect x={OX + FW + SX - 6} y={OY - 8} width={8} height={4} fill="#f97316" rx="0.5" />
+            </g>
+          )}
+
+          {/* Progress arc */}
+          {(() => {
+            const cx = OX + FW / 2
+            const cy = TH - 40
+            const r  = 24
+            const angle = (progress / 100) * 2 * Math.PI - Math.PI / 2
+            const x2 = cx + r * Math.cos(angle)
+            const y2 = cy + r * Math.sin(angle)
+            const largeArc = progress > 50 ? 1 : 0
+            return (
+              <g>
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="#252525" strokeWidth="4" />
+                {progress > 0 && (
+                  <path
+                    d={`M${cx},${cy - r} A${r},${r} 0 ${largeArc},1 ${x2},${y2}`}
+                    fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round"
+                  />
+                )}
+                <text x={cx} y={cy + 4} textAnchor="middle" fill="#22c55e" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                  {progress}%
+                </text>
+              </g>
+            )
+          })()}
+        </svg>
+
+        {/* Legend */}
+        <div className="flex flex-col gap-3 mt-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Progresso</span>
+            <span className="text-2xl font-bold font-mono text-[#22c55e]">{progress}%</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Andares</span>
+            <span className="text-lg font-bold font-mono text-[#f5f5f5]">
+              {builtFloors}<span className="text-[#6b6b6b] text-sm">/{TOTAL_FLOORS}</span>
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Status</span>
+            <span className="text-xs font-semibold text-[#f97316]">
+              {project.executionPhases[0]?.status === 'in_progress' ? 'Em Construção' :
+               project.executionPhases[0]?.status === 'completed'   ? 'Concluído' :
+               project.executionPhases[0]?.status === 'delayed'     ? 'Atrasado' : 'Não Iniciado'}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-[#2a2a2a]">
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#22c55e' }} /><span className="text-[10px] text-[#a3a3a3]">Construído</span></div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#111' }} /><span className="text-[10px] text-[#a3a3a3]">Não construído</span></div>
+            {progress < 100 && <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#555' }} /><span className="text-[10px] text-[#a3a3a3]">Grua</span></div>}
+          </div>
+        </div>
       </div>
+
+      <p className="text-[11px] text-[#6b6b6b] text-center">{project.name} — Visualização 3D estrutural</p>
     </div>
   )
 }
 
 // ─── 4D Timeline View ─────────────────────────────────────────────────────────
 
-const PHASE_COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#eab308']
-
 function View4D({ project }: { project: Project }) {
   const allPhases = [...project.planningPhases, ...project.executionPhases]
-  if (allPhases.length === 0) return null
+  if (allPhases.length === 0) return <p className="text-center text-xs text-[#3f3f3f] py-10">Sem fases definidas</p>
 
-  // Find date range
-  const starts = allPhases.map((p) => p.startDate).sort()
-  const ends   = allPhases.map((p) => p.endDate).sort()
-  const minDate = new Date(starts[0]).getTime()
-  const maxDate = new Date(ends[ends.length - 1]).getTime()
-  const totalMs = maxDate - minDate || 1
+  const today = new Date()
+
+  // Get overall date range
+  const allStarts = allPhases.map((p) => new Date(p.startDate).getTime())
+  const allEnds   = allPhases.map((p) => new Date(p.endDate).getTime())
+  const rangeStart = Math.min(...allStarts)
+  const rangeEnd   = Math.max(...allEnds)
+  const totalMs    = rangeEnd - rangeStart || 1
+
+  // Build month labels
+  const months: Array<{ label: string; left: number; width: number }> = []
+  const d = new Date(rangeStart)
+  d.setDate(1)
+  while (d.getTime() <= rangeEnd) {
+    const mStart = Math.max(d.getTime(), rangeStart)
+    const mEnd   = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    const mCapped = Math.min(mEnd, rangeEnd)
+    months.push({
+      label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+      left:  ((mStart - rangeStart) / totalMs) * 100,
+      width: ((mCapped - mStart) / totalMs) * 100,
+    })
+    d.setMonth(d.getMonth() + 1)
+  }
+
+  // Today line
+  const todayPct = Math.max(0, Math.min(100, ((today.getTime() - rangeStart) / totalMs) * 100))
+  const todayInRange = today.getTime() >= rangeStart && today.getTime() <= rangeEnd
+
+  const ROW_H = 44
 
   return (
-    <div className="flex flex-col gap-3 py-4 px-2">
-      {allPhases.map((phase, i) => {
-        const start   = new Date(phase.startDate).getTime()
-        const end     = new Date(phase.endDate).getTime()
-        const left    = ((start - minDate) / totalMs) * 100
-        const width   = Math.max(2, ((end - start) / totalMs) * 100)
-        const color   = PHASE_COLORS[i % PHASE_COLORS.length]
-
-        return (
-          <div key={phase.id} className="flex items-center gap-3">
-            <span className="text-[10px] text-[#a3a3a3] w-36 shrink-0 truncate text-right">{phase.name}</span>
-            <div className="flex-1 relative h-6 bg-[#1a1a1a] rounded-md overflow-hidden">
-              <div
-                className="absolute top-0 h-full rounded-md flex items-center px-2"
-                style={{ left: `${left}%`, width: `${width}%`, background: color, opacity: 0.85 }}
-              >
-                <span className="text-[9px] text-white font-semibold whitespace-nowrap overflow-hidden">
-                  {phase.progress}%
-                </span>
-              </div>
-              {/* Progress fill overlay */}
-              <div
-                className="absolute top-0 h-full rounded-md"
-                style={{
-                  left: `${left}%`,
-                  width: `${(width * phase.progress) / 100}%`,
-                  background: color,
-                  opacity: 0.3,
-                }}
-              />
-            </div>
-            <span className="text-[10px] text-[#6b6b6b] w-10 shrink-0 font-mono">{phase.startDate.slice(0, 7)}</span>
+    <div className="flex flex-col gap-3 py-4 px-4">
+      {/* Month headers */}
+      <div className="flex ml-40 relative h-6">
+        {months.map((m, i) => (
+          <div
+            key={i}
+            className="absolute text-[9px] text-[#6b6b6b] font-semibold uppercase tracking-wide border-l border-[#2a2a2a] pl-1 overflow-hidden"
+            style={{ left: `${m.left}%`, width: `${m.width}%` }}
+          >
+            {m.label}
           </div>
-        )
-      })}
+        ))}
+      </div>
+
+      {/* Phase rows */}
+      <div className="flex flex-col gap-1.5">
+        {allPhases.map((phase, i) => {
+          const start  = new Date(phase.startDate).getTime()
+          const end    = new Date(phase.endDate).getTime()
+          const left   = ((start - rangeStart) / totalMs) * 100
+          const width  = Math.max(1, ((end - start) / totalMs) * 100)
+          const color  = PHASE_COLORS[i % PHASE_COLORS.length]
+          const isExec = i >= project.planningPhases.length
+
+          return (
+            <div key={phase.id} className="flex items-center gap-2" style={{ height: ROW_H }}>
+              {/* Phase name */}
+              <div className="w-40 shrink-0 flex flex-col justify-center">
+                <span className="text-[10px] text-[#a3a3a3] leading-tight truncate">{phase.name}</span>
+                <span className="text-[9px] text-[#6b6b6b]">{isExec ? 'Execução' : 'Planejamento'}</span>
+              </div>
+
+              {/* Timeline bar */}
+              <div className="flex-1 relative bg-[#1a1a1a] rounded-md overflow-visible" style={{ height: 28 }}>
+                {/* Grid lines */}
+                {months.map((m, mi) => (
+                  <div key={mi} className="absolute top-0 h-full border-l border-[#2a2a2a]"
+                    style={{ left: `${m.left}%` }} />
+                ))}
+
+                {/* Progress fill */}
+                <div
+                  className="absolute top-0 h-full rounded-md"
+                  style={{ left: `${left}%`, width: `${(width * phase.progress) / 100}%`, background: color, opacity: 0.25 }}
+                />
+
+                {/* Main bar */}
+                <div
+                  className="absolute top-1 rounded-md flex items-center px-2 overflow-hidden"
+                  style={{ left: `${left}%`, width: `${width}%`, height: 20, background: color, opacity: 0.85 }}
+                >
+                  <span className="text-[9px] text-white font-semibold whitespace-nowrap">
+                    {phase.name.length < 14 ? phase.name : ''} {phase.progress}%
+                  </span>
+                </div>
+
+                {/* Today line */}
+                {todayInRange && (
+                  <div
+                    className="absolute top-0 h-full w-px z-10"
+                    style={{ left: `${todayPct}%`, background: '#f97316', boxShadow: '0 0 4px #f97316' }}
+                  />
+                )}
+              </div>
+
+              {/* End date */}
+              <span className="text-[9px] text-[#6b6b6b] w-16 shrink-0 font-mono">
+                {phase.endDate.slice(0, 7)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Legend + Today indicator */}
+      <div className="flex items-center gap-4 mt-2 pt-2 border-t border-[#2a2a2a] flex-wrap">
+        {project.planningPhases.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{ background: PHASE_COLORS[0] }} />
+            <span className="text-[10px] text-[#6b6b6b]">Planejamento</span>
+          </div>
+        )}
+        {project.executionPhases.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{ background: PHASE_COLORS[project.planningPhases.length % PHASE_COLORS.length] }} />
+            <span className="text-[10px] text-[#6b6b6b]">Execução</span>
+          </div>
+        )}
+        {todayInRange && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-px h-3" style={{ background: '#f97316', boxShadow: '0 0 4px #f97316' }} />
+            <span className="text-[10px] text-[#f97316]">Hoje</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 // ─── 5D Cost Chart ────────────────────────────────────────────────────────────
 
+function fmtM(v: number): string {
+  if (v >= 1e6)  return `R$${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3)  return `R$${(v / 1e3).toFixed(0)}K`
+  return `R$${v.toFixed(0)}`
+}
+
 function View5D({ project }: { project: Project }) {
   if (project.budgetLines.length === 0) {
-    return <p className="text-center text-xs text-[#3f3f3f] py-10">Sem linhas orçamentárias</p>
+    return <p className="text-center text-xs text-[#3f3f3f] py-10">Sem linhas orçamentárias cadastradas</p>
   }
 
-  const maxVal = Math.max(...project.budgetLines.flatMap((l) => [l.budgeted, l.projected, l.spent]))
-  const chartH = 160
-  const barW   = 16
-  const gap    = 4
-  const groupW = barW * 3 + gap * 2 + 16
+  const vals    = project.budgetLines.flatMap((l) => [l.budgeted, l.projected, l.spent])
+  const maxVal  = Math.max(...vals, 1)
+  const chartH  = 180
+  const barW    = 18
+  const gap     = 3
+  const groupW  = barW * 3 + gap * 2 + 24
+  const leftPad = 64
+  const botPad  = 48
+  const totalW  = leftPad + project.budgetLines.length * groupW + 20
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1]
 
   return (
-    <div className="flex flex-col gap-4 py-4">
+    <div className="flex flex-col gap-4 py-4 px-4">
       <div className="overflow-x-auto">
-        <svg
-          width={project.budgetLines.length * groupW + 40}
-          height={chartH + 50}
-          style={{ minWidth: '100%' }}
-        >
-          {/* Y grid lines */}
-          {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-            <line
-              key={t}
-              x1={30}
-              y1={chartH - t * chartH}
-              x2={project.budgetLines.length * groupW + 40}
-              y2={chartH - t * chartH}
-              stroke="#2a2a2a"
-              strokeWidth={1}
-            />
-          ))}
+        <svg width={totalW} height={chartH + botPad + 20}>
+          {/* Y-axis labels + grid lines */}
+          {yTicks.map((t) => {
+            const y = chartH - t * chartH
+            return (
+              <g key={t}>
+                <line x1={leftPad} y1={y} x2={totalW - 10} y2={y} stroke="#2a2a2a" strokeWidth={1} />
+                <text x={leftPad - 6} y={y + 4} textAnchor="end" fill="#6b6b6b" fontSize="9" fontFamily="monospace">
+                  {fmtM(maxVal * t)}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* Y-axis line */}
+          <line x1={leftPad} y1={0} x2={leftPad} y2={chartH} stroke="#3a3a3a" strokeWidth={1} />
 
           {project.budgetLines.map((line, gi) => {
-            const x = 40 + gi * groupW
-            const vals = [
+            const x = leftPad + gi * groupW + 12
+            const bars = [
               { key: 'budgeted',  val: line.budgeted,  color: BAR_COLORS.budgeted  },
               { key: 'projected', val: line.projected, color: BAR_COLORS.projected },
               { key: 'spent',     val: line.spent,     color: BAR_COLORS.spent     },
             ]
+
             return (
               <g key={line.id}>
-                {vals.map((v, bi) => {
-                  const h = maxVal > 0 ? (v.val / maxVal) * chartH : 0
+                {bars.map((b, bi) => {
+                  const h  = (b.val / maxVal) * chartH
+                  const bx = x + bi * (barW + gap)
+                  const by = chartH - h
                   return (
-                    <rect
-                      key={v.key}
-                      x={x + bi * (barW + gap)}
-                      y={chartH - h}
-                      width={barW}
-                      height={h}
-                      rx={2}
-                      fill={v.color}
-                      opacity={0.85}
-                    />
+                    <g key={b.key}>
+                      <rect x={bx} y={by} width={barW} height={Math.max(h, 0)} rx={2} fill={b.color} opacity={0.85} />
+                      {h > 16 && (
+                        <text x={bx + barW / 2} y={by - 3} textAnchor="middle" fill={b.color} fontSize="7" fontFamily="monospace">
+                          {fmtM(b.val)}
+                        </text>
+                      )}
+                    </g>
                   )
                 })}
+
+                {/* X-axis label */}
                 <text
-                  x={x + groupW / 2 - 8}
-                  y={chartH + 16}
+                  x={x + (barW * 3 + gap * 2) / 2}
+                  y={chartH + 14}
                   textAnchor="middle"
                   fill="#6b6b6b"
                   fontSize="8"
                   fontFamily="sans-serif"
                 >
-                  {TYPE_LABEL[line.type].slice(0, 8)}
+                  {TYPE_LABEL[line.type]}
                 </text>
               </g>
             )
           })}
+
+          {/* X-axis line */}
+          <line x1={leftPad} y1={chartH} x2={totalW - 10} y2={chartH} stroke="#3a3a3a" strokeWidth={1} />
         </svg>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 justify-center">
+      <div className="flex items-center gap-5 flex-wrap border-t border-[#2a2a2a] pt-3">
         {(['budgeted', 'projected', 'spent'] as const).map((key) => (
           <div key={key} className="flex items-center gap-1.5">
             <div className="w-3 h-3 rounded-sm" style={{ background: BAR_COLORS[key] }} />
-            <span className="text-[10px] text-[#a3a3a3] capitalize">
+            <span className="text-[10px] text-[#a3a3a3]">
               {key === 'budgeted' ? 'Orçado' : key === 'projected' ? 'Projetado' : 'Gasto'}
             </span>
           </div>
         ))}
+      </div>
+
+      {/* Totals row */}
+      <div className="grid grid-cols-3 gap-3">
+        {(['budgeted', 'projected', 'spent'] as const).map((key) => {
+          const total = project.budgetLines.reduce((s, l) => s + l[key], 0)
+          return (
+            <div key={key} className="rounded-lg border border-[#2a2a2a] bg-[#1a1a1a] p-3 flex flex-col gap-0.5">
+              <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">
+                {key === 'budgeted' ? 'Total Orçado' : key === 'projected' ? 'Total Projetado' : 'Total Gasto'}
+              </span>
+              <span className="text-sm font-bold font-mono" style={{ color: BAR_COLORS[key] }}>
+                {formatCurrency(total)}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -280,16 +462,22 @@ export function TabVisualizacao({ project }: { project: Project }) {
 
   const views: DesignViewType[] = ['3D', '4D', '5D']
 
+  const VIEW_DESCRIPTIONS: Record<DesignViewType, string> = {
+    '3D': 'Modelo estrutural do edifício com progresso de andares',
+    '4D': 'Cronograma das fases ao longo do tempo (Planejamento + Execução)',
+    '5D': 'Comparativo orçamentário: Orçado × Projetado × Gasto',
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Sub-tab bar */}
-      <div className="flex items-center gap-1 px-5 pt-4 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-end gap-0 px-5 pt-4 border-b border-[#2a2a2a] shrink-0">
         {views.map((v) => (
           <button
             key={v}
             onClick={() => setActiveView(v)}
             className={cn(
-              'px-4 py-2 text-xs font-bold rounded-t-lg transition-colors border-b-2 -mb-px',
+              'px-5 py-2.5 text-sm font-bold transition-colors border-b-2 -mb-px',
               activeView === v
                 ? 'text-[#f97316] border-[#f97316]'
                 : 'text-[#6b6b6b] border-transparent hover:text-[#a3a3a3]'
@@ -298,57 +486,51 @@ export function TabVisualizacao({ project }: { project: Project }) {
             {v}
           </button>
         ))}
+        <span className="ml-4 text-[10px] text-[#3f3f3f] self-center">
+          {VIEW_DESCRIPTIONS[activeView]}
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="p-5">
-          {/* View content */}
-          <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] overflow-hidden mb-5">
-            {activeView === '3D' && <View3D project={project} />}
-            {activeView === '4D' && <View4D project={project} />}
-            {activeView === '5D' && <View5D project={project} />}
-          </div>
-
-          {/* Demands table */}
-          {project.demands.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b]">
-                Demandas e Custos
-              </span>
-              <div className="rounded-xl border border-[#2a2a2a] overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-[#2a2a2a] bg-[#161616]">
-                      {['Item', 'Quantidade', 'Unidade', 'Custo Unit.', 'Total Estimado'].map((h) => (
-                        <th key={h} className="text-left px-4 py-2.5 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {project.demands.map((d, i) => (
-                      <tr
-                        key={d.id}
-                        className={cn('border-[#1f1f1f]', i < project.demands.length - 1 && 'border-b')}
-                      >
-                        <td className="px-4 py-3 text-[#f5f5f5]">{d.label}</td>
-                        <td className="px-4 py-3 font-mono text-[#a3a3a3]">{d.quantity.toLocaleString('pt-BR')}</td>
-                        <td className="px-4 py-3 text-[#6b6b6b]">{d.unit}</td>
-                        <td className="px-4 py-3 font-mono text-[#a3a3a3]">
-                          {formatCurrency(d.estimatedCost / d.quantity)}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[#f97316] font-semibold">
-                          {formatCurrency(d.estimatedCost)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+        {/* Visualization panel */}
+        <div className="mx-5 mt-4 rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] overflow-hidden">
+          {activeView === '3D' && <View3D project={project} />}
+          {activeView === '4D' && <View4D project={project} />}
+          {activeView === '5D' && <View5D project={project} />}
         </div>
+
+        {/* Demands table */}
+        {project.demands.length > 0 && (
+          <div className="mx-5 mt-4 mb-5 flex flex-col gap-2">
+            <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b]">
+              Demandas e Custos
+            </span>
+            <div className="rounded-xl border border-[#2a2a2a] overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[#2a2a2a] bg-[#161616]">
+                    {['Item', 'Quantidade', 'Unidade', 'Custo Unit.', 'Total Estimado'].map((h) => (
+                      <th key={h} className="text-left px-4 py-2.5 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {project.demands.map((d, i) => (
+                    <tr key={d.id} className={cn(i < project.demands.length - 1 && 'border-b border-[#1f1f1f]')}>
+                      <td className="px-4 py-3 text-[#f5f5f5]">{d.label}</td>
+                      <td className="px-4 py-3 font-mono text-[#a3a3a3]">{d.quantity.toLocaleString('pt-BR')}</td>
+                      <td className="px-4 py-3 text-[#6b6b6b]">{d.unit}</td>
+                      <td className="px-4 py-3 font-mono text-[#a3a3a3]">{formatCurrency(d.estimatedCost / d.quantity)}</td>
+                      <td className="px-4 py-3 font-mono text-[#f97316] font-semibold">{formatCurrency(d.estimatedCost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

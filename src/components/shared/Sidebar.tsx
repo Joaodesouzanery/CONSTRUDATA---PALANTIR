@@ -1,15 +1,22 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat, FolderKanban } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio, Sun, Moon } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
+import { useThemeStore } from '@/store/themeStore'
 
 const navItems = [
-  { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360' },
-  { label: 'Agenda',                  icon: Calendar,      to: '/agenda'       },
-  { label: 'Perfil dos Equipamentos', icon: Truck,         to: '/equipamentos' },
-  { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'     },
+  { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360'      },
+  { label: 'Agenda',                  icon: Calendar,      to: '/agenda'            },
+  { label: 'Perfil dos Equipamentos', icon: Truck,         to: '/equipamentos'      },
+  { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'          },
+  { label: 'Torre de Controle',       icon: Radio,         to: '/torre-de-controle' },
 ]
 
 export function Sidebar() {
+  const { theme, toggleTheme } = useThemeStore(
+    useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
+  )
+
   return (
     <aside className="flex flex-col w-16 shrink-0 border-r border-[#2a2a2a] bg-[#1a1a1a] h-full">
       {/* Logo */}
@@ -38,6 +45,17 @@ export function Sidebar() {
             <item.icon size={20} />
           </NavLink>
         ))}
+
+        {/* Theme toggle at bottom */}
+        <div className="mt-auto">
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+            className="flex items-center justify-center w-12 h-12 rounded-lg text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5] transition-colors"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
       </nav>
     </aside>
   )

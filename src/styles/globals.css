@@ -76,3 +76,56 @@ body {
 input[type="file"] {
   display: none;
 }
+
+/* ─── Light Mode Overrides ──────────────────────────────────────────────────── */
+/* Technique: override Tailwind arbitrary-value classes globally via data-theme  */
+/* so no component files need to be touched.                                     */
+
+[data-theme="light"] body {
+  background-color: #f0f2f5;
+  background-image: radial-gradient(circle, #d8dce3 1px, transparent 1px);
+  color: #1a1d23;
+}
+
+/* Background surfaces */
+[data-theme="light"] .bg-\[\#111111\] { background-color: #f0f2f5 !important; }
+[data-theme="light"] .bg-\[\#1a1a1a\] { background-color: #ffffff !important; }
+[data-theme="light"] .bg-\[\#1f1f1f\] { background-color: #f8f9fb !important; }
+[data-theme="light"] .bg-\[\#252525\] { background-color: #eef0f3 !important; }
+[data-theme="light"] .bg-\[\#2a2a2a\] { background-color: #e5e8ed !important; }
+[data-theme="light"] .bg-\[\#161616\] { background-color: #eff1f4 !important; }
+[data-theme="light"] .bg-\[\#111\]    { background-color: #f0f2f5 !important; }
+
+/* Borders */
+[data-theme="light"] .border-\[\#2a2a2a\] { border-color: #d4d8df !important; }
+[data-theme="light"] .border-\[\#3a3a3a\] { border-color: #c2c8d0 !important; }
+[data-theme="light"] .border-\[\#1f1f1f\] { border-color: #e8eaed !important; }
+
+/* Text */
+[data-theme="light"] .text-\[\#f5f5f5\] { color: #1a1d23 !important; }
+[data-theme="light"] .text-\[\#a3a3a3\] { color: #505863 !important; }
+[data-theme="light"] .text-\[\#6b6b6b\] { color: #78828f !important; }
+[data-theme="light"] .text-\[\#3f3f3f\] { color: #9aa3ad !important; }
+
+/* Hover backgrounds */
+[data-theme="light"] .hover\:bg-\[\#252525\]:hover { background-color: #eef0f3 !important; }
+[data-theme="light"] .hover\:bg-\[\#2a2a2a\]:hover { background-color: #e5e8ed !important; }
+[data-theme="light"] .hover\:text-\[\#f5f5f5\]:hover { color: #1a1d23 !important; }
+
+/* Form inputs — need specific override since bg-[#111111] is applied inline */
+[data-theme="light"] input:not([type="range"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #f8f9fb !important;
+  color: #1a1d23 !important;
+  border-color: #d4d8df !important;
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder { color: #9aa3ad !important; }
+
+/* Scrollbars */
+[data-theme="light"] ::-webkit-scrollbar-track { background: #eef0f3; }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2c8d0; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #f97316; }
+
+/* Accent, status colors stay the same in both modes */

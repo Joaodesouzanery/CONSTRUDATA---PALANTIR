@@ -175,6 +175,47 @@ export interface Project {
   documents: ProjectDocument[]
 }
 
+// ─── Torre de Controle ────────────────────────────────────────────────────────
+
+export type ObraStatus = 'active' | 'planning' | 'paused' | 'completed'
+export type RiskLevel  = 'critical' | 'high' | 'medium' | 'low'
+export type RiskStatus = 'identified' | 'active' | 'mitigated' | 'resolved'
+
+export interface ConstructionRisk {
+  id: string
+  title: string
+  description: string
+  level: RiskLevel
+  status: RiskStatus
+  identifiedAt: string  // ISO date string
+  notes?: string
+}
+
+export interface ConstructionSite {
+  id: string
+  code: string          // e.g. 'OBR-001'
+  name: string          // nome da obra
+  company: string       // empresa responsável
+  owner: string         // dono da obra
+  manager: string       // gerente da construção
+  description: string
+  status: ObraStatus
+  street: string        // rua
+  number: string        // número
+  district: string      // bairro
+  city: string          // cidade
+  state: string         // estado (e.g. 'SP')
+  cep: string           // CEP
+  buildingType: string  // tipo: 'Residencial', 'Comercial', 'Industrial', etc.
+  totalArea: number     // m²
+  floors: number        // andares / pavimentos
+  startDate: string     // yyyy-MM-dd
+  expectedEnd: string   // yyyy-MM-dd
+  lat: number | null
+  lng: number | null
+  risks: ConstructionRisk[]
+}
+
 // ─── Agenda / Gantt ───────────────────────────────────────────────────────────
 
 export type TaskColor = 'blue' | 'orange' | 'green' | 'red' | 'purple'
