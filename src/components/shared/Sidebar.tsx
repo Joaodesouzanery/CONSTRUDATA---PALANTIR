@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { ClipboardList, Calendar, Truck, HardHat } from 'lucide-react'
+import { ClipboardList, Calendar, Truck, HardHat, FolderKanban } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { label: 'Relatório 360',         icon: ClipboardList, to: '/relatorio360' },
-  { label: 'Agenda',                icon: Calendar,      to: '/agenda'       },
-  { label: 'Perfil dos Equipamentos', icon: Truck,       to: '/equipamentos' },
+  { label: 'Relatório 360',           icon: ClipboardList, to: '/relatorio360' },
+  { label: 'Agenda',                  icon: Calendar,      to: '/agenda'       },
+  { label: 'Perfil dos Equipamentos', icon: Truck,         to: '/equipamentos' },
+  { label: 'Projetos',                icon: FolderKanban,  to: '/projetos'     },
 ]
 
 export function Sidebar() {

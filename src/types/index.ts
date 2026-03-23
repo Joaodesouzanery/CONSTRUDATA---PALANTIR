@@ -112,6 +112,69 @@ export interface EquipmentProfile {
   alerts: EquipmentAlert[]
 }
 
+// ─── Projetos ─────────────────────────────────────────────────────────────────
+
+export type ProjectStatus = 'active' | 'planning' | 'completed' | 'on_hold'
+export type ProjectPhaseStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed'
+export type BudgetLineType = 'labor' | 'equipment' | 'materials' | 'subcontract' | 'overhead' | 'other'
+export type DesignViewType = '3D' | '4D' | '5D'
+export type DocumentCategory = 'contract' | 'drawing' | 'specification' | 'report' | 'other'
+
+export interface ProjectPhase {
+  id: string
+  name: string
+  status: ProjectPhaseStatus
+  progress: number       // 0–100
+  startDate: string      // yyyy-MM-dd
+  endDate: string        // yyyy-MM-dd
+  notes?: string
+}
+
+export interface BudgetLine {
+  id: string
+  type: BudgetLineType
+  description: string
+  budgeted: number       // R$
+  projected: number      // R$
+  spent: number          // R$
+}
+
+export interface DesignDemand {
+  id: string
+  label: string
+  quantity: number
+  unit: string
+  estimatedCost: number  // R$
+}
+
+export interface ProjectDocument {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes: number
+  base64: string
+  uploadedAt: string     // ISO
+  uploadedBy: string
+  category: DocumentCategory
+}
+
+export interface Project {
+  id: string
+  code: string           // e.g. 'PRJ-001'
+  name: string
+  owner: string          // dono
+  manager: string        // gerente
+  description: string
+  status: ProjectStatus
+  startDate: string      // yyyy-MM-dd
+  endDate: string        // yyyy-MM-dd
+  planningPhases: ProjectPhase[]   // 3 items: Engenharia e Design, Pré-construção, Aquisições
+  executionPhases: ProjectPhase[]  // 3 items: Construção, Controle do Projeto, Encerramento
+  budgetLines: BudgetLine[]
+  demands: DesignDemand[]
+  documents: ProjectDocument[]
+}
+
 // ─── Agenda / Gantt ───────────────────────────────────────────────────────────
 
 export type TaskColor = 'blue' | 'orange' | 'green' | 'red' | 'purple'
