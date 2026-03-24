@@ -18,16 +18,20 @@ const Bim5DPanel = lazy(() =>
 
 // ─── 3D Building View — real BimCanvas ────────────────────────────────────────
 
-// Shared hook: injects the synthetic BimProject into the bimStore synchronously.
+// Shared hook: upserts the synthetic BimProject into the bimStore.
 function useInjectBimProject(project: Project) {
   useEffect(() => {
     const bimProject = projectToBim(project)
-    const { projects, addProject, setActiveProject } = useBimStore.getState()
-    const existing = projects.find((p) => p.id === bimProject.id)
-    if (existing) {
-      setActiveProject(existing.id)
-    } else {
+    const { addProject, setActiveProject } = useBimStore.getState()
+    const existing = useBimStore.getState().projects.find((p) => p.id === bimProject.id)
+    if (!existing) {
       addProject(bimProject)
+    } else {
+      // Refresh project data then re-activate so derived state (layers, dates) updates
+      useBimStore.setState((s) => ({
+        projects: s.projects.map((p) => p.id === bimProject.id ? bimProject : p),
+      }))
+      setActiveProject(bimProject.id)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id])
@@ -43,7 +47,7 @@ function View3D({ project }: { project: Project }) {
   return (
     <div className="flex flex-col gap-2">
       {/* Canvas */}
-      <div style={{ height: 420, position: 'relative' }}>
+      <div style={{ height: 420, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={
           <div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">
             Carregando modelo 3D...
@@ -77,7 +81,7 @@ function View4D({ project }: { project: Project }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div style={{ height: 380, position: 'relative' }}>
+      <div style={{ height: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={<div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">Carregando modelo 3D...</div>}>
           <BimCanvas />
         </Suspense>
@@ -105,7 +109,7 @@ function View5D({ project }: { project: Project }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div style={{ height: 380, position: 'relative' }}>
+      <div style={{ height: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={<div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">Carregando modelo 3D...</div>}>
           <BimCanvas />
         </Suspense>

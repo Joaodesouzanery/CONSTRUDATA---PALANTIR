@@ -6,7 +6,7 @@ import { useState } from 'react'
 import {
   Map, ZoomIn, ZoomOut, RotateCcw, Trash2, Save, FolderOpen,
   Plus, Link, MousePointer, Scissors, Move, Building2,
-  ArrowRightLeft, Upload, Download, Maximize2,
+  ArrowRightLeft, Upload, Download, Maximize2, BarChart2,
 } from 'lucide-react'
 import { useMapaInterativoStore } from '@/store/mapaInterativoStore'
 import { MapaImportModal }        from './MapaImportModal'
@@ -25,7 +25,13 @@ const TOOL_BUTTONS: { id: MapTool; label: string; icon: React.FC<{ size?: number
   { id: 'structure',      label: 'Modo Estrutura',     icon: Building2 },
 ]
 
-export function MapaHeader() {
+export function MapaHeader({
+  showAnalytics = false,
+  onToggleAnalytics,
+}: {
+  showAnalytics?: boolean
+  onToggleAnalytics?: () => void
+}) {
   const nodes    = useMapaInterativoStore((s) => s.nodes)
   const segments = useMapaInterativoStore((s) => s.segments)
   const activeTool = useMapaInterativoStore((s) => s.activeTool)
@@ -206,6 +212,16 @@ export function MapaHeader() {
           {/* Import / Export */}
           <ToolBtn label="Importar" icon={<Upload size={13} />}   onClick={() => setShowImport(true)} />
           <ToolBtn label="Exportar" icon={<Download size={13} />} onClick={() => setShowExport(true)} />
+
+          <div className="w-px h-5 bg-gray-700 mx-1" />
+
+          {/* Analytics toggle */}
+          <ToolBtn
+            label="Análise 3D/4D/5D"
+            icon={<BarChart2 size={13} />}
+            active={showAnalytics}
+            onClick={() => onToggleAnalytics?.()}
+          />
         </div>
       </div>
 
