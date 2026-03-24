@@ -10,6 +10,7 @@ const TABS: Array<{ id: Gestao360Tab; label: string }> = [
   { id: 'jobacosting',  label: 'Custo em Tempo Real'   },
   { id: 'changeorders', label: 'Ordens de Mudança'      },
   { id: 'command',      label: 'Centro de Comando'      },
+  { id: 'simulation',   label: 'Simulação de Atrasos'  },
 ]
 
 export function Gestao360Header() {

@@ -1315,3 +1315,10 @@ export interface MapLayer {
   color: string
   visible: boolean
 }
+
+// ─── Simulação de Atrasos (Gestão 360) ───────────────────────────────────────
+
+export interface TrechoDelay {
+  trechoCode: string    // identifies the trecho by its code
+  delayDays: number     // extra days to delay the trecho start
+}

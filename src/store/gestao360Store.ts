@@ -8,7 +8,7 @@ import { create } from 'zustand'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
 
-export type Gestao360Tab = 'jobacosting' | 'changeorders' | 'command'
+export type Gestao360Tab = 'jobacosting' | 'changeorders' | 'command' | 'simulation'
 
 interface Gestao360State {
   changeOrders:      ChangeOrder[]

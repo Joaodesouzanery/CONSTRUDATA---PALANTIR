@@ -16,6 +16,7 @@ import type {
   PlanHoliday,
   GanttCell,
   GanttRow,
+  TrechoDelay,
 } from '@/types'
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ export function generateSchedule(
   prod: PlanProductivityTable,
   config: PlanScheduleConfig,
   holidays: PlanHoliday[],
+  delays: TrechoDelay[] = [],
 ): ScheduleResult {
   if (trechos.length === 0 || teams.length === 0) {
     return { ganttRows: [], workDays: [], totalCostBRL: 0, totalMeters: 0, projectEndDate: null }
@@ -161,7 +163,10 @@ export function generateSchedule(
 
     const mPerDay = effectiveMPerDay(trecho, prod, team.retroescavadeira)
     const durationDays = Math.max(1, Math.ceil(trecho.lengthM / mPerDay))
-    const startDayIndex = teamNextDay[teamIndex]
+    const delayExtra = delays
+      .filter((d) => d.trechoCode === trecho.code)
+      .reduce((sum, d) => sum + d.delayDays, 0)
+    const startDayIndex = teamNextDay[teamIndex] + delayExtra
 
     // Guard: don't exceed calendar length
     if (startDayIndex >= calendar.length) break
