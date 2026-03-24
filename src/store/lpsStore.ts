@@ -7,7 +7,7 @@
  *  - weeklyPPC: derived from activities
  */
 import { create } from 'zustand'
-import type { LpsActivity, LpsWeeklyPPC, LpsTab, TaktZone } from '@/types'
+import type { LpsActivity, LpsWeeklyPPC, LpsTab, TaktZone, LpsRestriction, LpsRestrictionCategory, LpsRestrictionStatus } from '@/types'
 
 // ─── ISO week helpers ─────────────────────────────────────────────────────────
 
@@ -81,6 +81,57 @@ function makeMockActivities(): LpsActivity[] {
   return activities
 }
 
+function makeMockRestrictions(): LpsRestriction[] {
+  const today = new Date()
+  const fmt = (d: Date) => d.toISOString().slice(0, 10)
+  const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+
+  return [
+    {
+      id: 'r1',
+      tema: 'Licença Ambiental Trecho T03',
+      categoria: 'projeto_engenharia' as LpsRestrictionCategory,
+      descricao: 'Licença de instalação ainda não emitida pelo órgão ambiental para intervenção no córrego.',
+      impacto: 'Impede início das escavações no trecho T03 e T04.',
+      responsavel: 'Eng. Ambiental / SEMA',
+      prazoRemocao: fmt(addDays(today, -3)),  // already expired
+      acoesNecessarias: 'Protocolar documentação complementar; agendar vistoria técnica.',
+      tags: ['licença', 'ambiental', 'T03'],
+      observacoes: 'SEMA informou prazo de 15 dias para análise após documentação completa.',
+      status: 'em_resolucao' as LpsRestrictionStatus,
+      createdAt: fmt(addDays(today, -14)),
+    },
+    {
+      id: 'r2',
+      tema: 'Falta de Manilhas DN300 no Almoxarifado',
+      categoria: 'materiais' as LpsRestrictionCategory,
+      descricao: 'Pedido de compra de manilhas de concreto DN300 está em atraso com o fornecedor Cimento Sul.',
+      impacto: 'Paralisa equipe B no trecho T05 por falta de material.',
+      responsavel: 'Compras — João Martins',
+      prazoRemocao: fmt(addDays(today, 5)),
+      acoesNecessarias: 'Acionar segundo fornecedor (Concreto Norte). Verificar possibilidade de substituição por PEAD.',
+      tags: ['material', 'DN300', 'Equipe B'],
+      status: 'identificada' as LpsRestrictionStatus,
+      createdAt: fmt(addDays(today, -7)),
+    },
+    {
+      id: 'r3',
+      tema: 'Retroescavadeira EQ-017 em Manutenção',
+      categoria: 'equipamentos' as LpsRestrictionCategory,
+      descricao: 'Retroescavadeira EQ-017 entrou em manutenção corretiva por falha hidráulica.',
+      impacto: 'Redução de 40% na capacidade de escavação da equipe A.',
+      responsavel: 'Oficina / Manutenção',
+      prazoRemocao: fmt(addDays(today, -10)),
+      acoesNecessarias: '',
+      tags: ['equipamento', 'EQ-017'],
+      observacoes: 'Equipamento retornou ao serviço em 2024-03-10.',
+      status: 'resolvida' as LpsRestrictionStatus,
+      createdAt: fmt(addDays(today, -21)),
+      resolvedAt: fmt(addDays(today, -10)),
+    },
+  ]
+}
+
 function makeMockTaktZones(): TaktZone[] {
   return [
     { id: '1', code: 'T01', lengthM: 320, taktDays: 8, actualDays: 7 },
@@ -122,6 +173,7 @@ interface LpsState {
   activities: LpsActivity[]
   taktZones: TaktZone[]
   taktTotalDays: number
+  restrictions: LpsRestriction[]
 
   setActiveTab: (tab: LpsTab) => void
 
@@ -132,6 +184,10 @@ interface LpsState {
   updateTaktZone: (id: string, updates: Partial<Omit<TaktZone, 'id'>>) => void
   setTaktTotalDays: (days: number) => void
   recalculateTakt: () => void
+
+  addRestriction: (r: Omit<LpsRestriction, 'id' | 'createdAt'>) => void
+  updateRestriction: (id: string, updates: Partial<Omit<LpsRestriction, 'id'>>) => void
+  removeRestriction: (id: string) => void
 
   loadDemoData: () => void
   clearData: () => void
@@ -144,6 +200,7 @@ export const useLpsStore = create<LpsState>((set, get) => ({
   activities: makeMockActivities(),
   taktZones: makeMockTaktZones(),
   taktTotalDays: 48,
+  restrictions: makeMockRestrictions(),
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -179,11 +236,28 @@ export const useLpsStore = create<LpsState>((set, get) => ({
     })
   },
 
+  addRestriction: (r) =>
+    set((s) => ({
+      restrictions: [
+        ...s.restrictions,
+        { ...r, id: crypto.randomUUID(), createdAt: new Date().toISOString().slice(0, 10) },
+      ],
+    })),
+
+  updateRestriction: (id, updates) =>
+    set((s) => ({
+      restrictions: s.restrictions.map((r) => r.id === id ? { ...r, ...updates } : r),
+    })),
+
+  removeRestriction: (id) =>
+    set((s) => ({ restrictions: s.restrictions.filter((r) => r.id !== id) })),
+
   loadDemoData: () =>
     set({
       activities: makeMockActivities(),
       taktZones: makeMockTaktZones(),
       taktTotalDays: 48,
+      restrictions: makeMockRestrictions(),
     }),
 
   clearData: () =>
@@ -191,5 +265,6 @@ export const useLpsStore = create<LpsState>((set, get) => ({
       activities: [],
       taktZones: [],
       taktTotalDays: 48,
+      restrictions: [],
     }),
 }))

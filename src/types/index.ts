@@ -1223,7 +1223,33 @@ export type BimTab = 'viewer' | '4d' | '5d'
 
 export type LpsCncCategory = 'weather' | 'equipment' | 'labor' | 'material' | 'design' | 'other'
 export type LpsReadyStatus = 'green' | 'yellow' | 'red'
-export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt'
+export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt' | 'restricoes' | 'analytics'
+
+export type LpsRestrictionCategory =
+  | 'projeto_engenharia'
+  | 'materiais'
+  | 'equipamentos'
+  | 'mao_de_obra'
+  | 'externo'
+  | 'outros'
+
+export type LpsRestrictionStatus = 'identificada' | 'em_resolucao' | 'resolvida'
+
+export interface LpsRestriction {
+  id: string
+  tema: string
+  categoria: LpsRestrictionCategory
+  descricao: string
+  impacto?: string
+  responsavel?: string
+  prazoRemocao?: string       // 'YYYY-MM-DD'
+  acoesNecessarias?: string
+  tags: string[]
+  observacoes?: string
+  status: LpsRestrictionStatus
+  createdAt: string
+  resolvedAt?: string
+}
 
 export interface LpsActivity {
   id: string
@@ -1254,4 +1280,38 @@ export interface TaktZone {
   taktDays: number
   actualDays?: number
   startDate?: string
+}
+
+// ─── Mapa Interativo ──────────────────────────────────────────────────────────
+
+export type MapNodeType    = 'junction' | 'endpoint' | 'structure'
+export type MapNetworkType = 'sewer' | 'water' | 'drainage' | 'civil' | 'generic'
+export type MapTool        = 'idle' | 'addNode' | 'connect' | 'deleteNode' | 'deleteSegment' | 'measure' | 'structure'
+
+export interface MapNode {
+  id: string
+  lat: number
+  lng: number
+  label?: string
+  nodeType: MapNodeType
+  elevation?: number
+}
+
+export interface MapSegment {
+  id: string
+  fromNodeId: string
+  toNodeId: string
+  networkType: MapNetworkType
+  diameter?: number
+  material?: string
+  depth?: number
+  label?: string
+  color?: string
+}
+
+export interface MapLayer {
+  id: MapNetworkType
+  name: string
+  color: string
+  visible: boolean
 }

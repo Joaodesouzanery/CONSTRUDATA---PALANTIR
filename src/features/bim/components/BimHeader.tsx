@@ -1,4 +1,5 @@
-import { Layers, Upload, GitBranch, Ruler, DollarSign, CalendarCheck } from 'lucide-react'
+import { useState } from 'react'
+import { Layers, Upload, GitBranch, Ruler, DollarSign, CalendarCheck, FolderOpen, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useBimStore } from '@/store/bimStore'
 import type { BimTab } from '@/types'
@@ -22,6 +23,30 @@ export function BimHeader({ onUploadClick }: Props) {
   const setActiveTab  = useBimStore((s) => s.setActiveTab)
   const project       = useBimStore((s) => s.project)
   const activeDate    = useBimStore((s) => s.activeDate)
+  const [showProjects, setShowProjects] = useState(false)
+  const [projectList, setProjectList]   = useState<{ id: string; name: string }[]>([])
+
+  function openProjects() {
+    import('@/store/projetosStore').then(({ useProjetosStore }) => {
+      const projetos = useProjetosStore.getState().projects
+      setProjectList(projetos.map((p) => ({ id: p.id, name: p.name })))
+      setShowProjects(true)
+    })
+  }
+
+  function loadProject(id: string) {
+    setShowProjects(false)
+    import('@/store/projetosStore').then(({ useProjetosStore }) => {
+      const p = useProjetosStore.getState().projects.find((x) => x.id === id)
+      if (!p) return
+      import('@/features/projetos/utils/projectToBim').then(({ projectToBim }) => {
+        const bimProject = projectToBim(p)
+        const { projects, addProject, setActiveProject } = useBimStore.getState()
+        const existing = projects.find((x) => x.id === bimProject.id)
+        if (existing) { setActiveProject(existing.id) } else { addProject(bimProject) }
+      })
+    })
+  }
 
   // KPI calculations
   const segs        = project?.segments ?? []
@@ -62,13 +87,47 @@ export function BimHeader({ onUploadClick }: Props) {
           ))}
         </div>
 
-        <button
-          onClick={onUploadClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
-        >
-          <Upload size={13} />
-          Importar
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Projetos dropdown */}
+          <div className="relative">
+            <button
+              onClick={openProjects}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs font-medium transition-colors"
+            >
+              <FolderOpen size={13} />
+              Projetos
+              <ChevronDown size={11} />
+            </button>
+            {showProjects && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowProjects(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 bg-gray-800 border border-gray-700 rounded-lg shadow-xl min-w-[200px] py-1">
+                  {projectList.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-gray-500">Nenhum projeto cadastrado.</p>
+                  ) : (
+                    projectList.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => loadProject(p.id)}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 hover:text-white transition-colors truncate"
+                      >
+                        {p.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={onUploadClick}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
+          >
+            <Upload size={13} />
+            Importar
+          </button>
+        </div>
       </div>
 
       {/* KPI bar */}

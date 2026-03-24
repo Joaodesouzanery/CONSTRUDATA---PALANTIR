@@ -16,10 +16,12 @@ const CNC_LABELS: Record<string, string> = {
 }
 
 const TABS: { id: LpsTab; label: string }[] = [
-  { id: 'semaforo',  label: 'Semáforo' },
-  { id: 'lookahead', label: 'Look-ahead' },
-  { id: 'ppc',       label: 'PPC Dashboard' },
-  { id: 'takt',      label: 'Takt Time' },
+  { id: 'semaforo',   label: 'Semáforo' },
+  { id: 'lookahead',  label: 'Look-ahead' },
+  { id: 'ppc',        label: 'PPC Dashboard' },
+  { id: 'takt',       label: 'Takt Time' },
+  { id: 'restricoes', label: 'Restrições' },
+  { id: 'analytics',  label: 'Analytics' },
 ]
 
 export function LpsHeader() {
