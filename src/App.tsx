@@ -12,6 +12,7 @@ import { MaoDeObraPage }             from '@/features/mao-de-obra/index'
 import OtimizacaoFrotaPage           from '@/features/otimizacao-frota/index'
 import { Gestao360Page }             from '@/features/gestao-360/index'
 import { PlanejamentoPage }          from '@/features/planejamento/index'
+import { LpsPage }                  from '@/features/lps-lean/index'
 import { RdoPage }                  from '@/features/rdo/index'
 import { QuantitativosPage }        from '@/features/quantitativos/index'
 import { lazy, Suspense } from 'react'
@@ -36,6 +37,7 @@ function App() {
           <Route path="/otimizacao-frota"   element={<OtimizacaoFrotaPage />} />
           <Route path="/gestao-360"         element={<Gestao360Page />} />
           <Route path="/planejamento"       element={<PlanejamentoPage />} />
+          <Route path="/lps-lean"          element={<LpsPage />} />
           <Route path="/rdo"               element={<RdoPage />} />
           <Route path="/quantitativos"     element={<QuantitativosPage />} />
           <Route path="/bim"               element={

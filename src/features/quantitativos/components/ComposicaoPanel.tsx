@@ -186,12 +186,287 @@ function SaveDialog({ onSave, onClose }: { onSave: (name: string, desc?: string)
   )
 }
 
-// Network Import Modal
+// ─── File parsers ────────────────────────────────────────────────────────────
+
+type ParsedItem = Omit<OrcamentoItem, 'id' | 'totalCost'>
+
+function parseTxt(text: string, bdi: number): ParsedItem[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'))
+  if (lines.length < 2) return []
+  const header = lines[0].toLowerCase()
+  const sep = header.includes(';') ? ';' : ','
+  const cols = header.split(sep).map((c) => c.trim().replace(/"/g, ''))
+
+  const idx = (names: string[]) => names.reduce((found, n) => found >= 0 ? found : cols.indexOf(n), -1)
+  const iCode  = idx(['codigo', 'code', 'cod'])
+  const iDesc  = idx(['descricao', 'description', 'desc', 'item'])
+  const iUnit  = idx(['unidade', 'unit', 'un'])
+  const iQty   = idx(['quantidade', 'quantity', 'qtd', 'qty'])
+  const iCost  = idx(['custo_unit', 'custo', 'unit_cost', 'unitcost', 'preco'])
+
+  return lines.slice(1).flatMap((line) => {
+    const parts = line.split(sep).map((p) => p.trim().replace(/"/g, ''))
+    if (parts.length < 2) return []
+    return [{
+      code:        iCode >= 0  ? parts[iCode]  : `IMP-${Math.random().toString(36).slice(2, 6)}`,
+      description: iDesc >= 0  ? parts[iDesc]  : parts[0] ?? 'Item importado',
+      unit:        iUnit >= 0  ? parts[iUnit]  : 'un',
+      quantity:    iQty  >= 0  ? parseFloat(parts[iQty])  || 0 : 1,
+      unitCost:    iCost >= 0  ? parseFloat(parts[iCost]) || 0 : 0,
+      bdi,
+      category:    'services' as OrcamentoItem['category'],
+      source:      'custom' as CostBaseSource,
+    }]
+  })
+}
+
+function parseDxf(text: string, bdi: number): ParsedItem[] {
+  const items: ParsedItem[] = []
+  const lines = text.split(/\r?\n/)
+  let i = 0
+
+  function nextVal(): string { return (lines[++i] ?? '').trim() }
+
+  while (i < lines.length) {
+    const code = lines[i]?.trim()
+    if (code === '0') {
+      const etype = nextVal()
+      if (etype === 'LINE') {
+        // Read X1 Y1 Z1 X2 Y2 Z2
+        let x1 = 0, y1 = 0, z1 = 0, x2 = 0, y2 = 0, z2 = 0
+        while (i < lines.length) {
+          const c = lines[++i]?.trim()
+          if (c === undefined) break
+          const v = parseFloat(lines[i + 1]?.trim() ?? '0')
+          if (c === '10') x1 = v
+          else if (c === '20') y1 = v
+          else if (c === '30') z1 = v
+          else if (c === '11') x2 = v
+          else if (c === '21') y2 = v
+          else if (c === '31') z2 = v
+          else if (c === '0') { i--; break }
+          i++
+        }
+        const len = Math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+        if (len > 0) {
+          items.push({
+            code: `DXF-LINE-${items.length + 1}`,
+            description: `Segmento LINEAR — DXF Import (${len.toFixed(1)} m)`,
+            unit: 'm', quantity: Math.round(len * 100) / 100, unitCost: 0,
+            bdi, category: 'services', source: 'custom',
+          })
+        }
+      } else if (etype === 'LWPOLYLINE') {
+        // Sum all vertex-to-vertex distances
+        const verts: [number, number][] = []
+        while (i < lines.length) {
+          const c = lines[++i]?.trim()
+          if (c === undefined) break
+          const v = parseFloat(lines[i + 1]?.trim() ?? '0')
+          if (c === '10') verts.push([v, 0])
+          else if (c === '20' && verts.length > 0) verts[verts.length - 1][1] = v
+          else if (c === '0') { i--; break }
+          i++
+        }
+        let len = 0
+        for (let j = 1; j < verts.length; j++) {
+          len += Math.sqrt((verts[j][0]-verts[j-1][0])**2 + (verts[j][1]-verts[j-1][1])**2)
+        }
+        if (len > 0) {
+          items.push({
+            code: `DXF-PLY-${items.length + 1}`,
+            description: `Polilinha — DXF Import (${len.toFixed(1)} m)`,
+            unit: 'm', quantity: Math.round(len * 100) / 100, unitCost: 0,
+            bdi, category: 'services', source: 'custom',
+          })
+        }
+      }
+    }
+    i++
+  }
+  return items
+}
+
+function parseShp(buffer: ArrayBuffer, fileName: string, bdi: number): ParsedItem[] {
+  // Read SHP header: bytes 32-35 = shape type (little-endian int32)
+  const view = new DataView(buffer)
+  if (buffer.byteLength < 100) return []
+  const shapeType = view.getInt32(32, true)
+  if (shapeType !== 3 && shapeType !== 5 && shapeType !== 13 && shapeType !== 15) {
+    // Not polyline/polygon — return generic item
+    return [{
+      code: 'SHP-001',
+      description: `Shapefile importado — ${fileName} (Tipo ${shapeType})`,
+      unit: 'un', quantity: 1, unitCost: 0,
+      bdi, category: 'services', source: 'custom',
+    }]
+  }
+  // For polylines: estimate length from bounding box diagonal (bytes 36-68: Xmin Ymin Xmax Ymax)
+  const xMin = view.getFloat64(36, true)
+  const yMin = view.getFloat64(44, true)
+  const xMax = view.getFloat64(52, true)
+  const yMax = view.getFloat64(60, true)
+  const diagLen = Math.sqrt((xMax - xMin) ** 2 + (yMax - yMin) ** 2)
+  return [{
+    code: 'SHP-001',
+    description: `Rede importada SHP — ${fileName} (extensão estimada ${diagLen.toFixed(0)} m)`,
+    unit: 'm', quantity: Math.round(diagLen), unitCost: 0,
+    bdi, category: 'services', source: 'custom',
+  }]
+}
+
+// ─── File upload tab ──────────────────────────────────────────────────────────
+
+function FileUploadTab({ bdi, onImport, onClose }: {
+  bdi: number
+  onImport: (items: ParsedItem[]) => void
+  onClose: () => void
+}) {
+  const [parsedItems, setParsedItems] = useState<ParsedItem[]>([])
+  const [fileName, setFileName] = useState('')
+  const [error, setError] = useState('')
+  const [dragging, setDragging] = useState(false)
+
+  async function handleFile(file: File) {
+    setError('')
+    setFileName(file.name)
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+
+    if (ext === 'dwg') {
+      setError('Formato DWG não suportado diretamente no browser. Converta para DXF via AutoCAD ou FreeCAD e reimporte.')
+      setParsedItems([])
+      return
+    }
+
+    try {
+      if (ext === 'shp') {
+        const buf = await file.arrayBuffer()
+        setParsedItems(parseShp(buf, file.name, bdi))
+      } else {
+        const text = await file.text()
+        if (ext === 'dxf') {
+          setParsedItems(parseDxf(text, bdi))
+        } else {
+          // .txt or unknown — try CSV parser
+          setParsedItems(parseTxt(text, bdi))
+        }
+      }
+    } catch {
+      setError('Erro ao processar o arquivo. Verifique o formato.')
+      setParsedItems([])
+    }
+  }
+
+  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFile(file)
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-4 flex-1 overflow-y-auto">
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+          dragging ? 'border-violet-500 bg-violet-900/20' : 'border-gray-700 hover:border-gray-600'
+        }`}
+      >
+        <p className="text-gray-400 text-sm mb-2">Arraste um arquivo aqui ou clique para selecionar</p>
+        <p className="text-gray-600 text-xs mb-3">Formatos aceitos: .txt (CSV/TSV) · .dxf · .shp</p>
+        <label className="inline-block cursor-pointer px-4 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm transition-colors">
+          Selecionar arquivo
+          <input
+            type="file"
+            accept=".txt,.dxf,.shp,.dwg"
+            className="hidden"
+            onChange={onInputChange}
+          />
+        </label>
+        {fileName && <p className="text-violet-400 text-xs mt-2">{fileName}</p>}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-700/40 rounded-lg px-3 py-2 text-red-300 text-xs">
+          {error}
+        </div>
+      )}
+
+      {/* Format hints */}
+      <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-3">
+        <p className="text-xs text-gray-400 font-semibold mb-1.5">Formato esperado para .txt / .csv:</p>
+        <pre className="text-[10px] text-gray-500 font-mono leading-relaxed">
+{`CODIGO;DESCRICAO;UNIDADE;QTD;CUSTO_UNIT
+74209/001;Escavacao manual;m3;15;48.50
+72942/001;Tubo PVC DN150 PBA;m;100;32.00`}
+        </pre>
+      </div>
+
+      {/* Preview */}
+      {parsedItems.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-400 font-semibold mb-2">{parsedItems.length} item(ns) extraído(s):</p>
+          <div className="rounded-xl border border-gray-700 overflow-hidden max-h-52 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-800 sticky top-0">
+                <tr>
+                  <th className="text-left text-gray-500 px-3 py-2">Descrição</th>
+                  <th className="text-right text-gray-500 px-3 py-2">Qtd</th>
+                  <th className="text-left text-gray-500 px-3 py-2">Un.</th>
+                  <th className="text-right text-gray-500 px-3 py-2">C.Unit.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {parsedItems.map((item, i) => (
+                  <tr key={i} className="bg-gray-900">
+                    <td className="px-3 py-1.5 text-gray-300 truncate max-w-[200px]">{item.description}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-400 font-mono">{item.quantity}</td>
+                    <td className="px-3 py-1.5 text-gray-500">{item.unit}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-400 font-mono">
+                      {item.unitCost > 0 ? fmtBRL(item.unitCost) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex gap-2 mt-auto pt-2 border-t border-gray-700">
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 text-sm hover:bg-gray-600">
+          Cancelar
+        </button>
+        <button
+          onClick={() => { onImport(parsedItems); onClose() }}
+          disabled={parsedItems.length === 0}
+          className="px-4 py-1.5 rounded-lg text-sm text-white disabled:opacity-40 transition-opacity ml-auto"
+          style={{ backgroundColor: '#8b5cf6' }}
+        >
+          Adicionar ao Orçamento ({parsedItems.length})
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Network Import Modal (tabbed) ────────────────────────────────────────────
+
 function NetworkImportModal({ onClose, onImport, bdi }: {
   onClose: () => void
   onImport: (items: Omit<OrcamentoItem, 'id' | 'totalCost'>[]) => void
   bdi: number
 }) {
+  const [tab, setTab] = useState<'templates' | 'file'>('templates')
   const [selected, setSelected] = useState<string | null>(null)
   const [length, setLength] = useState(100)
 
@@ -216,119 +491,141 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Network size={16} className="text-violet-400" />
-            <h3 className="text-white font-semibold text-sm">Importar Rede Pronta</h3>
+            <h3 className="text-white font-semibold text-sm">Importar Rede</h3>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><X size={18} /></button>
         </div>
 
-        {/* Length input */}
-        <div className="px-5 py-3 border-b border-gray-700 flex items-center gap-3">
-          <label className="text-gray-400 text-xs whitespace-nowrap">Comprimento da rede (m):</label>
-          <input
-            type="number"
-            value={length}
-            min={10}
-            step={10}
-            onChange={(e) => setLength(parseFloat(e.target.value) || 100)}
-            className="w-28 bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-violet-500"
-          />
-          <span className="text-gray-500 text-xs">
-            Os quantitativos serão escalados proporcionalmente ao comprimento informado.
-          </span>
-        </div>
-
-        {/* Template list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {NETWORK_TEMPLATES.map((tmpl) => {
-            const scale = length / tmpl.perMeters
-            const total = tmpl.items.reduce((s, i) => s + i.quantity * scale * i.unitCost * (1 + bdi / 100), 0)
-            const isSelected = selected === tmpl.id
-            return (
-              <div
-                key={tmpl.id}
-                onClick={() => setSelected(isSelected ? null : tmpl.id)}
-                className={`rounded-xl border cursor-pointer transition-all ${
-                  isSelected
-                    ? 'border-violet-500 bg-violet-900/20'
-                    : 'border-gray-700 bg-gray-750/30 hover:border-gray-600'
-                }`}
-              >
-                {/* Template header */}
-                <div className="px-4 py-3 flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-2xl leading-none">{tmpl.icon}</span>
-                    <div>
-                      <p className="text-gray-200 text-sm font-medium">{tmpl.name}</p>
-                      <p className="text-gray-500 text-xs mt-0.5">{tmpl.description}</p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-violet-400 text-sm font-semibold">{fmtBRL(total)}</p>
-                    <p className="text-gray-500 text-xs">{tmpl.items.length} itens · c/ BDI {bdi}%</p>
-                  </div>
-                </div>
-
-                {/* Item preview (expanded when selected) */}
-                {isSelected && (
-                  <div className="border-t border-gray-700/60 px-4 pb-3">
-                    <table className="w-full text-xs mt-2">
-                      <thead>
-                        <tr className="text-gray-500">
-                          <th className="text-left py-1 font-medium">Descrição</th>
-                          <th className="text-right py-1 font-medium">Qtd</th>
-                          <th className="text-left py-1 pl-2 font-medium">Un.</th>
-                          <th className="text-right py-1 font-medium">C.Unit.</th>
-                          <th className="text-right py-1 font-medium">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tmpl.items.map((it, idx) => {
-                          const scaledQty = Math.round(it.quantity * scale * 100) / 100
-                          return (
-                            <tr key={idx} className="border-t border-gray-700/30 text-gray-300">
-                              <td className="py-1 pr-2">{it.description}</td>
-                              <td className="py-1 text-right text-gray-400">{scaledQty}</td>
-                              <td className="py-1 pl-2 text-gray-500">{it.unit}</td>
-                              <td className="py-1 text-right text-gray-400">{fmtBRL(it.unitCost)}</td>
-                              <td className="py-1 text-right text-violet-300">{fmtBRL(scaledQty * it.unitCost)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 py-3 border-t border-gray-700 flex items-center justify-between">
-          <p className="text-gray-500 text-xs">
-            {selected
-              ? `"${template?.name}" selecionada · ${length}m`
-              : 'Selecione um template acima'}
-          </p>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 text-sm hover:bg-gray-600">
-              Cancelar
-            </button>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-700">
+          {(['templates', 'file'] as const).map((t) => (
             <button
-              onClick={handleImport}
-              disabled={!selected}
-              className="px-4 py-1.5 rounded-lg text-sm text-white disabled:opacity-40 transition-opacity"
-              style={{ backgroundColor: '#8b5cf6' }}
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+                tab === t
+                  ? 'text-violet-400 border-violet-500'
+                  : 'text-gray-500 border-transparent hover:text-gray-300'
+              }`}
             >
-              Adicionar ao Orçamento
+              {t === 'templates' ? 'Redes Prontas' : 'Importar Arquivo'}
             </button>
-          </div>
+          ))}
         </div>
+
+        {/* Templates tab */}
+        {tab === 'templates' && (
+          <>
+            {/* Length input */}
+            <div className="px-5 py-3 border-b border-gray-700 flex items-center gap-3">
+              <label className="text-gray-400 text-xs whitespace-nowrap">Comprimento da rede (m):</label>
+              <input
+                type="number"
+                value={length}
+                min={10}
+                step={10}
+                onChange={(e) => setLength(parseFloat(e.target.value) || 100)}
+                className="w-28 bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-violet-500"
+              />
+              <span className="text-gray-500 text-xs">
+                Quantitativos escalados proporcionalmente.
+              </span>
+            </div>
+
+            {/* Template list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {NETWORK_TEMPLATES.map((tmpl) => {
+                const scale = length / tmpl.perMeters
+                const total = tmpl.items.reduce((s, i) => s + i.quantity * scale * i.unitCost * (1 + bdi / 100), 0)
+                const isSelected = selected === tmpl.id
+                return (
+                  <div
+                    key={tmpl.id}
+                    onClick={() => setSelected(isSelected ? null : tmpl.id)}
+                    className={`rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-violet-500 bg-violet-900/20'
+                        : 'border-gray-700 bg-gray-750/30 hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="px-4 py-3 flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl leading-none">{tmpl.icon}</span>
+                        <div>
+                          <p className="text-gray-200 text-sm font-medium">{tmpl.name}</p>
+                          <p className="text-gray-500 text-xs mt-0.5">{tmpl.description}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-violet-400 text-sm font-semibold">{fmtBRL(total)}</p>
+                        <p className="text-gray-500 text-xs">{tmpl.items.length} itens · c/ BDI {bdi}%</p>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <div className="border-t border-gray-700/60 px-4 pb-3">
+                        <table className="w-full text-xs mt-2">
+                          <thead>
+                            <tr className="text-gray-500">
+                              <th className="text-left py-1 font-medium">Descrição</th>
+                              <th className="text-right py-1 font-medium">Qtd</th>
+                              <th className="text-left py-1 pl-2 font-medium">Un.</th>
+                              <th className="text-right py-1 font-medium">C.Unit.</th>
+                              <th className="text-right py-1 font-medium">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tmpl.items.map((it, idx) => {
+                              const scaledQty = Math.round(it.quantity * scale * 100) / 100
+                              return (
+                                <tr key={idx} className="border-t border-gray-700/30 text-gray-300">
+                                  <td className="py-1 pr-2">{it.description}</td>
+                                  <td className="py-1 text-right text-gray-400">{scaledQty}</td>
+                                  <td className="py-1 pl-2 text-gray-500">{it.unit}</td>
+                                  <td className="py-1 text-right text-gray-400">{fmtBRL(it.unitCost)}</td>
+                                  <td className="py-1 text-right text-violet-300">{fmtBRL(scaledQty * it.unitCost)}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-700 flex items-center justify-between">
+              <p className="text-gray-500 text-xs">
+                {selected ? `"${template?.name}" selecionada · ${length}m` : 'Selecione um template acima'}
+              </p>
+              <div className="flex gap-2">
+                <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 text-sm hover:bg-gray-600">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={!selected}
+                  className="px-4 py-1.5 rounded-lg text-sm text-white disabled:opacity-40 transition-opacity"
+                  style={{ backgroundColor: '#8b5cf6' }}
+                >
+                  Adicionar ao Orçamento
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* File upload tab */}
+        {tab === 'file' && (
+          <FileUploadTab bdi={bdi} onImport={onImport} onClose={onClose} />
+        )}
       </div>
     </div>
   )

@@ -1218,3 +1218,40 @@ export interface BimProject {
 
 export type BimColorMode = 'default' | 'depth' | 'date' | 'cost'
 export type BimTab = 'viewer' | '4d' | '5d'
+
+// ─── LPS / Lean Construction ──────────────────────────────────────────────────
+
+export type LpsCncCategory = 'weather' | 'equipment' | 'labor' | 'material' | 'design' | 'other'
+export type LpsReadyStatus = 'green' | 'yellow' | 'red'
+export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt'
+
+export interface LpsActivity {
+  id: string
+  week: string              // ISO week e.g. '2025-W12'
+  trechoCode: string
+  description: string
+  planned: boolean
+  completed: boolean
+  readyStatus: LpsReadyStatus
+  cncCategory?: LpsCncCategory
+  cncDescription?: string
+  responsibleTeam?: string
+  plannedMeters?: number
+  executedMeters?: number
+}
+
+export interface LpsWeeklyPPC {
+  week: string
+  planned: number
+  completed: number
+  ppc: number               // completed / planned * 100
+}
+
+export interface TaktZone {
+  id: string
+  code: string
+  lengthM: number
+  taktDays: number
+  actualDays?: number
+  startDate?: string
+}
