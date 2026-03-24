@@ -8,6 +8,7 @@ import {
   Cloud, CloudRain, Sun, Zap, Camera, MapPin,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { printRdoPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -217,7 +218,7 @@ function RdoCard({ rdo, onDelete }: { rdo: RDO; onDelete: () => void }) {
   const totalMeters = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
 
   function handlePrint() {
-    window.print()
+    printRdoPDF(rdo)
   }
 
   return (

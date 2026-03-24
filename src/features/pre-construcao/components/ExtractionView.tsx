@@ -1,9 +1,51 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Trash2, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
 import type { ClauseSeverity } from '@/types'
+
+// Inline editable cell (shared with ComposicaoPanel pattern)
+function EditCell({ value, onSave, type = 'text' }: {
+  value: string | number
+  onSave: (v: string | number) => void
+  type?: 'text' | 'number'
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(String(value))
+
+  function commit() {
+    const v = type === 'number' ? parseFloat(draft) || 0 : draft
+    onSave(v)
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <span
+        onClick={() => { setDraft(String(value)); setEditing(true) }}
+        className="cursor-pointer hover:text-orange-400 transition-colors"
+        title="Clique para editar"
+      >
+        {value}
+      </span>
+    )
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        autoFocus
+        type={type}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+        className="w-full bg-[#2a2a2a] border border-[#f97316]/50 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none"
+      />
+      <button onClick={commit} className="text-[#4ade80] hover:text-emerald-300 p-0.5"><Check size={11} /></button>
+      <button onClick={() => setEditing(false)} className="text-[#6b6b6b] hover:text-[#a3a3a3] p-0.5"><X size={11} /></button>
+    </div>
+  )
+}
 
 function ConfidenceBadge({ value }: { value: number }) {
   const color =
@@ -45,11 +87,15 @@ function SeverityBadge({ severity }: { severity: ClauseSeverity }) {
 export function ExtractionView() {
   const [clausesOpen, setClausesOpen] = useState(true)
 
-  const { takeoffItems, clauses, setStep } = usePreConstrucaoStore(useShallow((s) => ({
-    takeoffItems: s.takeoffItems,
-    clauses:      s.clauses,
-    setStep:      s.setStep,
-  })))
+  const { takeoffItems, clauses, setStep, addTakeoffItem, updateTakeoffItem, removeTakeoffItem } =
+    usePreConstrucaoStore(useShallow((s) => ({
+      takeoffItems:      s.takeoffItems,
+      clauses:           s.clauses,
+      setStep:           s.setStep,
+      addTakeoffItem:    s.addTakeoffItem,
+      updateTakeoffItem: s.updateTakeoffItem,
+      removeTakeoffItem: s.removeTakeoffItem,
+    })))
 
   return (
     <div className="flex gap-4 h-full">
@@ -57,11 +103,19 @@ export function ExtractionView() {
       <div className="flex flex-col flex-1 min-w-0 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
           <h2 className="text-[#f5f5f5] font-semibold text-sm">Itens Extraídos</h2>
-          {takeoffItems.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-[#f97316]/20 text-[#f97316] text-xs font-semibold">
-              {takeoffItems.length} itens
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {takeoffItems.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-[#f97316]/20 text-[#f97316] text-xs font-semibold">
+                {takeoffItems.length} itens
+              </span>
+            )}
+            <button
+              onClick={addTakeoffItem}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#f97316]/20 hover:bg-[#f97316]/30 text-[#f97316] text-xs transition-colors"
+            >
+              <Plus size={11} /> Adicionar
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-auto">
@@ -79,25 +133,38 @@ export function ExtractionView() {
                   <th className="text-left  text-[#6b6b6b] text-xs font-medium px-3 py-2">Unidade</th>
                   <th className="text-center text-[#6b6b6b] text-xs font-medium px-3 py-2">Confiança</th>
                   <th className="text-left  text-[#6b6b6b] text-xs font-medium px-3 py-2">Arquivo</th>
+                  <th className="px-3 py-2 w-8" />
                 </tr>
               </thead>
               <tbody>
                 {takeoffItems.map((item, idx) => (
                   <tr
                     key={item.id}
-                    className="border-t border-[#2a2a2a] hover:bg-[#252525] transition-colors"
+                    className="border-t border-[#2a2a2a] hover:bg-[#252525] transition-colors group"
                   >
                     <td className="px-3 py-2 text-[#6b6b6b] text-xs">{idx + 1}</td>
-                    <td className="px-3 py-2 text-[#f5f5f5]">{item.description}</td>
-                    <td className="px-3 py-2 text-[#f5f5f5] text-right tabular-nums">
-                      {item.quantity.toLocaleString('pt-BR')}
+                    <td className="px-3 py-2 text-[#f5f5f5]">
+                      <EditCell value={item.description} onSave={(v) => updateTakeoffItem(item.id, { description: String(v) })} />
                     </td>
-                    <td className="px-3 py-2 text-[#a3a3a3]">{item.unit}</td>
+                    <td className="px-3 py-2 text-[#f5f5f5] text-right tabular-nums">
+                      <EditCell value={item.quantity} onSave={(v) => updateTakeoffItem(item.id, { quantity: Number(v) })} type="number" />
+                    </td>
+                    <td className="px-3 py-2 text-[#a3a3a3]">
+                      <EditCell value={item.unit} onSave={(v) => updateTakeoffItem(item.id, { unit: String(v) })} />
+                    </td>
                     <td className="px-3 py-2 text-center">
                       <ConfidenceBadge value={item.confidence} />
                     </td>
                     <td className="px-3 py-2 text-[#6b6b6b] text-xs truncate max-w-[120px]">
                       {item.source}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => removeTakeoffItem(item.id)}
+                        className="p-1 text-[#3a3a3a] hover:text-[#f87171] transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={11} />
+                      </button>
                     </td>
                   </tr>
                 ))}

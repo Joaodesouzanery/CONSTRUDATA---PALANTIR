@@ -56,6 +56,24 @@ export const MOCK_OBRAS: ConstructionSite[] = [
         notes: 'Contrato com fornecedor renegociado. Ajuste de preço absorvido na reserva de contingência.',
       },
     ],
+    budgetLines: [
+      { label: 'Total',         amount: 241_880_000, projected: 267_000_000 },
+      { label: 'Materiais',     amount: 85_408_000,  projected: 113_400_000 },
+      { label: 'Mão de Obra',   amount: 54_718_000,  projected: 70_227_000  },
+      { label: 'Equipamentos',  amount: 48_200_000,  projected: 59_200_000  },
+      { label: 'Acabamentos',   amount: 21_608_000,  projected: 22_123_000  },
+    ],
+    planningMilestones: [
+      { name: 'Eng. & Design',    date: '2024-01-15', status: 'done'    },
+      { name: 'Pré-Construção',   date: '2024-05-28', status: 'done'    },
+      { name: 'Aquisições',       date: '2024-09-07', status: 'active'  },
+      { name: 'Entrega Final',    date: '2026-06-30', status: 'pending' },
+    ],
+    executionMilestones: [
+      { name: 'Construção',       date: '2025-02-04', status: 'done'    },
+      { name: 'Controle Proj.',   date: '2025-02-04', status: 'active'  },
+      { name: 'Encerramento',     date: '2026-07-31', status: 'pending' },
+    ],
   },
   {
     id: 'obr-002',
@@ -93,6 +111,7 @@ export const MOCK_OBRAS: ConstructionSite[] = [
       },
       {
         id: 'risk-002-2',
+
         title: 'Instabilidade Geotécnica na Área Norte',
         description:
           'Sondagem SPT identificou camada de argila mole entre 4 e 8 metros na área norte do terreno. Pode exigir substituição do tipo de fundação previsto.',
@@ -100,6 +119,25 @@ export const MOCK_OBRAS: ConstructionSite[] = [
         status: 'identified',
         identifiedAt: '2025-02-28T16:00:00.000Z',
       },
+    ],
+    budgetLines: [
+      { label: 'Total',        amount: 189_500_000, projected: 198_000_000 },
+      { label: 'Materiais',    amount: 75_000_000,  projected: 80_000_000  },
+      { label: 'Mão de Obra',  amount: 42_000_000,  projected: 42_000_000  },
+      { label: 'Equipamentos', amount: 55_000_000,  projected: 58_000_000  },
+      { label: 'Acabamentos',  amount: 17_500_000,  projected: 18_000_000  },
+    ],
+    planningMilestones: [
+      { name: 'Licença Ambiental', date: '2025-04-30', status: 'active'  },
+      { name: 'Projeto Executivo', date: '2025-05-15', status: 'pending' },
+      { name: 'Início Obras',      date: '2025-06-01', status: 'pending' },
+      { name: 'Entrega Final',     date: '2027-03-31', status: 'pending' },
+    ],
+    executionMilestones: [
+      { name: 'Terraplenagem',  date: '2025-07-01', status: 'pending' },
+      { name: 'Fundações',      date: '2025-09-01', status: 'pending' },
+      { name: 'Estrutura',      date: '2026-06-01', status: 'pending' },
+      { name: 'Encerramento',   date: '2027-04-30', status: 'pending' },
     ],
   },
   {
@@ -146,6 +184,25 @@ export const MOCK_OBRAS: ConstructionSite[] = [
         identifiedAt: '2025-03-15T08:00:00.000Z',
         notes: 'Plano de chuvas em revisão. Lonas e drenos adicionais já requisitados.',
       },
+    ],
+    budgetLines: [
+      { label: 'Total',        amount: 312_000_000, projected: 329_500_000 },
+      { label: 'Materiais',    amount: 120_000_000, projected: 131_000_000 },
+      { label: 'Mão de Obra',  amount: 68_000_000,  projected: 71_000_000  },
+      { label: 'Equipamentos', amount: 85_000_000,  projected: 88_000_000  },
+      { label: 'Acabamentos',  amount: 39_000_000,  projected: 39_500_000  },
+    ],
+    planningMilestones: [
+      { name: 'Eng. & Design',  date: '2024-03-01', status: 'done'    },
+      { name: 'Pré-Construção', date: '2024-07-10', status: 'done'    },
+      { name: 'Aquisições',     date: '2024-11-20', status: 'done'    },
+      { name: 'Entrega Final',  date: '2026-09-30', status: 'pending' },
+    ],
+    executionMilestones: [
+      { name: 'Fundações',     date: '2024-06-01', status: 'done'    },
+      { name: 'Estrutura',     date: '2025-03-01', status: 'active'  },
+      { name: 'Fechamento',    date: '2025-11-01', status: 'pending' },
+      { name: 'Encerramento',  date: '2026-10-31', status: 'pending' },
     ],
   },
 ]

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer, TileLayer, Marker, Popup, Tooltip,
   Circle, Polyline, LayersControl, ScaleControl,
@@ -59,7 +59,7 @@ function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
   const hasCritical = site.risks.some((r) => r.level === 'critical' && r.status === 'active')
 
   const pulse = hasCritical ? `
-    <div style="position:absolute;inset:-6px;border-radius:50%;background:${color};opacity:0.35;
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;background:${color};opacity:0.35;
       animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;"></div>` : ''
 
   const svg = `
@@ -71,13 +71,23 @@ function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
       <rect x="20" y="18" width="4" height="12" rx="1" fill="rgba(0,0,0,0.2)"/>
     </svg>`
 
+  // Short label: trim to 18 chars
+  const shortName = site.name.length > 18 ? site.name.slice(0, 17) + '…' : site.name
+
   const html = `
-    <div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6));">
-      ${pulse}${svg}
-      ${isSelected ? `<div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color};opacity:0.7;"></div>` : ''}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6));">
+        ${pulse}${svg}
+        ${isSelected ? `<div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color};opacity:0.7;"></div>` : ''}
+      </div>
+      <div style="background:rgba(13,17,23,0.85);border:1px solid ${color}40;border-radius:3px;
+        padding:1px 5px;font-size:9px;font-weight:600;color:${color};white-space:nowrap;
+        font-family:Inter,system-ui,sans-serif;line-height:1.4;pointer-events:none;">
+        ${shortName}
+      </div>
     </div>`
 
-  return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 8)] })
+  return L.divIcon({ html, className: '', iconSize: [size, size + 18], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 12)] })
 }
 
 // ─── MapController — fly-to on selection ─────────────────────────────────────
@@ -175,35 +185,52 @@ export function ObrasMap() {
   const [measureActive,  setMeasureActive]  = useState(false)
   const [measurePoints,  setMeasurePoints]  = useState<MeasurePoint[]>([])
 
-  const withCoords = sites.filter((s) => s.lat != null && s.lng != null)
-
-  const routeLines = routingRecs.filter(
+  // ── Memoized derivations ─────────────────────────────────────────────────────
+  const mapCSS     = useMemo(() => getMapCSS(isDark), [isDark])
+  const withCoords = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  const routeLines = useMemo(() => routingRecs.filter(
     (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
-  )
+  ), [routingRecs])
 
-  const measuredKm =
+  // O(1) equipment count lookup instead of O(n) per site per render
+  const equipCountBySiteName = useMemo(() => {
+    const map = new Map<string, number>()
+    equipamentos.forEach((e) => {
+      if (e.siteName) map.set(e.siteName, (map.get(e.siteName) ?? 0) + 1)
+    })
+    return map
+  }, [equipamentos])
+
+  const measuredKm = useMemo(() =>
     measurePoints.length === 2
       ? haversineKm(measurePoints[0].lat, measurePoints[0].lng, measurePoints[1].lat, measurePoints[1].lng)
-      : null
+      : null,
+    [measurePoints]
+  )
 
-  function handleMeasurePoint(p: MeasurePoint) {
+  const handleMeasurePoint = useCallback((p: MeasurePoint) => {
     setMeasurePoints((prev) => (prev.length >= 2 ? [p] : [...prev, p]))
-  }
+  }, [])
 
-  function clearMeasure() {
+  const clearMeasure = useCallback(() => {
     setMeasurePoints([])
     setMeasureActive(false)
-  }
+  }, [])
 
-  // Equipment count per site (match by siteName)
-  function equipCountForSite(site: ConstructionSite) {
-    return equipamentos.filter((e) => e.siteName === site.name).length
-  }
+  // ── Memoized icon factory ────────────────────────────────────────────────────
+  const getIcon = useCallback((site: ConstructionSite, selected: boolean) =>
+    createHelmetIcon(site, selected), [])
+
+  // ── Stable event handler factories ───────────────────────────────────────────
+  const makeClickHandler  = useCallback((id: string) => () => selectSite(id), [selectSite])
+  const makeDragHandler   = useCallback((id: string) => (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+    const { lat, lng } = e.target.getLatLng()
+    updateLocation(id, lat, lng)
+  }, [updateLocation])
 
   // Circle radius: proportional to totalArea (min 200m, max 800m)
-  function siteRadius(totalArea: number) {
-    return Math.min(800, Math.max(200, Math.sqrt(totalArea) * 3))
-  }
+  const siteRadius = useCallback((totalArea: number) =>
+    Math.min(800, Math.max(200, Math.sqrt(totalArea) * 3)), [])
 
   return (
     <div
@@ -213,7 +240,7 @@ export function ObrasMap() {
         ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999 } : {}),
       }}
     >
-      <style>{getMapCSS(isDark)}</style>
+      <style>{mapCSS}</style>
 
       <MapContainer
         center={[-23.5505, -46.6333]}
@@ -299,14 +326,11 @@ export function ObrasMap() {
           <Marker
             key={site.id}
             position={[site.lat!, site.lng!]}
-            icon={createHelmetIcon(site, site.id === selectedId)}
+            icon={getIcon(site, site.id === selectedId)}
             draggable
             eventHandlers={{
-              click:   () => selectSite(site.id),
-              dragend: (e) => {
-                const { lat, lng } = e.target.getLatLng()
-                updateLocation(site.id, lat, lng)
-              },
+              click:   makeClickHandler(site.id),
+              dragend: makeDragHandler(site.id),
             }}
           >
             <Tooltip direction="top" offset={[0, -10]}>
@@ -336,7 +360,7 @@ export function ObrasMap() {
 
                 {/* Equipment count */}
                 {(() => {
-                  const cnt = equipCountForSite(site)
+                  const cnt = equipCountBySiteName.get(site.name) ?? 0
                   return cnt > 0 ? (
                     <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 8 }}>
                       🚜 {cnt} equipamento{cnt !== 1 ? 's' : ''} no canteiro

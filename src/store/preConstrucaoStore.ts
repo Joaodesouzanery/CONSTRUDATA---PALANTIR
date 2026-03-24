@@ -31,10 +31,15 @@ interface PreConstrucaoState {
   clearFiles:     ()                      => void
 
   // Actions — extraction
-  setTakeoffItems: (items: TakeoffItem[])     => void
-  setClauses:      (clauses: ContractClause[]) => void
+  setTakeoffItems:    (items: TakeoffItem[])     => void
+  addTakeoffItem:     () => void
+  updateTakeoffItem:  (id: string, changes: Partial<TakeoffItem>) => void
+  removeTakeoffItem:  (id: string) => void
+  setClauses:         (clauses: ContractClause[]) => void
   acceptNormalization: (itemId: string) => void
   rejectNormalization: (itemId: string) => void
+  acceptAllNormalizations: () => void
+  rejectAllNormalizations: () => void
 
   // Actions — matching
   setCostMatches:   (matches: CostMatch[])   => void
@@ -99,6 +104,22 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
 
   setTakeoffItems: (items) => set({ takeoffItems: items }),
 
+  addTakeoffItem: () =>
+    set((s) => ({
+      takeoffItems: [
+        ...s.takeoffItems,
+        { id: nanoid(), description: 'Novo item', quantity: 1, unit: 'un', confidence: 100, source: 'manual' },
+      ],
+    })),
+
+  updateTakeoffItem: (id, changes) =>
+    set((s) => ({
+      takeoffItems: s.takeoffItems.map((item) => item.id === id ? { ...item, ...changes } : item),
+    })),
+
+  removeTakeoffItem: (id) =>
+    set((s) => ({ takeoffItems: s.takeoffItems.filter((item) => item.id !== id) })),
+
   setClauses: (clauses) => set({ clauses }),
 
   acceptNormalization: (itemId) =>
@@ -119,6 +140,27 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
     set((s) => ({
       takeoffItems: s.takeoffItems.map((item) =>
         item.id === itemId ? { ...item, normalized: false } : item
+      ),
+    })),
+
+  acceptAllNormalizations: () =>
+    set((s) => ({
+      takeoffItems: s.takeoffItems.map((item) => {
+        if (!item.normalized) return item
+        return {
+          ...item,
+          description: item.normalizedDescription ?? item.description,
+          quantity:    item.normalizedQuantity    ?? item.quantity,
+          unit:        item.normalizedUnit        ?? item.unit,
+          normalized:  false,
+        }
+      }),
+    })),
+
+  rejectAllNormalizations: () =>
+    set((s) => ({
+      takeoffItems: s.takeoffItems.map((item) =>
+        item.normalized ? { ...item, normalized: false } : item
       ),
     })),
 

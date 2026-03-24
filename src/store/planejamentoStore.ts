@@ -20,6 +20,7 @@ import type {
   AbcItem,
   ServiceNote,
   PlanScenario,
+  TechnicalRule,
 } from '@/types'
 import {
   MOCK_TRECHOS,
@@ -78,6 +79,9 @@ interface PlanejamentoState {
   notes:     ServiceNote[]
   scenarios: PlanScenario[]
 
+  // Technical Rules
+  technicalRules: TechnicalRule[]
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab: PlanejamentoTab) => void
@@ -118,6 +122,11 @@ interface PlanejamentoState {
   renameScenario: (id: string, name: string, description?: string) => void
   removeScenario: (id: string) => void
 
+  // Technical Rules
+  addTechnicalRule:    (rule: Omit<TechnicalRule, 'id'>) => void
+  updateTechnicalRule: (id: string, updates: Partial<Omit<TechnicalRule, 'id'>>) => void
+  removeTechnicalRule: (id: string) => void
+
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
@@ -146,6 +155,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
 
   notes:     MOCK_NOTES,
   scenarios: [MOCK_BASE_SCENARIO],
+
+  technicalRules: [
+    { id: crypto.randomUUID(), name: 'Solo Rochoso — penalidade', condition: "soilType === 'rocky'", productivityMultiplier: 0.6, costMultiplier: 1.4 },
+    { id: crypto.randomUUID(), name: 'Escoramento — restrição', condition: 'requiresShoring === true', productivityMultiplier: 0.75, costMultiplier: 1.25 },
+  ],
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -364,6 +378,17 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
 
   removeScenario: (id) =>
     set((s) => ({ scenarios: s.scenarios.filter((sc) => sc.id !== id) })),
+
+  // ── Technical Rules ───────────────────────────────────────────────────────────
+
+  addTechnicalRule: (rule) =>
+    set((s) => ({ technicalRules: [...s.technicalRules, { ...rule, id: crypto.randomUUID() }] })),
+
+  updateTechnicalRule: (id, updates) =>
+    set((s) => ({ technicalRules: s.technicalRules.map((r) => r.id === id ? { ...r, ...updates } : r) })),
+
+  removeTechnicalRule: (id) =>
+    set((s) => ({ technicalRules: s.technicalRules.filter((r) => r.id !== id) })),
 
   // ── Demo / Clear ──────────────────────────────────────────────────────────────
 

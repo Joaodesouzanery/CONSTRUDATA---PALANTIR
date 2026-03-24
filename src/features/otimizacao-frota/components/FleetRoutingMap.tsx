@@ -1,4 +1,5 @@
 import 'leaflet/dist/leaflet.css'
+import { useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, LayersControl, ScaleControl } from 'react-leaflet'
 import * as L from 'leaflet'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
@@ -53,6 +54,17 @@ function createEquipIcon(isIdle: boolean) {
   })
 }
 
+// ─── Accepted route animation CSS ─────────────────────────────────────────────
+
+const ACCEPTED_ANIM_CSS = `
+@keyframes dashMove {
+  to { stroke-dashoffset: -32; }
+}
+.route-accepted path {
+  animation: dashMove 1.2s linear infinite;
+}
+`
+
 // ─── Map CSS ──────────────────────────────────────────────────────────────────
 
 function getMapCSS(isDark: boolean) {
@@ -78,15 +90,17 @@ export function FleetRoutingMap() {
   const equipamentos = useEquipamentosStore((s) => s.equipamentos)
   const isDark       = useThemeStore((s) => s.theme === 'dark')
 
-  const withCoords    = sites.filter((s) => s.lat != null && s.lng != null)
-  const equipsOnMap   = equipamentos.filter((e) => e.lat !== null && e.lng !== null)
-  const routeLines    = routingRecs.filter(
+  // ── Memoized derivations ─────────────────────────────────────────────────────
+  const mapCSS      = useMemo(() => getMapCSS(isDark), [isDark])
+  const withCoords  = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  const equipsOnMap = useMemo(() => equipamentos.filter((e) => e.lat !== null && e.lng !== null), [equipamentos])
+  const routeLines  = useMemo(() => routingRecs.filter(
     (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
-  )
+  ), [routingRecs])
 
   return (
     <div className="w-full rounded-xl overflow-hidden border border-[#2a2a2a]" style={{ height: 380 }}>
-      <style>{getMapCSS(isDark)}</style>
+      <style>{mapCSS}{ACCEPTED_ANIM_CSS}</style>
       <MapContainer
         center={[-23.5400, -46.6300]}
         zoom={11}
@@ -135,9 +149,10 @@ export function FleetRoutingMap() {
                 <Polyline
                   key={`route-${r.id}`}
                   positions={[[r.fromLat!, r.fromLng!], [r.toLat!, r.toLng!]]}
+                  className={r.accepted === true ? 'route-accepted' : ''}
                   pathOptions={{
                     color:     PRIORITY_COLOR[r.priority] ?? '#f97316',
-                    weight:    3,
+                    weight:    r.accepted === true ? 3.5 : 3,
                     dashArray: '10 6',
                     opacity:   r.accepted === true ? 1 : 0.75,
                   }}

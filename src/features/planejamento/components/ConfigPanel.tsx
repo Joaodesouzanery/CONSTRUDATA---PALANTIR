@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, Users,
-  BarChart3, Calendar, Calculator, Database,
+  BarChart3, Calendar, Calculator, Database, ShieldAlert,
 } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import type { PlanTeam, PlanProductivityTable, PlanScheduleConfig } from '@/types'
@@ -244,13 +244,22 @@ function PeriodoSection() {
 
   return (
     <Section title="Período e Calendário" icon={Calendar}>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-5">
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-400">Data de Início</label>
           <input
             type="date"
             value={scheduleConfig.startDate}
             onChange={(e) => updateConfig({ startDate: e.target.value })}
+            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-400">Data Alvo de Conclusão</label>
+          <input
+            type="date"
+            value={scheduleConfig.targetEndDate ?? ''}
+            onChange={(e) => updateConfig({ targetEndDate: e.target.value || undefined })}
             className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
           />
         </div>
@@ -396,6 +405,98 @@ function CalculadoraSection() {
   )
 }
 
+// ─── TechnicalRulesSection ────────────────────────────────────────────────────
+
+function TechnicalRulesSection() {
+  const { technicalRules, addTechnicalRule, updateTechnicalRule, removeTechnicalRule } = usePlanejamentoStore()
+
+  return (
+    <Section title="Regras Técnicas" icon={ShieldAlert}>
+      <p className="text-xs text-gray-500 mb-4">
+        Regras aplicadas automaticamente a trechos que correspondam à condição. Multiplicam a produtividade e o custo.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b border-gray-700">
+              <th className="text-left text-gray-400 font-medium py-2 pr-3">Nome da Regra</th>
+              <th className="text-left text-gray-400 font-medium py-2 pr-3">Condição</th>
+              <th className="text-right text-gray-400 font-medium py-2 pr-3 w-32">Prod. (×)</th>
+              <th className="text-right text-gray-400 font-medium py-2 pr-3 w-32">Custo (×)</th>
+              <th className="py-2 w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {technicalRules.map((rule) => (
+              <tr key={rule.id} className="border-b border-gray-700/50 group">
+                <td className="py-2 pr-3">
+                  <input
+                    type="text"
+                    value={rule.name}
+                    onChange={(e) => updateTechnicalRule(rule.id, { name: e.target.value })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200 focus:outline-none focus:border-orange-500"
+                  />
+                </td>
+                <td className="py-2 pr-3">
+                  <input
+                    type="text"
+                    value={rule.condition}
+                    onChange={(e) => updateTechnicalRule(rule.id, { condition: e.target.value })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-400 font-mono focus:outline-none focus:border-orange-500"
+                  />
+                </td>
+                <td className="py-2 pr-3 text-right">
+                  <input
+                    type="number"
+                    value={rule.productivityMultiplier}
+                    min={0.1}
+                    max={2}
+                    step={0.05}
+                    onChange={(e) => updateTechnicalRule(rule.id, { productivityMultiplier: Number(e.target.value) })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-right text-gray-200 focus:outline-none focus:border-orange-500"
+                  />
+                </td>
+                <td className="py-2 pr-3 text-right">
+                  <input
+                    type="number"
+                    value={rule.costMultiplier}
+                    min={0.1}
+                    max={3}
+                    step={0.05}
+                    onChange={(e) => updateTechnicalRule(rule.id, { costMultiplier: Number(e.target.value) })}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-right text-gray-200 focus:outline-none focus:border-orange-500"
+                  />
+                </td>
+                <td className="py-2">
+                  <button onClick={() => removeTechnicalRule(rule.id)} className="p-1 text-gray-600 hover:text-red-400 transition-colors">
+                    <Trash2 size={13} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {technicalRules.length === 0 && (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-gray-600">Nenhuma regra técnica definida.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <button
+        onClick={() => addTechnicalRule({
+          name: 'Nova Regra',
+          condition: 'soilType === ...',
+          productivityMultiplier: 0.8,
+          costMultiplier: 1.2,
+        })}
+        className="mt-3 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+      >
+        <Plus size={13} /> Adicionar Regra
+      </button>
+    </Section>
+  )
+}
+
 // ─── ConfigPanel ──────────────────────────────────────────────────────────────
 
 export function ConfigPanel() {
@@ -405,6 +506,7 @@ export function ConfigPanel() {
       <EquipesSection />
       <ProdutividadeSection />
       <PeriodoSection />
+      <TechnicalRulesSection />
       <CalculadoraSection />
     </div>
   )

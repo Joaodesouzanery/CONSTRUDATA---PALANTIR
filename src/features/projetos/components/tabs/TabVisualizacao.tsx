@@ -2,6 +2,13 @@ import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, BudgetLineType, DesignViewType } from '@/types'
+import { lazy, Suspense, useEffect } from 'react'
+import { projectToBim } from '../../utils/projectToBim'
+
+// Lazy-load BimCanvas so Three.js is in its own chunk
+const BimCanvas = lazy(() =>
+  import('@/features/bim/components/BimCanvas').then((m) => ({ default: m.BimCanvas }))
+)
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -22,174 +29,45 @@ const BAR_COLORS = {
 
 const PHASE_COLORS = ['#f97316', '#3b82f6', '#22c55e', '#a855f7', '#ef4444', '#eab308']
 
-// ─── 3D Building View ─────────────────────────────────────────────────────────
+// ─── 3D Building View — real BimCanvas ────────────────────────────────────────
 
 function View3D({ project }: { project: Project }) {
-  const TOTAL_FLOORS = 10
-  const progress   = project.executionPhases[0]?.progress ?? 0
-  const builtFloors = Math.round((progress / 100) * TOTAL_FLOORS)
+  // Inject synthetic BimProject into the bim store when this view mounts
+  useEffect(() => {
+    const bimProject = projectToBim(project)
+    import('@/store/bimStore').then(({ useBimStore }) => {
+      const { projects, addProject, setActiveProject } = useBimStore.getState()
+      const existing = projects.find((p) => p.id === bimProject.id)
+      if (existing) {
+        setActiveProject(existing.id)
+      } else {
+        addProject(bimProject)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id])
 
-  // Isometric constants
-  const FW = 140   // front face width
-  const FH = 12    // floor height
-  const SX = 50    // side face x-width
-  const SY = 6     // side face y-offset per floor
-  const OX = 80    // origin x
-  const OY = 40    // top-of-building y (first floor top)
-  const TW = 200   // total SVG width
-  const TH = 320   // total SVG height
+  const progress = project.executionPhases.length > 0
+    ? Math.round(project.executionPhases.reduce((s, p) => s + p.progress, 0) / project.executionPhases.length)
+    : 0
 
   return (
-    <div className="flex flex-col items-center gap-4 py-6 px-4">
-      <div className="flex items-start gap-8">
-        {/* Building SVG */}
-        <svg width={TW} height={TH} viewBox={`0 0 ${TW} ${TH}`} style={{ filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.7))' }}>
-          {/* Ground slab */}
-          <polygon
-            points={`${OX},${OY + TOTAL_FLOORS * FH + 6} ${OX + FW},${OY + TOTAL_FLOORS * FH + 6} ${OX + FW + SX},${OY + TOTAL_FLOORS * FH + 6 - SY} ${OX + SX},${OY + TOTAL_FLOORS * FH + 6 - SY}`}
-            fill="#1a2a1a" stroke="#333" strokeWidth="1"
-          />
-
-          {/* Scaffolding poles (left side) — only when not complete */}
-          {progress < 100 && [0, 1].map((i) => (
-            <line key={i} x1={OX - 10 + i * 5} y1={OY} x2={OX - 10 + i * 5} y2={OY + TOTAL_FLOORS * FH + 8}
-              stroke="#444" strokeWidth="1.5" />
-          ))}
-          {progress < 100 && Array.from({ length: TOTAL_FLOORS + 1 }).map((_, i) => (
-            <line key={i} x1={OX - 14} y1={OY + i * FH} x2={OX - 6} y2={OY + i * FH}
-              stroke="#333" strokeWidth="1" />
-          ))}
-
-          {/* Floors — right side face + front face */}
-          {Array.from({ length: TOTAL_FLOORS }).map((_, i) => {
-            const floorIdx = TOTAL_FLOORS - 1 - i   // 0 = bottom, TOTAL_FLOORS-1 = top
-            const y = OY + i * FH
-            const built = floorIdx < builtFloors
-            const isTopFloor = i === 0
-
-            const frontFill  = built ? '#1c3a1c' : '#111'
-            const frontStroke = built ? '#22c55e' : '#2a2a2a'
-            const sideFill   = built ? '#142814' : '#0a0a0a'
-
-            // Right side face (parallelogram)
-            const sx1 = OX + FW, sy1 = y
-            const sx2 = OX + FW + SX, sy2 = y - SY
-            const sx3 = OX + FW + SX, sy3 = y - SY + FH
-            const sx4 = OX + FW, sy4 = y + FH
-
-            return (
-              <g key={i}>
-                {/* Side face */}
-                <polygon
-                  points={`${sx1},${sy1} ${sx2},${sy2} ${sx3},${sy3} ${sx4},${sy4}`}
-                  fill={sideFill} stroke={built ? '#1a3a1a' : '#1a1a1a'} strokeWidth="0.5"
-                />
-                {/* Front face */}
-                <rect x={OX} y={y} width={FW} height={FH}
-                  fill={frontFill} stroke={frontStroke} strokeWidth="0.5" />
-
-                {/* Top face (only for the top built floor or top of building) */}
-                {(isTopFloor || floorIdx === builtFloors - 1) && (
-                  <polygon
-                    points={`${OX},${y} ${OX + FW},${y} ${OX + FW + SX},${y - SY} ${OX + SX},${y - SY}`}
-                    fill={built ? '#2a4a2a' : '#181818'}
-                    stroke={built ? '#22c55e' : '#222'}
-                    strokeWidth="0.5"
-                  />
-                )}
-
-                {/* Windows (5 per floor) */}
-                {Array.from({ length: 5 }).map((_, w) => (
-                  <rect
-                    key={w}
-                    x={OX + 6 + w * 26}
-                    y={y + 2}
-                    width={16}
-                    height={FH - 5}
-                    rx={1}
-                    fill={built ? (floorIdx % 2 === 0 ? '#0f5a0f' : '#0a3a0a') : '#111'}
-                    stroke={built ? '#22c55e' : '#222'}
-                    strokeWidth="0.3"
-                  />
-                ))}
-              </g>
-            )
-          })}
-
-          {/* Crane (when not 100%) */}
-          {progress < 100 && (
-            <g>
-              {/* Mast */}
-              <rect x={OX + FW + SX - 6} y={OY - 60} width={8} height={60} fill="#555" rx="1" />
-              {/* Jib (horizontal arm) */}
-              <rect x={OX + FW + SX - 50} y={OY - 62} width={80} height={4} fill="#555" rx="1" />
-              {/* Counter-jib */}
-              <rect x={OX + FW + SX - 50} y={OY - 62} width={20} height={4} fill="#666" rx="1" />
-              {/* Hook cable */}
-              <line x1={OX + FW + SX + 26} y1={OY - 58} x2={OX + FW + SX + 26} y2={OY - 38} stroke="#888" strokeWidth="1" />
-              {/* Hook */}
-              <path d={`M${OX + FW + SX + 24},${OY - 38} q-2,4 2,4 q4,0 2,-4`} fill="none" stroke="#888" strokeWidth="1.5" />
-              {/* Warning stripes */}
-              <rect x={OX + FW + SX - 6} y={OY - 16} width={8} height={4} fill="#f97316" rx="0.5" />
-              <rect x={OX + FW + SX - 6} y={OY - 8} width={8} height={4} fill="#f97316" rx="0.5" />
-            </g>
-          )}
-
-          {/* Progress arc */}
-          {(() => {
-            const cx = OX + FW / 2
-            const cy = TH - 40
-            const r  = 24
-            const angle = (progress / 100) * 2 * Math.PI - Math.PI / 2
-            const x2 = cx + r * Math.cos(angle)
-            const y2 = cy + r * Math.sin(angle)
-            const largeArc = progress > 50 ? 1 : 0
-            return (
-              <g>
-                <circle cx={cx} cy={cy} r={r} fill="none" stroke="#252525" strokeWidth="4" />
-                {progress > 0 && (
-                  <path
-                    d={`M${cx},${cy - r} A${r},${r} 0 ${largeArc},1 ${x2},${y2}`}
-                    fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round"
-                  />
-                )}
-                <text x={cx} y={cy + 4} textAnchor="middle" fill="#22c55e" fontSize="10" fontFamily="monospace" fontWeight="bold">
-                  {progress}%
-                </text>
-              </g>
-            )
-          })()}
-        </svg>
-
-        {/* Legend */}
-        <div className="flex flex-col gap-3 mt-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Progresso</span>
-            <span className="text-2xl font-bold font-mono text-[#22c55e]">{progress}%</span>
+    <div className="flex flex-col gap-2">
+      {/* Canvas */}
+      <div style={{ height: 420, position: 'relative' }}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">
+            Carregando modelo 3D...
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Andares</span>
-            <span className="text-lg font-bold font-mono text-[#f5f5f5]">
-              {builtFloors}<span className="text-[#6b6b6b] text-sm">/{TOTAL_FLOORS}</span>
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Status</span>
-            <span className="text-xs font-semibold text-[#f97316]">
-              {project.executionPhases[0]?.status === 'in_progress' ? 'Em Construção' :
-               project.executionPhases[0]?.status === 'completed'   ? 'Concluído' :
-               project.executionPhases[0]?.status === 'delayed'     ? 'Atrasado' : 'Não Iniciado'}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1 mt-2 pt-2 border-t border-[#2a2a2a]">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#22c55e' }} /><span className="text-[10px] text-[#a3a3a3]">Construído</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#111' }} /><span className="text-[10px] text-[#a3a3a3]">Não construído</span></div>
-            {progress < 100 && <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm" style={{ background: '#555' }} /><span className="text-[10px] text-[#a3a3a3]">Grua</span></div>}
-          </div>
-        </div>
+        }>
+          <BimCanvas />
+        </Suspense>
       </div>
-
-      <p className="text-[11px] text-[#6b6b6b] text-center">{project.name} — Visualização 3D estrutural</p>
+      {/* Footer info */}
+      <div className="flex items-center justify-between px-4 pb-3 flex-wrap gap-2">
+        <p className="text-[10px] text-[#6b6b6b]">{project.name} — Modelo BIM 3D · arraste para orbitar, scroll para zoom</p>
+        <span className="text-xs font-mono text-[#22c55e] font-semibold">Avanço médio: {progress}%</span>
+      </div>
     </div>
   )
 }

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText } from 'lucide-react'
+import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
-import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus } from '@/types'
+import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -39,6 +39,86 @@ const RISK_STATUS_LABEL: Record<RiskStatus, string> = {
   active:     'Ativo',
   mitigated:  'Mitigado',
   resolved:   'Resolvido',
+}
+
+// ─── Budget Table ─────────────────────────────────────────────────────────────
+
+function fmtM(n: number) {
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `R$ ${(n / 1_000).toFixed(0)}k`
+  return `R$ ${n}`
+}
+
+function BudgetTable({ lines }: { lines: ConstructionBudgetLine[] }) {
+  return (
+    <table className="w-full text-[10px]">
+      <thead>
+        <tr className="text-[#3f3f3f] uppercase tracking-wider">
+          <th className="text-left pb-1 font-semibold">Categoria</th>
+          <th className="text-right pb-1 font-semibold">Orçado</th>
+          <th className="text-right pb-1 font-semibold">Projeção</th>
+          <th className="text-right pb-1 font-semibold">Utiliz.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((l) => {
+          const utilization = l.amount > 0 ? (l.projected / l.amount) * 100 : 0
+          const over = utilization > 100
+          return (
+            <tr key={l.label} className="border-t border-[#1e1e1e]">
+              <td className={cn('py-1 font-medium', l.label === 'Total' ? 'text-[#f5f5f5]' : 'text-[#a3a3a3]')}>
+                {l.label}
+              </td>
+              <td className="py-1 text-right text-[#a3a3a3] font-mono">{fmtM(l.amount)}</td>
+              <td className="py-1 text-right font-mono text-[#f5f5f5]">{fmtM(l.projected)}</td>
+              <td className={cn('py-1 text-right font-mono font-bold', over ? 'text-[#ef4444]' : 'text-[#22c55e]')}>
+                {utilization.toFixed(0)}%
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+// ─── Milestone Timeline ───────────────────────────────────────────────────────
+
+const MILESTONE_ICON: Record<MilestoneStatus, React.ReactNode> = {
+  done:    <CheckCircle2 size={11} className="text-[#22c55e] shrink-0" />,
+  active:  <Clock        size={11} className="text-[#3b82f6] shrink-0" />,
+  pending: <Circle       size={11} className="text-[#3f3f3f] shrink-0" />,
+}
+
+function MilestoneTimeline({ label, milestones }: { label: string; milestones: ConstructionMilestone[] }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <p className="text-[9px] uppercase tracking-widest text-[#3f3f3f] font-semibold mb-1.5">{label}</p>
+      <div className="flex items-start gap-0 overflow-x-auto pb-1">
+        {milestones.map((m, i) => (
+          <div key={i} className="flex items-center">
+            <div className="flex flex-col items-center min-w-[72px]">
+              {MILESTONE_ICON[m.status]}
+              <span className={cn(
+                'text-[9px] mt-0.5 text-center leading-tight',
+                m.status === 'done' ? 'text-[#22c55e]' :
+                m.status === 'active' ? 'text-[#3b82f6]' : 'text-[#4b5563]',
+              )}>
+                {m.name}
+              </span>
+              <span className="text-[8px] text-[#3f3f3f] font-mono mt-0.5">{m.date.slice(5)}</span>
+            </div>
+            {i < milestones.length - 1 && (
+              <div className={cn(
+                'h-px w-6 mb-4 shrink-0',
+                m.status === 'done' ? 'bg-[#22c55e]/40' : 'bg-[#2a2a2a]',
+              )} />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ─── Risk Card ────────────────────────────────────────────────────────────────
@@ -218,6 +298,25 @@ export function ObraDetailPanel() {
               <p className="text-xs text-[#a3a3a3] leading-relaxed">{site.description}</p>
             </Section>
           )}
+
+          {/* Orçamento */}
+          {site.budgetLines && site.budgetLines.length > 0 && (
+            <Section icon={<DollarSign size={12} />} title="Orçamento">
+              <BudgetTable lines={site.budgetLines} />
+            </Section>
+          )}
+
+          {/* Marcos */}
+          {(site.planningMilestones?.length || site.executionMilestones?.length) ? (
+            <Section icon={<CalendarDays size={12} />} title="Marcos">
+              {site.planningMilestones && site.planningMilestones.length > 0 && (
+                <MilestoneTimeline label="Planejamento" milestones={site.planningMilestones} />
+              )}
+              {site.executionMilestones && site.executionMilestones.length > 0 && (
+                <MilestoneTimeline label="Execução" milestones={site.executionMilestones} />
+              )}
+            </Section>
+          ) : null}
 
           {/* Riscos */}
           <div className="px-4 py-3 border-b border-[#2a2a2a]">

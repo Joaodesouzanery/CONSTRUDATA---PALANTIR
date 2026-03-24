@@ -50,7 +50,10 @@ export function GanttPanel() {
         <Kpi label="Total Metros" value={`${totalMeters.toFixed(0)} m`} />
         <Kpi label="Dias Úteis" value={String(workDays.length)} />
         <Kpi label="Início" value={scheduleConfig.startDate ? fmtDate(scheduleConfig.startDate) : '—'} />
-        <Kpi label="Término Previsto" value={projectEndDate ? fmtDate(projectEndDate) : '—'} accent />
+        <Kpi label="Término Previsto" value={projectEndDate ? fmtDate(projectEndDate) : '—'} accent={!scheduleConfig.targetEndDate || !projectEndDate || projectEndDate <= scheduleConfig.targetEndDate} warn={!!scheduleConfig.targetEndDate && !!projectEndDate && projectEndDate > scheduleConfig.targetEndDate} />
+        {scheduleConfig.targetEndDate && (
+          <Kpi label="Data Alvo" value={fmtDate(scheduleConfig.targetEndDate)} />
+        )}
         <Kpi label="Custo Total" value={fmtR(totalCostBRL)} accent />
         {isScheduleDirty && (
           <button onClick={runSchedule}
@@ -158,11 +161,11 @@ export function GanttPanel() {
   )
 }
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function Kpi({ label, value, accent, warn }: { label: string; value: string; accent?: boolean; warn?: boolean }) {
   return (
     <div className="flex flex-col">
       <span className="text-xs text-gray-500">{label}</span>
-      <span className={`font-semibold ${accent ? 'text-orange-400' : 'text-white'}`}>{value}</span>
+      <span className={`font-semibold ${warn ? 'text-red-400' : accent ? 'text-orange-400' : 'text-white'}`}>{value}</span>
     </div>
   )
 }

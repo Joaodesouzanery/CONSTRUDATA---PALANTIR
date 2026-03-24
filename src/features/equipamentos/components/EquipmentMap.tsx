@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   MapContainer, TileLayer, Marker, Popup, Tooltip,
   Circle, Polyline, LayersControl, ScaleControl, useMap,
@@ -37,37 +37,46 @@ const PRIORITY_COLOR: Record<string, string> = {
 
 // ─── Custom SVG pin marker ─────────────────────────────────────────────────────
 
-function createPinIcon(status: EquipmentStatus, selected: boolean): L.DivIcon {
+function createPinIcon(status: EquipmentStatus, selected: boolean, label: string): L.DivIcon {
   const color = STATUS_CONFIG[status].color
   const size = selected ? 42 : 34
   const pulse = status === 'alert'
     ? `<div style="
-        position:absolute;inset:-6px;border-radius:50%;
+        position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;
         border:2px solid ${color};opacity:0.5;
         animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;
       "></div>`
     : ''
 
+  const shortLabel = label.length > 14 ? label.slice(0, 13) + '…' : label
+
   return L.divIcon({
     className: '',
     html: `
-      <div style="position:relative;width:${size}px;height:${size + 10}px;">
-        ${pulse}
-        <svg xmlns="http://www.w3.org/2000/svg"
-          width="${size}" height="${size + 10}"
-          viewBox="0 0 34 44" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))">
-          <path d="M17 0C7.611 0 0 7.611 0 17c0 6.23 3.34 11.68 8.32 14.74L17 44l8.68-12.26C30.66 28.68 34 23.23 34 17 34 7.611 26.389 0 17 0z"
-            fill="${color}" />
-          <circle cx="17" cy="17" r="8"
-            fill="${selected ? '#fff' : 'rgba(255,255,255,0.92)'}"/>
-          ${selected
-            ? `<circle cx="17" cy="17" r="4" fill="${color}"/>`
-            : `<circle cx="17" cy="17" r="3" fill="${color}" opacity="0.7"/>`}
-        </svg>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div style="position:relative;width:${size}px;height:${size + 10}px;">
+          ${pulse}
+          <svg xmlns="http://www.w3.org/2000/svg"
+            width="${size}" height="${size + 10}"
+            viewBox="0 0 34 44" style="filter:drop-shadow(0 3px 6px rgba(0,0,0,.55))">
+            <path d="M17 0C7.611 0 0 7.611 0 17c0 6.23 3.34 11.68 8.32 14.74L17 44l8.68-12.26C30.66 28.68 34 23.23 34 17 34 7.611 26.389 0 17 0z"
+              fill="${color}" />
+            <circle cx="17" cy="17" r="8"
+              fill="${selected ? '#fff' : 'rgba(255,255,255,0.92)'}"/>
+            ${selected
+              ? `<circle cx="17" cy="17" r="4" fill="${color}"/>`
+              : `<circle cx="17" cy="17" r="3" fill="${color}" opacity="0.7"/>`}
+          </svg>
+        </div>
+        <div style="background:rgba(13,17,23,0.85);border:1px solid ${color}40;border-radius:3px;
+          padding:1px 5px;font-size:9px;font-weight:600;color:${color};white-space:nowrap;
+          font-family:Inter,system-ui,sans-serif;line-height:1.4;pointer-events:none;">
+          ${shortLabel}
+        </div>
       </div>`,
-    iconSize: [size, size + 10],
+    iconSize: [size, size + 28],
     iconAnchor: [size / 2, size + 10],
-    popupAnchor: [0, -(size + 14)],
+    popupAnchor: [0, -(size + 18)],
   })
 }
 
@@ -154,21 +163,33 @@ export function EquipmentMap() {
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | null>(null)
   const [isFullscreen,  setIsFullscreen] = useState(false)
 
-  const positioned = equipamentos.filter((e) => e.lat !== null && e.lng !== null)
-  const visible    = filterStatus ? positioned.filter((e) => e.status === filterStatus) : positioned
-
-  // Routing polylines with valid coords
-  const routeLines = routingRecs.filter(
-    (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
+  // ── Memoized derivations ─────────────────────────────────────────────────────
+  const mapCSS      = useMemo(() => getMapCSS(isDark), [isDark])
+  const positioned  = useMemo(() => equipamentos.filter((e) => e.lat !== null && e.lng !== null), [equipamentos])
+  const visible     = useMemo(
+    () => filterStatus ? positioned.filter((e) => e.status === filterStatus) : positioned,
+    [filterStatus, positioned]
   )
-
-  // Mini stats by status
-  const statusCounts = Object.entries(STATUS_CONFIG).map(([status, cfg]) => ({
+  const routeLines  = useMemo(() => routingRecs.filter(
+    (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
+  ), [routingRecs])
+  const statusCounts = useMemo(() => Object.entries(STATUS_CONFIG).map(([status, cfg]) => ({
     status: status as EquipmentStatus,
     label:  cfg.label,
     color:  cfg.color,
     count:  positioned.filter((e) => e.status === status).length,
-  }))
+  })), [positioned])
+
+  // ── Memoized icon factory ────────────────────────────────────────────────────
+  const getIcon = useCallback((status: EquipmentStatus, selected: boolean, label: string) =>
+    createPinIcon(status, selected, label), [])
+
+  // ── Stable event handler factories ───────────────────────────────────────────
+  const makeClickHandler  = useCallback((id: string) => () => selectEquipamento(selectedId === id ? null : id), [selectEquipamento, selectedId])
+  const makeDragHandler   = useCallback((id: string) => (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
+    const { lat, lng } = e.target.getLatLng()
+    updateLocation(id, lat, lng)
+  }, [updateLocation])
 
   return (
     <div
@@ -177,7 +198,7 @@ export function EquipmentMap() {
         ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999, background: '#111' } : {}),
       }}
     >
-      <style>{getMapCSS(isDark)}</style>
+      <style>{mapCSS}</style>
 
       {/* Filter bar */}
       <div style={{ display: 'flex', gap: 6, padding: '8px 10px', background: isDark ? '#1a1a1a' : '#ffffff', flexWrap: 'wrap', flexShrink: 0, borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#e5e8ed'}` }}>
@@ -273,14 +294,11 @@ export function EquipmentMap() {
             <Marker
               key={eq.id}
               position={[eq.lat!, eq.lng!]}
-              icon={createPinIcon(eq.status, selectedId === eq.id)}
+              icon={getIcon(eq.status, selectedId === eq.id, `${eq.code} ${eq.name}`)}
               draggable
               eventHandlers={{
-                click:   () => selectEquipamento(selectedId === eq.id ? null : eq.id),
-                dragend: (e) => {
-                  const { lat, lng } = e.target.getLatLng()
-                  updateLocation(eq.id, lat, lng)
-                },
+                click:   makeClickHandler(eq.id),
+                dragend: makeDragHandler(eq.id),
               }}
             >
               <Tooltip direction="top" offset={[0, -10]}>

@@ -34,6 +34,7 @@ interface QuantitativosState {
 
   // Items CRUD
   addItem(item: Omit<OrcamentoItem, 'id' | 'totalCost'>): void
+  addItems(items: Omit<OrcamentoItem, 'id' | 'totalCost'>[]): void
   updateItem(id: string, updates: Partial<OrcamentoItem>): void
   removeItem(id: string): void
   resetItems(): void
@@ -87,6 +88,14 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
       currentItems: [
         ...s.currentItems,
         { ...item, id: crypto.randomUUID(), totalCost: calcTotal(item) },
+      ],
+    })),
+
+  addItems: (items) =>
+    set((s) => ({
+      currentItems: [
+        ...s.currentItems,
+        ...items.map((item) => ({ ...item, id: crypto.randomUUID(), totalCost: calcTotal(item) })),
       ],
     })),
 

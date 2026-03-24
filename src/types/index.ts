@@ -214,6 +214,23 @@ export interface ConstructionSite {
   lat: number | null
   lng: number | null
   risks: ConstructionRisk[]
+  budgetLines?: ConstructionBudgetLine[]
+  planningMilestones?: ConstructionMilestone[]
+  executionMilestones?: ConstructionMilestone[]
+}
+
+export interface ConstructionBudgetLine {
+  label: string
+  amount: number      // valor contratado/orçado
+  projected: number   // projeção atualizada
+}
+
+export type MilestoneStatus = 'done' | 'active' | 'pending'
+
+export interface ConstructionMilestone {
+  name: string
+  date: string        // yyyy-MM-dd
+  status: MilestoneStatus
 }
 
 // ─── Agenda / Gantt ───────────────────────────────────────────────────────────
@@ -955,6 +972,15 @@ export interface PlanScheduleConfig {
   startDate: string        // yyyy-MM-dd
   workHoursPerDay: number
   workWeekMode: WorkWeekMode
+  targetEndDate?: string   // yyyy-MM-dd — optional target for forecast comparison
+}
+
+export interface TechnicalRule {
+  id: string
+  name: string                     // e.g. "Solo Rochoso — penalidade"
+  condition: string                // display label, e.g. "soilType === 'rocky'"
+  productivityMultiplier: number   // e.g. 0.6
+  costMultiplier: number           // e.g. 1.4
 }
 
 export interface PlanHoliday {
@@ -1050,6 +1076,7 @@ export interface RdoManpower {
   officialCount: number   // Oficial
   helperCount:   number   // Ajudante
   operatorCount: number   // Operador
+  employeeNames?: string[] // lista de nomes dos funcionários presentes
 }
 
 export interface RdoEquipmentEntry {

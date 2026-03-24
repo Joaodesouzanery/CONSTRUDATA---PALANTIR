@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Check, X } from 'lucide-react'
+import { Check, X, CheckCheck, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
@@ -116,12 +116,14 @@ function buildSuggestions(items: TakeoffItem[]): Suggestion[] {
 }
 
 export function NormalizacaoView() {
-  const { takeoffItems, acceptNormalization, rejectNormalization, setStep } =
+  const { takeoffItems, acceptNormalization, rejectNormalization, acceptAllNormalizations, rejectAllNormalizations, setStep } =
     usePreConstrucaoStore(useShallow((s) => ({
-      takeoffItems:        s.takeoffItems,
-      acceptNormalization: s.acceptNormalization,
-      rejectNormalization: s.rejectNormalization,
-      setStep:             s.setStep,
+      takeoffItems:             s.takeoffItems,
+      acceptNormalization:      s.acceptNormalization,
+      rejectNormalization:      s.rejectNormalization,
+      acceptAllNormalizations:  s.acceptAllNormalizations,
+      rejectAllNormalizations:  s.rejectAllNormalizations,
+      setStep:                  s.setStep,
     })))
 
   const suggestions = useMemo(() => buildSuggestions(takeoffItems), [takeoffItems])
@@ -137,7 +139,7 @@ export function NormalizacaoView() {
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Header stats */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[#f5f5f5] text-sm font-semibold">Normalização de Itens</span>
         <span className="px-2 py-0.5 rounded-full bg-[#f97316]/20 text-[#f97316] text-xs">
           {withSuggestions} sugestões
@@ -145,6 +147,22 @@ export function NormalizacaoView() {
         <span className="px-2 py-0.5 rounded-full bg-[#16a34a]/20 text-[#4ade80] text-xs">
           {accepted} aplicadas
         </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={acceptAllNormalizations}
+            disabled={withSuggestions === 0}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#16a34a]/20 hover:bg-[#16a34a]/30 text-[#4ade80] text-xs font-semibold transition-colors disabled:opacity-40"
+          >
+            <CheckCheck size={11} /> Aprovar Todos
+          </button>
+          <button
+            onClick={rejectAllNormalizations}
+            disabled={withSuggestions === 0}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#dc2626]/20 hover:bg-[#dc2626]/30 text-[#f87171] text-xs font-semibold transition-colors disabled:opacity-40"
+          >
+            <XCircle size={11} /> Rejeitar Todos
+          </button>
+        </div>
       </div>
 
       {/* Table */}

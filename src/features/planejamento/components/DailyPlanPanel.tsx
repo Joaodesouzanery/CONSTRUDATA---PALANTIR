@@ -3,9 +3,42 @@
  * Filterable by date range, trecho, and team. Printable.
  */
 import { useState, useMemo } from 'react'
-import { Printer, Play } from 'lucide-react'
+import { Printer, Play, Check, X } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import { fmtDate } from '../utils/exportEngine'
+
+function InlineNum({ value, onSave }: { value: number; onSave: (v: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft]     = useState(String(value))
+  if (!editing) {
+    return (
+      <span
+        onClick={() => { setDraft(String(value)); setEditing(true) }}
+        className="cursor-pointer hover:text-orange-400 transition-colors"
+        title="Clique para editar"
+      >
+        {value.toFixed(1)} m
+      </span>
+    )
+  }
+  return (
+    <div className="flex items-center gap-0.5 justify-end">
+      <input
+        autoFocus
+        type="number"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { onSave(parseFloat(draft) || 0); setEditing(false) }
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        className="w-20 bg-gray-700 border border-orange-500/50 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none text-right"
+      />
+      <button onClick={() => { onSave(parseFloat(draft) || 0); setEditing(false) }} className="text-green-400 p-0.5"><Check size={11} /></button>
+      <button onClick={() => setEditing(false)} className="text-gray-500 p-0.5"><X size={11} /></button>
+    </div>
+  )
+}
 
 interface DailyRow {
   date: string
@@ -27,10 +60,13 @@ function fmtR(n: number) {
 export function DailyPlanPanel() {
   const { ganttRows, teams, runSchedule, isScheduleDirty } = usePlanejamentoStore()
 
-  const [filterStart, setFilterStart] = useState('')
-  const [filterEnd, setFilterEnd]     = useState('')
-  const [filterTrecho, setFilterTrecho] = useState('')
-  const [filterTeam, setFilterTeam]   = useState('')
+  const [filterStart, setFilterStart]     = useState('')
+  const [filterEnd, setFilterEnd]         = useState('')
+  const [filterTrecho, setFilterTrecho]   = useState('')
+  const [filterTeam, setFilterTeam]       = useState('')
+  // Local overrides: key = `${date}-${trechoCode}`, value = override production (m)
+  const [overrides, setOverrides]         = useState<Record<string, number>>({})
+  const hasOverrides = Object.keys(overrides).length > 0
 
   // Flatten ganttRows to daily rows
   const allRows = useMemo<DailyRow[]>(() => {
@@ -117,7 +153,15 @@ export function DailyPlanPanel() {
         </select>
 
         <div className="ml-auto flex gap-2">
-          {isScheduleDirty && (
+          {hasOverrides && (
+            <button
+              onClick={() => { setOverrides({}); runSchedule() }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors"
+            >
+              <Play size={12} /> Recalcular Rota
+            </button>
+          )}
+          {isScheduleDirty && !hasOverrides && (
             <button onClick={runSchedule}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
               <Play size={12} /> Atualizar
@@ -163,7 +207,12 @@ export function DailyPlanPanel() {
                     : <span className="text-gray-400 text-xs">Escav. / Assent. / Reaterro</span>}
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-200">
-                  {r.isHydroTest ? '—' : `${r.metersPlanned.toFixed(1)} m`}
+                  {r.isHydroTest ? '—' : (
+                    <InlineNum
+                      value={overrides[`${r.date}-${r.trechoCode}`] ?? r.metersPlanned}
+                      onSave={(v) => setOverrides((prev) => ({ ...prev, [`${r.date}-${r.trechoCode}`]: v }))}
+                    />
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-right text-gray-300">{r.headcount > 0 ? r.headcount : '—'}</td>
                 <td className="px-4 py-2.5 text-right text-gray-300">{r.equipmentUnits > 0 ? r.equipmentUnits : '—'}</td>

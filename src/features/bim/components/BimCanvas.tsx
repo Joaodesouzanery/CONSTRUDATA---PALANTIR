@@ -137,21 +137,46 @@ export function BimCanvas() {
     if (!container) return
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.setSize(container.clientWidth, container.clientHeight)
-    renderer.setClearColor(0x111827)
+    renderer.setClearColor(0x0d1117)
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.15
+    renderer.outputColorSpace = THREE.SRGBColorSpace
     container.appendChild(renderer.domElement)
     rendererRef.current = renderer
 
     const scene = new THREE.Scene()
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6))
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8)
-    dir.position.set(200, 300, 200)
+    scene.fog = new THREE.Fog(0x0d1117, 200, 1800)
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4))
+    scene.add(new THREE.HemisphereLight(0x3b6fa0, 0x1a3d1a, 0.5))
+    const dir = new THREE.DirectionalLight(0xfff4e0, 1.2)
+    dir.position.set(200, 350, 200)
+    dir.castShadow = true
+    dir.shadow.mapSize.set(2048, 2048)
+    dir.shadow.camera.near = 1
+    dir.shadow.camera.far = 1500
+    dir.shadow.camera.left = -400
+    dir.shadow.camera.right = 400
+    dir.shadow.camera.top = 400
+    dir.shadow.camera.bottom = -400
+    dir.shadow.bias = -0.0005
     scene.add(dir)
-    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3)
-    dir2.position.set(-100, 100, -100)
+    const dir2 = new THREE.DirectionalLight(0xadd8e6, 0.4)
+    dir2.position.set(-100, 120, -100)
     scene.add(dir2)
-    const grid = new THREE.GridHelper(800, 40, 0x1f2937, 0x1f2937)
+    // Ground plane (shadow receiver)
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(3000, 3000),
+      new THREE.MeshStandardMaterial({ color: 0x0d1117, roughness: 0.95, metalness: 0.05 }),
+    )
+    ground.rotation.x = -Math.PI / 2
+    ground.position.y = -0.1
+    ground.receiveShadow = true
+    scene.add(ground)
+    const grid = new THREE.GridHelper(800, 40, 0x1a2535, 0x1a2535)
     scene.add(grid)
     sceneRef.current = scene
 
@@ -261,9 +286,11 @@ export function BimCanvas() {
         const [, , z1] = seg.vertices[1]
         const height = Math.abs(z1 - z0) || 0.1
         const radius = Math.max((seg.diameter / 2000) * 2.5, 0.15)
-        geometry = new THREE.CylinderGeometry(radius, radius, height, 8)
-        const mat = new THREE.MeshPhongMaterial({ color, shininess: 40 })
+        geometry = new THREE.CylinderGeometry(radius, radius, height, 16)
+        const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.25 })
         mesh = new THREE.Mesh(geometry, mat)
+        mesh.castShadow = true
+        mesh.receiveShadow = true
         mesh.position.set(x0, (z0 + z1) / 2, y0)
 
       } else if (elType === 'slab' || elType === 'wall' || elType === 'beam') {
@@ -275,8 +302,17 @@ export function BimCanvas() {
         const d = Math.abs(y1 - y0) || 0.2
         const h = Math.abs(z1 - z0) || 0.3
         geometry = new THREE.BoxGeometry(w, h, d)
-        const mat = new THREE.MeshPhongMaterial({ color, shininess: 20, transparent: elType === 'slab', opacity: elType === 'slab' ? 0.85 : 1 })
+        const isSlab = elType === 'slab'
+        const mat = new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.85,
+          metalness: 0.05,
+          transparent: isSlab,
+          opacity: isSlab ? 0.82 : 1,
+        })
         mesh = new THREE.Mesh(geometry, mat)
+        mesh.castShadow = true
+        mesh.receiveShadow = true
         mesh.position.set((x0 + x1) / 2, (z0 + z1) / 2, (y0 + y1) / 2)
 
       } else {
@@ -286,10 +322,28 @@ export function BimCanvas() {
           ? seg.vertices.map(([x, y, z]) => new THREE.Vector3(x, z, y))
           : seg.vertices.map(([x, y, z]) => new THREE.Vector3(x, -z * 10, y))
         const curve  = new THREE.CatmullRomCurve3(points)
-        const radius = Math.max(seg.diameter / 2000, 0.3)
-        geometry = new THREE.TubeGeometry(curve, Math.max(points.length * 4, 12), radius, 8, false)
-        const mat = new THREE.MeshPhongMaterial({ color, shininess: 40 })
+        const pipeRadius = Math.max(seg.diameter / 2000, 0.3)
+        geometry = new THREE.TubeGeometry(curve, Math.max(points.length * 4, 12), pipeRadius, 12, false)
+        const matName = seg.material?.toLowerCase() ?? ''
+        const mat = new THREE.MeshStandardMaterial({
+          color,
+          roughness: matName.includes('fofo') || matName.includes('ferro') ? 0.35 : 0.6,
+          metalness: matName.includes('fofo') || matName.includes('ferro') ? 0.85 : 0.08,
+        })
         mesh = new THREE.Mesh(geometry, mat)
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+
+        // End caps — sphere at each endpoint
+        const capMat = new THREE.MeshStandardMaterial({ color, roughness: mat.roughness, metalness: mat.metalness })
+        ;[points[0], points[points.length - 1]].forEach((pt) => {
+          const capGeo = new THREE.SphereGeometry(pipeRadius, 10, 6)
+          const cap = new THREE.Mesh(capGeo, capMat)
+          cap.position.copy(pt)
+          cap.castShadow = true
+          cap.userData['segId'] = seg.id
+          scene.add(cap)
+        })
       }
 
       mesh.userData['segId'] = seg.id

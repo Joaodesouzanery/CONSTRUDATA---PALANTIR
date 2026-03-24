@@ -97,6 +97,8 @@ export function NovoRdoPanel() {
   const [services,  setServices]  = useState<Omit<RdoServiceEntry,  'id'>[]>([])
   const [trechos,   setTrechos]   = useState<Omit<RdoTrechoEntry,   'id'>[]>([])
   const [photos,    setPhotos]    = useState<Omit<RdoPhoto,         'id'>[]>([])
+  const [employeeNames, setEmployeeNames] = useState<string[]>([])
+  const [employeeInput, setEmployeeInput] = useState('')
   const [geolocation, setGeolocation] = useState<{ lat: string; lng: string } | null>(null)
   const [geoError, setGeoError] = useState<string | null>(null)
   const [geoLoading, setGeoLoading] = useState(false)
@@ -235,7 +237,7 @@ export function NovoRdoPanel() {
       date:        data.date,
       responsible: data.responsible,
       weather:     data.weather,
-      manpower:    data.manpower,
+      manpower:    { ...data.manpower, employeeNames },
       observations: data.observations,
       incidents:   data.incidents,
       equipment:   equipment.map((e) => ({ ...e, id: crypto.randomUUID() })),
@@ -254,6 +256,8 @@ export function NovoRdoPanel() {
     setServices([])
     setTrechos([])
     setPhotos([])
+    setEmployeeNames([])
+    setEmployeeInput('')
     setGeolocation(null)
     setGeoError(null)
     setPhotoError(null)
@@ -328,7 +332,7 @@ export function NovoRdoPanel() {
 
         {/* 3. Mão de Obra */}
         <Section title="Mão de Obra" icon={<Users size={16} className="text-sky-400" />}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
             {([
               ['foremanCount',  'Encarregado'],
               ['officialCount', 'Oficial'],
@@ -347,6 +351,59 @@ export function NovoRdoPanel() {
                 <FieldError msg={errors.manpower?.[field]?.message} />
               </div>
             ))}
+          </div>
+          {/* Employee name chips */}
+          <div>
+            <label className="block text-gray-400 text-xs mb-1">Funcionários Presentes</label>
+            <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+              {employeeNames.map((name, i) => (
+                <span key={i} className="flex items-center gap-1 bg-sky-900/30 border border-sky-700/40 text-sky-300 text-xs px-2 py-0.5 rounded-full">
+                  {name}
+                  <button
+                    type="button"
+                    onClick={() => setEmployeeNames((prev) => prev.filter((_, idx) => idx !== i))}
+                    className="text-sky-500 hover:text-red-400 ml-0.5"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={employeeInput}
+                onChange={(e) => setEmployeeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ',') && employeeInput.trim()) {
+                    e.preventDefault()
+                    const name = employeeInput.trim()
+                    if (name && !employeeNames.includes(name)) {
+                      setEmployeeNames((prev) => [...prev, name])
+                    }
+                    setEmployeeInput('')
+                  }
+                }}
+                placeholder="Nome + Enter para adicionar"
+                className={`${inputCls} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const name = employeeInput.trim()
+                  if (name && !employeeNames.includes(name)) {
+                    setEmployeeNames((prev) => [...prev, name])
+                  }
+                  setEmployeeInput('')
+                }}
+                className="px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-sm transition-colors"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            {employeeNames.length > 0 && (
+              <p className="text-gray-600 text-xs mt-1">{employeeNames.length} funcionário{employeeNames.length !== 1 ? 's' : ''} registrado{employeeNames.length !== 1 ? 's' : ''}</p>
+            )}
           </div>
         </Section>
 
