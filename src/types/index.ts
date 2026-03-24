@@ -1168,6 +1168,7 @@ export interface BimSegment {
   totalCostBRL:     number
   constructionDate?: string   // yyyy-MM-dd (from 4D match)
   phase?:           string
+  elementType?:     'pipe' | 'slab' | 'column' | 'wall' | 'beam'
 }
 
 export interface BimLayer {
@@ -1181,6 +1182,7 @@ export interface BimLayer {
 export interface BimProject {
   id:                  string
   name:                string
+  type?:               'sanitation' | 'building' | 'generic'
   segments:            BimSegment[]
   layers:              BimLayer[]
   uploadedAt:          string
