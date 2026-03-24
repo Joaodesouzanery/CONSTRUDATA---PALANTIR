@@ -1031,3 +1031,161 @@ export interface PlanScenario {
   scheduleConfig: PlanScheduleConfig
   holidays: PlanHoliday[]
 }
+
+// ─── RDO (Relatório Diário de Obras) ─────────────────────────────────────────
+
+export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
+export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
+export type RdoTab = 'dashboard' | 'novo' | 'historico' | 'integracao' | 'financeiro'
+
+export interface RdoWeather {
+  morning:      RdoWeatherCondition
+  afternoon:    RdoWeatherCondition
+  night:        RdoWeatherCondition
+  temperatureC: number
+}
+
+export interface RdoManpower {
+  foremanCount:  number   // Encarregado
+  officialCount: number   // Oficial
+  helperCount:   number   // Ajudante
+  operatorCount: number   // Operador
+}
+
+export interface RdoEquipmentEntry {
+  id:       string
+  name:     string
+  quantity: number
+  hours:    number
+}
+
+export interface RdoServiceEntry {
+  id:          string
+  description: string
+  quantity:    number
+  unit:        string
+}
+
+export interface RdoTrechoEntry {
+  id:                string
+  trechoCode:        string
+  trechoDescription: string
+  plannedMeters:     number
+  executedMeters:    number
+  status:            RdoTrechoStatus
+  source:            'rdo' | 'manual'
+}
+
+export interface RdoPhoto {
+  id:         string
+  base64:     string    // data:image/...;base64,...
+  label:      string
+  uploadedAt: string
+}
+
+export interface RdoFinancialEntry {
+  id:          string
+  date:        string   // yyyy-MM-dd
+  category:    string
+  description: string
+  valueBRL:    number
+  type:        'expense' | 'revenue'
+}
+
+export interface RDO {
+  id:           string
+  number:       number   // sequential, auto-assigned
+  date:         string   // yyyy-MM-dd
+  responsible:  string
+  weather:      RdoWeather
+  manpower:     RdoManpower
+  equipment:    RdoEquipmentEntry[]
+  services:     RdoServiceEntry[]
+  trechos:      RdoTrechoEntry[]
+  geolocation:  { lat: string; lng: string } | null
+  observations: string
+  incidents:    string
+  photos:       RdoPhoto[]
+  createdAt:    string
+  updatedAt:    string
+}
+
+// ─── Quantitativos e Orçamento ────────────────────────────────────────────────
+
+export type CostBaseSource = 'sinapi' | 'seinfra' | 'custom' | 'manual'
+export type QuantTab = 'composicao' | 'resumo' | 'banco' | 'historico'
+
+export interface OrcamentoItem {
+  id:          string
+  code:        string          // SINAPI/SEINFRA code or user-defined
+  description: string
+  unit:        string
+  quantity:    number
+  unitCost:    number          // from base or overridden
+  bdi:         number          // BDI % applied to this item
+  totalCost:   number          // quantity × unitCost × (1 + bdi/100)
+  category:    string
+  source:      CostBaseSource
+  notes?:      string
+}
+
+export interface OrcamentoBudget {
+  id:            string
+  name:          string
+  description?:  string
+  costBase:      CostBaseSource
+  items:         OrcamentoItem[]
+  bdiGlobal:     number        // global BDI fallback
+  totalBRL:      number
+  referenceDate: string        // yyyy-MM-dd
+  createdAt:     string
+  updatedAt:     string
+}
+
+export interface CustomBaseEntry {
+  id:          string
+  code:        string
+  description: string
+  unit:        string
+  unitCost:    number
+  category:    string
+  source:      string          // "Importado PDF" | "Importado Excel" | "Manual"
+}
+
+// ─── BIM 3D/4D/5D ─────────────────────────────────────────────────────────────
+
+export interface BimSegment {
+  id:               string
+  vertices:         [number, number, number][]  // [x, y, z]
+  attributes:       Record<string, string | number>
+  trechoCode?:      string
+  itemId?:          string
+  lengthM:          number
+  avgDepthM:        number
+  diameter:         number    // mm
+  material:         string
+  unitCostBRL:      number
+  totalCostBRL:     number
+  constructionDate?: string   // yyyy-MM-dd (from 4D match)
+  phase?:           string
+}
+
+export interface BimLayer {
+  id:         string
+  name:       string
+  visible:    boolean
+  color:      string
+  attribute?: string
+}
+
+export interface BimProject {
+  id:                  string
+  name:                string
+  segments:            BimSegment[]
+  layers:              BimLayer[]
+  uploadedAt:          string
+  shapefileSourceName: string
+}
+
+export type BimColorMode = 'default' | 'depth' | 'date' | 'cost'
+export type BimTab = 'viewer' | '4d' | '5d'

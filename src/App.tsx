@@ -12,6 +12,11 @@ import { MaoDeObraPage }             from '@/features/mao-de-obra/index'
 import OtimizacaoFrotaPage           from '@/features/otimizacao-frota/index'
 import { Gestao360Page }             from '@/features/gestao-360/index'
 import { PlanejamentoPage }          from '@/features/planejamento/index'
+import { RdoPage }                  from '@/features/rdo/index'
+import { QuantitativosPage }        from '@/features/quantitativos/index'
+import { lazy, Suspense } from 'react'
+
+const BimPage = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
 
 function App() {
   return (
@@ -31,6 +36,13 @@ function App() {
           <Route path="/otimizacao-frota"   element={<OtimizacaoFrotaPage />} />
           <Route path="/gestao-360"         element={<Gestao360Page />} />
           <Route path="/planejamento"       element={<PlanejamentoPage />} />
+          <Route path="/rdo"               element={<RdoPage />} />
+          <Route path="/quantitativos"     element={<QuantitativosPage />} />
+          <Route path="/bim"               element={
+            <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Carregando módulo 3D...</div>}>
+              <BimPage />
+            </Suspense>
+          } />
           <Route path="*"                    element={<Navigate to="/relatorio360" replace />} />
         </Route>
       </Routes>

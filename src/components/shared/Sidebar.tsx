@@ -3,7 +3,8 @@ import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
-  Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock,
+  Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
+  Calculator, Layers,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -24,6 +25,9 @@ const navItems = [
   { label: 'Suprimentos',     icon: PackageSearch,    to: '/suprimentos'         },
   { label: 'Mão de Obra',     icon: Users,            to: '/mao-de-obra'         },
   { label: 'Planejamento',    icon: CalendarClock,    to: '/planejamento'        },
+  { label: 'RDO',             icon: FileText,         to: '/rdo'                 },
+  { label: 'Quantitativos',   icon: Calculator,       to: '/quantitativos'       },
+  { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/bim'                 },
   { label: 'Frota',           icon: Cpu,              to: '/otimizacao-frota'    },
   { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
 ]
@@ -39,7 +43,7 @@ export function Sidebar() {
   const alertCounts = useAlertCounts()
 
   const [isOpen, setIsOpen] = useState(() => {
-    try { return localStorage.getItem(SIDEBAR_KEY) === 'true' } catch { return false }
+    try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
   })
 
   function toggleSidebar() {
@@ -65,7 +69,7 @@ export function Sidebar() {
         </div>
         {isOpen && (
           <span className="text-[#f5f5f5] text-sm font-bold whitespace-nowrap leading-tight">
-            ConstruData
+            Atlântico
           </span>
         )}
       </div>

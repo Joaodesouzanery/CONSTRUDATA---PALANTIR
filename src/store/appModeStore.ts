@@ -40,6 +40,9 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().loadDemoData())
         import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().loadDemoData())
         import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().loadDemoData())
+        import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().loadDemoData())
+        import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().loadDemoData())
+        import('./bimStore').then(({ useBimStore }) => useBimStore.getState().loadDemoData())
       } else {
         // Clear all stores to empty state
         import('./projetosStore').then(({ useProjetosStore }) => useProjetosStore.getState().clearData())
@@ -54,6 +57,9 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().clearData())
         import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().clearData())
         import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().clearData())
+        import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().clearData())
+        import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().clearData())
+        import('./bimStore').then(({ useBimStore }) => useBimStore.getState().clearData())
       }
 
       return { isDemoMode: next }
