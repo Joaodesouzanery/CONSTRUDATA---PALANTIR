@@ -9,10 +9,10 @@ export function AgendaHeader() {
 
   return (
     <>
-      <div className="flex items-center justify-between px-5 py-3 border-b border-[#2a2a2a] bg-[#1a1a1a] shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[#1c3658] bg-[#0e1f38] shrink-0">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f97316]/15">
-            <CalendarDays size={15} className="text-[#f97316]" />
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#2abfdc]/15">
+            <CalendarDays size={15} className="text-[#2abfdc]" />
           </div>
           <h1 className="text-[#f5f5f5] text-base font-bold tracking-tight">Agenda</h1>
         </div>
@@ -27,7 +27,7 @@ export function AgendaHeader() {
           </button>
           <button
             onClick={() => setShowModel(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#3a3a3a] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1c3658] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
           >
             <LayoutGrid size={12} />
             Visão do Modelo

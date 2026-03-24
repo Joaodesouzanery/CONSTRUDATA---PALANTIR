@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 const PRIORITY_META: Record<RoutingPriority, { label: string; color: string }> = {
   critical: { label: 'Crítico',  color: '#ef4444' },
-  high:     { label: 'Alto',     color: '#f97316' },
+  high:     { label: 'Alto',     color: '#2abfdc' },
   medium:   { label: 'Médio',    color: '#eab308' },
   low:      { label: 'Baixo',    color: '#22c55e' },
 }
@@ -31,10 +31,10 @@ function RoutingCard({
   return (
     <div
       className={cn(
-        'bg-[#222222] border rounded-xl p-4',
+        'bg-[#112240] border rounded-xl p-4',
         rec.accepted === true  ? 'border-[#22c55e]/40' :
-        rec.accepted === false ? 'border-[#2a2a2a] opacity-50' :
-                                 'border-[#2a2a2a]',
+        rec.accepted === false ? 'border-[#1c3658] opacity-50' :
+                                 'border-[#1c3658]',
       )}
     >
       <div className="flex items-start gap-3">
@@ -106,7 +106,7 @@ function RoutingCard({
             </button>
             <button
               onClick={onDismiss}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1c3658] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors"
             >
               <X size={12} /> Dispensar
             </button>
@@ -152,7 +152,7 @@ export function RoteamentoPanel() {
         </div>
         <button
           onClick={runRoutingEngine}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#3a3a3a] text-[#f5f5f5] text-xs font-medium hover:bg-[#252525] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#162e50] transition-colors"
         >
           <RefreshCw size={13} /> Rodar Engine
         </button>
@@ -160,7 +160,7 @@ export function RoteamentoPanel() {
 
       {/* Cards */}
       {routingRecs.length === 0 ? (
-        <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-6 text-center">
+        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">
             Nenhuma sugestão. Clique em "Rodar Engine" para analisar a frota.
           </p>

@@ -44,7 +44,7 @@ function ScenarioCard({
           ? 'border-[#22c55e] bg-[#22c55e]/10'
           : comparing
           ? 'border-[#3b82f6] bg-[#3b82f6]/10'
-          : 'border-[#2a2a2a] bg-[#1a1a1a] hover:border-[#3a3a3a]'
+          : 'border-[#1c3658] bg-[#0e1f38] hover:border-[#1f3c5e]'
       }`}
       onClick={onSelect}
     >
@@ -58,7 +58,7 @@ function ScenarioCard({
             onClick={(e) => { e.stopPropagation(); onCompare() }}
             title="Comparar"
             className={`p-1.5 rounded-lg transition-colors ${
-              comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#2a2a2a]'
+              comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#1c3658]'
             }`}
           >
             <GitCompare size={13} />
@@ -108,17 +108,17 @@ function ComparePanel({ a, b }: { a: PlanScenario; b: PlanScenario }) {
   ]
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] overflow-hidden mt-4">
-      <div className="grid grid-cols-3 bg-[#161616] border-b border-[#2a2a2a]">
+    <div className="rounded-xl border border-[#1c3658] overflow-hidden mt-4">
+      <div className="grid grid-cols-3 bg-[#0a1628] border-b border-[#1c3658]">
         <div className="px-4 py-2.5 text-[10px] uppercase tracking-widest text-[#6b6b6b]">Métrica</div>
-        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#22c55e] border-l border-[#2a2a2a]">{a.name}</div>
-        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#3b82f6] border-l border-[#2a2a2a]">{b.name}</div>
+        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#22c55e] border-l border-[#1c3658]">{a.name}</div>
+        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#3b82f6] border-l border-[#1c3658]">{b.name}</div>
       </div>
       {rows.map((row, i) => (
         <div key={i} className="grid grid-cols-3 border-b border-[#1e1e1e] hover:bg-[#1e1e1e]">
           <div className="px-4 py-2 text-xs text-[#6b6b6b]">{row.label}</div>
-          <div className="px-4 py-2 text-xs font-mono text-[#a3a3a3] border-l border-[#2a2a2a]">{row.aVal}</div>
-          <div className={`px-4 py-2 text-xs font-mono border-l border-[#2a2a2a] ${row.aVal !== row.bVal ? 'text-[#f97316]' : 'text-[#a3a3a3]'}`}>
+          <div className="px-4 py-2 text-xs font-mono text-[#a3a3a3] border-l border-[#1c3658]">{row.aVal}</div>
+          <div className={`px-4 py-2 text-xs font-mono border-l border-[#1c3658] ${row.aVal !== row.bVal ? 'text-[#2abfdc]' : 'text-[#a3a3a3]'}`}>
             {row.bVal}
           </div>
         </div>
@@ -165,9 +165,9 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div className="bg-[#111] border border-[#1c3658] rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 border-b border-[#1c3658] flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-[#f5f5f5] font-semibold text-sm">Cenários de Planejamento</h3>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -202,7 +202,7 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-[#2a2a2a] flex items-center justify-between shrink-0">
+        <div className="px-5 py-3 border-t border-[#1c3658] flex items-center justify-between shrink-0">
           <p className="text-[#3f3f3f] text-xs">
             {applyStatus === 'done'
               ? '✓ Datas aplicadas à Agenda'
@@ -211,7 +211,7 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
               : 'Nenhum cenário selecionado'}
           </p>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#1e1e1e] text-[#a3a3a3] text-xs hover:bg-[#2a2a2a]">
+            <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#1e1e1e] text-[#a3a3a3] text-xs hover:bg-[#1c3658]">
               Cancelar
             </button>
             <button

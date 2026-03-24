@@ -88,9 +88,9 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
         const itemMatches = sourceMatches.filter((m) => m.takeoffItemId === item.id)
 
         return (
-          <div key={item.id} className="bg-[#222222] border border-[#2a2a2a] rounded-xl overflow-hidden">
+          <div key={item.id} className="bg-[#112240] border border-[#1c3658] rounded-xl overflow-hidden">
             {/* Item header */}
-            <div className="px-4 py-2.5 bg-[#252525] border-b border-[#2a2a2a] flex items-center gap-3">
+            <div className="px-4 py-2.5 bg-[#162e50] border-b border-[#1c3658] flex items-center gap-3">
               <span className="text-[#f5f5f5] text-sm font-medium flex-1">{item.description}</span>
               <span className="text-[#6b6b6b] text-xs tabular-nums">
                 {item.quantity.toLocaleString('pt-BR')} {item.unit}
@@ -118,8 +118,8 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                     <tr
                       key={`${m.code}-${m.source}`}
                       className={cn(
-                        'border-t border-[#2a2a2a] transition-colors',
-                        m.selected ? 'bg-[#f97316]/5' : 'hover:bg-[#252525]',
+                        'border-t border-[#1c3658] transition-colors',
+                        m.selected ? 'bg-[#2abfdc]/5' : 'hover:bg-[#162e50]',
                       )}
                     >
                       <td className="px-3 py-2">
@@ -128,7 +128,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                           name={`match-${item.id}-${source}`}
                           checked={m.selected}
                           onChange={() => onToggle(item.id, m.code, source)}
-                          className="accent-[#f97316] cursor-pointer"
+                          className="accent-[#2abfdc] cursor-pointer"
                         />
                       </td>
                       <td className="px-3 py-2 text-[#a3a3a3] font-mono">{m.code}</td>
@@ -152,7 +152,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                             const v = parseFloat(e.target.value)
                             if (!isNaN(v) && v >= 0) onOverride(item.id, m.code, source, v)
                           }}
-                          className="w-full bg-[#1a1a1a] border border-[#3a3a3a] rounded px-2 py-1 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
+                          className="w-full bg-[#0e1f38] border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#2abfdc]"
                         />
                       </td>
                     </tr>
@@ -202,7 +202,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
         </span>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
         >
           <Plus size={12} />
           Adicionar
@@ -212,7 +212,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-[#222222] border border-[#f97316]/30 rounded-xl p-4 flex flex-col gap-3"
+          className="bg-[#112240] border border-[#2abfdc]/30 rounded-xl p-4 flex flex-col gap-3"
         >
           <p className="text-[#f5f5f5] text-xs font-semibold">Nova entrada</p>
           <div className="grid grid-cols-2 gap-3">
@@ -220,48 +220,48 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
               placeholder="Código"
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#2abfdc]"
               required
             />
             <input
               placeholder="Unidade"
               value={form.unit}
               onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#2abfdc]"
               required
             />
             <input
               placeholder="Descrição"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="col-span-2 bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="col-span-2 bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#2abfdc]"
               required
             />
             <input
               placeholder="Custo unitário (R$)"
               value={form.unitCost}
               onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#2abfdc]"
               required
             />
             <input
               placeholder="Categoria"
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#2abfdc]"
             />
           </div>
           <div className="flex gap-2 justify-end">
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="px-3 py-1.5 rounded text-xs text-[#a3a3a3] hover:text-[#f5f5f5] border border-[#3a3a3a] transition-colors"
+              className="px-3 py-1.5 rounded text-xs text-[#a3a3a3] hover:text-[#f5f5f5] border border-[#1f3c5e] transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-3 py-1.5 rounded bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
+              className="px-3 py-1.5 rounded bg-[#2abfdc] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
             >
               Salvar
             </button>
@@ -274,10 +274,10 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
           Nenhuma entrada na base própria
         </div>
       ) : (
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
+        <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl overflow-hidden">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-[#252525]">
+              <tr className="bg-[#162e50]">
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-24">Código</th>
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-16">Un</th>
@@ -288,7 +288,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
             </thead>
             <tbody>
               {customBase.map((entry) => (
-                <tr key={entry.code} className="border-t border-[#2a2a2a] hover:bg-[#252525] transition-colors">
+                <tr key={entry.code} className="border-t border-[#1c3658] hover:bg-[#162e50] transition-colors">
                   <td className="px-3 py-2 text-[#a3a3a3] font-mono">{entry.code}</td>
                   <td className="px-3 py-2 text-[#f5f5f5]">{entry.description}</td>
                   <td className="px-3 py-2 text-[#a3a3a3]">{entry.unit}</td>
@@ -387,7 +387,7 @@ export function CostMatchingView() {
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Tab bar */}
-      <div className="flex gap-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg p-1 self-start">
+      <div className="flex gap-1 bg-[#1e1e1e] border border-[#1c3658] rounded-lg p-1 self-start">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -395,7 +395,7 @@ export function CostMatchingView() {
             className={cn(
               'px-4 py-1.5 rounded text-sm font-medium transition-colors',
               activeTab === tab.key
-                ? 'bg-[#f97316] text-white'
+                ? 'bg-[#2abfdc] text-white'
                 : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
             )}
           >
@@ -437,13 +437,13 @@ export function CostMatchingView() {
       <div className="flex gap-3 shrink-0">
         <button
           onClick={() => setStep('normalization')}
-          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#3a3a3a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors"
+          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors"
         >
           ← Voltar
         </button>
         <button
           onClick={handleAdvance}
-          className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#f97316] hover:bg-[#ea6c0a] text-white transition-colors"
+          className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#ea6c0a] text-white transition-colors"
         >
           Avançar → Proposta
         </button>

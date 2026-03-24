@@ -15,7 +15,7 @@ const CATEGORY_LABEL: Record<DocumentCategory, string> = {
 }
 
 const CATEGORY_COLOR: Record<DocumentCategory, string> = {
-  contract:      'text-[#f97316] bg-[#f97316]/10',
+  contract:      'text-[#2abfdc] bg-[#2abfdc]/10',
   drawing:       'text-[#3b82f6] bg-[#3b82f6]/10',
   specification: 'text-[#a855f7] bg-[#a855f7]/10',
   report:        'text-[#22c55e] bg-[#22c55e]/10',
@@ -118,17 +118,17 @@ export function TabDocumentos({ project }: { project: Project }) {
         className={cn(
           'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors',
           isDragging
-            ? 'border-[#f97316] bg-[#f97316]/5'
-            : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#1a1a1a]'
+            ? 'border-[#2abfdc] bg-[#2abfdc]/5'
+            : 'border-[#1c3658] hover:border-[#1f3c5e] bg-[#0e1f38]'
         )}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <UploadCloud size={28} className={isDragging ? 'text-[#f97316]' : 'text-[#3f3f3f]'} />
+        <UploadCloud size={28} className={isDragging ? 'text-[#2abfdc]' : 'text-[#3f3f3f]'} />
         <div className="text-center">
-          <p className="text-sm text-[#a3a3a3]">Arraste arquivos ou <span className="text-[#f97316]">clique para selecionar</span></p>
+          <p className="text-sm text-[#a3a3a3]">Arraste arquivos ou <span className="text-[#2abfdc]">clique para selecionar</span></p>
           <p className="text-[10px] text-[#3f3f3f] mt-0.5">Máximo 10 MB por arquivo</p>
         </div>
         <input
@@ -156,8 +156,8 @@ export function TabDocumentos({ project }: { project: Project }) {
             className={cn(
               'text-[10px] px-2.5 py-1 rounded-full font-semibold transition-colors border',
               filter === opt.value
-                ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30'
-                : 'text-[#6b6b6b] border-[#2a2a2a] hover:border-[#3a3a3a] hover:text-[#a3a3a3]'
+                ? 'bg-[#2abfdc]/15 text-[#2abfdc] border-[#2abfdc]/30'
+                : 'text-[#6b6b6b] border-[#1c3658] hover:border-[#1f3c5e] hover:text-[#a3a3a3]'
             )}
           >
             {opt.label}
@@ -176,9 +176,9 @@ export function TabDocumentos({ project }: { project: Project }) {
           {filtered.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center gap-3 rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] px-4 py-3 hover:bg-[#252525] transition-colors"
+              className="flex items-center gap-3 rounded-xl border border-[#1c3658] bg-[#112240] px-4 py-3 hover:bg-[#162e50] transition-colors"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#252525] flex items-center justify-center text-[#6b6b6b] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#162e50] flex items-center justify-center text-[#6b6b6b] shrink-0">
                 <FileIcon mimeType={doc.mimeType} size={16} />
               </div>
 
@@ -216,7 +216,7 @@ export function TabDocumentos({ project }: { project: Project }) {
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-[#252525] text-[#a3a3a3]"
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-[#162e50] text-[#a3a3a3]"
                     >
                       Não
                     </button>

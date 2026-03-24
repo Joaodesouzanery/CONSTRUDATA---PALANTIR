@@ -141,7 +141,7 @@ export function NormalizacaoView() {
       {/* Header stats */}
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[#f5f5f5] text-sm font-semibold">Normalização de Itens</span>
-        <span className="px-2 py-0.5 rounded-full bg-[#f97316]/20 text-[#f97316] text-xs">
+        <span className="px-2 py-0.5 rounded-full bg-[#2abfdc]/20 text-[#2abfdc] text-xs">
           {withSuggestions} sugestões
         </span>
         <span className="px-2 py-0.5 rounded-full bg-[#16a34a]/20 text-[#4ade80] text-xs">
@@ -166,10 +166,10 @@ export function NormalizacaoView() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl">
+      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#1c3658] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#252525]">
+            <tr className="bg-[#162e50]">
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2 w-8"></th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Original</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Sugestão</th>
@@ -181,7 +181,7 @@ export function NormalizacaoView() {
             {suggestions.map(({ item, hasSuggestion, suggestedDesc, suggestedQty, suggestedUnit, reason, acceptedOrRejected }) => (
               <tr
                 key={item.id}
-                className="border-t border-[#2a2a2a] hover:bg-[#252525]/50 transition-colors"
+                className="border-t border-[#1c3658] hover:bg-[#162e50]/50 transition-colors"
               >
                 {/* Status indicator */}
                 <td className="px-3 py-2">
@@ -204,13 +204,13 @@ export function NormalizacaoView() {
                 <td className="px-3 py-2">
                   {hasSuggestion ? (
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-[#f97316] text-xs">{suggestedDesc}</span>
+                      <span className="text-[#2abfdc] text-xs">{suggestedDesc}</span>
                       <span className="text-[#a3a3a3] text-[10px]">
                         {suggestedQty.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} {suggestedUnit}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-[#3a3a3a] text-xs">Sem alterações</span>
+                    <span className="text-[#1f3c5e] text-xs">Sem alterações</span>
                   )}
                 </td>
 
@@ -219,7 +219,7 @@ export function NormalizacaoView() {
                   {reason ? (
                     <span className="text-[#6b6b6b] text-[10px]">{reason}</span>
                   ) : (
-                    <span className="text-[#3a3a3a] text-[10px]">—</span>
+                    <span className="text-[#1f3c5e] text-[10px]">—</span>
                   )}
                 </td>
 
@@ -264,7 +264,7 @@ export function NormalizacaoView() {
                       </button>
                     </div>
                   ) : (
-                    <span className="text-[#3a3a3a] text-xs">—</span>
+                    <span className="text-[#1f3c5e] text-xs">—</span>
                   )}
                 </td>
               </tr>
@@ -277,13 +277,13 @@ export function NormalizacaoView() {
       <div className="flex gap-3 shrink-0">
         <button
           onClick={() => setStep('extraction')}
-          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#3a3a3a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors"
+          className="px-4 py-2 rounded-lg text-sm font-medium border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors"
         >
           ← Voltar
         </button>
         <button
           onClick={() => setStep('matching')}
-          className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#f97316] hover:bg-[#ea6c0a] text-white transition-colors"
+          className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#ea6c0a] text-white transition-colors"
         >
           Avançar → Matching
         </button>

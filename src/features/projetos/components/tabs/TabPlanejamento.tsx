@@ -12,7 +12,7 @@ const PHASE_STATUS_LABEL: Record<ProjectPhaseStatus, string> = {
 
 const PHASE_STATUS_COLORS: Record<ProjectPhaseStatus, { text: string; bg: string; bar: string }> = {
   not_started: { text: 'text-[#6b6b6b]', bg: 'bg-[#6b6b6b]/10', bar: '#6b6b6b' },
-  in_progress: { text: 'text-[#f97316]', bg: 'bg-[#f97316]/10', bar: '#f97316' },
+  in_progress: { text: 'text-[#2abfdc]', bg: 'bg-[#2abfdc]/10', bar: '#2abfdc' },
   completed:   { text: 'text-[#22c55e]', bg: 'bg-[#22c55e]/10', bar: '#22c55e' },
   delayed:     { text: 'text-[#ef4444]', bg: 'bg-[#ef4444]/10', bar: '#ef4444' },
 }
@@ -27,7 +27,7 @@ function PhaseCard({
   const colors = PHASE_STATUS_COLORS[phase.status]
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] p-4 flex flex-col gap-3">
+    <div className="rounded-xl border border-[#1c3658] bg-[#112240] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-sm font-semibold text-[#f5f5f5] leading-snug">{phase.name}</span>
@@ -42,7 +42,7 @@ function PhaseCard({
         </div>
         <button
           onClick={onEdit}
-          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
+          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors"
         >
           <Pencil size={12} />
         </button>
@@ -56,7 +56,7 @@ function PhaseCard({
             {phase.progress}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-[#252525] overflow-hidden">
+        <div className="h-2 rounded-full bg-[#162e50] overflow-hidden">
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${phase.progress}%`, background: colors.bar }}
@@ -77,7 +77,7 @@ function PhaseCard({
       </div>
 
       {phase.notes && (
-        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#2a2a2a] pt-2">
+        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#1c3658] pt-2">
           {phase.notes}
         </p>
       )}

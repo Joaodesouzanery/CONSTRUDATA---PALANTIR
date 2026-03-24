@@ -21,7 +21,7 @@ const COLOR_BG: Record<TaskColor, string> = {
 
 const COLOR_BORDER: Record<TaskColor, string> = {
   blue:   '#3b82f6',
-  orange: '#f97316',
+  orange: '#2abfdc',
   green:  '#22c55e',
   red:    '#ef4444',
   purple: '#a855f7',

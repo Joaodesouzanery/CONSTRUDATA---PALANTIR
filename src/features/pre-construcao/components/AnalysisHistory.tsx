@@ -13,7 +13,7 @@ const STATUS_LABELS: Record<PipelineStep, string> = {
 }
 
 const STATUS_COLORS: Record<PipelineStep, string> = {
-  upload:        'bg-[#3a3a3a] text-[#a3a3a3]',
+  upload:        'bg-[#1f3c5e] text-[#a3a3a3]',
   extraction:    'bg-[#2563eb]/20 text-[#93c5fd]',
   normalization: 'bg-[#ca8a04]/20 text-[#fbbf24]',
   matching:      'bg-[#7c3aed]/20 text-[#c4b5fd]',
@@ -31,12 +31,12 @@ export function AnalysisHistory() {
   })))
 
   return (
-    <div className="w-56 shrink-0 flex flex-col bg-[#1a1a1a] border-r border-[#2a2a2a] overflow-hidden">
+    <div className="w-56 shrink-0 flex flex-col bg-[#0e1f38] border-r border-[#1c3658] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#2a2a2a]">
+      <div className="px-4 py-3 border-b border-[#1c3658]">
         <button
           onClick={resetPipeline}
-          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[#2abfdc] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
         >
           <Plus size={12} />
           Nova Análise
@@ -60,7 +60,7 @@ export function AnalysisHistory() {
           sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#3a3a3a] transition-colors"
+              className="bg-[#1e1e1e] border border-[#1c3658] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#1f3c5e] transition-colors"
             >
               {/* Date */}
               <p className="text-[#f5f5f5] text-[11px] font-semibold">
@@ -81,7 +81,7 @@ export function AnalysisHistory() {
               </p>
 
               {/* Total cost */}
-              <p className="text-[#f97316] text-xs font-bold tabular-nums">
+              <p className="text-[#2abfdc] text-xs font-bold tabular-nums">
                 {formatBRL(session.totalCost)}
               </p>
 

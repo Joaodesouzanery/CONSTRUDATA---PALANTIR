@@ -15,11 +15,11 @@ export function MaterialsPanel() {
         <span className="text-xs font-mono text-[#6b6b6b]">{logs.length} itens</span>
       </div>
 
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] overflow-hidden">
+      <div className="rounded-xl border border-[#1c3658] bg-[#112240] overflow-hidden">
         {logs.length === 0 ? (
           <div className="p-6 text-center text-sm text-[#6b6b6b]">Nenhum material registrado</div>
         ) : (
-          <div className="divide-y divide-[#2a2a2a]">
+          <div className="divide-y divide-[#1c3658]">
             {/* Header */}
             <div className="grid grid-cols-4 px-4 py-2 text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
               <span>ID</span>
@@ -32,9 +32,9 @@ export function MaterialsPanel() {
               return (
                 <div
                   key={log.id}
-                  className="grid grid-cols-4 px-4 py-3 text-sm items-center hover:bg-[#252525] transition-colors"
+                  className="grid grid-cols-4 px-4 py-3 text-sm items-center hover:bg-[#162e50] transition-colors"
                 >
-                  <span className="font-mono text-xs text-[#f97316] font-semibold">{log.materialId}</span>
+                  <span className="font-mono text-xs text-[#2abfdc] font-semibold">{log.materialId}</span>
                   <span className="text-[#a3a3a3] text-xs truncate pr-2">
                     {activity?.name ?? '—'}
                   </span>

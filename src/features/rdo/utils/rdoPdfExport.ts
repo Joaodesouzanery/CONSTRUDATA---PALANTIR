@@ -113,15 +113,15 @@ export function printRdoPDF(rdo: RDO) {
   <style>
     @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9.5pt; color: #1a1a1a; background: #fff; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9.5pt; color: #0e1f38; background: #fff; }
 
     /* ── Cover ─────────────────────────── */
     .cover {
       display: flex; align-items: center; gap: 14px;
-      padding: 18px 0 12px; border-bottom: 3px solid #f97316; margin-bottom: 16px;
+      padding: 18px 0 12px; border-bottom: 3px solid #2abfdc; margin-bottom: 16px;
     }
     .cover-logo {
-      width: 44px; height: 44px; background: #f97316; border-radius: 10px;
+      width: 44px; height: 44px; background: #2abfdc; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 22px; color: #fff; font-weight: 900; flex-shrink: 0;
     }
@@ -138,7 +138,7 @@ export function printRdoPDF(rdo: RDO) {
     .section { margin-bottom: 14px; break-inside: avoid; }
     .section-header {
       display: flex; align-items: center; gap: 7px;
-      background: #f9fafb; border-left: 3px solid #f97316;
+      background: #f9fafb; border-left: 3px solid #2abfdc;
       padding: 5px 10px; border-radius: 0 6px 6px 0;
       font-size: 9pt; font-weight: 700; color: #111; text-transform: uppercase;
       letter-spacing: 0.04em; margin-bottom: 8px;
@@ -197,7 +197,7 @@ export function printRdoPDF(rdo: RDO) {
 
   <!-- Print button (hidden on print) -->
   <div class="no-print" style="text-align:right;padding:8px 0;margin-bottom:4px;">
-    <button onclick="window.print()" style="background:#f97316;color:#fff;border:none;padding:6px 18px;border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;">
+    <button onclick="window.print()" style="background:#2abfdc;color:#fff;border:none;padding:6px 18px;border-radius:6px;font-size:10pt;font-weight:700;cursor:pointer;">
       🖨️ Imprimir / Salvar PDF
     </button>
   </div>

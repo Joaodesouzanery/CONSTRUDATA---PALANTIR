@@ -13,7 +13,7 @@ export function ReportHeader() {
   const shortDate = format(parseISO(currentDate), 'dd/MM/yyyy')
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] bg-[#1a1a1a]">
+    <div className="flex items-center justify-between px-6 py-4 border-b border-[#1c3658] bg-[#0e1f38]">
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center gap-2 text-[#a3a3a3] text-xs uppercase tracking-widest font-semibold">
           <Building2 size={12} />
@@ -25,15 +25,15 @@ export function ReportHeader() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#1f1f1f] text-[#a3a3a3] text-sm">
-          <Calendar size={14} className="text-[#f97316]" />
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1c3658] bg-[#112240] text-[#a3a3a3] text-sm">
+          <Calendar size={14} className="text-[#2abfdc]" />
           <span className="capitalize font-medium text-[#f5f5f5]">{displayDate}</span>
         </div>
 
         <div className="flex items-center gap-1">
           <button
             onClick={goToPrevDay}
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#2a2a2a] bg-[#1f1f1f] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#1c3658] bg-[#112240] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
             title="Dia anterior"
           >
             <ChevronLeft size={16} />
@@ -41,7 +41,7 @@ export function ReportHeader() {
           <span className="text-xs text-[#6b6b6b] font-mono w-20 text-center">{shortDate}</span>
           <button
             onClick={goToNextDay}
-            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#2a2a2a] bg-[#1f1f1f] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#1c3658] bg-[#112240] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
             title="Próximo dia"
           >
             <ChevronRight size={16} />

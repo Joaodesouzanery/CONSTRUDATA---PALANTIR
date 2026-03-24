@@ -25,7 +25,7 @@ function HHBarChart({ timecards }: { timecards: import('@/types').TimecardEntry[
   const chartH = 120
 
   return (
-    <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-4">
+    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-4">HH Planejado vs Realizado (7 dias)</p>
       <div className="flex items-end gap-2 h-[120px]">
         {days.map((day, i) => {
@@ -95,7 +95,7 @@ function PhysicalProgressSummary({ progress }: { progress: import('@/types').Phy
     .slice(0, 6)
 
   return (
-    <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-4">
+    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Progresso Físico por Atividade</p>
       <div className="flex flex-col gap-2">
         {rows.map((row) => (
@@ -109,7 +109,7 @@ function PhysicalProgressSummary({ progress }: { progress: import('@/types').Phy
                 {row.reported}/{row.planned} {row.unit} ({row.pct}%)
               </span>
             </div>
-            <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[#1c3658] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
                 style={{
@@ -131,7 +131,7 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
   const expiring = getCertExpiringSoon(workers, 60)
 
   return (
-    <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-4">
+    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">
         Certificações a Vencer (60 dias)
         {expiring.length > 0 && (
@@ -146,7 +146,7 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#2a2a2a]">
+              <tr className="border-b border-[#1c3658]">
                 <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Funcionário</th>
                 <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Certificação</th>
                 <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Vence em</th>
@@ -158,7 +158,7 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
                 <tr key={i} className="border-b border-[#1e1e1e] last:border-0">
                   <td className="py-2 text-[#f5f5f5] text-xs">{item.worker.name}</td>
                   <td className="py-2">
-                    <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-[#2a2a2a] text-[#f5f5f5]">
+                    <span className="px-1.5 py-0.5 rounded text-xs font-mono bg-[#1c3658] text-[#f5f5f5]">
                       {item.certType}
                     </span>
                   </td>
@@ -237,7 +237,7 @@ function HRKpiCards() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {kpis.map((kpi) => (
-        <div key={kpi.label} className="bg-[#222222] border border-[#2a2a2a] rounded-xl px-4 py-3">
+        <div key={kpi.label} className="bg-[#112240] border border-[#1c3658] rounded-xl px-4 py-3">
           <p className="text-[#6b6b6b] text-xs mb-1">{kpi.label}</p>
           <p className="text-[#f5f5f5] text-xl font-bold leading-tight" style={{ color: kpi.color }}>
             {kpi.value}

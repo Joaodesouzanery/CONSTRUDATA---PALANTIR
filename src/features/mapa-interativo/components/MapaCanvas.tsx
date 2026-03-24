@@ -13,11 +13,11 @@ import type { MapNode, MapNetworkType } from '@/types'
 const NODE_COLORS: Record<string, string> = {
   junction:  '#3b82f6',
   endpoint:  '#22c55e',
-  structure: '#f97316',
+  structure: '#2abfdc',
 }
 
 const NETWORK_COLORS: Record<MapNetworkType, string> = {
-  sewer:    '#f97316',
+  sewer:    '#2abfdc',
   water:    '#38bdf8',
   drainage: '#4ade80',
   civil:    '#94a3b8',
@@ -201,7 +201,7 @@ export function MapaCanvas() {
         {/* Nodes */}
         {nodes.map((node) => {
           const isPending = pendingConnectNodeId === node.id
-          const color = isPending ? '#f97316' : (NODE_COLORS[node.nodeType] ?? '#3b82f6')
+          const color = isPending ? '#2abfdc' : (NODE_COLORS[node.nodeType] ?? '#3b82f6')
           return (
             <CircleMarker
               key={node.id}

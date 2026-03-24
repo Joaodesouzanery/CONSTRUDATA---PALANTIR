@@ -12,7 +12,7 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 
 const STATUS_COLOR: Record<ProjectStatus, string> = {
   active:    'text-[#22c55e] bg-[#22c55e]/10',
-  planning:  'text-[#f97316] bg-[#f97316]/10',
+  planning:  'text-[#2abfdc] bg-[#2abfdc]/10',
   completed: 'text-[#a3a3a3] bg-[#a3a3a3]/10',
   on_hold:   'text-[#ef4444] bg-[#ef4444]/10',
 }
@@ -31,17 +31,17 @@ export function ProjetosSidebar() {
 
   return (
     <aside
-      className="flex flex-col border-r border-[#2a2a2a] bg-[#1a1a1a] shrink-0 overflow-hidden"
+      className="flex flex-col border-r border-[#1c3658] bg-[#0e1f38] shrink-0 overflow-hidden"
       style={{ width: 300 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c3658] shrink-0">
         <span className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Projetos ({projects.length})
         </span>
         <button
           onClick={() => setEditingProject('new')}
-          className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea6a00] transition-colors"
+          className="flex items-center gap-1 text-[10px] font-semibold text-[#2abfdc] hover:text-[#1a9ab8] transition-colors"
         >
           <Plus size={13} />
           Novo
@@ -59,10 +59,10 @@ export function ProjetosSidebar() {
               key={project.id}
               onClick={() => selectProject(project.id)}
               className={cn(
-                'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#1f1f1f] transition-colors',
+                'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#112240] transition-colors',
                 isSelected
-                  ? 'bg-[#f97316]/10 border-l-2 border-l-[#f97316]'
-                  : 'hover:bg-[#252525] border-l-2 border-l-transparent'
+                  ? 'bg-[#2abfdc]/10 border-l-2 border-l-[#2abfdc]'
+                  : 'hover:bg-[#162e50] border-l-2 border-l-transparent'
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -87,9 +87,9 @@ export function ProjetosSidebar() {
                   <span className="text-[10px] text-[#6b6b6b]">Progresso geral</span>
                   <span className="text-[10px] font-mono text-[#a3a3a3]">{progress}%</span>
                 </div>
-                <div className="h-1 rounded-full bg-[#2a2a2a] overflow-hidden">
+                <div className="h-1 rounded-full bg-[#1c3658] overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-[#f97316] transition-all"
+                    className="h-full rounded-full bg-[#2abfdc] transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -107,7 +107,7 @@ export function ProjetosSidebar() {
             <span className="text-[#3f3f3f] text-xs">Nenhum projeto cadastrado</span>
             <button
               onClick={() => setEditingProject('new')}
-              className="text-xs text-[#f97316] hover:underline"
+              className="text-xs text-[#2abfdc] hover:underline"
             >
               Criar primeiro projeto
             </button>

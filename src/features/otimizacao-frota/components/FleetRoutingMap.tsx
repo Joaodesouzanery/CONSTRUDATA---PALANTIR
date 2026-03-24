@@ -17,7 +17,7 @@ const TILES = {
 } as const
 
 const STATUS_COLOR: Record<ObraStatus, string> = {
-  active:    '#f97316',
+  active:    '#2abfdc',
   planning:  '#3b82f6',
   paused:    '#eab308',
   completed: '#22c55e',
@@ -25,7 +25,7 @@ const STATUS_COLOR: Record<ObraStatus, string> = {
 
 const PRIORITY_COLOR: Record<string, string> = {
   critical: '#ef4444',
-  high:     '#f97316',
+  high:     '#2abfdc',
   medium:   '#eab308',
   low:      '#22c55e',
 }
@@ -68,12 +68,12 @@ const ACCEPTED_ANIM_CSS = `
 // ─── Map CSS ──────────────────────────────────────────────────────────────────
 
 function getMapCSS(isDark: boolean) {
-  const bg     = isDark ? '#1f1f1f' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const bg     = isDark ? '#112240' : '#ffffff'
+  const border = isDark ? '#1c3658' : '#d4d8df'
   const text   = isDark ? '#f5f5f5' : '#1a1d23'
   return `
   .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
-  .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #f97316 !important; }
+  .leaflet-control-zoom a:hover { background: #f0f2f5 !important; color: #2abfdc !important; }
   .leaflet-control-attribution { background: rgba(255,255,255,0.85) !important; color: #78828f !important; font-size: 9px !important; }
   .leaflet-control-layers { background: ${bg} !important; border: 1px solid ${border} !important; border-radius: 8px !important; }
   .leaflet-control-layers label { color: ${text} !important; }
@@ -99,7 +99,7 @@ export function FleetRoutingMap() {
   ), [routingRecs])
 
   return (
-    <div className="w-full rounded-xl overflow-hidden border border-[#2a2a2a]" style={{ height: 380 }}>
+    <div className="w-full rounded-xl overflow-hidden border border-[#1c3658]" style={{ height: 380 }}>
       <style>{mapCSS}{ACCEPTED_ANIM_CSS}</style>
       <MapContainer
         center={[-23.5400, -46.6300]}
@@ -151,7 +151,7 @@ export function FleetRoutingMap() {
                   positions={[[r.fromLat!, r.fromLng!], [r.toLat!, r.toLng!]]}
                   className={r.accepted === true ? 'route-accepted' : ''}
                   pathOptions={{
-                    color:     PRIORITY_COLOR[r.priority] ?? '#f97316',
+                    color:     PRIORITY_COLOR[r.priority] ?? '#2abfdc',
                     weight:    r.accepted === true ? 3.5 : 3,
                     dashArray: '10 6',
                     opacity:   r.accepted === true ? 1 : 0.75,

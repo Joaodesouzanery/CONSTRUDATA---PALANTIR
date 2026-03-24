@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #111111;
-  --color-surface: #1a1a1a;
-  --color-card: #1f1f1f;
-  --color-card-hover: #252525;
-  --color-border: #2a2a2a;
-  --color-border-strong: #3a3a3a;
-  --color-accent: #f97316;
-  --color-accent-hover: #ea6a00;
-  --color-accent-muted: rgba(249, 115, 22, 0.12);
-  --color-muted: #3f3f3f;
-  --color-text-primary: #f5f5f5;
-  --color-text-secondary: #a3a3a3;
-  --color-text-muted: #6b6b6b;
+  --color-background: #0a1628;
+  --color-surface: #0e1f38;
+  --color-card: #112240;
+  --color-card-hover: #162e50;
+  --color-border: #1c3658;
+  --color-border-strong: #1f3c5e;
+  --color-accent: #2abfdc;
+  --color-accent-hover: #1a9ab8;
+  --color-accent-muted: rgba(42, 191, 220, 0.12);
+  --color-muted: #244060;
+  --color-text-primary: #e4f2f8;
+  --color-text-secondary: #8fb3c8;
+  --color-text-muted: #4a7592;
   --color-success: #22c55e;
   --color-success-muted: rgba(34, 197, 94, 0.12);
   --color-warning: #eab308;
   --color-warning-muted: rgba(234, 179, 8, 0.12);
   --color-danger: #ef4444;
   --color-danger-muted: rgba(239, 68, 68, 0.12);
-  --color-info: #3b82f6;
+  --color-info: #38bdf8;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -42,10 +42,10 @@ html, body, #root {
 }
 
 body {
-  background-color: #18181b;
-  background-image: radial-gradient(circle, #252525 1px, transparent 1px);
+  background-color: #0b1829;
+  background-image: radial-gradient(circle, #1a3055 1px, transparent 1px);
   background-size: 28px 28px;
-  color: #f5f5f5;
+  color: #e4f2f8;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -57,16 +57,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #1a1a1a;
+  background: #0e1f38;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a3a3a;
+  background: #1c3658;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #f97316;
+  background: #2abfdc;
 }
 
 .font-mono {
@@ -87,32 +87,38 @@ input[type="file"] {
   color: #1a1d23;
 }
 
-/* Background surfaces */
-[data-theme="light"] .bg-\[\#111111\] { background-color: #f0f2f5 !important; }
-[data-theme="light"] .bg-\[\#1a1a1a\] { background-color: #ffffff !important; }
-[data-theme="light"] .bg-\[\#1f1f1f\] { background-color: #f8f9fb !important; }
-[data-theme="light"] .bg-\[\#252525\] { background-color: #eef0f3 !important; }
-[data-theme="light"] .bg-\[\#2a2a2a\] { background-color: #e5e8ed !important; }
-[data-theme="light"] .bg-\[\#161616\] { background-color: #eff1f4 !important; }
-[data-theme="light"] .bg-\[\#111\]    { background-color: #f0f2f5 !important; }
+/* Background surfaces — updated selectors to match new navy hex values */
+[data-theme="light"] .bg-\[\#0a1628\] { background-color: #f0f2f5 !important; }
+[data-theme="light"] .bg-\[\#0b1829\] { background-color: #f0f2f5 !important; }
+[data-theme="light"] .bg-\[\#081321\] { background-color: #eff1f4 !important; }
+[data-theme="light"] .bg-\[\#0e1f38\] { background-color: #ffffff !important; }
+[data-theme="light"] .bg-\[\#112240\] { background-color: #f8f9fb !important; }
+[data-theme="light"] .bg-\[\#162e50\] { background-color: #eef0f3 !important; }
+[data-theme="light"] .bg-\[\#1c3658\] { background-color: #e5e8ed !important; }
+[data-theme="light"] .bg-\[\#152d4e\] { background-color: #eef0f3 !important; }
+[data-theme="light"] .bg-\[\#070f1d\] { background-color: #e8ecf0 !important; }
 
 /* Borders */
-[data-theme="light"] .border-\[\#2a2a2a\] { border-color: #d4d8df !important; }
-[data-theme="light"] .border-\[\#3a3a3a\] { border-color: #c2c8d0 !important; }
-[data-theme="light"] .border-\[\#1f1f1f\] { border-color: #e8eaed !important; }
+[data-theme="light"] .border-\[\#1c3658\] { border-color: #d4d8df !important; }
+[data-theme="light"] .border-\[\#1f3c5e\] { border-color: #c2c8d0 !important; }
+[data-theme="light"] .border-\[\#112240\] { border-color: #e8eaed !important; }
 
 /* Text */
 [data-theme="light"] .text-\[\#f5f5f5\] { color: #1a1d23 !important; }
+[data-theme="light"] .text-\[\#e4f2f8\] { color: #1a1d23 !important; }
 [data-theme="light"] .text-\[\#a3a3a3\] { color: #505863 !important; }
+[data-theme="light"] .text-\[\#8fb3c8\] { color: #505863 !important; }
 [data-theme="light"] .text-\[\#6b6b6b\] { color: #78828f !important; }
+[data-theme="light"] .text-\[\#4a7592\] { color: #78828f !important; }
 [data-theme="light"] .text-\[\#3f3f3f\] { color: #9aa3ad !important; }
+[data-theme="light"] .text-\[\#244060\] { color: #9aa3ad !important; }
 
 /* Hover backgrounds */
-[data-theme="light"] .hover\:bg-\[\#252525\]:hover { background-color: #eef0f3 !important; }
-[data-theme="light"] .hover\:bg-\[\#2a2a2a\]:hover { background-color: #e5e8ed !important; }
+[data-theme="light"] .hover\:bg-\[\#162e50\]:hover { background-color: #eef0f3 !important; }
+[data-theme="light"] .hover\:bg-\[\#1c3658\]:hover { background-color: #e5e8ed !important; }
 [data-theme="light"] .hover\:text-\[\#f5f5f5\]:hover { color: #1a1d23 !important; }
 
-/* Form inputs — need specific override since bg-[#111111] is applied inline */
+/* Form inputs */
 [data-theme="light"] input:not([type="range"]),
 [data-theme="light"] select,
 [data-theme="light"] textarea {
@@ -126,13 +132,13 @@ input[type="file"] {
 /* Scrollbars */
 [data-theme="light"] ::-webkit-scrollbar-track { background: #eef0f3; }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2c8d0; }
-[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #f97316; }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #2abfdc; }
 
-/* Additional surfaces used in otimizacao-frota module */
-[data-theme="light"] .bg-\[\#222222\] { background-color: #f8f9fb !important; }
-[data-theme="light"] .bg-\[\#171717\] { background-color: #f0f2f5 !important; }
+/* Additional surfaces */
+[data-theme="light"] .bg-\[\#112240\]  { background-color: #f8f9fb !important; }
+[data-theme="light"] .bg-\[\#0b1829\]  { background-color: #f0f2f5 !important; }
 
-/* Light mode overrides for dark Tailwind classes (used in gray-900/800 panels) */
+/* Light mode overrides for Tailwind gray classes (mapa/bim panels) */
 [data-theme="light"] .bg-gray-800  { background-color: #f9fafb !important; }
 [data-theme="light"] .bg-gray-900  { background-color: #f3f4f6 !important; }
 [data-theme="light"] .bg-gray-950  { background-color: #e5e7eb !important; }
@@ -149,19 +155,19 @@ input[type="file"] {
 /* Modules using bg-white/bg-gray-50 etc need dark equivalents in dark mode.    */
 
 [data-theme="dark"] body {
-  background-color: #18181b;
+  background-color: #0b1829;
 }
 
-[data-theme="dark"] .bg-white        { background-color: #1e1e24 !important; }
-[data-theme="dark"] .bg-gray-50      { background-color: #1c1c22 !important; }
-[data-theme="dark"] .bg-gray-100     { background-color: #222228 !important; }
-[data-theme="dark"] .bg-gray-200     { background-color: #2a2a32 !important; }
-[data-theme="dark"] .text-gray-900   { color: #f1f1f3 !important; }
-[data-theme="dark"] .text-gray-800   { color: #e4e4e8 !important; }
-[data-theme="dark"] .text-gray-700   { color: #c8c8d0 !important; }
-[data-theme="dark"] .border-gray-100 { border-color: #2a2a32 !important; }
-[data-theme="dark"] .border-gray-200 { border-color: #333340 !important; }
-[data-theme="dark"] .divide-gray-100 > * + * { border-color: #2a2a32 !important; }
-[data-theme="dark"] .divide-gray-200 > * + * { border-color: #333340 !important; }
+[data-theme="dark"] .bg-white        { background-color: #112240 !important; }
+[data-theme="dark"] .bg-gray-50      { background-color: #0e1f38 !important; }
+[data-theme="dark"] .bg-gray-100     { background-color: #152d4e !important; }
+[data-theme="dark"] .bg-gray-200     { background-color: #1c3658 !important; }
+[data-theme="dark"] .text-gray-900   { color: #e4f2f8 !important; }
+[data-theme="dark"] .text-gray-800   { color: #cce4f0 !important; }
+[data-theme="dark"] .text-gray-700   { color: #a8ccdc !important; }
+[data-theme="dark"] .border-gray-100 { border-color: #1c3658 !important; }
+[data-theme="dark"] .border-gray-200 { border-color: #243860 !important; }
+[data-theme="dark"] .divide-gray-100 > * + * { border-color: #1c3658 !important; }
+[data-theme="dark"] .divide-gray-200 > * + * { border-color: #243860 !important; }
 
 /* Accent, status colors stay the same in both modes */

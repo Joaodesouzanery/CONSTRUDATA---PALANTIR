@@ -58,7 +58,7 @@ export function ExcecoesPanel() {
   const filterBtnCls = (active: boolean) =>
     cn(
       'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-      active ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]'
+      active ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]'
     )
 
   return (
@@ -84,10 +84,10 @@ export function ExcecoesPanel() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl">
+      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#1c3658] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#252525]">
+            <tr className="bg-[#162e50]">
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">OC</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Fornecedor</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2 w-36">Tipo</th>
@@ -108,7 +108,7 @@ export function ExcecoesPanel() {
               filtered.map((ex) => {
                 const po = purchaseOrders.find((p) => p.id === ex.poId)
                 return (
-                  <tr key={ex.id} className="border-t border-[#2a2a2a] hover:bg-[#252525]/50 transition-colors">
+                  <tr key={ex.id} className="border-t border-[#1c3658] hover:bg-[#162e50]/50 transition-colors">
                     <td className="px-3 py-3">
                       <span className="font-mono text-[#a3a3a3] text-xs">{po?.code ?? ex.poId}</span>
                     </td>
@@ -120,7 +120,7 @@ export function ExcecoesPanel() {
                     </td>
                     <td className="px-3 py-3 text-[#a3a3a3] text-xs leading-relaxed max-w-xs">
                       <p className="line-clamp-2">{ex.description}</p>
-                      <p className="text-[#f97316] text-[10px] italic mt-0.5 line-clamp-1">{ex.suggestedAction}</p>
+                      <p className="text-[#2abfdc] text-[10px] italic mt-0.5 line-clamp-1">{ex.suggestedAction}</p>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-col gap-0.5">
@@ -140,7 +140,7 @@ export function ExcecoesPanel() {
                           <>
                             <button
                               onClick={() => setRouting(ex)}
-                              className="px-2 py-1 rounded bg-[#f97316]/20 hover:bg-[#f97316]/30 text-[#f97316] text-[10px] font-semibold transition-colors"
+                              className="px-2 py-1 rounded bg-[#2abfdc]/20 hover:bg-[#2abfdc]/30 text-[#2abfdc] text-[10px] font-semibold transition-colors"
                             >
                               Rotear
                             </button>
@@ -153,7 +153,7 @@ export function ExcecoesPanel() {
                           </>
                         )}
                         {ex.status === 'resolved' && (
-                          <span className="text-[#3a3a3a] text-xs">—</span>
+                          <span className="text-[#1f3c5e] text-xs">—</span>
                         )}
                       </div>
                     </td>

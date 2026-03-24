@@ -1,6 +1,6 @@
 /**
  * PlanejamentoHeader — top navigation and action bar for the Planejamento module.
- * Accent color: #f97316 (orange-500)
+ * Accent color: #2abfdc (orange-500)
  */
 import { CalendarClock, Play, Download, Printer, AlertTriangle } from 'lucide-react'
 import { usePlanejamentoStore, type PlanejamentoTab } from '@/store/planejamentoStore'
@@ -40,7 +40,7 @@ export function PlanejamentoHeader() {
       {/* Title + actions */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#f97316' }}>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#2abfdc' }}>
             <CalendarClock size={20} className="text-white" />
           </div>
           <div>
@@ -53,7 +53,7 @@ export function PlanejamentoHeader() {
           <button
             onClick={runSchedule}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: '#f97316' }}
+            style={{ backgroundColor: '#2abfdc' }}
           >
             <Play size={15} />
             Gerar Planejamento

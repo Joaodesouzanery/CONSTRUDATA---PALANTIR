@@ -124,10 +124,10 @@ export function AbcPanel() {
           })}
 
           {/* Cumulative line */}
-          <polyline points={linePoints} fill="none" stroke="#f97316" strokeWidth="2.5" />
+          <polyline points={linePoints} fill="none" stroke="#2abfdc" strokeWidth="2.5" />
           {abcItems.map((item, i) => (
             <circle key={item.trecho.id} cx={lineX(i)} cy={lineY(item.cumulativePct)}
-              r="3" fill="#f97316" />
+              r="3" fill="#2abfdc" />
           ))}
 
           {/* X labels */}

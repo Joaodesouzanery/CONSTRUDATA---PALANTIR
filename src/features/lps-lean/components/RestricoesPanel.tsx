@@ -19,7 +19,7 @@ const CATEGORY_LABELS: Record<LpsRestrictionCategory, string> = {
 
 const CATEGORY_COLORS: Record<LpsRestrictionCategory, string> = {
   projeto_engenharia: '#6366f1',
-  materiais:          '#f97316',
+  materiais:          '#2abfdc',
   equipamentos:       '#eab308',
   mao_de_obra:        '#a78bfa',
   externo:            '#38bdf8',

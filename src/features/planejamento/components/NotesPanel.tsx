@@ -131,7 +131,7 @@ function NoteDialog({ initial, trechos, teams, onClose, onSave }: NoteDialogProp
           </button>
           <button onClick={handleSave}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-            style={{ backgroundColor: '#f97316' }}>
+            style={{ backgroundColor: '#2abfdc' }}>
             Salvar
           </button>
         </div>

@@ -27,12 +27,12 @@ export function ActivityCard({
   return (
     <div
       className={cn(
-        'rounded-xl border bg-[#1a1a1a] p-3 flex flex-col gap-2.5 select-none',
+        'rounded-xl border bg-[#0e1f38] p-3 flex flex-col gap-2.5 select-none',
         isOverlay
-          ? 'border-[#f97316] shadow-lg shadow-[#f97316]/10 rotate-1 scale-105 cursor-grabbing'
+          ? 'border-[#2abfdc] shadow-lg shadow-[#2abfdc]/10 rotate-1 scale-105 cursor-grabbing'
           : isDragging
-          ? 'border-[#f97316]/40 opacity-40 cursor-grabbing'
-          : 'border-[#2a2a2a] hover:border-[#3a3a3a] hover:bg-[#222222] transition-colors cursor-default'
+          ? 'border-[#2abfdc]/40 opacity-40 cursor-grabbing'
+          : 'border-[#1c3658] hover:border-[#1f3c5e] hover:bg-[#112240] transition-colors cursor-default'
       )}
     >
       {/* Title row */}
@@ -56,10 +56,10 @@ export function ActivityCard({
             {activity.plannedQty.toLocaleString('pt-BR')} {activity.unit}
           </span>
         </div>
-        <div className="h-6 w-px bg-[#2a2a2a]" />
+        <div className="h-6 w-px bg-[#1c3658]" />
         <div className="flex flex-col gap-0.5">
           <span className="text-[#6b6b6b] text-[10px] uppercase tracking-wider">Realizado</span>
-          <span className="font-mono text-[#f97316] font-semibold">
+          <span className="font-mono text-[#2abfdc] font-semibold">
             {activity.actualQty.toLocaleString('pt-BR')} {activity.unit}
           </span>
         </div>
@@ -68,11 +68,11 @@ export function ActivityCard({
       {/* Progress bar */}
       {activity.status !== 'planned' && (
         <div className="flex flex-col gap-1">
-          <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-[#1c3658] rounded-full overflow-hidden">
             <div
               className={cn(
                 'h-full rounded-full transition-all',
-                pct >= 100 ? 'bg-[#22c55e]' : 'bg-[#f97316]'
+                pct >= 100 ? 'bg-[#22c55e]' : 'bg-[#2abfdc]'
               )}
               style={{ width: `${pct}%` }}
             />
@@ -87,7 +87,7 @@ export function ActivityCard({
       {/* Crew badge */}
       {crew && (
         <div className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b]">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+          <div className="w-1.5 h-1.5 rounded-full bg-[#2abfdc]" />
           <span>{crew.foremanName} · {crew.crewType}</span>
         </div>
       )}

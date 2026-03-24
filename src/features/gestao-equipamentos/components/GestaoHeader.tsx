@@ -15,11 +15,11 @@ const TABS: { key: string; label: string }[] = [
 
 export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-0 border-b border-[#2a2a2a] bg-[#1a1a1a] shrink-0">
+    <div className="flex items-center justify-between px-6 py-0 border-b border-[#1c3658] bg-[#0e1f38] shrink-0">
       {/* Left — module title */}
       <div className="flex items-center gap-3 py-4">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15">
-          <Settings2 size={18} className="text-[#f97316]" />
+        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#2abfdc]/15">
+          <Settings2 size={18} className="text-[#2abfdc]" />
         </div>
         <div>
           <h1 className="text-[#f5f5f5] font-bold text-base leading-tight">
@@ -40,13 +40,13 @@ export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
               className={cn(
                 'relative px-5 py-4 text-xs font-semibold transition-colors whitespace-nowrap',
                 isActive
-                  ? 'text-[#f97316]'
+                  ? 'text-[#2abfdc]'
                   : 'text-[#6b6b6b] hover:text-[#a3a3a3]',
               )}
             >
               {tab.label}
               {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#f97316] rounded-t-sm" />
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#2abfdc] rounded-t-sm" />
               )}
             </button>
           )

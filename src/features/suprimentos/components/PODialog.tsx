@@ -64,13 +64,13 @@ export function PODialog({ po, onClose }: Props) {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#1a1a1a] border border-[#3a3a3a] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
+  const inputCls = 'w-full bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc]'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c3658]">
           <h2 className="text-[#f5f5f5] font-semibold">{po ? 'Editar Ordem de Compra' : 'Nova Ordem de Compra'}</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"><X size={16} /></button>
         </div>
@@ -112,15 +112,15 @@ export function PODialog({ po, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => setItems((prev) => [...prev, emptyItem()])}
-                  className="flex items-center gap-1 px-3 py-1 rounded bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
+                  className="flex items-center gap-1 px-3 py-1 rounded bg-[#2abfdc] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
                 >
                   <Plus size={12} /> Adicionar Item
                 </button>
               </div>
-              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg overflow-hidden">
+              <div className="bg-[#0e1f38] border border-[#1c3658] rounded-lg overflow-hidden">
                 <table className="w-full text-xs border-collapse">
                   <thead>
-                    <tr className="bg-[#252525]">
+                    <tr className="bg-[#162e50]">
                       <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                       <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-20">Qtd</th>
                       <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-16">Un</th>
@@ -131,27 +131,27 @@ export function PODialog({ po, onClose }: Props) {
                   </thead>
                   <tbody>
                     {items.map((item) => (
-                      <tr key={item.id} className="border-t border-[#2a2a2a]">
+                      <tr key={item.id} className="border-t border-[#1c3658]">
                         <td className="px-2 py-1.5">
-                          <input className="w-full bg-transparent border border-[#3a3a3a] rounded px-2 py-1 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+                          <input className="w-full bg-transparent border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]"
                             value={item.description}
                             onChange={(e) => setItemField(item.id, 'description', e.target.value)}
                             required placeholder="Descrição do item" />
                         </td>
                         <td className="px-2 py-1.5">
                           <input type="number" min={0} step={0.01}
-                            className="w-full bg-transparent border border-[#3a3a3a] rounded px-2 py-1 text-[#f5f5f5] text-right focus:outline-none focus:border-[#f97316]"
+                            className="w-full bg-transparent border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] text-right focus:outline-none focus:border-[#2abfdc]"
                             value={item.quantity}
                             onChange={(e) => setItemField(item.id, 'quantity', e.target.value)} />
                         </td>
                         <td className="px-2 py-1.5">
-                          <input className="w-full bg-transparent border border-[#3a3a3a] rounded px-2 py-1 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+                          <input className="w-full bg-transparent border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]"
                             value={item.unit}
                             onChange={(e) => setItemField(item.id, 'unit', e.target.value)} placeholder="un" />
                         </td>
                         <td className="px-2 py-1.5">
                           <input type="number" min={0} step={0.01}
-                            className="w-full bg-transparent border border-[#3a3a3a] rounded px-2 py-1 text-[#f5f5f5] text-right focus:outline-none focus:border-[#f97316]"
+                            className="w-full bg-transparent border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] text-right focus:outline-none focus:border-[#2abfdc]"
                             value={item.unitPrice}
                             onChange={(e) => setItemField(item.id, 'unitPrice', e.target.value)} />
                         </td>
@@ -173,13 +173,13 @@ export function PODialog({ po, onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+          <div className="flex gap-3 px-5 py-4 border-t border-[#1c3658]">
             <button type="button" onClick={onClose}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-[#3a3a3a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors">
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors">
               Cancelar
             </button>
             <button type="submit"
-              className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#f97316] hover:bg-[#ea6c0a] text-white transition-colors">
+              className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#ea6c0a] text-white transition-colors">
               {po ? 'Salvar Alterações' : 'Criar Ordem de Compra'}
             </button>
           </div>

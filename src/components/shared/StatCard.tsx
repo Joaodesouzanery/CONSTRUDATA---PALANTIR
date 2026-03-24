@@ -14,7 +14,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, className }: S
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] p-4',
+        'flex flex-col gap-2 rounded-xl border border-[#1c3658] bg-[#112240] p-4',
         className
       )}
     >
@@ -25,7 +25,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, className }: S
         <div
           className={cn(
             'flex items-center justify-center w-8 h-8 rounded-lg',
-            accent ? 'bg-[#f97316]/15 text-[#f97316]' : 'bg-[#252525] text-[#6b6b6b]'
+            accent ? 'bg-[#2abfdc]/15 text-[#2abfdc]' : 'bg-[#162e50] text-[#6b6b6b]'
           )}
         >
           <Icon size={16} />
@@ -35,7 +35,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, className }: S
         <span
           className={cn(
             'text-2xl font-bold font-mono',
-            accent ? 'text-[#f97316]' : 'text-[#f5f5f5]'
+            accent ? 'text-[#2abfdc]' : 'text-[#f5f5f5]'
           )}
         >
           {value}

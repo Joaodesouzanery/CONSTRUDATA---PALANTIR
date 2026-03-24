@@ -16,15 +16,15 @@ function CrewCard({ crew }: { crew: Crew }) {
   ) ?? []
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] overflow-hidden">
+    <div className="rounded-xl border border-[#1c3658] bg-[#112240] overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#252525] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#162e50] transition-colors"
       >
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <span className="text-[#f5f5f5] font-semibold text-sm">{crew.foremanName}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#f97316]/15 text-[#f97316] font-semibold uppercase tracking-wider">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#2abfdc]/15 text-[#2abfdc] font-semibold uppercase tracking-wider">
               {crew.crewType}
             </span>
           </div>
@@ -37,7 +37,7 @@ function CrewCard({ crew }: { crew: Crew }) {
               <Clock size={11} />
               {formatHours(totalHours)}
             </span>
-            <span className="text-[#f97316] font-mono font-semibold">{formatCurrency(totalCost)}</span>
+            <span className="text-[#2abfdc] font-mono font-semibold">{formatCurrency(totalCost)}</span>
           </div>
         </div>
         {open ? (
@@ -48,7 +48,7 @@ function CrewCard({ crew }: { crew: Crew }) {
       </button>
 
       {open && (
-        <div className="border-t border-[#2a2a2a] px-4 py-3 flex flex-col gap-3">
+        <div className="border-t border-[#1c3658] px-4 py-3 flex flex-col gap-3">
           {/* Apontamentos */}
           <div>
             <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-2">
@@ -66,7 +66,7 @@ function CrewCard({ crew }: { crew: Crew }) {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-mono">{formatHours(tc.hoursWorked)}</span>
-                    <span className="font-mono text-[#f97316]">
+                    <span className="font-mono text-[#2abfdc]">
                       {formatCurrency(tc.hoursWorked * tc.hourlyRate)}
                     </span>
                   </div>
@@ -90,7 +90,7 @@ function CrewCard({ crew }: { crew: Crew }) {
                       act.status === 'completed'
                         ? 'bg-[#22c55e]/15 text-[#22c55e]'
                         : act.status === 'in_progress'
-                        ? 'bg-[#f97316]/15 text-[#f97316]'
+                        ? 'bg-[#2abfdc]/15 text-[#2abfdc]'
                         : 'bg-[#3f3f3f] text-[#a3a3a3]'
                     )}
                   >
@@ -121,7 +121,7 @@ export function CrewsPanel() {
       </div>
 
       {crews.length === 0 ? (
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] p-6 text-center text-sm text-[#6b6b6b]">
+        <div className="rounded-xl border border-[#1c3658] bg-[#112240] p-6 text-center text-sm text-[#6b6b6b]">
           Nenhuma equipe registrada
         </div>
       ) : (

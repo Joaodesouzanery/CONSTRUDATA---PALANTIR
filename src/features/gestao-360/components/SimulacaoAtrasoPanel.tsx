@@ -57,7 +57,7 @@ function GanttComparison({
         {/* Legend */}
         <rect x={W + 10} y={6} width={12} height={10} rx={2} fill="#6b7280" opacity={0.8} />
         <text x={W + 26} y={15} fill="#9ca3af" fontSize={10}>Base</text>
-        <rect x={W + 10} y={20} width={12} height={10} rx={2} fill="#f97316" opacity={0.5} />
+        <rect x={W + 10} y={20} width={12} height={10} rx={2} fill="#2abfdc" opacity={0.5} />
         <text x={W + 26} y={29} fill="#9ca3af" fontSize={10}>C/ Atrasos</text>
 
         {rows.map((row, i) => {
@@ -79,7 +79,7 @@ function GanttComparison({
               <rect x={120 + bx} y={y} width={bw} height={10} rx={2} fill="#6b7280" opacity={0.8} />
               {/* Delayed bar */}
               {delayedRow && (dx !== bx || dw !== bw) && (
-                <rect x={120 + dx} y={y + 12} width={dw} height={6} rx={2} fill="#f97316" opacity={0.6} />
+                <rect x={120 + dx} y={y + 12} width={dw} height={6} rx={2} fill="#2abfdc" opacity={0.6} />
               )}
             </g>
           )
@@ -182,9 +182,9 @@ export function SimulacaoAtrasoPanel() {
       {/* Section A + B side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Section A — Configure Delays */}
-        <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-4 flex flex-col gap-3">
+        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4 flex flex-col gap-3">
           <h3 className="text-[#f5f5f5] text-sm font-semibold flex items-center gap-2">
-            <Clock size={14} className="text-[#f97316]" />
+            <Clock size={14} className="text-[#2abfdc]" />
             Configurar Atrasos
           </h3>
 
@@ -192,7 +192,7 @@ export function SimulacaoAtrasoPanel() {
             <select
               value={selCode}
               onChange={(e) => setSelCode(e.target.value)}
-              className="flex-1 bg-[#111111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+              className="flex-1 bg-[#0a1628] border border-[#1c3658] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60"
             >
               <option value="">Selecionar trecho…</option>
               {trechos.map((t) => (
@@ -205,12 +205,12 @@ export function SimulacaoAtrasoPanel() {
               max={365}
               value={delayDays}
               onChange={(e) => setDelayDays(Math.max(1, Number(e.target.value)))}
-              className="w-16 bg-[#111111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] text-center focus:outline-none focus:border-[#f97316]/60"
+              className="w-16 bg-[#0a1628] border border-[#1c3658] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] text-center focus:outline-none focus:border-[#2abfdc]/60"
             />
             <button
               onClick={addDelay}
               disabled={!selCode}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#f97316] hover:bg-[#ea6a00] text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[#2abfdc] hover:bg-[#1a9ab8] text-white text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Plus size={12} /> dias
             </button>
@@ -224,10 +224,10 @@ export function SimulacaoAtrasoPanel() {
           ) : (
             <div className="flex flex-col gap-1.5">
               {delays.map((d) => (
-                <div key={d.trechoCode} className="flex items-center justify-between bg-[#252525] rounded-lg px-3 py-2">
+                <div key={d.trechoCode} className="flex items-center justify-between bg-[#162e50] rounded-lg px-3 py-2">
                   <div>
                     <span className="text-[#f5f5f5] text-xs font-mono">{d.trechoCode}</span>
-                    <span className="ml-2 text-[#f97316] text-xs font-bold">+{d.delayDays}d</span>
+                    <span className="ml-2 text-[#2abfdc] text-xs font-bold">+{d.delayDays}d</span>
                   </div>
                   <button onClick={() => removeDelay(d.trechoCode)} className="text-[#6b6b6b] hover:text-[#ef4444] transition-colors">
                     <X size={12} />
@@ -280,10 +280,10 @@ export function SimulacaoAtrasoPanel() {
             accent="text-[#a78bfa]"
           />
           <KpiCard
-            icon={<DollarSign size={14} className="text-[#f97316]" />}
+            icon={<DollarSign size={14} className="text-[#2abfdc]" />}
             label="Custo C/ Atrasos"
             value={fmtBRL(delayed?.totalCost ?? 0)}
-            accent="text-[#f97316]"
+            accent="text-[#2abfdc]"
           />
           <KpiCard
             icon={<Clock size={14} className="text-[#a3a3a3]" />}
@@ -302,9 +302,9 @@ export function SimulacaoAtrasoPanel() {
 
       {/* Section C — Gantt Comparativo */}
       {base && delayed && base.ganttRows.length > 0 && (
-        <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-4">
+        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
           <h3 className="text-[#f5f5f5] text-sm font-semibold mb-3 flex items-center gap-2">
-            <CalendarDays size={14} className="text-[#f97316]" />
+            <CalendarDays size={14} className="text-[#2abfdc]" />
             Gantt Comparativo
             <span className="text-[#6b6b6b] text-xs font-normal">(primeiros 15 trechos)</span>
           </h3>
@@ -317,13 +317,13 @@ export function SimulacaoAtrasoPanel() {
       )}
 
       {trechos.length === 0 && (
-        <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl p-8 text-center">
+        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-8 text-center">
           <Clock size={32} className="text-[#6b6b6b] mx-auto mb-3" />
           <p className="text-[#6b6b6b] text-sm">
             Nenhum trecho encontrado no módulo Planejamento.
           </p>
           <p className="text-[#6b6b6b] text-xs mt-1">
-            Acesse <span className="text-[#f97316]">/planejamento</span> e cadastre trechos para usar a simulação.
+            Acesse <span className="text-[#2abfdc]">/planejamento</span> e cadastre trechos para usar a simulação.
           </p>
         </div>
       )}
@@ -340,8 +340,8 @@ function KpiCard({ icon, label, value, accent }: {
   accent: string
 }) {
   return (
-    <div className="bg-[#1f1f1f] border border-[#2a2a2a] rounded-xl px-3 py-3 flex items-center gap-2">
-      <div className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 bg-[#252525]">
+    <div className="bg-[#112240] border border-[#1c3658] rounded-xl px-3 py-3 flex items-center gap-2">
+      <div className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 bg-[#162e50]">
         {icon}
       </div>
       <div className="min-w-0">

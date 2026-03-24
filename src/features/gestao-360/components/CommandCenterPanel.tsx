@@ -27,7 +27,7 @@ interface FeedItem {
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
 const SEVERITY_COLOR = {
   critical: '#ef4444',
-  high:     '#f97316',
+  high:     '#2abfdc',
   medium:   '#eab308',
   low:      '#22c55e',
 }
@@ -178,7 +178,7 @@ export function CommandCenterPanel() {
 
       {/* Feed list */}
       {feed.length === 0 ? (
-        <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-8 text-center">
+        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-8 text-center">
           <p className="text-[#22c55e] text-sm font-semibold mb-1">Tudo sob controle!</p>
           <p className="text-[#6b6b6b] text-xs">Nenhuma ocorrência crítica ou pendente em todos os módulos.</p>
         </div>
@@ -190,7 +190,7 @@ export function CommandCenterPanel() {
             return (
               <div
                 key={item.id}
-                className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-3 flex items-start gap-3"
+                className="bg-[#112240] border border-[#1c3658] rounded-xl p-3 flex items-start gap-3"
                 style={{ borderLeft: `3px solid ${color}` }}
               >
                 <div
@@ -216,7 +216,7 @@ export function CommandCenterPanel() {
 
                 <Link
                   to={item.link}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg shrink-0 text-[#6b6b6b] text-[10px] font-semibold border border-[#2a2a2a] hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg shrink-0 text-[#6b6b6b] text-[10px] font-semibold border border-[#1c3658] hover:border-[#2abfdc]/50 hover:text-[#2abfdc] transition-colors"
                 >
                   Ver módulo <ArrowRight size={10} />
                 </Link>
@@ -227,7 +227,7 @@ export function CommandCenterPanel() {
       )}
 
       {/* Module quick links */}
-      <div className="bg-[#222222] border border-[#2a2a2a] rounded-xl p-4">
+      <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
         <ModuleQuickLinks exclude={['/gestao-360']} />
       </div>
     </div>

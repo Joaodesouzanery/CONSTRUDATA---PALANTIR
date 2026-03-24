@@ -32,18 +32,18 @@ export function ObrasListPanel() {
 
   return (
     <aside
-      className="flex flex-col border-r border-[#2a2a2a] bg-[#1a1a1a] shrink-0 overflow-hidden"
+      className="flex flex-col border-r border-[#1c3658] bg-[#0e1f38] shrink-0 overflow-hidden"
       style={{ width: 300 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c3658] shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs font-bold text-[#f5f5f5]">Obras</span>
           <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
         </div>
         <button
           onClick={() => setEditing('new')}
-          className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea6a00] transition-colors"
+          className="flex items-center gap-1 text-[10px] font-semibold text-[#2abfdc] hover:text-[#1a9ab8] transition-colors"
         >
           <Plus size={13} />
           Nova Obra
@@ -66,7 +66,7 @@ export function ObrasListPanel() {
             <span className="text-[#3f3f3f] text-xs">Nenhuma obra cadastrada</span>
             <button
               onClick={() => setEditing('new')}
-              className="text-xs text-[#f97316] hover:underline"
+              className="text-xs text-[#2abfdc] hover:underline"
             >
               Adicionar primeira obra
             </button>
@@ -93,10 +93,10 @@ function ObraCard({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#1f1f1f] transition-colors',
+        'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#112240] transition-colors',
         isSelected
-          ? 'bg-[#f97316]/10 border-l-2 border-l-[#f97316]'
-          : 'hover:bg-[#252525] border-l-2 border-l-transparent'
+          ? 'bg-[#2abfdc]/10 border-l-2 border-l-[#2abfdc]'
+          : 'hover:bg-[#162e50] border-l-2 border-l-transparent'
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -128,7 +128,7 @@ function ObraCard({
         {(criticalRisks > 0 || highRisks > 0) && (
           <span className={cn(
             'text-[9px] font-semibold px-1.5 py-0.5 rounded',
-            criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#f97316] bg-[#f97316]/10'
+            criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#2abfdc] bg-[#2abfdc]/10'
           )}>
             {criticalRisks > 0 ? `${criticalRisks} crítico${criticalRisks > 1 ? 's' : ''}` : `${highRisks} alto${highRisks > 1 ? 's' : ''}`}
           </span>

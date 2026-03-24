@@ -135,7 +135,7 @@ export function Bim5DPanel() {
         <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider mb-1">Heatmap de Custo</p>
         <div className="flex items-center gap-1 mb-1">
           <span className="text-gray-600 text-[10px]">Baixo</span>
-          <div className="w-20 h-3 rounded" style={{ background: 'linear-gradient(to right, #f9fafb, #f97316, #ef4444)' }} />
+          <div className="w-20 h-3 rounded" style={{ background: 'linear-gradient(to right, #f9fafb, #2abfdc, #ef4444)' }} />
           <span className="text-gray-600 text-[10px]">Alto</span>
         </div>
         <p className="text-gray-700 text-[10px] mb-1.5">custo/m linear</p>

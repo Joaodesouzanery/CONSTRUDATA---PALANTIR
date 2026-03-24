@@ -9,7 +9,7 @@ export function GestaoEquipamentosPage() {
   const [activeTab, setActiveTab] = useState('dashboard')
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#1a1a1a]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#0e1f38]">
       <GestaoHeader activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="flex-1 overflow-hidden">

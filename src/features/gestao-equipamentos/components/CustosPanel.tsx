@@ -19,7 +19,7 @@ const TYPE_GROUPS: { label: string; match: (t: string) => boolean; color: string
   {
     label: 'Plataforma Elevatória',
     match: (t) => t.toLowerCase().includes('plataforma') || t.toLowerCase().includes('tesoura'),
-    color: '#f97316',
+    color: '#2abfdc',
   },
   {
     label: 'Bomba de Concreto',
@@ -57,13 +57,13 @@ function KpiCard({
   accent?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-1 bg-[#111111] border border-[#2a2a2a] rounded-xl px-5 py-4">
+    <div className="flex flex-col gap-1 bg-[#0a1628] border border-[#1c3658] rounded-xl px-5 py-4">
       <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
         {label}
       </span>
       <span
         className="text-2xl font-bold leading-tight"
-        style={{ color: accent ? '#f97316' : '#f5f5f5' }}
+        style={{ color: accent ? '#2abfdc' : '#f5f5f5' }}
       >
         {value}
       </span>
@@ -110,7 +110,7 @@ function CostDistributionChart({
         y1={TOP + plotH}
         x2={LEFT + plotW}
         y2={TOP + plotH}
-        stroke="#2a2a2a"
+        stroke="#1c3658"
         strokeWidth={1}
       />
 
@@ -214,7 +214,7 @@ export function CustosPanel() {
       </div>
 
       {/* Distribution chart */}
-      <div className="bg-[#111111] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Distribuição de Custos por Tipo de Equipamento
         </h2>
@@ -222,14 +222,14 @@ export function CustosPanel() {
       </div>
 
       {/* Cost table */}
-      <div className="bg-[#111111] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Custos por Equipamento
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#2a2a2a]">
+              <tr className="border-b border-[#1c3658]">
                 {['Equipamento', 'Custo/Hora (R$)', 'Horas Este Mês', 'Custo Mensal (R$)'].map(
                   (col) => (
                     <th
@@ -242,9 +242,9 @@ export function CustosPanel() {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1f1f1f]">
+            <tbody className="divide-y divide-[#112240]">
               {rows.map(({ eq, rate, monthly }) => (
-                <tr key={eq.id} className="hover:bg-[#1f1f1f]/50 transition-colors">
+                <tr key={eq.id} className="hover:bg-[#112240]/50 transition-colors">
                   <td className="py-2.5 pr-6">
                     <div className="flex flex-col">
                       <span className="text-[#f5f5f5] font-medium">{eq.name}</span>
@@ -258,7 +258,7 @@ export function CustosPanel() {
                     {eq.engineHours.toLocaleString('pt-BR')}h
                   </td>
                   <td className="py-2.5 pr-6">
-                    <span className="text-[#f97316] font-semibold font-mono">
+                    <span className="text-[#2abfdc] font-semibold font-mono">
                       {monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </td>
@@ -266,11 +266,11 @@ export function CustosPanel() {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-[#2a2a2a]">
+              <tr className="border-t border-[#1c3658]">
                 <td colSpan={3} className="pt-2.5 pr-6 text-[10px] text-[#6b6b6b] font-semibold uppercase tracking-widest">
                   Total Frota
                 </td>
-                <td className="pt-2.5 font-bold text-[#f97316] font-mono">
+                <td className="pt-2.5 font-bold text-[#2abfdc] font-mono">
                   {totalFleet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </td>
               </tr>

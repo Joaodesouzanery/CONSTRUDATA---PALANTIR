@@ -16,11 +16,11 @@ export function EquipmentPanel() {
         <span className="text-xs font-mono text-[#6b6b6b]">{logs.length} itens</span>
       </div>
 
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#1f1f1f] overflow-hidden">
+      <div className="rounded-xl border border-[#1c3658] bg-[#112240] overflow-hidden">
         {logs.length === 0 ? (
           <div className="p-6 text-center text-sm text-[#6b6b6b]">Nenhum equipamento registrado</div>
         ) : (
-          <div className="divide-y divide-[#2a2a2a]">
+          <div className="divide-y divide-[#1c3658]">
             {/* Header */}
             <div className="grid grid-cols-4 px-4 py-2 text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
               <span>ID / Tipo</span>
@@ -33,10 +33,10 @@ export function EquipmentPanel() {
               return (
                 <div
                   key={log.id}
-                  className="grid grid-cols-4 px-4 py-3 text-sm items-center hover:bg-[#252525] transition-colors"
+                  className="grid grid-cols-4 px-4 py-3 text-sm items-center hover:bg-[#162e50] transition-colors"
                 >
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-mono text-xs text-[#f97316] font-semibold">{log.equipmentId}</span>
+                    <span className="font-mono text-xs text-[#2abfdc] font-semibold">{log.equipmentId}</span>
                     <span className="text-[#f5f5f5] text-xs font-medium">{log.type}</span>
                   </div>
                   <span className="text-[#a3a3a3] text-xs truncate pr-2">
@@ -46,7 +46,7 @@ export function EquipmentPanel() {
                     <Clock size={11} />
                     <span className="font-mono">{formatHours(log.utilizationHours)}</span>
                   </div>
-                  <span className="text-right font-mono text-xs text-[#f97316] font-semibold">
+                  <span className="text-right font-mono text-xs text-[#2abfdc] font-semibold">
                     {formatCurrency(log.utilizationHours * log.hourlyRate)}
                   </span>
                 </div>

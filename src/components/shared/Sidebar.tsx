@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  ClipboardList, Calendar, Truck, HardHat, FolderKanban, Radio,
+  ClipboardList, Calendar, Truck, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map,
@@ -34,6 +34,27 @@ const navItems = [
   { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
 ]
 
+// ─── Atlântico water-drop logo (matches brand mark) ───────────────────────────
+function WaterDropLogo({ size = 22 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 36 44"
+      fill="none"
+      stroke="#2abfdc"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      width={size}
+      height={Math.round(size * 44 / 36)}
+    >
+      {/* Outer teardrop */}
+      <path d="M18 2 C18 2 33 17 33 28 C33 37.2 26.3 43 18 43 C9.7 43 3 37.2 3 28 C3 17 18 2 18 2Z" />
+      {/* Inner teardrop */}
+      <path d="M18 12 C18 12 27 23 27 29.5 C27 35.5 23 39.5 18 39.5 C13 39.5 9 35.5 9 29.5 C9 23 18 12 18 12Z" />
+    </svg>
+  )
+}
+
 export function Sidebar() {
   const { theme, toggleTheme } = useThemeStore(
     useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
@@ -59,20 +80,35 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex flex-col shrink-0 border-r border-[#2a2a2a] bg-[#1a1a1a] h-full',
+        'flex flex-col shrink-0 border-r border-[#1c3658] bg-[#0a1628] h-full',
         'transition-[width] duration-200 ease-in-out overflow-hidden',
         isOpen ? 'w-[200px]' : 'w-16',
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 border-b border-[#2a2a2a] shrink-0 px-[14px] gap-3">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316] shrink-0">
-          <HardHat size={18} className="text-white" />
+      <div className="flex items-center h-14 border-b border-[#1c3658] shrink-0 px-[14px] gap-3">
+        <div
+          className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+          style={{
+            background: 'radial-gradient(circle at 40% 35%, #112e52 0%, #071422 100%)',
+            boxShadow: '0 0 12px rgba(42,191,220,0.25), inset 0 1px 0 rgba(42,191,220,0.15)',
+            border: '1px solid rgba(42,191,220,0.3)',
+          }}
+        >
+          <WaterDropLogo size={20} />
         </div>
         {isOpen && (
-          <span className="text-[#f5f5f5] text-sm font-bold whitespace-nowrap leading-tight">
-            Atlântico
-          </span>
+          <div className="flex flex-col leading-none">
+            <span
+              className="text-sm font-bold whitespace-nowrap"
+              style={{ color: '#e4f2f8', letterSpacing: '0.02em' }}
+            >
+              Atlântico
+            </span>
+            <span className="text-[9px] font-medium tracking-widest uppercase" style={{ color: '#2abfdc', opacity: 0.8 }}>
+              Plataforma
+            </span>
+          </div>
         )}
       </div>
 
@@ -88,8 +124,8 @@ export function Sidebar() {
                 'flex items-center gap-3 rounded-lg transition-colors',
                 'h-10 px-[10px]',
                 isActive
-                  ? 'bg-[#f97316]/15 text-[#f97316]'
-                  : 'text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5]',
+                  ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
+                  : 'text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8]',
               )
             }
           >
@@ -110,12 +146,12 @@ export function Sidebar() {
         ))}
 
         {/* Bottom controls */}
-        <div className="mt-auto flex flex-col gap-0.5 pt-2 border-t border-[#2a2a2a]">
+        <div className="mt-auto flex flex-col gap-0.5 pt-2 border-t border-[#1c3658]">
           {/* Expand/collapse toggle */}
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5] transition-colors"
+            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8] transition-colors"
           >
             {isOpen ? <ChevronLeft size={20} className="shrink-0" /> : <ChevronRight size={20} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">Recolher</span>}
@@ -128,8 +164,8 @@ export function Sidebar() {
             className={cn(
               'flex items-center gap-3 h-10 px-[10px] rounded-lg transition-colors',
               isDemoMode
-                ? 'bg-[#f97316]/15 text-[#f97316]'
-                : 'text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5]',
+                ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
+                : 'text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8]',
             )}
           >
             <FlaskConical size={18} className="shrink-0" />
@@ -140,7 +176,7 @@ export function Sidebar() {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#252525] hover:text-[#f5f5f5] transition-colors"
+            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8] transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" /> : <Moon size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

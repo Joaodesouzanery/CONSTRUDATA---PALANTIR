@@ -9,7 +9,7 @@ import type { TaskColor } from '@/types'
 
 const COLOR_OPTIONS: { value: TaskColor; bg: string; border: string; label: string }[] = [
   { value: 'blue',   bg: '#3b82f6', border: '#2563eb', label: 'Azul' },
-  { value: 'orange', bg: '#f97316', border: '#ea580c', label: 'Laranja' },
+  { value: 'orange', bg: '#2abfdc', border: '#ea580c', label: 'Laranja' },
   { value: 'green',  bg: '#22c55e', border: '#16a34a', label: 'Verde' },
   { value: 'red',    bg: '#ef4444', border: '#dc2626', label: 'Vermelho' },
   { value: 'purple', bg: '#a855f7', border: '#9333ea', label: 'Roxo' },
@@ -125,17 +125,17 @@ export function TaskEditDialog() {
     >
       {/* Panel */}
       <div
-        className="w-full max-w-lg rounded-2xl border border-[#2a2a2a] bg-[#1a1a1a] flex flex-col shadow-2xl"
+        className="w-full max-w-lg rounded-2xl border border-[#1c3658] bg-[#0e1f38] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1c3658]">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Nova Tarefa' : 'Editar Tarefa'}
           </h2>
           <button
             onClick={close}
-            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#252525] transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#162e50] transition-colors"
           >
             <X size={15} />
           </button>
@@ -153,10 +153,10 @@ export function TaskEditDialog() {
                 {...register('title')}
                 placeholder="Ex: Escavação Fase 1"
                 className={cn(
-                  'bg-[#111111] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+                  'bg-[#0a1628] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
                   errors.title
                     ? 'border-[#ef4444]'
-                    : 'border-[#2a2a2a] focus:border-[#f97316]'
+                    : 'border-[#1c3658] focus:border-[#2abfdc]'
                 )}
               />
               {errors.title && (
@@ -172,10 +172,10 @@ export function TaskEditDialog() {
               <select
                 {...register('resourceId')}
                 className={cn(
-                  'bg-[#111111] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
+                  'bg-[#0a1628] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
                   errors.resourceId
                     ? 'border-[#ef4444]'
-                    : 'border-[#2a2a2a] focus:border-[#f97316]'
+                    : 'border-[#1c3658] focus:border-[#2abfdc]'
                 )}
               >
                 <option value="">Selecione um recurso</option>
@@ -200,10 +200,10 @@ export function TaskEditDialog() {
                   type="date"
                   {...register('startDate')}
                   className={cn(
-                    'bg-[#111111] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
+                    'bg-[#0a1628] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
                     errors.startDate
                       ? 'border-[#ef4444]'
-                      : 'border-[#2a2a2a] focus:border-[#f97316]'
+                      : 'border-[#1c3658] focus:border-[#2abfdc]'
                   )}
                 />
                 {errors.startDate && (
@@ -219,10 +219,10 @@ export function TaskEditDialog() {
                   type="date"
                   {...register('endDate')}
                   className={cn(
-                    'bg-[#111111] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
+                    'bg-[#0a1628] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none transition-colors',
                     errors.endDate
                       ? 'border-[#ef4444]'
-                      : 'border-[#2a2a2a] focus:border-[#f97316]'
+                      : 'border-[#1c3658] focus:border-[#2abfdc]'
                   )}
                 />
                 {errors.endDate && (
@@ -267,7 +267,7 @@ export function TaskEditDialog() {
               </label>
               <select
                 {...register('status')}
-                className="bg-[#111111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] transition-colors"
+                className="bg-[#0a1628] border border-[#1c3658] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#2abfdc] transition-colors"
               >
                 {STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -286,7 +286,7 @@ export function TaskEditDialog() {
                 {...register('notes')}
                 rows={3}
                 placeholder="Informações adicionais..."
-                className="bg-[#111111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] transition-colors resize-none placeholder:text-[#3f3f3f]"
+                className="bg-[#0a1628] border border-[#1c3658] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#2abfdc] transition-colors resize-none placeholder:text-[#3f3f3f]"
               />
               {errors.notes && (
                 <span className="text-[11px] text-[#ef4444]">{errors.notes.message}</span>
@@ -295,7 +295,7 @@ export function TaskEditDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#1c3658]">
             {/* Delete */}
             {!isNew && (
               <div>
@@ -313,7 +313,7 @@ export function TaskEditDialog() {
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(false)}
-                      className="text-xs px-2 py-1 rounded bg-[#252525] text-[#a3a3a3] hover:bg-[#2a2a2a] transition-colors"
+                      className="text-xs px-2 py-1 rounded bg-[#162e50] text-[#a3a3a3] hover:bg-[#1c3658] transition-colors"
                     >
                       Não
                     </button>
@@ -336,14 +336,14 @@ export function TaskEditDialog() {
               <button
                 type="button"
                 onClick={close}
-                className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#3a3a3a] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#1c3658] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea6a00] disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] disabled:opacity-50 transition-colors"
               >
                 {isNew ? 'Criar Tarefa' : 'Salvar'}
               </button>
