@@ -7,6 +7,7 @@ import {
   applyDragDelta,
   applyResizeLeft,
   applyResizeRight,
+  weekPx,
 } from '../utils'
 
 // ─── Color map ─────────────────────────────────────────────────────────────────
@@ -31,41 +32,38 @@ interface GanttBarProps {
   task: AgendaTask
   viewStart: string
   visibleWeeks: number
+  pixelsPerDay?: number   // defaults to COLUMN_WIDTH / 7 (week mode)
 }
 
-export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
+export function GanttBar({ task, viewStart, visibleWeeks, pixelsPerDay = COLUMN_WIDTH / 7 }: GanttBarProps) {
   const { moveTask, updateTask, setEditingTask, selectedTaskId, selectTask } = useAgendaStore()
 
   const [previewOffsetWeeks, setPreviewOffsetWeeks] = useState(0)
-  const [resizeStartDelta, setResizeStartDelta] = useState(0)
-  const [resizeEndDelta, setResizeEndDelta] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const [isResizing, setIsResizing] = useState(false)
+  const [resizeStartDelta, setResizeStartDelta]     = useState(0)
+  const [resizeEndDelta, setResizeEndDelta]         = useState(0)
+  const [isDragging, setIsDragging]                 = useState(false)
+  const [isResizing, setIsResizing]                 = useState(false)
 
-  const hasMoved = useRef(false)
-  // Store cleanup function for unmount-during-drag safety
-  const cleanupRef = useRef<(() => void) | null>(null)
+  const hasMoved    = useRef(false)
+  const cleanupRef  = useRef<(() => void) | null>(null)
+  const onePxWeek   = weekPx(pixelsPerDay)   // px per 7-day snap
 
   useEffect(() => {
-    return () => {
-      if (cleanupRef.current) cleanupRef.current()
-    }
+    return () => { if (cleanupRef.current) cleanupRef.current() }
   }, [])
 
-  // ── Compute current bar style (with any active preview offset) ──────────────
-  let barStyle = getBarStyle(task, viewStart, visibleWeeks, previewOffsetWeeks)
+  // Compute bar style
+  let barStyle = getBarStyle(task, viewStart, visibleWeeks, previewOffsetWeeks, pixelsPerDay)
 
   if (isResizing && resizeStartDelta !== 0) {
     barStyle = getBarStyle(
-      { ...task, startDate: applyResizeLeft(task, Math.round(resizeStartDelta / COLUMN_WIDTH)) },
-      viewStart,
-      visibleWeeks
+      { ...task, startDate: applyResizeLeft(task, Math.round(resizeStartDelta / onePxWeek)) },
+      viewStart, visibleWeeks, 0, pixelsPerDay
     )
   } else if (isResizing && resizeEndDelta !== 0) {
     barStyle = getBarStyle(
-      { ...task, endDate: applyResizeRight(task, Math.round(resizeEndDelta / COLUMN_WIDTH)) },
-      viewStart,
-      visibleWeeks
+      { ...task, endDate: applyResizeRight(task, Math.round(resizeEndDelta / onePxWeek)) },
+      viewStart, visibleWeeks, 0, pixelsPerDay
     )
   }
 
@@ -76,10 +74,8 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
   // ── Drag (move) handler ────────────────────────────────────────────────────
   const handleBarPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      // Only handle primary button, ignore resize handle clicks
       if (e.button !== 0) return
       if ((e.target as HTMLElement).dataset.resize) return
-
       e.preventDefault()
       e.stopPropagation()
 
@@ -93,8 +89,7 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
       function onMove(ev: PointerEvent) {
         const deltaX = ev.clientX - startX
         if (Math.abs(deltaX) > 4) hasMoved.current = true
-        const deltaWeeks = Math.round(deltaX / COLUMN_WIDTH)
-        setPreviewOffsetWeeks(deltaWeeks)
+        setPreviewOffsetWeeks(Math.round(deltaX / onePxWeek))
       }
 
       function onUp(ev: PointerEvent) {
@@ -102,14 +97,13 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         cleanupRef.current = null
         setIsDragging(false)
 
-        const deltaWeeks = Math.round((ev.clientX - startX) / COLUMN_WIDTH)
+        const deltaWeeks = Math.round((ev.clientX - startX) / onePxWeek)
         setPreviewOffsetWeeks(0)
 
         if (hasMoved.current && deltaWeeks !== 0) {
           const { newStart, newEnd } = applyDragDelta(task, deltaWeeks)
           moveTask(task.id, newStart, newEnd)
         } else if (!hasMoved.current) {
-          // It was a click — open edit dialog
           selectTask(task.id)
           setEditingTask(task.id)
         }
@@ -122,7 +116,7 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         el.removeEventListener('pointerup', onUp)
       }
     },
-    [task, moveTask, setEditingTask, selectTask]
+    [task, moveTask, setEditingTask, selectTask, onePxWeek]
   )
 
   // ── Left resize handler ────────────────────────────────────────────────────
@@ -149,11 +143,10 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         el.removeEventListener('pointermove', onMove)
         cleanupRef.current = null
         setIsResizing(false)
-        const deltaWeeks = Math.round((ev.clientX - startX) / COLUMN_WIDTH)
+        const deltaWeeks = Math.round((ev.clientX - startX) / onePxWeek)
         setResizeStartDelta(0)
         if (hasMoved.current && deltaWeeks !== 0) {
-          const newStart = applyResizeLeft(task, deltaWeeks)
-          updateTask(task.id, { startDate: newStart })
+          updateTask(task.id, { startDate: applyResizeLeft(task, deltaWeeks) })
         }
       }
 
@@ -164,7 +157,7 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         el.removeEventListener('pointerup', onUp)
       }
     },
-    [task, updateTask]
+    [task, updateTask, onePxWeek]
   )
 
   // ── Right resize handler ───────────────────────────────────────────────────
@@ -191,11 +184,10 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         el.removeEventListener('pointermove', onMove)
         cleanupRef.current = null
         setIsResizing(false)
-        const deltaWeeks = Math.round((ev.clientX - startX) / COLUMN_WIDTH)
+        const deltaWeeks = Math.round((ev.clientX - startX) / onePxWeek)
         setResizeEndDelta(0)
         if (hasMoved.current && deltaWeeks !== 0) {
-          const newEnd = applyResizeRight(task, deltaWeeks)
-          updateTask(task.id, { endDate: newEnd })
+          updateTask(task.id, { endDate: applyResizeRight(task, deltaWeeks) })
         }
       }
 
@@ -206,10 +198,10 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         el.removeEventListener('pointerup', onUp)
       }
     },
-    [task, updateTask]
+    [task, updateTask, onePxWeek]
   )
 
-  const bg = COLOR_BG[task.color]
+  const bg     = COLOR_BG[task.color]
   const border = COLOR_BORDER[task.color]
 
   return (
@@ -238,21 +230,15 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         data-resize="left"
         onPointerDown={handleLeftResizePointerDown}
         style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 8,
-          cursor: 'col-resize',
-          zIndex: 3,
-          borderRadius: '6px 0 0 6px',
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: 8,
+          cursor: 'col-resize', zIndex: 3, borderRadius: '6px 0 0 6px',
         }}
         className="hover:bg-white/20 transition-colors"
       />
 
       {/* Label */}
       <div
-        className="flex items-center h-full px-3 overflow-hidden pointer-events-none"
+        className="flex items-center h-full overflow-hidden pointer-events-none"
         style={{ paddingLeft: 12, paddingRight: 12 }}
       >
         <span className="text-white text-[11px] font-semibold truncate leading-none">
@@ -265,14 +251,8 @@ export function GanttBar({ task, viewStart, visibleWeeks }: GanttBarProps) {
         data-resize="right"
         onPointerDown={handleRightResizePointerDown}
         style={{
-          position: 'absolute',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: 8,
-          cursor: 'col-resize',
-          zIndex: 3,
-          borderRadius: '0 6px 6px 0',
+          position: 'absolute', right: 0, top: 0, bottom: 0, width: 8,
+          cursor: 'col-resize', zIndex: 3, borderRadius: '0 6px 6px 0',
         }}
         className="hover:bg-white/20 transition-colors"
       />

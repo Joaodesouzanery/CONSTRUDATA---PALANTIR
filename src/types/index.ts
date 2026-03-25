@@ -128,6 +128,7 @@ export interface ProjectPhase {
   startDate: string      // yyyy-MM-dd
   endDate: string        // yyyy-MM-dd
   notes?: string
+  responsible?: string   // nome do responsável pela fase
 }
 
 export interface BudgetLine {
@@ -176,6 +177,11 @@ export interface Project {
   lat?: number        // latitude WGS84
   lng?: number        // longitude WGS84
   address?: string    // endereço textual da obra
+  contractNumber?: string   // Nº do contrato
+  clientName?: string       // cliente / contratante
+  projectManager?: string   // gerente de projeto
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical'
+  priority?: 'low' | 'medium' | 'high'
 }
 
 // ─── Torre de Controle ────────────────────────────────────────────────────────
@@ -238,7 +244,9 @@ export interface ConstructionMilestone {
 
 // ─── Agenda / Gantt ───────────────────────────────────────────────────────────
 
-export type TaskColor = 'blue' | 'orange' | 'green' | 'red' | 'purple'
+export type TaskColor    = 'blue' | 'orange' | 'green' | 'red' | 'purple'
+export type AgendaPriority = 'low' | 'medium' | 'high' | 'critical'
+export type AgendaViewMode = 'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'
 
 export interface AgendaTask {
   id: string
@@ -248,6 +256,13 @@ export interface AgendaTask {
   endDate: string     // 'yyyy-MM-dd'
   color: TaskColor
   status: 'scheduled' | 'unscheduled' | 'completed'
+  priority: AgendaPriority   // obrigatório
+  assignedTo?: string        // responsável (nome)
+  teamLeadName?: string      // encarregado
+  location?: string
+  estimatedHours?: number
+  completionPct?: number     // 0-100
+  linkedProjectId?: string
   notes?: string
 }
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAgendaStore, getTasksForResource } from '@/store/agendaStore'
-import { COLUMN_WIDTH, SIDEBAR_W, HEADER_H, ROW_HEIGHT, getTodayOffset } from '../utils'
+import { SIDEBAR_W, HEADER_H, ROW_HEIGHT, getTodayOffset, getViewParams } from '../utils'
 import { GanttTimeHeader } from './GanttTimeHeader'
 import { GanttRow } from './GanttRow'
 
@@ -9,7 +9,9 @@ interface GanttChartProps {
 }
 
 export function GanttChart({ filteredResourceIds }: GanttChartProps) {
-  const { tasks, resources, viewStart, visibleWeeks } = useAgendaStore()
+  const { tasks, resources, viewStart, visibleWeeks, viewMode } = useAgendaStore()
+
+  const viewParams = useMemo(() => getViewParams(viewMode), [viewMode])
 
   const visibleResources = useMemo(
     () => resources.filter((r) => filteredResourceIds.includes(r.id)),
@@ -17,33 +19,32 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
   )
 
   const todayOffset = useMemo(
-    () => getTodayOffset(viewStart, visibleWeeks),
-    [viewStart, visibleWeeks]
+    () => getTodayOffset(viewStart, visibleWeeks, viewParams.pixelsPerDay),
+    [viewStart, visibleWeeks, viewParams.pixelsPerDay]
   )
 
-  // Grid background for each timeline row (computed once, shared)
+  // Grid background column width based on viewMode
+  const colWidth = viewParams.columnDays * viewParams.pixelsPerDay
+
   const gridStyle: React.CSSProperties = useMemo(
     () => ({
       backgroundImage: `repeating-linear-gradient(
         to right,
         transparent 0px,
-        transparent ${COLUMN_WIDTH - 1}px,
-        #20406a ${COLUMN_WIDTH - 1}px,
-        #20406a ${COLUMN_WIDTH}px
+        transparent ${colWidth - 1}px,
+        #20406a ${colWidth - 1}px,
+        #20406a ${colWidth}px
       )`,
     }),
-    []
+    [colWidth]
   )
 
-  const totalWidth = SIDEBAR_W + visibleWeeks * COLUMN_WIDTH
-  const totalHeight = visibleResources.length * ROW_HEIGHT
+  const timelineWidth  = viewParams.totalDays * viewParams.pixelsPerDay
+  const totalWidth     = SIDEBAR_W + timelineWidth
+  const totalHeight    = visibleResources.length * ROW_HEIGHT
 
   return (
-    <div
-      className="h-full overflow-auto"
-      style={{ position: 'relative' }}
-    >
-      {/* Minimum width wrapper — needed for sticky to work inside overflow container */}
+    <div className="h-full overflow-auto" style={{ position: 'relative' }}>
       <div style={{ minWidth: totalWidth, position: 'relative' }}>
         {/* Sticky time header */}
         <GanttTimeHeader />
@@ -61,6 +62,7 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
                 visibleWeeks={visibleWeeks}
                 index={index}
                 gridStyle={gridStyle}
+                viewParams={viewParams}
               />
             )
           })}
@@ -74,7 +76,7 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
             </div>
           )}
 
-          {/* Today indicator line */}
+          {/* Today indicator */}
           {todayOffset !== null && (
             <div
               style={{
@@ -89,7 +91,6 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
                 zIndex: 5,
               }}
             >
-              {/* Today label */}
               <div
                 style={{
                   position: 'absolute',

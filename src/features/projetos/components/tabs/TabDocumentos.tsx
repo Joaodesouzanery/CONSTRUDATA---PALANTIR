@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { UploadCloud, FileText, FileImage, File, Trash2, Download, AlertTriangle } from 'lucide-react'
+import { UploadCloud, FileText, FileImage, File, Trash2, Download, AlertTriangle, Eye, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, DocumentCategory, ProjectDocument } from '@/types'
@@ -68,6 +68,7 @@ export function TabDocumentos({ project }: { project: Project }) {
   const [sizeError, setSizeError] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<ProjectDocument | null>(null)
 
   function processFiles(files: FileList | null) {
     if (!files) return
@@ -196,14 +197,23 @@ export function TabDocumentos({ project }: { project: Project }) {
 
               <div className="flex items-center gap-1 shrink-0">
                 {doc.base64 && (
-                  <a
-                    href={doc.base64}
-                    download={doc.name}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Download size={13} />
-                  </a>
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc) }}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors"
+                      title="Visualizar"
+                    >
+                      <Eye size={13} />
+                    </button>
+                    <a
+                      href={doc.base64}
+                      download={doc.name}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download size={13} />
+                    </a>
+                  </>
                 )}
 
                 {confirmDeleteId === doc.id ? (
@@ -232,6 +242,66 @@ export function TabDocumentos({ project }: { project: Project }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Preview modal */}
+      {previewDoc && (
+        <div
+          className="fixed inset-0 z-[1001] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.82)' }}
+          onClick={() => setPreviewDoc(null)}
+        >
+          <div
+            className="w-full max-w-4xl rounded-2xl border border-[#20406a] bg-[#112645] flex flex-col shadow-2xl overflow-hidden"
+            style={{ maxHeight: '90vh' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#20406a] shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileIcon mimeType={previewDoc.mimeType} size={14} />
+                <span className="text-sm text-[#f5f5f5] font-medium truncate">{previewDoc.name}</span>
+              </div>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#1a3662] transition-colors shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4">
+              {previewDoc.mimeType.startsWith('image/') ? (
+                <img
+                  src={previewDoc.base64}
+                  alt={previewDoc.name}
+                  className="max-w-full max-h-[70vh] mx-auto rounded-lg object-contain"
+                />
+              ) : previewDoc.mimeType === 'application/pdf' ? (
+                <iframe
+                  src={previewDoc.base64}
+                  title={previewDoc.name}
+                  width="100%"
+                  height="600px"
+                  className="rounded-lg border border-[#20406a]"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  <File size={36} className="text-[#3f3f3f]" />
+                  <p className="text-sm text-[#6b6b6b]">Preview não disponível — faça o download</p>
+                  <a
+                    href={previewDoc.base64}
+                    download={previewDoc.name}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#2abfdc]/15 border border-[#2abfdc]/30 text-[#2abfdc] hover:bg-[#2abfdc]/25 transition-colors"
+                  >
+                    <Download size={12} />
+                    Download
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

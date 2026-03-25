@@ -1,6 +1,7 @@
 import type { AgendaResource, AgendaTask } from '@/types'
 import { cn } from '@/lib/utils'
-import { COLUMN_WIDTH, ROW_HEIGHT, SIDEBAR_W } from '../utils'
+import { ROW_HEIGHT, SIDEBAR_W } from '../utils'
+import type { ViewParams } from '../utils'
 import { GanttBar } from './GanttBar'
 
 interface GanttRowProps {
@@ -10,6 +11,7 @@ interface GanttRowProps {
   visibleWeeks: number
   index: number
   gridStyle: React.CSSProperties
+  viewParams: ViewParams
 }
 
 export function GanttRow({
@@ -19,9 +21,10 @@ export function GanttRow({
   visibleWeeks,
   index,
   gridStyle,
+  viewParams,
 }: GanttRowProps) {
-  const rowBg = index % 2 === 0 ? '#0d2040' : 'rgba(255,255,255,0.018)'
-  const timelineWidth = visibleWeeks * COLUMN_WIDTH
+  const rowBg         = index % 2 === 0 ? '#0d2040' : 'rgba(255,255,255,0.018)'
+  const timelineWidth = viewParams.totalDays * viewParams.pixelsPerDay
 
   return (
     <div
@@ -59,7 +62,7 @@ export function GanttRow({
         </span>
       </div>
 
-      {/* Timeline cell — bars are absolute-positioned inside */}
+      {/* Timeline cell */}
       <div
         style={{
           position: 'relative',
@@ -75,6 +78,7 @@ export function GanttRow({
             task={task}
             viewStart={viewStart}
             visibleWeeks={visibleWeeks}
+            pixelsPerDay={viewParams.pixelsPerDay}
           />
         ))}
       </div>

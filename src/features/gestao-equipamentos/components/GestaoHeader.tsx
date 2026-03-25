@@ -7,10 +7,11 @@ interface GestaoHeaderProps {
 }
 
 const TABS: { key: string; label: string }[] = [
-  { key: 'dashboard',   label: 'Dashboard' },
-  { key: 'manutencoes', label: 'Manutenções' },
-  { key: 'utilizacao',  label: 'Utilização' },
-  { key: 'custos',      label: 'Custos' },
+  { key: 'equipamentos', label: 'Equipamentos' },
+  { key: 'dashboard',    label: 'Dashboard'    },
+  { key: 'manutencoes',  label: 'Manutenções'  },
+  { key: 'utilizacao',   label: 'Utilização'   },
+  { key: 'custos',       label: 'Custos'       },
 ]
 
 export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {

@@ -1,7 +1,8 @@
 import { useShallow } from 'zustand/react/shallow'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
-import type { EquipmentStatus } from '@/types'
+import { STATUS_CONFIG } from '../../equipamentos/constants'
+import type { EquipmentProfile, EquipmentStatus } from '@/types'
 
 // ─── Status colour map for bar chart ──────────────────────────────────────────
 
@@ -50,6 +51,45 @@ function KpiCard({
         {value}
       </span>
       {sub && <span className="text-xs text-[#6b6b6b]">{sub}</span>}
+    </div>
+  )
+}
+
+// ─── EquipCard ────────────────────────────────────────────────────────────────
+
+function EquipCard({ equip }: { equip: EquipmentProfile }) {
+  const statusCfg = STATUS_CONFIG[equip.status]
+  return (
+    <div className="bg-[#0d2040] border border-[#20406a] rounded-xl px-4 py-3 flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[#f5f5f5] truncate">{equip.name}</p>
+          <p className="text-[10px] text-[#6b6b6b]">{equip.code}</p>
+        </div>
+        <span
+          className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
+          style={{ background: statusCfg.colorMuted, color: statusCfg.color }}
+        >
+          {statusCfg.label}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#6b6b6b]">
+        <span>Horas: <span className="text-[#a3a3a3]">{equip.engineHours.toLocaleString('pt-BR')}h</span></span>
+        {equip.operator && <span className="truncate">Op: <span className="text-[#a3a3a3]">{equip.operator}</span></span>}
+        {equip.nextMaintenance && (
+          <span className="col-span-2">
+            Próx. mant.: <span className="text-[#a3a3a3]">
+              {new Date(equip.nextMaintenance + 'T12:00:00').toLocaleDateString('pt-BR')}
+            </span>
+          </span>
+        )}
+      </div>
+      <button
+        onClick={() => useEquipamentosStore.getState().setEditing(equip.id)}
+        className="self-end text-[10px] px-2 py-0.5 rounded border border-[#20406a] text-[#6b6b6b] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+      >
+        Editar
+      </button>
     </div>
   )
 }
@@ -198,7 +238,8 @@ export function FleetDashboard() {
                       y={barY + barH / 2 + 1}
                       dominantBaseline="middle"
                       fontSize={9}
-                      fill="#6b6b6b"
+                      fill="#f5f5f5"
+                      fontWeight="bold"
                       fontFamily="system-ui, sans-serif"
                     >
                       {eq.engineHours.toLocaleString('pt-BR')}h
@@ -262,6 +303,19 @@ export function FleetDashboard() {
         </div>
 
       </div>
+
+      {/* ── All equipment grid ── */}
+      <div className="flex flex-col gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
+          Todos os Equipamentos
+        </h2>
+        <div className="grid grid-cols-3 gap-3">
+          {equipamentos.map((eq) => (
+            <EquipCard key={eq.id} equip={eq} />
+          ))}
+        </div>
+      </div>
+
     </div>
   )
 }

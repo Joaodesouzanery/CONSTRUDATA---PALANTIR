@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { EquipmentProfile } from '@/types'
+import type { EquipmentAlert, EquipmentProfile } from '@/types'
 import { mockEquipamentos } from '@/data/mockEquipamentos'
 
 interface EquipamentosState {
@@ -12,6 +12,7 @@ interface EquipamentosState {
   deleteEquipamento: (id: string) => void
   updateLocation: (id: string, lat: number, lng: number) => void
   acknowledgeAlert: (equipmentId: string, alertId: string) => void
+  addAlert: (equipmentId: string, alert: Omit<EquipmentAlert, 'id' | 'equipmentId' | 'timestamp' | 'acknowledged'>) => void
   selectEquipamento: (id: string | null) => void
   setEditing: (id: string | null) => void
   loadDemoData: () => void
@@ -56,6 +57,27 @@ export const useEquipamentosStore = create<EquipamentosState>((set) => ({
               alerts: e.alerts.map((a) =>
                 a.id === alertId ? { ...a, acknowledged: true } : a
               ),
+            }
+      ),
+    })),
+
+  addAlert: (equipmentId, alert) =>
+    set((s) => ({
+      equipamentos: s.equipamentos.map((e) =>
+        e.id !== equipmentId
+          ? e
+          : {
+              ...e,
+              alerts: [
+                ...e.alerts,
+                {
+                  ...alert,
+                  id: crypto.randomUUID(),
+                  equipmentId,
+                  timestamp: new Date().toISOString(),
+                  acknowledged: false,
+                },
+              ],
             }
       ),
     })),

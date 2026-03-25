@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
+import { useQuantitativosStore } from '@/store/quantitativosStore'
 import type { Project, BudgetLineType } from '@/types'
 
 const TYPE_LABEL: Record<BudgetLineType, string> = {
@@ -42,6 +43,7 @@ function SummaryCell({ label, value, highlight }: { label: string; value: string
 export function TabOrcamento({ project }: { project: Project }) {
   const setEditingBudgetLine = useProjetosStore((s) => s.setEditingBudgetLine)
   const deleteBudgetLine     = useProjetosStore((s) => s.deleteBudgetLine)
+  const currentItems         = useQuantitativosStore((s) => s.currentItems)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
 
@@ -49,6 +51,13 @@ export function TabOrcamento({ project }: { project: Project }) {
   const totalProjected = project.budgetLines.reduce((s, l) => s + l.projected, 0)
   const totalSpent     = project.budgetLines.reduce((s, l) => s + l.spent,     0)
   const utilPct        = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0
+
+  const projectFirstWord   = project.code.toLowerCase()
+  const linkedQuantitativos = currentItems.filter((item) =>
+    item.description.toLowerCase().includes(projectFirstWord) ||
+    item.category.toLowerCase().includes(projectFirstWord) ||
+    item.notes?.toLowerCase().includes(projectFirstWord)
+  )
 
   function handleDelete(lineId: string) {
     if (confirmDeleteId !== lineId) { setConfirmDeleteId(lineId); return }
@@ -165,6 +174,39 @@ export function TabOrcamento({ project }: { project: Project }) {
         <Plus size={12} />
         Adicionar Linha
       </button>
+
+      {/* ── Quantitativos Vinculados ── */}
+      <div className="border-t border-[#20406a] pt-4">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3] mb-3">
+          Quantitativos Vinculados
+        </h3>
+        {linkedQuantitativos.length === 0 ? (
+          <p className="text-xs text-[#3f3f3f]">Sem quantitativos vinculados a este projeto.</p>
+        ) : (
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[#20406a]">
+                {['Descrição', 'Unid', 'Qtd', 'Custo Unit.', 'Total'].map((col) => (
+                  <th key={col} className="text-left text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold pb-2 pr-4 whitespace-nowrap">
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#14294e]">
+              {linkedQuantitativos.map((item) => (
+                <tr key={item.id} className="hover:bg-[#14294e]/50 transition-colors">
+                  <td className="py-2 pr-4 text-[#f5f5f5]">{item.description}</td>
+                  <td className="py-2 pr-4 text-[#6b6b6b]">{item.unit}</td>
+                  <td className="py-2 pr-4 text-[#a3a3a3] font-mono">{item.quantity.toLocaleString('pt-BR')}</td>
+                  <td className="py-2 pr-4 text-[#a3a3a3] font-mono">{formatCurrency(item.unitCost)}</td>
+                  <td className="py-2 text-[#2abfdc] font-semibold font-mono">{formatCurrency(item.totalCost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   )
 }

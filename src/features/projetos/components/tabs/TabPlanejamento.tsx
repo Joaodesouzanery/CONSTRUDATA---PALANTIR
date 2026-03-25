@@ -1,7 +1,10 @@
-import { Pencil } from 'lucide-react'
+import { Pencil, AlertTriangle, User } from 'lucide-react'
+import { differenceInDays, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectPhase, ProjectPhaseStatus } from '@/types'
+
+const TODAY = new Date()
 
 const PHASE_STATUS_LABEL: Record<ProjectPhaseStatus, string> = {
   not_started: 'Não Iniciado',
@@ -26,19 +29,32 @@ function PhaseCard({
 }) {
   const colors = PHASE_STATUS_COLORS[phase.status]
 
+  const delayDays =
+    phase.status === 'delayed'
+      ? differenceInDays(TODAY, parseISO(phase.endDate))
+      : 0
+
   return (
     <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-sm font-semibold text-[#f5f5f5] leading-snug">{phase.name}</span>
-          <span
-            className={cn(
-              'self-start text-[9px] font-semibold px-2 py-0.5 rounded uppercase tracking-wide',
-              colors.text, colors.bg
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={cn(
+                'text-[9px] font-semibold px-2 py-0.5 rounded uppercase tracking-wide',
+                colors.text, colors.bg
+              )}
+            >
+              {PHASE_STATUS_LABEL[phase.status]}
+            </span>
+            {phase.responsible && (
+              <span className="flex items-center gap-1 text-[9px] text-[#6b6b6b] bg-[#20406a] px-1.5 py-0.5 rounded">
+                <User size={8} />
+                {phase.responsible}
+              </span>
             )}
-          >
-            {PHASE_STATUS_LABEL[phase.status]}
-          </span>
+          </div>
         </div>
         <button
           onClick={onEdit}
@@ -47,6 +63,14 @@ function PhaseCard({
           <Pencil size={12} />
         </button>
       </div>
+
+      {/* Delay alert */}
+      {phase.status === 'delayed' && delayDays > 0 && (
+        <div className="flex items-center gap-1.5 text-[10px] text-[#ef4444] bg-[#ef4444]/10 rounded-lg px-2 py-1">
+          <AlertTriangle size={10} />
+          <span>{delayDays} {delayDays === 1 ? 'dia' : 'dias'} de atraso</span>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="flex flex-col gap-1.5">

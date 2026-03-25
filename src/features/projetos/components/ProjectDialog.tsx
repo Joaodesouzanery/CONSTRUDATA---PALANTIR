@@ -19,6 +19,8 @@ function blankDefaults(): ProjectInfoFormValues {
     code: '', name: '', owner: '', manager: '',
     description: '', status: 'active',
     startDate: '', endDate: '',
+    contractNumber: '', clientName: '', projectManager: '',
+    riskLevel: undefined, priority: undefined,
   }
 }
 
@@ -48,14 +50,19 @@ export function ProjectDialog() {
   useEffect(() => {
     if (existing) {
       reset({
-        code:        existing.code,
-        name:        existing.name,
-        owner:       existing.owner,
-        manager:     existing.manager,
-        description: existing.description ?? '',
-        status:      existing.status,
-        startDate:   existing.startDate,
-        endDate:     existing.endDate,
+        code:           existing.code,
+        name:           existing.name,
+        owner:          existing.owner,
+        manager:        existing.manager,
+        description:    existing.description ?? '',
+        status:         existing.status,
+        startDate:      existing.startDate,
+        endDate:        existing.endDate,
+        contractNumber: existing.contractNumber ?? '',
+        clientName:     existing.clientName     ?? '',
+        projectManager: existing.projectManager ?? '',
+        riskLevel:      existing.riskLevel,
+        priority:       existing.priority,
       })
     } else if (isNew) {
       reset(blankDefaults())
@@ -78,7 +85,10 @@ export function ProjectDialog() {
     if (isNew) {
       addProject({
         ...values,
-        description: values.description ?? '',
+        description:    values.description    ?? '',
+        contractNumber: values.contractNumber || undefined,
+        clientName:     values.clientName     || undefined,
+        projectManager: values.projectManager || undefined,
         planningPhases: [
           { id: `pp-new-1-${Date.now()}`, name: 'Engenharia e Design', status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
           { id: `pp-new-2-${Date.now()}`, name: 'Pré-construção',       status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
@@ -94,7 +104,13 @@ export function ProjectDialog() {
         documents: [],
       })
     } else if (existing) {
-      updateProject(existing.id, { ...values, description: values.description ?? '' })
+      updateProject(existing.id, {
+        ...values,
+        description:    values.description    ?? '',
+        contractNumber: values.contractNumber || undefined,
+        clientName:     values.clientName     || undefined,
+        projectManager: values.projectManager || undefined,
+      })
     }
     close()
   }
@@ -186,6 +202,40 @@ export function ProjectDialog() {
                   className={cn(inp(!!errors.description), 'resize-none')}
                 />
               </Field>
+            </Section>
+
+            {/* Informações Adicionais */}
+            <Section title="Informações Adicionais">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nº do Contrato" error={errors.contractNumber?.message}>
+                  <input {...register('contractNumber')} placeholder="CT-2025-001" className={inp(!!errors.contractNumber)} />
+                </Field>
+                <Field label="Cliente / Contratante" error={errors.clientName?.message}>
+                  <input {...register('clientName')} placeholder="Nome do cliente" className={inp(!!errors.clientName)} />
+                </Field>
+              </div>
+              <Field label="Gerente de Projeto" error={errors.projectManager?.message}>
+                <input {...register('projectManager')} placeholder="Nome do gerente de projeto" className={inp(!!errors.projectManager)} />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Nível de Risco" error={errors.riskLevel?.message}>
+                  <select {...register('riskLevel')} className={inp(!!errors.riskLevel)}>
+                    <option value="">— Selecione —</option>
+                    <option value="low">Baixo</option>
+                    <option value="medium">Médio</option>
+                    <option value="high">Alto</option>
+                    <option value="critical">Crítico</option>
+                  </select>
+                </Field>
+                <Field label="Prioridade" error={errors.priority?.message}>
+                  <select {...register('priority')} className={inp(!!errors.priority)}>
+                    <option value="">— Selecione —</option>
+                    <option value="low">Baixa</option>
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                  </select>
+                </Field>
+              </div>
             </Section>
           </div>
 

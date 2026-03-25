@@ -1,3 +1,4 @@
+import { Download } from 'lucide-react'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 
 // ─── Hourly rate by equipment type ───────────────────────────────────────────
@@ -157,6 +158,18 @@ function CostDistributionChart({
   )
 }
 
+// ─── CSV export helper ────────────────────────────────────────────────────────
+
+function downloadCSV(csvString: string, filename: string) {
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function CustosPanel() {
@@ -171,20 +184,42 @@ export function CustosPanel() {
 
   // KPI values
   const totalFleet = rows.reduce((sum, r) => sum + r.monthly, 0)
-
   const totalHours = equipamentos.reduce((sum, e) => sum + e.engineHours, 0)
   const avgPerHour = totalHours > 0 ? totalFleet / totalHours : 0
-
-  const maxRow = rows.length > 0 ? rows[0] : null
+  const maxRow     = rows.length > 0 ? rows[0] : null
 
   // Cost distribution by type group
   const groupCosts = TYPE_GROUPS.map((g) => {
     const grouped = rows.filter((r) => g.match(r.eq.type))
     const cost    = grouped.reduce((s, r) => s + r.monthly, 0)
-    return { label: g.label, cost, color: g.color }
+    return { label: g.label, cost, color: g.color, count: grouped.length }
   })
-  // Only show groups with cost > 0 (except the catch-all "Outros")
   const chartGroups = groupCosts.filter((g) => g.cost > 0)
+
+  // Type analysis table data
+  const typeAnalysis = chartGroups
+    .filter((g) => g.count > 0)
+    .map((g) => ({
+      label:   g.label,
+      count:   g.count,
+      total:   g.cost,
+      average: g.count > 0 ? Math.round(g.cost / g.count) : 0,
+      pct:     totalFleet > 0 ? (g.cost / totalFleet) * 100 : 0,
+    }))
+
+  function handleExportCSV() {
+    const header = ['Equipamento', 'Codigo', 'Tipo', 'Custo/h (R$)', 'Horas', 'Custo Mensal (R$)']
+    const dataRows = rows.map(({ eq, rate, monthly }) => [
+      eq.name,
+      eq.code,
+      eq.type,
+      rate.toFixed(2),
+      eq.engineHours.toString(),
+      monthly.toFixed(2),
+    ])
+    const csv = [header, ...dataRows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    downloadCSV(csv, 'custos-frota.csv')
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6 overflow-y-auto h-full">
@@ -221,11 +256,75 @@ export function CustosPanel() {
         <CostDistributionChart groups={chartGroups} />
       </div>
 
-      {/* Cost table */}
+      {/* ── Análise por Tipo ── */}
       <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
-          Custos por Equipamento
+          Análise por Tipo
         </h2>
+        {maxRow && (
+          <p className="text-xs text-[#6b6b6b]">
+            Equipamento mais caro:{' '}
+            <span className="text-[#f5f5f5] font-semibold">{maxRow.eq.name}</span>
+            {' '}({maxRow.monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/mês)
+          </p>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-[#20406a]">
+                {['Tipo', 'Qtd', 'Custo Total', 'Custo Médio', '% do Total'].map((col) => (
+                  <th
+                    key={col}
+                    className="text-left text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold pb-2 pr-5 whitespace-nowrap"
+                  >
+                    {col}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#14294e]">
+              {typeAnalysis.map((row) => (
+                <tr key={row.label} className="hover:bg-[#14294e]/50 transition-colors">
+                  <td className="py-2.5 pr-5 text-[#f5f5f5] font-medium">{row.label}</td>
+                  <td className="py-2.5 pr-5 text-[#a3a3a3]">{row.count}</td>
+                  <td className="py-2.5 pr-5 text-[#2abfdc] font-mono">
+                    {row.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </td>
+                  <td className="py-2.5 pr-5 text-[#a3a3a3] font-mono">
+                    {row.average.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </td>
+                  <td className="py-2.5 pr-5">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-[#14294e] rounded-full h-1.5" style={{ maxWidth: 60 }}>
+                        <div
+                          className="bg-[#2abfdc] h-1.5 rounded-full"
+                          style={{ width: `${row.pct.toFixed(1)}%` }}
+                        />
+                      </div>
+                      <span className="text-[#a3a3a3] font-mono shrink-0">{row.pct.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Cost table + CSV export */}
+      <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
+            Custos por Equipamento
+          </h2>
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+          >
+            <Download size={11} />
+            Exportar CSV
+          </button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>

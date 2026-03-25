@@ -539,18 +539,27 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
 
 type Basemap = 'voyager' | 'satellite' | 'outdoors' | 'dark'
 
-const DASH_TILE_URLS: Record<Basemap, string> = {
-  voyager:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  satellite: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
-  outdoors:  'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-}
-
-const DASH_TILE_ATTRS: Record<Basemap, string> = {
-  voyager:   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  satellite: '&copy; <a href="https://s2maps.eu/">Sentinel-2 cloudless by EOX IT Services</a>',
-  outdoors:  '&copy; <a href="https://opentopomap.org/">OpenTopoMap</a>',
-  dark:      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+const TILE_CONFIG: Record<Basemap, { url: string; attribution: string; subdomains: string | undefined }> = {
+  voyager: {
+    url:         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains:  'abcd',
+  },
+  satellite: {
+    url:         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+    subdomains:  undefined,
+  },
+  outdoors: {
+    url:         'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://opentopomap.org/">OpenTopoMap</a>',
+    subdomains:  'abc',
+  },
+  dark: {
+    url:         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains:  'abcd',
+  },
 }
 
 const BASEMAP_LABELS: Record<Basemap, string> = {
@@ -633,9 +642,9 @@ export function Gestao360MapDashboard() {
         >
           <TileLayer
             key={basemap}
-            url={DASH_TILE_URLS[basemap]}
-            attribution={DASH_TILE_ATTRS[basemap]}
-            subdomains={basemap === 'satellite' || basemap === 'outdoors' ? undefined : 'abcd'}
+            url={TILE_CONFIG[basemap].url}
+            attribution={TILE_CONFIG[basemap].attribution}
+            subdomains={TILE_CONFIG[basemap].subdomains as string | undefined}
             maxZoom={19}
           />
           <MarkerLayer
