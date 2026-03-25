@@ -15,7 +15,8 @@ import { useAlertCounts } from '@/hooks/useAlertCounts'
 const SIDEBAR_KEY = 'cdata-sidebar'
 
 const navItems = [
-  { label: 'Relatório 360',   icon: ClipboardList,   to: '/relatorio360'        },
+  { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
+  { label: 'Relatório 360',   icon: ClipboardList,    to: '/relatorio360'        },
   { label: 'Agenda',          icon: Calendar,         to: '/agenda'              },
   { label: 'Equipamentos',    icon: Truck,            to: '/equipamentos'        },
   { label: 'Gest. Equip.',    icon: Wrench,           to: '/gestao-equipamentos' },
@@ -31,7 +32,6 @@ const navItems = [
   { label: 'Quantitativos',   icon: Calculator,       to: '/quantitativos'       },
   { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/bim'                 },
   { label: 'Frota',           icon: Cpu,              to: '/otimizacao-frota'    },
-  { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
 ]
 
 // ─── Atlântico water-drop logo (matches brand mark) ───────────────────────────

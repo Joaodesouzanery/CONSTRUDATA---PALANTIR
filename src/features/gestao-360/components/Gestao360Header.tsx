@@ -7,6 +7,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import type { Gestao360Tab } from '@/store/gestao360Store'
 
 const TABS: Array<{ id: Gestao360Tab; label: string }> = [
+  { id: 'dashboard',    label: 'Dashboard de Obras'    },
   { id: 'jobacosting',  label: 'Custo em Tempo Real'   },
   { id: 'changeorders', label: 'Ordens de Mudança'      },
   { id: 'command',      label: 'Centro de Comando'      },

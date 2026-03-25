@@ -28,14 +28,18 @@ const NETWORK_COLORS: Record<MapNetworkType, string> = {
 
 const TILE_URLS: Record<string, string> = {
   satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  streets:   'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  streets:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  light:     'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  outdoors:  'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
 }
 
 const TILE_ATTRS: Record<string, string> = {
   satellite: '© Esri',
-  streets:   '© OpenStreetMap contributors',
+  streets:   '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
   dark:      '© OpenStreetMap © CARTO',
+  light:     '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+  outdoors:  '© <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)',
 }
 
 // ─── Haversine distance (meters) ─────────────────────────────────────────────

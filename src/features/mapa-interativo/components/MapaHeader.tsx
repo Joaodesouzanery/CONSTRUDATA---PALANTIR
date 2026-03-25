@@ -197,8 +197,10 @@ export function MapaHeader({
             className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none"
           >
             <option value="satellite">Satélite</option>
-            <option value="streets">Ruas</option>
+            <option value="streets">Ruas (Voyager)</option>
             <option value="dark">Escuro</option>
+            <option value="light">Claro</option>
+            <option value="outdoors">Relevo</option>
           </select>
 
           <div className="w-px h-5 bg-gray-700 mx-1" />

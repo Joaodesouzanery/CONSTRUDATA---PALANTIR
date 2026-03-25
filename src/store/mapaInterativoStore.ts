@@ -129,7 +129,7 @@ interface MapaInterativoState {
   pendingConnectNodeId: string | null
   layers: MapLayer[]
   history: MapSnapshot[]
-  basemap: 'satellite' | 'streets' | 'dark'
+  basemap: 'satellite' | 'streets' | 'dark' | 'light' | 'outdoors'
   utmZone: string
   measurePoint1: { lat: number; lng: number } | null
 
@@ -144,7 +144,7 @@ interface MapaInterativoState {
   setMeasurePoint1: (pt: { lat: number; lng: number } | null) => void
   undo: () => void
   clearAll: () => void
-  setBasemap: (b: 'satellite' | 'streets' | 'dark') => void
+  setBasemap: (b: 'satellite' | 'streets' | 'dark' | 'light' | 'outdoors') => void
   setLayerVisible: (layerId: MapNetworkType, visible: boolean) => void
   importNodes: (nodes: MapNode[]) => void
   importSegments: (segments: MapSegment[]) => void

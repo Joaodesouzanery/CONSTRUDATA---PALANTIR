@@ -94,6 +94,14 @@ interface BimState {
   isLoading:       boolean
   loadError:       string | null
 
+  // Forge / APS Viewer
+  viewerMode:       'threejs' | 'forge'
+  droneMode:        boolean
+  forgeToken:       string | null
+  forgeTokenExpiry: number | null
+  forgeUrn:         string | null
+  forgeClientId:    string | null
+
   setActiveTab(tab: BimTab): void
   addProject(p: BimProject): void
   setActiveProject(id: string): void
@@ -107,6 +115,13 @@ interface BimState {
   syncWithQuantitativos(): Promise<void>
   loadDemoData(): void
   clearData(): void
+
+  // Forge actions
+  setViewerMode(mode: 'threejs' | 'forge'): void
+  setForgeCredentials(clientId: string, clientSecret: string): void
+  setForgeToken(token: string, expiry: number): void
+  setForgeUrn(urn: string): void
+  toggleDroneMode(): void
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -123,6 +138,14 @@ export const useBimStore = create<BimState>((set, get) => ({
   layers:            [],
   isLoading:         false,
   loadError:         null,
+
+  // Forge / APS
+  viewerMode:       'threejs',
+  droneMode:        false,
+  forgeToken:       null,
+  forgeTokenExpiry: null,
+  forgeUrn:         null,
+  forgeClientId:    null,
 
   setActiveTab(tab) { set({ activeTab: tab }) },
 
@@ -368,5 +391,18 @@ export const useBimStore = create<BimState>((set, get) => ({
       loadError:         null,
       activeTab:         'viewer',
     })
+  },
+
+  setViewerMode(mode) { set({ viewerMode: mode }) },
+  toggleDroneMode()   { set((s) => ({ droneMode: !s.droneMode })) },
+  setForgeToken(token, expiry) { set({ forgeToken: token, forgeTokenExpiry: expiry }) },
+  setForgeUrn(urn)    { set({ forgeUrn: urn }) },
+  setForgeCredentials(clientId, clientSecret) {
+    try {
+      localStorage.setItem('aps-client-id',     clientId)
+      localStorage.setItem('aps-client-secret', clientSecret)
+    } catch { /* noop */ }
+    set({ forgeClientId: clientId })
+    void clientSecret  // stored in localStorage only, not in state
   },
 }))

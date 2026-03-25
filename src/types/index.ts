@@ -173,6 +173,9 @@ export interface Project {
   budgetLines: BudgetLine[]
   demands: DesignDemand[]
   documents: ProjectDocument[]
+  lat?: number        // latitude WGS84
+  lng?: number        // longitude WGS84
+  address?: string    // endereço textual da obra
 }
 
 // ─── Torre de Controle ────────────────────────────────────────────────────────
@@ -1216,7 +1219,7 @@ export interface BimProject {
   shapefileSourceName: string
 }
 
-export type BimColorMode = 'default' | 'depth' | 'date' | 'cost'
+export type BimColorMode = 'default' | 'depth' | 'date' | 'cost' | 'diameter' | 'pressure'
 export type BimTab = 'viewer' | '4d' | '5d'
 
 // ─── LPS / Lean Construction ──────────────────────────────────────────────────

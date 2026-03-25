@@ -8,7 +8,7 @@ import { create } from 'zustand'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
 
-export type Gestao360Tab = 'jobacosting' | 'changeorders' | 'command' | 'simulation'
+export type Gestao360Tab = 'dashboard' | 'jobacosting' | 'changeorders' | 'command' | 'simulation'
 
 interface Gestao360State {
   changeOrders:      ChangeOrder[]
@@ -46,7 +46,7 @@ interface Gestao360State {
 export const useGestao360Store = create<Gestao360State>((set) => ({
   changeOrders:      [],
   selectedProjectId: null,
-  activeTab:         'jobacosting',
+  activeTab:         'dashboard',
 
   selectProject: (id) => set({ selectedProjectId: id }),
   setActiveTab:  (tab) => set({ activeTab: tab }),

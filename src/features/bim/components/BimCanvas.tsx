@@ -6,9 +6,10 @@
  *   - building: BoxGeometry (slabs/walls) + CylinderGeometry (columns)
  * Raycaster handles click-to-select.
  */
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js'
 import { useBimStore } from '@/store/bimStore'
 import type { BimProject, BimSegment } from '@/types'
 
@@ -51,6 +52,19 @@ function colorForSegment(
     const costPerM = seg.lengthM > 0 ? seg.totalCostBRL / seg.lengthM : 0
     const t = Math.min(costPerM / maxCostPerM, 1)
     return new THREE.Color(lerp(0.9, 1.0, t), lerp(0.9, 0.2, t), lerp(0.9, 0.1, t))
+  }
+
+  if (mode === 'diameter') {
+    // blue (DN < 100) → cyan (DN 200-400) → red (DN > 600)
+    const dn = seg.diameter ?? 200
+    const t  = Math.min(dn / 800, 1)
+    return new THREE.Color(lerp(0.1, 1.0, t), lerp(0.5, 0.1, t), lerp(1.0, 0.1, t))
+  }
+
+  if (mode === 'pressure') {
+    // Simulate pressure gradient by segment position (length ratio)
+    const t = Math.min((seg.avgDepthM ?? 0) / Math.max(maxDepth, 1), 1)
+    return new THREE.Color(lerp(0.1, 1.0, t), lerp(0.8, 0.1, t * 1.5), lerp(0.2, 0.0, t))
   }
 
   // default: color by material for sanitation / phase for building
@@ -115,20 +129,25 @@ function fitCamera(
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export function BimCanvas() {
-  const containerRef   = useRef<HTMLDivElement>(null)
-  const rendererRef    = useRef<THREE.WebGLRenderer | null>(null)
-  const sceneRef       = useRef<THREE.Scene | null>(null)
-  const cameraRef      = useRef<THREE.PerspectiveCamera | null>(null)
-  const controlsRef    = useRef<OrbitControls | null>(null)
-  const frameRef       = useRef<number>(0)
-  const meshMapRef     = useRef<Map<string, THREE.Mesh>>(new Map())
-  const prevProjectId  = useRef<string | null>(null)
+  const containerRef    = useRef<HTMLDivElement>(null)
+  const rendererRef     = useRef<THREE.WebGLRenderer | null>(null)
+  const sceneRef        = useRef<THREE.Scene | null>(null)
+  const cameraRef       = useRef<THREE.PerspectiveCamera | null>(null)
+  const controlsRef     = useRef<OrbitControls | null>(null)
+  const droneCtrlRef    = useRef<PointerLockControls | null>(null)
+  const frameRef        = useRef<number>(0)
+  const meshMapRef      = useRef<Map<string, THREE.Mesh>>(new Map())
+  const prevProjectId   = useRef<string | null>(null)
+  const keysRef         = useRef<Set<string>>(new Set())
+  const velocityRef     = useRef(new THREE.Vector3())
+  const [droneLocked, setDroneLocked] = useState(false)
 
-  const project    = useBimStore((s) => s.project)
-  const selectedId = useBimStore((s) => s.selectedSegmentId)
-  const colorMode  = useBimStore((s) => s.colorMode)
-  const activeDate = useBimStore((s) => s.activeDate)
-  const layers     = useBimStore((s) => s.layers)
+  const project      = useBimStore((s) => s.project)
+  const selectedId   = useBimStore((s) => s.selectedSegmentId)
+  const colorMode    = useBimStore((s) => s.colorMode)
+  const activeDate   = useBimStore((s) => s.activeDate)
+  const layers       = useBimStore((s) => s.layers)
+  const droneMode    = useBimStore((s) => s.droneMode)
   const selectSegment = useBimStore((s) => s.selectSegment)
 
   // ── Init Three.js once ────────────────────────────────────────────────────
@@ -192,9 +211,41 @@ export function BimCanvas() {
     controls.dampingFactor = 0.08
     controlsRef.current = controls
 
+    // PointerLock (Drone mode)
+    const droneCtrl = new PointerLockControls(camera, renderer.domElement)
+    droneCtrl.addEventListener('lock',   () => setDroneLocked(true))
+    droneCtrl.addEventListener('unlock', () => setDroneLocked(false))
+    droneCtrlRef.current = droneCtrl
+
+    // WASD key handlers
+    const onKeyDown = (e: KeyboardEvent) => keysRef.current.add(e.code)
+    const onKeyUp   = (e: KeyboardEvent) => keysRef.current.delete(e.code)
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('keyup',   onKeyUp)
+
+    const SPEED = 4
+    const clock = new THREE.Clock()
+
     function animate() {
       frameRef.current = requestAnimationFrame(animate)
-      controls.update()
+      const delta = clock.getDelta()
+      const k = keysRef.current
+      if (droneCtrlRef.current?.isLocked) {
+        const v = velocityRef.current
+        const speed = SPEED * (k.has('ShiftLeft') || k.has('ShiftRight') ? 4 : 1)
+        v.set(0, 0, 0)
+        if (k.has('KeyW') || k.has('ArrowUp'))    v.z -= speed * delta
+        if (k.has('KeyS') || k.has('ArrowDown'))  v.z += speed * delta
+        if (k.has('KeyA') || k.has('ArrowLeft'))  v.x -= speed * delta
+        if (k.has('KeyD') || k.has('ArrowRight')) v.x += speed * delta
+        if (k.has('KeyE') || k.has('Space'))       v.y += speed * delta
+        if (k.has('KeyQ'))                         v.y -= speed * delta
+        droneCtrlRef.current.moveRight(v.x)
+        droneCtrlRef.current.moveForward(-v.z)
+        camera.position.y += v.y
+      } else {
+        controls.update()
+      }
       renderer.render(scene, camera)
     }
     animate()
@@ -211,6 +262,9 @@ export function BimCanvas() {
       cancelAnimationFrame(frameRef.current)
       ro.disconnect()
       controls.dispose()
+      droneCtrl.dispose()
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('keyup',   onKeyUp)
       renderer.dispose()
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement)
     }
@@ -352,6 +406,42 @@ export function BimCanvas() {
     })
   }, [project, colorMode, activeDate, selectedId, layers])
 
+  // ── Sync drone mode with store ─────────────────────────────────────────────
+  useEffect(() => {
+    const droneCtrl = droneCtrlRef.current
+    const controls  = controlsRef.current
+    if (!droneCtrl || !controls) return
+    if (droneMode) {
+      controls.enabled = false
+    } else {
+      if (droneCtrl.isLocked) droneCtrl.unlock()
+      controls.enabled = true
+    }
+  }, [droneMode])
+
+  // ── Camera presets ─────────────────────────────────────────────────────────
+  const applyPreset = useCallback((preset: 'top' | 'front' | 'iso' | 'fit') => {
+    const camera   = cameraRef.current
+    const controls = controlsRef.current
+    if (!camera || !controls) return
+    if (preset === 'fit' && project) {
+      fitCamera(project, camera, controls)
+      return
+    }
+    const tgt  = controls.target.clone()
+    const dist = camera.position.distanceTo(tgt) || 400
+    if (preset === 'top') {
+      camera.position.set(tgt.x, tgt.y + dist, tgt.z)
+    } else if (preset === 'front') {
+      camera.position.set(tgt.x, tgt.y + dist * 0.2, tgt.z + dist)
+    } else if (preset === 'iso') {
+      const s = dist * 0.7
+      camera.position.set(tgt.x + s, tgt.y + s, tgt.z + s)
+    }
+    camera.lookAt(tgt)
+    controls.update()
+  }, [project])
+
   // ── Raycaster click ────────────────────────────────────────────────────────
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -384,6 +474,40 @@ export function BimCanvas() {
       className="flex-1 min-h-0 relative cursor-crosshair"
       onClick={handleClick}
     >
+      {/* Camera preset buttons */}
+      <div className="absolute top-3 right-3 z-10 flex gap-1">
+        {(['top', 'front', 'iso', 'fit'] as const).map((p) => (
+          <button
+            key={p}
+            onClick={(e) => { e.stopPropagation(); applyPreset(p) }}
+            className="px-2 py-1 rounded bg-[#0e1f38]/90 border border-[#1c3658] text-[10px] text-[#8fb3c8] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+          >
+            {p === 'top' ? 'Topo' : p === 'front' ? 'Frente' : p === 'iso' ? 'Iso' : 'Ajustar'}
+          </button>
+        ))}
+      </div>
+
+      {/* Drone mode overlay */}
+      {droneMode && !droneLocked && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              droneCtrlRef.current?.lock()
+            }}
+            className="flex flex-col items-center gap-2 px-6 py-4 bg-[#0e1f38]/90 border border-[#2abfdc]/40 rounded-2xl text-[#2abfdc] hover:bg-[#112240]/90 transition-colors"
+          >
+            <span className="text-sm font-semibold">Modo Drone ativo</span>
+            <span className="text-xs text-[#8fb3c8]">Clique para capturar mouse • WASD para mover • ESC para sair</span>
+          </button>
+        </div>
+      )}
+      {droneMode && droneLocked && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-[#0e1f38]/80 border border-[#2abfdc]/30 rounded-full text-[#2abfdc] text-[10px]">
+          WASD · Q/E (subir/descer) · Shift (rápido) · ESC para sair
+        </div>
+      )}
+
       {!project && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-2">
           <p className="text-gray-600 text-sm">Selecione um projeto demo ou importe um arquivo</p>
