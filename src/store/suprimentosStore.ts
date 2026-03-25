@@ -8,6 +8,9 @@ import type {
   DemandForecast,
   MatchStatus,
   Discrepancy,
+  Requisition,
+  RequisitionStatus,
+  FrameworkAgreement,
 } from '@/types'
 import {
   mockPurchaseOrders,
@@ -16,6 +19,8 @@ import {
   mockMatches,
   mockExceptions,
   mockForecasts,
+  mockRequisitions,
+  mockFrameworkAgreements,
 } from '@/data/mockSuprimentos'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
@@ -93,12 +98,14 @@ function runThreeWayMatch(
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 interface SuprimentosState {
-  purchaseOrders: PurchaseOrder[]
-  receipts:       GoodsReceipt[]
-  invoices:       Invoice[]
-  matches:        ThreeWayMatch[]
-  exceptions:     MatchException[]
-  forecasts:      DemandForecast[]
+  purchaseOrders:     PurchaseOrder[]
+  receipts:           GoodsReceipt[]
+  invoices:           Invoice[]
+  matches:            ThreeWayMatch[]
+  exceptions:         MatchException[]
+  forecasts:          DemandForecast[]
+  requisitions:       Requisition[]
+  frameworkAgreements: FrameworkAgreement[]
 
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
@@ -118,18 +125,33 @@ interface SuprimentosState {
 
   // Forecasts
   updateForecast: (id: string, status: DemandForecast['status']) => void
+
+  // Requisitions
+  addRequisition:           (req: Requisition)                  => void
+  advanceRequisitionStatus: (id: string)                        => void
+
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
 }
 
+const REQUISITION_FLOW: RequisitionStatus[] = [
+  'submitted',
+  'parsing',
+  'ontology_matched',
+  'proposals',
+  'ordered',
+]
+
 export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
-  purchaseOrders: mockPurchaseOrders,
-  receipts:       mockGoodsReceipts,
-  invoices:       mockInvoices,
-  matches:        mockMatches,
-  exceptions:     mockExceptions,
-  forecasts:      mockForecasts,
+  purchaseOrders:      mockPurchaseOrders,
+  receipts:            mockGoodsReceipts,
+  invoices:            mockInvoices,
+  matches:             mockMatches,
+  exceptions:          mockExceptions,
+  forecasts:           mockForecasts,
+  requisitions:        mockRequisitions,
+  frameworkAgreements: mockFrameworkAgreements,
 
   addPO: (po) =>
     set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
@@ -193,23 +215,40 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       forecasts: s.forecasts.map((f) => (f.id === id ? { ...f, status } : f)),
     })),
 
+  addRequisition: (req) =>
+    set((s) => ({ requisitions: [...s.requisitions, req] })),
+
+  advanceRequisitionStatus: (id) =>
+    set((s) => ({
+      requisitions: s.requisitions.map((r) => {
+        if (r.id !== id) return r
+        const idx  = REQUISITION_FLOW.indexOf(r.status)
+        const next = REQUISITION_FLOW[idx + 1]
+        return next ? { ...r, status: next } : r
+      }),
+    })),
+
   loadDemoData: () =>
     set({
-      purchaseOrders: mockPurchaseOrders,
-      receipts:       mockGoodsReceipts,
-      invoices:       mockInvoices,
-      matches:        mockMatches,
-      exceptions:     mockExceptions,
-      forecasts:      mockForecasts,
+      purchaseOrders:      mockPurchaseOrders,
+      receipts:            mockGoodsReceipts,
+      invoices:            mockInvoices,
+      matches:             mockMatches,
+      exceptions:          mockExceptions,
+      forecasts:           mockForecasts,
+      requisitions:        mockRequisitions,
+      frameworkAgreements: mockFrameworkAgreements,
     }),
 
   clearData: () =>
     set({
-      purchaseOrders: [],
-      receipts:       [],
-      invoices:       [],
-      matches:        [],
-      exceptions:     [],
-      forecasts:      [],
+      purchaseOrders:      [],
+      receipts:            [],
+      invoices:            [],
+      matches:             [],
+      exceptions:          [],
+      forecasts:           [],
+      requisitions:        [],
+      frameworkAgreements: [],
     }),
 }))

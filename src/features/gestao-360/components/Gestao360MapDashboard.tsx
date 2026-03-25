@@ -255,7 +255,7 @@ function ProjectSidePanel({ project, onClose }: ProjectSidePanelProps) {
   ]
 
   return (
-    <div className="w-[340px] shrink-0 flex flex-col bg-[#0e1f38] border-l border-[#1c3658] h-full overflow-hidden">
+    <div className="w-full md:w-[340px] shrink-0 flex flex-col bg-[#0e1f38] border-t md:border-t-0 md:border-l border-[#1c3658] h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-start gap-2 px-4 pt-4 pb-3 border-b border-[#1c3658]">
         <div className="flex-1 min-w-0">
@@ -442,6 +442,31 @@ function ProjectSidePanel({ project, onClose }: ProjectSidePanelProps) {
   )
 }
 
+// ─── Basemap config ───────────────────────────────────────────────────────────
+
+type Basemap = 'voyager' | 'satellite' | 'outdoors' | 'dark'
+
+const DASH_TILE_URLS: Record<Basemap, string> = {
+  voyager:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  outdoors:  'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+}
+
+const DASH_TILE_ATTRS: Record<Basemap, string> = {
+  voyager:   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+  satellite: '&copy; <a href="https://www.esri.com/">Esri</a>',
+  outdoors:  '&copy; <a href="https://opentopomap.org/">OpenTopoMap</a>',
+  dark:      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+}
+
+const BASEMAP_LABELS: Record<Basemap, string> = {
+  voyager:   'Ruas',
+  satellite: 'Satélite',
+  outdoors:  'Relevo',
+  dark:      'Escuro',
+}
+
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
 type Filter = 'all' | Severity
@@ -450,8 +475,9 @@ type Filter = 'all' | Severity
 
 export function Gestao360MapDashboard() {
   const projects = useProjetosStore((s) => s.projects)
-  const [filter, setFilter] = useState<Filter>('all')
+  const [filter, setFilter]     = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [basemap, setBasemap]   = useState<Basemap>('voyager')
 
   const withCoords = projects.filter((p) => p.lat != null && p.lng != null)
   const filtered   = filter === 'all' ? withCoords : withCoords.filter((p) => calcSeverity(p) === filter)
@@ -505,9 +531,9 @@ export function Gestao360MapDashboard() {
         </div>
       </div>
 
-      {/* Map + side panel */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 relative">
+      {/* Map + side panel — stack vertically on mobile */}
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+        <div className={`relative ${selected ? 'h-[50vh] md:h-auto' : ''} flex-1`}>
           <MapContainer
             center={center}
             zoom={5}
@@ -515,9 +541,10 @@ export function Gestao360MapDashboard() {
             zoomControl={true}
           >
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-              subdomains="abcd"
+              key={basemap}
+              url={DASH_TILE_URLS[basemap]}
+              attribution={DASH_TILE_ATTRS[basemap]}
+              subdomains={basemap === 'satellite' ? undefined : 'abcd'}
               maxZoom={19}
             />
             <MarkerLayer
@@ -526,6 +553,24 @@ export function Gestao360MapDashboard() {
               onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
             />
           </MapContainer>
+
+          {/* Basemap switcher overlay */}
+          <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#0e1f38]/90 border border-[#1c3658] rounded-lg p-1 backdrop-blur-sm">
+            {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
+              <button
+                key={b}
+                onClick={() => setBasemap(b)}
+                className="px-2.5 py-1 rounded text-[10px] font-medium transition-colors"
+                style={{
+                  background: basemap === b ? '#2abfdc20' : 'transparent',
+                  color:      basemap === b ? '#2abfdc'   : '#6b6b6b',
+                  border:     `1px solid ${basemap === b ? '#2abfdc50' : 'transparent'}`,
+                }}
+              >
+                {BASEMAP_LABELS[b]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {selected && (

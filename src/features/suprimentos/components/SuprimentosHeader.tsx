@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos'
 
 interface Props {
   activeTab: SuprimentosTab
@@ -10,9 +10,12 @@ interface Props {
 }
 
 const TABS: { key: SuprimentosTab; label: string }[] = [
-  { key: 'conciliacao', label: 'Conciliação' },
-  { key: 'excecoes',    label: 'Exceções'    },
-  { key: 'previsao',    label: 'Previsão de Demanda' },
+  { key: 'conciliacao', label: 'Conciliação'         },
+  { key: 'excecoes',    label: 'Exceções'             },
+  { key: 'previsao',    label: 'Previsão de Demanda'  },
+  { key: 'requisicoes', label: 'Requisições'          },
+  { key: 'materiais',   label: 'Materiais & Fornecedores' },
+  { key: 'contratos',   label: 'Contract 360'         },
 ]
 
 export function SuprimentosHeader({ activeTab, onTabChange }: Props) {

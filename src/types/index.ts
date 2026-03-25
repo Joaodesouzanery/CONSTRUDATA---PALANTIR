@@ -457,6 +457,43 @@ export interface DemandForecast {
   status: 'suggested' | 'ordered' | 'dismissed'
 }
 
+// ─── Suprimentos: Requisitions & Framework Agreements ────────────────────────
+
+export type RequisitionStatus = 'submitted' | 'parsing' | 'ontology_matched' | 'proposals' | 'ordered'
+
+export interface Requisition {
+  id: string
+  code: string              // REQ-001
+  material: string          // "Cimento CP-II 50kg"
+  category: string          // "Cimento / Argamassa"
+  quantity: number
+  unit: string
+  requestedBy: string
+  projectRef: string
+  requestedAt: string       // ISO date
+  status: RequisitionStatus
+  ontologyMatch?: string    // matched ontology category code
+  suggestedSuppliers?: string[]
+  linkedPoId?: string
+  notes?: string
+}
+
+export interface FrameworkAgreement {
+  id: string
+  code: string              // FA-001
+  supplier: string
+  category: string
+  validFrom: string         // yyyy-MM-dd
+  validTo: string
+  agreedUnitPrice: number
+  maxQuantity: number
+  unit: string
+  leadTimeDays: number
+  confidenceScore: number   // 1.0 – 5.0 based on past performance
+  status: 'active' | 'expiring' | 'expired'
+  terms: string             // short summary of key contract terms
+}
+
 // ─── Mão de Obra ──────────────────────────────────────────────────────────────
 
 export type WorkerStatus   = 'active' | 'inactive' | 'suspended'

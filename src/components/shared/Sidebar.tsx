@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, Truck, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map,
+  Calculator, Layers, Target, Map, X,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -55,7 +55,11 @@ function WaterDropLogo({ size = 22 }: { size?: number }) {
   )
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const { theme, toggleTheme } = useThemeStore(
     useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
   )
@@ -110,6 +114,16 @@ export function Sidebar() {
             </span>
           </div>
         )}
+        {/* Mobile close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="ml-auto text-[#6b6b6b] hover:text-[#e4f2f8] transition-colors md:hidden"
+            aria-label="Fechar menu"
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -119,6 +133,7 @@ export function Sidebar() {
             key={item.to}
             to={item.to}
             title={isOpen ? undefined : item.label}
+            onClick={onClose}
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-lg transition-colors',

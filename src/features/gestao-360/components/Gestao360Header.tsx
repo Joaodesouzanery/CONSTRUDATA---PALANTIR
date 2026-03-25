@@ -139,7 +139,7 @@ export function Gestao360Header() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
@@ -161,16 +161,16 @@ export function Gestao360Header() {
         ))}
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-[#1c3658] -mb-px">
+      {/* Tab bar — horizontal scroll on mobile */}
+      <div className="flex gap-1 border-b border-[#1c3658] -mb-px overflow-x-auto scrollbar-none">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={
               activeTab === tab.id
-                ? 'px-4 py-2.5 text-sm font-medium border-b-2 border-[#2abfdc] text-[#2abfdc] whitespace-nowrap'
-                : 'px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-[#6b6b6b] hover:text-[#f5f5f5] whitespace-nowrap transition-colors'
+                ? 'px-4 py-2.5 text-sm font-medium border-b-2 border-[#2abfdc] text-[#2abfdc] whitespace-nowrap shrink-0'
+                : 'px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-[#6b6b6b] hover:text-[#f5f5f5] whitespace-nowrap shrink-0 transition-colors'
             }
           >
             {tab.label}
