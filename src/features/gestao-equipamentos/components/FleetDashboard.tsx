@@ -39,7 +39,7 @@ function KpiCard({
   accent?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-1 bg-[#0a1628] border border-[#1c3658] rounded-xl px-5 py-4">
+    <div className="flex flex-col gap-1 bg-[#0d2040] border border-[#20406a] rounded-xl px-5 py-4">
       <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
         {label}
       </span>
@@ -140,7 +140,7 @@ export function FleetDashboard() {
       <div className="grid grid-cols-2 gap-6">
 
         {/* LEFT — horizontal bar chart */}
-        <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
+        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
             Utilização por Equipamento (horas)
           </h2>
@@ -178,7 +178,7 @@ export function FleetDashboard() {
                       width={plotW}
                       height={barH}
                       rx={3}
-                      fill="#112240"
+                      fill="#14294e"
                     />
                     {/* Bar fill */}
                     {barW > 0 && (
@@ -220,14 +220,14 @@ export function FleetDashboard() {
         </div>
 
         {/* RIGHT — upcoming maintenance */}
-        <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
+        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
             Próximas Manutenções
           </h2>
           {upcoming.length === 0 ? (
             <p className="text-xs text-[#6b6b6b] mt-2">Nenhuma OS agendada.</p>
           ) : (
-            <div className="flex flex-col divide-y divide-[#112240]">
+            <div className="flex flex-col divide-y divide-[#14294e]">
               {upcoming.map((order) => (
                 <div key={order.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                   {/* Equipment info */}
@@ -242,7 +242,7 @@ export function FleetDashboard() {
                   {/* Type badge */}
                   <span
                     className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      TYPE_BADGE_COLOR[order.type] ?? 'bg-[#1c3658] text-[#a3a3a3]'
+                      TYPE_BADGE_COLOR[order.type] ?? 'bg-[#20406a] text-[#a3a3a3]'
                     }`}
                   >
                     {TYPE_LABEL[order.type] ?? order.type}

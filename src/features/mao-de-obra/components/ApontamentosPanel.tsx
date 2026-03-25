@@ -33,12 +33,12 @@ function ProgressTable({ progress }: { progress: PhysicalProgress[] }) {
   }))
 
   return (
-    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
+    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Progresso Físico Acumulado</p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-[#1c3658]">
+            <tr className="border-b border-[#20406a]">
               <th className="text-left text-[#6b6b6b] font-medium pb-2">Atividade</th>
               <th className="text-right text-[#6b6b6b] font-medium pb-2">Planejado</th>
               <th className="text-right text-[#6b6b6b] font-medium pb-2">Realizado</th>
@@ -86,7 +86,7 @@ function TimecardTable({
   const visible = showAll ? sorted : sorted.slice(0, 10)
 
   return (
-    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4">
+    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Apontamentos ({timecards.length})</p>
       {timecards.length === 0 ? (
         <p className="text-[#6b6b6b] text-sm">Nenhum apontamento registrado.</p>
@@ -95,7 +95,7 @@ function TimecardTable({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-[#1c3658]">
+                <tr className="border-b border-[#20406a]">
                   <th className="text-left text-[#6b6b6b] font-medium pb-2">Data</th>
                   <th className="text-left text-[#6b6b6b] font-medium pb-2">Funcionário</th>
                   <th className="text-left text-[#6b6b6b] font-medium pb-2 hidden md:table-cell">Atividade</th>
@@ -194,7 +194,7 @@ export function ApontamentosPanel() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={isImporting}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm font-medium hover:bg-[#162e50] transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm font-medium hover:bg-[#1a3662] transition-colors disabled:opacity-50"
         >
           {isImporting ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
           {isImporting ? 'Importando...' : 'Importar Planilha'}

@@ -57,7 +57,7 @@ function KpiCard({
   accent?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-1 bg-[#0a1628] border border-[#1c3658] rounded-xl px-5 py-4">
+    <div className="flex flex-col gap-1 bg-[#0d2040] border border-[#20406a] rounded-xl px-5 py-4">
       <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
         {label}
       </span>
@@ -110,7 +110,7 @@ function CostDistributionChart({
         y1={TOP + plotH}
         x2={LEFT + plotW}
         y2={TOP + plotH}
-        stroke="#1c3658"
+        stroke="#20406a"
         strokeWidth={1}
       />
 
@@ -214,7 +214,7 @@ export function CustosPanel() {
       </div>
 
       {/* Distribution chart */}
-      <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Distribuição de Custos por Tipo de Equipamento
         </h2>
@@ -222,14 +222,14 @@ export function CustosPanel() {
       </div>
 
       {/* Cost table */}
-      <div className="bg-[#0a1628] border border-[#1c3658] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Custos por Equipamento
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#1c3658]">
+              <tr className="border-b border-[#20406a]">
                 {['Equipamento', 'Custo/Hora (R$)', 'Horas Este Mês', 'Custo Mensal (R$)'].map(
                   (col) => (
                     <th
@@ -242,9 +242,9 @@ export function CustosPanel() {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#112240]">
+            <tbody className="divide-y divide-[#14294e]">
               {rows.map(({ eq, rate, monthly }) => (
-                <tr key={eq.id} className="hover:bg-[#112240]/50 transition-colors">
+                <tr key={eq.id} className="hover:bg-[#14294e]/50 transition-colors">
                   <td className="py-2.5 pr-6">
                     <div className="flex flex-col">
                       <span className="text-[#f5f5f5] font-medium">{eq.name}</span>
@@ -266,7 +266,7 @@ export function CustosPanel() {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-[#1c3658]">
+              <tr className="border-t border-[#20406a]">
                 <td colSpan={3} className="pt-2.5 pr-6 text-[10px] text-[#6b6b6b] font-semibold uppercase tracking-widest">
                   Total Frota
                 </td>

@@ -93,18 +93,18 @@ export function RiskDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[#1c3658] bg-[#0e1f38] flex flex-col shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#20406a] bg-[#112645] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1c3658]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#20406a]">
           <div>
             <h2 className="text-[#f5f5f5] font-bold text-sm">
               {isNew ? 'Novo Risco' : 'Editar Risco'}
             </h2>
             {site && <p className="text-[11px] text-[#6b6b6b] mt-0.5">{site.name}</p>}
           </div>
-          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#162e50] transition-colors">
+          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#1a3662] transition-colors">
             <X size={15} />
           </button>
         </div>
@@ -166,8 +166,8 @@ export function RiskDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#1c3658]">
-            <button type="button" onClick={close} className="px-4 py-2 rounded-lg border border-[#1c3658] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">Cancelar</button>
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#20406a]">
+            <button type="button" onClick={close} className="px-4 py-2 rounded-lg border border-[#20406a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">Cancelar</button>
             <button type="submit" className="px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors">
               {isNew ? 'Adicionar Risco' : 'Salvar Risco'}
             </button>
@@ -180,8 +180,8 @@ export function RiskDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#0a1628] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
-    hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#1c3658] focus:border-[#2abfdc]'
+    'w-full bg-[#0d2040] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#20406a] focus:border-[#2abfdc]'
   )
 }
 

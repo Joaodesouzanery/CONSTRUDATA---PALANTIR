@@ -111,7 +111,7 @@ function MilestoneTimeline({ label, milestones }: { label: string; milestones: C
             {i < milestones.length - 1 && (
               <div className={cn(
                 'h-px w-6 mb-4 shrink-0',
-                m.status === 'done' ? 'bg-[#22c55e]/40' : 'bg-[#1c3658]',
+                m.status === 'done' ? 'bg-[#22c55e]/40' : 'bg-[#20406a]',
               )} />
             )}
           </div>
@@ -139,7 +139,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
 
   return (
     <div
-      className="rounded-lg border bg-[#0e1f38] p-3 flex flex-col gap-2"
+      className="rounded-lg border bg-[#112645] p-3 flex flex-col gap-2"
       style={{ borderColor: color + '30' }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -169,7 +169,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-[#162e50] text-[#a3a3a3]"
+                className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a3662] text-[#a3a3a3]"
               >
                 Não
               </button>
@@ -204,7 +204,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
       </button>
 
       {expanded && risk.notes && (
-        <div className="text-[10px] text-[#6b6b6b] bg-[#162e50] rounded p-2 border border-[#1c3658]">
+        <div className="text-[10px] text-[#6b6b6b] bg-[#1a3662] rounded p-2 border border-[#20406a]">
           <span className="text-[9px] uppercase tracking-widest text-[#3f3f3f]">Notas: </span>
           {risk.notes}
         </div>
@@ -234,14 +234,14 @@ export function ObraDetailPanel() {
 
   return (
     <div
-      className="flex flex-col border-l border-[#1c3658] bg-[#0e1f38] shrink-0 overflow-hidden"
+      className="flex flex-col border-l border-[#20406a] bg-[#112645] shrink-0 overflow-hidden"
       style={{ width: 380 }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-[#1c3658] shrink-0 gap-2">
+      <div className="flex items-start justify-between px-4 py-3 border-b border-[#20406a] shrink-0 gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-[10px] text-[#6b6b6b] bg-[#162e50] px-1.5 py-0.5 rounded">{site.code}</span>
+            <span className="font-mono text-[10px] text-[#6b6b6b] bg-[#1a3662] px-1.5 py-0.5 rounded">{site.code}</span>
             <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide', STATUS_COLOR[site.status])}>
               {STATUS_LABEL[site.status]}
             </span>
@@ -250,7 +250,7 @@ export function ObraDetailPanel() {
         </div>
         <button
           onClick={() => setEditing(site.id)}
-          className="shrink-0 flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-[#1c3658] hover:border-[#2abfdc]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
+          className="shrink-0 flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-[#20406a] hover:border-[#2abfdc]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
         >
           <Pencil size={11} />
           Editar
@@ -319,7 +319,7 @@ export function ObraDetailPanel() {
           ) : null}
 
           {/* Riscos */}
-          <div className="px-4 py-3 border-b border-[#1c3658]">
+          <div className="px-4 py-3 border-b border-[#20406a]">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={12} className="text-[#6b6b6b]" />
@@ -370,7 +370,7 @@ export function ObraDetailPanel() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="px-4 py-3 border-b border-[#1c3658] flex flex-col gap-2">
+    <div className="px-4 py-3 border-b border-[#20406a] flex flex-col gap-2">
       <div className="flex items-center gap-1.5 text-[#6b6b6b]">
         {icon}
         <span className="text-[10px] uppercase tracking-widest font-semibold">{title}</span>

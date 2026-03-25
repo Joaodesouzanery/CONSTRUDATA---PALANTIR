@@ -15,7 +15,7 @@ export function GanttTimeHeader() {
   return (
     <div
       style={{ position: 'sticky', top: 0, zIndex: 20 }}
-      className="border-b border-[#1c3658] bg-[#0e1f38]"
+      className="border-b border-[#20406a] bg-[#112645]"
     >
       {/* Month row */}
       <div className="flex" style={{ minWidth: SIDEBAR_W + visibleWeeks * COLUMN_WIDTH }}>
@@ -27,9 +27,9 @@ export function GanttTimeHeader() {
             zIndex: 21,
             width: SIDEBAR_W,
             minWidth: SIDEBAR_W,
-            background: '#0e1f38',
+            background: '#112645',
           }}
-          className="border-r border-b border-[#1c3658] px-3 flex items-center"
+          className="border-r border-b border-[#20406a] px-3 flex items-center"
         >
           <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
             Recurso
@@ -41,7 +41,7 @@ export function GanttTimeHeader() {
           <div
             key={`${seg.label}-${i}`}
             style={{ width: seg.spanWeeks * COLUMN_WIDTH, minWidth: seg.spanWeeks * COLUMN_WIDTH }}
-            className="border-r border-b border-[#1c3658] px-3 flex items-center"
+            className="border-r border-b border-[#20406a] px-3 flex items-center"
           >
             <span className="text-xs font-semibold text-[#f5f5f5] capitalize truncate">
               {seg.label}
@@ -60,9 +60,9 @@ export function GanttTimeHeader() {
             zIndex: 21,
             width: SIDEBAR_W,
             minWidth: SIDEBAR_W,
-            background: '#0e1f38',
+            background: '#112645',
           }}
-          className="border-r border-[#1c3658]"
+          className="border-r border-[#20406a]"
         />
 
         {/* Week cells */}
@@ -70,7 +70,7 @@ export function GanttTimeHeader() {
           <div
             key={i}
             style={{ width: COLUMN_WIDTH, minWidth: COLUMN_WIDTH }}
-            className="border-r border-[#1c3658] flex items-center justify-center"
+            className="border-r border-[#20406a] flex items-center justify-center"
           >
             <span className="text-[10px] font-mono text-[#6b6b6b]">
               {getWeekLabel(week)}

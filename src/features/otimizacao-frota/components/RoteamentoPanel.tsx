@@ -31,10 +31,10 @@ function RoutingCard({
   return (
     <div
       className={cn(
-        'bg-[#112240] border rounded-xl p-4',
+        'bg-[#14294e] border rounded-xl p-4',
         rec.accepted === true  ? 'border-[#22c55e]/40' :
-        rec.accepted === false ? 'border-[#1c3658] opacity-50' :
-                                 'border-[#1c3658]',
+        rec.accepted === false ? 'border-[#20406a] opacity-50' :
+                                 'border-[#20406a]',
       )}
     >
       <div className="flex items-start gap-3">
@@ -106,7 +106,7 @@ function RoutingCard({
             </button>
             <button
               onClick={onDismiss}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1c3658] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#20406a] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors"
             >
               <X size={12} /> Dispensar
             </button>
@@ -152,7 +152,7 @@ export function RoteamentoPanel() {
         </div>
         <button
           onClick={runRoutingEngine}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#162e50] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#1a3662] transition-colors"
         >
           <RefreshCw size={13} /> Rodar Engine
         </button>
@@ -160,7 +160,7 @@ export function RoteamentoPanel() {
 
       {/* Cards */}
       {routingRecs.length === 0 ? (
-        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-6 text-center">
+        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">
             Nenhuma sugestão. Clique em "Rodar Engine" para analisar a frota.
           </p>

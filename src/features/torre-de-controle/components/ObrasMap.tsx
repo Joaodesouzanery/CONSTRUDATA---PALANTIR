@@ -146,8 +146,8 @@ function DistanceMeasureController({
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 
 function getMapCSS(isDark: boolean) {
-  const bg     = isDark ? '#112240' : '#ffffff'
-  const border = isDark ? '#1c3658' : '#d4d8df'
+  const bg     = isDark ? '#14294e' : '#ffffff'
+  const border = isDark ? '#20406a' : '#d4d8df'
   const text   = isDark ? '#f5f5f5' : '#1a1d23'
   const muted  = isDark ? '#6b6b6b' : '#78828f'
   return `
@@ -382,7 +382,7 @@ export function ObrasMap() {
                 <button
                   onClick={() => { selectSite(site.id); setEditing(site.id) }}
                   style={{
-                    width: '100%', background: 'transparent', border: '1px solid #1c3658',
+                    width: '100%', background: 'transparent', border: '1px solid #20406a',
                     borderRadius: 6, color: '#2abfdc', fontSize: 11, fontWeight: 600,
                     padding: '5px 8px', cursor: 'pointer',
                   }}
@@ -404,7 +404,7 @@ export function ObrasMap() {
         title={isFullscreen ? 'Sair do modo tela cheia' : 'Tela cheia'}
         style={{
           position: 'absolute', top: 10, left: 10, zIndex: 1000,
-          background: '#112240', border: '1px solid #1c3658', borderRadius: 8,
+          background: '#14294e', border: '1px solid #20406a', borderRadius: 8,
           padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
           color: '#f5f5f5',
         }}
@@ -420,8 +420,8 @@ export function ObrasMap() {
         title="Medir distância entre dois pontos"
         style={{
           position: 'absolute', top: 50, left: 10, zIndex: 1000,
-          background: measureActive ? '#22c55e' : '#112240',
-          border: `1px solid ${measureActive ? '#22c55e' : '#1c3658'}`,
+          background: measureActive ? '#22c55e' : '#14294e',
+          border: `1px solid ${measureActive ? '#22c55e' : '#20406a'}`,
           borderRadius: 8, padding: '6px 8px', cursor: 'pointer',
           display: 'flex', alignItems: 'center', color: '#fff',
         }}
@@ -447,7 +447,7 @@ export function ObrasMap() {
       {measureActive && measurePoints.length < 2 && measuredKm === null && (
         <div style={{
           position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
-          background: 'rgba(26,26,26,0.9)', border: '1px solid #1c3658', borderRadius: 8,
+          background: 'rgba(26,26,26,0.9)', border: '1px solid #20406a', borderRadius: 8,
           padding: '6px 14px', fontSize: 11, color: '#a3a3a3',
         }}>
           {measurePoints.length === 0 ? 'Clique no 1º ponto' : 'Clique no 2º ponto'}
@@ -461,7 +461,7 @@ export function ObrasMap() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <div style={{
-            background: 'rgba(26,26,26,0.9)', border: '1px solid #1c3658',
+            background: 'rgba(26,26,26,0.9)', border: '1px solid #20406a',
             borderRadius: 12, padding: '16px 24px', textAlign: 'center',
           }}>
             <p style={{ color: '#6b6b6b', fontSize: 12, margin: 0 }}>Nenhuma obra com localização definida</p>

@@ -15,7 +15,7 @@ const TABS: { key: string; label: string }[] = [
 
 export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-6 py-0 border-b border-[#1c3658] bg-[#0e1f38] shrink-0">
+    <div className="flex items-center justify-between px-6 py-0 border-b border-[#20406a] bg-[#112645] shrink-0">
       {/* Left — module title */}
       <div className="flex items-center gap-3 py-4">
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#2abfdc]/15">

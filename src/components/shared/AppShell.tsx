@@ -13,7 +13,7 @@ export function AppShell() {
       <DemoBanner />
 
       {/* Mobile top bar — hidden on md+ */}
-      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#1c3658] bg-[#0a1628] shrink-0 z-20">
+      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#20406a] bg-[#0d2040] shrink-0 z-20">
         <button
           onClick={() => setMobileOpen(true)}
           className="text-[#6b6b6b] hover:text-[#2abfdc] transition-colors"

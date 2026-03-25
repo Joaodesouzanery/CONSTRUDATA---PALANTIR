@@ -73,11 +73,11 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
   const total   = po.items.reduce((acc, i) => acc + i.totalPrice, 0)
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl overflow-hidden">
+    <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden">
       {/* Header row */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#162e50] transition-colors text-left"
+        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#1a3662] transition-colors text-left"
       >
         {open ? <ChevronUp size={14} className="text-[#6b6b6b] shrink-0" /> : <ChevronDown size={14} className="text-[#6b6b6b] shrink-0" />}
         <span className="font-mono text-[#a3a3a3] text-xs shrink-0">{po.code}</span>
@@ -90,7 +90,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
       </button>
 
       {open && (
-        <div className="border-t border-[#1c3658] p-4 flex flex-col gap-4">
+        <div className="border-t border-[#20406a] p-4 flex flex-col gap-4">
           {/* Meta */}
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div><span className="text-[#6b6b6b]">Responsável: </span><span className="text-[#f5f5f5]">{po.responsible}</span></div>
@@ -99,10 +99,10 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
           </div>
 
           {/* Items table */}
-          <div className="bg-[#0e1f38] border border-[#1c3658] rounded-lg overflow-hidden">
+          <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-hidden">
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-[#162e50]">
+                <tr className="bg-[#1a3662]">
                   <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                   <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-16">Qtd OC</th>
                   <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-16">Qtd RC</th>
@@ -120,7 +120,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
                   const priceOk = !nfItem || Math.abs(nfItem.unitPrice - item.unitPrice) / item.unitPrice <= 0.02
                   const rowOk  = qtyOk && priceOk
                   return (
-                    <tr key={item.id} className="border-t border-[#1c3658]">
+                    <tr key={item.id} className="border-t border-[#20406a]">
                       <td className="px-3 py-2 text-[#f5f5f5]">{item.description}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-[#f5f5f5]">{item.quantity.toLocaleString('pt-BR')}</td>
                       <td className={cn('px-3 py-2 text-right tabular-nums', rcItem ? (qtyOk ? 'text-[#4ade80]' : 'text-[#f87171]') : 'text-[#1f3c5e]')}>

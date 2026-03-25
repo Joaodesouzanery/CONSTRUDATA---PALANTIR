@@ -27,7 +27,7 @@ function PhaseCard({
   const colors = PHASE_STATUS_COLORS[phase.status]
 
   return (
-    <div className="rounded-xl border border-[#1c3658] bg-[#112240] p-4 flex flex-col gap-3">
+    <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-sm font-semibold text-[#f5f5f5] leading-snug">{phase.name}</span>
@@ -56,7 +56,7 @@ function PhaseCard({
             {phase.progress}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-[#162e50] overflow-hidden">
+        <div className="h-2 rounded-full bg-[#1a3662] overflow-hidden">
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${phase.progress}%`, background: colors.bar }}
@@ -77,7 +77,7 @@ function PhaseCard({
       </div>
 
       {phase.notes && (
-        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#1c3658] pt-2">
+        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#20406a] pt-2">
           {phase.notes}
         </p>
       )}

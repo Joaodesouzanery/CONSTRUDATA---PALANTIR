@@ -27,11 +27,11 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#1c3658] shadow-2xl"
+      className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#20406a] shadow-2xl"
       style={{ width: 420 }}
     >
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-[#1c3658] flex items-center justify-between shrink-0">
+      <div className="px-4 py-3.5 border-b border-[#20406a] flex items-center justify-between shrink-0">
         <div>
           <p className="text-[#f5f5f5] text-sm font-semibold">Visão do Modelo BIM</p>
           <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -58,7 +58,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-[#1c3658] shrink-0 flex items-center justify-between">
+      <div className="px-4 py-3 border-t border-[#20406a] shrink-0 flex items-center justify-between">
         <p className="text-[10px] text-[#3f3f3f]">Visualização passiva — sem controles 4D/5D</p>
         <a
           href="/bim"

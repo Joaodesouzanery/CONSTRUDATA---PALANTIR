@@ -28,8 +28,8 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
         to right,
         transparent 0px,
         transparent ${COLUMN_WIDTH - 1}px,
-        #1c3658 ${COLUMN_WIDTH - 1}px,
-        #1c3658 ${COLUMN_WIDTH}px
+        #20406a ${COLUMN_WIDTH - 1}px,
+        #20406a ${COLUMN_WIDTH}px
       )`,
     }),
     []

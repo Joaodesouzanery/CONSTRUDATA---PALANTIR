@@ -37,7 +37,7 @@ export function SuprimentosHeader({ activeTab, onTabChange }: Props) {
     { label: 'Conciliadas',   value: conciliado,     color: 'text-[#4ade80]',  bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
     { label: 'Parciais',      value: parcial,         color: 'text-[#fbbf24]',  bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
     { label: 'Com Exceção',   value: comExcecao,      color: 'text-[#f87171]',  bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
-    { label: 'Total OCs',     value: totalPOs,         color: 'text-[#f5f5f5]',  bg: 'bg-[#1e1e1e] border-[#1c3658]'        },
+    { label: 'Total OCs',     value: totalPOs,         color: 'text-[#f5f5f5]',  bg: 'bg-[#1e1e1e] border-[#20406a]'        },
   ]
 
   return (
@@ -54,7 +54,7 @@ export function SuprimentosHeader({ activeTab, onTabChange }: Props) {
 
       {/* Tab bar + exception badge */}
       <div className="flex items-center gap-3">
-        <div className="flex gap-1 bg-[#1e1e1e] border border-[#1c3658] rounded-lg p-1">
+        <div className="flex gap-1 bg-[#1e1e1e] border border-[#20406a] rounded-lg p-1">
           {TABS.map((tab) => (
             <button
               key={tab.key}

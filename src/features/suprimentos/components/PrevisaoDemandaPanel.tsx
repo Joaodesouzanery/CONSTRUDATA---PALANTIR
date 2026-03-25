@@ -42,7 +42,7 @@ export function PrevisaoDemandaPanel() {
       {/* KPI cards */}
       <div className="grid grid-cols-3 gap-3 shrink-0">
         {kpis.map(({ label, value, color }) => (
-          <div key={label} className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl p-4 flex flex-col gap-1">
+          <div key={label} className="bg-[#1e1e1e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-1">
             <p className="text-[#6b6b6b] text-xs">{label}</p>
             <p className={cn('text-xl font-bold tabular-nums', color)}>{value}</p>
           </div>
@@ -50,10 +50,10 @@ export function PrevisaoDemandaPanel() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#1c3658] rounded-xl">
+      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#20406a] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#162e50]">
+            <tr className="bg-[#1a3662]">
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Semana</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Categoria</th>
               <th className="text-right text-[#6b6b6b] text-xs font-medium px-3 py-2 w-24">Qtd Estimada</th>
@@ -71,7 +71,7 @@ export function PrevisaoDemandaPanel() {
                 (new Date(f.suggestedOrderDate).getTime() - Date.now()) / 86_400_000
               )
               return (
-                <tr key={f.id} className="border-t border-[#1c3658] hover:bg-[#162e50]/50 transition-colors">
+                <tr key={f.id} className="border-t border-[#20406a] hover:bg-[#1a3662]/50 transition-colors">
                   <td className="px-3 py-2.5 text-[#f5f5f5] text-xs">{f.weekLabel}</td>
                   <td className="px-3 py-2.5 text-[#f5f5f5] text-xs font-medium">{f.materialCategory}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums text-[#f5f5f5] text-xs">{f.estimatedQty.toLocaleString('pt-BR')}</td>

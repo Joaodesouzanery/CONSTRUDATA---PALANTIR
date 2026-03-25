@@ -160,8 +160,8 @@ export function ProposalView() {
       {/* LEFT — Proposal table */}
       <div className="flex flex-col flex-1 min-w-0 gap-4">
         {/* Table */}
-        <div className="flex-1 bg-[#1e1e1e] border border-[#1c3658] rounded-xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-[#1c3658] flex items-center justify-between">
+        <div className="flex-1 bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-[#20406a] flex items-center justify-between">
             <h2 className="text-[#f5f5f5] font-semibold text-sm">Proposta Orçamentária</h2>
             <span className="text-[#6b6b6b] text-xs">{lines.length} itens</span>
           </div>
@@ -174,7 +174,7 @@ export function ProposalView() {
             ) : (
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#162e50]">
+                  <tr className="bg-[#1a3662]">
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-20">Código</th>
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                     <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-20">Qtd</th>
@@ -191,7 +191,7 @@ export function ProposalView() {
                     return (
                       <tr
                         key={idx}
-                        className="border-t border-[#1c3658] hover:bg-[#162e50] transition-colors"
+                        className="border-t border-[#20406a] hover:bg-[#1a3662] transition-colors"
                       >
                         <td className="px-3 py-2 font-mono text-[#a3a3a3]">{line.code}</td>
                         <td className="px-3 py-2 text-[#f5f5f5]">{line.description}</td>
@@ -217,7 +217,7 @@ export function ProposalView() {
                 </tbody>
                 {lines.length > 0 && (
                   <tfoot>
-                    <tr className="border-t-2 border-[#2abfdc]/30 bg-[#162e50]">
+                    <tr className="border-t-2 border-[#2abfdc]/30 bg-[#1a3662]">
                       <td colSpan={5} className="px-3 py-2 text-right text-[#a3a3a3] text-xs font-semibold">
                         Totais
                       </td>
@@ -250,7 +250,7 @@ export function ProposalView() {
               key={label}
               className={cn(
                 'bg-[#1e1e1e] border rounded-xl p-4 flex flex-col gap-1',
-                accent ? 'border-[#2abfdc]/40' : 'border-[#1c3658]',
+                accent ? 'border-[#2abfdc]/40' : 'border-[#20406a]',
               )}
             >
               <p className="text-[#6b6b6b] text-xs">{label}</p>
@@ -273,7 +273,7 @@ export function ProposalView() {
 
       {/* RIGHT — BDI config */}
       <div className="w-72 shrink-0">
-        <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl p-4 flex flex-col gap-4">
+        <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-4">
           <h2 className="text-[#f5f5f5] font-semibold text-sm">Configuração BDI</h2>
 
           <div className="flex flex-col gap-3">
@@ -290,7 +290,7 @@ export function ProposalView() {
                       const v = parseFloat(e.target.value)
                       if (!isNaN(v) && v >= 0) setBDI({ [key]: v })
                     }}
-                    className="flex-1 bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc] tabular-nums"
+                    className="flex-1 bg-[#112645] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc] tabular-nums"
                   />
                   <span className="text-[#6b6b6b] text-xs w-4">%</span>
                 </div>
@@ -298,7 +298,7 @@ export function ProposalView() {
             ))}
 
             {/* BDI Total */}
-            <div className="border-t border-[#1c3658] pt-3">
+            <div className="border-t border-[#20406a] pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-[#f5f5f5] text-sm font-semibold">BDI Total</span>
                 <span className="text-[#2abfdc] text-lg font-bold tabular-nums">

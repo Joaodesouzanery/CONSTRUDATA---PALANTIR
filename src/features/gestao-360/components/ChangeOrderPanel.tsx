@@ -41,7 +41,7 @@ function COListItem({
       className={`w-full text-left px-3 py-3 rounded-lg border transition-colors flex items-start gap-3 ${
         selected
           ? 'bg-[#2abfdc]/10 border-[#2abfdc]/40'
-          : 'bg-[#112240] border-[#1c3658] hover:border-[#1f3c5e]'
+          : 'bg-[#14294e] border-[#20406a] hover:border-[#1f3c5e]'
       }`}
     >
       <Icon size={14} className="mt-0.5 shrink-0" style={{ color: meta.color }} />
@@ -95,7 +95,7 @@ function CODetail({ co }: { co: ChangeOrder }) {
   }
 
   return (
-    <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4 flex flex-col gap-4 h-full overflow-y-auto">
+    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-4 h-full overflow-y-auto">
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="flex-1">
@@ -104,7 +104,7 @@ function CODetail({ co }: { co: ChangeOrder }) {
               <Icon size={10} className="inline mr-1" />{meta.label}
             </span>
             <span className="text-[#6b6b6b] text-[10px]">{co.projectCode}</span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-[#1c3658] text-[#6b6b6b]">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-[#20406a] text-[#6b6b6b]">
               {TYPE_OPTIONS.find((t) => t.value === co.type)?.label ?? co.type}
             </span>
           </div>
@@ -120,13 +120,13 @@ function CODetail({ co }: { co: ChangeOrder }) {
 
       {/* Impact */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-[#112240] rounded-lg p-3">
+        <div className="bg-[#14294e] rounded-lg p-3">
           <p className="text-[#6b6b6b] text-[10px] mb-1">Impacto de Custo</p>
           <p className={`text-base font-bold ${co.impactCostBRL >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
             {co.impactCostBRL >= 0 ? '+' : ''}R${Math.abs(co.impactCostBRL).toLocaleString('pt-BR')}
           </p>
         </div>
-        <div className="bg-[#112240] rounded-lg p-3">
+        <div className="bg-[#14294e] rounded-lg p-3">
           <p className="text-[#6b6b6b] text-[10px] mb-1">Impacto de Prazo</p>
           <p className={`text-base font-bold ${co.impactDays > 0 ? 'text-[#ef4444]' : co.impactDays < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}`}>
             {co.impactDays > 0 ? '+' : ''}{co.impactDays} dias
@@ -155,7 +155,7 @@ function CODetail({ co }: { co: ChangeOrder }) {
                 key={p.id}
                 src={p.base64}
                 alt={p.label}
-                className="w-16 h-16 object-cover rounded-lg border border-[#1c3658]"
+                className="w-16 h-16 object-cover rounded-lg border border-[#20406a]"
                 title={p.label}
               />
             ))}
@@ -166,7 +166,7 @@ function CODetail({ co }: { co: ChangeOrder }) {
       </div>
 
       {/* Metadata */}
-      <div className="text-[10px] text-[#6b6b6b] border-t border-[#1c3658] pt-3">
+      <div className="text-[10px] text-[#6b6b6b] border-t border-[#20406a] pt-3">
         <p>Submetido por <span className="text-[#f5f5f5]">{co.submittedBy}</span> em{' '}
           {new Date(co.submittedAt).toLocaleDateString('pt-BR')}</p>
         {co.reviewedBy && (
@@ -200,14 +200,14 @@ function CODetail({ co }: { co: ChangeOrder }) {
             value={reviewer}
             onChange={(e) => setReviewer(e.target.value)}
             placeholder="Revisor"
-            className="px-3 py-1.5 rounded-lg bg-[#112240] border border-[#1c3658] text-[#f5f5f5] text-xs focus:outline-none focus:border-[#2abfdc]/60"
+            className="px-3 py-1.5 rounded-lg bg-[#14294e] border border-[#20406a] text-[#f5f5f5] text-xs focus:outline-none focus:border-[#2abfdc]/60"
           />
           <textarea
             value={reviewNotes}
             onChange={(e) => setReviewNotes(e.target.value)}
             placeholder="Notas de revisão (opcional)"
             rows={2}
-            className="px-3 py-1.5 rounded-lg bg-[#112240] border border-[#1c3658] text-[#f5f5f5] text-xs resize-none focus:outline-none focus:border-[#2abfdc]/60"
+            className="px-3 py-1.5 rounded-lg bg-[#14294e] border border-[#20406a] text-[#f5f5f5] text-xs resize-none focus:outline-none focus:border-[#2abfdc]/60"
           />
           <div className="flex gap-2">
             <button
@@ -263,10 +263,10 @@ function NewCOForm({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const inputCls = "w-full px-3 py-1.5 rounded-lg bg-[#112240] border border-[#1c3658] text-[#f5f5f5] text-xs focus:outline-none focus:border-[#2abfdc]/60"
+  const inputCls = "w-full px-3 py-1.5 rounded-lg bg-[#14294e] border border-[#20406a] text-[#f5f5f5] text-xs focus:outline-none focus:border-[#2abfdc]/60"
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[#112240] border border-[#1c3658] rounded-xl p-4 flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-3">
       <p className="text-[#f5f5f5] text-sm font-semibold">Nova Ordem de Mudança</p>
 
       <div>
@@ -316,7 +316,7 @@ function NewCOForm({ onClose }: { onClose: () => void }) {
           Criar Rascunho
         </button>
         <button type="button" onClick={onClose}
-          className="px-4 py-2 rounded-lg bg-[#1c3658] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors">
+          className="px-4 py-2 rounded-lg bg-[#20406a] text-[#6b6b6b] text-xs font-semibold hover:bg-[#333] transition-colors">
           Cancelar
         </button>
       </div>
@@ -353,7 +353,7 @@ export function ChangeOrderPanel() {
         {(Object.entries(counts) as [keyof typeof counts, number][]).map(([status, count]) => {
           const meta = STATUS_META[status]
           return (
-            <div key={status} className="bg-[#112240] border border-[#1c3658] rounded-xl px-3 py-2 text-center">
+            <div key={status} className="bg-[#14294e] border border-[#20406a] rounded-xl px-3 py-2 text-center">
               <p className="text-lg font-bold" style={{ color: meta.color }}>{count}</p>
               <p className="text-[#6b6b6b] text-[10px]">{meta.label}</p>
             </div>
@@ -377,7 +377,7 @@ export function ChangeOrderPanel() {
           </div>
 
           {filtered.length === 0 && !showNew && (
-            <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-4 text-center">
+            <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
               <p className="text-[#6b6b6b] text-xs">Nenhuma ordem de mudança. Clique em "Nova OM" para criar.</p>
             </div>
           )}
@@ -399,7 +399,7 @@ export function ChangeOrderPanel() {
           ) : selected ? (
             <CODetail co={selected} />
           ) : (
-            <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-6 text-center h-full flex items-center justify-center">
+            <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-6 text-center h-full flex items-center justify-center">
               <p className="text-[#6b6b6b] text-sm">Selecione uma ordem de mudança para ver os detalhes.</p>
             </div>
           )}

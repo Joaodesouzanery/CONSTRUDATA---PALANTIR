@@ -149,7 +149,7 @@ function Tab3D({ nodes, segments }: { nodes: MapNode[]; segments: MapSegment[] }
           {/* Grid lines */}
           {yTicks.map((e, i) => (
             <g key={i}>
-              <line x1={PAD.l} y1={yOf(e)} x2={PAD.l + iW} y2={yOf(e)} stroke="#1c3658" strokeWidth={1} />
+              <line x1={PAD.l} y1={yOf(e)} x2={PAD.l + iW} y2={yOf(e)} stroke="#20406a" strokeWidth={1} />
               <text x={PAD.l - 4} y={yOf(e) + 4} fill="#6b6b6b" fontSize={9} textAnchor="end">{e.toFixed(1)}</text>
             </g>
           ))}
@@ -348,10 +348,10 @@ function Tab5D({ nodes, segments }: { nodes: MapNode[]; segments: MapSegment[] }
       </svg>
 
       {/* Detail table */}
-      <div className="rounded-xl border border-[#1c3658] overflow-hidden">
+      <div className="rounded-xl border border-[#20406a] overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr className="bg-[#0a1628] border-b border-[#1c3658]">
+            <tr className="bg-[#0d2040] border-b border-[#20406a]">
               {['Tipo de Rede', 'Trechos', 'Extensão', 'R$/m', 'Custo Est.'].map((h) => (
                 <th key={h} className="text-left px-3 py-2 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">{h}</th>
               ))}
@@ -359,7 +359,7 @@ function Tab5D({ nodes, segments }: { nodes: MapNode[]; segments: MapSegment[] }
           </thead>
           <tbody>
             {types.map((t, i) => (
-              <tr key={t.type} className={i < types.length - 1 ? 'border-b border-[#112240]' : ''}>
+              <tr key={t.type} className={i < types.length - 1 ? 'border-b border-[#14294e]' : ''}>
                 <td className="px-3 py-2.5">
                   <span className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full inline-block" style={{ background: NETWORK_COLOR[t.type] }} />
@@ -395,9 +395,9 @@ export function MapaAnalyticsPanel() {
   ]
 
   return (
-    <div className="border-t border-[#1c3658] bg-[#0b1829]" style={{ maxHeight: 320, overflowY: 'auto' }}>
+    <div className="border-t border-[#20406a] bg-[#0d2040]" style={{ maxHeight: 320, overflowY: 'auto' }}>
       {/* Tab bar */}
-      <div className="flex items-center gap-0 px-4 pt-2 border-b border-[#1c3658] bg-[#081321]">
+      <div className="flex items-center gap-0 px-4 pt-2 border-b border-[#20406a] bg-[#081321]">
         <BarChart2 size={12} className="text-[#2abfdc] mr-3" />
         {tabs.map((t) => (
           <button

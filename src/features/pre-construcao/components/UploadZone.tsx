@@ -128,7 +128,7 @@ export function UploadZone() {
           'border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors',
           isDragging
             ? 'border-[#2abfdc] bg-[#2abfdc]/5'
-            : 'border-[#1f3c5e] bg-[#112240] hover:border-[#555]',
+            : 'border-[#1f3c5e] bg-[#14294e] hover:border-[#555]',
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -164,7 +164,7 @@ export function UploadZone() {
           {uploadedFiles.map((uf) => (
             <div
               key={uf.name}
-              className="flex items-center gap-3 bg-[#112240] border border-[#1c3658] rounded-lg px-3 py-2"
+              className="flex items-center gap-3 bg-[#14294e] border border-[#20406a] rounded-lg px-3 py-2"
             >
               <FileIcon ext={uf.ext} />
               <span className="flex-1 text-[#f5f5f5] text-sm truncate">{uf.name}</span>
@@ -200,7 +200,7 @@ export function UploadZone() {
           'w-full py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors',
           uploadedFiles.length > 0 && !isLoading
             ? 'bg-[#2abfdc] hover:bg-[#ea6c0a] text-white'
-            : 'bg-[#1c3658] text-[#6b6b6b] cursor-not-allowed',
+            : 'bg-[#20406a] text-[#6b6b6b] cursor-not-allowed',
         )}
       >
         {isLoading ? (

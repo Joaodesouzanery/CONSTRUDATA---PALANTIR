@@ -9,9 +9,9 @@ export default function OtimizacaoFrotaPage() {
   const [activeTab, setActiveTab] = useState<FrotaTab>('roteamento')
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-[#0b1829]">
+    <div className="flex flex-col h-full overflow-y-auto bg-[#0d2040]">
       {/* Sticky header + tab bar */}
-      <div className="sticky top-0 z-10 bg-[#0b1829] border-b border-[#1c3658]">
+      <div className="sticky top-0 z-10 bg-[#0d2040] border-b border-[#20406a]">
         <OtimizacaoHeader activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 

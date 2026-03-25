@@ -1,13 +1,15 @@
 /**
  * Gestao360MapDashboard — Interactive map of all projects with severity markers.
- * Clicking a marker opens a side panel with Overview / Work Orders / Cronograma.
+ * Clicking a marker opens a Project 360 modal with full KPIs, photos, phases, budget, Gantt.
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { X, MapPin, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { X, MapPin, AlertTriangle, CheckCircle2, Clock, BarChart3, Image } from 'lucide-react'
 import { useProjetosStore } from '@/store/projetosStore'
+import { useRelatorio360Store } from '@/store/relatorio360Store'
+import { useShallow } from 'zustand/react/shallow'
 import type { Project, ProjectPhase } from '@/types'
 
 // ─── Severity ─────────────────────────────────────────────────────────────────
@@ -57,24 +59,63 @@ function calcBudgetDelta(project: Project): number {
   return budgeted > 0 ? ((eac - budgeted) / budgeted) * 100 : 0
 }
 
-function makeDivIcon(severity: Severity, selected: boolean) {
+// ─── Rich pin marker icon ──────────────────────────────────────────────────────
+
+function makeDivIcon(severity: Severity, project: Project, selected: boolean) {
   const color = SEVERITY_COLOR[severity]
-  const size  = selected ? 20 : 14
-  const glow  = selected ? `0 0 0 3px ${color}55, 0 0 12px ${color}66` : `0 2px 6px rgba(0,0,0,0.5)`
+  const code  = project.code.length > 10 ? project.code.slice(0, 10) : project.code
+  const glow  = selected
+    ? `0 0 0 2px ${color}60, 0 0 14px ${color}80`
+    : `0 2px 8px rgba(0,0,0,0.6)`
+  const bgAlpha = selected ? 'ee' : 'cc'
+
   return L.divIcon({
     className: '',
-    iconAnchor: [size / 2, size / 2],
-    html: `<div style="
-      width:${size}px;height:${size}px;border-radius:50%;
-      background:${color};
-      box-shadow:${glow};
-      border:2px solid rgba(255,255,255,0.8);
-      transition:all 0.15s;
-    "></div>`,
+    iconAnchor: [44, 38],
+    html: `
+      <div style="
+        position:relative;
+        display:inline-flex;
+        flex-direction:column;
+        align-items:center;
+      ">
+        <div style="
+          display:flex;align-items:center;gap:5px;
+          background:#0d2040${bgAlpha};
+          border:1.5px solid ${color};
+          border-radius:8px;
+          padding:4px 8px;
+          box-shadow:${glow};
+          min-width:80px;
+          justify-content:center;
+          transition:all 0.15s;
+        ">
+          <div style="
+            width:9px;height:9px;border-radius:50%;
+            background:${color};
+            flex-shrink:0;
+            box-shadow:0 0 5px ${color}aa;
+          "></div>
+          <span style="
+            color:#e4f2f8;font-size:10px;font-weight:700;
+            font-family:Inter,sans-serif;
+            white-space:nowrap;
+            letter-spacing:0.03em;
+          ">${code}</span>
+        </div>
+        <div style="
+          width:0;height:0;
+          border-left:6px solid transparent;
+          border-right:6px solid transparent;
+          border-top:7px solid ${color};
+          margin-top:-1px;
+        "></div>
+      </div>
+    `,
   })
 }
 
-// ─── Marker layer (imperative Leaflet, bypasses react-leaflet for performance) ─
+// ─── Marker layer (imperative Leaflet) ────────────────────────────────────────
 
 interface MarkerLayerProps {
   projects: Project[]
@@ -89,7 +130,6 @@ function MarkerLayer({ projects, selected, onSelect }: MarkerLayerProps) {
   useEffect(() => {
     const existing = markersRef.current
 
-    // Remove stale markers
     existing.forEach((m, id) => {
       if (!projects.find((p) => p.id === id)) {
         m.remove()
@@ -97,32 +137,24 @@ function MarkerLayer({ projects, selected, onSelect }: MarkerLayerProps) {
       }
     })
 
-    // Add/update markers
     projects.forEach((project) => {
       if (project.lat == null || project.lng == null) return
       const severity = calcSeverity(project)
       const isSel    = project.id === selected
 
       if (existing.has(project.id)) {
-        existing.get(project.id)!.setIcon(makeDivIcon(severity, isSel))
+        existing.get(project.id)!.setIcon(makeDivIcon(severity, project, isSel))
       } else {
         const marker = L.marker([project.lat, project.lng], {
-          icon: makeDivIcon(severity, isSel),
+          icon: makeDivIcon(severity, project, isSel),
         })
           .addTo(map)
           .on('click', () => onSelect(project.id))
-
-        marker.bindTooltip(
-          `<div style="font-size:12px;font-weight:600;color:#e4f2f8">${project.name}</div>` +
-          `<div style="font-size:10px;color:${SEVERITY_COLOR[severity]}">${SEVERITY_LABEL[severity]}</div>`,
-          { direction: 'top', offset: [0, -10], className: 'leaflet-tooltip-gestao360' }
-        )
         existing.set(project.id, marker)
       }
     })
   }, [projects, selected, map, onSelect])
 
-  // Pan to selected
   useEffect(() => {
     if (!selected) return
     const project = projects.find((p) => p.id === selected)
@@ -131,7 +163,6 @@ function MarkerLayer({ projects, selected, onSelect }: MarkerLayerProps) {
     }
   }, [selected, projects, map])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       markersRef.current.forEach((m) => m.remove())
@@ -142,9 +173,7 @@ function MarkerLayer({ projects, selected, onSelect }: MarkerLayerProps) {
   return null
 }
 
-// ─── ProjectSidePanel ─────────────────────────────────────────────────────────
-
-type SideTab = 'overview' | 'workorders' | 'cronograma'
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' })
@@ -158,7 +187,7 @@ function fmtBRL(n: number) {
 
 function PhaseStatusBadge({ status }: { status: ProjectPhase['status'] }) {
   const map: Record<string, { label: string; color: string }> = {
-    completed:   { label: 'Concluído', color: '#22c55e' },
+    completed:   { label: 'Concluído',    color: '#22c55e' },
     in_progress: { label: 'Em andamento', color: '#2abfdc' },
     not_started: { label: 'Não iniciado', color: '#6b6b6b' },
   }
@@ -173,7 +202,7 @@ function PhaseStatusBadge({ status }: { status: ProjectPhase['status'] }) {
   )
 }
 
-function GanttSvg({ project }: { project: Project }) {
+function GanttSvg({ project, W = 420 }: { project: Project; W?: number }) {
   const all: Array<ProjectPhase & { group: string }> = [
     ...project.planningPhases.map((p) => ({ ...p, group: 'Planejamento' })),
     ...project.executionPhases.map((p) => ({ ...p, group: 'Execução' })),
@@ -182,7 +211,7 @@ function GanttSvg({ project }: { project: Project }) {
   const start = new Date(project.startDate + 'T00:00:00').getTime()
   const end   = new Date(project.endDate   + 'T00:00:00').getTime()
   const span  = Math.max(1, end - start)
-  const W = 320, ROW = 24, LABEL = 100, BAR_H = 12
+  const LABEL = 110, ROW = 24, BAR_H = 12
 
   const today     = Date.now()
   const todayX    = LABEL + ((today - start) / span) * (W - LABEL)
@@ -190,8 +219,8 @@ function GanttSvg({ project }: { project: Project }) {
 
   return (
     <svg width={W} height={all.length * ROW + 20} style={{ overflow: 'visible', display: 'block' }}>
-      {/* Today line */}
       <line x1={todayClip} y1={0} x2={todayClip} y2={all.length * ROW + 4} stroke="#2abfdc" strokeWidth={1} strokeDasharray="3,2" opacity={0.6} />
+      <text x={todayClip + 3} y={10} fontSize={8} fill="#2abfdc" style={{ fontFamily: 'Inter, sans-serif' }}>hoje</text>
 
       {all.map((phase, i) => {
         const ps = new Date(phase.startDate + 'T00:00:00').getTime()
@@ -203,7 +232,7 @@ function GanttSvg({ project }: { project: Project }) {
 
         const statusColor =
           phase.status === 'completed'   ? '#22c55e' :
-          phase.status === 'in_progress' ? '#2abfdc' : '#4a7592'
+          phase.status === 'in_progress' ? '#2abfdc' : '#5a8caa'
 
         const fillW = (phase.progress / 100) * bw
 
@@ -211,13 +240,10 @@ function GanttSvg({ project }: { project: Project }) {
           <g key={phase.id}>
             <text x={LABEL - 4} y={y + BAR_H / 2 + 4} textAnchor="end" fontSize={9} fill="#8fb3c8"
               style={{ fontFamily: 'Inter, sans-serif' }}>
-              {phase.name.length > 14 ? phase.name.slice(0, 13) + '…' : phase.name}
+              {phase.name.length > 16 ? phase.name.slice(0, 15) + '…' : phase.name}
             </text>
-            {/* Background bar */}
-            <rect x={x1} y={y} width={bw} height={BAR_H} rx={3} fill="#1c3658" />
-            {/* Progress fill */}
-            <rect x={x1} y={y} width={fillW} height={BAR_H} rx={3} fill={statusColor} opacity={0.7} />
-            {/* Progress % */}
+            <rect x={x1} y={y} width={bw} height={BAR_H} rx={3} fill="#20406a" />
+            <rect x={x1} y={y} width={fillW} height={BAR_H} rx={3} fill={statusColor} opacity={0.75} />
             <text x={x1 + bw + 3} y={y + BAR_H / 2 + 4} fontSize={9} fill={statusColor}
               style={{ fontFamily: 'Inter, sans-serif' }}>
               {phase.progress}%
@@ -229,214 +255,281 @@ function GanttSvg({ project }: { project: Project }) {
   )
 }
 
-interface ProjectSidePanelProps {
+// ─── Project 360 Modal ────────────────────────────────────────────────────────
+
+interface Project360ModalProps {
   project: Project
   onClose: () => void
 }
 
-function ProjectSidePanel({ project, onClose }: ProjectSidePanelProps) {
-  const [tab, setTab] = useState<SideTab>('overview')
-  const severity  = calcSeverity(project)
-  const progress  = calcProgress(project)
-  const delta     = calcBudgetDelta(project)
-  const color     = SEVERITY_COLOR[severity]
+function Project360Modal({ project, onClose }: Project360ModalProps) {
+  const reports = useRelatorio360Store(useShallow((s) => s.reports))
 
-  const budgeted  = project.budgetLines.reduce((s, l) => s + l.budgeted, 0)
-  const eac       = project.budgetLines.reduce((s, l) => s + l.projected, 0)
-  const spent     = project.budgetLines.reduce((s, l) => s + l.spent, 0)
+  const severity    = calcSeverity(project)
+  const progress    = calcProgress(project)
+  const delta       = calcBudgetDelta(project)
+  const color       = SEVERITY_COLOR[severity]
 
-  const woInProgress = project.executionPhases.filter((p) => p.status === 'in_progress').length
-  const woComplete   = project.executionPhases.filter((p) => p.status === 'completed').length
+  const budgeted = project.budgetLines.reduce((s, l) => s + l.budgeted, 0)
+  const eac      = project.budgetLines.reduce((s, l) => s + l.projected, 0)
+  const spent    = project.budgetLines.reduce((s, l) => s + l.spent, 0)
 
-  const sideTabs: Array<{ id: SideTab; label: string }> = [
-    { id: 'overview',   label: 'Overview'     },
-    { id: 'workorders', label: 'Work Orders'  },
-    { id: 'cronograma', label: 'Cronograma'   },
+  // CPI / SPI
+  const execPhases = project.executionPhases
+  const avgProgress = execPhases.length
+    ? execPhases.reduce((s, p) => s + p.progress, 0) / execPhases.length
+    : 0
+
+  const today = new Date()
+  const start = new Date(project.startDate + 'T00:00:00')
+  const end   = new Date(project.endDate   + 'T00:00:00')
+  const totalMs   = Math.max(1, end.getTime() - start.getTime())
+  const elapsedMs = Math.min(totalMs, Math.max(0, today.getTime() - start.getTime()))
+  const plannedPct = (elapsedMs / totalMs) * 100
+  const cpi = spent > 0 ? (budgeted * (avgProgress / 100)) / spent : 1
+  const spi = plannedPct > 0 ? avgProgress / plannedPct : 1
+
+  // Photos from relatorio360 (match project name first word)
+  const firstWord = project.name.split(/\s+/)[0].toLowerCase()
+  const photos = useMemo(() => {
+    return Object.values(reports)
+      .filter((r) => r.projectName.toLowerCase().includes(firstWord))
+      .flatMap((r) => r.photos)
+      .slice(0, 8)
+  }, [reports, firstWord])
+
+  function spiCpiColor(v: number) {
+    if (v >= 0.9) return '#22c55e'
+    if (v >= 0.7) return '#eab308'
+    return '#ef4444'
+  }
+
+  const kpis = [
+    { label: 'Progresso',     value: `${progress}%`,             color: color },
+    { label: 'Δ Orçamento',   value: `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`, color: Math.abs(delta) <= 5 ? '#22c55e' : Math.abs(delta) <= 15 ? '#eab308' : '#ef4444' },
+    { label: 'CPI',           value: cpi > 0 ? cpi.toFixed(2) : '—', color: spiCpiColor(cpi) },
+    { label: 'SPI',           value: spi > 0 ? spi.toFixed(2) : '—', color: spiCpiColor(spi) },
+    { label: 'Severidade',    value: SEVERITY_LABEL[severity],   color },
+    { label: 'Fases Exec.',   value: String(execPhases.length),  color: '#2abfdc' },
   ]
 
   return (
-    <div className="w-full md:w-[340px] shrink-0 flex flex-col bg-[#0e1f38] border-t md:border-t-0 md:border-l border-[#1c3658] h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-start gap-2 px-4 pt-4 pb-3 border-b border-[#1c3658]">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color, background: `${color}20` }}>
-              {SEVERITY_LABEL[severity]}
-            </span>
-            <span className="text-[#4a7592] text-xs">{project.code}</span>
-          </div>
-          <h3 className="text-[#e4f2f8] text-sm font-semibold mt-1 leading-tight">{project.name}</h3>
-          {project.address && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <MapPin size={10} className="text-[#4a7592]" />
-              <span className="text-[#4a7592] text-[10px]">{project.address}</span>
+    <div
+      className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-[#14294e] border border-[#20406a] rounded-2xl shadow-2xl">
+        {/* Header */}
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-[#20406a] shrink-0">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color, background: `${color}20` }}>
+                {SEVERITY_LABEL[severity]}
+              </span>
+              <span className="text-[#5a8caa] text-sm font-mono">{project.code}</span>
             </div>
-          )}
-        </div>
-        <button onClick={onClose} className="text-[#4a7592] hover:text-[#e4f2f8] shrink-0 transition-colors">
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b border-[#1c3658] px-4">
-        {sideTabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={tab === t.id
-              ? 'py-2 text-xs font-semibold border-b-2 border-[#2abfdc] text-[#2abfdc] mr-4'
-              : 'py-2 text-xs font-medium border-b-2 border-transparent text-[#6b6b6b] hover:text-[#e4f2f8] mr-4 transition-colors'}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {tab === 'overview' && (
-          <div className="flex flex-col gap-3">
-            {/* Dates */}
-            <div className="bg-[#112240] rounded-lg px-3 py-3 flex flex-col gap-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">Início planejado</span>
-                <span className="text-[#e4f2f8] font-medium">{fmtDate(project.startDate)}</span>
+            <h2 className="text-[#e4f2f8] text-lg font-bold mt-1 leading-tight">{project.name}</h2>
+            {project.address && (
+              <div className="flex items-center gap-1 mt-0.5">
+                <MapPin size={11} className="text-[#5a8caa]" />
+                <span className="text-[#5a8caa] text-xs">{project.address}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">Fim planejado</span>
-                <span className="text-[#e4f2f8] font-medium">{fmtDate(project.endDate)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">Progresso</span>
-                <span className="font-bold" style={{ color }}>{progress}%</span>
-              </div>
-              {/* Progress bar */}
-              <div className="mt-1 h-1.5 bg-[#1c3658] rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: color }} />
-              </div>
-            </div>
-
-            {/* Budget */}
-            <div className="bg-[#112240] rounded-lg px-3 py-3 flex flex-col gap-1.5">
-              <p className="text-[#4a7592] text-[10px] font-semibold uppercase tracking-wider mb-1">Financeiro</p>
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">Orçamento</span>
-                <span className="text-[#e4f2f8] font-medium">{fmtBRL(budgeted)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">EAC Projetado</span>
-                <span className="font-medium" style={{ color: delta > 5 ? '#ef4444' : '#22c55e' }}>{fmtBRL(eac)}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-[#4a7592]">Gasto até agora</span>
-                <span className="text-[#e4f2f8] font-medium">{fmtBRL(spent)}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-0.5">
-                <span className="text-[#4a7592]">Δ Orçamento</span>
-                <span className="font-bold flex items-center gap-1"
-                  style={{ color: Math.abs(delta) <= 5 ? '#22c55e' : Math.abs(delta) <= 15 ? '#eab308' : '#ef4444' }}>
-                  {delta > 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                  {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
-                </span>
-              </div>
-            </div>
-
-            {/* Work order summary */}
-            <div className="bg-[#112240] rounded-lg px-3 py-3 flex gap-4">
-              <div className="flex-1 flex flex-col items-center">
-                <span className="text-[#2abfdc] text-xl font-bold">{woInProgress}</span>
-                <span className="text-[#4a7592] text-[10px] mt-0.5">Em andamento</span>
-              </div>
-              <div className="w-px bg-[#1c3658]" />
-              <div className="flex-1 flex flex-col items-center">
-                <span className="text-[#22c55e] text-xl font-bold">{woComplete}</span>
-                <span className="text-[#4a7592] text-[10px] mt-0.5">Concluídas</span>
-              </div>
-            </div>
-
-            {/* Alerts */}
-            <div className="flex flex-col gap-1.5">
-              {delta > 10 && (
-                <div className="flex items-center gap-2 bg-[#ef444418] border border-[#ef444430] rounded-lg px-3 py-2">
-                  <AlertTriangle size={12} className="text-[#ef4444] shrink-0" />
-                  <span className="text-[#ef4444] text-xs">Orçamento {delta.toFixed(0)}% acima do previsto</span>
-                </div>
-              )}
-              {delta > 5 && delta <= 10 && (
-                <div className="flex items-center gap-2 bg-[#eab30818] border border-[#eab30830] rounded-lg px-3 py-2">
-                  <AlertTriangle size={12} className="text-[#eab308] shrink-0" />
-                  <span className="text-[#eab308] text-xs">Custo {delta.toFixed(0)}% acima — atenção</span>
-                </div>
-              )}
-              {severity === 'ok' && (
-                <div className="flex items-center gap-2 bg-[#22c55e18] border border-[#22c55e30] rounded-lg px-3 py-2">
-                  <CheckCircle2 size={12} className="text-[#22c55e] shrink-0" />
-                  <span className="text-[#22c55e] text-xs">Projeto no prazo e dentro do orçamento</span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {tab === 'workorders' && (
-          <div className="flex flex-col gap-2">
-            <p className="text-[#4a7592] text-[10px] font-semibold uppercase tracking-wider mb-1">Fases de Execução</p>
-            {project.executionPhases.length === 0 && (
-              <p className="text-[#4a7592] text-xs">Nenhuma fase de execução cadastrada.</p>
             )}
-            {project.executionPhases.map((phase) => (
-              <div key={phase.id} className="bg-[#112240] border border-[#1c3658] rounded-lg px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-[#e4f2f8] text-xs font-medium">{phase.name}</span>
-                  <PhaseStatusBadge status={phase.status} />
-                </div>
-                <div className="flex gap-3 mt-1.5 text-[10px] text-[#4a7592]">
-                  <span className="flex items-center gap-1">
-                    <Clock size={9} />
-                    {fmtDate(phase.startDate)}
-                  </span>
-                  <span>→</span>
-                  <span>{fmtDate(phase.endDate)}</span>
-                </div>
-                {/* Progress bar */}
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="flex-1 h-1 bg-[#1c3658] rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${phase.progress}%`,
-                        background:
-                          phase.status === 'completed'   ? '#22c55e' :
-                          phase.status === 'in_progress' ? '#2abfdc' : '#4a7592',
-                      }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-[#8fb3c8] w-7 text-right">{phase.progress}%</span>
-                </div>
-                {phase.notes && (
-                  <p className="text-[#4a7592] text-[10px] mt-1.5 leading-tight">{phase.notes}</p>
-                )}
-              </div>
-            ))}
           </div>
-        )}
+          <button onClick={onClose} className="text-[#5a8caa] hover:text-[#e4f2f8] transition-colors shrink-0">
+            <X size={20} />
+          </button>
+        </div>
 
-        {tab === 'cronograma' && (
-          <div className="flex flex-col gap-3">
-            <p className="text-[#4a7592] text-[10px] font-semibold uppercase tracking-wider">
-              {fmtDate(project.startDate)} → {fmtDate(project.endDate)}
-            </p>
-            <div className="overflow-x-auto">
-              <GanttSvg project={project} />
+        {/* KPI chips */}
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 px-6 py-3 border-b border-[#20406a] shrink-0">
+          {kpis.map((kpi) => (
+            <div key={kpi.label} className="bg-[#112645] rounded-lg px-3 py-2 text-center">
+              <p className="text-[#5a8caa] text-[10px] truncate">{kpi.label}</p>
+              <p className="text-sm font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
             </div>
-            <div className="flex gap-3 text-[10px]">
+          ))}
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
+          {/* Photos */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Image size={13} className="text-[#5a8caa]" />
+              <p className="text-[#5a8caa] text-[10px] font-semibold uppercase tracking-wider">Fotos da Obra</p>
+            </div>
+            {photos.length === 0 ? (
+              <p className="text-[#5a8caa] text-xs italic">Nenhuma foto disponível no Relatório 360 para este projeto.</p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {photos.map((ph) => (
+                  <div key={ph.id} className="flex flex-col gap-1">
+                    <img src={ph.base64} alt={ph.label} className="w-full aspect-video object-cover rounded-lg border border-[#20406a]" />
+                    {ph.label && <p className="text-[10px] text-[#5a8caa] truncate text-center">{ph.label}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Phases — two columns */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={13} className="text-[#5a8caa]" />
+              <p className="text-[#5a8caa] text-[10px] font-semibold uppercase tracking-wider">Fases do Projeto</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Planning */}
+              <div>
+                <p className="text-[#5a8caa] text-[10px] font-semibold mb-2 uppercase tracking-wider">Planejamento</p>
+                <div className="flex flex-col gap-2">
+                  {project.planningPhases.map((phase) => (
+                    <div key={phase.id} className="bg-[#112645] border border-[#20406a] rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[#e4f2f8] text-xs font-medium truncate">{phase.name}</span>
+                        <PhaseStatusBadge status={phase.status} />
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-[#5a8caa] mt-1">
+                        <span>{fmtDate(phase.startDate)}</span>
+                        <span>→</span>
+                        <span>{fmtDate(phase.endDate)}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="flex-1 h-1 bg-[#20406a] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-[#5a8caa]" style={{ width: `${phase.progress}%` }} />
+                        </div>
+                        <span className="text-[10px] text-[#5a8caa]">{phase.progress}%</span>
+                      </div>
+                    </div>
+                  ))}
+                  {project.planningPhases.length === 0 && <p className="text-[#5a8caa] text-xs italic">Nenhuma fase</p>}
+                </div>
+              </div>
+              {/* Execution */}
+              <div>
+                <p className="text-[#5a8caa] text-[10px] font-semibold mb-2 uppercase tracking-wider">Execução</p>
+                <div className="flex flex-col gap-2">
+                  {project.executionPhases.map((phase) => (
+                    <div key={phase.id} className="bg-[#112645] border border-[#20406a] rounded-lg px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[#e4f2f8] text-xs font-medium truncate">{phase.name}</span>
+                        <PhaseStatusBadge status={phase.status} />
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-[#5a8caa] mt-1">
+                        <span>{fmtDate(phase.startDate)}</span>
+                        <span>→</span>
+                        <span>{fmtDate(phase.endDate)}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="flex-1 h-1 bg-[#20406a] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${phase.progress}%`,
+                              background: phase.status === 'completed' ? '#22c55e' : phase.status === 'in_progress' ? '#2abfdc' : '#5a8caa',
+                            }}
+                          />
+                        </div>
+                        <span className="text-[10px] text-[#5a8caa]">{phase.progress}%</span>
+                      </div>
+                    </div>
+                  ))}
+                  {project.executionPhases.length === 0 && <p className="text-[#5a8caa] text-xs italic">Nenhuma fase</p>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Budget table */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 size={13} className="text-[#5a8caa]" />
+              <p className="text-[#5a8caa] text-[10px] font-semibold uppercase tracking-wider">Orçamento</p>
+            </div>
+            <div className="rounded-xl border border-[#20406a] overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#112645] text-[#5a8caa] text-[10px]">
+                    <th className="text-left px-3 py-2">Tipo</th>
+                    <th className="text-left px-3 py-2">Descrição</th>
+                    <th className="text-right px-3 py-2">Orçado</th>
+                    <th className="text-right px-3 py-2">EAC</th>
+                    <th className="text-right px-3 py-2">Gasto</th>
+                    <th className="text-right px-3 py-2">Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {project.budgetLines.map((line) => {
+                    const lineDelta = line.budgeted > 0 ? ((line.projected - line.budgeted) / line.budgeted) * 100 : 0
+                    return (
+                      <tr key={line.id} className="border-t border-[#20406a] hover:bg-[#1a3662] transition-colors">
+                        <td className="px-3 py-2 text-[#5a8caa] uppercase text-[10px]">{line.type}</td>
+                        <td className="px-3 py-2 text-[#e4f2f8] truncate max-w-[120px]">{line.description}</td>
+                        <td className="px-3 py-2 text-right text-[#8fb3c8] font-mono">{fmtBRL(line.budgeted)}</td>
+                        <td className="px-3 py-2 text-right font-mono" style={{ color: lineDelta > 5 ? '#ef4444' : '#e4f2f8' }}>{fmtBRL(line.projected)}</td>
+                        <td className="px-3 py-2 text-right text-[#2abfdc] font-mono">{fmtBRL(line.spent)}</td>
+                        <td className="px-3 py-2 text-right font-mono" style={{ color: Math.abs(lineDelta) <= 5 ? '#22c55e' : Math.abs(lineDelta) <= 15 ? '#eab308' : '#ef4444' }}>
+                          {lineDelta > 0 ? '+' : ''}{lineDelta.toFixed(1)}%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {/* Totals */}
+                  <tr className="border-t-2 border-[#20406a] bg-[#112645]">
+                    <td colSpan={2} className="px-3 py-2 text-[#e4f2f8] font-semibold text-xs">Total</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-[#e4f2f8]">{fmtBRL(budgeted)}</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: delta > 5 ? '#ef4444' : '#22c55e' }}>{fmtBRL(eac)}</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-[#2abfdc]">{fmtBRL(spent)}</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: Math.abs(delta) <= 5 ? '#22c55e' : Math.abs(delta) <= 15 ? '#eab308' : '#ef4444' }}>
+                      {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Gantt */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 size={13} className="text-[#5a8caa]" />
+              <p className="text-[#5a8caa] text-[10px] font-semibold uppercase tracking-wider">Cronograma</p>
+              <span className="text-[#5a8caa] text-[10px]">{fmtDate(project.startDate)} → {fmtDate(project.endDate)}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <GanttSvg project={project} W={540} />
+            </div>
+            <div className="flex gap-3 mt-2 text-[10px]">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#22c55e] inline-block" />Concluído</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#2abfdc] inline-block" />Em andamento</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#4a7592] inline-block" />Não iniciado</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-[#5a8caa] inline-block" />Não iniciado</span>
+              <span className="flex items-center gap-1 ml-2"><span className="inline-block w-4 border-t border-dashed border-[#2abfdc]" />Hoje</span>
             </div>
           </div>
-        )}
+
+          {/* Status alerts */}
+          <div className="flex flex-col gap-2">
+            {delta > 10 && (
+              <div className="flex items-center gap-2 bg-[#ef444418] border border-[#ef444430] rounded-lg px-3 py-2">
+                <AlertTriangle size={12} className="text-[#ef4444] shrink-0" />
+                <span className="text-[#ef4444] text-xs">Orçamento {delta.toFixed(0)}% acima do previsto</span>
+              </div>
+            )}
+            {delta > 5 && delta <= 10 && (
+              <div className="flex items-center gap-2 bg-[#eab30818] border border-[#eab30830] rounded-lg px-3 py-2">
+                <AlertTriangle size={12} className="text-[#eab308] shrink-0" />
+                <span className="text-[#eab308] text-xs">Custo {delta.toFixed(0)}% acima — atenção</span>
+              </div>
+            )}
+            {severity === 'ok' && (
+              <div className="flex items-center gap-2 bg-[#22c55e18] border border-[#22c55e30] rounded-lg px-3 py-2">
+                <CheckCircle2 size={12} className="text-[#22c55e] shrink-0" />
+                <span className="text-[#22c55e] text-xs">Projeto no prazo e dentro do orçamento</span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -448,14 +541,14 @@ type Basemap = 'voyager' | 'satellite' | 'outdoors' | 'dark'
 
 const DASH_TILE_URLS: Record<Basemap, string> = {
   voyager:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  satellite: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
   outdoors:  'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
   dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
 }
 
 const DASH_TILE_ATTRS: Record<Basemap, string> = {
   voyager:   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-  satellite: '&copy; <a href="https://www.esri.com/">Esri</a>',
+  satellite: '&copy; <a href="https://s2maps.eu/">Sentinel-2 cloudless by EOX IT Services</a>',
   outdoors:  '&copy; <a href="https://opentopomap.org/">OpenTopoMap</a>',
   dark:      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
 }
@@ -475,9 +568,9 @@ type Filter = 'all' | Severity
 
 export function Gestao360MapDashboard() {
   const projects = useProjetosStore((s) => s.projects)
-  const [filter, setFilter]     = useState<Filter>('all')
+  const [filter, setFilter]         = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [basemap, setBasemap]   = useState<Basemap>('voyager')
+  const [basemap, setBasemap]       = useState<Basemap>('voyager')
 
   const withCoords = projects.filter((p) => p.lat != null && p.lng != null)
   const filtered   = filter === 'all' ? withCoords : withCoords.filter((p) => calcSeverity(p) === filter)
@@ -490,7 +583,6 @@ export function Gestao360MapDashboard() {
     ok:       withCoords.filter((p) => calcSeverity(p) === 'ok').length,
   }
 
-  // Center of Brazil
   const center: [number, number] = [-15.0, -52.0]
 
   const filters: Array<{ id: Filter; label: string }> = [
@@ -504,7 +596,7 @@ export function Gestao360MapDashboard() {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1c3658] bg-[#0a1628] flex-wrap">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#20406a] bg-[#0d2040] flex-wrap">
         {filters.map((f) => (
           <button
             key={f.id}
@@ -519,88 +611,76 @@ export function Gestao360MapDashboard() {
                 : '#6b6b6b',
               border: `1px solid ${filter === f.id
                 ? (f.id === 'all' ? '#2abfdc50' : `${SEVERITY_COLOR[f.id as Severity]}50`)
-                : '#1c3658'}`,
+                : '#20406a'}`,
             }}
           >
             {f.label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1.5 text-[#4a7592] text-xs">
+        <div className="ml-auto flex items-center gap-1.5 text-[#5a8caa] text-xs">
           <MapPin size={11} />
           <span>{filtered.length} obra{filtered.length !== 1 ? 's' : ''} no mapa</span>
         </div>
       </div>
 
-      {/* Map + side panel — stack vertically on mobile */}
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-        <div className={`relative ${selected ? 'h-[50vh] md:h-auto' : ''} flex-1`}>
-          <MapContainer
-            center={center}
-            zoom={5}
-            style={{ height: '100%', width: '100%', background: '#0a1628' }}
-            zoomControl={true}
-          >
-            <TileLayer
-              key={basemap}
-              url={DASH_TILE_URLS[basemap]}
-              attribution={DASH_TILE_ATTRS[basemap]}
-              subdomains={basemap === 'satellite' ? undefined : 'abcd'}
-              maxZoom={19}
-            />
-            <MarkerLayer
-              projects={filtered}
-              selected={selectedId}
-              onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
-            />
-          </MapContainer>
-
-          {/* Basemap switcher overlay */}
-          <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#0e1f38]/90 border border-[#1c3658] rounded-lg p-1 backdrop-blur-sm">
-            {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
-              <button
-                key={b}
-                onClick={() => setBasemap(b)}
-                className="px-2.5 py-1 rounded text-[10px] font-medium transition-colors"
-                style={{
-                  background: basemap === b ? '#2abfdc20' : 'transparent',
-                  color:      basemap === b ? '#2abfdc'   : '#6b6b6b',
-                  border:     `1px solid ${basemap === b ? '#2abfdc50' : 'transparent'}`,
-                }}
-              >
-                {BASEMAP_LABELS[b]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {selected && (
-          <ProjectSidePanel
-            project={selected}
-            onClose={() => setSelectedId(null)}
+      {/* Map */}
+      <div className="relative flex-1">
+        <MapContainer
+          center={center}
+          zoom={5}
+          style={{ height: '100%', width: '100%', background: '#0d2040' }}
+          zoomControl={true}
+        >
+          <TileLayer
+            key={basemap}
+            url={DASH_TILE_URLS[basemap]}
+            attribution={DASH_TILE_ATTRS[basemap]}
+            subdomains={basemap === 'satellite' || basemap === 'outdoors' ? undefined : 'abcd'}
+            maxZoom={19}
           />
-        )}
+          <MarkerLayer
+            projects={filtered}
+            selected={selectedId}
+            onSelect={(id) => setSelectedId((prev) => (prev === id ? null : id))}
+          />
+        </MapContainer>
+
+        {/* Basemap switcher overlay */}
+        <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#112645]/90 border border-[#20406a] rounded-lg p-1 backdrop-blur-sm">
+          {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
+            <button
+              key={b}
+              onClick={() => setBasemap(b)}
+              className="px-2.5 py-1 rounded text-[10px] font-medium transition-colors"
+              style={{
+                background: basemap === b ? '#2abfdc20' : 'transparent',
+                color:      basemap === b ? '#2abfdc'   : '#6b6b6b',
+                border:     `1px solid ${basemap === b ? '#2abfdc50' : 'transparent'}`,
+              }}
+            >
+              {BASEMAP_LABELS[b]}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Tooltip CSS injected once */}
+      {/* Project 360 Modal */}
+      {selected && (
+        <Project360Modal
+          project={selected}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+
+      {/* Leaflet control styles */}
       <style>{`
-        .leaflet-tooltip-gestao360 {
-          background: #0e1f38 !important;
-          border: 1px solid #1c3658 !important;
-          border-radius: 6px !important;
-          padding: 5px 8px !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
-          color: #e4f2f8 !important;
-        }
-        .leaflet-tooltip-gestao360::before {
-          border-top-color: #1c3658 !important;
-        }
         .leaflet-control-zoom a {
-          background: #0e1f38 !important;
+          background: #112645 !important;
           color: #8fb3c8 !important;
-          border-color: #1c3658 !important;
+          border-color: #20406a !important;
         }
         .leaflet-control-zoom a:hover {
-          background: #112240 !important;
+          background: #14294e !important;
           color: #2abfdc !important;
         }
       `}</style>

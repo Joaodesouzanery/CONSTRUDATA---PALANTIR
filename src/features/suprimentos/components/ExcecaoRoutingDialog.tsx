@@ -47,8 +47,8 @@ export function ExcecaoRoutingDialog({ exception, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c3658]">
+      <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#20406a]">
           <div>
             <h2 className="text-[#f5f5f5] font-semibold">Rotear Exceção</h2>
             <p className="text-[#6b6b6b] text-xs mt-0.5">{typeLabels[exception.type] ?? exception.type}</p>
@@ -58,7 +58,7 @@ export function ExcecaoRoutingDialog({ exception, onClose }: Props) {
 
         <div className="p-5 flex flex-col gap-4">
           {/* Description */}
-          <div className="bg-[#162e50] rounded-lg p-3 text-[#a3a3a3] text-xs leading-relaxed">
+          <div className="bg-[#1a3662] rounded-lg p-3 text-[#a3a3a3] text-xs leading-relaxed">
             {exception.description}
           </div>
 
@@ -94,7 +94,7 @@ export function ExcecaoRoutingDialog({ exception, onClose }: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Informações adicionais para os responsáveis..."
-              className="w-full bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc] resize-none"
+              className="w-full bg-[#112645] border border-[#1f3c5e] rounded px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc] resize-none"
             />
           </div>
 
@@ -106,7 +106,7 @@ export function ExcecaoRoutingDialog({ exception, onClose }: Props) {
             <button
               onClick={handleSend}
               disabled={selected.length === 0}
-              className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#ea6c0a] text-white transition-colors disabled:bg-[#1c3658] disabled:text-[#6b6b6b] disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#ea6c0a] text-white transition-colors disabled:bg-[#20406a] disabled:text-[#6b6b6b] disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <Send size={14} />
               Enviar Alerta

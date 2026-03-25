@@ -32,12 +32,12 @@ export function ReceiptDialog({ po, onClose }: Props) {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#0e1f38] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc]'
+  const inputCls = 'w-full bg-[#112645] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#2abfdc]'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-[#1e1e1e] border border-[#1c3658] rounded-xl w-full max-w-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1c3658]">
+      <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl w-full max-w-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#20406a]">
           <div>
             <h2 className="text-[#f5f5f5] font-semibold">Registrar Recebimento</h2>
             <p className="text-[#6b6b6b] text-xs mt-0.5">{po.code} — {po.supplier}</p>
@@ -59,10 +59,10 @@ export function ReceiptDialog({ po, onClose }: Props) {
 
           <div className="flex flex-col gap-2">
             <p className="text-[#f5f5f5] text-sm font-semibold">Quantidades Recebidas</p>
-            <div className="bg-[#0e1f38] border border-[#1c3658] rounded-lg overflow-hidden">
+            <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-hidden">
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#162e50]">
+                  <tr className="bg-[#1a3662]">
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Item</th>
                     <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-20">Pedido</th>
                     <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-24">Recebido</th>
@@ -73,7 +73,7 @@ export function ReceiptDialog({ po, onClose }: Props) {
                   {po.items.map((poItem, idx) => {
                     const rcItem = rcItems[idx]
                     return (
-                      <tr key={poItem.id} className="border-t border-[#1c3658]">
+                      <tr key={poItem.id} className="border-t border-[#20406a]">
                         <td className="px-3 py-2 text-[#f5f5f5]">{poItem.description}</td>
                         <td className="px-3 py-2 text-right text-[#6b6b6b] tabular-nums">{poItem.quantity.toLocaleString('pt-BR')}</td>
                         <td className="px-2 py-1.5">

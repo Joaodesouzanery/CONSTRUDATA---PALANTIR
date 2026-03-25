@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { addDays, format, parseISO } from 'date-fns'
-import type { DailyReport, ActivityStatus, ReportPhoto } from '@/types'
+import type { DailyReport, ActivityStatus, ReportPhoto, Activity, Crew, Timecard, EquipmentLog, MaterialLog } from '@/types'
 import { initialReports } from '@/data/mockRelatorio360'
 
 interface Relatorio360State {
@@ -15,6 +15,17 @@ interface Relatorio360State {
   // Activity / Kanban
   moveActivity: (activityId: string, newStatus: ActivityStatus) => void
   reorderActivity: (activeId: string, overId: string) => void
+  updateActivity: (activityId: string, patch: Partial<Omit<Activity, 'id'>>) => void
+
+  // Crews & timecards
+  updateCrew: (crewId: string, patch: Partial<Pick<Crew, 'foremanName' | 'crewType'>>) => void
+  addTimecard: (crewId: string, tc: Omit<Timecard, 'id'>) => void
+  updateTimecard: (crewId: string, timecardId: string, patch: Partial<Omit<Timecard, 'id'>>) => void
+  deleteTimecard: (crewId: string, timecardId: string) => void
+
+  // Equipment & materials
+  updateEquipmentLog: (logId: string, patch: Partial<Pick<EquipmentLog, 'utilizationHours'>>) => void
+  updateMaterialLog: (logId: string, patch: Partial<Pick<MaterialLog, 'quantity'>>) => void
 
   // Photos
   addPhoto: (photo: ReportPhoto) => void
@@ -76,6 +87,134 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
       }
     })
   },
+
+  updateActivity: (activityId, patch) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            activities: report.activities.map((a) =>
+              a.id === activityId ? { ...a, ...patch } : a
+            ),
+          },
+        },
+      }
+    }),
+
+  updateCrew: (crewId, patch) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            crews: report.crews.map((c) => c.id === crewId ? { ...c, ...patch } : c),
+          },
+        },
+      }
+    }),
+
+  addTimecard: (crewId, tc) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            crews: report.crews.map((c) =>
+              c.id === crewId
+                ? { ...c, timecards: [...c.timecards, { ...tc, id: crypto.randomUUID() }] }
+                : c
+            ),
+          },
+        },
+      }
+    }),
+
+  updateTimecard: (crewId, timecardId, patch) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            crews: report.crews.map((c) =>
+              c.id === crewId
+                ? {
+                    ...c,
+                    timecards: c.timecards.map((t) =>
+                      t.id === timecardId ? { ...t, ...patch } : t
+                    ),
+                  }
+                : c
+            ),
+          },
+        },
+      }
+    }),
+
+  deleteTimecard: (crewId, timecardId) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            crews: report.crews.map((c) =>
+              c.id === crewId
+                ? { ...c, timecards: c.timecards.filter((t) => t.id !== timecardId) }
+                : c
+            ),
+          },
+        },
+      }
+    }),
+
+  updateEquipmentLog: (logId, patch) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            equipmentLogs: report.equipmentLogs.map((l) =>
+              l.id === logId ? { ...l, ...patch } : l
+            ),
+          },
+        },
+      }
+    }),
+
+  updateMaterialLog: (logId, patch) =>
+    set((state) => {
+      const report = state.reports[state.currentDate]
+      if (!report) return state
+      return {
+        reports: {
+          ...state.reports,
+          [state.currentDate]: {
+            ...report,
+            materialLogs: report.materialLogs.map((l) =>
+              l.id === logId ? { ...l, ...patch } : l
+            ),
+          },
+        },
+      }
+    }),
 
   addPhoto: (photo) => {
     set((state) => {

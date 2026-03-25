@@ -45,14 +45,14 @@ export function EquipmentList() {
   return (
     <>
       {/* Search + filter */}
-      <div className="flex flex-col gap-2 p-3 border-b border-[#1c3658] shrink-0">
+      <div className="flex flex-col gap-2 p-3 border-b border-[#20406a] shrink-0">
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b] pointer-events-none" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome, código ou obra..."
-            className="w-full bg-[#0a1628] border border-[#1c3658] rounded-lg pl-8 pr-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#3f3f3f] outline-none focus:border-[#2abfdc] transition-colors"
+            className="w-full bg-[#0d2040] border border-[#20406a] rounded-lg pl-8 pr-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#3f3f3f] outline-none focus:border-[#2abfdc] transition-colors"
           />
         </div>
 
@@ -69,7 +69,7 @@ export function EquipmentList() {
                   'flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-colors',
                   active
                     ? 'bg-[#2abfdc] border-[#2abfdc] text-white'
-                    : 'border-[#1c3658] text-[#6b6b6b] hover:border-[#1f3c5e] hover:text-[#a3a3a3]'
+                    : 'border-[#20406a] text-[#6b6b6b] hover:border-[#1f3c5e] hover:text-[#a3a3a3]'
                 )}
               >
                 {dotColor && !active && (
@@ -108,7 +108,7 @@ export function EquipmentList() {
       </div>
 
       {/* Footer count */}
-      <div className="px-4 py-2 border-t border-[#1c3658] shrink-0 text-[10px] text-[#3f3f3f]">
+      <div className="px-4 py-2 border-t border-[#20406a] shrink-0 text-[10px] text-[#3f3f3f]">
         {filtered.length} de {equipamentos.length} equipamentos
       </div>
     </>

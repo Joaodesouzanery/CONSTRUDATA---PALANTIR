@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0a1628;
-  --color-surface: #0e1f38;
-  --color-card: #112240;
-  --color-card-hover: #162e50;
-  --color-border: #1c3658;
-  --color-border-strong: #1f3c5e;
+  --color-background: #0d2040;
+  --color-surface: #112645;
+  --color-card: #14294e;
+  --color-card-hover: #1a3662;
+  --color-border: #20406a;
+  --color-border-strong: #244878;
   --color-accent: #2abfdc;
   --color-accent-hover: #1a9ab8;
   --color-accent-muted: rgba(42, 191, 220, 0.12);
-  --color-muted: #244060;
+  --color-muted: #284870;
   --color-text-primary: #e4f2f8;
   --color-text-secondary: #8fb3c8;
-  --color-text-muted: #4a7592;
+  --color-text-muted: #5a8caa;
   --color-success: #22c55e;
   --color-success-muted: rgba(34, 197, 94, 0.12);
   --color-warning: #eab308;
@@ -42,8 +42,8 @@ html, body, #root {
 }
 
 body {
-  background-color: #0b1829;
-  background-image: radial-gradient(circle, #1a3055 1px, transparent 1px);
+  background-color: #0d2040;
+  background-image: radial-gradient(circle, #1e3a62 1px, transparent 1px);
   background-size: 28px 28px;
   color: #e4f2f8;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -57,11 +57,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0e1f38;
+  background: #112645;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1c3658;
+  background: #20406a;
   border-radius: 3px;
 }
 
@@ -77,6 +77,15 @@ input[type="file"] {
   display: none;
 }
 
+/* Style date inputs to match dark theme */
+input[type="date"] {
+  color-scheme: dark;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) sepia(1) saturate(3) hue-rotate(165deg);
+  cursor: pointer;
+}
+
 /* ─── Light Mode Overrides ──────────────────────────────────────────────────── */
 /* Technique: override Tailwind arbitrary-value classes globally via data-theme  */
 /* so no component files need to be touched.                                     */
@@ -87,20 +96,28 @@ input[type="file"] {
   color: #1a1d23;
 }
 
-/* Background surfaces — updated selectors to match new navy hex values */
+/* Background surfaces — new hex values after Sprint 10 theme shift */
+[data-theme="light"] .bg-\[\#0d2040\] { background-color: #f0f2f5 !important; }
 [data-theme="light"] .bg-\[\#0a1628\] { background-color: #f0f2f5 !important; }
 [data-theme="light"] .bg-\[\#0b1829\] { background-color: #f0f2f5 !important; }
 [data-theme="light"] .bg-\[\#081321\] { background-color: #eff1f4 !important; }
+[data-theme="light"] .bg-\[\#112645\] { background-color: #ffffff !important; }
 [data-theme="light"] .bg-\[\#0e1f38\] { background-color: #ffffff !important; }
+[data-theme="light"] .bg-\[\#14294e\] { background-color: #f8f9fb !important; }
 [data-theme="light"] .bg-\[\#112240\] { background-color: #f8f9fb !important; }
+[data-theme="light"] .bg-\[\#1a3662\] { background-color: #eef0f3 !important; }
 [data-theme="light"] .bg-\[\#162e50\] { background-color: #eef0f3 !important; }
+[data-theme="light"] .bg-\[\#20406a\] { background-color: #e5e8ed !important; }
 [data-theme="light"] .bg-\[\#1c3658\] { background-color: #e5e8ed !important; }
 [data-theme="light"] .bg-\[\#152d4e\] { background-color: #eef0f3 !important; }
 [data-theme="light"] .bg-\[\#070f1d\] { background-color: #e8ecf0 !important; }
 
 /* Borders */
+[data-theme="light"] .border-\[\#20406a\] { border-color: #d4d8df !important; }
 [data-theme="light"] .border-\[\#1c3658\] { border-color: #d4d8df !important; }
 [data-theme="light"] .border-\[\#1f3c5e\] { border-color: #c2c8d0 !important; }
+[data-theme="light"] .border-\[\#244878\] { border-color: #c2c8d0 !important; }
+[data-theme="light"] .border-\[\#14294e\] { border-color: #e8eaed !important; }
 [data-theme="light"] .border-\[\#112240\] { border-color: #e8eaed !important; }
 
 /* Text */
@@ -109,22 +126,31 @@ input[type="file"] {
 [data-theme="light"] .text-\[\#a3a3a3\] { color: #505863 !important; }
 [data-theme="light"] .text-\[\#8fb3c8\] { color: #505863 !important; }
 [data-theme="light"] .text-\[\#6b6b6b\] { color: #78828f !important; }
+[data-theme="light"] .text-\[\#5a8caa\] { color: #78828f !important; }
 [data-theme="light"] .text-\[\#4a7592\] { color: #78828f !important; }
 [data-theme="light"] .text-\[\#3f3f3f\] { color: #9aa3ad !important; }
 [data-theme="light"] .text-\[\#244060\] { color: #9aa3ad !important; }
 
 /* Hover backgrounds */
+[data-theme="light"] .hover\:bg-\[\#1a3662\]:hover { background-color: #eef0f3 !important; }
 [data-theme="light"] .hover\:bg-\[\#162e50\]:hover { background-color: #eef0f3 !important; }
+[data-theme="light"] .hover\:bg-\[\#20406a\]:hover { background-color: #e5e8ed !important; }
 [data-theme="light"] .hover\:bg-\[\#1c3658\]:hover { background-color: #e5e8ed !important; }
 [data-theme="light"] .hover\:text-\[\#f5f5f5\]:hover { color: #1a1d23 !important; }
 
 /* Form inputs */
-[data-theme="light"] input:not([type="range"]),
+[data-theme="light"] input:not([type="range"]):not([type="date"]),
 [data-theme="light"] select,
 [data-theme="light"] textarea {
   background-color: #f8f9fb !important;
   color: #1a1d23 !important;
   border-color: #d4d8df !important;
+}
+[data-theme="light"] input[type="date"] {
+  background-color: #f8f9fb !important;
+  color: #1a1d23 !important;
+  border-color: #d4d8df !important;
+  color-scheme: light;
 }
 [data-theme="light"] input::placeholder,
 [data-theme="light"] textarea::placeholder { color: #9aa3ad !important; }
@@ -133,10 +159,6 @@ input[type="file"] {
 [data-theme="light"] ::-webkit-scrollbar-track { background: #eef0f3; }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2c8d0; }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #2abfdc; }
-
-/* Additional surfaces */
-[data-theme="light"] .bg-\[\#112240\]  { background-color: #f8f9fb !important; }
-[data-theme="light"] .bg-\[\#0b1829\]  { background-color: #f0f2f5 !important; }
 
 /* Light mode overrides for Tailwind gray classes (mapa/bim panels) */
 [data-theme="light"] .bg-gray-800  { background-color: #f9fafb !important; }
@@ -155,19 +177,19 @@ input[type="file"] {
 /* Modules using bg-white/bg-gray-50 etc need dark equivalents in dark mode.    */
 
 [data-theme="dark"] body {
-  background-color: #0b1829;
+  background-color: #0d2040;
 }
 
-[data-theme="dark"] .bg-white        { background-color: #112240 !important; }
-[data-theme="dark"] .bg-gray-50      { background-color: #0e1f38 !important; }
-[data-theme="dark"] .bg-gray-100     { background-color: #152d4e !important; }
-[data-theme="dark"] .bg-gray-200     { background-color: #1c3658 !important; }
+[data-theme="dark"] .bg-white        { background-color: #14294e !important; }
+[data-theme="dark"] .bg-gray-50      { background-color: #112645 !important; }
+[data-theme="dark"] .bg-gray-100     { background-color: #162e55 !important; }
+[data-theme="dark"] .bg-gray-200     { background-color: #1c3862 !important; }
 [data-theme="dark"] .text-gray-900   { color: #e4f2f8 !important; }
 [data-theme="dark"] .text-gray-800   { color: #cce4f0 !important; }
 [data-theme="dark"] .text-gray-700   { color: #a8ccdc !important; }
-[data-theme="dark"] .border-gray-100 { border-color: #1c3658 !important; }
-[data-theme="dark"] .border-gray-200 { border-color: #243860 !important; }
-[data-theme="dark"] .divide-gray-100 > * + * { border-color: #1c3658 !important; }
-[data-theme="dark"] .divide-gray-200 > * + * { border-color: #243860 !important; }
+[data-theme="dark"] .border-gray-100 { border-color: #20406a !important; }
+[data-theme="dark"] .border-gray-200 { border-color: #284870 !important; }
+[data-theme="dark"] .divide-gray-100 > * + * { border-color: #20406a !important; }
+[data-theme="dark"] .divide-gray-200 > * + * { border-color: #284870 !important; }
 
 /* Accent, status colors stay the same in both modes */

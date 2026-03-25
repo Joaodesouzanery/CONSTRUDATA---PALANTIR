@@ -13,13 +13,13 @@ function TabRede() {
   const segments = project?.segments ?? []
 
   if (segments.length === 0) {
-    return <p className="text-[#4a7592] text-xs p-4">Nenhum segmento carregado.</p>
+    return <p className="text-[#5a8caa] text-xs p-4">Nenhum segmento carregado.</p>
   }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-5 gap-1 px-3 py-2 text-[10px] font-semibold text-[#4a7592] uppercase tracking-wider border-b border-[#1c3658]">
+      <div className="grid grid-cols-5 gap-1 px-3 py-2 text-[10px] font-semibold text-[#5a8caa] uppercase tracking-wider border-b border-[#20406a]">
         <span className="col-span-1">Trecho</span>
         <span className="text-right">DN (mm)</span>
         <span className="text-right">Comp. (m)</span>
@@ -30,35 +30,35 @@ function TabRede() {
         {segments.slice(0, 80).map((seg) => (
           <div
             key={seg.id}
-            className="grid grid-cols-5 gap-1 px-3 py-1.5 text-xs border-b border-[#1c3658]/40 hover:bg-[#112240]/50 transition-colors"
+            className="grid grid-cols-5 gap-1 px-3 py-1.5 text-xs border-b border-[#20406a]/40 hover:bg-[#14294e]/50 transition-colors"
           >
             <span className="text-[#2abfdc] font-mono text-[10px]">{seg.trechoCode || '—'}</span>
             <span className="text-right text-[#e4f2f8]">{seg.diameter ?? '—'}</span>
             <span className="text-right text-[#8fb3c8]">{seg.lengthM?.toFixed(1) ?? '—'}</span>
             <span className="text-right text-[#8fb3c8]">{seg.avgDepthM?.toFixed(2) ?? '—'}</span>
-            <span className="text-right text-[#4a7592] text-[10px]">{seg.material ?? '—'}</span>
+            <span className="text-right text-[#5a8caa] text-[10px]">{seg.material ?? '—'}</span>
           </div>
         ))}
         {segments.length > 80 && (
-          <p className="text-[#4a7592] text-[10px] text-center py-2">
+          <p className="text-[#5a8caa] text-[10px] text-center py-2">
             + {segments.length - 80} trechos adicionais
           </p>
         )}
       </div>
       {/* KPIs */}
-      <div className="border-t border-[#1c3658] px-3 py-2 flex gap-4 text-[10px]">
+      <div className="border-t border-[#20406a] px-3 py-2 flex gap-4 text-[10px]">
         <div>
-          <span className="text-[#4a7592]">Total trechos: </span>
+          <span className="text-[#5a8caa]">Total trechos: </span>
           <span className="text-[#2abfdc] font-bold">{segments.length}</span>
         </div>
         <div>
-          <span className="text-[#4a7592]">Extensão total: </span>
+          <span className="text-[#5a8caa]">Extensão total: </span>
           <span className="text-[#2abfdc] font-bold">
             {(segments.reduce((s, seg) => s + (seg.lengthM ?? 0), 0) / 1000).toFixed(2)} km
           </span>
         </div>
         <div>
-          <span className="text-[#4a7592]">DN médio: </span>
+          <span className="text-[#5a8caa]">DN médio: </span>
           <span className="text-[#2abfdc] font-bold">
             {Math.round(segments.reduce((s, seg) => s + (seg.diameter ?? 200), 0) / Math.max(1, segments.length))} mm
           </span>
@@ -86,7 +86,7 @@ function TabFluxograma() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4 gap-4">
-      <p className="text-[#4a7592] text-xs">Diagrama de processo — ETE tipo lodo ativado convencional</p>
+      <p className="text-[#5a8caa] text-xs">Diagrama de processo — ETE tipo lodo ativado convencional</p>
 
       {/* Flow diagram */}
       <div className="relative flex flex-col gap-2">
@@ -100,8 +100,8 @@ function TabFluxograma() {
                 onMouseLeave={() => setHovered(null)}
                 className="flex items-center gap-3 px-4 py-2.5 rounded-xl border w-full cursor-default transition-all"
                 style={{
-                  background:   isHov ? `${stage.color}18` : '#112240',
-                  borderColor:  isHov ? `${stage.color}60` : '#1c3658',
+                  background:   isHov ? `${stage.color}18` : '#14294e',
+                  borderColor:  isHov ? `${stage.color}60` : '#20406a',
                 }}
               >
                 {/* Step number */}
@@ -115,7 +115,7 @@ function TabFluxograma() {
                   <p className="text-[#e4f2f8] text-xs font-semibold" style={isHov ? { color: stage.color } : {}}>
                     {stage.label}
                   </p>
-                  <p className="text-[#4a7592] text-[10px]">{stage.desc}</p>
+                  <p className="text-[#5a8caa] text-[10px]">{stage.desc}</p>
                 </div>
                 {/* Flow indicator */}
                 <div
@@ -126,8 +126,8 @@ function TabFluxograma() {
               {/* Arrow */}
               {!isLast && (
                 <div className="flex items-center ml-7 my-0.5">
-                  <div className="w-px h-3 bg-[#1c3658]" />
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1c3658] -ml-[3.5px]" />
+                  <div className="w-px h-3 bg-[#20406a]" />
+                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#20406a] -ml-[3.5px]" />
                 </div>
               )}
             </div>
@@ -136,13 +136,13 @@ function TabFluxograma() {
       </div>
 
       {/* Lodo pathway */}
-      <div className="bg-[#112240] border border-[#1c3658] rounded-xl px-4 py-3">
-        <p className="text-[#4a7592] text-[10px] font-semibold uppercase tracking-wider mb-2">Via do Lodo</p>
+      <div className="bg-[#14294e] border border-[#20406a] rounded-xl px-4 py-3">
+        <p className="text-[#5a8caa] text-[10px] font-semibold uppercase tracking-wider mb-2">Via do Lodo</p>
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {['Adensamento', 'Digestão Anaeróbia', 'Desidratação', 'Destinação Final'].map((s, i, arr) => (
             <span key={s} className="flex items-center gap-2">
               <span className="text-[#8fb3c8]">{s}</span>
-              {i < arr.length - 1 && <span className="text-[#1c3658]">→</span>}
+              {i < arr.length - 1 && <span className="text-[#20406a]">→</span>}
             </span>
           ))}
         </div>
@@ -219,8 +219,8 @@ function SensorCard({ s }: { s: ReturnType<typeof useSensorData>[number] }) {
 
   return (
     <div
-      className="bg-[#112240] border rounded-xl px-3 py-3 flex flex-col gap-2"
-      style={{ borderColor: status !== 'ok' ? `${color}40` : '#1c3658' }}
+      className="bg-[#14294e] border rounded-xl px-3 py-3 flex flex-col gap-2"
+      style={{ borderColor: status !== 'ok' ? `${color}40` : '#20406a' }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -236,10 +236,10 @@ function SensorCard({ s }: { s: ReturnType<typeof useSensorData>[number] }) {
         <span className="text-[#e4f2f8] text-lg font-bold leading-none" style={{ color }}>
           {s.value.toFixed(1)}
         </span>
-        <span className="text-[#4a7592] text-xs pb-0.5">{s.unit}</span>
+        <span className="text-[#5a8caa] text-xs pb-0.5">{s.unit}</span>
       </div>
       {/* Progress bar */}
-      <div className="h-1 bg-[#1c3658] rounded-full overflow-hidden">
+      <div className="h-1 bg-[#20406a] rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
       </div>
     </div>
@@ -268,7 +268,7 @@ function TabSensores() {
             {critical} Crítico
           </span>
         )}
-        <span className="ml-auto text-[#4a7592] text-[10px] flex items-center">
+        <span className="ml-auto text-[#5a8caa] text-[10px] flex items-center">
           Atualiza a cada 30s (simulado)
         </span>
       </div>
@@ -295,15 +295,15 @@ export function BimSaneamentoPanel() {
   ]
 
   return (
-    <div className="w-[260px] shrink-0 flex flex-col bg-[#0e1f38] border-l border-[#1c3658] overflow-hidden h-full">
+    <div className="w-[260px] shrink-0 flex flex-col bg-[#112645] border-l border-[#20406a] overflow-hidden h-full">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-[#1c3658]">
+      <div className="px-3 py-2.5 border-b border-[#20406a]">
         <p className="text-[#2abfdc] text-xs font-semibold">Saneamento</p>
-        <p className="text-[#4a7592] text-[10px]">Análise de rede sanitária</p>
+        <p className="text-[#5a8caa] text-[10px]">Análise de rede sanitária</p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-[#1c3658]">
+      <div className="flex border-b border-[#20406a]">
         {tabs.map((t) => (
           <button
             key={t.id}

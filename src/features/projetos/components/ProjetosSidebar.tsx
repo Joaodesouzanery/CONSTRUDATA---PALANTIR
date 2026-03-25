@@ -31,11 +31,11 @@ export function ProjetosSidebar() {
 
   return (
     <aside
-      className="flex flex-col border-r border-[#1c3658] bg-[#0e1f38] shrink-0 overflow-hidden"
+      className="flex flex-col border-r border-[#20406a] bg-[#112645] shrink-0 overflow-hidden"
       style={{ width: 300 }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c3658] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#20406a] shrink-0">
         <span className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Projetos ({projects.length})
         </span>
@@ -59,10 +59,10 @@ export function ProjetosSidebar() {
               key={project.id}
               onClick={() => selectProject(project.id)}
               className={cn(
-                'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#112240] transition-colors',
+                'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#14294e] transition-colors',
                 isSelected
                   ? 'bg-[#2abfdc]/10 border-l-2 border-l-[#2abfdc]'
-                  : 'hover:bg-[#162e50] border-l-2 border-l-transparent'
+                  : 'hover:bg-[#1a3662] border-l-2 border-l-transparent'
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -87,7 +87,7 @@ export function ProjetosSidebar() {
                   <span className="text-[10px] text-[#6b6b6b]">Progresso geral</span>
                   <span className="text-[10px] font-mono text-[#a3a3a3]">{progress}%</span>
                 </div>
-                <div className="h-1 rounded-full bg-[#1c3658] overflow-hidden">
+                <div className="h-1 rounded-full bg-[#20406a] overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[#2abfdc] transition-all"
                     style={{ width: `${progress}%` }}

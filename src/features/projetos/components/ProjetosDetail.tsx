@@ -28,7 +28,7 @@ export function ProjetosDetail() {
   if (!project) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-        <FolderOpen size={40} className="text-[#1c3658]" />
+        <FolderOpen size={40} className="text-[#20406a]" />
         <p className="text-sm text-[#3f3f3f]">Selecione um projeto para visualizar</p>
       </div>
     )
@@ -37,7 +37,7 @@ export function ProjetosDetail() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
-      <div className="flex items-end gap-0 border-b border-[#1c3658] px-4 shrink-0 overflow-x-auto">
+      <div className="flex items-end gap-0 border-b border-[#20406a] px-4 shrink-0 overflow-x-auto">
         {TABS.map((tab, i) => (
           <button
             key={tab}

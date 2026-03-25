@@ -30,7 +30,7 @@ export function AlertsPanel() {
 
   if (allAlerts.length === 0) {
     return (
-      <div className="flex items-center gap-2 px-6 py-3 border-t border-[#1c3658] bg-[#0e1f38] shrink-0 text-xs text-[#3f3f3f]">
+      <div className="flex items-center gap-2 px-6 py-3 border-t border-[#20406a] bg-[#112645] shrink-0 text-xs text-[#3f3f3f]">
         <CheckCheck size={13} className="text-[#22c55e]" />
         Nenhum alerta ativo — todos os equipamentos estão dentro dos parâmetros
       </div>
@@ -39,13 +39,13 @@ export function AlertsPanel() {
 
   return (
     <div
-      className="border-t border-[#1c3658] bg-[#0e1f38] shrink-0"
+      className="border-t border-[#20406a] bg-[#112645] shrink-0"
       style={{ overflow: 'hidden', maxHeight: open ? 220 : 44, transition: 'max-height 0.2s ease' }}
     >
       {/* Toggle header */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-6 h-11 hover:bg-[#112240] transition-colors shrink-0"
+        className="w-full flex items-center justify-between px-6 h-11 hover:bg-[#14294e] transition-colors shrink-0"
       >
         <div className="flex items-center gap-2">
           <Bell size={13} className="text-[#ef4444]" />
@@ -96,7 +96,7 @@ export function AlertsPanel() {
                   title="Reconhecer alerta"
                   className={cn(
                     'shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors',
-                    'border-[#1c3658] text-[#6b6b6b] hover:border-[#22c55e] hover:text-[#22c55e]'
+                    'border-[#20406a] text-[#6b6b6b] hover:border-[#22c55e] hover:text-[#22c55e]'
                   )}
                 >
                   <Check size={9} />

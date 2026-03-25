@@ -17,7 +17,7 @@ const RISK_META: Record<HealthRisk, { label: string; color: string; bg: string }
 
 function HealthGauge({ score, color }: { score: number; color: string }) {
   const theme = useThemeStore((s) => s.theme)
-  const trackColor = theme === 'dark' ? '#1c3658' : '#e5e8ed'
+  const trackColor = theme === 'dark' ? '#20406a' : '#e5e8ed'
   const textColor  = theme === 'dark' ? '#f5f5f5' : '#1a1d23'
 
   const r = 24
@@ -57,7 +57,7 @@ function HealthCard({ h }: { h: PredictiveHealth }) {
 
   return (
     <div
-      className="bg-[#112240] rounded-xl p-4 flex gap-4"
+      className="bg-[#14294e] rounded-xl p-4 flex gap-4"
       style={{ border: `1px solid ${meta.color}30` }}
     >
       <HealthGauge score={h.healthScore} color={meta.color} />
@@ -72,7 +72,7 @@ function HealthCard({ h }: { h: PredictiveHealth }) {
             {meta.label}
           </span>
           <span
-            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#1c3658] text-[#6b6b6b]"
+            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#20406a] text-[#6b6b6b]"
           >
             {h.predictedFailureWindow}
           </span>
@@ -122,7 +122,7 @@ export function ManutencaoPreditivaPanel() {
         </p>
         <button
           onClick={runHealthEngine}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#162e50] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#1a3662] transition-colors"
         >
           <RefreshCw size={13} /> Rodar Engine
         </button>
@@ -145,7 +145,7 @@ export function ManutencaoPreditivaPanel() {
 
       {/* Health cards grid */}
       {sorted.length === 0 ? (
-        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-6 text-center">
+        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">Clique em "Rodar Engine" para calcular os scores.</p>
         </div>
       ) : (

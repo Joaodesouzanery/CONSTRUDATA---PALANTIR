@@ -84,13 +84,13 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col shrink-0 border-r border-[#1c3658] bg-[#0a1628] h-full',
+        'flex flex-col shrink-0 border-r border-[#20406a] bg-[#0d2040] h-full',
         'transition-[width] duration-200 ease-in-out overflow-hidden',
         isOpen ? 'w-[200px]' : 'w-16',
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 border-b border-[#1c3658] shrink-0 px-[14px] gap-3">
+      <div className="flex items-center h-14 border-b border-[#20406a] shrink-0 px-[14px] gap-3">
         <div
           className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
           style={{
@@ -140,7 +140,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 'h-10 px-[10px]',
                 isActive
                   ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
-                  : 'text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8]',
+                  : 'text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8]',
               )
             }
           >
@@ -161,12 +161,12 @@ export function Sidebar({ onClose }: SidebarProps) {
         ))}
 
         {/* Bottom controls */}
-        <div className="mt-auto flex flex-col gap-0.5 pt-2 border-t border-[#1c3658]">
+        <div className="mt-auto flex flex-col gap-0.5 pt-2 border-t border-[#20406a]">
           {/* Expand/collapse toggle */}
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8] transition-colors"
+            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8] transition-colors"
           >
             {isOpen ? <ChevronLeft size={20} className="shrink-0" /> : <ChevronRight size={20} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">Recolher</span>}
@@ -180,7 +180,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               'flex items-center gap-3 h-10 px-[10px] rounded-lg transition-colors',
               isDemoMode
                 ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
-                : 'text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8]',
+                : 'text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8]',
             )}
           >
             <FlaskConical size={18} className="shrink-0" />
@@ -191,7 +191,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#112240] hover:text-[#8fb3c8] transition-colors"
+            className="flex items-center gap-3 h-10 px-[10px] rounded-lg text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8] transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" /> : <Moon size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

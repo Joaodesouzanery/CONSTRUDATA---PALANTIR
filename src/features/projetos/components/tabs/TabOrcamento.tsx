@@ -18,7 +18,7 @@ function UtilBar({ pct }: { pct: number }) {
   const color = pct > 90 ? '#ef4444' : pct > 75 ? '#2abfdc' : '#22c55e'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-[#162e50] overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-[#1a3662] overflow-hidden">
         <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
       </div>
       <span className="text-[10px] font-mono w-8 text-right" style={{ color }}>
@@ -30,7 +30,7 @@ function UtilBar({ pct }: { pct: number }) {
 
 function SummaryCell({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex flex-col gap-1 p-3 rounded-xl border border-[#1c3658] bg-[#112240]">
+    <div className="flex flex-col gap-1 p-3 rounded-xl border border-[#20406a] bg-[#14294e]">
       <span className="text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">{label}</span>
       <span className={cn('text-base font-bold font-mono', highlight ? 'text-[#2abfdc]' : 'text-[#f5f5f5]')}>
         {value}
@@ -67,10 +67,10 @@ export function TabOrcamento({ project }: { project: Project }) {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#1c3658] overflow-hidden">
+      <div className="rounded-xl border border-[#20406a] overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-[#1c3658] bg-[#0a1628]">
+            <tr className="border-b border-[#20406a] bg-[#0d2040]">
               <th className="text-left px-4 py-2.5 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">Tipo</th>
               <th className="text-left px-4 py-2.5 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">Descrição</th>
               <th className="text-right px-4 py-2.5 text-[9px] uppercase tracking-widest font-semibold text-[#6b6b6b]">Orçado</th>
@@ -92,8 +92,8 @@ export function TabOrcamento({ project }: { project: Project }) {
                   key={line.id}
                   className={cn(
                     'transition-colors',
-                    !isLast && 'border-b border-[#112240]',
-                    hoveredId === line.id ? 'bg-[#162e50]' : 'bg-[#0e1f38]'
+                    !isLast && 'border-b border-[#14294e]',
+                    hoveredId === line.id ? 'bg-[#1a3662]' : 'bg-[#112645]'
                   )}
                   onMouseEnter={() => setHoveredId(line.id)}
                   onMouseLeave={() => { setHoveredId(null); if (confirmDeleteId === line.id) setConfirmDeleteId(null) }}
@@ -121,7 +121,7 @@ export function TabOrcamento({ project }: { project: Project }) {
                           </button>
                           <button
                             onClick={() => setConfirmDeleteId(null)}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-[#162e50] text-[#a3a3a3] hover:bg-[#1c3658]"
+                            className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a3662] text-[#a3a3a3] hover:bg-[#20406a]"
                           >
                             Não
                           </button>
@@ -160,7 +160,7 @@ export function TabOrcamento({ project }: { project: Project }) {
       {/* Add button */}
       <button
         onClick={() => setEditingBudgetLine({ projectId: project.id, lineId: 'new' })}
-        className="self-start flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-dashed border-[#1c3658] hover:border-[#2abfdc]/30 rounded-lg px-3 py-2"
+        className="self-start flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-dashed border-[#20406a] hover:border-[#2abfdc]/30 rounded-lg px-3 py-2"
       >
         <Plus size={12} />
         Adicionar Linha

@@ -84,10 +84,10 @@ export function ExcecoesPanel() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#1c3658] rounded-xl">
+      <div className="flex-1 overflow-auto bg-[#1e1e1e] border border-[#20406a] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#162e50]">
+            <tr className="bg-[#1a3662]">
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">OC</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Fornecedor</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2 w-36">Tipo</th>
@@ -108,7 +108,7 @@ export function ExcecoesPanel() {
               filtered.map((ex) => {
                 const po = purchaseOrders.find((p) => p.id === ex.poId)
                 return (
-                  <tr key={ex.id} className="border-t border-[#1c3658] hover:bg-[#162e50]/50 transition-colors">
+                  <tr key={ex.id} className="border-t border-[#20406a] hover:bg-[#1a3662]/50 transition-colors">
                     <td className="px-3 py-3">
                       <span className="font-mono text-[#a3a3a3] text-xs">{po?.code ?? ex.poId}</span>
                     </td>

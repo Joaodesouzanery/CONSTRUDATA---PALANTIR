@@ -13,9 +13,9 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
   const range = formatViewRange(viewStart, visibleWeeks)
 
   return (
-    <div className="flex items-center gap-3 px-5 py-2 border-b border-[#1c3658] bg-[#0e1f38] shrink-0">
+    <div className="flex items-center gap-3 px-5 py-2 border-b border-[#20406a] bg-[#112645] shrink-0">
       {/* Search */}
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1c3658] bg-[#0a1628] w-44">
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#20406a] bg-[#0d2040] w-44">
         <Search size={13} className="text-[#6b6b6b] shrink-0" />
         <input
           value={searchTerm}
@@ -27,17 +27,17 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
       </div>
 
       {/* Filter */}
-      <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#1c3658] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
+      <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
         <SlidersHorizontal size={14} />
       </button>
 
-      <div className="h-5 w-px bg-[#1c3658]" />
+      <div className="h-5 w-px bg-[#20406a]" />
 
       {/* Date navigation */}
       <div className="flex items-center gap-1">
         <button
           onClick={panLeft}
-          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#1c3658] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
           title="Recuar 4 semanas"
         >
           <ChevronLeft size={14} />
@@ -47,20 +47,20 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </span>
         <button
           onClick={panRight}
-          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#1c3658] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
           title="Avançar 4 semanas"
         >
           <ChevronRight size={14} />
         </button>
       </div>
 
-      <div className="h-5 w-px bg-[#1c3658]" />
+      <div className="h-5 w-px bg-[#20406a]" />
 
       {/* Zoom controls */}
       <div className="flex items-center gap-1">
         <button
           onClick={zoomOut}
-          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#1c3658] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
           title="Mais semanas"
         >
           <ZoomOut size={13} />
@@ -70,7 +70,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </span>
         <button
           onClick={zoomIn}
-          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#1c3658] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+          className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
           title="Menos semanas"
         >
           <ZoomIn size={13} />

@@ -2,9 +2,12 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Kanban } from 'lucide-react'
 import { useCurrentReport } from '@/hooks/useRelatorio360'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
+import { useProjetosStore } from '@/store/projetosStore'
+import { useShallow } from 'zustand/react/shallow'
 import type { Activity, ActivityStatus } from '@/types'
 import { KanbanColumn } from './KanbanColumn'
 import { ActivityCard } from './ActivityCard'
+import { ActivityEditModal } from './ActivityEditModal'
 
 const STATUSES: ActivityStatus[] = ['planned', 'in_progress', 'completed']
 
@@ -17,8 +20,12 @@ interface DragState {
 
 export function KanbanBoard() {
   const report = useCurrentReport()
-  const { moveActivity } = useRelatorio360Store()
-  const [drag, setDrag] = useState<DragState | null>(null)
+  const { moveActivity, updateActivity } = useRelatorio360Store(
+    useShallow((s) => ({ moveActivity: s.moveActivity, updateActivity: s.updateActivity }))
+  )
+
+  const [drag, setDrag]           = useState<DragState | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const colRefs = useRef<Partial<Record<ActivityStatus, HTMLDivElement | null>>>({
     planned: null,
@@ -81,6 +88,36 @@ export function KanbanBoard() {
     [moveActivity]
   )
 
+  function handleSaveActivity(patch: Partial<Omit<Activity, 'id'>>) {
+    if (!editingId) return
+    updateActivity(editingId, patch)
+
+    // Cross-module sync: update projetosStore phase progress if name matches
+    try {
+      const { projects, updatePhase } = useProjetosStore.getState()
+      const act = activities.find((a) => a.id === editingId)
+      if (act && patch.plannedQty !== undefined && patch.actualQty !== undefined) {
+        const updatedName = patch.name ?? act.name
+        const firstWord   = updatedName.split(/\s+/)[0].toLowerCase()
+        for (const proj of projects) {
+          for (const phase of proj.executionPhases) {
+            if (phase.name.toLowerCase().includes(firstWord)) {
+              const newProgress = Math.min(100, Math.round((patch.actualQty / Math.max(1, patch.plannedQty)) * 100))
+              updatePhase(proj.id, 'execution', phase.id, { progress: newProgress })
+              break
+            }
+          }
+        }
+      }
+    } catch {
+      // Best-effort — no crash
+    }
+
+    setEditingId(null)
+  }
+
+  const editingActivity = editingId ? activities.find((a) => a.id === editingId) ?? null : null
+
   return (
     <div className="flex flex-col gap-3" style={{ userSelect: 'none' }}>
       <div className="flex items-center justify-between">
@@ -101,11 +138,12 @@ export function KanbanBoard() {
             draggingId={drag?.activity.id ?? null}
             colRef={(el) => { colRefs.current[status] = el }}
             onGripPointerDown={handleGripPointerDown}
+            onEditActivity={(id) => setEditingId(id)}
           />
         ))}
       </div>
 
-      {/* Drag overlay — follows cursor */}
+      {/* Drag overlay */}
       {drag && (
         <div
           style={{
@@ -120,6 +158,16 @@ export function KanbanBoard() {
         >
           <ActivityCard activity={drag.activity} isOverlay />
         </div>
+      )}
+
+      {/* Edit modal */}
+      {editingActivity && (
+        <ActivityEditModal
+          activity={editingActivity}
+          crews={report?.crews ?? []}
+          onClose={() => setEditingId(null)}
+          onSave={handleSaveActivity}
+        />
       )}
     </div>
   )

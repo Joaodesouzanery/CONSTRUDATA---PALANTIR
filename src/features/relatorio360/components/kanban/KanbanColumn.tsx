@@ -10,6 +10,7 @@ interface KanbanColumnProps {
   draggingId: string | null
   colRef: Ref<HTMLDivElement>
   onGripPointerDown: (e: React.PointerEvent<HTMLDivElement>, activity: Activity) => void
+  onEditActivity: (id: string) => void
 }
 
 const COLUMN_CONFIG: Record<ActivityStatus, { label: string; accent: string; dot: string }> = {
@@ -25,6 +26,7 @@ export function KanbanColumn({
   draggingId,
   colRef,
   onGripPointerDown,
+  onEditActivity,
 }: KanbanColumnProps) {
   const config = COLUMN_CONFIG[status]
 
@@ -38,7 +40,7 @@ export function KanbanColumn({
             {config.label}
           </span>
         </div>
-        <span className="text-xs font-mono text-[#6b6b6b] bg-[#112240] border border-[#1c3658] px-2 py-0.5 rounded-full">
+        <span className="text-xs font-mono text-[#6b6b6b] bg-[#14294e] border border-[#20406a] px-2 py-0.5 rounded-full">
           {activities.length}
         </span>
       </div>
@@ -50,7 +52,7 @@ export function KanbanColumn({
           'flex flex-col gap-2 min-h-24 rounded-xl border border-dashed p-2 transition-colors',
           isOver
             ? 'border-[#2abfdc]/50 bg-[#2abfdc]/5'
-            : 'border-[#1c3658] bg-[#0a1628]/40'
+            : 'border-[#20406a] bg-[#0d2040]/40'
         )}
       >
         {activities.map((activity) => (
@@ -59,6 +61,7 @@ export function KanbanColumn({
             activity={activity}
             isDragging={activity.id === draggingId}
             onGripPointerDown={(e) => onGripPointerDown(e, activity)}
+            onEdit={() => onEditActivity(activity.id)}
           />
         ))}
 

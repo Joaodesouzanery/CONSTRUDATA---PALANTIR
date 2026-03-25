@@ -26,7 +26,7 @@ function CostComparisonBar({ analysis }: { analysis: BuyLeaseAnalysis }) {
       {/* Rental bar */}
       <div className="flex items-center gap-2">
         <span className="w-28 text-[#6b6b6b] text-xs shrink-0 text-right">Custo Aluguel/ano</span>
-        <div className="flex-1 h-5 bg-[#0e1f38] rounded overflow-hidden relative">
+        <div className="flex-1 h-5 bg-[#112645] rounded overflow-hidden relative">
           <div
             className="h-full rounded transition-all duration-500"
             style={{ width: `${rentalPct}%`, backgroundColor: '#3b82f6' }}
@@ -45,7 +45,7 @@ function CostComparisonBar({ analysis }: { analysis: BuyLeaseAnalysis }) {
       {/* Ownership bar */}
       <div className="flex items-center gap-2">
         <span className="w-28 text-[#6b6b6b] text-xs shrink-0 text-right">Custo Propriedade/ano</span>
-        <div className="flex-1 h-5 bg-[#0e1f38] rounded overflow-hidden relative">
+        <div className="flex-1 h-5 bg-[#112645] rounded overflow-hidden relative">
           <div
             className="h-full rounded transition-all duration-500"
             style={{ width: `${ownershipPct}%`, backgroundColor: '#22c55e' }}
@@ -86,7 +86,7 @@ function BuyLeaseCard({ a }: { a: BuyLeaseAnalysis }) {
 
   return (
     <div
-      className="bg-[#112240] rounded-xl p-4"
+      className="bg-[#14294e] rounded-xl p-4"
       style={{ border: `1px solid ${meta.color}30` }}
     >
       {/* Header */}
@@ -129,7 +129,7 @@ function BuyLeaseCard({ a }: { a: BuyLeaseAnalysis }) {
       </p>
 
       {/* Reasoning */}
-      <p className="text-[#6b6b6b] text-xs leading-relaxed mt-2 mb-3 border-t border-[#1c3658] pt-2">
+      <p className="text-[#6b6b6b] text-xs leading-relaxed mt-2 mb-3 border-t border-[#20406a] pt-2">
         {a.reasoning}
       </p>
 
@@ -154,7 +154,7 @@ function BuyLeaseCard({ a }: { a: BuyLeaseAnalysis }) {
             {a.relatedProjects.map((proj) => (
               <span
                 key={proj}
-                className="px-2 py-0.5 rounded text-[10px] bg-[#1c3658] text-[#6b6b6b]"
+                className="px-2 py-0.5 rounded text-[10px] bg-[#20406a] text-[#6b6b6b]"
               >
                 {proj}
               </span>
@@ -209,7 +209,7 @@ function SummaryKPIs({ analyses }: { analyses: BuyLeaseAnalysis[] }) {
       ].map((kpi) => (
         <div
           key={kpi.label}
-          className="bg-[#112240] border border-[#1c3658] rounded-xl px-4 py-3"
+          className="bg-[#14294e] border border-[#20406a] rounded-xl px-4 py-3"
         >
           <p className="text-[#6b6b6b] text-xs">{kpi.label}</p>
           <p className="text-lg font-bold leading-tight mt-0.5" style={{ color: kpi.color }}>
@@ -242,7 +242,7 @@ export function BuyLeasePanel() {
         </div>
         <button
           onClick={runBuyLeaseEngine}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#162e50] transition-colors shrink-0"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#1a3662] transition-colors shrink-0"
         >
           <RefreshCw size={13} /> Rodar Engine
         </button>
@@ -253,7 +253,7 @@ export function BuyLeasePanel() {
 
       {/* Analysis cards */}
       {buyLeaseAnalyses.length === 0 ? (
-        <div className="bg-[#112240] border border-[#1c3658] rounded-xl p-6 text-center">
+        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">
             Clique em "Rodar Engine" para calcular a análise financeira.
           </p>
