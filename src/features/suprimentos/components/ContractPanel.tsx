@@ -3,45 +3,7 @@ import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { FrameworkAgreement } from '@/types'
-import { Copy, Check, ExternalLink } from 'lucide-react'
-
-// ─── Contract 360 smart bullets ───────────────────────────────────────────────
-
-function extractTopics(terms: string, fa: FrameworkAgreement) {
-  return [
-    {
-      icon: '💰',
-      label: 'Pagamentos',
-      text: `Preço acordado: ${fa.agreedUnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/${fa.unit}. Vigência de ${fa.validFrom} a ${fa.validTo}. Reajuste semestral conforme INCC.`,
-    },
-    {
-      icon: '📅',
-      label: 'Prazos de Entrega',
-      text: `Lead time padrão de ${fa.leadTimeDays} dias úteis. Volume máximo contratado: ${fa.maxQuantity.toLocaleString('pt-BR')} ${fa.unit}.`,
-    },
-    {
-      icon: '⚠️',
-      label: 'Rescisão',
-      text: terms.includes('Rescisão') || terms.includes('rescisão')
-        ? terms.split('.').find((s) => s.toLowerCase().includes('rescis'))?.trim() + '.'
-        : 'Rescisão com aviso prévio mínimo de 30 dias corridos.',
-    },
-    {
-      icon: '🔄',
-      label: 'Reajuste de Preço',
-      text: terms.includes('IGP-M') ? 'Reajuste mensal pelo IGP-M conforme cláusula de reajuste do contrato.'
-          : terms.includes('INCC')  ? 'Reajuste semestral pelo INCC (Índice Nacional de Custo da Construção).'
-          : 'Reajuste conforme índice definido em contrato.',
-    },
-    {
-      icon: '✅',
-      label: 'Conformidade / Certificações',
-      text: terms.includes('ABNT') || terms.includes('NBR')
-        ? terms.split('.').filter((s) => s.toLowerCase().includes('abnt') || s.toLowerCase().includes('nbr')).slice(0, 2).join('. ').trim() + '.'
-        : 'Fornecedor deve apresentar certificados de qualidade e laudos técnicos por lote entregue.',
-    },
-  ]
-}
+import { Copy, Check, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
 
@@ -60,7 +22,7 @@ function CopyButton({ text }: { text: string }) {
       title="Copiar"
       className={cn(
         'p-1 rounded transition-colors shrink-0',
-        copied ? 'text-green-400' : 'text-gray-500 hover:text-gray-300',
+        copied ? 'text-[#4ade80]' : 'text-[#6b6b6b] hover:text-[#a3a3a3]',
       )}
     >
       {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -74,13 +36,31 @@ function StatusBadge({ status }: { status: FrameworkAgreement['status'] }) {
   const map = {
     active:   { label: 'Ativo',     cls: 'bg-green-900/40 text-green-300 border-green-700/40'  },
     expiring: { label: 'A vencer',  cls: 'bg-amber-900/40 text-amber-300 border-amber-700/40'  },
-    expired:  { label: 'Expirado',  cls: 'bg-gray-700/40 text-gray-400 border-gray-600/40'     },
+    expired:  { label: 'Expirado',  cls: 'bg-[#14294e] text-[#6b6b6b] border-[#20406a]'        },
   }
   const { label, cls } = map[status]
   return (
     <span className={cn('px-2 py-0.5 rounded-full border text-[10px] font-semibold', cls)}>
       {label}
     </span>
+  )
+}
+
+// ─── Collapsible accordion section ───────────────────────────────────────────
+
+function AccordionSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1a3662] transition-colors"
+      >
+        <span className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-widest">{title}</span>
+        {open ? <ChevronUp size={14} className="text-[#6b6b6b]" /> : <ChevronDown size={14} className="text-[#6b6b6b]" />}
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
   )
 }
 
@@ -94,18 +74,16 @@ export function ContractPanel() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const selected = frameworkAgreements.find((fa) => fa.id === selectedId) ?? null
-  const topics   = selected ? extractTopics(selected.terms, selected) : []
 
   return (
     <div className="flex-1 min-h-0 flex gap-4 overflow-hidden">
       {/* ── Left: FA list ── */}
       <div className="w-72 shrink-0 flex flex-col gap-2 overflow-y-auto">
-        <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide px-1">
+        <p className="text-[#6b6b6b] text-xs font-semibold uppercase tracking-wide px-1">
           Acordos Marco ({frameworkAgreements.length})
         </p>
 
         {frameworkAgreements.map((fa) => {
-          // Qty consumed estimation from maxQuantity
           const pctConsumed = Math.min(100, Math.round((Math.random() * 0.7 + 0.1) * 100))
           const isSelected  = fa.id === selectedId
 
@@ -114,46 +92,43 @@ export function ContractPanel() {
               key={fa.id}
               onClick={() => setSelectedId(isSelected ? null : fa.id)}
               className={cn(
-                'text-left bg-gray-800/60 border rounded-xl p-3.5 flex flex-col gap-2.5 transition-all',
+                'text-left bg-[#14294e] border rounded-xl p-3.5 flex flex-col gap-2.5 transition-all',
                 isSelected
                   ? 'border-[#2abfdc]/60 bg-[#2abfdc]/5'
-                  : 'border-gray-700 hover:border-gray-600',
+                  : 'border-[#20406a] hover:border-[#1a3662]',
               )}
             >
-              {/* Header */}
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-gray-100 text-xs font-semibold leading-snug">{fa.supplier}</p>
-                  <p className="text-gray-500 text-[10px] mt-0.5">{fa.category}</p>
+                  <p className="text-[#f5f5f5] text-xs font-semibold leading-snug">{fa.supplier}</p>
+                  <p className="text-[#6b6b6b] text-[10px] mt-0.5">{fa.category}</p>
                 </div>
                 <StatusBadge status={fa.status} />
               </div>
 
-              {/* Price + lead time */}
               <div className="flex gap-3 text-[10px]">
                 <div>
-                  <p className="text-gray-500">Preço</p>
-                  <p className="text-gray-200 tabular-nums font-medium">
+                  <p className="text-[#6b6b6b]">Preço</p>
+                  <p className="text-[#f5f5f5] tabular-nums font-medium">
                     {fa.agreedUnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/{fa.unit}
                   </p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Lead Time</p>
-                  <p className="text-gray-200 font-medium">{fa.leadTimeDays}d</p>
+                  <p className="text-[#6b6b6b]">Lead Time</p>
+                  <p className="text-[#f5f5f5] font-medium">{fa.leadTimeDays}d</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">Validade</p>
-                  <p className="text-gray-200 font-medium">{fa.validTo}</p>
+                  <p className="text-[#6b6b6b]">Validade</p>
+                  <p className="text-[#f5f5f5] font-medium">{fa.validTo}</p>
                 </div>
               </div>
 
-              {/* Consumption progress */}
               <div>
-                <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                <div className="flex justify-between text-[10px] text-[#6b6b6b] mb-1">
                   <span>Volume utilizado</span>
                   <span className="tabular-nums">{pctConsumed}%</span>
                 </div>
-                <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-[#0d2040] rounded-full overflow-hidden">
                   <div
                     className={cn(
                       'h-full rounded-full transition-all',
@@ -164,8 +139,7 @@ export function ContractPanel() {
                 </div>
               </div>
 
-              {/* Code badge */}
-              <span className="self-start font-mono text-[10px] text-gray-500 bg-gray-700/40 px-1.5 py-0.5 rounded">
+              <span className="self-start font-mono text-[10px] text-[#6b6b6b] bg-[#0d2040] px-1.5 py-0.5 rounded">
                 {fa.code}
               </span>
             </button>
@@ -173,55 +147,149 @@ export function ContractPanel() {
         })}
       </div>
 
-      {/* ── Right: Contract 360 ── */}
+      {/* ── Right: Contrato 360 ── */}
       <div className="flex-1 min-w-0 overflow-y-auto">
         {selected ? (
           <div className="flex flex-col gap-4">
             {/* Header */}
-            <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-4">
+            <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] text-[#2abfdc] font-semibold uppercase tracking-wide mb-1">
-                    Contract 360 — {selected.code}
+                    Contrato 360 — {selected.code}
                   </p>
-                  <p className="text-gray-100 font-bold text-base">{selected.supplier}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{selected.category}</p>
+                  <p className="text-[#f5f5f5] font-bold text-base">{selected.supplier}</p>
+                  <p className="text-[#6b6b6b] text-xs mt-0.5">{selected.category}</p>
                 </div>
                 <StatusBadge status={selected.status} />
               </div>
-              <div className="mt-3 flex gap-4 text-xs text-gray-400">
-                <span>Vigência: <strong className="text-gray-200">{selected.validFrom}</strong> → <strong className="text-gray-200">{selected.validTo}</strong></span>
-                <span>Confiança: <strong className="text-gray-200">{selected.confidenceScore.toFixed(1)}/5.0</strong></span>
+              <div className="mt-3 flex gap-4 text-xs text-[#6b6b6b]">
+                <span>Vigência: <strong className="text-[#f5f5f5]">{selected.validFrom}</strong> → <strong className="text-[#f5f5f5]">{selected.validTo}</strong></span>
+                <span>Confiança: <strong className="text-[#f5f5f5]">{selected.confidenceScore.toFixed(1)}/5.0</strong></span>
               </div>
             </div>
 
-            {/* 5 topics */}
-            <div className="flex flex-col gap-2.5">
-              {topics.map((t) => (
-                <div
-                  key={t.label}
-                  className="bg-gray-800/60 border border-gray-700 rounded-xl p-4 flex gap-3"
-                >
-                  <span className="text-lg shrink-0 mt-0.5">{t.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-300 text-xs font-semibold mb-1">{t.label}</p>
-                    <p className="text-gray-400 text-xs leading-relaxed">{t.text}</p>
-                  </div>
-                  <CopyButton text={`${t.label}: ${t.text}`} />
+            {/* Section 1: Pagamentos */}
+            <AccordionSection title="Pagamentos">
+              {selected.paymentSchedule && selected.paymentSchedule.length > 0 ? (
+                <table className="w-full text-xs mt-1">
+                  <thead>
+                    <tr className="text-[#6b6b6b] border-b border-[#20406a]">
+                      <th className="text-left pb-2 font-medium">Vencimento</th>
+                      <th className="text-right pb-2 font-medium">Valor</th>
+                      <th className="text-center pb-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.paymentSchedule.map((p, i) => (
+                      <tr key={i} className="border-b border-[#20406a] last:border-0">
+                        <td className="py-2 text-[#f5f5f5]">{new Date(p.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                        <td className="py-2 text-right tabular-nums text-[#f5f5f5]">
+                          {p.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                        <td className="py-2 text-center">
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
+                            p.status === 'paid'    ? 'bg-[#16a34a]/20 text-[#4ade80]' :
+                            p.status === 'overdue' ? 'bg-[#dc2626]/20 text-[#f87171]' :
+                            'bg-[#ca8a04]/20 text-[#fbbf24]'
+                          )}>
+                            {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Vencido' : 'Pendente'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[#6b6b6b] text-xs mt-1">
+                  Preço acordado: {selected.agreedUnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/{selected.unit}.
+                  Vigência {selected.validFrom} → {selected.validTo}.
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Section 2: Prazos de Entrega */}
+            <AccordionSection title="Prazos de Entrega">
+              {selected.deliverySchedule && selected.deliverySchedule.length > 0 ? (
+                <table className="w-full text-xs mt-1">
+                  <thead>
+                    <tr className="text-[#6b6b6b] border-b border-[#20406a]">
+                      <th className="text-left pb-2 font-medium">Fase</th>
+                      <th className="text-left pb-2 font-medium">Data</th>
+                      <th className="text-right pb-2 font-medium">Qtd</th>
+                      <th className="text-center pb-2 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.deliverySchedule.map((d, i) => (
+                      <tr key={i} className="border-b border-[#20406a] last:border-0">
+                        <td className="py-2 text-[#f5f5f5]">{d.phase}</td>
+                        <td className="py-2 text-[#a3a3a3]">{new Date(d.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                        <td className="py-2 text-right tabular-nums text-[#f5f5f5]">{d.quantity.toLocaleString('pt-BR')} {selected.unit}</td>
+                        <td className="py-2 text-center">
+                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
+                            d.status === 'delivered' ? 'bg-[#16a34a]/20 text-[#4ade80]' :
+                            d.status === 'delayed'   ? 'bg-[#dc2626]/20 text-[#f87171]' :
+                            'bg-[#2563eb]/20 text-[#93c5fd]'
+                          )}>
+                            {d.status === 'delivered' ? 'Entregue' : d.status === 'delayed' ? 'Atrasado' : 'No prazo'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[#6b6b6b] text-xs mt-1">
+                  Lead time padrão de {selected.leadTimeDays} dias úteis.
+                  Volume máximo contratado: {selected.maxQuantity.toLocaleString('pt-BR')} {selected.unit}.
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Section 3: Rescisão */}
+            <AccordionSection title="Rescisão">
+              <div className="flex items-start gap-2 mt-1">
+                <p className="text-[#a3a3a3] text-xs leading-relaxed flex-1">
+                  {selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos. Em caso de inadimplemento, rescisão imediata com aplicação de multa de 10% sobre o valor restante do contrato.'}
+                </p>
+                <CopyButton text={selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos.'} />
+              </div>
+            </AccordionSection>
+
+            {/* Section 4: Reajuste de Preço */}
+            <AccordionSection title="Reajuste de Preço">
+              <div className="flex items-center gap-4 mt-1">
+                <div className="flex flex-col">
+                  <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Índice</span>
+                  <span className="text-sm font-bold text-[#2abfdc]">
+                    {selected.priceAdjustmentIndex ?? (selected.terms.includes('IGP-M') ? 'IGP-M' : selected.terms.includes('INCC') ? 'INCC' : 'INCC')}
+                  </span>
                 </div>
-              ))}
-            </div>
+                {selected.priceAdjustmentPct !== undefined && (
+                  <div className="flex flex-col">
+                    <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Percentual</span>
+                    <span className="text-sm font-bold text-[#f5f5f5]">{selected.priceAdjustmentPct.toFixed(1)}% a.a.</span>
+                  </div>
+                )}
+                <p className="text-xs text-[#6b6b6b] flex-1">
+                  {selected.priceAdjustmentIndex === 'Fixo'
+                    ? 'Preço fixo durante toda a vigência do contrato.'
+                    : 'Reajuste conforme índice definido, aplicado semestralmente.'}
+                </p>
+              </div>
+            </AccordionSection>
 
             {/* Full document link */}
-            <div className="bg-gray-800/40 border border-dashed border-gray-700 rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#0d2040] border border-dashed border-[#20406a] rounded-xl p-4 flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-xs font-medium">Documento Completo</p>
-                <p className="text-gray-600 text-[10px] mt-0.5">
+                <p className="text-[#6b6b6b] text-xs font-medium">Documento Completo</p>
+                <p className="text-[#3f3f3f] text-[10px] mt-0.5">
                   {selected.code}-contrato-marco.pdf
                 </p>
               </div>
               <button
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#2abfdc] transition-colors border border-gray-700 hover:border-[#2abfdc]/40 rounded-lg px-3 py-1.5"
+                className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-[#20406a] hover:border-[#2abfdc]/40 rounded-lg px-3 py-1.5"
                 onClick={() => undefined}
               >
                 <ExternalLink size={12} />
@@ -230,11 +298,11 @@ export function ContractPanel() {
             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center gap-3 text-gray-600 min-h-[200px]">
+          <div className="h-full flex flex-col items-center justify-center text-center gap-3 text-[#6b6b6b] min-h-[200px]">
             <span className="text-4xl">📄</span>
-            <p className="text-sm font-medium text-gray-500">Selecione um Acordo Marco</p>
+            <p className="text-sm font-medium text-[#6b6b6b]">Selecione um Acordo Marco</p>
             <p className="text-xs max-w-xs">
-              Clique em um contrato à esquerda para ver o resumo inteligente Contract 360
+              Clique em um contrato à esquerda para ver o resumo Contrato 360
             </p>
           </div>
         )}

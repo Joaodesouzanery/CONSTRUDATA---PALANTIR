@@ -60,7 +60,7 @@ export function AnalysisHistory() {
           sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-[#1e1e1e] border border-[#20406a] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#1f3c5e] transition-colors"
+              className="bg-[#0d2040] border border-[#20406a] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#1f3c5e] transition-colors"
             >
               {/* Date */}
               <p className="text-[#f5f5f5] text-[11px] font-semibold">

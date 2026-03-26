@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  ClipboardList, Calendar, Truck, FolderKanban, Radio,
+  ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X,
@@ -18,7 +18,6 @@ const navItems = [
   { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/gestao-360'          },
   { label: 'Relatório 360',   icon: ClipboardList,    to: '/relatorio360'        },
   { label: 'Agenda',          icon: Calendar,         to: '/agenda'              },
-  { label: 'Equipamentos',    icon: Truck,            to: '/equipamentos'        },
   { label: 'Gest. Equip.',    icon: Wrench,           to: '/gestao-equipamentos' },
   { label: 'Projetos',        icon: FolderKanban,     to: '/projetos'            },
   { label: 'Torre Control',   icon: Radio,            to: '/torre-de-controle'   },

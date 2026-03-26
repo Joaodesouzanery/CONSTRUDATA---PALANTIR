@@ -100,7 +100,7 @@ export function ExtractionView() {
   return (
     <div className="flex gap-4 h-full">
       {/* LEFT — Takeoff items table */}
-      <div className="flex flex-col flex-1 min-w-0 bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#20406a]">
           <h2 className="text-[#f5f5f5] font-semibold text-sm">Itens Extraídos</h2>
           <div className="flex items-center gap-2">
@@ -173,12 +173,18 @@ export function ExtractionView() {
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-[#20406a]">
+        <div className="px-4 py-3 border-t border-[#20406a] flex gap-2">
+          <button
+            onClick={() => setStep('upload')}
+            className="px-3 py-2 rounded-lg text-sm font-medium border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors shrink-0"
+          >
+            ← Voltar
+          </button>
           <button
             onClick={() => setStep('normalization')}
             disabled={takeoffItems.length === 0}
             className={cn(
-              'w-full py-2 rounded-lg text-sm font-semibold transition-colors',
+              'flex-1 py-2 rounded-lg text-sm font-semibold transition-colors',
               takeoffItems.length > 0
                 ? 'bg-[#2abfdc] hover:bg-[#ea6c0a] text-white'
                 : 'bg-[#20406a] text-[#6b6b6b] cursor-not-allowed',
@@ -190,7 +196,7 @@ export function ExtractionView() {
       </div>
 
       {/* RIGHT — Contract clauses */}
-      <div className="w-80 shrink-0 flex flex-col bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden">
+      <div className="w-80 shrink-0 flex flex-col bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
         <button
           onClick={() => setClausesOpen((v) => !v)}
           className="flex items-center justify-between px-4 py-3 border-b border-[#20406a] hover:bg-[#1a3662] transition-colors"

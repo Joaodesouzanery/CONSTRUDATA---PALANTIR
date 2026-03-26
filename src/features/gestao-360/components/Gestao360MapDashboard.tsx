@@ -644,7 +644,7 @@ export function Gestao360MapDashboard() {
             key={basemap}
             url={TILE_CONFIG[basemap].url}
             attribution={TILE_CONFIG[basemap].attribution}
-            subdomains={TILE_CONFIG[basemap].subdomains as string | undefined}
+            subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'}
             maxZoom={19}
           />
           <MarkerLayer

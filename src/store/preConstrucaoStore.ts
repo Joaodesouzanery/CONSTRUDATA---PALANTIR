@@ -9,6 +9,7 @@ interface PreConstrucaoState {
   // Pipeline
   currentStep:   PipelineStep
   uploadedFiles: UploadedFile[]
+  sinapiLastRefresh: string  // ISO date string
 
   // Extraction results
   takeoffItems:  TakeoffItem[]
@@ -56,6 +57,7 @@ interface PreConstrucaoState {
   // Actions — sessions
   saveSession: (fileNames: string[], totalItems: number, totalCost: number) => void
   resetPipeline: () => void
+  setSinapiLastRefresh: (date: string) => void
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
@@ -78,14 +80,15 @@ const DEFAULT_BDI: BDIConfig = {
 }
 
 export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
-  currentStep:   'upload',
-  uploadedFiles: [],
-  takeoffItems:  [],
-  clauses:       [],
-  costMatches:   [],
-  customBase:    [],
-  bdiConfig:     DEFAULT_BDI,
-  sessions:      [],
+  currentStep:        'upload',
+  uploadedFiles:      [],
+  takeoffItems:       [],
+  clauses:            [],
+  costMatches:        [],
+  customBase:         [],
+  bdiConfig:          DEFAULT_BDI,
+  sessions:           [],
+  sinapiLastRefresh:  new Date().toISOString().slice(0, 10),
 
   setStep: (step) => set({ currentStep: step }),
 
@@ -212,6 +215,8 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
         ...s.sessions,
       ],
     })),
+
+  setSinapiLastRefresh: (date) => set({ sinapiLastRefresh: date }),
 
   resetPipeline: () =>
     set({

@@ -124,6 +124,7 @@ interface SuprimentosState {
   updateException: (id: string, patch: Partial<MatchException>) => void
 
   // Forecasts
+  addForecast:    (forecast: Omit<DemandForecast, 'id'>) => void
   updateForecast: (id: string, status: DemandForecast['status']) => void
 
   // Requisitions
@@ -208,6 +209,11 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
   updateException: (id, patch) =>
     set((s) => ({
       exceptions: s.exceptions.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+    })),
+
+  addForecast: (forecast) =>
+    set((s) => ({
+      forecasts: [...s.forecasts, { ...forecast, id: crypto.randomUUID() }],
     })),
 
   updateForecast: (id, status) =>

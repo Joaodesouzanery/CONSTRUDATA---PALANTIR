@@ -15,7 +15,7 @@ const TABS: { key: SuprimentosTab; label: string }[] = [
   { key: 'previsao',    label: 'Previsão de Demanda'  },
   { key: 'requisicoes', label: 'Requisições'          },
   { key: 'materiais',   label: 'Materiais & Fornecedores' },
-  { key: 'contratos',   label: 'Contract 360'         },
+  { key: 'contratos',   label: 'Contrato 360'          },
 ]
 
 export function SuprimentosHeader({ activeTab, onTabChange }: Props) {

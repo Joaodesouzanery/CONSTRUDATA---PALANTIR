@@ -132,6 +132,9 @@ interface MapaInterativoState {
   basemap: 'satellite' | 'streets' | 'dark' | 'light' | 'outdoors'
   utmZone: string
   measurePoint1: { lat: number; lng: number } | null
+  mapMode: 'saneamento' | 'construcao' | null
+  selectedProjectId: string | null
+  activeNetworkType: MapNetworkType
 
   // Actions
   addNode: (node: Omit<MapNode, 'id'>) => void
@@ -150,6 +153,9 @@ interface MapaInterativoState {
   importSegments: (segments: MapSegment[]) => void
   loadDemoData: () => void
   clearData: () => void
+  setMapMode: (mode: 'saneamento' | 'construcao' | null) => void
+  setSelectedProjectId: (id: string | null) => void
+  setActiveNetworkType: (t: MapNetworkType) => void
 }
 
 // ─── Helper: push undo snapshot ───────────────────────────────────────────
@@ -173,6 +179,9 @@ export const useMapaInterativoStore = create<MapaInterativoState>((set) => ({
   basemap: 'satellite',
   utmZone: '24S',
   measurePoint1: null,
+  mapMode: null,
+  selectedProjectId: null,
+  activeNetworkType: 'sewer',
 
   addNode: (node) =>
     set((s) => ({
@@ -253,4 +262,26 @@ export const useMapaInterativoStore = create<MapaInterativoState>((set) => ({
   },
 
   clearData: () => set({ nodes: [], segments: [], history: [] }),
+
+  setMapMode: (mode) => {
+    const layerUpdates: Partial<MapaInterativoState> = { mapMode: mode }
+    if (mode === 'saneamento') {
+      layerUpdates.layers = DEFAULT_LAYERS.map((l) =>
+        ['sewer', 'water', 'drainage'].includes(l.id)
+          ? { ...l, visible: true }
+          : { ...l, visible: false }
+      )
+    } else if (mode === 'construcao') {
+      layerUpdates.layers = DEFAULT_LAYERS.map((l) =>
+        ['civil', 'generic'].includes(l.id)
+          ? { ...l, visible: true }
+          : { ...l, visible: false }
+      )
+    }
+    set(layerUpdates)
+  },
+
+  setSelectedProjectId: (id) => set({ selectedProjectId: id }),
+
+  setActiveNetworkType: (t) => set({ activeNetworkType: t }),
 }))

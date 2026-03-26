@@ -497,6 +497,21 @@ export const mockFrameworkAgreements: FrameworkAgreement[] = [
     confidenceScore: 4.5,
     status: 'active',
     terms: 'Fornecimento de Cimento Portland CP-II 50kg conforme ABNT NBR 11578. Preço fixo até 30/06/2025, reajustável pelo INCC semestral. Entrega em 72h para pedidos até 500 sc; 5 dias úteis para volumes superiores. Garantia de qualidade com laudo técnico por lote. Rescisão com aviso prévio de 30 dias.',
+    priceAdjustmentIndex: 'INCC',
+    priceAdjustmentPct: 3.2,
+    terminationClause: 'Rescisão com aviso prévio mínimo de 30 dias corridos. Em caso de inadimplemento do fornecedor, rescisão imediata com multa de 10% sobre o valor restante. O contratante pode rescindir sem penalidade caso o fornecedor não mantenha os padrões ABNT por 2 lotes consecutivos.',
+    paymentSchedule: [
+      { dueDate: '2025-03-31', amount: 52500, status: 'paid'    },
+      { dueDate: '2025-06-30', amount: 52500, status: 'paid'    },
+      { dueDate: '2025-09-30', amount: 52500, status: 'pending' },
+      { dueDate: '2025-12-31', amount: 52500, status: 'pending' },
+    ],
+    deliverySchedule: [
+      { phase: 'Fundações',       dueDate: '2025-02-15', quantity: 2000, status: 'delivered' },
+      { phase: 'Estrutura Tipo',  dueDate: '2025-04-30', quantity: 4000, status: 'delivered' },
+      { phase: 'Alvenaria',       dueDate: '2025-07-31', quantity: 2500, status: 'on_time'   },
+      { phase: 'Acabamento',      dueDate: '2025-11-30', quantity: 1500, status: 'on_time'   },
+    ],
   },
   {
     id: 'fa-002',
@@ -512,6 +527,19 @@ export const mockFrameworkAgreements: FrameworkAgreement[] = [
     confidenceScore: 4.2,
     status: 'active',
     terms: 'Fornecimento de Vergalhões CA-50 e CA-60 conforme ABNT NBR 7480. Preço por kg inclui corte e dobra para pedidos acima de 2.000 kg. Certificado de qualidade (CSN/Gerdau) obrigatório por remessa. Lead time de 5 dias úteis. Reajuste mensal pelo IGP-M. Cláusula de exclusividade de fornecimento para projetos PRJ-001 e PRJ-002.',
+    priceAdjustmentIndex: 'IGP-M',
+    priceAdjustmentPct: 5.1,
+    terminationClause: 'Rescisão por qualquer das partes com 15 dias úteis de antecedência. Inexecução total: multa de 15% sobre o saldo contratual. Exclusividade pode ser revogada mediante justificativa técnica aprovada por ambas as partes.',
+    paymentSchedule: [
+      { dueDate: '2025-02-15', amount: 38500, status: 'paid'    },
+      { dueDate: '2025-04-15', amount: 38500, status: 'overdue' },
+      { dueDate: '2025-06-15', amount: 38500, status: 'pending' },
+    ],
+    deliverySchedule: [
+      { phase: 'Lote 1 — Pilares',  dueDate: '2025-01-25', quantity: 15000, status: 'delivered' },
+      { phase: 'Lote 2 — Vigas',    dueDate: '2025-03-15', quantity: 20000, status: 'delayed'   },
+      { phase: 'Lote 3 — Lajes',    dueDate: '2025-06-30', quantity: 15000, status: 'on_time'   },
+    ],
   },
   {
     id: 'fa-003',

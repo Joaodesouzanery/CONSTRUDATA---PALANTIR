@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
@@ -103,7 +103,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
             ) : (
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#1e1e1e]">
+                  <tr className="bg-[#0d2040]">
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-8">Sel.</th>
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-24">Código</th>
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
@@ -274,7 +274,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
           Nenhuma entrada na base própria
         </div>
       ) : (
-        <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden">
+        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-[#1a3662]">
@@ -320,11 +320,13 @@ type Tab = 'sinapi' | 'seinfra' | 'custom'
 
 export function CostMatchingView() {
   const [activeTab, setActiveTab] = useState<Tab>('sinapi')
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const {
     takeoffItems,
     costMatches,
     customBase,
+    sinapiLastRefresh,
     setCostMatches,
     toggleMatch,
     overridePrice,
@@ -332,20 +334,31 @@ export function CostMatchingView() {
     removeCustomEntry,
     setStep,
     saveSession,
+    setSinapiLastRefresh,
     uploadedFiles,
   } = usePreConstrucaoStore(useShallow((s) => ({
-    takeoffItems:      s.takeoffItems,
-    costMatches:       s.costMatches,
-    customBase:        s.customBase,
-    setCostMatches:    s.setCostMatches,
-    toggleMatch:       s.toggleMatch,
-    overridePrice:     s.overridePrice,
-    addCustomEntry:    s.addCustomEntry,
-    removeCustomEntry: s.removeCustomEntry,
-    setStep:           s.setStep,
-    saveSession:       s.saveSession,
-    uploadedFiles:     s.uploadedFiles,
+    takeoffItems:         s.takeoffItems,
+    costMatches:          s.costMatches,
+    customBase:           s.customBase,
+    sinapiLastRefresh:    s.sinapiLastRefresh,
+    setCostMatches:       s.setCostMatches,
+    toggleMatch:          s.toggleMatch,
+    overridePrice:        s.overridePrice,
+    addCustomEntry:       s.addCustomEntry,
+    removeCustomEntry:    s.removeCustomEntry,
+    setStep:              s.setStep,
+    saveSession:          s.saveSession,
+    setSinapiLastRefresh: s.setSinapiLastRefresh,
+    uploadedFiles:        s.uploadedFiles,
   })))
+
+  function handleRefreshSinapi() {
+    setIsRefreshing(true)
+    setTimeout(() => {
+      setSinapiLastRefresh(new Date().toISOString().slice(0, 10))
+      setIsRefreshing(false)
+    }, 1500)
+  }
 
   // Run matching once on mount if no matches yet
   useEffect(() => {
@@ -386,8 +399,23 @@ export function CostMatchingView() {
 
   return (
     <div className="flex flex-col gap-4 h-full">
+      {/* SINAPI refresh indicator */}
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="text-[10px] text-[#6b6b6b]">
+          Base atualizada em: <span className="text-[#a3a3a3]">{new Date(sinapiLastRefresh + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+        </span>
+        <button
+          onClick={handleRefreshSinapi}
+          disabled={isRefreshing}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border border-[#20406a] text-[#6b6b6b] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RefreshCw size={10} className={isRefreshing ? 'animate-spin' : ''} />
+          {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+        </button>
+      </div>
+
       {/* Tab bar */}
-      <div className="flex gap-1 bg-[#1e1e1e] border border-[#20406a] rounded-lg p-1 self-start">
+      <div className="flex gap-1 bg-[#0d2040] border border-[#20406a] rounded-lg p-1 self-start">
         {TABS.map((tab) => (
           <button
             key={tab.key}

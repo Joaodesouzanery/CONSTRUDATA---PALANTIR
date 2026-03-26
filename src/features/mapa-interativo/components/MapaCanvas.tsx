@@ -123,6 +123,7 @@ export function MapaCanvas() {
   const removeNodes         = useMapaInterativoStore((s) => s.removeNodes)
   const removeSegments      = useMapaInterativoStore((s) => s.removeSegments)
   const setPendingConnectNodeId = useMapaInterativoStore((s) => s.setPendingConnectNodeId)
+  const activeNetworkType   = useMapaInterativoStore((s) => s.activeNetworkType)
 
   const layerVisible = (nt: MapNetworkType) =>
     layers.find((l) => l.id === nt)?.visible ?? true
@@ -136,7 +137,7 @@ export function MapaCanvas() {
       if (!pendingConnectNodeId) {
         setPendingConnectNodeId(node.id)
       } else if (pendingConnectNodeId !== node.id) {
-        addSegment({ fromNodeId: pendingConnectNodeId, toNodeId: node.id, networkType: 'sewer' })
+        addSegment({ fromNodeId: pendingConnectNodeId, toNodeId: node.id, networkType: activeNetworkType })
         setPendingConnectNodeId(null)
       }
       return

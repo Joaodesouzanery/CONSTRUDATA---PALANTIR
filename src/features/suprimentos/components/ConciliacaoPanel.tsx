@@ -73,7 +73,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
   const total   = po.items.reduce((acc, i) => acc + i.totalPrice, 0)
 
   return (
-    <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden">
+    <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
       {/* Header row */}
       <button
         onClick={() => setOpen((v) => !v)}

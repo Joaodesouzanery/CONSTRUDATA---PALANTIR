@@ -507,6 +507,11 @@ export interface FrameworkAgreement {
   confidenceScore: number   // 1.0 – 5.0 based on past performance
   status: 'active' | 'expiring' | 'expired'
   terms: string             // short summary of key contract terms
+  paymentSchedule?: { dueDate: string; amount: number; status: 'pending' | 'paid' | 'overdue' }[]
+  deliverySchedule?: { phase: string; dueDate: string; quantity: number; status: 'on_time' | 'delayed' | 'delivered' }[]
+  terminationClause?: string
+  priceAdjustmentIndex?: 'IGP-M' | 'INCC' | 'IPCA' | 'Fixo'
+  priceAdjustmentPct?: number
 }
 
 // ─── Mão de Obra ──────────────────────────────────────────────────────────────

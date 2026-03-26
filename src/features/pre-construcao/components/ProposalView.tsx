@@ -115,11 +115,12 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
 export function ProposalView() {
   const [showPrint, setShowPrint] = useState(false)
 
-  const { takeoffItems, costMatches, bdiConfig, setBDI } = usePreConstrucaoStore(useShallow((s) => ({
+  const { takeoffItems, costMatches, bdiConfig, setBDI, setStep } = usePreConstrucaoStore(useShallow((s) => ({
     takeoffItems: s.takeoffItems,
     costMatches:  s.costMatches,
     bdiConfig:    s.bdiConfig,
     setBDI:       s.setBDI,
+    setStep:      s.setStep,
   })))
 
   const bdiTotal = calcBDI(bdiConfig)
@@ -160,9 +161,17 @@ export function ProposalView() {
       {/* LEFT — Proposal table */}
       <div className="flex flex-col flex-1 min-w-0 gap-4">
         {/* Table */}
-        <div className="flex-1 bg-[#1e1e1e] border border-[#20406a] rounded-xl overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-[#20406a] flex items-center justify-between">
-            <h2 className="text-[#f5f5f5] font-semibold text-sm">Proposta Orçamentária</h2>
+        <div className="flex-1 bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-[#20406a] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setStep('matching')}
+                className="text-xs px-2.5 py-1 rounded border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors"
+              >
+                ← Voltar
+              </button>
+              <h2 className="text-[#f5f5f5] font-semibold text-sm">Proposta Orçamentária</h2>
+            </div>
             <span className="text-[#6b6b6b] text-xs">{lines.length} itens</span>
           </div>
 
@@ -249,7 +258,7 @@ export function ProposalView() {
             <div
               key={label}
               className={cn(
-                'bg-[#1e1e1e] border rounded-xl p-4 flex flex-col gap-1',
+                'bg-[#0d2040] border rounded-xl p-4 flex flex-col gap-1',
                 accent ? 'border-[#2abfdc]/40' : 'border-[#20406a]',
               )}
             >
@@ -273,7 +282,7 @@ export function ProposalView() {
 
       {/* RIGHT — BDI config */}
       <div className="w-72 shrink-0">
-        <div className="bg-[#1e1e1e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-4">
+        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl p-4 flex flex-col gap-4">
           <h2 className="text-[#f5f5f5] font-semibold text-sm">Configuração BDI</h2>
 
           <div className="flex flex-col gap-3">

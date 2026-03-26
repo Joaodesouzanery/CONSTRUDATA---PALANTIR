@@ -9,10 +9,19 @@ import {
   ArrowRightLeft, Upload, Download, Maximize2, BarChart2,
 } from 'lucide-react'
 import { useMapaInterativoStore } from '@/store/mapaInterativoStore'
+import { useProjetosStore }       from '@/store/projetosStore'
 import { MapaImportModal }        from './MapaImportModal'
 import { MapaExportModal }        from './MapaExportModal'
 import { MapaTransformCrsModal }  from './MapaTransformCrsModal'
 import type { MapTool, MapNetworkType } from '@/types'
+
+const NETWORK_TYPE_OPTIONS: { id: MapNetworkType; label: string; color: string }[] = [
+  { id: 'sewer',    label: 'Esgoto',   color: '#2abfdc' },
+  { id: 'water',    label: 'Água',     color: '#38bdf8' },
+  { id: 'drainage', label: 'Drenagem', color: '#4ade80' },
+  { id: 'civil',    label: 'Civil',    color: '#94a3b8' },
+  { id: 'generic',  label: 'Genérico', color: '#a78bfa' },
+]
 
 const UTM_ZONES = ['18S', '19S', '20S', '21S', '22S', '23S', '24S', '25S', '23N', '24N']
 
@@ -38,11 +47,17 @@ export function MapaHeader({
   const basemap   = useMapaInterativoStore((s) => s.basemap)
   const utmZone   = useMapaInterativoStore((s) => s.utmZone)
   const history   = useMapaInterativoStore((s) => s.history)
+  const activeNetworkType = useMapaInterativoStore((s) => s.activeNetworkType)
+  const selectedProjectId = useMapaInterativoStore((s) => s.selectedProjectId)
   const setTool   = useMapaInterativoStore((s) => s.setTool)
   const undo      = useMapaInterativoStore((s) => s.undo)
   const clearAll  = useMapaInterativoStore((s) => s.clearAll)
   const setBasemap = useMapaInterativoStore((s) => s.setBasemap)
   const loadDemoData = useMapaInterativoStore((s) => s.loadDemoData)
+  const setActiveNetworkType = useMapaInterativoStore((s) => s.setActiveNetworkType)
+  const setSelectedProjectId = useMapaInterativoStore((s) => s.setSelectedProjectId)
+
+  const projects = useProjetosStore((s) => s.projects)
 
   const [showImport, setShowImport]     = useState(false)
   const [showExport, setShowExport]     = useState(false)
@@ -224,6 +239,40 @@ export function MapaHeader({
             active={showAnalytics}
             onClick={() => onToggleAnalytics?.()}
           />
+
+          <div className="w-px h-5 bg-gray-700 mx-1" />
+
+          {/* Project selector */}
+          <select
+            value={selectedProjectId ?? ''}
+            onChange={(e) => setSelectedProjectId(e.target.value || null)}
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none max-w-[140px]"
+          >
+            <option value="">(Nenhum projeto)</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+
+          <div className="w-px h-5 bg-gray-700 mx-1" />
+
+          {/* Network type pills (for connect tool) */}
+          <span className="text-[10px] text-gray-500 self-center">Tipo:</span>
+          {NETWORK_TYPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => setActiveNetworkType(opt.id)}
+              title={`Tipo de rede: ${opt.label}`}
+              className={`px-2 py-1 rounded text-[10px] font-semibold border transition-colors ${
+                activeNetworkType === opt.id
+                  ? 'text-white border-transparent'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200'
+              }`}
+              style={activeNetworkType === opt.id ? { background: opt.color, borderColor: opt.color } : {}}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
