@@ -1,6 +1,7 @@
 /**
  * Rede360Header — Tab navigation bar for Rede 360 module.
  */
+import { useShallow } from 'zustand/react/shallow'
 import { useRede360Store } from '@/store/rede360Store'
 import type { Rede360Tab } from '@/types'
 import { Plus } from 'lucide-react'
@@ -13,10 +14,12 @@ const TABS: { id: Rede360Tab; label: string }[] = [
 ]
 
 export function Rede360Header() {
-  const { activeTab, setActiveTab } = useRede360Store((s) => ({
-    activeTab: s.activeTab,
-    setActiveTab: s.setActiveTab,
-  }))
+  const { activeTab, setActiveTab } = useRede360Store(
+    useShallow((s) => ({
+      activeTab:    s.activeTab,
+      setActiveTab: s.setActiveTab,
+    }))
+  )
 
   return (
     <div className="bg-[#112645] border-b border-[#20406a] shrink-0 flex items-center justify-between px-4">
