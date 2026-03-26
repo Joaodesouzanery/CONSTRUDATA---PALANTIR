@@ -288,6 +288,45 @@ export function DashboardPanel() {
         </div>
       )}
 
+      {/* Progresso por Sistema */}
+      {(() => {
+        const SYSTEMS = [
+          { key: 'agua',         label: 'Água',         color: '#38bdf8' },
+          { key: 'esgoto',       label: 'Esgoto',       color: '#2abfdc' },
+          { key: 'drenagem',     label: 'Drenagem',     color: '#4ade80' },
+          { key: 'estrutura',    label: 'Estrutura',    color: '#a78bfa' },
+          { key: 'pavimentacao', label: 'Pavimentação', color: '#fb923c' },
+          { key: 'outro',        label: 'Outro',        color: '#94a3b8' },
+        ]
+        const allTrechos = rdos.flatMap((r) => r.trechos)
+        const sysData = SYSTEMS.map((s) => {
+          const entries = allTrechos.filter((t) => (t.system ?? 'outro') === s.key)
+          const planned  = entries.reduce((acc, t) => acc + t.plannedMeters, 0)
+          const executed = entries.reduce((acc, t) => acc + t.executedMeters, 0)
+          return { ...s, planned, executed, pct: planned > 0 ? Math.min(100, (executed / planned) * 100) : 0 }
+        }).filter((s) => s.planned > 0 || s.executed > 0)
+
+        if (sysData.length === 0) return null
+        return (
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+            <h3 className="text-white text-sm font-semibold mb-3">Progresso por Sistema</h3>
+            <div className="flex flex-col gap-2">
+              {sysData.map((s) => (
+                <div key={s.key} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-500 w-24 shrink-0">{s.label}</span>
+                  <div className="flex-1 h-4 bg-gray-700 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
+                  </div>
+                  <span className="text-xs text-gray-300 w-36 text-right shrink-0">
+                    {s.executed.toFixed(0)}m / {s.planned.toFixed(0)}m ({s.pct.toFixed(0)}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Detalhamento por Trecho */}
       <div className="bg-gray-800 rounded-xl border border-gray-700">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 flex-wrap gap-3">

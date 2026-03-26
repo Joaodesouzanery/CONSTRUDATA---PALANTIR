@@ -1167,6 +1167,7 @@ export interface RdoTrechoEntry {
   executedMeters:    number
   status:            RdoTrechoStatus
   source:            'rdo' | 'manual'
+  system?:           'agua' | 'esgoto' | 'drenagem' | 'estrutura' | 'pavimentacao' | 'outro'
 }
 
 export interface RdoPhoto {
@@ -1387,4 +1388,66 @@ export interface MapLayer {
 export interface TrechoDelay {
   trechoCode: string    // identifies the trecho by its code
   delayDays: number     // extra days to delay the trecho start
+}
+
+// ─── Rede 360 ─────────────────────────────────────────────────────────────────
+
+export type Rede360Tab = 'mapa' | 'ativos' | 'ordens' | 'risco'
+export type NetworkAssetType = 'circuit' | 'pipe' | 'pv' | 'structure' | 'device' | 'vegetation' | 'hardening'
+export type NetworkAssetStatus = 'operational' | 'degraded' | 'critical' | 'offline' | 'maintenance'
+export type Rede360ServiceOrderStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
+export type ServiceOrderPriority = 'low' | 'medium' | 'high' | 'emergency'
+export type OutageStatus = 'active' | 'monitoring' | 'resolved'
+
+export interface NetworkAsset {
+  id: string
+  type: NetworkAssetType
+  networkType: MapNetworkType
+  name: string
+  code: string
+  lat: number
+  lng: number
+  status: NetworkAssetStatus
+  riskLevel: RiskLevel
+  installationDate?: string
+  lastInspection?: string
+  nextInspectionDue?: string
+  customerCount?: number
+  lengthM?: number
+  diameter?: number
+  material?: string
+  sensorReadings?: { parameter: string; value: number; unit: string; timestamp: string }[]
+  flowLMin?: number
+  pressureBar?: number
+  lossPercent?: number
+  waterQuality?: 'good' | 'warning' | 'critical'
+  notes?: string
+}
+
+export interface Rede360ServiceOrder {
+  id: string
+  code: string
+  assetId: string | null
+  type: string
+  priority: ServiceOrderPriority
+  status: Rede360ServiceOrderStatus
+  description: string
+  assignedTo?: string
+  scheduledDate?: string
+  completedDate?: string
+  estimatedHours?: number
+  createdAt: string
+}
+
+export interface Outage {
+  id: string
+  affectedAssetIds: string[]
+  type: string
+  status: OutageStatus
+  startTime: string
+  estimatedRestoreTime?: string
+  resolvedTime?: string
+  affectedCustomers?: number
+  cause?: string
+  notes?: string
 }

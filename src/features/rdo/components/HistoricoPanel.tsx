@@ -5,10 +5,10 @@
 import { useState, useMemo } from 'react'
 import {
   Search, Printer, Trash2, ChevronDown, ChevronRight,
-  Cloud, CloudRain, Sun, Zap, Camera, MapPin,
+  Cloud, CloudRain, Sun, Zap, Camera, MapPin, Edit3, X,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
-import { printRdoPDF } from '../utils/rdoPdfExport'
+import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
 
 // ─── RDO Card ─────────────────────────────────────────────────────────────────
 
-function RdoCard({ rdo, onDelete }: { rdo: RDO; onDelete: () => void }) {
+function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const totalWorkers = rdo.manpower.foremanCount + rdo.manpower.officialCount
     + rdo.manpower.helperCount + rdo.manpower.operatorCount
@@ -265,6 +265,14 @@ function RdoCard({ rdo, onDelete }: { rdo: RDO; onDelete: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs transition-colors"
+            title="Editar RDO"
+          >
+            <Edit3 size={13} />
+            Editar
+          </button>
           <button
             onClick={handlePrint}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs transition-colors"
@@ -430,10 +438,21 @@ function RdoCard({ rdo, onDelete }: { rdo: RDO; onDelete: () => void }) {
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function HistoricoPanel() {
-  const { rdos, removeRdo } = useRdoStore()
-  const [search, setSearch]   = useState('')
+  const { rdos, removeRdo, updateRdo } = useRdoStore()
+  const [search, setSearch]     = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
+
+  // Edit state
+  const [editingRdo, setEditingRdo] = useState<RDO | null>(null)
+  const [editForm, setEditForm]     = useState<Partial<RDO>>({})
+
+  // Period PDF state
+  const [pdfPeriodType, setPdfPeriodType] = useState<'semanal' | 'mensal' | 'personalizado' | ''>('')
+  const [pdfWeek,   setPdfWeek]   = useState('')
+  const [pdfMonth,  setPdfMonth]  = useState('')
+  const [pdfFrom,   setPdfFrom]   = useState('')
+  const [pdfTo,     setPdfTo]     = useState('')
 
   const filtered = useMemo(() => {
     return rdos
@@ -453,6 +472,38 @@ export function HistoricoPanel() {
     removeRdo(id)
   }
 
+  function handleSaveEdit() {
+    if (!editingRdo) return
+    updateRdo(editingRdo.id, editForm)
+    setEditingRdo(null)
+    setEditForm({})
+  }
+
+  function handleBatchPDF() {
+    let from = '', to = ''
+    if (pdfPeriodType === 'semanal' && pdfWeek) {
+      const [year, week] = pdfWeek.split('-W').map(Number)
+      const jan4 = new Date(year, 0, 4)
+      const startOfWeek1 = new Date(jan4.getTime() - ((jan4.getDay() || 7) - 1) * 86400000)
+      const weekStart = new Date(startOfWeek1.getTime() + (week - 1) * 7 * 86400000)
+      from = weekStart.toISOString().slice(0, 10)
+      to   = new Date(weekStart.getTime() + 6 * 86400000).toISOString().slice(0, 10)
+    } else if (pdfPeriodType === 'mensal' && pdfMonth) {
+      const [y, m] = pdfMonth.split('-').map(Number)
+      from = `${y}-${String(m).padStart(2, '0')}-01`
+      const lastDay = new Date(y, m, 0).getDate()
+      to   = `${y}-${String(m).padStart(2, '0')}-${lastDay}`
+    } else if (pdfPeriodType === 'personalizado') {
+      from = pdfFrom; to = pdfTo
+    }
+    const batchFiltered = rdos.filter((r) => r.date >= from && r.date <= to)
+    if (batchFiltered.length === 0) { alert('Nenhum RDO no período selecionado.'); return }
+    const label = pdfPeriodType === 'mensal' ? pdfMonth : `${from} a ${to}`
+    printRdosBatchPDF(batchFiltered, label)
+  }
+
+  const filterInputCls = 'bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-500'
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-4 print:p-0">
       {/* Filters (hidden when printing) */}
@@ -467,27 +518,49 @@ export function HistoricoPanel() {
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-sky-500"
           />
         </div>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-500"
-          title="Data inicial"
-        />
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={filterInputCls} title="Data inicial" />
         <span className="text-gray-600 text-sm">até</span>
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-sky-500"
-          title="Data final"
-        />
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={filterInputCls} title="Data final" />
         {(search || dateFrom || dateTo) && (
-          <button
-            onClick={() => { setSearch(''); setDateFrom(''); setDateTo('') }}
-            className="text-sky-400 hover:text-sky-300 text-sm"
-          >
+          <button onClick={() => { setSearch(''); setDateFrom(''); setDateTo('') }} className="text-sky-400 hover:text-sky-300 text-sm">
             Limpar filtros
+          </button>
+        )}
+      </div>
+
+      {/* Period PDF selector */}
+      <div className="flex items-center gap-2 flex-wrap print:hidden bg-gray-800 rounded-lg border border-gray-700 px-4 py-2.5">
+        <span className="text-gray-400 text-xs font-medium">PDF por Período:</span>
+        <select
+          value={pdfPeriodType}
+          onChange={(e) => setPdfPeriodType(e.target.value as typeof pdfPeriodType)}
+          className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none"
+        >
+          <option value="">-- Selecionar --</option>
+          <option value="semanal">Semanal</option>
+          <option value="mensal">Mensal</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
+        {pdfPeriodType === 'semanal' && (
+          <input type="week" value={pdfWeek} onChange={(e) => setPdfWeek(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none" />
+        )}
+        {pdfPeriodType === 'mensal' && (
+          <input type="month" value={pdfMonth} onChange={(e) => setPdfMonth(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none" />
+        )}
+        {pdfPeriodType === 'personalizado' && (
+          <>
+            <input type="date" value={pdfFrom} onChange={(e) => setPdfFrom(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none" />
+            <span className="text-gray-500 text-xs">até</span>
+            <input type="date" value={pdfTo} onChange={(e) => setPdfTo(e.target.value)} className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none" />
+          </>
+        )}
+        {pdfPeriodType && (
+          <button
+            onClick={handleBatchPDF}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-600 text-white text-xs font-semibold transition-colors"
+          >
+            <Printer size={12} />
+            Exportar PDF (Período)
           </button>
         )}
       </div>
@@ -511,9 +584,121 @@ export function HistoricoPanel() {
       {/* Cards */}
       <div className="space-y-3">
         {filtered.map((rdo) => (
-          <RdoCard key={rdo.id} rdo={rdo} onDelete={() => handleDelete(rdo.id)} />
+          <RdoCard key={rdo.id} rdo={rdo} onDelete={() => handleDelete(rdo.id)} onEdit={() => { setEditingRdo(rdo); setEditForm({ ...rdo }) }} />
         ))}
       </div>
+
+      {/* Edit Modal */}
+      {editingRdo && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700 shrink-0">
+              <span className="text-white font-semibold">Editar RDO #{editingRdo.number}</span>
+              <button onClick={() => setEditingRdo(null)} className="text-gray-400 hover:text-gray-200">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              {/* Date + Responsible */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 text-xs mb-1">Data</label>
+                  <input
+                    type="date"
+                    value={editForm.date ?? editingRdo.date}
+                    onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-xs mb-1">Responsável</label>
+                  <input
+                    type="text"
+                    value={editForm.responsible ?? editingRdo.responsible}
+                    onChange={(e) => setEditForm((f) => ({ ...f, responsible: e.target.value }))}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 focus:outline-none"
+                  />
+                </div>
+              </div>
+              {/* Weather */}
+              <div>
+                <label className="block text-gray-400 text-xs mb-2">Condições Climáticas</label>
+                <div className="grid grid-cols-4 gap-3">
+                  {(['morning', 'afternoon', 'night'] as const).map((p) => {
+                    const labels = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' }
+                    const weather = (editForm.weather ?? editingRdo.weather)
+                    return (
+                      <div key={p}>
+                        <label className="text-gray-500 text-xs block mb-1">{labels[p]}</label>
+                        <select
+                          value={weather[p]}
+                          onChange={(e) => setEditForm((f) => ({ ...f, weather: { ...(f.weather ?? editingRdo.weather), [p]: e.target.value } }))}
+                          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-200"
+                        >
+                          <option value="good">Bom</option>
+                          <option value="cloudy">Nublado</option>
+                          <option value="rain">Chuva</option>
+                          <option value="storm">Tempestade</option>
+                        </select>
+                      </div>
+                    )
+                  })}
+                  <div>
+                    <label className="text-gray-500 text-xs block mb-1">Temp. (°C)</label>
+                    <input
+                      type="number"
+                      value={(editForm.weather ?? editingRdo.weather).temperatureC}
+                      onChange={(e) => setEditForm((f) => ({ ...f, weather: { ...(f.weather ?? editingRdo.weather), temperatureC: Number(e.target.value) } }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-200"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Manpower */}
+              <div>
+                <label className="block text-gray-400 text-xs mb-2">Mão de Obra</label>
+                <div className="grid grid-cols-4 gap-3">
+                  {([['foremanCount', 'Encarregado'], ['officialCount', 'Oficial'], ['helperCount', 'Ajudante'], ['operatorCount', 'Operador']] as const).map(([field, label]) => (
+                    <div key={field}>
+                      <label className="text-gray-500 text-xs block mb-1">{label}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={(editForm.manpower ?? editingRdo.manpower)[field]}
+                        onChange={(e) => setEditForm((f) => ({ ...f, manpower: { ...(f.manpower ?? editingRdo.manpower), [field]: Number(e.target.value) } }))}
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-gray-200"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Observations */}
+              <div>
+                <label className="block text-gray-400 text-xs mb-1">Observações Gerais</label>
+                <textarea
+                  rows={3}
+                  value={editForm.observations ?? editingRdo.observations}
+                  onChange={(e) => setEditForm((f) => ({ ...f, observations: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 resize-none focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-400 text-xs mb-1">Ocorrências / Incidentes</label>
+                <textarea
+                  rows={2}
+                  value={editForm.incidents ?? editingRdo.incidents}
+                  onChange={(e) => setEditForm((f) => ({ ...f, incidents: e.target.value }))}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm text-gray-200 resize-none focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-700 flex gap-2 shrink-0">
+              <button onClick={handleSaveEdit} className="px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-semibold transition-colors">Salvar</button>
+              <button onClick={() => setEditingRdo(null)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm transition-colors">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -15,7 +15,7 @@ import {
 import { useRdoStore } from '@/store/rdoStore'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
-import type { RdoEquipmentEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto } from '@/types'
+import type { RdoEquipmentEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -139,16 +139,18 @@ export function NovoRdoPanel() {
       status: 'not_started', source: 'manual',
     }])
   }
-  function updateTrecho(i: number, field: keyof Omit<RdoTrechoEntry, 'id'>, val: string | number) {
+  function updateTrecho(i: number, updates: Partial<Omit<RdoTrechoEntry, 'id'>>) {
     setTrechos((prev) => prev.map((row, idx) => {
       if (idx !== i) return row
-      const updated = { ...row, [field]: val }
-      // Auto-compute status
-      const exec = field === 'executedMeters' ? Number(val) : updated.executedMeters
-      const plan = field === 'plannedMeters'  ? Number(val) : updated.plannedMeters
-      if (exec === 0) updated.status = 'not_started'
-      else if (plan > 0 && exec >= plan) updated.status = 'completed'
-      else updated.status = 'in_progress'
+      const updated = { ...row, ...updates }
+      // Auto-compute status from meters
+      const exec = updated.executedMeters
+      const plan = updated.plannedMeters
+      if ('executedMeters' in updates || 'plannedMeters' in updates) {
+        if (exec === 0) updated.status = 'not_started' as RdoTrechoStatus
+        else if (plan > 0 && exec >= plan) updated.status = 'completed' as RdoTrechoStatus
+        else updated.status = 'in_progress' as RdoTrechoStatus
+      }
       return updated
     }))
   }
@@ -517,6 +519,7 @@ export function NovoRdoPanel() {
                       <th className="text-left pb-2 font-medium">Descrição</th>
                       <th className="text-left pb-2 font-medium">Planejado (m)</th>
                       <th className="text-left pb-2 font-medium">Executado (m)</th>
+                      <th className="text-left pb-2 font-medium">Sistema</th>
                       <th className="text-left pb-2 font-medium">Status</th>
                       <th className="pb-2" />
                     </tr>
@@ -528,7 +531,7 @@ export function NovoRdoPanel() {
                           <input
                             type="text"
                             value={row.trechoCode}
-                            onChange={(e) => updateTrecho(i, 'trechoCode', e.target.value)}
+                            onChange={(e) => updateTrecho(i, { trechoCode: e.target.value })}
                             className={`${inputCls} w-20`}
                           />
                         </td>
@@ -536,7 +539,7 @@ export function NovoRdoPanel() {
                           <input
                             type="text"
                             value={row.trechoDescription}
-                            onChange={(e) => updateTrecho(i, 'trechoDescription', e.target.value)}
+                            onChange={(e) => updateTrecho(i, { trechoDescription: e.target.value })}
                             className={`${inputCls} w-36`}
                           />
                         </td>
@@ -544,7 +547,7 @@ export function NovoRdoPanel() {
                           <input
                             type="number"
                             value={row.plannedMeters}
-                            onChange={(e) => updateTrecho(i, 'plannedMeters', Number(e.target.value))}
+                            onChange={(e) => updateTrecho(i, { plannedMeters: Number(e.target.value) })}
                             min={0} className={`${inputCls} w-24`}
                           />
                         </td>
@@ -552,9 +555,24 @@ export function NovoRdoPanel() {
                           <input
                             type="number"
                             value={row.executedMeters}
-                            onChange={(e) => updateTrecho(i, 'executedMeters', Number(e.target.value))}
+                            onChange={(e) => updateTrecho(i, { executedMeters: Number(e.target.value) })}
                             min={0} className={`${inputCls} w-24`}
                           />
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <select
+                            value={row.system ?? ''}
+                            onChange={(e) => updateTrecho(i, { system: (e.target.value as RdoTrechoEntry['system']) || undefined })}
+                            className="bg-[#14294e] border border-[#1f3c5e] rounded px-2 py-1 text-xs text-[#f5f5f5]"
+                          >
+                            <option value="">Sistema...</option>
+                            <option value="agua">Água</option>
+                            <option value="esgoto">Esgoto</option>
+                            <option value="drenagem">Drenagem</option>
+                            <option value="estrutura">Estrutura</option>
+                            <option value="pavimentacao">Pavimentação</option>
+                            <option value="outro">Outro</option>
+                          </select>
                         </td>
                         <td className="py-1.5 pr-2">
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${

@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X,
+  Calculator, Layers, Target, Map, X, Network,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -31,6 +31,7 @@ const navItems = [
   { label: 'Quantitativos',   icon: Calculator,       to: '/quantitativos'       },
   { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/bim'                 },
   { label: 'Frota',           icon: Cpu,              to: '/otimizacao-frota'    },
+  { label: 'Rede 360',        icon: Network,          to: '/rede-360'            },
 ]
 
 // ─── Atlântico water-drop logo (matches brand mark) ───────────────────────────

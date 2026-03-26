@@ -24,6 +24,7 @@ export const rdoTrechoSchema = z.object({
   trechoDescription: z.string().max(200),
   plannedMeters:     nonNeg.max(99999),
   executedMeters:    nonNeg.max(99999),
+  system:            z.enum(['agua', 'esgoto', 'drenagem', 'estrutura', 'pavimentacao', 'outro']).optional(),
 })
 
 export const rdoSchema = z.object({

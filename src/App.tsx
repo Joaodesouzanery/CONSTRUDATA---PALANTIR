@@ -15,6 +15,7 @@ import { LpsPage }                  from '@/features/lps-lean/index'
 import { MapaInterativoPage }       from '@/features/mapa-interativo/index'
 import { RdoPage }                  from '@/features/rdo/index'
 import { QuantitativosPage }        from '@/features/quantitativos/index'
+import { Rede360Page }              from '@/features/rede-360/index'
 import { lazy, Suspense } from 'react'
 
 const BimPage = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
@@ -41,6 +42,7 @@ function App() {
           <Route path="/mapa-interativo"   element={<MapaInterativoPage />} />
           <Route path="/rdo"               element={<RdoPage />} />
           <Route path="/quantitativos"     element={<QuantitativosPage />} />
+          <Route path="/rede-360"          element={<Rede360Page />} />
           <Route path="/bim"               element={
             <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Carregando módulo 3D...</div>}>
               <BimPage />

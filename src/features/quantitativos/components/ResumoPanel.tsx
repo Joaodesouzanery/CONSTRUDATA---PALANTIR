@@ -2,7 +2,7 @@
  * ResumoPanel — cost summary grouped by category with BDI breakdown and SVG chart.
  */
 import { useState } from 'react'
-import { Download, Printer } from 'lucide-react'
+import { Download, Printer, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportToCsv, exportToXlsx } from '../utils/exportEngine'
 
@@ -27,8 +27,15 @@ const DEFAULT_BDI: BdiBreakdown = {
 }
 
 export function ResumoPanel() {
-  const { currentItems, bdiGlobal, setBdiGlobal } = useQuantitativosStore()
+  const { currentItems, bdiGlobal, setBdiGlobal, updateItem } = useQuantitativosStore()
   const [bdi, setBdi] = useState<BdiBreakdown>(DEFAULT_BDI)
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [budgetCap, setBudgetCap] = useState<number>(() => {
+    try {
+      const stored = sessionStorage.getItem('quant-budget-cap')
+      return stored ? parseFloat(stored) : 0
+    } catch { return 0 }
+  })
 
   // Group by category
   const groups: Record<string, { items: typeof currentItems; subtotal: number; total: number }> = {}
@@ -47,6 +54,21 @@ export function ResumoPanel() {
 
   const inputCls = 'w-20 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-violet-500 text-right'
 
+  function handleApplyBdiToAll() {
+    const total = computedBdi
+    currentItems.forEach((item) => updateItem(item.id, { bdi: total }))
+    setBdiGlobal(total)
+  }
+
+  function toggleCategory(cat: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(cat)) next.delete(cat)
+      else next.add(cat)
+      return next
+    })
+  }
+
   return (
     <div className="p-6 space-y-5 max-w-5xl mx-auto">
       {/* BDI Config */}
@@ -57,10 +79,10 @@ export function ResumoPanel() {
             <span className="text-gray-400 text-xs">BDI Total Calculado:</span>
             <span className="text-violet-400 font-bold text-sm">{computedBdi.toFixed(2)}%</span>
             <button
-              onClick={() => setBdiGlobal(computedBdi)}
+              onClick={handleApplyBdiToAll}
               className="px-3 py-1 rounded text-xs bg-violet-900/40 text-violet-300 hover:bg-violet-900/60 transition-colors"
             >
-              Aplicar a Todos
+              Aplicar a todos os {currentItems.length} itens
             </button>
           </div>
         </div>
@@ -144,15 +166,38 @@ export function ResumoPanel() {
               {sorted.map(([cat, data]) => {
                 const avgBdi = data.items.reduce((s, i) => s + i.bdi, 0) / data.items.length
                 const pct = grandTotal > 0 ? (data.total / grandTotal) * 100 : 0
+                const expanded = expandedCategories.has(cat)
                 return (
-                  <tr key={cat} className="border-b border-gray-700/50 hover:bg-gray-750/20">
-                    <td className="px-5 py-3 text-gray-200">{cat}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{data.items.length}</td>
-                    <td className="px-3 py-3 text-right text-gray-300">{fmtBRL(data.subtotal)}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{avgBdi.toFixed(1)}%</td>
-                    <td className="px-5 py-3 text-right text-violet-300 font-medium">{fmtBRL(data.total)}</td>
-                    <td className="px-3 py-3 text-right text-gray-400">{pct.toFixed(2)}%</td>
-                  </tr>
+                  <>
+                    <tr key={cat} className="border-b border-gray-700/50 hover:bg-gray-750/20 cursor-pointer" onClick={() => toggleCategory(cat)}>
+                      <td className="px-5 py-3 text-gray-200 flex items-center gap-2">
+                        {expanded ? <ChevronUp size={13} className="text-gray-500 shrink-0" /> : <ChevronDown size={13} className="text-gray-500 shrink-0" />}
+                        {cat}
+                      </td>
+                      <td className="px-3 py-3 text-right text-gray-400">{data.items.length}</td>
+                      <td className="px-3 py-3 text-right text-gray-300">{fmtBRL(data.subtotal)}</td>
+                      <td className="px-3 py-3 text-right text-gray-400">{avgBdi.toFixed(1)}%</td>
+                      <td className="px-5 py-3 text-right text-violet-300 font-medium">{fmtBRL(data.total)}</td>
+                      <td className="px-3 py-3 text-right text-gray-400">{pct.toFixed(2)}%</td>
+                    </tr>
+                    {expanded && data.items.map((item) => (
+                      <tr key={item.id} className="bg-gray-900/30 border-b border-gray-700/30">
+                        <td className="pl-10 pr-3 py-2 text-gray-400 text-xs">{item.code}</td>
+                        <td className="px-3 py-2 text-gray-400 text-xs">{item.description}</td>
+                        <td className="px-3 py-2 text-gray-400 text-xs">{item.unit}</td>
+                        <td className="px-3 py-2">
+                          <input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: +e.target.value })} className="w-20 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-200" />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input type="number" value={item.unitCost} onChange={(e) => updateItem(item.id, { unitCost: +e.target.value })} className="w-24 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-200" />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input type="number" value={item.bdi} onChange={(e) => updateItem(item.id, { bdi: +e.target.value })} className="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-xs text-gray-200" />
+                        </td>
+                        <td className="px-5 py-2 text-right text-gray-400 text-xs">{fmtBRL(item.totalCost)}</td>
+                      </tr>
+                    ))}
+                  </>
                 )
               })}
             </tbody>
@@ -173,18 +218,104 @@ export function ResumoPanel() {
       </div>
 
       {/* Grand total card */}
-      <div className="bg-violet-950/40 border border-violet-700/50 rounded-xl p-5 flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-xs mb-1">TOTAL GERAL DO ORÇAMENTO</p>
-          <p className="text-3xl font-bold text-violet-400">{fmtBRL(grandTotal)}</p>
-          <p className="text-gray-500 text-xs mt-1">{currentItems.length} itens · BDI global: {bdiGlobal}%</p>
+      <div className="bg-violet-950/40 border border-violet-700/50 rounded-xl p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-gray-400 text-xs mb-1">TOTAL GERAL DO ORÇAMENTO</p>
+            <p className="text-3xl font-bold text-violet-400">{fmtBRL(grandTotal)}</p>
+            <p className="text-gray-500 text-xs mt-1">{currentItems.length} itens · BDI global: {bdiGlobal}%</p>
+          </div>
+          <div className="text-right">
+            <p className="text-gray-400 text-xs mb-1">Subtotal s/ BDI</p>
+            <p className="text-xl font-semibold text-gray-300">{fmtBRL(grandSubtotal)}</p>
+            <p className="text-gray-500 text-xs mt-1">BDI: {fmtBRL(grandTotal - grandSubtotal)}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-gray-400 text-xs mb-1">Subtotal s/ BDI</p>
-          <p className="text-xl font-semibold text-gray-300">{fmtBRL(grandSubtotal)}</p>
-          <p className="text-gray-500 text-xs mt-1">BDI: {fmtBRL(grandTotal - grandSubtotal)}</p>
+        {/* Budget cap */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-violet-700/30 flex-wrap">
+          <label className="text-xs text-gray-400">Meta (R$):</label>
+          <input
+            type="number"
+            value={budgetCap || ''}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value) || 0
+              setBudgetCap(v)
+              try { sessionStorage.setItem('quant-budget-cap', String(v)) } catch { /* noop */ }
+            }}
+            className="w-36 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 focus:outline-none"
+            placeholder="Definir meta..."
+          />
+          {budgetCap > 0 && (() => {
+            const delta = grandTotal - budgetCap
+            const pct = (delta / budgetCap * 100).toFixed(1)
+            return (
+              <span className={`text-sm font-semibold ${delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                Δ {fmtBRL(Math.abs(delta))} ({delta > 0 ? '+' : ''}{pct}%)
+              </span>
+            )
+          })()}
         </div>
       </div>
+
+      {/* Source distribution donut */}
+      {currentItems.length > 0 && (() => {
+        const SOURCE_LABELS: Record<string, string> = { sinapi: 'SINAPI', seinfra: 'SEINFRA', custom: 'Personalizada', manual: 'Manual' }
+        const SOURCE_COLORS: Record<string, string> = { sinapi: '#38bdf8', seinfra: '#2abfdc', custom: '#a78bfa', manual: '#fb923c' }
+        const sources = ['sinapi', 'seinfra', 'custom', 'manual'] as const
+        const srcData = sources.map((src) => {
+          const items = currentItems.filter((i) => i.source === src)
+          const total = items.reduce((s, i) => s + i.totalCost, 0)
+          return { src, label: SOURCE_LABELS[src], color: SOURCE_COLORS[src], count: items.length, total }
+        }).filter((s) => s.count > 0)
+
+        if (srcData.length === 0) return null
+
+        const totalAll = srcData.reduce((s, d) => s + d.total, 0)
+        // SVG donut
+        const cx = 60, cy = 60, r = 44, strokeW = 20
+        const circ = 2 * Math.PI * r
+        let offset = 0
+        const slices = srcData.map((d) => {
+          const pct = totalAll > 0 ? d.total / totalAll : 0
+          const dash = pct * circ
+          const slice = { ...d, dash, offset, pct }
+          offset += dash
+          return slice
+        })
+
+        return (
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+            <h3 className="text-gray-200 font-medium text-sm mb-4">Distribuição por Fonte</h3>
+            <div className="flex items-center gap-6 flex-wrap">
+              <svg viewBox="0 0 120 120" className="w-28 h-28 shrink-0 -rotate-90">
+                <circle cx={cx} cy={cy} r={r} fill="none" stroke="#374151" strokeWidth={strokeW} />
+                {slices.map((s) => (
+                  <circle
+                    key={s.src}
+                    cx={cx} cy={cy} r={r}
+                    fill="none"
+                    stroke={s.color}
+                    strokeWidth={strokeW}
+                    strokeDasharray={`${s.dash} ${circ}`}
+                    strokeDashoffset={-s.offset}
+                  />
+                ))}
+              </svg>
+              <div className="space-y-2 flex-1">
+                {slices.map((s) => (
+                  <div key={s.src} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
+                    <span className="text-gray-300 text-xs flex-1">{s.label}</span>
+                    <span className="text-gray-500 text-xs">{s.count} itens</span>
+                    <span className="text-gray-300 text-xs w-24 text-right">{fmtBRL(s.total)}</span>
+                    <span className="text-gray-500 text-xs w-10 text-right">{(s.pct * 100).toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
