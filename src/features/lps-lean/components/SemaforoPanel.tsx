@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Trash2, Check, X } from 'lucide-react'
 import { useLpsStore, computeWeeklyPPC, weekLabel, isoWeek } from '@/store/lpsStore'
 import type { LpsActivity, LpsCncCategory, LpsReadyStatus } from '@/types'
+import { ConfirmDialog } from './ConfirmDialog'
 
 const CNC_OPTIONS: { value: LpsCncCategory; label: string }[] = [
   { value: 'weather',   label: 'Clima' },
@@ -32,10 +33,14 @@ const STATUS_LABELS: Record<LpsReadyStatus, string> = {
 
 function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () => void }) {
   const updateActivity = useLpsStore((s) => s.updateActivity)
-  const [cat,  setCat]  = useState<LpsCncCategory>(activity.cncCategory ?? 'other')
-  const [desc, setDesc] = useState(activity.cncDescription ?? '')
+  const [cat,  setCat]       = useState<LpsCncCategory>(activity.cncCategory ?? 'other')
+  const [desc, setDesc]      = useState(activity.cncDescription ?? '')
+  const [confirming, setConfirming] = useState(false)
 
   function handleSave() {
+    setConfirming(true)
+  }
+  function confirmSave() {
     updateActivity(activity.id, { cncCategory: cat, cncDescription: desc, readyStatus: 'red' })
     onClose()
   }
@@ -63,14 +68,24 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
         rows={2}
         className="bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 resize-none"
       />
-      <div className="flex gap-2">
-        <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
-          <Check size={11} /> Salvar
-        </button>
-        <button onClick={handleClear} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
-          <X size={11} /> Limpar CNC
-        </button>
-      </div>
+      {confirming ? (
+        <ConfirmDialog
+          message={`Salvar CNC: ${CNC_OPTIONS.find((o) => o.value === cat)?.label ?? cat}?`}
+          confirmLabel="Salvar"
+          onConfirm={confirmSave}
+          onCancel={() => setConfirming(false)}
+          danger={false}
+        />
+      ) : (
+        <div className="flex gap-2">
+          <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+            <Check size={11} /> Salvar
+          </button>
+          <button onClick={handleClear} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
+            <X size={11} /> Limpar CNC
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -148,10 +163,11 @@ export function SemaforoPanel() {
   const updateActivity = useLpsStore((s) => s.updateActivity)
   const removeActivity = useLpsStore((s) => s.removeActivity)
 
-  const [filterWeek, setFilterWeek] = useState('')
-  const [filterTeam, setFilterTeam] = useState('')
-  const [cncOpenId,  setCncOpenId]  = useState<string | null>(null)
-  const [showAdd,    setShowAdd]    = useState(false)
+  const [filterWeek, setFilterWeek]   = useState('')
+  const [filterTeam, setFilterTeam]   = useState('')
+  const [cncOpenId,  setCncOpenId]    = useState<string | null>(null)
+  const [showAdd,    setShowAdd]      = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const weekly    = useMemo(() => computeWeeklyPPC(activities), [activities])
   const weekOptions = useMemo(() => [...new Set(activities.map((a) => a.week))].sort(), [activities])
@@ -300,10 +316,18 @@ export function SemaforoPanel() {
                 </td>
 
                 <td className="px-3 py-2.5">
-                  <button onClick={() => removeActivity(a.id)}
-                    className="text-gray-700 hover:text-red-400 transition-colors">
-                    <Trash2 size={13} />
-                  </button>
+                  {confirmDeleteId === a.id ? (
+                    <ConfirmDialog
+                      message="Remover atividade?"
+                      onConfirm={() => { removeActivity(a.id); setConfirmDeleteId(null) }}
+                      onCancel={() => setConfirmDeleteId(null)}
+                    />
+                  ) : (
+                    <button onClick={() => setConfirmDeleteId(a.id)}
+                      className="text-gray-700 hover:text-red-400 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

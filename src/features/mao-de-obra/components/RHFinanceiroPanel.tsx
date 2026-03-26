@@ -102,6 +102,7 @@ export function RHFinanceiroPanel() {
   const [budgetCap, setBudgetCap] = useState<number>(100_000)
   const [editBudget, setEditBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState(String(budgetCap))
+  const [trendPeriod, setTrendPeriod] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal')
 
   const activeWorkers = workers.filter(w => w.status === 'active')
 
@@ -114,10 +115,11 @@ export function RHFinanceiroPanel() {
     return generateMonthPayroll(workers, shifts, cltSettings, currentMonth)
   }, [payrollHistory, currentMonth, workers, shifts, cltSettings])
 
-  // Last 6 months cost trend
+  // Cost trend data based on selected period
+  const trendMonthCount = trendPeriod === 'mensal' ? 6 : trendPeriod === 'trimestral' ? 8 : trendPeriod === 'semestral' ? 12 : 24
   const trendData = useMemo(() => {
     const months: string[] = []
-    for (let i = 5; i >= 0; i--) {
+    for (let i = trendMonthCount - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
     }
@@ -125,7 +127,12 @@ export function RHFinanceiroPanel() {
       const found = payrollHistory.find(p => p.month === m)
       return found?.totalEmployerCost ?? 0
     })
-  }, [payrollHistory, now])
+  }, [payrollHistory, now, trendMonthCount])
+
+  // Trend stats
+  const trendFirst = trendData.find(v => v > 0) ?? 0
+  const trendLast = [...trendData].reverse().find(v => v > 0) ?? 0
+  const trendChangePct = trendFirst > 0 ? Math.round(((trendLast - trendFirst) / trendFirst) * 100) : 0
 
   // Contract type breakdown
   const contractBreakdown = useMemo(() => {
@@ -334,12 +341,35 @@ export function RHFinanceiroPanel() {
       </div>
 
       {/* Cost trend chart */}
-      {trendData.some(v => v > 0) && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)] mb-3">Tendência de Custo RH (6 meses)</h3>
-          <TrendLineChart values={trendData} color="var(--color-accent)" />
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Tendência de Custo RH</h3>
+            {trendChangePct !== 0 && (
+              <span className={`text-xs font-semibold ${trendChangePct > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                {trendChangePct > 0 ? '▲' : '▼'} {Math.abs(trendChangePct)}%
+              </span>
+            )}
+          </div>
+          <div className="flex gap-1 p-0.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)]">
+            {(['mensal', 'trimestral', 'semestral', 'anual'] as const).map((p) => (
+              <button key={p} onClick={() => setTrendPeriod(p)}
+                className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                  trendPeriod === p ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+                }`}>
+                {p === 'mensal' ? '6m' : p === 'trimestral' ? '2a' : p === 'semestral' ? '3a' : '∞'}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+        {trendData.some(v => v > 0) ? (
+          <TrendLineChart values={trendData} color="var(--color-accent)" />
+        ) : (
+          <p className="text-sm text-[var(--color-text-muted)] text-center py-8">
+            Gere folhas de pagamento para visualizar a tendência.
+          </p>
+        )}
+      </div>
     </div>
   )
 }

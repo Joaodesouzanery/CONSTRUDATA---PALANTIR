@@ -474,6 +474,10 @@ export function AusenciasCalendarioPanel() {
             className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] transition-colors">
             Exportar CSV
           </button>
+          <button onClick={() => window.print()}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)] transition-colors">
+            PDF
+          </button>
         </div>
       </div>
 
@@ -572,6 +576,45 @@ export function AusenciasCalendarioPanel() {
           onClose={() => setSelectedDay(null)}
         />
       )}
+
+      {/* Print-only layout */}
+      <div className="hidden print:block mt-4">
+        <h1 className="text-lg font-bold mb-1">Relatório de Ausências</h1>
+        <p className="text-xs text-gray-500 mb-1">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
+        <div className="flex gap-6 text-xs mb-3">
+          <span>Total: <strong>{filteredAbsences.length}</strong></span>
+          <span>Atestado: <strong>{filteredAbsences.filter(a => a.type === 'sick_leave').length}</strong></span>
+          <span>Férias: <strong>{filteredAbsences.filter(a => a.type === 'vacation').length}</strong></span>
+          <span>Injustificadas: <strong>{filteredAbsences.filter(a => a.type === 'unjustified').length}</strong></span>
+          <span>Cobertas: <strong>{filteredAbsences.filter(a => a.status === 'covered').length}</strong></span>
+          <span>Descobertas: <strong>{filteredAbsences.filter(a => a.status === 'uncovered').length}</strong></span>
+        </div>
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              {['Data', 'Colaborador', 'Departamento', 'Tipo', 'Status', 'Substituto'].map((h) => (
+                <th key={h} className="border border-gray-400 px-2 py-1 text-left bg-gray-100">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAbsences.map((a, i) => {
+              const w = workerMap[a.workerId]
+              const sub = a.substituteWorkerId ? workerMap[a.substituteWorkerId]?.name ?? '—' : '—'
+              return (
+                <tr key={i}>
+                  <td className="border border-gray-300 px-2 py-1">{a.date}</td>
+                  <td className="border border-gray-300 px-2 py-1">{w?.name ?? a.workerId}</td>
+                  <td className="border border-gray-300 px-2 py-1">{w?.department ?? '—'}</td>
+                  <td className="border border-gray-300 px-2 py-1">{ABSENCE_LABELS[a.type]}</td>
+                  <td className="border border-gray-300 px-2 py-1">{a.status}</td>
+                  <td className="border border-gray-300 px-2 py-1">{sub}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

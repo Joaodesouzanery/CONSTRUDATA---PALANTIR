@@ -31,6 +31,7 @@ export const MOCK_TEAMS: PlanTeam[] = [
     caminhaoBasculante: 0,
     laborHourlyRateBRL:    45,
     equipmentDailyRateBRL: 800,
+    maxManualExcavDepthM:  1.5,
   },
   {
     id: 'team-02',
@@ -44,6 +45,7 @@ export const MOCK_TEAMS: PlanTeam[] = [
     caminhaoBasculante: 0,
     laborHourlyRateBRL:    45,
     equipmentDailyRateBRL: 800,
+    maxManualExcavDepthM:  1.5,
   },
 ]
 

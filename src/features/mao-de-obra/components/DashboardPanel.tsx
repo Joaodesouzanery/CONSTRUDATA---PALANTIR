@@ -1,15 +1,28 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore, getCertExpiringSoon } from '@/store/maoDeObraStore'
 
 // ─── Bar Chart — Planned HH vs Actual HH per day (last 7 days) ───────────────
 
-function HHBarChart({ timecards }: { timecards: import('@/types').TimecardEntry[] }) {
+function HHBarChart({ timecards, period }: { timecards: import('@/types').TimecardEntry[]; period: string }) {
   const days: Array<{ label: string; actual: number }> = []
 
-  for (let i = 6; i >= 0; i--) {
+  const periodDays = period === 'última semana' ? 7 : period === 'último mês' ? 30 : 30
+  const startDate = (() => {
     const d = new Date()
-    d.setDate(d.getDate() - i)
+    if (period === 'este mês') { d.setDate(1); return d.toISOString().slice(0, 10) }
+    d.setDate(d.getDate() - (periodDays - 1))
+    return d.toISOString().slice(0, 10)
+  })()
+
+  const displayDays = Math.min(periodDays, period === 'este mês' ? new Date().getDate() : periodDays)
+  for (let i = displayDays - 1; i >= 0; i--) {
+    const d = new Date()
+    if (period === 'este mês') {
+      d.setDate(new Date().getDate() - i)
+    } else {
+      d.setDate(d.getDate() - i)
+    }
     const iso = d.toISOString().slice(0, 10)
     const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
     const actual = timecards
@@ -17,6 +30,7 @@ function HHBarChart({ timecards }: { timecards: import('@/types').TimecardEntry[
       .reduce((sum, tc) => sum + tc.hoursWorked, 0)
     days.push({ label, actual })
   }
+  void startDate // used for filtering above
 
   // Planned HH per day (target: 8h × active workers in the day — use max observed as reference)
   const maxActual = Math.max(...days.map((d) => d.actual), 1)
@@ -188,12 +202,13 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
 // ─── New HR KPI cards ─────────────────────────────────────────────────────────
 
 function HRKpiCards() {
-  const { workers, shifts, absences, workPosts } = useMaoDeObraStore(
+  const { workers, shifts, absences, workPosts, timecards } = useMaoDeObraStore(
     useShallow((s) => ({
       workers:   s.workers,
       shifts:    s.shifts,
       absences:  s.absences,
       workPosts: s.workPosts,
+      timecards: s.timecards,
     }))
   )
 
@@ -226,16 +241,29 @@ function HRKpiCards() {
       return covered < p.minWorkers
     }).length
 
+    // Aderência HH: actual vs planned ratio this week
+    const weekTimecards = timecards?.filter((tc: import('@/types').TimecardEntry) => tc.date >= weekStart && tc.date <= today) ?? []
+    const actualHH = weekTimecards.reduce((s: number, tc: import('@/types').TimecardEntry) => s + tc.hoursWorked, 0)
+    const plannedHH = active * 5 * 8   // 5 work days × 8h
+    const adherencePct = plannedHH > 0 ? Math.round((actualHH / plannedHH) * 100) : 100
+
+    // Certificações OK: workers with no expired certs
+    const expiring = getCertExpiringSoon(workers, 0) // already expired
+    const certOkCount = total - new Set(expiring.map((e: { worker: { id: string } }) => e.worker.id)).size
+    const certOkPct = total > 0 ? Math.round((certOkCount / total) * 100) : 100
+
     return [
       { label: 'Total Colaboradores', value: `${active} / ${total}`, sub: 'ativos / total',    color: '#3b82f6' },
       { label: 'Faltas esta Semana',  value: String(faltasSemana),   sub: `${attendancePct}% presença`, color: faltasSemana === 0 ? '#22c55e' : faltasSemana <= 3 ? '#f59e0b' : '#ef4444' },
       { label: 'HE esta Semana',      value: `${heHours.toFixed(1)}h`, sub: `${heShifts.length} turno(s)`, color: heHours === 0 ? '#22c55e' : heHours <= 20 ? '#f59e0b' : '#ef4444' },
       { label: 'Postos Descobertos',  value: String(postosDesc),     sub: 'hoje',              color: postosDesc === 0 ? '#22c55e' : '#ef4444' },
+      { label: 'Aderência HH',        value: `${adherencePct}%`,     sub: `${actualHH.toFixed(0)}h / ${plannedHH}h planej.`, color: adherencePct >= 85 ? '#22c55e' : '#f59e0b' },
+      { label: 'Certificações OK',    value: `${certOkPct}%`,        sub: `${certOkCount} / ${total} funcionários`, color: certOkPct >= 90 ? '#22c55e' : certOkPct >= 70 ? '#f59e0b' : '#ef4444' },
     ]
-  }, [workers, shifts, absences, workPosts])
+  }, [workers, shifts, absences, workPosts, timecards])
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
       {kpis.map((kpi) => (
         <div key={kpi.label} className="bg-[#14294e] border border-[#20406a] rounded-xl px-4 py-3">
           <p className="text-[#6b6b6b] text-xs mb-1">{kpi.label}</p>
@@ -256,13 +284,42 @@ export function DashboardPanel() {
     useShallow((s) => ({ workers: s.workers, timecards: s.timecards, progress: s.progress }))
   )
 
+  const [period, setPeriod] = useState<'última semana' | 'último mês' | 'este mês'>('última semana')
+  const [filterDept, setFilterDept] = useState('')
+
+  const depts = useMemo(() => [...new Set(workers.map((w) => w.department).filter(Boolean))], [workers])
+
+  const filteredWorkers = useMemo(
+    () => filterDept ? workers.filter((w) => w.department === filterDept) : workers,
+    [workers, filterDept]
+  )
+
   return (
     <div className="flex flex-col gap-4">
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 p-1 rounded-lg bg-[#14294e] border border-[#20406a]">
+          {(['última semana', 'último mês', 'este mês'] as const).map((p) => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                period === p ? 'bg-orange-600 text-white' : 'text-[#a3a3a3] hover:text-white'
+              }`}>
+              {p}
+            </button>
+          ))}
+        </div>
+        <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)}
+          className="bg-[#14294e] border border-[#20406a] rounded-lg px-3 py-1.5 text-sm text-[#f5f5f5] focus:outline-none">
+          <option value="">Todos os departamentos</option>
+          {depts.map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
       <HRKpiCards />
-      <HHBarChart timecards={timecards} />
+      <HHBarChart timecards={timecards} period={period} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PhysicalProgressSummary progress={progress} />
-        <CertExpiryTable workers={workers} />
+        <CertExpiryTable workers={filteredWorkers} />
       </div>
     </div>
   )

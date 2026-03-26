@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { Printer } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
 import { payrollToCSV } from '@/features/mao-de-obra/utils/payrollEngine'
@@ -179,10 +180,16 @@ export function FolhaPagamentoPanel() {
             Gerar Folha
           </button>
           {currentPayroll && (
-            <button onClick={handleExportCSV}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] text-sm font-medium hover:bg-[var(--color-surface)] transition-colors">
-              Exportar CSV
-            </button>
+            <>
+              <button onClick={handleExportCSV}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] text-sm font-medium hover:bg-[var(--color-surface)] transition-colors">
+                Exportar CSV
+              </button>
+              <button onClick={() => window.print()}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] text-[var(--color-text-secondary)] text-sm font-medium hover:bg-[var(--color-surface)] transition-colors">
+                <Printer size={14} /> PDF
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -282,6 +289,54 @@ export function FolhaPagamentoPanel() {
             Clique em uma linha para expandir o detalhamento. Valores calculados com tabelas INSS/IRRF 2025.
           </p>
         </>
+      )}
+
+      {/* Print-only layout */}
+      {currentPayroll && (
+        <div className="hidden print:block mt-4">
+          <h1 className="text-lg font-bold mb-1">Folha de Pagamento — {monthLabel}</h1>
+          <p className="text-xs text-gray-500 mb-3">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                {['Funcionário', 'Cargo', 'Depto', 'H. Trab.', 'H. Extra', 'Ad. Not.', 'Bruto', 'INSS', 'IRRF', 'FGTS', 'Líquido'].map((h) => (
+                  <th key={h} className="border border-gray-400 px-1.5 py-1 text-left bg-gray-100">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {currentPayroll.payslips.map((p) => {
+                const worker = workers.find((w) => w.id === p.workerId)
+                const inss = p.deductions.find((d) => d.description?.includes('INSS'))?.amount ?? 0
+                const irrf = p.deductions.find((d) => d.description?.includes('IRRF'))?.amount ?? 0
+                const fgts = p.deductions.find((d) => !d.workerPays && d.description?.includes('FGTS'))?.amount ?? 0
+                return (
+                  <tr key={p.workerId}>
+                    <td className="border border-gray-300 px-1.5 py-1">{worker?.name ?? p.workerId}</td>
+                    <td className="border border-gray-300 px-1.5 py-1">{worker?.role ?? '—'}</td>
+                    <td className="border border-gray-300 px-1.5 py-1">{worker?.department ?? '—'}</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{p.hoursWorked.toFixed(0)}h</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{p.overtimeHours.toFixed(0)}h</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{p.nightHours.toFixed(0)}h</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{fmt(p.grossTotal)}</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{fmt(inss)}</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{fmt(irrf)}</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right">{fmt(fgts)}</td>
+                    <td className="border border-gray-300 px-1.5 py-1 text-right font-semibold">{fmt(p.netTotal)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold bg-gray-100">
+                <td colSpan={6} className="border border-gray-400 px-1.5 py-1">Total</td>
+                <td className="border border-gray-400 px-1.5 py-1 text-right">{fmt(currentPayroll.totalGross)}</td>
+                <td colSpan={3} className="border border-gray-400 px-1.5 py-1" />
+                <td className="border border-gray-400 px-1.5 py-1 text-right">{fmt(currentPayroll.totalNet)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
     </div>
   )

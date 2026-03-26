@@ -25,6 +25,8 @@ export function GanttPanel() {
     isScheduleDirty, runSchedule,
   } = usePlanejamentoStore()
 
+  const groupingMode = scheduleConfig.ganttGroupingMode ?? 'daily_segment'
+
   const totalMeters = trechos.reduce((s, t) => s + t.lengthM, 0)
 
   if (ganttRows.length === 0) {
@@ -97,7 +99,17 @@ export function GanttPanel() {
                   style={{ width: TRECHO_COL_W, minWidth: TRECHO_COL_W }}
                 >
                   <div className="text-xs font-medium text-white truncate">{row.trecho.code}</div>
-                  <div className="text-xs text-gray-400 truncate">{row.trecho.description}</div>
+                  {groupingMode === 'by_trecho' && (
+                    <div className="text-[10px] text-gray-500 truncate font-mono">{row.startDate} → {row.endDate}</div>
+                  )}
+                  {groupingMode === 'trecho_activity' && (
+                    <div className="text-[10px] text-gray-400 truncate">
+                      Esc. → Asst. → Reat. → Teste
+                    </div>
+                  )}
+                  {groupingMode === 'daily_segment' && (
+                    <div className="text-xs text-gray-400 truncate">{row.trecho.description}</div>
+                  )}
                   <div className="text-xs mt-0.5" style={{ color: colorLight }}>{teamName}</div>
                 </div>
 

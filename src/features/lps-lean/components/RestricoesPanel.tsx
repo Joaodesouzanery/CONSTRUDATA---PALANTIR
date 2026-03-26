@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Plus, Trash2, AlertTriangle, X } from 'lucide-react'
 import { useLpsStore } from '@/store/lpsStore'
 import type { LpsRestriction, LpsRestrictionCategory, LpsRestrictionStatus } from '@/types'
+import { ConfirmDialog } from './ConfirmDialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -65,11 +66,13 @@ export function RestricoesPanel() {
   const updateRestriction = useLpsStore((s) => s.updateRestriction)
   const removeRestriction = useLpsStore((s) => s.removeRestriction)
 
-  const [filter, setFilter]       = useState<FilterStatus>('all')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editId, setEditId]       = useState<string | null>(null)
-  const [form, setForm]           = useState(blankForm())
-  const [tagInput, setTagInput]   = useState('')
+  const [filter, setFilter]             = useState<FilterStatus>('all')
+  const [modalOpen, setModalOpen]       = useState(false)
+  const [editId, setEditId]             = useState<string | null>(null)
+  const [form, setForm]                 = useState(blankForm())
+  const [tagInput, setTagInput]         = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [pendingStatus, setPendingStatus] = useState<{ id: string; status: LpsRestrictionStatus } | null>(null)
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -227,30 +230,48 @@ export function RestricoesPanel() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <select
-                        value={r.status}
-                        onChange={(e) => {
-                          const s = e.target.value as LpsRestrictionStatus
-                          updateRestriction(r.id, {
-                            status: s,
-                            resolvedAt: s === 'resolvida' ? today : undefined,
-                          })
-                        }}
-                        className={`bg-transparent text-xs font-semibold border-none outline-none cursor-pointer ${STATUS_COLORS[r.status]}`}
-                      >
-                        {(Object.keys(STATUS_LABELS) as LpsRestrictionStatus[]).map((s) => (
-                          <option key={s} value={s} className="bg-gray-900 text-white">{STATUS_LABELS[s]}</option>
-                        ))}
-                      </select>
+                    <td className="px-4 py-3 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+                      {pendingStatus?.id === r.id ? (
+                        <ConfirmDialog
+                          message={`Alterar para ${STATUS_LABELS[pendingStatus.status]}?`}
+                          confirmLabel="Alterar"
+                          onConfirm={() => {
+                            updateRestriction(r.id, {
+                              status: pendingStatus.status,
+                              resolvedAt: pendingStatus.status === 'resolvida' ? today : undefined,
+                            })
+                            setPendingStatus(null)
+                          }}
+                          onCancel={() => setPendingStatus(null)}
+                          danger={false}
+                        />
+                      ) : (
+                        <select
+                          value={r.status}
+                          onChange={(e) => setPendingStatus({ id: r.id, status: e.target.value as LpsRestrictionStatus })}
+                          className={`bg-transparent text-xs font-semibold border-none outline-none cursor-pointer ${STATUS_COLORS[r.status]}`}
+                        >
+                          {(Object.keys(STATUS_LABELS) as LpsRestrictionStatus[]).map((s) => (
+                            <option key={s} value={s} className="bg-gray-900 text-white">{STATUS_LABELS[s]}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => removeRestriction(r.id)}
-                        className="text-gray-600 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <td className="px-4 py-3 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+                      {confirmDeleteId === r.id ? (
+                        <ConfirmDialog
+                          message="Remover restrição?"
+                          onConfirm={() => { removeRestriction(r.id); setConfirmDeleteId(null) }}
+                          onCancel={() => setConfirmDeleteId(null)}
+                        />
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(r.id)}
+                          className="text-gray-600 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )

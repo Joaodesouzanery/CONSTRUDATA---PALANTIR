@@ -17,7 +17,7 @@ export const workerSchema = z.object({
   role:           z.string().min(2, 'Função obrigatória').max(100),
   cpfMasked:      z.string().max(20).optional().default('***.***.***-**'),
   crewId:         z.string().min(1, 'Equipe obrigatória'),
-  status:         z.enum(['active', 'inactive', 'suspended']),
+  status:         z.enum(['active', 'inactive', 'suspended', 'pending_approval']),
   hourlyRate:     z.number().min(0).max(9999.99),
   certifications: z.array(workerCertificationSchema).max(20),
   biometricToken: z.string().max(128).optional(),

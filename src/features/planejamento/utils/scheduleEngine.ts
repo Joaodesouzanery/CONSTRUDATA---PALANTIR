@@ -87,15 +87,22 @@ export function buildProjectCalendar(
 /**
  * Returns the bottleneck productivity in m/day for a given trecho + team.
  * All concurrent activities limit throughput; the minimum is the constraint.
+ *
+ * If trecho.depthM > team.maxManualExcavDepthM, excavation is mechanical-only
+ * (retroescavadeira required). Mechanical mobilization reduces effective rate by 30%.
  */
 export function effectiveMPerDay(
   trecho: PlanTrecho,
   prod: PlanProductivityTable,
   teamRetroCount: number,
+  maxManualExcavDepthM = 1.5,
 ): number {
   const depth = Math.max(0.1, trecho.depthM) // prevent division by zero
 
-  const escMPerDay   = Math.max(1, prod.escavacao) * Math.max(1, teamRetroCount)
+  // If depth exceeds manual excavation limit, apply mechanical-only penalty (0.7×)
+  const depthPenalty = depth > maxManualExcavDepthM ? 0.7 : 1.0
+
+  const escMPerDay   = Math.max(1, prod.escavacao) * Math.max(1, teamRetroCount) * depthPenalty
   const asstMPerDay  = Math.max(1, prod.assentamento)
   const reatMPerDay  = Math.max(1, prod.reaterro) / (depth * SOIL_SWELL_FACTOR)
   const escorMPerDay = trecho.requiresShoring
@@ -161,7 +168,7 @@ export function generateSchedule(
     const teamIndex = ti % teams.length
     const team = teams[teamIndex]
 
-    const mPerDay = effectiveMPerDay(trecho, prod, team.retroescavadeira)
+    const mPerDay = effectiveMPerDay(trecho, prod, team.retroescavadeira, team.maxManualExcavDepthM ?? 1.5)
     const durationDays = Math.max(1, Math.ceil(trecho.lengthM / mPerDay))
     const delayExtra = delays
       .filter((d) => d.trechoCode === trecho.code)

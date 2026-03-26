@@ -82,9 +82,13 @@ interface PlanejamentoState {
   // Technical Rules
   technicalRules: TechnicalRule[]
 
+  // Project budget
+  projectBudget: number
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab: PlanejamentoTab) => void
+  setProjectBudget: (budget: number) => void
 
   // Trechos
   addTrecho:    (t: Omit<PlanTrecho, 'id'>) => void
@@ -161,9 +165,12 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
     { id: crypto.randomUUID(), name: 'Escoramento — restrição', condition: 'requiresShoring === true', productivityMultiplier: 0.75, costMultiplier: 1.25 },
   ],
 
+  projectBudget: 0,
+
   // ── Navigation ────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setProjectBudget: (budget) => set({ projectBudget: Math.max(0, budget) }),
 
   // ── Trechos ───────────────────────────────────────────────────────────────────
 
@@ -430,5 +437,6 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
       scurvePoints:      [],
       histogramPoints:   [],
       abcItems:          [],
+      projectBudget:     0,
     }),
 }))

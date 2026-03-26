@@ -10,9 +10,10 @@ interface Props {
 
 const CERT_TYPES = ['NR18', 'NR35', 'NR10', 'NR12', 'CIPA', 'ASO', 'Outro']
 const STATUS_OPTIONS: Array<{ value: import('@/types').WorkerStatus; label: string }> = [
-  { value: 'active',    label: 'Ativo' },
-  { value: 'inactive',  label: 'Inativo' },
-  { value: 'suspended', label: 'Suspenso' },
+  { value: 'active',           label: 'Ativo' },
+  { value: 'inactive',         label: 'Inativo' },
+  { value: 'suspended',        label: 'Suspenso' },
+  { value: 'pending_approval', label: 'Aguardando Aprovação' },
 ]
 
 const emptyForm: WorkerFormData = {

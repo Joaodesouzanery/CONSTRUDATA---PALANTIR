@@ -5,7 +5,7 @@
 import { useState, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, Users,
-  BarChart3, Calendar, Calculator, Database, ShieldAlert,
+  BarChart3, Calendar, Calculator, Database, ShieldAlert, Settings2,
 } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import type { PlanTeam, PlanProductivityTable, PlanScheduleConfig } from '@/types'
@@ -67,8 +67,16 @@ function NumInput({ label, value, onChange, min = 0, max, step = 1, unit }: {
 // ─── DadosSection ─────────────────────────────────────────────────────────────
 
 function DadosSection() {
-  const { trechos, importTrechosFromPlatform } = usePlanejamentoStore()
+  const { trechos, importTrechosFromPlatform, projectBudget, setProjectBudget } = usePlanejamentoStore()
   const totalMeters = trechos.reduce((s, t) => s + t.lengthM, 0)
+  const [budgetInput, setBudgetInput] = useState(String(projectBudget || ''))
+  const [editingBudget, setEditingBudget] = useState(false)
+
+  function saveBudget() {
+    const v = parseFloat(budgetInput.replace(',', '.'))
+    if (!isNaN(v)) setProjectBudget(v)
+    setEditingBudget(false)
+  }
 
   return (
     <Section title="Dados do Projeto" icon={Database}>
@@ -81,6 +89,30 @@ function DadosSection() {
           <div className="text-2xl font-bold text-orange-400">{totalMeters.toFixed(0)}</div>
           <div className="text-xs text-gray-400">Metros totais</div>
         </div>
+        <div className="flex-1 bg-gray-700/50 rounded-lg p-3 text-center">
+          {editingBudget ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                autoFocus
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveBudget(); if (e.key === 'Escape') setEditingBudget(false) }}
+                className="w-full bg-gray-600 border border-gray-500 rounded px-2 py-1 text-sm text-white text-center focus:outline-none"
+              />
+              <button onClick={saveBudget} className="text-orange-400 text-xs font-bold shrink-0">OK</button>
+            </div>
+          ) : (
+            <button onClick={() => { setBudgetInput(String(projectBudget)); setEditingBudget(true) }} className="w-full text-center hover:opacity-80 transition-opacity">
+              <div className="text-lg font-bold text-white">
+                {projectBudget > 0
+                  ? projectBudget.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                  : '—'}
+              </div>
+              <div className="text-xs text-gray-400">Orçamento total</div>
+            </button>
+          )}
+        </div>
       </div>
       <button
         onClick={importTrechosFromPlatform}
@@ -90,7 +122,7 @@ function DadosSection() {
         Carregar Trechos da Plataforma
       </button>
       <p className="text-xs text-gray-500 mt-2">
-        Importa itens da Pré-Construção com unidade ml/m como trechos de execução.
+        Importa itens da Pré-Construção com unidade ml/m como trechos de execução. Clique no orçamento para editar.
       </p>
     </Section>
   )
@@ -103,6 +135,7 @@ const DEFAULT_TEAM: Omit<PlanTeam, 'id'> = {
   foremanCount: 1, workerCount: 4, helperCount: 2, operatorCount: 1,
   retroescavadeira: 1, compactador: 1, caminhaoBasculante: 0,
   laborHourlyRateBRL: 45, equipmentDailyRateBRL: 800,
+  maxManualExcavDepthM: 1.5,
 }
 
 function EquipesSection() {
@@ -154,6 +187,17 @@ function EquipesSection() {
               <NumInput label="Equipamento (R$/dia)" value={team.equipmentDailyRateBRL} min={0} step={50}
                 onChange={(v) => updateTeam(team.id, { equipmentDailyRateBRL: v })} />
             </div>
+
+            <div className="text-xs text-gray-400 mt-3 mb-2 font-medium uppercase tracking-wide">Restrições de Escavação</div>
+            <NumInput
+              label="Prof. Máx. Escavação Manual (m)"
+              value={team.maxManualExcavDepthM ?? 1.5}
+              min={0.5} max={4.0} step={0.1} unit="m"
+              onChange={(v) => updateTeam(team.id, { maxManualExcavDepthM: v })}
+            />
+            <p className="text-[11px] text-gray-600 mt-1">
+              Trechos mais profundos recebem penalidade de 30% na taxa de escavação.
+            </p>
           </div>
         ))}
       </div>
@@ -219,6 +263,60 @@ function ProdutividadeSection() {
             ))}
           </tbody>
         </table>
+      </div>
+    </Section>
+  )
+}
+
+// ─── ParametrosProdutividadeSection ───────────────────────────────────────────
+
+function ParametrosProdutividadeSection() {
+  const { scheduleConfig, setScheduleConfig, productivityTable } = usePlanejamentoStore()
+
+  const bottleneck = Math.min(productivityTable.escavacao, productivityTable.assentamento)
+
+  function updateConfig(updates: Partial<typeof scheduleConfig>) {
+    setScheduleConfig({ ...scheduleConfig, ...updates })
+  }
+
+  return (
+    <Section title="Parâmetros de Produtividade" icon={Settings2}>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-400">Modo de Agrupamento do Gantt</label>
+          <select
+            value={scheduleConfig.ganttGroupingMode ?? 'daily_segment'}
+            onChange={(e) => updateConfig({ ganttGroupingMode: e.target.value as 'daily_segment' | 'by_trecho' | 'trecho_activity' })}
+            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+          >
+            <option value="daily_segment">Por segmento diário</option>
+            <option value="by_trecho">Por Trecho (completo)</option>
+            <option value="trecho_activity">Por Trecho + Atividade (ciclo completo)</option>
+          </select>
+          <p className="text-[11px] text-gray-600">Define como as linhas do Gantt são agrupadas e rotuladas.</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => updateConfig({ groupByProximity: !(scheduleConfig.groupByProximity ?? false) })}
+            className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${scheduleConfig.groupByProximity ? 'bg-orange-500' : 'bg-gray-600'}`}
+          >
+            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${scheduleConfig.groupByProximity ? 'translate-x-5' : 'translate-x-0.5'}`} />
+          </button>
+          <div>
+            <span className="text-sm text-gray-300">Agrupar Trechos por Proximidade</span>
+            <p className="text-[11px] text-gray-500">Agrupa trechos próximos para otimizar a execução sequencial.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-gray-700/40 border border-gray-600">
+          <BarChart3 size={16} className="text-orange-400 shrink-0" />
+          <div>
+            <div className="text-xs text-gray-400">Gargalo atual de produção</div>
+            <div className="text-base font-bold text-orange-400">{bottleneck} m/dia</div>
+            <div className="text-[11px] text-gray-500">min(escavação, assentamento) — ajuste na aba Produtividade</div>
+          </div>
+        </div>
       </div>
     </Section>
   )
@@ -505,6 +603,7 @@ export function ConfigPanel() {
       <DadosSection />
       <EquipesSection />
       <ProdutividadeSection />
+      <ParametrosProdutividadeSection />
       <PeriodoSection />
       <TechnicalRulesSection />
       <CalculadoraSection />

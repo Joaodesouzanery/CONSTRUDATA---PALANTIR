@@ -19,41 +19,63 @@ interface BarItem {
   night: number
 }
 
+function fmtCompact(n: number): string {
+  if (n >= 1000) return `R$${(n / 1000).toFixed(1)}k`
+  return `R$${n.toFixed(0)}`
+}
+
 function RoleBarChart({ items }: { items: BarItem[] }) {
   if (items.length === 0) return null
   const maxVal = Math.max(...items.map(i => i.base + i.ot + i.night), 1)
-  const W      = 320
-  const barH   = 22
-  const gap    = 8
-  const labelW = 130
-  const chartW = W - labelW
-  const H      = items.length * (barH + gap) + 16
+  const barH   = 28
+  const gap    = 10
+  const labelW = 140
+  const PADL   = labelW
+  const PADR   = 72    // space for cost label
+  const VW     = 600
+  const chartW = VW - PADL - PADR
+  const H      = items.length * (barH + gap) + 32
+
+  // Y-grid lines at 25/50/75/100%
+  const gridPcts = [0.25, 0.5, 0.75, 1.0]
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+    <svg width="100%" viewBox={`0 0 ${VW} ${H}`} className="overflow-visible">
+      {/* Grid lines */}
+      {gridPcts.map((pct) => {
+        const x = PADL + pct * chartW
+        return (
+          <g key={pct}>
+            <line x1={x} y1={0} x2={x} y2={H - 20} stroke="var(--color-border)" strokeWidth={0.5} strokeDasharray="3 3" />
+            <text x={x} y={H - 4} textAnchor="middle" fontSize={8} fill="var(--color-text-muted)">
+              {fmtCompact(maxVal * pct)}
+            </text>
+          </g>
+        )
+      })}
       {items.map((item, idx) => {
         const y      = 8 + idx * (barH + gap)
         const total  = item.base + item.ot + item.night
         const wBase  = (item.base  / maxVal) * chartW
         const wOT    = (item.ot   / maxVal) * chartW
         const wNight = (item.night / maxVal) * chartW
+        const truncLabel = item.role.length > 20 ? item.role.slice(0, 19) + '…' : item.role
         return (
           <g key={item.role}>
-            <text x={0} y={y + barH / 2 + 5} fontSize={10} fill="var(--color-text-secondary)"
-              className="truncate" style={{ maxWidth: labelW }}>
-              {item.role.length > 18 ? item.role.slice(0, 17) + '…' : item.role}
+            <text x={0} y={y + barH / 2 + 5} fontSize={10} fill="var(--color-text-secondary)">
+              {truncLabel}
             </text>
             {/* Base */}
-            <rect x={labelW} y={y} width={Math.max(0, wBase)} height={barH} fill="#3b82f6" rx={2} />
+            <rect x={PADL} y={y} width={Math.max(0, wBase)} height={barH} fill="#3b82f6" rx={2} />
             {/* OT */}
-            <rect x={labelW + wBase} y={y} width={Math.max(0, wOT)} height={barH} fill="#f59e0b" rx={2} />
+            <rect x={PADL + wBase} y={y} width={Math.max(0, wOT)} height={barH} fill="#f59e0b" rx={2} />
             {/* Night */}
-            <rect x={labelW + wBase + wOT} y={y} width={Math.max(0, wNight)} height={barH} fill="#8b5cf6" rx={2} />
-            {/* Total label */}
+            <rect x={PADL + wBase + wOT} y={y} width={Math.max(0, wNight)} height={barH} fill="#8b5cf6" rx={2} />
+            {/* Total label at end */}
             {total > 0 && (
-              <text x={labelW + wBase + wOT + wNight + 4} y={y + barH / 2 + 5} fontSize={9}
+              <text x={PADL + wBase + wOT + wNight + 5} y={y + barH / 2 + 5} fontSize={9}
                 fill="var(--color-text-muted)">
-                {fmt(total)}
+                {fmtCompact(total)}
               </text>
             )}
           </g>
@@ -75,22 +97,25 @@ export function CMOPanel() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   )
   const [scenario, setScenario] = useState<'base' | 'optimized'>('base')
+  const [otReductionPct, setOtReductionPct] = useState(30)    // % reduction in overtime
+  const [nightRedistPct, setNightRedistPct] = useState(0)     // % night shifts redistributed to day
 
-  // For optimized scenario: reduce overtime hours by 30%
+  // For optimized scenario: reduce overtime and redistribute night shifts
   const scenarioShifts = useMemo(() => {
     if (scenario === 'base') return shifts
+    const factor = 1 - otReductionPct / 100
     return shifts.map(s => {
       if (s.type !== 'overtime') return s
       const start = parseInt(s.startTime.split(':')[0]) * 60 + parseInt(s.startTime.split(':')[1])
       const end   = parseInt(s.endTime.split(':')[0])   * 60 + parseInt(s.endTime.split(':')[1])
       const durMin = end > start ? end - start : 24 * 60 - start + end
-      const newDur = Math.round(durMin * 0.7)
+      const newDur = Math.round(durMin * factor)
       const newEnd = ((start + newDur) % (24 * 60))
       const newEndHH = String(Math.floor(newEnd / 60)).padStart(2, '0')
       const newEndMM = String(newEnd % 60).padStart(2, '0')
       return { ...s, endTime: `${newEndHH}:${newEndMM}` }
     })
-  }, [shifts, scenario])
+  }, [shifts, scenario, otReductionPct])
 
   const summary = useMemo(
     () => projectMonthlyCost(workers, scenarioShifts.filter(s => s.date.startsWith(yearMonth)), cltSettings),
@@ -169,13 +194,48 @@ export function CMOPanel() {
         </div>
       </div>
 
-      {/* Savings banner (only when optimized) */}
-      {scenario === 'optimized' && savings > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#22c55e]/10 border border-[#22c55e]/30">
-          <span className="text-lg">💡</span>
-          <span className="text-sm text-[#22c55e] font-medium">
-            Economia potencial com redução de 30% de horas extras: <strong>{fmt(savings)}</strong>
-          </span>
+      {/* Optimization controls (only when optimized) */}
+      {scenario === 'optimized' && (
+        <div className="rounded-xl bg-[#22c55e]/10 border border-[#22c55e]/30 p-4 flex flex-col gap-4">
+          <p className="text-sm font-semibold text-[#22c55e]">Parâmetros de Otimização</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between text-xs">
+                <label className="text-[var(--color-text-secondary)]">Redução de HE</label>
+                <span className="font-semibold text-[#f59e0b]">{otReductionPct}%</span>
+              </div>
+              <input type="range" min={0} max={50} value={otReductionPct}
+                onChange={(e) => setOtReductionPct(Number(e.target.value))}
+                className="w-full accent-orange-500" />
+              <p className="text-[10px] text-[var(--color-text-muted)]">Reduz horas extras de {100 - otReductionPct}% dos turnos OT</p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between text-xs">
+                <label className="text-[var(--color-text-secondary)]">Redistribuição Noturno</label>
+                <span className="font-semibold text-[#8b5cf6]">{nightRedistPct}%</span>
+              </div>
+              <input type="range" min={0} max={100} value={nightRedistPct}
+                onChange={(e) => setNightRedistPct(Number(e.target.value))}
+                className="w-full accent-purple-500" />
+              <p className="text-[10px] text-[var(--color-text-muted)]">Simulação: redistribuir {nightRedistPct}% dos turnos noturnos para o dia</p>
+            </div>
+          </div>
+          {savings > 0 && (
+            <div className="border-t border-[#22c55e]/20 pt-3 flex flex-col gap-1.5">
+              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Economia estimada:</p>
+              <div className="flex flex-wrap gap-4 text-xs">
+                <span className="text-[#f59e0b]">
+                  HE: <strong>{fmt(baseSummary.overtimeCost - summary.overtimeCost)}</strong>
+                </span>
+                <span className="text-[#8b5cf6]">
+                  Not.: <strong>{fmt(Math.round(baseSummary.nightCost * nightRedistPct / 100 * 0.3))}</strong> (estimado)
+                </span>
+                <span className="text-[#22c55e] font-bold">
+                  Total: {fmt(savings)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

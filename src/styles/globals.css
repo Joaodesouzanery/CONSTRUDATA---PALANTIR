@@ -160,7 +160,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2c8d0; }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #2abfdc; }
 
-/* Light mode overrides for Tailwind gray classes (mapa/bim panels) */
+/* Light mode overrides for Tailwind gray classes (mapa/bim/lps panels) */
+[data-theme="light"] .bg-gray-700  { background-color: #f3f4f6 !important; }
 [data-theme="light"] .bg-gray-800  { background-color: #f9fafb !important; }
 [data-theme="light"] .bg-gray-900  { background-color: #f3f4f6 !important; }
 [data-theme="light"] .bg-gray-950  { background-color: #e5e7eb !important; }
@@ -168,10 +169,27 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] .text-gray-200 { color: #1f2937 !important; }
 [data-theme="light"] .text-gray-300 { color: #374151 !important; }
 [data-theme="light"] .text-gray-400 { color: #4b5563 !important; }
+[data-theme="light"] .text-gray-500 { color: #6b7280 !important; }
+[data-theme="light"] .text-gray-600 { color: #4b5563 !important; }
+[data-theme="light"] .text-gray-700 { color: #374151 !important; }
+[data-theme="light"] .border-gray-600 { border-color: #d1d5db !important; }
 [data-theme="light"] .border-gray-700 { border-color: #d1d5db !important; }
 [data-theme="light"] .border-gray-800 { border-color: #e5e7eb !important; }
 [data-theme="light"] .divide-gray-700 > * + * { border-color: #d1d5db !important; }
 [data-theme="light"] .divide-gray-800 > * + * { border-color: #e5e7eb !important; }
+/* Mão de Obra: #1e1e1e used in table row borders */
+[data-theme="light"] .bg-\[\#1e1e1e\]     { background-color: #f0f2f5 !important; }
+[data-theme="light"] .border-\[\#1e1e1e\] { border-color: #d4d8df !important; }
+/* LPS/Lean: opacity-variant gray classes not covered by solid overrides */
+[data-theme="light"] .bg-gray-800\/80  { background-color: #f0f2f5 !important; }
+[data-theme="light"] .bg-gray-800\/60  { background-color: #f3f4f6 !important; }
+[data-theme="light"] .bg-gray-800\/50  { background-color: #f3f4f6 !important; }
+[data-theme="light"] .bg-gray-800\/30  { background-color: #f8f9fa !important; }
+[data-theme="light"] .bg-gray-700\/40  { background-color: #f3f4f6 !important; }
+[data-theme="light"] .bg-gray-700\/60  { background-color: #f0f2f5 !important; }
+[data-theme="light"] .hover\:bg-gray-800\/70:hover { background-color: #eceeef !important; }
+[data-theme="light"] .bg-gray-900\/10  { background-color: rgba(249,250,251,0.5) !important; }
+[data-theme="light"] .bg-gray-900\/50  { background-color: #f3f4f6 !important; }
 
 /* ─── Dark Mode Overrides ───────────────────────────────────────────────────── */
 /* Modules using bg-white/bg-gray-50 etc need dark equivalents in dark mode.    */

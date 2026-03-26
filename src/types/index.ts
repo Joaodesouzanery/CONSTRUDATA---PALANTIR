@@ -516,7 +516,7 @@ export interface FrameworkAgreement {
 
 // ─── Mão de Obra ──────────────────────────────────────────────────────────────
 
-export type WorkerStatus   = 'active' | 'inactive' | 'suspended'
+export type WorkerStatus   = 'active' | 'inactive' | 'suspended' | 'pending_approval'
 export type CertStatus     = 'valid' | 'expiring' | 'expired'
 export type OccurrenceType = 'weather' | 'material_delay' | 'equipment_failure' | 'holiday' | 'accident' | 'other'
 
@@ -1018,6 +1018,7 @@ export interface PlanTeam {
   caminhaoBasculante: number
   laborHourlyRateBRL: number
   equipmentDailyRateBRL: number
+  maxManualExcavDepthM: number   // depth above which excavation is mechanical-only (default 1.5m)
 }
 
 export interface PlanProductivityTable {
@@ -1033,6 +1034,8 @@ export interface PlanScheduleConfig {
   workHoursPerDay: number
   workWeekMode: WorkWeekMode
   targetEndDate?: string   // yyyy-MM-dd — optional target for forecast comparison
+  ganttGroupingMode?: 'daily_segment' | 'by_trecho' | 'trecho_activity'  // default 'daily_segment'
+  groupByProximity?: boolean  // group nearby trechos for sequential execution
 }
 
 export interface TechnicalRule {
@@ -1103,6 +1106,9 @@ export interface ServiceNote {
   body: string             // plain text — no HTML
   createdAt: string
   createdBy: string
+  priority?: 'alta' | 'media' | 'baixa'
+  status?: 'pendente' | 'em_andamento' | 'concluida'
+  responsavel?: string
 }
 
 export interface PlanScenario {
