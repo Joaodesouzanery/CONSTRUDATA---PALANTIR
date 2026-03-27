@@ -28,7 +28,7 @@ export function GridLayerPanel() {
   }
 
   return (
-    <div className="w-48 shrink-0 bg-[#0d2040] border-r border-[#20406a] flex flex-col overflow-y-auto">
+    <div className="hidden md:flex w-48 shrink-0 bg-[#0d2040] border-r border-[#20406a] flex-col overflow-y-auto">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-[#20406a] flex items-center justify-between">
         <span className="text-[#8fb3c8] text-xs font-semibold uppercase tracking-wider">Camadas</span>

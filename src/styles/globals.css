@@ -215,7 +215,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* ─── Mobile Optimizations ──────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .leaflet-container {
-    min-height: 300px !important;
+    min-height: 350px !important;
+    height: calc(100dvh - 112px) !important;
   }
 }
 
@@ -228,6 +229,17 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background-color: #f0f4f8 !important;
   border-color: #d1dde8 !important;
 }
+
+/* Sprint 15/16 new components light mode overrides */
+[data-theme="light"] .bg-\[\#0a1628\] { background-color: #e8f2f8 !important; }
+[data-theme="light"] .bg-\[\#0d2040\] { background-color: #f0f6fc !important; }
+[data-theme="light"] .bg-\[\#112645\] { background-color: #f5f9fd !important; }
+[data-theme="light"] .bg-\[\#14294e\] { background-color: #ffffff !important; }
+[data-theme="light"] .border-\[\#20406a\] { border-color: #c8dce8 !important; }
+[data-theme="light"] .text-\[\#f5f5f5\] { color: #0d2040 !important; }
+[data-theme="light"] .text-\[\#8fb3c8\] { color: #2a5f7a !important; }
+[data-theme="light"] .text-\[\#6b6b6b\] { color: #5a7a8a !important; }
+[data-theme="light"] .text-\[\#2abfdc\] { color: #0088aa !important; }
 
 /* Landing page sections always render in their intended colors (not overridden by dark mode) */
 /* These selectors target the AllModulesGrid dark background which is intentional on landing */

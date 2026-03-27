@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { LandingHeader } from './components/LandingHeader'
 import { HeroSection } from './components/HeroSection'
 import { OntologiaSection } from './components/OntologiaSection'
@@ -8,8 +9,26 @@ import { FooterCTA } from './components/FooterCTA'
 import { ContactForm } from './components/ContactForm'
 
 export function LandingPage() {
+  // Force dark theme so the app's light-mode toggle doesn't bleed into the landing page
+  useEffect(() => {
+    const html = document.documentElement
+    const prev = html.getAttribute('data-theme')
+    html.setAttribute('data-theme', 'dark')
+    return () => {
+      if (prev) html.setAttribute('data-theme', prev)
+      else html.removeAttribute('data-theme')
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen font-sans antialiased" style={{ background: '#fff', color: '#111' }}>
+    <div
+      className="min-h-screen antialiased"
+      style={{
+        background: '#08090d',
+        color: '#f4f5f7',
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
       <LandingHeader />
       <HeroSection />
       <OntologiaSection />
@@ -18,11 +37,10 @@ export function LandingPage() {
       <AllModulesGrid />
       <FooterCTA />
       <ContactForm />
-      {/* Footer */}
-      <footer className="bg-[#0a1628] border-t border-white/10 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-white/40 text-sm">© 2026 Atlântico Platform. Todos os direitos reservados.</span>
-          <span className="text-white/40 text-sm">Construção &amp; Saneamento · Plataforma SaaS</span>
+      <footer style={{ background: '#0e1117', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-8">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span className="text-white/30 text-xs tracking-wide">© 2026 ATLÂNTICO PLATFORM</span>
+          <span className="text-white/20 text-xs tracking-wide">CONSTRUÇÃO · SANEAMENTO · INFRAESTRUTURA</span>
         </div>
       </footer>
     </div>

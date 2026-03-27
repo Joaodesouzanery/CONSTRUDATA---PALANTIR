@@ -1,22 +1,33 @@
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
-import { ArrowRight } from 'lucide-react'
 
 export function FooterCTA() {
   return (
-    <section className="py-24 bg-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-          Construa com Inteligência
+    <section style={{ background: '#08090d', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+      <div className="max-w-4xl mx-auto px-6 text-center">
+        <div className="flex items-center justify-center gap-3 mb-12">
+          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/20 text-xs uppercase font-mono">Próximo Passo</span>
+          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        </div>
+
+        <h2
+          style={{
+            fontFamily: "'Space Grotesk', sans-serif",
+            fontWeight: 700,
+            fontSize: 'clamp(2rem, 5vw, 4.5rem)',
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
+          }}
+          className="text-white mb-6"
+        >
+          Construa com Inteligência.
         </h2>
-        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
+
+        <p className="text-white/35 text-lg mb-12 max-w-xl mx-auto">
           Construa o futuro com a inteligência e a precisão da Atlântico.
         </p>
-        <FlowHoverButton
-          variant="light"
-          href="#contato"
-          className="mx-auto text-base px-8 py-4"
-        >
-          <ArrowRight size={18} />
+
+        <FlowHoverButton variant="accent" href="#contato" className="text-sm px-8 py-3">
           Agendar uma Demonstração Técnica Gratuita
         </FlowHoverButton>
       </div>

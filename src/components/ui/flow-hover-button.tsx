@@ -4,36 +4,36 @@ import React from 'react'
 interface FlowHoverButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: React.ReactNode
   children?: React.ReactNode
-  variant?: 'dark' | 'light'
-  as?: 'button' | 'a'
+  variant?: 'accent' | 'ghost' | 'white'
   href?: string
 }
 
 export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
   icon,
   children,
-  variant = 'dark',
+  variant = 'accent',
   className,
-  as: Tag = 'button',
   href,
   ...props
 }) => {
   const base = cn(
-    `relative cursor-pointer z-0 flex items-center justify-center gap-2 overflow-hidden rounded-lg
-    px-6 py-3 font-semibold text-sm transition-all duration-500
+    `relative cursor-pointer z-0 inline-flex items-center justify-center gap-2 overflow-hidden
+    px-6 py-2.5 font-semibold text-sm tracking-wide transition-all duration-300
     before:absolute before:inset-0 before:-z-10 before:translate-x-[150%] before:translate-y-[150%] before:scale-[2.5]
-    before:rounded-[100%] before:transition-transform before:duration-1000 before:content-[""]
-    hover:scale-105 hover:before:translate-x-[0%] hover:before:translate-y-[0%] active:scale-95`,
-    variant === 'dark'
-      ? 'border border-[#2abfdc] bg-[#0a1628] text-[#2abfdc] before:bg-[#2abfdc] hover:text-[#0a1628]'
-      : 'border border-[#0a1628] bg-white text-[#0a1628] before:bg-[#0a1628] hover:text-white',
+    before:rounded-[100%] before:transition-transform before:duration-700 before:content-[""]
+    hover:before:translate-x-[0%] hover:before:translate-y-[0%] active:scale-95`,
+    variant === 'accent'
+      ? 'border border-[#2abfdc] text-[#2abfdc] before:bg-[#2abfdc] hover:text-black'
+      : variant === 'white'
+      ? 'border border-white/30 text-white before:bg-white hover:text-black'
+      : 'border border-white/15 text-white/70 before:bg-white/10 hover:text-white hover:border-white/30',
     className
   )
 
   if (href) {
     return (
       <a href={href} className={base}>
-        {icon}
+        {icon && <span className="shrink-0">{icon}</span>}
         <span>{children}</span>
       </a>
     )
@@ -41,7 +41,7 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
 
   return (
     <button className={base} {...props}>
-      {icon}
+      {icon && <span className="shrink-0">{icon}</span>}
       <span>{children}</span>
     </button>
   )

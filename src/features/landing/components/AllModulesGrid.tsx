@@ -1,59 +1,82 @@
 import {
   BarChart3, Calendar, Truck, Building2, Monitor, Map, HardHat,
   Package, Users, ListChecks, ClipboardList, FileText, Calculator,
-  Box, Car, Layers3
+  Box, Car, Layers3, type LucideIcon
 } from 'lucide-react'
 
-const ALL_MODULES = [
-  { icon: BarChart3, name: 'Relatório 360', desc: 'Dashboard executivo 360° de portfólio com curva-S, alertas RAG e KPIs em tempo real.', color: '#2abfdc' },
-  { icon: Calendar, name: 'Agenda / Cronograma', desc: 'Calendário de marcos e prazos com detecção automática de conflitos e exportação iCal.', color: '#38bdf8' },
-  { icon: Truck, name: 'Equipamentos', desc: 'Catálogo, alocação por projeto e manutenção preventiva com alertas automáticos.', color: '#f97316' },
-  { icon: Building2, name: 'Projetos', desc: 'Gestão completa do ciclo de vida com registro de projeto, fases, BIM e controle de demandas.', color: '#a78bfa' },
-  { icon: Monitor, name: 'Torre de Controle', desc: 'Visão "war room" multiportfólio com CPI, SPI, ações em aberto e drill-down de projetos.', color: '#ef4444' },
-  { icon: Map, name: 'Mapa Interativo', desc: 'Editor GIS de redes de infraestrutura com importação UTM, perfil 3D e análise de custo por trecho.', color: '#22c55e' },
-  { icon: HardHat, name: 'Pré-Construção', desc: 'Due diligence, sondagens geotécnicas, licenças ambientais e viabilidade de projeto.', color: '#eab308' },
-  { icon: Package, name: 'Suprimentos', desc: 'PO, GRN e NF com Three-Way Match automatizado e scorecard de fornecedores por IA.', color: '#2abfdc' },
-  { icon: Users, name: 'Mão de Obra', desc: 'Registro CLT/temporário, alocação diária, alertas de NR e geração de holerite PDF.', color: '#38bdf8' },
-  { icon: ListChecks, name: 'Planejamento', desc: 'CPM/Gantt, curva-S, simulação de atrasos e análise ABC por custo de trecho.', color: '#a78bfa' },
-  { icon: ClipboardList, name: 'LPS / Lean', desc: 'Last Planner System com look-ahead 6 semanas, PPC semanal e registro de restrições.', color: '#22c55e' },
-  { icon: FileText, name: 'RDO', desc: 'Relatório Diário de Obra digital com RDO, financeiro, integração e exportação PDF.', color: '#f97316' },
-  { icon: Calculator, name: 'Quantitativos', desc: 'BOQ com base SINAPI/SEINFRA, BDI, resumo de custos e exportação Excel/CSV.', color: '#eab308' },
-  { icon: Box, name: 'BIM 3D/4D/5D', desc: 'Visualizador BIM standalone com simulação temporal, heatmap de custos e controle de camadas.', color: '#2abfdc' },
-  { icon: Car, name: 'Frota', desc: 'Frota própria e alugada: log de viagens, consumo de combustível e manutenção preventiva.', color: '#38bdf8' },
-  { icon: Layers3, name: 'Gestão 360', desc: 'JobCosting EVM, Ordens de Mudança, Centro de Comando e Simulação de Atrasos what-if.', color: '#a78bfa' },
+const MODULES: { icon: LucideIcon; name: string; desc: string; cat: string }[] = [
+  { icon: BarChart3, name: 'Relatório 360', desc: 'Dashboard executivo 360° com curva-S, alertas RAG e KPIs em tempo real.', cat: 'Visibilidade' },
+  { icon: Calendar, name: 'Agenda / Cronograma', desc: 'Calendário de marcos com detecção automática de conflitos e exportação iCal/PDF.', cat: 'Planejamento' },
+  { icon: Truck, name: 'Equipamentos', desc: 'Catálogo, alocação por projeto e manutenção preventiva com alertas automáticos.', cat: 'Recursos' },
+  { icon: Building2, name: 'Projetos (BIM)', desc: 'Ciclo de vida completo com BIM 3D/4D/5D, fases de execução e orçamento.', cat: 'BIM' },
+  { icon: Monitor, name: 'Torre de Controle', desc: 'Visão multiportfólio com CPI, SPI, ações em aberto e drill-down por projeto.', cat: 'Gestão' },
+  { icon: Map, name: 'Mapa Interativo', desc: 'Editor GIS com importação UTM, perfil 3D, análise de custo por trecho.', cat: 'GIS' },
+  { icon: HardHat, name: 'Pré-Construção', desc: 'Due diligence, sondagens geotécnicas, licenças ambientais e viabilidade.', cat: 'Planejamento' },
+  { icon: Package, name: 'Suprimentos', desc: 'Three-Way Match automatizado PO × GRN × NF com scorecard de fornecedores.', cat: 'Suprimentos' },
+  { icon: Users, name: 'Mão de Obra', desc: 'Registro CLT/temporário, alocação diária, alertas de NR e geração de holerite.', cat: 'Recursos' },
+  { icon: ListChecks, name: 'Planejamento', desc: 'CPM/Gantt, curva-S, simulação de atrasos what-if e análise ABC.', cat: 'Planejamento' },
+  { icon: ClipboardList, name: 'LPS / Lean', desc: 'Last Planner System com look-ahead 6 semanas, PPC semanal e restrições.', cat: 'Lean' },
+  { icon: FileText, name: 'RDO', desc: 'Relatório Diário de Obra digital com IA preditiva, financeiro e PDF.', cat: 'Campo' },
+  { icon: Calculator, name: 'Quantitativos', desc: 'BOQ com base SINAPI/SEINFRA, BDI configurável e exportação Excel/CSV.', cat: 'Orçamento' },
+  { icon: Box, name: 'BIM 3D/4D/5D', desc: 'Visualizador BIM standalone com simulação temporal e heatmap de custos.', cat: 'BIM' },
+  { icon: Car, name: 'Frota', desc: 'Frota própria e alugada com log de viagens, combustível e manutenção preventiva.', cat: 'Recursos' },
+  { icon: Layers3, name: 'Gestão 360', desc: 'JobCosting EVM, Ordens de Mudança, Centro de Comando e Simulação de Atrasos.', cat: 'Gestão' },
 ]
 
 export function AllModulesGrid() {
   return (
-    <section className="py-24 bg-[#0a1628]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <p className="text-[#2abfdc] text-sm font-semibold tracking-wide uppercase mb-3">Visão Completa</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-            Todos os Módulos da Plataforma Atlântico
-          </h2>
-          <p className="text-white/60 text-lg max-w-2xl mx-auto">
-            16 módulos integrados para cobrir todo o ciclo de vida de projetos de construção e saneamento.
-          </p>
+    <section style={{ background: '#0e1117', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+      <div className="max-w-7xl mx-auto px-6">
+        {/* Section label */}
+        <div className="flex items-center gap-3 mb-16">
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/25 text-xs uppercase font-mono">10 / Todos os Módulos</span>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {ALL_MODULES.map(({ icon: Icon, name, desc, color }) => (
-            <div
-              key={name}
-              className="bg-white/5 rounded-xl border border-white/10 p-5 hover:bg-white/10 hover:border-white/20 transition-all duration-200 group"
-            >
-              <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center mb-3"
-                style={{ background: `${color}22`, border: `1px solid ${color}44` }}
-              >
-                <Icon size={18} style={{ color }} />
-              </div>
-              <h3 className="text-white font-semibold mb-1.5 text-sm">{name}</h3>
-              <p className="text-white/50 text-xs leading-relaxed">{desc}</p>
-            </div>
-          ))}
+        <div className="grid lg:grid-cols-2 gap-x-16 mb-16">
+          <h2
+            style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontWeight: 700,
+              fontSize: 'clamp(1.6rem, 3vw, 2.5rem)',
+              lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+            }}
+            className="text-white"
+          >
+            Plataforma Completa para Construção e Saneamento
+          </h2>
         </div>
+
+        {/* Table header */}
+        <div className="grid grid-cols-12 gap-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="col-span-1" />
+          <div className="col-span-4 text-white/25 text-xs uppercase tracking-widest">Módulo</div>
+          <div className="col-span-5 text-white/25 text-xs uppercase tracking-widest hidden md:block">Descrição</div>
+          <div className="col-span-2 text-white/25 text-xs uppercase tracking-widest hidden lg:block">Categoria</div>
+        </div>
+
+        {/* Table rows */}
+        {MODULES.map(({ icon: Icon, name, desc, cat }) => (
+          <div
+            key={name}
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+            className="grid grid-cols-12 gap-4 py-4 hover:bg-white/[0.02] transition-colors group cursor-default"
+          >
+            <div className="col-span-1 flex items-center">
+              <Icon size={14} className="text-white/20 group-hover:text-[#2abfdc] transition-colors" />
+            </div>
+            <div className="col-span-4 md:col-span-4 flex items-center">
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/70 text-sm font-medium group-hover:text-white transition-colors">{name}</span>
+            </div>
+            <div className="col-span-12 md:col-span-5 flex items-center pl-5 md:pl-0">
+              <span className="text-white/35 text-xs leading-relaxed">{desc}</span>
+            </div>
+            <div className="hidden lg:flex col-span-2 items-center">
+              <span style={{ border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.06em' }} className="text-white/25 text-xs uppercase px-2 py-0.5">{cat}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )
