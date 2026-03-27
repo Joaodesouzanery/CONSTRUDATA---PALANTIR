@@ -15,8 +15,8 @@ interface FeatureData {
 function SectionDivider({ num, tag }: { num: string; tag: string }) {
   return (
     <div className="flex items-center gap-3 mb-16">
-      <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/25 text-xs uppercase font-mono">{num} / {tag}</span>
-      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">{num} / {tag}</span>
+      <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
     </div>
   )
 }
@@ -24,34 +24,34 @@ function SectionDivider({ num, tag }: { num: string; tag: string }) {
 // ── BIM mockup (dark angular)
 function BimPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
       <div className="flex items-center gap-2 mb-5">
-        <span className="text-white/30 text-xs font-mono uppercase tracking-wider">BIM 3D/4D/5D — Esgoto Sanitário</span>
+        <span className="text-white/65 text-xs font-mono uppercase tracking-wider">BIM 3D/4D/5D — Esgoto Sanitário</span>
         <div className="ml-auto flex gap-1">
           {['3D', '4D', '5D'].map((t, i) => (
-            <span key={t} className="text-xs px-2 py-0.5 font-mono" style={i === 0 ? { background: '#2abfdc', color: '#000' } : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.35)' }}>{t}</span>
+            <span key={t} className="text-xs px-2 py-0.5 font-mono" style={i === 0 ? { background: '#2abfdc', color: '#000' } : { border: '1px solid rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.70)' }}>{t}</span>
           ))}
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[{l:'Trechos',v:'18'},{l:'Extensão',v:'910m'},{l:'Custo',v:'R$62k'}].map((k) => (
-          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.07)' }} className="p-3 text-center">
-            <div className="text-white/25 text-xs uppercase tracking-wider">{k.l}</div>
+          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.12)' }} className="p-3 text-center">
+            <div className="text-white/60 text-xs uppercase tracking-wider">{k.l}</div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white font-bold">{k.v}</div>
           </div>
         ))}
       </div>
-      <div className="relative flex items-center justify-center" style={{ height: 140, background: '#000', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="relative flex items-center justify-center" style={{ height: 140, background: '#071222', border: '1px solid rgba(255,255,255,0.10)' }}>
         <svg width="100%" height="100%" viewBox="0 0 400 140">
-          {[0,1,2,3,4].map(i => <line key={i} x1={60+i*60} y1={15} x2={60+i*60} y2={125} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />)}
-          {[0,1,2,3].map(i => <line key={i} x1={60} y1={20+i*30} x2={300} y2={20+i*30} stroke="rgba(255,255,255,0.04)" strokeWidth="0.5" />)}
+          {[0,1,2,3,4].map(i => <line key={i} x1={60+i*60} y1={15} x2={60+i*60} y2={125} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
+          {[0,1,2,3].map(i => <line key={i} x1={60} y1={20+i*30} x2={300} y2={20+i*30} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
           <path d="M80,75 L140,55 L200,75 L260,55" stroke="#2abfdc" strokeWidth="2.5" fill="none" strokeLinecap="round" />
           <path d="M140,55 L140,95 L175,95" stroke="#2abfdc" strokeWidth="1.5" fill="none" />
           {([[80,75],[140,55],[200,75],[260,55]] as [number,number][]).map(([x,y],i) => (
             <circle key={i} cx={x} cy={y} r="4" fill="#2abfdc" />
           ))}
         </svg>
-        <span className="absolute bottom-2 right-2 text-white/20 text-xs font-mono">Three.js WebGL</span>
+        <span className="absolute bottom-2 right-2 text-white/55 text-xs font-mono">Three.js WebGL</span>
       </div>
     </div>
   )
@@ -60,15 +60,15 @@ function BimPanel() {
 // ── Torre mockup
 function TorrePanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Torre de Controle</span>
-        <span className="text-white/20 text-xs font-mono">PRJ-001 ▾</span>
+        <span className="text-white/65 text-xs font-mono uppercase tracking-wider">Torre de Controle</span>
+        <span className="text-white/55 text-xs font-mono">PRJ-001 ▾</span>
       </div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[{l:'EAC',v:'R$12.4M',c:'#f4f5f7'},{l:'CPI',v:'0.59',c:'#ef4444'},{l:'SPI',v:'0.39',c:'#f97316'}].map((k) => (
-          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.07)' }} className="p-3">
-            <div className="text-white/25 text-xs uppercase tracking-wider mb-1">{k.l}</div>
+          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.12)' }} className="p-3">
+            <div className="text-white/60 text-xs uppercase tracking-wider mb-1">{k.l}</div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", color: k.c }} className="font-bold text-xl">{k.v}</div>
           </div>
         ))}
@@ -78,9 +78,9 @@ function TorrePanel() {
         { id: 'PRJ-002', name: 'Galpão Industrial', s: 'ALERTA', c: '#f97316' },
         { id: 'PRJ-004', name: 'Rede Drenagem SP', s: 'OK', c: '#22c55e' },
       ].map((p) => (
-        <div key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }} className="flex items-center gap-3 py-2.5">
-          <span className="text-white/25 text-xs font-mono w-16">{p.id}</span>
-          <span className="text-white/60 text-xs flex-1">{p.name}</span>
+        <div key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.10)' }} className="flex items-center gap-3 py-2.5">
+          <span className="text-white/60 text-xs font-mono w-16">{p.id}</span>
+          <span className="text-white/85 text-xs flex-1">{p.name}</span>
           <span className="text-xs font-mono tracking-wider" style={{ color: p.c }}>{p.s}</span>
         </div>
       ))}
@@ -91,12 +91,12 @@ function TorrePanel() {
 // ── Suprimentos mockup
 function SuprPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
-      <div className="text-white/30 text-xs font-mono uppercase tracking-wider mb-5">Suprimentos — Three-Way Match</div>
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
+      <div className="text-white/65 text-xs font-mono uppercase tracking-wider mb-5">Suprimentos — Three-Way Match</div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[{l:'PO #1047',v:'R$84k'},{l:'GRN Recebido',v:'R$84k'},{l:'NF 000134',v:'R$84k'}].map((k) => (
-          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.07)' }} className="p-3 text-center">
-            <div className="text-white/25 text-xs font-mono mb-1">{k.l}</div>
+          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.12)' }} className="p-3 text-center">
+            <div className="text-white/60 text-xs font-mono mb-1">{k.l}</div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white font-bold">{k.v}</div>
           </div>
         ))}
@@ -105,10 +105,10 @@ function SuprPanel() {
         <span className="text-[#2abfdc] text-xs font-mono uppercase tracking-wider">✓ Three-Way Match — Aprovado</span>
       </div>
       {[{s:'Votorantim Cimentos',p:'98%',c:'#22c55e'},{s:'TubPlast DN200',p:'85%',c:'#eab308'},{s:'Ferro & Aço Ltda',p:'72%',c:'#ef4444'}].map((r) => (
-        <div key={r.s} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} className="flex items-center gap-3 py-2">
+        <div key={r.s} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }} className="flex items-center gap-3 py-2">
           <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: r.c }} />
-          <span className="text-white/50 text-xs flex-1">{r.s}</span>
-          <span className="text-white/70 text-xs font-mono">{r.p}</span>
+          <span className="text-white/80 text-xs flex-1">{r.s}</span>
+          <span className="text-white/90 text-xs font-mono">{r.p}</span>
         </div>
       ))}
     </div>
@@ -118,32 +118,32 @@ function SuprPanel() {
 // ── MO mockup
 function MoPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
-      <div className="text-white/30 text-xs font-mono uppercase tracking-wider mb-5">Mão de Obra — Alocação Diária</div>
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
+      <div className="text-white/65 text-xs font-mono uppercase tracking-wider mb-5">Mão de Obra — Alocação Diária</div>
       {[
         {n:'Carlos M.',r:'Encanador',cert:'NR-10 ✓',h:'8h',ok:true},
         {n:'João S.',r:'Operador',cert:'NR-35 ✓',h:'8h',ok:true},
         {n:'Ana R.',r:'Auxiliar',cert:'ASO ⚠',h:'—',ok:false},
       ].map((w) => (
-        <div key={w.n} style={{ border: `1px solid ${w.ok ? 'rgba(255,255,255,0.07)' : 'rgba(239,68,68,0.2)'}`, background: w.ok ? 'transparent' : 'rgba(239,68,68,0.04)' }} className="flex items-center gap-3 p-3 mb-2">
-          <div className="w-7 h-7 shrink-0 flex items-center justify-center text-white text-xs font-bold" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div key={w.n} style={{ border: `1px solid ${w.ok ? 'rgba(255,255,255,0.12)' : 'rgba(239,68,68,0.2)'}`, background: w.ok ? 'transparent' : 'rgba(239,68,68,0.04)' }} className="flex items-center gap-3 p-3 mb-2">
+          <div className="w-7 h-7 shrink-0 flex items-center justify-center text-white text-xs font-bold" style={{ background: 'rgba(255,255,255,0.14)' }}>
             {w.n.split(' ').map(n=>n[0]).join('')}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white/70 text-xs font-medium">{w.n} · {w.r}</div>
-            <div className="text-white/30 text-xs font-mono">{w.cert}</div>
+            <div className="text-white/90 text-xs font-medium">{w.n} · {w.r}</div>
+            <div className="text-white/65 text-xs font-mono">{w.cert}</div>
           </div>
-          <span className="text-white/50 text-xs font-mono">{w.h}</span>
+          <span className="text-white/80 text-xs font-mono">{w.h}</span>
         </div>
       ))}
       <div className="grid grid-cols-2 gap-2 mt-3">
-        <div style={{ border: '1px solid rgba(255,255,255,0.07)' }} className="p-2 text-center">
+        <div style={{ border: '1px solid rgba(255,255,255,0.12)' }} className="p-2 text-center">
           <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white font-bold text-lg">24</div>
-          <div className="text-white/30 text-xs uppercase tracking-wider">Colaboradores</div>
+          <div className="text-white/65 text-xs uppercase tracking-wider">Colaboradores</div>
         </div>
-        <div style={{ border: '1px solid rgba(42,191,220,0.15)', background: 'rgba(42,191,220,0.04)' }} className="p-2 text-center">
+        <div style={{ border: '1px solid rgba(42,191,220,0.15)', background: 'rgba(42,191,220,0.06)' }} className="p-2 text-center">
           <div style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#2abfdc' }} className="font-bold text-lg">192h</div>
-          <div className="text-white/30 text-xs uppercase tracking-wider">Hoje</div>
+          <div className="text-white/65 text-xs uppercase tracking-wider">Hoje</div>
         </div>
       </div>
     </div>
@@ -153,16 +153,16 @@ function MoPanel() {
 // ── RDO mockup
 function RdoPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
       <div className="flex items-center justify-between mb-5">
-        <span className="text-white/30 text-xs font-mono uppercase tracking-wider">RDO — 27/03/2026</span>
-        <span className="text-white/25 text-xs font-mono">OBR-001</span>
+        <span className="text-white/65 text-xs font-mono uppercase tracking-wider">RDO — 27/03/2026</span>
+        <span className="text-white/60 text-xs font-mono">OBR-001</span>
       </div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[{l:'Clima',v:'☀ Ensolarado'},{l:'Equipes',v:'4 ativas'},{l:'Responsável',v:'Eng. Carlos'}].map((k) => (
-          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.07)' }} className="p-2 text-center">
-            <div className="text-white/25 text-xs uppercase mb-0.5">{k.l}</div>
-            <div className="text-white/70 text-xs">{k.v}</div>
+          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.12)' }} className="p-2 text-center">
+            <div className="text-white/60 text-xs uppercase mb-0.5">{k.l}</div>
+            <div className="text-white/90 text-xs">{k.v}</div>
           </div>
         ))}
       </div>
@@ -170,19 +170,19 @@ function RdoPanel() {
         { code: 'T01', desc: 'Escavação Av. Principal', qty: '42m', pct: 65 },
         { code: 'T02', desc: 'Assentamento DN200', qty: '28m', pct: 45 },
       ].map((a) => (
-        <div key={a.code} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }} className="py-2.5">
+        <div key={a.code} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }} className="py-2.5">
           <div className="flex justify-between text-xs mb-1.5">
-            <span className="text-white/50 font-mono">{a.code}</span>
-            <span className="text-white/60">{a.desc}</span>
+            <span className="text-white/80 font-mono">{a.code}</span>
+            <span className="text-white/85">{a.desc}</span>
             <span style={{ color: '#2abfdc' }} className="font-mono">{a.qty}</span>
           </div>
-          <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div className="h-px" style={{ background: 'rgba(255,255,255,0.14)' }}>
             <div className="h-full" style={{ width: `${a.pct}%`, background: '#2abfdc' }} />
           </div>
         </div>
       ))}
       <div style={{ border: '1px solid rgba(251,191,36,0.2)', background: 'rgba(251,191,36,0.05)' }} className="mt-3 p-3">
-        <span className="text-amber-300/70 text-xs">🤖 IA: Progresso 2h à frente do planejado.</span>
+        <span className="text-amber-300/85 text-xs">🤖 IA: Progresso 2h à frente do planejado.</span>
       </div>
     </div>
   )
@@ -197,10 +197,10 @@ function AiPanel() {
     { role:'bot', t:'Com a realocação sugerida: +2 dias. Sem intervenção: +8 dias e R$24.000 em multa contratual.'},
   ]
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }} className="p-6">
       <div className="flex items-center gap-2 mb-5">
         <div className="w-1.5 h-1.5 rounded-full bg-[#2abfdc] animate-pulse" />
-        <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Atlântico AI — Copiloto de Obra</span>
+        <span className="text-white/65 text-xs font-mono uppercase tracking-wider">Atlântico AI — Copiloto de Obra</span>
       </div>
       <div className="space-y-3">
         {msgs.map((m, i) => (
@@ -210,8 +210,8 @@ function AiPanel() {
               style={
                 m.role === 'user' ? { background: 'rgba(42,191,220,0.12)', border: '1px solid rgba(42,191,220,0.2)', color: '#2abfdc' } :
                 m.role === 'alert' ? { background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(251,191,36,0.8)' } :
-                m.role === 'sys' ? { color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' } :
-                { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.65)' }
+                m.role === 'sys' ? { color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' } :
+                { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.90)' }
               }
             >
               {m.t}
@@ -260,7 +260,7 @@ const FEATURES: FeatureData[] = [
     visual: (
       <div className="flex flex-col gap-3">
         <GlobeLive className="w-full max-w-xs mx-auto" projectCount={247} />
-        <p className="text-white/25 text-xs text-center font-mono">Arraste para explorar · São Paulo, Rio, Brasília</p>
+        <p className="text-white/60 text-xs text-center font-mono">Arraste para explorar · São Paulo, Rio, Brasília</p>
       </div>
     ),
     flip: false,
@@ -317,7 +317,7 @@ const FEATURES: FeatureData[] = [
 
 function FeatureBlock({ id, num, tag, title, copy, bullets, visual, flip }: FeatureData) {
   return (
-    <div id={id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-24 scroll-mt-14">
+    <div id={id} style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-24 scroll-mt-14">
       <div className="max-w-7xl mx-auto px-6">
         <SectionDivider num={num} tag={tag} />
         <div className={`grid lg:grid-cols-2 gap-16 items-start ${flip ? 'lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1' : ''}`}>
@@ -336,14 +336,14 @@ function FeatureBlock({ id, num, tag, title, copy, bullets, visual, flip }: Feat
             >
               {title}
             </h2>
-            <p className="text-white/45 text-sm leading-relaxed mb-8">{copy}</p>
+            <p className="text-white/75 text-sm leading-relaxed mb-8">{copy}</p>
             <div className="space-y-4">
               {bullets.map((b) => (
                 <div key={b.label} className="flex gap-4 items-start">
                   <span className="text-[#2abfdc] mt-0.5 shrink-0 font-mono text-sm">—</span>
                   <div>
-                    <span className="text-white/80 text-sm font-medium">{b.label}</span>
-                    <span className="text-white/35 text-sm">: {b.desc}</span>
+                    <span className="text-white/90 text-sm font-medium">{b.label}</span>
+                    <span className="text-white/70 text-sm">: {b.desc}</span>
                   </div>
                 </div>
               ))}
@@ -359,9 +359,9 @@ function FeatureBlock({ id, num, tag, title, copy, bullets, visual, flip }: Feat
 
 export function FeatureDeepSection() {
   return (
-    <section id="funcionalidades" style={{ background: '#08090d' }}>
+    <section id="funcionalidades" style={{ background: '#0b1a30' }}>
       {FEATURES.map((f, i) => (
-        <div key={f.id} style={{ background: i % 2 === 0 ? '#08090d' : '#0e1117' }}>
+        <div key={f.id} style={{ background: i % 2 === 0 ? '#0b1a30' : '#0f2240' }}>
           <FeatureBlock {...f} />
         </div>
       ))}

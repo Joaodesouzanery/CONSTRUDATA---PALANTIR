@@ -2,12 +2,12 @@ import { FlowHoverButton } from '@/components/ui/flow-hover-button'
 
 export function FooterCTA() {
   return (
-    <section style={{ background: '#08090d', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+    <section style={{ background: '#0b1a30', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-4xl mx-auto px-6 text-center">
         <div className="flex items-center justify-center gap-3 mb-12">
-          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/20 text-xs uppercase font-mono">Próximo Passo</span>
-          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.10)' }} />
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/55 text-xs uppercase font-mono">Próximo Passo</span>
+          <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
         <h2
@@ -23,7 +23,7 @@ export function FooterCTA() {
           Construa com Inteligência.
         </h2>
 
-        <p className="text-white/35 text-lg mb-12 max-w-xl mx-auto">
+        <p className="text-white/70 text-lg mb-12 max-w-xl mx-auto">
           Construa o futuro com a inteligência e a precisão da Atlântico.
         </p>
 

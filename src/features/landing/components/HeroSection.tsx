@@ -26,10 +26,10 @@ function GestaoMockup() {
   return (
     <div className="w-full h-full p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/40 text-xs uppercase">Gestão de Projeto 360</span>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/75 text-xs uppercase">Gestão de Projeto 360</span>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-[#2abfdc] animate-pulse" />
-          <span className="text-white/30 text-xs">ao vivo</span>
+          <span className="text-white/65 text-xs">ao vivo</span>
         </div>
       </div>
       {/* KPI row */}
@@ -39,16 +39,16 @@ function GestaoMockup() {
           { l: 'CPI', v: '0.59', c: '#ef4444' },
           { l: 'SPI', v: '0.39', c: '#f97316' },
         ].map((k) => (
-          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }} className="p-3">
-            <div className="text-white/30 text-xs uppercase tracking-wider mb-1">{k.l}</div>
+          <div key={k.l} style={{ border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.05)' }} className="p-3">
+            <div className="text-white/65 text-xs uppercase tracking-wider mb-1">{k.l}</div>
             <div className="font-bold text-lg" style={{ color: k.c, fontFamily: "'Space Grotesk', sans-serif" }}>{k.v}</div>
           </div>
         ))}
       </div>
       {/* Progress bar */}
-      <div style={{ border: '1px solid rgba(255,255,255,0.08)' }} className="p-3">
+      <div style={{ border: '1px solid rgba(255,255,255,0.14)' }} className="p-3">
         <div className="flex justify-between text-xs mb-2">
-          <span className="text-white/50">PRJ-001 — Torre Residencial Premium</span>
+          <span className="text-white/80">PRJ-001 — Torre Residencial Premium</span>
           <span className="text-[#2abfdc] font-mono">47%</span>
         </div>
         <div className="h-px bg-white/10 overflow-hidden">
@@ -62,9 +62,9 @@ function GestaoMockup() {
           { id: 'PRJ-004', name: 'Rede Drenagem SP', s: 'OK', c: '#22c55e' },
           { id: 'PRJ-006', name: 'ETE Guarulhos', s: 'ALERTA', c: '#f97316' },
         ].map((p) => (
-          <div key={p.id} style={{ border: '1px solid rgba(255,255,255,0.06)' }} className="flex items-center gap-3 px-3 py-2">
-            <span className="text-white/30 text-xs font-mono">{p.id}</span>
-            <span className="text-white/70 text-xs flex-1 truncate">{p.name}</span>
+          <div key={p.id} style={{ border: '1px solid rgba(255,255,255,0.10)' }} className="flex items-center gap-3 px-3 py-2">
+            <span className="text-white/65 text-xs font-mono">{p.id}</span>
+            <span className="text-white/90 text-xs flex-1 truncate">{p.name}</span>
             <span className="text-xs font-mono tracking-wider" style={{ color: p.c }}>{p.s}</span>
           </div>
         ))}
@@ -77,11 +77,11 @@ function MapaMockup() {
   return (
     <div className="w-full h-full p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/40 text-xs uppercase">Mapa Interativo</span>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/75 text-xs uppercase">Mapa Interativo</span>
         <span className="text-[#2abfdc] text-xs uppercase tracking-wider border border-[#2abfdc]/30 px-2 py-0.5">Satélite</span>
       </div>
       {/* Simulated satellite map */}
-      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0d1a10 0%, #0a140d 50%, #0d1520 100%)', minHeight: 120 }}>
+      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0a2618 0%, #081e12 50%, #0b1a30 100%)', minHeight: 120 }}>
         <svg width="100%" height="100%" viewBox="0 0 400 150" style={{ position: 'absolute', inset: 0 }}>
           {/* Network lines */}
           <path d="M40,75 L100,55 L170,80 L240,45 L320,65 L390,50" stroke="#2abfdc" strokeWidth="2" fill="none" opacity="0.7" />
@@ -93,12 +93,12 @@ function MapaMockup() {
             <circle key={i} cx={x} cy={y} r="2.5" fill="#22c55e" opacity="0.9" />
           ))}
         </svg>
-        <div className="absolute bottom-2 right-2 text-white/30 text-xs font-mono">39 nós · 2.4km</div>
+        <div className="absolute bottom-2 right-2 text-white/65 text-xs font-mono">39 nós · 2.4km</div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {[{ l: 'Extensão', v: '2.4 km' }, { l: 'Custo Est.', v: 'R$180k' }, { l: 'Trechos', v: '38' }].map((s) => (
-          <div key={s.l} style={{ border: '1px solid rgba(255,255,255,0.08)' }} className="p-2 text-center">
-            <div className="text-white/30 text-xs uppercase">{s.l}</div>
+          <div key={s.l} style={{ border: '1px solid rgba(255,255,255,0.14)' }} className="p-2 text-center">
+            <div className="text-white/65 text-xs uppercase">{s.l}</div>
             <div className="text-[#2abfdc] font-mono font-bold text-sm">{s.v}</div>
           </div>
         ))}
@@ -112,14 +112,14 @@ function LpsMockup() {
   return (
     <div className="w-full h-full p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/40 text-xs uppercase">LPS / Lean — Look-ahead</span>
-        <span className="text-white/30 text-xs font-mono">PPC 46%</span>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/75 text-xs uppercase">LPS / Lean — Look-ahead</span>
+        <span className="text-white/65 text-xs font-mono">PPC 46%</span>
       </div>
-      <div style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ border: '1px solid rgba(255,255,255,0.14)' }}>
         <div className="grid text-xs" style={{ gridTemplateColumns: '120px repeat(5, 1fr)' }}>
-          <div className="px-3 py-2 text-white/30 uppercase text-xs border-b border-white/8">Trecho</div>
+          <div className="px-3 py-2 text-white/65 uppercase text-xs border-b border-white/14">Trecho</div>
           {weeks.map((w) => (
-            <div key={w} className="px-1 py-2 text-center text-white/30 uppercase text-xs border-b border-white/8 border-l border-l-white/8">{w}</div>
+            <div key={w} className="px-1 py-2 text-center text-white/65 uppercase text-xs border-b border-white/14 border-l border-l-white/14">{w}</div>
           ))}
           {[
             { name: 'T01 Escavação', color: '#2abfdc', weeks: [1,1,1,0,0] },
@@ -127,15 +127,15 @@ function LpsMockup() {
             { name: 'T03 Reaterro', color: '#a78bfa', weeks: [1,1,0,0,0] },
             { name: 'T04 PVs', color: '#a78bfa', weeks: [0,1,1,0,0] },
           ].map((t) => ([
-            <div key={t.name} className="px-3 py-2 text-white/50 text-xs border-t border-white/6 truncate">{t.name}</div>,
+            <div key={t.name} className="px-3 py-2 text-white/80 text-xs border-t border-white/10 truncate">{t.name}</div>,
             ...t.weeks.map((active, wi) => (
-              <div key={wi} className="border-t border-white/6 border-l border-l-white/6 flex items-center justify-center p-1">
+              <div key={wi} className="border-t border-white/10 border-l border-l-white/10 flex items-center justify-center p-1">
                 {active ? (
                   <div className="w-full mx-1 py-1 text-center text-xs font-mono" style={{ background: `${t.color}22`, color: t.color, border: `1px solid ${t.color}44` }}>
                     {(['80m','60m','90m','40m'] as string[])[(['T01 Escavação','T02 DN200','T03 Reaterro','T04 PVs'] as string[]).indexOf(t.name)]}
                   </div>
                 ) : (
-                  <span className="text-white/15 text-xs">—</span>
+                  <span className="text-white/50 text-xs">—</span>
                 )}
               </div>
             ))
@@ -156,26 +156,26 @@ function QuantMockup() {
   return (
     <div className="w-full h-full p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/40 text-xs uppercase">Quantitativos</span>
+        <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.1em' }} className="text-white/75 text-xs uppercase">Quantitativos</span>
         <span className="text-[#2abfdc] text-xs font-mono">Total: R$240.807</span>
       </div>
-      <div style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ border: '1px solid rgba(255,255,255,0.14)' }}>
         <div className="grid text-xs" style={{ gridTemplateColumns: '90px 1fr auto' }}>
           {['Código', 'Descrição', 'Total'].map((h) => (
-            <div key={h} className="px-3 py-2 text-white/25 uppercase tracking-wider text-xs border-b border-white/8 first:pl-3">{h}</div>
+            <div key={h} className="px-3 py-2 text-white/60 uppercase tracking-wider text-xs border-b border-white/14 first:pl-3">{h}</div>
           ))}
           {items.map((item) => ([
-            <div key={item.code + 'c'} className="px-3 py-2 text-white/40 font-mono text-xs border-t border-white/6 truncate">{item.code}</div>,
-            <div key={item.code + 'd'} className="px-3 py-2 text-white/70 text-xs border-t border-white/6 truncate">{item.desc}</div>,
-            <div key={item.code + 't'} className="px-3 py-2 text-[#2abfdc] font-mono text-xs border-t border-white/6">{item.total}</div>,
+            <div key={item.code + 'c'} className="px-3 py-2 text-white/75 font-mono text-xs border-t border-white/10 truncate">{item.code}</div>,
+            <div key={item.code + 'd'} className="px-3 py-2 text-white/90 text-xs border-t border-white/10 truncate">{item.desc}</div>,
+            <div key={item.code + 't'} className="px-3 py-2 text-[#2abfdc] font-mono text-xs border-t border-white/10">{item.total}</div>,
           ]))}
         </div>
       </div>
       <div className="flex items-center gap-4 text-xs">
-        <span className="text-white/30">10 itens</span>
-        <span className="text-white/15">·</span>
-        <span className="text-white/30">BDI 25%</span>
-        <span className="text-white/15">·</span>
+        <span className="text-white/65">10 itens</span>
+        <span className="text-white/50">·</span>
+        <span className="text-white/65">BDI 25%</span>
+        <span className="text-white/50">·</span>
         <span className="text-[#2abfdc]/70">Base SINAPI</span>
       </div>
     </div>
@@ -196,7 +196,7 @@ export function HeroSection() {
 
   return (
     <section
-      style={{ background: '#08090d', minHeight: '100vh' }}
+      style={{ background: '#0b1a30', minHeight: '100vh' }}
       className="flex flex-col justify-center pt-14"
     >
       <div className="max-w-7xl mx-auto px-6 py-20 w-full">
@@ -228,9 +228,9 @@ export function HeroSection() {
               e Saneamento.
             </h1>
 
-            <div className="mt-6 mb-10 h-px w-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <div className="mt-6 mb-10 h-px w-full" style={{ background: 'rgba(255,255,255,0.14)' }} />
 
-            <p className="text-white/50 text-base leading-relaxed max-w-lg mb-10">
+            <p className="text-white/80 text-base leading-relaxed max-w-lg mb-10">
               Da pré-construção ao encerramento, cada atividade, recurso e material conectados em uma única plataforma de dados em tempo real.
             </p>
 
@@ -254,7 +254,7 @@ export function HeroSection() {
                 i > 0 && <div key={`d${i}`} className="w-px h-8 bg-white/10" />,
                 <div key={s.l}>
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white font-semibold">{s.v}</div>
-                  <div className="text-white/35 text-xs uppercase tracking-wide">{s.l}</div>
+                  <div className="text-white/70 text-xs uppercase tracking-wide">{s.l}</div>
                 </div>,
               ]))}
             </div>
@@ -264,17 +264,17 @@ export function HeroSection() {
           <div>
             {/* Slide tag */}
             <div className="flex items-center gap-3 mb-4">
-              <div style={{ letterSpacing: '0.15em' }} className="text-white/30 text-xs uppercase font-mono">
+              <div style={{ letterSpacing: '0.15em' }} className="text-white/65 text-xs uppercase font-mono">
                 {SLIDES[activeSlide].tag}
               </div>
-              <div className="flex-1 h-px bg-white/8" />
+              <div className="flex-1 h-px bg-white/14" />
             </div>
 
             {/* Angular mockup panel */}
             <div
               style={{
-                border: '1px solid rgba(255,255,255,0.1)',
-                background: '#0e1117',
+                border: '1px solid rgba(255,255,255,0.14)',
+                background: '#0f2240',
                 minHeight: 320,
               }}
               className="relative overflow-hidden"
@@ -302,7 +302,7 @@ export function HeroSection() {
       </div>
 
       {/* Bottom divider line */}
-      <div className="h-px w-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
+      <div className="h-px w-full" style={{ background: 'rgba(255,255,255,0.10)' }} />
     </section>
   )
 }

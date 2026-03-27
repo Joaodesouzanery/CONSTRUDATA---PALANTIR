@@ -25,12 +25,12 @@ const MODULOS = [
 
 export function ModulosOverviewSection() {
   return (
-    <section id="modulos" style={{ background: '#08090d', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+    <section id="modulos" style={{ background: '#0b1a30', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/25 text-xs uppercase font-mono">02 / Módulos</span>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">02 / Módulos</span>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-x-20 gap-y-4 mb-16">
@@ -49,25 +49,25 @@ export function ModulosOverviewSection() {
             </h2>
           </div>
           <div>
-            <p className="text-white/45 text-sm leading-relaxed">
+            <p className="text-white/75 text-sm leading-relaxed">
               Cada módulo da Atlântico é uma peça fundamental para a inteligência operacional. Descrições focadas nos benefícios reais para sua operação.
             </p>
           </div>
         </div>
 
         {/* Module grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px" style={{ background: 'rgba(255,255,255,0.10)' }}>
           {MODULOS.map(({ icon: Icon, label, desc, href }) => (
             <a
               key={label}
               href={href}
-              style={{ background: '#08090d' }}
-              className="group p-6 flex flex-col gap-3 hover:bg-[#0e1117] transition-colors cursor-pointer"
+              style={{ background: '#0b1a30' }}
+              className="group p-6 flex flex-col gap-3 hover:bg-[#0f2240] transition-colors cursor-pointer"
             >
-              <Icon size={16} className="text-white/25 group-hover:text-[#2abfdc] transition-colors" />
+              <Icon size={16} className="text-white/60 group-hover:text-[#2abfdc] transition-colors" />
               <div>
-                <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/80 font-semibold text-sm mb-1 group-hover:text-white transition-colors">{label}</div>
-                <div className="text-white/35 text-xs leading-relaxed">{desc}</div>
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors">{label}</div>
+                <div className="text-white/70 text-xs leading-relaxed">{desc}</div>
               </div>
             </a>
           ))}

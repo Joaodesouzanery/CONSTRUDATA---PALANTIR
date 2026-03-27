@@ -24,7 +24,7 @@ export function LandingPage() {
     <div
       className="min-h-screen antialiased"
       style={{
-        background: '#08090d',
+        background: '#0b1a30',
         color: '#f4f5f7',
         fontFamily: "'Inter', sans-serif",
       }}
@@ -37,10 +37,10 @@ export function LandingPage() {
       <AllModulesGrid />
       <FooterCTA />
       <ContactForm />
-      <footer style={{ background: '#0e1117', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-8">
+      <footer style={{ background: '#0f2240', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span className="text-white/30 text-xs tracking-wide">© 2026 ATLÂNTICO PLATFORM</span>
-          <span className="text-white/20 text-xs tracking-wide">CONSTRUÇÃO · SANEAMENTO · INFRAESTRUTURA</span>
+          <span className="text-white/65 text-xs tracking-wide">© 2026 ATLÂNTICO PLATFORM</span>
+          <span className="text-white/55 text-xs tracking-wide">CONSTRUÇÃO · SANEAMENTO · INFRAESTRUTURA</span>
         </div>
       </footer>
     </div>

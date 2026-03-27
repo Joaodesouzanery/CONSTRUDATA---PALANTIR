@@ -15,11 +15,11 @@ interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
 function Field({ label, wrapperClassName, ...props }: FieldProps) {
   return (
     <div className={wrapperClassName}>
-      <label style={{ letterSpacing: '0.1em' }} className="block text-white/30 text-xs uppercase mb-2">{label}</label>
+      <label style={{ letterSpacing: '0.1em' }} className="block text-white/65 text-xs uppercase mb-2">{label}</label>
       <input
         style={{
           background: 'transparent',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
+          borderBottom: '1px solid rgba(255,255,255,0.25)',
           borderTop: 'none', borderLeft: 'none', borderRight: 'none',
           outline: 'none',
           color: '#f4f5f7',
@@ -27,7 +27,7 @@ function Field({ label, wrapperClassName, ...props }: FieldProps) {
           padding: '0.5rem 0',
           fontSize: '0.875rem',
         }}
-        className="focus:border-b-[#2abfdc] transition-colors placeholder:text-white/20"
+        className="focus:border-b-[#2abfdc] transition-colors placeholder:text-white/50"
         {...props}
       />
     </div>
@@ -66,17 +66,17 @@ export function ContactForm() {
   }
 
   return (
-    <section id="contato" style={{ background: '#0e1117', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+    <section id="contato" style={{ background: '#0f2240', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-3xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/25 text-xs uppercase font-mono">11 / Contato</span>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">11 / Contato</span>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
-        <div style={{ border: '1px solid rgba(255,255,255,0.08)', background: '#08090d' }}>
+        <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#0b1a30' }}>
           {/* Form header */}
-          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }} className="px-10 py-8">
+          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.14)' }} className="px-10 py-8">
             <h2
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
@@ -88,7 +88,7 @@ export function ContactForm() {
             >
               Ganhe uma vantagem com Atlântico.
             </h2>
-            <p className="text-white/40 text-sm">
+            <p className="text-white/75 text-sm">
               Preencha o formulário e nossa equipe entrará em contato para agendar uma apresentação personalizada.
             </p>
           </div>
@@ -101,10 +101,10 @@ export function ContactForm() {
                   <span className="text-green-400 text-xl">✓</span>
                   <div className="text-left">
                     <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white font-semibold">Solicitação Recebida</div>
-                    <div className="text-white/40 text-sm">Nossa equipe entrará em contato em breve.</div>
+                    <div className="text-white/75 text-sm">Nossa equipe entrará em contato em breve.</div>
                   </div>
                 </div>
-                <p className="text-white/35 text-sm max-w-sm mx-auto">
+                <p className="text-white/70 text-sm max-w-sm mx-auto">
                   Obrigado! Nossa equipe entrará em contato em breve para agendar sua apresentação personalizada da plataforma Atlântico.
                 </p>
               </div>
@@ -143,7 +143,7 @@ export function ContactForm() {
                   {loading ? 'Enviando...' : 'Solicitar Apresentação'}
                 </button>
 
-                <p style={{ letterSpacing: '0.04em' }} className="text-white/20 text-xs text-center mt-4 uppercase">
+                <p style={{ letterSpacing: '0.04em' }} className="text-white/55 text-xs text-center mt-4 uppercase">
                   Sem spam. Resposta em até 24 horas.
                 </p>
               </form>

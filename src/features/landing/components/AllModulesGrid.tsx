@@ -25,12 +25,12 @@ const MODULES: { icon: LucideIcon; name: string; desc: string; cat: string }[] =
 
 export function AllModulesGrid() {
   return (
-    <section style={{ background: '#0e1117', borderTop: '1px solid rgba(255,255,255,0.06)' }} className="py-32">
+    <section style={{ background: '#0f2240', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">
-          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/25 text-xs uppercase font-mono">10 / Todos os Módulos</span>
-          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">10 / Todos os Módulos</span>
+          <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
         <div className="grid lg:grid-cols-2 gap-x-16 mb-16">
@@ -51,29 +51,29 @@ export function AllModulesGrid() {
         {/* Table header */}
         <div className="grid grid-cols-12 gap-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="col-span-1" />
-          <div className="col-span-4 text-white/25 text-xs uppercase tracking-widest">Módulo</div>
-          <div className="col-span-5 text-white/25 text-xs uppercase tracking-widest hidden md:block">Descrição</div>
-          <div className="col-span-2 text-white/25 text-xs uppercase tracking-widest hidden lg:block">Categoria</div>
+          <div className="col-span-4 text-white/60 text-xs uppercase tracking-widest">Módulo</div>
+          <div className="col-span-5 text-white/60 text-xs uppercase tracking-widest hidden md:block">Descrição</div>
+          <div className="col-span-2 text-white/60 text-xs uppercase tracking-widest hidden lg:block">Categoria</div>
         </div>
 
         {/* Table rows */}
         {MODULES.map(({ icon: Icon, name, desc, cat }) => (
           <div
             key={name}
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-            className="grid grid-cols-12 gap-4 py-4 hover:bg-white/[0.02] transition-colors group cursor-default"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+            className="grid grid-cols-12 gap-4 py-4 hover:bg-white/[0.04] transition-colors group cursor-default"
           >
             <div className="col-span-1 flex items-center">
-              <Icon size={14} className="text-white/20 group-hover:text-[#2abfdc] transition-colors" />
+              <Icon size={14} className="text-white/55 group-hover:text-[#2abfdc] transition-colors" />
             </div>
             <div className="col-span-4 md:col-span-4 flex items-center">
-              <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/70 text-sm font-medium group-hover:text-white transition-colors">{name}</span>
+              <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/80 text-sm font-medium group-hover:text-white transition-colors">{name}</span>
             </div>
             <div className="col-span-12 md:col-span-5 flex items-center pl-5 md:pl-0">
-              <span className="text-white/35 text-xs leading-relaxed">{desc}</span>
+              <span className="text-white/70 text-xs leading-relaxed">{desc}</span>
             </div>
             <div className="hidden lg:flex col-span-2 items-center">
-              <span style={{ border: '1px solid rgba(255,255,255,0.08)', letterSpacing: '0.06em' }} className="text-white/25 text-xs uppercase px-2 py-0.5">{cat}</span>
+              <span style={{ border: '1px solid rgba(255,255,255,0.14)', letterSpacing: '0.06em' }} className="text-white/60 text-xs uppercase px-2 py-0.5">{cat}</span>
             </div>
           </div>
         ))}
