@@ -179,7 +179,7 @@ export function AtivosPanel() {
                   <tr
                     key={asset.id}
                     className="bg-[#14294e] hover:bg-[#1a3662] transition-colors cursor-pointer"
-                    onClick={() => { setSelectedAssetId(asset.id); setActiveTab('mapa') }}
+                    onClick={() => { setSelectedAssetId(asset.id); setActiveTab('home') }}
                   >
                     <td className="px-4 py-2.5 font-mono text-[#8fb3c8]">{asset.code}</td>
                     <td className="px-4 py-2.5 text-[#f5f5f5] font-medium max-w-[180px] truncate">{asset.name}</td>
@@ -201,7 +201,7 @@ export function AtivosPanel() {
                     </td>
                     <td className="px-4 py-2.5">
                       <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedAssetId(asset.id); setActiveTab('mapa') }}
+                        onClick={(e) => { e.stopPropagation(); setSelectedAssetId(asset.id); setActiveTab('home') }}
                         className="px-2 py-1 rounded bg-[#112645] hover:bg-[#20406a] text-[#2abfdc] text-xs transition-colors"
                       >
                         Ver

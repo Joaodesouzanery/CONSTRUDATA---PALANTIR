@@ -1392,7 +1392,7 @@ export interface TrechoDelay {
 
 // ─── Rede 360 ─────────────────────────────────────────────────────────────────
 
-export type Rede360Tab = 'mapa' | 'ativos' | 'ordens' | 'risco'
+export type Rede360Tab = 'home' | 'outages' | 'planning' | 'risk'
 export type NetworkAssetType = 'circuit' | 'pipe' | 'pv' | 'structure' | 'device' | 'vegetation' | 'hardening'
 export type NetworkAssetStatus = 'operational' | 'degraded' | 'critical' | 'offline' | 'maintenance'
 export type Rede360ServiceOrderStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
@@ -1450,4 +1450,98 @@ export interface Outage {
   affectedCustomers?: number
   cause?: string
   notes?: string
+}
+
+export type GridAssetTab = 'circuit' | 'device' | 'weather' | 'customer' | 'structure' | 'vegetation' | 'hardening'
+
+export interface CircuitAsset {
+  id: string
+  circuitId: string
+  circuitName: string
+  circuitClass: 'Distribution' | 'Transmission' | 'Subtransmission'
+  riskClassification: string
+  riskLevel: RiskLevel
+  customerCount: number
+  protectedDeviceCount: number
+  installedStructureCount: number
+  lineSegmentCount: number
+  districtName: string
+  isInAreaOfInterest: boolean
+  networkType: MapNetworkType
+  lat: number
+  lng: number
+  polyline?: [number, number][]
+}
+
+export interface DeviceAsset {
+  id: string
+  deviceId: string
+  deviceType: string
+  manufacturer?: string
+  model?: string
+  status: NetworkAssetStatus
+  riskLevel: RiskLevel
+  lat: number
+  lng: number
+  circuitId?: string
+  installedDate?: string
+  lastReading?: string
+}
+
+export interface NWSWeatherStation {
+  id: string
+  stationId: string
+  stationName: string
+  lat: number
+  lng: number
+  currentTempC?: number
+  windKmh?: number
+  precipitationMm?: number
+  alerts?: string[]
+  lastUpdated: string
+}
+
+export interface CustomerRecord {
+  id: string
+  customerId: string
+  address: string
+  serviceType: 'residential' | 'commercial' | 'industrial'
+  circuitId?: string
+  status: 'active' | 'inactive'
+}
+
+export interface StructureAsset {
+  id: string
+  structureId: string
+  structureType: string
+  condition: 'good' | 'fair' | 'poor' | 'critical'
+  inspectionDate?: string
+  circuitId?: string
+  lat: number
+  lng: number
+  riskLevel: RiskLevel
+}
+
+export interface VegetationPoint {
+  id: string
+  pointId: string
+  address?: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  status: 'pending' | 'scheduled' | 'completed'
+  lastTrimDate?: string
+  circuitId?: string
+  lat: number
+  lng: number
+}
+
+export interface HardeningPoint {
+  id: string
+  pointId: string
+  hardeningType: string
+  status: 'planned' | 'in_progress' | 'completed'
+  completionDate?: string
+  circuitId?: string
+  lat: number
+  lng: number
+  riskLevel: RiskLevel
 }

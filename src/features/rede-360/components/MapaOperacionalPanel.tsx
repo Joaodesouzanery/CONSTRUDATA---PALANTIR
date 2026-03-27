@@ -1,210 +1,276 @@
-/**
- * MapaOperacionalPanel — Leaflet map with asset markers, service order markers, and outage overlays.
- */
 import { useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useShallow } from 'zustand/react/shallow'
 import { useRede360Store } from '@/store/rede360Store'
+import { GridLayerPanel } from './GridLayerPanel'
 import { AtivoDrillDownPanel } from './AtivoDrillDownPanel'
-import type { RiskLevel } from '@/types'
+import type { RiskLevel, MapNetworkType } from '@/types'
 
 const RISK_COLORS: Record<RiskLevel, string> = {
-  low:      '#22c55e',
-  medium:   '#eab308',
-  high:     '#f97316',
-  critical: '#ef4444',
+  low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444',
+}
+
+const NETWORK_COLORS: Record<MapNetworkType, string> = {
+  sewer:    '#2abfdc',
+  water:    '#38bdf8',
+  drainage: '#4ade80',
+  civil:    '#94a3b8',
+  generic:  '#a78bfa',
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low:       '#94a3b8',
-  medium:    '#eab308',
-  high:      '#f97316',
-  emergency: '#ef4444',
+  low: '#94a3b8', medium: '#eab308', high: '#f97316', emergency: '#ef4444',
 }
 
-const BASEMAPS: Record<string, string> = {
-  streets:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light:     'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-}
-
-const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-
-const NETWORK_TYPE_LABELS: Record<string, string> = {
-  sewer:    'Esgoto',
-  water:    'Água',
-  drainage: 'Drenagem',
-  civil:    'Civil',
-  generic:  'Genérico',
+const BASEMAPS: Record<string, { url: string; label: string; attribution: string }> = {
+  dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             label: 'Dark',      attribution: '© CartoDB' },
+  streets:   { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',  label: 'Ruas',      attribution: '© CartoDB' },
+  satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', label: 'Satélite', attribution: '© Esri' },
+  light:     { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',            label: 'Light',     attribution: '© CartoDB' },
 }
 
 export function MapaOperacionalPanel() {
-  const { assets, serviceOrders, outages, layerVisibility, setLayerVisibility, setSelectedAssetId } =
-    useRede360Store(
-      useShallow((s) => ({
-        assets:             s.assets,
-        serviceOrders:      s.serviceOrders,
-        outages:            s.outages,
-        layerVisibility:    s.layerVisibility,
-        setLayerVisibility: s.setLayerVisibility,
-        setSelectedAssetId: s.setSelectedAssetId,
-      }))
-    )
+  const {
+    assets, serviceOrders, outages, circuitAssets, deviceAssets, weatherStations,
+    layerVisibility, selectedAssetId, selectedCircuitId,
+    setSelectedAssetId, setSelectedCircuitId,
+  } = useRede360Store(
+    useShallow((s) => ({
+      assets:               s.assets,
+      serviceOrders:        s.serviceOrders,
+      outages:              s.outages,
+      circuitAssets:        s.circuitAssets,
+      deviceAssets:         s.deviceAssets,
+      weatherStations:      s.weatherStations,
+      layerVisibility:      s.layerVisibility,
+      selectedAssetId:      s.selectedAssetId,
+      selectedCircuitId:    s.selectedCircuitId,
+      setSelectedAssetId:   s.setSelectedAssetId,
+      setSelectedCircuitId: s.setSelectedCircuitId,
+    }))
+  )
 
-  const [basemap, setBasemap] = useState<keyof typeof BASEMAPS>('dark')
+  const [basemap, setBasemap] = useState('dark')
+  const bm = BASEMAPS[basemap] ?? BASEMAPS.dark
+
+  // suppress unused variable warnings
+  void selectedAssetId
+  void selectedCircuitId
 
   return (
-    <div className="relative flex h-full">
-      {/* Layer toggle panel */}
-      <div className="absolute top-3 left-3 z-[1000] bg-[#112645]/90 border border-[#20406a] rounded-lg p-3 backdrop-blur-sm min-w-[140px]">
-        <div className="text-[#f5f5f5] text-xs font-semibold mb-2">Camadas</div>
-        {[
-          { key: 'assets',  label: 'Ativos'           },
-          { key: 'orders',  label: 'Ordens de Serviço' },
-          { key: 'outages', label: 'Interrupções'      },
-        ].map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 cursor-pointer mb-1">
-            <input
-              type="checkbox"
-              checked={layerVisibility[key] ?? true}
-              onChange={(e) => setLayerVisibility(key, e.target.checked)}
-              className="w-3.5 h-3.5 accent-[#2abfdc]"
-            />
-            <span className="text-[#8fb3c8] text-xs">{label}</span>
-          </label>
-        ))}
-        <div className="border-t border-[#20406a] mt-2 pt-2">
-          <div className="text-[#6b6b6b] text-xs mb-1">Redes</div>
-          {Object.entries(NETWORK_TYPE_LABELS).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-2 cursor-pointer mb-1">
-              <input
-                type="checkbox"
-                checked={layerVisibility[key] ?? true}
-                onChange={(e) => setLayerVisibility(key, e.target.checked)}
-                className="w-3.5 h-3.5 accent-[#2abfdc]"
-              />
-              <span className="text-[#8fb3c8] text-xs">{label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
+    <div className="flex h-full overflow-hidden">
+      {/* Left layer panel */}
+      <GridLayerPanel />
 
-      {/* Basemap selector */}
-      <div className="absolute top-3 right-3 z-[1000]">
-        <select
-          value={basemap}
-          onChange={(e) => setBasemap(e.target.value as keyof typeof BASEMAPS)}
-          className="bg-[#112645] border border-[#20406a] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none"
+      {/* Map area */}
+      <div className="flex-1 relative">
+        <MapContainer
+          center={[-23.55, -46.63]}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
         >
-          <option value="streets">Ruas</option>
-          <option value="satellite">Satélite</option>
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-        </select>
-      </div>
+          <TileLayer url={bm.url} attribution={bm.attribution} />
 
-      {/* Map */}
-      <MapContainer
-        center={[-23.55, -46.63]}
-        zoom={13}
-        className="flex-1 h-full w-full"
-        style={{ background: '#0d2040' }}
-      >
-        <TileLayer
-          url={BASEMAPS[basemap]}
-          attribution={ATTRIBUTION}
-        />
+          {/* Circuit polylines */}
+          {layerVisibility.circuits && circuitAssets.map((c) =>
+            c.polyline ? (
+              <Polyline
+                key={`pl-${c.id}`}
+                positions={c.polyline}
+                pathOptions={{
+                  color: NETWORK_COLORS[c.networkType],
+                  weight: 3,
+                  opacity: 0.75,
+                }}
+              />
+            ) : null
+          )}
 
-        {/* Assets */}
-        {layerVisibility.assets && assets
-          .filter((a) => layerVisibility[a.networkType] !== false)
-          .map((asset) => (
+          {/* Circuit centroid markers */}
+          {layerVisibility.circuits && circuitAssets.map((c) => (
             <CircleMarker
-              key={asset.id}
-              center={[asset.lat, asset.lng]}
-              radius={10}
+              key={`cm-${c.id}`}
+              center={[c.lat, c.lng]}
+              radius={9}
               pathOptions={{
-                fillColor: RISK_COLORS[asset.riskLevel],
+                fillColor: RISK_COLORS[c.riskLevel],
+                color: '#38bdf8',
+                weight: 2,
+                fillOpacity: 0.85,
+              }}
+              eventHandlers={{ click: () => setSelectedCircuitId(c.id) }}
+            >
+              <Tooltip direction="top" offset={[0, -8]}>
+                <div className="text-xs">
+                  <strong>{c.circuitId}</strong> — {c.circuitName}<br />
+                  {c.circuitClass} · {c.districtName}
+                </div>
+              </Tooltip>
+            </CircleMarker>
+          ))}
+
+          {/* Asset markers (NetworkAsset) */}
+          {layerVisibility.assets && assets
+            .filter((a) => layerVisibility[a.networkType] !== false)
+            .map((a) => (
+              <CircleMarker
+                key={a.id}
+                center={[a.lat, a.lng]}
+                radius={7}
+                pathOptions={{
+                  fillColor: RISK_COLORS[a.riskLevel],
+                  color: 'white',
+                  weight: 1.5,
+                  fillOpacity: 0.85,
+                }}
+                eventHandlers={{ click: () => setSelectedAssetId(a.id) }}
+              >
+                <Tooltip direction="top" offset={[0, -6]}>
+                  <div className="text-xs"><strong>{a.code}</strong> — {a.name}</div>
+                </Tooltip>
+              </CircleMarker>
+            ))
+          }
+
+          {/* Device markers */}
+          {layerVisibility.assets && deviceAssets.map((d) => (
+            <CircleMarker
+              key={d.id}
+              center={[d.lat, d.lng]}
+              radius={6}
+              pathOptions={{
+                fillColor: '#f97316',
+                color: 'white',
+                weight: 1.5,
+                fillOpacity: 0.85,
+              }}
+            >
+              <Tooltip direction="top" offset={[0, -5]}>
+                <div className="text-xs"><strong>{d.deviceId}</strong> — {d.deviceType}</div>
+              </Tooltip>
+            </CircleMarker>
+          ))}
+
+          {/* Weather station markers */}
+          {layerVisibility.assets && weatherStations.map((w) => (
+            <CircleMarker
+              key={w.id}
+              center={[w.lat, w.lng]}
+              radius={9}
+              pathOptions={{
+                fillColor: '#a78bfa',
                 color: 'white',
                 weight: 2,
                 fillOpacity: 0.9,
               }}
-              eventHandlers={{
-                click: () => setSelectedAssetId(asset.id),
-              }}
             >
-              <Tooltip>
-                <div>
-                  <strong>{asset.code}</strong> — {asset.name}<br />
-                  Status: {asset.status} | Risco: {asset.riskLevel}
+              <Tooltip direction="top" offset={[0, -8]}>
+                <div className="text-xs">
+                  <strong>{w.stationId}</strong> — {w.stationName}<br />
+                  {w.currentTempC}°C · {w.windKmh} km/h
                 </div>
               </Tooltip>
             </CircleMarker>
-          ))
-        }
+          ))}
 
-        {/* Service orders */}
-        {layerVisibility.orders && serviceOrders.map((order) => {
-          const asset = assets.find((a) => a.id === order.assetId)
-          if (!asset) return null
-          return (
-            <CircleMarker
-              key={order.id}
-              center={[asset.lat + 0.0005, asset.lng + 0.0005]}
-              radius={6}
-              pathOptions={{
-                fillColor: PRIORITY_COLORS[order.priority] ?? '#94a3b8',
-                color: 'white',
-                weight: 1,
-                fillOpacity: 0.8,
-                dashArray: '4',
-              }}
-            >
-              <Tooltip>
-                <div>
-                  <strong>{order.code}</strong><br />
-                  {order.type} — {order.priority}
-                </div>
-              </Tooltip>
-            </CircleMarker>
-          )
-        })}
-
-        {/* Outages */}
-        {layerVisibility.outages && outages
-          .filter((o) => o.status !== 'resolved')
-          .map((outage) => {
-            const asset = assets.find((a) => outage.affectedAssetIds.includes(a.id))
+          {/* Service order markers */}
+          {layerVisibility.orders && serviceOrders.map((order) => {
+            const asset = assets.find((a) => a.id === order.assetId)
             if (!asset) return null
             return (
               <CircleMarker
-                key={outage.id}
-                center={[asset.lat, asset.lng]}
-                radius={18}
+                key={order.id}
+                center={[asset.lat + 0.001, asset.lng + 0.001]}
+                radius={6}
                 pathOptions={{
-                  fillColor: '#ef4444',
-                  color: '#ef4444',
-                  weight: 2,
-                  fillOpacity: 0.25,
+                  fillColor: PRIORITY_COLORS[order.priority] ?? '#94a3b8',
+                  color: 'white',
+                  weight: 1,
+                  fillOpacity: 0.8,
+                  dashArray: '4',
                 }}
               >
-                <Tooltip>
-                  <div>
-                    <strong>Interrupção</strong><br />
-                    {outage.type} — {outage.status}<br />
-                    {outage.affectedCustomers ? `${outage.affectedCustomers} clientes afetados` : ''}
-                  </div>
+                <Tooltip direction="top">
+                  <div className="text-xs"><strong>{order.code}</strong> — {order.type}</div>
                 </Tooltip>
               </CircleMarker>
             )
-          })
-        }
-      </MapContainer>
+          })}
 
-      {/* DrillDown panel overlaid on right */}
-      <AtivoDrillDownPanel />
+          {/* Outage overlays */}
+          {layerVisibility.outages && outages
+            .filter((o) => o.status !== 'resolved')
+            .map((outage) => {
+              const asset = assets.find((a) => outage.affectedAssetIds.includes(a.id))
+              if (!asset) return null
+              return (
+                <CircleMarker
+                  key={outage.id}
+                  center={[asset.lat, asset.lng]}
+                  radius={20}
+                  pathOptions={{
+                    fillColor: '#ef4444',
+                    color: '#ef4444',
+                    weight: 2,
+                    fillOpacity: 0.2,
+                  }}
+                >
+                  <Tooltip direction="top">
+                    <div className="text-xs">
+                      <strong>Interrupção</strong> — {outage.type}<br />
+                      {outage.affectedCustomers} clientes afetados
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              )
+            })
+          }
+        </MapContainer>
+
+        {/* Basemap selector */}
+        <div className="absolute top-3 right-3 z-[1000]">
+          <select
+            value={basemap}
+            onChange={(e) => setBasemap(e.target.value)}
+            className="bg-[#0d2040]/90 border border-[#20406a] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none backdrop-blur-sm"
+          >
+            {Object.entries(BASEMAPS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Map legend */}
+        <div className="absolute bottom-3 left-3 z-[1000] bg-[#0d2040]/90 border border-[#20406a] rounded-lg p-2 backdrop-blur-sm">
+          <div className="text-[#6b6b6b] text-xs font-semibold mb-1.5">Legenda</div>
+          {[
+            { color: '#ef4444', label: 'Crítico' },
+            { color: '#f97316', label: 'Alto' },
+            { color: '#eab308', label: 'Médio' },
+            { color: '#22c55e', label: 'Baixo' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+              <span className="text-xs text-[#8fb3c8]">{label}</span>
+            </div>
+          ))}
+          <div className="border-t border-[#20406a] mt-1 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-[#f97316]" />
+              <span className="text-xs text-[#8fb3c8]">Dispositivo</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-[#a78bfa]" />
+              <span className="text-xs text-[#8fb3c8]">Estação NWS</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Drill-down panel */}
+        <AtivoDrillDownPanel />
+      </div>
     </div>
   )
 }
