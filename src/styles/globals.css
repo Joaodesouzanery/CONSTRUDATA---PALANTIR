@@ -211,3 +211,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="dark"] .divide-gray-200 > * + * { border-color: #284870 !important; }
 
 /* Accent, status colors stay the same in both modes */
+
+/* ─── Mobile Optimizations ──────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .leaflet-container {
+    min-height: 300px !important;
+  }
+}
+
+/* ─── Light Mode Overrides for new Rede360 components ───────────────────────── */
+[data-theme="light"] .grid-layer-panel {
+  background-color: #f0f4f8 !important;
+  border-color: #d1dde8 !important;
+}
+[data-theme="light"] .grid-bottom-panel {
+  background-color: #f0f4f8 !important;
+  border-color: #d1dde8 !important;
+}
+
+/* Landing page sections always render in their intended colors (not overridden by dark mode) */
+/* These selectors target the AllModulesGrid dark background which is intentional on landing */

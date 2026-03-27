@@ -41,10 +41,10 @@ export function useAlertCounts(): AlertCounts {
   )
 
   return {
-    '/otimizacao-frota':    healthAlerts,
-    '/torre-de-controle':   siteRisks,
-    '/gestao-360':          changeOrders,
-    '/gestao-equipamentos': maintOrders,
-    '/mao-de-obra':         occurrences + fleetAlerts,
+    '/app/otimizacao-frota':    healthAlerts,
+    '/app/torre-de-controle':   siteRisks,
+    '/app/gestao-360':          changeOrders,
+    '/app/gestao-equipamentos': maintOrders,
+    '/app/mao-de-obra':         occurrences + fleetAlerts,
   }
 }

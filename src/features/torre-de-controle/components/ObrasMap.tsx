@@ -54,40 +54,56 @@ const PRIORITY_COLOR: Record<string, string> = {
 // ─── Custom SVG construction helmet marker ────────────────────────────────────
 
 function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
-  const size   = isSelected ? 44 : 36
-  const color  = STATUS_COLOR[site.status]
+  const size       = isSelected ? 46 : 38
+  const color      = STATUS_COLOR[site.status]
   const hasCritical = site.risks.some((r) => r.level === 'critical' && r.status === 'active')
+  const ringSize   = size + 8
 
   const pulse = hasCritical ? `
-    <div style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:50%;background:${color};opacity:0.35;
+    <div style="position:absolute;top:-4px;left:-4px;right:-4px;bottom:-4px;border-radius:50%;background:${color};opacity:0.25;
       animation:ping 1.4s cubic-bezier(0,0,0.2,1) infinite;"></div>` : ''
 
+  // Modern filled circle marker with building icon
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 44 44">
-      <rect x="6" y="30" width="32" height="5" rx="2.5" fill="${color}" opacity="0.9"/>
-      <path d="M8 30 C8 18 36 18 36 30 Z" fill="${color}"/>
-      <path d="M12 24 C12 17 32 17 32 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2"/>
-      <path d="M5 30 Q22 27 39 30" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-      <rect x="20" y="18" width="4" height="12" rx="1" fill="rgba(0,0,0,0.2)"/>
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 46 46">
+      <!-- Outer status ring -->
+      <circle cx="23" cy="23" r="21" fill="${color}" opacity="0.18"/>
+      <circle cx="23" cy="23" r="21" fill="none" stroke="${color}" stroke-width="${isSelected ? 3 : 2}" opacity="${isSelected ? 1 : 0.7}"/>
+      <!-- Inner filled circle -->
+      <circle cx="23" cy="23" r="14" fill="${color}" opacity="0.95"/>
+      <!-- Building icon (white) centered -->
+      <g transform="translate(13,13)" fill="white" opacity="0.95">
+        <!-- Building outline -->
+        <rect x="3" y="5" width="14" height="12" rx="1" fill="none" stroke="white" stroke-width="1.5"/>
+        <!-- Roof peak -->
+        <polyline points="1,6 10,1 19,6" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <!-- Door -->
+        <rect x="8" y="12" width="4" height="5" rx="0.5" fill="white"/>
+        <!-- Windows -->
+        <rect x="4" y="8" width="3" height="3" rx="0.5" fill="white"/>
+        <rect x="13" y="8" width="3" height="3" rx="0.5" fill="white"/>
+      </g>
     </svg>`
 
   // Short label: trim to 18 chars
   const shortName = site.name.length > 18 ? site.name.slice(0, 17) + '…' : site.name
 
   const html = `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-      <div style="position:relative;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6));">
-        ${pulse}${svg}
-        ${isSelected ? `<div style="position:absolute;inset:-3px;border-radius:50%;border:2px solid ${color};opacity:0.7;"></div>` : ''}
+    <div style="display:flex;flex-direction:column;align-items:center;gap:3px;">
+      <div style="position:relative;width:${ringSize}px;height:${ringSize}px;display:flex;align-items:center;justify-content:center;
+        filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));">
+        ${pulse}
+        <div style="position:absolute;top:4px;left:4px;">${svg}</div>
       </div>
-      <div style="background:rgba(13,17,23,0.85);border:1px solid ${color}40;border-radius:3px;
-        padding:1px 5px;font-size:9px;font-weight:600;color:${color};white-space:nowrap;
-        font-family:Inter,system-ui,sans-serif;line-height:1.4;pointer-events:none;">
+      <div style="background:rgba(10,22,40,0.92);border:1px solid ${color}50;border-radius:4px;
+        padding:2px 7px;font-size:9px;font-weight:700;color:${color};white-space:nowrap;
+        font-family:Inter,system-ui,sans-serif;line-height:1.5;pointer-events:none;
+        box-shadow:0 2px 6px rgba(0,0,0,0.4);">
         ${shortName}
       </div>
     </div>`
 
-  return L.divIcon({ html, className: '', iconSize: [size, size + 18], iconAnchor: [size / 2, size / 2], popupAnchor: [0, -(size / 2 + 12)] })
+  return L.divIcon({ html, className: '', iconSize: [ringSize, ringSize + 22], iconAnchor: [ringSize / 2, ringSize / 2], popupAnchor: [0, -(ringSize / 2 + 14)] })
 }
 
 // ─── MapController — fly-to on selection ─────────────────────────────────────
