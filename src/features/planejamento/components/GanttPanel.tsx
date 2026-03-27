@@ -5,6 +5,7 @@
  */
 import { Play } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useThemeStore } from '@/store/themeStore'
 import { fmtDate } from '../utils/exportEngine'
 
 const CELL_W = 44       // px per day column
@@ -24,6 +25,8 @@ export function GanttPanel() {
     totalCostBRL, projectEndDate, scheduleConfig,
     isScheduleDirty, runSchedule,
   } = usePlanejamentoStore()
+  const theme = useThemeStore((s) => s.theme)
+  const isLight = theme === 'light'
 
   const groupingMode = scheduleConfig.ganttGroupingMode ?? 'daily_segment'
 
@@ -110,7 +113,7 @@ export function GanttPanel() {
                   {groupingMode === 'daily_segment' && (
                     <div className="text-xs text-gray-400 truncate">{row.trecho.description}</div>
                   )}
-                  <div className="text-xs mt-0.5" style={{ color: colorLight }}>{teamName}</div>
+                  <div className="text-xs mt-0.5" style={{ color: isLight ? color : colorLight }}>{teamName}</div>
                 </div>
 
                 {/* Day cells */}

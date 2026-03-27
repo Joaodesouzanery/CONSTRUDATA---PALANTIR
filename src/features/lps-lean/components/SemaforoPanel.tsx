@@ -308,7 +308,7 @@ export function SemaforoPanel() {
                   ) : (
                     <button
                       onClick={() => setCncOpenId(cncOpenId === a.id ? null : a.id)}
-                      className="text-gray-700 hover:text-gray-500 text-[11px] transition-colors"
+                      className="text-gray-500 hover:text-gray-300 text-[11px] transition-colors"
                     >
                       + CNC
                     </button>

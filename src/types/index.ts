@@ -247,6 +247,7 @@ export interface ConstructionMilestone {
 export type TaskColor    = 'blue' | 'orange' | 'green' | 'red' | 'purple'
 export type AgendaPriority = 'low' | 'medium' | 'high' | 'critical'
 export type AgendaViewMode = 'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'
+export type AgendaDisplayView = 'gantt' | 'calendar'
 
 export interface AgendaTask {
   id: string

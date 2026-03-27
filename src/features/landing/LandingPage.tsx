@@ -4,6 +4,7 @@ import { HeroSection } from './components/HeroSection'
 import { OntologiaSection } from './components/OntologiaSection'
 import { ModulosOverviewSection } from './components/ModulosOverviewSection'
 import { FeatureDeepSection } from './components/FeatureDeepSection'
+import { ShowcaseSection } from './components/ShowcaseSection'
 import { AllModulesGrid } from './components/AllModulesGrid'
 import { FooterCTA } from './components/FooterCTA'
 import { ContactForm } from './components/ContactForm'
@@ -34,6 +35,7 @@ export function LandingPage() {
       <OntologiaSection />
       <ModulosOverviewSection />
       <FeatureDeepSection />
+      <ShowcaseSection />
       <AllModulesGrid />
       <FooterCTA />
       <ContactForm />

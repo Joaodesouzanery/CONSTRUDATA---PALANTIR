@@ -190,6 +190,51 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] .hover\:bg-gray-800\/70:hover { background-color: #eceeef !important; }
 [data-theme="light"] .bg-gray-900\/10  { background-color: rgba(249,250,251,0.5) !important; }
 [data-theme="light"] .bg-gray-900\/50  { background-color: #f3f4f6 !important; }
+[data-theme="light"] .bg-gray-900\/30  { background-color: #f5f6f7 !important; }
+
+/* Planejamento / LPS / Quantitativos: opacity-based colored backgrounds */
+[data-theme="light"] .bg-blue-900\/40    { background-color: #dbeafe !important; }
+[data-theme="light"] .bg-green-900\/30   { background-color: #dcfce7 !important; }
+[data-theme="light"] .bg-green-900\/20   { background-color: #f0fdf4 !important; }
+[data-theme="light"] .bg-red-900\/30     { background-color: #fee2e2 !important; }
+[data-theme="light"] .bg-red-900\/50     { background-color: #fecaca !important; }
+[data-theme="light"] .bg-red-900\/20     { background-color: #fef2f2 !important; }
+[data-theme="light"] .bg-yellow-900\/20  { background-color: #fef9c3 !important; }
+[data-theme="light"] .bg-yellow-900\/40  { background-color: #fde68a !important; }
+[data-theme="light"] .bg-orange-900\/40  { background-color: #fed7aa !important; }
+[data-theme="light"] .bg-orange-900\/10  { background-color: #fff7ed !important; }
+[data-theme="light"] .bg-violet-950\/40  { background-color: #ede9fe !important; }
+[data-theme="light"] .bg-violet-900\/40  { background-color: #ede9fe !important; }
+[data-theme="light"] .bg-violet-900\/60  { background-color: #ddd6fe !important; }
+
+/* Colored text overrides for light backgrounds */
+[data-theme="light"] .text-violet-400  { color: #7c3aed !important; }
+[data-theme="light"] .text-violet-300  { color: #8b5cf6 !important; }
+[data-theme="light"] .text-orange-400  { color: #ea580c !important; }
+[data-theme="light"] .text-orange-300  { color: #f97316 !important; }
+[data-theme="light"] .text-green-400   { color: #16a34a !important; }
+[data-theme="light"] .text-green-300   { color: #22c55e !important; }
+[data-theme="light"] .text-red-400     { color: #dc2626 !important; }
+[data-theme="light"] .text-red-300     { color: #ef4444 !important; }
+[data-theme="light"] .text-yellow-400  { color: #ca8a04 !important; }
+[data-theme="light"] .text-blue-400    { color: #2563eb !important; }
+[data-theme="light"] .text-blue-300    { color: #3b82f6 !important; }
+[data-theme="light"] .text-indigo-400  { color: #4f46e5 !important; }
+
+/* Colored border overrides for light mode */
+[data-theme="light"] .border-orange-500    { border-color: #ea580c !important; }
+[data-theme="light"] .border-blue-700\/50  { border-color: #93c5fd !important; }
+[data-theme="light"] .border-green-700\/50 { border-color: #86efac !important; }
+[data-theme="light"] .border-red-700\/50   { border-color: #fca5a5 !important; }
+[data-theme="light"] .border-red-700\/40   { border-color: #fca5a5 !important; }
+[data-theme="light"] .border-violet-700\/50 { border-color: #c4b5fd !important; }
+[data-theme="light"] .border-violet-700\/30 { border-color: #ddd6fe !important; }
+[data-theme="light"] .border-yellow-800    { border-color: #fde68a !important; }
+[data-theme="light"] .border-green-800     { border-color: #86efac !important; }
+[data-theme="light"] .border-red-800       { border-color: #fca5a5 !important; }
+
+/* SVG fill overrides */
+[data-theme="light"] .fill-gray-500 { fill: #6b7280 !important; }
 
 /* ─── Dark Mode Overrides ───────────────────────────────────────────────────── */
 /* Modules using bg-white/bg-gray-50 etc need dark equivalents in dark mode.    */

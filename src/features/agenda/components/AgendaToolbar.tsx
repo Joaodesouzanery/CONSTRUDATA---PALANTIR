@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Plus, GanttChart, CalendarDays } from 'lucide-react'
 import { useAgendaStore } from '@/store/agendaStore'
 import { formatViewRange } from '../utils'
 import type { AgendaViewMode } from '@/types'
@@ -20,7 +20,7 @@ const VIEW_MODES: { key: AgendaViewMode; label: string }[] = [
 ]
 
 export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaToolbarProps) {
-  const { viewStart, visibleWeeks, viewMode, panLeft, panRight, setViewMode } = useAgendaStore()
+  const { viewStart, visibleWeeks, viewMode, panLeft, panRight, setViewMode, displayView, setDisplayView } = useAgendaStore()
   const range = formatViewRange(viewStart, visibleWeeks)
 
   return (
@@ -43,6 +43,32 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
           <SlidersHorizontal size={14} />
         </button>
+
+        {/* Display view toggle */}
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            onClick={() => setDisplayView('gantt')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+              displayView === 'gantt'
+                ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
+                : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+            )}
+          >
+            <GanttChart size={13} /> Gantt
+          </button>
+          <button
+            onClick={() => setDisplayView('calendar')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
+              displayView === 'calendar'
+                ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
+                : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+            )}
+          >
+            <CalendarDays size={13} /> Calendário
+          </button>
+        </div>
 
         <div className="h-5 w-px bg-[#20406a]" />
 
@@ -79,26 +105,28 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </button>
       </div>
 
-      {/* ViewMode buttons row */}
-      <div className="flex items-center gap-1 px-5 pb-2">
-        <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mr-2">
-          Visualização:
-        </span>
-        {VIEW_MODES.map((vm) => (
-          <button
-            key={vm.key}
-            onClick={() => setViewMode(vm.key)}
-            className={cn(
-              'px-3 py-1 rounded-md border text-xs font-medium transition-colors',
-              viewMode === vm.key
-                ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
-                : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
-            )}
-          >
-            {vm.label}
-          </button>
-        ))}
-      </div>
+      {/* ViewMode buttons row — only for Gantt view */}
+      {displayView === 'gantt' && (
+        <div className="flex items-center gap-1 px-5 pb-2">
+          <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mr-2">
+            Visualização:
+          </span>
+          {VIEW_MODES.map((vm) => (
+            <button
+              key={vm.key}
+              onClick={() => setViewMode(vm.key)}
+              className={cn(
+                'px-3 py-1 rounded-md border text-xs font-medium transition-colors',
+                viewMode === vm.key
+                  ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
+                  : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+              )}
+            >
+              {vm.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

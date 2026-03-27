@@ -4,6 +4,7 @@
  */
 import { useMemo } from 'react'
 import { Clock, AlertTriangle, CheckCircle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useLpsStore } from '@/store/lpsStore'
 
 function fmtDays(d: number): string {
@@ -86,23 +87,24 @@ export function TaktTimePanel() {
                 const widthPct = (z.taktDays / timelineTotal) * 100
                 const isOver  = z.actualDays !== undefined && z.actualDays > z.taktDays
                 const isOk    = z.actualDays !== undefined && z.actualDays <= z.taktDays
-                const bgColor = isOver ? '#7f1d1d' : isOk ? '#14532d' : '#1e3a5f'
-                const border  = isOver ? '#ef4444' : isOk ? '#22c55e' : '#3b82f6'
 
                 return (
                   <div
                     key={z.id}
-                    className="flex flex-col items-center justify-center rounded-md text-center overflow-hidden transition-all"
+                    className={cn(
+                      'flex flex-col items-center justify-center rounded-md text-center overflow-hidden transition-all',
+                      isOver ? 'bg-red-900/30 border border-red-500'
+                        : isOk ? 'bg-green-900/30 border border-green-500'
+                        : 'bg-blue-900/40 border border-blue-500',
+                    )}
                     style={{
                       width: `${widthPct}%`,
                       minWidth: 48,
-                      backgroundColor: bgColor,
-                      border: `1px solid ${border}`,
                     }}
                     title={`${z.code} — Takt: ${z.taktDays}d${z.actualDays !== undefined ? ` | Real: ${z.actualDays}d` : ''}`}
                   >
                     <span className="text-xs font-bold text-white leading-tight">{z.code}</span>
-                    <span className="text-[10px] font-mono" style={{ color: border }}>{fmtDays(z.taktDays)}</span>
+                    <span className={cn('text-[10px] font-mono', isOver ? 'text-red-500' : isOk ? 'text-green-500' : 'text-blue-500')}>{fmtDays(z.taktDays)}</span>
                     {z.actualDays !== undefined && (
                       <span className={`text-[9px] ${isOver ? 'text-red-300' : 'text-green-300'}`}>
                         Real: {z.actualDays}d

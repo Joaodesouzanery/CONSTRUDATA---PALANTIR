@@ -3,11 +3,12 @@ import { useAgendaStore } from '@/store/agendaStore'
 import { AgendaHeader } from './components/AgendaHeader'
 import { AgendaToolbar } from './components/AgendaToolbar'
 import { GanttChart } from './components/GanttChart'
+import { ThreeDWallCalendar } from './components/ThreeDWallCalendar'
 import { AgendaBottomBar } from './components/AgendaBottomBar'
 import { TaskEditDialog } from './components/TaskEditDialog'
 
 export function AgendaPage() {
-  const { resources, editingTaskId, setEditingTask } = useAgendaStore()
+  const { resources, editingTaskId, setEditingTask, displayView } = useAgendaStore()
   const [searchTerm, setSearchTerm] = useState('')
 
   const filteredResourceIds = useMemo(() => {
@@ -35,9 +36,12 @@ export function AgendaPage() {
         onAddTask={handleAddTask}
       />
       <div className="flex-1 overflow-hidden">
-        <GanttChart filteredResourceIds={filteredResourceIds} />
+        {displayView === 'gantt'
+          ? <GanttChart filteredResourceIds={filteredResourceIds} />
+          : <ThreeDWallCalendar />
+        }
       </div>
-      <AgendaBottomBar />
+      {displayView === 'gantt' && <AgendaBottomBar />}
 
       {editingTaskId && <TaskEditDialog />}
     </div>

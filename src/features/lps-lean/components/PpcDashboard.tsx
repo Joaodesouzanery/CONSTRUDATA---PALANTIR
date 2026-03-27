@@ -127,7 +127,7 @@ export function PpcDashboard() {
                   return (
                     <g key={v}>
                       <line x1={LEFT} y1={y} x2={CHART_W} y2={y} stroke="#1f2937" strokeWidth={1} />
-                      <text x={LEFT - 4} y={y + 4} textAnchor="end" fill="#6b7280" fontSize={9} fontFamily="monospace">
+                      <text x={LEFT - 4} y={y + 4} textAnchor="end" className="fill-gray-500" fontSize={9} fontFamily="monospace">
                         {v}%
                       </text>
                     </g>
@@ -152,7 +152,7 @@ export function PpcDashboard() {
                           {w.ppc}%
                         </text>
                       )}
-                      <text x={x + BAR_W / 2} y={CHART_H + 14} textAnchor="middle" fill="#6b7280" fontSize={8}>
+                      <text x={x + BAR_W / 2} y={CHART_H + 14} textAnchor="middle" className="fill-gray-500" fontSize={8}>
                         {weekLabel(w.week)}
                       </text>
                     </g>

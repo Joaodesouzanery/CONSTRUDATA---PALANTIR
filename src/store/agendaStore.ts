@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { addDays, format, parseISO } from 'date-fns'
-import type { AgendaTask, AgendaResource, AgendaViewMode } from '@/types'
+import type { AgendaTask, AgendaResource, AgendaViewMode, AgendaDisplayView } from '@/types'
 import { mockTasks, mockResources, INITIAL_VIEW_START, INITIAL_VISIBLE_WEEKS } from '@/data/mockAgenda'
 
 const PAN_DAYS: Record<AgendaViewMode, number> = {
@@ -20,6 +20,7 @@ interface AgendaState {
   viewMode: AgendaViewMode
   selectedTaskId: string | null
   editingTaskId: string | null   // 'new' | task.id | null
+  displayView: AgendaDisplayView
 
   addTask: (task: Omit<AgendaTask, 'id'>) => void
   updateTask: (id: string, updates: Partial<Omit<AgendaTask, 'id'>>) => void
@@ -34,6 +35,7 @@ interface AgendaState {
 
   selectTask: (id: string | null) => void
   setEditingTask: (id: string | null) => void
+  setDisplayView: (view: AgendaDisplayView) => void
   loadDemoData: () => void
   clearData: () => void
 }
@@ -46,6 +48,7 @@ export const useAgendaStore = create<AgendaState>((set) => ({
   viewMode: 'week',
   selectedTaskId: null,
   editingTaskId: null,
+  displayView: 'gantt',
 
   addTask: (task) =>
     set((s) => ({
@@ -90,6 +93,7 @@ export const useAgendaStore = create<AgendaState>((set) => ({
 
   selectTask: (id) => set({ selectedTaskId: id }),
   setEditingTask: (id) => set({ editingTaskId: id }),
+  setDisplayView: (view) => set({ displayView: view }),
 
   loadDemoData: () =>
     set({ tasks: mockTasks, resources: mockResources }),
