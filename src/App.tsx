@@ -1,25 +1,46 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
-import { Relatorio360Page }  from '@/features/relatorio360/index'
-import { AgendaPage }        from '@/features/agenda/index'
-import { ProjetosPage }              from '@/features/projetos/index'
-import { TorreDeControlePage }       from '@/features/torre-de-controle/index'
-import { GestaoEquipamentosPage }    from '@/features/gestao-equipamentos/index'
-import { PreConstrucaoPage }         from '@/features/pre-construcao/index'
-import { SuprimentosPage }           from '@/features/suprimentos/index'
-import { MaoDeObraPage }             from '@/features/mao-de-obra/index'
-import OtimizacaoFrotaPage           from '@/features/otimizacao-frota/index'
-import { Gestao360Page }             from '@/features/gestao-360/index'
-import { PlanejamentoPage }          from '@/features/planejamento/index'
-import { LpsPage }                  from '@/features/lps-lean/index'
-import { MapaInterativoPage }       from '@/features/mapa-interativo/index'
-import { RdoPage }                  from '@/features/rdo/index'
-import { QuantitativosPage }        from '@/features/quantitativos/index'
-import { Rede360Page }              from '@/features/rede-360/index'
 import { lazy, Suspense } from 'react'
 
-const BimPage = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
+// ─── Lazy-loaded modules (code-split per route) ──────────────────────────────
+
+const Relatorio360Page      = lazy(() => import('@/features/relatorio360/index').then((m) => ({ default: m.Relatorio360Page })))
+const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
+const ProjetosPage          = lazy(() => import('@/features/projetos/index').then((m) => ({ default: m.ProjetosPage })))
+const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
+const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
+const PreConstrucaoPage     = lazy(() => import('@/features/pre-construcao/index').then((m) => ({ default: m.PreConstrucaoPage })))
+const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
+const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
+const OtimizacaoFrotaPage   = lazy(() => import('@/features/otimizacao-frota/index').then((m) => ({ default: m.default })))
+const Gestao360Page         = lazy(() => import('@/features/gestao-360/index').then((m) => ({ default: m.Gestao360Page })))
+const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index').then((m) => ({ default: m.PlanejamentoPage })))
+const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
+const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/index').then((m) => ({ default: m.MapaInterativoPage })))
+const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
+const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
+const Rede360Page           = lazy(() => import('@/features/rede-360/index').then((m) => ({ default: m.Rede360Page })))
+const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
+
+// ─── Route loading fallback ──────────────────────────────────────────────────
+
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center h-full text-gray-400">
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+        <span className="text-sm">Carregando módulo...</span>
+      </div>
+    </div>
+  )
+}
+
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+}
+
+// ─── App ─────────────────────────────────────────────────────────────────────
 
 function App() {
   return (
@@ -31,28 +52,24 @@ function App() {
         {/* App shell with all dashboard routes prefixed by /app */}
         <Route path="/app" element={<AppShell />}>
           <Route index element={<Navigate to="/app/gestao-360" replace />} />
-          <Route path="relatorio360"        element={<Relatorio360Page />} />
-          <Route path="agenda"              element={<AgendaPage />} />
+          <Route path="relatorio360"        element={<LazyRoute><Relatorio360Page /></LazyRoute>} />
+          <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
-          <Route path="gestao-equipamentos" element={<GestaoEquipamentosPage />} />
-          <Route path="projetos"            element={<ProjetosPage />} />
-          <Route path="torre-de-controle"   element={<TorreDeControlePage />} />
-          <Route path="pre-construcao"      element={<PreConstrucaoPage />} />
-          <Route path="suprimentos"         element={<SuprimentosPage />} />
-          <Route path="mao-de-obra"         element={<MaoDeObraPage />} />
-          <Route path="otimizacao-frota"    element={<OtimizacaoFrotaPage />} />
-          <Route path="gestao-360"          element={<Gestao360Page />} />
-          <Route path="planejamento"        element={<PlanejamentoPage />} />
-          <Route path="lps-lean"            element={<LpsPage />} />
-          <Route path="mapa-interativo"     element={<MapaInterativoPage />} />
-          <Route path="rdo"                 element={<RdoPage />} />
-          <Route path="quantitativos"       element={<QuantitativosPage />} />
-          <Route path="rede-360"            element={<Rede360Page />} />
-          <Route path="bim"                 element={
-            <Suspense fallback={<div className="flex items-center justify-center h-full text-gray-400">Carregando módulo 3D...</div>}>
-              <BimPage />
-            </Suspense>
-          } />
+          <Route path="gestao-equipamentos" element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
+          <Route path="projetos"            element={<LazyRoute><ProjetosPage /></LazyRoute>} />
+          <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
+          <Route path="pre-construcao"      element={<LazyRoute><PreConstrucaoPage /></LazyRoute>} />
+          <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />
+          <Route path="mao-de-obra"         element={<LazyRoute><MaoDeObraPage /></LazyRoute>} />
+          <Route path="otimizacao-frota"    element={<LazyRoute><OtimizacaoFrotaPage /></LazyRoute>} />
+          <Route path="gestao-360"          element={<LazyRoute><Gestao360Page /></LazyRoute>} />
+          <Route path="planejamento"        element={<LazyRoute><PlanejamentoPage /></LazyRoute>} />
+          <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
+          <Route path="mapa-interativo"     element={<LazyRoute><MapaInterativoPage /></LazyRoute>} />
+          <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
+          <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
+          <Route path="rede-360"            element={<LazyRoute><Rede360Page /></LazyRoute>} />
+          <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
           <Route path="*"                   element={<Navigate to="/app/gestao-360" replace />} />
         </Route>
 
