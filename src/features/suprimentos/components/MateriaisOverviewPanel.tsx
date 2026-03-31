@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
-import { Star, Search, X } from 'lucide-react'
+import { Star, Search, X, Pencil, Plus, Check } from 'lucide-react'
+import type { FrameworkAgreement } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,17 +138,148 @@ function ConfidenceStars({ score }: { score: number }) {
   )
 }
 
+// ─── FA Edit / Create Modal ───────────────────────────────────────────────────
+
+const FA_CATEGORIES = [
+  'Cimento e Argamassa', 'Aço / Vergalhão', 'Concreto Usinado',
+  'Tubulação e Saneamento', 'Impermeabilização', 'Outros',
+]
+
+const EMPTY_FA: Omit<FrameworkAgreement, 'id'> = {
+  code: '', supplier: '', category: 'Cimento e Argamassa',
+  validFrom: '', validTo: '', agreedUnitPrice: 0, maxQuantity: 0,
+  unit: 'un', leadTimeDays: 7, confidenceScore: 3.0,
+  status: 'active', terms: '',
+}
+
+interface FaModalProps {
+  initial: FrameworkAgreement | null   // null = create new
+  onSave: (fa: FrameworkAgreement | Omit<FrameworkAgreement, 'id'>) => void
+  onClose: () => void
+}
+
+function FaModal({ initial, onSave, onClose }: FaModalProps) {
+  const [f, setF] = useState<Omit<FrameworkAgreement, 'id'>>(
+    initial ? { ...initial } : { ...EMPTY_FA }
+  )
+
+  const set = (k: keyof typeof f, v: unknown) => setF((prev) => ({ ...prev, [k]: v }))
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!f.supplier.trim() || !f.code.trim()) return
+    if (initial) {
+      onSave({ ...initial, ...f })
+    } else {
+      onSave(f)
+    }
+    onClose()
+  }
+
+  const inp = 'bg-[#0d2040] border border-[#20406a] rounded px-2 py-1.5 text-[#e4f2f8] text-xs w-full outline-none focus:border-[#2abfdc]'
+  const sel = 'bg-[#0d2040] border border-[#20406a] rounded px-2 py-1.5 text-[#e4f2f8] text-xs w-full outline-none focus:border-[#2abfdc]'
+  const lbl = 'text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-[#14294e] border border-[#20406a] rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#20406a] shrink-0">
+          <h4 className="text-[#e4f2f8] font-semibold text-sm">
+            {initial ? 'Editar Acordo Marco' : 'Novo Acordo Marco'}
+          </h4>
+          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#e4f2f8] transition-colors"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Código AM</label>
+              <input className={inp} value={f.code} onChange={(e) => set('code', e.target.value)} placeholder="FA-001" required />
+            </div>
+            <div>
+              <label className={lbl}>Fornecedor</label>
+              <input className={inp} value={f.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="Nome do fornecedor" required />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Categoria</label>
+              <select className={sel} value={f.category} onChange={(e) => set('category', e.target.value)}>
+                {FA_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Status</label>
+              <select className={sel} value={f.status} onChange={(e) => set('status', e.target.value as FrameworkAgreement['status'])}>
+                <option value="active">Ativo</option>
+                <option value="expiring">A vencer</option>
+                <option value="expired">Expirado</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={lbl}>Preço Unitário (R$)</label>
+              <input className={inp} type="number" min="0" step="0.01" value={f.agreedUnitPrice} onChange={(e) => set('agreedUnitPrice', parseFloat(e.target.value) || 0)} />
+            </div>
+            <div>
+              <label className={lbl}>Unidade</label>
+              <input className={inp} value={f.unit} onChange={(e) => set('unit', e.target.value)} placeholder="m³, ton, sc…" />
+            </div>
+            <div>
+              <label className={lbl}>Lead Time (dias)</label>
+              <input className={inp} type="number" min="0" value={f.leadTimeDays} onChange={(e) => set('leadTimeDays', parseInt(e.target.value) || 0)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={lbl}>Válido De</label>
+              <input className={inp} type="date" value={f.validFrom} onChange={(e) => set('validFrom', e.target.value)} />
+            </div>
+            <div>
+              <label className={lbl}>Válido Até</label>
+              <input className={inp} type="date" value={f.validTo} onChange={(e) => set('validTo', e.target.value)} />
+            </div>
+            <div>
+              <label className={lbl}>Qtd Máxima</label>
+              <input className={inp} type="number" min="0" value={f.maxQuantity} onChange={(e) => set('maxQuantity', parseFloat(e.target.value) || 0)} />
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Confiança (1–5)</label>
+            <input className={inp} type="number" min="1" max="5" step="0.1" value={f.confidenceScore} onChange={(e) => set('confidenceScore', parseFloat(e.target.value) || 3)} />
+          </div>
+          <div>
+            <label className={lbl}>Termos (resumo)</label>
+            <textarea className={cn(inp, 'resize-none')} rows={2} value={f.terms} onChange={(e) => set('terms', e.target.value)} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="submit" className="flex-1 flex items-center justify-center gap-1.5 bg-[#2abfdc] hover:bg-[#22a8c4] text-white rounded-lg px-3 py-2 text-xs font-semibold transition-colors">
+              <Check size={13} /> Salvar
+            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#20406a] text-[#8fb3c8] text-xs hover:border-[#5a8caa] transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function MateriaisOverviewPanel() {
-  const { purchaseOrders, frameworkAgreements } = useSuprimentosStore(
+  const { purchaseOrders, frameworkAgreements, updateFrameworkAgreement, addFrameworkAgreement } = useSuprimentosStore(
     useShallow((s) => ({
-      purchaseOrders:      s.purchaseOrders,
-      frameworkAgreements: s.frameworkAgreements,
+      purchaseOrders:           s.purchaseOrders,
+      frameworkAgreements:      s.frameworkAgreements,
+      updateFrameworkAgreement: s.updateFrameworkAgreement,
+      addFrameworkAgreement:    s.addFrameworkAgreement,
     }))
   )
 
-  const [period, setPeriod]       = useState<'anual' | 'trimestral' | 'mensal'>('anual')
+  const [faModal, setFaModal] = useState<{ fa: FrameworkAgreement | null } | null>(null)
+  const [period, setPeriod]   = useState<'anual' | 'trimestral' | 'mensal'>('anual')
   const [catFilter, setCatFilter] = useState('Todas')
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'expired'>('all')
@@ -184,18 +316,6 @@ export function MateriaisOverviewPanel() {
     return list
   }, [frameworkAgreements, catFilter, statusFilter, searchText])
 
-  // Vendor comparison — one row per FA
-  const vendorRows = filteredFAs.map((fa) => ({
-    supplier:    fa.supplier,
-    category:    fa.category,
-    price:       fa.agreedUnitPrice,
-    unit:        fa.unit,
-    leadTime:    fa.leadTimeDays,
-    faCode:      fa.code,
-    faStatus:    fa.status,
-    confidence:  fa.confidenceScore,
-  }))
-
   // PO compliance — filtered by search text
   const faSuppliers = new Set(frameworkAgreements.map((fa) => fa.supplier))
   const poCompliance = purchaseOrders
@@ -207,8 +327,24 @@ export function MateriaisOverviewPanel() {
 
   const hasFilters = searchText.trim() || statusFilter !== 'all'
 
+  function handleFaSave(fa: FrameworkAgreement | Omit<FrameworkAgreement, 'id'>) {
+    if ('id' in fa) {
+      updateFrameworkAgreement(fa.id, fa)
+    } else {
+      addFrameworkAgreement(fa)
+    }
+  }
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-5">
+      {/* FA edit/create modal */}
+      {faModal !== null && (
+        <FaModal
+          initial={faModal.fa}
+          onSave={handleFaSave}
+          onClose={() => setFaModal(null)}
+        />
+      )}
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
         <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-1">
@@ -328,7 +464,7 @@ export function MateriaisOverviewPanel() {
       <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#a3a3a3] text-sm font-semibold">Comparativo de Fornecedores</p>
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             {allCategories.map((cat) => (
               <button
                 key={cat}
@@ -344,6 +480,12 @@ export function MateriaisOverviewPanel() {
               </button>
             ))}
           </div>
+          <button
+            onClick={() => setFaModal({ fa: null })}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc]/15 border border-[#2abfdc]/30 text-[#2abfdc] text-xs font-semibold hover:bg-[#2abfdc]/25 transition-colors shrink-0"
+          >
+            <Plus size={12} /> Novo Fornecedor
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -356,39 +498,49 @@ export function MateriaisOverviewPanel() {
                 <th className="text-right pb-2 font-medium">Lead Time</th>
                 <th className="text-center pb-2 font-medium">Acordo Marco</th>
                 <th className="text-center pb-2 font-medium">Confiança</th>
+                <th className="text-center pb-2 font-medium w-8"></th>
               </tr>
             </thead>
             <tbody>
-              {vendorRows.map((row) => {
+              {filteredFAs.map((fa) => {
                 const faBadgeColor =
-                  row.faStatus === 'active'   ? 'bg-green-900/40 text-green-300 border-green-700/40' :
-                  row.faStatus === 'expiring' ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' :
+                  fa.status === 'active'   ? 'bg-green-900/40 text-green-300 border-green-700/40' :
+                  fa.status === 'expiring' ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' :
                   'bg-[#14294e] text-[#6b6b6b] border-[#20406a]'
 
                 return (
-                  <tr key={row.faCode} className="border-b border-[#20406a] hover:bg-[#1a3662]/40 transition-colors">
-                    <td className="py-2 text-[#f5f5f5] font-medium">{row.supplier}</td>
-                    <td className="py-2 text-[#a3a3a3]">{row.category}</td>
+                  <tr key={fa.id} className="border-b border-[#20406a] hover:bg-[#1a3662]/40 transition-colors">
+                    <td className="py-2 text-[#f5f5f5] font-medium">{fa.supplier}</td>
+                    <td className="py-2 text-[#a3a3a3]">{fa.category}</td>
                     <td className="py-2 text-right tabular-nums text-[#f5f5f5]">
-                      {row.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/{row.unit}
+                      {fa.agreedUnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/{fa.unit}
                     </td>
-                    <td className="py-2 text-right tabular-nums text-[#a3a3a3]">{row.leadTime} dias</td>
+                    <td className="py-2 text-right tabular-nums text-[#a3a3a3]">{fa.leadTimeDays} dias</td>
                     <td className="py-2 text-center">
                       <span className={cn('px-1.5 py-0.5 rounded border text-[10px] font-mono font-medium', faBadgeColor)}>
-                        {row.faCode}
+                        {fa.code}
                       </span>
                     </td>
                     <td className="py-2">
                       <div className="flex justify-center">
-                        <ConfidenceStars score={row.confidence} />
+                        <ConfidenceStars score={fa.confidenceScore} />
                       </div>
+                    </td>
+                    <td className="py-2 text-center">
+                      <button
+                        onClick={() => setFaModal({ fa })}
+                        className="p-1 rounded text-[#6b6b6b] hover:text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors"
+                        title="Editar acordo marco"
+                      >
+                        <Pencil size={12} />
+                      </button>
                     </td>
                   </tr>
                 )
               })}
-              {vendorRows.length === 0 && (
+              {filteredFAs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-[#6b6b6b]">
+                  <td colSpan={7} className="py-6 text-center text-[#6b6b6b]">
                     Nenhum acordo marco encontrado
                   </td>
                 </tr>
