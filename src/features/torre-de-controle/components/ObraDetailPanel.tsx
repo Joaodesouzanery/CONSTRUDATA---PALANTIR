@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// ─── Config ────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<ObraStatus, string> = {
   active:    'Ativa',
@@ -41,7 +41,7 @@ const RISK_STATUS_LABEL: Record<RiskStatus, string> = {
   resolved:   'Resolvido',
 }
 
-// ─── Budget Table ─────────────────────────────────────────────────────────────
+// ─── Budget Table ───────────────────────────────────────────────────────────────
 
 function fmtM(n: number) {
   if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`
@@ -82,7 +82,7 @@ function BudgetTable({ lines }: { lines: ConstructionBudgetLine[] }) {
   )
 }
 
-// ─── Milestone Timeline ───────────────────────────────────────────────────────
+// ─── Milestone Timeline ──────────────────────────────────────────────────────────────
 
 const MILESTONE_ICON: Record<MilestoneStatus, React.ReactNode> = {
   done:    <CheckCircle2 size={11} className="text-[#22c55e] shrink-0" />,
@@ -121,7 +121,7 @@ function MilestoneTimeline({ label, milestones }: { label: string; milestones: C
   )
 }
 
-// ─── Risk Card ────────────────────────────────────────────────────────────────
+// ─── Risk Card ──────────────────────────────────────────────────────────────────
 
 function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRisk }) {
   const setEditingRisk  = useTorreStore((s) => s.setEditingRisk)
@@ -217,7 +217,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
   )
 }
 
-// ─── Main Panel ───────────────────────────────────────────────────────────────
+// ─── Main Panel ────────────────────────────────────────────────────────────────────
 
 export function ObraDetailPanel() {
   const sites          = useTorreStore((s) => s.sites)
@@ -347,7 +347,6 @@ export function ObraDetailPanel() {
               <p className="text-[10px] text-[#3f3f3f] text-center py-4">Nenhum risco cadastrado</p>
             ) : (
               <div className="flex flex-col gap-2">
-                {/* Sort: critical first, then by status (active before resolved) */}
                 {[...site.risks]
                   .sort((a, b) => {
                     const levelOrder = { critical: 0, high: 1, medium: 2, low: 3 }
@@ -365,7 +364,7 @@ export function ObraDetailPanel() {
   )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (

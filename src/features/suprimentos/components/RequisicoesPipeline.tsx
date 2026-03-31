@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Requisition, RequisitionStatus } from '@/types'
-import { ChevronRight, Plus, Pencil, X, Check } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 
 // ─── Column config ─────────────────────────────────────────────────────────────
 
@@ -136,106 +136,17 @@ interface CardProps {
 }
 
 function ReqCard({ req, isLast, onAdvance }: CardProps) {
-  const updateRequisition = useSuprimentosStore((s) => s.updateRequisition)
   const catColor = CATEGORY_COLORS[req.category] ?? 'bg-gray-700/50 text-gray-300'
   const date = new Date(req.requestedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState({
-    material:    req.material,
-    category:    req.category,
-    quantity:    req.quantity,
-    unit:        req.unit,
-    requestedBy: req.requestedBy,
-    projectRef:  req.projectRef,
-  })
-
-  function handleSave() {
-    updateRequisition(req.id, { ...draft, quantity: Number(draft.quantity) })
-    setIsEditing(false)
-  }
-
-  function handleCancel() {
-    setDraft({ material: req.material, category: req.category, quantity: req.quantity, unit: req.unit, requestedBy: req.requestedBy, projectRef: req.projectRef })
-    setIsEditing(false)
-  }
-
-  if (isEditing) {
-    return (
-      <div className="bg-gray-800 border border-[#2abfdc]/40 rounded-lg p-3 flex flex-col gap-2 text-xs">
-        <input
-          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-          placeholder="Material"
-          value={draft.material}
-          onChange={(e) => setDraft((d) => ({ ...d, material: e.target.value }))}
-        />
-        <input
-          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-          placeholder="Categoria"
-          value={draft.category}
-          onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value }))}
-        />
-        <div className="flex gap-1.5">
-          <input
-            type="number"
-            className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-            placeholder="Qtd"
-            value={draft.quantity}
-            onChange={(e) => setDraft((d) => ({ ...d, quantity: Number(e.target.value) }))}
-          />
-          <input
-            className="w-16 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-            placeholder="Un"
-            value={draft.unit}
-            onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value }))}
-          />
-        </div>
-        <input
-          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-          placeholder="Solicitante"
-          value={draft.requestedBy}
-          onChange={(e) => setDraft((d) => ({ ...d, requestedBy: e.target.value }))}
-        />
-        <input
-          className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs"
-          placeholder="Projeto"
-          value={draft.projectRef}
-          onChange={(e) => setDraft((d) => ({ ...d, projectRef: e.target.value }))}
-        />
-        <div className="flex gap-1.5 mt-1">
-          <button
-            onClick={handleSave}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-[#2abfdc]/20 hover:bg-[#2abfdc]/30 text-[#2abfdc] font-semibold transition-colors"
-          >
-            <Check size={11} /> Salvar
-          </button>
-          <button
-            onClick={handleCancel}
-            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 transition-colors"
-          >
-            <X size={11} /> Cancelar
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-2 text-xs">
-      {/* Material + category + edit */}
-      <div className="flex items-start justify-between gap-1">
-        <div className="flex-1 min-w-0">
-          <p className="text-gray-100 font-medium leading-snug">{req.material}</p>
-          <span className={cn('inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium', catColor)}>
-            {req.category}
-          </span>
-        </div>
-        <button
-          onClick={() => setIsEditing(true)}
-          className="shrink-0 p-1 rounded hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          <Pencil size={11} />
-        </button>
+      {/* Material + category */}
+      <div>
+        <p className="text-gray-100 font-medium leading-snug">{req.material}</p>
+        <span className={cn('inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium', catColor)}>
+          {req.category}
+        </span>
       </div>
 
       {/* Quantity */}

@@ -3,7 +3,7 @@
  * allows applying one to the Agenda (imports dates) or comparing two side-by-side.
  */
 import { useState } from 'react'
-import { X, Check, GitCompare, Play, Plus, Pencil, Trash2 } from 'lucide-react'
+import { X, Check, GitCompare, Play } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import { useAgendaStore } from '@/store/agendaStore'
 import type { PlanScenario } from '@/types'
@@ -28,107 +28,64 @@ function scenarioStats(sc: PlanScenario) {
 // ─── Scenario Card ─────────────────────────────────────────────────────────────
 
 function ScenarioCard({
-  sc, selected, comparing, onSelect, onCompare, onRename, onDelete,
+  sc, selected, comparing, onSelect, onCompare,
 }: {
   sc: PlanScenario
   selected: boolean
   comparing: boolean
   onSelect: () => void
   onCompare: () => void
-  onRename: (name: string, description: string) => void
-  onDelete: () => void
 }) {
   const { totalMeters, totalCost, startDate, endDate, durationDays } = scenarioStats(sc)
-  const [isRenaming, setIsRenaming] = useState(false)
-  const [nameDraft, setNameDraft] = useState(sc.name)
-  const [descDraft, setDescDraft] = useState(sc.description ?? '')
-
-  function saveRename(e: React.MouseEvent) {
-    e.stopPropagation()
-    if (nameDraft.trim()) { onRename(nameDraft.trim(), descDraft.trim()); setIsRenaming(false) }
-  }
-
   return (
     <div
-      className={`rounded-xl border p-4 transition-all ${
+      className={`rounded-xl border p-4 cursor-pointer transition-all ${
         selected
           ? 'border-[#22c55e] bg-[#22c55e]/10'
           : comparing
           ? 'border-[#3b82f6] bg-[#3b82f6]/10'
           : 'border-[#20406a] bg-[#112645] hover:border-[#1f3c5e]'
-      } ${isRenaming ? '' : 'cursor-pointer'}`}
-      onClick={isRenaming ? undefined : onSelect}
+      }`}
+      onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          {isRenaming ? (
-            <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
-              <input className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs font-semibold" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} autoFocus />
-              <input className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-400 text-xs" placeholder="Descrição (opcional)" value={descDraft} onChange={(e) => setDescDraft(e.target.value)} />
-              <div className="flex gap-1 mt-0.5">
-                <button onClick={saveRename} className="flex items-center gap-1 px-2 py-0.5 rounded bg-[#22c55e]/20 text-[#22c55e] text-xs hover:bg-[#22c55e]/30"><Check size={10} /> Salvar</button>
-                <button onClick={(e) => { e.stopPropagation(); setIsRenaming(false) }} className="px-2 py-0.5 rounded border border-gray-600 text-gray-400 text-xs hover:text-gray-200">Cancelar</button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <p className="text-[#f5f5f5] text-sm font-semibold truncate">{sc.name}</p>
-              {sc.description && <p className="text-[#6b6b6b] text-xs mt-0.5 truncate">{sc.description}</p>}
-            </>
-          )}
+          <p className="text-[#f5f5f5] text-sm font-semibold truncate">{sc.name}</p>
+          {sc.description && <p className="text-[#6b6b6b] text-xs mt-0.5 truncate">{sc.description}</p>}
         </div>
-        {!isRenaming && (
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={(e) => { e.stopPropagation(); onCompare() }}
-              title="Comparar"
-              className={`p-1.5 rounded-lg transition-colors ${
-                comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#20406a]'
-              }`}
-            >
-              <GitCompare size={13} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setNameDraft(sc.name); setDescDraft(sc.description ?? ''); setIsRenaming(true) }}
-              title="Renomear"
-              className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#20406a] transition-colors"
-            >
-              <Pencil size={13} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); if (confirm(`Excluir cenário "${sc.name}"?`)) onDelete() }}
-              title="Excluir"
-              className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-red-400 hover:bg-red-900/20 transition-colors"
-            >
-              <Trash2 size={13} />
-            </button>
-            {selected && <Check size={14} className="text-[#22c55e] ml-1" />}
-          </div>
-        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onCompare() }}
+            title="Comparar"
+            className={`p-1.5 rounded-lg transition-colors ${
+              comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#20406a]'
+            }`}
+          >
+            <GitCompare size={13} />
+          </button>
+          {selected && <Check size={14} className="text-[#22c55e] ml-1" />}
+        </div>
       </div>
 
-      {!isRenaming && (
-        <>
-          <div className="grid grid-cols-3 gap-2 mt-3">
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Extensão</p>
-              <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{totalMeters.toLocaleString('pt-BR')} m</p>
-            </div>
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Custo Est.</p>
-              <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{totalCost > 0 ? fmtBRL(totalCost) : '—'}</p>
-            </div>
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Duração</p>
-              <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{durationDays > 0 ? `${durationDays}d` : '—'}</p>
-            </div>
-          </div>
-          {startDate !== '—' && (
-            <p className="text-[9px] text-[#3f3f3f] mt-2 font-mono">
-              {startDate} → {endDate}
-            </p>
-          )}
-        </>
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Extensão</p>
+          <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{totalMeters.toLocaleString('pt-BR')} m</p>
+        </div>
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Custo Est.</p>
+          <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{totalCost > 0 ? fmtBRL(totalCost) : '—'}</p>
+        </div>
+        <div>
+          <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Duração</p>
+          <p className="text-xs font-mono text-[#a3a3a3] mt-0.5">{durationDays > 0 ? `${durationDays}d` : '—'}</p>
+        </div>
+      </div>
+
+      {startDate !== '—' && (
+        <p className="text-[9px] text-[#3f3f3f] mt-2 font-mono">
+          {startDate} → {endDate}
+        </p>
       )}
     </div>
   )
@@ -173,29 +130,13 @@ function ComparePanel({ a, b }: { a: PlanScenario; b: PlanScenario }) {
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
-  const scenarios        = usePlanejamentoStore((s) => s.scenarios)
-  const saveScenario     = usePlanejamentoStore((s) => s.saveScenario)
-  const renameScenario   = usePlanejamentoStore((s) => s.renameScenario)
-  const removeScenario   = usePlanejamentoStore((s) => s.removeScenario)
-  const tasks            = useAgendaStore((s) => s.tasks)
-  const updateTask       = useAgendaStore((s) => s.updateTask)
+  const scenarios    = usePlanejamentoStore((s) => s.scenarios)
+  const tasks        = useAgendaStore((s) => s.tasks)
+  const updateTask   = useAgendaStore((s) => s.updateTask)
 
   const [selectedId,  setSelectedId]  = useState<string | null>(scenarios[0]?.id ?? null)
   const [compareId,   setCompareId]   = useState<string | null>(null)
   const [applyStatus, setApplyStatus] = useState<'idle' | 'done'>('idle')
-
-  // New scenario form
-  const [showNewForm, setShowNewForm] = useState(false)
-  const [newName, setNewName]         = useState('')
-  const [newDesc, setNewDesc]         = useState('')
-
-  function handleCreate() {
-    if (!newName.trim()) return
-    saveScenario(newName.trim(), newDesc.trim() || undefined)
-    setNewName('')
-    setNewDesc('')
-    setShowNewForm(false)
-  }
 
   function handleApply() {
     if (!selectedId) return
@@ -238,46 +179,9 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
 
         {/* Scenario list */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* + Novo Cenário button */}
-          <div>
-            {showNewForm ? (
-              <div className="bg-[#0d2040] border border-[#2abfdc]/30 rounded-xl p-3 flex flex-col gap-2">
-                <input
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-gray-100 text-xs"
-                  placeholder="Nome do cenário"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                />
-                <input
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-gray-400 text-xs"
-                  placeholder="Descrição (opcional)"
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleCreate} className="flex items-center gap-1 px-3 py-1 rounded bg-[#22c55e]/20 hover:bg-[#22c55e]/30 text-[#22c55e] text-xs font-semibold transition-colors">
-                    <Check size={11} /> Criar
-                  </button>
-                  <button onClick={() => setShowNewForm(false)} className="px-3 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 text-xs transition-colors">
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowNewForm(true)}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2abfdc]/40 text-xs font-medium transition-colors"
-              >
-                <Plus size={12} /> Novo Cenário
-              </button>
-            )}
-          </div>
-
-          {scenarios.length === 0 && !showNewForm && (
-            <p className="text-center text-[#3f3f3f] text-xs py-8">
-              Nenhum cenário salvo ainda. Clique em "Novo Cenário" acima para criar um.
+          {scenarios.length === 0 && (
+            <p className="text-center text-[#3f3f3f] text-xs py-12">
+              Nenhum cenário salvo. Vá até Planejamento → Cenários para criar um.
             </p>
           )}
           {scenarios.map((sc) => (
@@ -288,8 +192,6 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
               comparing={compareId === sc.id}
               onSelect={() => setSelectedId(sc.id)}
               onCompare={() => setCompareId(compareId === sc.id ? null : sc.id)}
-              onRename={(name, description) => renameScenario(sc.id, name, description || undefined)}
-              onDelete={() => { removeScenario(sc.id); if (selectedId === sc.id) setSelectedId(null); if (compareId === sc.id) setCompareId(null) }}
             />
           ))}
 

@@ -24,10 +24,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 const BASEMAPS: Record<string, { url: string; label: string; attribution: string }> = {
-  dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             label: 'Escuro',    attribution: '© CartoDB' },
+  dark:      { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',             label: 'Dark',      attribution: '© CartoDB' },
   streets:   { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',  label: 'Ruas',      attribution: '© CartoDB' },
   satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', label: 'Satélite', attribution: '© Esri' },
-  light:     { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',            label: 'Claro',     attribution: '© CartoDB' },
+  light:     { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',            label: 'Light',     attribution: '© CartoDB' },
 }
 
 export function MapaOperacionalPanel() {
@@ -263,7 +263,7 @@ export function MapaOperacionalPanel() {
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-[#a78bfa]" />
-              <span className="text-xs text-[#8fb3c8]">Est. INMET</span>
+              <span className="text-xs text-[#8fb3c8]">Estação NWS</span>
             </div>
           </div>
         </div>

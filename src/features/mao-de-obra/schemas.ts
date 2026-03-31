@@ -15,7 +15,7 @@ export const workerCertificationSchema = z.object({
 export const workerSchema = z.object({
   name:           z.string().max(100).optional().default(''),
   role:           z.string().max(100).optional().default(''),
-  cpfMasked:      z.string().max(20).optional().default('***.***.***-**'),
+  cpfMasked:      z.string().max(20).optional().default('***.***.**-**'),
   crewId:         z.string().optional().default(''),
   status:         z.enum(['active', 'inactive', 'suspended', 'pending_approval']).optional().default('active'),
   hourlyRate:     z.number().min(0).max(9999.99).optional().default(0),
