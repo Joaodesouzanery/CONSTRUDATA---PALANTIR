@@ -238,7 +238,7 @@ export function PrevisaoDemandaPanel() {
       )}
 
       {/* Table */}
-      <div className="flex-1 overflow-auto bg-[#0d2040] border border-[#20406a] rounded-xl">
+      <div className="flex-1 overflow-auto overflow-x-auto bg-[#0d2040] border border-[#20406a] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-[#1a3662]">

@@ -172,7 +172,7 @@ export function ContractPanel() {
             {/* Section 1: Pagamentos */}
             <AccordionSection title="Pagamentos">
               {selected.paymentSchedule && selected.paymentSchedule.length > 0 ? (
-                <table className="w-full text-xs mt-1">
+                <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
                     <tr className="text-[#6b6b6b] border-b border-[#20406a]">
                       <th className="text-left pb-2 font-medium">Vencimento</th>
@@ -199,7 +199,7 @@ export function ContractPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               ) : (
                 <p className="text-[#6b6b6b] text-xs mt-1">
                   Preço acordado: {selected.agreedUnitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/{selected.unit}.
@@ -211,7 +211,7 @@ export function ContractPanel() {
             {/* Section 2: Prazos de Entrega */}
             <AccordionSection title="Prazos de Entrega">
               {selected.deliverySchedule && selected.deliverySchedule.length > 0 ? (
-                <table className="w-full text-xs mt-1">
+                <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
                     <tr className="text-[#6b6b6b] border-b border-[#20406a]">
                       <th className="text-left pb-2 font-medium">Fase</th>
@@ -238,7 +238,7 @@ export function ContractPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               ) : (
                 <p className="text-[#6b6b6b] text-xs mt-1">
                   Lead time padrão de {selected.leadTimeDays} dias úteis.

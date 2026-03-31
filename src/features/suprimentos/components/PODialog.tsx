@@ -117,7 +117,7 @@ export function PODialog({ po, onClose }: Props) {
                   <Plus size={12} /> Adicionar Item
                 </button>
               </div>
-              <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-hidden">
+              <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#1a3662]">

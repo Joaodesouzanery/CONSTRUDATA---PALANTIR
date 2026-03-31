@@ -59,7 +59,7 @@ export function ReceiptDialog({ po, onClose }: Props) {
 
           <div className="flex flex-col gap-2">
             <p className="text-[#f5f5f5] text-sm font-semibold">Quantidades Recebidas</p>
-            <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-hidden">
+            <div className="bg-[#112645] border border-[#20406a] rounded-lg overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#1a3662]">
