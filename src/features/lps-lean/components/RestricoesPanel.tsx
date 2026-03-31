@@ -171,7 +171,7 @@ export function RestricoesPanel() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-gray-800 overflow-hidden">
+      <div className="rounded-xl border border-gray-800 overflow-x-auto overflow-hidden">
         {visible.length === 0 ? (
           <p className="text-gray-600 text-sm text-center py-10">Nenhuma restrição encontrada.</p>
         ) : (

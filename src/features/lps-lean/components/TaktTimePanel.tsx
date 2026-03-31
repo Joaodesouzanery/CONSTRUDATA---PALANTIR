@@ -136,7 +136,7 @@ export function TaktTimePanel() {
       </div>
 
       {/* Zone table */}
-      <div className="rounded-xl border border-gray-800 overflow-hidden">
+      <div className="rounded-xl border border-gray-800 overflow-x-auto overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-800/80 border-b border-gray-700">
             <tr>

@@ -360,7 +360,7 @@ export function MaintenancePanel() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto px-6 py-4">
+      <div className="flex-1 overflow-auto overflow-x-auto px-6 py-4">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-40">
             <p className="text-sm text-[#6b6b6b]">Nenhuma ordem de serviço encontrada.</p>
