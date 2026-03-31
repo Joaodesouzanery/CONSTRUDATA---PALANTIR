@@ -38,13 +38,13 @@ export function TorreDeControlePage() {
       {/* Desktop: all three panels side-by-side */}
       {/* Mobile: only the active panel */}
       <div className="flex h-full overflow-hidden">
-        <div className={`${mobileTab === 'lista' ? 'flex' : 'hidden'} md:flex flex-col`}>
+        <div className={`${mobileTab === 'lista' ? 'flex flex-1 md:flex-initial' : 'hidden'} md:flex flex-col`}>
           <ObrasListPanel />
         </div>
-        <div className={`${mobileTab === 'mapa' ? 'flex' : 'hidden'} md:flex flex-1`}>
+        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'} md:flex md:flex-1`}>
           <ObrasMap />
         </div>
-        <div className={`${mobileTab === 'detalhes' ? 'flex' : 'hidden'} md:flex flex-col`}>
+        <div className={`${mobileTab === 'detalhes' ? 'flex flex-1 md:flex-initial' : 'hidden'} md:flex flex-col`}>
           <ObraDetailPanel />
         </div>
       </div>

@@ -51,7 +51,7 @@ function fmtM(n: number) {
 
 function BudgetTable({ lines }: { lines: ConstructionBudgetLine[] }) {
   return (
-    <table className="w-full text-[10px]">
+    <div className="overflow-x-auto"><table className="w-full min-w-[260px] text-[10px]">
       <thead>
         <tr className="text-[#3f3f3f] uppercase tracking-wider">
           <th className="text-left pb-1 font-semibold">Categoria</th>
@@ -78,7 +78,7 @@ function BudgetTable({ lines }: { lines: ConstructionBudgetLine[] }) {
           )
         })}
       </tbody>
-    </table>
+    </table></div>
   )
 }
 
@@ -234,8 +234,7 @@ export function ObraDetailPanel() {
 
   return (
     <div
-      className="flex flex-col border-l border-[#20406a] bg-[#112645] shrink-0 overflow-hidden"
-      style={{ width: 380 }}
+      className="flex flex-col border-l border-[#20406a] bg-[#112645] shrink-0 overflow-hidden w-full md:w-[380px]"
     >
       {/* Header */}
       <div className="flex items-start justify-between px-4 py-3 border-b border-[#20406a] shrink-0 gap-2">
