@@ -23,7 +23,7 @@ const STATUS_LABEL: Record<MasterActivityStatus, string> = {
 }
 
 function fmtDate(iso: string) {
-  const [y, m, d] = iso.split('-')
+  const [, m, d] = iso.split('-')
   return `${d}/${m}`
 }
 

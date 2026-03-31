@@ -287,7 +287,7 @@ export const useLpsStore = create<LpsState>((set, get) => ({
   computeStaffingDimensions: () => {
     import('@/store/maoDeObraStore').then(({ useMaoDeObraStore }) => {
       const mdo = useMaoDeObraStore.getState()
-      const { activities, restrictions } = get()
+      const { activities } = get()
 
       // Group activities by responsible team and compute required workers
       const teamReqs = new Map<string, number>()

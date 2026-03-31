@@ -183,9 +183,9 @@ export function CalendarioPanel() {
                     const isFriday = d.getDay() === 5
                     if (!isFriday) return <td key={date} className="bg-[#0d2040]" />
 
-                    const weekPpc = weeklyPpcResults.find((w) => {
-                      // Simple week match by checking if date falls in that ISO week
-                      return true // Simplified - show latest PPC
+                    const weekPpc = weeklyPpcResults.find((_w, idx) => {
+                      // Simple: show latest PPC on each Friday
+                      return idx === weeklyPpcResults.length - 1
                     })
                     const ppc = weekPpc?.ppc ?? 0
                     const color = ppc >= 80 ? '#22c55e' : ppc >= 60 ? '#eab308' : '#ef4444'
