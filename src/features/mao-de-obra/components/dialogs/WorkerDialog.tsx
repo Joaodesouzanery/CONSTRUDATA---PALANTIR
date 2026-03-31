@@ -122,16 +122,15 @@ export function WorkerDialog({ onClose }: Props) {
           {/* Crew + Status row */}
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Equipe *</span>
+              <span className="text-[#6b6b6b] text-xs font-medium">Equipe</span>
               <select
                 value={form.crewId}
                 onChange={(e) => handleField('crewId', e.target.value)}
                 className="bg-[#14294e] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]"
               >
-                <option value="">Selecionar...</option>
+                <option value="">— Sem equipe (definir depois) —</option>
                 {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              {errors.crewId && <span className="text-[#ef4444] text-xs">{errors.crewId}</span>}
             </label>
 
             <label className="flex flex-col gap-1">

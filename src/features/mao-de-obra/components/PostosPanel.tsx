@@ -63,7 +63,7 @@ function WorkPostDialog({ post, onClose, onSave }: WorkPostDialogProps) {
               placeholder="ex: Pedreiro — Fundações" />
             {errors.name && <p className={errCls}>{errors.name}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Frente de Trabalho</label>
               <input className={inputCls} value={form.workFront}
@@ -79,7 +79,7 @@ function WorkPostDialog({ post, onClose, onSave }: WorkPostDialogProps) {
               {errors.role && <p className={errCls}>{errors.role}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Mínimo de Trabalhadores</label>
               <input type="number" min={1} className={inputCls} value={form.minWorkers}

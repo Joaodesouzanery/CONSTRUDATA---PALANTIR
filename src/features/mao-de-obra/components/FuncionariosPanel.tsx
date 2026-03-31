@@ -35,7 +35,7 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
     name:               initial?.name ?? '',
     role:               initial?.role ?? '',
     cpfMasked:          initial?.cpfMasked ?? '***.***.**-**',
-    crewId:             initial?.crewId ?? (crews[0]?.id ?? ''),
+    crewId:             initial?.crewId ?? '',
     status:             initial?.status ?? 'active',
     hourlyRate:         initial?.hourlyRate ?? 0,
     certifications:     initial?.certifications ?? [],
@@ -59,7 +59,7 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
     e.preventDefault()
     if (!form.name?.trim()) { setError('Nome é obrigatório'); return }
     if (!form.role?.trim()) { setError('Função é obrigatória'); return }
-    if (!form.crewId)       { setError('Equipe é obrigatória'); return }
+    // crewId is optional — can be assigned later
     setError('')
     onSave(form as Omit<Worker, 'id'>)
   }
@@ -121,8 +121,9 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
             </select>
           </div>
           <div>
-            <label className={labelClass}>Equipe *</label>
+            <label className={labelClass}>Equipe</label>
             <select className={fieldClass} value={form.crewId ?? ''} onChange={(e) => set('crewId', e.target.value)}>
+              <option value="">— Sem equipe (definir depois) —</option>
               {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
@@ -218,6 +219,62 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
   )
 }
 
+// ─── Worker table row ─────────────────────────────────────────────────────────
+
+function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit }: {
+  worker: Worker
+  crews: { id: string; name: string }[]
+  expandedId: string | null
+  onToggle: (id: string | null) => void
+  onEdit: (w: Worker) => void
+}) {
+  const isExpanded = expandedId === w.id
+  const sc = STATUS_COLOR[w.status]
+  const crewName = crews.find((c) => c.id === w.crewId)?.name
+  return (
+    <>
+      <tr
+        className="border-b border-[#20406a] hover:bg-[#1a3662] cursor-pointer"
+        onClick={() => onToggle(isExpanded ? null : w.id)}
+      >
+        <td className="px-3 py-2.5 text-[#6b6b6b] font-mono">{w.registrationNumber ?? '—'}</td>
+        <td className="px-3 py-2.5 text-[#f5f5f5] font-medium max-w-[160px] truncate">{w.name}</td>
+        <td className="px-3 py-2.5 text-[#a3a3a3] max-w-[140px] truncate">{w.role}</td>
+        <td className="px-3 py-2.5">
+          {crewName
+            ? <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#2abfdc]/15 text-[#2abfdc]">{crewName}</span>
+            : <span className="text-[#6b6b6b] italic text-[10px]">Sem equipe</span>}
+        </td>
+        <td className="px-3 py-2.5 text-[#6b6b6b] hidden md:table-cell">{w.department ?? '—'}</td>
+        <td className="px-3 py-2.5 text-[#f5f5f5] font-mono hidden md:table-cell">R${w.hourlyRate.toFixed(2)}</td>
+        <td className="px-3 py-2.5">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `${sc}18`, color: sc }}>
+            {STATUS_LABEL[w.status]}
+          </span>
+        </td>
+        <td className="px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(w) }}
+              className="text-[#6b6b6b] hover:text-[#2abfdc] text-[10px] font-semibold"
+            >
+              Editar
+            </button>
+            {isExpanded ? <ChevronUp size={12} className="text-[#6b6b6b]" /> : <ChevronDown size={12} className="text-[#6b6b6b]" />}
+          </div>
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0">
+            <ExpandedRow worker={w} crews={crews} />
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function FuncionariosPanel() {
@@ -229,6 +286,8 @@ export function FuncionariosPanel() {
   const [filterRole,  setFilterRole]  = useState('')
   const [filterDept,  setFilterDept]  = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterCrew,  setFilterCrew]  = useState('')
+  const [groupByCrew, setGroupByCrew] = useState(false)
   const [expandedId,  setExpandedId]  = useState<string | null>(null)
   const [showForm,    setShowForm]    = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
@@ -241,8 +300,29 @@ export function FuncionariosPanel() {
     if (filterRole   && w.role !== filterRole)       return false
     if (filterDept   && w.department !== filterDept) return false
     if (filterStatus && w.status !== filterStatus)   return false
+    if (filterCrew === '__none__' && w.crewId)       return false
+    if (filterCrew && filterCrew !== '__none__' && w.crewId !== filterCrew) return false
     return true
-  }), [workers, search, filterRole, filterDept, filterStatus])
+  }), [workers, search, filterRole, filterDept, filterStatus, filterCrew])
+
+  const groupedByCrew = useMemo(() => {
+    if (!groupByCrew) return null
+    const groups: { crew: { id: string; name: string } | null; workers: Worker[] }[] = []
+    const crewMap = new Map<string, Worker[]>()
+    const noCrewWorkers: Worker[] = []
+    for (const w of filtered) {
+      if (!w.crewId) { noCrewWorkers.push(w); continue }
+      const arr = crewMap.get(w.crewId) ?? []
+      arr.push(w)
+      crewMap.set(w.crewId, arr)
+    }
+    for (const c of crews) {
+      const ws = crewMap.get(c.id)
+      if (ws && ws.length > 0) groups.push({ crew: c, workers: ws })
+    }
+    if (noCrewWorkers.length > 0) groups.push({ crew: null, workers: noCrewWorkers })
+    return groups
+  }, [groupByCrew, filtered, crews])
 
   function handleSave(data: Omit<Worker, 'id'>) {
     if (editingWorker) {
@@ -307,6 +387,21 @@ export function FuncionariosPanel() {
           <option value="inactive">Inativo</option>
           <option value="suspended">Suspenso</option>
         </select>
+        <select className={selectClass} value={filterCrew} onChange={(e) => setFilterCrew(e.target.value)}>
+          <option value="">Todas as equipes</option>
+          <option value="__none__">Sem equipe</option>
+          {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <button
+          onClick={() => setGroupByCrew(!groupByCrew)}
+          className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+            groupByCrew
+              ? 'bg-[#2abfdc]/20 border-[#2abfdc] text-[#2abfdc]'
+              : 'border-[#20406a] text-[#6b6b6b] hover:text-[#f5f5f5]'
+          }`}
+        >
+          Agrupar por Equipe
+        </button>
         <span className="text-[#6b6b6b] text-xs ml-auto">{filtered.length} colaborador{filtered.length !== 1 ? 'es' : ''}</span>
         <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#20406a] text-[#6b6b6b] text-xs hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
           <Download size={12} /> CSV
@@ -322,61 +417,39 @@ export function FuncionariosPanel() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[#20406a]">
-                {['Matrícula', 'Nome', 'Função', 'Departamento', 'Regime', 'Admissão', 'Taxa/h', 'Status', ''].map((h) => (
+                {['Matrícula', 'Nome', 'Função', 'Equipe', 'Departamento', 'Taxa/h', 'Status', ''].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((w) => {
-                const isExpanded = expandedId === w.id
-                const sc = STATUS_COLOR[w.status]
-                return (
-                  <>
-                    <tr
-                      key={w.id}
-                      className="border-b border-[#20406a] hover:bg-[#1a3662] cursor-pointer"
-                      onClick={() => setExpandedId(isExpanded ? null : w.id)}
-                    >
-                      <td className="px-3 py-2.5 text-[#6b6b6b] font-mono">{w.registrationNumber ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[#f5f5f5] font-medium max-w-[160px] truncate">{w.name}</td>
-                      <td className="px-3 py-2.5 text-[#a3a3a3] max-w-[140px] truncate">{w.role}</td>
-                      <td className="px-3 py-2.5 text-[#6b6b6b] hidden md:table-cell">{w.department ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-[#6b6b6b] hidden lg:table-cell">{w.scheduleType ? SCHEDULE_LABEL[w.scheduleType] : '—'}</td>
-                      <td className="px-3 py-2.5 text-[#6b6b6b] hidden lg:table-cell">
-                        {w.admissionDate ? new Date(w.admissionDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-[#f5f5f5] font-mono hidden md:table-cell">R${w.hourlyRate.toFixed(2)}</td>
-                      <td className="px-3 py-2.5">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `${sc}18`, color: sc }}>
-                          {STATUS_LABEL[w.status]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5">
+              {groupedByCrew ? (
+                groupedByCrew.map((group) => (
+                  <>{/* Crew group header */}
+                    <tr key={`grp-${group.crew?.id ?? 'none'}`} className="bg-[#0d1f3c]">
+                      <td colSpan={8} className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleEdit(w) }}
-                            className="text-[#6b6b6b] hover:text-[#2abfdc] text-[10px] font-semibold"
-                          >
-                            Editar
-                          </button>
-                          {isExpanded ? <ChevronUp size={12} className="text-[#6b6b6b]" /> : <ChevronDown size={12} className="text-[#6b6b6b]" />}
+                          <span className={`w-2 h-2 rounded-full ${group.crew ? 'bg-[#2abfdc]' : 'bg-[#6b6b6b]'}`} />
+                          <span className="text-[#f5f5f5] text-xs font-semibold">
+                            {group.crew?.name ?? 'Sem equipe definida'}
+                          </span>
+                          <span className="text-[#6b6b6b] text-[10px]">({group.workers.length})</span>
                         </div>
                       </td>
                     </tr>
-                    {isExpanded && (
-                      <tr key={`exp-${w.id}`}>
-                        <td colSpan={9} className="p-0">
-                          <ExpandedRow worker={w} crews={crews} />
-                        </td>
-                      </tr>
-                    )}
+                    {group.workers.map((w) => (
+                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} />
+                    ))}
                   </>
-                )
-              })}
+                ))
+              ) : (
+                filtered.map((w) => (
+                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} />
+                ))
+              )}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-[#6b6b6b]">Nenhum colaborador encontrado</td>
+                  <td colSpan={8} className="px-4 py-8 text-center text-[#6b6b6b]">Nenhum colaborador encontrado</td>
                 </tr>
               )}
             </tbody>
