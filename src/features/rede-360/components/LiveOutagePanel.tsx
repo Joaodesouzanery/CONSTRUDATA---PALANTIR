@@ -71,7 +71,7 @@ export function LiveOutagePanel() {
       </div>
 
       {/* Outage table */}
-      <div className="flex-1 overflow-auto bg-[#0d2040]">
+      <div className="flex-1 overflow-auto overflow-x-auto bg-[#0d2040]">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-[#0a1628]">
             <tr className="border-b border-[#20406a] text-[#6b6b6b]">

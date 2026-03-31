@@ -76,7 +76,7 @@ export function TabOrcamento({ project }: { project: Project }) {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#20406a] overflow-hidden">
+      <div className="rounded-xl border border-[#20406a] overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#20406a] bg-[#0d2040]">

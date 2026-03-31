@@ -47,7 +47,7 @@ function View3D({ project }: { project: Project }) {
   return (
     <div className="flex flex-col gap-2">
       {/* Canvas */}
-      <div style={{ height: 420, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <div className="bim-canvas-container" style={{ minHeight: 280, height: '40vh', maxHeight: 420, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={
           <div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">
             Carregando modelo 3D...
@@ -81,7 +81,7 @@ function View4D({ project }: { project: Project }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div style={{ height: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <div className="bim-canvas-container" style={{ minHeight: 250, height: '35vh', maxHeight: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={<div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">Carregando modelo 3D...</div>}>
           <BimCanvas />
         </Suspense>
@@ -109,7 +109,7 @@ function View5D({ project }: { project: Project }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div style={{ height: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <div className="bim-canvas-container" style={{ minHeight: 250, height: '35vh', maxHeight: 380, position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <Suspense fallback={<div className="flex items-center justify-center h-full text-[#3f3f3f] text-xs">Carregando modelo 3D...</div>}>
           <BimCanvas />
         </Suspense>
@@ -175,8 +175,8 @@ export function TabVisualizacao({ project }: { project: Project }) {
             <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b]">
               Demandas e Custos
             </span>
-            <div className="rounded-xl border border-[#20406a] overflow-hidden">
-              <table className="w-full text-xs">
+            <div className="rounded-xl border border-[#20406a] overflow-x-auto">
+              <table className="w-full min-w-[480px] text-xs">
                 <thead>
                   <tr className="border-b border-[#20406a] bg-[#0d2040]">
                     {['Item', 'Quantidade', 'Unidade', 'Custo Unit.', 'Total Estimado'].map((h) => (

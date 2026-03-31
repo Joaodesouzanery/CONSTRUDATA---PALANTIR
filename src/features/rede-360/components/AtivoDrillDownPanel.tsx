@@ -204,7 +204,7 @@ export function AtivoDrillDownPanel() {
             {asset.sensorReadings && asset.sensorReadings.length > 0 && (
               <div className="mt-2">
                 <div className="text-[#6b6b6b] text-xs font-semibold mb-2">Sensores</div>
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-xs">
                   <thead>
                     <tr className="text-[#6b6b6b] border-b border-[#20406a]">
                       <th className="text-left py-1">Parâmetro</th>
@@ -223,7 +223,7 @@ export function AtivoDrillDownPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             )}
             {!asset.sensorReadings?.length && asset.flowLMin === undefined && asset.pressureBar === undefined && (

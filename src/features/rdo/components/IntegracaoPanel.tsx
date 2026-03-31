@@ -4,7 +4,9 @@
  */
 import { useState, useEffect } from 'react'
 import { useRdoStore } from '@/store/rdoStore'
+import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import type { RdoTrechoEntry } from '@/types'
+import { RefreshCw } from 'lucide-react'
 
 // ─── Types for planejamento cross-read ────────────────────────────────────────
 
@@ -439,11 +441,24 @@ function AnaliseAtrasos({
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function IntegracaoPanel() {
-  const { rdos, financialEntries, budgetBRL } = useRdoStore()
+  const { rdos, financialEntries, budgetBRL, syncExecutionToPlanejamento } = useRdoStore()
+  const { trechos: planTrechosRaw, workDays } = usePlanejamentoStore()
   const [activeTab, setActiveTab] = useState<SubTab>('dashboard')
-  const [planTrechos, setPlanTrechos] = useState<PlanTrechoLite[]>([])
-  const [totalWorkDays, setTotalWorkDays] = useState(0)
-  const [elapsedWorkDays, setElapsedWorkDays] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  // Live subscription to planejamentoStore — no lazy imports needed
+  const today = new Date().toISOString().slice(0, 10)
+  const totalWorkDays = workDays.length
+  const elapsedWorkDays = workDays.filter((d) => d <= today).length
+
+  const planTrechos: PlanTrechoLite[] = planTrechosRaw.map((t) => ({
+    id:          t.id,
+    code:        t.code,
+    name:        t.description,
+    totalMeters: t.lengthM,
+    startDate:   t.plannedStartDate,
+    endDate:     t.plannedEndDate,
+  }))
 
   // Flatten all RDO trechos (latest executedMeters wins per trecho code)
   const rdoTrechos: RdoTrechoEntry[] = (() => {
@@ -459,32 +474,16 @@ export function IntegracaoPanel() {
     return Array.from(map.values())
   })()
 
-  // Lazy-load plan trechos
+  // Auto-sync execution to Planejamento whenever RDOs change
   useEffect(() => {
-    import('@/store/planejamentoStore')
-      .then(({ usePlanejamentoStore }) => {
-        type RawState = {
-          trechos: { id: string; code: string; description: string; lengthM: number; plannedStartDate?: string; plannedEndDate?: string }[]
-          workDays: string[]
-        }
-        const state = usePlanejamentoStore.getState() as unknown as RawState
-        const today = new Date().toISOString().slice(0, 10)
-        const wd = state.workDays ?? []
-        setTotalWorkDays(wd.length)
-        setElapsedWorkDays(wd.filter((d) => d <= today).length)
-        setPlanTrechos(
-          (state.trechos ?? []).map((t) => ({
-            id:         t.id,
-            code:       t.code,
-            name:       t.description,
-            totalMeters: t.lengthM,
-            startDate:  t.plannedStartDate,
-            endDate:    t.plannedEndDate,
-          }))
-        )
-      })
-      .catch(() => {})
-  }, [])
+    syncExecutionToPlanejamento()
+  }, [rdos, syncExecutionToPlanejamento])
+
+  function handleManualSync() {
+    setSyncing(true)
+    syncExecutionToPlanejamento()
+    setTimeout(() => setSyncing(false), 800)
+  }
 
   // Build Curva S points from RDO data + financial entries
   const scurvePoints: SCurvePt[] = (() => {
@@ -496,10 +495,10 @@ export function IntegracaoPanel() {
     const uniqueDates = [...new Set(allDates)]
 
     const totalPlanned = planTrechos.reduce((s, t) => s + t.totalMeters, 0)
-    const workDays = totalWorkDays || uniqueDates.length
+    const wdCount = totalWorkDays || uniqueDates.length
 
     return uniqueDates.map((date, i) => {
-      const pvPct = workDays > 0 ? Math.min(((i + 1) / workDays) * 100, 100) : 0
+      const pvPct = wdCount > 0 ? Math.min(((i + 1) / wdCount) * 100, 100) : 0
       const cumExecuted = rdos
         .filter((r) => r.date <= date)
         .reduce((s, r) => s + r.trechos.reduce((ts, t) => ts + t.executedMeters, 0), 0)
@@ -513,22 +512,32 @@ export function IntegracaoPanel() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-white font-semibold text-lg">RDO × Planejamento</h2>
-        <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
-          {SUB_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-sky-600 text-white'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleManualSync}
+            disabled={syncing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+            Sincronizar
+          </button>
+          <div className="flex items-center gap-1 bg-gray-800 rounded-lg p-1 border border-gray-700">
+            {SUB_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-sky-600 text-white'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -136,7 +136,7 @@ export function TabExecucao({ project }: { project: Project }) {
         {projectReports.length === 0 ? (
           <p className="text-xs text-[#6b6b6b]">Nenhum RDO vinculado a este projeto.</p>
         ) : (
-          <table className="w-full text-xs border-collapse">
+          <div className="overflow-x-auto"><table className="w-full text-xs border-collapse min-w-[360px]">
             <thead>
               <tr className="border-b border-[#20406a]">
                 {['Data', 'Atividades', 'Equipes', ''].map((col) => (
@@ -164,7 +164,7 @@ export function TabExecucao({ project }: { project: Project }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>
