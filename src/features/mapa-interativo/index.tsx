@@ -23,11 +23,11 @@ function ModeSelectorOverlay() {
         <p className="text-sm text-[#6b6b6b]">Selecione o modo de trabalho para configurar as camadas automaticamente</p>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex flex-col sm:flex-row gap-4 px-4 w-full max-w-xl">
         {/* Saneamento */}
         <button
           onClick={() => setMapMode('saneamento')}
-          className="flex flex-col items-center gap-4 w-64 p-8 rounded-2xl border border-[#20406a] bg-[#0d2040] hover:border-[#2abfdc]/60 hover:bg-[#2abfdc]/5 transition-all group"
+          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#20406a] bg-[#0d2040] hover:border-[#2abfdc]/60 hover:bg-[#2abfdc]/5 transition-all group"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#2abfdc]/10 border border-[#2abfdc]/30 flex items-center justify-center group-hover:bg-[#2abfdc]/20 transition-colors">
             <Droplets size={32} className="text-[#2abfdc]" />
@@ -46,7 +46,7 @@ function ModeSelectorOverlay() {
         {/* Construção */}
         <button
           onClick={() => setMapMode('construcao')}
-          className="flex flex-col items-center gap-4 w-64 p-8 rounded-2xl border border-[#20406a] bg-[#0d2040] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
+          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#20406a] bg-[#0d2040] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/30 flex items-center justify-center group-hover:bg-[#f97316]/20 transition-colors">
             <HardHat size={32} className="text-[#f97316]" />

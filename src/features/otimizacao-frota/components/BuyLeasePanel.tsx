@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { RefreshCw, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { RefreshCw, TrendingDown, TrendingUp, Minus, Pencil, Trash2, Plus, X } from 'lucide-react'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import type { BuyLeaseAnalysis, BuyLeaseRec } from '@/types'
 
@@ -76,9 +77,261 @@ function CostComparisonBar({ analysis }: { analysis: BuyLeaseAnalysis }) {
   )
 }
 
+// ─── Dialog form state ────────────────────────────────────────────────────────
+
+interface DialogFormState {
+  equipmentType:          string
+  currentStatus:          'owned' | 'rented' | 'none'
+  purchasePriceBRL:       string
+  monthlyRentalCostBRL:   string
+  annualMaintenanceCostBRL: string
+  residualValueBRL:       string
+  projectedUsageDays:     string
+  relatedProjects:        string
+  bimPhases:              string
+}
+
+const EMPTY_FORM: DialogFormState = {
+  equipmentType:            '',
+  currentStatus:            'none',
+  purchasePriceBRL:         '',
+  monthlyRentalCostBRL:     '',
+  annualMaintenanceCostBRL: '',
+  residualValueBRL:         '',
+  projectedUsageDays:       '',
+  relatedProjects:          '',
+  bimPhases:                '',
+}
+
+function analysisToForm(a: BuyLeaseAnalysis): DialogFormState {
+  return {
+    equipmentType:            a.equipmentType,
+    currentStatus:            a.currentStatus,
+    purchasePriceBRL:         String(a.purchasePriceBRL),
+    monthlyRentalCostBRL:     String(a.monthlyRentalCostBRL),
+    annualMaintenanceCostBRL: String(a.annualMaintenanceCostBRL),
+    residualValueBRL:         String(a.residualValueBRL),
+    projectedUsageDays:       String(a.projectedUsageDays),
+    relatedProjects:          a.relatedProjects.join(', '),
+    bimPhases:                a.bimPhases.join(', '),
+  }
+}
+
+// ─── Buy/Lease dialog ─────────────────────────────────────────────────────────
+
+interface BuyLeaseDialogProps {
+  editTarget: BuyLeaseAnalysis | null
+  onClose: () => void
+}
+
+function BuyLeaseDialog({ editTarget, onClose }: BuyLeaseDialogProps) {
+  const { addBuyLeaseAnalysis, updateBuyLeaseAnalysis } = useOtimizacaoFrotaStore(
+    useShallow((s) => ({
+      addBuyLeaseAnalysis:    s.addBuyLeaseAnalysis,
+      updateBuyLeaseAnalysis: s.updateBuyLeaseAnalysis,
+    }))
+  )
+
+  const [form, setForm] = useState<DialogFormState>(
+    editTarget ? analysisToForm(editTarget) : EMPTY_FORM
+  )
+
+  const labelClass = 'block text-xs font-medium text-[#6b6b6b] mb-1'
+  const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#20406a] bg-[#112645] text-[#f5f5f5] text-sm focus:outline-none focus:ring-2 focus:ring-[#2abfdc]'
+
+  function handleSave() {
+    const data: Omit<BuyLeaseAnalysis, 'id'> = {
+      equipmentType:            form.equipmentType.trim() || 'Novo Equipamento',
+      currentStatus:            form.currentStatus,
+      purchasePriceBRL:         Number(form.purchasePriceBRL) || 0,
+      monthlyRentalCostBRL:     Number(form.monthlyRentalCostBRL) || 0,
+      annualMaintenanceCostBRL: Number(form.annualMaintenanceCostBRL) || 0,
+      residualValueBRL:         Number(form.residualValueBRL) || 0,
+      projectedUsageDays:       Number(form.projectedUsageDays) || 0,
+      relatedProjects:          form.relatedProjects.split(',').map((s) => s.trim()).filter(Boolean),
+      bimPhases:                form.bimPhases.split(',').map((s) => s.trim()).filter(Boolean),
+      // These will be recomputed in the store action:
+      annualRentalCostBRL:    0,
+      annualOwnershipCostBRL: 0,
+      breakEvenMonths:        0,
+      recommendation:         'neutral',
+      reasoning:              '',
+    }
+
+    if (editTarget) {
+      updateBuyLeaseAnalysis(editTarget.id, data)
+    } else {
+      addBuyLeaseAnalysis(data)
+    }
+    onClose()
+  }
+
+  function set(key: keyof DialogFormState, value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#0d2040] border border-[#20406a] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <p className="text-[#f5f5f5] text-base font-semibold">
+            {editTarget ? 'Editar Análise' : 'Nova Análise'}
+          </p>
+          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          {/* Equipment Type */}
+          <div>
+            <label className={labelClass}>Tipo de Equipamento</label>
+            <input
+              className={inputClass}
+              value={form.equipmentType}
+              onChange={(e) => set('equipmentType', e.target.value)}
+              placeholder="Ex: Escavadeira Hidráulica"
+            />
+          </div>
+
+          {/* Current Status */}
+          <div>
+            <label className={labelClass}>Status Atual</label>
+            <select
+              className={inputClass}
+              value={form.currentStatus}
+              onChange={(e) => set('currentStatus', e.target.value as 'owned' | 'rented' | 'none')}
+            >
+              <option value="owned">Frota própria</option>
+              <option value="rented">Alugado</option>
+              <option value="none">Sem ativo</option>
+            </select>
+          </div>
+
+          {/* Purchase Price */}
+          <div>
+            <label className={labelClass}>Preço de Compra (R$)</label>
+            <input
+              type="number"
+              className={inputClass}
+              value={form.purchasePriceBRL}
+              onChange={(e) => set('purchasePriceBRL', e.target.value)}
+              placeholder="0"
+              min={0}
+            />
+          </div>
+
+          {/* Monthly Rental Cost */}
+          <div>
+            <label className={labelClass}>Custo Mensal de Aluguel (R$)</label>
+            <input
+              type="number"
+              className={inputClass}
+              value={form.monthlyRentalCostBRL}
+              onChange={(e) => set('monthlyRentalCostBRL', e.target.value)}
+              placeholder="0"
+              min={0}
+            />
+          </div>
+
+          {/* Annual Maintenance Cost */}
+          <div>
+            <label className={labelClass}>Custo Anual de Manutenção (R$)</label>
+            <input
+              type="number"
+              className={inputClass}
+              value={form.annualMaintenanceCostBRL}
+              onChange={(e) => set('annualMaintenanceCostBRL', e.target.value)}
+              placeholder="0"
+              min={0}
+            />
+          </div>
+
+          {/* Residual Value */}
+          <div>
+            <label className={labelClass}>Valor Residual (R$)</label>
+            <input
+              type="number"
+              className={inputClass}
+              value={form.residualValueBRL}
+              onChange={(e) => set('residualValueBRL', e.target.value)}
+              placeholder="0"
+              min={0}
+            />
+          </div>
+
+          {/* Projected Usage Days */}
+          <div>
+            <label className={labelClass}>
+              Dias de Uso Projetados / ano
+              <span className="ml-1 text-[#2abfdc] font-normal">(≥180 = comprar · ≤60 = alugar)</span>
+            </label>
+            <input
+              type="number"
+              className={inputClass}
+              value={form.projectedUsageDays}
+              onChange={(e) => set('projectedUsageDays', e.target.value)}
+              placeholder="0"
+              min={0}
+              max={365}
+            />
+          </div>
+
+          {/* Related Projects */}
+          <div>
+            <label className={labelClass}>Projetos Relacionados (separados por vírgula)</label>
+            <input
+              className={inputClass}
+              value={form.relatedProjects}
+              onChange={(e) => set('relatedProjects', e.target.value)}
+              placeholder="Ex: Obra A, Obra B"
+            />
+          </div>
+
+          {/* BIM Phases */}
+          <div>
+            <label className={labelClass}>Fases BIM (separadas por vírgula)</label>
+            <input
+              className={inputClass}
+              value={form.bimPhases}
+              onChange={(e) => set('bimPhases', e.target.value)}
+              placeholder="Ex: Fundação, Estrutura"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={handleSave}
+            className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[#2abfdc] hover:bg-[#1a9ab8] text-white transition-colors"
+          >
+            Salvar
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#20406a] text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Analysis card ────────────────────────────────────────────────────────────
 
-function BuyLeaseCard({ a }: { a: BuyLeaseAnalysis }) {
+function BuyLeaseCard({
+  a,
+  onEdit,
+  onDelete,
+}: {
+  a: BuyLeaseAnalysis
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const meta = REC_META[a.recommendation]
   const { Icon } = meta
 
@@ -86,11 +339,29 @@ function BuyLeaseCard({ a }: { a: BuyLeaseAnalysis }) {
 
   return (
     <div
-      className="bg-[#14294e] rounded-xl p-4"
+      className="bg-[#14294e] rounded-xl p-4 relative"
       style={{ border: `1px solid ${meta.color}30` }}
     >
+      {/* Edit / Delete buttons */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <button
+          onClick={onEdit}
+          className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#2abfdc] hover:bg-[#20406a] transition-colors"
+          title="Editar"
+        >
+          <Pencil size={13} />
+        </button>
+        <button
+          onClick={onDelete}
+          className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#ef4444] hover:bg-[#ef444415] transition-colors"
+          title="Excluir"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-1">
+      <div className="flex items-start justify-between gap-3 mb-1 pr-16">
         <div>
           <p className="text-[#f5f5f5] text-sm font-semibold">{a.equipmentType}</p>
           <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -224,9 +495,31 @@ function SummaryKPIs({ analyses }: { analyses: BuyLeaseAnalysis[] }) {
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function BuyLeasePanel() {
-  const { buyLeaseAnalyses, runBuyLeaseEngine } = useOtimizacaoFrotaStore(
-    useShallow((s) => ({ buyLeaseAnalyses: s.buyLeaseAnalyses, runBuyLeaseEngine: s.runBuyLeaseEngine }))
+  const { buyLeaseAnalyses, runBuyLeaseEngine, deleteBuyLeaseAnalysis } = useOtimizacaoFrotaStore(
+    useShallow((s) => ({
+      buyLeaseAnalyses:      s.buyLeaseAnalyses,
+      runBuyLeaseEngine:     s.runBuyLeaseEngine,
+      deleteBuyLeaseAnalysis: s.deleteBuyLeaseAnalysis,
+    }))
   )
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<BuyLeaseAnalysis | null>(null)
+
+  function openAdd() {
+    setEditTarget(null)
+    setDialogOpen(true)
+  }
+
+  function openEdit(a: BuyLeaseAnalysis) {
+    setEditTarget(a)
+    setDialogOpen(true)
+  }
+
+  function closeDialog() {
+    setDialogOpen(false)
+    setEditTarget(null)
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -240,12 +533,20 @@ export function BuyLeasePanel() {
             Decisão financeira baseada na demanda projetada da carteira de projetos
           </p>
         </div>
-        <button
-          onClick={runBuyLeaseEngine}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#1a3662] transition-colors shrink-0"
-        >
-          <RefreshCw size={13} /> Rodar Engine
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2abfdc] hover:bg-[#1a9ab8] text-white text-xs font-semibold transition-colors"
+          >
+            <Plus size={13} /> Nova Análise
+          </button>
+          <button
+            onClick={runBuyLeaseEngine}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#1a3662] transition-colors"
+          >
+            <RefreshCw size={13} /> Rodar Engine
+          </button>
+        </div>
       </div>
 
       {/* Summary KPIs */}
@@ -255,15 +556,25 @@ export function BuyLeasePanel() {
       {buyLeaseAnalyses.length === 0 ? (
         <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">
-            Clique em "Rodar Engine" para calcular a análise financeira.
+            Clique em "Nova Análise" ou "Rodar Engine" para calcular a análise financeira.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {buyLeaseAnalyses.map((a) => (
-            <BuyLeaseCard key={a.id} a={a} />
+            <BuyLeaseCard
+              key={a.id}
+              a={a}
+              onEdit={() => openEdit(a)}
+              onDelete={() => deleteBuyLeaseAnalysis(a.id)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Dialog */}
+      {dialogOpen && (
+        <BuyLeaseDialog editTarget={editTarget} onClose={closeDialog} />
       )}
     </div>
   )

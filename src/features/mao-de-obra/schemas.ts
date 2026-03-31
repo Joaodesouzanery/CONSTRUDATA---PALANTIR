@@ -8,7 +8,7 @@ export const workerCertificationSchema = z.object({
   id:          z.string().min(1),
   type:        z.string().min(1).max(20),
   issuedDate:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato inválido (AAAA-MM-DD)'),
-  expiryDate:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato inválido (AAAA-MM-DD)'),
+  expiryDate:  z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato inválido (AAAA-MM-DD)'), z.literal('')]).default(''),
   status:      certStatusSchema,
 })
 
@@ -16,7 +16,7 @@ export const workerSchema = z.object({
   name:           z.string().min(2, 'Nome obrigatório').max(100),
   role:           z.string().min(2, 'Função obrigatória').max(100),
   cpfMasked:      z.string().max(20).optional().default('***.***.***-**'),
-  crewId:         z.string().min(1, 'Equipe obrigatória'),
+  crewId:         z.string().optional().default(''),
   status:         z.enum(['active', 'inactive', 'suspended', 'pending_approval']),
   hourlyRate:     z.number().min(0).max(9999.99),
   certifications: z.array(workerCertificationSchema).max(20),

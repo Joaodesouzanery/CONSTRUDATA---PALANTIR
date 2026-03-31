@@ -152,22 +152,22 @@ export function MapaHeader({
 
   return (
     <>
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 flex flex-col gap-2">
+      <div className="bg-gray-900 border-b border-gray-800 px-3 py-2 flex flex-col gap-2">
         {/* Row 1: Title + counters */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center">
               <Map size={14} className="text-white" />
             </div>
-            <span className="text-sm font-bold text-white">Mapa Interativo</span>
+            <span className="text-sm font-bold text-white hidden sm:block">Mapa Interativo</span>
           </div>
           <span className="text-xs text-gray-500 font-mono">
-            {nodes.length} PONTOS · {segments.length} TRECHOS
+            {nodes.length} pts · {segments.length} trechos
           </span>
         </div>
 
-        {/* Row 2: Tool buttons */}
-        <div className="flex items-center gap-1 flex-wrap">
+        {/* Row 2: Tool buttons — horizontally scrollable on mobile */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
           {/* View tools */}
           <ToolBtn label="Ajustar" icon={<Maximize2 size={13} />} onClick={() => loadDemoData()} />
           <ToolBtn label="Desfazer" icon={<RotateCcw size={13} />} onClick={undo} disabled={history.length === 0} />

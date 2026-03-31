@@ -12,7 +12,7 @@ export function MapaLayersPanel() {
   const [open, setOpen] = useState(true)
 
   return (
-    <div className="absolute top-3 right-3 z-[1000] bg-gray-900/95 border border-gray-700 rounded-xl shadow-xl min-w-[160px]">
+    <div className="absolute top-3 right-3 z-[1000] bg-gray-900/95 border border-gray-700 rounded-xl shadow-xl min-w-[140px] max-w-[180px]">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-3 py-2 w-full text-xs font-semibold text-white hover:text-orange-400 transition-colors"
