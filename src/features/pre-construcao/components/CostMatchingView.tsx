@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Plus, Trash2, RefreshCw, CheckSquare, Square, Tag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
@@ -64,33 +64,61 @@ function ScoreBadge({ score }: { score: number }) {
 }
 
 interface MatchTableProps {
-  items:        TakeoffItem[]
-  matches:      CostMatch[]
-  source:       CostSource
-  onToggle:     (takeoffItemId: string, code: string, source: string) => void
-  onOverride:   (takeoffItemId: string, code: string, source: string, price: number) => void
+  items:          TakeoffItem[]
+  matches:        CostMatch[]
+  source:         CostSource
+  selectedItems:  Set<string>
+  onToggle:       (takeoffItemId: string, code: string, source: string) => void
+  onOverride:     (takeoffItemId: string, code: string, source: string, price: number) => void
+  onSelectItem:   (id: string, selected: boolean) => void
+  onSelectAll:    (selected: boolean) => void
 }
 
-function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTableProps) {
+function MatchTable({ items, matches, source, selectedItems, onToggle, onOverride, onSelectItem, onSelectAll }: MatchTableProps) {
   const sourceMatches = matches.filter((m) => m.source === source)
+  const allSelected = items.length > 0 && items.every((i) => selectedItems.has(i.id))
 
   if (items.length === 0) {
-    return (
-      <div className="text-[#6b6b6b] text-sm text-center py-10">
-        Nenhum item para matching
-      </div>
-    )
+    return <div className="text-[#6b6b6b] text-sm text-center py-10">Nenhum item para matching</div>
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Select-all row */}
+      <div className="flex items-center gap-2 px-1">
+        <button
+          onClick={() => onSelectAll(!allSelected)}
+          className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
+        >
+          {allSelected
+            ? <CheckSquare size={13} className="text-[#2abfdc]" />
+            : <Square size={13} />}
+          Selecionar todos ({items.length})
+        </button>
+        {selectedItems.size > 0 && (
+          <span className="text-[#2abfdc] text-xs ml-1">{selectedItems.size} selecionado{selectedItems.size !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+
       {items.map((item) => {
         const itemMatches = sourceMatches.filter((m) => m.takeoffItemId === item.id)
+        const isSelected = selectedItems.has(item.id)
 
         return (
-          <div key={item.id} className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-x-auto overflow-hidden">
-            {/* Item header */}
+          <div
+            key={item.id}
+            className={cn(
+              'border rounded-xl overflow-x-auto overflow-hidden transition-colors',
+              isSelected ? 'border-[#2abfdc]/50 bg-[#14294e]' : 'border-[#20406a] bg-[#14294e]'
+            )}
+          >
+            {/* Item header with checkbox */}
             <div className="px-4 py-2.5 bg-[#1a3662] border-b border-[#20406a] flex items-center gap-3">
+              <button onClick={() => onSelectItem(item.id, !isSelected)} className="shrink-0">
+                {isSelected
+                  ? <CheckSquare size={14} className="text-[#2abfdc]" />
+                  : <Square size={14} className="text-[#6b6b6b] hover:text-[#f5f5f5]" />}
+              </button>
               <span className="text-[#f5f5f5] text-sm font-medium flex-1">{item.description}</span>
               <span className="text-[#6b6b6b] text-xs tabular-nums">
                 {item.quantity.toLocaleString('pt-BR')} {item.unit}
@@ -139,9 +167,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                           style: 'currency', currency: 'BRL',
                         })}
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <ScoreBadge score={m.score} />
-                      </td>
+                      <td className="px-3 py-2 text-center"><ScoreBadge score={m.score} /></td>
                       <td className="px-3 py-2">
                         <input
                           type="number"
@@ -321,6 +347,9 @@ type Tab = 'sinapi' | 'seinfra' | 'custom'
 export function CostMatchingView() {
   const [activeTab, setActiveTab] = useState<Tab>('sinapi')
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [bulkPriceInput, setBulkPriceInput] = useState('')
+  const [showBulkPrice, setShowBulkPrice] = useState(false)
 
   const {
     takeoffItems,
@@ -351,6 +380,41 @@ export function CostMatchingView() {
     setSinapiLastRefresh: s.setSinapiLastRefresh,
     uploadedFiles:        s.uploadedFiles,
   })))
+
+  const handleSelectItem = useCallback((id: string, sel: boolean) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      sel ? next.add(id) : next.delete(id)
+      return next
+    })
+  }, [])
+
+  const handleSelectAll = useCallback((sel: boolean) => {
+    setSelectedItems(sel ? new Set(takeoffItems.map((i) => i.id)) : new Set())
+  }, [takeoffItems])
+
+  function handleBulkAccept() {
+    // For each selected item, ensure the first match for current source is selected
+    const source = activeTab as CostSource
+    for (const itemId of selectedItems) {
+      const firstMatch = costMatches.find((m) => m.takeoffItemId === itemId && m.source === source)
+      if (firstMatch && !firstMatch.selected) toggleMatch(itemId, firstMatch.code, source)
+    }
+    setSelectedItems(new Set())
+  }
+
+  function handleBulkPrice() {
+    const price = parseFloat(bulkPriceInput.replace(',', '.'))
+    if (isNaN(price) || price < 0) return
+    const source = activeTab as CostSource
+    for (const itemId of selectedItems) {
+      const selected = costMatches.find((m) => m.takeoffItemId === itemId && m.source === source && m.selected)
+      if (selected) overridePrice(itemId, selected.code, source, price)
+    }
+    setBulkPriceInput('')
+    setShowBulkPrice(false)
+    setSelectedItems(new Set())
+  }
 
   function handleRefreshSinapi() {
     setIsRefreshing(true)
@@ -432,6 +496,53 @@ export function CostMatchingView() {
         ))}
       </div>
 
+      {/* Bulk action bar */}
+      {selectedItems.size > 0 && activeTab !== 'custom' && (
+        <div className="flex items-center gap-2 bg-[#2abfdc]/10 border border-[#2abfdc]/30 rounded-lg px-3 py-2 shrink-0 flex-wrap">
+          <span className="text-[#2abfdc] text-xs font-semibold">{selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selecionado{selectedItems.size !== 1 ? 's' : ''}</span>
+          <button
+            onClick={handleBulkAccept}
+            className="flex items-center gap-1 px-3 py-1 rounded bg-[#16a34a]/20 hover:bg-[#16a34a]/30 text-[#4ade80] text-xs font-semibold transition-colors"
+          >
+            Aceitar Selecionados
+          </button>
+          <button
+            onClick={() => setShowBulkPrice((v) => !v)}
+            className="flex items-center gap-1 px-3 py-1 rounded bg-[#f97316]/20 hover:bg-[#f97316]/30 text-[#fb923c] text-xs font-semibold transition-colors"
+          >
+            <Tag size={11} /> Definir Preço em Lote
+          </button>
+          {showBulkPrice && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#6b6b6b] text-xs">R$</span>
+              <input
+                type="number"
+                autoFocus
+                min={0}
+                step={0.01}
+                value={bulkPriceInput}
+                onChange={(e) => setBulkPriceInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleBulkPrice() }}
+                placeholder="0,00"
+                className="w-24 bg-[#112645] border border-[#2abfdc] rounded px-2 py-1 text-[#f5f5f5] text-xs focus:outline-none"
+              />
+              <button
+                onClick={handleBulkPrice}
+                className="px-2 py-1 rounded bg-[#2abfdc] text-white text-xs font-semibold"
+              >
+                Aplicar
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => { setSelectedItems(new Set()); setShowBulkPrice(false) }}
+            className="ml-auto text-[#6b6b6b] hover:text-[#f5f5f5] text-xs transition-colors"
+          >
+            Limpar seleção
+          </button>
+        </div>
+      )}
+
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'sinapi' && (
@@ -439,8 +550,11 @@ export function CostMatchingView() {
             items={takeoffItems}
             matches={costMatches}
             source="sinapi"
+            selectedItems={selectedItems}
             onToggle={toggleMatch}
             onOverride={overridePrice}
+            onSelectItem={handleSelectItem}
+            onSelectAll={handleSelectAll}
           />
         )}
         {activeTab === 'seinfra' && (
@@ -448,8 +562,11 @@ export function CostMatchingView() {
             items={takeoffItems}
             matches={costMatches}
             source="seinfra"
+            selectedItems={selectedItems}
             onToggle={toggleMatch}
             onOverride={overridePrice}
+            onSelectItem={handleSelectItem}
+            onSelectAll={handleSelectAll}
           />
         )}
         {activeTab === 'custom' && (

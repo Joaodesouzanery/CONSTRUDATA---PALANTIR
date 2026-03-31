@@ -93,7 +93,7 @@ export function WorkerDialog({ onClose }: Props) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Name */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Nome completo *</span>
+            <span className="text-[#6b6b6b] text-xs font-medium">Nome completo</span>
             <input
               type="text"
               maxLength={100}
@@ -107,7 +107,7 @@ export function WorkerDialog({ onClose }: Props) {
 
           {/* Role */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Função *</span>
+            <span className="text-[#6b6b6b] text-xs font-medium">Função</span>
             <input
               type="text"
               maxLength={100}

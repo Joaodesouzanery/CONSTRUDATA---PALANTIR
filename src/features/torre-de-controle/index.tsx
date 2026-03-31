@@ -19,7 +19,7 @@ export function TorreDeControlePage() {
   return (
     <>
       {/* Mobile tab switcher — only visible on small screens */}
-      <div className="flex md:hidden border-b border-[#20406a] bg-[#0d2040] shrink-0">
+      <div className="flex lg:hidden border-b border-[#20406a] bg-[#0d2040] shrink-0">
         {MOBILE_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -38,13 +38,13 @@ export function TorreDeControlePage() {
       {/* Desktop: all three panels side-by-side */}
       {/* Mobile: only the active panel */}
       <div className="flex h-full overflow-hidden">
-        <div className={`${mobileTab === 'lista' ? 'flex flex-1 md:flex-initial' : 'hidden'} md:flex flex-col`}>
+        <div className={`${mobileTab === 'lista' ? 'flex flex-1 lg:flex-initial' : 'hidden'} lg:flex flex-col`}>
           <ObrasListPanel />
         </div>
-        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'} md:flex md:flex-1`}>
+        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'} lg:flex lg:flex-1`}>
           <ObrasMap />
         </div>
-        <div className={`${mobileTab === 'detalhes' ? 'flex flex-1 md:flex-initial' : 'hidden'} md:flex flex-col`}>
+        <div className={`${mobileTab === 'detalhes' ? 'flex flex-1 lg:flex-initial' : 'hidden'} lg:flex flex-col`}>
           <ObraDetailPanel />
         </div>
       </div>

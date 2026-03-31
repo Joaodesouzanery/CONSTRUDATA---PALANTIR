@@ -4,10 +4,10 @@ import { useRede360Store } from '@/store/rede360Store'
 import type { Rede360Tab } from '@/types'
 
 const TABS: { id: Rede360Tab; label: string }[] = [
-  { id: 'home',     label: 'Home'                   },
-  { id: 'outages',  label: 'Live Outage Map'        },
-  { id: 'planning', label: 'Integrated Planning'    },
-  { id: 'risk',     label: 'Asset Risk Management' },
+  { id: 'home',     label: 'Início'                 },
+  { id: 'outages',  label: 'Mapa de Interrupções'  },
+  { id: 'planning', label: 'Planejamento Integrado' },
+  { id: 'risk',     label: 'Gestão de Risco'        },
 ]
 
 export function Rede360Header() {
@@ -33,15 +33,15 @@ export function Rede360Header() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search across your grid..."
+            placeholder="Buscar na rede..."
             className="w-full pl-7 pr-3 py-1 bg-[#14294e] border border-[#20406a] rounded text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#2abfdc]"
           />
         </div>
-        <span className="text-xs text-[#6b6b6b] ml-auto whitespace-nowrap">National Data</span>
+        <span className="text-xs text-[#6b6b6b] ml-auto whitespace-nowrap">Dados Nacionais</span>
         {activeOutages > 0 && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-900/30 border border-amber-700/50 rounded text-xs text-amber-300 whitespace-nowrap">
             <AlertTriangle size={12} />
-            Current Outages: {activeOutages}
+            Interrupções Ativas: {activeOutages}
           </div>
         )}
       </div>

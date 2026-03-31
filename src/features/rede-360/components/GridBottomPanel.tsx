@@ -9,7 +9,7 @@ const RISK_COLORS: Record<RiskLevel, string> = {
   high:     'bg-orange-900/40 text-orange-300',
   critical: 'bg-red-900/40 text-red-300',
 }
-const RISK_LABELS: Record<RiskLevel, string> = { low: 'Low', medium: 'Moderate', high: 'High', critical: 'Critical' }
+const RISK_LABELS: Record<RiskLevel, string> = { low: 'Baixo', medium: 'Médio', high: 'Alto', critical: 'Crítico' }
 
 function RiskBadge({ level }: { level: RiskLevel }) {
   return <span className={`px-1.5 py-0.5 rounded text-xs ${RISK_COLORS[level]}`}>{RISK_LABELS[level]}</span>
@@ -46,13 +46,13 @@ export function GridBottomPanel() {
   } = store
 
   const TABS: { id: GridAssetTab; label: string; count: number; color: string }[] = [
-    { id: 'circuit',    label: 'Circuit Asset',                        count: circuitAssets.length,    color: '#38bdf8' },
-    { id: 'device',     label: 'Device Asset',                         count: deviceAssets.length,     color: '#f97316' },
-    { id: 'weather',    label: 'NWS Weather Station',                  count: weatherStations.length,  color: '#a78bfa' },
-    { id: 'customer',   label: 'Customer',                             count: customers.length,        color: '#eab308' },
-    { id: 'structure',  label: 'Structure Asset',                      count: structureAssets.length,  color: '#94a3b8' },
-    { id: 'vegetation', label: 'Vegetation Management Point Activity',  count: vegetationPoints.length, color: '#4ade80' },
-    { id: 'hardening',  label: 'System Hardening Point Activity',      count: hardeningPoints.length,  color: '#f97316' },
+    { id: 'circuit',    label: 'Circuito Elétrico',    count: circuitAssets.length,    color: '#38bdf8' },
+    { id: 'device',     label: 'Dispositivo',          count: deviceAssets.length,     color: '#f97316' },
+    { id: 'weather',    label: 'Estação INMET',         count: weatherStations.length,  color: '#a78bfa' },
+    { id: 'customer',   label: 'Cliente',              count: customers.length,        color: '#eab308' },
+    { id: 'structure',  label: 'Estrutura',            count: structureAssets.length,  color: '#94a3b8' },
+    { id: 'vegetation', label: 'Gestão de Vegetação',  count: vegetationPoints.length, color: '#4ade80' },
+    { id: 'hardening',  label: 'Robustez do Sistema',  count: hardeningPoints.length,  color: '#f97316' },
   ]
 
   if (!bottomPanelOpen) {
@@ -102,10 +102,10 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Circuit ID</Th><Th>Circuit Name</Th><Th>Circuit Class</Th>
-                <Th>Risk Classification</Th><Th>Risk Level</Th><Th>Circuit Customer Count</Th>
-                <Th>Protected Devices on Circuit</Th><Th>Installed Structures</Th>
-                <Th>Line Segments</Th><Th>District Name</Th><Th>Is In Area of Interest</Th>
+                <Th>ID Circuito</Th><Th>Nome</Th><Th>Classe</Th>
+                <Th>Classificação de Risco</Th><Th>Nível de Risco</Th><Th>Clientes</Th>
+                <Th>Dispositivos Protegidos</Th><Th>Estruturas Instaladas</Th>
+                <Th>Segmentos de Linha</Th><Th>Distrito</Th><Th>Área de Interesse</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -125,7 +125,7 @@ export function GridBottomPanel() {
                   <Td>{c.installedStructureCount.toLocaleString('pt-BR')}</Td>
                   <Td>{c.lineSegmentCount.toLocaleString('pt-BR')}</Td>
                   <Td>{c.districtName}</Td>
-                  <Td>{c.isInAreaOfInterest ? '✓ Yes' : '— No'}</Td>
+                  <Td>{c.isInAreaOfInterest ? '✓ Sim' : '— Não'}</Td>
                 </tr>
               ))}
             </tbody>
@@ -136,8 +136,8 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Device ID</Th><Th>Type</Th><Th>Manufacturer</Th><Th>Model</Th>
-                <Th>Status</Th><Th>Risk</Th><Th>Circuit ID</Th><Th>Installed</Th>
+                <Th>ID Dispositivo</Th><Th>Tipo</Th><Th>Fabricante</Th><Th>Modelo</Th>
+                <Th>Status</Th><Th>Risco</Th><Th>ID Circuito</Th><Th>Instalação</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -161,8 +161,8 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Station ID</Th><Th>Station Name</Th><Th>Temp (°C)</Th>
-                <Th>Wind (km/h)</Th><Th>Precip (mm)</Th><Th>Alerts</Th><Th>Last Updated</Th>
+                <Th>ID Estação</Th><Th>Nome da Estação</Th><Th>Temp (°C)</Th>
+                <Th>Vento (km/h)</Th><Th>Precip (mm)</Th><Th>Alertas</Th><Th>Última Atualização</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -185,7 +185,7 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Customer ID</Th><Th>Address</Th><Th>Service Type</Th><Th>Circuit ID</Th><Th>Status</Th>
+                <Th>ID Cliente</Th><Th>Endereço</Th><Th>Tipo de Serviço</Th><Th>ID Circuito</Th><Th>Status</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -195,7 +195,7 @@ export function GridBottomPanel() {
                   <Td>{c.address}</Td>
                   <Td>{c.serviceType}</Td>
                   <Td mono>{c.circuitId ?? '—'}</Td>
-                  <Td>{c.status === 'active' ? <span className="text-green-400">Active</span> : <span className="text-[#6b6b6b]">Inactive</span>}</Td>
+                  <Td>{c.status === 'active' ? <span className="text-green-400">Ativo</span> : <span className="text-[#6b6b6b]">Inativo</span>}</Td>
                 </tr>
               ))}
             </tbody>
@@ -206,8 +206,8 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Structure ID</Th><Th>Type</Th><Th>Condition</Th><Th>Risk</Th>
-                <Th>Circuit ID</Th><Th>Inspection Date</Th>
+                <Th>ID Estrutura</Th><Th>Tipo</Th><Th>Condição</Th><Th>Risco</Th>
+                <Th>ID Circuito</Th><Th>Data de Inspeção</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -229,8 +229,8 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Point ID</Th><Th>Address</Th><Th>Priority</Th><Th>Status</Th>
-                <Th>Last Trim</Th><Th>Circuit ID</Th>
+                <Th>ID Ponto</Th><Th>Endereço</Th><Th>Prioridade</Th><Th>Status</Th>
+                <Th>Último Corte</Th><Th>ID Circuito</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">
@@ -252,8 +252,8 @@ export function GridBottomPanel() {
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-[#0a1628]">
               <tr className="border-b border-[#20406a]">
-                <Th>Point ID</Th><Th>Type</Th><Th>Status</Th><Th>Completion</Th>
-                <Th>Circuit ID</Th><Th>Risk</Th>
+                <Th>ID Ponto</Th><Th>Tipo</Th><Th>Status</Th><Th>Conclusão</Th>
+                <Th>ID Circuito</Th><Th>Risco</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#20406a]/50">

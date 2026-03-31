@@ -57,9 +57,6 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name?.trim()) { setError('Nome é obrigatório'); return }
-    if (!form.role?.trim()) { setError('Função é obrigatória'); return }
-    // crewId is optional — can be assigned later
     setError('')
     onSave(form as Omit<Worker, 'id'>)
   }
@@ -77,11 +74,11 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
         <form onSubmit={handleSubmit} className="p-5 grid grid-cols-2 gap-4">
           {/* Col 1 */}
           <div className="col-span-2">
-            <label className={labelClass}>Nome completo *</label>
+            <label className={labelClass}>Nome completo</label>
             <input className={fieldClass} value={form.name ?? ''} onChange={(e) => set('name', e.target.value)} />
           </div>
           <div>
-            <label className={labelClass}>Função / Cargo *</label>
+            <label className={labelClass}>Função / Cargo</label>
             <input className={fieldClass} value={form.role ?? ''} onChange={(e) => set('role', e.target.value)} />
           </div>
           <div>

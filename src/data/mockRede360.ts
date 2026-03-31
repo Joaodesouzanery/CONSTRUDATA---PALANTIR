@@ -486,10 +486,10 @@ export const MOCK_VEGETATION_POINTS: VegetationPoint[] = [
 ]
 
 export const MOCK_HARDENING_POINTS: HardeningPoint[] = [
-  { id: 'hrd-001', pointId: 'HRD-0001', hardeningType: 'Underground Conversion', status: 'in_progress', circuitId: 'circ-001', lat: -23.544, lng: -46.644, riskLevel: 'medium' },
-  { id: 'hrd-002', pointId: 'HRD-0002', hardeningType: 'Storm Hardening', status: 'planned', circuitId: 'circ-002', lat: -23.559, lng: -46.629, riskLevel: 'high' },
-  { id: 'hrd-003', pointId: 'HRD-0003', hardeningType: 'Flood Mitigation', status: 'completed', completionDate: '2025-12-15', circuitId: 'circ-003', lat: -23.550, lng: -46.636, riskLevel: 'low' },
-  { id: 'hrd-004', pointId: 'HRD-0004', hardeningType: 'Underground Conversion', status: 'planned', circuitId: 'circ-005', lat: -23.540, lng: -46.617, riskLevel: 'critical' },
-  { id: 'hrd-005', pointId: 'HRD-0005', hardeningType: 'Storm Hardening', status: 'in_progress', circuitId: 'circ-005', lat: -23.543, lng: -46.612, riskLevel: 'high' },
-  { id: 'hrd-006', pointId: 'HRD-0006', hardeningType: 'Vegetation Buffer', status: 'completed', completionDate: '2026-01-10', circuitId: 'circ-006', lat: -23.576, lng: -46.663, riskLevel: 'low' },
+  { id: 'hrd-001', pointId: 'HRD-0001', hardeningType: 'Conversão Subterrânea', status: 'in_progress', circuitId: 'circ-001', lat: -23.544, lng: -46.644, riskLevel: 'medium' },
+  { id: 'hrd-002', pointId: 'HRD-0002', hardeningType: 'Reforço contra Tempestades', status: 'planned', circuitId: 'circ-002', lat: -23.559, lng: -46.629, riskLevel: 'high' },
+  { id: 'hrd-003', pointId: 'HRD-0003', hardeningType: 'Mitigação de Enchentes', status: 'completed', completionDate: '2025-12-15', circuitId: 'circ-003', lat: -23.550, lng: -46.636, riskLevel: 'low' },
+  { id: 'hrd-004', pointId: 'HRD-0004', hardeningType: 'Conversão Subterrânea', status: 'planned', circuitId: 'circ-005', lat: -23.540, lng: -46.617, riskLevel: 'critical' },
+  { id: 'hrd-005', pointId: 'HRD-0005', hardeningType: 'Reforço contra Tempestades', status: 'in_progress', circuitId: 'circ-005', lat: -23.543, lng: -46.612, riskLevel: 'high' },
+  { id: 'hrd-006', pointId: 'HRD-0006', hardeningType: 'Zona de Proteção Vegetal', status: 'completed', completionDate: '2026-01-10', circuitId: 'circ-006', lat: -23.576, lng: -46.663, riskLevel: 'low' },
 ]

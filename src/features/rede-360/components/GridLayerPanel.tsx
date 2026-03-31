@@ -3,13 +3,13 @@ import { useShallow } from 'zustand/react/shallow'
 import { useRede360Store } from '@/store/rede360Store'
 
 const LAYERS = [
-  { key: 'orders',           label: 'Service Orders',    color: '#eab308' },
-  { key: 'outages',          label: 'Live Outages',      color: '#ef4444' },
-  { key: 'assets',           label: 'Assets',            color: '#2abfdc' },
-  { key: 'riskLayers',       label: 'Risk Layers',       color: '#f97316' },
-  { key: 'serviceDistricts', label: 'Service Districts', color: '#a78bfa' },
-  { key: 'landCover',        label: 'Land Cover',        color: '#4ade80' },
-  { key: 'circuits',         label: 'Circuits',          color: '#38bdf8' },
+  { key: 'orders',           label: 'Ordens de Serviço',   color: '#eab308' },
+  { key: 'outages',          label: 'Interrupções Ativas',  color: '#ef4444' },
+  { key: 'assets',           label: 'Ativos',               color: '#2abfdc' },
+  { key: 'riskLayers',       label: 'Camadas de Risco',     color: '#f97316' },
+  { key: 'serviceDistricts', label: 'Distritos de Serviço', color: '#a78bfa' },
+  { key: 'landCover',        label: 'Cobertura do Solo',    color: '#4ade80' },
+  { key: 'circuits',         label: 'Circuitos',            color: '#38bdf8' },
 ]
 
 export function GridLayerPanel() {
@@ -36,7 +36,7 @@ export function GridLayerPanel() {
           onClick={toggleAll}
           className="text-xs text-[#2abfdc] hover:text-[#f5f5f5] transition-colors"
         >
-          {allVisible ? 'Ocultar' : 'Mostrar'} all
+          {allVisible ? 'Ocultar tudo' : 'Mostrar tudo'}
         </button>
       </div>
       {/* Layer rows */}

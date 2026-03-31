@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Check, X, CheckCheck, XCircle } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, X, CheckCheck, XCircle, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
@@ -128,6 +128,28 @@ export function NormalizacaoView() {
 
   const suggestions = useMemo(() => buildSuggestions(takeoffItems), [takeoffItems])
 
+  // Local edit state: keyed by item id, stores overrides for suggestion cells
+  const [edits, setEdits] = useState<Record<string, { desc: string; qty: string; unit: string }>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  function startEdit(id: string, defaultDesc: string, defaultQty: number, defaultUnit: string) {
+    setEditingId(id)
+    if (!edits[id]) {
+      setEdits((e) => ({ ...e, [id]: { desc: defaultDesc, qty: String(defaultQty), unit: defaultUnit } }))
+    }
+  }
+
+  function commitEdit(id: string) {
+    const e = edits[id]
+    if (!e) return
+    usePreConstrucaoStore.setState((st) => ({
+      takeoffItems: st.takeoffItems.map((i) =>
+        i.id === id ? { ...i, normalizedDescription: e.desc, normalizedQuantity: parseFloat(e.qty) || i.quantity, normalizedUnit: e.unit } : i
+      ),
+    }))
+    setEditingId(null)
+  }
+
   // Pre-populate normalized fields on items that have suggestions but no normalized data yet
   // We do this by calling setTakeoffItems once — actually we show it in the UI and only commit on accept.
   // The store's acceptNormalization reads normalizedDescription/Qty/Unit so we need them set.
@@ -178,97 +200,136 @@ export function NormalizacaoView() {
             </tr>
           </thead>
           <tbody>
-            {suggestions.map(({ item, hasSuggestion, suggestedDesc, suggestedQty, suggestedUnit, reason, acceptedOrRejected }) => (
-              <tr
-                key={item.id}
-                className="border-t border-[#20406a] hover:bg-[#1a3662]/50 transition-colors"
-              >
-                {/* Status indicator */}
-                <td className="px-3 py-2">
-                  {acceptedOrRejected && hasSuggestion && (
-                    <Check size={12} className="text-[#4ade80]" />
-                  )}
-                </td>
+            {suggestions.map(({ item, hasSuggestion, suggestedDesc, suggestedQty, suggestedUnit, reason, acceptedOrRejected }) => {
+              const isEditing = editingId === item.id
+              const edit = edits[item.id]
+              const displayDesc = edit?.desc ?? suggestedDesc
+              const displayQty  = edit?.qty  ?? String(suggestedQty)
+              const displayUnit = edit?.unit ?? suggestedUnit
 
-                {/* Original */}
-                <td className="px-3 py-2">
-                  <div className={cn('flex flex-col gap-0.5', acceptedOrRejected && hasSuggestion && 'line-through opacity-50')}>
-                    <span className="text-[#f5f5f5] text-xs">{item.description}</span>
-                    <span className="text-[#6b6b6b] text-[10px]">
-                      {item.quantity.toLocaleString('pt-BR')} {item.unit}
-                    </span>
-                  </div>
-                </td>
+              function doAccept() {
+                const desc = edit?.desc ?? suggestedDesc
+                const qty  = parseFloat(edit?.qty ?? '') || suggestedQty
+                const unit = edit?.unit ?? suggestedUnit
+                usePreConstrucaoStore.setState((st) => ({
+                  takeoffItems: st.takeoffItems.map((i) =>
+                    i.id === item.id
+                      ? { ...i, normalized: true, normalizedDescription: desc, normalizedQuantity: qty, normalizedUnit: unit }
+                      : i
+                  ),
+                }))
+                acceptNormalization(item.id)
+                setEditingId(null)
+              }
 
-                {/* Suggestion */}
-                <td className="px-3 py-2">
-                  {hasSuggestion ? (
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[#2abfdc] text-xs">{suggestedDesc}</span>
-                      <span className="text-[#a3a3a3] text-[10px]">
-                        {suggestedQty.toLocaleString('pt-BR', { maximumFractionDigits: 4 })} {suggestedUnit}
+              return (
+                <tr
+                  key={item.id}
+                  className="border-t border-[#20406a] hover:bg-[#1a3662]/50 transition-colors"
+                >
+                  {/* Status indicator */}
+                  <td className="px-3 py-2">
+                    {acceptedOrRejected && hasSuggestion && (
+                      <Check size={12} className="text-[#4ade80]" />
+                    )}
+                  </td>
+
+                  {/* Original */}
+                  <td className="px-3 py-2">
+                    <div className={cn('flex flex-col gap-0.5', acceptedOrRejected && hasSuggestion && 'line-through opacity-50')}>
+                      <span className="text-[#f5f5f5] text-xs">{item.description}</span>
+                      <span className="text-[#6b6b6b] text-[10px]">
+                        {item.quantity.toLocaleString('pt-BR')} {item.unit}
                       </span>
                     </div>
-                  ) : (
-                    <span className="text-[#1f3c5e] text-xs">Sem alterações</span>
-                  )}
-                </td>
+                  </td>
 
-                {/* Reason */}
-                <td className="px-3 py-2">
-                  {reason ? (
-                    <span className="text-[#6b6b6b] text-[10px]">{reason}</span>
-                  ) : (
-                    <span className="text-[#1f3c5e] text-[10px]">—</span>
-                  )}
-                </td>
+                  {/* Suggestion — editable on click */}
+                  <td className="px-3 py-2 min-w-[200px]">
+                    {hasSuggestion ? (
+                      isEditing ? (
+                        <div className="flex flex-col gap-1">
+                          <input
+                            autoFocus
+                            value={displayDesc}
+                            onChange={(e) => setEdits((ed) => ({ ...ed, [item.id]: { ...ed[item.id], desc: e.target.value } }))}
+                            onBlur={() => commitEdit(item.id)}
+                            className="w-full bg-[#14294e] border border-[#2abfdc] rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none"
+                          />
+                          <div className="flex gap-1">
+                            <input
+                              type="number"
+                              value={displayQty}
+                              step="any"
+                              onChange={(e) => setEdits((ed) => ({ ...ed, [item.id]: { ...ed[item.id], qty: e.target.value } }))}
+                              onBlur={() => commitEdit(item.id)}
+                              className="w-16 bg-[#14294e] border border-[#2abfdc] rounded px-1.5 py-0.5 text-[10px] text-[#f5f5f5] focus:outline-none"
+                            />
+                            <input
+                              value={displayUnit}
+                              onChange={(e) => setEdits((ed) => ({ ...ed, [item.id]: { ...ed[item.id], unit: e.target.value } }))}
+                              onBlur={() => commitEdit(item.id)}
+                              className="w-12 bg-[#14294e] border border-[#2abfdc] rounded px-1.5 py-0.5 text-[10px] text-[#f5f5f5] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex flex-col gap-0.5 group cursor-pointer"
+                          onClick={() => !acceptedOrRejected && startEdit(item.id, suggestedDesc, suggestedQty, suggestedUnit)}
+                          title={acceptedOrRejected ? '' : 'Clique para editar'}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#2abfdc] text-xs">{displayDesc}</span>
+                            {!acceptedOrRejected && (
+                              <Pencil size={9} className="text-[#6b6b6b] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            )}
+                          </div>
+                          <span className="text-[#a3a3a3] text-[10px]">
+                            {parseFloat(displayQty).toLocaleString('pt-BR', { maximumFractionDigits: 4 })} {displayUnit}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <span className="text-[#1f3c5e] text-xs">Sem alterações</span>
+                    )}
+                  </td>
 
-                {/* Action */}
-                <td className="px-3 py-2 text-center">
-                  {hasSuggestion && !acceptedOrRejected ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => {
-                          // Ensure normalizedDescription/Qty/Unit are set before calling accept
-                          // We write them via setTakeoffItems indirectly by using store:
-                          // The store's acceptNormalization reads item.normalizedDescription etc.
-                          // So we need to ensure they are on the item — do it inline here
-                          // via a workaround: call acceptNormalization which reads the already-set fields.
-                          // If not set yet, we set them first.
-                          usePreConstrucaoStore.setState((st) => ({
-                            takeoffItems: st.takeoffItems.map((i) =>
-                              i.id === item.id
-                                ? {
-                                    ...i,
-                                    normalized:            true,
-                                    normalizedDescription: suggestedDesc,
-                                    normalizedQuantity:    suggestedQty,
-                                    normalizedUnit:        suggestedUnit,
-                                  }
-                                : i
-                            ),
-                          }))
-                          acceptNormalization(item.id)
-                        }}
-                        className="p-1 rounded bg-[#16a34a]/20 hover:bg-[#16a34a]/40 text-[#4ade80] transition-colors"
-                        title="Aceitar sugestão"
-                      >
-                        <Check size={12} />
-                      </button>
-                      <button
-                        onClick={() => rejectNormalization(item.id)}
-                        className="p-1 rounded bg-[#dc2626]/20 hover:bg-[#dc2626]/40 text-[#f87171] transition-colors"
-                        title="Rejeitar sugestão"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[#1f3c5e] text-xs">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  {/* Reason */}
+                  <td className="px-3 py-2">
+                    {reason ? (
+                      <span className="text-[#6b6b6b] text-[10px]">{reason}</span>
+                    ) : (
+                      <span className="text-[#1f3c5e] text-[10px]">—</span>
+                    )}
+                  </td>
+
+                  {/* Action */}
+                  <td className="px-3 py-2 text-center">
+                    {hasSuggestion && !acceptedOrRejected ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={doAccept}
+                          className="p-1 rounded bg-[#16a34a]/20 hover:bg-[#16a34a]/40 text-[#4ade80] transition-colors"
+                          title="Aceitar sugestão"
+                        >
+                          <Check size={12} />
+                        </button>
+                        <button
+                          onClick={() => rejectNormalization(item.id)}
+                          className="p-1 rounded bg-[#dc2626]/20 hover:bg-[#dc2626]/40 text-[#f87171] transition-colors"
+                          title="Rejeitar sugestão"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[#1f3c5e] text-xs">—</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -31,8 +31,7 @@ export function ProjetosSidebar() {
 
   return (
     <aside
-      className="flex flex-col border-r border-[#20406a] bg-[#112645] shrink-0 overflow-hidden"
-      style={{ width: 300 }}
+      className="flex flex-col border-r border-[#20406a] bg-[#112645] shrink-0 overflow-hidden w-full lg:w-[300px]"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#20406a] shrink-0">
