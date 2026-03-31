@@ -88,7 +88,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
         const itemMatches = sourceMatches.filter((m) => m.takeoffItemId === item.id)
 
         return (
-          <div key={item.id} className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-hidden">
+          <div key={item.id} className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-x-auto overflow-hidden">
             {/* Item header */}
             <div className="px-4 py-2.5 bg-[#1a3662] border-b border-[#20406a] flex items-center gap-3">
               <span className="text-[#f5f5f5] text-sm font-medium flex-1">{item.description}</span>
@@ -274,7 +274,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
           Nenhuma entrada na base própria
         </div>
       ) : (
-        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
+        <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-x-auto overflow-hidden">
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-[#1a3662]">

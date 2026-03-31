@@ -24,6 +24,18 @@ import type {
 const MAX_WORK_DAYS = 1000 // safety cap
 const SOIL_SWELL_FACTOR = 0.8
 
+// Soil-type multipliers applied to productivity and unit cost
+const SOIL_PROD_MULTIPLIER: Record<string, number> = {
+  normal: 1.0,
+  mixed:  0.8,
+  rocky:  0.6,
+}
+const SOIL_COST_MULTIPLIER: Record<string, number> = {
+  normal: 1.0,
+  mixed:  1.2,
+  rocky:  1.4,
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ScheduleResult {
@@ -102,11 +114,14 @@ export function effectiveMPerDay(
   // If depth exceeds manual excavation limit, apply mechanical-only penalty (0.7×)
   const depthPenalty = depth > maxManualExcavDepthM ? 0.7 : 1.0
 
-  const escMPerDay   = Math.max(1, prod.escavacao) * Math.max(1, teamRetroCount) * depthPenalty
-  const asstMPerDay  = Math.max(1, prod.assentamento)
-  const reatMPerDay  = Math.max(1, prod.reaterro) / (depth * SOIL_SWELL_FACTOR)
+  // Soil type reduces productivity (rocky = 60%, mixed = 80%, normal = 100%)
+  const soilMult = SOIL_PROD_MULTIPLIER[trecho.soilType] ?? 1.0
+
+  const escMPerDay   = Math.max(1, prod.escavacao) * Math.max(1, teamRetroCount) * depthPenalty * soilMult
+  const asstMPerDay  = Math.max(1, prod.assentamento) * soilMult
+  const reatMPerDay  = (Math.max(1, prod.reaterro) / (depth * SOIL_SWELL_FACTOR)) * soilMult
   const escorMPerDay = trecho.requiresShoring
-    ? Math.max(1, prod.escoramento) / depth
+    ? (Math.max(1, prod.escoramento) / depth) * soilMult
     : Infinity
 
   return Math.max(0.1, Math.min(escMPerDay, asstMPerDay, reatMPerDay, escorMPerDay))
@@ -215,7 +230,11 @@ export function generateSchedule(
 
     const endDayIndex = startDayIndex + durationDays - 1
     const dailyCost = teamDailyCost(team, config.workHoursPerDay)
-    const totalCost = dailyCost * durationDays
+    const laborCost = dailyCost * durationDays
+    // Soil type increases unit cost (rocky = 1.4×, mixed = 1.2×, normal = 1.0×)
+    const soilCostMult = SOIL_COST_MULTIPLIER[trecho.soilType] ?? 1.0
+    const materialCost = (trecho.unitCostBRL ?? 0) * trecho.lengthM * soilCostMult
+    const totalCost = laborCost + materialCost
 
     ganttRows.push({
       trecho,

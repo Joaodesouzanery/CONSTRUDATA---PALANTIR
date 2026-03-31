@@ -118,7 +118,7 @@ export function ExtractionView() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto overflow-x-auto">
           {takeoffItems.length === 0 ? (
             <div className="flex items-center justify-center h-32 text-[#6b6b6b] text-sm">
               Nenhum item extraído ainda

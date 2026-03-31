@@ -156,6 +156,7 @@ export function TrechosPanel() {
               <th className="text-left text-gray-400 px-3 py-3 font-medium">Solo</th>
               <th className="text-center text-gray-400 px-3 py-3 font-medium">Escoram.</th>
               <th className="text-right text-gray-400 px-3 py-3 font-medium">R$/m</th>
+              <th className="text-right text-gray-400 px-3 py-3 font-medium">Executado</th>
               <th className="text-center text-gray-400 px-3 py-3 font-medium">Zona</th>
               <th className="w-8 px-2 py-3"></th>
             </tr>
@@ -163,7 +164,7 @@ export function TrechosPanel() {
           <tbody className="divide-y divide-gray-800">
             {trechos.length === 0 && (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-gray-500 text-sm">
+                <td colSpan={13} className="px-4 py-8 text-center text-gray-500 text-sm">
                   Nenhum trecho cadastrado. Clique em "+ Novo Trecho" ou importe da Pré-Construção.
                 </td>
               </tr>
@@ -223,6 +224,18 @@ export function TrechosPanel() {
                   <EditableCell
                     value={t.unitCostBRL ?? 0} type="number" min={0} step={10}
                     onChange={(v) => update(t.id, 'unitCostBRL', v)} className="text-right" />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {(t.executedMeters ?? 0) > 0 ? (
+                    <div className="flex items-center gap-1 justify-end">
+                      <div className="w-12 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, ((t.executedMeters ?? 0) / t.lengthM) * 100)}%` }} />
+                      </div>
+                      <span className="text-emerald-400 text-[10px] font-mono">{((t.executedMeters ?? 0) / t.lengthM * 100).toFixed(0)}%</span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-600 text-[10px]">—</span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-center">
                   {t.abcZone && (

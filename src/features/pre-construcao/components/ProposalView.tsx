@@ -61,7 +61,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
             </p>
           </div>
 
-          <table className="w-full text-sm border-collapse border border-gray-200">
+          <div className="overflow-x-auto"><table className="w-full text-sm border-collapse border border-gray-200">
             <thead>
               <tr className="bg-gray-50">
                 <th className="text-left font-semibold text-gray-700 border border-gray-200 px-3 py-2 w-24">Código</th>
@@ -99,7 +99,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
                 <td className="border border-gray-200 px-3 py-2 text-right tabular-nums text-orange-600">{formatBRL(totalFinal)}</td>
               </tr>
             </tfoot>
-          </table>
+          </table></div>
 
           <div className="mt-4 text-xs text-gray-400">
             BDI aplicado: {bdiTotal.toFixed(2)}% — Documento gerado por CONSTRUDATA PALANTIR
@@ -175,7 +175,7 @@ export function ProposalView() {
             <span className="text-[#6b6b6b] text-xs">{lines.length} itens</span>
           </div>
 
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto overflow-x-auto">
             {lines.length === 0 ? (
               <div className="flex items-center justify-center h-32 text-[#6b6b6b] text-sm">
                 Nenhum item selecionado no Matching
