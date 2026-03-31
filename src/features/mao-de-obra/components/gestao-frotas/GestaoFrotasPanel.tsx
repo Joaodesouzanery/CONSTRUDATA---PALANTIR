@@ -123,7 +123,7 @@ function VehicleDialog({ vehicle, onClose, onSave }: {
       <div className="w-full max-w-xl bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl p-6 mb-8">
         <h2 className="text-base font-bold text-[var(--color-text-primary)] mb-5">{vehicle ? 'Editar Veículo' : 'Novo Veículo'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Placa</label>
               <input className={inputCls} value={form.plate} onChange={e => setForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))} placeholder="ABC-1234" />
@@ -135,7 +135,7 @@ function VehicleDialog({ vehicle, onClose, onSave }: {
               {errors.make && <p className="text-xs text-[#ef4444] mt-1">{errors.make}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Modelo</label>
               <input className={inputCls} value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
@@ -168,7 +168,7 @@ function VehicleDialog({ vehicle, onClose, onSave }: {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>KM Atual</label>
               <input type="number" min={0} className={inputCls} value={form.currentKm} onChange={e => setForm(f => ({ ...f, currentKm: Number(e.target.value) }))} />
@@ -178,7 +178,7 @@ function VehicleDialog({ vehicle, onClose, onSave }: {
               <input className={inputCls} value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Data de Aquisição</label>
               <input type="date" className={inputCls} value={form.acquisitionDate} onChange={e => setForm(f => ({ ...f, acquisitionDate: e.target.value }))} />
@@ -384,7 +384,7 @@ function AbastecimentoTab() {
       {dialog && (
         <SimpleDialog title="Registrar Abastecimento" onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
@@ -414,7 +414,7 @@ function AbastecimentoTab() {
                 <input type="number" min={0} step={0.01} className={inputCls} value={form.pricePerLiter} onChange={e => setForm(f => ({ ...f, pricePerLiter: parseFloat(e.target.value) || 0 }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>KM no abastecimento</label>
                 <input type="number" min={0} className={inputCls} value={form.kmAtFill} onChange={e => setForm(f => ({ ...f, kmAtFill: Number(e.target.value) }))} />
@@ -524,7 +524,7 @@ function ManutencaoTab() {
       {dialog && (
         <SimpleDialog title={editItem ? 'Editar Manutenção' : 'Nova Manutenção'} onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
@@ -558,7 +558,7 @@ function ManutencaoTab() {
                 <input type="number" min={0} step={0.01} className={inputCls} value={form.cost} onChange={e => setForm(f => ({ ...f, cost: parseFloat(e.target.value) || 0 }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Próxima Data</label>
                 <input type="date" className={inputCls} value={form.nextServiceDate} onChange={e => setForm(f => ({ ...f, nextServiceDate: e.target.value }))} />
@@ -568,7 +568,7 @@ function ManutencaoTab() {
                 <input type="number" min={0} className={inputCls} value={form.nextServiceKm} onChange={e => setForm(f => ({ ...f, nextServiceKm: Number(e.target.value) }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Fornecedor</label>
                 <input className={inputCls} value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} />
@@ -659,15 +659,15 @@ function MotoristasTab() {
         <SimpleDialog title={editDriver ? 'Editar Motorista' : 'Novo Motorista'} onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-4">
             <div><label className={labelCls}>Nome</label><input className={inputCls} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>CPF (mascarado)</label><input className={inputCls} value={form.cpfMasked} placeholder="***.***.**-XX" onChange={e => setForm(f => ({ ...f, cpfMasked: e.target.value }))} /></div>
               <div><label className={labelCls}>Nº CNH (mascarado)</label><input className={inputCls} value={form.licenseNumber} placeholder="***.***.***-**" onChange={e => setForm(f => ({ ...f, licenseNumber: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Categoria CNH</label><input className={inputCls} value={form.licenseCategory} placeholder="B, C, D, E, AB..." onChange={e => setForm(f => ({ ...f, licenseCategory: e.target.value.toUpperCase() }))} /></div>
               <div><label className={labelCls}>Validade CNH</label><input type="date" className={inputCls} value={form.licenseExpiry} onChange={e => setForm(f => ({ ...f, licenseExpiry: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Telefone</label><input className={inputCls} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
               <div><label className={labelCls}>E-mail</label><input type="email" className={inputCls} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} /></div>
             </div>
@@ -748,7 +748,7 @@ function RotasTab() {
       {dialog && (
         <SimpleDialog title="Registrar Rota" onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Selecione...</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} — {v.make} {v.model}</option>)}
@@ -765,11 +765,11 @@ function RotasTab() {
               <div><label className={labelCls}>Saída</label><input type="time" className={inputCls} value={form.departureTime} onChange={e => setForm(f => ({ ...f, departureTime: e.target.value }))} /></div>
               <div><label className={labelCls}>Chegada</label><input type="time" className={inputCls} value={form.arrivalTime} onChange={e => setForm(f => ({ ...f, arrivalTime: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Origem</label><input className={inputCls} value={form.origin} onChange={e => setForm(f => ({ ...f, origin: e.target.value }))} /></div>
               <div><label className={labelCls}>Destino</label><input className={inputCls} value={form.destination} onChange={e => setForm(f => ({ ...f, destination: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>KM Inicial</label><input type="number" min={0} className={inputCls} value={form.startKm} onChange={e => setForm(f => ({ ...f, startKm: Number(e.target.value) }))} /></div>
               <div><label className={labelCls}>KM Final</label><input type="number" min={0} className={inputCls} value={form.endKm} onChange={e => setForm(f => ({ ...f, endKm: Number(e.target.value) }))} /></div>
             </div>
@@ -857,7 +857,7 @@ function OrdensTab() {
       {dialog && (
         <SimpleDialog title={editOS ? 'Editar OS' : 'Nova Ordem de Serviço'} onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Selecione...</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} — {v.make} {v.model}</option>)}
@@ -883,7 +883,7 @@ function OrdensTab() {
               </div>
               <div><label className={labelCls}>Custo Est.</label><input type="number" min={0} step={0.01} className={inputCls} value={form.estimatedCost} onChange={e => setForm(f => ({ ...f, estimatedCost: parseFloat(e.target.value) || 0 }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Solicitante</label><input className={inputCls} value={form.requestedBy} onChange={e => setForm(f => ({ ...f, requestedBy: e.target.value }))} /></div>
               <div><label className={labelCls}>Fornecedor</label><input className={inputCls} value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} /></div>
             </div>
@@ -969,7 +969,7 @@ function MultasTab() {
       {dialog && (
         <SimpleDialog title="Registrar Multa" onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Selecione...</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.plate}</option>)}
@@ -988,7 +988,7 @@ function MultasTab() {
               <div><label className={labelCls}>Valor (R$)</label><input type="number" min={0} step={0.01} className={inputCls} value={form.amount} onChange={e => setForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} /></div>
               <div><label className={labelCls}>Vencimento</label><input type="date" className={inputCls} value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Pontos</label><input type="number" min={0} max={20} className={inputCls} value={form.points} onChange={e => setForm(f => ({ ...f, points: Number(e.target.value) }))} /></div>
               <div><label className={labelCls}>Nº Auto</label><input className={inputCls} value={form.autoNumber} onChange={e => setForm(f => ({ ...f, autoNumber: e.target.value }))} /></div>
             </div>
@@ -1181,7 +1181,7 @@ function AgendamentoTab() {
       {dialog && (
         <SimpleDialog title="Novo Agendamento" onClose={() => setDialog(false)}>
           <form onSubmit={handleSave} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Veículo</label>
                 <select className={inputCls} value={form.vehicleId} onChange={e => setForm(f => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Selecione...</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.plate} — {v.make}</option>)}
@@ -1194,7 +1194,7 @@ function AgendamentoTab() {
               </div>
             </div>
             <div><label className={labelCls}>Título</label><input className={inputCls} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div><label className={labelCls}>Data</label><input type="date" className={inputCls} value={form.scheduledDate} onChange={e => setForm(f => ({ ...f, scheduledDate: e.target.value }))} /></div>
               <div><label className={labelCls}>Motorista</label>
                 <select className={inputCls} value={form.driverId} onChange={e => setForm(f => ({ ...f, driverId: e.target.value }))}>
