@@ -44,8 +44,8 @@ export function PlanejamentoHeader() {
             <CalendarClock size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-semibold text-lg leading-tight">Planejamento</h1>
-            <p className="text-gray-400 text-xs">Cronograma e análise de obras</p>
+            <h1 className="text-white font-semibold text-lg leading-tight">Planejamento de Trechos</h1>
+            <p className="text-gray-400 text-xs">Cronograma e análise de trechos</p>
           </div>
         </div>
 

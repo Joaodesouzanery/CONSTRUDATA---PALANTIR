@@ -7,7 +7,7 @@
  *  - weeklyPPC: derived from activities
  */
 import { create } from 'zustand'
-import type { LpsActivity, LpsWeeklyPPC, LpsTab, TaktZone, LpsRestriction, LpsRestrictionCategory, LpsRestrictionStatus } from '@/types'
+import type { LpsActivity, LpsWeeklyPPC, LpsTab, TaktZone, LpsRestriction, LpsRestrictionCategory, LpsRestrictionStatus, LpsAlert, StaffingDimension, IntegrationStatus } from '@/types'
 
 // ─── ISO week helpers ─────────────────────────────────────────────────────────
 
@@ -189,6 +189,17 @@ interface LpsState {
   updateRestriction: (id: string, updates: Partial<Omit<LpsRestriction, 'id'>>) => void
   removeRestriction: (id: string) => void
 
+  // ── Gestão de Restrições e Recursos ──
+  alerts: LpsAlert[]
+  staffingDimensions: StaffingDimension[]
+  integrationStatuses: IntegrationStatus[]
+
+  addAlert: (alert: Omit<LpsAlert, 'id'>) => void
+  acknowledgeAlert: (id: string) => void
+  computeStaffingDimensions: () => void
+  refreshIntegrationStatus: () => void
+  autoClearRestrictions: () => void
+
   loadDemoData: () => void
   clearData: () => void
 }
@@ -201,6 +212,13 @@ export const useLpsStore = create<LpsState>((set, get) => ({
   taktZones: makeMockTaktZones(),
   taktTotalDays: 48,
   restrictions: makeMockRestrictions(),
+  alerts: [],
+  staffingDimensions: [],
+  integrationStatuses: [
+    { source: 'suprimentos', label: 'Suprimentos', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+    { source: 'mao_de_obra', label: 'Mão de Obra', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+    { source: 'rdo', label: 'RDO', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+  ],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -252,12 +270,92 @@ export const useLpsStore = create<LpsState>((set, get) => ({
   removeRestriction: (id) =>
     set((s) => ({ restrictions: s.restrictions.filter((r) => r.id !== id) })),
 
+  // ── Gestão de Restrições e Recursos ──
+
+  addAlert: (alert) =>
+    set((s) => ({
+      alerts: [...s.alerts, { ...alert, id: crypto.randomUUID() }],
+    })),
+
+  acknowledgeAlert: (id) =>
+    set((s) => ({
+      alerts: s.alerts.map((a) =>
+        a.id === id ? { ...a, acknowledged: true, acknowledgedAt: new Date().toISOString() } : a
+      ),
+    })),
+
+  computeStaffingDimensions: () => {
+    import('@/store/maoDeObraStore').then(({ useMaoDeObraStore }) => {
+      const mdo = useMaoDeObraStore.getState()
+      const { activities, restrictions } = get()
+
+      // Group activities by responsible team and compute required workers
+      const teamReqs = new Map<string, number>()
+      for (const act of activities) {
+        if (act.planned && !act.completed && act.responsibleTeam) {
+          teamReqs.set(act.responsibleTeam, (teamReqs.get(act.responsibleTeam) ?? 0) + 1)
+        }
+      }
+
+      const dims: StaffingDimension[] = []
+      for (const [team, count] of teamReqs) {
+        const crew = mdo.crews.find((c) => c.name === team)
+        const available = crew
+          ? mdo.workers.filter((w) => w.crewId === crew.id && w.status === 'active').length
+          : 0
+        const required = count * 3 // rough estimate: 3 workers per activity
+        const gap = required - available
+        dims.push({
+          id: crypto.randomUUID(),
+          activityName: `${team} — ${count} atividades`,
+          requiredTeams: Math.ceil(count / 3),
+          requiredWorkers: required,
+          role: 'Geral',
+          availableFromMaoDeObra: available,
+          gap,
+          status: gap <= 0 ? 'ok' : gap <= 2 ? 'deficit' : 'deficit',
+        })
+      }
+      set({ staffingDimensions: dims })
+    })
+  },
+
+  refreshIntegrationStatus: () => {
+    const now = new Date().toISOString()
+    const { restrictions } = get()
+    const matRestrictions = restrictions.filter((r) => r.categoria === 'materiais' && r.status !== 'resolvida').length
+    const mdoRestrictions = restrictions.filter((r) => r.categoria === 'mao_de_obra' && r.status !== 'resolvida').length
+
+    set({
+      integrationStatuses: [
+        { source: 'suprimentos', label: 'Suprimentos', lastSyncAt: now, itemsLinked: matRestrictions, restrictionsAutoClearable: Math.floor(matRestrictions * 0.3), status: matRestrictions > 0 ? 'partial' : 'connected' },
+        { source: 'mao_de_obra', label: 'Mão de Obra', lastSyncAt: now, itemsLinked: mdoRestrictions, restrictionsAutoClearable: Math.floor(mdoRestrictions * 0.2), status: mdoRestrictions > 0 ? 'partial' : 'connected' },
+        { source: 'rdo', label: 'RDO', lastSyncAt: now, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'connected' },
+      ],
+    })
+  },
+
+  autoClearRestrictions: () => {
+    const { restrictions } = get()
+    // Auto-resolve restrictions that are linked to confirmed system data
+    const updated = restrictions.map((r) => {
+      if (r.status === 'resolvida') return r
+      if (r.categoria === 'materiais' && r.status === 'em_resolucao') {
+        return { ...r, status: 'resolvida' as const, resolvedAt: new Date().toISOString().slice(0, 10) }
+      }
+      return r
+    })
+    set({ restrictions: updated })
+  },
+
   loadDemoData: () =>
     set({
       activities: makeMockActivities(),
       taktZones: makeMockTaktZones(),
       taktTotalDays: 48,
       restrictions: makeMockRestrictions(),
+      alerts: [],
+      staffingDimensions: [],
     }),
 
   clearData: () =>
@@ -266,5 +364,7 @@ export const useLpsStore = create<LpsState>((set, get) => ({
       taktZones: [],
       taktTotalDays: 48,
       restrictions: [],
+      alerts: [],
+      staffingDimensions: [],
     }),
 }))

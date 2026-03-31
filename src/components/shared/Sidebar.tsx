@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network,
+  Calculator, Layers, Target, Map, X, Network, BrainCircuit, HardHat,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -25,8 +25,10 @@ const navItems = [
   { label: 'Pré-Constr.',     icon: FileSearch,       to: '/app/pre-construcao'      },
   { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
   { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
-  { label: 'Planejamento',    icon: CalendarClock,    to: '/app/planejamento'        },
+  { label: 'Plan. Mestre',    icon: BrainCircuit,     to: '/app/planejamento-mestre' },
+  { label: 'Plan. Trechos',   icon: CalendarClock,    to: '/app/planejamento'        },
   { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
+  { label: 'Operação Campo',  icon: HardHat,          to: '/app/operacao-campo'      },
   { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
   { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
   { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },

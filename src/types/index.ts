@@ -1295,7 +1295,7 @@ export type BimTab = 'viewer' | '4d' | '5d'
 
 export type LpsCncCategory = 'weather' | 'equipment' | 'labor' | 'material' | 'design' | 'other'
 export type LpsReadyStatus = 'green' | 'yellow' | 'red'
-export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt' | 'restricoes' | 'analytics'
+export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt' | 'restricoes' | 'analytics' | 'timeline-restricoes' | 'alertas' | 'mao-de-obra' | 'integracoes'
 
 export type LpsRestrictionCategory =
   | 'projeto_engenharia'
@@ -1321,6 +1321,10 @@ export interface LpsRestriction {
   status: LpsRestrictionStatus
   createdAt: string
   resolvedAt?: string
+  linkedActivityIds?: string[]
+  linkedMasterActivityIds?: string[]
+  alertSentAt?: string
+  alertMessage?: string
 }
 
 export interface LpsActivity {
@@ -1549,4 +1553,136 @@ export interface HardeningPoint {
   lat: number
   lng: number
   riskLevel: RiskLevel
+}
+
+// ── Planejamento Mestre ──────────────────────────────────────────────────────
+
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif'
+export type MasterActivityStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed'
+
+export interface MasterActivity {
+  id: string
+  wbsCode: string
+  name: string
+  parentId: string | null
+  level: number
+  plannedStart: string
+  plannedEnd: string
+  trendStart: string
+  trendEnd: string
+  durationDays: number
+  percentComplete: number
+  status: MasterActivityStatus
+  isMilestone: boolean
+  responsibleTeam?: string
+  linkedTrechoCodes?: string[]
+  predecessors?: string[]
+  weight?: number
+  notes?: string
+}
+
+export interface MasterBaseline {
+  id: string
+  name: string
+  createdAt: string
+  activities: MasterActivity[]
+}
+
+export interface LookaheadDerivedActivity {
+  id: string
+  masterActivityId: string
+  weekIso: string
+  name: string
+  responsible: string
+  status: 'planned' | 'ready' | 'blocked' | 'completed'
+  linkedRestrictionIds?: string[]
+  notes?: string
+}
+
+export interface WhatIfAdjustment {
+  activityId: string
+  deltaStartDays: number
+  deltaDurationDays: number
+}
+
+export interface WhatIfScenario {
+  id: string
+  name: string
+  adjustments: WhatIfAdjustment[]
+  createdAt: string
+}
+
+// ── LPS Enhancements (Gestão de Restrições e Recursos) ──────────────────────
+
+export interface LpsAlert {
+  id: string
+  restrictionId: string
+  recipientRole: string
+  message: string
+  sentAt: string
+  acknowledged: boolean
+  acknowledgedAt?: string
+}
+
+export interface StaffingDimension {
+  id: string
+  activityName: string
+  requiredTeams: number
+  requiredWorkers: number
+  role: string
+  availableFromMaoDeObra: number
+  gap: number
+  status: 'ok' | 'deficit' | 'surplus'
+}
+
+export type IntegrationSourceType = 'suprimentos' | 'mao_de_obra' | 'rdo'
+
+export interface IntegrationStatus {
+  source: IntegrationSourceType
+  label: string
+  lastSyncAt: string | null
+  itemsLinked: number
+  restrictionsAutoClearable: number
+  status: 'connected' | 'partial' | 'disconnected'
+}
+
+// ── Operação e Campo ─────────────────────────────────────────────────────────
+
+export type OperacaoCampoTab = 'calendario' | 'dashboards'
+
+export interface FieldCalendarActivity {
+  id: string
+  name: string
+  masterActivityId?: string
+  trechoCode?: string
+  responsible: string
+}
+
+export interface FieldCalendarDay {
+  date: string
+  activityId: string
+  plannedQty: number
+  plannedUnit: string
+  actualQty: number | null
+  notes?: string
+}
+
+export interface WeeklyPpcResult {
+  weekIso: string
+  totalPlanned: number
+  totalCompleted: number
+  ppc: number
+}
+
+export interface NotableServiceCurve {
+  id: string
+  serviceName: string
+  unit: string
+  dataPoints: { date: string; planned: number; actual: number }[]
+}
+
+export interface TrendPoint {
+  date: string
+  plannedCumulativePct: number
+  actualCumulativePct: number
 }
