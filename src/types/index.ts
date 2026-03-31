@@ -1005,6 +1005,10 @@ export interface PlanTrecho {
   plannedStartDate?: string // yyyy-MM-dd
   plannedEndDate?: string   // yyyy-MM-dd
   abcZone?: AbcZone
+  // Execution tracking — synced from RDO
+  executedMeters?: number
+  executionStatus?: 'not_started' | 'in_progress' | 'completed'
+  lastRdoDate?: string      // date of last RDO entry for this trecho
 }
 
 export interface PlanTeam {
