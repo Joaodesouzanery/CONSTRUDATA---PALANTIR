@@ -39,8 +39,9 @@ interface RdoState {
   removeFinancialEntry: (id: string) => void
   setBudget:            (brl: number) => void
 
-  // ── Platform import ──────────────────────────────────────────────────────────
+  // ── Platform import & sync ──────────────────────────────────────────────────
   loadTrechosFromPlanejamento: () => Promise<RdoTrechoEntry[]>
+  syncExecutionToPlanejamento: () => void
 
   // ── Demo / Clear ─────────────────────────────────────────────────────────────
   loadDemoData: () => void
@@ -49,7 +50,7 @@ interface RdoState {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useRdoStore = create<RdoState>((set) => ({
+export const useRdoStore = create<RdoState>((set, get) => ({
   activeTab:        'dashboard',
   rdos:             MOCK_RDOS,
   financialEntries: MOCK_RDO_FINANCIAL_ENTRIES,
@@ -61,7 +62,7 @@ export const useRdoStore = create<RdoState>((set) => ({
 
   // ── RDO CRUD ──────────────────────────────────────────────────────────────────
 
-  addRdo: (rdo) =>
+  addRdo: (rdo) => {
     set((s) => {
       const now = new Date().toISOString()
       const nextNumber = s.rdos.length + 1
@@ -71,16 +72,22 @@ export const useRdoStore = create<RdoState>((set) => ({
           { ...rdo, id: crypto.randomUUID(), number: nextNumber, createdAt: now, updatedAt: now },
         ],
       }
-    }),
+    })
+    // Auto-sync execution data to Planejamento
+    setTimeout(() => get().syncExecutionToPlanejamento(), 0)
+  },
 
-  updateRdo: (id, updates) =>
+  updateRdo: (id, updates) => {
     set((s) => ({
       rdos: s.rdos.map((r) =>
         r.id === id
           ? { ...r, ...updates, updatedAt: new Date().toISOString() }
           : r,
       ),
-    })),
+    }))
+    // Auto-sync execution data to Planejamento
+    setTimeout(() => get().syncExecutionToPlanejamento(), 0)
+  },
 
   removeRdo: (id) =>
     set((s) => ({ rdos: s.rdos.filter((r) => r.id !== id) })),
@@ -109,12 +116,12 @@ export const useRdoStore = create<RdoState>((set) => ({
 
   setBudget: (brl) => set({ budgetBRL: Math.max(0, brl) }),
 
-  // ── Platform import ────────────────────────────────────────────────────────────
+  // ── Platform import & sync ──────────────────────────────────────────────────
 
   loadTrechosFromPlanejamento: () =>
     import('./planejamentoStore')
       .then(({ usePlanejamentoStore }) => {
-        type PlanTrecho = { id: string; code: string; description: string; lengthM: number }
+        type PlanTrecho = { id: string; code: string; description: string; lengthM: number; executedMeters?: number; executionStatus?: string }
         const state = usePlanejamentoStore.getState() as { trechos: PlanTrecho[] }
         const trechos: PlanTrecho[] = state.trechos ?? []
         return trechos.map((t): RdoTrechoEntry => ({
@@ -122,12 +129,40 @@ export const useRdoStore = create<RdoState>((set) => ({
           trechoCode:        t.code,
           trechoDescription: t.description,
           plannedMeters:     t.lengthM,
-          executedMeters:    0,
-          status:            'not_started',
+          executedMeters:    t.executedMeters ?? 0,
+          status:            (t.executionStatus as RdoTrechoEntry['status']) ?? 'not_started',
           source:            'rdo',
         }))
       })
       .catch(() => [] as RdoTrechoEntry[]),
+
+  syncExecutionToPlanejamento: () => {
+    const { rdos } = get()
+    // Aggregate latest execution per trecho code (most recent RDO wins)
+    const execMap = new Map<string, { executedMeters: number; date: string }>()
+    const sortedRdos = [...rdos].sort((a, b) => a.date.localeCompare(b.date))
+    for (const rdo of sortedRdos) {
+      for (const t of rdo.trechos) {
+        const prev = execMap.get(t.trechoCode)
+        // Accumulate executed meters across all RDOs, or take latest
+        execMap.set(t.trechoCode, {
+          executedMeters: Math.max(t.executedMeters, prev?.executedMeters ?? 0),
+          date: rdo.date,
+        })
+      }
+    }
+    const entries = Array.from(execMap.entries()).map(([code, data]) => ({
+      trechoCode: code,
+      executedMeters: data.executedMeters,
+      date: data.date,
+    }))
+    if (entries.length === 0) return
+    import('./planejamentoStore')
+      .then(({ usePlanejamentoStore }) => {
+        usePlanejamentoStore.getState().syncExecutionFromRdo(entries)
+      })
+      .catch(() => {})
+  },
 
   // ── Demo / Clear ────────────────────────────────────────────────────────────────
 

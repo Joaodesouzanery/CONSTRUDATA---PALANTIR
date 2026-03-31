@@ -107,6 +107,7 @@ interface BimState {
   setActiveProject(id: string): void
   loadShapefile(shp: ArrayBuffer, dbf: ArrayBuffer): Promise<void>
   loadSurveyFile(text: string, fileName: string): void
+  loadDxfFile(buffer: ArrayBuffer, fileName: string): void
   selectSegment(id: string | null): void
   setColorMode(mode: BimColorMode): void
   setActiveDate(date: string): void
@@ -283,6 +284,48 @@ export const useBimStore = create<BimState>((set, get) => ({
       activeDate:        new Date().toISOString().slice(0, 10),
       selectedSegmentId: null,
     }))
+  },
+
+  loadDxfFile(buffer, fileName) {
+    import('../features/bim/utils/dxfParser').then(({ parseDxf, buildLayersFromSegments }) => {
+      set({ isLoading: true, loadError: null })
+      try {
+        const segments = parseDxf(buffer)
+        if (segments.length === 0) {
+          set({ isLoading: false, loadError: 'Nenhuma entidade encontrada no arquivo DXF.' })
+          return
+        }
+        // Detect project type from layer names
+        const hasBuilding = segments.some(
+          (s) => s.elementType === 'slab' || s.elementType === 'column' || s.elementType === 'wall',
+        )
+        const projectType: import('@/types').BimProject['type'] = hasBuilding ? 'building' : 'sanitation'
+        const layers = buildLayersFromSegments(segments)
+        const range  = dateRangeFromSegments(segments)
+        const p: import('@/types').BimProject = {
+          id:                  crypto.randomUUID(),
+          name:                fileName.replace(/\.dxf$/i, '') || 'DXF importado',
+          type:                projectType,
+          segments,
+          layers,
+          uploadedAt:          new Date().toISOString(),
+          shapefileSourceName: fileName,
+        }
+        set((s) => ({
+          projects:          [...s.projects, p],
+          activeProjectId:   p.id,
+          project:           p,
+          layers:            layers.map((l) => ({ ...l, visible: true })),
+          timelineDateRange: range,
+          activeDate:        range.start,
+          selectedSegmentId: null,
+          isLoading:         false,
+          loadError:         null,
+        }))
+      } catch (err) {
+        set({ isLoading: false, loadError: `Erro ao processar DXF: ${String(err)}` })
+      }
+    })
   },
 
   selectSegment(id)    { set({ selectedSegmentId: id }) },

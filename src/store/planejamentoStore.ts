@@ -131,6 +131,9 @@ interface PlanejamentoState {
   updateTechnicalRule: (id: string, updates: Partial<Omit<TechnicalRule, 'id'>>) => void
   removeTechnicalRule: (id: string) => void
 
+  // RDO sync — receives execution data from RDO module
+  syncExecutionFromRdo: (entries: Array<{ trechoCode: string; executedMeters: number; date: string }>) => void
+
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
@@ -352,11 +355,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
       description,
       createdAt: now,
       updatedAt: now,
-      trechos:           JSON.parse(JSON.stringify(trechos)),
-      teams:             JSON.parse(JSON.stringify(teams)),
-      productivityTable: JSON.parse(JSON.stringify(productivityTable)),
-      scheduleConfig:    JSON.parse(JSON.stringify(scheduleConfig)),
-      holidays:          JSON.parse(JSON.stringify(holidays)),
+      trechos:           structuredClone(trechos),
+      teams:             structuredClone(teams),
+      productivityTable: structuredClone(productivityTable),
+      scheduleConfig:    structuredClone(scheduleConfig),
+      holidays:          structuredClone(holidays),
     }
     set((s) => ({ scenarios: [...s.scenarios, scenario] }))
   },
@@ -365,11 +368,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
     const scenario = get().scenarios.find((s) => s.id === id)
     if (!scenario) return
     set({
-      trechos:           JSON.parse(JSON.stringify(scenario.trechos)),
-      teams:             JSON.parse(JSON.stringify(scenario.teams)),
-      productivityTable: JSON.parse(JSON.stringify(scenario.productivityTable)),
-      scheduleConfig:    JSON.parse(JSON.stringify(scenario.scheduleConfig)),
-      holidays:          JSON.parse(JSON.stringify(scenario.holidays)),
+      trechos:           structuredClone(scenario.trechos),
+      teams:             structuredClone(scenario.teams),
+      productivityTable: structuredClone(scenario.productivityTable),
+      scheduleConfig:    structuredClone(scenario.scheduleConfig),
+      holidays:          structuredClone(scenario.holidays),
       isScheduleDirty:   true,
     })
   },
@@ -396,6 +399,26 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
 
   removeTechnicalRule: (id) =>
     set((s) => ({ technicalRules: s.technicalRules.filter((r) => r.id !== id) })),
+
+  // ── RDO Sync ──────────────────────────────────────────────────────────────────
+
+  syncExecutionFromRdo: (entries) =>
+    set((s) => ({
+      trechos: s.trechos.map((t) => {
+        const match = entries.find((e) => e.trechoCode === t.code)
+        if (!match) return t
+        const status: 'not_started' | 'in_progress' | 'completed' =
+          match.executedMeters === 0 ? 'not_started'
+          : match.executedMeters >= t.lengthM ? 'completed'
+          : 'in_progress'
+        return {
+          ...t,
+          executedMeters: match.executedMeters,
+          executionStatus: status,
+          lastRdoDate: match.date,
+        }
+      }),
+    })),
 
   // ── Demo / Clear ──────────────────────────────────────────────────────────────
 

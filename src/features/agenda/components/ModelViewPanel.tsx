@@ -27,8 +27,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#20406a] shadow-2xl"
-      style={{ width: 420 }}
+      className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#20406a] shadow-2xl w-full sm:w-[420px]"
     >
       {/* Header */}
       <div className="px-4 py-3.5 border-b border-[#20406a] flex items-center justify-between shrink-0">

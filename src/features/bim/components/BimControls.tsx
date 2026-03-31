@@ -21,7 +21,7 @@ export function BimControls() {
   const toggleDroneMode = useBimStore((s) => s.toggleDroneMode)
 
   return (
-    <div className="flex items-center gap-1 flex-wrap px-3 py-2 bg-gray-800/80 border-b border-gray-700">
+    <div className="flex items-center gap-1 px-3 py-2 bg-gray-800/80 border-b border-gray-700 overflow-x-auto scrollbar-none shrink-0">
       {/* Viewer mode toggle */}
       <div className="flex items-center bg-gray-900/60 rounded-lg border border-gray-700 p-0.5 mr-2">
         <button

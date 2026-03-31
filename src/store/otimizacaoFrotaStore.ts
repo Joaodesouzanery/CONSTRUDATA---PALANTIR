@@ -94,9 +94,14 @@ interface OtimizacaoFrotaState {
 
   // Health
   runHealthEngine:   () => void
+  addHealthScore:    (data: { name: string; code: string; lastMaint: string; nextMaint?: string; year: number; criticalAlerts: number; warningAlerts: number; repairCost: number }) => void
+  deleteHealthScore: (equipmentId: string) => void
 
   // Buy vs Lease
-  runBuyLeaseEngine: () => void
+  runBuyLeaseEngine:    () => void
+  addBuyLeaseAnalysis:    (data: Omit<BuyLeaseAnalysis, 'id'>) => void
+  updateBuyLeaseAnalysis: (id: string, data: Partial<BuyLeaseAnalysis>) => void
+  deleteBuyLeaseAnalysis: (id: string) => void
 
   // Demo / clear
   loadDemoData: () => void
@@ -270,6 +275,29 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
     })
   },
 
+  // ── Health CRUD ──────────────────────────────────────────────────────────────
+
+  addHealthScore: (data) => {
+    const score = computeHealthScore(data.lastMaint, data.nextMaint, data.criticalAlerts, data.warningAlerts, data.year)
+    const riskLevel = healthRiskFromScore(score)
+    const h: PredictiveHealth = {
+      equipmentId:            crypto.randomUUID(),
+      equipmentCode:          data.code,
+      equipmentName:          data.name,
+      healthScore:            score,
+      riskLevel,
+      predictedFailureWindow: failureWindowFromScore(score),
+      mainFactors:            [`${new Date().getFullYear() - data.year} anos de uso`, `${data.criticalAlerts} alertas críticos`, `${data.warningAlerts} alertas de aviso`],
+      recommendedAction:      ({ critical: 'PARAR — revisão imediata', high: 'Manutenção urgente em 7 dias', medium: 'Inspeção na próxima semana', low: 'Preventiva no próximo ciclo' } as Record<HealthRisk, string>)[riskLevel],
+      estimatedDowntimeDays:  ({ critical: 15, high: 8, medium: 3, low: 1 } as Record<HealthRisk, number>)[riskLevel],
+      estimatedRepairCostBRL: data.repairCost,
+    }
+    set((s) => ({ healthScores: [...s.healthScores, h] }))
+  },
+
+  deleteHealthScore: (equipmentId) =>
+    set((s) => ({ healthScores: s.healthScores.filter((h) => h.equipmentId !== equipmentId) })),
+
   // ── Buy vs Lease ─────────────────────────────────────────────────────────────
 
   runBuyLeaseEngine: () => {
@@ -310,6 +338,41 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
       set({ buyLeaseAnalyses: updated })
     })
   },
+
+  // ── Buy vs Lease CRUD ────────────────────────────────────────────────────────
+
+  addBuyLeaseAnalysis: (data) => {
+    const newAnalysis: BuyLeaseAnalysis = {
+      ...data,
+      id: crypto.randomUUID(),
+      annualRentalCostBRL: data.monthlyRentalCostBRL * 12,
+      annualOwnershipCostBRL: Math.round((data.purchasePriceBRL - data.residualValueBRL) / 120 * 12 + data.annualMaintenanceCostBRL),
+      breakEvenMonths: computeBreakEven(data.purchasePriceBRL, data.monthlyRentalCostBRL * 12, data.annualMaintenanceCostBRL),
+      recommendation: data.projectedUsageDays >= 180 ? 'buy' : data.projectedUsageDays <= 60 ? 'lease' : 'neutral',
+      reasoning: `Análise baseada em ${data.projectedUsageDays} dias projetados de uso.`,
+    }
+    set((s) => ({ buyLeaseAnalyses: [...s.buyLeaseAnalyses, newAnalysis] }))
+  },
+
+  updateBuyLeaseAnalysis: (id, data) =>
+    set((s) => ({
+      buyLeaseAnalyses: s.buyLeaseAnalyses.map((a) => {
+        if (a.id !== id) return a
+        const updated = { ...a, ...data }
+        const annualRent = updated.monthlyRentalCostBRL * 12
+        const annualOwn = Math.round((updated.purchasePriceBRL - updated.residualValueBRL) / 120 * 12 + updated.annualMaintenanceCostBRL)
+        return {
+          ...updated,
+          annualRentalCostBRL: annualRent,
+          annualOwnershipCostBRL: annualOwn,
+          breakEvenMonths: computeBreakEven(updated.purchasePriceBRL, annualRent, updated.annualMaintenanceCostBRL),
+          recommendation: updated.projectedUsageDays >= 180 ? 'buy' : updated.projectedUsageDays <= 60 ? 'lease' : 'neutral',
+        }
+      }),
+    })),
+
+  deleteBuyLeaseAnalysis: (id) =>
+    set((s) => ({ buyLeaseAnalyses: s.buyLeaseAnalyses.filter((a) => a.id !== id) })),
 
   // ── Demo / Clear ─────────────────────────────────────────────────────────────
 
