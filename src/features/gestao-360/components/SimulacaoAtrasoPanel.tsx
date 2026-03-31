@@ -60,8 +60,8 @@ function GanttComparison({
   const svgH = rows.length * ROW_H + 32
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={LABEL_W + W + 80} height={svgH} className="font-mono text-[10px]">
+    <div className="w-full">
+      <svg viewBox={`0 0 ${LABEL_W + W + 80} ${svgH}`} className="w-full h-auto font-mono text-[10px]">
         {/* Column headers — month markers */}
         {allDates.filter((_, i) => i % Math.max(1, Math.floor(totalDays / 8)) === 0).map((d) => {
           const x = LABEL_W + xOf(d)
@@ -229,8 +229,8 @@ function ImpactBurnChart({ base, delayed }: { base: GanttRow[]; delayed: GanttRo
         <DollarSign size={14} className="text-[#2abfdc]" />
         Impacto no Custo ao Longo do Tempo
       </h3>
-      <div className="overflow-x-auto">
-        <svg width={W} height={H} className="font-mono text-[10px]">
+      <div className="w-full">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto font-mono text-[10px]">
           <defs>
             <linearGradient id="baseGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#6b7280" stopOpacity="0.4" />
@@ -293,7 +293,7 @@ function DelaySummaryInfographic({
   const hasDelay = deltaDays > 0
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
       <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center flex flex-col gap-1">
         <p className="text-3xl font-bold tabular-nums" style={{ color: hasDelay ? '#ef4444' : '#22c55e' }}>
           {deltaDays > 0 ? `+${deltaDays}` : deltaDays}
@@ -411,6 +411,25 @@ export function SimulacaoAtrasoPanel() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Base schedule status banner */}
+      {base ? (
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#0d2040] border border-[#20406a] rounded-lg text-xs text-[#a3a3a3]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] shrink-0" />
+          <span>
+            Base calculada: <strong className="text-[#f5f5f5]">{base.ganttRows.length} trechos</strong>
+            {' · '}fim previsto <strong className="text-[#f5f5f5]">{base.endDate ?? '—'}</strong>
+            {' · '}<strong className="text-[#f5f5f5]">{base.totalCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</strong>
+            {delays.length > 0 && <span className="ml-2 text-amber-400">· {delays.length} atraso{delays.length > 1 ? 's' : ''} configurado{delays.length > 1 ? 's' : ''}</span>}
+            {delays.length === 0 && <span className="ml-2 text-[#6b6b6b]">· adicione atrasos para ver o impacto</span>}
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 px-3 py-2 bg-[#0d2040] border border-[#20406a] rounded-lg text-xs text-[#6b6b6b]">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#20406a] shrink-0 animate-pulse" />
+          Calculando cronograma base...
+        </div>
+      )}
+
       {/* Infographic */}
       <DelaySummaryInfographic deltaDays={deltaDays} deltaCost={deltaCost} baseCost={base?.totalCost ?? 0} />
 

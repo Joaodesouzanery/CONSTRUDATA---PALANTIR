@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { FrameworkAgreement } from '@/types'
-import { Copy, Check, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import { Copy, Check, ExternalLink, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
 
@@ -67,13 +67,38 @@ function AccordionSection({ title, children }: { title: string; children: React.
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function ContractPanel() {
-  const { frameworkAgreements } = useSuprimentosStore(
-    useShallow((s) => ({ frameworkAgreements: s.frameworkAgreements }))
+  const { frameworkAgreements, updateFrameworkAgreement } = useSuprimentosStore(
+    useShallow((s) => ({ frameworkAgreements: s.frameworkAgreements, updateFrameworkAgreement: s.updateFrameworkAgreement }))
   )
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editDraft, setEditDraft] = useState<Partial<FrameworkAgreement>>({})
 
   const selected = frameworkAgreements.find((fa) => fa.id === selectedId) ?? null
+
+  function startEdit() {
+    if (!selected) return
+    setEditDraft({
+      paymentSchedule:       selected.paymentSchedule ? selected.paymentSchedule.map((p) => ({ ...p })) : undefined,
+      deliverySchedule:      selected.deliverySchedule ? selected.deliverySchedule.map((d) => ({ ...d })) : undefined,
+      terminationClause:     selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos. Em caso de inadimplemento, rescisão imediata com aplicação de multa de 10% sobre o valor restante do contrato.',
+      priceAdjustmentIndex:  selected.priceAdjustmentIndex ?? 'INCC',
+      priceAdjustmentPct:    selected.priceAdjustmentPct ?? 0,
+    })
+    setIsEditing(true)
+  }
+
+  function saveEdit() {
+    if (!selected) return
+    updateFrameworkAgreement(selected.id, editDraft)
+    setIsEditing(false)
+  }
+
+  function cancelEdit() {
+    setIsEditing(false)
+    setEditDraft({})
+  }
 
   return (
     <div className="flex-1 min-h-0 flex gap-4 overflow-hidden">
@@ -161,7 +186,23 @@ export function ContractPanel() {
                   <p className="text-[#f5f5f5] font-bold text-base">{selected.supplier}</p>
                   <p className="text-[#6b6b6b] text-xs mt-0.5">{selected.category}</p>
                 </div>
-                <StatusBadge status={selected.status} />
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={selected.status} />
+                  {isEditing ? (
+                    <>
+                      <button onClick={saveEdit} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#16a34a]/20 hover:bg-[#16a34a]/30 text-[#4ade80] text-xs font-semibold transition-colors">
+                        <Check size={12} /> Salvar
+                      </button>
+                      <button onClick={cancelEdit} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] text-xs font-medium transition-colors">
+                        <X size={12} /> Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={startEdit} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] text-xs font-medium transition-colors">
+                      <Pencil size={12} /> Editar
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="mt-3 flex gap-4 text-xs text-[#6b6b6b]">
                 <span>Vigência: <strong className="text-[#f5f5f5]">{selected.validFrom}</strong> → <strong className="text-[#f5f5f5]">{selected.validTo}</strong></span>
@@ -171,7 +212,7 @@ export function ContractPanel() {
 
             {/* Section 1: Pagamentos */}
             <AccordionSection title="Pagamentos">
-              {selected.paymentSchedule && selected.paymentSchedule.length > 0 ? (
+              {(isEditing ? (editDraft.paymentSchedule ?? selected.paymentSchedule) : selected.paymentSchedule) && (isEditing ? (editDraft.paymentSchedule ?? selected.paymentSchedule) : selected.paymentSchedule)!.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
                     <tr className="text-[#6b6b6b] border-b border-[#20406a]">
@@ -181,20 +222,37 @@ export function ContractPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selected.paymentSchedule.map((p, i) => (
+                    {(isEditing ? (editDraft.paymentSchedule ?? selected.paymentSchedule) : selected.paymentSchedule)!.map((p, i) => (
                       <tr key={i} className="border-b border-[#20406a] last:border-0">
-                        <td className="py-2 text-[#f5f5f5]">{new Date(p.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
+                        <td className="py-2 text-[#f5f5f5]">
+                          {isEditing ? (
+                            <input type="date" className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={p.dueDate}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, paymentSchedule: (d.paymentSchedule ?? selected.paymentSchedule ?? []).map((x, j) => j === i ? { ...x, dueDate: e.target.value } : x) }))} />
+                          ) : new Date(p.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        </td>
                         <td className="py-2 text-right tabular-nums text-[#f5f5f5]">
-                          {p.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {isEditing ? (
+                            <input type="number" className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs w-28 text-right" value={p.amount}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, paymentSchedule: (d.paymentSchedule ?? selected.paymentSchedule ?? []).map((x, j) => j === i ? { ...x, amount: Number(e.target.value) } : x) }))} />
+                          ) : p.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </td>
                         <td className="py-2 text-center">
-                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
-                            p.status === 'paid'    ? 'bg-[#16a34a]/20 text-[#4ade80]' :
-                            p.status === 'overdue' ? 'bg-[#dc2626]/20 text-[#f87171]' :
-                            'bg-[#ca8a04]/20 text-[#fbbf24]'
-                          )}>
-                            {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Vencido' : 'Pendente'}
-                          </span>
+                          {isEditing ? (
+                            <select className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={p.status}
+                              onChange={(e) => setEditDraft((d) => ({ ...d, paymentSchedule: (d.paymentSchedule ?? selected.paymentSchedule ?? []).map((x, j) => j === i ? { ...x, status: e.target.value as typeof p.status } : x) }))}>
+                              <option value="pending">Pendente</option>
+                              <option value="paid">Pago</option>
+                              <option value="overdue">Vencido</option>
+                            </select>
+                          ) : (
+                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
+                              p.status === 'paid'    ? 'bg-[#16a34a]/20 text-[#4ade80]' :
+                              p.status === 'overdue' ? 'bg-[#dc2626]/20 text-[#f87171]' :
+                              'bg-[#ca8a04]/20 text-[#fbbf24]'
+                            )}>
+                              {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Vencido' : 'Pendente'}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -210,7 +268,7 @@ export function ContractPanel() {
 
             {/* Section 2: Prazos de Entrega */}
             <AccordionSection title="Prazos de Entrega">
-              {selected.deliverySchedule && selected.deliverySchedule.length > 0 ? (
+              {(isEditing ? (editDraft.deliverySchedule ?? selected.deliverySchedule) : selected.deliverySchedule) && (isEditing ? (editDraft.deliverySchedule ?? selected.deliverySchedule) : selected.deliverySchedule)!.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
                     <tr className="text-[#6b6b6b] border-b border-[#20406a]">
@@ -221,19 +279,38 @@ export function ContractPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selected.deliverySchedule.map((d, i) => (
+                    {(isEditing ? (editDraft.deliverySchedule ?? selected.deliverySchedule) : selected.deliverySchedule)!.map((d, i) => (
                       <tr key={i} className="border-b border-[#20406a] last:border-0">
                         <td className="py-2 text-[#f5f5f5]">{d.phase}</td>
-                        <td className="py-2 text-[#a3a3a3]">{new Date(d.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
-                        <td className="py-2 text-right tabular-nums text-[#f5f5f5]">{d.quantity.toLocaleString('pt-BR')} {selected.unit}</td>
+                        <td className="py-2 text-[#a3a3a3]">
+                          {isEditing ? (
+                            <input type="date" className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={d.dueDate}
+                              onChange={(e) => setEditDraft((dr) => ({ ...dr, deliverySchedule: (dr.deliverySchedule ?? selected.deliverySchedule ?? []).map((x, j) => j === i ? { ...x, dueDate: e.target.value } : x) }))} />
+                          ) : new Date(d.dueDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                        </td>
+                        <td className="py-2 text-right tabular-nums text-[#f5f5f5]">
+                          {isEditing ? (
+                            <input type="number" className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs w-20 text-right" value={d.quantity}
+                              onChange={(e) => setEditDraft((dr) => ({ ...dr, deliverySchedule: (dr.deliverySchedule ?? selected.deliverySchedule ?? []).map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) } : x) }))} />
+                          ) : `${d.quantity.toLocaleString('pt-BR')} ${selected.unit}`}
+                        </td>
                         <td className="py-2 text-center">
-                          <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
-                            d.status === 'delivered' ? 'bg-[#16a34a]/20 text-[#4ade80]' :
-                            d.status === 'delayed'   ? 'bg-[#dc2626]/20 text-[#f87171]' :
-                            'bg-[#2563eb]/20 text-[#93c5fd]'
-                          )}>
-                            {d.status === 'delivered' ? 'Entregue' : d.status === 'delayed' ? 'Atrasado' : 'No prazo'}
-                          </span>
+                          {isEditing ? (
+                            <select className="bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={d.status}
+                              onChange={(e) => setEditDraft((dr) => ({ ...dr, deliverySchedule: (dr.deliverySchedule ?? selected.deliverySchedule ?? []).map((x, j) => j === i ? { ...x, status: e.target.value as typeof d.status } : x) }))}>
+                              <option value="on_time">No prazo</option>
+                              <option value="delayed">Atrasado</option>
+                              <option value="delivered">Entregue</option>
+                            </select>
+                          ) : (
+                            <span className={cn('px-2 py-0.5 rounded text-[10px] font-semibold',
+                              d.status === 'delivered' ? 'bg-[#16a34a]/20 text-[#4ade80]' :
+                              d.status === 'delayed'   ? 'bg-[#dc2626]/20 text-[#f87171]' :
+                              'bg-[#2563eb]/20 text-[#93c5fd]'
+                            )}>
+                              {d.status === 'delivered' ? 'Entregue' : d.status === 'delayed' ? 'Atrasado' : 'No prazo'}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -250,33 +327,58 @@ export function ContractPanel() {
             {/* Section 3: Rescisão */}
             <AccordionSection title="Rescisão">
               <div className="flex items-start gap-2 mt-1">
-                <p className="text-[#a3a3a3] text-xs leading-relaxed flex-1">
-                  {selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos. Em caso de inadimplemento, rescisão imediata com aplicação de multa de 10% sobre o valor restante do contrato.'}
-                </p>
-                <CopyButton text={selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos.'} />
+                {isEditing ? (
+                  <textarea
+                    className="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1.5 text-gray-100 text-xs leading-relaxed resize-none h-24"
+                    value={editDraft.terminationClause ?? ''}
+                    onChange={(e) => setEditDraft((d) => ({ ...d, terminationClause: e.target.value }))}
+                  />
+                ) : (
+                  <>
+                    <p className="text-[#a3a3a3] text-xs leading-relaxed flex-1">
+                      {selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos. Em caso de inadimplemento, rescisão imediata com aplicação de multa de 10% sobre o valor restante do contrato.'}
+                    </p>
+                    <CopyButton text={selected.terminationClause ?? 'Rescisão com aviso prévio mínimo de 30 dias corridos.'} />
+                  </>
+                )}
               </div>
             </AccordionSection>
 
             {/* Section 4: Reajuste de Preço */}
             <AccordionSection title="Reajuste de Preço">
-              <div className="flex items-center gap-4 mt-1">
-                <div className="flex flex-col">
+              <div className="flex items-center gap-4 mt-1 flex-wrap">
+                <div className="flex flex-col gap-1">
                   <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Índice</span>
-                  <span className="text-sm font-bold text-[#2abfdc]">
-                    {selected.priceAdjustmentIndex ?? (selected.terms.includes('IGP-M') ? 'IGP-M' : selected.terms.includes('INCC') ? 'INCC' : 'INCC')}
-                  </span>
+                  {isEditing ? (
+                    <select className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs" value={editDraft.priceAdjustmentIndex ?? 'INCC'}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, priceAdjustmentIndex: e.target.value as FrameworkAgreement['priceAdjustmentIndex'] }))}>
+                      <option value="IGP-M">IGP-M</option>
+                      <option value="INCC">INCC</option>
+                      <option value="IPCA">IPCA</option>
+                      <option value="Fixo">Fixo</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm font-bold text-[#2abfdc]">
+                      {selected.priceAdjustmentIndex ?? (selected.terms.includes('IGP-M') ? 'IGP-M' : 'INCC')}
+                    </span>
+                  )}
                 </div>
-                {selected.priceAdjustmentPct !== undefined && (
-                  <div className="flex flex-col">
-                    <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Percentual</span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">Percentual</span>
+                  {isEditing ? (
+                    <input type="number" step={0.1} className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-20" value={editDraft.priceAdjustmentPct ?? 0}
+                      onChange={(e) => setEditDraft((d) => ({ ...d, priceAdjustmentPct: Number(e.target.value) }))} />
+                  ) : selected.priceAdjustmentPct !== undefined ? (
                     <span className="text-sm font-bold text-[#f5f5f5]">{selected.priceAdjustmentPct.toFixed(1)}% a.a.</span>
-                  </div>
+                  ) : null}
+                </div>
+                {!isEditing && (
+                  <p className="text-xs text-[#6b6b6b] flex-1">
+                    {selected.priceAdjustmentIndex === 'Fixo'
+                      ? 'Preço fixo durante toda a vigência do contrato.'
+                      : 'Reajuste conforme índice definido, aplicado semestralmente.'}
+                  </p>
                 )}
-                <p className="text-xs text-[#6b6b6b] flex-1">
-                  {selected.priceAdjustmentIndex === 'Fixo'
-                    ? 'Preço fixo durante toda a vigência do contrato.'
-                    : 'Reajuste conforme índice definido, aplicado semestralmente.'}
-                </p>
               </div>
             </AccordionSection>
 

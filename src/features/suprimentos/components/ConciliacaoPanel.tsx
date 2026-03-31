@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Plus, ClipboardList, FileText, Package, Receipt } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, ClipboardList, FileText, Package, Receipt, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -60,9 +60,10 @@ interface PORowProps {
   matchStatus: MatchStatus | undefined
   onRegisterReceipt: () => void
   onEditPO: () => void
+  onRunMatch: () => void
 }
 
-function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
+function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: PORowProps) {
   const [open, setOpen] = useState(false)
   const { receipts, invoices } = useSuprimentosStore(
     useShallow((s) => ({ receipts: s.receipts, invoices: s.invoices }))
@@ -164,7 +165,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {!receipt && (
               <button
                 onClick={onRegisterReceipt}
@@ -179,6 +180,13 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO }: PORowProps) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] text-xs font-medium transition-colors"
             >
               Editar OC
+            </button>
+            <button
+              onClick={onRunMatch}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0f766e]/20 hover:bg-[#0f766e]/30 text-[#2dd4bf] text-xs font-semibold transition-colors"
+            >
+              <RefreshCw size={12} />
+              Executar Match
             </button>
           </div>
         </div>
@@ -252,8 +260,8 @@ function ThreeWayMatchSummary() {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function ConciliacaoPanel() {
-  const { purchaseOrders, matches } = useSuprimentosStore(
-    useShallow((s) => ({ purchaseOrders: s.purchaseOrders, matches: s.matches }))
+  const { purchaseOrders, matches, runMatch } = useSuprimentosStore(
+    useShallow((s) => ({ purchaseOrders: s.purchaseOrders, matches: s.matches, runMatch: s.runMatch }))
   )
 
   const [showNewPO,     setShowNewPO]     = useState(false)
@@ -287,6 +295,7 @@ export function ConciliacaoPanel() {
             matchStatus={match?.status}
             onRegisterReceipt={() => setRegisterRcFor(po)}
             onEditPO={() => setEditPO(po)}
+            onRunMatch={() => runMatch(po.id)}
           />
         )
       })}

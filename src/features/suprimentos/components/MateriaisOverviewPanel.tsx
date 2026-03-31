@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
-import { Star, Search, X } from 'lucide-react'
+import { Star, Search, X, Pencil, Check, Plus } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -140,10 +140,12 @@ function ConfidenceStars({ score }: { score: number }) {
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function MateriaisOverviewPanel() {
-  const { purchaseOrders, frameworkAgreements } = useSuprimentosStore(
+  const { purchaseOrders, frameworkAgreements, updateFrameworkAgreement, addFrameworkAgreement } = useSuprimentosStore(
     useShallow((s) => ({
-      purchaseOrders:      s.purchaseOrders,
-      frameworkAgreements: s.frameworkAgreements,
+      purchaseOrders:           s.purchaseOrders,
+      frameworkAgreements:      s.frameworkAgreements,
+      updateFrameworkAgreement: s.updateFrameworkAgreement,
+      addFrameworkAgreement:    s.addFrameworkAgreement,
     }))
   )
 
@@ -152,6 +154,39 @@ export function MateriaisOverviewPanel() {
   const [searchText, setSearchText] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'expiring' | 'expired'>('all')
   const [showFilter, setShowFilter] = useState(false)
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<{ supplier: string; category: string; agreedUnitPrice: number; leadTimeDays: number; confidenceScore: number }>({ supplier: '', category: '', agreedUnitPrice: 0, leadTimeDays: 0, confidenceScore: 5 })
+
+  // New AM form
+  const [showNewForm, setShowNewForm] = useState(false)
+  const [newDraft, setNewDraft] = useState({ supplier: '', category: '', unit: 'un', agreedUnitPrice: 0, leadTimeDays: 7, confidenceScore: 3 })
+
+  function startEdit(fa: { id: string; supplier: string; category: string; agreedUnitPrice: number; leadTimeDays: number; confidenceScore: number }) {
+    setEditingId(fa.id)
+    setEditDraft({ supplier: fa.supplier, category: fa.category, agreedUnitPrice: fa.agreedUnitPrice, leadTimeDays: fa.leadTimeDays, confidenceScore: fa.confidenceScore })
+  }
+
+  function saveEdit(id: string) {
+    updateFrameworkAgreement(id, editDraft)
+    setEditingId(null)
+  }
+
+  function saveNew() {
+    if (!newDraft.supplier.trim()) return
+    addFrameworkAgreement({
+      ...newDraft,
+      code: `FA-${Date.now().toString().slice(-4)}`,
+      validFrom: new Date().toISOString().slice(0, 10),
+      validTo: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+      maxQuantity: 1000,
+      status: 'active',
+      terms: '',
+    })
+    setShowNewForm(false)
+    setNewDraft({ supplier: '', category: '', unit: 'un', agreedUnitPrice: 0, leadTimeDays: 7, confidenceScore: 3 })
+  }
 
   const monthlyData = useMemo(() => buildMonthlyData(purchaseOrders), [purchaseOrders])
 
@@ -186,6 +221,7 @@ export function MateriaisOverviewPanel() {
 
   // Vendor comparison — one row per FA
   const vendorRows = filteredFAs.map((fa) => ({
+    id:          fa.id,
     supplier:    fa.supplier,
     category:    fa.category,
     price:       fa.agreedUnitPrice,
@@ -194,6 +230,9 @@ export function MateriaisOverviewPanel() {
     faCode:      fa.code,
     faStatus:    fa.status,
     confidence:  fa.confidenceScore,
+    agreedUnitPrice: fa.agreedUnitPrice,
+    leadTimeDays:    fa.leadTimeDays,
+    confidenceScore: fa.confidenceScore,
   }))
 
   // PO compliance — filtered by search text
@@ -328,6 +367,13 @@ export function MateriaisOverviewPanel() {
       <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#a3a3a3] text-sm font-semibold">Comparativo de Fornecedores</p>
+          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNewForm((v) => !v)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#2abfdc]/20 hover:bg-[#2abfdc]/30 text-[#2abfdc] text-xs font-semibold transition-colors"
+          >
+            <Plus size={12} /> Nova AM
+          </button>
           <div className="flex gap-1 flex-wrap">
             {allCategories.map((cat) => (
               <button
@@ -344,7 +390,40 @@ export function MateriaisOverviewPanel() {
               </button>
             ))}
           </div>
+          </div>
         </div>
+
+        {/* New AM form */}
+        {showNewForm && (
+          <div className="mb-3 bg-[#0d2040] border border-[#2abfdc]/30 rounded-lg p-3 flex flex-wrap gap-2 items-end text-xs">
+            <div className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b]">Fornecedor</span>
+              <input className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-36" value={newDraft.supplier} onChange={(e) => setNewDraft((d) => ({ ...d, supplier: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b]">Categoria</span>
+              <input className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-36" value={newDraft.category} onChange={(e) => setNewDraft((d) => ({ ...d, category: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b]">Unidade</span>
+              <input className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-14" value={newDraft.unit} onChange={(e) => setNewDraft((d) => ({ ...d, unit: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b]">Preço (R$)</span>
+              <input type="number" className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-24" value={newDraft.agreedUnitPrice} onChange={(e) => setNewDraft((d) => ({ ...d, agreedUnitPrice: Number(e.target.value) }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b]">Lead (dias)</span>
+              <input type="number" className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-100 text-xs w-16" value={newDraft.leadTimeDays} onChange={(e) => setNewDraft((d) => ({ ...d, leadTimeDays: Number(e.target.value) }))} />
+            </div>
+            <button onClick={saveNew} className="flex items-center gap-1 px-3 py-1 rounded bg-[#2abfdc]/20 hover:bg-[#2abfdc]/30 text-[#2abfdc] font-semibold transition-colors">
+              <Check size={11} /> Salvar
+            </button>
+            <button onClick={() => setShowNewForm(false)} className="px-3 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -356,6 +435,7 @@ export function MateriaisOverviewPanel() {
                 <th className="text-right pb-2 font-medium">Lead Time</th>
                 <th className="text-center pb-2 font-medium">Acordo Marco</th>
                 <th className="text-center pb-2 font-medium">Confiança</th>
+                <th className="w-8" />
               </tr>
             </thead>
             <tbody>
@@ -364,6 +444,29 @@ export function MateriaisOverviewPanel() {
                   row.faStatus === 'active'   ? 'bg-green-900/40 text-green-300 border-green-700/40' :
                   row.faStatus === 'expiring' ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' :
                   'bg-[#14294e] text-[#6b6b6b] border-[#20406a]'
+
+                const isEditing = editingId === row.id
+
+                if (isEditing) {
+                  return (
+                    <tr key={row.faCode} className="border-b border-[#20406a] bg-[#1a3662]/20">
+                      <td className="py-2"><input className="w-full bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={editDraft.supplier} onChange={(e) => setEditDraft((d) => ({ ...d, supplier: e.target.value }))} /></td>
+                      <td className="py-2"><input className="w-full bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs" value={editDraft.category} onChange={(e) => setEditDraft((d) => ({ ...d, category: e.target.value }))} /></td>
+                      <td className="py-2"><input type="number" className="w-24 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs text-right" value={editDraft.agreedUnitPrice} onChange={(e) => setEditDraft((d) => ({ ...d, agreedUnitPrice: Number(e.target.value) }))} /></td>
+                      <td className="py-2"><input type="number" className="w-16 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs text-right" value={editDraft.leadTimeDays} onChange={(e) => setEditDraft((d) => ({ ...d, leadTimeDays: Number(e.target.value) }))} /></td>
+                      <td className="py-2 text-center">
+                        <span className={cn('px-1.5 py-0.5 rounded border text-[10px] font-mono font-medium', faBadgeColor)}>{row.faCode}</span>
+                      </td>
+                      <td className="py-2"><input type="number" min={1} max={5} step={0.1} className="w-14 bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 text-gray-100 text-xs text-center" value={editDraft.confidenceScore} onChange={(e) => setEditDraft((d) => ({ ...d, confidenceScore: Number(e.target.value) }))} /></td>
+                      <td className="py-2">
+                        <div className="flex gap-1">
+                          <button onClick={() => saveEdit(row.id)} className="p-1 rounded bg-[#2abfdc]/20 text-[#2abfdc] hover:bg-[#2abfdc]/30 transition-colors"><Check size={11} /></button>
+                          <button onClick={() => setEditingId(null)} className="p-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 transition-colors"><X size={11} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
 
                 return (
                   <tr key={row.faCode} className="border-b border-[#20406a] hover:bg-[#1a3662]/40 transition-colors">
@@ -383,12 +486,20 @@ export function MateriaisOverviewPanel() {
                         <ConfidenceStars score={row.confidence} />
                       </div>
                     </td>
+                    <td className="py-2">
+                      <button
+                        onClick={() => startEdit({ id: row.id, supplier: row.supplier, category: row.category, agreedUnitPrice: row.agreedUnitPrice, leadTimeDays: row.leadTimeDays, confidenceScore: row.confidenceScore })}
+                        className="p-1 rounded hover:bg-[#1a3662] text-[#6b6b6b] hover:text-[#a3a3a3] transition-colors"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
               {vendorRows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-[#6b6b6b]">
+                  <td colSpan={7} className="py-6 text-center text-[#6b6b6b]">
                     Nenhum acordo marco encontrado
                   </td>
                 </tr>

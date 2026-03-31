@@ -349,7 +349,7 @@ export function ChangeOrderPanel() {
   return (
     <div className="flex flex-col gap-4">
       {/* Summary row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(Object.entries(counts) as [keyof typeof counts, number][]).map(([status, count]) => {
           const meta = STATUS_META[status]
           return (

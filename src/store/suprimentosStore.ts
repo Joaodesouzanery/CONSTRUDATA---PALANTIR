@@ -130,6 +130,11 @@ interface SuprimentosState {
   // Requisitions
   addRequisition:           (req: Requisition)                  => void
   advanceRequisitionStatus: (id: string)                        => void
+  updateRequisition:        (id: string, patch: Partial<Omit<Requisition, 'id' | 'code'>>) => void
+
+  // Framework Agreements
+  updateFrameworkAgreement: (id: string, patch: Partial<FrameworkAgreement>) => void
+  addFrameworkAgreement:    (fa: Omit<FrameworkAgreement, 'id'>) => void
 
   // Demo mode
   loadDemoData: () => void
@@ -232,6 +237,21 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
         const next = REQUISITION_FLOW[idx + 1]
         return next ? { ...r, status: next } : r
       }),
+    })),
+
+  updateRequisition: (id, patch) =>
+    set((s) => ({
+      requisitions: s.requisitions.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    })),
+
+  updateFrameworkAgreement: (id, patch) =>
+    set((s) => ({
+      frameworkAgreements: s.frameworkAgreements.map((fa) => (fa.id === id ? { ...fa, ...patch } : fa)),
+    })),
+
+  addFrameworkAgreement: (fa) =>
+    set((s) => ({
+      frameworkAgreements: [...s.frameworkAgreements, { ...fa, id: crypto.randomUUID() }],
     })),
 
   loadDemoData: () =>
