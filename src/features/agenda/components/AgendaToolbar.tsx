@@ -3,6 +3,7 @@ import { useAgendaStore } from '@/store/agendaStore'
 import { formatViewRange } from '../utils'
 import type { AgendaViewMode } from '@/types'
 import { cn } from '@/lib/utils'
+import { format, startOfWeek, parseISO } from 'date-fns'
 
 interface AgendaToolbarProps {
   searchTerm: string
@@ -20,15 +21,28 @@ const VIEW_MODES: { key: AgendaViewMode; label: string }[] = [
 ]
 
 export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaToolbarProps) {
-  const { viewStart, visibleWeeks, viewMode, panLeft, panRight, setViewMode, displayView, setDisplayView } = useAgendaStore()
+  const {
+    viewStart, visibleWeeks, viewMode,
+    panLeft, panRight, setViewMode,
+    displayView, setDisplayView,
+    setVisibleWeeks, setViewStart,
+  } = useAgendaStore()
   const range = formatViewRange(viewStart, visibleWeeks)
+
+  function handleDateJump(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value
+    if (!val) return
+    // val is yyyy-MM-dd; snap to start of that week (Monday)
+    const monday = format(startOfWeek(parseISO(val), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    setViewStart(monday)
+  }
 
   return (
     <div className="flex flex-col border-b border-[#20406a] bg-[#112645] shrink-0">
       {/* Top row */}
-      <div className="flex items-center gap-3 px-5 py-2">
+      <div className="flex flex-wrap items-center gap-2 px-5 py-2">
         {/* Search */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#20406a] bg-[#0d2040] w-44">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#20406a] bg-[#0d2040] w-40">
           <Search size={13} className="text-[#6b6b6b] shrink-0" />
           <input
             value={searchTerm}
@@ -45,7 +59,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </button>
 
         {/* Display view toggle */}
-        <div className="flex items-center gap-1 ml-1">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setDisplayView('gantt')}
             className={cn(
@@ -81,7 +95,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           >
             <ChevronLeft size={14} />
           </button>
-          <span className="text-xs text-[#a3a3a3] font-mono px-2 min-w-[220px] text-center">
+          <span className="text-xs text-[#a3a3a3] font-mono px-2 min-w-[180px] text-center">
             {range}
           </span>
           <button
@@ -91,6 +105,30 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           >
             <ChevronRight size={14} />
           </button>
+        </div>
+
+        {/* Jump to date */}
+        <div className="flex items-center gap-1.5" title="Ir para data">
+          <span className="text-[10px] text-[#6b6b6b] hidden sm:block">Data:</span>
+          <input
+            type="date"
+            defaultValue={viewStart}
+            onChange={handleDateJump}
+            className="bg-[#0d2040] border border-[#20406a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] outline-none focus:border-[#2abfdc]/60 w-32"
+          />
+        </div>
+
+        {/* Weeks count */}
+        <div className="flex items-center gap-1.5" title="Semanas visíveis">
+          <input
+            type="number"
+            min={1}
+            max={52}
+            value={visibleWeeks}
+            onChange={(e) => setVisibleWeeks(parseInt(e.target.value) || 1)}
+            className="bg-[#0d2040] border border-[#20406a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] text-center outline-none focus:border-[#2abfdc]/60 w-14"
+          />
+          <span className="text-[10px] text-[#6b6b6b]">sem.</span>
         </div>
 
         <div className="flex-1" />

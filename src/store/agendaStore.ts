@@ -36,6 +36,8 @@ interface AgendaState {
   selectTask: (id: string | null) => void
   setEditingTask: (id: string | null) => void
   setDisplayView: (view: AgendaDisplayView) => void
+  setVisibleWeeks: (n: number) => void
+  setViewStart: (date: string) => void
   loadDemoData: () => void
   clearData: () => void
 }
@@ -94,6 +96,8 @@ export const useAgendaStore = create<AgendaState>((set) => ({
   selectTask: (id) => set({ selectedTaskId: id }),
   setEditingTask: (id) => set({ editingTaskId: id }),
   setDisplayView: (view) => set({ displayView: view }),
+  setVisibleWeeks: (n) => set({ visibleWeeks: Math.max(1, Math.min(52, n)) }),
+  setViewStart: (date) => set({ viewStart: date }),
 
   loadDemoData: () =>
     set({ tasks: mockTasks, resources: mockResources }),
