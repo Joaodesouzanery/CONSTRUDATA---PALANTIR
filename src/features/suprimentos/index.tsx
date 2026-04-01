@@ -6,6 +6,9 @@ import { PrevisaoDemandaPanel } from './components/PrevisaoDemandaPanel'
 import { RequisicoesPipeline }  from './components/RequisicoesPipeline'
 import { MateriaisOverviewPanel } from './components/MateriaisOverviewPanel'
 import { ContractPanel }        from './components/ContractPanel'
+import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
+import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
+import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import type { SuprimentosTab }  from './components/SuprimentosHeader'
 
 export function SuprimentosPage() {
@@ -21,6 +24,9 @@ export function SuprimentosPage() {
       {activeTab === 'requisicoes' && <RequisicoesPipeline />}
       {activeTab === 'materiais'   && <MateriaisOverviewPanel />}
       {activeTab === 'contratos'   && <ContractPanel />}
+      {activeTab === 'estoque'     && <MapaEstoquePanel />}
+      {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
+      {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
     </div>
   )
 }

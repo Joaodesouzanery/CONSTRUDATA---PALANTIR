@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif'
 
 interface Props {
   activeTab: SuprimentosTab
@@ -10,12 +10,15 @@ interface Props {
 }
 
 const TABS: { key: SuprimentosTab; label: string }[] = [
-  { key: 'conciliacao', label: 'Conciliação'         },
-  { key: 'excecoes',    label: 'Exceções'             },
-  { key: 'previsao',    label: 'Previsão de Demanda'  },
-  { key: 'requisicoes', label: 'Requisições'          },
-  { key: 'materiais',   label: 'Materiais & Fornecedores' },
-  { key: 'contratos',   label: 'Contrato 360'          },
+  { key: 'conciliacao', label: 'Conciliação'              },
+  { key: 'excecoes',    label: 'Exceções'                  },
+  { key: 'previsao',    label: 'Previsão de Demanda'       },
+  { key: 'requisicoes', label: 'Requisições'               },
+  { key: 'materiais',   label: 'Materiais & Fornecedores'  },
+  { key: 'contratos',   label: 'Contrato 360'              },
+  { key: 'estoque',     label: 'Mapa de Estoque'           },
+  { key: 'semaforo',    label: 'Semáforo de Prontidão'     },
+  { key: 'whatif',      label: 'What-if Logístico'         },
 ]
 
 export function SuprimentosHeader({ activeTab, onTabChange }: Props) {
@@ -42,6 +45,9 @@ export function SuprimentosHeader({ activeTab, onTabChange }: Props) {
 
   return (
     <div className="flex flex-col gap-4 shrink-0">
+      {/* Title */}
+      <h1 className="text-lg font-bold text-[#f5f5f5]">Suprimentos &amp; Estoque Inteligente</h1>
+
       {/* KPI row */}
       <div className="grid grid-cols-4 gap-3">
         {kpis.map(({ label, value, color, bg }) => (

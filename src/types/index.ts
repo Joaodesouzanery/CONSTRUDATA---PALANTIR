@@ -515,6 +515,70 @@ export interface FrameworkAgreement {
   priceAdjustmentPct?: number
 }
 
+// ─── Suprimentos & Estoque Inteligente ───────────────────────────────────────
+
+export interface DepositoVirtual {
+  id: string
+  frente: string           // "Morro do Tetéu", "São Manoel", "Vila dos Criadores", "Escritório"
+  descricao?: string
+  ativo: boolean
+}
+
+export interface ItemEstoque {
+  id: string
+  depositoId: string
+  descricao: string
+  unidade: string
+  qtdDisponivel: number
+  qtdReservada: number
+  qtdTransito: number
+  estoqueMinimo: number
+  custoUnitario?: number
+  lpsActivityId?: string
+  categoria?: string
+  fornecedorPrincipal?: string
+}
+
+export interface MovimentacaoEstoque {
+  id: string
+  itemId: string
+  depositoId: string
+  tipo: 'entrada' | 'saida' | 'transferencia' | 'ajuste'
+  quantidade: number
+  dataMovimento: string
+  dataCompra?: string
+  fornecedor?: string
+  nf?: string
+  leadTimeDias?: number
+  lpsActivityId?: string
+  observacoes?: string
+}
+
+export interface ReservaMaterial {
+  id: string
+  itemId: string
+  depositoId: string
+  lpsActivityId: string
+  semana: number
+  qtdNecessaria: number
+  status: 'verde' | 'amarelo' | 'vermelho'
+  nfsEmTransito?: string[]
+  previsaoEntrega?: string
+  alertaGerado?: boolean
+  criadoEm: string
+}
+
+export interface LeadTimeRecord {
+  id: string
+  fornecedor: string
+  dataCompra: string
+  dataMovimento: string
+  nf: string
+  leadTimeDias: number
+  itemDescricao: string
+  categoria?: string
+}
+
 // ─── Mão de Obra ──────────────────────────────────────────────────────────────
 
 export type WorkerStatus   = 'active' | 'inactive' | 'suspended' | 'pending_approval'
