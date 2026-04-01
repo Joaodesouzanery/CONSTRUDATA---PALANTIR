@@ -242,11 +242,14 @@ function ImpactBurnChart({ base, delayed }: { base: GanttRow[]; delayed: GanttRo
           <path d={delayArea} fill="url(#delayGrad)" />
           <path d={delayPath} fill="none" stroke="#f97316" strokeWidth={2} strokeLinejoin="round" />
 
-          {xLabels.map((p, i) => (
-            <text key={i} x={px(points.indexOf(p))} y={H - 4} textAnchor="middle" fontSize={8} fill="#6b6b6b">
-              {p.date.slice(5, 10).replace('-', '/')}
-            </text>
-          ))}
+          {xLabels.map((p, i) => {
+            const ptIdx = points.findIndex((pt) => pt.date === p.date && pt.week === p.week)
+            return (
+              <text key={i} x={px(ptIdx >= 0 ? ptIdx : i)} y={H - 4} textAnchor="middle" fontSize={8} fill="#6b6b6b">
+                {p.date.slice(5, 10).replace('-', '/')}
+              </text>
+            )
+          })}
 
           <line x1={W - 110} y1={12} x2={W - 96} y2={12} stroke="#6b7280" strokeWidth={2} />
           <text x={W - 92} y={15} fontSize={9} fill="#9ca3af">Base</text>

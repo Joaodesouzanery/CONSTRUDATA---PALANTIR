@@ -225,7 +225,7 @@ export function CustosPanel() {
     <div className="flex flex-col gap-6 p-6 overflow-y-auto h-full">
 
       {/* KPI cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
           label="Custo Total Frota"
           value={totalFleet.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

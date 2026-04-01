@@ -119,7 +119,7 @@ function CODetail({ co }: { co: ChangeOrder }) {
       </div>
 
       {/* Impact */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="bg-[#1e1e1e] rounded-lg p-3">
           <p className="text-[#6b6b6b] text-[10px] mb-1">Impacto de Custo</p>
           <p className={`text-base font-bold ${co.impactCostBRL >= 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
@@ -289,7 +289,7 @@ function NewCOForm({ onClose }: { onClose: () => void }) {
           className={`${inputCls} resize-none`} rows={3} placeholder="Detalhe a situação no campo..." />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="text-[#6b6b6b] text-[10px] mb-1 block">Impacto de Custo (R$)</label>
           <input type="number" value={form.impactCostBRL}
@@ -349,7 +349,7 @@ export function ChangeOrderPanel() {
   return (
     <div className="flex flex-col gap-4">
       {/* Summary row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(Object.entries(counts) as [keyof typeof counts, number][]).map(([status, count]) => {
           const meta = STATUS_META[status]
           return (

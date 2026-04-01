@@ -68,7 +68,7 @@ export function TabOrcamento({ project }: { project: Project }) {
   return (
     <div className="flex flex-col gap-4 p-5 overflow-y-auto h-full">
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SummaryCell label="Total Orçado"    value={formatCurrency(totalBudgeted)}  highlight />
         <SummaryCell label="Total Projetado" value={formatCurrency(totalProjected)} />
         <SummaryCell label="Total Gasto"     value={formatCurrency(totalSpent)} />

@@ -27,6 +27,7 @@ export interface ParsedRdoData {
   manpower:      { foremanCount: number; officialCount: number; helperCount: number; operatorCount: number }
   employeeNames: string[]
   observations:  string
+  date?:         string
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

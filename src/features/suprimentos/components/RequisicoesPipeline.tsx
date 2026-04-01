@@ -8,7 +8,7 @@ import { ChevronRight, Plus, Pencil, X, Check } from 'lucide-react'
 // ─── Column config ─────────────────────────────────────────────────────────────
 
 const COLUMNS: { status: RequisitionStatus; label: string; color: string; bg: string }[] = [
-  { status: 'submitted',        label: 'Submetida',            color: 'text-gray-400',   bg: 'bg-gray-800/60'  },
+  { status: 'submitted',        label: 'Submetida',            color: 'text-[#a3a3a3]',   bg: 'bg-[#1e1e1e]/60'  },
   { status: 'parsing',          label: 'Extração de Dados',    color: 'text-blue-400',   bg: 'bg-blue-900/20'  },
   { status: 'ontology_matched', label: 'Mapeamento Ontologia', color: 'text-purple-400', bg: 'bg-purple-900/20'},
   { status: 'proposals',        label: 'Propostas IA',         color: 'text-amber-400',  bg: 'bg-amber-900/20' },
@@ -28,14 +28,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Cimento e Argamassa':     'bg-orange-500/20 text-orange-300',
   'Aço / Vergalhão':         'bg-blue-500/20 text-blue-300',
   'Concreto Usinado':        'bg-yellow-500/20 text-yellow-300',
-  'Tubulação e Saneamento':  'bg-cyan-500/20 text-cyan-300',
+  'Tubulação e Saneamento':  'bg-[#f97316]/20 text-[#f97316]',
   'Impermeabilização':       'bg-pink-500/20 text-pink-300',
 }
 
 // ─── Shared field styles ───────────────────────────────────────────────────────
 
-const INPUT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 placeholder-gray-500 outline-none focus:border-[#f97316] text-xs w-full'
-const SELECT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-[#f97316] text-xs w-full'
+const INPUT = 'bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1.5 text-[#f5f5f5] placeholder-[#6b6b6b] outline-none focus:border-[#f97316] text-xs w-full'
+const SELECT = 'bg-[#0f0f0f] border border-[#2a2a2a] rounded px-2 py-1.5 text-[#f5f5f5] outline-none focus:border-[#f97316] text-xs w-full'
 
 // ─── Nova Requisição form ──────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ function NewReqForm({ onSubmit, onCancel }: NewReqFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-800 border border-gray-600 rounded-lg p-3 flex flex-col gap-2">
+    <form onSubmit={handleSubmit} className="bg-[#1e1e1e] border border-[#363636] rounded-lg p-3 flex flex-col gap-2">
       <input className={INPUT} placeholder="Material *" value={material} onChange={(e) => setMaterial(e.target.value)} required />
       <select className={SELECT} value={category} onChange={(e) => setCategory(e.target.value)}>
         {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -86,7 +86,7 @@ function NewReqForm({ onSubmit, onCancel }: NewReqFormProps) {
         <button type="submit" className="flex-1 bg-[#f97316] hover:bg-[#22a8c4] text-white rounded px-2 py-1.5 text-xs font-medium transition-colors">
           Submeter
         </button>
-        <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded border border-gray-600 text-gray-400 hover:text-gray-200 text-xs transition-colors">
+        <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded border border-[#363636] text-[#a3a3a3] hover:text-[#f5f5f5] text-xs transition-colors">
           Cancelar
         </button>
       </div>
@@ -186,11 +186,11 @@ interface CardProps {
 }
 
 function ReqCard({ req, isLast, onAdvance, onEdit }: CardProps) {
-  const catColor = CATEGORY_COLORS[req.category] ?? 'bg-gray-700/50 text-gray-300'
+  const catColor = CATEGORY_COLORS[req.category] ?? 'bg-[#262626]/50 text-[#f5f5f5]'
   const date = new Date(req.requestedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 flex flex-col gap-2 text-xs">
+    <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg p-3 flex flex-col gap-2 text-xs">
       {/* Material + category + edit button */}
       <div className="flex items-start gap-1">
         <div className="flex-1 min-w-0">
@@ -201,7 +201,7 @@ function ReqCard({ req, isLast, onAdvance, onEdit }: CardProps) {
         </div>
         <button
           onClick={onEdit}
-          className="shrink-0 p-1 rounded text-gray-500 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
+          className="shrink-0 p-1 rounded text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
           title="Editar requisição"
         >
           <Pencil size={11} />
@@ -209,12 +209,12 @@ function ReqCard({ req, isLast, onAdvance, onEdit }: CardProps) {
       </div>
 
       {/* Quantity */}
-      <p className="text-gray-300 tabular-nums">
+      <p className="text-[#f5f5f5] tabular-nums">
         {req.quantity.toLocaleString('pt-BR')} {req.unit}
       </p>
 
       {/* Meta */}
-      <div className="text-gray-500 space-y-0.5">
+      <div className="text-[#6b6b6b] space-y-0.5">
         <p>{req.requestedBy}</p>
         <p>{req.projectRef} · {date}</p>
       </div>
@@ -296,13 +296,13 @@ export function RequisicoesPipeline() {
           const isLastCol = colIdx === COLUMNS.length - 1
 
           return (
-            <div key={col.status} className={cn('flex flex-col flex-1 min-w-[170px] rounded-xl border border-gray-700/60', col.bg)}>
+            <div key={col.status} className={cn('flex flex-col flex-1 min-w-[170px] rounded-xl border border-[#2a2a2a]/60', col.bg)}>
               {/* Column header */}
               <div className="px-3 pt-3 pb-2 flex items-center justify-between">
                 <span className={cn('text-[11px] font-semibold uppercase tracking-wide', col.color)}>
                   {col.label}
                 </span>
-                <span className="text-[10px] bg-gray-700/60 text-gray-400 px-1.5 py-0.5 rounded-full tabular-nums">
+                <span className="text-[10px] bg-[#262626]/60 text-[#a3a3a3] px-1.5 py-0.5 rounded-full tabular-nums">
                   {cards.length}
                 </span>
               </div>
@@ -319,7 +319,7 @@ export function RequisicoesPipeline() {
                   ) : (
                     <button
                       onClick={() => setShowNewForm(true)}
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#f97316] transition-colors py-1"
+                      className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors py-1"
                     >
                       <Plus size={13} />
                       Nova Requisição

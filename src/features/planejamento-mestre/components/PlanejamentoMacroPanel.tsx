@@ -282,7 +282,7 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
         <p className="text-[#f5f5f5] text-sm font-semibold">Nova Atividade</p>
         <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={16} /></button>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="col-span-2">
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Atividade Pai</label>
           <select className={inputCls} value={form.parentId} onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}>

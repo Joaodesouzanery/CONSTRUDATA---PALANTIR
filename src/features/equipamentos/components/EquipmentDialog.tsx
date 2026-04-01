@@ -124,7 +124,7 @@ export function EquipmentDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Novo Equipamento' : `Editar — ${existing?.name ?? ''}`}
           </h2>
@@ -142,7 +142,7 @@ export function EquipmentDialog() {
 
             {/* ── Identificação ── */}
             <Section title="Identificação">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Código *" error={errors.code?.message}>
                   <input {...register('code')} placeholder="EQ-001" className={inp(!!errors.code)} />
                 </Field>
@@ -157,7 +157,7 @@ export function EquipmentDialog() {
               <Field label="Nome *" error={errors.name?.message}>
                 <input {...register('name')} placeholder="Tesoura Aérea" className={inp(!!errors.name)} />
               </Field>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Tipo *" error={errors.type?.message}>
                   <input {...register('type')} placeholder="Plataforma" className={inp(!!errors.type)} />
                 </Field>
@@ -168,7 +168,7 @@ export function EquipmentDialog() {
                   <input {...register('model')} placeholder="660SJ" className={inp(!!errors.model)} />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Ano de Fabricação *" error={errors.year?.message}>
                   <input
                     type="number"
@@ -189,7 +189,7 @@ export function EquipmentDialog() {
 
             {/* ── Operação ── */}
             <Section title="Operação">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Operador Responsável" error={errors.operator?.message}>
                   <input
                     {...register('operator')}
@@ -206,7 +206,7 @@ export function EquipmentDialog() {
                   />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Capacidade / Carga Máx." error={errors.maxLoad?.message}>
                   <input
                     {...register('maxLoad')}
@@ -226,7 +226,7 @@ export function EquipmentDialog() {
 
             {/* ── Manutenção ── */}
             <Section title="Manutenção">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Última Manutenção *" error={errors.lastMaintenance?.message}>
                   <input type="date" {...register('lastMaintenance')} className={inp(!!errors.lastMaintenance)} />
                 </Field>
@@ -248,7 +248,7 @@ export function EquipmentDialog() {
               <p className="text-[10px] text-[#3f3f3f] -mt-1">
                 Preencha as coordenadas geográficas decimais. Após salvar, o marcador aparecerá no mapa e poderá ser arrastado para ajuste fino.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Latitude" error={errors.lat?.message as string | undefined}>
                   <input
                     type="number"
@@ -279,7 +279,7 @@ export function EquipmentDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a] shrink-0">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#2a2a2a] shrink-0">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">

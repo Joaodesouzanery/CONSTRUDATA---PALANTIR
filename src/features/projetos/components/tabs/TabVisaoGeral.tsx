@@ -69,7 +69,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
   return (
     <div className="flex flex-col gap-5 p-5 overflow-y-auto h-full">
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label="Total Orçado"       value={formatCurrency(totalBudgeted)}  icon={DollarSign}   accent />
         <StatCard label="Gasto Projetado"    value={formatCurrency(totalProjected)} icon={TrendingUp}   />
         <StatCard label="Utilização"         value={`${utilPct}%`}                  icon={BarChart2}    accent={utilPct > 75} />
@@ -121,7 +121,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
       </div>
 
       {/* Phase summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <PhaseGroup title="Planejamento" phases={project.planningPhases} />
         <PhaseGroup title="Execução"     phases={project.executionPhases} />
       </div>

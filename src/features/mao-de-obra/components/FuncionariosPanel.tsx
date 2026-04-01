@@ -74,7 +74,7 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
           <h2 className="text-[#f5f5f5] text-base font-semibold">{initial ? 'Editar Funcionário' : 'Novo Funcionário'}</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={18} /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Col 1 */}
           <div className="col-span-2">
             <label className={labelClass}>Nome completo *</label>

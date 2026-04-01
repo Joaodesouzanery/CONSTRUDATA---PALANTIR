@@ -70,7 +70,7 @@ function ExceptionForm({
 
   return (
     <div className="bg-[#0f0f0f] border border-[#f97316]/30 rounded-xl p-4 flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] text-[#6b6b6b] uppercase tracking-widest">OC</label>
           <select

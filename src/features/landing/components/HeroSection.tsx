@@ -199,16 +199,18 @@ export function HeroSection() {
       style={{ minHeight: '100vh' }}
       className="flex flex-col justify-center pt-14 relative overflow-hidden"
     >
-      {/* Background image */}
+      {/* Background image — blurred port/construction visual */}
       <div className="absolute inset-0 z-0" style={{
-        backgroundImage: 'url(https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1920&q=80)',
+        backgroundImage: 'url(/src/assets/hero.png)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        opacity: 0.08,
+        filter: 'blur(8px)',
+        transform: 'scale(1.06)',
+        opacity: 0.18,
       }} />
       {/* Dark overlay gradient */}
       <div className="absolute inset-0 z-0" style={{
-        background: 'linear-gradient(180deg, #0b1a30 0%, rgba(11,26,48,0.88) 30%, rgba(11,26,48,0.92) 70%, #0b1a30 100%)',
+        background: 'linear-gradient(180deg, #0f0f0f 0%, rgba(15,15,15,0.85) 30%, rgba(15,15,15,0.90) 70%, #0f0f0f 100%)',
       }} />
       <div className="relative z-10">
       <div className="max-w-7xl mx-auto px-6 py-20 w-full">

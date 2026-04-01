@@ -106,7 +106,7 @@ export function BudgetDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
           <h2 className="text-[#f5f5f5] font-bold text-sm">
             {isNew ? 'Nova Linha Orçamentária' : 'Editar Linha Orçamentária'}
           </h2>
@@ -139,7 +139,7 @@ export function BudgetDialog() {
             </Field>
 
             {/* Currency fields */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field label="Orçado (R$) *" error={errors.budgeted?.message}>
                 <input
                   type="number"
@@ -174,7 +174,7 @@ export function BudgetDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#2a2a2a]">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">

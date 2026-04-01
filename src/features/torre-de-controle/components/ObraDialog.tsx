@@ -125,7 +125,7 @@ export function ObraDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Nova Obra' : `Editar — ${existing?.name ?? ''}`}
           </h2>
@@ -139,7 +139,7 @@ export function ObraDialog() {
 
             {/* Identificação */}
             <Section title="Identificação">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Código *" error={errors.code?.message}>
                   <input {...register('code')} placeholder="OBR-001" className={inp(!!errors.code)} />
                 </Field>
@@ -152,7 +152,7 @@ export function ObraDialog() {
               <Field label="Nome da Obra *" error={errors.name?.message}>
                 <input {...register('name')} placeholder="Torre Residencial Paulista" className={inp(!!errors.name)} />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Tipo de Edificação *" error={errors.buildingType?.message}>
                   <select {...register('buildingType')} className={inp(!!errors.buildingType)}>
                     <option value="">Selecione...</option>
@@ -172,7 +172,7 @@ export function ObraDialog() {
 
             {/* Responsáveis */}
             <Section title="Responsáveis">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Empresa *" error={errors.company?.message}>
                   <input {...register('company')} placeholder="Construtora" className={inp(!!errors.company)} />
                 </Field>
@@ -187,7 +187,7 @@ export function ObraDialog() {
 
             {/* Endereço */}
             <Section title="Endereço">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="col-span-2">
                   <Field label="Rua / Avenida *" error={errors.street?.message}>
                     <input {...register('street')} placeholder="Avenida Paulista" className={inp(!!errors.street)} />
@@ -197,7 +197,7 @@ export function ObraDialog() {
                   <input {...register('number')} placeholder="1578" className={inp(!!errors.number)} />
                 </Field>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Bairro *" error={errors.district?.message}>
                   <input {...register('district')} placeholder="Bela Vista" className={inp(!!errors.district)} />
                 </Field>
@@ -217,7 +217,7 @@ export function ObraDialog() {
 
             {/* Cronograma */}
             <Section title="Cronograma">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Data de Início *" error={errors.startDate?.message}>
                   <input type="date" {...register('startDate')} className={inp(!!errors.startDate)} />
                 </Field>
@@ -232,7 +232,7 @@ export function ObraDialog() {
               <p className="text-[10px] text-[#3f3f3f] -mt-1">
                 Preencha para posicionar o marcador no mapa. Pode ser ajustado arrastando o marcador depois.
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Latitude" error={errors.lat?.message as string | undefined}>
                   <input type="number" step="any" {...register('lat')} placeholder="-23.5649" className={inp(!!errors.lat)} />
                 </Field>
@@ -251,7 +251,7 @@ export function ObraDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a] shrink-0">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#2a2a2a] shrink-0">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">

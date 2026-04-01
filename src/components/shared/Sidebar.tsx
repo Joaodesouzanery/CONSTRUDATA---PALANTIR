@@ -135,8 +135,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             >
               Atlântico
             </span>
-            <span className="text-[9px] font-medium tracking-widest uppercase" style={{ color: '#f97316', opacity: 0.8 }}>
-              Plataforma
+            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#6b6b6b' }}>
+              ConstruData
             </span>
           </div>
         )}
@@ -152,7 +152,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden scrollbar-none">
+      <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden sidebar-scroll">
         {NAV_GROUPS.map((group, gi) => (
           <div key={group.label} className={cn('flex flex-col', gi > 0 && 'mt-1')}>
             {/* Group label — only shown when expanded */}

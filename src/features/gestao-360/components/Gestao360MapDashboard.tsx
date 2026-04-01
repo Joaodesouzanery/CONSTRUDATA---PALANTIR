@@ -362,7 +362,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
             {photos.length === 0 ? (
               <p className="text-[#6b6b6b] text-xs italic">Nenhuma foto disponível no Relatório 360 para este projeto.</p>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {photos.map((ph) => (
                   <div key={ph.id} className="flex flex-col gap-1">
                     <img src={ph.base64} alt={ph.label} className="w-full aspect-video object-cover rounded-lg border border-[#2a2a2a]" />

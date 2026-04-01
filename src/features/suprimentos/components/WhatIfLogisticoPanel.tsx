@@ -181,8 +181,8 @@ export function WhatIfLogisticoPanel() {
 
           {/* Insufficient items */}
           {sim.resultado.itensInsuficientes.length > 0 && (
-            <div className="bg-[#0f0f0f]/50 rounded-lg overflow-hidden">
-              <table className="w-full text-[11px]">
+            <div className="bg-[#0f0f0f]/50 rounded-lg overflow-x-auto">
+              <table className="w-full min-w-[560px] text-[11px]">
                 <thead>
                   <tr className="bg-[#0f0f0f]">
                     {['Material', 'Disponível', 'Necessário', 'Déficit', 'Fornecedor', 'Lead Time'].map((h) => (

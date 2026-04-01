@@ -16,7 +16,7 @@ const STATUS_COLUMNS: { id: Rede360ServiceOrderStatus; label: string }[] = [
 ]
 
 const PRIORITY_BADGE: Record<ServiceOrderPriority, string> = {
-  low:       'bg-gray-800 text-gray-400',
+  low:       'bg-[#1e1e1e] text-[#a3a3a3]',
   medium:    'bg-yellow-900/40 text-yellow-300',
   high:      'bg-orange-900/40 text-orange-300',
   emergency: 'bg-red-900/40 text-red-300',

@@ -190,7 +190,7 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-3 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Código AM</label>
               <input className={inp} value={f.code} onChange={(e) => set('code', e.target.value)} placeholder="FA-001" required />
@@ -200,7 +200,7 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
               <input className={inp} value={f.supplier} onChange={(e) => set('supplier', e.target.value)} placeholder="Nome do fornecedor" required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={lbl}>Categoria</label>
               <select className={sel} value={f.category} onChange={(e) => set('category', e.target.value)}>
@@ -216,7 +216,7 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className={lbl}>Preço Unitário (R$)</label>
               <input className={inp} type="number" min="0" step="0.01" value={f.agreedUnitPrice} onChange={(e) => set('agreedUnitPrice', parseFloat(e.target.value) || 0)} />
@@ -230,7 +230,7 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
               <input className={inp} type="number" min="0" value={f.leadTimeDays} onChange={(e) => set('leadTimeDays', parseInt(e.target.value) || 0)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className={lbl}>Válido De</label>
               <input className={inp} type="date" value={f.validFrom} onChange={(e) => set('validFrom', e.target.value)} />

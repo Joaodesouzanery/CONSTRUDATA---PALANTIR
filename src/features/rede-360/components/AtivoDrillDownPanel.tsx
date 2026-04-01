@@ -264,7 +264,7 @@ export function AtivoDrillDownPanel() {
                       order.priority === 'emergency' ? 'bg-red-900/40 text-red-300'    :
                       order.priority === 'high'      ? 'bg-orange-900/40 text-orange-300' :
                       order.priority === 'medium'    ? 'bg-yellow-900/40 text-yellow-300' :
-                                                       'bg-gray-800 text-gray-400'
+                                                       'bg-[#1e1e1e] text-[#a3a3a3]'
                     }`}>
                       {order.priority === 'emergency' ? 'Emergência' :
                        order.priority === 'high'      ? 'Alta'       :

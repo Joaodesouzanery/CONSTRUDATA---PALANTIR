@@ -152,7 +152,7 @@ export function FleetDashboard() {
     <div className="flex flex-col gap-6 p-6 overflow-y-auto h-full">
 
       {/* ── KPI Row ── */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard
           label="Total da Frota"
           value={total}
@@ -309,7 +309,7 @@ export function FleetDashboard() {
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Todos os Equipamentos
         </h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {equipamentos.map((eq) => (
             <EquipCard key={eq.id} equip={eq} />
           ))}

@@ -39,6 +39,7 @@ Encarregado: 5`
 
 export function TextParseModal({ onClose, onApply }: Props) {
   const [text, setText]   = useState('')
+  const [rdoDate, setRdoDate] = useState(todayStr())
   const [showPreview, setShowPreview] = useState(false)
   const [showServices, setShowServices]   = useState(true)
   const [showTrechos,  setShowTrechos]    = useState(false)
@@ -62,7 +63,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
     const draft: RDO = {
       id:           'draft',
       number:       0,
-      date:         todayStr(),
+      date:         rdoDate,
       responsible:  parsed.responsible || 'Responsável não informado',
       weather:      { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 25 },
       manpower:     { ...parsed.manpower, employeeNames: parsed.employeeNames },
@@ -81,7 +82,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
   function handleApply() {
     if (!parsed) return
-    onApply(parsed)
+    onApply({ ...parsed, date: rdoDate })
   }
 
   const totalManpower =
@@ -117,6 +118,19 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
         {/* ── Body ── */}
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+          {/* Date field */}
+          <div>
+            <label className="block text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] mb-1.5">
+              Data do RDO
+            </label>
+            <input
+              type="date"
+              value={rdoDate}
+              onChange={(e) => setRdoDate(e.target.value)}
+              className="w-full rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+            />
+          </div>
+
           {/* Textarea */}
           <div>
             <label className="block text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] mb-2">

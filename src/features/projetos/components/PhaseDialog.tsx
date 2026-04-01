@@ -87,7 +87,7 @@ export function PhaseDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
           <div>
             <h2 className="text-[#f5f5f5] font-bold text-sm">Editar Fase</h2>
             <p className="text-[11px] text-[#6b6b6b] mt-0.5">{phase.name}</p>
@@ -131,7 +131,7 @@ export function PhaseDialog() {
             </Field>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Data de Início *" error={errors.startDate?.message}>
                 <input type="date" {...register('startDate')} className={inp(!!errors.startDate)} />
               </Field>

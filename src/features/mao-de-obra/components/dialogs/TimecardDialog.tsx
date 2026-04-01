@@ -80,7 +80,7 @@ export function TimecardDialog({ onClose }: Props) {
           </label>
 
           {/* Date + HH row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-[#6b6b6b] text-xs font-medium">Data *</span>
               <input
@@ -124,7 +124,7 @@ export function TimecardDialog({ onClose }: Props) {
           </label>
 
           {/* Qty + Unit */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-[#6b6b6b] text-xs font-medium">Quantidade produzida</span>
               <input

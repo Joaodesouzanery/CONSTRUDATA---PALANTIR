@@ -21,7 +21,10 @@ export function AppShell() {
         >
           <Menu size={20} />
         </button>
-        <span className="text-[#f5f5f5] text-sm font-bold tracking-wide">Atlântico</span>
+        <div className="flex flex-col leading-none">
+          <span className="text-[#f5f5f5] text-sm font-bold tracking-wide">Atlântico</span>
+          <span className="text-[8px] font-semibold tracking-[0.16em] uppercase text-[#6b6b6b]">ConstruData</span>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">

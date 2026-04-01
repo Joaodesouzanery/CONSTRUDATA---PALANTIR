@@ -401,7 +401,7 @@ export function CurtoPrazoPanel() {
       )}
 
       {/* ── C: Impact Visualization ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* S-Curve */}
         <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -428,7 +428,7 @@ export function CurtoPrazoPanel() {
             <Activity size={14} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Serviços Notáveis — Planejado vs Realizado</h3>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {notableServiceCurves.map((curve) => (
               <ServiceBar key={curve.id} curve={curve} />
             ))}

@@ -48,7 +48,7 @@ interface SectionProps {
 function Section({ title, icon, children, defaultOpen = true }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
+    <div className="bg-[#1e1e1e] rounded-xl overflow-hidden border border-[#2a2a2a]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -58,7 +58,7 @@ function Section({ title, icon, children, defaultOpen = true }: SectionProps) {
           {icon}
           {title}
         </div>
-        {open ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+        {open ? <ChevronDown size={16} className="text-[#a3a3a3]" /> : <ChevronRight size={16} className="text-[#a3a3a3]" />}
       </button>
       {open && <div className="px-5 pb-5 pt-1">{children}</div>}
     </div>
@@ -72,8 +72,8 @@ function FieldError({ msg }: { msg?: string }) {
   return <p className="text-red-400 text-xs mt-1">{msg}</p>
 }
 
-const inputCls = 'w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-sky-500 transition-colors'
-const selectCls = 'w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-sky-500 transition-colors'
+const inputCls = 'w-full bg-[#262626] border border-[#363636] rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors'
+const selectCls = 'w-full bg-[#262626] border border-[#363636] rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-[#f97316]/50 transition-colors'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -174,6 +174,7 @@ export function NovoRdoPanel() {
 
   // ── Text paste auto-fill ─────────────────────────────────────────────────
   function handleApplyParsed(data: ParsedRdoData) {
+    if (data.date)                       setValue('date', data.date)
     if (data.responsible)                setValue('responsible', data.responsible)
     if (data.manpower.foremanCount)      setValue('manpower.foremanCount',  data.manpower.foremanCount)
     if (data.manpower.officialCount)     setValue('manpower.officialCount', data.manpower.officialCount)
@@ -298,22 +299,22 @@ export function NovoRdoPanel() {
             <ClipboardPaste size={13} />
             Preencher com Texto
           </button>
-          <span className="text-gray-400 text-sm">RDO #{rdoNumber}</span>
+          <span className="text-[#a3a3a3] text-sm">RDO #{rdoNumber}</span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit(onValid)} className="space-y-4">
 
         {/* 1. Informações Gerais */}
-        <Section title="Informações Gerais" icon={<ClipboardList size={16} className="text-sky-400" />}>
+        <Section title="Informações Gerais" icon={<ClipboardList size={16} className="text-[#f97316]" />}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Data</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Data</label>
               <input type="date" {...register('date')} className={inputCls} />
               <FieldError msg={errors.date?.message} />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Nº RDO</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Nº RDO</label>
               <input
                 type="number"
                 value={rdoNumber}
@@ -323,7 +324,7 @@ export function NovoRdoPanel() {
               />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Responsável</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Responsável</label>
               <input type="text" {...register('responsible')} placeholder="Nome do responsável" className={inputCls} />
               <FieldError msg={errors.responsible?.message} />
             </div>
@@ -331,13 +332,13 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 2. Condições Climáticas */}
-        <Section title="Condições Climáticas" icon={<CloudSun size={16} className="text-sky-400" />}>
+        <Section title="Condições Climáticas" icon={<CloudSun size={16} className="text-[#f97316]" />}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {(['morning', 'afternoon', 'night'] as const).map((period) => {
               const labels = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' }
               return (
                 <div key={period}>
-                  <label className="block text-gray-400 text-xs mb-1">{labels[period]}</label>
+                  <label className="block text-[#a3a3a3] text-xs mb-1">{labels[period]}</label>
                   <select {...register(`weather.${period}`)} className={selectCls}>
                     {WEATHER_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -347,7 +348,7 @@ export function NovoRdoPanel() {
               )
             })}
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Temperatura (°C)</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Temperatura (°C)</label>
               <input
                 type="number"
                 step="0.1"
@@ -361,7 +362,7 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 3. Mão de Obra */}
-        <Section title="Mão de Obra" icon={<Users size={16} className="text-sky-400" />}>
+        <Section title="Mão de Obra" icon={<Users size={16} className="text-[#f97316]" />}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
             {([
               ['foremanCount',  'Encarregado'],
@@ -370,7 +371,7 @@ export function NovoRdoPanel() {
               ['operatorCount', 'Operador'],
             ] as const).map(([field, label]) => (
               <div key={field}>
-                <label className="block text-gray-400 text-xs mb-1">{label}</label>
+                <label className="block text-[#a3a3a3] text-xs mb-1">{label}</label>
                 <input
                   type="number"
                   min={0}
@@ -384,15 +385,15 @@ export function NovoRdoPanel() {
           </div>
           {/* Employee name chips */}
           <div>
-            <label className="block text-gray-400 text-xs mb-1">Funcionários Presentes</label>
+            <label className="block text-[#a3a3a3] text-xs mb-1">Funcionários Presentes</label>
             <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
               {employeeNames.map((name, i) => (
-                <span key={i} className="flex items-center gap-1 bg-sky-900/30 border border-sky-700/40 text-sky-300 text-xs px-2 py-0.5 rounded-full">
+                <span key={i} className="flex items-center gap-1 bg-sky-900/30 border border-sky-700/40 text-[#ea580c] text-xs px-2 py-0.5 rounded-full">
                   {name}
                   <button
                     type="button"
                     onClick={() => setEmployeeNames((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="text-sky-500 hover:text-red-400 ml-0.5"
+                    className="text-[#f97316] hover:text-red-400 ml-0.5"
                   >
                     <X size={10} />
                   </button>
@@ -438,10 +439,10 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 4. Equipamentos */}
-        <Section title="Equipamentos" icon={<Wrench size={16} className="text-sky-400" />}>
+        <Section title="Equipamentos" icon={<Wrench size={16} className="text-[#f97316]" />}>
           <div className="space-y-2">
             {equipment.length === 0 && (
-              <p className="text-gray-500 text-sm italic">Nenhum equipamento adicionado.</p>
+              <p className="text-[#6b6b6b] text-sm italic">Nenhum equipamento adicionado.</p>
             )}
             {equipment.map((row, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -468,21 +469,21 @@ export function NovoRdoPanel() {
                   className={`${inputCls} w-20`}
                   title="Horas"
                 />
-                <span className="text-gray-500 text-xs">h</span>
+                <span className="text-[#6b6b6b] text-xs">h</span>
                 <button type="button" onClick={() => removeEquipment(i)} className="text-red-400 hover:text-red-300 p-1">
                   <Trash2 size={15} />
                 </button>
               </div>
             ))}
             {equipment.length > 0 && (
-              <p className="text-gray-500 text-xs">
+              <p className="text-[#6b6b6b] text-xs">
                 Total: {equipment.reduce((s, r) => s + r.quantity * r.hours, 0).toFixed(1)} h·equip
               </p>
             )}
             <button
               type="button"
               onClick={addEquipmentRow}
-              className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 text-sm mt-1"
+              className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm mt-1"
             >
               <Plus size={14} /> Adicionar Equipamento
             </button>
@@ -490,10 +491,10 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 5. Serviços Executados */}
-        <Section title="Serviços Executados" icon={<ClipboardList size={16} className="text-sky-400" />}>
+        <Section title="Serviços Executados" icon={<ClipboardList size={16} className="text-[#f97316]" />}>
           <div className="space-y-2">
             {services.length === 0 && (
-              <p className="text-gray-500 text-sm italic">Nenhum serviço adicionado.</p>
+              <p className="text-[#6b6b6b] text-sm italic">Nenhum serviço adicionado.</p>
             )}
             {services.map((row, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -528,7 +529,7 @@ export function NovoRdoPanel() {
             <button
               type="button"
               onClick={addServiceRow}
-              className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 text-sm mt-1"
+              className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm mt-1"
             >
               <Plus size={14} /> Adicionar Serviço
             </button>
@@ -536,13 +537,13 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 6. Avanço por Trecho */}
-        <Section title="Avanço por Trecho" icon={<Route size={16} className="text-sky-400" />}>
+        <Section title="Avanço por Trecho" icon={<Route size={16} className="text-[#f97316]" />}>
           <div className="space-y-3">
             {trechos.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-gray-400 text-xs">
+                    <tr className="text-[#a3a3a3] text-xs">
                       <th className="text-left pb-2 font-medium">Código</th>
                       <th className="text-left pb-2 font-medium">Descrição</th>
                       <th className="text-left pb-2 font-medium">Planejado (m)</th>
@@ -554,7 +555,7 @@ export function NovoRdoPanel() {
                   </thead>
                   <tbody className="space-y-1">
                     {trechos.map((row, i) => (
-                      <tr key={i} className="border-t border-gray-700">
+                      <tr key={i} className="border-t border-[#2a2a2a]">
                         <td className="py-1.5 pr-2">
                           <input
                             type="text"
@@ -606,7 +607,7 @@ export function NovoRdoPanel() {
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                             row.status === 'completed'   ? 'bg-emerald-900/50 text-emerald-300' :
                             row.status === 'in_progress' ? 'bg-yellow-900/50 text-yellow-300'  :
-                                                           'bg-gray-700 text-gray-400'
+                                                           'bg-[#262626] text-[#a3a3a3]'
                           }`}>
                             {row.status === 'completed'   ? 'Concluído'     :
                              row.status === 'in_progress' ? 'Em Execução'  :
@@ -625,13 +626,13 @@ export function NovoRdoPanel() {
               </div>
             )}
             {trechos.length === 0 && (
-              <p className="text-gray-500 text-sm italic">Nenhum trecho adicionado.</p>
+              <p className="text-[#6b6b6b] text-sm italic">Nenhum trecho adicionado.</p>
             )}
             <div className="flex items-center gap-3 flex-wrap">
               <button
                 type="button"
                 onClick={addTrechoRow}
-                className="flex items-center gap-1.5 text-sky-400 hover:text-sky-300 text-sm"
+                className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm"
               >
                 <Plus size={14} /> Adicionar Trecho
               </button>
@@ -639,7 +640,7 @@ export function NovoRdoPanel() {
                 type="button"
                 onClick={handleLoadTrechos}
                 disabled={loadingTrechos}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
               >
                 {loadingTrechos ? 'Carregando...' : '↓ Carregar da Rede'}
               </button>
@@ -648,11 +649,11 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 7. Georreferenciamento */}
-        <Section title="Georreferenciamento" icon={<MapPin size={16} className="text-sky-400" />} defaultOpen={false}>
+        <Section title="Georreferenciamento" icon={<MapPin size={16} className="text-[#f97316]" />} defaultOpen={false}>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-400 text-xs mb-1">Latitude</label>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Latitude</label>
                 <input
                   type="text"
                   value={geolocation?.lat ?? ''}
@@ -662,7 +663,7 @@ export function NovoRdoPanel() {
                 />
               </div>
               <div>
-                <label className="block text-gray-400 text-xs mb-1">Longitude</label>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Longitude</label>
                 <input
                   type="text"
                   value={geolocation?.lng ?? ''}
@@ -676,7 +677,7 @@ export function NovoRdoPanel() {
               type="button"
               onClick={handleGetGps}
               disabled={geoLoading}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
             >
               <MapPin size={14} />
               {geoLoading ? 'Obtendo...' : 'Obter GPS'}
@@ -686,10 +687,10 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 8. Observações e Ocorrências */}
-        <Section title="Observações e Ocorrências" icon={<Pencil size={16} className="text-sky-400" />} defaultOpen={false}>
+        <Section title="Observações e Ocorrências" icon={<Pencil size={16} className="text-[#f97316]" />} defaultOpen={false}>
           <div className="space-y-4">
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Observações Gerais</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Observações Gerais</label>
               <textarea
                 {...register('observations')}
                 rows={4}
@@ -699,7 +700,7 @@ export function NovoRdoPanel() {
               <FieldError msg={errors.observations?.message} />
             </div>
             <div>
-              <label className="block text-gray-400 text-xs mb-1">Ocorrências / Incidentes</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Ocorrências / Incidentes</label>
               <textarea
                 {...register('incidents')}
                 rows={4}
@@ -712,20 +713,20 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* Photo upload */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-5 space-y-4">
+        <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5 space-y-4">
           <div className="flex items-center gap-2.5 text-gray-100 font-medium text-sm">
-            <Camera size={16} className="text-sky-400" />
+            <Camera size={16} className="text-[#f97316]" />
             Registro Fotográfico
-            <span className="text-gray-500 text-xs font-normal">({photos.length}/{MAX_PHOTOS})</span>
+            <span className="text-[#6b6b6b] text-xs font-normal">({photos.length}/{MAX_PHOTOS})</span>
           </div>
 
           {/* Dropzone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-gray-600 hover:border-sky-500 rounded-lg p-6 text-center cursor-pointer transition-colors"
+            className="border-2 border-dashed border-[#363636] hover:border-sky-500 rounded-lg p-6 text-center cursor-pointer transition-colors"
           >
-            <Upload size={24} className="mx-auto text-gray-500 mb-2" />
-            <p className="text-gray-400 text-sm">Clique para selecionar fotos</p>
+            <Upload size={24} className="mx-auto text-[#6b6b6b] mb-2" />
+            <p className="text-[#a3a3a3] text-sm">Clique para selecionar fotos</p>
             <p className="text-gray-600 text-xs mt-1">JPEG, PNG, WebP, GIF · máx. {MAX_SIZE_MB} MB por arquivo · {MAX_PHOTOS} fotos</p>
           </div>
           <input
@@ -746,12 +747,12 @@ export function NovoRdoPanel() {
                   <img
                     src={photo.base64}
                     alt={photo.label}
-                    className="w-full h-28 object-cover rounded-lg border border-gray-700"
+                    className="w-full h-28 object-cover rounded-lg border border-[#2a2a2a]"
                   />
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
-                    className="absolute top-1 right-1 bg-gray-900/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 bg-[#0f0f0f]/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X size={13} className="text-red-400" />
                   </button>
@@ -760,7 +761,7 @@ export function NovoRdoPanel() {
                     value={photo.label}
                     onChange={(e) => updatePhotoLabel(i, e.target.value)}
                     placeholder="Legenda"
-                    className="mt-1.5 w-full bg-gray-700 border border-gray-600 rounded text-xs text-gray-200 px-2 py-1 focus:outline-none focus:border-sky-500"
+                    className="mt-1.5 w-full bg-[#262626] border border-[#363636] rounded text-xs text-[#f5f5f5] px-2 py-1 focus:outline-none focus:border-[#f97316]/50"
                   />
                 </div>
               ))}
@@ -780,7 +781,7 @@ export function NovoRdoPanel() {
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] text-sm font-medium transition-colors"
           >
             Limpar
           </button>

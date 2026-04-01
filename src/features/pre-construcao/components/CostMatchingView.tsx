@@ -215,7 +215,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
           className="bg-[#1e1e1e] border border-[#f97316]/30 rounded-xl p-4 flex flex-col gap-3"
         >
           <p className="text-[#f5f5f5] text-xs font-semibold">Nova entrada</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               placeholder="Código"
               value={form.code}

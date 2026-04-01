@@ -22,7 +22,7 @@ export function PreConstrucaoPage() {
     <div className="flex h-full overflow-hidden">
       <AnalysisHistory />
       <div className="flex flex-col flex-1 overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <div>
             <h1 className="text-[#f5f5f5] font-bold text-base">Pré-Construção</h1>
             <p className="text-[10px] text-[#6b6b6b]">Estimativa e Orçamentação Inteligente</p>

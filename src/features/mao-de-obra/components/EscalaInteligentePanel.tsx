@@ -92,7 +92,7 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
               {workers.map((w) => <option key={w.id} value={w.id}>{w.name} — {w.role}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Data</label>
               <input type="date" className={fieldClass} value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
@@ -112,7 +112,7 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
               <input type="time" className={fieldClass} value={form.endTime} onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Intervalo (min)</label>
               <input type="number" min="0" className={fieldClass} value={form.breakMinutes} onChange={(e) => setForm((p) => ({ ...p, breakMinutes: parseInt(e.target.value) || 0 }))} />
@@ -168,7 +168,7 @@ function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Configurações CLT</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
+        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label className={labelClass}>Jornada diária (h)</label><input type="number" className={fieldClass} value={form.maxDailyHours} onChange={num('maxDailyHours')} /></div>
           <div><label className={labelClass}>HE máx/dia (h)</label><input type="number" className={fieldClass} value={form.maxOvertimeHours} onChange={num('maxOvertimeHours')} /></div>
           <div><label className={labelClass}>Jornada semanal (h)</label><input type="number" className={fieldClass} value={form.maxWeeklyHours} onChange={num('maxWeeklyHours')} /></div>

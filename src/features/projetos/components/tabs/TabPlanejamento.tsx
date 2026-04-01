@@ -114,7 +114,7 @@ export function TabPlanejamento({ project }: { project: Project }) {
 
   return (
     <div className="p-5 overflow-y-auto h-full">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {project.planningPhases.map((phase) => (
           <PhaseCard
             key={phase.id}

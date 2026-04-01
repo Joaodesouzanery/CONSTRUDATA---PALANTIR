@@ -58,7 +58,7 @@ export function IntegracoesPanel() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="text-[#6b6b6b] text-[10px]">Última Sincronização</p>
                   <p className="text-[#f5f5f5] font-mono mt-0.5">

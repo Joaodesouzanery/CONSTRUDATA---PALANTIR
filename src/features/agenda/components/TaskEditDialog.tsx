@@ -140,7 +140,7 @@ export function TaskEditDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
           <h2 className="text-[#f5f5f5] font-bold text-base flex items-center gap-2">
             {isNew ? 'Nova Tarefa' : 'Editar Tarefa'}
             {priorityCfg && !isNew && (
@@ -175,7 +175,7 @@ export function TaskEditDialog() {
               {errors.title && <span className={ERR}>{errors.title.message}</span>}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className={LABEL}>Recurso <span className="text-[#ef4444]">*</span></label>
                 <select {...register('resourceId')} className={fieldCls(!!errors.resourceId)}>
@@ -204,7 +204,7 @@ export function TaskEditDialog() {
             </div>
 
             {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className={LABEL}>Data Início <span className="text-[#ef4444]">*</span></label>
                 <input type="date" {...register('startDate')} className={fieldCls(!!errors.startDate)} />
@@ -218,7 +218,7 @@ export function TaskEditDialog() {
             </div>
 
             {/* Status + Color */}
-            <div className="grid grid-cols-2 gap-3 items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
               <div className="flex flex-col gap-1.5">
                 <label className={LABEL}>Status</label>
                 <select {...register('status')} className={fieldCls(false)}>
@@ -257,7 +257,7 @@ export function TaskEditDialog() {
                 Detalhes
               </legend>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className={LABEL}>Responsável</label>
                   <input
@@ -285,7 +285,7 @@ export function TaskEditDialog() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                 <div className="flex flex-col gap-1.5">
                   <label className={LABEL}>Horas Estimadas</label>
                   <input
@@ -335,7 +335,7 @@ export function TaskEditDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a]">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#2a2a2a]">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">

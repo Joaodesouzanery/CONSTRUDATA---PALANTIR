@@ -127,7 +127,7 @@ export function PhotosPanel() {
           <span className="text-xs text-[#6b6b6b]">Clique para adicionar fotos da obra</span>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {photos.map((photo) => (
             <PhotoCard key={photo.id} photo={photo} />
           ))}

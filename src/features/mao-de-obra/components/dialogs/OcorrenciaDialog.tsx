@@ -75,7 +75,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Date + Type row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
               <span className="text-[#6b6b6b] text-xs font-medium">Data *</span>
               <input

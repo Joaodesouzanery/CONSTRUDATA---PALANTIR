@@ -46,7 +46,7 @@ export function AlertsPanel() {
   if (allAlerts.length === 0 && !showAdd) {
     return (
       <div className="border-t border-[#2a2a2a] bg-[#161616] shrink-0">
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-3">
           <div className="flex items-center gap-2 text-xs text-[#3f3f3f]">
             <CheckCheck size={13} className="text-[#22c55e]" />
             Nenhum alerta ativo — todos os equipamentos estão dentro dos parâmetros

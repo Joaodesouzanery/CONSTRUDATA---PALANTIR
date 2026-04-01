@@ -59,7 +59,7 @@ export function RdoHeader() {
   }
 
   return (
-    <div className="bg-gray-900 border-b border-gray-700 print:hidden">
+    <div className="bg-[#0f0f0f] border-b border-[#2a2a2a] print:hidden">
       {/* Title + actions */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -68,7 +68,7 @@ export function RdoHeader() {
           </div>
           <div>
             <h1 className="text-white font-semibold text-lg leading-tight">RDO</h1>
-            <p className="text-gray-400 text-xs">Relatório Diário de Obras</p>
+            <p className="text-[#a3a3a3] text-xs">Relatório Diário de Obras</p>
           </div>
         </div>
 
@@ -83,7 +83,7 @@ export function RdoHeader() {
           </button>
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#262626] text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             <Download size={15} />
             Exportar CSV
@@ -102,8 +102,8 @@ export function RdoHeader() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2 ${
                   isActive
-                    ? 'text-white border-sky-500 bg-gray-800'
-                    : 'text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800/50'
+                    ? 'text-white border-sky-500 bg-[#1e1e1e]'
+                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#1e1e1e]/50'
                 }`}
               >
                 {tab.label}

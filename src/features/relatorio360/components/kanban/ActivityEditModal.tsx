@@ -53,7 +53,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
           </div>
 
           {/* Qtd row */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[#a3a3a3] text-xs font-medium">Qtd Planejada</label>
               <input

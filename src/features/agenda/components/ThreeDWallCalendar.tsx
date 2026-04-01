@@ -490,7 +490,7 @@ export function ThreeDWallCalendar() {
   return (
     <div className="flex flex-col h-full bg-[#161616] select-none">
       {/* ── Month navigation header ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-[#2a2a2a] shrink-0">
         <button
           type="button"
           onClick={goToPrev}

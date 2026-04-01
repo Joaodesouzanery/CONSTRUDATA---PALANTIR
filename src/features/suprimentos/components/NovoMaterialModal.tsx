@@ -135,7 +135,7 @@ export function NovoMaterialModal({ onClose }: Props) {
           </div>
 
           {/* Unidade + Categoria */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
                 Unidade *
@@ -164,7 +164,7 @@ export function NovoMaterialModal({ onClose }: Props) {
           </div>
 
           {/* Qtd Disponível + Estoque Mínimo */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
                 Qtd. Disponível
@@ -196,7 +196,7 @@ export function NovoMaterialModal({ onClose }: Props) {
           </div>
 
           {/* Custo Unitário + Fornecedor */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
                 Custo Unit. (R$)

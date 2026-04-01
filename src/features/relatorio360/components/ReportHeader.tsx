@@ -40,7 +40,7 @@ export function ReportHeader() {
   return (
     <div className="flex flex-col border-b border-[#2a2a2a] bg-[#161616]">
       {/* Main row */}
-      <div className="flex items-center justify-between px-6 py-4 flex-wrap gap-3">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-4 flex-wrap gap-3">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2 text-[#a3a3a3] text-xs uppercase tracking-widest font-semibold">
             <Building2 size={12} />

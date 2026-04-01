@@ -28,9 +28,9 @@ const BimPage               = lazy(() => import('@/features/bim/index').then((m)
 
 function RouteFallback() {
   return (
-    <div className="flex items-center justify-center h-full text-gray-400">
+    <div className="flex items-center justify-center h-full text-[#a3a3a3]">
       <div className="flex items-center gap-3">
-        <div className="w-5 h-5 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-[#363636] border-t-cyan-500 rounded-full animate-spin" />
         <span className="text-sm">Carregando módulo...</span>
       </div>
     </div>

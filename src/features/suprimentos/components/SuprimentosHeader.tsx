@@ -69,7 +69,7 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
   return (
     <div className="flex flex-col gap-4 shrink-0">
       {/* KPI row */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {kpis.map(({ label, value, color, bg }) => (
           <div key={label} className={cn('border rounded-xl p-4 flex flex-col gap-1', bg)}>
             <p className="text-[#6b6b6b] text-xs">{label}</p>

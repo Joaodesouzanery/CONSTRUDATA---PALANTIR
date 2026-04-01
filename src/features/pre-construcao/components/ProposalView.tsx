@@ -33,7 +33,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 overflow-y-auto py-8">
       <div className="bg-white text-gray-900 w-full max-w-4xl rounded-xl shadow-2xl mx-4 print:shadow-none print:rounded-none print:mx-0 print:max-w-none">
         {/* Print toolbar — hidden on print */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 print:hidden">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-gray-200 print:hidden">
           <h2 className="font-bold text-lg text-gray-900">Proposta de Orçamento</h2>
           <div className="flex gap-2">
             <button
@@ -56,7 +56,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
         <div className="p-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Proposta de Orçamento</h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-[#6b6b6b] text-sm mt-1">
               Emitido em {new Date().toLocaleDateString('pt-BR', { dateStyle: 'long' })}
             </p>
           </div>
@@ -82,7 +82,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
                     <td className="border border-gray-200 px-3 py-1.5 font-mono text-xs text-gray-600">{line.code}</td>
                     <td className="border border-gray-200 px-3 py-1.5">{line.description}</td>
                     <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">{line.qty.toLocaleString('pt-BR')}</td>
-                    <td className="border border-gray-200 px-3 py-1.5 text-gray-500">{line.unit}</td>
+                    <td className="border border-gray-200 px-3 py-1.5 text-[#6b6b6b]">{line.unit}</td>
                     <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">{formatBRL(line.unitCost)}</td>
                     <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">{formatBRL(line.directCost)}</td>
                     <td className="border border-gray-200 px-3 py-1.5 text-right tabular-nums">{bdiTotal.toFixed(2)}%</td>
@@ -101,7 +101,7 @@ function PrintModal({ lines, bdiTotal, totalDirect, totalBdi, totalFinal, onClos
             </tfoot>
           </table></div>
 
-          <div className="mt-4 text-xs text-gray-400">
+          <div className="mt-4 text-xs text-[#a3a3a3]">
             BDI aplicado: {bdiTotal.toFixed(2)}% — Documento gerado por CONSTRUDATA PALANTIR
           </div>
         </div>

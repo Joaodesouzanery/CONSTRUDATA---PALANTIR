@@ -230,7 +230,7 @@ export function ProjectDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Novo Projeto' : `Editar — ${existing?.name ?? ''}`}
           </h2>
@@ -246,7 +246,7 @@ export function ProjectDialog() {
           <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5" style={{ maxHeight: '68vh' }}>
             {/* Identificação */}
             <Section title="Identificação">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Código *" error={errors.code?.message}>
                   <input {...register('code')} placeholder="PRJ-001" className={inp(!!errors.code)} />
                 </Field>
@@ -265,7 +265,7 @@ export function ProjectDialog() {
 
             {/* Responsáveis */}
             <Section title="Responsáveis">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Dono (Owner) *" error={errors.owner?.message}>
                   <input {...register('owner')} placeholder="Empresa ou pessoa" className={inp(!!errors.owner)} />
                 </Field>
@@ -277,7 +277,7 @@ export function ProjectDialog() {
 
             {/* Datas */}
             <Section title="Cronograma">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Data de Início *" error={errors.startDate?.message}>
                   <input type="date" {...register('startDate')} className={inp(!!errors.startDate)} />
                 </Field>
@@ -301,7 +301,7 @@ export function ProjectDialog() {
 
             {/* Informações Adicionais */}
             <Section title="Informações Adicionais">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Nº do Contrato" error={errors.contractNumber?.message}>
                   <input {...register('contractNumber')} placeholder="CT-2025-001" className={inp(!!errors.contractNumber)} />
                 </Field>
@@ -312,7 +312,7 @@ export function ProjectDialog() {
               <Field label="Gerente de Projeto" error={errors.projectManager?.message}>
                 <input {...register('projectManager')} placeholder="Nome do gerente de projeto" className={inp(!!errors.projectManager)} />
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Nível de Risco" error={errors.riskLevel?.message}>
                   <select {...register('riskLevel')} className={inp(!!errors.riskLevel)}>
                     <option value="">— Selecione —</option>
@@ -358,7 +358,7 @@ export function ProjectDialog() {
                   <p className="text-[10px] text-[#ef4444] mt-1">{geocodeError}</p>
                 )}
               </Field>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Latitude" error={errors.lat?.message}>
                   <input
                     type="number"
@@ -412,7 +412,7 @@ export function ProjectDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a] shrink-0">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#2a2a2a] shrink-0">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">

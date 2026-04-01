@@ -97,7 +97,7 @@ export function RiskDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
           <div>
             <h2 className="text-[#f5f5f5] font-bold text-sm">
               {isNew ? 'Novo Risco' : 'Editar Risco'}
@@ -117,7 +117,7 @@ export function RiskDialog() {
             </Field>
 
             {/* Level + Status */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Nível *" error={errors.level?.message}>
                 <select {...register('level')} className={inp(!!errors.level)}>
                   {LEVEL_OPTIONS.map((o) => (

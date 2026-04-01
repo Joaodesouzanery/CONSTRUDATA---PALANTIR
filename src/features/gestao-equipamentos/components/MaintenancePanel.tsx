@@ -167,7 +167,7 @@ function WorkOrderDialog() {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Nova Ordem de Serviço' : `Editar OS — ${existing?.description?.slice(0, 30) ?? ''}…`}
           </h2>
@@ -196,7 +196,7 @@ function WorkOrderDialog() {
             </Field>
 
             {/* Type + scheduledDate */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Tipo *" error={errors.type?.message}>
                 <select {...register('type')} className={inp(!!errors.type)}>
                   <option value="preventive">Preventiva</option>
@@ -224,7 +224,7 @@ function WorkOrderDialog() {
             </Field>
 
             {/* Responsible + estimatedCost */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Responsável *" error={errors.responsible?.message}>
                 <input
                   {...register('responsible')}
@@ -327,7 +327,7 @@ export function MaintenancePanel() {
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0 bg-[#161616]">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0 bg-[#161616]">
         {/* Filter tabs */}
         <div className="flex items-center gap-1">
           {FILTER_TABS.map((tab) => (
