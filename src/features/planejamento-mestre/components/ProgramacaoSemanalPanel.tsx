@@ -4,8 +4,8 @@
  * Columns: Item, Núcleo, Local, Atividade, Comprimento, Qtd.Lig., % Peso, Coordenador,
  *          Ação/Restrição, Unidade | Day columns (Mon-Sun) Prev/Real | Summary columns.
  */
-import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Download, TableProperties } from 'lucide-react'
+import { useState, useMemo, useCallback } from 'react'
+import { ChevronLeft, ChevronRight, Download, TableProperties, Plus, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import type { MasterActivity, ProgramacaoDiaria } from '@/types'
@@ -70,7 +70,114 @@ function nextWeek(w: string): string {
 
 const DAY_NAMES = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
-// ─── Inline editable cell ─────────────────────────────────────────────────────
+const UNIDADE_OPTIONS = ['m', 'un', 'h', 'kg', 'm²', 'm³', 'km', 'l', 'pç', 'vb']
+
+// ─── Inline editable text cell ────────────────────────────────────────────────
+
+function EditableText({
+  value, onChange, placeholder = '—', className = '',
+}: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const commit = useCallback((v: string) => { onChange(v.trim()); setEditing(false) }, [onChange])
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="text"
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter')  { e.preventDefault(); commit(draft) }
+          if (e.key === 'Escape') { setEditing(false) }
+          if (e.key === 'Tab')    { commit(draft) }
+        }}
+        className={`w-full min-w-[60px] bg-[#2c2c2c] border border-[#f97316]/50 rounded px-1 py-0.5 text-[10px] text-[#f5f5f5] focus:outline-none ${className}`}
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className={`w-full text-left text-[10px] rounded px-1 py-0.5 transition-colors hover:bg-[#525252] ${
+        value ? 'text-[#a3a3a3]' : 'text-[#3a3a3a]'
+      } ${className}`}
+    >
+      {value || placeholder}
+    </button>
+  )
+}
+
+// ─── Inline editable number cell ─────────────────────────────────────────────
+
+function EditableNumberField({
+  value, onChange, decimals = 0,
+}: { value: number | undefined; onChange: (v: number) => void; decimals?: number }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const commit = useCallback((v: string) => {
+    const n = parseFloat(v)
+    onChange(isNaN(n) ? 0 : n)
+    setEditing(false)
+  }, [onChange])
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        type="number"
+        min={0}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => commit(draft)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter')  { e.preventDefault(); commit(draft) }
+          if (e.key === 'Escape') { setEditing(false) }
+          if (e.key === 'Tab')    { commit(draft) }
+        }}
+        className="w-16 bg-[#2c2c2c] border border-[#f97316]/50 rounded px-1 py-0.5 text-[10px] text-[#f5f5f5] text-right focus:outline-none"
+        style={{ WebkitAppearance: 'none' }}
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(value != null ? String(value) : ''); setEditing(true) }}
+      className={`w-full text-right text-[10px] font-mono rounded px-1 py-0.5 transition-colors hover:bg-[#525252] ${
+        value != null && value !== 0 ? 'text-[#a3a3a3]' : 'text-[#3a3a3a]'
+      }`}
+    >
+      {value != null && value !== 0
+        ? (decimals > 0 ? value.toFixed(decimals) : String(value))
+        : '—'}
+    </button>
+  )
+}
+
+// ─── Inline editable select ───────────────────────────────────────────────────
+
+function EditableSelect({
+  value, options, onChange,
+}: { value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value || options[0]}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-1 py-0.5 text-[10px] text-[#a3a3a3] focus:outline-none focus:border-[#f97316]/50 cursor-pointer hover:border-[#f97316]/30"
+    >
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+    </select>
+  )
+}
+
+// ─── Prev/Real editable number ────────────────────────────────────────────────
 
 function EditableNumber({
   value, onChange,
@@ -115,6 +222,11 @@ export function ProgramacaoSemanalPanel() {
   const activities          = usePlanejamentoMestreStore((s) => s.activities)
   const programacaoSemanal  = usePlanejamentoMestreStore((s) => s.programacaoSemanal)
   const setProgramacaoDiaria = usePlanejamentoMestreStore((s) => s.setProgramacaoDiaria)
+  const updateActivity      = usePlanejamentoMestreStore((s) => s.updateActivity)
+  const addActivity         = usePlanejamentoMestreStore((s) => s.addActivity)
+  const removeActivity      = usePlanejamentoMestreStore((s) => s.removeActivity)
+
+  const upd = useCallback((id: string, patch: Partial<MasterActivity>) => updateActivity(id, patch), [updateActivity])
 
   const [week, setWeek]         = useState(currentISOWeek)
   const [filterNucleo, setFilterNucleo] = useState('')
@@ -334,27 +446,46 @@ export function ProgramacaoSemanalPanel() {
                 const rowBg = rowIdx % 2 === 0 ? '' : 'bg-[#222222]/30'
 
                 return (
-                  <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors`}>
-                    <td className={`${tdFixedCls} left-0 z-10 font-mono`}>{a.wbsCode}</td>
-                    <td className={tdCls}>{a.nucleo ?? <span className="text-[#3a3a3a]">—</span>}</td>
-                    <td className={tdCls}>{a.local ?? <span className="text-[#3a3a3a]">—</span>}</td>
+                  <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors group`}>
+                    <td className={`${tdFixedCls} left-0 z-10 font-mono`}>
+                      <div className="flex items-center gap-1">
+                        <EditableText value={a.wbsCode} onChange={(v) => upd(a.id, { wbsCode: v })} placeholder="WBS" />
+                        <button
+                          onClick={() => removeActivity(a.id)}
+                          className="opacity-0 group-hover:opacity-100 text-red-500/50 hover:text-red-500 transition-all p-0.5 rounded"
+                          title="Remover atividade"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    </td>
+                    <td className={tdCls}>
+                      <EditableText value={a.nucleo ?? ''} onChange={(v) => upd(a.id, { nucleo: v })} placeholder="Núcleo" />
+                    </td>
+                    <td className={tdCls}>
+                      <EditableText value={a.local ?? ''} onChange={(v) => upd(a.id, { local: v })} placeholder="Local" />
+                    </td>
                     <td className={`${tdCls} max-w-[200px]`}>
-                      <span className="block truncate text-[#f5f5f5]" title={a.name}>{a.name}</span>
+                      <EditableText value={a.name} onChange={(v) => upd(a.id, { name: v || a.name })} placeholder="Atividade" className="text-[#f5f5f5]" />
                     </td>
                     <td className={`${tdCls} text-right font-mono`}>
-                      {a.comprimento != null ? a.comprimento.toFixed(0) : <span className="text-[#3a3a3a]">—</span>}
+                      <EditableNumberField value={a.comprimento} onChange={(v) => upd(a.id, { comprimento: v })} />
                     </td>
                     <td className={`${tdCls} text-center font-mono`}>
-                      {a.quantidadeLigacoes ?? <span className="text-[#3a3a3a]">—</span>}
+                      <EditableNumberField value={a.quantidadeLigacoes} onChange={(v) => upd(a.id, { quantidadeLigacoes: v })} />
                     </td>
                     <td className={`${tdCls} text-center font-mono`}>
-                      {a.pesoMeta1000 != null ? `${a.pesoMeta1000}%` : <span className="text-[#3a3a3a]">—</span>}
+                      <EditableNumberField value={a.pesoMeta1000} onChange={(v) => upd(a.id, { pesoMeta1000: v })} decimals={1} />
                     </td>
-                    <td className={tdCls}>{a.coordenador ?? a.responsibleTeam ?? <span className="text-[#3a3a3a]">—</span>}</td>
+                    <td className={tdCls}>
+                      <EditableText value={a.coordenador ?? a.responsibleTeam ?? ''} onChange={(v) => upd(a.id, { coordenador: v })} placeholder="Coord." />
+                    </td>
                     <td className={`${tdCls} max-w-[120px]`}>
-                      <span className="block truncate" title={a.notes ?? ''}>{a.notes ?? <span className="text-[#3a3a3a]">—</span>}</span>
+                      <EditableText value={a.notes ?? ''} onChange={(v) => upd(a.id, { notes: v })} placeholder="Ação/Restr." />
                     </td>
-                    <td className={`${tdCls} text-center`}>{a.unidade ?? 'm'}</td>
+                    <td className={`${tdCls} text-center`}>
+                      <EditableSelect value={a.unidade ?? 'm'} options={UNIDADE_OPTIONS} onChange={(v) => upd(a.id, { unidade: v })} />
+                    </td>
 
                     {weekDates.map((d) => {
                       const dateStr = toDateStr(d)
@@ -415,9 +546,24 @@ export function ProgramacaoSemanalPanel() {
         </div>
       </div>
 
+      {/* Add row */}
+      <button
+        onClick={() => addActivity({
+          wbsCode: '', name: 'Nova Atividade', parentId: null, level: 1,
+          plannedStart: new Date().toISOString().split('T')[0],
+          plannedEnd:   new Date().toISOString().split('T')[0],
+          trendStart: '', trendEnd: '', durationDays: 1,
+          percentComplete: 0, status: 'not_started', isMilestone: false,
+          nucleo: '', local: '', unidade: 'm',
+        })}
+        className="flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+      >
+        <Plus size={13} /> Adicionar atividade
+      </button>
+
       <p className="text-[10px] text-[#6b6b6b]">
-        Clique em qualquer célula Prev/Real para editar. Os valores são salvos automaticamente.
-        Use os campos de extensão e ligações em cada atividade via módulo Longo Prazo.
+        Clique em qualquer célula para editar. Passe o mouse sobre a linha para remover.
+        Os valores são salvos automaticamente.
       </p>
     </div>
   )

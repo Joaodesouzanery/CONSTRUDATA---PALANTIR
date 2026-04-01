@@ -9,6 +9,7 @@ import { DerivacaoPanel } from './components/DerivacaoPanel'
 import { CurtoPrazoPanel } from './components/CurtoPrazoPanel'
 import { VisaoIntegradaPanel } from './components/VisaoIntegradaPanel'
 import { ProgramacaoSemanalPanel } from './components/ProgramacaoSemanalPanel'
+import { P6CpmPanel } from './components/P6CpmPanel'
 
 export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
@@ -28,6 +29,7 @@ export function PlanejamentoMestrePage() {
         {activeTab === 'whatif'    && <CurtoPrazoPanel />}
         {activeTab === 'integrada' && <VisaoIntegradaPanel />}
         {activeTab === 'semanal'   && <ProgramacaoSemanalPanel />}
+        {activeTab === 'p6'        && <P6CpmPanel />}
       </div>
     </div>
   )

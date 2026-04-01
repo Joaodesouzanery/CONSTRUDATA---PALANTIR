@@ -8,7 +8,7 @@ import { useRef, useEffect, useState } from 'react'
 import { Sparkles, X, Send, Trash2, BrainCircuit } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAipStore } from '../store/aipStore'
-import { queryLocal } from '../utils/queryEngine'
+import { queryLocalFull } from '../utils/queryEngine'
 
 const SUGGESTIONS = [
   'Quantos RDOs foram registrados?',
@@ -45,7 +45,8 @@ function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content:
 export function AipPanel() {
   const { isOpen, messages, isLoading, togglePanel, addMessage, setLoading, clearHistory } =
     useAipStore()
-  const [input, setInput] = useState('')
+  const [input, setInput]           = useState('')
+  const [lastSuggestions, setSuggestions] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLTextAreaElement>(null)
 
@@ -56,21 +57,24 @@ export function AipPanel() {
     }
   }, [isOpen, messages.length])
 
-  function handleSend() {
-    const text = input.trim()
+  function handleSend(textOverride?: string) {
+    const text = (textOverride ?? input).trim()
     if (!text || isLoading) return
 
     setInput('')
+    setSuggestions([])
     addMessage('user', text)
     setLoading(true)
 
     // Small timeout to allow UI to update before running query
     setTimeout(() => {
       try {
-        const reply = queryLocal(text)
-        addMessage('assistant', reply)
+        const result = queryLocalFull(text)
+        addMessage('assistant', result.text)
+        setSuggestions(result.suggestions)
       } catch (err) {
         addMessage('assistant', `❌ Erro ao processar consulta: ${err instanceof Error ? err.message : String(err)}`)
+        setSuggestions([])
       } finally {
         setLoading(false)
       }
@@ -82,6 +86,10 @@ export function AipPanel() {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  function handleSuggestionClick(s: string) {
+    handleSend(s)
   }
 
   return (
@@ -176,6 +184,21 @@ export function AipPanel() {
             <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
           ))}
 
+          {/* Follow-up suggestion chips */}
+          {!isLoading && lastSuggestions.length > 0 && messages.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3 pl-9">
+              {lastSuggestions.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleSuggestionClick(s)}
+                  className="text-[10px] px-2.5 py-1 rounded-full border border-[#f97316]/30 text-[#f97316] hover:bg-[#f97316]/10 hover:border-[#f97316]/60 transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
           {isLoading && (
             <div className="flex gap-2 mb-3 justify-start">
               <div className="shrink-0 w-7 h-7 rounded-full bg-[#f97316]/15 border border-[#f97316]/30 flex items-center justify-center mt-0.5">
@@ -217,7 +240,7 @@ export function AipPanel() {
               }}
             />
             <button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || isLoading}
               className={cn(
                 'shrink-0 w-9 h-9 rounded-xl flex items-center justify-center',

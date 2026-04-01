@@ -1639,7 +1639,30 @@ export interface HardeningPoint {
 
 // ── Planejamento Mestre ──────────────────────────────────────────────────────
 
-export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal'
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal' | 'p6'
+
+// ── Primavera P6 CPM Types ───────────────────────────────────────────────────
+
+/** Relationship type between P6 activities (Finish-Start, Start-Start, etc.) */
+export type P6RelationType = 'FS' | 'SS' | 'FF' | 'SF'
+
+/** P6 activity constraint types */
+export type P6ConstraintType =
+  | 'ASAP'   // As Soon As Possible (default)
+  | 'ALAP'   // As Late As Possible
+  | 'MSO'    // Must Start On
+  | 'MFO'    // Must Finish On
+  | 'SNET'   // Start No Earlier Than
+  | 'SNLT'   // Start No Later Than
+  | 'FNET'   // Finish No Earlier Than
+  | 'FNLT'   // Finish No Later Than
+
+/** A predecessor link with relationship type and lag */
+export interface P6Predecessor {
+  activityId: string        // references MasterActivity.id or activityCode
+  relationship: P6RelationType
+  lag: number               // days; negative = lead
+}
 
 export interface ProgramacaoDiaria {
   previsto:  number
@@ -1663,7 +1686,7 @@ export interface MasterActivity {
   isMilestone: boolean
   responsibleTeam?: string
   linkedTrechoCodes?: string[]
-  predecessors?: string[]
+  predecessors?: P6Predecessor[]
   weight?: number
   notes?: string
   networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
@@ -1675,6 +1698,21 @@ export interface MasterActivity {
   pesoMeta1000?:       number
   coordenador?:        string
   unidade?:            string
+  // CPM / Primavera P6 fields
+  activityCode?:            string          // P6 Activity ID (e.g. EC1010)
+  calendarId?:              string
+  originalDurationDays?:    number
+  remainingDurationDays?:   number
+  actualDurationDays?:      number
+  earlyStart?:              string          // ISO date
+  earlyFinish?:             string
+  lateStart?:               string
+  lateFinish?:              string
+  totalFloat?:              number          // days; negative = behind schedule
+  freeFloat?:               number
+  isCritical?:              boolean         // totalFloat <= 0
+  constraintType?:          P6ConstraintType
+  constraintDate?:          string          // ISO date
 }
 
 export interface MasterBaseline {

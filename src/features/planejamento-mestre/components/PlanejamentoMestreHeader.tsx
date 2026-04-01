@@ -12,6 +12,7 @@ const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
   { key: 'whatif',    label: 'Curto Prazo'     },
   { key: 'integrada', label: 'Visão Integrada' },
   { key: 'semanal',   label: 'Prog. Semanal'   },
+  { key: 'p6',        label: 'P6 CPM'          },
 ]
 
 export function PlanejamentoMestreHeader() {

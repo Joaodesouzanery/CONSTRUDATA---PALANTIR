@@ -10,6 +10,13 @@ import {
   computeMasterSCurve, applyWhatIfAdjustments, deriveLookahead,
   getProjectDateRange, type MasterSCurvePoint,
 } from '@/features/planejamento-mestre/utils/masterEngine'
+import { computeCPM } from '@/features/planejamento-mestre/utils/cpmEngine'
+import { exportToXer } from '@/features/planejamento-mestre/utils/xerExporter'
+import {
+  parseXer, extractTasks, extractTaskPreds, extractWbs,
+  hrsToDays, p6DateToIso, mapRelType,
+} from '@/features/planejamento-mestre/utils/xerParser'
+import type { P6Predecessor } from '@/types'
 
 interface PlanejamentoMestreState {
   activeTab: PlanejamentoMestreTab
@@ -49,6 +56,11 @@ interface PlanejamentoMestreState {
 
   // Weekly programming
   setProgramacaoDiaria: (activityId: string, date: string, data: ProgramacaoDiaria) => void
+
+  // CPM / P6
+  computeCPM: () => void
+  importFromXer: (xerContent: string) => void
+  exportToXer: () => string
 
   // Data
   loadDemoData: () => void
@@ -167,6 +179,86 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
       : original
 
     set({ originalSCurve: extOriginal, simulatedSCurve: simulated })
+  },
+
+  computeCPM: () => {
+    const { activities } = get()
+    const updated = computeCPM(activities)
+    set({ activities: updated })
+  },
+
+  importFromXer: (xerContent: string) => {
+    const data = parseXer(xerContent)
+    const tasks    = extractTasks(data)
+    const preds    = extractTaskPreds(data)
+    const wbsList  = extractWbs(data)
+
+    if (tasks.length === 0) return
+
+    // Build WBS code map
+    const wbsMap = new Map<string, string>()
+    wbsList.forEach((w) => wbsMap.set(w.wbs_id, w.wbs_short_name))
+
+    // Build task_id → task_code map (for predecessor resolution)
+    const taskIdToCode = new Map<string, string>()
+    tasks.forEach((t) => taskIdToCode.set(t.task_id, t.task_code))
+
+    // Build predecessor lists per task_id
+    const predMap = new Map<string, P6Predecessor[]>()
+    preds.forEach((p) => {
+      const list = predMap.get(p.task_id) ?? []
+      list.push({
+        activityId: taskIdToCode.get(p.pred_task_id) ?? p.pred_task_id,
+        relationship: mapRelType(p.pred_type),
+        lag: hrsToDays(p.lag_hr_cnt),
+      })
+      predMap.set(p.task_id, list)
+    })
+
+    const activities: MasterActivity[] = tasks.map((t) => {
+      const origDur = hrsToDays(t.target_drtn_hr_cnt)
+      const es = p6DateToIso(t.early_start_date) || p6DateToIso(t.late_start_date)
+      const ef = p6DateToIso(t.early_end_date)   || p6DateToIso(t.late_end_date)
+
+      return {
+        id: crypto.randomUUID(),
+        activityCode: t.task_code,
+        wbsCode: wbsMap.get(t.wbs_id) ?? t.wbs_id,
+        name: t.task_name,
+        parentId: null,
+        level: 1,
+        plannedStart: es || new Date().toISOString().split('T')[0],
+        plannedEnd:   ef || new Date().toISOString().split('T')[0],
+        trendStart: es || '',
+        trendEnd:   ef || '',
+        durationDays: origDur,
+        originalDurationDays: origDur,
+        remainingDurationDays: hrsToDays(t.remain_drtn_hr_cnt),
+        actualDurationDays:   hrsToDays(t.act_drtn_hr_cnt),
+        percentComplete: parseFloat(t.phys_complete_pct) || 0,
+        status: 'not_started' as const,
+        isMilestone: t.task_type === 'TT_Mile',
+        earlyStart:  p6DateToIso(t.early_start_date),
+        earlyFinish: p6DateToIso(t.early_end_date),
+        lateStart:   p6DateToIso(t.late_start_date),
+        lateFinish:  p6DateToIso(t.late_end_date),
+        totalFloat:  hrsToDays(t.total_float_hr_cnt),
+        freeFloat:   hrsToDays(t.free_float_hr_cnt),
+        isCritical:  hrsToDays(t.total_float_hr_cnt) <= 0,
+        constraintType: t.cstr_type as MasterActivity['constraintType'],
+        constraintDate: p6DateToIso(t.cstr_date),
+        calendarId: t.clndr_id,
+        predecessors: predMap.get(t.task_id) ?? [],
+      }
+    })
+
+    const { start, end } = getProjectDateRange(activities)
+    const scurve = computeMasterSCurve(activities, start, end)
+    set({ activities, originalSCurve: scurve, simulatedSCurve: [] })
+  },
+
+  exportToXer: () => {
+    return exportToXer(get().activities)
   },
 
   loadDemoData: () => {

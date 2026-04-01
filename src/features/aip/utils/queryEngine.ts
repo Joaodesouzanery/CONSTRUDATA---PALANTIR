@@ -8,6 +8,10 @@ import { useRelatorio360Store } from '@/store/relatorio360Store'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useLpsStore } from '@/store/lpsStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useQuantitativosStore } from '@/store/quantitativosStore'
+import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 
 // ─── Normalise text for matching ─────────────────────────────────────────────
 
@@ -32,6 +36,17 @@ function getProjects() { return useProjetosStore.getState().projects }
 function getReports() { return useRelatorio360Store.getState().reports }
 function getLpsActivities() { return useLpsStore.getState().activities }
 function getSites() { return useTorreStore.getState().sites }
+function getEquipOrders() { return useGestaoEquipamentosStore.getState().orders }
+function getSuprimentos() {
+  const s = useSuprimentosStore.getState()
+  return {
+    purchaseOrders: s.purchaseOrders ?? [],
+    requisitions:   s.requisitions   ?? [],
+    estoqueItens:   s.estoqueItens   ?? [],
+  }
+}
+function getQuantitativos() { return useQuantitativosStore.getState().currentItems ?? [] }
+function getMasterActivities() { return usePlanejamentoMestreStore.getState().activities ?? [] }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -217,11 +232,121 @@ function handleServicos(): string {
   )
 }
 
+function handleEquipamentos(): string {
+  const orders = getEquipOrders()
+  if (orders.length === 0) return 'Nenhuma ordem de manutenção registrada.'
+  const inProgress = orders.filter((o) => o.status === 'in_progress')
+  const scheduled  = orders.filter((o) => o.status === 'scheduled')
+  const recent     = [...orders].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)).slice(0, 5)
+  return (
+    `🔩 **Gestão de Equipamentos:**\n\n` +
+    `• Total de ordens: ${orders.length}\n` +
+    `• Em andamento: ${inProgress.length}\n` +
+    `• Agendadas: ${scheduled.length}\n\n` +
+    `Próximas ordens:\n` +
+    bullet(recent.map((o) => `[${o.type.toUpperCase()}] ${o.equipmentId} — ${o.description.slice(0, 60)} (${o.status})`))
+  )
+}
+
+function handleMateriais(): string {
+  const { purchaseOrders, requisitions, estoqueItens } = getSuprimentos()
+  const openPOs    = purchaseOrders.filter((p) => p.status === 'open')
+  const partialPOs = purchaseOrders.filter((p) => p.status === 'partial')
+  const recentReqs = requisitions.slice(0, 5)
+  return (
+    `📦 **Suprimentos / Materiais:**\n\n` +
+    `• Ordens de compra: ${purchaseOrders.length} (${openPOs.length} abertas, ${partialPOs.length} parciais)\n` +
+    `• Requisições: ${requisitions.length}\n` +
+    `• Itens em estoque: ${estoqueItens.length}\n\n` +
+    (openPOs.length > 0
+      ? `POs abertas:\n` + bullet(openPOs.slice(0, 5).map((p) =>
+          `${p.code} — ${p.supplier} | Entrega: ${p.expectedDelivery}`
+        ))
+      : (recentReqs.length > 0
+          ? `Requisições:\n` + bullet(recentReqs.map((r) => `${r.status} — ${r.id?.slice(0, 8)}`))
+          : '✅ Nenhuma PO aberta no momento.')
+    )
+  )
+}
+
+function handleOrcamento(): string {
+  const items = getQuantitativos()
+  if (items.length === 0) return 'Nenhum item orçado registrado.'
+  const total = items.reduce((s, i) => s + (i.totalCost ?? 0), 0)
+  const byType = items.reduce((acc, i) => {
+    const t = i.unit ?? 'outro'
+    acc[t] = (acc[t] ?? 0) + (i.totalCost ?? 0)
+    return acc
+  }, {} as Record<string, number>)
+  const topTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 4)
+  return (
+    `💰 **Orçamento / Quantitativos:**\n\n` +
+    `• Total de itens: ${items.length}\n` +
+    `• Custo total orçado: R$ ${total.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}\n\n` +
+    `Por unidade (top 4):\n` +
+    bullet(topTypes.map(([u, v]) => `${u}: R$ ${v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`))
+  )
+}
+
+function handleCronograma(): string {
+  const acts = getMasterActivities()
+  if (acts.length === 0) return 'Nenhuma atividade no Planejamento Mestre.'
+  const delayed   = acts.filter((a) => a.status === 'delayed')
+  const inProgress = acts.filter((a) => a.status === 'in_progress')
+  const critical  = acts.filter((a) => a.isCritical)
+  const avgComplete = acts.length > 0
+    ? Math.round(acts.reduce((s, a) => s + a.percentComplete, 0) / acts.length)
+    : 0
+  return (
+    `📅 **Cronograma / Planejamento Mestre:**\n\n` +
+    `• Total de atividades: ${acts.length}\n` +
+    `• Em andamento: ${inProgress.length}\n` +
+    `• Atrasadas: ${delayed.length}${delayed.length > 0 ? ' ⚠️' : ' ✅'}\n` +
+    `• Caminho crítico (CPM): ${critical.length} atividades\n` +
+    `• Avanço médio: ${avgComplete}%\n\n` +
+    (delayed.length > 0
+      ? `Atividades atrasadas:\n` + bullet(delayed.slice(0, 4).map((a) => `${a.name} (${a.percentComplete}% concluído)`))
+      : '')
+  )
+}
+
+function handleResumo(): string {
+  const rdos     = getRdos()
+  const projects = getProjects()
+  const sites    = getSites()
+  const acts     = getMasterActivities()
+  const orders   = getEquipOrders()
+  const items    = getQuantitativos()
+  const { purchaseOrders } = getSuprimentos()
+
+  const activeProjects = projects.filter((p) => p.status === 'active').length
+  const activeRisks    = sites.flatMap((s) => s.risks ?? []).filter((r) => r.status === 'active' || r.status === 'identified').length
+  const criticalRisks  = sites.flatMap((s) => s.risks ?? []).filter((r) => (r.status === 'active' || r.status === 'identified') && (r.level === 'critical' || r.level === 'high')).length
+  const delayedActs    = acts.filter((a) => a.status === 'delayed').length
+  const openOrders     = orders.filter((o) => o.status === 'in_progress' || o.status === 'scheduled').length
+  const pendingPOs     = purchaseOrders.filter((p) => p.status === 'open' || p.status === 'partial').length
+  const totalBudget    = items.reduce((s, i) => s + (i.totalCost ?? 0), 0)
+
+  return (
+    `🏗️ **Visão Geral — CONSTRUDATA**\n\n` +
+    `**Projetos:** ${projects.length} total | ${activeProjects} ativos\n` +
+    `**RDOs:** ${rdos.length} registrados\n` +
+    `**Cronograma:** ${acts.length} atividades | ${delayedActs} atrasadas\n` +
+    `**Riscos:** ${activeRisks} ativos (${criticalRisks} críticos/altos)\n` +
+    `**Equipamentos:** ${orders.length} ordens | ${openOrders} abertas\n` +
+    `**Suprimentos:** ${purchaseOrders.length} POs | ${pendingPOs} pendentes\n` +
+    `**Orçamento:** R$ ${totalBudget.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} (${items.length} itens)\n\n` +
+    (criticalRisks > 0 ? `⚠️ Atenção: ${criticalRisks} risco(s) crítico(s)/alto(s) requerem ação.\n` : '') +
+    (delayedActs > 0   ? `⏰ ${delayedActs} atividade(s) do cronograma com status "atrasado".\n` : '')
+  )
+}
+
 function handleHelp(): string {
   return (
     `🤖 **AIP — Assistente de Dados CONSTRUDATA**\n\n` +
     `Posso responder perguntas sobre:\n\n` +
     bullet([
+      '"resumo" / "visão geral" — painel de todos os módulos',
       '"rdos" / "quantos rdos" — total e últimos RDOs',
       '"clima" / "tempo" — condições climáticas dos RDOs',
       '"mão de obra" / "equipe" — funcionários por RDO',
@@ -232,67 +357,121 @@ function handleHelp(): string {
       '"riscos" — riscos ativos na Torre de Controle',
       '"serviços" — serviços do último RDO',
       '"obras" — obras na Torre de Controle',
+      '"equipamentos" / "manutenção" — ordens de manutenção',
+      '"materiais" / "suprimentos" — POs e estoque',
+      '"orçamento" / "custo" — itens orçados',
+      '"cronograma" / "planejamento mestre" — atividades e CPM',
     ])
   )
 }
 
+// ─── Suggestion chips by intent ───────────────────────────────────────────────
+
+const FOLLOW_UP: Record<string, string[]> = {
+  rdo:        ['Clima dos últimos RDOs', 'Mão de obra no RDO', 'Serviços do último RDO'],
+  clima:      ['Mão de obra no campo', 'Resumo geral'],
+  manpower:   ['Contratos e OS', 'Projetos ativos'],
+  contratos:  ['Projetos ativos', 'Riscos críticos'],
+  projetos:   ['Cronograma e prazos', 'Riscos críticos'],
+  ppc:        ['PPC do LPS', 'Riscos críticos'],
+  lps:        ['PPC do Relatório 360', 'Cronograma mestre'],
+  riscos:     ['Obras ativas', 'Resumo geral'],
+  obras:      ['Riscos críticos', 'Projetos ativos'],
+  servicos:   ['Mão de obra no RDO', 'Equipamentos'],
+  equipamentos: ['Suprimentos e POs', 'Orçamento'],
+  materiais:  ['Orçamento e custos', 'Equipamentos'],
+  orcamento:  ['Suprimentos e POs', 'Cronograma mestre'],
+  cronograma: ['Riscos críticos', 'PPC do LPS'],
+  resumo:     ['Riscos críticos', 'PPC desta semana'],
+}
+
+function getSuggestions(intentKey: string): string[] {
+  return FOLLOW_UP[intentKey] ?? ['Resumo geral', 'Riscos críticos']
+}
+
 // ─── Main query dispatcher ────────────────────────────────────────────────────
 
-export function queryLocal(input: string): string {
-  const i = input.trim()
-  if (!i) return handleHelp()
+export interface QueryResult {
+  text: string
+  suggestions: string[]
+}
 
-  if (has(i, 'ajuda', 'help', 'o que', 'como usar', 'comandos', 'perguntas'))
-    return handleHelp()
+export function queryLocal(input: string): string {
+  return queryLocalFull(input).text
+}
+
+export function queryLocalFull(input: string): QueryResult {
+  const i = input.trim()
+
+  if (!i || has(i, 'ajuda', 'help', 'o que', 'como usar', 'comandos', 'perguntas'))
+    return { text: handleHelp(), suggestions: ['Resumo geral', 'Riscos críticos', 'Quantos RDOs?'] }
+
+  if (has(i, 'resumo', 'geral', 'overview', 'visao geral', 'dashboard', 'painel'))
+    return { text: handleResumo(), suggestions: getSuggestions('resumo') }
 
   if (has(i, 'clima', 'tempo', 'chuva', 'sol', 'manha', 'tarde', 'noite'))
-    return handleClima()
+    return { text: handleClima(), suggestions: getSuggestions('clima') }
 
   if (has(i, 'mão de obra', 'mao de obra', 'equipe', 'funcionario', 'trabalhador', 'direto', 'indireto'))
-    return handleManpower()
+    return { text: handleManpower(), suggestions: getSuggestions('manpower') }
 
-  if (has(i, 'contrato', 'ordem de servico', 'OS', 'empreiteira'))
-    return handleContratos()
+  if (has(i, 'contrato', 'ordem de servico', 'empreiteira'))
+    return { text: handleContratos(), suggestions: getSuggestions('contratos') }
 
   if (has(i, 'servico', 'serviço', 'atividade executada'))
-    return handleServicos()
+    return { text: handleServicos(), suggestions: getSuggestions('servicos') }
 
   if (has(i, 'quantos rdo', 'total rdo', 'rdo total', 'rdo registrado'))
-    return handleRdoCount()
+    return { text: handleRdoCount(), suggestions: getSuggestions('rdo') }
 
-  if (has(i, 'ultimos rdo', 'últimos rdo', 'recentes rdo', 'rdo recente'))
-    return handleRdoRecent()
+  if (has(i, 'ultimos rdo', 'recentes rdo', 'rdo recente'))
+    return { text: handleRdoRecent(), suggestions: getSuggestions('rdo') }
 
   if (has(i, 'rdo'))
-    return handleRdoCount()
+    return { text: handleRdoCount(), suggestions: getSuggestions('rdo') }
 
   if (has(i, 'ppc lps', 'lps ppc', 'lean ppc', 'lps'))
-    return handleLPSPPC()
+    return { text: handleLPSPPC(), suggestions: getSuggestions('lps') }
 
   if (has(i, 'ppc', 'percent plan', 'planejado concluido', 'performance'))
-    return handlePPC()
+    return { text: handlePPC(), suggestions: getSuggestions('ppc') }
 
-  if (has(i, 'risco', 'alerta', 'critico', 'perigo'))
-    return handleRiscos()
+  if (has(i, 'risco', 'alerta', 'perigo'))
+    return { text: handleRiscos(), suggestions: getSuggestions('riscos') }
 
-  if (has(i, 'projeto', 'ativo', 'em andamento', 'obras ativas'))
-    return handleProjetos()
+  if (has(i, 'projeto', 'obras ativas'))
+    return { text: handleProjetos(), suggestions: getSuggestions('projetos') }
 
   if (has(i, 'obra', 'torre', 'canteiro'))
-    return handleObras()
+    return { text: handleObras(), suggestions: getSuggestions('obras') }
 
   if (has(i, 'relatorio', 'report', 'status'))
-    return handlePPC()
+    return { text: handlePPC(), suggestions: getSuggestions('ppc') }
+
+  if (has(i, 'equipamento', 'maquina', 'frota', 'manutencao', 'veiculo', 'ordem de manutencao'))
+    return { text: handleEquipamentos(), suggestions: getSuggestions('equipamentos') }
+
+  if (has(i, 'material', 'estoque', 'suprimento', 'compra', 'po', 'purchase', 'requisicao', 'fornecedor'))
+    return { text: handleMateriais(), suggestions: getSuggestions('materiais') }
+
+  if (has(i, 'orcamento', 'custo', 'budget', 'bdi', 'valor', 'investimento', 'preco'))
+    return { text: handleOrcamento(), suggestions: getSuggestions('orcamento') }
+
+  if (has(i, 'cronograma', 'prazo', 'planejamento mestre', 'baseline', 'caminho critico', 'cpm'))
+    return { text: handleCronograma(), suggestions: getSuggestions('cronograma') }
 
   // Fallback
-  return (
-    `Não encontrei dados específicos para "${i}".\n\n` +
-    `Tente perguntas como:\n` +
-    `• "quantos rdos temos?"\n` +
-    `• "qual o clima dos últimos rdos?"\n` +
-    `• "projetos ativos"\n` +
-    `• "riscos críticos"\n` +
-    `• "ppc desta semana"\n\n` +
-    `Digite "ajuda" para ver todos os comandos disponíveis.`
-  )
+  return {
+    text: (
+      `Não encontrei dados específicos para "${i}".\n\n` +
+      `Tente perguntas como:\n` +
+      `• "resumo geral"\n` +
+      `• "quantos rdos temos?"\n` +
+      `• "riscos críticos"\n` +
+      `• "ppc desta semana"\n` +
+      `• "equipamentos em manutenção"\n\n` +
+      `Digite "ajuda" para ver todos os comandos disponíveis.`
+    ),
+    suggestions: ['Resumo geral', 'Riscos críticos', 'Ajuda'],
+  }
 }
