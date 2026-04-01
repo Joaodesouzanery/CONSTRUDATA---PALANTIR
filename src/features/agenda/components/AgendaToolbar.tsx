@@ -38,11 +38,11 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
   }
 
   return (
-    <div className="flex flex-col border-b border-[#20406a] bg-[#112645] shrink-0">
+    <div className="flex flex-col border-b border-[#2a2a2a] bg-[#161616] shrink-0">
       {/* Top row */}
       <div className="flex flex-wrap items-center gap-2 px-5 py-2">
         {/* Search */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#20406a] bg-[#0d2040] w-40">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] w-40">
           <Search size={13} className="text-[#6b6b6b] shrink-0" />
           <input
             value={searchTerm}
@@ -54,7 +54,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </div>
 
         {/* Filter */}
-        <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#20406a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
+        <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
           <SlidersHorizontal size={14} />
         </button>
 
@@ -65,8 +65,8 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
             className={cn(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
               displayView === 'gantt'
-                ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
-                : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+                ? 'bg-[#f97316]/20 border-[#f97316]/50 text-[#f97316]'
+                : 'border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
             )}
           >
             <GanttChart size={13} /> Gantt
@@ -76,21 +76,21 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
             className={cn(
               'flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors',
               displayView === 'calendar'
-                ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
-                : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+                ? 'bg-[#f97316]/20 border-[#f97316]/50 text-[#f97316]'
+                : 'border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
             )}
           >
             <CalendarDays size={13} /> Calendário
           </button>
         </div>
 
-        <div className="h-5 w-px bg-[#20406a]" />
+        <div className="h-5 w-px bg-[#2a2a2a]" />
 
         {/* Date navigation */}
         <div className="flex items-center gap-1">
           <button
             onClick={panLeft}
-            className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
             title="Recuar"
           >
             <ChevronLeft size={14} />
@@ -100,7 +100,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           </span>
           <button
             onClick={panRight}
-            className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#20406a] text-[#a3a3a3] hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
             title="Avançar"
           >
             <ChevronRight size={14} />
@@ -114,7 +114,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
             type="date"
             defaultValue={viewStart}
             onChange={handleDateJump}
-            className="bg-[#0d2040] border border-[#20406a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] outline-none focus:border-[#2abfdc]/60 w-32"
+            className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] outline-none focus:border-[#f97316]/60 w-32"
           />
         </div>
 
@@ -126,7 +126,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
             max={52}
             value={visibleWeeks}
             onChange={(e) => setVisibleWeeks(parseInt(e.target.value) || 1)}
-            className="bg-[#0d2040] border border-[#20406a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] text-center outline-none focus:border-[#2abfdc]/60 w-14"
+            className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] text-center outline-none focus:border-[#f97316]/60 w-14"
           />
           <span className="text-[10px] text-[#6b6b6b]">sem.</span>
         </div>
@@ -136,7 +136,7 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         {/* Add task */}
         <button
           onClick={onAddTask}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc]/15 border border-[#2abfdc]/30 text-[#2abfdc] text-xs font-semibold hover:bg-[#2abfdc]/25 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/25 transition-colors"
         >
           <Plus size={13} />
           Nova Tarefa
@@ -156,8 +156,8 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
               className={cn(
                 'px-3 py-1 rounded-md border text-xs font-medium transition-colors',
                 viewMode === vm.key
-                  ? 'bg-[#2abfdc]/20 border-[#2abfdc]/50 text-[#2abfdc]'
-                  : 'border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
+                  ? 'bg-[#f97316]/20 border-[#f97316]/50 text-[#f97316]'
+                  : 'border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
               )}
             >
               {vm.label}

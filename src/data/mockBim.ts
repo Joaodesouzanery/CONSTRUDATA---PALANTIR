@@ -97,7 +97,7 @@ export const MOCK_BIM_LAYERS: BimLayer[] = [
   { id: 'layer-dn300', name: 'DN300',          visible: true, color: '#6366f1', attribute: 'DIAMETER' },
   { id: 'layer-dn200', name: 'DN200',          visible: true, color: '#0ea5e9', attribute: 'DIAMETER' },
   { id: 'layer-dn150', name: 'DN150',          visible: true, color: '#22c55e', attribute: 'DIAMETER' },
-  { id: 'layer-dn100', name: 'DN100',          visible: true, color: '#2abfdc', attribute: 'DIAMETER' },
+  { id: 'layer-dn100', name: 'DN100',          visible: true, color: '#f97316', attribute: 'DIAMETER' },
 ]
 
 export const MOCK_BIM_PROJECT: BimProject = {
@@ -122,7 +122,7 @@ export const MOCK_BIM_SANEAMENTO: BimProject = {
     { id: 'sl-fofo', name: 'Ferro Fundido', visible: true, color: '#f59e0b', attribute: 'MATERIAL' },
     { id: 'sl-dn200',name: 'DN200',         visible: true, color: '#8b5cf6', attribute: 'DIAMETER' },
     { id: 'sl-dn150',name: 'DN150',         visible: true, color: '#22c55e', attribute: 'DIAMETER' },
-    { id: 'sl-dn100',name: 'DN100',         visible: true, color: '#2abfdc', attribute: 'DIAMETER' },
+    { id: 'sl-dn100',name: 'DN100',         visible: true, color: '#f97316', attribute: 'DIAMETER' },
   ],
   segments: [
     // ── Coletor principal Rua São Manoel (T01) ─────────────────────────────

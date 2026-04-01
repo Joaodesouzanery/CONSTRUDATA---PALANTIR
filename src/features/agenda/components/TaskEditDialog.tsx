@@ -10,7 +10,7 @@ import type { TaskColor, AgendaPriority } from '@/types'
 
 const COLOR_OPTIONS: { value: TaskColor; bg: string; border: string; label: string }[] = [
   { value: 'blue',   bg: '#3b82f6', border: '#2563eb', label: 'Azul'     },
-  { value: 'orange', bg: '#2abfdc', border: '#ea580c', label: 'Laranja'  },
+  { value: 'orange', bg: '#f97316', border: '#ea580c', label: 'Laranja'  },
   { value: 'green',  bg: '#22c55e', border: '#16a34a', label: 'Verde'    },
   { value: 'red',    bg: '#ef4444', border: '#dc2626', label: 'Vermelho' },
   { value: 'purple', bg: '#a855f7', border: '#9333ea', label: 'Roxo'     },
@@ -136,11 +136,11 @@ export function TaskEditDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
-        className="w-full max-w-xl rounded-2xl border border-[#20406a] bg-[#112645] flex flex-col shadow-2xl"
+        className="w-full max-w-xl rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#20406a]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a]">
           <h2 className="text-[#f5f5f5] font-bold text-base flex items-center gap-2">
             {isNew ? 'Nova Tarefa' : 'Editar Tarefa'}
             {priorityCfg && !isNew && (
@@ -154,7 +154,7 @@ export function TaskEditDialog() {
           </h2>
           <button
             onClick={close}
-            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#1a3662] transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
           >
             <X size={15} />
           </button>
@@ -252,7 +252,7 @@ export function TaskEditDialog() {
             </div>
 
             {/* ── Detalhes ── */}
-            <fieldset className="border-t border-[#20406a] pt-3">
+            <fieldset className="border-t border-[#2a2a2a] pt-3">
               <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-3 px-1">
                 Detalhes
               </legend>
@@ -328,14 +328,14 @@ export function TaskEditDialog() {
                 {...register('notes')}
                 rows={2}
                 placeholder="Informações adicionais..."
-                className="bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#2abfdc] transition-colors resize-none placeholder:text-[#3f3f3f]"
+                className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] transition-colors resize-none placeholder:text-[#3f3f3f]"
               />
               {errors.notes && <span className={ERR}>{errors.notes.message}</span>}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#20406a]">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a]">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">
@@ -349,7 +349,7 @@ export function TaskEditDialog() {
                   </button>
                   <button
                     type="button" onClick={() => setConfirmDelete(false)}
-                    className="text-xs px-2 py-1 rounded bg-[#1a3662] text-[#a3a3a3] hover:bg-[#20406a]"
+                    className="text-xs px-2 py-1 rounded bg-[#262626] text-[#a3a3a3] hover:bg-[#2a2a2a]"
                   >
                     Não
                   </button>
@@ -368,13 +368,13 @@ export function TaskEditDialog() {
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={close}
-                className="px-4 py-2 rounded-lg border border-[#20406a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit" disabled={isSubmitting}
-                className="px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] disabled:opacity-50 transition-colors"
               >
                 {isNew ? 'Criar Tarefa' : 'Salvar'}
               </button>
@@ -391,7 +391,7 @@ const LABEL = 'text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibol
 const ERR   = 'text-[11px] text-[#ef4444]'
 function fieldCls(hasError: boolean) {
   return cn(
-    'w-full bg-[#0d2040] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
-    hasError ? 'border-[#ef4444]' : 'border-[#20406a] focus:border-[#2abfdc]'
+    'w-full bg-[#0f0f0f] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    hasError ? 'border-[#ef4444]' : 'border-[#2a2a2a] focus:border-[#f97316]'
   )
 }

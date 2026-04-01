@@ -27,7 +27,7 @@ function ServiceChart({ curve }: { curve: NotableServiceCurve }) {
   ).join(' ')
 
   return (
-    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-3">
+    <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[#f5f5f5] text-xs font-semibold">{curve.serviceName}</span>
         <span className="text-[#6b6b6b] text-[10px]">{curve.unit}</span>
@@ -36,8 +36,8 @@ function ServiceChart({ curve }: { curve: NotableServiceCurve }) {
         {/* Grid lines */}
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
-            <line x1={PAD_L} y1={py(maxVal * f)} x2={W} y2={py(maxVal * f)} stroke="#20406a" strokeWidth={0.5} />
-            <text x={PAD_L - 3} y={py(maxVal * f) + 3} textAnchor="end" fontSize={7} fill="#5a8caa" fontFamily="monospace">
+            <line x1={PAD_L} y1={py(maxVal * f)} x2={W} y2={py(maxVal * f)} stroke="#2a2a2a" strokeWidth={0.5} />
+            <text x={PAD_L - 3} y={py(maxVal * f) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">
               {Math.round(maxVal * f)}
             </text>
           </g>
@@ -47,12 +47,12 @@ function ServiceChart({ curve }: { curve: NotableServiceCurve }) {
         <path d={plannedPath} fill="none" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="4,3" />
 
         {/* Actual (solid) */}
-        {actualPath && <path d={actualPath} fill="none" stroke="#2abfdc" strokeWidth={2} />}
+        {actualPath && <path d={actualPath} fill="none" stroke="#f97316" strokeWidth={2} />}
 
         {/* Legend */}
         <line x1={W - 100} y1={8} x2={W - 86} y2={8} stroke="#6b7280" strokeWidth={1.5} strokeDasharray="4,3" />
         <text x={W - 83} y={11} fontSize={7} fill="#6b6b6b">Plan.</text>
-        <line x1={W - 55} y1={8} x2={W - 41} y2={8} stroke="#2abfdc" strokeWidth={2} />
+        <line x1={W - 55} y1={8} x2={W - 41} y2={8} stroke="#f97316" strokeWidth={2} />
         <text x={W - 38} y={11} fontSize={7} fill="#6b6b6b">Real</text>
       </svg>
     </div>
@@ -85,9 +85,9 @@ function TrendMiniSCurve({ points }: { points: TrendPoint[] }) {
   const isDelayed = lastActual && lastPlanned && lastActual.actualCumulativePct < lastPlanned.plannedCumulativePct - 2
 
   return (
-    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-3">
+    <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-3">
       <div className="flex items-center gap-2 mb-2">
-        <TrendingUp size={13} className="text-[#2abfdc]" />
+        <TrendingUp size={13} className="text-[#f97316]" />
         <span className="text-[#f5f5f5] text-xs font-semibold">Tendência — Curva S</span>
         {isDelayed && <span className="text-[#ef4444] text-[10px] font-semibold">Atraso detectado</span>}
       </div>
@@ -95,8 +95,8 @@ function TrendMiniSCurve({ points }: { points: TrendPoint[] }) {
         {/* Grid */}
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
-            <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#20406a" strokeWidth={0.5} />
-            <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#5a8caa" fontFamily="monospace">{v}%</text>
+            <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#2a2a2a" strokeWidth={0.5} />
+            <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
           </g>
         ))}
 
@@ -116,12 +116,12 @@ function TrendMiniSCurve({ points }: { points: TrendPoint[] }) {
         <path d={plannedPath} fill="none" stroke="#6b7280" strokeWidth={1.5} strokeDasharray="5,3" />
 
         {/* Actual line */}
-        {actualPath && <path d={actualPath} fill="none" stroke="#2abfdc" strokeWidth={2.5} />}
+        {actualPath && <path d={actualPath} fill="none" stroke="#f97316" strokeWidth={2.5} />}
 
         {/* Legend */}
         <line x1={W - 120} y1={10} x2={W - 106} y2={10} stroke="#6b7280" strokeWidth={1.5} strokeDasharray="5,3" />
         <text x={W - 103} y={13} fontSize={8} fill="#6b6b6b">Previsto</text>
-        <line x1={W - 55} y1={10} x2={W - 41} y2={10} stroke="#2abfdc" strokeWidth={2.5} />
+        <line x1={W - 55} y1={10} x2={W - 41} y2={10} stroke="#f97316" strokeWidth={2.5} />
         <text x={W - 38} y={13} fontSize={8} fill="#6b6b6b">Real</text>
       </svg>
     </div>

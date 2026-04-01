@@ -8,7 +8,7 @@ const COLOR_MODES: { key: BimColorMode; label: string; dot: string }[] = [
   { key: 'depth',    label: 'Profundidade', dot: '#3b82f6' },
   { key: 'date',     label: 'Prazo (4D)',   dot: '#f59e0b' },
   { key: 'cost',     label: 'Custo (5D)',   dot: '#ef4444' },
-  { key: 'diameter', label: 'Diâmetro',     dot: '#2abfdc' },
+  { key: 'diameter', label: 'Diâmetro',     dot: '#f97316' },
   { key: 'pressure', label: 'Pressão',      dot: '#22c55e' },
 ]
 
@@ -38,7 +38,7 @@ export function BimControls() {
           onClick={() => setViewerMode('forge')}
           className={cn(
             'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
-            viewerMode === 'forge' ? 'bg-[#2abfdc]/20 text-[#2abfdc]' : 'text-gray-500 hover:text-gray-300',
+            viewerMode === 'forge' ? 'bg-[#f97316]/20 text-[#f97316]' : 'text-gray-500 hover:text-gray-300',
           )}
         >
           <Navigation size={11} />
@@ -54,7 +54,7 @@ export function BimControls() {
           className={cn(
             'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors mr-2',
             droneMode
-              ? 'bg-[#2abfdc]/15 border-[#2abfdc]/40 text-[#2abfdc]'
+              ? 'bg-[#f97316]/15 border-[#f97316]/40 text-[#f97316]'
               : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-600',
           )}
         >

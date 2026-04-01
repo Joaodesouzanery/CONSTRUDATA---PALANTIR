@@ -96,7 +96,7 @@ export function OrdensServicoPanel() {
     setShowNewOs(false)
   }
 
-  const inputCls = 'w-full bg-[#14294e] border border-[#1f3c5e] rounded px-2 py-1.5 text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none'
+  const inputCls = 'w-full bg-[#1e1e1e] border border-[#1f3c5e] rounded px-2 py-1.5 text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none'
 
   return (
     <div className="p-4 h-full flex flex-col overflow-hidden">
@@ -105,7 +105,7 @@ export function OrdensServicoPanel() {
         <h2 className="text-[#f5f5f5] text-sm font-semibold">Ordens de Serviço</h2>
         <button
           onClick={() => setShowNewOs(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc] hover:bg-[#1a9ab8] text-white text-xs font-semibold transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-semibold transition-colors"
         >
           <Plus size={14} />
           Nova OS
@@ -114,7 +114,7 @@ export function OrdensServicoPanel() {
 
       {/* New OS panel */}
       {showNewOs && (
-        <div className="bg-[#112645] border border-[#20406a] rounded-xl p-4 mb-3 shrink-0">
+        <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl p-4 mb-3 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[#f5f5f5] text-sm font-medium">Nova Ordem de Serviço</span>
             <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="text-[#6b6b6b] hover:text-[#f5f5f5]">
@@ -168,8 +168,8 @@ export function OrdensServicoPanel() {
             />
           </div>
           <div className="flex gap-2">
-            <button onClick={handleSave} className="px-4 py-1.5 rounded bg-[#2abfdc] hover:bg-[#1a9ab8] text-white text-xs font-semibold transition-colors">Salvar</button>
-            <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="px-4 py-1.5 rounded bg-[#14294e] hover:bg-[#1a3662] border border-[#20406a] text-[#8fb3c8] text-xs transition-colors">Cancelar</button>
+            <button onClick={handleSave} className="px-4 py-1.5 rounded bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-semibold transition-colors">Salvar</button>
+            <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="px-4 py-1.5 rounded bg-[#1e1e1e] hover:bg-[#262626] border border-[#2a2a2a] text-[#a3a3a3] text-xs transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -179,11 +179,11 @@ export function OrdensServicoPanel() {
         {STATUS_COLUMNS.map((col) => {
           const colOrders = serviceOrders.filter((o) => o.status === col.id)
           return (
-            <div key={col.id} className="flex flex-col w-72 shrink-0 bg-[#112645] border border-[#20406a] rounded-xl overflow-hidden">
+            <div key={col.id} className="flex flex-col w-72 shrink-0 bg-[#161616] border border-[#2a2a2a] rounded-xl overflow-hidden">
               {/* Column header */}
-              <div className="px-3 py-2 border-b border-[#20406a] flex items-center gap-2 shrink-0">
+              <div className="px-3 py-2 border-b border-[#2a2a2a] flex items-center gap-2 shrink-0">
                 <span className="text-[#f5f5f5] text-xs font-semibold">{col.label}</span>
-                <span className="text-xs bg-[#14294e] text-[#8fb3c8] px-1.5 py-0.5 rounded-full">{colOrders.length}</span>
+                <span className="text-xs bg-[#1e1e1e] text-[#a3a3a3] px-1.5 py-0.5 rounded-full">{colOrders.length}</span>
               </div>
 
               {/* Cards */}
@@ -195,7 +195,7 @@ export function OrdensServicoPanel() {
                   const asset = assets.find((a) => a.id === order.assetId)
                   const next = STATUS_NEXT[order.status]
                   return (
-                    <div key={order.id} className="bg-[#14294e] rounded-lg border border-[#20406a] p-3">
+                    <div key={order.id} className="bg-[#1e1e1e] rounded-lg border border-[#2a2a2a] p-3">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[#6b6b6b] text-xs font-mono">{order.code}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${PRIORITY_BADGE[order.priority]}`}>
@@ -204,15 +204,15 @@ export function OrdensServicoPanel() {
                       </div>
                       <div className="text-[#f5f5f5] text-xs mb-1">{order.description}</div>
                       <div className="text-[#6b6b6b] text-xs space-y-0.5">
-                        {asset && <div>Ativo: <span className="text-[#8fb3c8]">{asset.code}</span></div>}
-                        {order.assignedTo && <div>Equipe: <span className="text-[#8fb3c8]">{order.assignedTo}</span></div>}
-                        {order.scheduledDate && <div>Previsto: <span className="text-[#8fb3c8]">{fmtDate(order.scheduledDate)}</span></div>}
+                        {asset && <div>Ativo: <span className="text-[#a3a3a3]">{asset.code}</span></div>}
+                        {order.assignedTo && <div>Equipe: <span className="text-[#a3a3a3]">{order.assignedTo}</span></div>}
+                        {order.scheduledDate && <div>Previsto: <span className="text-[#a3a3a3]">{fmtDate(order.scheduledDate)}</span></div>}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         {next && (
                           <button
                             onClick={() => updateServiceOrder(order.id, { status: next })}
-                            className="text-xs px-2 py-1 rounded bg-[#112645] hover:bg-[#20406a] text-[#2abfdc] transition-colors border border-[#20406a]"
+                            className="text-xs px-2 py-1 rounded bg-[#161616] hover:bg-[#2a2a2a] text-[#f97316] transition-colors border border-[#2a2a2a]"
                           >
                             Avançar →
                           </button>

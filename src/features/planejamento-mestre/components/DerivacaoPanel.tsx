@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 type DaStatus = LookaheadDerivedActivity['status']
 
 const STATUS_DOT: Record<DaStatus, string> = {
-  planned:   'bg-[#2abfdc]',
+  planned:   'bg-[#f97316]',
   ready:     'bg-[#22c55e]',
   blocked:   'bg-[#ef4444]',
   completed: 'bg-[#3b82f6]',
@@ -37,7 +37,7 @@ const STATUS_TEXT: Record<DaStatus, string> = {
 }
 
 const STATUS_BG: Record<DaStatus, string> = {
-  planned:   'bg-[#2abfdc]/8',
+  planned:   'bg-[#f97316]/8',
   ready:     'bg-[#22c55e]/8',
   blocked:   'bg-[#ef4444]/8',
   completed: 'bg-[#3b82f6]/8',
@@ -95,10 +95,10 @@ function DetailModal({ da, onClose }: DetailModalProps) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[#20406a] bg-[#112645] flex flex-col shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#20406a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
           <div>
             <h3 className="text-[#f5f5f5] font-bold text-sm">{da.name}</h3>
             <p className="text-[#6b6b6b] text-[10px] mt-0.5">{weekShort(da.weekIso)} · {da.responsible}</p>
@@ -116,8 +116,8 @@ function DetailModal({ da, onClose }: DetailModalProps) {
                   className={cn(
                     'px-3 py-1 rounded-lg text-xs font-medium transition-colors border',
                     status === s
-                      ? 'bg-[#2abfdc] text-white border-[#2abfdc]'
-                      : 'bg-transparent text-[#6b6b6b] border-[#20406a] hover:text-[#a3a3a3]'
+                      ? 'bg-[#f97316] text-white border-[#f97316]'
+                      : 'bg-transparent text-[#6b6b6b] border-[#2a2a2a] hover:text-[#a3a3a3]'
                   )}
                 >
                   {STATUS_TEXT[s]}
@@ -144,13 +144,13 @@ function DetailModal({ da, onClose }: DetailModalProps) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Adicione observações..."
-              className="w-full bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60 resize-none"
+              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 resize-none"
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#20406a]">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#20406a] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8]">Salvar</button>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#2a2a2a]">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
+          <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">Salvar</button>
         </div>
       </div>
     </div>
@@ -169,7 +169,7 @@ function Cell({ da, onClick, actName }: CellProps) {
   if (!da) {
     return (
       <td
-        className="border border-[#20406a]/30 min-w-[88px] h-8"
+        className="border border-[#2a2a2a]/30 min-w-[88px] h-8"
         style={{ background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 6px)' }}
       />
     )
@@ -184,7 +184,7 @@ function Cell({ da, onClick, actName }: CellProps) {
   return (
     <td
       title={`${actName} — ${STATUS_TEXT[da.status]}${pct ? ` (${pct}%)` : ''}${rest ? ` · ${rest} restrição(ões)` : ''}`}
-      className={cn('border border-[#20406a]/30 cursor-pointer transition-colors min-w-[88px] h-8 px-2 py-1 align-middle', bg, 'hover:brightness-125')}
+      className={cn('border border-[#2a2a2a]/30 cursor-pointer transition-colors min-w-[88px] h-8 px-2 py-1 align-middle', bg, 'hover:brightness-125')}
       onClick={onClick}
     >
       <div className="flex items-center gap-1.5">
@@ -212,7 +212,7 @@ function SectionHeaderRow({ label, color, colSpan }: SectionHeaderProps) {
     <tr>
       <td
         colSpan={colSpan}
-        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-[#20406a]/50"
+        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-[#2a2a2a]/50"
         style={{ background: `${color}18`, color, borderLeft: `3px solid ${color}` }}
       >
         {label}
@@ -243,13 +243,13 @@ function PpcRow({ weeks, das }: PpcRowProps) {
 
   return (
     <tr className="bg-[#0d1c36]">
-      <td className="px-3 py-1.5 text-[9px] font-bold text-[#6b6b6b] uppercase tracking-widest sticky left-0 bg-[#0d1c36] z-10 border border-[#20406a]/30 whitespace-nowrap">
+      <td className="px-3 py-1.5 text-[9px] font-bold text-[#6b6b6b] uppercase tracking-widest sticky left-0 bg-[#0d1c36] z-10 border border-[#2a2a2a]/30 whitespace-nowrap">
         PPC Semana
       </td>
       {weeks.map((w) => {
         const v = ppc(w)
         return (
-          <td key={w} className="px-2 py-1.5 text-center border border-[#20406a]/30">
+          <td key={w} className="px-2 py-1.5 text-center border border-[#2a2a2a]/30">
             {v === null ? (
               <span className="text-[#3f3f3f] text-[9px]">—</span>
             ) : (
@@ -329,20 +329,20 @@ export function DerivacaoPanel() {
       <div className="flex items-center gap-3 flex-wrap shrink-0">
         <button
           onClick={deriveFromMaster}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] transition-colors"
         >
           <RefreshCw size={12} />
           Derivar do Mestre (6 Semanas)
         </button>
 
-        <div className="flex items-center gap-1 bg-[#14294e] border border-[#20406a] rounded-lg p-0.5 ml-auto">
+        <div className="flex items-center gap-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg p-0.5 ml-auto">
           {([['all', 'Todas'], ['agua', 'Água'], ['esgoto', 'Esgoto']] as [NetworkFilter, string][]).map(([key, lbl]) => (
             <button
               key={key}
               onClick={() => setFilter(key)}
               className={cn(
                 'px-3 py-1 rounded text-xs font-medium transition-colors',
-                filter === key ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
+                filter === key ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
               )}
             >
               {lbl}
@@ -356,16 +356,16 @@ export function DerivacaoPanel() {
           <p className="text-[#6b6b6b] text-sm">Clique em &ldquo;Derivar do Mestre&rdquo; para gerar o look-ahead de 6 semanas.</p>
         </div>
       ) : (
-        <div className="overflow-auto flex-1 rounded-xl border border-[#20406a]">
+        <div className="overflow-auto flex-1 rounded-xl border border-[#2a2a2a]">
           <table className="border-collapse text-xs min-w-full">
             {/* Header */}
             <thead className="sticky top-0 z-20">
               <tr className="bg-[#0a1628]">
-                <th className="px-3 py-2.5 text-left text-[#6b6b6b] font-semibold border border-[#20406a]/50 min-w-[190px] sticky left-0 bg-[#0a1628] z-30">
+                <th className="px-3 py-2.5 text-left text-[#6b6b6b] font-semibold border border-[#2a2a2a]/50 min-w-[190px] sticky left-0 bg-[#0a1628] z-30">
                   Atividade
                 </th>
                 {allWeeks.map((w) => (
-                  <th key={w} className="px-2 py-1.5 text-center border border-[#20406a]/50 min-w-[88px]">
+                  <th key={w} className="px-2 py-1.5 text-center border border-[#2a2a2a]/50 min-w-[88px]">
                     <div className="text-[#f5f5f5] font-bold text-[11px]">{weekShort(w)}</div>
                     <div className="text-[#6b6b6b] text-[9px] font-normal mt-0.5">{weekDateRange(w)}</div>
                   </th>
@@ -376,10 +376,10 @@ export function DerivacaoPanel() {
               {/* ── ÁGUA section ── */}
               {aguaRows.length > 0 && (
                 <>
-                  <SectionHeaderRow label="Água" color="#2abfdc" colSpan={colSpan} />
+                  <SectionHeaderRow label="Água" color="#f97316" colSpan={colSpan} />
                   {aguaRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                    <tr key={row.masterActivityId} className="hover:bg-[#1e1e1e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#2a2a2a]/30 sticky left-0 bg-[#0d1117] z-10">
                         <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>
@@ -408,8 +408,8 @@ export function DerivacaoPanel() {
                 <>
                   <SectionHeaderRow label="Esgoto" color="#22c55e" colSpan={colSpan} />
                   {esgotoRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                    <tr key={row.masterActivityId} className="hover:bg-[#1e1e1e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#2a2a2a]/30 sticky left-0 bg-[#0d1117] z-10">
                         <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>
@@ -438,8 +438,8 @@ export function DerivacaoPanel() {
                 <>
                   <SectionHeaderRow label="Serviços Civis" color="#f59e0b" colSpan={colSpan} />
                   {civilRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                    <tr key={row.masterActivityId} className="hover:bg-[#1e1e1e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#2a2a2a]/30 sticky left-0 bg-[#0d1117] z-10">
                         <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>

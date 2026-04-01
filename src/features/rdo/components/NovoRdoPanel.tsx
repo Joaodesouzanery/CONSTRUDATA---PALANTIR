@@ -563,7 +563,7 @@ export function NovoRdoPanel() {
                           <select
                             value={row.system ?? ''}
                             onChange={(e) => updateTrecho(i, { system: (e.target.value as RdoTrechoEntry['system']) || undefined })}
-                            className="bg-[#14294e] border border-[#1f3c5e] rounded px-2 py-1 text-xs text-[#f5f5f5]"
+                            className="bg-[#1e1e1e] border border-[#1f3c5e] rounded px-2 py-1 text-xs text-[#f5f5f5]"
                           >
                             <option value="">Sistema...</option>
                             <option value="agua">Água</option>

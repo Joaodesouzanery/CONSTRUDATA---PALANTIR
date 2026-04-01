@@ -41,7 +41,7 @@ function WaterDropLogo({ size = 22 }: { size?: number }) {
     <svg
       viewBox="0 0 36 44"
       fill="none"
-      stroke="#2abfdc"
+      stroke="#f97316"
       strokeWidth="2.4"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -85,19 +85,19 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col shrink-0 border-r border-[#20406a] bg-[#0d2040] h-full',
+        'flex flex-col shrink-0 border-r border-[#2a2a2a] bg-[#0f0f0f] h-full',
         'transition-[width] duration-200 ease-in-out overflow-hidden',
         isOpen ? 'w-[220px]' : 'w-16',
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 border-b border-[#20406a] shrink-0 px-4 gap-3">
+      <div className="flex items-center h-14 border-b border-[#2a2a2a] shrink-0 px-4 gap-3">
         <div
           className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
           style={{
             background: 'radial-gradient(circle at 40% 35%, #112e52 0%, #071422 100%)',
-            boxShadow: '0 0 12px rgba(42,191,220,0.25), inset 0 1px 0 rgba(42,191,220,0.15)',
-            border: '1px solid rgba(42,191,220,0.3)',
+            boxShadow: '0 0 12px rgba(249,115,22,0.25), inset 0 1px 0 rgba(249,115,22,0.15)',
+            border: '1px solid rgba(249,115,22,0.3)',
           }}
         >
           <WaterDropLogo size={20} />
@@ -106,11 +106,11 @@ export function Sidebar({ onClose }: SidebarProps) {
           <div className="flex flex-col leading-none">
             <span
               className="text-sm font-bold whitespace-nowrap"
-              style={{ color: '#e4f2f8', letterSpacing: '0.02em' }}
+              style={{ color: '#f5f5f5', letterSpacing: '0.02em' }}
             >
               Atlântico
             </span>
-            <span className="text-[9px] font-medium tracking-widest uppercase" style={{ color: '#2abfdc', opacity: 0.8 }}>
+            <span className="text-[9px] font-medium tracking-widest uppercase" style={{ color: '#f97316', opacity: 0.8 }}>
               Plataforma
             </span>
           </div>
@@ -119,7 +119,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         {onClose && (
           <button
             onClick={onClose}
-            className="ml-auto text-[#6b6b6b] hover:text-[#e4f2f8] transition-colors md:hidden"
+            className="ml-auto text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors md:hidden"
             aria-label="Fechar menu"
           >
             <X size={18} />
@@ -140,8 +140,8 @@ export function Sidebar({ onClose }: SidebarProps) {
                 'flex items-center gap-3 rounded-lg transition-colors',
                 'h-10 px-3',
                 isActive
-                  ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
-                  : 'text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8]',
+                  ? 'bg-[#f97316]/12 text-[#f97316]'
+                  : 'text-[#6b6b6b] hover:bg-[#1e1e1e] hover:text-[#a3a3a3]',
               )
             }
           >
@@ -162,12 +162,12 @@ export function Sidebar({ onClose }: SidebarProps) {
         ))}
 
         {/* Bottom controls */}
-        <div className="mt-auto flex flex-col gap-1 pt-3 border-t border-[#20406a]">
+        <div className="mt-auto flex flex-col gap-1 pt-3 border-t border-[#2a2a2a]">
           {/* Expand/collapse toggle */}
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-10 px-3 rounded-lg text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8] transition-colors"
+            className="flex items-center gap-3 h-10 px-3 rounded-lg text-[#6b6b6b] hover:bg-[#1e1e1e] hover:text-[#a3a3a3] transition-colors"
           >
             {isOpen ? <ChevronLeft size={20} className="shrink-0" /> : <ChevronRight size={20} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">Recolher</span>}
@@ -180,8 +180,8 @@ export function Sidebar({ onClose }: SidebarProps) {
             className={cn(
               'flex items-center gap-3 h-10 px-3 rounded-lg transition-colors',
               isDemoMode
-                ? 'bg-[#2abfdc]/12 text-[#2abfdc]'
-                : 'text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8]',
+                ? 'bg-[#f97316]/12 text-[#f97316]'
+                : 'text-[#6b6b6b] hover:bg-[#1e1e1e] hover:text-[#a3a3a3]',
             )}
           >
             <FlaskConical size={18} className="shrink-0" />
@@ -192,7 +192,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-10 px-3 rounded-lg text-[#6b6b6b] hover:bg-[#14294e] hover:text-[#8fb3c8] transition-colors"
+            className="flex items-center gap-3 h-10 px-3 rounded-lg text-[#6b6b6b] hover:bg-[#1e1e1e] hover:text-[#a3a3a3] transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" /> : <Moon size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-medium whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

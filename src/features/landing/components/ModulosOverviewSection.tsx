@@ -64,7 +64,7 @@ export function ModulosOverviewSection() {
               style={{ background: '#0b1a30' }}
               className="group p-6 flex flex-col gap-3 hover:bg-[#0f2240] transition-colors cursor-pointer"
             >
-              <Icon size={16} className="text-white/60 group-hover:text-[#2abfdc] transition-colors" />
+              <Icon size={16} className="text-white/60 group-hover:text-[#f97316] transition-colors" />
               <div>
                 <div style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors">{label}</div>
                 <div className="text-white/70 text-xs leading-relaxed">{desc}</div>

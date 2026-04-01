@@ -15,7 +15,7 @@ interface KanbanColumnProps {
 
 const COLUMN_CONFIG: Record<ActivityStatus, { label: string; accent: string; dot: string }> = {
   planned:     { label: 'Planejado',    accent: 'text-[#94a3b8]', dot: 'bg-[#64748b]' },
-  in_progress: { label: 'Em Andamento', accent: 'text-[#2abfdc]', dot: 'bg-[#2abfdc]' },
+  in_progress: { label: 'Em Andamento', accent: 'text-[#f97316]', dot: 'bg-[#f97316]' },
   completed:   { label: 'Concluído',    accent: 'text-[#22c55e]', dot: 'bg-[#22c55e]' },
 }
 
@@ -40,7 +40,7 @@ export function KanbanColumn({
             {config.label}
           </span>
         </div>
-        <span className="text-xs font-mono text-[#6b6b6b] bg-[#14294e] border border-[#20406a] px-2 py-0.5 rounded-full">
+        <span className="text-xs font-mono text-[#6b6b6b] bg-[#1e1e1e] border border-[#2a2a2a] px-2 py-0.5 rounded-full">
           {activities.length}
         </span>
       </div>
@@ -51,8 +51,8 @@ export function KanbanColumn({
         className={cn(
           'flex flex-col gap-2 min-h-24 rounded-xl border border-dashed p-2 transition-colors',
           isOver
-            ? 'border-[#2abfdc]/50 bg-[#2abfdc]/5'
-            : 'border-[#20406a] bg-[#0d2040]/40'
+            ? 'border-[#f97316]/50 bg-[#f97316]/5'
+            : 'border-[#2a2a2a] bg-[#0f0f0f]/40'
         )}
       >
         {activities.map((activity) => (

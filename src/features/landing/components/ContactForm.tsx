@@ -27,7 +27,7 @@ function Field({ label, wrapperClassName, ...props }: FieldProps) {
           padding: '0.5rem 0',
           fontSize: '0.875rem',
         }}
-        className="focus:border-b-[#2abfdc] transition-colors placeholder:text-white/50"
+        className="focus:border-b-[#f97316] transition-colors placeholder:text-white/50"
         {...props}
       />
     </div>
@@ -126,7 +126,7 @@ export function ContactForm() {
                   disabled={loading}
                   style={{
                     width: '100%',
-                    background: '#2abfdc',
+                    background: '#f97316',
                     color: '#000',
                     padding: '0.875rem 1.5rem',
                     fontFamily: "'Space Grotesk', sans-serif",

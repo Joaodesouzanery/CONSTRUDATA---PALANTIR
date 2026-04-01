@@ -23,7 +23,7 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
     before:rounded-[100%] before:transition-transform before:duration-700 before:content-[""]
     hover:before:translate-x-[0%] hover:before:translate-y-[0%] active:scale-95`,
     variant === 'accent'
-      ? 'border border-[#2abfdc] text-[#2abfdc] before:bg-[#2abfdc] hover:text-black'
+      ? 'border border-[#f97316] text-[#f97316] before:bg-[#f97316] hover:text-black'
       : variant === 'white'
       ? 'border border-white/30 text-white before:bg-white hover:text-black'
       : 'border border-white/15 text-white/70 before:bg-white/10 hover:text-white hover:border-white/30',

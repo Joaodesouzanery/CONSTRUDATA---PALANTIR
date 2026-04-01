@@ -260,7 +260,7 @@ export function ResumoPanel() {
       {/* Source distribution donut */}
       {currentItems.length > 0 && (() => {
         const SOURCE_LABELS: Record<string, string> = { sinapi: 'SINAPI', seinfra: 'SEINFRA', custom: 'Personalizada', manual: 'Manual' }
-        const SOURCE_COLORS: Record<string, string> = { sinapi: '#38bdf8', seinfra: '#2abfdc', custom: '#a78bfa', manual: '#fb923c' }
+        const SOURCE_COLORS: Record<string, string> = { sinapi: '#38bdf8', seinfra: '#f97316', custom: '#a78bfa', manual: '#fb923c' }
         const sources = ['sinapi', 'seinfra', 'custom', 'manual'] as const
         const srcData = sources.map((src) => {
           const items = currentItems.filter((i) => i.source === src)

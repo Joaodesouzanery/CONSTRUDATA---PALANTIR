@@ -16,7 +16,7 @@ import { MapaTransformCrsModal }  from './MapaTransformCrsModal'
 import type { MapTool, MapNetworkType } from '@/types'
 
 const NETWORK_TYPE_OPTIONS: { id: MapNetworkType; label: string; color: string }[] = [
-  { id: 'sewer',    label: 'Esgoto',   color: '#2abfdc' },
+  { id: 'sewer',    label: 'Esgoto',   color: '#f97316' },
   { id: 'water',    label: 'Água',     color: '#38bdf8' },
   { id: 'drainage', label: 'Drenagem', color: '#4ade80' },
   { id: 'civil',    label: 'Civil',    color: '#94a3b8' },

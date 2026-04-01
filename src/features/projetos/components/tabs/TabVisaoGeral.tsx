@@ -26,14 +26,14 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 
 const STATUS_COLOR: Record<ProjectStatus, string> = {
   active:    'text-[#22c55e] bg-[#22c55e]/10 border-[#22c55e]/20',
-  planning:  'text-[#2abfdc] bg-[#2abfdc]/10 border-[#2abfdc]/20',
+  planning:  'text-[#f97316] bg-[#f97316]/10 border-[#f97316]/20',
   completed: 'text-[#a3a3a3] bg-[#a3a3a3]/10 border-[#a3a3a3]/20',
   on_hold:   'text-[#ef4444] bg-[#ef4444]/10 border-[#ef4444]/20',
 }
 
 const PHASE_STATUS_COLOR: Record<ProjectPhaseStatus, string> = {
   not_started: '#6b6b6b',
-  in_progress: '#2abfdc',
+  in_progress: '#f97316',
   completed:   '#22c55e',
   delayed:     '#ef4444',
 }
@@ -46,7 +46,7 @@ function PhaseBar({ phase }: { phase: ProjectPhase }) {
         <span className="text-[10px] text-[#a3a3a3] truncate max-w-[140px]">{phase.name}</span>
         <span className="text-[10px] font-mono" style={{ color }}>{phase.progress}%</span>
       </div>
-      <div className="h-1 rounded-full bg-[#1a3662] overflow-hidden">
+      <div className="h-1 rounded-full bg-[#262626] overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${phase.progress}%`, background: color }} />
       </div>
     </div>
@@ -78,11 +78,11 @@ export function TabVisaoGeral({ project }: { project: Project }) {
       </div>
 
       {/* Project info card */}
-      <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-5 flex flex-col gap-4">
+      <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs text-[#6b6b6b] bg-[#1a3662] px-2 py-0.5 rounded">
+              <span className="font-mono text-xs text-[#6b6b6b] bg-[#262626] px-2 py-0.5 rounded">
                 {project.code}
               </span>
               <span
@@ -98,7 +98,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
           </div>
           <button
             onClick={() => setEditingProject(project.id)}
-            className="shrink-0 flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-[#20406a] hover:border-[#2abfdc]/30 rounded-lg px-3 py-2"
+            className="shrink-0 flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#2a2a2a] hover:border-[#f97316]/30 rounded-lg px-3 py-2"
           >
             <Pencil size={12} />
             Editar Projeto
@@ -128,8 +128,8 @@ export function TabVisaoGeral({ project }: { project: Project }) {
 
       {/* Location map */}
       {project.lat && project.lng && (
-        <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4 flex flex-col gap-3">
-          <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#20406a] pb-2">
+        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4 flex flex-col gap-3">
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#2a2a2a] pb-2">
             Localização
           </span>
           <div className="rounded-lg overflow-hidden" style={{ height: 160 }}>
@@ -167,8 +167,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function PhaseGroup({ title, phases }: { title: string; phases: ProjectPhase[] }) {
   return (
-    <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4 flex flex-col gap-3">
-      <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#20406a] pb-2">
+    <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4 flex flex-col gap-3">
+      <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#2a2a2a] pb-2">
         {title}
       </span>
       {phases.map((ph) => <PhaseBar key={ph.id} phase={ph} />)}

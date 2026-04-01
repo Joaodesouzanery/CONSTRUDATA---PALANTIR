@@ -135,8 +135,8 @@ export function PpcDashboard() {
                 })}
 
                 {/* Meta line */}
-                <line x1={LEFT} y1={metaY} x2={CHART_W} y2={metaY} stroke="#2abfdc" strokeWidth={1.5} strokeDasharray="4 3" />
-                <text x={CHART_W - 2} y={metaY - 3} textAnchor="end" fill="#2abfdc" fontSize={9}>Meta {META_PPC}%</text>
+                <line x1={LEFT} y1={metaY} x2={CHART_W} y2={metaY} stroke="#f97316" strokeWidth={1.5} strokeDasharray="4 3" />
+                <text x={CHART_W - 2} y={metaY - 3} textAnchor="end" fill="#f97316" fontSize={9}>Meta {META_PPC}%</text>
 
                 {/* Bars */}
                 {chartWeeks.map((w, i) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet } from 'lucide-react'
+import { FileSpreadsheet, Plus } from 'lucide-react'
 import { SuprimentosHeader }    from './components/SuprimentosHeader'
 import { ConciliacaoPanel }     from './components/ConciliacaoPanel'
 import { ExcecoesPanel }        from './components/ExcecoesPanel'
@@ -11,6 +11,7 @@ import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { ExcelImportModal }     from './components/ExcelImportModal'
+import { NovoMaterialModal }    from './components/NovoMaterialModal'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ export function SuprimentosPage() {
   const [activeSection, setActiveSection] = useState<SuprimentosSection>('suprimentos')
   const [activeTab, setActiveTab] = useState<SuprimentosTab>('conciliacao')
   const [showImport, setShowImport] = useState(false)
+  const [showNovoMaterial, setShowNovoMaterial] = useState(false)
 
   // Reset tab when section changes
   useEffect(() => {
@@ -26,14 +28,14 @@ export function SuprimentosPage() {
 
   return (
     <div className="flex flex-col h-full p-5 gap-4 overflow-hidden">
-      {/* Section switcher + Excel import button */}
+      {/* Section switcher + action buttons */}
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex gap-1 bg-[#14294e] border border-[#20406a] rounded-xl p-1">
+        <div className="flex gap-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-1">
           <button
             onClick={() => setActiveSection('suprimentos')}
             className={cn(
               'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
-              activeSection === 'suprimentos' ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              activeSection === 'suprimentos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
             )}
           >
             Suprimentos
@@ -42,7 +44,7 @@ export function SuprimentosPage() {
             onClick={() => setActiveSection('materiais')}
             className={cn(
               'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
-              activeSection === 'materiais' ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              activeSection === 'materiais' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
             )}
           >
             Materiais &amp; Estoque
@@ -50,13 +52,22 @@ export function SuprimentosPage() {
         </div>
 
         {activeSection === 'materiais' && (
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#20406a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#2abfdc]/40 transition-colors"
-          >
-            <FileSpreadsheet size={13} />
-            Importar Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNovoMaterial(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
+            >
+              <Plus size={13} />
+              Adicionar Material
+            </button>
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+            >
+              <FileSpreadsheet size={13} />
+              Importar Excel
+            </button>
+          </div>
         )}
       </div>
 
@@ -76,7 +87,8 @@ export function SuprimentosPage() {
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
 
-      {showImport && <ExcelImportModal onClose={() => setShowImport(false)} />}
+      {showImport       && <ExcelImportModal onClose={() => setShowImport(false)} />}
+      {showNovoMaterial && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
     </div>
   )
 }

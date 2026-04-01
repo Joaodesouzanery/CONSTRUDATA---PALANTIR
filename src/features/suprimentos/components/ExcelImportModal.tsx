@@ -108,11 +108,11 @@ export function ExcelImportModal({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-[#14294e] border border-[#20406a] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#20406a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
           <div className="flex items-center gap-2.5">
-            <FileSpreadsheet size={18} className="text-[#2abfdc]" />
+            <FileSpreadsheet size={18} className="text-[#f97316]" />
             <div>
               <h2 className="text-sm font-bold text-[#f5f5f5]">Importar Planilha Excel</h2>
               <p className="text-[10px] text-[#6b6b6b]">
@@ -129,19 +129,19 @@ export function ExcelImportModal({ onClose }: Props) {
         </div>
 
         {/* Step progress */}
-        <div className="flex items-center gap-0 px-5 py-3 border-b border-[#20406a]">
+        <div className="flex items-center gap-0 px-5 py-3 border-b border-[#2a2a2a]">
           {(['upload', 'mapping', 'preview', 'done'] as Step[]).map((s, i, arr) => (
             <div key={s} className="flex items-center">
               <div className={cn(
                 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
-                step === s ? 'bg-[#2abfdc] text-white'
+                step === s ? 'bg-[#f97316] text-white'
                   : (arr.indexOf(step) > i) ? 'bg-[#22c55e] text-white'
-                  : 'bg-[#20406a] text-[#6b6b6b]',
+                  : 'bg-[#2a2a2a] text-[#6b6b6b]',
               )}>
                 {arr.indexOf(step) > i ? <CheckCircle2 size={12} /> : i + 1}
               </div>
               {i < arr.length - 1 && (
-                <div className={cn('h-px w-10', arr.indexOf(step) > i ? 'bg-[#22c55e]' : 'bg-[#20406a]')} />
+                <div className={cn('h-px w-10', arr.indexOf(step) > i ? 'bg-[#22c55e]' : 'bg-[#2a2a2a]')} />
               )}
             </div>
           ))}
@@ -161,11 +161,11 @@ export function ExcelImportModal({ onClose }: Props) {
                 className={cn(
                   'border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors',
                   isDragging
-                    ? 'border-[#2abfdc] bg-[#2abfdc]/10'
-                    : 'border-[#20406a] hover:border-[#2abfdc]/50 hover:bg-[#2abfdc]/5',
+                    ? 'border-[#f97316] bg-[#f97316]/10'
+                    : 'border-[#2a2a2a] hover:border-[#f97316]/50 hover:bg-[#f97316]/5',
                 )}
               >
-                <Upload size={32} className={cn('transition-colors', isDragging ? 'text-[#2abfdc]' : 'text-[#6b6b6b]')} />
+                <Upload size={32} className={cn('transition-colors', isDragging ? 'text-[#f97316]' : 'text-[#6b6b6b]')} />
                 <div className="text-center">
                   <p className="text-sm font-medium text-[#f5f5f5]">Arraste um arquivo aqui</p>
                   <p className="text-xs text-[#6b6b6b] mt-1">ou clique para selecionar</p>
@@ -193,7 +193,7 @@ export function ExcelImportModal({ onClose }: Props) {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-[#6b6b6b]">
-                  <span className="text-[#2abfdc] font-medium">{filename}</span> — {preview.rows.length} linhas detectadas
+                  <span className="text-[#f97316] font-medium">{filename}</span> — {preview.rows.length} linhas detectadas
                 </p>
               </div>
 
@@ -203,7 +203,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 <select
                   value={targetDeposito}
                   onChange={(e) => setTargetDeposito(e.target.value)}
-                  className="bg-[#0d2040] border border-[#20406a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/50"
+                  className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                 >
                   {depositos.filter((d) => d.ativo).map((d) => (
                     <option key={d.id} value={d.id}>{d.frente}</option>
@@ -211,19 +211,19 @@ export function ExcelImportModal({ onClose }: Props) {
                 </select>
               </div>
 
-              <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-hidden">
-                <div className="grid grid-cols-2 px-3 py-2 text-[10px] text-[#6b6b6b] font-medium uppercase tracking-wide border-b border-[#20406a]">
+              <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl overflow-hidden">
+                <div className="grid grid-cols-2 px-3 py-2 text-[10px] text-[#6b6b6b] font-medium uppercase tracking-wide border-b border-[#2a2a2a]">
                   <span>Coluna no Excel</span>
                   <span>Campo do sistema</span>
                 </div>
-                <div className="divide-y divide-[#20406a]">
+                <div className="divide-y divide-[#2a2a2a]">
                   {preview.headers.map((h) => (
                     <div key={h} className="grid grid-cols-2 px-3 py-2 items-center gap-3">
                       <span className="text-xs text-[#f5f5f5] font-medium truncate" title={h}>{h}</span>
                       <select
                         value={mapping[h] ?? 'ignorar'}
                         onChange={(e) => setMapping((prev) => ({ ...prev, [h]: e.target.value }))}
-                        className="bg-[#14294e] border border-[#20406a] rounded-lg px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/50"
+                        className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                       >
                         {KNOWN_FIELDS.map((f) => (
                           <option key={f.value} value={f.value}>{f.label}</option>
@@ -241,12 +241,12 @@ export function ExcelImportModal({ onClose }: Props) {
             <div className="flex flex-col gap-4">
               <p className="text-xs text-[#6b6b6b]">
                 Serão importados <span className="text-[#f5f5f5] font-semibold">{totalItems} itens</span> para a frente{' '}
-                <span className="text-[#2abfdc] font-medium">{deposito?.frente}</span>. Primeiras 5 linhas:
+                <span className="text-[#f97316] font-medium">{deposito?.frente}</span>. Primeiras 5 linhas:
               </p>
-              <div className="bg-[#0d2040] border border-[#20406a] rounded-xl overflow-auto">
+              <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl overflow-auto">
                 <table className="w-full text-[10px]">
                   <thead>
-                    <tr className="bg-[#14294e]">
+                    <tr className="bg-[#1e1e1e]">
                       {['Descrição', 'Un.', 'Qtd.', 'Mín.', 'Custo', 'Categoria', 'Fornecedor'].map((h) => (
                         <th key={h} className="px-2.5 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                       ))}
@@ -254,7 +254,7 @@ export function ExcelImportModal({ onClose }: Props) {
                   </thead>
                   <tbody>
                     {previewItems.map((item, i) => (
-                      <tr key={i} className="border-t border-[#20406a]">
+                      <tr key={i} className="border-t border-[#2a2a2a]">
                         <td className="px-2.5 py-1.5 text-[#f5f5f5] max-w-[140px] truncate" title={item.descricao}>{item.descricao}</td>
                         <td className="px-2.5 py-1.5 text-[#6b6b6b]">{item.unidade}</td>
                         <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{item.qtdDisponivel}</td>
@@ -278,7 +278,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 <p className="text-sm font-bold text-[#f5f5f5]">Importação concluída!</p>
                 <p className="text-xs text-[#6b6b6b] mt-1">
                   {totalItems} ite{totalItems !== 1 ? 'ns foram adicionados' : 'm foi adicionado'} a{' '}
-                  <span className="text-[#2abfdc]">{deposito?.frente}</span>.
+                  <span className="text-[#f97316]">{deposito?.frente}</span>.
                 </p>
               </div>
             </div>
@@ -286,7 +286,7 @@ export function ExcelImportModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-[#20406a]">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-[#2a2a2a]">
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
@@ -297,7 +297,7 @@ export function ExcelImportModal({ onClose }: Props) {
             {step === 'mapping' && (
               <button
                 onClick={() => setStep('preview')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#2abfdc] text-white hover:bg-[#2abfdc]/80 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#f97316] text-white hover:bg-[#f97316]/80 transition-colors"
               >
                 Pré-visualizar <ChevronRight size={12} />
               </button>
@@ -306,7 +306,7 @@ export function ExcelImportModal({ onClose }: Props) {
               <>
                 <button
                   onClick={() => setStep('mapping')}
-                  className="px-4 py-2 text-xs text-[#6b6b6b] border border-[#20406a] rounded-lg hover:text-[#f5f5f5] transition-colors"
+                  className="px-4 py-2 text-xs text-[#6b6b6b] border border-[#2a2a2a] rounded-lg hover:text-[#f5f5f5] transition-colors"
                 >
                   Voltar
                 </button>

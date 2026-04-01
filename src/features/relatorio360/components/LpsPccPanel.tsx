@@ -34,7 +34,7 @@ function PpcList({ results }: { results: WeeklyPpcResult[] }) {
       {results.slice(-8).map((w, i) => (
         <div key={i} className="flex items-center gap-3">
           <span className="text-[10px] text-[#6b6b6b] w-6 text-right tabular-nums">S{i + 1}</span>
-          <div className="flex-1 h-2 rounded-full bg-[#1a3662] overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-[#262626] overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${w.ppc}%`, backgroundColor: ppcBar(w.ppc) }}
@@ -83,8 +83,8 @@ function SCurvePanel({ points }: { points: TrendPoint[] }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
       {[0, 25, 50, 75, 100].map((v) => (
         <g key={v}>
-          <line x1={PAD_L} y1={py(v)} x2={W - 6} y2={py(v)} stroke="#20406a" strokeWidth={0.5} strokeDasharray="3,3" />
-          <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#5a8caa" fontFamily="monospace">{v}%</text>
+          <line x1={PAD_L} y1={py(v)} x2={W - 6} y2={py(v)} stroke="#2a2a2a" strokeWidth={0.5} strokeDasharray="3,3" />
+          <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
         </g>
       ))}
 
@@ -101,12 +101,12 @@ function SCurvePanel({ points }: { points: TrendPoint[] }) {
       })()}
 
       <path d={plannedPath} fill="none" stroke="#6b7280" strokeWidth={1.8} strokeDasharray="5,3" />
-      {actualPath && <path d={actualPath} fill="none" stroke="#2abfdc" strokeWidth={2.5} />}
+      {actualPath && <path d={actualPath} fill="none" stroke="#f97316" strokeWidth={2.5} />}
 
       {xLabels.map((p) => {
         const i = valid.indexOf(p)
         return (
-          <text key={p.date} x={px(i)} y={H - 3} textAnchor="middle" fontSize={7} fill="#5a8caa" fontFamily="monospace">
+          <text key={p.date} x={px(i)} y={H - 3} textAnchor="middle" fontSize={7} fill="#6b6b6b" fontFamily="monospace">
             {p.date.slice(5).replace('-', '/')}
           </text>
         )
@@ -114,7 +114,7 @@ function SCurvePanel({ points }: { points: TrendPoint[] }) {
 
       <line x1={W - 130} y1={PAD_T + 5} x2={W - 116} y2={PAD_T + 5} stroke="#6b7280" strokeWidth={1.8} strokeDasharray="5,3" />
       <text x={W - 113} y={PAD_T + 8} fontSize={8} fill="#9ca3af">Previsto</text>
-      <line x1={W - 60} y1={PAD_T + 5} x2={W - 46} y2={PAD_T + 5} stroke="#2abfdc" strokeWidth={2.5} />
+      <line x1={W - 60} y1={PAD_T + 5} x2={W - 46} y2={PAD_T + 5} stroke="#f97316" strokeWidth={2.5} />
       <text x={W - 43} y={PAD_T + 8} fontSize={8} fill="#9ca3af">Realizado</text>
 
       {delayed && (
@@ -147,7 +147,7 @@ function NotableServicesPanel({ curves }: { curves: NotableServiceCurve[] }) {
                 <span className="text-[10px] font-bold tabular-nums" style={{ color }}>{actPct}%</span>
               </div>
             </div>
-            <div className="relative h-2 rounded-full bg-[#1a3662] overflow-hidden">
+            <div className="relative h-2 rounded-full bg-[#262626] overflow-hidden">
               <div className="absolute inset-0 bg-[#3a4a6b] rounded-full" style={{ width: '100%' }} />
               <div className="absolute inset-0 rounded-full" style={{ width: `${actPct}%`, backgroundColor: color }} />
             </div>
@@ -179,25 +179,25 @@ export function LpsPccPanel() {
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Target size={16} className="text-[#2abfdc]" />
+        <Target size={16} className="text-[#f97316]" />
         <h2 className="text-[#f5f5f5] text-base font-bold">LPS / PPC — Previsto × Realizado</h2>
       </div>
 
       {/* Top row: PPC list + S-curve */}
       <div className="grid grid-cols-2 gap-4">
         {/* PPC per week */}
-        <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4">
+        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Target size={13} className="text-[#2abfdc]" />
+            <Target size={13} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">PPC por Semana</h3>
           </div>
           <PpcList results={weeklyPpcResults} />
         </div>
 
         {/* S-curve */}
-        <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4">
+        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={13} className="text-[#2abfdc]" />
+            <TrendingUp size={13} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Curva S — Planejado vs Realizado</h3>
           </div>
           <SCurvePanel points={trendPoints} />
@@ -205,7 +205,7 @@ export function LpsPccPanel() {
       </div>
 
       {/* Notable services */}
-      <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4">
+      <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
         <div className="flex items-center gap-2 mb-4">
           <Activity size={13} className="text-[#f97316]" />
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Serviços Notáveis — Planejado vs Realizado</h3>

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Trash2, AlertTriangle, MapPin } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { X, Trash2, AlertTriangle, MapPin, Search, Loader2 } from 'lucide-react'
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
@@ -38,6 +38,15 @@ function MapClickHandler({ onMapClick }: ClickHandlerProps) {
   return null
 }
 
+interface MapFlyToProps { pos: [number, number] | null }
+function MapFlyTo({ pos }: MapFlyToProps) {
+  const map = useMap()
+  useEffect(() => {
+    if (pos) map.flyTo(pos, 14, { duration: 1 })
+  }, [pos, map])
+  return null
+}
+
 function blankDefaults(): ProjectInfoFormValues {
   return {
     code: '', name: '', owner: '', manager: '',
@@ -57,9 +66,12 @@ export function ProjectDialog() {
   const updateProject     = useProjetosStore((s) => s.updateProject)
   const deleteProject     = useProjetosStore((s) => s.deleteProject)
 
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [showMap, setShowMap]             = useState(false)
-  const [markerPos, setMarkerPos]         = useState<[number, number] | null>(null)
+  const [confirmDelete, setConfirmDelete]   = useState(false)
+  const [showMap, setShowMap]               = useState(false)
+  const [markerPos, setMarkerPos]           = useState<[number, number] | null>(null)
+  const [geocoding, setGeocoding]           = useState(false)
+  const [geocodeError, setGeocodeError]     = useState<string | null>(null)
+  const [flyTarget, setFlyTarget]           = useState<[number, number] | null>(null)
 
   const isNew    = editingProjectId === 'new'
   const existing = isNew ? null : projects.find((p) => p.id === editingProjectId) ?? null
@@ -129,6 +141,35 @@ export function ProjectDialog() {
     setValue('lat', rLat, { shouldValidate: true })
     setValue('lng', rLng, { shouldValidate: true })
     setMarkerPos([rLat, rLng])
+    setGeocodeError(null)
+  }
+
+  async function handleGeocode() {
+    const addr = (document.querySelector('input[data-addr]') as HTMLInputElement | null)?.value
+      ?? watch('address')
+    if (!addr?.trim()) return
+    setGeocoding(true)
+    setGeocodeError(null)
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=br`
+      const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } })
+      const data: { lat: string; lon: string }[] = await res.json()
+      if (data.length === 0) {
+        setGeocodeError('Endereço não encontrado. Tente ser mais específico.')
+        return
+      }
+      const rLat = Math.round(parseFloat(data[0].lat) * 1e6) / 1e6
+      const rLng = Math.round(parseFloat(data[0].lon) * 1e6) / 1e6
+      setValue('lat', rLat, { shouldValidate: true })
+      setValue('lng', rLng, { shouldValidate: true })
+      setMarkerPos([rLat, rLng])
+      setFlyTarget([rLat, rLng])
+      setShowMap(true)
+    } catch {
+      setGeocodeError('Erro ao buscar endereço. Verifique sua conexão.')
+    } finally {
+      setGeocoding(false)
+    }
   }
 
   function onSubmit(values: ProjectInfoFormValues) {
@@ -184,18 +225,18 @@ export function ProjectDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
-        className="w-full max-w-xl rounded-2xl border border-[#20406a] bg-[#112645] flex flex-col shadow-2xl"
+        className="w-full max-w-xl rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#20406a] shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Novo Projeto' : `Editar — ${existing?.name ?? ''}`}
           </h2>
           <button
             onClick={close}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#1a3662] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
           >
             <X size={15} />
           </button>
@@ -295,11 +336,27 @@ export function ProjectDialog() {
             {/* Localização */}
             <Section title="Localização">
               <Field label="Endereço da Obra" error={errors.address?.message}>
-                <input
-                  {...register('address')}
-                  placeholder="Ex: Rua Principal, 100 — São Manoel, BA"
-                  className={inp(!!errors.address)}
-                />
+                <div className="flex gap-2">
+                  <input
+                    {...register('address')}
+                    data-addr
+                    placeholder="Ex: Rua Principal, 100 — São Manoel, BA"
+                    className={cn(inp(!!errors.address), 'flex-1')}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGeocode}
+                    disabled={geocoding}
+                    title="Buscar endereço no mapa"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-[#f97316]/12 text-[#f97316] hover:bg-[#f97316]/20 disabled:opacity-50 transition-colors shrink-0"
+                  >
+                    {geocoding ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    Buscar
+                  </button>
+                </div>
+                {geocodeError && (
+                  <p className="text-[10px] text-[#ef4444] mt-1">{geocodeError}</p>
+                )}
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Latitude" error={errors.lat?.message}>
@@ -324,14 +381,14 @@ export function ProjectDialog() {
               <button
                 type="button"
                 onClick={() => setShowMap((v) => !v)}
-                className="flex items-center gap-1.5 text-xs text-[#2abfdc] hover:text-[#1a9ab8] transition-colors"
+                className="flex items-center gap-1.5 text-xs text-[#f97316] hover:text-[#ea580c] transition-colors"
               >
                 <MapPin size={13} />
                 {showMap ? 'Ocultar mapa' : 'Marcar no Mapa'}
                 {latVal && lngVal ? ` (${latVal.toFixed(4)}, ${lngVal.toFixed(4)})` : ''}
               </button>
               {showMap && (
-                <div className="rounded-lg overflow-hidden border border-[#20406a]" style={{ height: 200 }}>
+                <div className="rounded-lg overflow-hidden border border-[#2a2a2a]" style={{ height: 220 }}>
                   <MapContainer
                     center={mapCenter}
                     zoom={markerPos ? 13 : 5}
@@ -344,17 +401,18 @@ export function ProjectDialog() {
                     />
                     <MapClickHandler onMapClick={handleMapClick} />
                     {markerPos && <Marker position={markerPos} />}
+                    <MapFlyTo pos={flyTarget} />
                   </MapContainer>
                 </div>
               )}
               {showMap && (
-                <p className="text-[10px] text-[#6b6b6b]">Clique no mapa para definir a localização do projeto.</p>
+                <p className="text-[10px] text-[#6b6b6b]">Clique no mapa para ajustar a posição exata, ou use "Buscar" para geocodificar o endereço.</p>
               )}
             </Section>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-[#20406a] shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#2a2a2a] shrink-0">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">
@@ -370,7 +428,7 @@ export function ProjectDialog() {
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(false)}
-                    className="text-xs px-2 py-1 rounded bg-[#1a3662] text-[#a3a3a3] hover:bg-[#20406a]"
+                    className="text-xs px-2 py-1 rounded bg-[#262626] text-[#a3a3a3] hover:bg-[#2a2a2a]"
                   >
                     Não
                   </button>
@@ -393,13 +451,13 @@ export function ProjectDialog() {
               <button
                 type="button"
                 onClick={close}
-                className="px-4 py-2 rounded-lg border border-[#20406a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors"
+                className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] transition-colors"
               >
                 {isNew ? 'Criar Projeto' : 'Salvar Alterações'}
               </button>
@@ -415,10 +473,10 @@ export function ProjectDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#0d2040] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#0f0f0f] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
     hasError
       ? 'border-[#ef4444] focus:border-[#ef4444]'
-      : 'border-[#20406a] focus:border-[#2abfdc]'
+      : 'border-[#2a2a2a] focus:border-[#f97316]'
   )
 }
 
@@ -435,7 +493,7 @@ function Field({ label, error, children }: { label: React.ReactNode; error?: str
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-0.5 w-full pb-1 border-b border-[#20406a]">
+      <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-0.5 w-full pb-1 border-b border-[#2a2a2a]">
         {title}
       </legend>
       {children}

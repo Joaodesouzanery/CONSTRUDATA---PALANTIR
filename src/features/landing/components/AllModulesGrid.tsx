@@ -64,7 +64,7 @@ export function AllModulesGrid() {
             className="grid grid-cols-12 gap-4 py-4 hover:bg-white/[0.04] transition-colors group cursor-default"
           >
             <div className="col-span-1 flex items-center">
-              <Icon size={14} className="text-white/55 group-hover:text-[#2abfdc] transition-colors" />
+              <Icon size={14} className="text-white/55 group-hover:text-[#f97316] transition-colors" />
             </div>
             <div className="col-span-4 md:col-span-4 flex items-center">
               <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/80 text-sm font-medium group-hover:text-white transition-colors">{name}</span>

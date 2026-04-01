@@ -34,8 +34,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 // ─── Shared field styles ───────────────────────────────────────────────────────
 
-const INPUT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 placeholder-gray-500 outline-none focus:border-[#2abfdc] text-xs w-full'
-const SELECT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-[#2abfdc] text-xs w-full'
+const INPUT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 placeholder-gray-500 outline-none focus:border-[#f97316] text-xs w-full'
+const SELECT = 'bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-gray-200 outline-none focus:border-[#f97316] text-xs w-full'
 
 // ─── Nova Requisição form ──────────────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ function NewReqForm({ onSubmit, onCancel }: NewReqFormProps) {
       <input className={INPUT} placeholder="Solicitante *" value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} required />
       <input className={INPUT} placeholder="Projeto (PRJ-001)" value={projectRef} onChange={(e) => setProjectRef(e.target.value)} />
       <div className="flex gap-1.5 mt-1">
-        <button type="submit" className="flex-1 bg-[#2abfdc] hover:bg-[#22a8c4] text-white rounded px-2 py-1.5 text-xs font-medium transition-colors">
+        <button type="submit" className="flex-1 bg-[#f97316] hover:bg-[#22a8c4] text-white rounded px-2 py-1.5 text-xs font-medium transition-colors">
           Submeter
         </button>
         <button type="button" onClick={onCancel} className="px-3 py-1.5 rounded border border-gray-600 text-gray-400 hover:text-gray-200 text-xs transition-colors">
@@ -126,47 +126,47 @@ function EditReqModal({ req, onSave, onClose }: EditReqModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#14294e] border border-[#20406a] rounded-xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#20406a]">
-          <h4 className="text-[#e4f2f8] font-semibold text-sm">Editar Requisição</h4>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#e4f2f8] transition-colors">
+      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl w-full max-w-sm shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a]">
+          <h4 className="text-[#f5f5f5] font-semibold text-sm">Editar Requisição</h4>
+          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
             <X size={16} />
           </button>
         </div>
         <form onSubmit={handleSave} className="p-4 flex flex-col gap-3">
           <div>
-            <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Material</label>
-            <input className={cn(INPUT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} value={material} onChange={(e) => setMaterial(e.target.value)} required />
+            <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Material</label>
+            <input className={cn(INPUT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} value={material} onChange={(e) => setMaterial(e.target.value)} required />
           </div>
           <div>
-            <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Categoria</label>
-            <select className={cn(SELECT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} value={category} onChange={(e) => setCategory(e.target.value)}>
+            <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Categoria</label>
+            <select className={cn(SELECT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} value={category} onChange={(e) => setCategory(e.target.value)}>
               {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Quantidade</label>
-              <input className={cn(INPUT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} type="number" min="0" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+              <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Quantidade</label>
+              <input className={cn(INPUT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} type="number" min="0" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
             </div>
             <div className="w-24">
-              <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Unidade</label>
-              <input className={cn(INPUT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} value={unit} onChange={(e) => setUnit(e.target.value)} />
+              <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Unidade</label>
+              <input className={cn(INPUT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} value={unit} onChange={(e) => setUnit(e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Solicitante</label>
-            <input className={cn(INPUT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} required />
+            <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Solicitante</label>
+            <input className={cn(INPUT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} value={requestedBy} onChange={(e) => setRequestedBy(e.target.value)} required />
           </div>
           <div>
-            <label className="text-[#8fb3c8] text-[10px] uppercase tracking-wide mb-1 block">Projeto</label>
-            <input className={cn(INPUT, 'bg-[#0d2040] border-[#20406a] text-[#e4f2f8]')} value={projectRef} onChange={(e) => setProjectRef(e.target.value)} />
+            <label className="text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block">Projeto</label>
+            <input className={cn(INPUT, 'bg-[#0f0f0f] border-[#2a2a2a] text-[#f5f5f5]')} value={projectRef} onChange={(e) => setProjectRef(e.target.value)} />
           </div>
           <div className="flex gap-2 pt-1">
-            <button type="submit" className="flex-1 flex items-center justify-center gap-1.5 bg-[#2abfdc] hover:bg-[#22a8c4] text-white rounded-lg px-3 py-2 text-xs font-semibold transition-colors">
+            <button type="submit" className="flex-1 flex items-center justify-center gap-1.5 bg-[#f97316] hover:bg-[#22a8c4] text-white rounded-lg px-3 py-2 text-xs font-semibold transition-colors">
               <Check size={13} /> Salvar
             </button>
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#20406a] text-[#8fb3c8] text-xs hover:border-[#5a8caa] transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
               Cancelar
             </button>
           </div>
@@ -201,7 +201,7 @@ function ReqCard({ req, isLast, onAdvance, onEdit }: CardProps) {
         </div>
         <button
           onClick={onEdit}
-          className="shrink-0 p-1 rounded text-gray-500 hover:text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors"
+          className="shrink-0 p-1 rounded text-gray-500 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
           title="Editar requisição"
         >
           <Pencil size={11} />
@@ -251,7 +251,7 @@ function ReqCard({ req, isLast, onAdvance, onEdit }: CardProps) {
       {!isLast && (
         <button
           onClick={onAdvance}
-          className="mt-1 flex items-center justify-center gap-1 px-2 py-1 rounded border border-[#2abfdc]/40 text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors font-medium"
+          className="mt-1 flex items-center justify-center gap-1 px-2 py-1 rounded border border-[#f97316]/40 text-[#f97316] hover:bg-[#f97316]/10 transition-colors font-medium"
         >
           <ChevronRight size={11} />
           Avançar
@@ -319,7 +319,7 @@ export function RequisicoesPipeline() {
                   ) : (
                     <button
                       onClick={() => setShowNewForm(true)}
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#2abfdc] transition-colors py-1"
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#f97316] transition-colors py-1"
                     >
                       <Plus size={13} />
                       Nova Requisição

@@ -292,7 +292,7 @@ export function DashboardPanel() {
       {(() => {
         const SYSTEMS = [
           { key: 'agua',         label: 'Água',         color: '#38bdf8' },
-          { key: 'esgoto',       label: 'Esgoto',       color: '#2abfdc' },
+          { key: 'esgoto',       label: 'Esgoto',       color: '#f97316' },
           { key: 'drenagem',     label: 'Drenagem',     color: '#4ade80' },
           { key: 'estrutura',    label: 'Estrutura',    color: '#a78bfa' },
           { key: 'pavimentacao', label: 'Pavimentação', color: '#fb923c' },

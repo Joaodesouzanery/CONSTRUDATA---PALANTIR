@@ -2,8 +2,8 @@
  * PlanejamentoMacroPanel — WBS Gantt with Previsto vs Tendência bars,
  * baseline management, activity CRUD, and export (PDF / Excel / PNG).
  */
-import { useRef, useState } from 'react'
-import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet } from 'lucide-react'
+import { useRef, useState, useMemo } from 'react'
+import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
@@ -13,7 +13,7 @@ import type { MasterActivity, MasterActivityStatus } from '@/types'
 
 const STATUS_COLOR: Record<MasterActivityStatus, string> = {
   not_started: '#6b6b6b',
-  in_progress: '#2abfdc',
+  in_progress: '#f97316',
   completed:   '#22c55e',
   delayed:     '#ef4444',
 }
@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<MasterActivityStatus, string> = {
 }
 
 const NETWORK_COLOR: Record<string, string> = {
-  agua:   '#2abfdc',
+  agua:   '#f97316',
   esgoto: '#22c55e',
   civil:  '#f59e0b',
   geral:  '#a78bfa',
@@ -111,8 +111,8 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
           const tx = LABEL_W + xOf(today)
           return (
             <>
-              <line x1={tx} y1={0} x2={tx} y2={svgH - 14} stroke="#2abfdc" strokeWidth={1} strokeDasharray="3,2" opacity={0.7} />
-              <text x={tx + 2} y={24} fontSize={8} fill="#2abfdc">hoje</text>
+              <line x1={tx} y1={0} x2={tx} y2={svgH - 14} stroke="#f97316" strokeWidth={1} strokeDasharray="3,2" opacity={0.7} />
+              <text x={tx + 2} y={24} fontSize={8} fill="#f97316">hoje</text>
             </>
           )
         })()}
@@ -146,7 +146,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               <title>{tooltip}</title>
 
               {/* Row background */}
-              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#14294e40" />}
+              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#1e1e1e40" />}
               {isL1 && i % 2 === 0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#0d1f3510" />}
 
               {/* Network type accent line (left) */}
@@ -174,7 +174,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
                 y={y + ROW_H / 2 + 3}
                 fontSize={isL0 ? 10 : 9}
                 fontWeight={isL0 || isL1 ? 'bold' : 'normal'}
-                fill={isL0 ? '#e2f0f8' : '#8fb3c8'}
+                fill={isL0 ? '#e2f0f8' : '#a3a3a3'}
                 style={{ cursor: hasKids ? 'pointer' : 'default' }}
                 onClick={hasKids ? () => onToggle(act.id) : undefined}
               >
@@ -224,7 +224,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
         <g transform={`translate(${LABEL_W + 4}, ${svgH - 16})`}>
           <rect x={0} y={0} width={8} height={5} rx={1} fill="#3a4a6b" opacity={0.5} />
           <text x={12} y={5} fontSize={8} fill="#6b6b6b">Previsto</text>
-          <rect x={55} y={0} width={8} height={5} rx={1} fill="#2abfdc" opacity={0.8} />
+          <rect x={55} y={0} width={8} height={5} rx={1} fill="#f97316" opacity={0.8} />
           <text x={67} y={5} fontSize={8} fill="#6b6b6b">Tendência</text>
           {/* Network legend */}
           {Object.entries(NETWORK_COLOR).map(([nt, c], i) => (
@@ -274,10 +274,10 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60'
+  const inputCls = 'w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60'
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-[#f5f5f5] text-sm font-semibold">Nova Atividade</p>
         <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={16} /></button>
@@ -291,7 +291,7 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
               <option key={a.id} value={a.id}>{'  '.repeat(a.level)}{a.wbsCode} — {a.name}  (N{a.level})</option>
             ))}
           </select>
-          {parentActivity && <p className="text-[10px] text-[#2abfdc] mt-0.5">Nível calculado: {derivedLevel}</p>}
+          {parentActivity && <p className="text-[10px] text-[#f97316] mt-0.5">Nível calculado: {derivedLevel}</p>}
         </div>
         <div>
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Código WBS *</label>
@@ -328,13 +328,13 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
           <input type="number" min={0} max={100} className={inputCls} value={form.weight} onChange={(e) => setForm((f) => ({ ...f, weight: Number(e.target.value) }))} />
         </div>
         <div className="col-span-2 flex items-center gap-2">
-          <input type="checkbox" checked={form.isMilestone} onChange={(e) => setForm((f) => ({ ...f, isMilestone: e.target.checked }))} className="accent-[#2abfdc]" />
+          <input type="checkbox" checked={form.isMilestone} onChange={(e) => setForm((f) => ({ ...f, isMilestone: e.target.checked }))} className="accent-[#f97316]" />
           <span className="text-[#6b6b6b] text-xs">Marco (Milestone)</span>
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#20406a] text-[#6b6b6b] text-xs hover:text-[#a3a3a3]">Cancelar</button>
-        <button type="submit" className="px-4 py-1.5 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8]">
+        <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] text-xs hover:text-[#a3a3a3]">Cancelar</button>
+        <button type="submit" className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">
           <Check size={12} className="inline mr-1" />Criar
         </button>
       </div>
@@ -404,11 +404,32 @@ export function PlanejamentoMacroPanel() {
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
 
-  const [showNewForm, setShowNewForm] = useState(false)
-  const [blName, setBlName]           = useState('')
-  const [showBlSave, setShowBlSave]   = useState(false)
-  const [collapsed, setCollapsed]     = useState<Set<string>>(new Set())
+  const [showNewForm, setShowNewForm]   = useState(false)
+  const [blName, setBlName]             = useState('')
+  const [showBlSave, setShowBlSave]     = useState(false)
+  const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
+  const [search, setSearch]             = useState('')
+  const [filterStatus, setFilterStatus] = useState<MasterActivityStatus | ''>('')
+  const [filterNetwork, setFilterNetwork] = useState<string>('')
+  const [showFilters, setShowFilters]   = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
+
+  const filtered = useMemo(() =>
+    activities.filter((a) =>
+      (!search || a.name.toLowerCase().includes(search.toLowerCase()) || a.wbsCode.toLowerCase().includes(search.toLowerCase())) &&
+      (!filterStatus  || a.status      === filterStatus) &&
+      (!filterNetwork || a.networkType === filterNetwork)
+    ),
+    [activities, search, filterStatus, filterNetwork],
+  )
+
+  const activeFilterCount = [search, filterStatus, filterNetwork].filter(Boolean).length
+
+  function clearFilters() {
+    setSearch('')
+    setFilterStatus('')
+    setFilterNetwork('')
+  }
 
   function toggleCollapse(id: string) {
     setCollapsed((prev) => {
@@ -426,7 +447,7 @@ export function PlanejamentoMacroPanel() {
     setShowBlSave(false)
   }
 
-  const btnCls = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#20406a] text-[#6b6b6b] text-xs hover:text-[#2abfdc] hover:border-[#2abfdc]/40 transition-colors'
+  const btnCls = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] text-xs hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors'
 
   return (
     <div className="flex flex-col gap-4 print:gap-2">
@@ -438,7 +459,7 @@ export function PlanejamentoMacroPanel() {
           <select
             value={activeBlId ?? ''}
             onChange={(e) => e.target.value && loadBaseline(e.target.value)}
-            className="bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60"
+            className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
           >
             <option value="">— Selecionar —</option>
             {baselines.map((bl) => (
@@ -450,7 +471,7 @@ export function PlanejamentoMacroPanel() {
         {showBlSave ? (
           <div className="flex items-center gap-2">
             <input
-              className="bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60 w-40"
+              className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 w-40"
               placeholder="Nome da baseline"
               value={blName}
               onChange={(e) => setBlName(e.target.value)}
@@ -472,7 +493,7 @@ export function PlanejamentoMacroPanel() {
           <button onClick={exportPdf} className={btnCls} title="Exportar PDF">
             <FileDown size={12} />PDF
           </button>
-          <button onClick={() => exportExcel(activities)} className={btnCls} title="Exportar Excel">
+          <button onClick={() => exportExcel(filtered)} className={btnCls} title="Exportar Excel">
             <FileSpreadsheet size={12} />Excel
           </button>
           <button onClick={() => exportPng(svgRef.current)} className={btnCls} title="Exportar PNG">
@@ -482,7 +503,7 @@ export function PlanejamentoMacroPanel() {
 
         <button
           onClick={() => setShowNewForm(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8]"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]"
         >
           <Plus size={13} />Nova Atividade
         </button>
@@ -491,17 +512,99 @@ export function PlanejamentoMacroPanel() {
       {/* New activity form */}
       {showNewForm && <NewActivityForm onClose={() => setShowNewForm(false)} />}
 
+      {/* ── Filter Bar ── */}
+      <div className="print:hidden">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b] pointer-events-none" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nome ou WBS..."
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+            />
+          </div>
+
+          {/* Toggle advanced filters */}
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+              showFilters || activeFilterCount > 0
+                ? 'border-[#f97316]/50 bg-[#f97316]/10 text-[#f97316]'
+                : 'border-[#2a2a2a] text-[#6b6b6b] hover:text-[#f5f5f5]'
+            }`}
+          >
+            <SlidersHorizontal size={12} />
+            Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs text-[#ef4444] hover:bg-[#ef4444]/10 border border-[#ef4444]/30 transition-colors"
+            >
+              <X size={11} />Limpar
+            </button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="flex items-center gap-3 mt-2 flex-wrap">
+            {/* Status filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[#6b6b6b] text-xs shrink-0">Status:</span>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as MasterActivityStatus | '')}
+                className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              >
+                <option value="">Todos</option>
+                <option value="not_started">Não iniciada</option>
+                <option value="in_progress">Em andamento</option>
+                <option value="completed">Concluída</option>
+                <option value="delayed">Atrasada</option>
+              </select>
+            </div>
+
+            {/* Network type filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[#6b6b6b] text-xs shrink-0">Rede:</span>
+              <select
+                value={filterNetwork}
+                onChange={(e) => setFilterNetwork(e.target.value)}
+                className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              >
+                <option value="">Todas</option>
+                <option value="agua">Água</option>
+                <option value="esgoto">Esgoto</option>
+                <option value="civil">Civil</option>
+                <option value="geral">Geral</option>
+              </select>
+            </div>
+
+            <span className="text-[#6b6b6b] text-xs ml-auto">
+              {filtered.length} de {activities.length} atividade{activities.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* ── Gantt Chart ── */}
-      <div className="bg-[#0d1626] border border-[#20406a] rounded-xl overflow-hidden print:border-0">
-        <div className="px-4 py-3 border-b border-[#20406a] flex items-center justify-between print:hidden">
+      <div className="bg-[#0d1626] border border-[#2a2a2a] rounded-xl overflow-hidden print:border-0">
+        <div className="px-4 py-3 border-b border-[#2a2a2a] flex items-center justify-between print:hidden">
           <div>
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Cronograma Macro — Previsto vs Tendência</h3>
-            <p className="text-[#6b6b6b] text-xs mt-0.5">{activities.length} atividades · Clique em ▶/▼ para expandir/recolher</p>
+            <p className="text-[#6b6b6b] text-xs mt-0.5">
+              {filtered.length} atividade{filtered.length !== 1 ? 's' : ''}
+              {activeFilterCount > 0 ? ` (filtrado de ${activities.length})` : ''}
+              {' '}· Clique em ▶/▼ para expandir/recolher
+            </p>
           </div>
         </div>
         <div className="p-3">
           <GanttChart
-            activities={activities}
+            activities={filtered}
             collapsed={collapsed}
             onToggle={toggleCollapse}
             svgRef={svgRef}
@@ -510,11 +613,11 @@ export function PlanejamentoMacroPanel() {
       </div>
 
       {/* ── Activity list table ── */}
-      <div className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-hidden">
+      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#20406a] bg-[#0d2040]">
+              <tr className="border-b border-[#2a2a2a] bg-[#0f0f0f]">
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">WBS</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Atividade</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Tipo</th>
@@ -526,12 +629,12 @@ export function PlanejamentoMacroPanel() {
               </tr>
             </thead>
             <tbody>
-              {activities.filter((a) => a.level >= 1).map((act) => {
+              {filtered.filter((a) => a.level >= 1).map((act) => {
                 const color  = STATUS_COLOR[act.status]
                 const nColor = networkColor(act.networkType)
                 const delta  = daysBetween(act.plannedEnd, act.trendEnd)
                 return (
-                  <tr key={act.id} className="border-b border-[#20406a]/50 hover:bg-[#1a3662]">
+                  <tr key={act.id} className="border-b border-[#2a2a2a]/50 hover:bg-[#262626]">
                     <td
                       className="px-3 py-2 font-mono text-[#6b6b6b]"
                       style={{ paddingLeft: `${10 + act.level * 14}px` }}

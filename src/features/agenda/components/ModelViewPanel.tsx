@@ -120,9 +120,9 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
   const noData = ganttRows.length === 0
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#20406a] shadow-2xl w-full sm:w-[420px]">
+    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#2a2a2a] shadow-2xl w-full sm:w-[420px]">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-[#20406a] flex items-center justify-between shrink-0">
+      <div className="px-4 py-3.5 border-b border-[#2a2a2a] flex items-center justify-between shrink-0">
         <div>
           <p className="text-[#f5f5f5] text-sm font-semibold">Execução do Modelo</p>
           <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -139,12 +139,12 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
       ) : (
         <>
           {/* KPI strip */}
-          <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-[#20406a] shrink-0">
+          <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-[#2a2a2a] shrink-0">
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] text-[#6b6b6b] uppercase tracking-wide flex items-center gap-1">
                 <CalendarDays size={9} /> Fim Previsto
               </span>
-              <span className="text-xs font-bold text-[#2abfdc]">{fmtDate(projectEnd)}</span>
+              <span className="text-xs font-bold text-[#f97316]">{fmtDate(projectEnd)}</span>
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] text-[#6b6b6b] uppercase tracking-wide flex items-center gap-1">
@@ -161,17 +161,17 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Timeline scrubber + controls */}
-          <div className="px-4 py-3 border-b border-[#20406a] shrink-0">
+          <div className="px-4 py-3 border-b border-[#2a2a2a] shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <button
                 onClick={togglePlay}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-[#2abfdc] hover:bg-[#22a8c4] text-white transition-colors shrink-0"
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-[#f97316] hover:bg-[#22a8c4] text-white transition-colors shrink-0"
               >
                 {playing ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
               </button>
               <button
                 onClick={reset}
-                className="flex items-center justify-center w-7 h-7 rounded-full border border-[#20406a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#5a8caa] transition-colors shrink-0"
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#6b6b6b] transition-colors shrink-0"
               >
                 <RotateCcw size={12} />
               </button>
@@ -182,7 +182,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
                   max={100}
                   value={simStep}
                   onChange={(e) => { stopInterval(); setPlaying(false); setSimStep(parseInt(e.target.value)) }}
-                  className="w-full accent-[#2abfdc] h-1.5 cursor-pointer"
+                  className="w-full accent-[#f97316] h-1.5 cursor-pointer"
                 />
               </div>
               <span className="text-[10px] text-[#6b6b6b] tabular-nums w-8 text-right">{simStep}%</span>
@@ -208,15 +208,15 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
                       {String(i + 1).padStart(2, '0')} {row.trecho.code}
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-[10px] font-semibold tabular-nums ${isDone ? 'text-[#22c55e]' : isActive ? 'text-[#2abfdc]' : 'text-[#6b6b6b]'}`}>
+                      <span className={`text-[10px] font-semibold tabular-nums ${isDone ? 'text-[#22c55e]' : isActive ? 'text-[#f97316]' : 'text-[#6b6b6b]'}`}>
                         {pct}%
                       </span>
                       {isDone && <span className="text-[9px] text-[#22c55e]">✓</span>}
                     </div>
                   </div>
-                  <div className="h-1.5 bg-[#14294e] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-100 ${isDone ? 'bg-[#22c55e]' : 'bg-[#2abfdc]'}`}
+                      className={`h-full rounded-full transition-all duration-100 ${isDone ? 'bg-[#22c55e]' : 'bg-[#f97316]'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -237,7 +237,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-3 border-t border-[#20406a] shrink-0 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-[#2a2a2a] shrink-0 flex items-center justify-between">
             <p className="text-[10px] text-[#3f3f3f]">Simulação baseada em dados demo</p>
             <a
               href="/app/planejamento"

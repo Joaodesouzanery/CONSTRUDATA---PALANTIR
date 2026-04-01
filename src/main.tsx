@@ -10,7 +10,7 @@ errorOverlay.style.cssText = [
   'display:none',
   'position:fixed',
   'inset:0',
-  'background:#112645',
+  'background:#161616',
   'color:#fca5a5',
   'padding:32px',
   'font-family:monospace',

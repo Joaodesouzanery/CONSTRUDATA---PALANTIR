@@ -110,7 +110,7 @@ export function SCurvePanel() {
           <line x1={PAD.left} y1={PAD.top + INNER_H} x2={W - PAD.right} y2={PAD.top + INNER_H} stroke="#6b7280" strokeWidth="1" />
 
           {/* Financial line (dashed, orange) */}
-          <polyline points={financialPoints} fill="none" stroke="#2abfdc" strokeWidth="2"
+          <polyline points={financialPoints} fill="none" stroke="#f97316" strokeWidth="2"
             strokeDasharray="6,4" opacity="0.9" />
 
           {/* Physical line (solid, blue) */}
@@ -126,7 +126,7 @@ export function SCurvePanel() {
         </span>
         <span className="flex items-center gap-2">
           <svg width="24" height="10">
-            <line x1="0" y1="5" x2="24" y2="5" stroke="#2abfdc" strokeWidth="2" strokeDasharray="5,3" />
+            <line x1="0" y1="5" x2="24" y2="5" stroke="#f97316" strokeWidth="2" strokeDasharray="5,3" />
           </svg>
           Financeiro Previsto (%)
         </span>
