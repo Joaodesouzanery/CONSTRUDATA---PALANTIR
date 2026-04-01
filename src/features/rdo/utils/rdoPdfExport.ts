@@ -112,6 +112,52 @@ export function printRdoPDF(rdo: RDO) {
     ? `<p>📍 Lat: <code>${rdo.geolocation.lat}</code> &nbsp; Lng: <code>${rdo.geolocation.lng}</code></p>`
     : ''
 
+  // Helper: return value or "Não informado" if absent/falsy
+  function ni(v: string | number | undefined | null, isNum = false): string {
+    if (isNum) return (v !== undefined && v !== null && (v as number) > 0) ? String(v) : 'Não informado'
+    return (v && String(v).trim()) ? String(v) : 'Não informado'
+  }
+
+  const infoTableHtml = `
+  <table class="info-table" style="margin-bottom:10px;">
+    <tbody>
+      <tr>
+        <th>Local / Obra</th>
+        <td colspan="3">${ni(rdo.local)}</td>
+      </tr>
+      <tr>
+        <th>Empreiteira</th>
+        <td>${ni(rdo.nomeEmpreiteira)}</td>
+        <th>Nº OS</th>
+        <td>${ni(rdo.numeroOS)}</td>
+      </tr>
+      <tr>
+        <th>N° Contrato</th>
+        <td>${ni(rdo.numeroContrato)}</td>
+        <th>Serviço a Executar</th>
+        <td>${ni(rdo.servicoExecutar)}</td>
+      </tr>
+      <tr>
+        <th>Gerente de Contrato</th>
+        <td>${ni(rdo.gerenteContrato)}</td>
+        <th>Técnico de Segurança</th>
+        <td>${ni(rdo.tecnicoSeguranca)}</td>
+      </tr>
+      <tr>
+        <th>Func. Diretos</th>
+        <td>${ni(rdo.funcionariosDiretos, true)}</td>
+        <th>Func. Indiretos</th>
+        <td>${ni(rdo.funcionariosIndiretos, true)}</td>
+      </tr>
+      <tr>
+        <th>Qtd. Equip./Ferramentas</th>
+        <td>${ni(rdo.qtdEquipamentosFerramentas, true)}</td>
+        <th>Clima Manhã / Tarde / Noite</th>
+        <td>${ni(rdo.climaManha)} · ${ni(rdo.climaTarde)} · ${ni(rdo.climaNoite)}</td>
+      </tr>
+    </tbody>
+  </table>`
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -120,12 +166,12 @@ export function printRdoPDF(rdo: RDO) {
   <style>
     @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9.5pt; color: #0e1f38; background: #fff; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9.5pt; color: #111; background: #fff; }
 
     /* ── Cover ─────────────────────────── */
     .cover {
       display: flex; align-items: center; gap: 14px;
-      padding: 18px 0 12px; border-bottom: 3px solid #f97316; margin-bottom: 16px;
+      padding: 18px 0 12px; border-bottom: 3px solid #f97316; margin-bottom: 12px;
     }
     .cover-logo {
       width: 44px; height: 44px; background: #f97316; border-radius: 10px;
@@ -143,6 +189,17 @@ export function printRdoPDF(rdo: RDO) {
       background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;
     }
     .badge-orange { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+
+    /* ── Info table (identification fields) ── */
+    .info-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 10px; }
+    .info-table th {
+      background: #f3f4f6; font-weight: 700; padding: 4px 8px; text-align: left;
+      border: 1px solid #e5e7eb; color: #374151; white-space: nowrap; width: 22%;
+    }
+    .info-table td {
+      background: #fff; padding: 4px 8px; border: 1px solid #e5e7eb;
+      color: #111; width: 28%;
+    }
 
     /* ── Section ────────────────────────── */
     .section { margin-bottom: 14px; break-inside: avoid; }
@@ -228,6 +285,15 @@ export function printRdoPDF(rdo: RDO) {
       <span class="badge">${rdo.responsible || '—'}</span>
     </div>
   </div>
+
+  <!-- Identification info table -->
+  ${infoTableHtml}
+
+  ${rdo.ocorrencias && rdo.ocorrencias !== 'Não informado' ? `
+  <div class="section" style="margin-bottom:10px;">
+    <div class="section-header"><span class="section-icon">⚠️</span> Ocorrências</div>
+    <div class="obs-box" style="border-color:#fca5a5;color:#dc2626;">${rdo.ocorrencias}</div>
+  </div>` : ''}
 
   <!-- 1. Condições Climáticas -->
   <div class="section">

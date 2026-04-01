@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
-  CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste,
+  CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
@@ -113,6 +113,22 @@ export function NovoRdoPanel() {
   const [showTextParse, setShowTextParse]   = useState(false)
   const [selectedLogoId, setSelectedLogoId] = useState<string | undefined>(undefined)
 
+  // ── Extra identification fields (not in rdoSchema Zod) ────────────────────
+  const [rdoLocal,            setRdoLocal]            = useState('')
+  const [rdoGerenteContrato,  setRdoGerenteContrato]  = useState('')
+  const [rdoTecnicoSeg,       setRdoTecnicoSeg]       = useState('')
+  const [rdoEmpreiteira,      setRdoEmpreiteira]      = useState('')
+  const [rdoServico,          setRdoServico]          = useState('')
+  const [rdoOcorrencias,      setRdoOcorrencias]      = useState('')
+  const [rdoFuncDiretos,      setRdoFuncDiretos]      = useState(0)
+  const [rdoFuncIndiretos,    setRdoFuncIndiretos]    = useState(0)
+  const [rdoQtdEquip,         setRdoQtdEquip]         = useState(0)
+  const [rdoNumeroOS,         setRdoNumeroOS]         = useState('')
+  const [rdoContrato,         setRdoContrato]         = useState('')
+  const [rdoClimaManha,       setRdoClimaManha]       = useState('')
+  const [rdoClimaTarde,       setRdoClimaTarde]       = useState('')
+  const [rdoClimaNoite,       setRdoClimaNoite]       = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── Equipment helpers ──────────────────────────────────────────────────────
@@ -176,6 +192,8 @@ export function NovoRdoPanel() {
   }
 
   // ── Text paste auto-fill ─────────────────────────────────────────────────
+  const NI = 'Não informado'
+
   function handleApplyParsed(data: ParsedRdoData) {
     if (data.date)                       setValue('date', data.date)
     if (data.responsible)                setValue('responsible', data.responsible)
@@ -184,10 +202,26 @@ export function NovoRdoPanel() {
     if (data.manpower.helperCount)       setValue('manpower.helperCount',   data.manpower.helperCount)
     if (data.manpower.operatorCount)     setValue('manpower.operatorCount', data.manpower.operatorCount)
     if (data.observations)               setValue('observations', data.observations)
+    if (data.ocorrencias && data.ocorrencias !== NI) setValue('incidents', data.ocorrencias)
     setEquipment((prev) => [...prev, ...data.equipment])
     setServices((prev)  => [...prev, ...data.services])
     setTrechos((prev)   => [...prev, ...data.trechos])
     setEmployeeNames((prev) => [...new Set([...prev, ...data.employeeNames])])
+    // Extra fields
+    if (data.local !== NI)              setRdoLocal(data.local)
+    if (data.gerenteContrato !== NI)    setRdoGerenteContrato(data.gerenteContrato)
+    if (data.tecnicoSeguranca !== NI)   setRdoTecnicoSeg(data.tecnicoSeguranca)
+    if (data.nomeEmpreiteira !== NI)    setRdoEmpreiteira(data.nomeEmpreiteira)
+    if (data.servicoExecutar !== NI)    setRdoServico(data.servicoExecutar)
+    if (data.ocorrencias !== NI)        setRdoOcorrencias(data.ocorrencias)
+    if (data.funcionariosDiretos > 0)   setRdoFuncDiretos(data.funcionariosDiretos)
+    if (data.funcionariosIndiretos > 0) setRdoFuncIndiretos(data.funcionariosIndiretos)
+    if (data.qtdEquipamentosFerramentas > 0) setRdoQtdEquip(data.qtdEquipamentosFerramentas)
+    if (data.numeroOS !== NI)           setRdoNumeroOS(data.numeroOS)
+    if (data.numeroContrato !== NI)     setRdoContrato(data.numeroContrato)
+    if (data.climaManha !== NI)         setRdoClimaManha(data.climaManha)
+    if (data.climaTarde !== NI)         setRdoClimaTarde(data.climaTarde)
+    if (data.climaNoite !== NI)         setRdoClimaNoite(data.climaNoite)
     setShowTextParse(false)
   }
 
@@ -270,6 +304,21 @@ export function NovoRdoPanel() {
       photos:      photos.map((p) => ({ ...p, id: crypto.randomUUID() })),
       geolocation,
       logoId:      selectedLogoId,
+      // Identification fields
+      local:                      rdoLocal || undefined,
+      gerenteContrato:            rdoGerenteContrato || undefined,
+      tecnicoSeguranca:           rdoTecnicoSeg || undefined,
+      nomeEmpreiteira:            rdoEmpreiteira || undefined,
+      servicoExecutar:            rdoServico || undefined,
+      ocorrencias:                rdoOcorrencias || undefined,
+      funcionariosDiretos:        rdoFuncDiretos || undefined,
+      funcionariosIndiretos:      rdoFuncIndiretos || undefined,
+      qtdEquipamentosFerramentas: rdoQtdEquip || undefined,
+      numeroOS:                   rdoNumeroOS || undefined,
+      numeroContrato:             rdoContrato || undefined,
+      climaManha:                 rdoClimaManha || undefined,
+      climaTarde:                 rdoClimaTarde || undefined,
+      climaNoite:                 rdoClimaNoite || undefined,
     })
     setActiveTab('historico')
   }
@@ -288,6 +337,11 @@ export function NovoRdoPanel() {
     setPhotoError(null)
     setSubmitError(null)
     setSelectedLogoId(undefined)
+    setRdoLocal(''); setRdoGerenteContrato(''); setRdoTecnicoSeg('')
+    setRdoEmpreiteira(''); setRdoServico(''); setRdoOcorrencias('')
+    setRdoFuncDiretos(0); setRdoFuncIndiretos(0); setRdoQtdEquip(0)
+    setRdoNumeroOS(''); setRdoContrato('')
+    setRdoClimaManha(''); setRdoClimaTarde(''); setRdoClimaNoite('')
     setRdoNumber(rdos.length + 1)
   }
 
@@ -374,6 +428,68 @@ export function NovoRdoPanel() {
               </div>
             </div>
           )}
+        </Section>
+
+        {/* 1b. Identificação do Contrato */}
+        <Section title="Identificação do Contrato" icon={<FileText size={16} className="text-[#f97316]" />} defaultOpen={false}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Local / Obra</label>
+              <input type="text" value={rdoLocal} onChange={(e) => setRdoLocal(e.target.value)} placeholder="Ex: Rua das Palmeiras, 100 — Centro" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Nº Ordem de Serviço</label>
+              <input type="text" value={rdoNumeroOS} onChange={(e) => setRdoNumeroOS(e.target.value)} placeholder="Ex: 2024/0587" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">N° do Contrato</label>
+              <input type="text" value={rdoContrato} onChange={(e) => setRdoContrato(e.target.value)} placeholder="Ex: CT-2024-123" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Nome da Empreiteira</label>
+              <input type="text" value={rdoEmpreiteira} onChange={(e) => setRdoEmpreiteira(e.target.value)} placeholder="Ex: Construtora ABC Ltda" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Gerente de Contrato</label>
+              <input type="text" value={rdoGerenteContrato} onChange={(e) => setRdoGerenteContrato(e.target.value)} placeholder="Nome do gerente" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Técnico de Segurança</label>
+              <input type="text" value={rdoTecnicoSeg} onChange={(e) => setRdoTecnicoSeg(e.target.value)} placeholder="Nome do técnico de segurança" className={inputCls} />
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Func. Diretos</label>
+              <input type="number" value={rdoFuncDiretos} onChange={(e) => setRdoFuncDiretos(Number(e.target.value))} min={0} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Func. Indiretos</label>
+              <input type="number" value={rdoFuncIndiretos} onChange={(e) => setRdoFuncIndiretos(Number(e.target.value))} min={0} className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Qtd. Equipamentos</label>
+              <input type="number" value={rdoQtdEquip} onChange={(e) => setRdoQtdEquip(Number(e.target.value))} min={0} className={inputCls} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <label className="block text-[#a3a3a3] text-xs mb-1">Serviço a ser Executado</label>
+            <textarea value={rdoServico} onChange={(e) => setRdoServico(e.target.value)} placeholder="Descrição do serviço principal a executar" rows={2} className={`${inputCls} resize-y`} />
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Clima Manhã</label>
+              <input type="text" value={rdoClimaManha} onChange={(e) => setRdoClimaManha(e.target.value)} placeholder="Ex: Ensolarado" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Clima Tarde</label>
+              <input type="text" value={rdoClimaTarde} onChange={(e) => setRdoClimaTarde(e.target.value)} placeholder="Ex: Nublado" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Clima Noite</label>
+              <input type="text" value={rdoClimaNoite} onChange={(e) => setRdoClimaNoite(e.target.value)} placeholder="Ex: Limpo" className={inputCls} />
+            </div>
+          </div>
         </Section>
 
         {/* 2. Condições Climáticas */}

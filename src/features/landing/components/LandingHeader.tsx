@@ -14,7 +14,7 @@ export function LandingHeader() {
 
   return (
     <header
-      style={{ background: 'rgba(15,15,15,0.96)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}
+      style={{ background: 'rgba(20,20,20,0.96)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm"
     >
       <div className="max-w-7xl mx-auto px-6">

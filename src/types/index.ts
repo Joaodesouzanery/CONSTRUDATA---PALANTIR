@@ -1270,6 +1270,23 @@ export interface RDO {
   incidents:    string
   photos:       RdoPhoto[]
   logoId?:      string   // ID of the SavedLogo to use in PDF export
+
+  // ── Contrato / Identificação ─────────────────────────────────────────────────
+  local?:                       string
+  gerenteContrato?:             string
+  tecnicoSeguranca?:            string
+  nomeEmpreiteira?:             string
+  servicoExecutar?:             string
+  ocorrencias?:                 string
+  funcionariosDiretos?:         number
+  funcionariosIndiretos?:       number
+  qtdEquipamentosFerramentas?:  number
+  numeroOS?:                    string
+  numeroContrato?:              string
+  climaManha?:                  string
+  climaTarde?:                  string
+  climaNoite?:                  string
+
   createdAt:    string
   updatedAt:    string
 }
