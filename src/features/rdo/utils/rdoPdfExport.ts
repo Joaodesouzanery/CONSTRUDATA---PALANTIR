@@ -4,6 +4,7 @@
  * Uses window.print() — no external PDF library needed.
  */
 import type { RDO } from '@/types'
+import { useCompanySettingsStore } from '@/store/companySettingsStore'
 
 const WEATHER_ICON: Record<string, string> = {
   good:   '☀️',
@@ -40,6 +41,8 @@ function fmtDate(d: string) {
 export function printRdoPDF(rdo: RDO) {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+
+  const { logo: companyLogo, companyName } = useCompanySettingsStore.getState()
 
   const totalManpower =
     rdo.manpower.foremanCount +
@@ -125,6 +128,9 @@ export function printRdoPDF(rdo: RDO) {
       display: flex; align-items: center; justify-content: center;
       font-size: 22px; color: #fff; font-weight: 900; flex-shrink: 0;
     }
+    .cover-logo-img {
+      max-width: 140px; max-height: 52px; object-fit: contain; flex-shrink: 0;
+    }
     .cover-title { font-size: 18pt; font-weight: 800; color: #111; letter-spacing: -0.5px; }
     .cover-sub   { font-size: 9pt; color: #6b7280; margin-top: 2px; }
     .cover-badges { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
@@ -204,10 +210,13 @@ export function printRdoPDF(rdo: RDO) {
 
   <!-- Cover -->
   <div class="cover">
-    <div class="cover-logo">R</div>
+    ${companyLogo
+      ? `<img src="${companyLogo}" alt="Logo" class="cover-logo-img" />`
+      : `<div class="cover-logo">R</div>`
+    }
     <div>
       <div class="cover-title">Relatório Diário de Obra</div>
-      <div class="cover-sub">Construdata · Módulo RDO</div>
+      <div class="cover-sub">${companyName} · Módulo RDO</div>
     </div>
     <div class="cover-badges">
       <span class="badge badge-orange">RDO #${rdo.number}</span>

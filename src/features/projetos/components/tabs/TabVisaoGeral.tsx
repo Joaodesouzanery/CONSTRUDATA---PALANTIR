@@ -3,8 +3,7 @@ import { differenceInCalendarDays, parseISO } from 'date-fns'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { cn } from '@/lib/utils'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrencyCompact } from '@/lib/utils'
 import { StatCard } from '@/components/shared/StatCard'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectPhase, ProjectPhaseStatus, ProjectStatus } from '@/types'
@@ -70,8 +69,8 @@ export function TabVisaoGeral({ project }: { project: Project }) {
     <div className="flex flex-col gap-5 p-5 overflow-y-auto h-full">
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Total Orçado"       value={formatCurrency(totalBudgeted)}  icon={DollarSign}   accent />
-        <StatCard label="Gasto Projetado"    value={formatCurrency(totalProjected)} icon={TrendingUp}   />
+        <StatCard label="Total Orçado"       value={formatCurrencyCompact(totalBudgeted)}  icon={DollarSign}   accent />
+        <StatCard label="Gasto Projetado"    value={formatCurrencyCompact(totalProjected)} icon={TrendingUp}   />
         <StatCard label="Utilização"         value={`${utilPct}%`}                  icon={BarChart2}    accent={utilPct > 75} />
         <StatCard label="Dias Restantes"     value={daysLeft > 0 ? String(daysLeft) : '—'}
                   sub={daysLeft > 0 ? 'dias' : 'encerrado'}                         icon={CalendarClock} />

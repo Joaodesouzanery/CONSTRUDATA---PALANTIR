@@ -7,9 +7,11 @@ import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import type { PlanejamentoMestreTab } from '@/types'
 
 const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
-  { key: 'macro',     label: 'Longo Prazo'  },
-  { key: 'derivacao', label: 'Médio Prazo'  },
-  { key: 'whatif',    label: 'Curto Prazo'  },
+  { key: 'macro',     label: 'Longo Prazo'     },
+  { key: 'derivacao', label: 'Médio Prazo'     },
+  { key: 'whatif',    label: 'Curto Prazo'     },
+  { key: 'integrada', label: 'Visão Integrada' },
+  { key: 'semanal',   label: 'Prog. Semanal'   },
 ]
 
 export function PlanejamentoMestreHeader() {

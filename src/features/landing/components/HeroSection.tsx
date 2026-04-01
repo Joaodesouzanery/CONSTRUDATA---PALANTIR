@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
+import heroImg from '@/assets/hero.png'
 
 const SLIDES = [
   {
@@ -81,7 +82,7 @@ function MapaMockup() {
         <span className="text-[#f97316] text-xs uppercase tracking-wider border border-[#f97316]/30 px-2 py-0.5">Satélite</span>
       </div>
       {/* Simulated satellite map */}
-      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0a2618 0%, #081e12 50%, #0b1a30 100%)', minHeight: 120 }}>
+      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0a2618 0%, #081e12 50%, #0f0f0f 100%)', minHeight: 120 }}>
         <svg width="100%" height="100%" viewBox="0 0 400 150" style={{ position: 'absolute', inset: 0 }}>
           {/* Network lines */}
           <path d="M40,75 L100,55 L170,80 L240,45 L320,65 L390,50" stroke="#f97316" strokeWidth="2" fill="none" opacity="0.7" />
@@ -201,7 +202,7 @@ export function HeroSection() {
     >
       {/* Background image — blurred port/construction visual */}
       <div className="absolute inset-0 z-0" style={{
-        backgroundImage: 'url(/src/assets/hero.png)',
+        backgroundImage: `url(${heroImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         filter: 'blur(8px)',
@@ -288,7 +289,7 @@ export function HeroSection() {
             <div
               style={{
                 border: '1px solid rgba(255,255,255,0.14)',
-                background: '#0f2240',
+                background: '#161616',
                 minHeight: 320,
               }}
               className="relative overflow-hidden"

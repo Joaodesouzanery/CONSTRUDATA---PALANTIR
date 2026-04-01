@@ -2,7 +2,7 @@ import { ClipboardList, Clock, DollarSign, Wrench, Users, Target, TrendingUp } f
 import { StatCard } from '@/components/shared/StatCard'
 import { useSummaryMetrics } from '@/hooks/useRelatorio360'
 import { useOperacaoCampoStore } from '@/store/operacaoCampoStore'
-import { formatCurrency, formatHours } from '@/lib/utils'
+import { formatCurrencyCompact, formatHours } from '@/lib/utils'
 
 export function SummaryRow() {
   const {
@@ -34,7 +34,7 @@ export function SummaryRow() {
     : null
 
   return (
-    <div className="grid grid-cols-7 gap-3 px-6 py-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 px-3 sm:px-6 py-4">
       <StatCard
         label="Atividades"
         value={String(activityCount)}
@@ -51,7 +51,7 @@ export function SummaryRow() {
       <StatCard
         label="Horas Mão de Obra"
         value={formatHours(totalTimecardHours)}
-        sub={formatCurrency(totalTimecardCost)}
+        sub={formatCurrencyCompact(totalTimecardCost)}
         icon={Clock}
       />
       <StatCard
@@ -62,7 +62,7 @@ export function SummaryRow() {
       />
       <StatCard
         label="Custo Total"
-        value={formatCurrency(totalCost)}
+        value={formatCurrencyCompact(totalCost)}
         sub="M.O. + Equip."
         icon={DollarSign}
         accent

@@ -72,7 +72,7 @@ export function ShowcaseSection() {
   return (
     <section>
       {/* ── A) AI Headline Block ──────────────────────────────────── */}
-      <div style={{ background: '#0b1a30', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+      <div style={{ background: '#0f0f0f', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
         <div className="max-w-7xl mx-auto px-6">
           <SectionDivider num="10" tag="AUTOMAÇÃO IA" />
 
@@ -97,14 +97,14 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── B) Software / Modules Grid ────────────────────────────── */}
-      <div style={{ background: '#0f2240' }} className="py-24">
+      <div style={{ background: '#161616' }} className="py-24">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-px" style={{ background: 'rgba(255,255,255,0.10)' }}>
             {MODULES.map(({ icon: Icon, name, desc }) => (
               <div
                 key={name}
-                style={{ background: '#0f2240' }}
-                className="group p-6 flex flex-col gap-3 hover:bg-[#0b1a30] transition-colors cursor-default"
+                style={{ background: '#161616' }}
+                className="group p-6 flex flex-col gap-3 hover:bg-[#0f0f0f] transition-colors cursor-default"
               >
                 <Icon size={18} className="text-white/60 group-hover:text-[#f97316] transition-colors" />
                 <div>
@@ -123,7 +123,7 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── C) Mission & Values ────────────────────────────────────── */}
-      <div style={{ background: '#0b1a30', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+      <div style={{ background: '#0f0f0f', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-16">
             {/* Left — Mission */}
@@ -163,7 +163,7 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── D) Quote Block ─────────────────────────────────────────── */}
-      <div style={{ background: '#0f2240' }} className="py-24">
+      <div style={{ background: '#161616' }} className="py-24">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <p
             style={{
@@ -189,7 +189,7 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── E) Testimonials ────────────────────────────────────────── */}
-      <div style={{ background: '#0b1a30' }} className="py-32">
+      <div style={{ background: '#0f0f0f' }} className="py-32">
         <div className="max-w-7xl mx-auto px-6">
           <SectionDivider num="11" tag="PARCEIROS" />
 
@@ -278,7 +278,7 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── F) CTA Block ───────────────────────────────────────────── */}
-      <div style={{ background: '#0f2240' }} className="py-20">
+      <div style={{ background: '#161616' }} className="py-20">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-center gap-4">
           <FlowHoverButton variant="accent" href="#contato">
             Solicitar Demonstração

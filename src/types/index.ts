@@ -1621,7 +1621,12 @@ export interface HardeningPoint {
 
 // ── Planejamento Mestre ──────────────────────────────────────────────────────
 
-export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif'
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal'
+
+export interface ProgramacaoDiaria {
+  previsto:  number
+  realizado: number
+}
 export type MasterActivityStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed'
 
 export interface MasterActivity {
@@ -1644,6 +1649,14 @@ export interface MasterActivity {
   weight?: number
   notes?: string
   networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+  // Weekly programming extended fields
+  nucleo?:             string
+  local?:              string
+  comprimento?:        number
+  quantidadeLigacoes?: number
+  pesoMeta1000?:       number
+  coordenador?:        string
+  unidade?:            string
 }
 
 export interface MasterBaseline {

@@ -4,7 +4,7 @@
 import { create } from 'zustand'
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
-  LookaheadDerivedActivity, WhatIfAdjustment,
+  LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
 } from '@/types'
 import {
   computeMasterSCurve, applyWhatIfAdjustments, deriveLookahead,
@@ -21,6 +21,7 @@ interface PlanejamentoMestreState {
   whatIfAdjustments: WhatIfAdjustment[]
   originalSCurve: MasterSCurvePoint[]
   simulatedSCurve: MasterSCurvePoint[]
+  programacaoSemanal: Record<string, Record<string, ProgramacaoDiaria>>
 
   // Navigation
   setActiveTab: (tab: PlanejamentoMestreTab) => void
@@ -46,6 +47,9 @@ interface PlanejamentoMestreState {
   clearWhatIfAdjustments: () => void
   runWhatIfSimulation: () => void
 
+  // Weekly programming
+  setProgramacaoDiaria: (activityId: string, date: string, data: ProgramacaoDiaria) => void
+
   // Data
   loadDemoData: () => void
   clearData: () => void
@@ -61,6 +65,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
   whatIfAdjustments: [],
   originalSCurve: [],
   simulatedSCurve: [],
+  programacaoSemanal: {},
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -135,6 +140,17 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
 
   clearWhatIfAdjustments: () => set({ whatIfAdjustments: [], simulatedSCurve: [] }),
 
+  setProgramacaoDiaria: (activityId, date, data) =>
+    set((s) => ({
+      programacaoSemanal: {
+        ...s.programacaoSemanal,
+        [activityId]: {
+          ...(s.programacaoSemanal[activityId] ?? {}),
+          [date]: data,
+        },
+      },
+    })),
+
   runWhatIfSimulation: () => {
     const { activities, whatIfAdjustments } = get()
     const { start, end } = getProjectDateRange(activities)
@@ -178,5 +194,6 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
       whatIfAdjustments: [],
       originalSCurve: [],
       simulatedSCurve: [],
+      programacaoSemanal: {},
     }),
 }))

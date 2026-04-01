@@ -47,7 +47,7 @@ export function StatCard({ label, value, sub, icon: Icon, accent, className, spa
   return (
     <div
       className={cn(
-        'flex flex-col gap-2 rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4',
+        'flex flex-col gap-2 rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4 min-w-0',
         className
       )}
     >
@@ -71,16 +71,16 @@ export function StatCard({ label, value, sub, icon: Icon, accent, className, spa
       </div>
 
       {/* Value row */}
-      <div className="flex items-baseline gap-2">
+      <div className="flex items-baseline gap-2 min-w-0">
         <span
           className={cn(
-            'text-2xl font-bold font-mono leading-none',
+            'text-2xl font-bold font-mono leading-none truncate block min-w-0',
             accent ? 'text-[#f97316]' : 'text-[#f5f5f5]'
           )}
         >
           {value}
         </span>
-        {sub && <span className="text-xs text-[#6b6b6b]">{sub}</span>}
+        {sub && <span className="text-xs text-[#6b6b6b] shrink-0">{sub}</span>}
       </div>
 
       {/* Trend row */}

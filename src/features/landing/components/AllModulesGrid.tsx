@@ -25,7 +25,7 @@ const MODULES: { icon: LucideIcon; name: string; desc: string; cat: string }[] =
 
 export function AllModulesGrid() {
   return (
-    <section style={{ background: '#0f2240', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+    <section style={{ background: '#161616', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">

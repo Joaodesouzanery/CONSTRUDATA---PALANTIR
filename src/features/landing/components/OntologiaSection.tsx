@@ -1,14 +1,14 @@
 export function OntologiaSection() {
   const layers = [
     { label: 'RDO — Campo', pct: 100, color: '#f97316' },
-    { label: 'BIM — Modelo 3D/4D/5D', pct: 88, color: '#38bdf8' },
+    { label: 'BIM — Modelo 3D/4D/5D', pct: 88, color: '#f97316' },
     { label: 'ERP — Orçamento', pct: 75, color: '#a78bfa' },
     { label: 'Cronograma', pct: 92, color: '#22c55e' },
     { label: 'Suprimentos', pct: 70, color: '#f97316' },
   ]
 
   return (
-    <section id="plataforma" style={{ background: '#0f2240', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+    <section id="plataforma" style={{ background: '#161616', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">
