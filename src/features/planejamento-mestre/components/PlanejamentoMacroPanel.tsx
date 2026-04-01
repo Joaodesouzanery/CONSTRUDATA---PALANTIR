@@ -172,25 +172,40 @@ function GanttChart({ activities }: { activities: MasterActivity[] }) {
 
 function NewActivityForm({ onClose }: { onClose: () => void }) {
   const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
+  const activities  = usePlanejamentoMestreStore((s) => s.activities)
+
   const [form, setForm] = useState({
-    wbsCode: '', name: '', level: 1,
+    wbsCode: '', name: '',
+    parentId: '' as string,
     plannedStart: new Date().toISOString().slice(0, 10),
     plannedEnd: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10),
     responsibleTeam: '', isMilestone: false, weight: 5,
+    networkType: '' as string,
   })
+
+  const parentActivity = activities.find((a) => a.id === form.parentId) ?? null
+  const derivedLevel   = parentActivity ? parentActivity.level + 1 : 0
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.wbsCode.trim() || !form.name.trim()) return
     const dur = daysBetween(form.plannedStart, form.plannedEnd)
     addActivity({
-      ...form,
-      parentId: null,
+      wbsCode: form.wbsCode,
+      name: form.name,
+      parentId: form.parentId || null,
+      level: derivedLevel,
+      plannedStart: form.plannedStart,
+      plannedEnd: form.plannedEnd,
       trendStart: form.plannedStart,
       trendEnd: form.plannedEnd,
       durationDays: Math.max(0, dur),
       percentComplete: 0,
       status: 'not_started',
+      isMilestone: form.isMilestone,
+      responsibleTeam: form.responsibleTeam || undefined,
+      weight: form.weight,
+      networkType: (form.networkType || undefined) as MasterActivity['networkType'],
     })
     onClose()
   }
@@ -204,18 +219,41 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
         <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={16} /></button>
       </div>
       <div className="grid grid-cols-2 gap-3">
+        {/* Parent selector */}
+        <div className="col-span-2">
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Atividade Pai</label>
+          <select
+            className={inputCls}
+            value={form.parentId}
+            onChange={(e) => setForm((f) => ({ ...f, parentId: e.target.value }))}
+          >
+            <option value="">— Raiz (sem parent) — Nível 0</option>
+            {activities.map((a) => (
+              <option key={a.id} value={a.id}>
+                {'  '.repeat(a.level)}{a.wbsCode} — {a.name}  (Nível {a.level})
+              </option>
+            ))}
+          </select>
+          {parentActivity && (
+            <p className="text-[10px] text-[#2abfdc] mt-0.5">Nível calculado: {derivedLevel}</p>
+          )}
+        </div>
+
         <div>
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Código WBS *</label>
-          <input className={inputCls} value={form.wbsCode} onChange={(e) => setForm((f) => ({ ...f, wbsCode: e.target.value }))} placeholder="2.3.1" required />
+          <input className={inputCls} value={form.wbsCode} onChange={(e) => setForm((f) => ({ ...f, wbsCode: e.target.value }))} placeholder="1.1.6" required />
         </div>
         <div>
-          <label className="text-[#6b6b6b] text-[10px] block mb-1">Nível</label>
-          <select className={inputCls} value={form.level} onChange={(e) => setForm((f) => ({ ...f, level: Number(e.target.value) }))}>
-            <option value={0}>Fase (0)</option>
-            <option value={1}>Entregável (1)</option>
-            <option value={2}>Pacote (2)</option>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Tipo de Rede</label>
+          <select className={inputCls} value={form.networkType} onChange={(e) => setForm((f) => ({ ...f, networkType: e.target.value }))}>
+            <option value="">— Geral —</option>
+            <option value="agua">Água</option>
+            <option value="esgoto">Esgoto</option>
+            <option value="civil">Civil</option>
+            <option value="geral">Geral</option>
           </select>
         </div>
+
         <div className="col-span-2">
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Nome *</label>
           <input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />

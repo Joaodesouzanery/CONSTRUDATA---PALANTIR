@@ -1643,6 +1643,7 @@ export interface MasterActivity {
   predecessors?: string[]
   weight?: number
   notes?: string
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
 }
 
 export interface MasterBaseline {
@@ -1661,6 +1662,8 @@ export interface LookaheadDerivedActivity {
   status: 'planned' | 'ready' | 'blocked' | 'completed'
   linkedRestrictionIds?: string[]
   notes?: string
+  percentComplete?: number
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
 }
 
 export interface WhatIfAdjustment {

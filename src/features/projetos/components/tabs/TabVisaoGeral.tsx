@@ -1,10 +1,21 @@
 import { Pencil, DollarSign, TrendingUp, BarChart2, CalendarClock } from 'lucide-react'
 import { differenceInCalendarDays, parseISO } from 'date-fns'
+import { MapContainer, TileLayer, Marker } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import { StatCard } from '@/components/shared/StatCard'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectPhase, ProjectPhaseStatus, ProjectStatus } from '@/types'
+
+// Fix Leaflet default icon
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   active:    'Ativo',
@@ -114,6 +125,33 @@ export function TabVisaoGeral({ project }: { project: Project }) {
         <PhaseGroup title="Planejamento" phases={project.planningPhases} />
         <PhaseGroup title="Execução"     phases={project.executionPhases} />
       </div>
+
+      {/* Location map */}
+      {project.lat && project.lng && (
+        <div className="rounded-xl border border-[#20406a] bg-[#14294e] p-4 flex flex-col gap-3">
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#20406a] pb-2">
+            Localização
+          </span>
+          <div className="rounded-lg overflow-hidden" style={{ height: 160 }}>
+            <MapContainer
+              center={[project.lat, project.lng]}
+              zoom={13}
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={false}
+              scrollWheelZoom={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
+              <Marker position={[project.lat, project.lng]} />
+            </MapContainer>
+          </div>
+          {project.address && (
+            <p className="text-xs text-[#a3a3a3]">{project.address}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Trash2, AlertTriangle } from 'lucide-react'
+import { X, Trash2, AlertTriangle, MapPin } from 'lucide-react'
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
 import { projectInfoSchema, type ProjectInfoFormValues } from '../schemas'
 import type { ProjectStatus } from '@/types'
+
+// Fix Leaflet default icon
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
 
 const STATUS_OPTIONS: Array<{ value: ProjectStatus; label: string }> = [
   { value: 'active',    label: 'Ativo' },
@@ -14,6 +25,19 @@ const STATUS_OPTIONS: Array<{ value: ProjectStatus; label: string }> = [
   { value: 'on_hold',   label: 'Em Espera' },
 ]
 
+// Brazil center as default
+const DEFAULT_CENTER: [number, number] = [-14.235, -51.925]
+
+interface ClickHandlerProps {
+  onMapClick: (lat: number, lng: number) => void
+}
+function MapClickHandler({ onMapClick }: ClickHandlerProps) {
+  useMapEvents({
+    click(e) { onMapClick(e.latlng.lat, e.latlng.lng) },
+  })
+  return null
+}
+
 function blankDefaults(): ProjectInfoFormValues {
   return {
     code: '', name: '', owner: '', manager: '',
@@ -21,6 +45,7 @@ function blankDefaults(): ProjectInfoFormValues {
     startDate: '', endDate: '',
     contractNumber: '', clientName: '', projectManager: '',
     riskLevel: undefined, priority: undefined,
+    address: '', lat: undefined, lng: undefined,
   }
 }
 
@@ -33,6 +58,8 @@ export function ProjectDialog() {
   const deleteProject     = useProjetosStore((s) => s.deleteProject)
 
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showMap, setShowMap]             = useState(false)
+  const [markerPos, setMarkerPos]         = useState<[number, number] | null>(null)
 
   const isNew    = editingProjectId === 'new'
   const existing = isNew ? null : projects.find((p) => p.id === editingProjectId) ?? null
@@ -41,11 +68,16 @@ export function ProjectDialog() {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ProjectInfoFormValues>({
     resolver: zodResolver(projectInfoSchema),
     defaultValues: blankDefaults(),
   })
+
+  const latVal = watch('lat')
+  const lngVal = watch('lng')
 
   useEffect(() => {
     if (existing) {
@@ -63,11 +95,21 @@ export function ProjectDialog() {
         projectManager: existing.projectManager ?? '',
         riskLevel:      existing.riskLevel,
         priority:       existing.priority,
+        address:        existing.address ?? '',
+        lat:            existing.lat,
+        lng:            existing.lng,
       })
+      if (existing.lat && existing.lng) {
+        setMarkerPos([existing.lat, existing.lng])
+      } else {
+        setMarkerPos(null)
+      }
     } else if (isNew) {
       reset(blankDefaults())
+      setMarkerPos(null)
     }
     setConfirmDelete(false)
+    setShowMap(false)
   }, [editingProjectId, existing, isNew, reset])
 
   useEffect(() => {
@@ -81,6 +123,14 @@ export function ProjectDialog() {
     setConfirmDelete(false)
   }
 
+  function handleMapClick(lat: number, lng: number) {
+    const rLat = Math.round(lat * 1e6) / 1e6
+    const rLng = Math.round(lng * 1e6) / 1e6
+    setValue('lat', rLat, { shouldValidate: true })
+    setValue('lng', rLng, { shouldValidate: true })
+    setMarkerPos([rLat, rLng])
+  }
+
   function onSubmit(values: ProjectInfoFormValues) {
     if (isNew) {
       addProject({
@@ -89,6 +139,7 @@ export function ProjectDialog() {
         contractNumber: values.contractNumber || undefined,
         clientName:     values.clientName     || undefined,
         projectManager: values.projectManager || undefined,
+        address:        values.address        || undefined,
         planningPhases: [
           { id: `pp-new-1-${Date.now()}`, name: 'Engenharia e Design', status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
           { id: `pp-new-2-${Date.now()}`, name: 'Pré-construção',       status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
@@ -110,6 +161,7 @@ export function ProjectDialog() {
         contractNumber: values.contractNumber || undefined,
         clientName:     values.clientName     || undefined,
         projectManager: values.projectManager || undefined,
+        address:        values.address        || undefined,
       })
     }
     close()
@@ -122,6 +174,8 @@ export function ProjectDialog() {
   }
 
   if (!editingProjectId) return null
+
+  const mapCenter: [number, number] = markerPos ?? DEFAULT_CENTER
 
   return (
     <div
@@ -236,6 +290,66 @@ export function ProjectDialog() {
                   </select>
                 </Field>
               </div>
+            </Section>
+
+            {/* Localização */}
+            <Section title="Localização">
+              <Field label="Endereço da Obra" error={errors.address?.message}>
+                <input
+                  {...register('address')}
+                  placeholder="Ex: Rua Principal, 100 — São Manoel, BA"
+                  className={inp(!!errors.address)}
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Latitude" error={errors.lat?.message}>
+                  <input
+                    type="number"
+                    step="any"
+                    {...register('lat', { valueAsNumber: true })}
+                    placeholder="-14.235"
+                    className={inp(!!errors.lat)}
+                  />
+                </Field>
+                <Field label="Longitude" error={errors.lng?.message}>
+                  <input
+                    type="number"
+                    step="any"
+                    {...register('lng', { valueAsNumber: true })}
+                    placeholder="-51.925"
+                    className={inp(!!errors.lng)}
+                  />
+                </Field>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMap((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-[#2abfdc] hover:text-[#1a9ab8] transition-colors"
+              >
+                <MapPin size={13} />
+                {showMap ? 'Ocultar mapa' : 'Marcar no Mapa'}
+                {latVal && lngVal ? ` (${latVal.toFixed(4)}, ${lngVal.toFixed(4)})` : ''}
+              </button>
+              {showMap && (
+                <div className="rounded-lg overflow-hidden border border-[#20406a]" style={{ height: 200 }}>
+                  <MapContainer
+                    center={mapCenter}
+                    zoom={markerPos ? 13 : 5}
+                    style={{ height: '100%', width: '100%' }}
+                    zoomControl={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    />
+                    <MapClickHandler onMapClick={handleMapClick} />
+                    {markerPos && <Marker position={markerPos} />}
+                  </MapContainer>
+                </div>
+              )}
+              {showMap && (
+                <p className="text-[10px] text-[#6b6b6b]">Clique no mapa para definir a localização do projeto.</p>
+              )}
             </Section>
           </div>
 
