@@ -38,6 +38,7 @@ interface PlanejamentoMestreState {
   // Look-ahead
   setLookaheadWeeks: (weeks: number) => void
   deriveFromMaster: () => void
+  updateDerivedActivity: (id: string, patch: Partial<LookaheadDerivedActivity>) => void
 
   // What-if
   addWhatIfAdjustment: (adj: WhatIfAdjustment) => void
@@ -108,6 +109,11 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
     })),
 
   setLookaheadWeeks: (weeks) => set({ lookaheadWeeks: weeks }),
+
+  updateDerivedActivity: (id, patch) =>
+    set((s) => ({
+      derivedActivities: s.derivedActivities.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    })),
 
   deriveFromMaster: () => {
     const { activities, lookaheadWeeks } = get()
