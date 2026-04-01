@@ -73,6 +73,16 @@ body {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
+/* ─── Section label — uppercase monospace for consistent section headers ──── */
+.section-label {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b6b6b;
+}
+
 /* ─── Mobile / Responsive utilities ─────────────────────────────────────────── */
 
 /* Hide scrollbar but keep scroll functionality */

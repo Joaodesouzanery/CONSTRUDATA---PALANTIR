@@ -10,12 +10,14 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
-  CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil,
+  CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
 import type { RdoEquipmentEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus } from '@/types'
+import { TextParseModal } from './TextParseModal'
+import type { ParsedRdoData } from '../utils/parseRdoText'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -80,7 +82,7 @@ export function NovoRdoPanel() {
   const nextNumber = rdos.length + 1
 
   // react-hook-form for core fields (rdoSchema)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<RdoFormData>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<RdoFormData>({
     resolver: zodResolver(rdoSchema),
     defaultValues: {
       date:        todayStr(),
@@ -104,8 +106,9 @@ export function NovoRdoPanel() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [loadingTrechos, setLoadingTrechos] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
-  const [rdoNumber, setRdoNumber] = useState(nextNumber)
+  const [submitError, setSubmitError]     = useState<string | null>(null)
+  const [rdoNumber, setRdoNumber]         = useState(nextNumber)
+  const [showTextParse, setShowTextParse] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -167,6 +170,21 @@ export function NovoRdoPanel() {
     } finally {
       setLoadingTrechos(false)
     }
+  }
+
+  // ── Text paste auto-fill ─────────────────────────────────────────────────
+  function handleApplyParsed(data: ParsedRdoData) {
+    if (data.responsible)                setValue('responsible', data.responsible)
+    if (data.manpower.foremanCount)      setValue('manpower.foremanCount',  data.manpower.foremanCount)
+    if (data.manpower.officialCount)     setValue('manpower.officialCount', data.manpower.officialCount)
+    if (data.manpower.helperCount)       setValue('manpower.helperCount',   data.manpower.helperCount)
+    if (data.manpower.operatorCount)     setValue('manpower.operatorCount', data.manpower.operatorCount)
+    if (data.observations)               setValue('observations', data.observations)
+    setEquipment((prev) => [...prev, ...data.equipment])
+    setServices((prev)  => [...prev, ...data.services])
+    setTrechos((prev)   => [...prev, ...data.trechos])
+    setEmployeeNames((prev) => [...new Set([...prev, ...data.employeeNames])])
+    setShowTextParse(false)
   }
 
   // ── GPS ───────────────────────────────────────────────────────────────────
@@ -269,9 +287,19 @@ export function NovoRdoPanel() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-white font-semibold text-lg">Novo RDO</h2>
-        <span className="text-gray-400 text-sm">RDO #{rdoNumber}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowTextParse(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
+          >
+            <ClipboardPaste size={13} />
+            Preencher com Texto
+          </button>
+          <span className="text-gray-400 text-sm">RDO #{rdoNumber}</span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit(onValid)} className="space-y-4">
@@ -765,6 +793,13 @@ export function NovoRdoPanel() {
           </button>
         </div>
       </form>
+
+      {showTextParse && (
+        <TextParseModal
+          onClose={() => setShowTextParse(false)}
+          onApply={handleApplyParsed}
+        />
+      )}
     </div>
   )
 }
