@@ -81,7 +81,7 @@ function makeDivIcon(severity: Severity, project: Project, selected: boolean) {
       ">
         <div style="
           display:flex;align-items:center;gap:5px;
-          background:#141414${bgAlpha};
+          background:#2c2c2c${bgAlpha};
           border:1.5px solid ${color};
           border-radius:8px;
           padding:4px 8px;
@@ -242,7 +242,7 @@ function GanttSvg({ project, W = 420 }: { project: Project; W?: number }) {
               style={{ fontFamily: 'Inter, sans-serif' }}>
               {phase.name.length > 16 ? phase.name.slice(0, 15) + '…' : phase.name}
             </text>
-            <rect x={x1} y={y} width={bw} height={BAR_H} rx={3} fill="#303030" />
+            <rect x={x1} y={y} width={bw} height={BAR_H} rx={3} fill="#525252" />
             <rect x={x1} y={y} width={fillW} height={BAR_H} rx={3} fill={statusColor} opacity={0.75} />
             <text x={x1 + bw + 3} y={y + BAR_H / 2 + 4} fontSize={9} fill={statusColor}
               style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -318,9 +318,9 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
       className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-[#202020] border border-[#303030] rounded-2xl shadow-2xl">
+      <div className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col bg-[#3d3d3d] border border-[#525252] rounded-2xl shadow-2xl">
         {/* Header */}
-        <div className="flex items-start gap-3 px-6 py-4 border-b border-[#303030] shrink-0">
+        <div className="flex items-start gap-3 px-6 py-4 border-b border-[#525252] shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color, background: `${color}20` }}>
@@ -342,9 +342,9 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
         </div>
 
         {/* KPI chips */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 px-6 py-3 border-b border-[#303030] shrink-0">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-2 px-6 py-3 border-b border-[#525252] shrink-0">
           {kpis.map((kpi) => (
-            <div key={kpi.label} className="bg-[#1a1a1a] rounded-lg px-3 py-2 text-center">
+            <div key={kpi.label} className="bg-[#333333] rounded-lg px-3 py-2 text-center">
               <p className="text-[#6b6b6b] text-[10px] truncate">{kpi.label}</p>
               <p className="text-sm font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
             </div>
@@ -365,7 +365,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {photos.map((ph) => (
                   <div key={ph.id} className="flex flex-col gap-1">
-                    <img src={ph.base64} alt={ph.label} className="w-full aspect-video object-cover rounded-lg border border-[#303030]" />
+                    <img src={ph.base64} alt={ph.label} className="w-full aspect-video object-cover rounded-lg border border-[#525252]" />
                     {ph.label && <p className="text-[10px] text-[#6b6b6b] truncate text-center">{ph.label}</p>}
                   </div>
                 ))}
@@ -385,7 +385,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                 <p className="text-[#6b6b6b] text-[10px] font-semibold mb-2 uppercase tracking-wider">Planejamento</p>
                 <div className="flex flex-col gap-2">
                   {project.planningPhases.map((phase) => (
-                    <div key={phase.id} className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2">
+                    <div key={phase.id} className="bg-[#333333] border border-[#525252] rounded-lg px-3 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[#f5f5f5] text-xs font-medium truncate">{phase.name}</span>
                         <PhaseStatusBadge status={phase.status} />
@@ -396,7 +396,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                         <span>{fmtDate(phase.endDate)}</span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <div className="flex-1 h-1 bg-[#303030] rounded-full overflow-hidden">
+                        <div className="flex-1 h-1 bg-[#525252] rounded-full overflow-hidden">
                           <div className="h-full rounded-full bg-[#6b6b6b]" style={{ width: `${phase.progress}%` }} />
                         </div>
                         <span className="text-[10px] text-[#6b6b6b]">{phase.progress}%</span>
@@ -411,7 +411,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                 <p className="text-[#6b6b6b] text-[10px] font-semibold mb-2 uppercase tracking-wider">Execução</p>
                 <div className="flex flex-col gap-2">
                   {project.executionPhases.map((phase) => (
-                    <div key={phase.id} className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2">
+                    <div key={phase.id} className="bg-[#333333] border border-[#525252] rounded-lg px-3 py-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[#f5f5f5] text-xs font-medium truncate">{phase.name}</span>
                         <PhaseStatusBadge status={phase.status} />
@@ -422,7 +422,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                         <span>{fmtDate(phase.endDate)}</span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
-                        <div className="flex-1 h-1 bg-[#303030] rounded-full overflow-hidden">
+                        <div className="flex-1 h-1 bg-[#525252] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full"
                             style={{
@@ -447,10 +447,10 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
               <BarChart3 size={13} className="text-[#6b6b6b]" />
               <p className="text-[#6b6b6b] text-[10px] font-semibold uppercase tracking-wider">Orçamento</p>
             </div>
-            <div className="rounded-xl border border-[#303030] overflow-hidden">
+            <div className="rounded-xl border border-[#525252] overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-[#1a1a1a] text-[#6b6b6b] text-[10px]">
+                  <tr className="bg-[#333333] text-[#6b6b6b] text-[10px]">
                     <th className="text-left px-3 py-2">Tipo</th>
                     <th className="text-left px-3 py-2">Descrição</th>
                     <th className="text-right px-3 py-2">Orçado</th>
@@ -463,7 +463,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                   {project.budgetLines.map((line) => {
                     const lineDelta = line.budgeted > 0 ? ((line.projected - line.budgeted) / line.budgeted) * 100 : 0
                     return (
-                      <tr key={line.id} className="border-t border-[#303030] hover:bg-[#2a2a2a] transition-colors">
+                      <tr key={line.id} className="border-t border-[#525252] hover:bg-[#484848] transition-colors">
                         <td className="px-3 py-2 text-[#6b6b6b] uppercase text-[10px]">{line.type}</td>
                         <td className="px-3 py-2 text-[#f5f5f5] truncate max-w-[120px]">{line.description}</td>
                         <td className="px-3 py-2 text-right text-[#a3a3a3] font-mono">{fmtBRL(line.budgeted)}</td>
@@ -476,7 +476,7 @@ function Project360Modal({ project, onClose }: Project360ModalProps) {
                     )
                   })}
                   {/* Totals */}
-                  <tr className="border-t-2 border-[#303030] bg-[#1a1a1a]">
+                  <tr className="border-t-2 border-[#525252] bg-[#333333]">
                     <td colSpan={2} className="px-3 py-2 text-[#f5f5f5] font-semibold text-xs">Total</td>
                     <td className="px-3 py-2 text-right font-mono font-semibold text-[#f5f5f5]">{fmtBRL(budgeted)}</td>
                     <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: delta > 5 ? '#ef4444' : '#22c55e' }}>{fmtBRL(eac)}</td>
@@ -605,7 +605,7 @@ export function Gestao360MapDashboard() {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#303030] bg-[#141414] flex-wrap">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#525252] bg-[#2c2c2c] flex-wrap">
         {filters.map((f) => (
           <button
             key={f.id}
@@ -620,7 +620,7 @@ export function Gestao360MapDashboard() {
                 : '#6b6b6b',
               border: `1px solid ${filter === f.id
                 ? (f.id === 'all' ? '#f9731650' : `${SEVERITY_COLOR[f.id as Severity]}50`)
-                : '#303030'}`,
+                : '#525252'}`,
             }}
           >
             {f.label}
@@ -637,7 +637,7 @@ export function Gestao360MapDashboard() {
         <MapContainer
           center={center}
           zoom={5}
-          style={{ height: '100%', width: '100%', background: '#141414' }}
+          style={{ height: '100%', width: '100%', background: '#2c2c2c' }}
           zoomControl={true}
         >
           <TileLayer
@@ -655,7 +655,7 @@ export function Gestao360MapDashboard() {
         </MapContainer>
 
         {/* Basemap switcher overlay */}
-        <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#1a1a1a]/90 border border-[#303030] rounded-lg p-1 backdrop-blur-sm">
+        <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#333333]/90 border border-[#525252] rounded-lg p-1 backdrop-blur-sm">
           {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
             <button
               key={b}
@@ -684,12 +684,12 @@ export function Gestao360MapDashboard() {
       {/* Leaflet control styles */}
       <style>{`
         .leaflet-control-zoom a {
-          background: #1a1a1a !important;
+          background: #333333 !important;
           color: #a3a3a3 !important;
-          border-color: #303030 !important;
+          border-color: #525252 !important;
         }
         .leaflet-control-zoom a:hover {
-          background: #202020 !important;
+          background: #3d3d3d !important;
           color: #f97316 !important;
         }
       `}</style>

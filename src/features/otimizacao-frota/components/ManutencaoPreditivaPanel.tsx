@@ -18,7 +18,7 @@ const RISK_META: Record<HealthRisk, { label: string; color: string; bg: string }
 
 function HealthGauge({ score, color }: { score: number; color: string }) {
   const theme = useThemeStore((s) => s.theme)
-  const trackColor = theme === 'dark' ? '#303030' : '#e5e8ed'
+  const trackColor = theme === 'dark' ? '#525252' : '#e5e8ed'
   const textColor  = theme === 'dark' ? '#f5f5f5' : '#1a1d23'
 
   const r = 24
@@ -58,7 +58,7 @@ function HealthCard({ h, onDelete }: { h: PredictiveHealth; onDelete: () => void
 
   return (
     <div
-      className="bg-[#202020] rounded-xl p-4 flex gap-4 relative"
+      className="bg-[#3d3d3d] rounded-xl p-4 flex gap-4 relative"
       style={{ border: `1px solid ${meta.color}30` }}
     >
       {/* Delete button */}
@@ -82,7 +82,7 @@ function HealthCard({ h, onDelete }: { h: PredictiveHealth; onDelete: () => void
             {meta.label}
           </span>
           <span
-            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#303030] text-[#6b6b6b]"
+            className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#525252] text-[#6b6b6b]"
           >
             {h.predictedFailureWindow}
           </span>
@@ -141,7 +141,7 @@ function MaintenanceInputDialog({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<MaintenanceFormState>(EMPTY_MAINTENANCE_FORM)
 
   const labelClass = 'block text-xs font-medium text-[#6b6b6b] mb-1'
-  const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#303030] bg-[#1a1a1a] text-[#f5f5f5] text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]'
+  const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#525252] bg-[#333333] text-[#f5f5f5] text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]'
 
   function handleSave() {
     addHealthScore({
@@ -163,7 +163,7 @@ function MaintenanceInputDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#141414] border border-[#303030] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <p className="text-[#f5f5f5] text-base font-semibold">Adicionar Equipamento</p>
@@ -281,7 +281,7 @@ function MaintenanceInputDialog({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
           >
             Cancelar
           </button>
@@ -324,7 +324,7 @@ export function ManutencaoPreditivaPanel() {
           </button>
           <button
             onClick={runHealthEngine}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#2a2a2a] transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#484848] transition-colors"
           >
             <RefreshCw size={13} /> Rodar Engine
           </button>
@@ -348,7 +348,7 @@ export function ManutencaoPreditivaPanel() {
 
       {/* Health cards grid */}
       {sorted.length === 0 ? (
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-6 text-center">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">Clique em "Rodar Engine" para calcular os scores.</p>
         </div>
       ) : (

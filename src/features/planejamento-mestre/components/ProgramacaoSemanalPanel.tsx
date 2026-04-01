@@ -91,7 +91,7 @@ function EditableNumber({
           if (e.key === 'Enter') { onChange(Math.max(0, parseFloat(draft) || 0)); setEditing(false) }
           if (e.key === 'Escape') setEditing(false)
         }}
-        className="w-12 bg-[#141414] border border-[#f97316]/50 rounded px-1 py-0.5 text-[10px] text-[#f5f5f5] text-center focus:outline-none"
+        className="w-12 bg-[#2c2c2c] border border-[#f97316]/50 rounded px-1 py-0.5 text-[10px] text-[#f5f5f5] text-center focus:outline-none"
         style={{ WebkitAppearance: 'none' }}
       />
     )
@@ -100,7 +100,7 @@ function EditableNumber({
   return (
     <button
       onClick={() => { setDraft(String(value || '')); setEditing(true) }}
-      className={`w-12 text-[10px] font-mono text-center rounded px-1 py-0.5 transition-colors hover:bg-[#303030] ${
+      className={`w-12 text-[10px] font-mono text-center rounded px-1 py-0.5 transition-colors hover:bg-[#525252] ${
         value > 0 ? 'text-[#f5f5f5]' : 'text-[#3a3a3a]'
       }`}
     >
@@ -212,9 +212,9 @@ export function ProgramacaoSemanalPanel() {
     XLSX.writeFile(wb, `programacao-semanal-${week}.xlsx`)
   }
 
-  const thCls = 'px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#6b6b6b] whitespace-nowrap bg-[#141414] border-b border-r border-[#303030] text-center'
-  const tdCls = 'px-2 py-1 text-[10px] text-[#a3a3a3] border-b border-r border-[#303030] whitespace-nowrap'
-  const tdFixedCls = `${tdCls} bg-[#1a1a1a] sticky`
+  const thCls = 'px-2 py-1.5 text-[9px] font-semibold uppercase tracking-wider text-[#6b6b6b] whitespace-nowrap bg-[#2c2c2c] border-b border-r border-[#525252] text-center'
+  const tdCls = 'px-2 py-1 text-[10px] text-[#a3a3a3] border-b border-r border-[#525252] whitespace-nowrap'
+  const tdFixedCls = `${tdCls} bg-[#333333] sticky`
 
   return (
     <div className="flex flex-col gap-4">
@@ -232,7 +232,7 @@ export function ProgramacaoSemanalPanel() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Week navigation */}
-          <div className="flex items-center gap-1 bg-[#202020] border border-[#303030] rounded-lg px-1">
+          <div className="flex items-center gap-1 bg-[#3d3d3d] border border-[#525252] rounded-lg px-1">
             <button
               onClick={() => setWeek(prevWeek(week))}
               className="p-1.5 text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
@@ -255,7 +255,7 @@ export function ProgramacaoSemanalPanel() {
             <select
               value={filterNucleo}
               onChange={(e) => setFilterNucleo(e.target.value)}
-              className="bg-[#202020] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               <option value="">Todos os Núcleos</option>
               {nucleos.map((n) => <option key={n} value={n}>{n}</option>)}
@@ -265,7 +265,7 @@ export function ProgramacaoSemanalPanel() {
           {/* Export */}
           <button
             onClick={handleExportExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
           >
             <Download size={13} />
             Excel
@@ -274,7 +274,7 @@ export function ProgramacaoSemanalPanel() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#303030] overflow-hidden bg-[#1a1a1a]">
+      <div className="rounded-xl border border-[#525252] overflow-hidden bg-[#333333]">
         <div className="overflow-x-auto">
           <table className="border-collapse text-xs" style={{ minWidth: 1200 }}>
             <thead>
@@ -331,10 +331,10 @@ export function ProgramacaoSemanalPanel() {
                 const ant = acumAnterior(a.id)
                 const acumSem = ant + realTotal
                 const acumTot = acumTotal(a.id)
-                const rowBg = rowIdx % 2 === 0 ? '' : 'bg-[#0a0a0a]/30'
+                const rowBg = rowIdx % 2 === 0 ? '' : 'bg-[#222222]/30'
 
                 return (
-                  <tr key={a.id} className={`${rowBg} hover:bg-[#202020]/60 transition-colors`}>
+                  <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors`}>
                     <td className={`${tdFixedCls} left-0 z-10 font-mono`}>{a.wbsCode}</td>
                     <td className={tdCls}>{a.nucleo ?? <span className="text-[#3a3a3a]">—</span>}</td>
                     <td className={tdCls}>{a.local ?? <span className="text-[#3a3a3a]">—</span>}</td>
@@ -390,7 +390,7 @@ export function ProgramacaoSemanalPanel() {
             {/* Footer totals */}
             {filtered.length > 0 && (
               <tfoot>
-                <tr className="bg-[#202020]">
+                <tr className="bg-[#3d3d3d]">
                   <td colSpan={10} className={`${tdCls} font-semibold text-[#f5f5f5]`}>
                     Total ({filtered.length} atividades)
                   </td>

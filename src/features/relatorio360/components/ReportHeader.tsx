@@ -38,7 +38,7 @@ export function ReportHeader() {
   }
 
   return (
-    <div className="flex flex-col border-b border-[#303030] bg-[#1a1a1a]">
+    <div className="flex flex-col border-b border-[#525252] bg-[#333333]">
       {/* Main row */}
       <div className="flex items-center justify-between px-3 sm:px-6 py-4 flex-wrap gap-3">
         <div className="flex flex-col gap-0.5">
@@ -53,7 +53,7 @@ export function ReportHeader() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Date display */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] bg-[#202020] text-[#a3a3a3] text-sm">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#a3a3a3] text-sm">
             <Calendar size={14} className="text-[#f97316]" />
             <span className="capitalize font-medium text-[#f5f5f5]">{displayDate}</span>
           </div>
@@ -62,7 +62,7 @@ export function ReportHeader() {
           <div className="flex items-center gap-1">
             <button
               onClick={goToPrevDay}
-              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#303030] bg-[#202020] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
               title="Dia anterior"
             >
               <ChevronLeft size={16} />
@@ -73,14 +73,14 @@ export function ReportHeader() {
               type="date"
               value={currentDate}
               onChange={(e) => e.target.value && goToDate(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-[#303030] bg-[#202020] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
               title="Ir para data"
             />
 
             <span className="text-xs text-[#6b6b6b] font-mono w-20 text-center">{shortDate}</span>
             <button
               onClick={goToNextDay}
-              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#303030] bg-[#202020] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
               title="Próximo dia"
             >
               <ChevronRight size={16} />
@@ -93,7 +93,7 @@ export function ReportHeader() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
               showPeriod
                 ? 'bg-[#f97316]/15 border-[#f97316]/50 text-[#f97316]'
-                : 'border-[#303030] bg-[#202020] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40'
+                : 'border-[#525252] bg-[#3d3d3d] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40'
             }`}
             title="Selecionar período"
           >
@@ -105,7 +105,7 @@ export function ReportHeader() {
           <button
             onClick={handleSinglePDF}
             disabled={!report}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] bg-[#202020] text-[#a3a3a3] text-xs font-medium hover:text-[#f97316] hover:border-[#f97316]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#a3a3a3] text-xs font-medium hover:text-[#f97316] hover:border-[#f97316]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Gerar PDF do dia atual"
           >
             <FileDown size={13} />
@@ -123,7 +123,7 @@ export function ReportHeader() {
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-[#303030] bg-[#202020] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -133,7 +133,7 @@ export function ReportHeader() {
               value={periodEnd}
               min={periodStart}
               onChange={(e) => setPeriodEnd(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-[#303030] bg-[#202020] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
             />
           </div>
           <button

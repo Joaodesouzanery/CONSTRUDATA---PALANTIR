@@ -14,7 +14,7 @@ export function BimPropertiesPanel() {
 
   if (!segment) {
     return (
-      <div className="w-56 bg-[#141414] border-l border-[#202020] flex flex-col items-center justify-center p-4 shrink-0">
+      <div className="w-56 bg-[#2c2c2c] border-l border-[#3d3d3d] flex flex-col items-center justify-center p-4 shrink-0">
         <LayersIcon size={28} className="text-gray-700 mb-2" />
         <p className="text-gray-600 text-xs text-center">Clique num trecho para ver as propriedades</p>
       </div>
@@ -22,9 +22,9 @@ export function BimPropertiesPanel() {
   }
 
   return (
-    <div className="w-56 bg-[#141414] border-l border-[#202020] flex flex-col shrink-0 overflow-y-auto">
+    <div className="w-56 bg-[#2c2c2c] border-l border-[#3d3d3d] flex flex-col shrink-0 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#202020]">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#3d3d3d]">
         <span className="text-gray-100 text-xs font-semibold">Propriedades</span>
         <button
           onClick={() => selectSegment(null)}
@@ -35,7 +35,7 @@ export function BimPropertiesPanel() {
       </div>
 
       {/* Segment ID */}
-      <div className="px-3 py-2 border-b border-[#202020]">
+      <div className="px-3 py-2 border-b border-[#3d3d3d]">
         <p className="text-indigo-400 text-xs font-bold">{segment.trechoCode || segment.id.slice(0, 8)}</p>
         {segment.phase && <p className="text-[#6b6b6b] text-xs">{segment.phase}</p>}
       </div>
@@ -70,7 +70,7 @@ export function BimPropertiesPanel() {
       )}
 
       {/* Vertices preview */}
-      <div className="px-3 py-2 border-t border-[#202020]">
+      <div className="px-3 py-2 border-t border-[#3d3d3d]">
         <p className="text-[#6b6b6b] text-xs font-semibold uppercase tracking-wider mb-1">Coordenadas</p>
         <div className="space-y-0.5 max-h-32 overflow-y-auto">
           {segment.vertices.map((v, i) => (
@@ -86,7 +86,7 @@ export function BimPropertiesPanel() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="px-3 py-2 border-b border-[#202020]">
+    <div className="px-3 py-2 border-b border-[#3d3d3d]">
       <div className="flex items-center gap-1.5 mb-1.5">
         {icon}
         <span className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider">{title}</span>

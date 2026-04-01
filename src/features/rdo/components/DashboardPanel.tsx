@@ -26,7 +26,7 @@ function KpiCard({ label, value, sub, accent }: {
   label: string; value: string; sub?: string; accent?: boolean
 }) {
   return (
-    <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+    <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
       <div className="text-xs text-[#a3a3a3] mb-1">{label}</div>
       <div className={`text-2xl font-bold ${accent ? 'text-[#f97316]' : 'text-white'}`}>{value}</div>
       {sub && <div className="text-xs text-[#6b6b6b] mt-0.5">{sub}</div>}
@@ -228,10 +228,10 @@ export function DashboardPanel() {
         <KpiCard label="Total Planejado"  value={`${totalPlanned.toFixed(2)} m`}   sub="Extensão total da rede" />
         <KpiCard label="Total Executado"  value={`${totalExecuted.toFixed(2)} m`}  sub="Extensão já executada" accent />
         <KpiCard label="Restante"         value={`${(totalPlanned - totalExecuted).toFixed(2)} m`} sub="A ser executado" />
-        <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="text-xs text-[#a3a3a3] mb-1">Progresso</div>
           <div className="text-xl font-bold text-violet-400">{progressPct.toFixed(1)}%</div>
-          <div className="mt-2 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
+          <div className="mt-2 h-2 bg-[#484848] rounded-full overflow-hidden">
             <div className="h-full bg-violet-500 rounded-full transition-all"
               style={{ width: `${Math.min(100, progressPct)}%` }} />
           </div>
@@ -241,7 +241,7 @@ export function DashboardPanel() {
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Line chart */}
-        <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-white font-medium text-sm">Avanço Diário (Acumulado)</span>
           </div>
@@ -249,7 +249,7 @@ export function DashboardPanel() {
         </div>
 
         {/* Donut */}
-        <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="text-white font-medium text-sm mb-3">Status dos Trechos</div>
           <div className="flex items-center gap-6">
             <DonutChart
@@ -272,13 +272,13 @@ export function DashboardPanel() {
 
       {/* Serviços mais executados */}
       {serviceMap.length > 0 && (
-        <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="text-white font-medium text-sm mb-3">Serviços Mais Executados</div>
           <div className="space-y-2">
             {serviceMap.map(([name, qty]) => (
               <div key={name} className="flex items-center gap-3">
                 <div className="text-[#f5f5f5] text-xs w-48 truncate shrink-0">{name}</div>
-                <div className="flex-1 h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-[#484848] rounded-full overflow-hidden">
                   <div className="h-full bg-sky-500 rounded-full" style={{ width: `${(qty / maxSvc) * 100}%` }} />
                 </div>
                 <div className="text-[#a3a3a3] text-xs w-16 text-right shrink-0">{qty.toFixed(0)} m</div>
@@ -308,13 +308,13 @@ export function DashboardPanel() {
 
         if (sysData.length === 0) return null
         return (
-          <div className="bg-[#202020] rounded-xl border border-[#303030] p-4">
+          <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
             <h3 className="text-white text-sm font-semibold mb-3">Progresso por Sistema</h3>
             <div className="flex flex-col gap-2">
               {sysData.map((s) => (
                 <div key={s.key} className="flex items-center gap-3">
                   <span className="text-xs text-[#6b6b6b] w-24 shrink-0">{s.label}</span>
-                  <div className="flex-1 h-4 bg-[#2a2a2a] rounded-full overflow-hidden">
+                  <div className="flex-1 h-4 bg-[#484848] rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${s.pct}%`, backgroundColor: s.color }} />
                   </div>
                   <span className="text-xs text-[#f5f5f5] w-36 text-right shrink-0">
@@ -328,8 +328,8 @@ export function DashboardPanel() {
       })()}
 
       {/* Detalhamento por Trecho */}
-      <div className="bg-[#202020] rounded-xl border border-[#303030]">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#303030] flex-wrap gap-3">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] flex-wrap gap-3">
           <span className="text-white font-medium text-sm">Detalhamento por Trecho</span>
           <div className="flex gap-2 flex-wrap">
             <input
@@ -337,12 +337,12 @@ export function DashboardPanel() {
               placeholder="Buscar trecho…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-[#2a2a2a] border border-[#363636] rounded px-3 py-1.5 text-xs text-white placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50"
+              className="bg-[#484848] border border-[#5e5e5e] rounded px-3 py-1.5 text-xs text-white placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50"
             />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#2a2a2a] border border-[#363636] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#f97316]/50"
+              className="bg-[#484848] border border-[#5e5e5e] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#f97316]/50"
             >
               <option value="">Todos os Status</option>
               <option value="completed">Concluído</option>
@@ -353,14 +353,14 @@ export function DashboardPanel() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-[#303030]">
+            <thead className="border-b border-[#525252]">
               <tr>
                 {['Trecho', 'Planejado (m)', 'Executado (m)', 'Progresso', 'Status'].map((h) => (
                   <th key={h} className="text-left text-[#a3a3a3] px-4 py-3 font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#202020]">
+            <tbody className="divide-y divide-[#3d3d3d]">
               {filteredTrechos.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-6 text-center text-[#6b6b6b] text-xs">Nenhum trecho encontrado.</td></tr>
               )}
@@ -376,7 +376,7 @@ export function DashboardPanel() {
                     <td className="px-4 py-3 text-[#f97316] font-medium">{t.executed.toFixed(2)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-[#2a2a2a] rounded-full overflow-hidden min-w-[60px]">
+                        <div className="flex-1 h-2 bg-[#484848] rounded-full overflow-hidden min-w-[60px]">
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${Math.min(100, pct)}%`, backgroundColor: STATUS_SVG_COLOR[t.status] }} />
                         </div>

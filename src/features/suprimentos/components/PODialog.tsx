@@ -64,13 +64,13 @@ export function PODialog({ po, onClose }: Props) {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
+  const inputCls = 'w-full bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-[#202020] border border-[#303030] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
           <h2 className="text-[#f5f5f5] font-semibold">{po ? 'Editar Ordem de Compra' : 'Nova Ordem de Compra'}</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"><X size={16} /></button>
         </div>
@@ -117,10 +117,10 @@ export function PODialog({ po, onClose }: Props) {
                   <Plus size={12} /> Adicionar Item
                 </button>
               </div>
-              <div className="bg-[#1a1a1a] border border-[#303030] rounded-lg overflow-x-auto">
+              <div className="bg-[#333333] border border-[#525252] rounded-lg overflow-x-auto">
                 <table className="w-full text-xs border-collapse">
                   <thead>
-                    <tr className="bg-[#2a2a2a]">
+                    <tr className="bg-[#484848]">
                       <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                       <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-20">Qtd</th>
                       <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-16">Un</th>
@@ -131,7 +131,7 @@ export function PODialog({ po, onClose }: Props) {
                   </thead>
                   <tbody>
                     {items.map((item) => (
-                      <tr key={item.id} className="border-t border-[#303030]">
+                      <tr key={item.id} className="border-t border-[#525252]">
                         <td className="px-2 py-1.5">
                           <input className="w-full bg-transparent border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
                             value={item.description}
@@ -173,7 +173,7 @@ export function PODialog({ po, onClose }: Props) {
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 px-5 py-4 border-t border-[#303030]">
+          <div className="flex gap-3 px-5 py-4 border-t border-[#525252]">
             <button type="button" onClick={onClose}
               className="px-4 py-2 rounded-lg text-sm font-medium border border-[#1f3c5e] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#555] transition-colors">
               Cancelar

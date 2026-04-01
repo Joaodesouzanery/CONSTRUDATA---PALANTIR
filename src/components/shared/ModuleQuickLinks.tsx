@@ -42,7 +42,7 @@ export function ModuleQuickLinks({ exclude = [], className }: Props) {
           <Link
             key={m.to}
             to={m.to}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#303030] text-[#6b6b6b] text-[11px] font-medium hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#525252] text-[#6b6b6b] text-[11px] font-medium hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors"
           >
             <m.icon size={11} />
             {m.label}

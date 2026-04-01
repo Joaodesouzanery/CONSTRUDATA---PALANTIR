@@ -234,7 +234,7 @@ export function MapaOperacionalPanel() {
           <select
             value={basemap}
             onChange={(e) => setBasemap(e.target.value)}
-            className="bg-[#141414]/90 border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none backdrop-blur-sm"
+            className="bg-[#2c2c2c]/90 border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none backdrop-blur-sm"
           >
             {Object.entries(BASEMAPS).map(([k, v]) => (
               <option key={k} value={k}>{v.label}</option>
@@ -243,7 +243,7 @@ export function MapaOperacionalPanel() {
         </div>
 
         {/* Map legend */}
-        <div className="absolute bottom-3 left-3 z-[1000] bg-[#141414]/90 border border-[#303030] rounded-lg p-2 backdrop-blur-sm">
+        <div className="absolute bottom-3 left-3 z-[1000] bg-[#2c2c2c]/90 border border-[#525252] rounded-lg p-2 backdrop-blur-sm">
           <div className="text-[#6b6b6b] text-xs font-semibold mb-1.5">Legenda</div>
           {[
             { color: '#ef4444', label: 'Crítico' },
@@ -256,7 +256,7 @@ export function MapaOperacionalPanel() {
               <span className="text-xs text-[#a3a3a3]">{label}</span>
             </div>
           ))}
-          <div className="border-t border-[#303030] mt-1 pt-1">
+          <div className="border-t border-[#525252] mt-1 pt-1">
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-[#f97316]" />
               <span className="text-xs text-[#a3a3a3]">Dispositivo</span>

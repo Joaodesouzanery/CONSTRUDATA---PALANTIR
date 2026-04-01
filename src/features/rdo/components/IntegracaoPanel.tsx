@@ -49,7 +49,7 @@ function KpiCard({ label, value, sub, color = 'sky' }: {
     violet:  'text-violet-400',
   }
   return (
-    <div className="bg-[#202020] rounded-xl p-4 border border-[#303030]">
+    <div className="bg-[#3d3d3d] rounded-xl p-4 border border-[#525252]">
       <p className="text-[#a3a3a3] text-xs mb-1">{label}</p>
       <p className={`text-2xl font-bold ${colorMap[color] ?? 'text-[#f97316]'}`}>{value}</p>
       {sub && <p className="text-[#6b6b6b] text-xs mt-0.5">{sub}</p>}
@@ -127,14 +127,14 @@ function DashboardIntegrado({
       </div>
 
       {/* Trecho table */}
-      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#303030]">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#525252]">
           <h3 className="text-[#f5f5f5] font-medium text-sm">Detalhamento por Trecho</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#6b6b6b] text-xs border-b border-[#303030]">
+              <tr className="text-[#6b6b6b] text-xs border-b border-[#525252]">
                 <th className="text-left px-5 py-2.5 font-medium">Trecho</th>
                 <th className="text-right px-3 py-2.5 font-medium">Planejado (m)</th>
                 <th className="text-right px-3 py-2.5 font-medium">Executado (m)</th>
@@ -155,7 +155,7 @@ function DashboardIntegrado({
                 const pct = row.planned > 0 ? Math.min((row.executed / row.planned) * 100, 100) : 0
                 const status = row.executed === 0 ? 'not_started' : pct >= 100 ? 'completed' : 'in_progress'
                 return (
-                  <tr key={i} className="border-b border-[#303030]/50 hover:bg-gray-750/30">
+                  <tr key={i} className="border-b border-[#525252]/50 hover:bg-gray-750/30">
                     <td className="px-5 py-3">
                       <p className="text-[#f5f5f5] font-mono text-xs">{row.code}</p>
                       <p className="text-[#6b6b6b] text-xs">{row.name}</p>
@@ -167,7 +167,7 @@ function DashboardIntegrado({
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-[#484848] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-sky-500"
                             style={{ width: `${pct}%` }}
@@ -179,7 +179,7 @@ function DashboardIntegrado({
                     <td className="px-3 py-3 text-center">
                       {status === 'completed'   ? <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-900/50 text-emerald-300">Concluído</span>
                        : status === 'in_progress' ? <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-900/50 text-yellow-300">Em Execução</span>
-                       : <span className="px-2 py-0.5 rounded-full text-xs bg-[#2a2a2a] text-[#a3a3a3]">Não Iniciado</span>}
+                       : <span className="px-2 py-0.5 rounded-full text-xs bg-[#484848] text-[#a3a3a3]">Não Iniciado</span>}
                     </td>
                   </tr>
                 )
@@ -206,7 +206,7 @@ function CurvaSComparativa({
 
   if (points.length < 2) {
     return (
-      <div className="bg-[#202020] rounded-xl border border-[#303030] p-8 text-center text-[#6b6b6b]">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-8 text-center text-[#6b6b6b]">
         Dados insuficientes para gerar a curva. Adicione lançamentos financeiros e trechos ao planejamento.
       </div>
     )
@@ -235,8 +235,8 @@ function CurvaSComparativa({
   })
 
   return (
-    <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
-      <div className="px-5 py-3 border-b border-[#303030] flex items-center justify-between flex-wrap gap-2">
+    <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] overflow-hidden">
+      <div className="px-5 py-3 border-b border-[#525252] flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-[#f5f5f5] font-medium text-sm">Curva S Comparativa</h3>
         <div className="flex items-center gap-1">
           {(['financial', 'physical', 'both'] as const).map((m) => (
@@ -244,7 +244,7 @@ function CurvaSComparativa({
               key={m}
               onClick={() => setMode(m)}
               className={`px-3 py-1 rounded text-xs transition-colors ${
-                mode === m ? 'bg-sky-600 text-white' : 'bg-[#2a2a2a] text-[#f5f5f5] hover:bg-[#303030]'
+                mode === m ? 'bg-sky-600 text-white' : 'bg-[#484848] text-[#f5f5f5] hover:bg-[#525252]'
               }`}
             >
               {m === 'financial' ? 'Financeiro' : m === 'physical' ? 'Físico (%)' : 'Ambos'}
@@ -360,26 +360,26 @@ function AnaliseAtrasos({
     <div className="space-y-4">
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#202020] rounded-xl p-4 border border-[#303030]">
+        <div className="bg-[#3d3d3d] rounded-xl p-4 border border-[#525252]">
           <p className="text-[#a3a3a3] text-xs mb-1">Trechos em Atraso</p>
           <p className={`text-2xl font-bold ${lateCount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{lateCount}</p>
         </div>
-        <div className="bg-[#202020] rounded-xl p-4 border border-[#303030]">
+        <div className="bg-[#3d3d3d] rounded-xl p-4 border border-[#525252]">
           <p className="text-[#a3a3a3] text-xs mb-1">Dias de Atraso Acumulado</p>
           <p className={`text-2xl font-bold ${totalDelayDays > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{totalDelayDays}</p>
         </div>
-        <div className="bg-[#202020] rounded-xl p-4 border border-[#303030]">
+        <div className="bg-[#3d3d3d] rounded-xl p-4 border border-[#525252]">
           <p className="text-[#a3a3a3] text-xs mb-1">Trechos Monitorados</p>
           <p className="text-2xl font-bold text-[#f97316]">{rows.length}</p>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#6b6b6b] text-xs border-b border-[#303030]">
+              <tr className="text-[#6b6b6b] text-xs border-b border-[#525252]">
                 <th className="text-left px-5 py-2.5 font-medium">Trecho</th>
                 <th className="text-center px-3 py-2.5 font-medium">Início Plan.</th>
                 <th className="text-center px-3 py-2.5 font-medium">Término Plan.</th>
@@ -398,7 +398,7 @@ function AnaliseAtrasos({
               {rows.map((row, i) => (
                 <tr
                   key={i}
-                  className={`border-b border-[#303030]/50 ${
+                  className={`border-b border-[#525252]/50 ${
                     row.status === 'late'    ? 'bg-red-950/20'    :
                     row.status === 'minor'   ? 'bg-yellow-950/20' :
                                                ''
@@ -518,12 +518,12 @@ export function IntegracaoPanel() {
           <button
             onClick={handleManualSync}
             disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-gray-500 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-gray-500 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
             Sincronizar
           </button>
-          <div className="flex items-center gap-1 bg-[#202020] rounded-lg p-1 border border-[#303030]">
+          <div className="flex items-center gap-1 bg-[#3d3d3d] rounded-lg p-1 border border-[#525252]">
             {SUB_TABS.map((tab) => (
               <button
                 key={tab.key}

@@ -49,7 +49,7 @@ interface SectionProps {
 function Section({ title, icon, children, defaultOpen = true }: SectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="bg-[#202020] rounded-xl overflow-hidden border border-[#303030]">
+    <div className="bg-[#3d3d3d] rounded-xl overflow-hidden border border-[#525252]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -73,8 +73,8 @@ function FieldError({ msg }: { msg?: string }) {
   return <p className="text-red-400 text-xs mt-1">{msg}</p>
 }
 
-const inputCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors'
-const selectCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-[#f97316]/50 transition-colors'
+const inputCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors'
+const selectCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-[#f97316]/50 transition-colors'
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -403,7 +403,7 @@ export function NovoRdoPanel() {
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                     selectedLogoId === undefined
                       ? 'border-[#f97316]/50 bg-[#f97316]/10 text-[#f97316]'
-                      : 'border-[#303030] text-[#6b6b6b] hover:border-[#404040]'
+                      : 'border-[#525252] text-[#6b6b6b] hover:border-[#404040]'
                   }`}
                 >
                   Sem logo
@@ -416,7 +416,7 @@ export function NovoRdoPanel() {
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border transition-colors ${
                       selectedLogoId === logo.id
                         ? 'border-[#f97316]/50 bg-[#f97316]/10 text-[#f97316]'
-                        : 'border-[#303030] text-[#a3a3a3] hover:border-[#404040] hover:text-[#f5f5f5]'
+                        : 'border-[#525252] text-[#a3a3a3] hover:border-[#404040] hover:text-[#f5f5f5]'
                     }`}
                   >
                     <div className="w-8 h-5 bg-white rounded flex items-center justify-center overflow-hidden shrink-0">
@@ -716,7 +716,7 @@ export function NovoRdoPanel() {
                   </thead>
                   <tbody className="space-y-1">
                     {trechos.map((row, i) => (
-                      <tr key={i} className="border-t border-[#303030]">
+                      <tr key={i} className="border-t border-[#525252]">
                         <td className="py-1.5 pr-2">
                           <input
                             type="text"
@@ -753,7 +753,7 @@ export function NovoRdoPanel() {
                           <select
                             value={row.system ?? ''}
                             onChange={(e) => updateTrecho(i, { system: (e.target.value as RdoTrechoEntry['system']) || undefined })}
-                            className="bg-[#202020] border border-[#1f3c5e] rounded px-2 py-1 text-xs text-[#f5f5f5]"
+                            className="bg-[#3d3d3d] border border-[#1f3c5e] rounded px-2 py-1 text-xs text-[#f5f5f5]"
                           >
                             <option value="">Sistema...</option>
                             <option value="agua">Água</option>
@@ -768,7 +768,7 @@ export function NovoRdoPanel() {
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                             row.status === 'completed'   ? 'bg-emerald-900/50 text-emerald-300' :
                             row.status === 'in_progress' ? 'bg-yellow-900/50 text-yellow-300'  :
-                                                           'bg-[#2a2a2a] text-[#a3a3a3]'
+                                                           'bg-[#484848] text-[#a3a3a3]'
                           }`}>
                             {row.status === 'completed'   ? 'Concluído'     :
                              row.status === 'in_progress' ? 'Em Execução'  :
@@ -801,7 +801,7 @@ export function NovoRdoPanel() {
                 type="button"
                 onClick={handleLoadTrechos}
                 disabled={loadingTrechos}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
               >
                 {loadingTrechos ? 'Carregando...' : '↓ Carregar da Rede'}
               </button>
@@ -838,7 +838,7 @@ export function NovoRdoPanel() {
               type="button"
               onClick={handleGetGps}
               disabled={geoLoading}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm transition-colors disabled:opacity-50"
             >
               <MapPin size={14} />
               {geoLoading ? 'Obtendo...' : 'Obter GPS'}
@@ -874,7 +874,7 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* Photo upload */}
-        <div className="bg-[#202020] rounded-xl border border-[#303030] p-5 space-y-4">
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-5 space-y-4">
           <div className="flex items-center gap-2.5 text-gray-100 font-medium text-sm">
             <Camera size={16} className="text-[#f97316]" />
             Registro Fotográfico
@@ -884,7 +884,7 @@ export function NovoRdoPanel() {
           {/* Dropzone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#363636] hover:border-sky-500 rounded-lg p-6 text-center cursor-pointer transition-colors"
+            className="border-2 border-dashed border-[#5e5e5e] hover:border-sky-500 rounded-lg p-6 text-center cursor-pointer transition-colors"
           >
             <Upload size={24} className="mx-auto text-[#6b6b6b] mb-2" />
             <p className="text-[#a3a3a3] text-sm">Clique para selecionar fotos</p>
@@ -908,12 +908,12 @@ export function NovoRdoPanel() {
                   <img
                     src={photo.base64}
                     alt={photo.label}
-                    className="w-full h-28 object-cover rounded-lg border border-[#303030]"
+                    className="w-full h-28 object-cover rounded-lg border border-[#525252]"
                   />
                   <button
                     type="button"
                     onClick={() => removePhoto(i)}
-                    className="absolute top-1 right-1 bg-[#141414]/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1 right-1 bg-[#2c2c2c]/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X size={13} className="text-red-400" />
                   </button>
@@ -922,7 +922,7 @@ export function NovoRdoPanel() {
                     value={photo.label}
                     onChange={(e) => updatePhotoLabel(i, e.target.value)}
                     placeholder="Legenda"
-                    className="mt-1.5 w-full bg-[#2a2a2a] border border-[#363636] rounded text-xs text-[#f5f5f5] px-2 py-1 focus:outline-none focus:border-[#f97316]/50"
+                    className="mt-1.5 w-full bg-[#484848] border border-[#5e5e5e] rounded text-xs text-[#f5f5f5] px-2 py-1 focus:outline-none focus:border-[#f97316]/50"
                   />
                 </div>
               ))}
@@ -942,7 +942,7 @@ export function NovoRdoPanel() {
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 rounded-lg bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] text-sm font-medium transition-colors"
+            className="px-4 py-2 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm font-medium transition-colors"
           >
             Limpar
           </button>

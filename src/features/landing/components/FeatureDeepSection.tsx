@@ -24,7 +24,7 @@ function SectionDivider({ num, tag }: { num: string; tag: string }) {
 // ── BIM mockup (dark angular)
 function BimPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="flex items-center gap-2 mb-5">
         <span className="text-white/65 text-xs font-mono uppercase tracking-wider">BIM 3D/4D/5D — Esgoto Sanitário</span>
         <div className="ml-auto flex gap-1">
@@ -41,7 +41,7 @@ function BimPanel() {
           </div>
         ))}
       </div>
-      <div className="relative flex items-center justify-center" style={{ height: 140, background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.10)' }}>
+      <div className="relative flex items-center justify-center" style={{ height: 140, background: '#222222', border: '1px solid rgba(255,255,255,0.10)' }}>
         <svg width="100%" height="100%" viewBox="0 0 400 140">
           {[0,1,2,3,4].map(i => <line key={i} x1={60+i*60} y1={15} x2={60+i*60} y2={125} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
           {[0,1,2,3].map(i => <line key={i} x1={60} y1={20+i*30} x2={300} y2={20+i*30} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />)}
@@ -60,7 +60,7 @@ function BimPanel() {
 // ── Torre mockup
 function TorrePanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="flex items-center justify-between mb-5">
         <span className="text-white/65 text-xs font-mono uppercase tracking-wider">Torre de Controle</span>
         <span className="text-white/55 text-xs font-mono">PRJ-001 ▾</span>
@@ -91,7 +91,7 @@ function TorrePanel() {
 // ── Suprimentos mockup
 function SuprPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="text-white/65 text-xs font-mono uppercase tracking-wider mb-5">Suprimentos — Three-Way Match</div>
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[{l:'PO #1047',v:'R$84k'},{l:'GRN Recebido',v:'R$84k'},{l:'NF 000134',v:'R$84k'}].map((k) => (
@@ -118,7 +118,7 @@ function SuprPanel() {
 // ── MO mockup
 function MoPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="text-white/65 text-xs font-mono uppercase tracking-wider mb-5">Mão de Obra — Alocação Diária</div>
       {[
         {n:'Carlos M.',r:'Encanador',cert:'NR-10 ✓',h:'8h',ok:true},
@@ -153,7 +153,7 @@ function MoPanel() {
 // ── RDO mockup
 function RdoPanel() {
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="flex items-center justify-between mb-5">
         <span className="text-white/65 text-xs font-mono uppercase tracking-wider">RDO — 27/03/2026</span>
         <span className="text-white/60 text-xs font-mono">OBR-001</span>
@@ -197,7 +197,7 @@ function AiPanel() {
     { role:'bot', t:'Com a realocação sugerida: +2 dias. Sem intervenção: +8 dias e R$24.000 em multa contratual.'},
   ]
   return (
-    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#141414' }} className="p-6">
+    <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }} className="p-6">
       <div className="flex items-center gap-2 mb-5">
         <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-pulse" />
         <span className="text-white/65 text-xs font-mono uppercase tracking-wider">Atlântico AI — Copiloto de Obra</span>
@@ -359,9 +359,9 @@ function FeatureBlock({ id, num, tag, title, copy, bullets, visual, flip }: Feat
 
 export function FeatureDeepSection() {
   return (
-    <section id="funcionalidades" style={{ background: '#141414' }}>
+    <section id="funcionalidades" style={{ background: '#2c2c2c' }}>
       {FEATURES.map((f, i) => (
-        <div key={f.id} style={{ background: i % 2 === 0 ? '#141414' : '#1a1a1a' }}>
+        <div key={f.id} style={{ background: i % 2 === 0 ? '#2c2c2c' : '#333333' }}>
           <FeatureBlock {...f} />
         </div>
       ))}

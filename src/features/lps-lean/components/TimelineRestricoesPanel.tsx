@@ -70,7 +70,7 @@ export function TimelineRestricoesPanel() {
         <select
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value as LpsRestrictionCategory | '')}
-          className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+          className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
         >
           <option value="">Todas as categorias</option>
           {Object.entries(CAT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -78,7 +78,7 @@ export function TimelineRestricoesPanel() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as LpsRestrictionStatus | '')}
-          className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+          className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
         >
           <option value="">Todos os status</option>
           <option value="identificada">Identificada</option>
@@ -89,7 +89,7 @@ export function TimelineRestricoesPanel() {
       </div>
 
       {/* Timeline */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 overflow-x-auto">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 overflow-x-auto">
         {filtered.length === 0 ? (
           <p className="text-[#6b6b6b] text-xs text-center py-8">Nenhuma restrição encontrada.</p>
         ) : (
@@ -112,7 +112,7 @@ export function TimelineRestricoesPanel() {
 
               return (
                 <g key={r.id}>
-                  {i % 2 === 0 && <rect x={0} y={y - 2} width={LABEL_W + W} height={ROW_H} fill="#20202008" />}
+                  {i % 2 === 0 && <rect x={0} y={y - 2} width={LABEL_W + W} height={ROW_H} fill="#3d3d3d08" />}
                   <text x={4} y={y + 10} fontSize={9} fill="#a3a3a3">{label}</text>
                   <text x={LABEL_W - 4} y={y + 10} textAnchor="end" fontSize={8} fill="#6b6b6b">{r.responsavel ?? '—'}</text>
 

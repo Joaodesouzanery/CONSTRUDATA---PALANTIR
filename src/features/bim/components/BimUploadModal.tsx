@@ -94,7 +94,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-[#141414] border border-[#303030] rounded-xl w-full max-w-lg p-5 shadow-2xl">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl w-full max-w-lg p-5 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-gray-100 font-semibold text-sm">Importar Dados BIM / Espaciais</h2>
@@ -104,7 +104,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-[#202020] rounded-lg p-0.5">
+        <div className="flex gap-1 mb-4 bg-[#3d3d3d] rounded-lg p-0.5">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -122,7 +122,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
         {/* ── DXF tab ── */}
         {tab === 'dxf' && (
           <>
-            <div className="bg-[#202020]/50 border border-[#303030] rounded-lg p-3 mb-3 space-y-1.5">
+            <div className="bg-[#3d3d3d]/50 border border-[#525252] rounded-lg p-3 mb-3 space-y-1.5">
               <p className="text-[#f5f5f5] text-xs font-semibold">Como exportar do AutoCAD:</p>
               <p className="text-[#a3a3a3] text-[11px]">
                 No AutoCAD: <span className="font-mono text-[#f5f5f5]">Arquivo → Salvar Como → AutoCAD DXF (*.dxf)</span>
@@ -154,7 +154,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
               onClick={() => dxfInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-                dxfDragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-[#303030] hover:border-gray-500',
+                dxfDragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-[#525252] hover:border-gray-500',
               )}
             >
               <Layers size={28} className="mx-auto text-[#6b6b6b] mb-2" />
@@ -204,7 +204,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
               onClick={() => shpInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
-                dragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-[#303030] hover:border-gray-500',
+                dragging ? 'border-indigo-500 bg-indigo-500/10' : 'border-[#525252] hover:border-gray-500',
               )}
             >
               <Upload size={28} className="mx-auto text-[#6b6b6b] mb-2" />
@@ -249,7 +249,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
         {/* ── Levantamento tab ── */}
         {tab === 'levantamento' && (
           <>
-            <div className="bg-[#202020]/50 border border-[#303030] rounded-lg p-3 mb-3">
+            <div className="bg-[#3d3d3d]/50 border border-[#525252] rounded-lg p-3 mb-3">
               <p className="text-[#a3a3a3] text-xs font-semibold mb-1">Formato esperado (CSV/TXT):</p>
               <p className="text-[#6b6b6b] text-[11px] font-mono">número, nome, northing, easting, profundidade</p>
               <p className="text-gray-600 text-[10px] mt-1 font-mono">ex: 40, beco 1D, 7352789.362, 359284.909, 1.65</p>
@@ -257,7 +257,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
 
             <button
               onClick={() => surveyInputRef.current?.click()}
-              className="flex items-center gap-2 w-full justify-center px-3 py-3 border-2 border-dashed border-[#303030] hover:border-indigo-500 rounded-lg text-[#a3a3a3] hover:text-indigo-300 text-sm transition-colors"
+              className="flex items-center gap-2 w-full justify-center px-3 py-3 border-2 border-dashed border-[#525252] hover:border-indigo-500 rounded-lg text-[#a3a3a3] hover:text-indigo-300 text-sm transition-colors"
             >
               <FileText size={16} />
               {surveyFile ? surveyFile.name : 'Selecionar arquivo .txt / .csv'}
@@ -271,7 +271,7 @@ export function BimUploadModal({ onClose }: { onClose: () => void }) {
             />
 
             {surveyPreview.length > 0 && (
-              <div className="mt-3 bg-[#202020] rounded-lg p-2">
+              <div className="mt-3 bg-[#3d3d3d] rounded-lg p-2">
                 <p className="text-[#6b6b6b] text-[10px] font-semibold uppercase tracking-wider mb-1">Prévia (5 primeiras linhas)</p>
                 <div className="space-y-0.5">
                   {surveyPreview.map((line, i) => (

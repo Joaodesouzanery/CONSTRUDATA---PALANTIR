@@ -136,11 +136,11 @@ export function TaskEditDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
-        className="w-full max-w-xl rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl"
+        className="w-full max-w-xl rounded-2xl border border-[#525252] bg-[#333333] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#525252]">
           <h2 className="text-[#f5f5f5] font-bold text-base flex items-center gap-2">
             {isNew ? 'Nova Tarefa' : 'Editar Tarefa'}
             {priorityCfg && !isNew && (
@@ -154,7 +154,7 @@ export function TaskEditDialog() {
           </h2>
           <button
             onClick={close}
-            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
           >
             <X size={15} />
           </button>
@@ -252,7 +252,7 @@ export function TaskEditDialog() {
             </div>
 
             {/* ── Detalhes ── */}
-            <fieldset className="border-t border-[#303030] pt-3">
+            <fieldset className="border-t border-[#525252] pt-3">
               <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-3 px-1">
                 Detalhes
               </legend>
@@ -328,14 +328,14 @@ export function TaskEditDialog() {
                 {...register('notes')}
                 rows={2}
                 placeholder="Informações adicionais..."
-                className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] transition-colors resize-none placeholder:text-[#3f3f3f]"
+                className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] transition-colors resize-none placeholder:text-[#3f3f3f]"
               />
               {errors.notes && <span className={ERR}>{errors.notes.message}</span>}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#303030]">
+          <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-t border-[#525252]">
             {!isNew ? (
               confirmDelete ? (
                 <div className="flex items-center gap-2">
@@ -349,7 +349,7 @@ export function TaskEditDialog() {
                   </button>
                   <button
                     type="button" onClick={() => setConfirmDelete(false)}
-                    className="text-xs px-2 py-1 rounded bg-[#2a2a2a] text-[#a3a3a3] hover:bg-[#303030]"
+                    className="text-xs px-2 py-1 rounded bg-[#484848] text-[#a3a3a3] hover:bg-[#525252]"
                   >
                     Não
                   </button>
@@ -368,7 +368,7 @@ export function TaskEditDialog() {
             <div className="flex items-center gap-2">
               <button
                 type="button" onClick={close}
-                className="px-4 py-2 rounded-lg border border-[#303030] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+                className="px-4 py-2 rounded-lg border border-[#525252] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
               >
                 Cancelar
               </button>
@@ -391,7 +391,7 @@ const LABEL = 'text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibol
 const ERR   = 'text-[11px] text-[#ef4444]'
 function fieldCls(hasError: boolean) {
   return cn(
-    'w-full bg-[#141414] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
-    hasError ? 'border-[#ef4444]' : 'border-[#303030] focus:border-[#f97316]'
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    hasError ? 'border-[#ef4444]' : 'border-[#525252] focus:border-[#f97316]'
   )
 }

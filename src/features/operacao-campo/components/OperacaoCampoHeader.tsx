@@ -23,7 +23,7 @@ export function OperacaoCampoHeader() {
   const daysRemaining = futureDates.length
 
   return (
-    <div className="bg-[#141414] border-b border-[#303030] px-6 py-4 flex items-center justify-between gap-4 flex-wrap shrink-0">
+    <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-4 flex items-center justify-between gap-4 flex-wrap shrink-0">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#f97316]">
           <HardHat size={20} className="text-white" />

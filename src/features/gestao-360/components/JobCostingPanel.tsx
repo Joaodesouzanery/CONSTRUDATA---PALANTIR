@@ -30,7 +30,7 @@ const PHASE_STATUS: Record<string, { label: string; color: string }> = {
 function IndexGauge({ value, label }: { value: number; label: string }) {
   const isDark = useThemeStore((s) => s.theme === 'dark')
   const color  = value >= 0.9 ? '#22c55e' : value >= 0.7 ? '#eab308' : '#ef4444'
-  const track  = isDark ? '#303030' : '#e5e8ed'
+  const track  = isDark ? '#525252' : '#e5e8ed'
   const textC  = isDark ? '#f5f5f5' : '#1a1d23'
   const clamped = Math.min(1.5, Math.max(0, value))
   const r = 28; const cx = 36; const cy = 36
@@ -81,7 +81,7 @@ function BudgetBar({ type, budgeted, spent, projected }: { type: BudgetLineType;
         {/* Orçado */}
         <div className="flex items-center gap-2">
           <div className="w-10 text-[#6b6b6b] text-[10px] shrink-0">Orç.</div>
-          <div className="flex-1 h-3 bg-[#202020] rounded overflow-hidden">
+          <div className="flex-1 h-3 bg-[#3d3d3d] rounded overflow-hidden">
             <div className="h-full rounded" style={{ width: `${budgetedW}%`, backgroundColor: meta.color, opacity: 0.4 }} />
           </div>
           <span className="w-16 text-[#6b6b6b] text-[10px] font-mono text-right">
@@ -91,7 +91,7 @@ function BudgetBar({ type, budgeted, spent, projected }: { type: BudgetLineType;
         {/* Realizado */}
         <div className="flex items-center gap-2">
           <div className="w-10 text-[#6b6b6b] text-[10px] shrink-0">Real.</div>
-          <div className="flex-1 h-3 bg-[#202020] rounded overflow-hidden">
+          <div className="flex-1 h-3 bg-[#3d3d3d] rounded overflow-hidden">
             <div className="h-full rounded" style={{ width: `${spentW}%`, backgroundColor: meta.color }} />
           </div>
           <span className="w-16 text-[#f5f5f5] text-[10px] font-mono text-right font-semibold">
@@ -101,7 +101,7 @@ function BudgetBar({ type, budgeted, spent, projected }: { type: BudgetLineType;
         {/* Projetado (EAC) */}
         <div className="flex items-center gap-2">
           <div className="w-10 text-[#6b6b6b] text-[10px] shrink-0">EAC</div>
-          <div className="flex-1 h-3 bg-[#202020] rounded overflow-hidden">
+          <div className="flex-1 h-3 bg-[#3d3d3d] rounded overflow-hidden">
             <div
               className="h-full rounded"
               style={{ width: `${projectedW}%`, backgroundColor: isOver ? '#ef4444' : '#22c55e', opacity: 0.7 }}
@@ -129,7 +129,7 @@ export function JobCostingPanel() {
 
   if (!project) {
     return (
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-8 text-center">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-8 text-center">
         <p className="text-[#6b6b6b] text-sm">Selecione um projeto para ver o custo em tempo real.</p>
       </div>
     )
@@ -173,7 +173,7 @@ export function JobCostingPanel() {
             color: Math.abs(variancePct) <= 5 ? '#22c55e' : Math.abs(variancePct) <= 15 ? '#eab308' : '#ef4444',
           },
         ].map((kpi) => (
-          <div key={kpi.label} className="bg-[#202020] border border-[#303030] rounded-xl px-4 py-3">
+          <div key={kpi.label} className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3">
             <p className="text-[#6b6b6b] text-xs">{kpi.label}</p>
             <p className="text-xl font-bold leading-tight mt-0.5" style={{ color: kpi.color }}>{kpi.value}</p>
           </div>
@@ -182,7 +182,7 @@ export function JobCostingPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Budget waterfall */}
-        <div className="lg:col-span-2 bg-[#202020] border border-[#303030] rounded-xl p-4">
+        <div className="lg:col-span-2 bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
           <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Custo por Categoria</p>
           <div className="flex flex-col gap-3">
             {lines.map((l) => (
@@ -195,7 +195,7 @@ export function JobCostingPanel() {
               />
             ))}
           </div>
-          <div className="flex gap-4 mt-3 pt-3 border-t border-[#303030]">
+          <div className="flex gap-4 mt-3 pt-3 border-t border-[#525252]">
             {[
               { label: 'Orçado', color: '#6b6b6b', opacity: 0.4 },
               { label: 'Realizado', color: '#f97316', opacity: 1 },
@@ -210,7 +210,7 @@ export function JobCostingPanel() {
         </div>
 
         {/* CPI/SPI gauges */}
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col">
           <p className="text-[#f5f5f5] text-sm font-semibold mb-4">Índices de Desempenho</p>
           <div className="flex gap-4 justify-center flex-1 items-center">
             <IndexGauge value={cpi} label="CPI (Custo)" />
@@ -223,7 +223,7 @@ export function JobCostingPanel() {
       </div>
 
       {/* Phase progress table */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#f5f5f5] text-sm font-semibold">Progresso das Fases</p>
           <Link
@@ -243,7 +243,7 @@ export function JobCostingPanel() {
             return (
               <div key={phase.id} className="flex items-center gap-3">
                 <span className="w-32 text-[#f5f5f5] text-xs truncate shrink-0">{phase.name}</span>
-                <div className="flex-1 h-2 bg-[#202020] rounded overflow-hidden">
+                <div className="flex-1 h-2 bg-[#3d3d3d] rounded overflow-hidden">
                   <div
                     className="h-full rounded transition-all duration-500"
                     style={{ width: `${phase.progress}%`, backgroundColor: meta.color }}

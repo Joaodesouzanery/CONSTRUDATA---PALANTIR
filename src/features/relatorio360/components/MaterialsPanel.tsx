@@ -31,11 +31,11 @@ export function MaterialsPanel() {
         <span className="text-xs font-mono text-[#6b6b6b]">{logs.length} itens</span>
       </div>
 
-      <div className="rounded-xl border border-[#303030] bg-[#202020] overflow-hidden">
+      <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] overflow-hidden">
         {logs.length === 0 ? (
           <div className="p-6 text-center text-sm text-[#6b6b6b]">Nenhum material registrado</div>
         ) : (
-          <div className="divide-y divide-[#303030]">
+          <div className="divide-y divide-[#525252]">
             <div className="grid grid-cols-5 px-4 py-2 text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
               <span>ID</span>
               <span>Atividade</span>
@@ -49,7 +49,7 @@ export function MaterialsPanel() {
               return (
                 <div
                   key={log.id}
-                  className="grid grid-cols-5 px-4 py-3 text-sm items-center hover:bg-[#2a2a2a] transition-colors"
+                  className="grid grid-cols-5 px-4 py-3 text-sm items-center hover:bg-[#484848] transition-colors"
                 >
                   <span className="font-mono text-xs text-[#f97316] font-semibold">{log.materialId}</span>
                   <span className="text-[#a3a3a3] text-xs truncate pr-2">{activity?.name ?? '—'}</span>
@@ -61,7 +61,7 @@ export function MaterialsPanel() {
                         step={0.01}
                         value={editQuantity}
                         onChange={(e) => setEditQuantity(Math.max(0, Number(e.target.value)))}
-                        className="w-20 bg-[#141414] border border-[#f97316]/60 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] text-center focus:outline-none"
+                        className="w-20 bg-[#2c2c2c] border border-[#f97316]/60 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] text-center focus:outline-none"
                         autoFocus
                       />
                     ) : (

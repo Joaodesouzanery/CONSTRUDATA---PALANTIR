@@ -4,6 +4,7 @@ import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './Sidebar'
 import { DemoBanner } from './DemoBanner'
+import { AipPanel } from '@/features/aip'
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -13,7 +14,7 @@ export function AppShell() {
       <DemoBanner />
 
       {/* Mobile top bar — hidden on md+ */}
-      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#303030] bg-[#141414] shrink-0 z-20">
+      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#525252] bg-[#2c2c2c] shrink-0 z-20">
         <button
           onClick={() => setMobileOpen(true)}
           className="text-[#6b6b6b] hover:text-[#f97316] transition-colors"
@@ -52,6 +53,9 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      {/* AIP floating assistant — always rendered outside main scroll */}
+      <AipPanel />
     </div>
   )
 }

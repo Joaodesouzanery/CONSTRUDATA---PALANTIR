@@ -73,7 +73,7 @@ function SCurve({ points }: { points: TrendPoint[] }) {
       {/* Grid */}
       {[0, 25, 50, 75, 100].map((v) => (
         <g key={v}>
-          <line x1={PAD_L} y1={py(v)} x2={W - 8} y2={py(v)} stroke="#303030" strokeWidth={0.5} strokeDasharray="4,3" />
+          <line x1={PAD_L} y1={py(v)} x2={W - 8} y2={py(v)} stroke="#525252" strokeWidth={0.5} strokeDasharray="4,3" />
           <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={8} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
         </g>
       ))}
@@ -135,7 +135,7 @@ function ServiceBar({ curve }: { curve: NotableServiceCurve }) {
         <span className="text-[11px] text-[#a3a3a3] truncate max-w-[160px]">{curve.serviceName}</span>
         <span className="text-[10px] font-mono" style={{ color }}>{actPct}%</span>
       </div>
-      <div className="relative h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
+      <div className="relative h-2 rounded-full bg-[#484848] overflow-hidden">
         {/* Planned bar */}
         <div className="absolute inset-0 bg-[#3a4a6b] rounded-full" style={{ width: `${planPct}%` }} />
         {/* Actual bar */}
@@ -181,7 +181,7 @@ function DelayImpactTable() {
   return (
     <div className="flex flex-col gap-1">
       {impacts.map(({ act, totalPlanned, totalActual, rate }) => (
-        <div key={act.id} className="flex items-center gap-3 py-1.5 border-b border-[#303030]/30">
+        <div key={act.id} className="flex items-center gap-3 py-1.5 border-b border-[#525252]/30">
           <AlertTriangle size={12} className="text-[#ef4444] shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] text-[#f5f5f5] truncate">{act.name}</p>
@@ -250,20 +250,20 @@ export function CurtoPrazoPanel() {
     <div className="flex flex-col gap-5 overflow-y-auto">
 
       {/* ── A: 15-Day Production Calendar ─────────────────────────────────── */}
-      <div className="rounded-xl border border-[#303030] bg-[#202020] overflow-hidden">
+      <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] overflow-hidden">
         {/* Toolbar */}
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-[#303030]">
+        <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-[#525252]">
           <h3 className="text-[#f5f5f5] text-sm font-semibold flex-1">
             Agenda de Produção — 15 Dias
           </h3>
           <div className="flex items-center gap-1">
-            <button onClick={() => shiftDate(-15)} className="p-1.5 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]">
+            <button onClick={() => shiftDate(-15)} className="p-1.5 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]">
               <ChevronLeft size={14} />
             </button>
             <span className="text-xs text-[#a3a3a3] font-mono px-2">
               {fmtShortDate(visibleDates[0] ?? today)} — {fmtShortDate(visibleDates[14] ?? today)}
             </span>
-            <button onClick={() => shiftDate(15)} className="p-1.5 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]">
+            <button onClick={() => shiftDate(15)} className="p-1.5 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]">
               <ChevronRight size={14} />
             </button>
             <button onClick={() => setSelectedDate(today)} className="text-xs text-[#f97316] hover:underline ml-1">
@@ -278,9 +278,9 @@ export function CurtoPrazoPanel() {
             style={{ minWidth: `${160 + visibleDates.length * 52}px` }}
           >
             <thead>
-              <tr className="bg-[#141414]">
-                <th className="sticky left-0 z-10 bg-[#141414] px-3 py-2 text-left text-[#6b6b6b] font-medium w-32">Atividade</th>
-                <th className="sticky left-32 z-10 bg-[#141414] px-1 py-2 text-center text-[#6b6b6b] font-medium w-8 border-r border-[#303030]/50">P/R</th>
+              <tr className="bg-[#2c2c2c]">
+                <th className="sticky left-0 z-10 bg-[#2c2c2c] px-3 py-2 text-left text-[#6b6b6b] font-medium w-32">Atividade</th>
+                <th className="sticky left-32 z-10 bg-[#2c2c2c] px-1 py-2 text-center text-[#6b6b6b] font-medium w-8 border-r border-[#525252]/50">P/R</th>
                 {visibleDates.map((date) => (
                   <th
                     key={date}
@@ -299,27 +299,27 @@ export function CurtoPrazoPanel() {
               {activities.map((act) => (
                 <>
                   {/* Planejado row */}
-                  <tr key={`${act.id}-P`} className="border-t border-[#303030]/40">
+                  <tr key={`${act.id}-P`} className="border-t border-[#525252]/40">
                     <td
                       rowSpan={2}
-                      className="sticky left-0 z-10 bg-[#202020] px-3 py-1.5 text-[#f5f5f5] text-[11px] font-medium align-middle border-r border-[#303030]/50"
+                      className="sticky left-0 z-10 bg-[#3d3d3d] px-3 py-1.5 text-[#f5f5f5] text-[11px] font-medium align-middle border-r border-[#525252]/50"
                     >
                       <div className="truncate max-w-[120px]">{act.name}</div>
                       <div className="text-[#6b6b6b] text-[9px]">{act.trechoCode ?? ''}</div>
                     </td>
-                    <td className="sticky left-32 z-10 bg-[#202020] px-1 py-0.5 text-center text-[#6b6b6b] text-[9px] font-semibold border-r border-[#303030]/50">P</td>
+                    <td className="sticky left-32 z-10 bg-[#3d3d3d] px-1 py-0.5 text-center text-[#6b6b6b] text-[9px] font-semibold border-r border-[#525252]/50">P</td>
                     {visibleDates.map((date) => {
                       const entry = calendarDays.find((d) => d.date === date && d.activityId === act.id)
                       return (
-                        <td key={date} className={cn('px-1 py-0.5 text-center font-mono bg-[#2a2a2a]/20', date === today && 'bg-[#f97316]/5')}>
+                        <td key={date} className={cn('px-1 py-0.5 text-center font-mono bg-[#484848]/20', date === today && 'bg-[#f97316]/5')}>
                           <span className="text-[#6b6b6b]">{entry?.plannedQty ?? '—'}</span>
                         </td>
                       )
                     })}
                   </tr>
                   {/* Realizado row */}
-                  <tr key={`${act.id}-R`} className="border-b border-[#303030]/30">
-                    <td className="sticky left-32 z-10 bg-[#202020] px-1 py-0.5 text-center text-[#f97316] text-[9px] font-semibold border-r border-[#303030]/50">R</td>
+                  <tr key={`${act.id}-R`} className="border-b border-[#525252]/30">
+                    <td className="sticky left-32 z-10 bg-[#3d3d3d] px-1 py-0.5 text-center text-[#f97316] text-[9px] font-semibold border-r border-[#525252]/50">R</td>
                     {visibleDates.map((date) => {
                       const entry = calendarDays.find((d) => d.date === date && d.activityId === act.id)
                       const planned = entry?.plannedQty ?? 0
@@ -356,14 +356,14 @@ export function CurtoPrazoPanel() {
               ))}
 
               {/* Daily PPC footer row */}
-              <tr className="border-t-2 border-[#303030] bg-[#141414]">
-                <td className="sticky left-0 z-10 bg-[#141414] px-3 py-1.5 text-[#f97316] text-[10px] font-bold" colSpan={2}>
+              <tr className="border-t-2 border-[#525252] bg-[#2c2c2c]">
+                <td className="sticky left-0 z-10 bg-[#2c2c2c] px-3 py-1.5 text-[#f97316] text-[10px] font-bold" colSpan={2}>
                   PPC Diário
                 </td>
                 {visibleDates.map((date) => {
                   const v = dailyPpc(date)
                   return (
-                    <td key={date} className="px-1 py-1.5 text-center bg-[#141414]">
+                    <td key={date} className="px-1 py-1.5 text-center bg-[#2c2c2c]">
                       {v !== null ? (
                         <span className={cn('font-bold font-mono text-[10px]', ppcColor(v))}>{v}%</span>
                       ) : (
@@ -384,10 +384,10 @@ export function CurtoPrazoPanel() {
           <h3 className="text-[#f5f5f5] text-sm font-semibold mb-3">PPC Semanal</h3>
           <div className="grid grid-cols-6 gap-2">
             {weeklyPpcResults.slice(-6).map((w, i) => (
-              <div key={i} className="rounded-xl border border-[#303030] bg-[#202020] p-3 flex flex-col gap-1.5">
+              <div key={i} className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3 flex flex-col gap-1.5">
                 <p className="text-[#6b6b6b] text-[10px] font-semibold">S{i + 1}</p>
                 <p className={cn('text-xl font-bold tabular-nums', ppcColor(w.ppc))}>{w.ppc}%</p>
-                <div className="h-1 rounded-full bg-[#2a2a2a] overflow-hidden">
+                <div className="h-1 rounded-full bg-[#484848] overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{ width: `${w.ppc}%`, backgroundColor: w.ppc >= 80 ? '#22c55e' : w.ppc >= 60 ? '#fbbf24' : '#ef4444' }}
@@ -403,7 +403,7 @@ export function CurtoPrazoPanel() {
       {/* ── C: Impact Visualization ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* S-Curve */}
-        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
+        <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={14} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Curva S — Previsto vs Realizado</h3>
@@ -412,7 +412,7 @@ export function CurtoPrazoPanel() {
         </div>
 
         {/* Delay impact */}
-        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
+        <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle size={14} className="text-[#ef4444]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Impacto — Atividades em Atraso</h3>
@@ -423,7 +423,7 @@ export function CurtoPrazoPanel() {
 
       {/* ── D: Notable Services ───────────────────────────────────────────── */}
       {notableServiceCurves.length > 0 && (
-        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
+        <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
           <div className="flex items-center gap-2 mb-4">
             <Activity size={14} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Serviços Notáveis — Planejado vs Realizado</h3>

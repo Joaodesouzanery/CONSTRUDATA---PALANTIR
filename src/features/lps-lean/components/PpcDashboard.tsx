@@ -95,7 +95,7 @@ export function PpcDashboard() {
           value={`${META_PPC}%`}
           color="text-orange-400"
         />
-        <div className="rounded-xl border border-[#202020] bg-[#141414] p-4 flex flex-col gap-1">
+        <div className="rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4 flex flex-col gap-1">
           <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Tendência</p>
           <div className="flex items-center gap-2">
             {trend > 0
@@ -114,7 +114,7 @@ export function PpcDashboard() {
       {/* PPC Chart + Pareto side by side */}
       <div className="grid grid-cols-5 gap-4">
         {/* Bar chart — 3/5 */}
-        <div className="col-span-3 rounded-xl border border-[#202020] bg-[#141414] p-4">
+        <div className="col-span-3 rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4">
           <p className="text-xs font-semibold text-white mb-3">PPC Semanal — Últimas {chartWeeks.length} Semanas</p>
           {chartWeeks.length === 0 ? (
             <p className="text-gray-600 text-xs text-center py-10">Sem dados de PPC</p>
@@ -184,7 +184,7 @@ export function PpcDashboard() {
         </div>
 
         {/* Pareto CNC — 2/5 */}
-        <div className="col-span-2 rounded-xl border border-[#202020] bg-[#141414] p-4">
+        <div className="col-span-2 rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4">
           <p className="text-xs font-semibold text-white mb-3">Pareto de CNC</p>
           {cncEntries.length === 0 ? (
             <p className="text-gray-600 text-xs text-center py-10">Nenhuma CNC registrada</p>
@@ -199,7 +199,7 @@ export function PpcDashboard() {
                       <span className="text-xs text-[#f5f5f5]">{CNC_LABELS[cat] ?? cat}</span>
                       <span className="text-xs font-semibold text-[#f5f5f5]">{count}× ({pct}%)</span>
                     </div>
-                    <div className="h-2 bg-[#202020] rounded-full overflow-hidden">
+                    <div className="h-2 bg-[#3d3d3d] rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                     </div>
                   </div>
@@ -212,9 +212,9 @@ export function PpcDashboard() {
       </div>
 
       {/* Weekly detail table */}
-      <div className="rounded-xl border border-[#202020] overflow-hidden">
+      <div className="rounded-xl border border-[#3d3d3d] overflow-hidden">
         <table className="w-full text-xs">
-          <thead className="bg-[#202020]/80 border-b border-[#303030]">
+          <thead className="bg-[#3d3d3d]/80 border-b border-[#525252]">
             <tr>
               <th className="text-left text-[#a3a3a3] px-4 py-2.5 font-semibold">Semana</th>
               <th className="text-right text-[#a3a3a3] px-4 py-2.5 font-semibold">Planejadas</th>
@@ -223,9 +223,9 @@ export function PpcDashboard() {
               <th className="text-left text-[#a3a3a3] px-4 py-2.5 font-semibold">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#202020]">
+          <tbody className="divide-y divide-[#3d3d3d]">
             {[...weekly].reverse().slice(0, 8).map((w) => (
-              <tr key={w.week} className="bg-[#141414] hover:bg-[#202020]/60">
+              <tr key={w.week} className="bg-[#2c2c2c] hover:bg-[#3d3d3d]/60">
                 <td className="px-4 py-2 text-[#f5f5f5] font-mono">{weekLabel(w.week)} <span className="text-gray-600">({w.week})</span></td>
                 <td className="px-4 py-2 text-right text-[#a3a3a3]">{w.planned}</td>
                 <td className="px-4 py-2 text-right text-[#a3a3a3]">{w.completed}</td>
@@ -253,7 +253,7 @@ export function PpcDashboard() {
 
 function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl border border-[#202020] bg-[#141414] p-4 flex flex-col gap-1">
+    <div className="rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4 flex flex-col gap-1">
       <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</p>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>

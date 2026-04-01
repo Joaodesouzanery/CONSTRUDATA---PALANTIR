@@ -25,7 +25,7 @@ const MODULOS = [
 
 export function ModulosOverviewSection() {
   return (
-    <section id="modulos" style={{ background: '#141414', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+    <section id="modulos" style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">
@@ -61,8 +61,8 @@ export function ModulosOverviewSection() {
             <a
               key={label}
               href={href}
-              style={{ background: '#141414' }}
-              className="group p-6 flex flex-col gap-3 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+              style={{ background: '#2c2c2c' }}
+              className="group p-6 flex flex-col gap-3 hover:bg-[#333333] transition-colors cursor-pointer"
             >
               <Icon size={16} className="text-white/60 group-hover:text-[#f97316] transition-colors" />
               <div>

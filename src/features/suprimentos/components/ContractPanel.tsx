@@ -36,7 +36,7 @@ function StatusBadge({ status }: { status: FrameworkAgreement['status'] }) {
   const map = {
     active:   { label: 'Ativo',    cls: 'bg-green-900/40 text-green-300 border-green-700/40' },
     expiring: { label: 'A vencer', cls: 'bg-amber-900/40 text-amber-300 border-amber-700/40' },
-    expired:  { label: 'Expirado', cls: 'bg-[#202020] text-[#6b6b6b] border-[#303030]'       },
+    expired:  { label: 'Expirado', cls: 'bg-[#3d3d3d] text-[#6b6b6b] border-[#525252]'       },
   }
   const { label, cls } = map[status]
   return (
@@ -51,10 +51,10 @@ function StatusBadge({ status }: { status: FrameworkAgreement['status'] }) {
 function AccordionSection({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(true)
   return (
-    <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#2a2a2a] transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#484848] transition-colors"
       >
         <span className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-widest">{title}</span>
         {open ? <ChevronUp size={14} className="text-[#6b6b6b]" /> : <ChevronDown size={14} className="text-[#6b6b6b]" />}
@@ -66,8 +66,8 @@ function AccordionSection({ title, children }: { title: string; children: React.
 
 // ─── Shared input style ────────────────────────────────────────────────────────
 
-const inp = 'bg-[#141414] border border-[#303030] rounded px-2 py-1 text-[#f5f5f5] text-xs outline-none focus:border-[#f97316]'
-const sel = 'bg-[#141414] border border-[#303030] rounded px-2 py-1 text-[#f5f5f5] text-xs outline-none focus:border-[#f97316]'
+const inp = 'bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-[#f5f5f5] text-xs outline-none focus:border-[#f97316]'
+const sel = 'bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-[#f5f5f5] text-xs outline-none focus:border-[#f97316]'
 
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
@@ -141,10 +141,10 @@ export function ContractPanel() {
               key={fa.id}
               onClick={() => { setSelectedId(isSelected ? null : fa.id); setEditMode(false); setEditData(null) }}
               className={cn(
-                'text-left bg-[#202020] border rounded-xl p-3.5 flex flex-col gap-2.5 transition-all',
+                'text-left bg-[#3d3d3d] border rounded-xl p-3.5 flex flex-col gap-2.5 transition-all',
                 isSelected
                   ? 'border-[#f97316]/60 bg-[#f97316]/5'
-                  : 'border-[#303030] hover:border-[#2a2a2a]',
+                  : 'border-[#525252] hover:border-[#484848]',
               )}
             >
               <div className="flex items-start justify-between gap-2">
@@ -177,7 +177,7 @@ export function ContractPanel() {
                   <span>Volume utilizado</span>
                   <span className="tabular-nums">{pctConsumed}%</span>
                 </div>
-                <div className="h-1.5 bg-[#141414] rounded-full overflow-hidden">
+                <div className="h-1.5 bg-[#2c2c2c] rounded-full overflow-hidden">
                   <div
                     className={cn(
                       'h-full rounded-full transition-all',
@@ -188,7 +188,7 @@ export function ContractPanel() {
                 </div>
               </div>
 
-              <span className="self-start font-mono text-[10px] text-[#6b6b6b] bg-[#141414] px-1.5 py-0.5 rounded">
+              <span className="self-start font-mono text-[10px] text-[#6b6b6b] bg-[#2c2c2c] px-1.5 py-0.5 rounded">
                 {fa.code}
               </span>
             </button>
@@ -201,7 +201,7 @@ export function ContractPanel() {
         {display ? (
           <div className="flex flex-col gap-4">
             {/* Header */}
-            <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
+            <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] text-[#f97316] font-semibold uppercase tracking-wide mb-1">
@@ -244,12 +244,12 @@ export function ContractPanel() {
                       <button onClick={saveEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#f97316] hover:bg-[#22a8c4] text-white text-xs font-semibold transition-colors">
                         <Check size={12} /> Salvar
                       </button>
-                      <button onClick={cancelEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
+                      <button onClick={cancelEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
                         <X size={12} /> Cancelar
                       </button>
                     </>
                   ) : (
-                    <button onClick={startEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors">
+                    <button onClick={startEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors">
                       <Pencil size={12} /> Editar
                     </button>
                   )}
@@ -262,7 +262,7 @@ export function ContractPanel() {
               {display.paymentSchedule && display.paymentSchedule.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
-                    <tr className="text-[#6b6b6b] border-b border-[#303030]">
+                    <tr className="text-[#6b6b6b] border-b border-[#525252]">
                       <th className="text-left pb-2 font-medium">Vencimento</th>
                       <th className="text-right pb-2 font-medium">Valor</th>
                       <th className="text-center pb-2 font-medium">Status</th>
@@ -270,7 +270,7 @@ export function ContractPanel() {
                   </thead>
                   <tbody>
                     {display.paymentSchedule.map((p, i) => (
-                      <tr key={i} className="border-b border-[#303030] last:border-0">
+                      <tr key={i} className="border-b border-[#525252] last:border-0">
                         <td className="py-2 text-[#f5f5f5]">
                           {editMode && editData?.paymentSchedule ? (
                             <input className={inp} type="date" value={editData.paymentSchedule[i]?.dueDate ?? p.dueDate} onChange={(e) => updatePaymentRow(i, { dueDate: e.target.value })} />
@@ -329,7 +329,7 @@ export function ContractPanel() {
               {display.deliverySchedule && display.deliverySchedule.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-xs mt-1">
                   <thead>
-                    <tr className="text-[#6b6b6b] border-b border-[#303030]">
+                    <tr className="text-[#6b6b6b] border-b border-[#525252]">
                       <th className="text-left pb-2 font-medium">Fase</th>
                       <th className="text-left pb-2 font-medium">Data</th>
                       <th className="text-right pb-2 font-medium">Qtd</th>
@@ -338,7 +338,7 @@ export function ContractPanel() {
                   </thead>
                   <tbody>
                     {display.deliverySchedule.map((d, i) => (
-                      <tr key={i} className="border-b border-[#303030] last:border-0">
+                      <tr key={i} className="border-b border-[#525252] last:border-0">
                         <td className="py-2 text-[#f5f5f5]">
                           {editMode && editData?.deliverySchedule ? (
                             <input className={inp} value={editData.deliverySchedule[i]?.phase ?? d.phase} onChange={(e) => updateDeliveryRow(i, { phase: e.target.value })} />
@@ -464,7 +464,7 @@ export function ContractPanel() {
             </AccordionSection>
 
             {/* Full document link */}
-            <div className="bg-[#141414] border border-dashed border-[#303030] rounded-xl p-4 flex items-center justify-between">
+            <div className="bg-[#2c2c2c] border border-dashed border-[#525252] rounded-xl p-4 flex items-center justify-between">
               <div>
                 <p className="text-[#6b6b6b] text-xs font-medium">Documento Completo</p>
                 <p className="text-[#3f3f3f] text-[10px] mt-0.5">
@@ -472,7 +472,7 @@ export function ContractPanel() {
                 </p>
               </div>
               <button
-                className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#303030] hover:border-[#f97316]/40 rounded-lg px-3 py-1.5"
+                className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#525252] hover:border-[#f97316]/40 rounded-lg px-3 py-1.5"
                 onClick={() => undefined}
               >
                 <ExternalLink size={12} />

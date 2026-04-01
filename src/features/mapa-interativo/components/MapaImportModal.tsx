@@ -294,9 +294,9 @@ export function MapaImportModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#141414] border border-[#303030] rounded-xl w-full max-w-lg shadow-2xl">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl w-full max-w-lg shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#525252]">
           <h3 className="text-sm font-bold text-white">Importar Arquivo</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
@@ -305,7 +305,7 @@ export function MapaImportModal({ onClose }: Props) {
         <div className="px-6 py-5 flex flex-col gap-4">
           {/* Drop zone */}
           <div
-            className="border-2 border-dashed border-[#303030] rounded-xl p-6 text-center cursor-pointer hover:border-orange-500 transition-colors"
+            className="border-2 border-dashed border-[#525252] rounded-xl p-6 text-center cursor-pointer hover:border-orange-500 transition-colors"
             onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
@@ -335,7 +335,7 @@ export function MapaImportModal({ onClose }: Props) {
                     type="number" min={1} max={60} value={utmZone}
                     onChange={(e) => { setUtmZone(Number(e.target.value)); }}
                     onBlur={reparse}
-                    className="w-full bg-[#202020] border border-[#303030] rounded px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-orange-500"
                   />
                 </div>
                 <div>
@@ -344,7 +344,7 @@ export function MapaImportModal({ onClose }: Props) {
                     value={utmHemi}
                     onChange={(e) => { setUtmHemi(e.target.value as 'N' | 'S'); }}
                     onBlur={reparse}
-                    className="w-full bg-[#202020] border border-[#303030] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
                     <option value="S">Sul (S)</option>
                     <option value="N">Norte (N)</option>
@@ -368,7 +368,7 @@ export function MapaImportModal({ onClose }: Props) {
                   <select
                     value={netType}
                     onChange={(e) => setNetType(e.target.value as MapNetworkType)}
-                    className="w-full bg-[#202020] border border-[#303030] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   >
                     {(Object.keys(NETWORK_LABELS) as MapNetworkType[]).map((k) => (
                       <option key={k} value={k}>{NETWORK_LABELS[k]}</option>
@@ -409,7 +409,7 @@ export function MapaImportModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#303030]">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#525252]">
           <button onClick={onClose} className="px-4 py-2 text-sm text-[#a3a3a3] hover:text-white transition-colors">
             Cancelar
           </button>

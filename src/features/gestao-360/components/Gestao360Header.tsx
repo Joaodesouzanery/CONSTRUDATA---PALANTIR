@@ -127,7 +127,7 @@ export function Gestao360Header() {
           <select
             value={selectedProjectId ?? project?.id ?? ''}
             onChange={(e) => selectProject(e.target.value)}
-            className="ml-auto px-3 py-1.5 rounded-lg bg-[#202020] border border-[#303030] text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60"
+            className="ml-auto px-3 py-1.5 rounded-lg bg-[#3d3d3d] border border-[#525252] text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -143,7 +143,7 @@ export function Gestao360Header() {
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className="bg-[#202020] border border-[#303030] rounded-xl px-3 py-3 flex items-center gap-2"
+            className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-3 py-3 flex items-center gap-2"
           >
             <div
               className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0"
@@ -162,7 +162,7 @@ export function Gestao360Header() {
       </div>
 
       {/* Tab bar — horizontal scroll on mobile */}
-      <div className="flex gap-1 border-b border-[#303030] -mb-px overflow-x-auto scrollbar-none">
+      <div className="flex gap-1 border-b border-[#525252] -mb-px overflow-x-auto scrollbar-none">
         {TABS.map((tab) => (
           <button
             key={tab.id}

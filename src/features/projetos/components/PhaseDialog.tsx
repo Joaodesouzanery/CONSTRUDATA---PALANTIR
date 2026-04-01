@@ -83,18 +83,18 @@ export function PhaseDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#525252] bg-[#333333] flex flex-col shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#525252]">
           <div>
             <h2 className="text-[#f5f5f5] font-bold text-sm">Editar Fase</h2>
             <p className="text-[11px] text-[#6b6b6b] mt-0.5">{phase.name}</p>
           </div>
           <button
             onClick={close}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
           >
             <X size={15} />
           </button>
@@ -121,7 +121,7 @@ export function PhaseDialog() {
                   {...register('progress', { valueAsNumber: true })}
                   className="w-full accent-[#f97316] cursor-pointer"
                 />
-                <div className="h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
+                <div className="h-2 rounded-full bg-[#484848] overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[#f97316] transition-all"
                     style={{ width: `${progressValue ?? 0}%` }}
@@ -152,11 +152,11 @@ export function PhaseDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#303030]">
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#525252]">
             <button
               type="button"
               onClick={close}
-              className="px-4 py-2 rounded-lg border border-[#303030] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+              className="px-4 py-2 rounded-lg border border-[#525252] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
             >
               Cancelar
             </button>
@@ -177,10 +177,10 @@ export function PhaseDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#141414] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
     hasError
       ? 'border-[#ef4444] focus:border-[#ef4444]'
-      : 'border-[#303030] focus:border-[#f97316]'
+      : 'border-[#525252] focus:border-[#f97316]'
   )
 }
 

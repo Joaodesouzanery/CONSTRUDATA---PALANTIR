@@ -57,7 +57,7 @@ export function BimHeader({ onUploadClick }: Props) {
   const pctDone     = totalSegs > 0 ? Math.round((completed / totalSegs) * 100) : 0
 
   return (
-    <div className="flex flex-col bg-[#141414] border-b border-[#202020] shrink-0">
+    <div className="flex flex-col bg-[#2c2c2c] border-b border-[#3d3d3d] shrink-0">
       {/* Top row: title | tabs | upload */}
       <div className="flex items-center gap-2 h-12 px-3">
         <div className="flex items-center gap-2 shrink-0">
@@ -68,7 +68,7 @@ export function BimHeader({ onUploadClick }: Props) {
         </div>
 
         {/* Tabs — scrollable on mobile */}
-        <div className="flex items-center gap-1 bg-[#202020] rounded-lg p-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
+        <div className="flex items-center gap-1 bg-[#3d3d3d] rounded-lg p-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -90,7 +90,7 @@ export function BimHeader({ onUploadClick }: Props) {
           <div className="relative">
             <button
               onClick={openProjects}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-xs font-medium transition-colors"
             >
               <FolderOpen size={13} />
               <span className="hidden sm:inline">Projetos</span>
@@ -99,7 +99,7 @@ export function BimHeader({ onUploadClick }: Props) {
             {showProjects && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowProjects(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 bg-[#202020] border border-[#303030] rounded-lg shadow-xl min-w-[200px] py-1 max-h-[60vh] overflow-y-auto">
+                <div className="absolute right-0 top-full mt-1 z-50 bg-[#3d3d3d] border border-[#525252] rounded-lg shadow-xl min-w-[200px] py-1 max-h-[60vh] overflow-y-auto">
                   {projectList.length === 0 ? (
                     <p className="px-3 py-2 text-xs text-[#6b6b6b]">Nenhum projeto cadastrado.</p>
                   ) : (
@@ -107,7 +107,7 @@ export function BimHeader({ onUploadClick }: Props) {
                       <button
                         key={p.id}
                         onClick={() => loadProject(p.id)}
-                        className="w-full text-left px-3 py-2 text-xs text-[#f5f5f5] hover:bg-[#2a2a2a] hover:text-white transition-colors truncate"
+                        className="w-full text-left px-3 py-2 text-xs text-[#f5f5f5] hover:bg-[#484848] hover:text-white transition-colors truncate"
                       >
                         {p.name}
                       </button>
@@ -129,7 +129,7 @@ export function BimHeader({ onUploadClick }: Props) {
       </div>
 
       {/* KPI bar — horizontally scrollable on mobile */}
-      <div className="flex items-center border-t border-[#202020] divide-x divide-[#202020] overflow-x-auto scrollbar-none">
+      <div className="flex items-center border-t border-[#3d3d3d] divide-x divide-[#3d3d3d] overflow-x-auto scrollbar-none">
         <KpiCell icon={<GitBranch size={12} className="text-indigo-400" />} label="Trechos" value={String(totalSegs)} />
         <KpiCell icon={<Ruler size={12} className="text-blue-400" />} label="Extensão" value={`${totalLength.toFixed(0)} m`} />
         <KpiCell icon={<DollarSign size={12} className="text-green-400" />} label="Custo Total" value={fmtBRL(totalCost)} />
@@ -145,7 +145,7 @@ export function BimHeader({ onUploadClick }: Props) {
               'px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap',
               project.type === 'building'   ? 'bg-blue-900/40 text-blue-300'   :
               project.type === 'sanitation' ? 'bg-green-900/40 text-green-300' :
-              'bg-[#2a2a2a] text-[#a3a3a3]',
+              'bg-[#484848] text-[#a3a3a3]',
             )}>
               {project.type === 'building' ? 'Construção Civil' :
                project.type === 'sanitation' ? 'Saneamento' : 'Genérico'}

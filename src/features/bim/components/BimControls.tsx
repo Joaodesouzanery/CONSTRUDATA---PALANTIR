@@ -21,14 +21,14 @@ export function BimControls() {
   const toggleDroneMode = useBimStore((s) => s.toggleDroneMode)
 
   return (
-    <div className="flex items-center gap-1 px-3 py-2 bg-[#202020]/80 border-b border-[#303030] overflow-x-auto scrollbar-none shrink-0">
+    <div className="flex items-center gap-1 px-3 py-2 bg-[#3d3d3d]/80 border-b border-[#525252] overflow-x-auto scrollbar-none shrink-0">
       {/* Viewer mode toggle */}
-      <div className="flex items-center bg-[#141414]/60 rounded-lg border border-[#303030] p-0.5 mr-2">
+      <div className="flex items-center bg-[#2c2c2c]/60 rounded-lg border border-[#525252] p-0.5 mr-2">
         <button
           onClick={() => setViewerMode('threejs')}
           className={cn(
             'flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors',
-            viewerMode === 'threejs' ? 'bg-[#2a2a2a] text-gray-100' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+            viewerMode === 'threejs' ? 'bg-[#484848] text-gray-100' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
           )}
         >
           <Cpu size={11} />
@@ -55,7 +55,7 @@ export function BimControls() {
             'flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors mr-2',
             droneMode
               ? 'bg-[#f97316]/15 border-[#f97316]/40 text-[#f97316]'
-              : 'border-[#303030] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#363636]',
+              : 'border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#5e5e5e]',
           )}
         >
           <Navigation size={11} />
@@ -74,7 +74,7 @@ export function BimControls() {
               className={cn(
                 'flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors',
                 colorMode === m.key
-                  ? 'bg-[#2a2a2a] text-gray-100'
+                  ? 'bg-[#484848] text-gray-100'
                   : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
               )}
             >

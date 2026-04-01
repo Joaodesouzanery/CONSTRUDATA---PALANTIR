@@ -74,11 +74,11 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: POR
   const total   = po.items.reduce((acc, i) => acc + i.totalPrice, 0)
 
   return (
-    <div className="bg-[#141414] border border-[#303030] rounded-xl overflow-hidden">
+    <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-hidden">
       {/* Header row */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#2a2a2a] transition-colors text-left"
+        className="w-full flex items-center gap-4 px-4 py-3 hover:bg-[#484848] transition-colors text-left"
       >
         {open ? <ChevronUp size={14} className="text-[#6b6b6b] shrink-0" /> : <ChevronDown size={14} className="text-[#6b6b6b] shrink-0" />}
         <span className="font-mono text-[#a3a3a3] text-xs shrink-0">{po.code}</span>
@@ -91,7 +91,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: POR
       </button>
 
       {open && (
-        <div className="border-t border-[#303030] p-4 flex flex-col gap-4">
+        <div className="border-t border-[#525252] p-4 flex flex-col gap-4">
           {/* Meta */}
           <div className="grid grid-cols-3 gap-2 text-xs">
             <div><span className="text-[#6b6b6b]">Responsável: </span><span className="text-[#f5f5f5]">{po.responsible}</span></div>
@@ -100,10 +100,10 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: POR
           </div>
 
           {/* Items table */}
-          <div className="bg-[#1a1a1a] border border-[#303030] rounded-lg overflow-x-auto overflow-hidden">
+          <div className="bg-[#333333] border border-[#525252] rounded-lg overflow-x-auto overflow-hidden">
             <table className="w-full text-xs border-collapse">
               <thead>
-                <tr className="bg-[#2a2a2a]">
+                <tr className="bg-[#484848]">
                   <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                   <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-16">Qtd OC</th>
                   <th className="text-right text-[#6b6b6b] font-medium px-3 py-2 w-16">Qtd RC</th>
@@ -121,7 +121,7 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: POR
                   const priceOk = !nfItem || Math.abs(nfItem.unitPrice - item.unitPrice) / item.unitPrice <= 0.02
                   const rowOk  = qtyOk && priceOk
                   return (
-                    <tr key={item.id} className="border-t border-[#303030]">
+                    <tr key={item.id} className="border-t border-[#525252]">
                       <td className="px-3 py-2 text-[#f5f5f5]">{item.description}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-[#f5f5f5]">{item.quantity.toLocaleString('pt-BR')}</td>
                       <td className={cn('px-3 py-2 text-right tabular-nums', rcItem ? (qtyOk ? 'text-[#4ade80]' : 'text-[#f87171]') : 'text-[#1f3c5e]')}>
@@ -213,7 +213,7 @@ function ThreeWayMatchSummary() {
   const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
   return (
-    <div className="bg-[#141414] border border-[#303030] rounded-xl p-4 shrink-0">
+    <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4 shrink-0">
       {/* Title */}
       <p className="text-[#f5f5f5] text-xs font-bold uppercase tracking-widest mb-3">
         Three-Way Match — OC · RC · NF
@@ -226,7 +226,7 @@ function ThreeWayMatchSummary() {
           { Icon: Package,   label: 'Recibos (RC)',       count: receipts.length,       color: '#f97316', sub: `${receipts.length} entradas` },
           { Icon: Receipt,   label: 'Notas Fiscais (NF)', count: invoices.length,        color: '#22c55e', sub: fmtBRL(totalNF) },
         ].map(({ Icon, label, count, color, sub }) => (
-          <div key={label} className="bg-[#1a1a1a] rounded-lg p-3 flex flex-col items-center text-center">
+          <div key={label} className="bg-[#333333] rounded-lg p-3 flex flex-col items-center text-center">
             <Icon size={18} style={{ color }} className="mb-1.5" />
             <span className="text-[#6b6b6b] text-[10px] font-medium leading-tight">{label}</span>
             <span className="text-lg font-bold mt-0.5" style={{ color }}>{count}</span>
@@ -243,7 +243,7 @@ function ThreeWayMatchSummary() {
           { label: 'Divergência', value: discrepancy, color: '#f87171' },
           { label: 'Aguardando',  value: pending,     color: '#93c5fd' },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-[#202020] rounded-lg px-2 py-2 text-center">
+          <div key={label} className="bg-[#3d3d3d] rounded-lg px-2 py-2 text-center">
             <span className="block text-[10px] text-[#6b6b6b]">{label}</span>
             <span className="block text-base font-bold mt-0.5" style={{ color }}>{value}</span>
           </div>
