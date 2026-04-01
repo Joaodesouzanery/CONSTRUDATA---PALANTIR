@@ -39,7 +39,7 @@ interface PlanejamentoMestreState {
   removeActivity: (id: string) => void
 
   // Baselines
-  saveBaseline: (name: string) => void
+  saveBaseline: (name: string, obraName?: string) => void
   loadBaseline: (id: string) => void
   removeBaseline: (id: string) => void
 
@@ -96,13 +96,14 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
       activities: s.activities.filter((a) => a.id !== id),
     })),
 
-  saveBaseline: (name) =>
+  saveBaseline: (name, obraName) =>
     set((s) => ({
       baselines: [
         ...s.baselines,
         {
           id: crypto.randomUUID(),
           name,
+          obraName,
           createdAt: new Date().toISOString(),
           activities: structuredClone(s.activities),
         },

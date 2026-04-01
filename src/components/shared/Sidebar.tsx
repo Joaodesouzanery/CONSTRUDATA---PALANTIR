@@ -136,7 +136,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             >
               Atlântico
             </span>
-            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#6b6b6b' }}>
+            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#9a9a9a' }}>
               ConstruData
             </span>
           </div>
@@ -158,7 +158,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <div key={group.label} className={cn('flex flex-col', gi > 0 && 'mt-1')}>
             {/* Group label — only shown when expanded */}
             {isOpen ? (
-              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a] select-none">
+              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] select-none">
                 {group.label}
               </span>
             ) : (
@@ -178,7 +178,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                     'h-9 px-3',
                     isActive
                       ? 'bg-[#f97316]/10 text-[#f97316]'
-                      : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                      : 'text-[#9a9a9a] hover:bg-[#333333] hover:text-[#d4d4d4]',
                   )
                 }
               >
@@ -220,7 +220,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#9a9a9a] hover:bg-[#333333] hover:text-[#d4d4d4] transition-colors"
           >
             {isOpen ? <ChevronLeft size={18} className="shrink-0" /> : <ChevronRight size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">Recolher</span>}
@@ -233,7 +233,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               'relative flex items-center gap-3 h-9 px-3 rounded-lg transition-colors',
               isDemoMode
                 ? 'bg-[#f97316]/10 text-[#f97316]'
-                : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                : 'text-[#9a9a9a] hover:bg-[#333333] hover:text-[#d4d4d4]',
             )}
           >
             {isDemoMode && (
@@ -246,7 +246,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#9a9a9a] hover:bg-[#333333] hover:text-[#d4d4d4] transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" strokeWidth={1.5} /> : <Moon size={18} className="shrink-0" strokeWidth={1.5} />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import type { MasterActivity, MasterActivityStatus } from '@/types'
+import { OBRAS_LIST } from '@/types'
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -252,6 +253,7 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
     plannedEnd: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10),
     responsibleTeam: '', isMilestone: false, weight: 5,
     networkType: '' as string,
+    obraName: '' as string,
   })
 
   const parentActivity = activities.find((a) => a.id === form.parentId) ?? null
@@ -270,6 +272,7 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
       isMilestone: form.isMilestone, responsibleTeam: form.responsibleTeam || undefined,
       weight: form.weight,
       networkType: (form.networkType || undefined) as MasterActivity['networkType'],
+      obraName: form.obraName || undefined,
     })
     onClose()
   }
@@ -305,6 +308,13 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
             <option value="esgoto">Esgoto</option>
             <option value="civil">Civil</option>
             <option value="geral">Geral</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Obra</label>
+          <select className={inputCls} value={form.obraName} onChange={(e) => setForm((f) => ({ ...f, obraName: e.target.value }))}>
+            <option value="">— Selecionar Obra —</option>
+            {OBRAS_LIST.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </div>
         <div className="col-span-2">
@@ -406,11 +416,13 @@ export function PlanejamentoMacroPanel() {
 
   const [showNewForm, setShowNewForm]   = useState(false)
   const [blName, setBlName]             = useState('')
+  const [blObra, setBlObra]             = useState('')
   const [showBlSave, setShowBlSave]     = useState(false)
   const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
   const [search, setSearch]             = useState('')
   const [filterStatus, setFilterStatus] = useState<MasterActivityStatus | ''>('')
   const [filterNetwork, setFilterNetwork] = useState<string>('')
+  const [filterObra, setFilterObra]     = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
@@ -418,18 +430,38 @@ export function PlanejamentoMacroPanel() {
     activities.filter((a) =>
       (!search || a.name.toLowerCase().includes(search.toLowerCase()) || a.wbsCode.toLowerCase().includes(search.toLowerCase())) &&
       (!filterStatus  || a.status      === filterStatus) &&
-      (!filterNetwork || a.networkType === filterNetwork)
+      (!filterNetwork || a.networkType === filterNetwork) &&
+      (!filterObra    || (a.obraName ?? '') === filterObra)
     ),
-    [activities, search, filterStatus, filterNetwork],
+    [activities, search, filterStatus, filterNetwork, filterObra],
   )
 
-  const activeFilterCount = [search, filterStatus, filterNetwork].filter(Boolean).length
+  const activeFilterCount = [search, filterStatus, filterNetwork, filterObra].filter(Boolean).length
 
   function clearFilters() {
     setSearch('')
     setFilterStatus('')
     setFilterNetwork('')
+    setFilterObra('')
   }
+
+  // Group filtered activities by obra for table display
+  const filteredGrouped = useMemo(() => {
+    if (!filterObra) {
+      // If no obra filter, group by obraName for the table view
+      const groups = new Map<string, MasterActivity[]>()
+      filtered.filter((a) => a.level >= 1).forEach((a) => {
+        const obra = a.obraName || '— Sem Obra —'
+        const list = groups.get(obra) ?? []
+        list.push(a)
+        groups.set(obra, list)
+      })
+      return groups
+    }
+    const groups = new Map<string, MasterActivity[]>()
+    groups.set(filterObra, filtered.filter((a) => a.level >= 1))
+    return groups
+  }, [filtered, filterObra])
 
   function toggleCollapse(id: string) {
     setCollapsed((prev) => {
@@ -442,8 +474,9 @@ export function PlanejamentoMacroPanel() {
 
   function handleSaveBaseline() {
     if (!blName.trim()) return
-    saveBaseline(blName.trim())
+    saveBaseline(blName.trim(), blObra || undefined)
     setBlName('')
+    setBlObra('')
     setShowBlSave(false)
   }
 
@@ -454,29 +487,42 @@ export function PlanejamentoMacroPanel() {
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 flex-wrap print:hidden">
         {/* Baseline */}
-        <div className="flex items-center gap-2">
-          <span className="text-[#6b6b6b] text-xs">Baseline:</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[#6b6b6b] text-xs shrink-0">Baseline:</span>
           <select
             value={activeBlId ?? ''}
             onChange={(e) => e.target.value && loadBaseline(e.target.value)}
             className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
           >
             <option value="">— Selecionar —</option>
-            {baselines.map((bl) => (
-              <option key={bl.id} value={bl.id}>{bl.name}</option>
+            {/* Group baselines by obra */}
+            {Array.from(new Set(baselines.map((bl) => bl.obraName ?? '— Geral —'))).map((obra) => (
+              <optgroup key={obra} label={obra}>
+                {baselines.filter((bl) => (bl.obraName ?? '— Geral —') === obra).map((bl) => (
+                  <option key={bl.id} value={bl.id}>{bl.name}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
 
         {showBlSave ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
-              className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 w-40"
+              className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 w-36"
               placeholder="Nome da baseline"
               value={blName}
               onChange={(e) => setBlName(e.target.value)}
               autoFocus
             />
+            <select
+              value={blObra}
+              onChange={(e) => setBlObra(e.target.value)}
+              className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+            >
+              <option value="">— Selecionar Obra —</option>
+              {OBRAS_LIST.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
             <button onClick={handleSaveBaseline} className="px-2.5 py-1.5 rounded-lg bg-[#22c55e]/20 text-[#22c55e] text-xs font-semibold hover:bg-[#22c55e]/30">
               <Save size={12} className="inline mr-1" />Salvar
             </button>
@@ -583,6 +629,19 @@ export function PlanejamentoMacroPanel() {
               </select>
             </div>
 
+            {/* Obra filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[#6b6b6b] text-xs shrink-0">Obra:</span>
+              <select
+                value={filterObra}
+                onChange={(e) => setFilterObra(e.target.value)}
+                className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              >
+                <option value="">Todas</option>
+                {OBRAS_LIST.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
             <span className="text-[#6b6b6b] text-xs ml-auto">
               {filtered.length} de {activities.length} atividade{activities.length !== 1 ? 's' : ''}
             </span>
@@ -629,45 +688,60 @@ export function PlanejamentoMacroPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.filter((a) => a.level >= 1).map((act) => {
-                const color  = STATUS_COLOR[act.status]
-                const nColor = networkColor(act.networkType)
-                const delta  = daysBetween(act.plannedEnd, act.trendEnd)
-                return (
-                  <tr key={act.id} className="border-b border-[#525252]/50 hover:bg-[#484848]">
-                    <td
-                      className="px-3 py-2 font-mono text-[#6b6b6b]"
-                      style={{ paddingLeft: `${10 + act.level * 14}px` }}
-                    >
-                      {act.isMilestone ? '◆ ' : ''}{act.wbsCode}
-                    </td>
-                    <td className="px-3 py-2 text-[#f5f5f5]">{act.name}</td>
-                    <td className="px-3 py-2">
-                      {act.networkType ? (
-                        <span
-                          className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase"
-                          style={{ backgroundColor: nColor + '20', color: nColor }}
-                        >
-                          {act.networkType}
-                        </span>
-                      ) : <span className="text-[#3f3f3f]">—</span>}
-                    </td>
-                    <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedStart)}</td>
-                    <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedEnd)}</td>
-                    <td className="px-3 py-2 font-mono">
-                      <span className={delta > 0 ? 'text-[#ef4444]' : delta < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}>
-                        {fmtDate(act.trendEnd)}{delta > 0 ? ` (+${delta}d)` : delta < 0 ? ` (${delta}d)` : ''}
+              {Array.from(filteredGrouped.entries()).map(([obra, obraActs]) => (
+                <>
+                  {/* Obra section header */}
+                  <tr key={`header-${obra}`} className="bg-[#f97316]/10 border-b border-[#f97316]/20">
+                    <td colSpan={8} className="px-3 py-2">
+                      <span className="text-[#f97316] font-semibold text-xs tracking-wide">
+                        🏗 {obra}
                       </span>
-                    </td>
-                    <td className="px-3 py-2 text-center font-mono" style={{ color }}>{act.percentComplete}%</td>
-                    <td className="px-3 py-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: color + '18', color }}>
-                        {STATUS_LABEL[act.status]}
+                      <span className="ml-2 text-[#6b6b6b] text-[10px]">
+                        {obraActs.length} atividade{obraActs.length !== 1 ? 's' : ''}
                       </span>
                     </td>
                   </tr>
-                )
-              })}
+                  {obraActs.map((act) => {
+                    const color  = STATUS_COLOR[act.status]
+                    const nColor = networkColor(act.networkType)
+                    const delta  = daysBetween(act.plannedEnd, act.trendEnd)
+                    return (
+                      <tr key={act.id} className="border-b border-[#525252]/50 hover:bg-[#484848]">
+                        <td
+                          className="px-3 py-2 font-mono text-[#6b6b6b]"
+                          style={{ paddingLeft: `${10 + act.level * 14}px` }}
+                        >
+                          {act.isMilestone ? '◆ ' : ''}{act.wbsCode}
+                        </td>
+                        <td className="px-3 py-2 text-[#f5f5f5]">{act.name}</td>
+                        <td className="px-3 py-2">
+                          {act.networkType ? (
+                            <span
+                              className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase"
+                              style={{ backgroundColor: nColor + '20', color: nColor }}
+                            >
+                              {act.networkType}
+                            </span>
+                          ) : <span className="text-[#3f3f3f]">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedStart)}</td>
+                        <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedEnd)}</td>
+                        <td className="px-3 py-2 font-mono">
+                          <span className={delta > 0 ? 'text-[#ef4444]' : delta < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}>
+                            {fmtDate(act.trendEnd)}{delta > 0 ? ` (+${delta}d)` : delta < 0 ? ` (${delta}d)` : ''}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono" style={{ color }}>{act.percentComplete}%</td>
+                        <td className="px-3 py-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: color + '18', color }}>
+                            {STATUS_LABEL[act.status]}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </>
+              ))}
             </tbody>
           </table>
         </div>

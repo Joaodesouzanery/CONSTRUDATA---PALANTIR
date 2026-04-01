@@ -1713,11 +1713,27 @@ export interface MasterActivity {
   isCritical?:              boolean         // totalFloat <= 0
   constraintType?:          P6ConstraintType
   constraintDate?:          string          // ISO date
+  // Obra identification
+  obraName?:                string          // e.g. "Morro do Tetéu", "Pantanal Baixo"
 }
+
+// ─── Predefined obras ─────────────────────────────────────────────────────────
+
+export const OBRAS_LIST = [
+  'Morro do Tetéu',
+  'Pantanal Baixo',
+  'São Manoel',
+  'João Carlos',
+  'Vila Israel',
+  'Vila dos Criadores',
+] as const
+
+export type ObraName = typeof OBRAS_LIST[number] | string
 
 export interface MasterBaseline {
   id: string
   name: string
+  obraName?: string          // which obra this baseline belongs to
   createdAt: string
   activities: MasterActivity[]
 }

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import type { MasterActivity } from '@/types'
+import { OBRAS_LIST } from '@/types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -212,6 +213,8 @@ export function P6CpmPanel() {
 
   const [zoomIdx, setZoomIdx]   = useState(1)
   const [filter, setFilter]     = useState<FilterKey>('all')
+  const [filterObra, setFilterObra] = useState<string>('')
+  const [groupByObra, setGroupByObra] = useState(true)
   const [computed, setComputed] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const ganttRef = useRef<HTMLDivElement>(null)
@@ -232,11 +235,25 @@ export function P6CpmPanel() {
   // Filtered list
   const visible = useMemo(() => {
     let list = activities
+    if (filterObra)               list = list.filter((a) => (a.obraName ?? '') === filterObra)
     if (filter === 'critical')    list = list.filter((a) => a.isCritical)
     if (filter === 'in_progress') list = list.filter((a) => a.status === 'in_progress')
     if (filter === 'milestones')  list = list.filter((a) => a.isMilestone)
     return list
-  }, [activities, filter])
+  }, [activities, filter, filterObra])
+
+  // Grouped by obra for table rendering
+  const visibleGroups = useMemo(() => {
+    if (!groupByObra) return new Map([['', visible]])
+    const map = new Map<string, MasterActivity[]>()
+    visible.forEach((a) => {
+      const k = a.obraName || '— Sem Obra —'
+      const arr = map.get(k) ?? []
+      arr.push(a)
+      map.set(k, arr)
+    })
+    return map
+  }, [visible, groupByObra])
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -313,9 +330,30 @@ export function P6CpmPanel() {
 
         <div className="flex-1" />
 
-        {/* Filters */}
+        {/* Obra filter */}
         <div className="flex items-center gap-1">
           <Filter size={12} className="text-[#6b6b6b]" />
+          <select
+            value={filterObra}
+            onChange={(e) => setFilterObra(e.target.value)}
+            className="bg-[#3d3d3d] border border-[#525252] rounded px-2 py-1 text-[10px] text-[#a3a3a3] focus:outline-none focus:border-[#f97316]/40"
+          >
+            <option value="">Todas as Obras</option>
+            {OBRAS_LIST.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <button
+            onClick={() => setGroupByObra((v) => !v)}
+            className={`px-2 py-1 rounded text-[10px] transition-colors ${
+              groupByObra ? 'bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30' : 'bg-[#3d3d3d] text-[#a3a3a3] hover:bg-[#525252]'
+            }`}
+            title="Agrupar por Obra"
+          >
+            Agrupar
+          </button>
+        </div>
+
+        {/* Status filter chips */}
+        <div className="flex items-center gap-1">
           {(['all', 'critical', 'in_progress', 'milestones'] as FilterKey[]).map((f) => (
             <button
               key={f}
@@ -374,37 +412,56 @@ export function P6CpmPanel() {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((a, i) => (
-                  <tr
-                    key={a.id}
-                    className={`border-b border-[#2c2c2c] ${
-                      i % 2 === 0 ? 'bg-[#1f1f1f]' : 'bg-[#1a1a1a]'
-                    } ${a.isCritical ? 'text-red-300' : 'text-[#a3a3a3]'}`}
-                  >
-                    <td className="px-2 py-1 font-mono whitespace-nowrap">
-                      {a.activityCode || a.id.slice(0, 8)}
-                    </td>
-                    <td className="px-2 py-1 max-w-[120px] truncate" title={a.name}>
-                      {a.isMilestone && <span className="mr-1">◆</span>}
-                      {a.name}
-                    </td>
-                    <td className="px-2 py-1 whitespace-nowrap">{a.wbsCode || '—'}</td>
-                    <td className="px-2 py-1 text-right">{a.originalDurationDays ?? a.durationDays ?? '—'}</td>
-                    <td className="px-2 py-1 text-right">{a.remainingDurationDays ?? '—'}</td>
-                    <td className="px-2 py-1 text-right">{a.percentComplete ?? 0}%</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.earlyStart) || iso(a.plannedStart))}</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.earlyFinish) || iso(a.plannedEnd))}</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.lateStart))}</td>
-                    <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.lateFinish))}</td>
-                    <td className={`px-2 py-1 text-right ${floatColor(a.totalFloat)}`}>
-                      {a.totalFloat !== undefined ? a.totalFloat : '—'}
-                    </td>
-                    <td className="px-2 py-1 text-right">{a.freeFloat !== undefined ? a.freeFloat : '—'}</td>
-                    <td className="px-2 py-1 max-w-[80px] truncate text-[#6b6b6b]">
-                      {(a.predecessors ?? []).map((p) => `${p.activityId} ${p.relationship}${p.lag ? `+${p.lag}d` : ''}`).join(', ') || '—'}
-                    </td>
-                    <td className="px-2 py-1 text-[#6b6b6b]">{a.constraintType ?? '—'}</td>
-                  </tr>
+                {Array.from(visibleGroups.entries()).map(([obra, obraActs]) => (
+                  <>
+                    {/* Obra section header (only when grouping is on) */}
+                    {groupByObra && obra !== '' && (
+                      <tr key={`hdr-${obra}`}>
+                        <td colSpan={14} className="px-2 py-1.5 bg-[#2c2c2c] border-y border-[#f97316]/20">
+                          <span className="text-[#f97316] text-[10px] font-semibold tracking-wide">
+                            🏗 {obra}
+                          </span>
+                          <span className="ml-2 text-[#6b6b6b] text-[9px]">
+                            {obraActs.length} atividade{obraActs.length !== 1 ? 's' : ''}
+                            {obraActs.filter((a) => a.isCritical).length > 0 &&
+                              ` · ${obraActs.filter((a) => a.isCritical).length} crítica${obraActs.filter((a) => a.isCritical).length !== 1 ? 's' : ''}`}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    {obraActs.map((a, i) => (
+                      <tr
+                        key={a.id}
+                        className={`border-b border-[#2c2c2c] ${
+                          i % 2 === 0 ? 'bg-[#1f1f1f]' : 'bg-[#1a1a1a]'
+                        } ${a.isCritical ? 'text-red-300' : 'text-[#a3a3a3]'}`}
+                      >
+                        <td className="px-2 py-1 font-mono whitespace-nowrap">
+                          {a.activityCode || a.id.slice(0, 8)}
+                        </td>
+                        <td className="px-2 py-1 max-w-[120px] truncate" title={a.name}>
+                          {a.isMilestone && <span className="mr-1">◆</span>}
+                          {a.name}
+                        </td>
+                        <td className="px-2 py-1 whitespace-nowrap">{a.wbsCode || '—'}</td>
+                        <td className="px-2 py-1 text-right">{a.originalDurationDays ?? a.durationDays ?? '—'}</td>
+                        <td className="px-2 py-1 text-right">{a.remainingDurationDays ?? '—'}</td>
+                        <td className="px-2 py-1 text-right">{a.percentComplete ?? 0}%</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.earlyStart) || iso(a.plannedStart))}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.earlyFinish) || iso(a.plannedEnd))}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.lateStart))}</td>
+                        <td className="px-2 py-1 whitespace-nowrap">{fmt(iso(a.lateFinish))}</td>
+                        <td className={`px-2 py-1 text-right ${floatColor(a.totalFloat)}`}>
+                          {a.totalFloat !== undefined ? a.totalFloat : '—'}
+                        </td>
+                        <td className="px-2 py-1 text-right">{a.freeFloat !== undefined ? a.freeFloat : '—'}</td>
+                        <td className="px-2 py-1 max-w-[80px] truncate text-[#6b6b6b]">
+                          {(a.predecessors ?? []).map((p) => `${p.activityId} ${p.relationship}${p.lag ? `+${p.lag}d` : ''}`).join(', ') || '—'}
+                        </td>
+                        <td className="px-2 py-1 text-[#6b6b6b]">{a.constraintType ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </>
                 ))}
               </tbody>
             </table>
