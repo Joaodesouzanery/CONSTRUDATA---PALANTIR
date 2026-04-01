@@ -41,7 +41,7 @@ function DualSCurveChart({
   const xLabels = original.filter((_, i) => i % step === 0 || i === original.length - 1)
 
   return (
-    <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
       <h3 className="text-[#f5f5f5] text-sm font-semibold mb-3 flex items-center gap-2">
         <TrendingUp size={14} className="text-[#f97316]" />
         Curvas S — Original vs Simulada
@@ -51,7 +51,7 @@ function DualSCurveChart({
           {/* Grid */}
           {yTicks.map((v) => (
             <g key={v}>
-              <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#303030" strokeWidth={0.5} strokeDasharray="4,3" />
+              <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#525252" strokeWidth={0.5} strokeDasharray="4,3" />
               <text x={PAD_L - 4} y={py(v) + 3} textAnchor="end" fontSize={9} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
             </g>
           ))}
@@ -120,14 +120,14 @@ export function WhatIfPanel() {
   return (
     <div className="flex flex-col gap-4">
       {/* Info banner */}
-      <div className="bg-[#141414] border border-[#303030] rounded-xl px-4 py-3 flex items-center justify-between">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl px-4 py-3 flex items-center justify-between">
         <p className="text-[#6b6b6b] text-xs">
           Ajuste dias de atraso (+) ou aceleração (-) por atividade. <strong className="text-[#a3a3a3]">Nenhum dado é gravado</strong> — apenas comparação visual.
         </p>
         <button
           onClick={clearWhatIfAdjustments}
           disabled={whatIfAdjustments.length === 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#ef4444] hover:border-[#ef4444]/40 transition-colors disabled:opacity-40"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#ef4444] hover:border-[#ef4444]/40 transition-colors disabled:opacity-40"
         >
           <RotateCcw size={12} />Limpar
         </button>
@@ -135,19 +135,19 @@ export function WhatIfPanel() {
 
       {/* Impact KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums" style={{ color: deltaDays > 0 ? '#ef4444' : deltaDays < 0 ? '#22c55e' : '#6b6b6b' }}>
             {deltaDays > 0 ? `+${deltaDays}` : deltaDays}
           </p>
           <p className="text-xs font-semibold text-[#a3a3a3]">dias de impacto</p>
         </div>
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums text-[#a3a3a3]">
             {simEnd ? simEnd.split('-').reverse().slice(0, 2).join('/') : '—'}
           </p>
           <p className="text-xs font-semibold text-[#a3a3a3]">nova data final</p>
         </div>
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums" style={{ color: deltaPct < -1 ? '#ef4444' : deltaPct > 1 ? '#22c55e' : '#6b6b6b' }}>
             {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(1)}%
           </p>
@@ -157,7 +157,7 @@ export function WhatIfPanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Left: Activity adjustments */}
-        <div className="lg:col-span-2 bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-3 max-h-[500px] overflow-y-auto">
+        <div className="lg:col-span-2 bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-3 max-h-[500px] overflow-y-auto">
           <h3 className="text-[#f5f5f5] text-sm font-semibold flex items-center gap-2">
             <CalendarDays size={14} className="text-[#f97316]" />
             Ajustar Atividades
@@ -169,7 +169,7 @@ export function WhatIfPanel() {
             const durDelta = adj?.deltaDurationDays ?? 0
 
             return (
-              <div key={act.id} className="bg-[#2a2a2a] rounded-lg px-3 py-2.5">
+              <div key={act.id} className="bg-[#484848] rounded-lg px-3 py-2.5">
                 <p className="text-[#f5f5f5] text-xs font-medium mb-2 truncate">{act.wbsCode} {act.name}</p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1">

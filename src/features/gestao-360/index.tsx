@@ -10,9 +10,9 @@ export function Gestao360Page() {
   const activeTab = useGestao360Store((s) => s.activeTab)
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-[#141414]">
+    <div className="flex flex-col h-full overflow-hidden bg-[#2c2c2c]">
       {/* Sticky header + tab bar */}
-      <div className="sticky top-0 z-10 bg-[#141414] border-b border-[#303030]">
+      <div className="sticky top-0 z-10 bg-[#2c2c2c] border-b border-[#525252]">
         <Gestao360Header />
       </div>
 

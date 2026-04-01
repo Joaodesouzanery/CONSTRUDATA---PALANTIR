@@ -49,7 +49,7 @@ interface StatCardProps {
 const VARIANT_CONFIG: Record<StatVariant, { leftBorder: string; iconBg: string; iconText: string; valueText: string; sparklineColor: string }> = {
   default: {
     leftBorder:    'border-l-[#404040]',
-    iconBg:        'bg-[#2a2a2a]',
+    iconBg:        'bg-[#484848]',
     iconText:      'text-[#a3a3a3]',
     valueText:     'text-[#f5f5f5]',
     sparklineColor: '#4a4a4a',
@@ -93,7 +93,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'flex flex-col gap-2.5 rounded-xl border border-[#303030] border-l-4 bg-[#202020] p-4 min-w-0',
+        'flex flex-col gap-2.5 rounded-xl border border-[#525252] border-l-4 bg-[#3d3d3d] p-4 min-w-0',
         cfg.leftBorder,
         className,
       )}

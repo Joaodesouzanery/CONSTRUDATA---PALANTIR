@@ -61,7 +61,7 @@ function EditableCell({ value, onChange, type = 'text', min, max, step, classNam
             setEditing(false)
           }
         }}
-        className={`w-full bg-[#303030] border border-orange-500 rounded px-2 py-1 text-sm text-white focus:outline-none ${className}`}
+        className={`w-full bg-[#525252] border border-orange-500 rounded px-2 py-1 text-sm text-white focus:outline-none ${className}`}
       />
     )
   }
@@ -69,7 +69,7 @@ function EditableCell({ value, onChange, type = 'text', min, max, step, classNam
   return (
     <span
       onClick={() => setEditing(true)}
-      className={`cursor-text hover:bg-[#2a2a2a] rounded px-1 py-0.5 transition-colors text-sm text-[#f5f5f5] ${className}`}
+      className={`cursor-text hover:bg-[#484848] rounded px-1 py-0.5 transition-colors text-sm text-[#f5f5f5] ${className}`}
     >
       {value}
     </span>
@@ -126,7 +126,7 @@ export function TrechosPanel() {
         <div className="flex gap-2">
           <button
             onClick={importTrechosFromPlatform}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors"
           >
             <Download size={14} />
             Importar da Pré-Construção
@@ -142,9 +142,9 @@ export function TrechosPanel() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[#303030]">
+      <div className="overflow-x-auto rounded-xl border border-[#525252]">
         <table className="w-full text-sm">
-          <thead className="bg-[#202020] border-b border-[#303030]">
+          <thead className="bg-[#3d3d3d] border-b border-[#525252]">
             <tr>
               <th className="w-8 px-2 py-3"></th>
               <th className="text-left text-[#a3a3a3] px-3 py-3 font-medium">#</th>
@@ -161,7 +161,7 @@ export function TrechosPanel() {
               <th className="w-8 px-2 py-3"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#202020]">
+          <tbody className="divide-y divide-[#3d3d3d]">
             {trechos.length === 0 && (
               <tr>
                 <td colSpan={13} className="px-4 py-8 text-center text-[#6b6b6b] text-sm">
@@ -176,7 +176,7 @@ export function TrechosPanel() {
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => handleDrop(idx)}
-                className="bg-[#141414] hover:bg-[#202020] transition-colors"
+                className="bg-[#2c2c2c] hover:bg-[#3d3d3d] transition-colors"
               >
                 {/* Drag handle */}
                 <td className="px-2 py-2 text-gray-600 cursor-grab active:cursor-grabbing">
@@ -208,7 +208,7 @@ export function TrechosPanel() {
                     className="bg-transparent text-sm text-[#f5f5f5] focus:outline-none cursor-pointer"
                   >
                     {Object.entries(SOIL_LABELS).map(([k, v]) => (
-                      <option key={k} value={k} className="bg-[#202020]">{v}</option>
+                      <option key={k} value={k} className="bg-[#3d3d3d]">{v}</option>
                     ))}
                   </select>
                 </td>
@@ -228,7 +228,7 @@ export function TrechosPanel() {
                 <td className="px-3 py-2 text-right">
                   {(t.executedMeters ?? 0) > 0 ? (
                     <div className="flex items-center gap-1 justify-end">
-                      <div className="w-12 h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden">
+                      <div className="w-12 h-1.5 bg-[#484848] rounded-full overflow-hidden">
                         <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, ((t.executedMeters ?? 0) / t.lengthM) * 100)}%` }} />
                       </div>
                       <span className="text-emerald-400 text-[10px] font-mono">{((t.executedMeters ?? 0) / t.lengthM * 100).toFixed(0)}%</span>

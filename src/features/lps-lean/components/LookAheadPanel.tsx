@@ -99,17 +99,17 @@ export function LookAheadPanel() {
             <Check size={12} className="text-green-400" /> Concluído
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-4 rounded bg-[#202020] border border-[#303030] inline-block" /> Não planejado
+            <span className="w-4 h-4 rounded bg-[#3d3d3d] border border-[#525252] inline-block" /> Não planejado
           </span>
         </div>
       </div>
 
-      <div className="rounded-xl border border-[#202020] overflow-hidden overflow-x-auto">
+      <div className="rounded-xl border border-[#3d3d3d] overflow-hidden overflow-x-auto">
         <table className="text-xs w-full">
           {/* Header */}
-          <thead className="bg-[#202020]/80">
+          <thead className="bg-[#3d3d3d]/80">
             <tr>
-              <th className="text-left text-[#a3a3a3] px-4 py-3 font-semibold w-32 sticky left-0 bg-[#202020]/80 border-r border-[#303030]">
+              <th className="text-left text-[#a3a3a3] px-4 py-3 font-semibold w-32 sticky left-0 bg-[#3d3d3d]/80 border-r border-[#525252]">
                 Trecho
               </th>
               {weeks.map((w) => {
@@ -129,11 +129,11 @@ export function LookAheadPanel() {
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-[#202020]">
+          <tbody className="divide-y divide-[#3d3d3d]">
             {trechos.map((t) => (
-              <tr key={t.code} className="bg-[#141414] hover:bg-[#202020]/30 transition-colors">
+              <tr key={t.code} className="bg-[#2c2c2c] hover:bg-[#3d3d3d]/30 transition-colors">
                 {/* Trecho label */}
-                <td className="px-4 py-2.5 sticky left-0 bg-[#141414] border-r border-[#202020] z-10">
+                <td className="px-4 py-2.5 sticky left-0 bg-[#2c2c2c] border-r border-[#3d3d3d] z-10">
                   <div className="text-white font-semibold text-xs">{t.code}</div>
                   <div className="text-[#6b6b6b] text-[10px] truncate max-w-[110px]">{t.desc}</div>
                   {t.team && (

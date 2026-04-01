@@ -76,7 +76,7 @@ export function SemaforoProntidaoPanel() {
                 'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
                 d.id === depId
                   ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/40'
-                  : 'border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]',
+                  : 'border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]',
               )}
             >
               {d.frente}
@@ -98,12 +98,12 @@ export function SemaforoProntidaoPanel() {
       </div>
 
       {/* Grid */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[11px] border-collapse" style={{ minWidth: `${160 + SEMANAS.length * 80}px` }}>
             <thead>
-              <tr className="bg-[#141414]">
-                <th className="sticky left-0 z-10 bg-[#141414] px-4 py-2.5 text-left text-[#6b6b6b] font-medium min-w-[150px]">Atividade LPS</th>
+              <tr className="bg-[#2c2c2c]">
+                <th className="sticky left-0 z-10 bg-[#2c2c2c] px-4 py-2.5 text-left text-[#6b6b6b] font-medium min-w-[150px]">Atividade LPS</th>
                 {SEMANAS.map((s) => (
                   <th key={s} className="px-2 py-2.5 text-center text-[#6b6b6b] font-medium min-w-[72px]">Sem {s}</th>
                 ))}
@@ -118,8 +118,8 @@ export function SemaforoProntidaoPanel() {
                 </tr>
               )}
               {activityIds.map((actId) => (
-                <tr key={actId} className="border-t border-[#303030]">
-                  <td className="sticky left-0 z-10 bg-[#202020] px-4 py-2 text-[#f5f5f5] font-medium border-r border-[#303030]">
+                <tr key={actId} className="border-t border-[#525252]">
+                  <td className="sticky left-0 z-10 bg-[#3d3d3d] px-4 py-2 text-[#f5f5f5] font-medium border-r border-[#525252]">
                     {actId}
                   </td>
                   {SEMANAS.map((semana) => {
@@ -155,14 +155,14 @@ export function SemaforoProntidaoPanel() {
       </div>
 
       {/* Lead time line */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-[#303030]">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#525252]">
           <span className="text-xs font-semibold text-[#f5f5f5]">Lead Time por Fornecedor</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-[#141414]">
+              <tr className="bg-[#2c2c2c]">
                 {['Fornecedor', 'Lead Time Médio', 'Última NF', 'Data Compra', 'Data Entrega', 'Para Sem 14 — Pedido até'].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                 ))}
@@ -174,7 +174,7 @@ export function SemaforoProntidaoPanel() {
                 prazo.setDate(prazo.getDate() - lt.leadTimeDias)
                 const prazoStr = prazo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
                 return (
-                  <tr key={lt.id} className="border-t border-[#303030] hover:bg-[#2a2a2a]/30">
+                  <tr key={lt.id} className="border-t border-[#525252] hover:bg-[#484848]/30">
                     <td className="px-3 py-2 text-[#f5f5f5] font-medium">{lt.fornecedor}</td>
                     <td className="px-3 py-2 font-mono">
                       <span className={cn(
@@ -201,7 +201,7 @@ export function SemaforoProntidaoPanel() {
       {/* Detail modal */}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetail(null)}>
-          <div className="bg-[#202020] border border-[#303030] rounded-2xl p-5 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[#3d3d3d] border border-[#525252] rounded-2xl p-5 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold text-[#f5f5f5] mb-1">{detail.lpsActivityId}</h3>
             <p className="text-[11px] text-[#6b6b6b] mb-4">Semana {detail.semana}</p>
             <div className="flex flex-col gap-2 mb-4">
@@ -242,7 +242,7 @@ export function SemaforoProntidaoPanel() {
                 )
               })}
             </div>
-            <button onClick={() => setDetail(null)} className="w-full py-2 rounded-lg text-xs text-[#6b6b6b] border border-[#303030] hover:text-[#a3a3a3] transition-colors">
+            <button onClick={() => setDetail(null)} className="w-full py-2 rounded-lg text-xs text-[#6b6b6b] border border-[#525252] hover:text-[#a3a3a3] transition-colors">
               Fechar
             </button>
           </div>

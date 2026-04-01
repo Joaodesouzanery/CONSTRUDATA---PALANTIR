@@ -81,7 +81,7 @@ export function WhatIfLogisticoPanel() {
   return (
     <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
       {/* Form card */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
         <h2 className="text-sm font-bold text-[#f5f5f5] mb-4">Simulador de Cenário Logístico</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           {/* Frente */}
@@ -90,7 +90,7 @@ export function WhatIfLogisticoPanel() {
             <select
               value={depId}
               onChange={(e) => handleChangeDeposito(e.target.value)}
-              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               {depositos.filter((d) => d.ativo).map((d) => (
                 <option key={d.id} value={d.id}>{d.frente}</option>
@@ -104,7 +104,7 @@ export function WhatIfLogisticoPanel() {
             <select
               value={activityId}
               onChange={(e) => setActivityId(e.target.value)}
-              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               <option value="">Selecionar...</option>
               {activityIds.map((a) => <option key={a} value={a}>{a}</option>)}
@@ -117,7 +117,7 @@ export function WhatIfLogisticoPanel() {
             <select
               value={semanaOriginal}
               onChange={(e) => setSemanaOriginal(Number(e.target.value))}
-              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               {SEMANAS.map((s) => <option key={s} value={s}>Semana {s}</option>)}
             </select>
@@ -129,7 +129,7 @@ export function WhatIfLogisticoPanel() {
             <select
               value={semanaSimulada}
               onChange={(e) => setSemanaSimulada(Number(e.target.value))}
-              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               {SEMANAS.map((s) => <option key={s} value={s}>Semana {s}</option>)}
             </select>
@@ -152,7 +152,7 @@ export function WhatIfLogisticoPanel() {
       {simulations.length === 0 && (
         <div className="flex items-center justify-center flex-1 min-h-[200px]">
           <div className="text-center">
-            <Play size={32} className="text-[#303030] mx-auto mb-2" />
+            <Play size={32} className="text-[#525252] mx-auto mb-2" />
             <p className="text-[#6b6b6b] text-sm">Configure os parâmetros e clique em Simular.</p>
           </div>
         </div>
@@ -181,10 +181,10 @@ export function WhatIfLogisticoPanel() {
 
           {/* Insufficient items */}
           {sim.resultado.itensInsuficientes.length > 0 && (
-            <div className="bg-[#141414]/50 rounded-lg overflow-x-auto">
+            <div className="bg-[#2c2c2c]/50 rounded-lg overflow-x-auto">
               <table className="w-full min-w-[560px] text-[11px]">
                 <thead>
-                  <tr className="bg-[#141414]">
+                  <tr className="bg-[#2c2c2c]">
                     {['Material', 'Disponível', 'Necessário', 'Déficit', 'Fornecedor', 'Lead Time'].map((h) => (
                       <th key={h} className="px-3 py-1.5 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                     ))}
@@ -192,7 +192,7 @@ export function WhatIfLogisticoPanel() {
                 </thead>
                 <tbody>
                   {sim.resultado.itensInsuficientes.map((it) => (
-                    <tr key={it.itemId} className="border-t border-[#303030]">
+                    <tr key={it.itemId} className="border-t border-[#525252]">
                       <td className="px-3 py-2 text-[#f5f5f5] font-medium max-w-[180px] truncate" title={it.descricao}>{it.descricao}</td>
                       <td className="px-3 py-2 font-mono text-[#f5f5f5]">{it.qtdDisponivel}</td>
                       <td className="px-3 py-2 font-mono text-[#f5f5f5]">{it.qtdNecessaria}</td>

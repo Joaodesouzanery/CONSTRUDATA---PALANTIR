@@ -176,14 +176,14 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
     onClose()
   }
 
-  const inp = 'bg-[#141414] border border-[#303030] rounded px-2 py-1.5 text-[#f5f5f5] text-xs w-full outline-none focus:border-[#f97316]'
-  const sel = 'bg-[#141414] border border-[#303030] rounded px-2 py-1.5 text-[#f5f5f5] text-xs w-full outline-none focus:border-[#f97316]'
+  const inp = 'bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1.5 text-[#f5f5f5] text-xs w-full outline-none focus:border-[#f97316]'
+  const sel = 'bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1.5 text-[#f5f5f5] text-xs w-full outline-none focus:border-[#f97316]'
   const lbl = 'text-[#a3a3a3] text-[10px] uppercase tracking-wide mb-1 block'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#202020] border border-[#303030] rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-[#303030] shrink-0">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#525252] shrink-0">
           <h4 className="text-[#f5f5f5] font-semibold text-sm">
             {initial ? 'Editar Acordo Marco' : 'Novo Acordo Marco'}
           </h4>
@@ -256,7 +256,7 @@ function FaModal({ initial, onSave, onClose }: FaModalProps) {
             <button type="submit" className="flex-1 flex items-center justify-center gap-1.5 bg-[#f97316] hover:bg-[#22a8c4] text-white rounded-lg px-3 py-2 text-xs font-semibold transition-colors">
               <Check size={13} /> Salvar
             </button>
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
               Cancelar
             </button>
           </div>
@@ -347,7 +347,7 @@ export function MateriaisOverviewPanel() {
       )}
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-1">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-1">
           <div className="flex items-center justify-between">
             <p className="text-[#6b6b6b] text-xs">Total Gasto</p>
             <div className="flex gap-1">
@@ -368,17 +368,17 @@ export function MateriaisOverviewPanel() {
           <p className="text-xl font-bold text-[#f5f5f5] tabular-nums">{fmt(totals[period])}</p>
         </div>
 
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-1">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-1">
           <p className="text-[#6b6b6b] text-xs">Pedidos em Aberto</p>
           <p className="text-xl font-bold text-amber-400 tabular-nums">{openOrders}</p>
         </div>
 
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-1">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-1">
           <p className="text-[#6b6b6b] text-xs">Entregas no Prazo</p>
           <p className="text-xl font-bold text-green-400 tabular-nums">{onTimeRate}%</p>
         </div>
 
-        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-1">
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-1">
           <p className="text-[#6b6b6b] text-xs">Lead Time Médio</p>
           <p className="text-xl font-bold text-[#f97316] tabular-nums">
             {frameworkAgreements.length > 0
@@ -389,7 +389,7 @@ export function MateriaisOverviewPanel() {
       </div>
 
       {/* ── Bar chart ── */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 shrink-0">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#a3a3a3] text-sm font-semibold">Gastos Mensais por Categoria</p>
           <div className="flex flex-wrap gap-2">
@@ -413,7 +413,7 @@ export function MateriaisOverviewPanel() {
               'text-xs px-3 py-1.5 rounded-lg border transition-colors',
               showFilter || hasFilters
                 ? 'bg-[#f97316]/20 border-[#f97316]/50 text-[#f97316]'
-                : 'border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]'
+                : 'border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]'
             )}
           >
             Filtros avançados {hasFilters ? '●' : ''}
@@ -429,7 +429,7 @@ export function MateriaisOverviewPanel() {
         </div>
 
         {showFilter && (
-          <div className="flex flex-wrap gap-3 bg-[#141414] border border-[#303030] rounded-xl p-3 mb-3">
+          <div className="flex flex-wrap gap-3 bg-[#2c2c2c] border border-[#525252] rounded-xl p-3 mb-3">
             <div className="flex items-center gap-2 flex-1 min-w-[180px]">
               <Search size={13} className="text-[#6b6b6b] shrink-0" />
               <input
@@ -440,7 +440,7 @@ export function MateriaisOverviewPanel() {
                 className="bg-transparent text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b] outline-none w-full"
               />
             </div>
-            <div className="w-px h-5 bg-[#303030] self-center" />
+            <div className="w-px h-5 bg-[#525252] self-center" />
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-[#6b6b6b]">Status:</span>
               {(['all', 'active', 'expiring', 'expired'] as const).map((s) => (
@@ -461,7 +461,7 @@ export function MateriaisOverviewPanel() {
       </div>
 
       {/* ── Vendor comparison ── */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 shrink-0">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#a3a3a3] text-sm font-semibold">Comparativo de Fornecedores</p>
           <div className="flex items-center gap-1 flex-wrap">
@@ -473,7 +473,7 @@ export function MateriaisOverviewPanel() {
                   'text-xs px-2.5 py-1 rounded-lg border transition-colors',
                   catFilter === cat
                     ? 'bg-[#f97316]/20 border-[#f97316]/50 text-[#f97316]'
-                    : 'border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]',
+                    : 'border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]',
                 )}
               >
                 {cat}
@@ -491,7 +491,7 @@ export function MateriaisOverviewPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-[#6b6b6b] border-b border-[#303030]">
+              <tr className="text-[#6b6b6b] border-b border-[#525252]">
                 <th className="text-left pb-2 font-medium">Fornecedor</th>
                 <th className="text-left pb-2 font-medium">Categoria</th>
                 <th className="text-right pb-2 font-medium">Preço Acordado</th>
@@ -506,10 +506,10 @@ export function MateriaisOverviewPanel() {
                 const faBadgeColor =
                   fa.status === 'active'   ? 'bg-green-900/40 text-green-300 border-green-700/40' :
                   fa.status === 'expiring' ? 'bg-amber-900/40 text-amber-300 border-amber-700/40' :
-                  'bg-[#202020] text-[#6b6b6b] border-[#303030]'
+                  'bg-[#3d3d3d] text-[#6b6b6b] border-[#525252]'
 
                 return (
-                  <tr key={fa.id} className="border-b border-[#303030] hover:bg-[#2a2a2a]/40 transition-colors">
+                  <tr key={fa.id} className="border-b border-[#525252] hover:bg-[#484848]/40 transition-colors">
                     <td className="py-2 text-[#f5f5f5] font-medium">{fa.supplier}</td>
                     <td className="py-2 text-[#a3a3a3]">{fa.category}</td>
                     <td className="py-2 text-right tabular-nums text-[#f5f5f5]">
@@ -551,12 +551,12 @@ export function MateriaisOverviewPanel() {
       </div>
 
       {/* ── PO Compliance ── */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 shrink-0">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 shrink-0">
         <p className="text-[#a3a3a3] text-sm font-semibold mb-3">Conformidade com Acordos Marco</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-[#6b6b6b] border-b border-[#303030]">
+              <tr className="text-[#6b6b6b] border-b border-[#525252]">
                 <th className="text-left pb-2 font-medium">OC</th>
                 <th className="text-left pb-2 font-medium">Fornecedor</th>
                 <th className="text-right pb-2 font-medium">Valor</th>
@@ -568,7 +568,7 @@ export function MateriaisOverviewPanel() {
               {poCompliance.map((po) => {
                 const total = po.items.reduce((s, i) => s + i.totalPrice, 0)
                 return (
-                  <tr key={po.id} className="border-b border-[#303030] hover:bg-[#2a2a2a]/40 transition-colors">
+                  <tr key={po.id} className="border-b border-[#525252] hover:bg-[#484848]/40 transition-colors">
                     <td className="py-2 font-mono text-[#a3a3a3]">{po.code}</td>
                     <td className="py-2 text-[#f5f5f5]">{po.supplier}</td>
                     <td className="py-2 text-right tabular-nums text-[#f5f5f5]">{fmt(total)}</td>

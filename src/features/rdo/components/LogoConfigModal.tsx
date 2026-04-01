@@ -69,11 +69,11 @@ export function LogoConfigModal({ onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl max-h-[90vh]"
+        className="w-full max-w-lg rounded-2xl border border-[#525252] bg-[#333333] flex flex-col shadow-2xl max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030] shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252] shrink-0">
           <div className="flex items-center gap-2">
             <Building2 size={16} className="text-[#f97316]" />
             <h2 className="text-[#f5f5f5] font-bold text-sm">Logos da Empresa</h2>
@@ -85,7 +85,7 @@ export function LogoConfigModal({ onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
           >
             <X size={14} />
           </button>
@@ -104,7 +104,7 @@ export function LogoConfigModal({ onClose }: Props) {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Construdata Engenharia"
-              className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+              className="w-full rounded-lg bg-[#3d3d3d] border border-[#525252] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
             />
             <p className="text-[10px] text-[#6b6b6b] mt-1">Aparece no rodapé do cabeçalho de cada PDF.</p>
           </div>
@@ -119,7 +119,7 @@ export function LogoConfigModal({ onClose }: Props) {
                 {logos.map((logo) => (
                   <div
                     key={logo.id}
-                    className="relative rounded-xl border border-[#303030] bg-[#202020] p-3 flex flex-col gap-2"
+                    className="relative rounded-xl border border-[#525252] bg-[#3d3d3d] p-3 flex flex-col gap-2"
                   >
                     <div className="h-16 flex items-center justify-center bg-white rounded-lg overflow-hidden">
                       <img
@@ -160,7 +160,7 @@ export function LogoConfigModal({ onClose }: Props) {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Nome para esta logo"
-                  className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+                  className="w-full rounded-lg bg-[#3d3d3d] border border-[#525252] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
                   autoFocus
                 />
                 <div className="flex gap-2">
@@ -173,7 +173,7 @@ export function LogoConfigModal({ onClose }: Props) {
                   </button>
                   <button
                     onClick={handleCancelAdd}
-                    className="px-3 py-2 rounded-lg text-xs font-medium text-[#6b6b6b] hover:text-[#f5f5f5] border border-[#303030] hover:border-[#404040] transition-colors"
+                    className="px-3 py-2 rounded-lg text-xs font-medium text-[#6b6b6b] hover:text-[#f5f5f5] border border-[#525252] hover:border-[#404040] transition-colors"
                   >
                     Cancelar
                   </button>
@@ -184,9 +184,9 @@ export function LogoConfigModal({ onClose }: Props) {
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
                 onClick={() => fileRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed border-[#303030] hover:border-[#f97316]/50 cursor-pointer transition-colors"
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed border-[#525252] hover:border-[#f97316]/50 cursor-pointer transition-colors"
               >
-                <div className="w-9 h-9 rounded-lg bg-[#2a2a2a] flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-[#484848] flex items-center justify-center">
                   <Plus size={18} className="text-[#6b6b6b]" />
                 </div>
                 <p className="text-xs text-[#a3a3a3] text-center">Clique ou arraste uma imagem</p>
@@ -211,7 +211,7 @@ export function LogoConfigModal({ onClose }: Props) {
             )}
 
             {logos.length === 0 && !pending && (
-              <p className="text-[10px] text-[#6b6b6b] mt-2 bg-[#202020] border border-[#303030] rounded-lg px-3 py-2">
+              <p className="text-[10px] text-[#6b6b6b] mt-2 bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2">
                 Sem logos salvas — ao criar um RDO, o PDF usará o ícone padrão.
               </p>
             )}
@@ -219,7 +219,7 @@ export function LogoConfigModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#303030] shrink-0">
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#525252] shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"

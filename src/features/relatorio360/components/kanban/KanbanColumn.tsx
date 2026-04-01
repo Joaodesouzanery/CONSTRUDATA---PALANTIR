@@ -40,7 +40,7 @@ export function KanbanColumn({
             {config.label}
           </span>
         </div>
-        <span className="text-xs font-mono text-[#6b6b6b] bg-[#202020] border border-[#303030] px-2 py-0.5 rounded-full">
+        <span className="text-xs font-mono text-[#6b6b6b] bg-[#3d3d3d] border border-[#525252] px-2 py-0.5 rounded-full">
           {activities.length}
         </span>
       </div>
@@ -52,7 +52,7 @@ export function KanbanColumn({
           'flex flex-col gap-2 min-h-24 rounded-xl border border-dashed p-2 transition-colors',
           isOver
             ? 'border-[#f97316]/50 bg-[#f97316]/5'
-            : 'border-[#303030] bg-[#141414]/40'
+            : 'border-[#525252] bg-[#2c2c2c]/40'
         )}
       >
         {activities.map((activity) => (

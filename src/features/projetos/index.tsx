@@ -22,7 +22,7 @@ export function ProjetosPage() {
   return (
     <>
       {/* Mobile tab bar */}
-      <div className="flex lg:hidden border-b border-[#303030] bg-[#141414] shrink-0">
+      <div className="flex lg:hidden border-b border-[#525252] bg-[#2c2c2c] shrink-0">
         {MOBILE_TABS.map((tab) => (
           <button
             key={tab.key}

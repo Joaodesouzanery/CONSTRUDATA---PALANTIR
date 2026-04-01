@@ -27,7 +27,7 @@ function ServiceChart({ curve }: { curve: NotableServiceCurve }) {
   ).join(' ')
 
   return (
-    <div className="bg-[#202020] border border-[#303030] rounded-xl p-3">
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[#f5f5f5] text-xs font-semibold">{curve.serviceName}</span>
         <span className="text-[#6b6b6b] text-[10px]">{curve.unit}</span>
@@ -36,7 +36,7 @@ function ServiceChart({ curve }: { curve: NotableServiceCurve }) {
         {/* Grid lines */}
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
-            <line x1={PAD_L} y1={py(maxVal * f)} x2={W} y2={py(maxVal * f)} stroke="#303030" strokeWidth={0.5} />
+            <line x1={PAD_L} y1={py(maxVal * f)} x2={W} y2={py(maxVal * f)} stroke="#525252" strokeWidth={0.5} />
             <text x={PAD_L - 3} y={py(maxVal * f) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">
               {Math.round(maxVal * f)}
             </text>
@@ -85,7 +85,7 @@ function TrendMiniSCurve({ points }: { points: TrendPoint[] }) {
   const isDelayed = lastActual && lastPlanned && lastActual.actualCumulativePct < lastPlanned.plannedCumulativePct - 2
 
   return (
-    <div className="bg-[#202020] border border-[#303030] rounded-xl p-3">
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-3">
       <div className="flex items-center gap-2 mb-2">
         <TrendingUp size={13} className="text-[#f97316]" />
         <span className="text-[#f5f5f5] text-xs font-semibold">Tendência — Curva S</span>
@@ -95,7 +95,7 @@ function TrendMiniSCurve({ points }: { points: TrendPoint[] }) {
         {/* Grid */}
         {[0, 25, 50, 75, 100].map((v) => (
           <g key={v}>
-            <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#303030" strokeWidth={0.5} />
+            <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#525252" strokeWidth={0.5} />
             <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
           </g>
         ))}

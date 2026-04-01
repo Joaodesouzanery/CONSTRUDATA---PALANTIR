@@ -27,7 +27,7 @@ function ModeSelectorOverlay() {
         {/* Saneamento */}
         <button
           onClick={() => setMapMode('saneamento')}
-          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#303030] bg-[#141414] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
+          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#525252] bg-[#2c2c2c] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/30 flex items-center justify-center group-hover:bg-[#f97316]/20 transition-colors">
             <Droplets size={32} className="text-[#f97316]" />
@@ -46,7 +46,7 @@ function ModeSelectorOverlay() {
         {/* Construção */}
         <button
           onClick={() => setMapMode('construcao')}
-          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#303030] bg-[#141414] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
+          className="flex flex-col items-center gap-3 flex-1 p-6 rounded-2xl border border-[#525252] bg-[#2c2c2c] hover:border-[#f97316]/60 hover:bg-[#f97316]/5 transition-all group"
         >
           <div className="w-16 h-16 rounded-2xl bg-[#f97316]/10 border border-[#f97316]/30 flex items-center justify-center group-hover:bg-[#f97316]/20 transition-colors">
             <HardHat size={32} className="text-[#f97316]" />
@@ -84,7 +84,7 @@ export function MapaInterativoPage() {
       ) : (
         <>
           {/* Mode indicator strip */}
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#071422] border-b border-[#303030] shrink-0">
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#071422] border-b border-[#525252] shrink-0">
             {mapMode === 'saneamento'
               ? <Droplets size={12} className="text-[#f97316]" />
               : <HardHat size={12} className="text-[#f97316]" />

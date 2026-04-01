@@ -20,7 +20,7 @@ export function QuantHeader() {
   const { activeTab, setActiveTab, currentItems, bdiGlobal } = useQuantitativosStore()
 
   return (
-    <div className="bg-[#141414] border-b border-[#303030] print:hidden">
+    <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
       {/* Title + actions */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -36,7 +36,7 @@ export function QuantHeader() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => exportToCsv(currentItems)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#2a2a2a] text-[#f5f5f5] hover:bg-[#303030] transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
           >
             <Download size={15} />
             CSV
@@ -63,8 +63,8 @@ export function QuantHeader() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2 ${
                   isActive
-                    ? 'text-white border-violet-500 bg-[#202020]'
-                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#202020]/50'
+                    ? 'text-white border-violet-500 bg-[#3d3d3d]'
+                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#3d3d3d]/50'
                 }`}
               >
                 {tab.label}

@@ -82,7 +82,7 @@ function MapaMockup() {
         <span className="text-[#f97316] text-xs uppercase tracking-wider border border-[#f97316]/30 px-2 py-0.5">Satélite</span>
       </div>
       {/* Simulated satellite map */}
-      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0a2618 0%, #081e12 50%, #141414 100%)', minHeight: 120 }}>
+      <div className="flex-1 relative" style={{ background: 'linear-gradient(135deg, #0a2618 0%, #081e12 50%, #2c2c2c 100%)', minHeight: 120 }}>
         <svg width="100%" height="100%" viewBox="0 0 400 150" style={{ position: 'absolute', inset: 0 }}>
           {/* Network lines */}
           <path d="M40,75 L100,55 L170,80 L240,45 L320,65 L390,50" stroke="#f97316" strokeWidth="2" fill="none" opacity="0.7" />
@@ -200,18 +200,19 @@ export function HeroSection() {
       style={{ minHeight: '100vh' }}
       className="flex flex-col justify-center pt-14 relative overflow-hidden"
     >
-      {/* Background image — blurred port/construction visual */}
+      {/* Background image — ATLÂNTICO port/crane night scene (1920×1080 recommended)
+          Replace src/assets/porto-atlantico.jpg with the actual image to activate */}
       <div className="absolute inset-0 z-0" style={{
         backgroundImage: `url(${portoAtlanticoImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        filter: 'blur(6px)',
+        filter: 'blur(4px)',
         transform: 'scale(1.06)',
-        opacity: 0.30,
+        opacity: 0.45,
       }} />
-      {/* Dark overlay gradient */}
+      {/* Dark overlay gradient — tuned for high-contrast night imagery */}
       <div className="absolute inset-0 z-0" style={{
-        background: 'linear-gradient(180deg, #141414 0%, rgba(20,20,20,0.80) 30%, rgba(20,20,20,0.85) 70%, #141414 100%)',
+        background: 'linear-gradient(180deg, #2c2c2c 0%, rgba(44,44,44,0.65) 30%, rgba(44,44,44,0.70) 70%, #2c2c2c 100%)',
       }} />
       <div className="relative z-10">
       <div className="max-w-7xl mx-auto px-6 py-20 w-full">
@@ -289,7 +290,7 @@ export function HeroSection() {
             <div
               style={{
                 border: '1px solid rgba(255,255,255,0.14)',
-                background: '#202020',
+                background: '#3d3d3d',
                 minHeight: 320,
               }}
               className="relative overflow-hidden"

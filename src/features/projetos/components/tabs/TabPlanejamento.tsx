@@ -35,7 +35,7 @@ function PhaseCard({
       : 0
 
   return (
-    <div className="rounded-xl border border-[#303030] bg-[#202020] p-4 flex flex-col gap-3">
+    <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <span className="text-sm font-semibold text-[#f5f5f5] leading-snug">{phase.name}</span>
@@ -49,7 +49,7 @@ function PhaseCard({
               {PHASE_STATUS_LABEL[phase.status]}
             </span>
             {phase.responsible && (
-              <span className="flex items-center gap-1 text-[9px] text-[#6b6b6b] bg-[#303030] px-1.5 py-0.5 rounded">
+              <span className="flex items-center gap-1 text-[9px] text-[#6b6b6b] bg-[#525252] px-1.5 py-0.5 rounded">
                 <User size={8} />
                 {phase.responsible}
               </span>
@@ -80,7 +80,7 @@ function PhaseCard({
             {phase.progress}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
+        <div className="h-2 rounded-full bg-[#484848] overflow-hidden">
           <div
             className="h-full rounded-full transition-all"
             style={{ width: `${phase.progress}%`, background: colors.bar }}
@@ -101,7 +101,7 @@ function PhaseCard({
       </div>
 
       {phase.notes && (
-        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#303030] pt-2">
+        <p className="text-[11px] text-[#6b6b6b] leading-relaxed line-clamp-3 border-t border-[#525252] pt-2">
           {phase.notes}
         </p>
       )}

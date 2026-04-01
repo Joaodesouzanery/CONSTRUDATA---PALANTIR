@@ -108,9 +108,9 @@ export function ExcelImportModal({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-[#202020] border border-[#303030] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
           <div className="flex items-center gap-2.5">
             <FileSpreadsheet size={18} className="text-[#f97316]" />
             <div>
@@ -129,19 +129,19 @@ export function ExcelImportModal({ onClose }: Props) {
         </div>
 
         {/* Step progress */}
-        <div className="flex items-center gap-0 px-5 py-3 border-b border-[#303030]">
+        <div className="flex items-center gap-0 px-5 py-3 border-b border-[#525252]">
           {(['upload', 'mapping', 'preview', 'done'] as Step[]).map((s, i, arr) => (
             <div key={s} className="flex items-center">
               <div className={cn(
                 'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors',
                 step === s ? 'bg-[#f97316] text-white'
                   : (arr.indexOf(step) > i) ? 'bg-[#22c55e] text-white'
-                  : 'bg-[#303030] text-[#6b6b6b]',
+                  : 'bg-[#525252] text-[#6b6b6b]',
               )}>
                 {arr.indexOf(step) > i ? <CheckCircle2 size={12} /> : i + 1}
               </div>
               {i < arr.length - 1 && (
-                <div className={cn('h-px w-10', arr.indexOf(step) > i ? 'bg-[#22c55e]' : 'bg-[#303030]')} />
+                <div className={cn('h-px w-10', arr.indexOf(step) > i ? 'bg-[#22c55e]' : 'bg-[#525252]')} />
               )}
             </div>
           ))}
@@ -162,7 +162,7 @@ export function ExcelImportModal({ onClose }: Props) {
                   'border-2 border-dashed rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors',
                   isDragging
                     ? 'border-[#f97316] bg-[#f97316]/10'
-                    : 'border-[#303030] hover:border-[#f97316]/50 hover:bg-[#f97316]/5',
+                    : 'border-[#525252] hover:border-[#f97316]/50 hover:bg-[#f97316]/5',
                 )}
               >
                 <Upload size={32} className={cn('transition-colors', isDragging ? 'text-[#f97316]' : 'text-[#6b6b6b]')} />
@@ -203,7 +203,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 <select
                   value={targetDeposito}
                   onChange={(e) => setTargetDeposito(e.target.value)}
-                  className="bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                  className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                 >
                   {depositos.filter((d) => d.ativo).map((d) => (
                     <option key={d.id} value={d.id}>{d.frente}</option>
@@ -211,19 +211,19 @@ export function ExcelImportModal({ onClose }: Props) {
                 </select>
               </div>
 
-              <div className="bg-[#141414] border border-[#303030] rounded-xl overflow-hidden">
-                <div className="grid grid-cols-2 px-3 py-2 text-[10px] text-[#6b6b6b] font-medium uppercase tracking-wide border-b border-[#303030]">
+              <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-hidden">
+                <div className="grid grid-cols-2 px-3 py-2 text-[10px] text-[#6b6b6b] font-medium uppercase tracking-wide border-b border-[#525252]">
                   <span>Coluna no Excel</span>
                   <span>Campo do sistema</span>
                 </div>
-                <div className="divide-y divide-[#303030]">
+                <div className="divide-y divide-[#525252]">
                   {preview.headers.map((h) => (
                     <div key={h} className="grid grid-cols-2 px-3 py-2 items-center gap-3">
                       <span className="text-xs text-[#f5f5f5] font-medium truncate" title={h}>{h}</span>
                       <select
                         value={mapping[h] ?? 'ignorar'}
                         onChange={(e) => setMapping((prev) => ({ ...prev, [h]: e.target.value }))}
-                        className="bg-[#202020] border border-[#303030] rounded-lg px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                        className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                       >
                         {KNOWN_FIELDS.map((f) => (
                           <option key={f.value} value={f.value}>{f.label}</option>
@@ -243,10 +243,10 @@ export function ExcelImportModal({ onClose }: Props) {
                 Serão importados <span className="text-[#f5f5f5] font-semibold">{totalItems} itens</span> para a frente{' '}
                 <span className="text-[#f97316] font-medium">{deposito?.frente}</span>. Primeiras 5 linhas:
               </p>
-              <div className="bg-[#141414] border border-[#303030] rounded-xl overflow-auto">
+              <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-auto">
                 <table className="w-full text-[10px]">
                   <thead>
-                    <tr className="bg-[#202020]">
+                    <tr className="bg-[#3d3d3d]">
                       {['Descrição', 'Un.', 'Qtd.', 'Mín.', 'Custo', 'Categoria', 'Fornecedor'].map((h) => (
                         <th key={h} className="px-2.5 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                       ))}
@@ -254,7 +254,7 @@ export function ExcelImportModal({ onClose }: Props) {
                   </thead>
                   <tbody>
                     {previewItems.map((item, i) => (
-                      <tr key={i} className="border-t border-[#303030]">
+                      <tr key={i} className="border-t border-[#525252]">
                         <td className="px-2.5 py-1.5 text-[#f5f5f5] max-w-[140px] truncate" title={item.descricao}>{item.descricao}</td>
                         <td className="px-2.5 py-1.5 text-[#6b6b6b]">{item.unidade}</td>
                         <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{item.qtdDisponivel}</td>
@@ -286,7 +286,7 @@ export function ExcelImportModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-[#303030]">
+        <div className="flex items-center justify-between px-5 py-4 border-t border-[#525252]">
           <button
             onClick={onClose}
             className="px-4 py-2 text-xs text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
@@ -306,7 +306,7 @@ export function ExcelImportModal({ onClose }: Props) {
               <>
                 <button
                   onClick={() => setStep('mapping')}
-                  className="px-4 py-2 text-xs text-[#6b6b6b] border border-[#303030] rounded-lg hover:text-[#f5f5f5] transition-colors"
+                  className="px-4 py-2 text-xs text-[#6b6b6b] border border-[#525252] rounded-lg hover:text-[#f5f5f5] transition-colors"
                 >
                   Voltar
                 </button>

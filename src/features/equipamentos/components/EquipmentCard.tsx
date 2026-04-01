@@ -21,7 +21,7 @@ export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props
         'rounded-xl border p-3.5 cursor-pointer transition-all flex flex-col gap-2',
         isSelected
           ? 'border-[#f97316]/50 bg-[#f97316]/5 shadow-sm'
-          : 'border-[#303030] bg-[#1a1a1a] hover:border-[#1f3c5e] hover:bg-[#202020]'
+          : 'border-[#525252] bg-[#333333] hover:border-[#1f3c5e] hover:bg-[#3d3d3d]'
       )}
     >
       {/* Top row: code + status badge + alert count */}

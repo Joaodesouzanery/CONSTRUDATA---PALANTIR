@@ -14,7 +14,7 @@ export function LandingHeader() {
 
   return (
     <header
-      style={{ background: 'rgba(20,20,20,0.96)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}
+      style={{ background: 'rgba(44,44,44,0.96)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm"
     >
       <div className="max-w-7xl mx-auto px-6">
@@ -78,7 +78,7 @@ export function LandingHeader() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div style={{ background: '#141414', borderTop: '1px solid rgba(255,255,255,0.12)' }} className="md:hidden">
+        <div style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.12)' }} className="md:hidden">
           <div className="px-6 py-6 flex flex-col gap-5">
             {NAV_LINKS.map((link) => (
               <a

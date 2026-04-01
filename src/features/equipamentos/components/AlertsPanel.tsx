@@ -45,7 +45,7 @@ export function AlertsPanel() {
 
   if (allAlerts.length === 0 && !showAdd) {
     return (
-      <div className="border-t border-[#303030] bg-[#1a1a1a] shrink-0">
+      <div className="border-t border-[#525252] bg-[#333333] shrink-0">
         <div className="flex items-center justify-between px-3 sm:px-6 py-3">
           <div className="flex items-center gap-2 text-xs text-[#3f3f3f]">
             <CheckCheck size={13} className="text-[#22c55e]" />
@@ -53,7 +53,7 @@ export function AlertsPanel() {
           </div>
           <button
             onClick={() => { setShowAdd(true); setOpen(true) }}
-            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
           >
             <Plus size={10} />
             Adicionar Alerta
@@ -66,12 +66,12 @@ export function AlertsPanel() {
 
   function AddAlertForm() {
     return (
-      <div className="px-4 pb-3 border-t border-[#303030] pt-3">
+      <div className="px-4 pb-3 border-t border-[#525252] pt-3">
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={newEquipId}
             onChange={(e) => setNewEquipId(e.target.value)}
-            className="bg-[#141414] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]"
+            className="bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]"
           >
             <option value="">Equipamento</option>
             {equipamentos.map((eq) => (
@@ -81,7 +81,7 @@ export function AlertsPanel() {
           <select
             value={newSeverity}
             onChange={(e) => setNewSeverity(e.target.value as AlertSeverity)}
-            className="bg-[#141414] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]"
+            className="bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]"
           >
             <option value="critical">Crítico</option>
             <option value="warning">Atenção</option>
@@ -92,7 +92,7 @@ export function AlertsPanel() {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Mensagem do alerta..."
             maxLength={200}
-            className="flex-1 min-w-[160px] bg-[#141414] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316] placeholder:text-[#3f3f3f]"
+            className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316] placeholder:text-[#3f3f3f]"
           />
           <button
             onClick={handleAdd}
@@ -115,13 +115,13 @@ export function AlertsPanel() {
 
   return (
     <div
-      className="border-t border-[#303030] bg-[#1a1a1a] shrink-0"
+      className="border-t border-[#525252] bg-[#333333] shrink-0"
       style={{ overflow: 'hidden', maxHeight: open ? (showAdd ? 300 : 220) : 44, transition: 'max-height 0.2s ease' }}
     >
       {/* Toggle header */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-6 h-11 hover:bg-[#202020] transition-colors shrink-0"
+        className="w-full flex items-center justify-between px-6 h-11 hover:bg-[#3d3d3d] transition-colors shrink-0"
       >
         <div className="flex items-center gap-2">
           <Bell size={13} className="text-[#ef4444]" />
@@ -138,7 +138,7 @@ export function AlertsPanel() {
               'flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors',
               showAdd
                 ? 'border-[#f97316]/50 bg-[#f97316]/15 text-[#f97316]'
-                : 'border-[#303030] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40'
+                : 'border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40'
             )}
           >
             <Plus size={9} />
@@ -190,7 +190,7 @@ export function AlertsPanel() {
                   title="Reconhecer alerta"
                   className={cn(
                     'shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors',
-                    'border-[#303030] text-[#6b6b6b] hover:border-[#22c55e] hover:text-[#22c55e]'
+                    'border-[#525252] text-[#6b6b6b] hover:border-[#22c55e] hover:text-[#22c55e]'
                   )}
                 >
                   <Check size={9} />

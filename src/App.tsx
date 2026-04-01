@@ -23,6 +23,7 @@ const RdoPage               = lazy(() => import('@/features/rdo/index').then((m)
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
 const Rede360Page           = lazy(() => import('@/features/rede-360/index').then((m) => ({ default: m.Rede360Page })))
 const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
+const AipPage               = lazy(() => import('@/features/aip/AipPage').then((m) => ({ default: m.AipPage })))
 
 // ─── Route loading fallback ──────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function RouteFallback() {
   return (
     <div className="flex items-center justify-center h-full text-[#a3a3a3]">
       <div className="flex items-center gap-3">
-        <div className="w-5 h-5 border-2 border-[#363636] border-t-cyan-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-[#5e5e5e] border-t-cyan-500 rounded-full animate-spin" />
         <span className="text-sm">Carregando módulo...</span>
       </div>
     </div>
@@ -72,6 +73,7 @@ function App() {
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
           <Route path="rede-360"            element={<LazyRoute><Rede360Page /></LazyRoute>} />
           <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
+          <Route path="aip"                 element={<LazyRoute><AipPage /></LazyRoute>} />
           <Route path="*"                   element={<Navigate to="/app/gestao-360" replace />} />
         </Route>
 

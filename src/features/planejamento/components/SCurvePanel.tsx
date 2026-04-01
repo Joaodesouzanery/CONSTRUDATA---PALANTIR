@@ -73,13 +73,13 @@ export function SCurvePanel() {
             </button>
           )}
           <button onClick={() => exportSCurveCsv(scurvePoints)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
             <Download size={12} /> CSV
           </button>
         </div>
       </div>
 
-      <div className="bg-[#202020] rounded-xl border border-[#303030] p-4 overflow-x-auto">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-3xl mx-auto">
           {/* Y grid lines */}
           {yGrid.map((pct) => {
@@ -143,7 +143,7 @@ export function SCurvePanel() {
           { label: 'Metros Totais', value: `${scurvePoints[n - 1].cumulativeMeters.toFixed(0)} m` },
           { label: 'Físico Final', value: `${scurvePoints[n - 1].cumulativePhysicalPct.toFixed(1)}%` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-[#202020] rounded-lg p-3 border border-[#303030]">
+          <div key={label} className="bg-[#3d3d3d] rounded-lg p-3 border border-[#525252]">
             <div className="text-xs text-[#a3a3a3]">{label}</div>
             <div className="text-white font-semibold text-sm mt-1">{value}</div>
           </div>

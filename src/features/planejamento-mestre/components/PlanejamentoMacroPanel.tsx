@@ -146,7 +146,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               <title>{tooltip}</title>
 
               {/* Row background */}
-              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#20202040" />}
+              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#3d3d3d40" />}
               {isL1 && i % 2 === 0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#0d1f3510" />}
 
               {/* Network type accent line (left) */}
@@ -274,10 +274,10 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60'
+  const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60'
 
   return (
-    <form onSubmit={handleSubmit} className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-[#f5f5f5] text-sm font-semibold">Nova Atividade</p>
         <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={16} /></button>
@@ -333,7 +333,7 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#a3a3a3]">Cancelar</button>
+        <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#a3a3a3]">Cancelar</button>
         <button type="submit" className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">
           <Check size={12} className="inline mr-1" />Criar
         </button>
@@ -447,7 +447,7 @@ export function PlanejamentoMacroPanel() {
     setShowBlSave(false)
   }
 
-  const btnCls = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors'
+  const btnCls = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors'
 
   return (
     <div className="flex flex-col gap-4 print:gap-2">
@@ -459,7 +459,7 @@ export function PlanejamentoMacroPanel() {
           <select
             value={activeBlId ?? ''}
             onChange={(e) => e.target.value && loadBaseline(e.target.value)}
-            className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+            className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
           >
             <option value="">— Selecionar —</option>
             {baselines.map((bl) => (
@@ -471,7 +471,7 @@ export function PlanejamentoMacroPanel() {
         {showBlSave ? (
           <div className="flex items-center gap-2">
             <input
-              className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 w-40"
+              className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60 w-40"
               placeholder="Nome da baseline"
               value={blName}
               onChange={(e) => setBlName(e.target.value)}
@@ -522,7 +522,7 @@ export function PlanejamentoMacroPanel() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome ou WBS..."
-              className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-[#202020] border border-[#303030] text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-[#3d3d3d] border border-[#525252] text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors"
             />
           </div>
 
@@ -532,7 +532,7 @@ export function PlanejamentoMacroPanel() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
               showFilters || activeFilterCount > 0
                 ? 'border-[#f97316]/50 bg-[#f97316]/10 text-[#f97316]'
-                : 'border-[#303030] text-[#6b6b6b] hover:text-[#f5f5f5]'
+                : 'border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5]'
             }`}
           >
             <SlidersHorizontal size={12} />
@@ -557,7 +557,7 @@ export function PlanejamentoMacroPanel() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as MasterActivityStatus | '')}
-                className="bg-[#202020] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
               >
                 <option value="">Todos</option>
                 <option value="not_started">Não iniciada</option>
@@ -573,7 +573,7 @@ export function PlanejamentoMacroPanel() {
               <select
                 value={filterNetwork}
                 onChange={(e) => setFilterNetwork(e.target.value)}
-                className="bg-[#202020] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
               >
                 <option value="">Todas</option>
                 <option value="agua">Água</option>
@@ -591,8 +591,8 @@ export function PlanejamentoMacroPanel() {
       </div>
 
       {/* ── Gantt Chart ── */}
-      <div className="bg-[#0d1626] border border-[#303030] rounded-xl overflow-hidden print:border-0">
-        <div className="px-4 py-3 border-b border-[#303030] flex items-center justify-between print:hidden">
+      <div className="bg-[#0d1626] border border-[#525252] rounded-xl overflow-hidden print:border-0">
+        <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between print:hidden">
           <div>
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Cronograma Macro — Previsto vs Tendência</h3>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -613,11 +613,11 @@ export function PlanejamentoMacroPanel() {
       </div>
 
       {/* ── Activity list table ── */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#303030] bg-[#141414]">
+              <tr className="border-b border-[#525252] bg-[#2c2c2c]">
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">WBS</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Atividade</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Tipo</th>
@@ -634,7 +634,7 @@ export function PlanejamentoMacroPanel() {
                 const nColor = networkColor(act.networkType)
                 const delta  = daysBetween(act.plannedEnd, act.trendEnd)
                 return (
-                  <tr key={act.id} className="border-b border-[#303030]/50 hover:bg-[#2a2a2a]">
+                  <tr key={act.id} className="border-b border-[#525252]/50 hover:bg-[#484848]">
                     <td
                       className="px-3 py-2 font-mono text-[#6b6b6b]"
                       style={{ paddingLeft: `${10 + act.level * 14}px` }}

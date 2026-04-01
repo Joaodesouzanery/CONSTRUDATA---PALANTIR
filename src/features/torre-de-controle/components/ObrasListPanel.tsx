@@ -32,10 +32,10 @@ export function ObrasListPanel() {
 
   return (
     <aside
-      className="flex flex-col border-r border-[#303030] bg-[#1a1a1a] shrink-0 overflow-hidden w-full lg:w-[300px]"
+      className="flex flex-col border-r border-[#525252] bg-[#333333] shrink-0 overflow-hidden w-full lg:w-[300px]"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#303030] shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs font-bold text-[#f5f5f5]">Obras</span>
           <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
@@ -92,10 +92,10 @@ function ObraCard({
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#202020] transition-colors',
+        'w-full text-left px-4 py-3 flex flex-col gap-2 border-b border-[#3d3d3d] transition-colors',
         isSelected
           ? 'bg-[#f97316]/10 border-l-2 border-l-[#f97316]'
-          : 'hover:bg-[#2a2a2a] border-l-2 border-l-transparent'
+          : 'hover:bg-[#484848] border-l-2 border-l-transparent'
       )}
     >
       <div className="flex items-start justify-between gap-2">

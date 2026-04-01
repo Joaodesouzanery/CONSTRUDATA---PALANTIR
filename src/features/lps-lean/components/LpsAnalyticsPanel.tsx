@@ -129,7 +129,7 @@ export function LpsAnalyticsPanel() {
                       <span className="text-xs text-[#f5f5f5]">{CATEGORY_LABELS[cat]}</span>
                       <span className="text-xs font-semibold text-[#f5f5f5]">{count} ({pct}%)</span>
                     </div>
-                    <div className="h-2.5 bg-[#202020] rounded-full overflow-hidden">
+                    <div className="h-2.5 bg-[#3d3d3d] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{ width: `${pct}%`, backgroundColor: CATEGORY_COLORS[cat] }}
@@ -300,7 +300,7 @@ function GroupedBarChart({ data }: { data: { month: string; criadas: number; res
 
 function KpiCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl border border-[#202020] bg-[#141414] p-4 flex flex-col gap-1">
+    <div className="rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4 flex flex-col gap-1">
       <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</p>
       <p className={`text-xl font-bold ${color}`}>{value}</p>
     </div>
@@ -309,7 +309,7 @@ function KpiCard({ label, value, color }: { label: string; value: string; color:
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[#202020] bg-[#141414] p-5">
+    <div className="rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-5">
       <p className="text-xs font-semibold text-white mb-4">{title}</p>
       {children}
     </div>

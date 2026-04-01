@@ -46,7 +46,7 @@ export function Bim5DPanel() {
 
   if (!project) {
     return (
-      <div className="h-24 bg-[#141414] border-t border-[#202020] flex items-center justify-center">
+      <div className="h-24 bg-[#2c2c2c] border-t border-[#3d3d3d] flex items-center justify-center">
         <p className="text-gray-600 text-xs">Carregue um projeto para usar a análise 5D</p>
       </div>
     )
@@ -72,7 +72,7 @@ export function Bim5DPanel() {
   const diamEntries = Object.entries(byDiam).sort((a, b) => b[1].cost - a[1].cost)
 
   return (
-    <div className="bg-[#141414] border-t border-[#202020] flex items-start gap-5 px-4 py-2 shrink-0 overflow-x-auto">
+    <div className="bg-[#2c2c2c] border-t border-[#3d3d3d] flex items-start gap-5 px-4 py-2 shrink-0 overflow-x-auto">
       {/* Total + actions */}
       <div className="flex flex-col shrink-0 min-w-[130px]">
         <div className="flex items-center gap-1 mb-0.5">
@@ -102,7 +102,7 @@ export function Bim5DPanel() {
         </div>
       </div>
 
-      <div className="w-px bg-[#202020] self-stretch shrink-0" />
+      <div className="w-px bg-[#3d3d3d] self-stretch shrink-0" />
 
       {/* By material */}
       <div className="shrink-0">
@@ -114,7 +114,7 @@ export function Bim5DPanel() {
         </div>
       </div>
 
-      <div className="w-px bg-[#202020] self-stretch shrink-0" />
+      <div className="w-px bg-[#3d3d3d] self-stretch shrink-0" />
 
       {/* By diameter / element type */}
       <div className="shrink-0">
@@ -128,7 +128,7 @@ export function Bim5DPanel() {
         </div>
       </div>
 
-      <div className="w-px bg-[#202020] self-stretch shrink-0" />
+      <div className="w-px bg-[#3d3d3d] self-stretch shrink-0" />
 
       {/* Heatmap legend + toggle */}
       <div className="shrink-0 ml-auto flex flex-col justify-between h-full">
@@ -161,7 +161,7 @@ function BarRow({ label, sub, cost, totalCost, color }: {
       <span className="text-green-400 text-xs font-medium w-20">
         {cost >= 1000 ? `R$ ${(cost/1000).toFixed(0)}k` : `R$ ${cost}`}
       </span>
-      <div className="w-14 h-1.5 bg-[#202020] rounded-full overflow-hidden">
+      <div className="w-14 h-1.5 bg-[#3d3d3d] rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
       </div>
     </div>

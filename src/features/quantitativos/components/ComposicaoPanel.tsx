@@ -15,7 +15,7 @@ const SOURCE_BADGE: Record<CostBaseSource, string> = {
   sinapi:  'bg-blue-900/50 text-blue-300',
   seinfra: 'bg-teal-900/50 text-teal-300',
   custom:  'bg-violet-900/50 text-violet-300',
-  manual:  'bg-[#2a2a2a] text-[#a3a3a3]',
+  manual:  'bg-[#484848] text-[#a3a3a3]',
 }
 
 function fmtBRL(n: number) {
@@ -57,7 +57,7 @@ function EditCell({ value, onSave, type = 'text' }: {
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
-        className="w-full bg-[#2a2a2a] border border-violet-500 rounded px-2 py-0.5 text-xs text-[#f5f5f5] focus:outline-none"
+        className="w-full bg-[#484848] border border-violet-500 rounded px-2 py-0.5 text-xs text-[#f5f5f5] focus:outline-none"
       />
       <button onClick={commit} className="text-emerald-400 hover:text-emerald-300 p-0.5"><Check size={12} /></button>
       <button onClick={() => setEditing(false)} className="text-[#6b6b6b] hover:text-[#a3a3a3] p-0.5"><X size={12} /></button>
@@ -97,12 +97,12 @@ function SinapiSearchDialog({ onAdd, onClose, costBase }: {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#202020] border border-[#303030] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <div className="px-5 py-4 border-b border-[#303030] flex items-center justify-between">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="px-5 py-4 border-b border-[#525252] flex items-center justify-between">
           <h3 className="text-white font-semibold text-sm">Buscar Item — SINAPI</h3>
           <button onClick={onClose} className="text-[#a3a3a3] hover:text-[#f5f5f5]"><X size={18} /></button>
         </div>
-        <div className="px-5 py-3 border-b border-[#303030] flex items-center gap-3">
+        <div className="px-5 py-3 border-b border-[#525252] flex items-center gap-3">
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
             <input
@@ -111,7 +111,7 @@ function SinapiSearchDialog({ onAdd, onClose, costBase }: {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por código ou descrição..."
-              className="w-full bg-[#2a2a2a] border border-[#363636] rounded-lg pl-9 pr-4 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500"
+              className="w-full bg-[#484848] border border-[#5e5e5e] rounded-lg pl-9 pr-4 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ function SinapiSearchDialog({ onAdd, onClose, costBase }: {
               value={qty}
               onChange={(e) => setQty(parseFloat(e.target.value) || 1)}
               min={0.01}
-              className="w-20 bg-[#2a2a2a] border border-[#363636] rounded px-2 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500"
+              className="w-20 bg-[#484848] border border-[#5e5e5e] rounded px-2 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500"
             />
           </div>
         </div>
@@ -130,7 +130,7 @@ function SinapiSearchDialog({ onAdd, onClose, costBase }: {
             <div
               key={entry.code}
               onClick={() => handleAdd(entry)}
-              className="px-5 py-3 border-b border-[#303030]/50 hover:bg-gray-750/40 cursor-pointer flex items-start justify-between gap-3 group"
+              className="px-5 py-3 border-b border-[#525252]/50 hover:bg-gray-750/40 cursor-pointer flex items-start justify-between gap-3 group"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-[#f5f5f5] text-sm group-hover:text-violet-300 transition-colors">{entry.description}</p>
@@ -162,11 +162,11 @@ function SaveDialog({ onSave, onClose }: { onSave: (name: string, desc?: string)
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500'
+  const inputCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#202020] border border-[#303030] rounded-2xl w-full max-w-sm p-6 space-y-4">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-2xl w-full max-w-sm p-6 space-y-4">
         <h3 className="text-white font-semibold text-sm">Salvar Orçamento</h3>
         <div>
           <label className="block text-[#a3a3a3] text-xs mb-1">Nome *</label>
@@ -178,7 +178,7 @@ function SaveDialog({ onSave, onClose }: { onSave: (name: string, desc?: string)
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#f5f5f5] text-sm hover:bg-[#303030]">Cancelar</button>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#484848] text-[#f5f5f5] text-sm hover:bg-[#525252]">Cancelar</button>
           <button onClick={submit} className="px-4 py-1.5 rounded-lg text-sm text-white" style={{ backgroundColor: '#8b5cf6' }}>Salvar</button>
         </div>
       </div>
@@ -376,12 +376,12 @@ function FileUploadTab({ bdi, onImport, onClose }: {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
-          dragging ? 'border-violet-500 bg-violet-900/20' : 'border-[#303030] hover:border-[#363636]'
+          dragging ? 'border-violet-500 bg-violet-900/20' : 'border-[#525252] hover:border-[#5e5e5e]'
         }`}
       >
         <p className="text-[#a3a3a3] text-sm mb-2">Arraste um arquivo aqui ou clique para selecionar</p>
         <p className="text-gray-600 text-xs mb-3">Formatos aceitos: .txt (CSV/TSV) · .dxf · .shp</p>
-        <label className="inline-block cursor-pointer px-4 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] text-sm transition-colors">
+        <label className="inline-block cursor-pointer px-4 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm transition-colors">
           Selecionar arquivo
           <input
             type="file"
@@ -401,7 +401,7 @@ function FileUploadTab({ bdi, onImport, onClose }: {
       )}
 
       {/* Format hints */}
-      <div className="rounded-lg bg-[#202020]/60 border border-[#303030] px-4 py-3">
+      <div className="rounded-lg bg-[#3d3d3d]/60 border border-[#525252] px-4 py-3">
         <p className="text-xs text-[#a3a3a3] font-semibold mb-1.5">Formato esperado para .txt / .csv:</p>
         <pre className="text-[10px] text-[#6b6b6b] font-mono leading-relaxed">
 {`CODIGO;DESCRICAO;UNIDADE;QTD;CUSTO_UNIT
@@ -414,9 +414,9 @@ function FileUploadTab({ bdi, onImport, onClose }: {
       {parsedItems.length > 0 && (
         <div>
           <p className="text-xs text-[#a3a3a3] font-semibold mb-2">{parsedItems.length} item(ns) extraído(s):</p>
-          <div className="rounded-xl border border-[#303030] overflow-hidden max-h-52 overflow-y-auto">
+          <div className="rounded-xl border border-[#525252] overflow-hidden max-h-52 overflow-y-auto">
             <table className="w-full text-xs">
-              <thead className="bg-[#202020] sticky top-0">
+              <thead className="bg-[#3d3d3d] sticky top-0">
                 <tr>
                   <th className="text-left text-[#6b6b6b] px-3 py-2">Descrição</th>
                   <th className="text-right text-[#6b6b6b] px-3 py-2">Qtd</th>
@@ -424,9 +424,9 @@ function FileUploadTab({ bdi, onImport, onClose }: {
                   <th className="text-right text-[#6b6b6b] px-3 py-2">C.Unit.</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#202020]">
+              <tbody className="divide-y divide-[#3d3d3d]">
                 {parsedItems.map((item, i) => (
-                  <tr key={i} className="bg-[#141414]">
+                  <tr key={i} className="bg-[#2c2c2c]">
                     <td className="px-3 py-1.5 text-[#f5f5f5] truncate max-w-[200px]">{item.description}</td>
                     <td className="px-3 py-1.5 text-right text-[#a3a3a3] font-mono">{item.quantity}</td>
                     <td className="px-3 py-1.5 text-[#6b6b6b]">{item.unit}</td>
@@ -442,8 +442,8 @@ function FileUploadTab({ bdi, onImport, onClose }: {
       )}
 
       {/* Footer */}
-      <div className="flex gap-2 mt-auto pt-2 border-t border-[#303030]">
-        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#f5f5f5] text-sm hover:bg-[#303030]">
+      <div className="flex gap-2 mt-auto pt-2 border-t border-[#525252]">
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#484848] text-[#f5f5f5] text-sm hover:bg-[#525252]">
           Cancelar
         </button>
         <button
@@ -491,9 +491,9 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#202020] border border-[#303030] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#303030] flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-[#525252] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Network size={16} className="text-violet-400" />
             <h3 className="text-white font-semibold text-sm">Importar Rede</h3>
@@ -502,7 +502,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#303030]">
+        <div className="flex border-b border-[#525252]">
           {(['templates', 'file'] as const).map((t) => (
             <button
               key={t}
@@ -522,7 +522,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
         {tab === 'templates' && (
           <>
             {/* Length input */}
-            <div className="px-5 py-3 border-b border-[#303030] flex items-center gap-3">
+            <div className="px-5 py-3 border-b border-[#525252] flex items-center gap-3">
               <label className="text-[#a3a3a3] text-xs whitespace-nowrap">Comprimento da rede (m):</label>
               <input
                 type="number"
@@ -530,7 +530,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
                 min={10}
                 step={10}
                 onChange={(e) => setLength(parseFloat(e.target.value) || 100)}
-                className="w-28 bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500"
+                className="w-28 bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500"
               />
               <span className="text-[#6b6b6b] text-xs">
                 Quantitativos escalados proporcionalmente.
@@ -550,7 +550,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
                     className={`rounded-xl border cursor-pointer transition-all ${
                       isSelected
                         ? 'border-violet-500 bg-violet-900/20'
-                        : 'border-[#303030] bg-gray-750/30 hover:border-[#363636]'
+                        : 'border-[#525252] bg-gray-750/30 hover:border-[#5e5e5e]'
                     }`}
                   >
                     <div className="px-4 py-3 flex items-start justify-between gap-3">
@@ -567,7 +567,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
                       </div>
                     </div>
                     {isSelected && (
-                      <div className="border-t border-[#303030]/60 px-4 pb-3">
+                      <div className="border-t border-[#525252]/60 px-4 pb-3">
                         <table className="w-full text-xs mt-2">
                           <thead>
                             <tr className="text-[#6b6b6b]">
@@ -582,7 +582,7 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
                             {tmpl.items.map((it, idx) => {
                               const scaledQty = Math.round(it.quantity * scale * 100) / 100
                               return (
-                                <tr key={idx} className="border-t border-[#303030]/30 text-[#f5f5f5]">
+                                <tr key={idx} className="border-t border-[#525252]/30 text-[#f5f5f5]">
                                   <td className="py-1 pr-2">{it.description}</td>
                                   <td className="py-1 text-right text-[#a3a3a3]">{scaledQty}</td>
                                   <td className="py-1 pl-2 text-[#6b6b6b]">{it.unit}</td>
@@ -601,12 +601,12 @@ function NetworkImportModal({ onClose, onImport, bdi }: {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-[#303030] flex items-center justify-between">
+            <div className="px-5 py-3 border-t border-[#525252] flex items-center justify-between">
               <p className="text-[#6b6b6b] text-xs">
                 {selected ? `"${template?.name}" selecionada · ${length}m` : 'Selecione um template acima'}
               </p>
               <div className="flex gap-2">
-                <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#f5f5f5] text-sm hover:bg-[#303030]">
+                <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#484848] text-[#f5f5f5] text-sm hover:bg-[#525252]">
                   Cancelar
                 </button>
                 <button
@@ -713,43 +713,43 @@ export function ComposicaoPanel() {
         <button
           onClick={handleImportPre}
           disabled={importing === 'pre'}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors disabled:opacity-50"
         >
           {importing === 'pre' ? 'Importando...' : '↓ Importar da Pré-Construção'}
         </button>
         <button
           onClick={handleImportSup}
           disabled={importing === 'sup'}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors disabled:opacity-50"
         >
           {importing === 'sup' ? 'Importando...' : '↓ Importar do Suprimentos'}
         </button>
         <button
           onClick={() => setShowSave(true)}
           disabled={currentItems.length === 0}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors disabled:opacity-50"
         >
           Salvar Orçamento
         </button>
         <div className="flex items-center gap-1 ml-auto">
-          <button onClick={() => exportToCsv(currentItems)} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
+          <button onClick={() => exportToCsv(currentItems)} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
             <Download size={13} /> CSV
           </button>
-          <button onClick={() => exportToXlsx(currentItems, bdiGlobal)} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
+          <button onClick={() => exportToXlsx(currentItems, bdiGlobal)} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
             <Download size={13} /> Excel
           </button>
-          <button onClick={() => window.print()} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
+          <button onClick={() => window.print()} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
             <Printer size={13} /> PDF
           </button>
-          <button onClick={handleReset} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#2a2a2a] hover:bg-red-900/40 text-[#a3a3a3] hover:text-red-300 transition-colors">
+          <button onClick={handleReset} className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs bg-[#484848] hover:bg-red-900/40 text-[#a3a3a3] hover:text-red-300 transition-colors">
             <RefreshCw size={13} /> Reiniciar
           </button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#303030] flex items-center justify-between">
+      <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between">
           <p className="text-[#a3a3a3] text-xs">
             {currentItems.length} item{currentItems.length !== 1 ? 's' : ''} · BDI Global: {bdiGlobal}%
           </p>
@@ -757,7 +757,7 @@ export function ComposicaoPanel() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-[#303030]">
+            <thead className="border-b border-[#525252]">
               <tr>
                 <th className={thCls} onClick={() => handleSort('code')}>Código<SortIcon col="code" /></th>
                 <th className={thCls} onClick={() => handleSort('description')}>Descrição<SortIcon col="description" /></th>
@@ -780,7 +780,7 @@ export function ComposicaoPanel() {
                 </tr>
               )}
               {sorted.map((item) => (
-                <tr key={item.id} className="border-b border-[#303030]/50 hover:bg-gray-750/20">
+                <tr key={item.id} className="border-b border-[#525252]/50 hover:bg-gray-750/20">
                   <td className="px-3 py-2.5 text-[#a3a3a3] font-mono text-xs">
                     <EditCell value={item.code} onSave={(v) => updateItem(item.id, { code: String(v) })} />
                   </td>
@@ -818,7 +818,7 @@ export function ComposicaoPanel() {
             </tbody>
             {currentItems.length > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-[#363636]">
+                <tr className="border-t-2 border-[#5e5e5e]">
                   <td colSpan={6} className="px-3 py-3 text-[#f5f5f5] font-semibold text-sm">TOTAL GERAL</td>
                   <td className="px-3 py-3 text-right text-violet-400 font-bold text-sm">{fmtBRL(total)}</td>
                   <td colSpan={3} />

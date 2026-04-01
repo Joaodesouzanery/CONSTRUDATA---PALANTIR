@@ -64,13 +64,13 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
     onSave(form as Omit<Worker, 'id'>)
   }
 
-  const fieldClass = 'w-full bg-[#1a1a1a] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
+  const fieldClass = 'w-full bg-[#333333] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
   const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[#1a1a1a] border border-[#303030] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-[#303030]">
+      <div className="bg-[#333333] border border-[#525252] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-[#525252]">
           <h2 className="text-[#f5f5f5] text-base font-semibold">{initial ? 'Editar Funcionário' : 'Novo Funcionário'}</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={18} /></button>
         </div>
@@ -147,7 +147,7 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
           {error && <p className="col-span-2 text-[#ef4444] text-xs">{error}</p>}
 
           <div className="col-span-2 flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#303030] text-[#6b6b6b] text-sm hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#525252] text-[#6b6b6b] text-sm hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
               Cancelar
             </button>
             <button type="submit" className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-sm font-semibold hover:bg-[#ea6c10]">
@@ -165,7 +165,7 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
 function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; name: string }[] }) {
   const crewName = crews.find((c) => c.id === worker.crewId)?.name ?? '—'
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 bg-[#1a1a1a] border-t border-[#303030] text-xs">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 bg-[#333333] border-t border-[#525252] text-xs">
       <div>
         <p className="text-[#6b6b6b] mb-0.5">E-mail</p>
         <p className="text-[#f5f5f5]">{worker.email ?? '—'}</p>
@@ -234,7 +234,7 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit }: {
   return (
     <>
       <tr
-        className="border-b border-[#303030] hover:bg-[#2a2a2a] cursor-pointer"
+        className="border-b border-[#525252] hover:bg-[#484848] cursor-pointer"
         onClick={() => onToggle(isExpanded ? null : w.id)}
       >
         <td className="px-3 py-2.5 text-[#6b6b6b] font-mono">{w.registrationNumber ?? '—'}</td>
@@ -358,7 +358,7 @@ export function FuncionariosPanel() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
   }
 
-  const selectClass = 'bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-1.5 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]'
+  const selectClass = 'bg-[#333333] border border-[#525252] rounded-lg px-3 py-1.5 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]'
 
   return (
     <div className="flex flex-col gap-4">
@@ -367,7 +367,7 @@ export function FuncionariosPanel() {
         <div className="relative flex-1 min-w-48">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
           <input
-            className="w-full bg-[#1a1a1a] border border-[#303030] rounded-lg pl-8 pr-3 py-1.5 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
+            className="w-full bg-[#333333] border border-[#525252] rounded-lg pl-8 pr-3 py-1.5 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
             placeholder="Buscar por nome ou matrícula…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -397,13 +397,13 @@ export function FuncionariosPanel() {
           className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
             groupByCrew
               ? 'bg-[#f97316]/20 border-[#f97316] text-[#f97316]'
-              : 'border-[#303030] text-[#6b6b6b] hover:text-[#f5f5f5]'
+              : 'border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5]'
           }`}
         >
           Agrupar por Equipe
         </button>
         <span className="text-[#6b6b6b] text-xs ml-auto">{filtered.length} colaborador{filtered.length !== 1 ? 'es' : ''}</span>
-        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
+        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
           <Download size={12} /> CSV
         </button>
         <button onClick={() => { setEditingWorker(null); setShowForm(true) }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea6c10]">
@@ -412,11 +412,11 @@ export function FuncionariosPanel() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#303030]">
+              <tr className="border-b border-[#525252]">
                 {['Matrícula', 'Nome', 'Função', 'Equipe', 'Departamento', 'Taxa/h', 'Status', ''].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                 ))}

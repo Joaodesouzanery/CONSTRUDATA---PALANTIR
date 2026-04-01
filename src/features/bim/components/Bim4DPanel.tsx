@@ -24,7 +24,7 @@ export function Bim4DPanel() {
 
   if (!project) {
     return (
-      <div className="h-24 bg-[#141414] border-t border-[#202020] flex items-center justify-center">
+      <div className="h-24 bg-[#2c2c2c] border-t border-[#3d3d3d] flex items-center justify-center">
         <p className="text-gray-600 text-xs">Carregue um projeto para usar a análise 4D</p>
       </div>
     )
@@ -54,13 +54,13 @@ export function Bim4DPanel() {
   }
 
   return (
-    <div className="bg-[#141414] border-t border-[#202020] px-4 py-2 shrink-0">
+    <div className="bg-[#2c2c2c] border-t border-[#3d3d3d] px-4 py-2 shrink-0">
       {/* Header row */}
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[#f5f5f5] text-xs font-semibold">Análise 4D — Simulação de Prazo</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-3 text-xs">
-            <Stat color="bg-[#303030]"  label="Não iniciado" value={totalSegs - completed.length - inProgress.length} />
+            <Stat color="bg-[#525252]"  label="Não iniciado" value={totalSegs - completed.length - inProgress.length} />
             <Stat color="bg-yellow-500" label="Em andamento" value={inProgress.length} />
             <Stat color="bg-green-500"  label="Concluído"    value={completed.length} />
           </div>
@@ -68,7 +68,7 @@ export function Bim4DPanel() {
             onClick={handleSync}
             disabled={syncing}
             title="Sincronizar datas com o módulo Planejamento"
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors bg-[#202020] hover:bg-[#2a2a2a] text-[#f5f5f5] disabled:opacity-50"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors bg-[#3d3d3d] hover:bg-[#484848] text-[#f5f5f5] disabled:opacity-50"
           >
             {synced
               ? <><Check size={12} className="text-green-400" /> Sincronizado</>
@@ -102,7 +102,7 @@ export function Bim4DPanel() {
       </div>
 
       {/* Progress bar */}
-      <div className="mt-1.5 h-0.5 bg-[#202020] rounded-full overflow-hidden">
+      <div className="mt-1.5 h-0.5 bg-[#3d3d3d] rounded-full overflow-hidden">
         <div className="h-full bg-indigo-600 transition-all" style={{ width: `${pct.toFixed(1)}%` }} />
       </div>
     </div>

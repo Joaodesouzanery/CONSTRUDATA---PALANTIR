@@ -58,7 +58,7 @@ function KpiCard({
   accent?: boolean
 }) {
   return (
-    <div className="flex flex-col gap-1 bg-[#141414] border border-[#303030] rounded-xl px-5 py-4">
+    <div className="flex flex-col gap-1 bg-[#2c2c2c] border border-[#525252] rounded-xl px-5 py-4">
       <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
         {label}
       </span>
@@ -111,7 +111,7 @@ function CostDistributionChart({
         y1={TOP + plotH}
         x2={LEFT + plotW}
         y2={TOP + plotH}
-        stroke="#303030"
+        stroke="#525252"
         strokeWidth={1}
       />
 
@@ -249,7 +249,7 @@ export function CustosPanel() {
       </div>
 
       {/* Distribution chart */}
-      <div className="bg-[#141414] border border-[#303030] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Distribuição de Custos por Tipo de Equipamento
         </h2>
@@ -257,7 +257,7 @@ export function CustosPanel() {
       </div>
 
       {/* ── Análise por Tipo ── */}
-      <div className="bg-[#141414] border border-[#303030] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-5 flex flex-col gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
           Análise por Tipo
         </h2>
@@ -271,7 +271,7 @@ export function CustosPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#303030]">
+              <tr className="border-b border-[#525252]">
                 {['Tipo', 'Qtd', 'Custo Total', 'Custo Médio', '% do Total'].map((col) => (
                   <th
                     key={col}
@@ -282,9 +282,9 @@ export function CustosPanel() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#202020]">
+            <tbody className="divide-y divide-[#3d3d3d]">
               {typeAnalysis.map((row) => (
-                <tr key={row.label} className="hover:bg-[#202020]/50 transition-colors">
+                <tr key={row.label} className="hover:bg-[#3d3d3d]/50 transition-colors">
                   <td className="py-2.5 pr-5 text-[#f5f5f5] font-medium">{row.label}</td>
                   <td className="py-2.5 pr-5 text-[#a3a3a3]">{row.count}</td>
                   <td className="py-2.5 pr-5 text-[#f97316] font-mono">
@@ -295,7 +295,7 @@ export function CustosPanel() {
                   </td>
                   <td className="py-2.5 pr-5">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-[#202020] rounded-full h-1.5" style={{ maxWidth: 60 }}>
+                      <div className="flex-1 bg-[#3d3d3d] rounded-full h-1.5" style={{ maxWidth: 60 }}>
                         <div
                           className="bg-[#f97316] h-1.5 rounded-full"
                           style={{ width: `${row.pct.toFixed(1)}%` }}
@@ -312,14 +312,14 @@ export function CustosPanel() {
       </div>
 
       {/* Cost table + CSV export */}
-      <div className="bg-[#141414] border border-[#303030] rounded-xl p-5 flex flex-col gap-3">
+      <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-5 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
             Custos por Equipamento
           </h2>
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
           >
             <Download size={11} />
             Exportar CSV
@@ -328,7 +328,7 @@ export function CustosPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#303030]">
+              <tr className="border-b border-[#525252]">
                 {['Equipamento', 'Custo/Hora (R$)', 'Horas Este Mês', 'Custo Mensal (R$)'].map(
                   (col) => (
                     <th
@@ -341,9 +341,9 @@ export function CustosPanel() {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#202020]">
+            <tbody className="divide-y divide-[#3d3d3d]">
               {rows.map(({ eq, rate, monthly }) => (
-                <tr key={eq.id} className="hover:bg-[#202020]/50 transition-colors">
+                <tr key={eq.id} className="hover:bg-[#3d3d3d]/50 transition-colors">
                   <td className="py-2.5 pr-6">
                     <div className="flex flex-col">
                       <span className="text-[#f5f5f5] font-medium">{eq.name}</span>
@@ -365,7 +365,7 @@ export function CustosPanel() {
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t border-[#303030]">
+              <tr className="border-t border-[#525252]">
                 <td colSpan={3} className="pt-2.5 pr-6 text-[10px] text-[#6b6b6b] font-semibold uppercase tracking-widest">
                   Total Frota
                 </td>

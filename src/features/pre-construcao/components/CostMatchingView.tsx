@@ -88,9 +88,9 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
         const itemMatches = sourceMatches.filter((m) => m.takeoffItemId === item.id)
 
         return (
-          <div key={item.id} className="bg-[#202020] border border-[#303030] rounded-xl overflow-x-auto overflow-hidden">
+          <div key={item.id} className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-x-auto overflow-hidden">
             {/* Item header */}
-            <div className="px-4 py-2.5 bg-[#2a2a2a] border-b border-[#303030] flex items-center gap-3">
+            <div className="px-4 py-2.5 bg-[#484848] border-b border-[#525252] flex items-center gap-3">
               <span className="text-[#f5f5f5] text-sm font-medium flex-1">{item.description}</span>
               <span className="text-[#6b6b6b] text-xs tabular-nums">
                 {item.quantity.toLocaleString('pt-BR')} {item.unit}
@@ -103,7 +103,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
             ) : (
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#141414]">
+                  <tr className="bg-[#2c2c2c]">
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-8">Sel.</th>
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-24">Código</th>
                     <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
@@ -118,8 +118,8 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                     <tr
                       key={`${m.code}-${m.source}`}
                       className={cn(
-                        'border-t border-[#303030] transition-colors',
-                        m.selected ? 'bg-[#f97316]/5' : 'hover:bg-[#2a2a2a]',
+                        'border-t border-[#525252] transition-colors',
+                        m.selected ? 'bg-[#f97316]/5' : 'hover:bg-[#484848]',
                       )}
                     >
                       <td className="px-3 py-2">
@@ -152,7 +152,7 @@ function MatchTable({ items, matches, source, onToggle, onOverride }: MatchTable
                             const v = parseFloat(e.target.value)
                             if (!isNaN(v) && v >= 0) onOverride(item.id, m.code, source, v)
                           }}
-                          className="w-full bg-[#1a1a1a] border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
+                          className="w-full bg-[#333333] border border-[#1f3c5e] rounded px-2 py-1 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
                         />
                       </td>
                     </tr>
@@ -212,7 +212,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="bg-[#202020] border border-[#f97316]/30 rounded-xl p-4 flex flex-col gap-3"
+          className="bg-[#3d3d3d] border border-[#f97316]/30 rounded-xl p-4 flex flex-col gap-3"
         >
           <p className="text-[#f5f5f5] text-xs font-semibold">Nova entrada</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -220,35 +220,35 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
               placeholder="Código"
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
               required
             />
             <input
               placeholder="Unidade"
               value={form.unit}
               onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
               required
             />
             <input
               placeholder="Descrição"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="col-span-2 bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="col-span-2 bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
               required
             />
             <input
               placeholder="Custo unitário (R$)"
               value={form.unitCost}
               onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
               required
             />
             <input
               placeholder="Categoria"
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className="bg-[#1a1a1a] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#333333] border border-[#1f3c5e] rounded px-3 py-1.5 text-[#f5f5f5] text-xs placeholder:text-[#555] focus:outline-none focus:border-[#f97316]"
             />
           </div>
           <div className="flex gap-2 justify-end">
@@ -274,10 +274,10 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
           Nenhuma entrada na base própria
         </div>
       ) : (
-        <div className="bg-[#141414] border border-[#303030] rounded-xl overflow-x-auto overflow-hidden">
+        <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-x-auto overflow-hidden">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-[#2a2a2a]">
+              <tr className="bg-[#484848]">
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-24">Código</th>
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2">Descrição</th>
                 <th className="text-left text-[#6b6b6b] font-medium px-3 py-2 w-16">Un</th>
@@ -288,7 +288,7 @@ function CustomBaseTab({ customBase, onAdd, onRemove }: CustomBaseTabProps) {
             </thead>
             <tbody>
               {customBase.map((entry) => (
-                <tr key={entry.code} className="border-t border-[#303030] hover:bg-[#2a2a2a] transition-colors">
+                <tr key={entry.code} className="border-t border-[#525252] hover:bg-[#484848] transition-colors">
                   <td className="px-3 py-2 text-[#a3a3a3] font-mono">{entry.code}</td>
                   <td className="px-3 py-2 text-[#f5f5f5]">{entry.description}</td>
                   <td className="px-3 py-2 text-[#a3a3a3]">{entry.unit}</td>
@@ -407,7 +407,7 @@ export function CostMatchingView() {
         <button
           onClick={handleRefreshSinapi}
           disabled={isRefreshing}
-          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw size={10} className={isRefreshing ? 'animate-spin' : ''} />
           {isRefreshing ? 'Atualizando...' : 'Atualizar'}
@@ -415,7 +415,7 @@ export function CostMatchingView() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 bg-[#141414] border border-[#303030] rounded-lg p-1 self-start">
+      <div className="flex gap-1 bg-[#2c2c2c] border border-[#525252] rounded-lg p-1 self-start">
         {TABS.map((tab) => (
           <button
             key={tab.key}

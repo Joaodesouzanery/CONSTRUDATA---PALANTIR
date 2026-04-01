@@ -16,7 +16,7 @@ const STATUS_COLUMNS: { id: Rede360ServiceOrderStatus; label: string }[] = [
 ]
 
 const PRIORITY_BADGE: Record<ServiceOrderPriority, string> = {
-  low:       'bg-[#202020] text-[#a3a3a3]',
+  low:       'bg-[#3d3d3d] text-[#a3a3a3]',
   medium:    'bg-yellow-900/40 text-yellow-300',
   high:      'bg-orange-900/40 text-orange-300',
   emergency: 'bg-red-900/40 text-red-300',
@@ -96,7 +96,7 @@ export function OrdensServicoPanel() {
     setShowNewOs(false)
   }
 
-  const inputCls = 'w-full bg-[#202020] border border-[#1f3c5e] rounded px-2 py-1.5 text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none'
+  const inputCls = 'w-full bg-[#3d3d3d] border border-[#1f3c5e] rounded px-2 py-1.5 text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none'
 
   return (
     <div className="p-4 h-full flex flex-col overflow-hidden">
@@ -114,7 +114,7 @@ export function OrdensServicoPanel() {
 
       {/* New OS panel */}
       {showNewOs && (
-        <div className="bg-[#1a1a1a] border border-[#303030] rounded-xl p-4 mb-3 shrink-0">
+        <div className="bg-[#333333] border border-[#525252] rounded-xl p-4 mb-3 shrink-0">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[#f5f5f5] text-sm font-medium">Nova Ordem de Serviço</span>
             <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="text-[#6b6b6b] hover:text-[#f5f5f5]">
@@ -169,7 +169,7 @@ export function OrdensServicoPanel() {
           </div>
           <div className="flex gap-2">
             <button onClick={handleSave} className="px-4 py-1.5 rounded bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-semibold transition-colors">Salvar</button>
-            <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="px-4 py-1.5 rounded bg-[#202020] hover:bg-[#2a2a2a] border border-[#303030] text-[#a3a3a3] text-xs transition-colors">Cancelar</button>
+            <button onClick={() => { setShowNewOs(false); setForm(EMPTY_FORM) }} className="px-4 py-1.5 rounded bg-[#3d3d3d] hover:bg-[#484848] border border-[#525252] text-[#a3a3a3] text-xs transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -179,11 +179,11 @@ export function OrdensServicoPanel() {
         {STATUS_COLUMNS.map((col) => {
           const colOrders = serviceOrders.filter((o) => o.status === col.id)
           return (
-            <div key={col.id} className="flex flex-col w-72 shrink-0 bg-[#1a1a1a] border border-[#303030] rounded-xl overflow-hidden">
+            <div key={col.id} className="flex flex-col w-72 shrink-0 bg-[#333333] border border-[#525252] rounded-xl overflow-hidden">
               {/* Column header */}
-              <div className="px-3 py-2 border-b border-[#303030] flex items-center gap-2 shrink-0">
+              <div className="px-3 py-2 border-b border-[#525252] flex items-center gap-2 shrink-0">
                 <span className="text-[#f5f5f5] text-xs font-semibold">{col.label}</span>
-                <span className="text-xs bg-[#202020] text-[#a3a3a3] px-1.5 py-0.5 rounded-full">{colOrders.length}</span>
+                <span className="text-xs bg-[#3d3d3d] text-[#a3a3a3] px-1.5 py-0.5 rounded-full">{colOrders.length}</span>
               </div>
 
               {/* Cards */}
@@ -195,7 +195,7 @@ export function OrdensServicoPanel() {
                   const asset = assets.find((a) => a.id === order.assetId)
                   const next = STATUS_NEXT[order.status]
                   return (
-                    <div key={order.id} className="bg-[#202020] rounded-lg border border-[#303030] p-3">
+                    <div key={order.id} className="bg-[#3d3d3d] rounded-lg border border-[#525252] p-3">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="text-[#6b6b6b] text-xs font-mono">{order.code}</span>
                         <span className={`text-xs px-1.5 py-0.5 rounded ${PRIORITY_BADGE[order.priority]}`}>
@@ -212,7 +212,7 @@ export function OrdensServicoPanel() {
                         {next && (
                           <button
                             onClick={() => updateServiceOrder(order.id, { status: next })}
-                            className="text-xs px-2 py-1 rounded bg-[#1a1a1a] hover:bg-[#303030] text-[#f97316] transition-colors border border-[#303030]"
+                            className="text-xs px-2 py-1 rounded bg-[#333333] hover:bg-[#525252] text-[#f97316] transition-colors border border-[#525252]"
                           >
                             Avançar →
                           </button>
