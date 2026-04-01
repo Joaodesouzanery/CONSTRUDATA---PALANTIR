@@ -134,9 +134,9 @@ export function GlobeLive({ className = '', projectCount = 247 }: GlobeLiveProps
         }}
       />
       {/* Project count badge */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-[#0a1628]/80 backdrop-blur-sm border border-[#2abfdc]/30 rounded-full">
-        <span className="w-2 h-2 rounded-full bg-[#2abfdc] animate-pulse" />
-        <span className="text-xs text-[#2abfdc] font-semibold">{projectCount} projetos monitorados</span>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-[#0a1628]/80 backdrop-blur-sm border border-[#f97316]/30 rounded-full">
+        <span className="w-2 h-2 rounded-full bg-[#f97316] animate-pulse" />
+        <span className="text-xs text-[#f97316] font-semibold">{projectCount} projetos monitorados</span>
       </div>
     </div>
   )

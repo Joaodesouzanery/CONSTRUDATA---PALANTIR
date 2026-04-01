@@ -11,6 +11,11 @@ import type {
   Requisition,
   RequisitionStatus,
   FrameworkAgreement,
+  DepositoVirtual,
+  ItemEstoque,
+  MovimentacaoEstoque,
+  ReservaMaterial,
+  LeadTimeRecord,
 } from '@/types'
 import {
   mockPurchaseOrders,
@@ -21,6 +26,11 @@ import {
   mockForecasts,
   mockRequisitions,
   mockFrameworkAgreements,
+  mockDepositos,
+  mockEstoqueItens,
+  mockMovimentacoes,
+  mockLeadTimeRecords,
+  mockReservas,
 } from '@/data/mockSuprimentos'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
@@ -97,6 +107,20 @@ function runThreeWayMatch(
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+export interface WhatIfResult {
+  resultado: 'viavel' | 'inviavel' | 'alerta'
+  mensagem: string
+  itensInsuficientes: {
+    itemId: string
+    descricao: string
+    qtdDisponivel: number
+    qtdNecessaria: number
+    deficit: number
+    fornecedor?: string
+    leadTimeDias?: number
+  }[]
+}
+
 interface SuprimentosState {
   purchaseOrders:     PurchaseOrder[]
   receipts:           GoodsReceipt[]
@@ -106,6 +130,14 @@ interface SuprimentosState {
   forecasts:          DemandForecast[]
   requisitions:       Requisition[]
   frameworkAgreements: FrameworkAgreement[]
+
+  // Estoque Inteligente
+  depositos:           DepositoVirtual[]
+  estoqueItens:        ItemEstoque[]
+  movimentacoes:       MovimentacaoEstoque[]
+  reservas:            ReservaMaterial[]
+  leadTimeRecords:     LeadTimeRecord[]
+  selectedDepositoId:  string | null
 
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
@@ -136,6 +168,18 @@ interface SuprimentosState {
   updateFrameworkAgreement: (id: string, patch: Partial<FrameworkAgreement>) => void
   addFrameworkAgreement:    (fa: Omit<FrameworkAgreement, 'id'>) => void
 
+  // Estoque actions
+  setSelectedDeposito:  (id: string | null) => void
+  addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => void
+  updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
+  removeItemEstoque:    (id: string) => void
+  addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => void
+  addReserva:           (r: Omit<ReservaMaterial, 'id' | 'criadoEm'>) => void
+  updateReserva:        (id: string, patch: Partial<ReservaMaterial>) => void
+  consumirMaterial:     (itemId: string, qty: number, opts?: { lpsActivityId?: string; observacoes?: string }) => void
+  calcSemaforo:         (depositoId: string, lpsActivityId: string, semana: number) => 'verde' | 'amarelo' | 'vermelho'
+  runWhatIf:            (params: { activityId: string; semanaOriginal: number; semanaSimulada: number; depositoId: string }) => WhatIfResult
+
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
@@ -158,6 +202,14 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
   forecasts:           mockForecasts,
   requisitions:        mockRequisitions,
   frameworkAgreements: mockFrameworkAgreements,
+
+  // Estoque initial state
+  depositos:          mockDepositos,
+  estoqueItens:       mockEstoqueItens,
+  movimentacoes:      mockMovimentacoes,
+  reservas:           mockReservas,
+  leadTimeRecords:    mockLeadTimeRecords,
+  selectedDepositoId: mockDepositos[0]?.id ?? null,
 
   addPO: (po) =>
     set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
@@ -254,6 +306,135 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       frameworkAgreements: [...s.frameworkAgreements, { ...fa, id: crypto.randomUUID() }],
     })),
 
+  // ─── Estoque actions ────────────────────────────────────────────────────────
+
+  setSelectedDeposito: (id) => set({ selectedDepositoId: id }),
+
+  addItemEstoque: (item) =>
+    set((s) => ({
+      estoqueItens: [...s.estoqueItens, { ...item, id: crypto.randomUUID() }],
+    })),
+
+  updateItemEstoque: (id, patch) =>
+    set((s) => ({
+      estoqueItens: s.estoqueItens.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+    })),
+
+  removeItemEstoque: (id) =>
+    set((s) => ({
+      estoqueItens: s.estoqueItens.filter((i) => i.id !== id),
+    })),
+
+  addMovimentacao: (mov) =>
+    set((s) => ({
+      movimentacoes: [...s.movimentacoes, { ...mov, id: crypto.randomUUID() }],
+    })),
+
+  addReserva: (r) =>
+    set((s) => ({
+      reservas: [...s.reservas, { ...r, id: crypto.randomUUID(), criadoEm: new Date().toISOString() }],
+    })),
+
+  updateReserva: (id, patch) =>
+    set((s) => ({
+      reservas: s.reservas.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    })),
+
+  consumirMaterial: (itemId, qty, opts) => {
+    const { estoqueItens } = get()
+    const item = estoqueItens.find((i) => i.id === itemId)
+    if (!item) return
+
+    const newQtd = Math.max(0, item.qtdDisponivel - qty)
+    set((s) => ({
+      estoqueItens: s.estoqueItens.map((i) =>
+        i.id === itemId ? { ...i, qtdDisponivel: newQtd } : i
+      ),
+      movimentacoes: [
+        ...s.movimentacoes,
+        {
+          id: crypto.randomUUID(),
+          itemId,
+          depositoId: item.depositoId,
+          tipo: 'saida' as const,
+          quantidade: qty,
+          dataMovimento: new Date().toISOString().slice(0, 10),
+          lpsActivityId: opts?.lpsActivityId,
+          observacoes: opts?.observacoes,
+        },
+      ],
+    }))
+  },
+
+  calcSemaforo: (depositoId, lpsActivityId, semana) => {
+    const { reservas, estoqueItens } = get()
+    const res = reservas.filter(
+      (r) => r.depositoId === depositoId && r.lpsActivityId === lpsActivityId && r.semana === semana
+    )
+    if (res.length === 0) return 'verde'
+
+    let hasRed = false
+    let hasYellow = false
+    for (const r of res) {
+      const item = estoqueItens.find((i) => i.id === r.itemId)
+      const avail = item?.qtdDisponivel ?? 0
+      const transit = item?.qtdTransito ?? 0
+      if (avail >= r.qtdNecessaria) continue
+      if (transit > 0) { hasYellow = true } else { hasRed = true }
+    }
+    if (hasRed) return 'vermelho'
+    if (hasYellow) return 'amarelo'
+    return 'verde'
+  },
+
+  runWhatIf: ({ activityId, semanaSimulada, depositoId }) => {
+    const { reservas, estoqueItens, leadTimeRecords } = get()
+    const actReservas = reservas.filter(
+      (r) => r.lpsActivityId === activityId && r.depositoId === depositoId
+    )
+    const simReservas = actReservas.map((r) => ({ ...r, semana: semanaSimulada }))
+
+    const insuff: WhatIfResult['itensInsuficientes'] = []
+    for (const r of simReservas) {
+      const item = estoqueItens.find((i) => i.id === r.itemId)
+      if (!item) continue
+      if (item.qtdDisponivel >= r.qtdNecessaria) continue
+      const lt = leadTimeRecords.find((l) => l.fornecedor === item.fornecedorPrincipal)
+      insuff.push({
+        itemId:         item.id,
+        descricao:      item.descricao,
+        qtdDisponivel:  item.qtdDisponivel,
+        qtdNecessaria:  r.qtdNecessaria,
+        deficit:        r.qtdNecessaria - item.qtdDisponivel,
+        fornecedor:     item.fornecedorPrincipal,
+        leadTimeDias:   lt?.leadTimeDias,
+      })
+    }
+
+    if (insuff.length === 0) {
+      return { resultado: 'viavel', mensagem: 'Cenário viável: todos os materiais disponíveis.', itensInsuficientes: [] }
+    }
+
+    const temTransito = insuff.some((i) => {
+      const item = estoqueItens.find((e) => e.id === i.itemId)
+      return (item?.qtdTransito ?? 0) > 0
+    })
+
+    if (temTransito) {
+      return {
+        resultado: 'alerta',
+        mensagem: `Alerta: ${insuff.length} item(ns) com estoque insuficiente, mas NFs em trânsito podem cobrir a necessidade.`,
+        itensInsuficientes: insuff,
+      }
+    }
+
+    return {
+      resultado: 'inviavel',
+      mensagem: `Cenário inviável: ${insuff.length} item(ns) em ruptura sem pedidos em andamento.`,
+      itensInsuficientes: insuff,
+    }
+  },
+
   loadDemoData: () =>
     set({
       purchaseOrders:      mockPurchaseOrders,
@@ -264,6 +445,11 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       forecasts:           mockForecasts,
       requisitions:        mockRequisitions,
       frameworkAgreements: mockFrameworkAgreements,
+      depositos:           mockDepositos,
+      estoqueItens:        mockEstoqueItens,
+      movimentacoes:       mockMovimentacoes,
+      reservas:            mockReservas,
+      leadTimeRecords:     mockLeadTimeRecords,
     }),
 
   clearData: () =>
@@ -276,5 +462,10 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       forecasts:           [],
       requisitions:        [],
       frameworkAgreements: [],
+      depositos:           [],
+      estoqueItens:        [],
+      movimentacoes:       [],
+      reservas:            [],
+      leadTimeRecords:     [],
     }),
 }))

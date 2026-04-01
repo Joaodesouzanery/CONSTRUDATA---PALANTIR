@@ -515,6 +515,70 @@ export interface FrameworkAgreement {
   priceAdjustmentPct?: number
 }
 
+// ─── Suprimentos & Estoque Inteligente ───────────────────────────────────────
+
+export interface DepositoVirtual {
+  id: string
+  frente: string           // "Morro do Tetéu", "São Manoel", "Vila dos Criadores", "Escritório"
+  descricao?: string
+  ativo: boolean
+}
+
+export interface ItemEstoque {
+  id: string
+  depositoId: string
+  descricao: string
+  unidade: string
+  qtdDisponivel: number
+  qtdReservada: number
+  qtdTransito: number
+  estoqueMinimo: number
+  custoUnitario?: number
+  lpsActivityId?: string
+  categoria?: string
+  fornecedorPrincipal?: string
+}
+
+export interface MovimentacaoEstoque {
+  id: string
+  itemId: string
+  depositoId: string
+  tipo: 'entrada' | 'saida' | 'transferencia' | 'ajuste'
+  quantidade: number
+  dataMovimento: string
+  dataCompra?: string
+  fornecedor?: string
+  nf?: string
+  leadTimeDias?: number
+  lpsActivityId?: string
+  observacoes?: string
+}
+
+export interface ReservaMaterial {
+  id: string
+  itemId: string
+  depositoId: string
+  lpsActivityId: string
+  semana: number
+  qtdNecessaria: number
+  status: 'verde' | 'amarelo' | 'vermelho'
+  nfsEmTransito?: string[]
+  previsaoEntrega?: string
+  alertaGerado?: boolean
+  criadoEm: string
+}
+
+export interface LeadTimeRecord {
+  id: string
+  fornecedor: string
+  dataCompra: string
+  dataMovimento: string
+  nf: string
+  leadTimeDias: number
+  itemDescricao: string
+  categoria?: string
+}
+
 // ─── Mão de Obra ──────────────────────────────────────────────────────────────
 
 export type WorkerStatus   = 'active' | 'inactive' | 'suspended' | 'pending_approval'
@@ -1205,6 +1269,24 @@ export interface RDO {
   observations: string
   incidents:    string
   photos:       RdoPhoto[]
+  logoId?:      string   // ID of the SavedLogo to use in PDF export
+
+  // ── Contrato / Identificação ─────────────────────────────────────────────────
+  local?:                       string
+  gerenteContrato?:             string
+  tecnicoSeguranca?:            string
+  nomeEmpreiteira?:             string
+  servicoExecutar?:             string
+  ocorrencias?:                 string
+  funcionariosDiretos?:         number
+  funcionariosIndiretos?:       number
+  qtdEquipamentosFerramentas?:  number
+  numeroOS?:                    string
+  numeroContrato?:              string
+  climaManha?:                  string
+  climaTarde?:                  string
+  climaNoite?:                  string
+
   createdAt:    string
   updatedAt:    string
 }
@@ -1557,7 +1639,12 @@ export interface HardeningPoint {
 
 // ── Planejamento Mestre ──────────────────────────────────────────────────────
 
-export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif'
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal'
+
+export interface ProgramacaoDiaria {
+  previsto:  number
+  realizado: number
+}
 export type MasterActivityStatus = 'not_started' | 'in_progress' | 'completed' | 'delayed'
 
 export interface MasterActivity {
@@ -1579,6 +1666,15 @@ export interface MasterActivity {
   predecessors?: string[]
   weight?: number
   notes?: string
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+  // Weekly programming extended fields
+  nucleo?:             string
+  local?:              string
+  comprimento?:        number
+  quantidadeLigacoes?: number
+  pesoMeta1000?:       number
+  coordenador?:        string
+  unidade?:            string
 }
 
 export interface MasterBaseline {
@@ -1597,6 +1693,8 @@ export interface LookaheadDerivedActivity {
   status: 'planned' | 'ready' | 'blocked' | 'completed'
   linkedRestrictionIds?: string[]
   notes?: string
+  percentComplete?: number
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
 }
 
 export interface WhatIfAdjustment {

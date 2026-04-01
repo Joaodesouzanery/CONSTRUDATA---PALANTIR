@@ -23,7 +23,7 @@ export function OperacaoCampoHeader() {
   const daysRemaining = futureDates.length
 
   return (
-    <div className="bg-[#0d2040] border-b border-[#20406a] px-6 py-4 flex items-center justify-between gap-4 flex-wrap shrink-0">
+    <div className="bg-[#141414] border-b border-[#303030] px-6 py-4 flex items-center justify-between gap-4 flex-wrap shrink-0">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#f97316]">
           <HardHat size={20} className="text-white" />
@@ -37,7 +37,7 @@ export function OperacaoCampoHeader() {
       <div className="flex gap-5">
         {[
           { label: 'PPC Semanal', value: `${lastPpc}%`, color: lastPpc >= 80 ? '#22c55e' : lastPpc >= 60 ? '#eab308' : '#ef4444' },
-          { label: 'Dias Restantes', value: String(daysRemaining), color: '#2abfdc' },
+          { label: 'Dias Restantes', value: String(daysRemaining), color: '#f97316' },
           { label: 'Desvio Acumulado', value: `${Number(deviation) >= 0 ? '+' : ''}${deviation}%`, color: Number(deviation) >= 0 ? '#22c55e' : '#ef4444' },
           { label: 'Atividades Hoje', value: String(activitiesToday), color: '#a3a3a3' },
         ].map(({ label, value, color }) => (

@@ -23,10 +23,10 @@ export function Rede360Header() {
   const activeOutages = outages.filter((o) => o.status === 'active').length
 
   return (
-    <div className="bg-[#0a1628] border-b border-[#20406a] shrink-0">
+    <div className="bg-[#0a1628] border-b border-[#303030] shrink-0">
       {/* Top row: brand + search + meta */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#20406a]/50">
-        <span className="text-[#2abfdc] font-bold text-sm tracking-wide whitespace-nowrap">Rede 360</span>
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#303030]/50">
+        <span className="text-[#f97316] font-bold text-sm tracking-wide whitespace-nowrap">Rede 360</span>
         <div className="relative flex-1 max-w-xs">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
           <input
@@ -34,7 +34,7 @@ export function Rede360Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar na rede..."
-            className="w-full pl-7 pr-3 py-1 bg-[#14294e] border border-[#20406a] rounded text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#2abfdc]"
+            className="w-full pl-7 pr-3 py-1 bg-[#202020] border border-[#303030] rounded text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]"
           />
         </div>
         <span className="text-xs text-[#6b6b6b] ml-auto whitespace-nowrap">Dados Nacionais</span>
@@ -54,8 +54,8 @@ export function Rede360Header() {
             className={[
               'h-10 px-4 text-xs font-medium transition-colors whitespace-nowrap',
               activeTab === tab.id
-                ? 'border-b-2 border-[#2abfdc] text-[#f5f5f5]'
-                : 'text-[#6b6b6b] hover:text-[#8fb3c8]',
+                ? 'border-b-2 border-[#f97316] text-[#f5f5f5]'
+                : 'text-[#6b6b6b] hover:text-[#a3a3a3]',
             ].join(' ')}
           >
             {tab.label}

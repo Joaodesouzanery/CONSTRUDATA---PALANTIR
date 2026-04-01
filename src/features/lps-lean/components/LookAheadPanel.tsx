@@ -89,9 +89,9 @@ export function LookAheadPanel() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <p className="text-sm font-semibold text-white">Look-ahead — Próximas 6 Semanas</p>
-          <p className="text-xs text-gray-500 mt-0.5">Clique em uma célula para planejar / marcar como concluído / remover</p>
+          <p className="text-xs text-[#6b6b6b] mt-0.5">Clique em uma célula para planejar / marcar como concluído / remover</p>
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-500">
+        <div className="flex items-center gap-4 text-xs text-[#6b6b6b]">
           <span className="flex items-center gap-1.5">
             <span className="w-4 h-4 rounded bg-blue-600 inline-block" /> Planejado
           </span>
@@ -99,24 +99,24 @@ export function LookAheadPanel() {
             <Check size={12} className="text-green-400" /> Concluído
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-4 rounded bg-gray-800 border border-gray-700 inline-block" /> Não planejado
+            <span className="w-4 h-4 rounded bg-[#202020] border border-[#303030] inline-block" /> Não planejado
           </span>
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-800 overflow-hidden overflow-x-auto">
+      <div className="rounded-xl border border-[#202020] overflow-hidden overflow-x-auto">
         <table className="text-xs w-full">
           {/* Header */}
-          <thead className="bg-gray-800/80">
+          <thead className="bg-[#202020]/80">
             <tr>
-              <th className="text-left text-gray-400 px-4 py-3 font-semibold w-32 sticky left-0 bg-gray-800/80 border-r border-gray-700">
+              <th className="text-left text-[#a3a3a3] px-4 py-3 font-semibold w-32 sticky left-0 bg-[#202020]/80 border-r border-[#303030]">
                 Trecho
               </th>
               {weeks.map((w) => {
                 const ppc = ppcByWeek.get(w)
                 const isCurrentWeek = w === isoWeek(today)
                 return (
-                  <th key={w} className={`text-center px-2 py-3 font-semibold min-w-[80px] ${isCurrentWeek ? 'text-orange-400' : 'text-gray-400'}`}>
+                  <th key={w} className={`text-center px-2 py-3 font-semibold min-w-[80px] ${isCurrentWeek ? 'text-orange-400' : 'text-[#a3a3a3]'}`}>
                     <div>{weekLabel(w)}</div>
                     {ppc !== undefined && (
                       <div className={`text-[10px] font-normal mt-0.5 ${ppc >= 80 ? 'text-green-400' : ppc >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
@@ -129,13 +129,13 @@ export function LookAheadPanel() {
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-[#202020]">
             {trechos.map((t) => (
-              <tr key={t.code} className="bg-gray-900 hover:bg-gray-800/30 transition-colors">
+              <tr key={t.code} className="bg-[#141414] hover:bg-[#202020]/30 transition-colors">
                 {/* Trecho label */}
-                <td className="px-4 py-2.5 sticky left-0 bg-gray-900 border-r border-gray-800 z-10">
+                <td className="px-4 py-2.5 sticky left-0 bg-[#141414] border-r border-[#202020] z-10">
                   <div className="text-white font-semibold text-xs">{t.code}</div>
-                  <div className="text-gray-500 text-[10px] truncate max-w-[110px]">{t.desc}</div>
+                  <div className="text-[#6b6b6b] text-[10px] truncate max-w-[110px]">{t.desc}</div>
                   {t.team && (
                     <div
                       className="text-[10px] font-medium mt-0.5"

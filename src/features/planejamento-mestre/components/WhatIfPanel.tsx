@@ -41,9 +41,9 @@ function DualSCurveChart({
   const xLabels = original.filter((_, i) => i % step === 0 || i === original.length - 1)
 
   return (
-    <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4">
+    <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
       <h3 className="text-[#f5f5f5] text-sm font-semibold mb-3 flex items-center gap-2">
-        <TrendingUp size={14} className="text-[#2abfdc]" />
+        <TrendingUp size={14} className="text-[#f97316]" />
         Curvas S — Original vs Simulada
       </h3>
       <div className="overflow-x-auto">
@@ -51,8 +51,8 @@ function DualSCurveChart({
           {/* Grid */}
           {yTicks.map((v) => (
             <g key={v}>
-              <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#20406a" strokeWidth={0.5} strokeDasharray="4,3" />
-              <text x={PAD_L - 4} y={py(v) + 3} textAnchor="end" fontSize={9} fill="#5a8caa" fontFamily="monospace">{v}%</text>
+              <line x1={PAD_L} y1={py(v)} x2={W} y2={py(v)} stroke="#303030" strokeWidth={0.5} strokeDasharray="4,3" />
+              <text x={PAD_L - 4} y={py(v) + 3} textAnchor="end" fontSize={9} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
             </g>
           ))}
 
@@ -61,14 +61,14 @@ function DualSCurveChart({
 
           {/* Simulated curve */}
           {simPath && (
-            <path d={simPath} fill="none" stroke="#2abfdc" strokeWidth={2.5} />
+            <path d={simPath} fill="none" stroke="#f97316" strokeWidth={2.5} />
           )}
 
           {/* X-axis labels */}
           {xLabels.map((p) => {
             const idx = original.indexOf(p)
             return (
-              <text key={p.date} x={px(idx, original.length)} y={H - 4} textAnchor="middle" fontSize={8} fill="#5a8caa" fontFamily="monospace">
+              <text key={p.date} x={px(idx, original.length)} y={H - 4} textAnchor="middle" fontSize={8} fill="#6b6b6b" fontFamily="monospace">
                 {p.date.slice(5, 10).replace('-', '/')}
               </text>
             )
@@ -77,7 +77,7 @@ function DualSCurveChart({
           {/* Legend */}
           <line x1={W - 180} y1={16} x2={W - 158} y2={16} stroke="#6b7280" strokeWidth={2} strokeDasharray="6,3" />
           <text x={W - 154} y={19} fontSize={9} fill="#9ca3af">Original</text>
-          <line x1={W - 100} y1={16} x2={W - 78} y2={16} stroke="#2abfdc" strokeWidth={2.5} />
+          <line x1={W - 100} y1={16} x2={W - 78} y2={16} stroke="#f97316" strokeWidth={2.5} />
           <text x={W - 74} y={19} fontSize={9} fill="#9ca3af">Simulada</text>
         </svg>
       </div>
@@ -120,14 +120,14 @@ export function WhatIfPanel() {
   return (
     <div className="flex flex-col gap-4">
       {/* Info banner */}
-      <div className="bg-[#0d2040] border border-[#20406a] rounded-xl px-4 py-3 flex items-center justify-between">
+      <div className="bg-[#141414] border border-[#303030] rounded-xl px-4 py-3 flex items-center justify-between">
         <p className="text-[#6b6b6b] text-xs">
           Ajuste dias de atraso (+) ou aceleração (-) por atividade. <strong className="text-[#a3a3a3]">Nenhum dado é gravado</strong> — apenas comparação visual.
         </p>
         <button
           onClick={clearWhatIfAdjustments}
           disabled={whatIfAdjustments.length === 0}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#20406a] text-[#6b6b6b] text-xs hover:text-[#ef4444] hover:border-[#ef4444]/40 transition-colors disabled:opacity-40"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#ef4444] hover:border-[#ef4444]/40 transition-colors disabled:opacity-40"
         >
           <RotateCcw size={12} />Limpar
         </button>
@@ -135,31 +135,31 @@ export function WhatIfPanel() {
 
       {/* Impact KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums" style={{ color: deltaDays > 0 ? '#ef4444' : deltaDays < 0 ? '#22c55e' : '#6b6b6b' }}>
             {deltaDays > 0 ? `+${deltaDays}` : deltaDays}
           </p>
-          <p className="text-xs font-semibold text-[#8fb3c8]">dias de impacto</p>
+          <p className="text-xs font-semibold text-[#a3a3a3]">dias de impacto</p>
         </div>
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums text-[#a3a3a3]">
             {simEnd ? simEnd.split('-').reverse().slice(0, 2).join('/') : '—'}
           </p>
-          <p className="text-xs font-semibold text-[#8fb3c8]">nova data final</p>
+          <p className="text-xs font-semibold text-[#a3a3a3]">nova data final</p>
         </div>
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-3xl font-bold tabular-nums" style={{ color: deltaPct < -1 ? '#ef4444' : deltaPct > 1 ? '#22c55e' : '#6b6b6b' }}>
             {deltaPct > 0 ? '+' : ''}{deltaPct.toFixed(1)}%
           </p>
-          <p className="text-xs font-semibold text-[#8fb3c8]">delta % hoje</p>
+          <p className="text-xs font-semibold text-[#a3a3a3]">delta % hoje</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Left: Activity adjustments */}
-        <div className="lg:col-span-2 bg-[#14294e] border border-[#20406a] rounded-xl p-4 flex flex-col gap-3 max-h-[500px] overflow-y-auto">
+        <div className="lg:col-span-2 bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-3 max-h-[500px] overflow-y-auto">
           <h3 className="text-[#f5f5f5] text-sm font-semibold flex items-center gap-2">
-            <CalendarDays size={14} className="text-[#2abfdc]" />
+            <CalendarDays size={14} className="text-[#f97316]" />
             Ajustar Atividades
           </h3>
 
@@ -169,7 +169,7 @@ export function WhatIfPanel() {
             const durDelta = adj?.deltaDurationDays ?? 0
 
             return (
-              <div key={act.id} className="bg-[#1a3662] rounded-lg px-3 py-2.5">
+              <div key={act.id} className="bg-[#2a2a2a] rounded-lg px-3 py-2.5">
                 <p className="text-[#f5f5f5] text-xs font-medium mb-2 truncate">{act.wbsCode} {act.name}</p>
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
@@ -185,7 +185,7 @@ export function WhatIfPanel() {
                           deltaStartDays: Number(e.target.value),
                           deltaDurationDays: durDelta,
                         })}
-                        className="flex-1 h-1 accent-[#2abfdc]"
+                        className="flex-1 h-1 accent-[#f97316]"
                       />
                       <span className={`text-xs font-mono w-10 text-right ${startDelta > 0 ? 'text-[#ef4444]' : startDelta < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}`}>
                         {startDelta > 0 ? `+${startDelta}` : startDelta}d
@@ -205,7 +205,7 @@ export function WhatIfPanel() {
                           deltaStartDays: startDelta,
                           deltaDurationDays: Number(e.target.value),
                         })}
-                        className="flex-1 h-1 accent-[#2abfdc]"
+                        className="flex-1 h-1 accent-[#f97316]"
                       />
                       <span className={`text-xs font-mono w-10 text-right ${durDelta > 0 ? 'text-[#ef4444]' : durDelta < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}`}>
                         {durDelta > 0 ? `+${durDelta}` : durDelta}d

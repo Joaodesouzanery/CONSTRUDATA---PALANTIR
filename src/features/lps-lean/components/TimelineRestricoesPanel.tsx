@@ -70,7 +70,7 @@ export function TimelineRestricoesPanel() {
         <select
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value as LpsRestrictionCategory | '')}
-          className="bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60"
+          className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
         >
           <option value="">Todas as categorias</option>
           {Object.entries(CAT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -78,7 +78,7 @@ export function TimelineRestricoesPanel() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as LpsRestrictionStatus | '')}
-          className="bg-[#0d2040] border border-[#20406a] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#2abfdc]/60"
+          className="bg-[#141414] border border-[#303030] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
         >
           <option value="">Todos os status</option>
           <option value="identificada">Identificada</option>
@@ -89,14 +89,14 @@ export function TimelineRestricoesPanel() {
       </div>
 
       {/* Timeline */}
-      <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 overflow-x-auto">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 overflow-x-auto">
         {filtered.length === 0 ? (
           <p className="text-[#6b6b6b] text-xs text-center py-8">Nenhuma restrição encontrada.</p>
         ) : (
           <svg width={LABEL_W + W + 20} height={svgH} className="font-mono text-[10px]">
             {/* Today line */}
-            <line x1={todayX} y1={0} x2={todayX} y2={svgH} stroke="#2abfdc" strokeWidth={1} strokeDasharray="3,2" opacity={0.6} />
-            <text x={todayX + 2} y={12} fontSize={8} fill="#2abfdc">hoje</text>
+            <line x1={todayX} y1={0} x2={todayX} y2={svgH} stroke="#f97316" strokeWidth={1} strokeDasharray="3,2" opacity={0.6} />
+            <text x={todayX + 2} y={12} fontSize={8} fill="#f97316">hoje</text>
 
             {/* Rows */}
             {filtered.map((r, i) => {
@@ -112,8 +112,8 @@ export function TimelineRestricoesPanel() {
 
               return (
                 <g key={r.id}>
-                  {i % 2 === 0 && <rect x={0} y={y - 2} width={LABEL_W + W} height={ROW_H} fill="#14294e08" />}
-                  <text x={4} y={y + 10} fontSize={9} fill="#8fb3c8">{label}</text>
+                  {i % 2 === 0 && <rect x={0} y={y - 2} width={LABEL_W + W} height={ROW_H} fill="#20202008" />}
+                  <text x={4} y={y + 10} fontSize={9} fill="#a3a3a3">{label}</text>
                   <text x={LABEL_W - 4} y={y + 10} textAnchor="end" fontSize={8} fill="#6b6b6b">{r.responsavel ?? '—'}</text>
 
                   {/* Bar */}

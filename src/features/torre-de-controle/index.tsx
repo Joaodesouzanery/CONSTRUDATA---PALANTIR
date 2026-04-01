@@ -19,15 +19,15 @@ export function TorreDeControlePage() {
   return (
     <>
       {/* Mobile tab switcher — only visible on small screens */}
-      <div className="flex lg:hidden border-b border-[#20406a] bg-[#0d2040] shrink-0">
+      <div className="flex lg:hidden border-b border-[#303030] bg-[#141414] shrink-0">
         {MOBILE_TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setMobileTab(tab.key)}
             className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
               mobileTab === tab.key
-                ? 'text-[#2abfdc] border-b-2 border-[#2abfdc]'
-                : 'text-[#6b6b6b] hover:text-[#8fb3c8]'
+                ? 'text-[#f97316] border-b-2 border-[#f97316]'
+                : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
             }`}
           >
             {tab.label}

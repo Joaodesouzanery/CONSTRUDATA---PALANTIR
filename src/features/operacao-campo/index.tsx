@@ -30,8 +30,8 @@ export function OperacaoCampoPage() {
             onClick={() => setMobileView(view)}
             className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors ${
               mobileView === view
-                ? 'bg-[#2abfdc]/20 text-[#2abfdc]'
-                : 'bg-[#14294e] text-[#6b6b6b]'
+                ? 'bg-[#f97316]/20 text-[#f97316]'
+                : 'bg-[#202020] text-[#6b6b6b]'
             }`}
           >
             {view === 'calendario' ? 'Calendário' : 'Dashboards'}

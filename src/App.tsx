@@ -18,7 +18,6 @@ const Gestao360Page         = lazy(() => import('@/features/gestao-360/index').t
 const PlanejamentoMestrePage = lazy(() => import('@/features/planejamento-mestre/index').then((m) => ({ default: m.PlanejamentoMestrePage })))
 const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index').then((m) => ({ default: m.PlanejamentoPage })))
 const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
-const OperacaoCampoPage     = lazy(() => import('@/features/operacao-campo/index').then((m) => ({ default: m.OperacaoCampoPage })))
 const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/index').then((m) => ({ default: m.MapaInterativoPage })))
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
@@ -29,9 +28,9 @@ const BimPage               = lazy(() => import('@/features/bim/index').then((m)
 
 function RouteFallback() {
   return (
-    <div className="flex items-center justify-center h-full text-gray-400">
+    <div className="flex items-center justify-center h-full text-[#a3a3a3]">
       <div className="flex items-center gap-3">
-        <div className="w-5 h-5 border-2 border-gray-600 border-t-cyan-500 rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-[#363636] border-t-cyan-500 rounded-full animate-spin" />
         <span className="text-sm">Carregando módulo...</span>
       </div>
     </div>
@@ -68,7 +67,6 @@ function App() {
           <Route path="planejamento-mestre"  element={<LazyRoute><PlanejamentoMestrePage /></LazyRoute>} />
           <Route path="planejamento"        element={<LazyRoute><PlanejamentoPage /></LazyRoute>} />
           <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
-          <Route path="operacao-campo"      element={<LazyRoute><OperacaoCampoPage /></LazyRoute>} />
           <Route path="mapa-interativo"     element={<LazyRoute><MapaInterativoPage /></LazyRoute>} />
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />

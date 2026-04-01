@@ -4,7 +4,7 @@
 import { create } from 'zustand'
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
-  LookaheadDerivedActivity, WhatIfAdjustment,
+  LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
 } from '@/types'
 import {
   computeMasterSCurve, applyWhatIfAdjustments, deriveLookahead,
@@ -21,6 +21,7 @@ interface PlanejamentoMestreState {
   whatIfAdjustments: WhatIfAdjustment[]
   originalSCurve: MasterSCurvePoint[]
   simulatedSCurve: MasterSCurvePoint[]
+  programacaoSemanal: Record<string, Record<string, ProgramacaoDiaria>>
 
   // Navigation
   setActiveTab: (tab: PlanejamentoMestreTab) => void
@@ -38,12 +39,16 @@ interface PlanejamentoMestreState {
   // Look-ahead
   setLookaheadWeeks: (weeks: number) => void
   deriveFromMaster: () => void
+  updateDerivedActivity: (id: string, patch: Partial<LookaheadDerivedActivity>) => void
 
   // What-if
   addWhatIfAdjustment: (adj: WhatIfAdjustment) => void
   removeWhatIfAdjustment: (activityId: string) => void
   clearWhatIfAdjustments: () => void
   runWhatIfSimulation: () => void
+
+  // Weekly programming
+  setProgramacaoDiaria: (activityId: string, date: string, data: ProgramacaoDiaria) => void
 
   // Data
   loadDemoData: () => void
@@ -60,6 +65,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
   whatIfAdjustments: [],
   originalSCurve: [],
   simulatedSCurve: [],
+  programacaoSemanal: {},
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -109,6 +115,11 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
 
   setLookaheadWeeks: (weeks) => set({ lookaheadWeeks: weeks }),
 
+  updateDerivedActivity: (id, patch) =>
+    set((s) => ({
+      derivedActivities: s.derivedActivities.map((d) => (d.id === id ? { ...d, ...patch } : d)),
+    })),
+
   deriveFromMaster: () => {
     const { activities, lookaheadWeeks } = get()
     const today = new Date().toISOString().slice(0, 10)
@@ -128,6 +139,17 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
     })),
 
   clearWhatIfAdjustments: () => set({ whatIfAdjustments: [], simulatedSCurve: [] }),
+
+  setProgramacaoDiaria: (activityId, date, data) =>
+    set((s) => ({
+      programacaoSemanal: {
+        ...s.programacaoSemanal,
+        [activityId]: {
+          ...(s.programacaoSemanal[activityId] ?? {}),
+          [date]: data,
+        },
+      },
+    })),
 
   runWhatIfSimulation: () => {
     const { activities, whatIfAdjustments } = get()
@@ -172,5 +194,6 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
       whatIfAdjustments: [],
       originalSCurve: [],
       simulatedSCurve: [],
+      programacaoSemanal: {},
     }),
 }))

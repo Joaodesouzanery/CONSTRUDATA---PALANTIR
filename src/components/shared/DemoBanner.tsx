@@ -11,7 +11,7 @@ export function DemoBanner() {
   if (!isDemoMode) return null
 
   return (
-    <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#2abfdc] text-white text-xs font-semibold shrink-0">
+    <div className="flex items-center justify-center gap-2 px-4 py-1.5 bg-[#f97316] text-white text-xs font-semibold shrink-0">
       <FlaskConical size={13} />
       Modo Demonstração Ativo — os dados exibidos são fictícios e para fins ilustrativos
     </div>

@@ -7,6 +7,11 @@ import type {
   DemandForecast,
   FrameworkAgreement,
   Requisition,
+  DepositoVirtual,
+  ItemEstoque,
+  MovimentacaoEstoque,
+  LeadTimeRecord,
+  ReservaMaterial,
 } from '@/types'
 
 // ─── Purchase Orders ──────────────────────────────────────────────────────────
@@ -660,4 +665,80 @@ export const mockRequisitions: Requisition[] = [
     status: 'submitted',
     notes: 'Aguardando mapeamento ontológico — material fora do catálogo padrão',
   },
+]
+
+// ─── Estoque Inteligente ─────────────────────────────────────────────────────
+
+export const mockDepositos: DepositoVirtual[] = [
+  { id: 'dep-1', frente: 'Morro do Tetéu',      descricao: 'Frente norte — tubulações e assentamento', ativo: true },
+  { id: 'dep-2', frente: 'São Manoel',           descricao: 'Frente sul — redes de distribuição',       ativo: true },
+  { id: 'dep-3', frente: 'Vila dos Criadores',   descricao: 'Frente leste — ligações prediais',         ativo: true },
+  { id: 'dep-4', frente: 'Escritório Central',   descricao: 'Estoque geral e materiais de apoio',       ativo: true },
+]
+
+export const mockEstoqueItens: ItemEstoque[] = [
+  // Morro do Tetéu
+  { id: 'est-1',  depositoId: 'dep-1', descricao: 'Tubo PVC 100mm JE 6m',         unidade: 'un',  qtdDisponivel: 85,  qtdReservada: 40, qtdTransito: 0,   estoqueMinimo: 30, custoUnitario: 48.50,  categoria: 'Tubulação',   fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-2',  depositoId: 'dep-1', descricao: 'PEAD 63×20 DN63',               unidade: 'un',  qtdDisponivel: 12,  qtdReservada: 20, qtdTransito: 30,  estoqueMinimo: 20, custoUnitario: 32.00,  categoria: 'Tubulação',   fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-3',  depositoId: 'dep-1', descricao: 'TSI 63×20',                     unidade: 'un',  qtdDisponivel: 0,   qtdReservada: 15, qtdTransito: 0,   estoqueMinimo: 10, custoUnitario: 18.90,  categoria: 'Conexão',     fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-4',  depositoId: 'dep-1', descricao: 'Selim 110×20',                  unidade: 'un',  qtdDisponivel: 45,  qtdReservada: 10, qtdTransito: 0,   estoqueMinimo: 15, custoUnitario: 12.30,  categoria: 'Conexão',     fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-5',  depositoId: 'dep-1', descricao: 'Cimento Portland CP-II 50kg',   unidade: 'sc',  qtdDisponivel: 120, qtdReservada: 60, qtdTransito: 0,   estoqueMinimo: 50, custoUnitario: 34.00,  categoria: 'Civil',       fornecedorPrincipal: 'VOTORANTIM' },
+  { id: 'est-6',  depositoId: 'dep-1', descricao: 'Areia média lavada',             unidade: 'm³',  qtdDisponivel: 18,  qtdReservada: 20, qtdTransito: 0,   estoqueMinimo: 10, custoUnitario: 95.00,  categoria: 'Civil',       fornecedorPrincipal: 'PEDREIRA SUL' },
+  { id: 'est-7',  depositoId: 'dep-1', descricao: 'Hidrômetro 1/2" Classe C',      unidade: 'un',  qtdDisponivel: 30,  qtdReservada: 12, qtdTransito: 0,   estoqueMinimo: 15, custoUnitario: 115.00, categoria: 'Medição',     fornecedorPrincipal: 'INDAIA' },
+  { id: 'est-8',  depositoId: 'dep-1', descricao: 'Brita 0 (pedrisco)',             unidade: 'm³',  qtdDisponivel: 8,   qtdReservada: 12, qtdTransito: 5,   estoqueMinimo: 8,  custoUnitario: 88.00,  categoria: 'Civil',       fornecedorPrincipal: 'PEDREIRA SUL' },
+
+  // São Manoel
+  { id: 'est-9',  depositoId: 'dep-2', descricao: 'Tubo PVC 100mm JE 6m',         unidade: 'un',  qtdDisponivel: 200, qtdReservada: 80, qtdTransito: 0,   estoqueMinimo: 50, custoUnitario: 48.50,  categoria: 'Tubulação',   fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-10', depositoId: 'dep-2', descricao: 'PEAD 63×20 DN63',               unidade: 'un',  qtdDisponivel: 55,  qtdReservada: 30, qtdTransito: 0,   estoqueMinimo: 20, custoUnitario: 32.00,  categoria: 'Tubulação',   fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-11', depositoId: 'dep-2', descricao: 'Adaptador flangeado DN100',     unidade: 'un',  qtdDisponivel: 4,   qtdReservada: 8,  qtdTransito: 10,  estoqueMinimo: 5,  custoUnitario: 67.00,  categoria: 'Conexão',     fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-12', depositoId: 'dep-2', descricao: 'Caixa d\'água 500L',            unidade: 'un',  qtdDisponivel: 6,   qtdReservada: 4,  qtdTransito: 0,   estoqueMinimo: 3,  custoUnitario: 420.00, categoria: 'Reservação',  fornecedorPrincipal: 'FORTLEV' },
+  { id: 'est-13', depositoId: 'dep-2', descricao: 'Hidrômetro 1/2" Classe C',      unidade: 'un',  qtdDisponivel: 0,   qtdReservada: 20, qtdTransito: 20,  estoqueMinimo: 10, custoUnitario: 115.00, categoria: 'Medição',     fornecedorPrincipal: 'INDAIA' },
+  { id: 'est-14', depositoId: 'dep-2', descricao: 'Cimento Portland CP-II 50kg',   unidade: 'sc',  qtdDisponivel: 85,  qtdReservada: 50, qtdTransito: 0,   estoqueMinimo: 40, custoUnitario: 34.00,  categoria: 'Civil',       fornecedorPrincipal: 'VOTORANTIM' },
+  { id: 'est-15', depositoId: 'dep-2', descricao: 'Selim 110×20',                  unidade: 'un',  qtdDisponivel: 70,  qtdReservada: 30, qtdTransito: 0,   estoqueMinimo: 20, custoUnitario: 12.30,  categoria: 'Conexão',     fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-16', depositoId: 'dep-2', descricao: 'Areia média lavada',             unidade: 'm³',  qtdDisponivel: 25,  qtdReservada: 20, qtdTransito: 0,   estoqueMinimo: 10, custoUnitario: 95.00,  categoria: 'Civil',       fornecedorPrincipal: 'PEDREIRA SUL' },
+
+  // Vila dos Criadores
+  { id: 'est-17', depositoId: 'dep-3', descricao: 'PEAD 63×20 DN63',               unidade: 'un',  qtdDisponivel: 8,   qtdReservada: 25, qtdTransito: 0,   estoqueMinimo: 15, custoUnitario: 32.00,  categoria: 'Tubulação',   fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-18', depositoId: 'dep-3', descricao: 'TSI 63×20',                     unidade: 'un',  qtdDisponivel: 22,  qtdReservada: 10, qtdTransito: 0,   estoqueMinimo: 10, custoUnitario: 18.90,  categoria: 'Conexão',     fornecedorPrincipal: 'AMANCO' },
+  { id: 'est-19', depositoId: 'dep-3', descricao: 'Hidrômetro 1/2" Classe C',      unidade: 'un',  qtdDisponivel: 42,  qtdReservada: 20, qtdTransito: 0,   estoqueMinimo: 15, custoUnitario: 115.00, categoria: 'Medição',     fornecedorPrincipal: 'INDAIA' },
+  { id: 'est-20', depositoId: 'dep-3', descricao: 'Cimento Portland CP-II 50kg',   unidade: 'sc',  qtdDisponivel: 0,   qtdReservada: 30, qtdTransito: 50,  estoqueMinimo: 20, custoUnitario: 34.00,  categoria: 'Civil',       fornecedorPrincipal: 'VOTORANTIM' },
+  { id: 'est-21', depositoId: 'dep-3', descricao: 'Tubo PVC 100mm JE 6m',         unidade: 'un',  qtdDisponivel: 60,  qtdReservada: 30, qtdTransito: 0,   estoqueMinimo: 20, custoUnitario: 48.50,  categoria: 'Tubulação',   fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-22', depositoId: 'dep-3', descricao: 'Brita 0 (pedrisco)',             unidade: 'm³',  qtdDisponivel: 14,  qtdReservada: 8,  qtdTransito: 0,   estoqueMinimo: 6,  custoUnitario: 88.00,  categoria: 'Civil',       fornecedorPrincipal: 'PEDREIRA SUL' },
+  { id: 'est-23', depositoId: 'dep-3', descricao: 'Caixa d\'água 500L',            unidade: 'un',  qtdDisponivel: 3,   qtdReservada: 5,  qtdTransito: 4,   estoqueMinimo: 3,  custoUnitario: 420.00, categoria: 'Reservação',  fornecedorPrincipal: 'FORTLEV' },
+  { id: 'est-24', depositoId: 'dep-3', descricao: 'Adaptador flangeado DN100',     unidade: 'un',  qtdDisponivel: 15,  qtdReservada: 6,  qtdTransito: 0,   estoqueMinimo: 5,  custoUnitario: 67.00,  categoria: 'Conexão',     fornecedorPrincipal: 'AMANCO' },
+
+  // Escritório Central
+  { id: 'est-25', depositoId: 'dep-4', descricao: 'Tubo PVC 100mm JE 6m',         unidade: 'un',  qtdDisponivel: 300, qtdReservada: 0,  qtdTransito: 0,   estoqueMinimo: 100, custoUnitario: 48.50,  categoria: 'Tubulação',  fornecedorPrincipal: 'TIGRE' },
+  { id: 'est-26', depositoId: 'dep-4', descricao: 'Hidrômetro 1/2" Classe C',      unidade: 'un',  qtdDisponivel: 150, qtdReservada: 0,  qtdTransito: 0,   estoqueMinimo: 50, custoUnitario: 115.00, categoria: 'Medição',    fornecedorPrincipal: 'INDAIA' },
+  { id: 'est-27', depositoId: 'dep-4', descricao: 'Cimento Portland CP-II 50kg',   unidade: 'sc',  qtdDisponivel: 400, qtdReservada: 0,  qtdTransito: 0,   estoqueMinimo: 100, custoUnitario: 34.00,  categoria: 'Civil',      fornecedorPrincipal: 'VOTORANTIM' },
+  { id: 'est-28', depositoId: 'dep-4', descricao: 'PEAD 63×20 DN63',               unidade: 'un',  qtdDisponivel: 80,  qtdReservada: 0,  qtdTransito: 100, estoqueMinimo: 30, custoUnitario: 32.00,  categoria: 'Tubulação',  fornecedorPrincipal: 'AMANCO' },
+]
+
+export const mockMovimentacoes: MovimentacaoEstoque[] = [
+  { id: 'mov-1', itemId: 'est-1',  depositoId: 'dep-1', tipo: 'entrada',      quantidade: 200, dataMovimento: '2025-03-10', dataCompra: '2025-03-04', fornecedor: 'TIGRE',         nf: 'NF-7821', leadTimeDias: 6,  observacoes: 'Entrega parcial OC-001' },
+  { id: 'mov-2', itemId: 'est-1',  depositoId: 'dep-1', tipo: 'saida',        quantidade: 115, dataMovimento: '2025-03-15', lpsActivityId: 'lps-act-1',                             nf: undefined, leadTimeDias: undefined, observacoes: 'Consumo semana 11 — Ramal Norte' },
+  { id: 'mov-3', itemId: 'est-5',  depositoId: 'dep-1', tipo: 'entrada',      quantidade: 300, dataMovimento: '2025-03-08', dataCompra: '2025-03-02', fornecedor: 'VOTORANTIM',    nf: 'NF-3301', leadTimeDias: 6,  observacoes: 'Cimento para estabilização de valas' },
+  { id: 'mov-4', itemId: 'est-13', depositoId: 'dep-2', tipo: 'entrada',      quantidade: 20,  dataMovimento: '2025-03-20', dataCompra: '2025-03-16', fornecedor: 'INDAIA',        nf: 'NF-5512', leadTimeDias: 4,  observacoes: 'Hidrômetros em trânsito' },
+  { id: 'mov-5', itemId: 'est-9',  depositoId: 'dep-2', tipo: 'saida',        quantidade: 80,  dataMovimento: '2025-03-18', lpsActivityId: 'lps-act-2',                             nf: undefined, leadTimeDias: undefined, observacoes: 'Consumo semana 12 — Rede São Manoel' },
+  { id: 'mov-6', itemId: 'est-17', depositoId: 'dep-3', tipo: 'entrada',      quantidade: 50,  dataMovimento: '2025-03-05', dataCompra: '2025-02-27', fornecedor: 'AMANCO',        nf: 'NF-9933', leadTimeDias: 6,  observacoes: 'PEAD para ligações prediais' },
+  { id: 'mov-7', itemId: 'est-17', depositoId: 'dep-3', tipo: 'saida',        quantidade: 42,  dataMovimento: '2025-03-19', lpsActivityId: 'lps-act-3',                             nf: undefined, leadTimeDias: undefined, observacoes: 'Consumo semana 12 — Ligações Vila' },
+  { id: 'mov-8', itemId: 'est-20', depositoId: 'dep-3', tipo: 'entrada',      quantidade: 50,  dataMovimento: '2025-03-22', dataCompra: '2025-03-15', fornecedor: 'VOTORANTIM',    nf: 'NF-4410', leadTimeDias: 7,  observacoes: 'Cimento em trânsito para Vila' },
+]
+
+export const mockLeadTimeRecords: LeadTimeRecord[] = [
+  { id: 'lt-1', fornecedor: 'INDAIA',      dataCompra: '2025-03-16', dataMovimento: '2025-03-20', nf: 'NF-5512', leadTimeDias: 4, itemDescricao: 'Hidrômetro 1/2" Classe C', categoria: 'Medição'   },
+  { id: 'lt-2', fornecedor: 'AMANCO',      dataCompra: '2025-02-27', dataMovimento: '2025-03-05', nf: 'NF-9933', leadTimeDias: 6, itemDescricao: 'PEAD 63×20 DN63',          categoria: 'Tubulação' },
+  { id: 'lt-3', fornecedor: 'TIGRE',       dataCompra: '2025-03-04', dataMovimento: '2025-03-07', nf: 'NF-7821', leadTimeDias: 3, itemDescricao: 'Tubo PVC 100mm JE 6m',     categoria: 'Tubulação' },
+  { id: 'lt-4', fornecedor: 'VOTORANTIM',  dataCompra: '2025-03-02', dataMovimento: '2025-03-10', nf: 'NF-3301', leadTimeDias: 8, itemDescricao: 'Cimento Portland CP-II',    categoria: 'Civil'     },
+]
+
+export const mockReservas: ReservaMaterial[] = [
+  { id: 'res-1', itemId: 'est-1',  depositoId: 'dep-1', lpsActivityId: 'lps-act-1', semana: 12, qtdNecessaria: 40, status: 'verde',    criadoEm: '2025-03-01T08:00:00Z' },
+  { id: 'res-2', itemId: 'est-2',  depositoId: 'dep-1', lpsActivityId: 'lps-act-1', semana: 12, qtdNecessaria: 20, status: 'amarelo',  nfsEmTransito: ['NF-PEAD-01'], previsaoEntrega: '2025-03-28', criadoEm: '2025-03-01T08:00:00Z' },
+  { id: 'res-3', itemId: 'est-3',  depositoId: 'dep-1', lpsActivityId: 'lps-act-1', semana: 12, qtdNecessaria: 15, status: 'vermelho', alertaGerado: true, criadoEm: '2025-03-01T08:00:00Z' },
+  { id: 'res-4', itemId: 'est-9',  depositoId: 'dep-2', lpsActivityId: 'lps-act-2', semana: 12, qtdNecessaria: 80, status: 'verde',    criadoEm: '2025-03-01T08:00:00Z' },
+  { id: 'res-5', itemId: 'est-13', depositoId: 'dep-2', lpsActivityId: 'lps-act-2', semana: 13, qtdNecessaria: 20, status: 'amarelo',  nfsEmTransito: ['NF-5512'], previsaoEntrega: '2025-03-25', criadoEm: '2025-03-08T08:00:00Z' },
+  { id: 'res-6', itemId: 'est-17', depositoId: 'dep-3', lpsActivityId: 'lps-act-3', semana: 12, qtdNecessaria: 25, status: 'vermelho', alertaGerado: false, criadoEm: '2025-03-01T08:00:00Z' },
+  { id: 'res-7', itemId: 'est-20', depositoId: 'dep-3', lpsActivityId: 'lps-act-3', semana: 13, qtdNecessaria: 30, status: 'amarelo',  nfsEmTransito: ['NF-4410'], previsaoEntrega: '2025-03-26', criadoEm: '2025-03-08T08:00:00Z' },
+  { id: 'res-8', itemId: 'est-19', depositoId: 'dep-3', lpsActivityId: 'lps-act-4', semana: 13, qtdNecessaria: 20, status: 'verde',    criadoEm: '2025-03-08T08:00:00Z' },
 ]

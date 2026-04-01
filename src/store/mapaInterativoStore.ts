@@ -15,7 +15,7 @@ interface MapSnapshot {
 // ─── Default layers ───────────────────────────────────────────────────────
 
 const DEFAULT_LAYERS: MapLayer[] = [
-  { id: 'sewer',   name: 'Esgoto',    color: '#2abfdc', visible: true },
+  { id: 'sewer',   name: 'Esgoto',    color: '#f97316', visible: true },
   { id: 'water',   name: 'Água',      color: '#38bdf8', visible: true },
   { id: 'drainage',name: 'Drenagem',  color: '#4ade80', visible: true },
   { id: 'civil',   name: 'Civil',     color: '#94a3b8', visible: true },

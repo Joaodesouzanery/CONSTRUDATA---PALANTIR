@@ -7,9 +7,11 @@ import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import type { PlanejamentoMestreTab } from '@/types'
 
 const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
-  { key: 'macro',     label: 'Planejamento Macro'    },
-  { key: 'derivacao', label: 'Derivação Look-ahead'  },
-  { key: 'whatif',    label: 'Simulador What-if'     },
+  { key: 'macro',     label: 'Longo Prazo'     },
+  { key: 'derivacao', label: 'Médio Prazo'     },
+  { key: 'whatif',    label: 'Curto Prazo'     },
+  { key: 'integrada', label: 'Visão Integrada' },
+  { key: 'semanal',   label: 'Prog. Semanal'   },
 ]
 
 export function PlanejamentoMestreHeader() {
@@ -31,16 +33,16 @@ export function PlanejamentoMestreHeader() {
     : 0
 
   return (
-    <div className="bg-[#0d2040] border-b border-[#20406a] print:hidden">
+    <div className="bg-[#141414] border-b border-[#303030] print:hidden">
       {/* Title + KPIs */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#2abfdc]">
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#f97316]">
             <BrainCircuit size={20} className="text-white" />
           </div>
           <div>
             <h1 className="text-[#f5f5f5] font-semibold text-lg leading-tight">Planejamento Mestre</h1>
-            <p className="text-[#6b6b6b] text-xs">Estratégia, baseline e simulações</p>
+            <p className="text-[#6b6b6b] text-xs">Planejamento Longo, Médio e Curto Prazo</p>
           </div>
         </div>
 
@@ -67,8 +69,8 @@ export function PlanejamentoMestreHeader() {
             onClick={() => setTab(tab.key)}
             className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap ${
               activeTab === tab.key
-                ? 'bg-[#14294e] text-[#2abfdc] border-b-2 border-[#2abfdc]'
-                : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#14294e]/50'
+                ? 'bg-[#202020] text-[#f97316] border-b-2 border-[#f97316]'
+                : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#202020]/50'
             }`}
           >
             {tab.label}

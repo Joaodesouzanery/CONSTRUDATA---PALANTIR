@@ -13,15 +13,18 @@ export function AppShell() {
       <DemoBanner />
 
       {/* Mobile top bar — hidden on md+ */}
-      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#20406a] bg-[#0d2040] shrink-0 z-20">
+      <div className="flex md:hidden items-center gap-3 px-4 h-12 border-b border-[#303030] bg-[#141414] shrink-0 z-20">
         <button
           onClick={() => setMobileOpen(true)}
-          className="text-[#6b6b6b] hover:text-[#2abfdc] transition-colors"
+          className="text-[#6b6b6b] hover:text-[#f97316] transition-colors"
           aria-label="Abrir menu"
         >
           <Menu size={20} />
         </button>
-        <span className="text-[#e4f2f8] text-sm font-bold tracking-wide">Atlântico</span>
+        <div className="flex flex-col leading-none">
+          <span className="text-[#f5f5f5] text-sm font-bold tracking-wide">Atlântico</span>
+          <span className="text-[8px] font-semibold tracking-[0.16em] uppercase text-[#6b6b6b]">ConstruData</span>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">

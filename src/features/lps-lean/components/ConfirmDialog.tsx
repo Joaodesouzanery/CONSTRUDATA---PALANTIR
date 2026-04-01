@@ -21,11 +21,11 @@ export function ConfirmDialog({
   danger = true,
 }: ConfirmDialogProps) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-sm">
-      <span className="text-gray-300 flex-1">{message}</span>
+    <div className="flex items-center gap-3 px-3 py-2 bg-[#202020] border border-[#363636] rounded-lg text-sm">
+      <span className="text-[#f5f5f5] flex-1">{message}</span>
       <button
         onClick={onCancel}
-        className="px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+        className="px-3 py-1 rounded text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors"
       >
         {cancelLabel}
       </button>

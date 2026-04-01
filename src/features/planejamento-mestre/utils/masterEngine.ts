@@ -136,6 +136,7 @@ export function deriveLookahead(
       name:               act.name,
       responsible:        act.responsibleTeam ?? 'A definir',
       status,
+      networkType:        act.networkType,
     })
   }
 

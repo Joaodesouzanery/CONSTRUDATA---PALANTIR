@@ -40,21 +40,21 @@ export function MaoDeObraLpsPanel() {
     <div className="flex flex-col gap-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-[#f5f5f5]">{totalRequired}</p>
           <p className="text-[#6b6b6b] text-xs">Necessários</p>
         </div>
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
-          <p className="text-2xl font-bold text-[#2abfdc]">{totalAvailable}</p>
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold text-[#f97316]">{totalAvailable}</p>
           <p className="text-[#6b6b6b] text-xs">Disponíveis</p>
         </div>
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold" style={{ color: totalGap > 0 ? '#ef4444' : '#22c55e' }}>
             {totalGap > 0 ? `−${totalGap}` : totalGap === 0 ? '0' : `+${Math.abs(totalGap)}`}
           </p>
           <p className="text-[#6b6b6b] text-xs">Gap</p>
         </div>
-        <div className="bg-[#14294e] border border-[#20406a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold" style={{ color: gapPct > 0 ? '#ef4444' : '#22c55e' }}>
             {gapPct}%
           </p>
@@ -66,7 +66,7 @@ export function MaoDeObraLpsPanel() {
       <div className="flex items-center gap-2">
         <button
           onClick={computeStaffingDimensions}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] transition-colors"
         >
           <RefreshCw size={12} />Recalcular
         </button>
@@ -74,15 +74,15 @@ export function MaoDeObraLpsPanel() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#14294e] border border-[#20406a] rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#20406a] flex items-center gap-2">
-          <Users size={14} className="text-[#2abfdc]" />
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#303030] flex items-center gap-2">
+          <Users size={14} className="text-[#f97316]" />
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Dimensionamento de Equipes</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-[#20406a]">
+              <tr className="border-b border-[#303030]">
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Atividade / Equipe</th>
                 <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">Equipes Req.</th>
                 <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">Trabalhadores Req.</th>
@@ -102,11 +102,11 @@ export function MaoDeObraLpsPanel() {
                 staffingDimensions.map((dim) => {
                   const color = STATUS_COLOR[dim.status]
                   return (
-                    <tr key={dim.id} className="border-b border-[#20406a] hover:bg-[#1a3662]">
+                    <tr key={dim.id} className="border-b border-[#303030] hover:bg-[#2a2a2a]">
                       <td className="px-3 py-2 text-[#f5f5f5]">{dim.activityName}</td>
                       <td className="px-3 py-2 text-center text-[#a3a3a3] font-mono">{dim.requiredTeams}</td>
                       <td className="px-3 py-2 text-center text-[#a3a3a3] font-mono">{dim.requiredWorkers}</td>
-                      <td className="px-3 py-2 text-center text-[#2abfdc] font-mono">{dim.availableFromMaoDeObra}</td>
+                      <td className="px-3 py-2 text-center text-[#f97316] font-mono">{dim.availableFromMaoDeObra}</td>
                       <td className="px-3 py-2 text-center font-mono font-bold" style={{ color }}>
                         {dim.gap > 0 ? `−${dim.gap}` : dim.gap === 0 ? '0' : `+${Math.abs(dim.gap)}`}
                       </td>

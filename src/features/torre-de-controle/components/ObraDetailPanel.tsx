@@ -29,7 +29,7 @@ const RISK_LEVEL_LABEL: Record<RiskLevel, string> = {
 
 const RISK_LEVEL_COLOR: Record<RiskLevel, string> = {
   critical: '#ef4444',
-  high:     '#2abfdc',
+  high:     '#f97316',
   medium:   '#eab308',
   low:      '#22c55e',
 }
@@ -65,7 +65,7 @@ function BudgetTable({ lines }: { lines: ConstructionBudgetLine[] }) {
           const utilization = l.amount > 0 ? (l.projected / l.amount) * 100 : 0
           const over = utilization > 100
           return (
-            <tr key={l.label} className="border-t border-[#1e1e1e]">
+            <tr key={l.label} className="border-t border-[#202020]">
               <td className={cn('py-1 font-medium', l.label === 'Total' ? 'text-[#f5f5f5]' : 'text-[#a3a3a3]')}>
                 {l.label}
               </td>
@@ -111,7 +111,7 @@ function MilestoneTimeline({ label, milestones }: { label: string; milestones: C
             {i < milestones.length - 1 && (
               <div className={cn(
                 'h-px w-6 mb-4 shrink-0',
-                m.status === 'done' ? 'bg-[#22c55e]/40' : 'bg-[#20406a]',
+                m.status === 'done' ? 'bg-[#22c55e]/40' : 'bg-[#303030]',
               )} />
             )}
           </div>
@@ -139,7 +139,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
 
   return (
     <div
-      className="rounded-lg border bg-[#112645] p-3 flex flex-col gap-2"
+      className="rounded-lg border bg-[#1a1a1a] p-3 flex flex-col gap-2"
       style={{ borderColor: color + '30' }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -169,7 +169,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a3662] text-[#a3a3a3]"
+                className="text-[9px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#a3a3a3]"
               >
                 Não
               </button>
@@ -178,7 +178,7 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
             <>
               <button
                 onClick={() => setEditingRisk({ siteId: site.id, riskId: risk.id })}
-                className="w-6 h-6 flex items-center justify-center rounded text-[#6b6b6b] hover:text-[#2abfdc] hover:bg-[#2abfdc]/10 transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
               >
                 <Pencil size={11} />
               </button>
@@ -199,12 +199,12 @@ function RiskCard({ site, risk }: { site: ConstructionSite; risk: ConstructionRi
       >
         {expanded ? risk.description : risk.description.slice(0, 90) + (risk.description.length > 90 ? '...' : '')}
         {risk.description.length > 90 && (
-          <span className="ml-1 text-[#2abfdc]">{expanded ? '▲ menos' : '▼ mais'}</span>
+          <span className="ml-1 text-[#f97316]">{expanded ? '▲ menos' : '▼ mais'}</span>
         )}
       </button>
 
       {expanded && risk.notes && (
-        <div className="text-[10px] text-[#6b6b6b] bg-[#1a3662] rounded p-2 border border-[#20406a]">
+        <div className="text-[10px] text-[#6b6b6b] bg-[#2a2a2a] rounded p-2 border border-[#303030]">
           <span className="text-[9px] uppercase tracking-widest text-[#3f3f3f]">Notas: </span>
           {risk.notes}
         </div>
@@ -234,13 +234,13 @@ export function ObraDetailPanel() {
 
   return (
     <div
-      className="flex flex-col border-l border-[#20406a] bg-[#112645] shrink-0 overflow-hidden w-full lg:w-[380px]"
+      className="flex flex-col border-l border-[#303030] bg-[#1a1a1a] shrink-0 overflow-hidden w-full lg:w-[380px]"
     >
       {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-[#20406a] shrink-0 gap-2">
+      <div className="flex items-start justify-between px-4 py-3 border-b border-[#303030] shrink-0 gap-2">
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-[10px] text-[#6b6b6b] bg-[#1a3662] px-1.5 py-0.5 rounded">{site.code}</span>
+            <span className="font-mono text-[10px] text-[#6b6b6b] bg-[#2a2a2a] px-1.5 py-0.5 rounded">{site.code}</span>
             <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide', STATUS_COLOR[site.status])}>
               {STATUS_LABEL[site.status]}
             </span>
@@ -249,7 +249,7 @@ export function ObraDetailPanel() {
         </div>
         <button
           onClick={() => setEditing(site.id)}
-          className="shrink-0 flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#2abfdc] transition-colors border border-[#20406a] hover:border-[#2abfdc]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
+          className="shrink-0 flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#303030] hover:border-[#f97316]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
         >
           <Pencil size={11} />
           Editar
@@ -318,7 +318,7 @@ export function ObraDetailPanel() {
           ) : null}
 
           {/* Riscos */}
-          <div className="px-4 py-3 border-b border-[#20406a]">
+          <div className="px-4 py-3 border-b border-[#303030]">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <AlertTriangle size={12} className="text-[#6b6b6b]" />
@@ -328,7 +328,7 @@ export function ObraDetailPanel() {
                 {(activeRisks > 0 || criticalRisks > 0) && (
                   <span className={cn(
                     'text-[9px] font-semibold px-1.5 py-0.5 rounded',
-                    criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#2abfdc] bg-[#2abfdc]/10'
+                    criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#f97316] bg-[#f97316]/10'
                   )}>
                     {criticalRisks > 0 ? `${criticalRisks} crítico${criticalRisks > 1 ? 's' : ''}` : `${activeRisks} ativo${activeRisks > 1 ? 's' : ''}`}
                   </span>
@@ -336,7 +336,7 @@ export function ObraDetailPanel() {
               </div>
               <button
                 onClick={() => setEditingRisk({ siteId: site.id, riskId: 'new' })}
-                className="flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#2abfdc] transition-colors"
+                className="flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#f97316] transition-colors"
               >
                 <Plus size={11} />
                 Adicionar
@@ -368,7 +368,7 @@ export function ObraDetailPanel() {
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <div className="px-4 py-3 border-b border-[#20406a] flex flex-col gap-2">
+    <div className="px-4 py-3 border-b border-[#303030] flex flex-col gap-2">
       <div className="flex items-center gap-1.5 text-[#6b6b6b]">
         {icon}
         <span className="text-[10px] uppercase tracking-widest font-semibold">{title}</span>
