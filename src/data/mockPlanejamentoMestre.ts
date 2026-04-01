@@ -347,7 +347,7 @@ export const MOCK_MASTER_ACTIVITIES: MasterActivity[] = [
 
 export const MOCK_MASTER_BASELINE: MasterBaseline = {
   id: 'bl-01',
-  name: 'Baseline Rev.0 — Consórcio Se Liga Na Rede',
+  name: 'Baseline Rev.0',
   createdAt: '2026-03-15T10:00:00Z',
   activities: structuredClone(MOCK_MASTER_ACTIVITIES),
 }

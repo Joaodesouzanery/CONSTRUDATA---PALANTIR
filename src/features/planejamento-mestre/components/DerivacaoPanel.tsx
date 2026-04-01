@@ -1,11 +1,10 @@
 /**
- * DerivacaoPanel — Médio Prazo: Look-ahead grid.
+ * DerivacaoPanel — Médio Prazo: Look-ahead 6-week grid.
  * Rows = unique activities grouped by networkType (ÁGUA / ESGOTO / SERVIÇOS CIVIS).
- * Columns = ISO weeks.
- * PPC row at bottom.
+ * Columns = 6 ISO weeks. PPC row at section bottom.
  * Click cell → detail modal.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { RefreshCw, X, AlertTriangle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
@@ -37,18 +36,39 @@ const STATUS_TEXT: Record<DaStatus, string> = {
   completed: 'Executado',
 }
 
+const STATUS_BG: Record<DaStatus, string> = {
+  planned:   'bg-[#2abfdc]/8',
+  ready:     'bg-[#22c55e]/8',
+  blocked:   'bg-[#ef4444]/8',
+  completed: 'bg-[#3b82f6]/8',
+}
+
 type NetworkFilter = 'all' | 'agua' | 'esgoto'
 type NetworkType   = 'agua' | 'esgoto' | 'civil' | 'geral' | undefined
 
 function sectionOf(nt: NetworkType): 'agua' | 'esgoto' | 'civil' {
-  if (nt === 'agua')   return 'agua'
-  if (nt === 'civil')  return 'civil'
-  return 'esgoto' // esgoto, geral, undefined → esgoto section
+  if (nt === 'agua')  return 'agua'
+  if (nt === 'civil') return 'civil'
+  return 'esgoto'
 }
 
+/** Returns "S15/26" */
 function weekShort(weekIso: string): string {
   const [year, wPart] = weekIso.split('-W')
   return `S${wPart}/${year.slice(2)}`
+}
+
+/** Returns Mon–Fri date range string for an ISO week */
+function weekDateRange(weekIso: string): string {
+  const [year, wStr] = weekIso.split('-W')
+  const w = parseInt(wStr, 10)
+  const jan4 = new Date(parseInt(year, 10), 0, 4)
+  const monday = new Date(jan4)
+  monday.setDate(jan4.getDate() - (jan4.getDay() || 7) + 1 + (w - 1) * 7)
+  const friday = new Date(monday)
+  friday.setDate(monday.getDate() + 4)
+  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  return `${fmt(monday)}–${fmt(friday)}`
 }
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
@@ -79,23 +99,15 @@ function DetailModal({ da, onClose }: DetailModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#20406a]">
-          <h3 className="text-[#f5f5f5] font-bold text-sm">{da.name}</h3>
+          <div>
+            <h3 className="text-[#f5f5f5] font-bold text-sm">{da.name}</h3>
+            <p className="text-[#6b6b6b] text-[10px] mt-0.5">{weekShort(da.weekIso)} · {da.responsible}</p>
+          </div>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={15} /></button>
         </div>
         <div className="px-5 py-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <p className="text-[#6b6b6b] text-[10px] mb-1">Semana</p>
-              <p className="text-[#f5f5f5]">{weekShort(da.weekIso)}</p>
-            </div>
-            <div>
-              <p className="text-[#6b6b6b] text-[10px] mb-1">Responsável</p>
-              <p className="text-[#f5f5f5]">{da.responsible}</p>
-            </div>
-          </div>
-
           <div>
-            <p className="text-[#6b6b6b] text-[10px] mb-1 uppercase tracking-widest">Status</p>
+            <p className="text-[#6b6b6b] text-[10px] mb-2 uppercase tracking-widest">Status</p>
             <div className="flex gap-2 flex-wrap">
               {(Object.keys(STATUS_LABEL) as DaStatus[]).map((s) => (
                 <button
@@ -117,14 +129,11 @@ function DetailModal({ da, onClose }: DetailModalProps) {
           {da.linkedRestrictionIds && da.linkedRestrictionIds.length > 0 && (
             <div>
               <p className="text-[#6b6b6b] text-[10px] mb-1 uppercase tracking-widest">Restrições</p>
-              <div className="flex flex-col gap-1">
-                {da.linkedRestrictionIds.map((rid) => (
-                  <div key={rid} className="flex items-center gap-1.5 text-xs text-[#ef4444]">
-                    <AlertTriangle size={11} />
-                    <span>{rid}</span>
-                  </div>
-                ))}
-              </div>
+              {da.linkedRestrictionIds.map((rid) => (
+                <div key={rid} className="flex items-center gap-1.5 text-xs text-[#ef4444] mt-0.5">
+                  <AlertTriangle size={11} /><span>{rid}</span>
+                </div>
+              ))}
             </div>
           )}
 
@@ -153,145 +162,186 @@ function DetailModal({ da, onClose }: DetailModalProps) {
 interface CellProps {
   da?: LookaheadDerivedActivity
   onClick: () => void
+  actName: string
 }
 
-function Cell({ da, onClick }: CellProps) {
+function Cell({ da, onClick, actName }: CellProps) {
   if (!da) {
-    return <td className="px-1 py-0.5 border border-[#20406a]/40 bg-[#0d2040]/20 min-w-[72px]" />
+    return (
+      <td
+        className="border border-[#20406a]/30 min-w-[88px] h-8"
+        style={{ background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(255,255,255,0.015) 3px, rgba(255,255,255,0.015) 6px)' }}
+      />
+    )
   }
 
   const dot  = STATUS_DOT[da.status]
   const lbl  = STATUS_LABEL[da.status]
+  const bg   = STATUS_BG[da.status]
   const pct  = da.percentComplete
   const rest = da.linkedRestrictionIds?.length ?? 0
 
   return (
     <td
-      className="px-1.5 py-1 border border-[#20406a]/40 cursor-pointer hover:bg-[#14294e] transition-colors min-w-[72px] align-top"
+      title={`${actName} — ${STATUS_TEXT[da.status]}${pct ? ` (${pct}%)` : ''}${rest ? ` · ${rest} restrição(ões)` : ''}`}
+      className={cn('border border-[#20406a]/30 cursor-pointer transition-colors min-w-[88px] h-8 px-2 py-1 align-middle', bg, 'hover:brightness-125')}
       onClick={onClick}
     >
-      <div className="flex items-start gap-1">
-        <span className={cn('mt-0.5 w-2 h-2 rounded-full shrink-0', dot)} />
-        <div className="min-w-0">
-          <span className="text-[9px] font-bold text-[#f5f5f5]">{lbl}</span>
-          {pct !== undefined && pct > 0 && pct < 100 && (
-            <span className="text-[9px] text-[#a3a3a3] ml-0.5">{pct}%</span>
-          )}
-          {rest > 0 && (
-            <span className="ml-0.5 text-[9px] text-[#ef4444]">🚧{rest}</span>
-          )}
-        </div>
+      <div className="flex items-center gap-1.5">
+        <span className={cn('w-2 h-2 rounded-full shrink-0', dot)} />
+        <span className="text-[10px] font-bold text-[#f5f5f5]">{lbl}</span>
+        {pct !== undefined && pct > 0 && pct < 100 && (
+          <span className="text-[9px] text-[#a3a3a3]">{pct}%</span>
+        )}
+        {rest > 0 && <span className="text-[9px] text-[#ef4444] ml-auto">⚠{rest}</span>}
       </div>
     </td>
+  )
+}
+
+// ─── Section header row ───────────────────────────────────────────────────────
+
+interface SectionHeaderProps {
+  label: string
+  color: string
+  colSpan: number
+}
+
+function SectionHeaderRow({ label, color, colSpan }: SectionHeaderProps) {
+  return (
+    <tr>
+      <td
+        colSpan={colSpan}
+        className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest border border-[#20406a]/50"
+        style={{ background: `${color}18`, color, borderLeft: `3px solid ${color}` }}
+      >
+        {label}
+      </td>
+    </tr>
+  )
+}
+
+// ─── PPC row for a set of weeks/das ──────────────────────────────────────────
+
+interface PpcRowProps {
+  weeks: string[]
+  das: LookaheadDerivedActivity[]
+}
+
+function PpcRow({ weeks, das }: PpcRowProps) {
+  function ppc(weekIso: string): number | null {
+    const week = das.filter((d) => d.weekIso === weekIso)
+    if (week.length === 0) return null
+    return Math.round((week.filter((d) => d.status === 'completed').length / week.length) * 100)
+  }
+
+  function ppcColor(v: number) {
+    if (v >= 80) return 'text-[#22c55e] bg-[#22c55e]/15 border-[#22c55e]/30'
+    if (v >= 60) return 'text-[#fbbf24] bg-[#fbbf24]/15 border-[#fbbf24]/30'
+    return 'text-[#ef4444] bg-[#ef4444]/15 border-[#ef4444]/30'
+  }
+
+  return (
+    <tr className="bg-[#0d1c36]">
+      <td className="px-3 py-1.5 text-[9px] font-bold text-[#6b6b6b] uppercase tracking-widest sticky left-0 bg-[#0d1c36] z-10 border border-[#20406a]/30 whitespace-nowrap">
+        PPC Semana
+      </td>
+      {weeks.map((w) => {
+        const v = ppc(w)
+        return (
+          <td key={w} className="px-2 py-1.5 text-center border border-[#20406a]/30">
+            {v === null ? (
+              <span className="text-[#3f3f3f] text-[9px]">—</span>
+            ) : (
+              <span className={cn('px-1.5 py-0.5 rounded border text-[9px] font-bold tabular-nums', ppcColor(v))}>
+                {v}%
+              </span>
+            )}
+          </td>
+        )
+      })}
+    </tr>
   )
 }
 
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
 export function DerivacaoPanel() {
-  const { derivedActivities, lookaheadWeeks, activities } = usePlanejamentoMestreStore(
+  const { derivedActivities, activities } = usePlanejamentoMestreStore(
     useShallow((s) => ({
       derivedActivities: s.derivedActivities,
-      lookaheadWeeks:    s.lookaheadWeeks,
       activities:        s.activities,
     }))
   )
-  const setLookaheadWeeks = usePlanejamentoMestreStore((s) => s.setLookaheadWeeks)
-  const deriveFromMaster  = usePlanejamentoMestreStore((s) => s.deriveFromMaster)
+  const deriveFromMaster = usePlanejamentoMestreStore((s) => s.deriveFromMaster)
 
   const [filter,     setFilter]     = useState<NetworkFilter>('all')
   const [selectedDa, setSelectedDa] = useState<LookaheadDerivedActivity | null>(null)
 
-  // Build sorted list of ISO weeks present in derived activities
-  const allWeeks = [...new Set(derivedActivities.map((d) => d.weekIso))].sort()
+  // Build sorted 6-week list
+  const allWeeks = useMemo(
+    () => [...new Set(derivedActivities.map((d) => d.weekIso))].sort().slice(0, 6),
+    [derivedActivities]
+  )
 
-  // Map masterActivityId → networkType (from master activities)
-  const actMap = new Map<string, typeof activities[number]>(activities.map((a) => [a.id, a]))
+  // masterActivityId → master activity (for networkType fallback)
+  const actMap = useMemo(
+    () => new Map<string, typeof activities[number]>(activities.map((a) => [a.id, a])),
+    [activities]
+  )
 
-  // Get all unique activities (by masterActivityId), preserving networkType
-  const uniqueActIds = [...new Set(derivedActivities.map((d) => d.masterActivityId))]
+  // Build rows
+  const rows = useMemo(() => {
+    const uniqueIds = [...new Set(derivedActivities.map((d) => d.masterActivityId))]
+    return uniqueIds.map((mid) => {
+      const das = derivedActivities.filter((d) => d.masterActivityId === mid)
+      const first = das[0]
+      const masterAct = actMap.get(mid)
+      const networkType: NetworkType = first?.networkType ?? masterAct?.networkType
+      const cellMap = new Map<string, LookaheadDerivedActivity>(das.map((d) => [d.weekIso, d]))
+      return {
+        masterActivityId: mid,
+        name: first?.name ?? masterAct?.name ?? mid,
+        responsible: first?.responsible ?? '—',
+        networkType,
+        section: sectionOf(networkType),
+        cellMap,
+      }
+    })
+  }, [derivedActivities, actMap])
 
-  // Build rows: { masterActivityId, name, networkType, cells: Map<weekIso, da> }
-  const rows = uniqueActIds.map((mid) => {
-    const das = derivedActivities.filter((d) => d.masterActivityId === mid)
-    const first = das[0]
-    const masterAct = actMap.get(mid)
-    const networkType: NetworkType = first?.networkType ?? masterAct?.networkType
-    const cellMap = new Map<string, LookaheadDerivedActivity>(das.map((d) => [d.weekIso, d]))
-    return {
-      masterActivityId: mid,
-      name: first?.name ?? masterAct?.name ?? mid,
-      responsible: first?.responsible ?? '—',
-      networkType,
-      section: sectionOf(networkType),
-      cellMap,
-    }
-  })
-
-  // Filter by section
   const filteredRows = rows.filter((r) => {
     if (filter === 'agua')   return r.section === 'agua'
-    if (filter === 'esgoto') return r.section === 'esgoto'
+    if (filter === 'esgoto') return r.section !== 'agua'
     return true
   })
 
-  const aguaRows  = filteredRows.filter((r) => r.section === 'agua')
+  const aguaRows   = filteredRows.filter((r) => r.section === 'agua')
   const esgotoRows = filteredRows.filter((r) => r.section === 'esgoto')
-  const civilRows = filteredRows.filter((r) => r.section === 'civil')
-
-  // PPC per week: completed / (all non-empty) * 100
-  function ppc(weekIso: string): number | null {
-    const cellsThisWeek = derivedActivities.filter((d) => d.weekIso === weekIso)
-    if (cellsThisWeek.length === 0) return null
-    const completed = cellsThisWeek.filter((d) => d.status === 'completed').length
-    return Math.round((completed / cellsThisWeek.length) * 100)
-  }
-
-  function ppcColor(v: number): string {
-    if (v >= 80) return 'text-[#22c55e] bg-[#22c55e]/10 border-[#22c55e]/30'
-    if (v >= 60) return 'text-[#fbbf24] bg-[#fbbf24]/10 border-[#fbbf24]/30'
-    return 'text-[#ef4444] bg-[#ef4444]/10 border-[#ef4444]/30'
-  }
+  const civilRows  = filteredRows.filter((r) => r.section === 'civil')
 
   const hasData = derivedActivities.length > 0
+  const colSpan = allWeeks.length + 1
 
   return (
-    <div className="flex flex-col gap-4 overflow-hidden">
+    <div className="flex flex-col gap-4 overflow-hidden h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
-        {/* Horizon selector */}
-        <div className="flex items-center gap-1 bg-[#14294e] border border-[#20406a] rounded-lg p-0.5">
-          {[4, 6, 8].map((w) => (
-            <button
-              key={w}
-              onClick={() => setLookaheadWeeks(w)}
-              className={cn(
-                'px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                lookaheadWeeks === w ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
-              )}
-            >
-              {w}S
-            </button>
-          ))}
-        </div>
-
-        {/* Derive button */}
         <button
           onClick={deriveFromMaster}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2abfdc] text-white text-xs font-semibold hover:bg-[#1a9ab8] transition-colors"
         >
           <RefreshCw size={12} />
-          Derivar do Mestre
+          Derivar do Mestre (6 Semanas)
         </button>
 
-        {/* Section filter */}
         <div className="flex items-center gap-1 bg-[#14294e] border border-[#20406a] rounded-lg p-0.5 ml-auto">
           {([['all', 'Todas'], ['agua', 'Água'], ['esgoto', 'Esgoto']] as [NetworkFilter, string][]).map(([key, lbl]) => (
             <button
               key={key}
               onClick={() => setFilter(key)}
               className={cn(
-                'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+                'px-3 py-1 rounded text-xs font-medium transition-colors',
                 filter === key ? 'bg-[#2abfdc] text-white' : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
               )}
             >
@@ -302,132 +352,116 @@ export function DerivacaoPanel() {
       </div>
 
       {!hasData ? (
-        <div className="flex-1 flex items-center justify-center py-16 text-[#6b6b6b] text-sm">
-          Clique em &ldquo;Derivar do Mestre&rdquo; para gerar o look-ahead de {lookaheadWeeks} semanas.
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center">
+          <p className="text-[#6b6b6b] text-sm">Clique em &ldquo;Derivar do Mestre&rdquo; para gerar o look-ahead de 6 semanas.</p>
         </div>
       ) : (
         <div className="overflow-auto flex-1 rounded-xl border border-[#20406a]">
           <table className="border-collapse text-xs min-w-full">
-            <thead>
-              <tr className="bg-[#0d2040] sticky top-0 z-10">
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-semibold border border-[#20406a] min-w-[180px] sticky left-0 bg-[#0d2040] z-20">
+            {/* Header */}
+            <thead className="sticky top-0 z-20">
+              <tr className="bg-[#0a1628]">
+                <th className="px-3 py-2.5 text-left text-[#6b6b6b] font-semibold border border-[#20406a]/50 min-w-[190px] sticky left-0 bg-[#0a1628] z-30">
                   Atividade
                 </th>
                 {allWeeks.map((w) => (
-                  <th key={w} className="px-2 py-2 text-center text-[#6b6b6b] font-semibold border border-[#20406a] min-w-[72px] whitespace-nowrap">
-                    {weekShort(w)}
+                  <th key={w} className="px-2 py-1.5 text-center border border-[#20406a]/50 min-w-[88px]">
+                    <div className="text-[#f5f5f5] font-bold text-[11px]">{weekShort(w)}</div>
+                    <div className="text-[#6b6b6b] text-[9px] font-normal mt-0.5">{weekDateRange(w)}</div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* ÁGUA section */}
+              {/* ── ÁGUA section ── */}
               {aguaRows.length > 0 && (
                 <>
-                  <tr>
-                    <td
-                      colSpan={allWeeks.length + 1}
-                      className="px-3 py-1.5 bg-[#2abfdc]/10 text-[#2abfdc] text-[10px] font-bold uppercase tracking-widest border border-[#20406a]"
-                    >
-                      ══ ÁGUA ══
-                    </td>
-                  </tr>
+                  <SectionHeaderRow label="Água" color="#2abfdc" colSpan={colSpan} />
                   {aguaRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/50">
-                      <td className="px-3 py-1.5 border border-[#20406a] text-[#a3a3a3] sticky left-0 bg-[#0d1117] z-10 whitespace-nowrap">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[160px]">{row.name}</p>
+                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>
                       {allWeeks.map((w) => (
                         <Cell
                           key={w}
                           da={row.cellMap.get(w)}
+                          actName={row.name}
                           onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
                         />
                       ))}
                     </tr>
                   ))}
+                  <PpcRow
+                    weeks={allWeeks}
+                    das={derivedActivities.filter((d) => {
+                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
+                      return r?.section === 'agua'
+                    })}
+                  />
                 </>
               )}
 
-              {/* ESGOTO section */}
+              {/* ── ESGOTO section ── */}
               {esgotoRows.length > 0 && (
                 <>
-                  <tr>
-                    <td
-                      colSpan={allWeeks.length + 1}
-                      className="px-3 py-1.5 bg-[#22c55e]/10 text-[#22c55e] text-[10px] font-bold uppercase tracking-widest border border-[#20406a]"
-                    >
-                      ══ ESGOTO ══
-                    </td>
-                  </tr>
+                  <SectionHeaderRow label="Esgoto" color="#22c55e" colSpan={colSpan} />
                   {esgotoRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/50">
-                      <td className="px-3 py-1.5 border border-[#20406a] text-[#a3a3a3] sticky left-0 bg-[#0d1117] z-10 whitespace-nowrap">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[160px]">{row.name}</p>
+                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>
                       {allWeeks.map((w) => (
                         <Cell
                           key={w}
                           da={row.cellMap.get(w)}
+                          actName={row.name}
                           onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
                         />
                       ))}
                     </tr>
                   ))}
+                  <PpcRow
+                    weeks={allWeeks}
+                    das={derivedActivities.filter((d) => {
+                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
+                      return r?.section === 'esgoto'
+                    })}
+                  />
                 </>
               )}
 
-              {/* SERVIÇOS CIVIS section */}
+              {/* ── SERVIÇOS CIVIS section ── */}
               {civilRows.length > 0 && (
                 <>
-                  <tr>
-                    <td
-                      colSpan={allWeeks.length + 1}
-                      className="px-3 py-1.5 bg-[#f59e0b]/10 text-[#f59e0b] text-[10px] font-bold uppercase tracking-widest border border-[#20406a]"
-                    >
-                      ══ SERVIÇOS CIVIS ══
-                    </td>
-                  </tr>
+                  <SectionHeaderRow label="Serviços Civis" color="#f59e0b" colSpan={colSpan} />
                   {civilRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/50">
-                      <td className="px-3 py-1.5 border border-[#20406a] text-[#a3a3a3] sticky left-0 bg-[#0d1117] z-10 whitespace-nowrap">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[160px]">{row.name}</p>
+                    <tr key={row.masterActivityId} className="hover:bg-[#14294e]/40 transition-colors">
+                      <td className="px-3 py-1.5 border border-[#20406a]/30 sticky left-0 bg-[#0d1117] z-10">
+                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
                         <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
                       </td>
                       {allWeeks.map((w) => (
                         <Cell
                           key={w}
                           da={row.cellMap.get(w)}
+                          actName={row.name}
                           onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
                         />
                       ))}
                     </tr>
                   ))}
+                  <PpcRow
+                    weeks={allWeeks}
+                    das={derivedActivities.filter((d) => {
+                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
+                      return r?.section === 'civil'
+                    })}
+                  />
                 </>
               )}
-
-              {/* PPC row */}
-              <tr className="bg-[#14294e] sticky bottom-0">
-                <td className="px-3 py-2 border border-[#20406a] text-[#6b6b6b] font-bold text-[10px] uppercase tracking-widest sticky left-0 bg-[#14294e] z-10">
-                  PPC da Semana
-                </td>
-                {allWeeks.map((w) => {
-                  const v = ppc(w)
-                  return (
-                    <td key={w} className="px-1.5 py-1.5 border border-[#20406a] text-center">
-                      {v === null ? (
-                        <span className="text-[#6b6b6b] text-[9px]">—</span>
-                      ) : (
-                        <span className={cn('px-1.5 py-0.5 rounded border text-[9px] font-bold tabular-nums', ppcColor(v))}>
-                          {v}%
-                        </span>
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
             </tbody>
           </table>
         </div>
@@ -443,14 +477,11 @@ export function DerivacaoPanel() {
               <span>{STATUS_TEXT[s]}</span>
             </div>
           ))}
-          <span className="ml-2">🚧 = Restrições vinculadas</span>
+          <span className="ml-2">⚠ = Restrição</span>
         </div>
       )}
 
-      {/* Detail modal */}
-      {selectedDa && (
-        <DetailModal da={selectedDa} onClose={() => setSelectedDa(null)} />
-      )}
+      {selectedDa && <DetailModal da={selectedDa} onClose={() => setSelectedDa(null)} />}
     </div>
   )
 }

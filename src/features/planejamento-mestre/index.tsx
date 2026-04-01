@@ -6,7 +6,7 @@ import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
 import { PlanejamentoMacroPanel } from './components/PlanejamentoMacroPanel'
 import { DerivacaoPanel } from './components/DerivacaoPanel'
-import { WhatIfPanel } from './components/WhatIfPanel'
+import { CurtoPrazoPanel } from './components/CurtoPrazoPanel'
 
 export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
@@ -23,7 +23,7 @@ export function PlanejamentoMestrePage() {
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'macro'     && <PlanejamentoMacroPanel />}
         {activeTab === 'derivacao' && <DerivacaoPanel />}
-        {activeTab === 'whatif'    && <WhatIfPanel />}
+        {activeTab === 'whatif'    && <CurtoPrazoPanel />}
       </div>
     </div>
   )

@@ -18,7 +18,6 @@ const Gestao360Page         = lazy(() => import('@/features/gestao-360/index').t
 const PlanejamentoMestrePage = lazy(() => import('@/features/planejamento-mestre/index').then((m) => ({ default: m.PlanejamentoMestrePage })))
 const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index').then((m) => ({ default: m.PlanejamentoPage })))
 const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
-const OperacaoCampoPage     = lazy(() => import('@/features/operacao-campo/index').then((m) => ({ default: m.OperacaoCampoPage })))
 const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/index').then((m) => ({ default: m.MapaInterativoPage })))
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
@@ -68,7 +67,6 @@ function App() {
           <Route path="planejamento-mestre"  element={<LazyRoute><PlanejamentoMestrePage /></LazyRoute>} />
           <Route path="planejamento"        element={<LazyRoute><PlanejamentoPage /></LazyRoute>} />
           <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
-          <Route path="operacao-campo"      element={<LazyRoute><OperacaoCampoPage /></LazyRoute>} />
           <Route path="mapa-interativo"     element={<LazyRoute><MapaInterativoPage /></LazyRoute>} />
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
