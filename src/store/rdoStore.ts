@@ -9,7 +9,7 @@
  */
 import { create } from 'zustand'
 import type {
-  RDO, RdoTab, RdoFinancialEntry, RdoTrechoEntry,
+  RDO, RdoTab, RdoFinancialEntry, RdoTrechoEntry, SabespRDO,
 } from '@/types'
 import {
   MOCK_RDOS,
@@ -24,6 +24,7 @@ interface RdoState {
   rdos:             RDO[]
   financialEntries: RdoFinancialEntry[]
   budgetBRL:        number
+  sabespRdos:       SabespRDO[]
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   setActiveTab: (tab: RdoTab) => void
@@ -32,6 +33,11 @@ interface RdoState {
   addRdo:    (rdo: Omit<RDO, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => void
   updateRdo: (id: string, updates: Partial<RDO>) => void
   removeRdo: (id: string) => void
+
+  // ── SABESP RDO CRUD ─────────────────────────────────────────────────────────
+  addSabespRdo:    (rdo: Omit<SabespRDO, 'id' | 'createdAt'>) => void
+  updateSabespRdo: (id: string, patch: Partial<SabespRDO>) => void
+  removeSabespRdo: (id: string) => void
 
   // ── Financial ────────────────────────────────────────────────────────────────
   addFinancialEntry:    (e: Omit<RdoFinancialEntry, 'id'>) => void
@@ -55,10 +61,29 @@ export const useRdoStore = create<RdoState>((set, get) => ({
   rdos:             MOCK_RDOS,
   financialEntries: MOCK_RDO_FINANCIAL_ENTRIES,
   budgetBRL:        MOCK_RDO_BUDGET_BRL,
+  sabespRdos:       [],
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // ── SABESP RDO CRUD ───────────────────────────────────────────────────────────
+
+  addSabespRdo: (rdo) =>
+    set((s) => ({
+      sabespRdos: [
+        ...s.sabespRdos,
+        { ...rdo, id: crypto.randomUUID(), createdAt: new Date().toISOString() },
+      ],
+    })),
+
+  updateSabespRdo: (id, patch) =>
+    set((s) => ({
+      sabespRdos: s.sabespRdos.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    })),
+
+  removeSabespRdo: (id) =>
+    set((s) => ({ sabespRdos: s.sabespRdos.filter((r) => r.id !== id) })),
 
   // ── RDO CRUD ──────────────────────────────────────────────────────────────────
 

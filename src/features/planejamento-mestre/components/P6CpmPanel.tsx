@@ -394,10 +394,10 @@ export function P6CpmPanel() {
 
       {/* ── Split View ────────────────────────────────────────────────────── */}
       {activities.length > 0 && (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden">
 
-          {/* LEFT TABLE */}
-          <div className="w-[480px] min-w-[480px] overflow-y-auto overflow-x-auto border-r border-[#525252]">
+          {/* TOP TABLE */}
+          <div className="h-[320px] min-h-[160px] overflow-y-auto overflow-x-auto border-b border-[#525252]">
             <table className="w-full text-[10px] border-collapse">
               <thead className="sticky top-0 z-10 bg-[#2c2c2c]">
                 <tr>
@@ -467,7 +467,7 @@ export function P6CpmPanel() {
             </table>
           </div>
 
-          {/* RIGHT GANTT */}
+          {/* BOTTOM GANTT */}
           <div ref={ganttRef} className="flex-1 overflow-auto bg-[#1a1a1a]">
             {projectStart && projectEnd && (
               <GanttSvg

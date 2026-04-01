@@ -13,6 +13,7 @@ const TABS: { key: RdoTab; label: string }[] = [
   { key: 'historico',  label: 'Histórico de RDOs'  },
   { key: 'integracao', label: 'RDO × Planejamento' },
   { key: 'financeiro', label: 'Financeiro'         },
+  { key: 'sabesp',     label: 'RDO SABESP'         },
 ]
 
 function escapeCell(value: string | number | null | undefined): string {

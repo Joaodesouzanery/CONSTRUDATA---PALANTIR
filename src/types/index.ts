@@ -1197,7 +1197,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'novo' | 'historico' | 'integracao' | 'financeiro'
+export type RdoTab = 'dashboard' | 'novo' | 'historico' | 'integracao' | 'financeiro' | 'sabesp'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
@@ -1289,6 +1289,90 @@ export interface RDO {
 
   createdAt:    string
   updatedAt:    string
+}
+
+// ─── RDO SABESP ───────────────────────────────────────────────────────────────
+
+export interface SabespClimaRow {
+  periodo: 'Manhã' | 'Tarde' | 'Noite'
+  bom: number
+  chuva: number
+  improdutivo: number
+  paradoDias: number
+  descontoDias: number
+}
+
+export interface SabespMaoDeObraRow {
+  funcao: string
+  turno1: number
+  turno2: number
+  total: number
+}
+
+export interface SabespEquipamentoRow {
+  equipamento: string
+  quantidade: number
+  horas: number
+  observacao: string
+}
+
+export interface SabespAtividadeRow {
+  descricao: string
+  executado: boolean
+  quantidade: number
+  unidade: string
+}
+
+export interface SabespRDO {
+  id: string
+  obra: string
+  data: string
+  horaInicial: string
+  horaFinal: string
+  epi: boolean
+  clima: SabespClimaRow[]
+  prazoExecucaoDias: number
+  movimentacaoMaterial: string
+  movimentacaoEquip: string
+  turno: 'Diurno' | 'Noturno' | 'Integral'
+  maoDeObra: SabespMaoDeObraRow[]
+  equipamentos: SabespEquipamentoRow[]
+  atividades: SabespAtividadeRow[]
+  observacoes: string
+  checklist: Record<string, boolean>
+  responsavelEmpreiteira: string
+  responsavelConsorcio: string
+  createdAt: string
+}
+
+// ─── Medição ──────────────────────────────────────────────────────────────────
+
+export type MedicaoTab = 'servicos' | 'boletim' | 'comparativo'
+
+export interface MedicaoServico {
+  id: string
+  codigo: string
+  descricao: string
+  unidade: string
+  qtdContratada: number
+  qtdMedidaAcumulada: number
+  qtdMesAtual: number
+  valorUnitario: number
+  valorTotal: number
+}
+
+export interface BoletimMedicao {
+  id: string
+  numero: number
+  obra: string
+  periodoInicio: string
+  periodoFim: string
+  dataEmissao: string
+  itens: MedicaoServico[]
+  valorTotal: number
+  status: 'rascunho' | 'emitido'
+  observacoes: string
+  createdAt: string
 }
 
 // ─── Quantitativos e Orçamento ────────────────────────────────────────────────
