@@ -5,9 +5,13 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from './Sidebar'
 import { DemoBanner } from './DemoBanner'
 import { AipPanel } from '@/features/aip'
+import { useIntegrationPipeline } from '@/hooks/useIntegrationPipeline'
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Activate Cadeia de Construção data pipes (RDO → Torre, LPS → Torre, RDO → Rede360)
+  useIntegrationPipeline()
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

@@ -14,22 +14,22 @@ export function AipPage() {
     {
       icon: Database,
       title: 'Acesso aos dados ao vivo',
-      desc: 'Consulta RDOs, projetos, relatórios e muito mais diretamente da plataforma.',
+      desc: 'Consulta RDOs, projetos, relatórios, PPC, riscos e muito mais diretamente da plataforma.',
     },
     {
       icon: MessageSquare,
-      title: 'Conversação natural',
-      desc: 'Faça perguntas em português sobre o estado das suas obras e contratos.',
+      title: 'Sem API — funciona offline',
+      desc: 'Motor de regras local. Sem consumo de tokens, sem custos, sem internet necessária.',
     },
     {
       icon: BarChart3,
       title: 'Análise contextual',
-      desc: 'Interpreta tendências, identifica riscos e sugere ações com base nos dados reais.',
+      desc: 'Interpreta PPC, riscos, clima de campo e mão de obra com base nos dados reais da obra.',
     },
     {
       icon: Zap,
-      title: 'Respostas rápidas',
-      desc: 'Powered by Claude — respostas precisas em segundos, sem burocracia.',
+      title: 'Respostas instantâneas',
+      desc: 'Processamento local — respostas em milissegundos, mesmo sem conexão.',
     },
   ]
 
@@ -85,14 +85,13 @@ export function AipPage() {
         ))}
       </div>
 
-      {/* Config note */}
-      <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4 mb-6">
-        <p className="text-[#6b6b6b] text-xs leading-relaxed">
-          <span className="text-[#a3a3a3] font-medium">Configuração:</span> Para ativar respostas da IA,
-          adicione <code className="bg-[#3d3d3d] px-1.5 py-0.5 rounded text-[#f97316] font-mono">
-            VITE_ANTHROPIC_API_KEY=sua_chave
-          </code> no arquivo <code className="bg-[#3d3d3d] px-1.5 py-0.5 rounded text-[#a3a3a3] font-mono">.env</code> na
-          raiz do projeto e reinicie o servidor. Sem a chave, o AIP exibe uma mensagem de instrução.
+      {/* Offline badge */}
+      <div className="rounded-xl border border-[#22c55e]/20 bg-[#22c55e]/5 p-4 mb-6 flex items-center gap-3">
+        <div className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse shrink-0" />
+        <p className="text-[#a3a3a3] text-xs leading-relaxed">
+          <span className="text-[#22c55e] font-medium">Motor local ativo.</span>{' '}
+          O AIP processa suas consultas diretamente no browser — sem chamadas externas, sem custos de API, sem necessidade de internet.
+          Os dados são lidos em tempo real dos stores da plataforma.
         </p>
       </div>
 

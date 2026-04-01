@@ -1,56 +1,22 @@
 /**
  * AipPanel — Palantir-style AI assistant for CONSTRUDATA platform.
  *
- * Reads live data from Zustand stores and uses Claude API for responses.
- * Requires VITE_ANTHROPIC_API_KEY in your .env file.
- *
- * ⚠️ Note: The API key is exposed in the client bundle — suitable for
- *    internal/demo use only. For production, proxy through a backend.
+ * Uses a rule-based query engine — no external API required, no token costs.
+ * Reads live data from Zustand stores and returns structured responses.
  */
 import { useRef, useEffect, useState } from 'react'
-import { Sparkles, X, Send, Trash2, Loader2, BrainCircuit } from 'lucide-react'
+import { Sparkles, X, Send, Trash2, BrainCircuit } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAipStore } from '../store/aipStore'
-import { useAipDataDigest } from '../hooks/useAipDataDigest'
+import { queryLocal } from '../utils/queryEngine'
 
-const API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined
-
-async function callClaude(
-  messages: { role: 'user' | 'assistant'; content: string }[],
-  systemPrompt: string
-): Promise<string> {
-  if (!API_KEY) {
-    return (
-      '⚠️ **Chave de API não configurada.**\n\n' +
-      'Para ativar o AIP, adicione `VITE_ANTHROPIC_API_KEY=sua_chave` no arquivo `.env` ' +
-      'na raiz do projeto e reinicie o servidor de desenvolvimento.'
-    )
-  }
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages,
-    }),
-  })
-
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`API error ${res.status}: ${err}`)
-  }
-
-  const data = (await res.json()) as { content: { type: string; text: string }[] }
-  return data.content.find((c) => c.type === 'text')?.text ?? '(sem resposta)'
-}
+const SUGGESTIONS = [
+  'Quantos RDOs foram registrados?',
+  'Qual o clima dos últimos RDOs?',
+  'Projetos ativos',
+  'PPC desta semana',
+  'Riscos críticos',
+]
 
 function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content: string }) {
   const isUser = role === 'user'
@@ -79,8 +45,7 @@ function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content:
 export function AipPanel() {
   const { isOpen, messages, isLoading, togglePanel, addMessage, setLoading, clearHistory } =
     useAipStore()
-  const digest    = useAipDataDigest()
-  const [input, setInput]   = useState('')
+  const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLTextAreaElement>(null)
 
@@ -91,7 +56,7 @@ export function AipPanel() {
     }
   }, [isOpen, messages.length])
 
-  async function handleSend() {
+  function handleSend() {
     const text = input.trim()
     if (!text || isLoading) return
 
@@ -99,29 +64,23 @@ export function AipPanel() {
     addMessage('user', text)
     setLoading(true)
 
-    const systemPrompt =
-      `Você é AIP, o assistente de inteligência de dados da plataforma CONSTRUDATA — ` +
-      `uma plataforma de gestão de obras e saneamento. Responda em português brasileiro, ` +
-      `de forma concisa e objetiva. Quando relevante, cite dados específicos da plataforma.\n\n` +
-      `### Estado atual da plataforma:\n${digest}`
-
-    const history = messages.map((m) => ({ role: m.role, content: m.content }))
-    history.push({ role: 'user', content: text })
-
-    try {
-      const reply = await callClaude(history, systemPrompt)
-      addMessage('assistant', reply)
-    } catch (err) {
-      addMessage('assistant', `❌ Erro ao consultar a IA: ${err instanceof Error ? err.message : String(err)}`)
-    } finally {
-      setLoading(false)
-    }
+    // Small timeout to allow UI to update before running query
+    setTimeout(() => {
+      try {
+        const reply = queryLocal(text)
+        addMessage('assistant', reply)
+      } catch (err) {
+        addMessage('assistant', `❌ Erro ao processar consulta: ${err instanceof Error ? err.message : String(err)}`)
+      } finally {
+        setLoading(false)
+      }
+    }, 120)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      void handleSend()
+      handleSend()
     }
   }
 
@@ -165,6 +124,10 @@ export function AipPanel() {
             <span className="text-[#6b6b6b] text-[10px] uppercase tracking-widest">Assistente de Dados</span>
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <div className="flex items-center gap-1 mr-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+              <span className="text-[#6b6b6b] text-[10px]">offline</span>
+            </div>
             <button
               onClick={clearHistory}
               title="Limpar histórico"
@@ -192,15 +155,11 @@ export function AipPanel() {
               <div>
                 <p className="text-[#f5f5f5] text-sm font-medium mb-1">Como posso ajudar?</p>
                 <p className="text-[#6b6b6b] text-xs leading-relaxed max-w-[280px]">
-                  Pergunte sobre RDOs, projetos, status de obras, relatórios e dados da plataforma.
+                  Consulte dados de RDOs, projetos, PPC, riscos e muito mais — sem internet.
                 </p>
               </div>
               <div className="flex flex-col gap-2 w-full max-w-[300px]">
-                {[
-                  'Quantos RDOs foram registrados?',
-                  'Qual o status dos projetos ativos?',
-                  'Resuma as últimas atividades registradas.',
-                ].map((suggestion) => (
+                {SUGGESTIONS.map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => { setInput(suggestion); inputRef.current?.focus() }}
@@ -222,8 +181,10 @@ export function AipPanel() {
               <div className="shrink-0 w-7 h-7 rounded-full bg-[#f97316]/15 border border-[#f97316]/30 flex items-center justify-center mt-0.5">
                 <Sparkles size={13} className="text-[#f97316]" />
               </div>
-              <div className="px-3.5 py-2.5 rounded-xl bg-[#3d3d3d] border border-[#525252] rounded-bl-sm">
-                <Loader2 size={14} className="text-[#f97316] animate-spin" />
+              <div className="px-3.5 py-2.5 rounded-xl bg-[#3d3d3d] border border-[#525252] rounded-bl-sm flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           )}
@@ -239,7 +200,7 @@ export function AipPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Pergunte sobre os dados da plataforma…"
+              placeholder="Ex: quantos rdos? / ppc / riscos / clima…"
               rows={1}
               className={cn(
                 'flex-1 resize-none rounded-xl px-3.5 py-2.5 text-sm',
@@ -256,7 +217,7 @@ export function AipPanel() {
               }}
             />
             <button
-              onClick={() => void handleSend()}
+              onClick={handleSend}
               disabled={!input.trim() || isLoading}
               className={cn(
                 'shrink-0 w-9 h-9 rounded-xl flex items-center justify-center',
@@ -266,11 +227,11 @@ export function AipPanel() {
                   : 'bg-[#3d3d3d] text-[#525252] cursor-not-allowed border border-[#525252]',
               )}
             >
-              {isLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              <Send size={15} />
             </button>
           </div>
           <p className="text-[#525252] text-[10px] mt-2 text-center">
-            Enter para enviar · Shift+Enter para nova linha
+            Motor local · sem API · dados ao vivo
           </p>
         </div>
       </div>
