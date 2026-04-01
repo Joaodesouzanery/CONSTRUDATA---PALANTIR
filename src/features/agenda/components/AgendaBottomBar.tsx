@@ -6,17 +6,17 @@ export function AgendaBottomBar() {
   const unscheduled = getUnscheduledCount(tasks)
 
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5 border-t border-[#2a2a2a] bg-[#161616] shrink-0">
+    <div className="flex items-center gap-4 px-5 py-2.5 border-t border-[#303030] bg-[#1a1a1a] shrink-0">
       {/* Unscheduled badge */}
       <button className="flex items-center gap-1.5 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">
-        <span className="flex items-center justify-center w-5 h-5 rounded bg-[#2a2a2a] font-mono text-[10px] font-bold text-[#f5f5f5]">
+        <span className="flex items-center justify-center w-5 h-5 rounded bg-[#303030] font-mono text-[10px] font-bold text-[#f5f5f5]">
           {unscheduled}
         </span>
         <span>Não agendados</span>
         <ChevronUp size={12} />
       </button>
 
-      <div className="h-4 w-px bg-[#2a2a2a]" />
+      <div className="h-4 w-px bg-[#303030]" />
 
       {/* Actions */}
       <button className="flex items-center gap-1.5 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">
@@ -29,7 +29,7 @@ export function AgendaBottomBar() {
         Changelog
       </button>
 
-      <div className="h-4 w-px bg-[#2a2a2a]" />
+      <div className="h-4 w-px bg-[#303030]" />
 
       {/* Undo / Redo (visual only — full undo history is a future feature) */}
       <div className="flex items-center gap-1">
@@ -49,7 +49,7 @@ export function AgendaBottomBar() {
         </button>
       </div>
 
-      <div className="h-4 w-px bg-[#2a2a2a]" />
+      <div className="h-4 w-px bg-[#303030]" />
 
       <button className="flex items-center gap-1.5 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">
         <RotateCcw size={12} />

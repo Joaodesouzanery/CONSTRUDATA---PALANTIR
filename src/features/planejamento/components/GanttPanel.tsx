@@ -41,10 +41,10 @@ function TrechoQuickEdit({ trechoId, onClose }: { trechoId: string; onClose: () 
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#262626] border border-[#363636] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-orange-500'
+  const inputCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-orange-500'
 
   return (
-    <div className="absolute left-0 top-full mt-1 z-50 bg-[#1e1e1e] border border-[#363636] rounded-xl shadow-xl p-3 w-64" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute left-0 top-full mt-1 z-50 bg-[#202020] border border-[#363636] rounded-xl shadow-xl p-3 w-64" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-white text-xs font-semibold">Editar {t.code}</span>
         <button onClick={onClose} className="text-[#a3a3a3] hover:text-white"><X size={12} /></button>
@@ -118,7 +118,7 @@ export function GanttPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* KPI strip */}
-      <div className="px-6 py-4 bg-[#0f0f0f] border-b border-[#2a2a2a] flex items-center gap-6 flex-wrap text-sm">
+      <div className="px-6 py-4 bg-[#141414] border-b border-[#303030] flex items-center gap-6 flex-wrap text-sm">
         <Kpi label="Trechos" value={String(trechos.length)} />
         <Kpi label="Total Metros" value={`${totalMeters.toFixed(0)} m`} />
         <Kpi label="Dias Úteis" value={String(workDays.length)} />
@@ -141,14 +141,14 @@ export function GanttPanel() {
         <div style={{ minWidth: TRECHO_COL_W + workDays.length * CELL_W + 'px' }}>
           {/* Header row */}
           <div
-            className="flex sticky top-0 z-20 bg-[#1e1e1e] border-b border-[#2a2a2a]"
+            className="flex sticky top-0 z-20 bg-[#202020] border-b border-[#303030]"
             style={{ paddingLeft: TRECHO_COL_W + 'px' }}
           >
             {workDays.map((d, i) => (
               <div
                 key={d}
                 style={{ width: CELL_W, minWidth: CELL_W }}
-                className="text-center text-xs text-[#6b6b6b] py-2 border-r border-[#2a2a2a]/40 shrink-0"
+                className="text-center text-xs text-[#6b6b6b] py-2 border-r border-[#303030]/40 shrink-0"
                 title={d}
               >
                 {i + 1}
@@ -163,10 +163,10 @@ export function GanttPanel() {
             const teamName = teams[row.teamIndex]?.name ?? `Equipe ${row.teamIndex + 1}`
 
             return (
-              <div key={row.trecho.id} className="flex border-b border-[#1e1e1e] hover:bg-[#1e1e1e]/30 transition-colors">
+              <div key={row.trecho.id} className="flex border-b border-[#202020] hover:bg-[#202020]/30 transition-colors">
                 {/* Sticky trecho label */}
                 <div
-                  className="sticky left-0 z-10 flex flex-col justify-center bg-[#0f0f0f] border-r border-[#2a2a2a] px-3 shrink-0 relative group"
+                  className="sticky left-0 z-10 flex flex-col justify-center bg-[#141414] border-r border-[#303030] px-3 shrink-0 relative group"
                   style={{ width: TRECHO_COL_W, minWidth: TRECHO_COL_W }}
                 >
                   <div className="flex items-center gap-1">
@@ -207,7 +207,7 @@ export function GanttPanel() {
                       <div
                         key={d}
                         style={{ width: CELL_W, minWidth: CELL_W }}
-                        className="border-r border-[#1e1e1e]/40 shrink-0"
+                        className="border-r border-[#202020]/40 shrink-0"
                       />
                     )
                   }
@@ -216,7 +216,7 @@ export function GanttPanel() {
                       <div
                         key={d}
                         style={{ width: CELL_W, minWidth: CELL_W, backgroundColor: '#eab308' }}
-                        className="border-r border-[#2a2a2a]/40 shrink-0 flex items-center justify-center text-xs font-bold text-gray-900 py-2"
+                        className="border-r border-[#303030]/40 shrink-0 flex items-center justify-center text-xs font-bold text-gray-900 py-2"
                         title={`Teste Hidrostático — ${d}`}
                       >
                         T
@@ -227,7 +227,7 @@ export function GanttPanel() {
                     <div
                       key={d}
                       style={{ width: CELL_W, minWidth: CELL_W, backgroundColor: color }}
-                      className="border-r border-[#2a2a2a]/20 shrink-0 flex items-center justify-center text-xs text-white py-2 font-medium"
+                      className="border-r border-[#303030]/20 shrink-0 flex items-center justify-center text-xs text-white py-2 font-medium"
                       title={`${row.trecho.code} — ${cell.metersPlanned.toFixed(1)} m — ${d}`}
                     >
                       {cell.metersPlanned > 0 ? cell.metersPlanned.toFixed(0) : ''}
@@ -241,7 +241,7 @@ export function GanttPanel() {
       </div>
 
       {/* Legend */}
-      <div className="px-6 py-3 bg-[#0f0f0f] border-t border-[#2a2a2a] flex items-center gap-6 text-xs text-[#a3a3a3]">
+      <div className="px-6 py-3 bg-[#141414] border-t border-[#303030] flex items-center gap-6 text-xs text-[#a3a3a3]">
         <span className="flex items-center gap-1.5">
           <span className="w-4 h-4 rounded-sm bg-blue-500 inline-block" /> Execução (metros/dia)
         </span>

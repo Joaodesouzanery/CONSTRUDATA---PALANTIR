@@ -46,7 +46,7 @@ export function TaktTimePanel() {
               min={1}
               value={taktTotalDays}
               onChange={(e) => setTaktTotalDays(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-24 bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500 text-center font-mono"
+              className="w-24 bg-[#202020] border border-[#303030] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500 text-center font-mono"
             />
             <span className="text-[#6b6b6b] text-sm">dias</span>
           </div>
@@ -55,7 +55,7 @@ export function TaktTimePanel() {
           </p>
         </div>
 
-        <div className="w-px h-12 bg-[#262626] self-center shrink-0" />
+        <div className="w-px h-12 bg-[#2a2a2a] self-center shrink-0" />
 
         {/* KPIs */}
         <div className="flex items-center gap-6 flex-wrap">
@@ -74,7 +74,7 @@ export function TaktTimePanel() {
       </div>
 
       {/* Timeline visualization */}
-      <div className="rounded-xl border border-[#1e1e1e] bg-[#0f0f0f] p-5">
+      <div className="rounded-xl border border-[#202020] bg-[#141414] p-5">
         <p className="text-xs font-semibold text-white mb-4">Fluxo Takt — Zonas em sequência</p>
 
         {zones.length === 0 ? (
@@ -117,14 +117,14 @@ export function TaktTimePanel() {
 
             {/* Scale */}
             <div className="relative h-3">
-              <div className="absolute inset-x-0 top-1/2 h-px bg-[#262626]" />
+              <div className="absolute inset-x-0 top-1/2 h-px bg-[#2a2a2a]" />
               {[0, 25, 50, 75, 100].map((pct) => (
                 <div
                   key={pct}
                   className="absolute flex flex-col items-center"
                   style={{ left: `${pct}%` }}
                 >
-                  <div className="w-px h-2 bg-[#2a2a2a]" />
+                  <div className="w-px h-2 bg-[#303030]" />
                   <span className="text-[9px] text-gray-600 mt-0.5">
                     {Math.round((pct / 100) * timelineTotal)}d
                   </span>
@@ -136,9 +136,9 @@ export function TaktTimePanel() {
       </div>
 
       {/* Zone table */}
-      <div className="rounded-xl border border-[#1e1e1e] overflow-x-auto overflow-hidden">
+      <div className="rounded-xl border border-[#202020] overflow-x-auto overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#1e1e1e]/80 border-b border-[#2a2a2a]">
+          <thead className="bg-[#202020]/80 border-b border-[#303030]">
             <tr>
               <th className="text-left text-[#a3a3a3] px-4 py-2.5 text-xs font-semibold">Zona</th>
               <th className="text-right text-[#a3a3a3] px-4 py-2.5 text-xs font-semibold">Extensão (m)</th>
@@ -147,12 +147,12 @@ export function TaktTimePanel() {
               <th className="text-left text-[#a3a3a3] px-4 py-2.5 text-xs font-semibold">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e1e1e]">
+          <tbody className="divide-y divide-[#202020]">
             {zones.map((z) => {
               const isOk  = z.actualDays !== undefined && z.actualDays <= z.taktDays
 
               return (
-                <tr key={z.id} className="bg-[#0f0f0f] hover:bg-[#1e1e1e]/50 transition-colors">
+                <tr key={z.id} className="bg-[#141414] hover:bg-[#202020]/50 transition-colors">
                   <td className="px-4 py-2.5">
                     <span className="font-semibold text-white">{z.code}</span>
                     <span className="text-[#6b6b6b] text-xs ml-2">{z.lengthM} m</span>
@@ -169,7 +169,7 @@ export function TaktTimePanel() {
                         const val = e.target.value === '' ? undefined : parseInt(e.target.value)
                         updateTaktZone(z.id, { actualDays: val })
                       }}
-                      className="w-16 bg-[#1e1e1e] border border-[#2a2a2a] rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:border-orange-500 text-right"
+                      className="w-16 bg-[#202020] border border-[#303030] rounded px-2 py-0.5 text-xs text-white focus:outline-none focus:border-orange-500 text-right"
                     />
                   </td>
                   <td className="px-4 py-2.5">

@@ -60,7 +60,7 @@ export function RdoHeader() {
 
   return (
     <>
-    <div className="bg-[#0f0f0f] border-b border-[#2a2a2a] print:hidden">
+    <div className="bg-[#141414] border-b border-[#303030] print:hidden">
       {/* Title + actions */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -76,7 +76,7 @@ export function RdoHeader() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowLogoModal(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#262626] text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#262626] transition-colors border border-[#2a2a2a] hover:border-[#f97316]/30"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#2a2a2a] text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#2a2a2a] transition-colors border border-[#303030] hover:border-[#f97316]/30"
           >
             <Settings size={15} />
             <span className="hidden sm:inline">Configurar Logo</span>
@@ -90,7 +90,7 @@ export function RdoHeader() {
           </button>
           <button
             onClick={handleExportCsv}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#262626] text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#2a2a2a] text-[#f5f5f5] hover:bg-[#303030] transition-colors"
           >
             <Download size={15} />
             Exportar CSV
@@ -109,8 +109,8 @@ export function RdoHeader() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2 ${
                   isActive
-                    ? 'text-[#f97316] border-[#f97316] bg-[#1e1e1e]'
-                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#1e1e1e]/50'
+                    ? 'text-[#f97316] border-[#f97316] bg-[#202020]'
+                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#202020]/50'
                 }`}
               >
                 {tab.label}

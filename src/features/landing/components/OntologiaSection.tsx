@@ -8,7 +8,7 @@ export function OntologiaSection() {
   ]
 
   return (
-    <section id="plataforma" style={{ background: '#161616', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
+    <section id="plataforma" style={{ background: '#1a1a1a', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
       <div className="max-w-7xl mx-auto px-6">
         {/* Section label */}
         <div className="flex items-center gap-3 mb-16">

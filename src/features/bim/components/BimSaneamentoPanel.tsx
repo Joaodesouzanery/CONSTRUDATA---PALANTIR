@@ -19,7 +19,7 @@ function TabRede() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-5 gap-1 px-3 py-2 text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wider border-b border-[#2a2a2a]">
+      <div className="grid grid-cols-5 gap-1 px-3 py-2 text-[10px] font-semibold text-[#6b6b6b] uppercase tracking-wider border-b border-[#303030]">
         <span className="col-span-1">Trecho</span>
         <span className="text-right">DN (mm)</span>
         <span className="text-right">Comp. (m)</span>
@@ -30,7 +30,7 @@ function TabRede() {
         {segments.slice(0, 80).map((seg) => (
           <div
             key={seg.id}
-            className="grid grid-cols-5 gap-1 px-3 py-1.5 text-xs border-b border-[#2a2a2a]/40 hover:bg-[#1e1e1e]/50 transition-colors"
+            className="grid grid-cols-5 gap-1 px-3 py-1.5 text-xs border-b border-[#303030]/40 hover:bg-[#202020]/50 transition-colors"
           >
             <span className="text-[#f97316] font-mono text-[10px]">{seg.trechoCode || '—'}</span>
             <span className="text-right text-[#f5f5f5]">{seg.diameter ?? '—'}</span>
@@ -46,7 +46,7 @@ function TabRede() {
         )}
       </div>
       {/* KPIs */}
-      <div className="border-t border-[#2a2a2a] px-3 py-2 flex gap-4 text-[10px]">
+      <div className="border-t border-[#303030] px-3 py-2 flex gap-4 text-[10px]">
         <div>
           <span className="text-[#6b6b6b]">Total trechos: </span>
           <span className="text-[#f97316] font-bold">{segments.length}</span>
@@ -100,8 +100,8 @@ function TabFluxograma() {
                 onMouseLeave={() => setHovered(null)}
                 className="flex items-center gap-3 px-4 py-2.5 rounded-xl border w-full cursor-default transition-all"
                 style={{
-                  background:   isHov ? `${stage.color}18` : '#1e1e1e',
-                  borderColor:  isHov ? `${stage.color}60` : '#2a2a2a',
+                  background:   isHov ? `${stage.color}18` : '#202020',
+                  borderColor:  isHov ? `${stage.color}60` : '#303030',
                 }}
               >
                 {/* Step number */}
@@ -126,8 +126,8 @@ function TabFluxograma() {
               {/* Arrow */}
               {!isLast && (
                 <div className="flex items-center ml-7 my-0.5">
-                  <div className="w-px h-3 bg-[#2a2a2a]" />
-                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#2a2a2a] -ml-[3.5px]" />
+                  <div className="w-px h-3 bg-[#303030]" />
+                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#303030] -ml-[3.5px]" />
                 </div>
               )}
             </div>
@@ -136,13 +136,13 @@ function TabFluxograma() {
       </div>
 
       {/* Lodo pathway */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl px-4 py-3">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl px-4 py-3">
         <p className="text-[#6b6b6b] text-[10px] font-semibold uppercase tracking-wider mb-2">Via do Lodo</p>
         <div className="flex items-center gap-2 text-xs flex-wrap">
           {['Adensamento', 'Digestão Anaeróbia', 'Desidratação', 'Destinação Final'].map((s, i, arr) => (
             <span key={s} className="flex items-center gap-2">
               <span className="text-[#a3a3a3]">{s}</span>
-              {i < arr.length - 1 && <span className="text-[#2a2a2a]">→</span>}
+              {i < arr.length - 1 && <span className="text-[#303030]">→</span>}
             </span>
           ))}
         </div>
@@ -219,8 +219,8 @@ function SensorCard({ s }: { s: ReturnType<typeof useSensorData>[number] }) {
 
   return (
     <div
-      className="bg-[#1e1e1e] border rounded-xl px-3 py-3 flex flex-col gap-2"
-      style={{ borderColor: status !== 'ok' ? `${color}40` : '#2a2a2a' }}
+      className="bg-[#202020] border rounded-xl px-3 py-3 flex flex-col gap-2"
+      style={{ borderColor: status !== 'ok' ? `${color}40` : '#303030' }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ function SensorCard({ s }: { s: ReturnType<typeof useSensorData>[number] }) {
         <span className="text-[#6b6b6b] text-xs pb-0.5">{s.unit}</span>
       </div>
       {/* Progress bar */}
-      <div className="h-1 bg-[#2a2a2a] rounded-full overflow-hidden">
+      <div className="h-1 bg-[#303030] rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: color }} />
       </div>
     </div>
@@ -295,15 +295,15 @@ export function BimSaneamentoPanel() {
   ]
 
   return (
-    <div className="w-[260px] shrink-0 flex flex-col bg-[#161616] border-l border-[#2a2a2a] overflow-hidden h-full">
+    <div className="w-[260px] shrink-0 flex flex-col bg-[#1a1a1a] border-l border-[#303030] overflow-hidden h-full">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-[#2a2a2a]">
+      <div className="px-3 py-2.5 border-b border-[#303030]">
         <p className="text-[#f97316] text-xs font-semibold">Saneamento</p>
         <p className="text-[#6b6b6b] text-[10px]">Análise de rede sanitária</p>
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-[#2a2a2a]">
+      <div className="flex border-b border-[#303030]">
         {tabs.map((t) => (
           <button
             key={t.id}

@@ -69,20 +69,20 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
   }
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] overflow-hidden">
+    <div className="rounded-xl border border-[#303030] bg-[#202020] overflow-hidden">
       <div className="w-full flex items-center justify-between px-4 py-3">
         {editing ? (
           <div className="flex-1 flex items-center gap-2 flex-wrap">
             <input
               value={draftForeman}
               onChange={(e) => setDraftForeman(e.target.value)}
-              className="flex-1 min-w-[120px] bg-[#161616] border border-[#2a2a2a] rounded-lg px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+              className="flex-1 min-w-[120px] bg-[#1a1a1a] border border-[#303030] rounded-lg px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
               placeholder="Encarregado"
             />
             <input
               value={draftType}
               onChange={(e) => setDraftType(e.target.value)}
-              className="w-28 bg-[#161616] border border-[#2a2a2a] rounded-lg px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+              className="w-28 bg-[#1a1a1a] border border-[#303030] rounded-lg px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
               placeholder="Tipo"
             />
             <button onClick={saveCrew} className="text-[#22c55e] hover:text-[#22c55e]/80 transition-colors" title="Salvar">
@@ -128,7 +128,7 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
       </div>
 
       {open && (
-        <div className="border-t border-[#2a2a2a] px-4 py-3 flex flex-col gap-3">
+        <div className="border-t border-[#303030] px-4 py-3 flex flex-col gap-3">
           {/* Timecards */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -151,20 +151,20 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
                       <input
                         value={tcEdits[tc.id]?.workerName ?? tc.workerName}
                         onChange={(e) => setTcEdits((p) => ({ ...p, [tc.id]: { ...p[tc.id], workerName: e.target.value } }))}
-                        className="bg-[#161616] border border-[#2a2a2a] rounded px-1.5 py-0.5 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+                        className="bg-[#1a1a1a] border border-[#303030] rounded px-1.5 py-0.5 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
                         placeholder="Nome"
                       />
                       <input
                         value={tcEdits[tc.id]?.role ?? tc.role}
                         onChange={(e) => setTcEdits((p) => ({ ...p, [tc.id]: { ...p[tc.id], role: e.target.value } }))}
-                        className="bg-[#161616] border border-[#2a2a2a] rounded px-1.5 py-0.5 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+                        className="bg-[#1a1a1a] border border-[#303030] rounded px-1.5 py-0.5 text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
                         placeholder="Função"
                       />
                       <input
                         type="number" min={0} step={0.5}
                         value={tcEdits[tc.id]?.hoursWorked ?? tc.hoursWorked}
                         onChange={(e) => setTcEdits((p) => ({ ...p, [tc.id]: { ...p[tc.id], hoursWorked: Number(e.target.value) } }))}
-                        className="bg-[#161616] border border-[#2a2a2a] rounded px-1.5 py-0.5 text-[#f5f5f5] text-center focus:outline-none focus:border-[#f97316]/60"
+                        className="bg-[#1a1a1a] border border-[#303030] rounded px-1.5 py-0.5 text-[#f5f5f5] text-center focus:outline-none focus:border-[#f97316]/60"
                       />
                       <div className="flex items-center gap-1">
                         <button onClick={() => saveTc(tc.id)} className="text-[#22c55e]"><Check size={12} /></button>
@@ -198,21 +198,21 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
                   <input
                     value={newTc.workerName}
                     onChange={(e) => setNewTc((p) => ({ ...p, workerName: e.target.value }))}
-                    className="bg-[#161616] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+                    className="bg-[#1a1a1a] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
                     placeholder="Nome *"
                     autoFocus
                   />
                   <input
                     value={newTc.role}
                     onChange={(e) => setNewTc((p) => ({ ...p, role: e.target.value }))}
-                    className="bg-[#161616] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
+                    className="bg-[#1a1a1a] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60"
                     placeholder="Função"
                   />
                   <input
                     type="number" min={0} step={0.5}
                     value={newTc.hoursWorked}
                     onChange={(e) => setNewTc((p) => ({ ...p, hoursWorked: Number(e.target.value) }))}
-                    className="bg-[#161616] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] text-center focus:outline-none focus:border-[#f97316]/60"
+                    className="bg-[#1a1a1a] border border-[#f97316]/40 rounded px-1.5 py-0.5 text-xs text-[#f5f5f5] text-center focus:outline-none focus:border-[#f97316]/60"
                   />
                   <div className="flex items-center gap-1">
                     <button onClick={submitNewTc} disabled={!newTc.workerName.trim()} className="text-[#22c55e] disabled:opacity-40"><Check size={12} /></button>
@@ -276,7 +276,7 @@ export function CrewsPanel() {
       </div>
 
       {crews.length === 0 ? (
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-6 text-center text-sm text-[#6b6b6b]">
+        <div className="rounded-xl border border-[#303030] bg-[#202020] p-6 text-center text-sm text-[#6b6b6b]">
           Nenhuma equipe registrada
         </div>
       ) : (

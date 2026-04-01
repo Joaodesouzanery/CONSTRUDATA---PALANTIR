@@ -110,13 +110,13 @@ export function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex flex-col shrink-0 border-r border-[#2a2a2a] bg-[#0f0f0f] h-full',
+        'flex flex-col shrink-0 border-r border-[#303030] bg-[#141414] h-full',
         'transition-[width] duration-200 ease-in-out overflow-hidden',
         isOpen ? 'w-[220px]' : 'w-16',
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 border-b border-[#2a2a2a] shrink-0 px-4 gap-3">
+      <div className="flex items-center h-14 border-b border-[#303030] shrink-0 px-4 gap-3">
         <div
           className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
           style={{
@@ -161,7 +161,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 {group.label}
               </span>
             ) : (
-              <div className="mx-3 my-1.5 border-t border-[#2a2a2a]" />
+              <div className="mx-3 my-1.5 border-t border-[#303030]" />
             )}
 
             {/* Nav items in this group */}
@@ -215,7 +215,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         ))}
 
         {/* Bottom controls */}
-        <div className="mt-auto flex flex-col gap-0.5 pt-2 mx-2 border-t border-[#2a2a2a]">
+        <div className="mt-auto flex flex-col gap-0.5 pt-2 mx-2 border-t border-[#303030]">
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}

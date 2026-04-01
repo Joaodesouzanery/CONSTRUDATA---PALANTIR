@@ -53,11 +53,11 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
     { label: 'Conciliadas',  value: conciliado,  color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
     { label: 'Parciais',     value: parcial,     color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
     { label: 'Com Exceção',  value: comExcecao,  color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
-    { label: 'Total OCs',    value: totalPOs,    color: 'text-[#f5f5f5]', bg: 'bg-[#1e1e1e] border-[#2a2a2a]'       },
+    { label: 'Total OCs',    value: totalPOs,    color: 'text-[#f5f5f5]', bg: 'bg-[#202020] border-[#303030]'       },
   ]
 
   const matKpis = [
-    { label: 'Total Itens',      value: totalItens,   color: 'text-[#f5f5f5]', bg: 'bg-[#1e1e1e] border-[#2a2a2a]'       },
+    { label: 'Total Itens',      value: totalItens,   color: 'text-[#f5f5f5]', bg: 'bg-[#202020] border-[#303030]'       },
     { label: 'Em Ruptura',       value: emRuptura,    color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
     { label: 'Em Trânsito',      value: emTransito,   color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
     { label: 'Valor em Estoque', value: `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
@@ -80,7 +80,7 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
 
       {/* Tab bar + exception badge */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg p-1 flex-wrap">
+        <div className="flex gap-1 bg-[#202020] border border-[#303030] rounded-lg p-1 flex-wrap">
           {visibleTabs.map((tab) => (
             <button
               key={tab.key}

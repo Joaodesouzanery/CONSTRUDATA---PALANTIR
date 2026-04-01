@@ -28,9 +28,9 @@ export function GridLayerPanel() {
   }
 
   return (
-    <div className="hidden md:flex w-48 shrink-0 bg-[#0f0f0f] border-r border-[#2a2a2a] flex-col overflow-y-auto">
+    <div className="hidden md:flex w-48 shrink-0 bg-[#141414] border-r border-[#303030] flex-col overflow-y-auto">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-[#2a2a2a] flex items-center justify-between">
+      <div className="px-3 py-2.5 border-b border-[#303030] flex items-center justify-between">
         <span className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wider">Camadas</span>
         <button
           onClick={toggleAll}
@@ -47,7 +47,7 @@ export function GridLayerPanel() {
             <button
               key={key}
               onClick={() => setLayerVisibility(key, !visible)}
-              className="flex items-center gap-2 px-3 py-2 hover:bg-[#1e1e1e] transition-colors group text-left"
+              className="flex items-center gap-2 px-3 py-2 hover:bg-[#202020] transition-colors group text-left"
             >
               <span
                 className="w-2.5 h-2.5 rounded-sm shrink-0 transition-opacity"

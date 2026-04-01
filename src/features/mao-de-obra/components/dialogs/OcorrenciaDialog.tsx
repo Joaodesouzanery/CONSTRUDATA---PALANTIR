@@ -65,7 +65,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-xl w-full max-w-md p-6 flex flex-col gap-4">
+      <div className="bg-[#1a1a1a] border border-[#303030] rounded-xl w-full max-w-md p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[#f5f5f5] text-base font-semibold">Registrar Ocorrência</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
@@ -82,7 +82,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
                 type="date"
                 value={form.date}
                 onChange={(e) => handleField('date', e.target.value)}
-                className="bg-[#1e1e1e] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+                className="bg-[#202020] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               />
               {errors.date && <span className="text-[#ef4444] text-xs">{errors.date}</span>}
             </label>
@@ -92,7 +92,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
               <select
                 value={form.type}
                 onChange={(e) => handleField('type', e.target.value as import('@/types').OccurrenceType)}
-                className="bg-[#1e1e1e] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+                className="bg-[#202020] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               >
                 {TYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -109,7 +109,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
               rows={3}
               value={form.description}
               onChange={(e) => handleField('description', e.target.value)}
-              className="bg-[#1e1e1e] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316] resize-none"
+              className="bg-[#202020] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316] resize-none"
               placeholder="Descreva a ocorrência e seu impacto..."
             />
             {errors.description && <span className="text-[#ef4444] text-xs">{errors.description}</span>}
@@ -125,7 +125,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
               step={1}
               value={form.impactHours}
               onChange={(e) => handleField('impactHours', parseFloat(e.target.value) || 0)}
-              className="bg-[#1e1e1e] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+              className="bg-[#202020] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
             />
             {errors.impactHours && <span className="text-[#ef4444] text-xs">{errors.impactHours}</span>}
           </label>
@@ -140,7 +140,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
                     type="checkbox"
                     checked={form.affectedCrewIds.includes(crew.id)}
                     onChange={() => toggleCrew(crew.id)}
-                    className="rounded border-[#1f3c5e] bg-[#1e1e1e] accent-[#f97316]"
+                    className="rounded border-[#1f3c5e] bg-[#202020] accent-[#f97316]"
                   />
                   <span className="text-[#f5f5f5] text-sm">{crew.name}</span>
                 </label>
@@ -156,7 +156,7 @@ export function OcorrenciaDialog({ onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm hover:bg-[#262626] transition-colors"
+              className="px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm hover:bg-[#2a2a2a] transition-colors"
             >
               Cancelar
             </button>

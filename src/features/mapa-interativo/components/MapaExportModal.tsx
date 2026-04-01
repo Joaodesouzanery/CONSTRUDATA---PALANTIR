@@ -104,9 +104,9 @@ export function MapaExportModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl w-full max-w-sm shadow-2xl">
+      <div className="bg-[#141414] border border-[#303030] rounded-xl w-full max-w-sm shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
           <h3 className="text-sm font-bold text-white">Exportar Mapa</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
@@ -142,7 +142,7 @@ export function MapaExportModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-6 py-4 border-t border-[#2a2a2a]">
+        <div className="flex justify-end px-6 py-4 border-t border-[#303030]">
           <button onClick={onClose} className="px-4 py-2 text-sm text-[#a3a3a3] hover:text-white transition-colors">
             Fechar
           </button>
@@ -158,7 +158,7 @@ function ExportOption({ label, desc, ext, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-3 p-3 rounded-lg bg-[#1e1e1e] hover:bg-[#262626] transition-colors text-left w-full"
+      className="flex items-center gap-3 p-3 rounded-lg bg-[#202020] hover:bg-[#2a2a2a] transition-colors text-left w-full"
     >
       <Download size={16} className="text-orange-400 shrink-0" />
       <div className="flex-1 min-w-0">

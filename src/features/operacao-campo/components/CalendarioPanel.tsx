@@ -68,7 +68,7 @@ export function CalendarioPanel() {
               className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                 viewMode === m
                   ? 'bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/40'
-                  : 'border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3]'
+                  : 'border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]'
               }`}
             >
               {m === '15d' ? '15 dias' : 'Mensal'}
@@ -77,13 +77,13 @@ export function CalendarioPanel() {
         </div>
 
         <div className="flex items-center gap-1">
-          <button onClick={() => shiftDate(viewMode === '15d' ? -15 : -30)} className="p-1.5 rounded border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3]">
+          <button onClick={() => shiftDate(viewMode === '15d' ? -15 : -30)} className="p-1.5 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]">
             <ChevronLeft size={14} />
           </button>
           <span className="text-xs text-[#a3a3a3] font-mono px-2">
             {fmtShortDate(visibleDates[0] ?? selectedDate)} — {fmtShortDate(visibleDates[visibleDates.length - 1] ?? selectedDate)}
           </span>
-          <button onClick={() => shiftDate(viewMode === '15d' ? 15 : 30)} className="p-1.5 rounded border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3]">
+          <button onClick={() => shiftDate(viewMode === '15d' ? 15 : 30)} className="p-1.5 rounded border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]">
             <ChevronRight size={14} />
           </button>
         </div>
@@ -97,13 +97,13 @@ export function CalendarioPanel() {
       </div>
 
       {/* Grid */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-[10px] border-collapse" style={{ minWidth: `${120 + visibleDates.length * 56}px` }}>
             <thead>
-              <tr className="bg-[#0f0f0f]">
-                <th className="sticky left-0 z-10 bg-[#0f0f0f] px-3 py-2 text-left text-[#6b6b6b] font-medium w-28 min-w-[112px]">Atividade</th>
-                <th className="sticky left-28 z-10 bg-[#0f0f0f] px-1 py-2 text-center text-[#6b6b6b] font-medium w-8">A/B</th>
+              <tr className="bg-[#141414]">
+                <th className="sticky left-0 z-10 bg-[#141414] px-3 py-2 text-left text-[#6b6b6b] font-medium w-28 min-w-[112px]">Atividade</th>
+                <th className="sticky left-28 z-10 bg-[#141414] px-1 py-2 text-center text-[#6b6b6b] font-medium w-8">A/B</th>
                 {visibleDates.map((date) => (
                   <th
                     key={date}
@@ -121,23 +121,23 @@ export function CalendarioPanel() {
               {activities.map((act) => (
                 <>
                   {/* Line A — Planned (read-only) */}
-                  <tr key={`${act.id}-A`} className="border-t border-[#2a2a2a]">
-                    <td rowSpan={2} className="sticky left-0 z-10 bg-[#1e1e1e] px-3 py-1.5 text-[#f5f5f5] font-medium align-middle border-r border-[#2a2a2a]">
+                  <tr key={`${act.id}-A`} className="border-t border-[#303030]">
+                    <td rowSpan={2} className="sticky left-0 z-10 bg-[#202020] px-3 py-1.5 text-[#f5f5f5] font-medium align-middle border-r border-[#303030]">
                       {act.name}
                     </td>
-                    <td className="sticky left-28 z-10 bg-[#1e1e1e] px-1 py-0.5 text-center text-[#6b6b6b] font-bold border-r border-[#2a2a2a]">A</td>
+                    <td className="sticky left-28 z-10 bg-[#202020] px-1 py-0.5 text-center text-[#6b6b6b] font-bold border-r border-[#303030]">A</td>
                     {visibleDates.map((date) => {
                       const entry = calendarDays.find((d) => d.date === date && d.activityId === act.id)
                       return (
-                        <td key={date} className={`px-1 py-0.5 text-center font-mono bg-[#262626]/30 ${date === today ? 'bg-[#f97316]/5' : ''}`}>
+                        <td key={date} className={`px-1 py-0.5 text-center font-mono bg-[#2a2a2a]/30 ${date === today ? 'bg-[#f97316]/5' : ''}`}>
                           <span className="text-[#6b6b6b]">{entry?.plannedQty ?? '—'}</span>
                         </td>
                       )
                     })}
                   </tr>
                   {/* Line B — Actual (editable) */}
-                  <tr key={`${act.id}-B`} className="border-b border-[#2a2a2a]/50">
-                    <td className="sticky left-28 z-10 bg-[#1e1e1e] px-1 py-0.5 text-center text-[#f97316] font-bold border-r border-[#2a2a2a]">B</td>
+                  <tr key={`${act.id}-B`} className="border-b border-[#303030]/50">
+                    <td className="sticky left-28 z-10 bg-[#202020] px-1 py-0.5 text-center text-[#f97316] font-bold border-r border-[#303030]">B</td>
                     {visibleDates.map((date) => {
                       const entry = calendarDays.find((d) => d.date === date && d.activityId === act.id)
                       const planned = entry?.plannedQty ?? 0
@@ -175,13 +175,13 @@ export function CalendarioPanel() {
 
               {/* PPC row */}
               {weeklyPpcResults.length > 0 && (
-                <tr className="border-t-2 border-[#2a2a2a] bg-[#0f0f0f]">
-                  <td className="sticky left-0 z-10 bg-[#0f0f0f] px-3 py-2 text-[#f97316] font-bold" colSpan={2}>PPC</td>
+                <tr className="border-t-2 border-[#303030] bg-[#141414]">
+                  <td className="sticky left-0 z-10 bg-[#141414] px-3 py-2 text-[#f97316] font-bold" colSpan={2}>PPC</td>
                   {visibleDates.map((date) => {
                     // Find which week this date belongs to and show PPC on Fridays
                     const d = new Date(date + 'T00:00:00')
                     const isFriday = d.getDay() === 5
-                    if (!isFriday) return <td key={date} className="bg-[#0f0f0f]" />
+                    if (!isFriday) return <td key={date} className="bg-[#141414]" />
 
                     const weekPpc = weeklyPpcResults.find((_w, idx) => {
                       // Simple: show latest PPC on each Friday
@@ -191,7 +191,7 @@ export function CalendarioPanel() {
                     const color = ppc >= 80 ? '#22c55e' : ppc >= 60 ? '#eab308' : '#ef4444'
 
                     return (
-                      <td key={date} className="px-1 py-2 text-center bg-[#0f0f0f]">
+                      <td key={date} className="px-1 py-2 text-center bg-[#141414]">
                         <span className="font-bold font-mono" style={{ color }}>{ppc}%</span>
                       </td>
                     )

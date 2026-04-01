@@ -155,7 +155,7 @@ function DayCell({ day, tasks, resources, onEdit, onNewTask }: DayCellProps) {
     <Card
       className={cn(
         "relative flex flex-col justify-between overflow-hidden cursor-pointer select-none transition-colors",
-        "bg-[#1e1e1e] border-[#2a2a2a] hover:bg-[#262626]",
+        "bg-[#202020] border-[#303030] hover:bg-[#2a2a2a]",
         today && "border-[#f97316] ring-1 ring-[#f97316]/30"
       )}
       style={{ width: "100%", height: "100%" }}
@@ -256,7 +256,7 @@ function MobileDayRow({
   return (
     <div
       className={cn(
-        "border-b border-[#2a2a2a] px-4 py-3",
+        "border-b border-[#303030] px-4 py-3",
         today && "bg-[#f97316]/5"
       )}
     >
@@ -308,7 +308,7 @@ function MobileDayRow({
                 key={t.id}
                 type="button"
                 onClick={() => onEdit(t.id)}
-                className="w-full flex items-center gap-2 p-2 rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] hover:bg-[#262626] text-left transition-colors"
+                className="w-full flex items-center gap-2 p-2 rounded-lg bg-[#202020] border border-[#303030] hover:bg-[#2a2a2a] text-left transition-colors"
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
@@ -442,9 +442,9 @@ export function ThreeDWallCalendar() {
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-full bg-[#161616]">
+      <div className="flex flex-col h-full bg-[#1a1a1a]">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#303030] shrink-0">
           <button
             type="button"
             onClick={goToPrev}
@@ -488,13 +488,13 @@ export function ThreeDWallCalendar() {
   // ─── Desktop 3D Layout ─────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full bg-[#161616] select-none">
+    <div className="flex flex-col h-full bg-[#1a1a1a] select-none">
       {/* ── Month navigation header ── */}
-      <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-3 border-b border-[#303030] shrink-0">
         <button
           type="button"
           onClick={goToPrev}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
           aria-label="Mês anterior"
         >
           <ChevronLeft size={14} />
@@ -508,7 +508,7 @@ export function ThreeDWallCalendar() {
         <button
           type="button"
           onClick={goToNext}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs font-semibold hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
           aria-label="Próximo mês"
         >
           Próximo
@@ -597,9 +597,9 @@ export function ThreeDWallCalendar() {
       </div>
 
       {/* ── Footer hint ── */}
-      <div className="flex items-center justify-center gap-4 px-6 py-2 border-t border-[#2a2a2a] shrink-0 text-[10px] text-[#525252]">
+      <div className="flex items-center justify-center gap-4 px-6 py-2 border-t border-[#303030] shrink-0 text-[10px] text-[#525252]">
         <span>Scroll: inclinar</span>
-        <span className="w-px h-3 bg-[#2a2a2a]" />
+        <span className="w-px h-3 bg-[#303030]" />
         <span>Arrastar: rotacionar</span>
       </div>
     </div>

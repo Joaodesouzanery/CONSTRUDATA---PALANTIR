@@ -104,8 +104,8 @@ function MapController() {
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 
 function getMapCSS(isDark: boolean) {
-  const bg     = isDark ? '#1e1e1e' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const bg     = isDark ? '#202020' : '#ffffff'
+  const border = isDark ? '#303030' : '#d4d8df'
   const text   = isDark ? '#f5f5f5' : '#1a1d23'
   const muted  = isDark ? '#6b6b6b' : '#78828f'
   return `
@@ -201,7 +201,7 @@ export function EquipmentMap() {
       <style>{mapCSS}</style>
 
       {/* Filter bar */}
-      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', background: isDark ? '#161616' : '#ffffff', flexWrap: 'wrap', flexShrink: 0, borderBottom: `1px solid ${isDark ? '#2a2a2a' : '#e5e8ed'}` }}>
+      <div style={{ display: 'flex', gap: 6, padding: '8px 10px', background: isDark ? '#1a1a1a' : '#ffffff', flexWrap: 'wrap', flexShrink: 0, borderBottom: `1px solid ${isDark ? '#303030' : '#e5e8ed'}` }}>
         {FILTER_OPTIONS.map((opt) => (
           <button
             key={String(opt.value)}
@@ -209,7 +209,7 @@ export function EquipmentMap() {
             style={{
               padding: '3px 10px', borderRadius: 99, border: '1px solid',
               fontSize: 11, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-              borderColor: filterStatus === opt.value ? '#f97316' : (isDark ? '#2a2a2a' : '#d4d8df'),
+              borderColor: filterStatus === opt.value ? '#f97316' : (isDark ? '#303030' : '#d4d8df'),
               background:  filterStatus === opt.value ? '#f97316' : 'transparent',
               color:       filterStatus === opt.value ? '#fff' : (isDark ? '#a3a3a3' : '#505863'),
             }}
@@ -343,7 +343,7 @@ export function EquipmentMap() {
                   <button
                     onClick={() => setEditing(eq.id)}
                     style={{
-                      width: '100%', padding: '6px', borderRadius: 8, border: '1px solid #2a2a2a',
+                      width: '100%', padding: '6px', borderRadius: 8, border: '1px solid #303030',
                       background: 'transparent', color: '#f97316', fontSize: 11, fontWeight: 700, cursor: 'pointer',
                     }}
                   >
@@ -364,7 +364,7 @@ export function EquipmentMap() {
           title={isFullscreen ? 'Sair do modo tela cheia' : 'Tela cheia'}
           style={{
             position: 'absolute', top: 10, left: 10, zIndex: 1000,
-            background: '#1e1e1e', border: '1px solid #2a2a2a', borderRadius: 8,
+            background: '#202020', border: '1px solid #303030', borderRadius: 8,
             padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
             color: '#f5f5f5',
           }}
@@ -375,7 +375,7 @@ export function EquipmentMap() {
         {/* Mini stats panel */}
         <div style={{
           position: 'absolute', bottom: 28, right: 10, zIndex: 1000,
-          background: 'rgba(26,26,26,0.92)', border: '1px solid #2a2a2a',
+          background: 'rgba(26,26,26,0.92)', border: '1px solid #303030',
           borderRadius: 8, padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 3,
         }}>
           {statusCounts.filter((s) => s.count > 0).map((s) => (
@@ -394,7 +394,7 @@ export function EquipmentMap() {
             justifyContent: 'center', zIndex: 500, pointerEvents: 'none',
           }}>
             <div style={{
-              background: 'rgba(17,17,17,0.85)', border: '1px solid #2a2a2a',
+              background: 'rgba(17,17,17,0.85)', border: '1px solid #303030',
               borderRadius: 12, padding: '16px 24px', textAlign: 'center',
             }}>
               <p style={{ margin: 0, color: '#6b6b6b', fontSize: 13 }}>

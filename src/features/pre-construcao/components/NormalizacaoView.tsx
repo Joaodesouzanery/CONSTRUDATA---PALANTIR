@@ -166,10 +166,10 @@ export function NormalizacaoView() {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto overflow-x-auto bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl">
+      <div className="flex-1 overflow-auto overflow-x-auto bg-[#141414] border border-[#303030] rounded-xl">
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-[#262626]">
+            <tr className="bg-[#2a2a2a]">
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2 w-8"></th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Original</th>
               <th className="text-left text-[#6b6b6b] text-xs font-medium px-3 py-2">Sugestão</th>
@@ -181,7 +181,7 @@ export function NormalizacaoView() {
             {suggestions.map(({ item, hasSuggestion, suggestedDesc, suggestedQty, suggestedUnit, reason, acceptedOrRejected }) => (
               <tr
                 key={item.id}
-                className="border-t border-[#2a2a2a] hover:bg-[#262626]/50 transition-colors"
+                className="border-t border-[#303030] hover:bg-[#2a2a2a]/50 transition-colors"
               >
                 {/* Status indicator */}
                 <td className="px-3 py-2">

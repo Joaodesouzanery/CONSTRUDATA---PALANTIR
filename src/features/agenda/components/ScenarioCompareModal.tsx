@@ -47,7 +47,7 @@ function ScenarioCard({
           ? 'border-[#22c55e] bg-[#22c55e]/10'
           : comparing
           ? 'border-[#3b82f6] bg-[#3b82f6]/10'
-          : 'border-[#2a2a2a] bg-[#161616] hover:border-[#1f3c5e]'
+          : 'border-[#303030] bg-[#1a1a1a] hover:border-[#1f3c5e]'
       }`}
       onClick={onSelect}
     >
@@ -60,14 +60,14 @@ function ScenarioCard({
           <button
             onClick={(e) => { e.stopPropagation(); onEdit() }}
             title="Renomear"
-            className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#2a2a2a] transition-colors"
+            className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#303030] transition-colors"
           >
             <Pencil size={12} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete() }}
             title="Excluir"
-            className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#f87171] hover:bg-[#2a2a2a] transition-colors"
+            className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#f87171] hover:bg-[#303030] transition-colors"
           >
             <Trash2 size={12} />
           </button>
@@ -75,7 +75,7 @@ function ScenarioCard({
             onClick={(e) => { e.stopPropagation(); onCompare() }}
             title="Comparar"
             className={`p-1.5 rounded-lg transition-colors ${
-              comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#2a2a2a]'
+              comparing ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#303030]'
             }`}
           >
             <GitCompare size={13} />
@@ -125,17 +125,17 @@ function ComparePanel({ a, b }: { a: PlanScenario; b: PlanScenario }) {
   ]
 
   return (
-    <div className="rounded-xl border border-[#2a2a2a] overflow-hidden mt-4">
-      <div className="grid grid-cols-3 bg-[#0f0f0f] border-b border-[#2a2a2a]">
+    <div className="rounded-xl border border-[#303030] overflow-hidden mt-4">
+      <div className="grid grid-cols-3 bg-[#141414] border-b border-[#303030]">
         <div className="px-4 py-2.5 text-[10px] uppercase tracking-widest text-[#6b6b6b]">Métrica</div>
-        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#22c55e] border-l border-[#2a2a2a]">{a.name}</div>
-        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#3b82f6] border-l border-[#2a2a2a]">{b.name}</div>
+        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#22c55e] border-l border-[#303030]">{a.name}</div>
+        <div className="px-4 py-2.5 text-[10px] font-semibold text-[#3b82f6] border-l border-[#303030]">{b.name}</div>
       </div>
       {rows.map((row, i) => (
-        <div key={i} className="grid grid-cols-3 border-b border-[#1e1e1e] hover:bg-[#1e1e1e]">
+        <div key={i} className="grid grid-cols-3 border-b border-[#202020] hover:bg-[#202020]">
           <div className="px-4 py-2 text-xs text-[#6b6b6b]">{row.label}</div>
-          <div className="px-4 py-2 text-xs font-mono text-[#a3a3a3] border-l border-[#2a2a2a]">{row.aVal}</div>
-          <div className={`px-4 py-2 text-xs font-mono border-l border-[#2a2a2a] ${row.aVal !== row.bVal ? 'text-[#f97316]' : 'text-[#a3a3a3]'}`}>
+          <div className="px-4 py-2 text-xs font-mono text-[#a3a3a3] border-l border-[#303030]">{row.aVal}</div>
+          <div className={`px-4 py-2 text-xs font-mono border-l border-[#303030] ${row.aVal !== row.bVal ? 'text-[#f97316]' : 'text-[#a3a3a3]'}`}>
             {row.bVal}
           </div>
         </div>
@@ -165,7 +165,7 @@ function ScenarioNameForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-[#f97316]/40 bg-[#0f0f0f] p-4 flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-[#f97316]/40 bg-[#141414] p-4 flex flex-col gap-3">
       <p className="text-[#f5f5f5] text-xs font-semibold">
         {initial ? 'Renomear cenário' : 'Novo cenário'}
       </p>
@@ -174,20 +174,20 @@ function ScenarioNameForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Nome do cenário *"
-        className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b] outline-none focus:border-[#f97316]/60 w-full"
+        className="bg-[#202020] border border-[#303030] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b] outline-none focus:border-[#f97316]/60 w-full"
         required
       />
       <input
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
         placeholder="Descrição (opcional)"
-        className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b] outline-none focus:border-[#f97316]/60 w-full"
+        className="bg-[#202020] border border-[#303030] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b] outline-none focus:border-[#f97316]/60 w-full"
       />
       <div className="flex gap-2">
         <button type="submit" className="flex-1 flex items-center justify-center gap-1.5 bg-[#f97316] hover:bg-[#22a8c4] text-white rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors">
           <Check size={12} /> Salvar
         </button>
-        <button type="button" onClick={onCancel} className="px-4 py-1.5 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
+        <button type="button" onClick={onCancel} className="px-4 py-1.5 rounded-lg border border-[#303030] text-[#a3a3a3] text-xs hover:border-[#6b6b6b] transition-colors">
           Cancelar
         </button>
       </div>
@@ -242,9 +242,9 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-[#111] border border-[#303030] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 border-b border-[#303030] flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-[#f5f5f5] font-semibold text-sm">Cenários de Planejamento</h3>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -308,7 +308,7 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-[#2a2a2a] flex items-center justify-between shrink-0">
+        <div className="px-5 py-3 border-t border-[#303030] flex items-center justify-between shrink-0">
           <p className="text-[#3f3f3f] text-xs">
             {applyStatus === 'done'
               ? '✓ Datas aplicadas à Agenda'
@@ -317,7 +317,7 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
               : 'Nenhum cenário selecionado'}
           </p>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#1e1e1e] text-[#a3a3a3] text-xs hover:bg-[#2a2a2a]">
+            <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#202020] text-[#a3a3a3] text-xs hover:bg-[#303030]">
               Cancelar
             </button>
             <button
@@ -337,13 +337,13 @@ export function ScenarioCompareModal({ onClose }: { onClose: () => void }) {
         const sc = scenarios.find((s) => s.id === confirmDelete)
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-6 max-w-sm mx-4 shadow-2xl">
+            <div className="bg-[#202020] border border-[#303030] rounded-xl p-6 max-w-sm mx-4 shadow-2xl">
               <h4 className="text-[#f5f5f5] font-semibold mb-2">Confirmar Exclusão</h4>
               <p className="text-[#a3a3a3] text-sm mb-4">
                 Excluir o cenário <span className="text-[#f97316] font-semibold">"{sc?.name}"</span>? Esta ação não pode ser desfeita.
               </p>
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-sm hover:border-[#6b6b6b] transition-colors">
+                <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 rounded-lg border border-[#303030] text-[#a3a3a3] text-sm hover:border-[#6b6b6b] transition-colors">
                   Cancelar
                 </button>
                 <button

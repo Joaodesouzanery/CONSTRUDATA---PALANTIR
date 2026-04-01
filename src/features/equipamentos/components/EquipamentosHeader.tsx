@@ -11,7 +11,7 @@ export function EquipamentosHeader() {
   )
 
   return (
-    <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] bg-[#161616] shrink-0">
+    <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030] bg-[#1a1a1a] shrink-0">
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15">
           <Truck size={18} className="text-[#f97316]" />

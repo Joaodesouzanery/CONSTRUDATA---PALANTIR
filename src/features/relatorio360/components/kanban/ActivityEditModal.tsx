@@ -29,9 +29,9 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-lg bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg bg-[#202020] border border-[#303030] rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030]">
           <h3 className="text-[#f5f5f5] font-semibold text-sm">Editar Atividade</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
             <X size={18} />
@@ -47,7 +47,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
               placeholder="Nome da atividade"
             />
           </div>
@@ -62,7 +62,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
                 step={0.01}
                 value={plannedQty}
                 onChange={(e) => setPlannedQty(Math.max(0, Number(e.target.value)))}
-                className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+                className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -73,7 +73,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
                 step={0.01}
                 value={actualQty}
                 onChange={(e) => setActualQty(Math.max(0, Number(e.target.value)))}
-                className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f97316] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+                className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f97316] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -82,7 +82,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
                 type="text"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+                className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
                 placeholder="m², kg…"
               />
             </div>
@@ -94,7 +94,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
             <select
               value={crewId}
               onChange={(e) => setCrewId(e.target.value)}
-              className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
             >
               <option value="">— Sem equipe —</option>
               {crews.map((c) => (
@@ -111,7 +111,7 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ActivityStatus)}
-              className="bg-[#161616] border border-[#2a2a2a] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              className="bg-[#1a1a1a] border border-[#303030] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60 transition-colors"
             >
               <option value="planned">Planejado</option>
               <option value="in_progress">Em Andamento</option>
@@ -121,10 +121,10 @@ export function ActivityEditModal({ activity, crews, onClose, onSave }: Activity
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex justify-end gap-3 px-5 py-4 border-t border-[#303030]">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-[#a3a3a3] text-sm hover:border-[#6b6b6b] transition-colors"
+            className="px-4 py-2 rounded-lg border border-[#303030] text-[#a3a3a3] text-sm hover:border-[#6b6b6b] transition-colors"
           >
             Cancelar
           </button>

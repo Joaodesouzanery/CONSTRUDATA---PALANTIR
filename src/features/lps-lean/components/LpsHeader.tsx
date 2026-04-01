@@ -64,9 +64,9 @@ export function LpsHeader() {
   const ppcColor = avgPpc >= 80 ? 'text-green-400' : avgPpc >= 60 ? 'text-yellow-400' : 'text-red-400'
 
   return (
-    <div className="bg-[#0f0f0f] border-b border-[#1e1e1e]">
+    <div className="bg-[#141414] border-b border-[#202020]">
       {/* KPI strip */}
-      <div className="px-6 py-4 flex items-center gap-8 flex-wrap border-b border-[#1e1e1e]/60">
+      <div className="px-6 py-4 flex items-center gap-8 flex-wrap border-b border-[#202020]/60">
         {/* Logo / title */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center">
@@ -78,7 +78,7 @@ export function LpsHeader() {
           </div>
         </div>
 
-        <div className="w-px h-8 bg-[#262626] shrink-0" />
+        <div className="w-px h-8 bg-[#2a2a2a] shrink-0" />
 
         {/* PPC médio */}
         <Kpi label="PPC (4 sem.)" value={`${avgPpc}%`} valueClass={ppcColor} />

@@ -22,8 +22,8 @@ const CATEGORIA_OPTIONS = [
 
 const inp = (err?: boolean) =>
   cn(
-    'w-full rounded-lg px-3 py-2 text-xs bg-[#262626] border text-[#f5f5f5] placeholder-[#6b6b6b] outline-none focus:ring-1 focus:ring-[#f97316]/40 transition-all',
-    err ? 'border-[#ef4444]' : 'border-[#2a2a2a] focus:border-[#f97316]/60',
+    'w-full rounded-lg px-3 py-2 text-xs bg-[#2a2a2a] border text-[#f5f5f5] placeholder-[#6b6b6b] outline-none focus:ring-1 focus:ring-[#f97316]/40 transition-all',
+    err ? 'border-[#ef4444]' : 'border-[#303030] focus:border-[#f97316]/60',
   )
 
 export function NovoMaterialModal({ onClose }: Props) {
@@ -82,19 +82,19 @@ export function NovoMaterialModal({ onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
+        className="w-full max-w-md rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl"
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030] shrink-0">
           <div className="flex items-center gap-2">
             <Package size={15} className="text-[#f97316]" />
             <h2 className="text-[#f5f5f5] font-bold text-sm">Adicionar Material</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             <X size={14} />
           </button>
@@ -226,11 +226,11 @@ export function NovoMaterialModal({ onClose }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#303030] shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             Cancelar
           </button>

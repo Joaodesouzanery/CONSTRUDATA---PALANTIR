@@ -45,7 +45,7 @@ function PhaseBar({ phase }: { phase: ProjectPhase }) {
         <span className="text-[10px] text-[#a3a3a3] truncate max-w-[140px]">{phase.name}</span>
         <span className="text-[10px] font-mono" style={{ color }}>{phase.progress}%</span>
       </div>
-      <div className="h-1 rounded-full bg-[#262626] overflow-hidden">
+      <div className="h-1 rounded-full bg-[#2a2a2a] overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${phase.progress}%`, background: color }} />
       </div>
     </div>
@@ -77,11 +77,11 @@ export function TabVisaoGeral({ project }: { project: Project }) {
       </div>
 
       {/* Project info card */}
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-5 flex flex-col gap-4">
+      <div className="rounded-xl border border-[#303030] bg-[#202020] p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs text-[#6b6b6b] bg-[#262626] px-2 py-0.5 rounded">
+              <span className="font-mono text-xs text-[#6b6b6b] bg-[#2a2a2a] px-2 py-0.5 rounded">
                 {project.code}
               </span>
               <span
@@ -97,7 +97,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
           </div>
           <button
             onClick={() => setEditingProject(project.id)}
-            className="shrink-0 flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#2a2a2a] hover:border-[#f97316]/30 rounded-lg px-3 py-2"
+            className="shrink-0 flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#303030] hover:border-[#f97316]/30 rounded-lg px-3 py-2"
           >
             <Pencil size={12} />
             Editar Projeto
@@ -127,8 +127,8 @@ export function TabVisaoGeral({ project }: { project: Project }) {
 
       {/* Location map */}
       {project.lat && project.lng && (
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4 flex flex-col gap-3">
-          <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#2a2a2a] pb-2">
+        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4 flex flex-col gap-3">
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#303030] pb-2">
             Localização
           </span>
           <div className="rounded-lg overflow-hidden" style={{ height: 160 }}>
@@ -166,8 +166,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function PhaseGroup({ title, phases }: { title: string; phases: ProjectPhase[] }) {
   return (
-    <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4 flex flex-col gap-3">
-      <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#2a2a2a] pb-2">
+    <div className="rounded-xl border border-[#303030] bg-[#202020] p-4 flex flex-col gap-3">
+      <span className="text-[10px] uppercase tracking-widest font-semibold text-[#6b6b6b] border-b border-[#303030] pb-2">
         {title}
       </span>
       {phases.map((ph) => <PhaseBar key={ph.id} phase={ph} />)}

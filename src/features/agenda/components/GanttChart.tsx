@@ -32,8 +32,8 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
         to right,
         transparent 0px,
         transparent ${colWidth - 1}px,
-        #2a2a2a ${colWidth - 1}px,
-        #2a2a2a ${colWidth}px
+        #303030 ${colWidth - 1}px,
+        #303030 ${colWidth}px
       )`,
     }),
     [colWidth]

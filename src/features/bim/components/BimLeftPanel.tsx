@@ -22,7 +22,7 @@ export function BimLeftPanel() {
 
   if (projects.length === 0) {
     return (
-      <div className="w-56 bg-[#0f0f0f] border-r border-[#1e1e1e] flex flex-col items-center justify-center p-4 shrink-0">
+      <div className="w-56 bg-[#141414] border-r border-[#202020] flex flex-col items-center justify-center p-4 shrink-0">
         <LayersIcon size={32} className="text-gray-700 mb-2" />
         <p className="text-gray-600 text-xs text-center">Ative o modo Demo ou importe um arquivo</p>
       </div>
@@ -33,10 +33,10 @@ export function BimLeftPanel() {
   const totalLength = project?.segments.reduce((s, seg) => s + seg.lengthM, 0) ?? 0
 
   return (
-    <div className="w-56 bg-[#0f0f0f] border-r border-[#1e1e1e] flex flex-col shrink-0 overflow-y-auto">
+    <div className="w-56 bg-[#141414] border-r border-[#202020] flex flex-col shrink-0 overflow-y-auto">
       {/* Project switcher */}
       {projects.length > 0 && (
-        <div className="p-2 border-b border-[#1e1e1e]">
+        <div className="p-2 border-b border-[#202020]">
           <p className="text-[#6b6b6b] text-[10px] font-semibold uppercase tracking-wider mb-1.5 px-1">Projetos</p>
           <div className="space-y-0.5">
             {projects.map((p) => (
@@ -47,7 +47,7 @@ export function BimLeftPanel() {
                   'flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-xs transition-colors',
                   p.id === activeProjectId
                     ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-600/40'
-                    : 'text-[#a3a3a3] hover:bg-[#1e1e1e] hover:text-[#f5f5f5]',
+                    : 'text-[#a3a3a3] hover:bg-[#202020] hover:text-[#f5f5f5]',
                 )}
               >
                 <span className={cn(
@@ -70,7 +70,7 @@ export function BimLeftPanel() {
       {project && (
         <>
           {/* Project info */}
-          <div className="p-3 border-b border-[#1e1e1e]">
+          <div className="p-3 border-b border-[#202020]">
             <div className="space-y-1">
               <Row label="Trechos"    value={String(project.segments.length)} />
               <Row label="Extensão"   value={`${totalLength.toFixed(0)} m`} />
@@ -80,7 +80,7 @@ export function BimLeftPanel() {
           </div>
 
           {/* Budget summary */}
-          <div className="p-3 border-b border-[#1e1e1e]">
+          <div className="p-3 border-b border-[#202020]">
             <div className="flex items-center gap-2 mb-1.5">
               <DollarSign size={12} className="text-green-400 shrink-0" />
               <span className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Custo Total</span>
@@ -99,7 +99,7 @@ export function BimLeftPanel() {
                 <button
                   key={layer.id}
                   onClick={() => toggleLayer(layer.id)}
-                  className="flex items-center gap-2 w-full text-left rounded px-2 py-1 hover:bg-[#1e1e1e] transition-colors group"
+                  className="flex items-center gap-2 w-full text-left rounded px-2 py-1 hover:bg-[#202020] transition-colors group"
                 >
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"

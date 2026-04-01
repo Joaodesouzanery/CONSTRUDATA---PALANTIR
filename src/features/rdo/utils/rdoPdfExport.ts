@@ -42,7 +42,11 @@ export function printRdoPDF(rdo: RDO) {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
 
-  const { logo: companyLogo, companyName } = useCompanySettingsStore.getState()
+  const { logos, companyName } = useCompanySettingsStore.getState()
+  const selectedLogo = rdo.logoId
+    ? logos.find((l) => l.id === rdo.logoId)
+    : logos[0]
+  const companyLogo = selectedLogo?.base64 ?? null
 
   const totalManpower =
     rdo.manpower.foremanCount +

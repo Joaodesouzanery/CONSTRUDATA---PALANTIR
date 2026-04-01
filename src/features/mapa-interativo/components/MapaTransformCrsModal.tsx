@@ -40,9 +40,9 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl w-full max-w-sm shadow-2xl">
+      <div className="bg-[#141414] border border-[#303030] rounded-xl w-full max-w-sm shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
           <div className="flex items-center gap-2">
             <ArrowRightLeft size={14} className="text-orange-400" />
             <h3 className="text-sm font-bold text-white">Transformar CRS</h3>
@@ -62,7 +62,7 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
                 type="number" min={1} max={60}
                 value={zone}
                 onChange={(e) => setZone(e.target.value)}
-                className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 text-center"
+                className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 text-center"
               />
             </div>
             <div>
@@ -70,7 +70,7 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
               <select
                 value={hemi}
                 onChange={(e) => setHemi(e.target.value as 'N' | 'S')}
-                className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
               >
                 <option value="S">Sul (S)</option>
                 <option value="N">Norte (N)</option>
@@ -87,7 +87,7 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
                 value={easting}
                 onChange={(e) => setEasting(e.target.value)}
                 placeholder="Ex: 558000"
-                className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
               />
             </div>
             <div>
@@ -97,7 +97,7 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
                 value={northing}
                 onChange={(e) => setNorthing(e.target.value)}
                 placeholder="Ex: 8567000"
-                className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
               />
             </div>
           </div>
@@ -115,7 +115,7 @@ export function MapaTransformCrsModal({ onClose, defaultZone = '24S' }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#2a2a2a]">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-[#303030]">
           <button onClick={onClose} className="px-4 py-2 text-sm text-[#a3a3a3] hover:text-white transition-colors">
             Fechar
           </button>

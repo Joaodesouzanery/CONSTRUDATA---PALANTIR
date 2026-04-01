@@ -20,10 +20,10 @@ function HorizonBlock({ title, subtitle, color, defaultOpen = true, children }: 
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="rounded-2xl border border-[#2a2a2a] bg-[#161616] overflow-hidden">
+    <div className="rounded-2xl border border-[#303030] bg-[#1a1a1a] overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-[#1e1e1e] transition-colors"
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-[#202020] transition-colors"
       >
         <span
           className="w-1 h-6 rounded-full shrink-0"
@@ -39,7 +39,7 @@ function HorizonBlock({ title, subtitle, color, defaultOpen = true, children }: 
       </button>
 
       {open && (
-        <div className="border-t border-[#2a2a2a]">
+        <div className="border-t border-[#303030]">
           {children}
         </div>
       )}
@@ -97,7 +97,7 @@ export function VisaoIntegradaPanel() {
 
         <button
           onClick={handlePrintAll}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
         >
           <FileDown size={14} />
           Exportar Visão Combinada (PDF)

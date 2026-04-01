@@ -21,7 +21,7 @@ function StatusBar({ disponivel, minimo }: { disponivel: number; minimo: number 
   const color = disponivel >= minimo ? '#22c55e' : disponivel > 0 ? '#eab308' : '#ef4444'
   return (
     <div className="flex items-center gap-1">
-      <div className="h-1.5 w-16 rounded-full bg-[#2a2a2a]">
+      <div className="h-1.5 w-16 rounded-full bg-[#303030]">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
       <span className="text-[10px]" style={{ color }}>{disponivel >= minimo ? 'OK' : 'BAIXO'}</span>
@@ -135,7 +135,7 @@ export function MapaEstoquePanel() {
               'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
               d.id === depId
                 ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/40'
-                : 'border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3]',
+                : 'border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3]',
             )}
           >
             {d.frente}
@@ -146,7 +146,7 @@ export function MapaEstoquePanel() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Itens',   value: totalItens,                              color: 'text-[#f5f5f5]',  bg: 'bg-[#1e1e1e] border-[#2a2a2a]' },
+          { label: 'Total Itens',   value: totalItens,                              color: 'text-[#f5f5f5]',  bg: 'bg-[#202020] border-[#303030]' },
           { label: 'Em Ruptura',    value: emRuptura,                               color: 'text-[#ef4444]',  bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
           { label: 'Em Trânsito',   value: emTransito,                              color: 'text-[#fbbf24]',  bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
           { label: 'Valor em Estoque', value: `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`, color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
@@ -168,7 +168,7 @@ export function MapaEstoquePanel() {
         </button>
         <button
           onClick={() => setShowMovForm((v) => !v)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3] transition-colors"
         >
           <ArrowDownCircle size={13} /> Registrar Movimento
         </button>
@@ -176,7 +176,7 @@ export function MapaEstoquePanel() {
 
       {/* Novo Item form */}
       {showNovoItem && (
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             { label: 'Descrição*', key: 'descricao' as const, span: true },
             { label: 'Unidade*',   key: 'unidade' as const },
@@ -191,7 +191,7 @@ export function MapaEstoquePanel() {
                 type={type ?? 'text'}
                 value={novoItem[key]}
                 onChange={(e) => setNovoItem((p) => ({ ...p, [key]: e.target.value }))}
-                className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
               />
             </div>
           ))}
@@ -204,13 +204,13 @@ export function MapaEstoquePanel() {
 
       {/* Mov form */}
       {showMovForm && (
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">Item*</label>
             <select
               value={movForm.itemId}
               onChange={(e) => setMovForm((p) => ({ ...p, itemId: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               <option value="">Selecionar...</option>
               {itens.map((i) => <option key={i.id} value={i.id}>{i.descricao}</option>)}
@@ -221,7 +221,7 @@ export function MapaEstoquePanel() {
             <select
               value={movForm.tipo}
               onChange={(e) => setMovForm((p) => ({ ...p, tipo: e.target.value as 'entrada' | 'saida' }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
             >
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
@@ -230,27 +230,27 @@ export function MapaEstoquePanel() {
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">Quantidade*</label>
             <input type="number" min={0} value={movForm.quantidade} onChange={(e) => setMovForm((p) => ({ ...p, quantidade: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
           </div>
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">Fornecedor</label>
             <input type="text" value={movForm.fornecedor} onChange={(e) => setMovForm((p) => ({ ...p, fornecedor: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
           </div>
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">NF</label>
             <input type="text" value={movForm.nf} onChange={(e) => setMovForm((p) => ({ ...p, nf: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
           </div>
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">Data da Compra</label>
             <input type="date" value={movForm.dataCompra} onChange={(e) => setMovForm((p) => ({ ...p, dataCompra: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
           </div>
           <div>
             <label className="text-[10px] text-[#6b6b6b] mb-1 block">Data Movimentação</label>
             <input type="date" value={movForm.dataMovimento} onChange={(e) => setMovForm((p) => ({ ...p, dataMovimento: e.target.value }))}
-              className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
+              className="w-full bg-[#141414] border border-[#303030] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50" />
           </div>
           <div className="col-span-2 sm:col-span-3 flex gap-2 justify-end">
             <button onClick={() => setShowMovForm(false)} className="px-3 py-1.5 text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
@@ -277,8 +277,8 @@ export function MapaEstoquePanel() {
       )}
 
       {/* Items table */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-[#2a2a2a] flex items-center gap-2">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#303030] flex items-center gap-2">
           <Package size={14} className="text-[#f97316]" />
           <span className="text-xs font-semibold text-[#f5f5f5]">{deposito?.frente ?? '—'}</span>
           <span className="text-[10px] text-[#6b6b6b]">— {deposito?.descricao}</span>
@@ -286,7 +286,7 @@ export function MapaEstoquePanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-[11px]">
             <thead>
-              <tr className="bg-[#0f0f0f]">
+              <tr className="bg-[#141414]">
                 {['Descrição', 'Un.', 'Disponível', 'Reservado', 'Trânsito', 'Mínimo', 'Status'].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                 ))}
@@ -294,7 +294,7 @@ export function MapaEstoquePanel() {
             </thead>
             <tbody>
               {itens.map((item: ItemEstoque) => (
-                <tr key={item.id} className="border-t border-[#2a2a2a] hover:bg-[#262626]/30 transition-colors">
+                <tr key={item.id} className="border-t border-[#303030] hover:bg-[#2a2a2a]/30 transition-colors">
                   <td className="px-3 py-2 text-[#f5f5f5] font-medium max-w-[200px] truncate" title={item.descricao}>{item.descricao}</td>
                   <td className="px-3 py-2 text-[#6b6b6b]">{item.unidade}</td>
                   <td className="px-3 py-2 text-[#f5f5f5] font-mono">{item.qtdDisponivel}</td>
@@ -317,11 +317,11 @@ export function MapaEstoquePanel() {
       </div>
 
       {/* Últimas movimentações */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-[#2a2a2a]">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#303030]">
           <span className="text-xs font-semibold text-[#f5f5f5]">Últimas Movimentações</span>
         </div>
-        <div className="divide-y divide-[#2a2a2a]">
+        <div className="divide-y divide-[#303030]">
           {movs.length === 0 && (
             <p className="px-4 py-4 text-[11px] text-[#6b6b6b]">Nenhuma movimentação registrada.</p>
           )}

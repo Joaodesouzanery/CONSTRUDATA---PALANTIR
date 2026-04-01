@@ -29,11 +29,11 @@ function EntryRow({ entry, onUpdate, onDelete }: {
     setEditing(false)
   }
 
-  const cellInput = 'bg-[#262626] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 w-full'
+  const cellInput = 'bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 w-full'
 
   if (editing) {
     return (
-      <tr className="border-b border-[#2a2a2a]/50 bg-gray-750/30">
+      <tr className="border-b border-[#303030]/50 bg-gray-750/30">
         <td className="px-3 py-2"><input value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} className={cellInput} /></td>
         <td className="px-3 py-2"><input value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} className={cellInput} /></td>
         <td className="px-3 py-2"><input value={draft.unit} onChange={(e) => setDraft({ ...draft, unit: e.target.value })} className={`${cellInput} w-16`} /></td>
@@ -50,7 +50,7 @@ function EntryRow({ entry, onUpdate, onDelete }: {
   }
 
   return (
-    <tr className="border-b border-[#2a2a2a]/50 hover:bg-gray-750/20 cursor-pointer" onClick={() => setEditing(true)}>
+    <tr className="border-b border-[#303030]/50 hover:bg-gray-750/20 cursor-pointer" onClick={() => setEditing(true)}>
       <td className="px-3 py-2.5 text-[#a3a3a3] font-mono text-xs">{entry.code}</td>
       <td className="px-3 py-2.5 text-[#f5f5f5] text-sm">{entry.description}</td>
       <td className="px-3 py-2.5 text-[#a3a3a3] text-sm">{entry.unit}</td>
@@ -77,7 +77,7 @@ function AddEntryRow({ onAdd }: { onAdd: (e: Omit<CustomBaseEntry, 'id'>) => voi
     setErr('')
   }
 
-  const cellInput = 'bg-[#262626] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 w-full'
+  const cellInput = 'bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 w-full'
 
   return (
     <>
@@ -153,7 +153,7 @@ export function BancoDadosPanel() {
             className={`text-left p-4 rounded-xl border-2 transition-all ${
               costBase === opt.value
                 ? 'border-violet-500 bg-violet-950/30'
-                : 'border-[#2a2a2a] bg-[#1e1e1e] hover:border-[#363636]'
+                : 'border-[#303030] bg-[#202020] hover:border-[#363636]'
             }`}
           >
             <div className="flex items-center justify-between mb-1">
@@ -170,13 +170,13 @@ export function BancoDadosPanel() {
 
       {/* Custom base import controls */}
       {costBase === 'custom' && (
-        <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5 space-y-3">
+        <div className="bg-[#202020] rounded-xl border border-[#303030] p-5 space-y-3">
           <h3 className="text-[#f5f5f5] font-medium text-sm">Importar Base de Custos</h3>
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={() => fileRef.current?.click()}
               disabled={importing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors disabled:opacity-50"
             >
               <Upload size={14} />
               {importing ? 'Importando...' : 'Importar Excel / CSV'}
@@ -184,13 +184,13 @@ export function BancoDadosPanel() {
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
             <button
               onClick={() => exportCustomBaseToCsv(customBase)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors"
             >
               <Download size={14} /> Exportar Base (CSV)
             </button>
             <button
               onClick={() => exportCustomBaseToXlsx(customBase)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors"
             >
               <Download size={14} /> Exportar Base (Excel)
             </button>
@@ -210,19 +210,19 @@ export function BancoDadosPanel() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={`Buscar em ${costBase === 'sinapi' ? 'SINAPI' : costBase === 'seinfra' ? 'SEINFRA' : 'Base Própria'}...`}
-          className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg pl-9 pr-4 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500"
+          className="w-full bg-[#202020] border border-[#303030] rounded-lg pl-9 pr-4 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-violet-500"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#2a2a2a]">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#303030]">
           <p className="text-[#a3a3a3] text-xs">{filtered.length} entradas{search && ` de ${displayEntries.length}`}</p>
         </div>
         <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-[#1e1e1e] z-10">
-              <tr className="text-[#6b6b6b] text-xs border-b border-[#2a2a2a]">
+            <thead className="sticky top-0 bg-[#202020] z-10">
+              <tr className="text-[#6b6b6b] text-xs border-b border-[#303030]">
                 <th className="text-left px-3 py-2.5 font-medium">Código</th>
                 <th className="text-left px-3 py-2.5 font-medium">Descrição</th>
                 <th className="text-left px-3 py-2.5 font-medium">Unidade</th>
@@ -256,7 +256,7 @@ export function BancoDadosPanel() {
                 </>
               ) : (
                 filtered.map((e) => (
-                  <tr key={e.code} className="border-b border-[#2a2a2a]/50 hover:bg-gray-750/20">
+                  <tr key={e.code} className="border-b border-[#303030]/50 hover:bg-gray-750/20">
                     <td className="px-3 py-2.5 text-[#a3a3a3] font-mono text-xs">{e.code}</td>
                     <td className="px-3 py-2.5 text-[#f5f5f5]">{e.description}</td>
                     <td className="px-3 py-2.5 text-[#a3a3a3]">{e.unit}</td>

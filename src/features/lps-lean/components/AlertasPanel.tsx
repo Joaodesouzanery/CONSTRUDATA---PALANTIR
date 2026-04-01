@@ -49,23 +49,23 @@ export function AlertasPanel() {
     <div className="flex flex-col gap-4">
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-[#ef4444]">{urgentRestrictions.length}</p>
           <p className="text-[#6b6b6b] text-xs">Restrições urgentes</p>
         </div>
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-[#eab308]">{unacknowledged}</p>
           <p className="text-[#6b6b6b] text-xs">Alertas não lidos</p>
         </div>
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 text-center">
           <p className="text-2xl font-bold text-[#22c55e]">{alerts.filter((a) => a.acknowledged).length}</p>
           <p className="text-[#6b6b6b] text-xs">Alertas confirmados</p>
         </div>
       </div>
 
       {/* Urgent restrictions */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#2a2a2a] flex items-center gap-2">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#303030] flex items-center gap-2">
           <AlertTriangle size={14} className="text-[#ef4444]" />
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Restrições Próximas do Prazo</h3>
         </div>
@@ -73,7 +73,7 @@ export function AlertasPanel() {
         {urgentRestrictions.length === 0 ? (
           <p className="text-[#6b6b6b] text-xs text-center py-6">Nenhuma restrição urgente no momento.</p>
         ) : (
-          <div className="divide-y divide-[#2a2a2a]">
+          <div className="divide-y divide-[#303030]">
             {urgentRestrictions.map((r) => {
               const daysUntil = Math.round((new Date(r.prazoRemocao!).getTime() - new Date(today).getTime()) / 86_400_000)
               const isOverdue = daysUntil < 0
@@ -105,8 +105,8 @@ export function AlertasPanel() {
       </div>
 
       {/* Alert history */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#2a2a2a] flex items-center gap-2">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#303030] flex items-center gap-2">
           <Bell size={14} className="text-[#f97316]" />
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Histórico de Alertas ({alerts.length})</h3>
         </div>
@@ -114,7 +114,7 @@ export function AlertasPanel() {
         {alerts.length === 0 ? (
           <p className="text-[#6b6b6b] text-xs text-center py-6">Nenhum alerta enviado.</p>
         ) : (
-          <div className="divide-y divide-[#2a2a2a]">
+          <div className="divide-y divide-[#303030]">
             {[...alerts].reverse().map((alert) => {
               const restriction = restrictions.find((r) => r.id === alert.restrictionId)
               return (

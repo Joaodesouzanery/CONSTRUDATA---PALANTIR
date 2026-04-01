@@ -91,9 +91,9 @@ export function AtivoDrillDownPanel() {
     : []
 
   return (
-    <div className="absolute right-0 top-0 h-full w-80 bg-[#161616] border-l border-[#2a2a2a] z-[1000] flex flex-col overflow-hidden">
+    <div className="absolute right-0 top-0 h-full w-80 bg-[#1a1a1a] border-l border-[#303030] z-[1000] flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-start justify-between px-4 py-3 border-b border-[#303030] shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[#6b6b6b] text-xs font-mono">{asset.code}</span>
@@ -108,14 +108,14 @@ export function AtivoDrillDownPanel() {
         </div>
         <button
           onClick={() => setSelectedAssetId(null)}
-          className="ml-2 p-1 rounded hover:bg-[#1e1e1e] text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors shrink-0"
+          className="ml-2 p-1 rounded hover:bg-[#202020] text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors shrink-0"
         >
           <X size={16} />
         </button>
       </div>
 
       {/* Sub-tab bar */}
-      <div className="flex border-b border-[#2a2a2a] shrink-0">
+      <div className="flex border-b border-[#303030] shrink-0">
         {DRILL_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -160,7 +160,7 @@ export function AtivoDrillDownPanel() {
               </div>
             ))}
             {asset.notes && (
-              <div className="mt-3 p-2 bg-[#1e1e1e] rounded text-xs text-[#a3a3a3] border border-[#2a2a2a]">
+              <div className="mt-3 p-2 bg-[#202020] rounded text-xs text-[#a3a3a3] border border-[#303030]">
                 {asset.notes}
               </div>
             )}
@@ -206,7 +206,7 @@ export function AtivoDrillDownPanel() {
                 <div className="text-[#6b6b6b] text-xs font-semibold mb-2">Sensores</div>
                 <div className="overflow-x-auto"><table className="w-full text-xs">
                   <thead>
-                    <tr className="text-[#6b6b6b] border-b border-[#2a2a2a]">
+                    <tr className="text-[#6b6b6b] border-b border-[#303030]">
                       <th className="text-left py-1">Parâmetro</th>
                       <th className="text-right py-1">Valor</th>
                       <th className="text-right py-1">Hora</th>
@@ -214,7 +214,7 @@ export function AtivoDrillDownPanel() {
                   </thead>
                   <tbody>
                     {asset.sensorReadings.map((sr, i) => (
-                      <tr key={i} className="border-b border-[#2a2a2a]/50">
+                      <tr key={i} className="border-b border-[#303030]/50">
                         <td className="py-1 text-[#a3a3a3]">{sr.parameter}</td>
                         <td className="py-1 text-right text-[#f5f5f5]">{sr.value} {sr.unit}</td>
                         <td className="py-1 text-right text-[#6b6b6b]">
@@ -237,10 +237,10 @@ export function AtivoDrillDownPanel() {
             {mockHistory.length === 0 ? (
               <p className="text-[#6b6b6b] text-xs italic">Sem histórico disponível.</p>
             ) : (
-              <div className="relative pl-4 border-l border-[#2a2a2a]">
+              <div className="relative pl-4 border-l border-[#303030]">
                 {mockHistory.map((entry, i) => (
                   <div key={i} className="mb-4 relative">
-                    <div className="absolute -left-[17px] w-2.5 h-2.5 rounded-full bg-[#f97316] border-2 border-[#161616]" />
+                    <div className="absolute -left-[17px] w-2.5 h-2.5 rounded-full bg-[#f97316] border-2 border-[#1a1a1a]" />
                     <div className="text-[#6b6b6b] text-xs">{fmtDate(entry.date)}</div>
                     <div className="text-[#f5f5f5] text-xs font-medium mt-0.5">{entry.label}</div>
                     <div className="text-[#a3a3a3] text-xs mt-0.5">{entry.detail}</div>
@@ -257,14 +257,14 @@ export function AtivoDrillDownPanel() {
               <p className="text-[#6b6b6b] text-xs italic">Nenhuma OS vinculada a este ativo.</p>
             ) : (
               assetOrders.map((order) => (
-                <div key={order.id} className="bg-[#1e1e1e] rounded border border-[#2a2a2a] p-2.5">
+                <div key={order.id} className="bg-[#202020] rounded border border-[#303030] p-2.5">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[#6b6b6b] text-xs font-mono">{order.code}</span>
                     <span className={`text-xs px-1.5 py-0.5 rounded ${
                       order.priority === 'emergency' ? 'bg-red-900/40 text-red-300'    :
                       order.priority === 'high'      ? 'bg-orange-900/40 text-orange-300' :
                       order.priority === 'medium'    ? 'bg-yellow-900/40 text-yellow-300' :
-                                                       'bg-[#1e1e1e] text-[#a3a3a3]'
+                                                       'bg-[#202020] text-[#a3a3a3]'
                     }`}>
                       {order.priority === 'emergency' ? 'Emergência' :
                        order.priority === 'high'      ? 'Alta'       :

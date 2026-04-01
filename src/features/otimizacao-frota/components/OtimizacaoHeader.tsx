@@ -84,7 +84,7 @@ export function OtimizacaoHeader({ activeTab, onTabChange }: Props) {
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl px-4 py-3 flex items-center gap-3"
+            className="bg-[#202020] border border-[#303030] rounded-xl px-4 py-3 flex items-center gap-3"
           >
             <div
               className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
@@ -101,7 +101,7 @@ export function OtimizacaoHeader({ activeTab, onTabChange }: Props) {
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-[#2a2a2a] -mb-px">
+      <div className="flex gap-1 border-b border-[#303030] -mb-px">
         {TABS.map((tab) => (
           <button
             key={tab.id}

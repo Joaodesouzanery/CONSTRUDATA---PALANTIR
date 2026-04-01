@@ -120,9 +120,9 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
   const noData = ganttRows.length === 0
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#2a2a2a] shadow-2xl w-full sm:w-[420px]">
+    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#303030] shadow-2xl w-full sm:w-[420px]">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-[#2a2a2a] flex items-center justify-between shrink-0">
+      <div className="px-4 py-3.5 border-b border-[#303030] flex items-center justify-between shrink-0">
         <div>
           <p className="text-[#f5f5f5] text-sm font-semibold">Execução do Modelo</p>
           <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -139,7 +139,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
       ) : (
         <>
           {/* KPI strip */}
-          <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+          <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-[#303030] shrink-0">
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] text-[#6b6b6b] uppercase tracking-wide flex items-center gap-1">
                 <CalendarDays size={9} /> Fim Previsto
@@ -161,7 +161,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Timeline scrubber + controls */}
-          <div className="px-4 py-3 border-b border-[#2a2a2a] shrink-0">
+          <div className="px-4 py-3 border-b border-[#303030] shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <button
                 onClick={togglePlay}
@@ -171,7 +171,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
               </button>
               <button
                 onClick={reset}
-                className="flex items-center justify-center w-7 h-7 rounded-full border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#6b6b6b] transition-colors shrink-0"
+                className="flex items-center justify-center w-7 h-7 rounded-full border border-[#303030] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#6b6b6b] transition-colors shrink-0"
               >
                 <RotateCcw size={12} />
               </button>
@@ -214,7 +214,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
                       {isDone && <span className="text-[9px] text-[#22c55e]">✓</span>}
                     </div>
                   </div>
-                  <div className="h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#202020] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-100 ${isDone ? 'bg-[#22c55e]' : 'bg-[#f97316]'}`}
                       style={{ width: `${pct}%` }}
@@ -237,7 +237,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-3 border-t border-[#2a2a2a] shrink-0 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-[#303030] shrink-0 flex items-center justify-between">
             <p className="text-[10px] text-[#3f3f3f]">Simulação baseada em dados demo</p>
             <a
               href="/app/planejamento"

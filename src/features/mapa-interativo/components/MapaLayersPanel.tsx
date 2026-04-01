@@ -12,7 +12,7 @@ export function MapaLayersPanel() {
   const [open, setOpen] = useState(true)
 
   return (
-    <div className="absolute top-3 right-3 z-[1000] bg-[#0f0f0f]/95 border border-[#2a2a2a] rounded-xl shadow-xl min-w-[140px] max-w-[180px]">
+    <div className="absolute top-3 right-3 z-[1000] bg-[#141414]/95 border border-[#303030] rounded-xl shadow-xl min-w-[140px] max-w-[180px]">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-2 px-3 py-2 w-full text-xs font-semibold text-white hover:text-orange-400 transition-colors"
@@ -23,7 +23,7 @@ export function MapaLayersPanel() {
       </button>
 
       {open && (
-        <div className="px-3 pb-3 flex flex-col gap-1.5 border-t border-[#1e1e1e] pt-2">
+        <div className="px-3 pb-3 flex flex-col gap-1.5 border-t border-[#202020] pt-2">
           {layers.map((layer) => (
             <label key={layer.id} className="flex items-center gap-2 cursor-pointer group">
               <input

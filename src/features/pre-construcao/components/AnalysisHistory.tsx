@@ -31,9 +31,9 @@ export function AnalysisHistory() {
   })))
 
   return (
-    <div className="w-56 shrink-0 flex flex-col bg-[#161616] border-r border-[#2a2a2a] overflow-hidden">
+    <div className="w-56 shrink-0 flex flex-col bg-[#1a1a1a] border-r border-[#303030] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-[#2a2a2a]">
+      <div className="px-4 py-3 border-b border-[#303030]">
         <button
           onClick={resetPipeline}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
@@ -60,7 +60,7 @@ export function AnalysisHistory() {
           sessions.map((session) => (
             <div
               key={session.id}
-              className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#1f3c5e] transition-colors"
+              className="bg-[#141414] border border-[#303030] rounded-lg p-3 flex flex-col gap-1.5 hover:border-[#1f3c5e] transition-colors"
             >
               {/* Date */}
               <p className="text-[#f5f5f5] text-[11px] font-semibold">

@@ -24,7 +24,7 @@ const STATUS_ROW_BG: Record<RowStatus, string> = {
 }
 
 const STATUS_BADGE: Record<RowStatus, string> = {
-  não_iniciado: 'bg-[#262626] text-[#a3a3a3]',
+  não_iniciado: 'bg-[#2a2a2a] text-[#a3a3a3]',
   em_andamento: 'bg-blue-900/40 text-blue-300 border border-blue-700/50',
   concluído: 'bg-green-900/40 text-green-300 border border-green-700/50',
   bloqueado: 'bg-red-900/40 text-red-300 border border-red-700/50',
@@ -55,7 +55,7 @@ function InlineNum({ value, onSave }: { value: number; onSave: (v: number) => vo
           if (e.key === 'Enter') { onSave(parseFloat(draft) || 0); setEditing(false) }
           if (e.key === 'Escape') setEditing(false)
         }}
-        className="w-20 bg-[#262626] border border-orange-500/50 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none text-right"
+        className="w-20 bg-[#2a2a2a] border border-orange-500/50 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none text-right"
       />
       <button onClick={() => { onSave(parseFloat(draft) || 0); setEditing(false) }} className="text-green-400 p-0.5"><Check size={11} /></button>
       <button onClick={() => setEditing(false)} className="text-[#6b6b6b] p-0.5"><X size={11} /></button>
@@ -181,24 +181,24 @@ export function DailyPlanPanel() {
         <div className="flex items-center gap-2">
           <label className="text-xs text-[#a3a3a3]">De:</label>
           <input type="date" value={filterStart} onChange={(e) => setFilterStart(e.target.value)}
-            className="bg-[#262626] border border-[#363636] rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500" />
+            className="bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500" />
         </div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-[#a3a3a3]">Até:</label>
           <input type="date" value={filterEnd} onChange={(e) => setFilterEnd(e.target.value)}
-            className="bg-[#262626] border border-[#363636] rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500" />
+            className="bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500" />
         </div>
         <input
           type="text"
           placeholder="Filtrar trecho…"
           value={filterTrecho}
           onChange={(e) => setFilterTrecho(e.target.value)}
-          className="bg-[#262626] border border-[#363636] rounded px-3 py-1.5 text-sm text-white placeholder-[#6b6b6b] focus:outline-none focus:border-orange-500"
+          className="bg-[#2a2a2a] border border-[#363636] rounded px-3 py-1.5 text-sm text-white placeholder-[#6b6b6b] focus:outline-none focus:border-orange-500"
         />
         <select
           value={filterTeam}
           onChange={(e) => setFilterTeam(e.target.value)}
-          className="bg-[#262626] border border-[#363636] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500"
+          className="bg-[#2a2a2a] border border-[#363636] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500"
         >
           <option value="">Todas as equipes</option>
           {uniqueTeams.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -220,11 +220,11 @@ export function DailyPlanPanel() {
             </button>
           )}
           <button onClick={exportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
             <Download size={12} /> CSV
           </button>
           <button onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
             <Printer size={12} /> Imprimir
           </button>
         </div>
@@ -233,9 +233,9 @@ export function DailyPlanPanel() {
       <p className="text-xs text-[#6b6b6b] mb-3">{filteredRows.length} registros</p>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-[#2a2a2a]">
+      <div className="overflow-x-auto rounded-xl border border-[#303030]">
         <table className="w-full text-sm">
-          <thead className="bg-[#1e1e1e] border-b border-[#2a2a2a]">
+          <thead className="bg-[#202020] border-b border-[#303030]">
             <tr>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Data</th>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Trecho</th>
@@ -250,17 +250,17 @@ export function DailyPlanPanel() {
               <th className="text-right text-[#a3a3a3] px-4 py-3 font-medium">Custo/Dia</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e1e1e]">
+          <tbody className="divide-y divide-[#202020]">
             {filteredRows.map((r, idx) => {
               const key = `${r.date}-${r.trechoCode}`
               const planned = overrides[key] ?? r.metersPlanned
               const actual = overridesActual[key] ?? 0
               const pct = !r.isHydroTest && planned > 0 ? Math.round((actual / planned) * 100) : null
               const status: RowStatus = overridesStatus[key] ?? 'não_iniciado'
-              const rowBg = r.isHydroTest ? 'bg-yellow-900/10' : STATUS_ROW_BG[status] || 'bg-[#0f0f0f]'
+              const rowBg = r.isHydroTest ? 'bg-yellow-900/10' : STATUS_ROW_BG[status] || 'bg-[#141414]'
               return (
                 <tr key={`${r.date}-${r.trechoCode}-${idx}`}
-                  className={`${rowBg} hover:bg-[#1e1e1e]/70 transition-colors`}>
+                  className={`${rowBg} hover:bg-[#202020]/70 transition-colors`}>
                   <td className="px-4 py-2.5 text-[#f5f5f5] whitespace-nowrap">{fmtDate(r.date)}</td>
                   <td className="px-4 py-2.5">
                     <div className="text-[#f5f5f5] font-medium">{r.trechoCode}</div>

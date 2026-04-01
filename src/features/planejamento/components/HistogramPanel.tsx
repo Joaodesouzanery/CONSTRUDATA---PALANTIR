@@ -67,7 +67,7 @@ export function HistogramPanel() {
             </button>
           )}
           <button onClick={() => exportHistogramCsv(histogramPoints)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
             <Download size={12} /> CSV
           </button>
         </div>
@@ -81,7 +81,7 @@ export function HistogramPanel() {
           { label: 'Total Hh', value: totalHH.toLocaleString('pt-BR') },
           { label: 'Equipamentos × Dias', value: equipDays.toLocaleString('pt-BR') },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-[#1e1e1e] rounded-lg p-3 border border-[#2a2a2a]">
+          <div key={label} className="bg-[#202020] rounded-lg p-3 border border-[#303030]">
             <div className="text-xs text-[#a3a3a3]">{label}</div>
             <div className="text-white font-semibold text-sm mt-1">{value}</div>
           </div>
@@ -92,19 +92,19 @@ export function HistogramPanel() {
       {totalPages > 1 && (
         <div className="flex items-center gap-3 mb-3 text-sm text-[#a3a3a3]">
           <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
-            className="p-1 rounded hover:bg-[#262626] disabled:opacity-30 transition-colors">
+            className="p-1 rounded hover:bg-[#2a2a2a] disabled:opacity-30 transition-colors">
             <ChevronLeft size={16} />
           </button>
           <span>Dias {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, histogramPoints.length)} de {histogramPoints.length}</span>
           <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page === totalPages - 1}
-            className="p-1 rounded hover:bg-[#262626] disabled:opacity-30 transition-colors">
+            className="p-1 rounded hover:bg-[#2a2a2a] disabled:opacity-30 transition-colors">
             <ChevronRight size={16} />
           </button>
         </div>
       )}
 
       {/* SVG chart */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-4 overflow-x-auto">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-3xl mx-auto">
           {/* Y grid */}
           {yGrid.map((v) => {

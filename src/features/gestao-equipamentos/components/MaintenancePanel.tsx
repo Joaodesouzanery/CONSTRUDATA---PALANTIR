@@ -49,10 +49,10 @@ const TYPE_BADGE: Record<string, string> = {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#0f0f0f] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#141414] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
     hasError
       ? 'border-[#ef4444] focus:border-[#ef4444]'
-      : 'border-[#2a2a2a] focus:border-[#f97316]',
+      : 'border-[#303030] focus:border-[#f97316]',
   )
 }
 
@@ -162,18 +162,18 @@ function WorkOrderDialog() {
       onClick={(e) => { if (e.target === e.currentTarget) setEditingOrder(null) }}
     >
       <div
-        className="w-full max-w-xl rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
+        className="w-full max-w-xl rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl"
         style={{ maxHeight: '92vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030] shrink-0">
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Nova Ordem de Serviço' : `Editar OS — ${existing?.description?.slice(0, 30) ?? ''}…`}
           </h2>
           <button
             onClick={() => setEditingOrder(null)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             <X size={15} />
           </button>
@@ -257,11 +257,11 @@ function WorkOrderDialog() {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#2a2a2a] shrink-0">
+          <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-[#303030] shrink-0">
             <button
               type="button"
               onClick={() => setEditingOrder(null)}
-              className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
+              className="px-4 py-2 rounded-lg border border-[#303030] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors"
             >
               Cancelar
             </button>
@@ -327,7 +327,7 @@ export function MaintenancePanel() {
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a] shrink-0 bg-[#161616]">
+      <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030] shrink-0 bg-[#1a1a1a]">
         {/* Filter tabs */}
         <div className="flex items-center gap-1">
           {FILTER_TABS.map((tab) => (
@@ -338,7 +338,7 @@ export function MaintenancePanel() {
                 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
                 filter === tab.key
                   ? 'bg-[#f97316] text-white'
-                  : 'bg-[#1e1e1e] text-[#6b6b6b] hover:text-[#a3a3a3] border border-[#2a2a2a]',
+                  : 'bg-[#202020] text-[#6b6b6b] hover:text-[#a3a3a3] border border-[#303030]',
               )}
             >
               {tab.label}
@@ -368,7 +368,7 @@ export function MaintenancePanel() {
         ) : (
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#2a2a2a]">
+              <tr className="border-b border-[#303030]">
                 {['Equipamento', 'Tipo', 'Data', 'Responsável', 'Custo Est.', 'Status', 'Ações'].map(
                   (col) => (
                     <th
@@ -381,11 +381,11 @@ export function MaintenancePanel() {
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1e1e1e]">
+            <tbody className="divide-y divide-[#202020]">
               {filtered.map((order) => (
                 <tr
                   key={order.id}
-                  className="hover:bg-[#1e1e1e]/50 transition-colors"
+                  className="hover:bg-[#202020]/50 transition-colors"
                 >
                   {/* Equipamento */}
                   <td className="py-3 pr-4">
@@ -399,7 +399,7 @@ export function MaintenancePanel() {
                     <span
                       className={cn(
                         'text-[10px] font-semibold px-2 py-0.5 rounded-full',
-                        TYPE_BADGE[order.type] ?? 'bg-[#2a2a2a] text-[#a3a3a3]',
+                        TYPE_BADGE[order.type] ?? 'bg-[#303030] text-[#a3a3a3]',
                       )}
                     >
                       {TYPE_LABEL[order.type] ?? order.type}
@@ -463,7 +463,7 @@ export function MaintenancePanel() {
                           </button>
                           <button
                             onClick={() => setConfirmDeleteId(null)}
-                            className="text-[10px] px-2 py-0.5 rounded bg-[#262626] text-[#a3a3a3] hover:bg-[#2a2a2a]"
+                            className="text-[10px] px-2 py-0.5 rounded bg-[#2a2a2a] text-[#a3a3a3] hover:bg-[#303030]"
                           >
                             Não
                           </button>

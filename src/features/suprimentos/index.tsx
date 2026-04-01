@@ -30,7 +30,7 @@ export function SuprimentosPage() {
     <div className="flex flex-col h-full p-5 gap-4 overflow-hidden">
       {/* Section switcher + action buttons */}
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex gap-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-1">
+        <div className="flex gap-1 bg-[#202020] border border-[#303030] rounded-xl p-1">
           <button
             onClick={() => setActiveSection('suprimentos')}
             className={cn(
@@ -62,7 +62,7 @@ export function SuprimentosPage() {
             </button>
             <button
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2a2a2a] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#303030] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
             >
               <FileSpreadsheet size={13} />
               Importar Excel

@@ -52,7 +52,7 @@ export function ResumoPanel() {
 
   const computedBdi = Object.values(bdi).reduce((s, v) => s + v, 0)
 
-  const inputCls = 'w-20 bg-[#262626] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 text-right'
+  const inputCls = 'w-20 bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-violet-500 text-right'
 
   function handleApplyBdiToAll() {
     const total = computedBdi
@@ -72,7 +72,7 @@ export function ResumoPanel() {
   return (
     <div className="p-6 space-y-5 max-w-5xl mx-auto">
       {/* BDI Config */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h3 className="text-[#f5f5f5] font-medium text-sm">Configuração do BDI</h3>
           <div className="flex items-center gap-2">
@@ -109,13 +109,13 @@ export function ResumoPanel() {
 
       {/* SVG Bar Chart */}
       {sorted.length > 0 && (
-        <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5">
+        <div className="bg-[#202020] rounded-xl border border-[#303030] p-5">
           <h3 className="text-[#f5f5f5] font-medium text-sm mb-4">Distribuição por Categoria</h3>
           <div className="space-y-3">
             {sorted.slice(0, 10).map(([cat, data]) => (
               <div key={cat} className="flex items-center gap-3">
                 <span className="text-[#a3a3a3] text-xs w-32 truncate text-right">{cat}</span>
-                <div className="flex-1 h-6 bg-[#262626] rounded overflow-hidden">
+                <div className="flex-1 h-6 bg-[#2a2a2a] rounded overflow-hidden">
                   <div
                     className="h-full rounded bg-violet-500/70 transition-all duration-500"
                     style={{ width: `${(data.total / maxTotal) * 100}%` }}
@@ -132,17 +132,17 @@ export function ResumoPanel() {
       )}
 
       {/* Summary table */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#2a2a2a] flex items-center justify-between flex-wrap gap-2">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#303030] flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[#f5f5f5] font-medium text-sm">Resumo por Categoria</h3>
           <div className="flex items-center gap-2">
-            <button onClick={() => exportToCsv(currentItems)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5]">
+            <button onClick={() => exportToCsv(currentItems)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5]">
               <Download size={12} /> CSV
             </button>
-            <button onClick={() => exportToXlsx(currentItems, bdiGlobal)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5]">
+            <button onClick={() => exportToXlsx(currentItems, bdiGlobal)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5]">
               <Download size={12} /> Excel
             </button>
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5]">
+            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5]">
               <Printer size={12} /> PDF
             </button>
           </div>
@@ -150,7 +150,7 @@ export function ResumoPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#6b6b6b] text-xs border-b border-[#2a2a2a]">
+              <tr className="text-[#6b6b6b] text-xs border-b border-[#303030]">
                 <th className="text-left px-5 py-2.5 font-medium">Categoria</th>
                 <th className="text-right px-3 py-2.5 font-medium">Qtd. Itens</th>
                 <th className="text-right px-3 py-2.5 font-medium">Subtotal s/ BDI</th>
@@ -169,7 +169,7 @@ export function ResumoPanel() {
                 const expanded = expandedCategories.has(cat)
                 return (
                   <>
-                    <tr key={cat} className="border-b border-[#2a2a2a]/50 hover:bg-gray-750/20 cursor-pointer" onClick={() => toggleCategory(cat)}>
+                    <tr key={cat} className="border-b border-[#303030]/50 hover:bg-gray-750/20 cursor-pointer" onClick={() => toggleCategory(cat)}>
                       <td className="px-5 py-3 text-[#f5f5f5] flex items-center gap-2">
                         {expanded ? <ChevronUp size={13} className="text-[#6b6b6b] shrink-0" /> : <ChevronDown size={13} className="text-[#6b6b6b] shrink-0" />}
                         {cat}
@@ -181,18 +181,18 @@ export function ResumoPanel() {
                       <td className="px-3 py-3 text-right text-[#a3a3a3]">{pct.toFixed(2)}%</td>
                     </tr>
                     {expanded && data.items.map((item) => (
-                      <tr key={item.id} className="bg-[#0f0f0f]/30 border-b border-[#2a2a2a]/30">
+                      <tr key={item.id} className="bg-[#141414]/30 border-b border-[#303030]/30">
                         <td className="pl-10 pr-3 py-2 text-[#a3a3a3] text-xs">{item.code}</td>
                         <td className="px-3 py-2 text-[#a3a3a3] text-xs">{item.description}</td>
                         <td className="px-3 py-2 text-[#a3a3a3] text-xs">{item.unit}</td>
                         <td className="px-3 py-2">
-                          <input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: +e.target.value })} className="w-20 bg-[#1e1e1e] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
+                          <input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, { quantity: +e.target.value })} className="w-20 bg-[#202020] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
                         </td>
                         <td className="px-3 py-2">
-                          <input type="number" value={item.unitCost} onChange={(e) => updateItem(item.id, { unitCost: +e.target.value })} className="w-24 bg-[#1e1e1e] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
+                          <input type="number" value={item.unitCost} onChange={(e) => updateItem(item.id, { unitCost: +e.target.value })} className="w-24 bg-[#202020] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
                         </td>
                         <td className="px-3 py-2">
-                          <input type="number" value={item.bdi} onChange={(e) => updateItem(item.id, { bdi: +e.target.value })} className="w-16 bg-[#1e1e1e] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
+                          <input type="number" value={item.bdi} onChange={(e) => updateItem(item.id, { bdi: +e.target.value })} className="w-16 bg-[#202020] border border-[#363636] rounded px-1 py-0.5 text-xs text-[#f5f5f5]" />
                         </td>
                         <td className="px-5 py-2 text-right text-[#a3a3a3] text-xs">{fmtBRL(item.totalCost)}</td>
                       </tr>
@@ -242,7 +242,7 @@ export function ResumoPanel() {
               setBudgetCap(v)
               try { sessionStorage.setItem('quant-budget-cap', String(v)) } catch { /* noop */ }
             }}
-            className="w-36 bg-[#1e1e1e] border border-[#363636] rounded px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none"
+            className="w-36 bg-[#202020] border border-[#363636] rounded px-2 py-1 text-sm text-[#f5f5f5] focus:outline-none"
             placeholder="Definir meta..."
           />
           {budgetCap > 0 && (() => {
@@ -284,7 +284,7 @@ export function ResumoPanel() {
         })
 
         return (
-          <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5">
+          <div className="bg-[#202020] rounded-xl border border-[#303030] p-5">
             <h3 className="text-[#f5f5f5] font-medium text-sm mb-4">Distribuição por Fonte</h3>
             <div className="flex items-center gap-6 flex-wrap">
               <svg viewBox="0 0 120 120" className="w-28 h-28 shrink-0 -rotate-90">

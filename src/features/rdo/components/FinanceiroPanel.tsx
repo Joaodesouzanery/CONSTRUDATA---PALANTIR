@@ -31,7 +31,7 @@ function KpiCard({
   label: string; value: string; sub?: string; borderColor?: string; textColor?: string
 }) {
   return (
-    <div className={`bg-[#1e1e1e] rounded-xl p-4 border border-[#2a2a2a] ${borderColor ? `border-l-4 ${borderColor}` : ''}`}>
+    <div className={`bg-[#202020] rounded-xl p-4 border border-[#303030] ${borderColor ? `border-l-4 ${borderColor}` : ''}`}>
       <p className="text-[#a3a3a3] text-xs mb-1">{label}</p>
       <p className={`text-xl font-bold ${textColor}`}>{value}</p>
       {sub && <p className="text-[#6b6b6b] text-xs mt-0.5">{sub}</p>}
@@ -66,11 +66,11 @@ function EntryRow({ entry, onUpdate, onDelete }: EntryRowProps) {
     setEditing(false)
   }
 
-  const inputCls = 'bg-[#262626] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 w-full'
+  const inputCls = 'bg-[#2a2a2a] border border-[#363636] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 w-full'
 
   if (editing) {
     return (
-      <tr className="border-b border-[#2a2a2a]/50 bg-gray-750/30">
+      <tr className="border-b border-[#303030]/50 bg-gray-750/30">
         <td className="px-3 py-2">
           <input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} className={inputCls} />
         </td>
@@ -100,7 +100,7 @@ function EntryRow({ entry, onUpdate, onDelete }: EntryRowProps) {
   }
 
   return (
-    <tr className="border-b border-[#2a2a2a]/50 hover:bg-gray-750/20">
+    <tr className="border-b border-[#303030]/50 hover:bg-gray-750/20">
       <td className="px-3 py-3 text-[#a3a3a3] text-sm">{fmtDate(entry.date)}</td>
       <td className="px-3 py-3 text-[#f5f5f5] text-sm">{entry.category}</td>
       <td className="px-3 py-3 text-[#f5f5f5] text-sm">{entry.description}</td>
@@ -143,7 +143,7 @@ function AddEntryForm({ onAdd, onClose }: {
     onClose()
   }
 
-  const inputCls = 'w-full bg-[#262626] border border-[#363636] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50'
+  const inputCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50'
 
   return (
     <div className="bg-gray-750 border border-[#363636] rounded-xl p-5 space-y-3">
@@ -175,7 +175,7 @@ function AddEntryForm({ onAdd, onClose }: {
       </div>
       {err && <p className="text-red-400 text-xs">{err}</p>}
       <div className="flex justify-end gap-2">
-        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#262626] text-[#f5f5f5] text-sm hover:bg-[#2a2a2a] transition-colors">Cancelar</button>
+        <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#f5f5f5] text-sm hover:bg-[#303030] transition-colors">Cancelar</button>
         <button onClick={submit} className="px-4 py-1.5 rounded-lg text-sm text-white transition-colors" style={{ backgroundColor: '#0ea5e9' }}>Salvar</button>
       </div>
     </div>
@@ -196,13 +196,13 @@ function CategoryChart({ entries }: { entries: RdoFinancialEntry[] }) {
   const max = sorted[0]?.[1] ?? 1
 
   return (
-    <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5">
+    <div className="bg-[#202020] rounded-xl border border-[#303030] p-5">
       <h3 className="text-[#f5f5f5] font-medium text-sm mb-4">Custos por Categoria</h3>
       <div className="space-y-3">
         {sorted.map(([cat, val]) => (
           <div key={cat} className="flex items-center gap-3">
             <span className="text-[#a3a3a3] text-xs w-28 truncate text-right">{cat}</span>
-            <div className="flex-1 h-5 bg-[#262626] rounded-full overflow-hidden">
+            <div className="flex-1 h-5 bg-[#2a2a2a] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full bg-sky-500/70 transition-all"
                 style={{ width: `${(val / max) * 100}%` }}
@@ -257,8 +257,8 @@ function SCurve({
   const acStr = points.map((p, i) => `${xOf(i).toFixed(1)},${yOfBRL(p.acBRL).toFixed(1)}`).join(' ')
 
   return (
-    <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] overflow-hidden">
-      <div className="px-5 py-3 border-b border-[#2a2a2a]">
+    <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
+      <div className="px-5 py-3 border-b border-[#303030]">
         <h3 className="text-[#f5f5f5] font-medium text-sm">Curva S — PV / EV / AC</h3>
       </div>
       <div className="p-4">
@@ -357,7 +357,7 @@ export function FinanceiroPanel() {
               value={budgetInput}
               onChange={(e) => setBudgetInput(e.target.value)}
               onBlur={handleBudgetBlur}
-              className="pl-8 pr-3 py-1.5 bg-[#1e1e1e] border border-[#363636] rounded-lg text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 w-36"
+              className="pl-8 pr-3 py-1.5 bg-[#202020] border border-[#363636] rounded-lg text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 w-36"
               min={0}
             />
           </div>
@@ -425,8 +425,8 @@ export function FinanceiroPanel() {
       <CategoryChart entries={financialEntries} />
 
       {/* Financial entries table */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] overflow-hidden">
-        <div className="px-5 py-3 border-b border-[#2a2a2a] flex items-center justify-between flex-wrap gap-2">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] overflow-hidden">
+        <div className="px-5 py-3 border-b border-[#303030] flex items-center justify-between flex-wrap gap-2">
           <div>
             <h3 className="text-[#f5f5f5] font-medium text-sm">Lançamentos Financeiros</h3>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -445,7 +445,7 @@ export function FinanceiroPanel() {
         </div>
 
         {showAddForm && (
-          <div className="px-5 py-4 border-b border-[#2a2a2a]">
+          <div className="px-5 py-4 border-b border-[#303030]">
             <AddEntryForm
               onAdd={addFinancialEntry}
               onClose={() => setShowAddForm(false)}
@@ -456,7 +456,7 @@ export function FinanceiroPanel() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[#6b6b6b] text-xs border-b border-[#2a2a2a]">
+              <tr className="text-[#6b6b6b] text-xs border-b border-[#303030]">
                 <th className="text-left px-3 py-2.5 font-medium">Data</th>
                 <th className="text-left px-3 py-2.5 font-medium">Categoria</th>
                 <th className="text-left px-3 py-2.5 font-medium">Descrição</th>

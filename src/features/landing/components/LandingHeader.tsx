@@ -78,7 +78,7 @@ export function LandingHeader() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div style={{ background: '#0f0f0f', borderTop: '1px solid rgba(255,255,255,0.12)' }} className="md:hidden">
+        <div style={{ background: '#141414', borderTop: '1px solid rgba(255,255,255,0.12)' }} className="md:hidden">
           <div className="px-6 py-6 flex flex-col gap-5">
             {NAV_LINKS.map((link) => (
               <a

@@ -68,8 +68,8 @@ const ACCEPTED_ANIM_CSS = `
 // ─── Map CSS ──────────────────────────────────────────────────────────────────
 
 function getMapCSS(isDark: boolean) {
-  const bg     = isDark ? '#1e1e1e' : '#ffffff'
-  const border = isDark ? '#2a2a2a' : '#d4d8df'
+  const bg     = isDark ? '#202020' : '#ffffff'
+  const border = isDark ? '#303030' : '#d4d8df'
   const text   = isDark ? '#f5f5f5' : '#1a1d23'
   return `
   .leaflet-control-zoom a { background: #fff !important; border-color: #d4d8df !important; color: #505863 !important; }
@@ -99,7 +99,7 @@ export function FleetRoutingMap() {
   ), [routingRecs])
 
   return (
-    <div className="w-full rounded-xl overflow-hidden border border-[#2a2a2a]" style={{ height: 380 }}>
+    <div className="w-full rounded-xl overflow-hidden border border-[#303030]" style={{ height: 380 }}>
       <style>{mapCSS}{ACCEPTED_ANIM_CSS}</style>
       <MapContainer
         center={[-23.5400, -46.6300]}

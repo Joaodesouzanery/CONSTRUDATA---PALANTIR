@@ -75,13 +75,13 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
     onSave(form as Omit<Shift, 'id'>)
   }
 
-  const fieldClass = 'w-full bg-[#161616] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
+  const fieldClass = 'w-full bg-[#1a1a1a] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
   const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+      <div className="bg-[#1a1a1a] border border-[#303030] rounded-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-4 border-b border-[#303030]">
           <h3 className="text-[#f5f5f5] text-sm font-semibold">{initial?.id ? 'Editar Turno' : 'Novo Turno'}</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
@@ -144,7 +144,7 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
               </button>
             )}
             <div className="flex gap-2 ml-auto">
-              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">Cancelar</button>
+              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">Cancelar</button>
               <button type="submit" className="px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold">Salvar</button>
             </div>
           </div>
@@ -159,12 +159,12 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
 function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings; onSave: (s: Partial<CLTSettings>) => void; onClose: () => void }) {
   const [form, setForm] = useState({ ...settings })
   const num = (field: keyof CLTSettings) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, [field]: parseFloat(e.target.value) || 0 }))
-  const fieldClass = 'w-full bg-[#161616] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
+  const fieldClass = 'w-full bg-[#1a1a1a] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
   const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-[#161616] border border-[#2a2a2a] rounded-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+      <div className="bg-[#1a1a1a] border border-[#303030] rounded-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between p-4 border-b border-[#303030]">
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Configurações CLT</h3>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
@@ -178,7 +178,7 @@ function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings
           <div><label className={labelClass}>Adicional noturno (%)</label><input type="number" className={fieldClass} value={form.nightDifferential} onChange={num('nightDifferential')} /></div>
           <div><label className={labelClass}>Taxa HE (%)</label><input type="number" className={fieldClass} value={form.overtimeRate} onChange={num('overtimeRate')} /></div>
           <div className="col-span-2 flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] text-xs">Cancelar</button>
+            <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs">Cancelar</button>
             <button onClick={() => { onSave(form); onClose() }} className="px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold">Salvar</button>
           </div>
         </div>
@@ -223,7 +223,7 @@ function MonthlyView({ shifts, year, month, onDayClick }: { shifts: Shift[]; yea
           const isWeekend = dow === 0 || dow === 6
           const color = info
             ? info.absent > 0 ? '#ef4444' : info.dayOff > 0 ? '#6b6b6b' : '#22c55e'
-            : isWeekend ? '#1f3c5e' : '#2a2a2a'
+            : isWeekend ? '#1f3c5e' : '#303030'
           return (
             <button
               key={ymd}
@@ -278,7 +278,7 @@ function WeeklyView({ shifts, workers, dates, onCellClick }: {
         </thead>
         <tbody>
           {workers.map((w) => (
-            <tr key={w.id} className="border-t border-[#2a2a2a]">
+            <tr key={w.id} className="border-t border-[#303030]">
               <td className="px-2 py-1.5 text-[#f5f5f5] font-medium truncate max-w-[128px]">{w.name.split(' ')[0]}</td>
               {dates.map((d) => {
                 const ymd = toYMD(d)
@@ -286,7 +286,7 @@ function WeeklyView({ shifts, workers, dates, onCellClick }: {
                 return (
                   <td
                     key={ymd}
-                    className="px-1 py-1 text-center cursor-pointer hover:bg-[#262626]"
+                    className="px-1 py-1 text-center cursor-pointer hover:bg-[#2a2a2a]"
                     onClick={() => onCellClick(w.id, ymd)}
                   >
                     {dayShifts.length === 0 ? (
@@ -335,7 +335,7 @@ function DailyView({ shifts, workers, selectedDate, onAddShift, onEditShift }: {
         </button>
       </div>
       {dayShifts.length === 0 ? (
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-6 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">Nenhum turno registrado para este dia.</p>
         </div>
       ) : (
@@ -347,7 +347,7 @@ function DailyView({ shifts, workers, selectedDate, onAddShift, onEditShift }: {
             return (
               <div
                 key={s.id}
-                className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-[#f97316]/30"
+                className="bg-[#202020] border border-[#303030] rounded-xl p-3 flex items-center gap-3 cursor-pointer hover:border-[#f97316]/30"
                 style={{ borderLeft: `3px solid ${color}` }}
                 onClick={() => onEditShift(s)}
               >
@@ -438,7 +438,7 @@ export function EscalaInteligentePanel() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* View mode */}
-        <div className="flex rounded-lg border border-[#2a2a2a] overflow-hidden">
+        <div className="flex rounded-lg border border-[#303030] overflow-hidden">
           {([['month', Calendar, 'Mês'], ['week', LayoutGrid, 'Semana'], ['day', List, 'Dia']] as const).map(([mode, Icon, label]) => (
             <button
               key={mode}
@@ -472,7 +472,7 @@ export function EscalaInteligentePanel() {
         )}
 
         <div className="ml-auto flex gap-2">
-          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2a2a2a] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">
+          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#303030] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">
             <Settings size={12} /> CLT
           </button>
           <button
@@ -486,7 +486,7 @@ export function EscalaInteligentePanel() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Main calendar/grid */}
-        <div className="lg:col-span-2 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4">
+        <div className="lg:col-span-2 bg-[#202020] border border-[#303030] rounded-xl p-4">
           {viewMode === 'month' && (
             <MonthlyView shifts={shifts} year={year} month={month} onDayClick={handleDayClick} />
           )}
@@ -505,7 +505,7 @@ export function EscalaInteligentePanel() {
         </div>
 
         {/* CLT Alert Panel */}
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 flex flex-col gap-3">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <p className="text-[#f5f5f5] text-sm font-semibold">Alertas CLT</p>
             <div className="flex gap-1.5">
@@ -547,7 +547,7 @@ export function EscalaInteligentePanel() {
           )}
 
           {/* Legend */}
-          <div className="border-t border-[#2a2a2a] pt-3">
+          <div className="border-t border-[#303030] pt-3">
             <p className="text-[#6b6b6b] text-[10px] mb-2">Tipos de turno</p>
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(SHIFT_TYPE_LABEL).map(([type, label]) => (

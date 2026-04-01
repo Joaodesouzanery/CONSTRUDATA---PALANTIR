@@ -65,7 +65,7 @@ export function AbcPanel() {
             </button>
           )}
           <button onClick={() => exportAbcCsv(abcItems)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] transition-colors">
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] transition-colors">
             <Download size={12} /> CSV
           </button>
         </div>
@@ -86,7 +86,7 @@ export function AbcPanel() {
       </div>
 
       {/* SVG chart */}
-      <div className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-4 overflow-x-auto">
+      <div className="bg-[#202020] rounded-xl border border-[#303030] p-4 overflow-x-auto">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-3xl mx-auto">
           {/* Y axis labels */}
           {[0, 25, 50, 75, 95, 100].map((pct) => {
@@ -145,9 +145,9 @@ export function AbcPanel() {
       </div>
 
       {/* Table */}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-[#2a2a2a]">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-[#303030]">
         <table className="w-full text-sm">
-          <thead className="bg-[#1e1e1e] border-b border-[#2a2a2a]">
+          <thead className="bg-[#202020] border-b border-[#303030]">
             <tr>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Código</th>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Descrição</th>
@@ -158,9 +158,9 @@ export function AbcPanel() {
               <th className="text-center text-[#a3a3a3] px-4 py-3 font-medium">Zona</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#1e1e1e]">
+          <tbody className="divide-y divide-[#202020]">
             {abcItems.map((item) => (
-              <tr key={item.trecho.id} className="bg-[#0f0f0f] hover:bg-[#1e1e1e] transition-colors">
+              <tr key={item.trecho.id} className="bg-[#141414] hover:bg-[#202020] transition-colors">
                 <td className="px-4 py-2.5 text-[#f5f5f5] font-medium">{item.trecho.code}</td>
                 <td className="px-4 py-2.5 text-[#f5f5f5]">{item.trecho.description}</td>
                 <td className="px-4 py-2.5 text-right text-[#f5f5f5]">{item.trecho.lengthM} m</td>

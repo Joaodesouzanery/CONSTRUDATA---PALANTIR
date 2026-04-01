@@ -98,19 +98,19 @@ export function TextParseModal({ onClose, onApply }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
+        className="w-full max-w-2xl rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl"
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a] shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030] shrink-0">
           <div className="flex items-center gap-2">
             <ClipboardPaste size={16} className="text-[#f97316]" />
             <h2 className="text-[#f5f5f5] font-bold text-sm">Preencher RDO com Texto</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             <X size={14} />
           </button>
@@ -127,7 +127,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
               type="date"
               value={rdoDate}
               onChange={(e) => setRdoDate(e.target.value)}
-              className="w-full rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+              className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50 transition-colors"
             />
           </div>
 
@@ -141,7 +141,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
               onChange={(e) => { setText(e.target.value); setShowPreview(false) }}
               placeholder={PLACEHOLDER}
               rows={12}
-              className="w-full rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] px-3 py-2.5 text-xs text-[#f5f5f5] placeholder-[#3a3a3a] focus:outline-none focus:border-[#f97316]/50 resize-y transition-colors font-mono"
+              className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2.5 text-xs text-[#f5f5f5] placeholder-[#3a3a3a] focus:outline-none focus:border-[#f97316]/50 resize-y transition-colors font-mono"
             />
             {text.trim() && (
               <button
@@ -167,7 +167,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
                 {/* Services */}
                 <button
                   onClick={() => setShowServices((v) => !v)}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-[#1e1e1e] border border-[#2a2a2a] text-left"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-[#202020] border border-[#303030] text-left"
                 >
                   {parsed.services.length > 0
                     ? <CheckCircle2 size={14} className="text-[#22c55e] shrink-0" />
@@ -183,7 +183,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
                 {/* Trechos */}
                 <button
                   onClick={() => setShowTrechos((v) => !v)}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-[#1e1e1e] border border-[#2a2a2a] text-left"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-[#202020] border border-[#303030] text-left"
                 >
                   {parsed.trechos.length > 0
                     ? <CheckCircle2 size={14} className="text-[#22c55e] shrink-0" />
@@ -199,7 +199,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
                 {/* Equipment */}
                 <button
                   onClick={() => setShowEquip((v) => !v)}
-                  className="flex items-center gap-2 p-3 rounded-xl bg-[#1e1e1e] border border-[#2a2a2a] text-left"
+                  className="flex items-center gap-2 p-3 rounded-xl bg-[#202020] border border-[#303030] text-left"
                 >
                   {parsed.equipment.length > 0
                     ? <CheckCircle2 size={14} className="text-[#22c55e] shrink-0" />
@@ -213,7 +213,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
                 </button>
 
                 {/* Manpower */}
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-[#1e1e1e] border border-[#2a2a2a]">
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-[#202020] border border-[#303030]">
                   {totalManpower > 0
                     ? <CheckCircle2 size={14} className="text-[#22c55e] shrink-0" />
                     : <Circle size={14} className="text-[#3a3a3a] shrink-0" />
@@ -228,7 +228,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
               {/* Responsible / leaders */}
               {(parsed.responsible || parsed.employeeNames.length > 0) && (
-                <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-3">
+                <div className="bg-[#202020] border border-[#303030] rounded-xl p-3">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] mb-1.5">Líderes detectados</div>
                   <div className="flex flex-wrap gap-1.5">
                     {parsed.employeeNames.map((n) => (
@@ -242,7 +242,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
               {/* Manpower detail */}
               {totalManpower > 0 && (
-                <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-3">
+                <div className="bg-[#202020] border border-[#303030] rounded-xl p-3">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] mb-2">Distribuição de Pessoal</div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     {parsed.manpower.foremanCount  > 0 && <div className="flex justify-between"><span className="text-[#6b6b6b]">Encarregado</span><span className="text-[#f5f5f5] font-semibold">{parsed.manpower.foremanCount}</span></div>}
@@ -255,17 +255,17 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
               {/* Services list (collapsible) */}
               {showServices && parsed.services.length > 0 && (
-                <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
+                <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
                   <button
                     onClick={() => setShowServices(false)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#262626] transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#2a2a2a] transition-colors"
                   >
                     Serviços / Materiais ({parsed.services.length})
                     <ChevronDown size={12} />
                   </button>
                   <div className="px-3 pb-3 max-h-48 overflow-y-auto">
                     {parsed.services.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-[#2a2a2a]/50 last:border-0">
+                      <div key={i} className="flex items-center justify-between py-1 border-b border-[#303030]/50 last:border-0">
                         <span className="text-xs text-[#a3a3a3] flex-1 min-w-0 mr-2 truncate">{s.description}</span>
                         <span className="text-xs text-[#f5f5f5] font-mono shrink-0">{s.quantity} {s.unit}</span>
                       </div>
@@ -285,17 +285,17 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
               {/* Trechos list (collapsible) */}
               {showTrechos && parsed.trechos.length > 0 && (
-                <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
+                <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
                   <button
                     onClick={() => setShowTrechos(false)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#262626] transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#2a2a2a] transition-colors"
                   >
                     Trechos ({parsed.trechos.length})
                     <ChevronDown size={12} />
                   </button>
                   <div className="px-3 pb-3 max-h-40 overflow-y-auto">
                     {parsed.trechos.map((t, i) => (
-                      <div key={i} className="flex items-start gap-2 py-1 border-b border-[#2a2a2a]/50 last:border-0">
+                      <div key={i} className="flex items-start gap-2 py-1 border-b border-[#303030]/50 last:border-0">
                         <span className="text-[10px] font-mono text-[#f97316] shrink-0 mt-0.5">{t.trechoCode}</span>
                         <span className="text-xs text-[#a3a3a3] flex-1 min-w-0">{t.trechoDescription}</span>
                         <span className="text-xs font-mono text-[#f5f5f5] shrink-0">{t.executedMeters}m</span>
@@ -307,17 +307,17 @@ export function TextParseModal({ onClose, onApply }: Props) {
 
               {/* Equipment list (collapsible) */}
               {showEquip && parsed.equipment.length > 0 && (
-                <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl overflow-hidden">
+                <div className="bg-[#202020] border border-[#303030] rounded-xl overflow-hidden">
                   <button
                     onClick={() => setShowEquip(false)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#262626] transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6b6b] hover:bg-[#2a2a2a] transition-colors"
                   >
                     Equipamentos ({parsed.equipment.length})
                     <ChevronDown size={12} />
                   </button>
                   <div className="px-3 pb-3">
                     {parsed.equipment.map((e, i) => (
-                      <div key={i} className="flex items-center justify-between py-1 border-b border-[#2a2a2a]/50 last:border-0">
+                      <div key={i} className="flex items-center justify-between py-1 border-b border-[#303030]/50 last:border-0">
                         <span className="text-xs text-[#a3a3a3]">{e.name}</span>
                         <span className="text-xs text-[#f5f5f5] font-mono">{e.quantity} un · {e.hours}h</span>
                       </div>
@@ -338,11 +338,11 @@ export function TextParseModal({ onClose, onApply }: Props) {
         </div>
 
         {/* ── Footer ── */}
-        <div className="flex items-center gap-2 px-5 py-4 border-t border-[#2a2a2a] shrink-0">
+        <div className="flex items-center gap-2 px-5 py-4 border-t border-[#303030] shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 rounded-lg text-xs text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="px-3 py-1.5 rounded-lg text-xs text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             Cancelar
           </button>
@@ -352,7 +352,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
               >
                 <FileDown size={12} />
                 Exportar PDF

@@ -1269,6 +1269,7 @@ export interface RDO {
   observations: string
   incidents:    string
   photos:       RdoPhoto[]
+  logoId?:      string   // ID of the SavedLogo to use in PDF export
   createdAt:    string
   updatedAt:    string
 }

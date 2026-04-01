@@ -23,9 +23,9 @@ export function Rede360Header() {
   const activeOutages = outages.filter((o) => o.status === 'active').length
 
   return (
-    <div className="bg-[#0a1628] border-b border-[#2a2a2a] shrink-0">
+    <div className="bg-[#0a1628] border-b border-[#303030] shrink-0">
       {/* Top row: brand + search + meta */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#2a2a2a]/50">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#303030]/50">
         <span className="text-[#f97316] font-bold text-sm tracking-wide whitespace-nowrap">Rede 360</span>
         <div className="relative flex-1 max-w-xs">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
@@ -34,7 +34,7 @@ export function Rede360Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar na rede..."
-            className="w-full pl-7 pr-3 py-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]"
+            className="w-full pl-7 pr-3 py-1 bg-[#202020] border border-[#303030] rounded text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]"
           />
         </div>
         <span className="text-xs text-[#6b6b6b] ml-auto whitespace-nowrap">Dados Nacionais</span>

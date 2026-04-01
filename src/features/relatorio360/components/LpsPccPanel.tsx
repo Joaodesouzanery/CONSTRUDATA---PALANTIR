@@ -34,7 +34,7 @@ function PpcList({ results }: { results: WeeklyPpcResult[] }) {
       {results.slice(-8).map((w, i) => (
         <div key={i} className="flex items-center gap-3">
           <span className="text-[10px] text-[#6b6b6b] w-6 text-right tabular-nums">S{i + 1}</span>
-          <div className="flex-1 h-2 rounded-full bg-[#262626] overflow-hidden">
+          <div className="flex-1 h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${w.ppc}%`, backgroundColor: ppcBar(w.ppc) }}
@@ -83,7 +83,7 @@ function SCurvePanel({ points }: { points: TrendPoint[] }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
       {[0, 25, 50, 75, 100].map((v) => (
         <g key={v}>
-          <line x1={PAD_L} y1={py(v)} x2={W - 6} y2={py(v)} stroke="#2a2a2a" strokeWidth={0.5} strokeDasharray="3,3" />
+          <line x1={PAD_L} y1={py(v)} x2={W - 6} y2={py(v)} stroke="#303030" strokeWidth={0.5} strokeDasharray="3,3" />
           <text x={PAD_L - 3} y={py(v) + 3} textAnchor="end" fontSize={7} fill="#6b6b6b" fontFamily="monospace">{v}%</text>
         </g>
       ))}
@@ -147,7 +147,7 @@ function NotableServicesPanel({ curves }: { curves: NotableServiceCurve[] }) {
                 <span className="text-[10px] font-bold tabular-nums" style={{ color }}>{actPct}%</span>
               </div>
             </div>
-            <div className="relative h-2 rounded-full bg-[#262626] overflow-hidden">
+            <div className="relative h-2 rounded-full bg-[#2a2a2a] overflow-hidden">
               <div className="absolute inset-0 bg-[#3a4a6b] rounded-full" style={{ width: '100%' }} />
               <div className="absolute inset-0 rounded-full" style={{ width: `${actPct}%`, backgroundColor: color }} />
             </div>
@@ -186,7 +186,7 @@ export function LpsPccPanel() {
       {/* Top row: PPC list + S-curve */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* PPC per week */}
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
+        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
           <div className="flex items-center gap-2 mb-3">
             <Target size={13} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">PPC por Semana</h3>
@@ -195,7 +195,7 @@ export function LpsPccPanel() {
         </div>
 
         {/* S-curve */}
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
+        <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={13} className="text-[#f97316]" />
             <h3 className="text-[#f5f5f5] text-sm font-semibold">Curva S — Planejado vs Realizado</h3>
@@ -205,7 +205,7 @@ export function LpsPccPanel() {
       </div>
 
       {/* Notable services */}
-      <div className="rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] p-4">
+      <div className="rounded-xl border border-[#303030] bg-[#202020] p-4">
         <div className="flex items-center gap-2 mb-4">
           <Activity size={13} className="text-[#f97316]" />
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Serviços Notáveis — Planejado vs Realizado</h3>

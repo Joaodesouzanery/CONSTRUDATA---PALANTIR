@@ -1,9 +1,9 @@
 /**
- * LogoConfigModal — Upload and manage the company logo shown in RDO PDF exports.
- * Logo is stored in companySettingsStore (localStorage) and persists across sessions.
+ * LogoConfigModal — Gallery of saved company logos for RDO PDF exports.
+ * Multiple logos can be saved; one is selected per RDO when creating it.
  */
-import { useRef } from 'react'
-import { X, Upload, Trash2, Building2 } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { X, Trash2, Building2, Check, Plus } from 'lucide-react'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
@@ -14,20 +14,29 @@ interface Props {
 }
 
 export function LogoConfigModal({ onClose }: Props) {
-  const { logo, companyName, setLogo, setCompanyName } = useCompanySettingsStore()
+  const { logos, companyName, addLogo, removeLogo, setCompanyName } = useCompanySettingsStore()
+
+  const [newName, setNewName]   = useState('')
+  const [pending, setPending]   = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
+  const [saved, setSaved]       = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleFile(file: File) {
+    setAddError(null)
     if (!ALLOWED_MIME.includes(file.type)) {
-      alert('Formato inválido. Use JPG, PNG ou WebP.')
+      setAddError('Formato inválido. Use JPG, PNG ou WebP.')
       return
     }
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      alert(`Arquivo muito grande. Máximo ${MAX_SIZE_MB} MB.`)
+      setAddError(`Arquivo muito grande. Máximo ${MAX_SIZE_MB} MB.`)
       return
     }
     const reader = new FileReader()
-    reader.onload = () => setLogo(reader.result as string)
+    reader.onload = () => {
+      setPending(reader.result as string)
+      if (!newName) setNewName(file.name.replace(/\.[^.]+$/, ''))
+    }
     reader.readAsDataURL(file)
   }
 
@@ -37,6 +46,22 @@ export function LogoConfigModal({ onClose }: Props) {
     if (file) handleFile(file)
   }
 
+  function handleSaveLogo() {
+    if (!pending) return
+    addLogo(newName.trim() || 'Logo sem nome', pending)
+    setPending(null)
+    setNewName('')
+    setAddError(null)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  function handleCancelAdd() {
+    setPending(null)
+    setNewName('')
+    setAddError(null)
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -44,25 +69,31 @@ export function LogoConfigModal({ onClose }: Props) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl"
+        className="w-full max-w-lg rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2a2a]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#303030] shrink-0">
           <div className="flex items-center gap-2">
             <Building2 size={16} className="text-[#f97316]" />
-            <h2 className="text-[#f5f5f5] font-bold text-sm">Configurar Logo da Empresa</h2>
+            <h2 className="text-[#f5f5f5] font-bold text-sm">Logos da Empresa</h2>
+            {logos.length > 0 && (
+              <span className="text-[10px] bg-[#f97316]/15 text-[#f97316] px-2 py-0.5 rounded-full font-medium">
+                {logos.length} salva{logos.length > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors"
           >
             <X size={14} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-5 py-4 flex flex-col gap-4">
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-5">
+
           {/* Company name */}
           <div>
             <label className="block text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] mb-1.5">
@@ -73,71 +104,122 @@ export function LogoConfigModal({ onClose }: Props) {
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Construdata Engenharia"
-              className="w-full rounded-lg bg-[#1e1e1e] border border-[#2a2a2a] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#3a3a3a] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+              className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
             />
-            <p className="text-[10px] text-[#6b6b6b] mt-1">Aparece no rodapé do cabeçalho do PDF.</p>
+            <p className="text-[10px] text-[#6b6b6b] mt-1">Aparece no rodapé do cabeçalho de cada PDF.</p>
           </div>
 
-          {/* Current logo preview */}
-          {logo && (
+          {/* Logo gallery */}
+          {logos.length > 0 && (
             <div>
               <label className="block text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] mb-2">
-                Logo Atual
+                Logos Salvas ({logos.length})
               </label>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1e1e1e] border border-[#2a2a2a]">
-                <div className="flex-1 flex items-center justify-center bg-white rounded-lg p-2" style={{ maxHeight: 72 }}>
-                  <img
-                    src={logo}
-                    alt="Logo"
-                    className="max-h-14 max-w-[160px] object-contain"
-                  />
-                </div>
-                <button
-                  onClick={() => setLogo(null)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-[#ef4444] hover:bg-[#ef4444]/10 border border-[#ef4444]/20 transition-colors"
-                >
-                  <Trash2 size={12} />
-                  Remover
-                </button>
+              <div className="grid grid-cols-2 gap-3">
+                {logos.map((logo) => (
+                  <div
+                    key={logo.id}
+                    className="relative rounded-xl border border-[#303030] bg-[#202020] p-3 flex flex-col gap-2"
+                  >
+                    <div className="h-16 flex items-center justify-center bg-white rounded-lg overflow-hidden">
+                      <img
+                        src={logo.base64}
+                        alt={logo.name}
+                        className="max-h-14 max-w-full object-contain"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-[#f5f5f5] font-medium truncate">{logo.name}</span>
+                      <button
+                        onClick={() => removeLogo(logo.id)}
+                        className="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-[#6b6b6b] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors"
+                        title="Remover logo"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Upload zone */}
+          {/* Add new logo section */}
           <div>
             <label className="block text-[10px] font-semibold tracking-widest uppercase text-[#6b6b6b] mb-2">
-              {logo ? 'Substituir Logo' : 'Carregar Logo'}
+              Adicionar Nova Logo
             </label>
-            <div
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-              onClick={() => fileRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-[#2a2a2a] hover:border-[#f97316]/50 cursor-pointer transition-colors"
-            >
-              <Upload size={20} className="text-[#6b6b6b]" />
-              <p className="text-xs text-[#a3a3a3] text-center">
-                Clique ou arraste uma imagem aqui
-              </p>
-              <p className="text-[10px] text-[#6b6b6b]">JPG, PNG, WebP · Máx. {MAX_SIZE_MB} MB</p>
-            </div>
+
+            {pending ? (
+              <div className="flex flex-col gap-3 p-4 rounded-xl border border-[#f97316]/30 bg-[#f97316]/5">
+                <div className="h-16 flex items-center justify-center bg-white rounded-lg overflow-hidden">
+                  <img src={pending} alt="preview" className="max-h-14 max-w-full object-contain" />
+                </div>
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Nome para esta logo"
+                  className="w-full rounded-lg bg-[#202020] border border-[#303030] px-3 py-2 text-sm text-[#f5f5f5] placeholder-[#404040] focus:outline-none focus:border-[#f97316]/50 transition-colors"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveLogo}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
+                  >
+                    <Check size={12} />
+                    Salvar Logo
+                  </button>
+                  <button
+                    onClick={handleCancelAdd}
+                    className="px-3 py-2 rounded-lg text-xs font-medium text-[#6b6b6b] hover:text-[#f5f5f5] border border-[#303030] hover:border-[#404040] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
+                onClick={() => fileRef.current?.click()}
+                className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 border-dashed border-[#303030] hover:border-[#f97316]/50 cursor-pointer transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg bg-[#2a2a2a] flex items-center justify-center">
+                  <Plus size={18} className="text-[#6b6b6b]" />
+                </div>
+                <p className="text-xs text-[#a3a3a3] text-center">Clique ou arraste uma imagem</p>
+                <p className="text-[10px] text-[#6b6b6b]">JPG, PNG, WebP · Máx. {MAX_SIZE_MB} MB</p>
+              </div>
+            )}
+
             <input
               ref={fileRef}
               type="file"
               accept={ALLOWED_MIME.join(',')}
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
             />
-          </div>
 
-          {!logo && (
-            <p className="text-[10px] text-[#6b6b6b] bg-[#1e1e1e] border border-[#2a2a2a] rounded-lg px-3 py-2">
-              Sem logo configurada — o PDF usará o ícone padrão "R" da Construdata.
-            </p>
-          )}
+            {addError && <p className="text-xs text-[#ef4444] mt-2">{addError}</p>}
+
+            {saved && (
+              <p className="text-xs text-[#22c55e] mt-2 flex items-center gap-1">
+                <Check size={12} /> Logo salva com sucesso!
+              </p>
+            )}
+
+            {logos.length === 0 && !pending && (
+              <p className="text-[10px] text-[#6b6b6b] mt-2 bg-[#202020] border border-[#303030] rounded-lg px-3 py-2">
+                Sem logos salvas — ao criar um RDO, o PDF usará o ícone padrão.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#2a2a2a]">
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#303030] shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"

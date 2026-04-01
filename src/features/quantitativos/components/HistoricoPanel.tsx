@@ -16,18 +16,18 @@ const SOURCE_BADGE: Record<string, string> = {
   sinapi:  'bg-blue-900/50 text-blue-300',
   seinfra: 'bg-teal-900/50 text-teal-300',
   custom:  'bg-violet-900/50 text-violet-300',
-  manual:  'bg-[#262626] text-[#a3a3a3]',
+  manual:  'bg-[#2a2a2a] text-[#a3a3a3]',
 }
 
 function SaveDialog({ onSave, onClose }: { onSave: (name: string, desc?: string) => void; onClose: () => void }) {
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   const [err, setErr] = useState('')
-  const inputCls = 'w-full bg-[#262626] border border-[#363636] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500'
+  const inputCls = 'w-full bg-[#2a2a2a] border border-[#363636] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-violet-500'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl w-full max-w-sm p-6 space-y-4">
+      <div className="bg-[#202020] border border-[#303030] rounded-2xl w-full max-w-sm p-6 space-y-4">
         <h3 className="text-white font-semibold text-sm">Salvar Orçamento Atual</h3>
         <div>
           <label className="block text-[#a3a3a3] text-xs mb-1">Nome *</label>
@@ -39,7 +39,7 @@ function SaveDialog({ onSave, onClose }: { onSave: (name: string, desc?: string)
         </div>
         {err && <p className="text-red-400 text-xs">{err}</p>}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#262626] text-[#f5f5f5] text-sm hover:bg-[#2a2a2a]">Cancelar</button>
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg bg-[#2a2a2a] text-[#f5f5f5] text-sm hover:bg-[#303030]">Cancelar</button>
           <button onClick={() => { if (!name.trim()) { setErr('Nome obrigatório'); return } onSave(name.trim(), desc.trim() || undefined); onClose() }} className="px-4 py-1.5 rounded-lg text-sm text-white" style={{ backgroundColor: '#8b5cf6' }}>Salvar</button>
         </div>
       </div>
@@ -86,13 +86,13 @@ export function HistoricoPanel() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {savedBudgets.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((budget) => (
-          <div key={budget.id} className="bg-[#1e1e1e] rounded-xl border border-[#2a2a2a] p-5 flex flex-col gap-3">
+          <div key={budget.id} className="bg-[#202020] rounded-xl border border-[#303030] p-5 flex flex-col gap-3">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <h3 className="text-gray-100 font-semibold text-sm truncate">{budget.name}</h3>
                 {budget.description && <p className="text-[#6b6b6b] text-xs mt-0.5 line-clamp-2">{budget.description}</p>}
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${SOURCE_BADGE[budget.costBase] ?? 'bg-[#262626] text-[#a3a3a3]'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${SOURCE_BADGE[budget.costBase] ?? 'bg-[#2a2a2a] text-[#a3a3a3]'}`}>
                 {budget.costBase.toUpperCase()}
               </span>
             </div>
@@ -128,7 +128,7 @@ export function HistoricoPanel() {
               </button>
               <button
                 onClick={() => handleDelete(budget.id)}
-                className="p-2 rounded-lg bg-[#262626] hover:bg-red-900/30 text-[#a3a3a3] hover:text-red-300 transition-colors"
+                className="p-2 rounded-lg bg-[#2a2a2a] hover:bg-red-900/30 text-[#a3a3a3] hover:text-red-300 transition-colors"
               >
                 <Trash2 size={14} />
               </button>

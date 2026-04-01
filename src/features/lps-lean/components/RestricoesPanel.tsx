@@ -140,7 +140,7 @@ export function RestricoesPanel() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 flex-wrap">
           <h2 className="text-sm font-bold text-white">Análise de Restrições</h2>
-          <KpiBadge label="TOTAL"        value={counts.total}        color="bg-[#262626] text-[#f5f5f5]" />
+          <KpiBadge label="TOTAL"        value={counts.total}        color="bg-[#2a2a2a] text-[#f5f5f5]" />
           <KpiBadge label="IDENTIFICADAS" value={counts.identificada} color="bg-red-900/50 text-red-300" />
           <KpiBadge label="EM RESOLUÇÃO"  value={counts.em_resolucao} color="bg-yellow-900/50 text-yellow-300" />
           <KpiBadge label="RESOLVIDAS"    value={counts.resolvida}    color="bg-green-900/50 text-green-300" />
@@ -162,7 +162,7 @@ export function RestricoesPanel() {
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               filter === f
                 ? 'bg-orange-600 text-white'
-                : 'bg-[#1e1e1e] text-[#a3a3a3] hover:bg-[#262626]'
+                : 'bg-[#202020] text-[#a3a3a3] hover:bg-[#2a2a2a]'
             }`}
           >
             {f === 'all' ? 'Todas' : STATUS_LABELS[f]}
@@ -171,12 +171,12 @@ export function RestricoesPanel() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border border-[#1e1e1e] overflow-x-auto overflow-hidden">
+      <div className="rounded-xl border border-[#202020] overflow-x-auto overflow-hidden">
         {visible.length === 0 ? (
           <p className="text-gray-600 text-sm text-center py-10">Nenhuma restrição encontrada.</p>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-[#1e1e1e]/80 border-b border-[#2a2a2a]">
+            <thead className="bg-[#202020]/80 border-b border-[#303030]">
               <tr>
                 <th className="text-left text-[#a3a3a3] px-4 py-2.5 text-xs font-semibold">Categoria</th>
                 <th className="text-left text-[#a3a3a3] px-4 py-2.5 text-xs font-semibold">Tema / Descrição</th>
@@ -187,13 +187,13 @@ export function RestricoesPanel() {
                 <th className="px-4 py-2.5 text-xs" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1e1e1e]">
+            <tbody className="divide-y divide-[#202020]">
               {visible.map((r) => {
                 const isExpired = r.prazoRemocao && r.prazoRemocao < today && r.status !== 'resolvida'
                 return (
                   <tr
                     key={r.id}
-                    className="bg-[#0f0f0f] hover:bg-[#1e1e1e]/50 transition-colors cursor-pointer"
+                    className="bg-[#141414] hover:bg-[#202020]/50 transition-colors cursor-pointer"
                     onClick={() => openEdit(r)}
                   >
                     <td className="px-4 py-3">
@@ -223,7 +223,7 @@ export function RestricoesPanel() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         {r.tags.slice(0, 3).map((t) => (
-                          <span key={t} className="px-1.5 py-0.5 bg-[#1e1e1e] text-[#a3a3a3] rounded text-[9px]">{t}</span>
+                          <span key={t} className="px-1.5 py-0.5 bg-[#202020] text-[#a3a3a3] rounded text-[9px]">{t}</span>
                         ))}
                         {r.tags.length > 3 && (
                           <span className="text-gray-600 text-[9px]">+{r.tags.length - 3}</span>
@@ -252,7 +252,7 @@ export function RestricoesPanel() {
                           className={`bg-transparent text-xs font-semibold border-none outline-none cursor-pointer ${STATUS_COLORS[r.status]}`}
                         >
                           {(Object.keys(STATUS_LABELS) as LpsRestrictionStatus[]).map((s) => (
-                            <option key={s} value={s} className="bg-[#0f0f0f] text-white">{STATUS_LABELS[s]}</option>
+                            <option key={s} value={s} className="bg-[#141414] text-white">{STATUS_LABELS[s]}</option>
                           ))}
                         </select>
                       )}
@@ -284,9 +284,9 @@ export function RestricoesPanel() {
       {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-[#141414] border border-[#303030] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
             {/* Modal header */}
-            <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#2a2a2a]">
+            <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#303030]">
               <h3 className="text-sm font-bold text-white">
                 {editId ? 'Editar Restrição' : 'Nova Restrição'}
               </h3>
@@ -304,7 +304,7 @@ export function RestricoesPanel() {
                   value={form.tema}
                   onChange={(e) => setForm((f) => ({ ...f, tema: e.target.value }))}
                   placeholder="Ex: Licença ambiental pendente"
-                  className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                 />
               </FieldGroup>
 
@@ -313,7 +313,7 @@ export function RestricoesPanel() {
                 <select
                   value={form.categoria}
                   onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value as LpsRestrictionCategory }))}
-                  className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                 >
                   {(Object.keys(CATEGORY_LABELS) as LpsRestrictionCategory[]).map((c) => (
                     <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
@@ -328,7 +328,7 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
                   rows={3}
                   placeholder="Descreva a restrição..."
-                  className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
                 />
               </FieldGroup>
 
@@ -340,7 +340,7 @@ export function RestricoesPanel() {
                     value={form.impacto}
                     onChange={(e) => setForm((f) => ({ ...f, impacto: e.target.value }))}
                     placeholder="Ex: Paralisa equipe B"
-                    className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                   />
                 </FieldGroup>
                 <FieldGroup label="Responsável">
@@ -349,7 +349,7 @@ export function RestricoesPanel() {
                     value={form.responsavel}
                     onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))}
                     placeholder="Ex: Eng. Ambiental"
-                    className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                   />
                 </FieldGroup>
               </div>
@@ -361,14 +361,14 @@ export function RestricoesPanel() {
                     type="date"
                     value={form.prazoRemocao}
                     onChange={(e) => setForm((f) => ({ ...f, prazoRemocao: e.target.value }))}
-                    className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                   />
                 </FieldGroup>
                 <FieldGroup label="Status">
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as LpsRestrictionStatus }))}
-                    className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                   >
                     {(Object.keys(STATUS_LABELS) as LpsRestrictionStatus[]).map((s) => (
                       <option key={s} value={s}>{STATUS_LABELS[s]}</option>
@@ -384,7 +384,7 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, acoesNecessarias: e.target.value }))}
                   rows={2}
                   placeholder="Liste as ações para remover esta restrição..."
-                  className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
                 />
               </FieldGroup>
 
@@ -392,7 +392,7 @@ export function RestricoesPanel() {
               <FieldGroup label="Tags">
                 <div className="flex flex-wrap gap-1 mb-2">
                   {form.tags.map((t) => (
-                    <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-[#262626] text-[#f5f5f5] rounded text-xs">
+                    <span key={t} className="flex items-center gap-1 px-2 py-0.5 bg-[#2a2a2a] text-[#f5f5f5] rounded text-xs">
                       {t}
                       <button onClick={() => removeTag(t)} className="hover:text-red-400"><X size={10} /></button>
                     </span>
@@ -405,11 +405,11 @@ export function RestricoesPanel() {
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                     placeholder="Digite e pressione Enter"
-                    className="flex-1 bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="flex-1 bg-[#202020] border border-[#303030] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
                   />
                   <button
                     onClick={addTag}
-                    className="px-3 py-1.5 bg-[#262626] hover:bg-[#2a2a2a] text-[#f5f5f5] rounded text-xs"
+                    className="px-3 py-1.5 bg-[#2a2a2a] hover:bg-[#303030] text-[#f5f5f5] rounded text-xs"
                   >
                     Adicionar
                   </button>
@@ -423,13 +423,13 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
                   rows={2}
                   placeholder="Informações adicionais (opcional)..."
-                  className="w-full bg-[#1e1e1e] border border-[#2a2a2a] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#202020] border border-[#303030] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
                 />
               </FieldGroup>
             </div>
 
             {/* Modal footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#2a2a2a]">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[#303030]">
               <button
                 onClick={() => setModalOpen(false)}
                 className="px-4 py-2 text-sm text-[#a3a3a3] hover:text-white transition-colors"

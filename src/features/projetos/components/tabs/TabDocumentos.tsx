@@ -120,7 +120,7 @@ export function TabDocumentos({ project }: { project: Project }) {
           'flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors',
           isDragging
             ? 'border-[#f97316] bg-[#f97316]/5'
-            : 'border-[#2a2a2a] hover:border-[#1f3c5e] bg-[#161616]'
+            : 'border-[#303030] hover:border-[#1f3c5e] bg-[#1a1a1a]'
         )}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
@@ -158,7 +158,7 @@ export function TabDocumentos({ project }: { project: Project }) {
               'text-[10px] px-2.5 py-1 rounded-full font-semibold transition-colors border',
               filter === opt.value
                 ? 'bg-[#f97316]/15 text-[#f97316] border-[#f97316]/30'
-                : 'text-[#6b6b6b] border-[#2a2a2a] hover:border-[#1f3c5e] hover:text-[#a3a3a3]'
+                : 'text-[#6b6b6b] border-[#303030] hover:border-[#1f3c5e] hover:text-[#a3a3a3]'
             )}
           >
             {opt.label}
@@ -177,9 +177,9 @@ export function TabDocumentos({ project }: { project: Project }) {
           {filtered.map((doc) => (
             <div
               key={doc.id}
-              className="flex items-center gap-3 rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] px-4 py-3 hover:bg-[#262626] transition-colors"
+              className="flex items-center gap-3 rounded-xl border border-[#303030] bg-[#202020] px-4 py-3 hover:bg-[#2a2a2a] transition-colors"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#262626] flex items-center justify-center text-[#6b6b6b] shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-[#2a2a2a] flex items-center justify-center text-[#6b6b6b] shrink-0">
                 <FileIcon mimeType={doc.mimeType} size={16} />
               </div>
 
@@ -226,7 +226,7 @@ export function TabDocumentos({ project }: { project: Project }) {
                     </button>
                     <button
                       onClick={() => setConfirmDeleteId(null)}
-                      className="text-[9px] px-1.5 py-0.5 rounded bg-[#262626] text-[#a3a3a3]"
+                      className="text-[9px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#a3a3a3]"
                     >
                       Não
                     </button>
@@ -253,19 +253,19 @@ export function TabDocumentos({ project }: { project: Project }) {
           onClick={() => setPreviewDoc(null)}
         >
           <div
-            className="w-full max-w-4xl rounded-2xl border border-[#2a2a2a] bg-[#161616] flex flex-col shadow-2xl overflow-hidden"
+            className="w-full max-w-4xl rounded-2xl border border-[#303030] bg-[#1a1a1a] flex flex-col shadow-2xl overflow-hidden"
             style={{ maxHeight: '90vh' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[#2a2a2a] shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-[#303030] shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <FileIcon mimeType={previewDoc.mimeType} size={14} />
                 <span className="text-sm text-[#f5f5f5] font-medium truncate">{previewDoc.name}</span>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#262626] transition-colors shrink-0"
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#2a2a2a] transition-colors shrink-0"
               >
                 <X size={14} />
               </button>
@@ -284,7 +284,7 @@ export function TabDocumentos({ project }: { project: Project }) {
                   title={previewDoc.name}
                   width="100%"
                   height="600px"
-                  className="rounded-lg border border-[#2a2a2a]"
+                  className="rounded-lg border border-[#303030]"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-3 py-12 text-center">

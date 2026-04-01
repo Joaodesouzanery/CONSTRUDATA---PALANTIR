@@ -24,9 +24,9 @@ function PhotoCard({ photo }: { photo: ReportPhoto }) {
   }
 
   return (
-    <div className="group relative flex flex-col rounded-xl border border-[#2a2a2a] bg-[#1e1e1e] overflow-hidden hover:border-[#1f3c5e] transition-colors">
+    <div className="group relative flex flex-col rounded-xl border border-[#303030] bg-[#202020] overflow-hidden hover:border-[#1f3c5e] transition-colors">
       {/* Image */}
-      <div className="relative aspect-video bg-[#262626] overflow-hidden">
+      <div className="relative aspect-video bg-[#2a2a2a] overflow-hidden">
         <img
           src={photo.base64}
           alt={photo.label}
@@ -35,7 +35,7 @@ function PhotoCard({ photo }: { photo: ReportPhoto }) {
         {/* Delete overlay */}
         <button
           onClick={() => removePhoto(photo.id)}
-          className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg bg-[#0f0f0f]/80 text-[#ef4444] opacity-0 group-hover:opacity-100 hover:bg-[#ef4444]/20 transition-all"
+          className="absolute top-2 right-2 flex items-center justify-center w-7 h-7 rounded-lg bg-[#141414]/80 text-[#ef4444] opacity-0 group-hover:opacity-100 hover:bg-[#ef4444]/20 transition-all"
           title="Remover foto"
         >
           <Trash2 size={13} />
@@ -119,7 +119,7 @@ export function PhotosPanel() {
         <div
           onClick={() => fileInputRef.current?.click()}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2a2a2a] bg-[#161616]',
+            'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#303030] bg-[#1a1a1a]',
             'h-32 cursor-pointer hover:border-[#f97316]/40 hover:bg-[#f97316]/5 transition-colors'
           )}
         >
@@ -135,7 +135,7 @@ export function PhotosPanel() {
           <div
             onClick={() => fileInputRef.current?.click()}
             className={cn(
-              'aspect-video flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#2a2a2a]',
+              'aspect-video flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#303030]',
               'cursor-pointer hover:border-[#f97316]/40 hover:bg-[#f97316]/5 transition-colors'
             )}
           >

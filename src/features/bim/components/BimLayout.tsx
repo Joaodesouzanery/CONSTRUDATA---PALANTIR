@@ -24,13 +24,13 @@ export function BimLayout() {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Mobile panel toggles — only shown on small screens */}
-      <div className="md:hidden flex items-center gap-2 px-3 py-1.5 bg-[#0f0f0f] border-b border-[#1e1e1e] shrink-0">
+      <div className="md:hidden flex items-center gap-2 px-3 py-1.5 bg-[#141414] border-b border-[#202020] shrink-0">
         <button
           onClick={() => { setMobileLeft((v) => !v); setMobileRight(false) }}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
             mobileLeft
               ? 'bg-indigo-600/20 border-indigo-600/40 text-indigo-300'
-              : 'border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5]'
+              : 'border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5]'
           }`}
         >
           <PanelLeft size={13} />
@@ -41,7 +41,7 @@ export function BimLayout() {
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
             mobileRight
               ? 'bg-indigo-600/20 border-indigo-600/40 text-indigo-300'
-              : 'border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5]'
+              : 'border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5]'
           }`}
         >
           <PanelRight size={13} />
@@ -61,8 +61,8 @@ export function BimLayout() {
         {/* Mobile overlay */}
         {mobileLeft && (
           <div className="absolute inset-0 z-30 flex md:hidden">
-            <div className="w-72 max-w-[85vw] h-full bg-[#0f0f0f] border-r border-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[#1e1e1e] shrink-0">
+            <div className="w-72 max-w-[85vw] h-full bg-[#141414] border-r border-[#202020] flex flex-col overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-[#202020] shrink-0">
                 <span className="text-[#f5f5f5] text-xs font-semibold">Projetos / Camadas</span>
                 <button onClick={() => setMobileLeft(false)} className="text-[#6b6b6b] hover:text-[#f5f5f5]">
                   <X size={15} />
@@ -97,8 +97,8 @@ export function BimLayout() {
         {/* Mobile overlay */}
         {mobileRight && (
           <div className="absolute inset-0 z-30 flex flex-row-reverse md:hidden">
-            <div className="w-72 max-w-[85vw] h-full bg-[#0f0f0f] border-l border-[#1e1e1e] flex flex-col overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-[#1e1e1e] shrink-0">
+            <div className="w-72 max-w-[85vw] h-full bg-[#141414] border-l border-[#202020] flex flex-col overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-[#202020] shrink-0">
                 <span className="text-[#f5f5f5] text-xs font-semibold">Propriedades</span>
                 <button onClick={() => setMobileRight(false)} className="text-[#6b6b6b] hover:text-[#f5f5f5]">
                   <X size={15} />
@@ -119,7 +119,7 @@ export function BimLayout() {
       {activeTab === '4d' && <Bim4DPanel />}
       {activeTab === '5d' && <Bim5DPanel />}
       {activeTab === 'viewer' && (
-        <div className="h-8 shrink-0 bg-[#0f0f0f] border-t border-[#1e1e1e] flex items-center px-4">
+        <div className="h-8 shrink-0 bg-[#141414] border-t border-[#202020] flex items-center px-4">
           <p className="text-gray-600 text-xs truncate">
             {viewerMode === 'forge'
               ? 'Autodesk APS Viewer — Visualização nativa de modelos BIM'

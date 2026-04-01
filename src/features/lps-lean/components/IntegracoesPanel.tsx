@@ -44,7 +44,7 @@ export function IntegracoesPanel() {
           const meta = STATUS_META[integration.status]
           const Icon = meta.icon
           return (
-            <div key={integration.source} className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-5 flex flex-col gap-3">
+            <div key={integration.source} className="bg-[#202020] border border-[#303030] rounded-xl p-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Icon size={16} style={{ color: meta.color }} />
@@ -88,7 +88,7 @@ export function IntegracoesPanel() {
 
       {/* Auto-clear section */}
       {totalAutoClearable > 0 && (
-        <div className="bg-[#0f0f0f] border border-[#22c55e]/30 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-[#141414] border border-[#22c55e]/30 rounded-xl p-4 flex items-center justify-between">
           <div>
             <p className="text-[#f5f5f5] text-sm font-semibold">Baixa Automática de Restrições</p>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
@@ -105,7 +105,7 @@ export function IntegracoesPanel() {
       )}
 
       {/* Info */}
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4">
+      <div className="bg-[#202020] border border-[#303030] rounded-xl p-4">
         <p className="text-[#6b6b6b] text-xs leading-relaxed">
           <strong className="text-[#a3a3a3]">Como funciona:</strong> O sistema cruza dados de Suprimentos (confirmação de entrega de materiais),
           Mão de Obra (disponibilidade de equipes) e RDO (dados de execução) para identificar restrições que já foram

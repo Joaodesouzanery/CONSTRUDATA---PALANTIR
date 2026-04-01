@@ -16,7 +16,7 @@ export function EquipamentosPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel — equipment list */}
         <div
-          className="flex flex-col border-r border-[#2a2a2a] overflow-hidden shrink-0"
+          className="flex flex-col border-r border-[#303030] overflow-hidden shrink-0"
           style={{ width: 340 }}
         >
           <EquipmentList />

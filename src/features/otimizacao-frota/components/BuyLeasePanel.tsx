@@ -27,7 +27,7 @@ function CostComparisonBar({ analysis }: { analysis: BuyLeaseAnalysis }) {
       {/* Rental bar */}
       <div className="flex items-center gap-2">
         <span className="w-28 text-[#6b6b6b] text-xs shrink-0 text-right">Custo Aluguel/ano</span>
-        <div className="flex-1 h-5 bg-[#161616] rounded overflow-hidden relative">
+        <div className="flex-1 h-5 bg-[#1a1a1a] rounded overflow-hidden relative">
           <div
             className="h-full rounded transition-all duration-500"
             style={{ width: `${rentalPct}%`, backgroundColor: '#3b82f6' }}
@@ -46,7 +46,7 @@ function CostComparisonBar({ analysis }: { analysis: BuyLeaseAnalysis }) {
       {/* Ownership bar */}
       <div className="flex items-center gap-2">
         <span className="w-28 text-[#6b6b6b] text-xs shrink-0 text-right">Custo Propriedade/ano</span>
-        <div className="flex-1 h-5 bg-[#161616] rounded overflow-hidden relative">
+        <div className="flex-1 h-5 bg-[#1a1a1a] rounded overflow-hidden relative">
           <div
             className="h-full rounded transition-all duration-500"
             style={{ width: `${ownershipPct}%`, backgroundColor: '#22c55e' }}
@@ -137,7 +137,7 @@ function BuyLeaseDialog({ editTarget, onClose }: BuyLeaseDialogProps) {
   )
 
   const labelClass = 'block text-xs font-medium text-[#6b6b6b] mb-1'
-  const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#2a2a2a] bg-[#161616] text-[#f5f5f5] text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]'
+  const inputClass = 'w-full px-3 py-2 rounded-lg border border-[#303030] bg-[#1a1a1a] text-[#f5f5f5] text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316]'
 
   function handleSave() {
     const data: Omit<BuyLeaseAnalysis, 'id'> = {
@@ -172,7 +172,7 @@ function BuyLeaseDialog({ editTarget, onClose }: BuyLeaseDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#141414] border border-[#303030] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <p className="text-[#f5f5f5] text-base font-semibold">
@@ -311,7 +311,7 @@ function BuyLeaseDialog({ editTarget, onClose }: BuyLeaseDialogProps) {
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
           >
             Cancelar
           </button>
@@ -339,14 +339,14 @@ function BuyLeaseCard({
 
   return (
     <div
-      className="bg-[#1e1e1e] rounded-xl p-4 relative"
+      className="bg-[#202020] rounded-xl p-4 relative"
       style={{ border: `1px solid ${meta.color}30` }}
     >
       {/* Edit / Delete buttons */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <button
           onClick={onEdit}
-          className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#2a2a2a] transition-colors"
+          className="p-1.5 rounded-lg text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#303030] transition-colors"
           title="Editar"
         >
           <Pencil size={13} />
@@ -400,7 +400,7 @@ function BuyLeaseCard({
       </p>
 
       {/* Reasoning */}
-      <p className="text-[#6b6b6b] text-xs leading-relaxed mt-2 mb-3 border-t border-[#2a2a2a] pt-2">
+      <p className="text-[#6b6b6b] text-xs leading-relaxed mt-2 mb-3 border-t border-[#303030] pt-2">
         {a.reasoning}
       </p>
 
@@ -425,7 +425,7 @@ function BuyLeaseCard({
             {a.relatedProjects.map((proj) => (
               <span
                 key={proj}
-                className="px-2 py-0.5 rounded text-[10px] bg-[#2a2a2a] text-[#6b6b6b]"
+                className="px-2 py-0.5 rounded text-[10px] bg-[#303030] text-[#6b6b6b]"
               >
                 {proj}
               </span>
@@ -480,7 +480,7 @@ function SummaryKPIs({ analyses }: { analyses: BuyLeaseAnalysis[] }) {
       ].map((kpi) => (
         <div
           key={kpi.label}
-          className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl px-4 py-3"
+          className="bg-[#202020] border border-[#303030] rounded-xl px-4 py-3"
         >
           <p className="text-[#6b6b6b] text-xs">{kpi.label}</p>
           <p className="text-lg font-bold leading-tight mt-0.5" style={{ color: kpi.color }}>
@@ -542,7 +542,7 @@ export function BuyLeasePanel() {
           </button>
           <button
             onClick={runBuyLeaseEngine}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#262626] transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-xs font-medium hover:bg-[#2a2a2a] transition-colors"
           >
             <RefreshCw size={13} /> Rodar Engine
           </button>
@@ -554,7 +554,7 @@ export function BuyLeasePanel() {
 
       {/* Analysis cards */}
       {buyLeaseAnalyses.length === 0 ? (
-        <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-6 text-center">
+        <div className="bg-[#202020] border border-[#303030] rounded-xl p-6 text-center">
           <p className="text-[#6b6b6b] text-sm">
             Clique em "Nova Análise" ou "Rodar Engine" para calcular a análise financeira.
           </p>

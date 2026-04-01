@@ -152,7 +152,7 @@ export function MapaHeader({
 
   return (
     <>
-      <div className="bg-[#0f0f0f] border-b border-[#1e1e1e] px-3 py-2 flex flex-col gap-2">
+      <div className="bg-[#141414] border-b border-[#202020] px-3 py-2 flex flex-col gap-2">
         {/* Row 1: Title + counters */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 shrink-0">
@@ -175,7 +175,7 @@ export function MapaHeader({
           <ToolBtn label="Salvar" icon={<Save size={13} />} onClick={handleSave} />
           <ToolBtn label="Carregar" icon={<FolderOpen size={13} />} onClick={handleLoad} />
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Editing tools */}
           {TOOL_BUTTONS.map((tb) => (
@@ -191,25 +191,25 @@ export function MapaHeader({
 
           <ToolBtn label="Mover em Massa" icon={<Move size={13} />} onClick={() => {}} />
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* CRS + UTM */}
           <ToolBtn label="Transf. CRS" icon={<ArrowRightLeft size={13} />} onClick={() => setShowTransform(true)} />
           <select
             value={utmZone}
             onChange={(e) => useMapaInterativoStore.setState({ utmZone: e.target.value })}
-            className="bg-[#1e1e1e] border border-[#2a2a2a] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none"
+            className="bg-[#202020] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none"
           >
             {UTM_ZONES.map((z) => <option key={z} value={z}>{z}</option>)}
           </select>
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Basemap */}
           <select
             value={basemap}
             onChange={(e) => setBasemap(e.target.value as typeof basemap)}
-            className="bg-[#1e1e1e] border border-[#2a2a2a] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none"
+            className="bg-[#202020] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none"
           >
             <option value="satellite">Satélite</option>
             <option value="streets">Ruas (Voyager)</option>
@@ -218,19 +218,19 @@ export function MapaHeader({
             <option value="outdoors">Relevo</option>
           </select>
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Import BIM / Planejamento */}
           <ToolBtn label="Importar BIM"    icon={<ZoomIn size={13} />}  onClick={handleImportBim} />
           <ToolBtn label="Import. Trechos" icon={<ZoomOut size={13} />} onClick={handleImportPlanejamento} />
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Import / Export */}
           <ToolBtn label="Importar" icon={<Upload size={13} />}   onClick={() => setShowImport(true)} />
           <ToolBtn label="Exportar" icon={<Download size={13} />} onClick={() => setShowExport(true)} />
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Analytics toggle */}
           <ToolBtn
@@ -240,13 +240,13 @@ export function MapaHeader({
             onClick={() => onToggleAnalytics?.()}
           />
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Project selector */}
           <select
             value={selectedProjectId ?? ''}
             onChange={(e) => setSelectedProjectId(e.target.value || null)}
-            className="bg-[#1e1e1e] border border-[#2a2a2a] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none max-w-[140px]"
+            className="bg-[#202020] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none max-w-[140px]"
           >
             <option value="">(Nenhum projeto)</option>
             {projects.map((p) => (
@@ -254,7 +254,7 @@ export function MapaHeader({
             ))}
           </select>
 
-          <div className="w-px h-5 bg-[#262626] mx-1" />
+          <div className="w-px h-5 bg-[#2a2a2a] mx-1" />
 
           {/* Network type pills (for connect tool) */}
           <span className="text-[10px] text-[#6b6b6b] self-center">Tipo:</span>
@@ -266,7 +266,7 @@ export function MapaHeader({
               className={`px-2 py-1 rounded text-[10px] font-semibold border transition-colors ${
                 activeNetworkType === opt.id
                   ? 'text-white border-transparent'
-                  : 'bg-[#1e1e1e] border-[#2a2a2a] text-[#a3a3a3] hover:text-[#f5f5f5]'
+                  : 'bg-[#202020] border-[#303030] text-[#a3a3a3] hover:text-[#f5f5f5]'
               }`}
               style={activeNetworkType === opt.id ? { background: opt.color, borderColor: opt.color } : {}}
             >
@@ -305,7 +305,7 @@ function ToolBtn({
           ? 'bg-orange-600 text-white'
           : danger
             ? 'bg-red-900/40 text-red-400 hover:bg-red-900/70'
-            : 'bg-[#1e1e1e] text-[#f5f5f5] hover:bg-[#262626] hover:text-white'
+            : 'bg-[#202020] text-[#f5f5f5] hover:bg-[#2a2a2a] hover:text-white'
       }`}
     >
       {icon}

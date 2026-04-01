@@ -33,7 +33,7 @@ export function PlanejamentoMestreHeader() {
     : 0
 
   return (
-    <div className="bg-[#0f0f0f] border-b border-[#2a2a2a] print:hidden">
+    <div className="bg-[#141414] border-b border-[#303030] print:hidden">
       {/* Title + KPIs */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -69,8 +69,8 @@ export function PlanejamentoMestreHeader() {
             onClick={() => setTab(tab.key)}
             className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap ${
               activeTab === tab.key
-                ? 'bg-[#1e1e1e] text-[#f97316] border-b-2 border-[#f97316]'
-                : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#1e1e1e]/50'
+                ? 'bg-[#202020] text-[#f97316] border-b-2 border-[#f97316]'
+                : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#202020]/50'
             }`}
           >
             {tab.label}

@@ -28,7 +28,7 @@ export function LiveOutagePanel() {
   return (
     <div className="flex flex-col h-full">
       {/* KPI bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-[#0a1628] border-b border-[#2a2a2a] shrink-0">
+      <div className="flex items-center gap-4 px-4 py-2 bg-[#0a1628] border-b border-[#303030] shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <span className="text-red-400 text-sm font-semibold">{activeOutages.length} Interrupções Ativas</span>
@@ -39,7 +39,7 @@ export function LiveOutagePanel() {
         <div className="text-[#a3a3a3] text-xs">{totalAffectedCustomers.toLocaleString('pt-BR')} clientes afetados</div>
         <div className="ml-auto">
           <select value={basemap} onChange={(e) => setBasemap(e.target.value)}
-            className="bg-[#1e1e1e] border border-[#2a2a2a] rounded px-2 py-1 text-xs text-[#f5f5f5]">
+            className="bg-[#202020] border border-[#303030] rounded px-2 py-1 text-xs text-[#f5f5f5]">
             <option value="dark">Dark</option>
             <option value="streets">Ruas</option>
           </select>
@@ -71,10 +71,10 @@ export function LiveOutagePanel() {
       </div>
 
       {/* Outage table */}
-      <div className="flex-1 overflow-auto overflow-x-auto bg-[#0f0f0f]">
+      <div className="flex-1 overflow-auto overflow-x-auto bg-[#141414]">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-[#0a1628]">
-            <tr className="border-b border-[#2a2a2a] text-[#6b6b6b]">
+            <tr className="border-b border-[#303030] text-[#6b6b6b]">
               <th className="text-left px-4 py-2">ID</th>
               <th className="text-left px-4 py-2">Tipo</th>
               <th className="text-left px-4 py-2">Status</th>
@@ -85,9 +85,9 @@ export function LiveOutagePanel() {
               <th className="text-left px-4 py-2">Causa</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#2a2a2a]/50">
+          <tbody className="divide-y divide-[#303030]/50">
             {outages.map((o) => (
-              <tr key={o.id} className="hover:bg-[#1e1e1e] transition-colors">
+              <tr key={o.id} className="hover:bg-[#202020] transition-colors">
                 <td className="px-4 py-2 font-mono text-[#a3a3a3]">{o.id}</td>
                 <td className="px-4 py-2 text-[#f5f5f5]">{o.type}</td>
                 <td className="px-4 py-2">
