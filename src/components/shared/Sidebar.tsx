@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles,
+  Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,7 @@ const NAV_GROUPS = [
       { label: 'Plan. Trechos',   icon: CalendarClock,    to: '/app/planejamento'        },
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
       { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
+      { label: 'EVM',             icon: TrendingUp,       to: '/app/evm'                 },
     ],
   },
   {

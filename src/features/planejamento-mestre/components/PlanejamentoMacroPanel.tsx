@@ -67,10 +67,10 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
   const { start: projStart, end: projEnd } = getProjectDateRange(activities)
   const totalDays = Math.max(1, daysBetween(projStart, projEnd))
 
-  const LABEL_W = 240
-  const W       = 640
-  const ROW_H   = 30
-  const PAD_TOP = 30
+  const LABEL_W = 300
+  const W       = 1000
+  const ROW_H   = 36
+  const PAD_TOP = 40
   const svgH    = PAD_TOP + visible.length * ROW_H + 20
 
   function xOf(date: string) { return Math.round((daysBetween(projStart, date) / totalDays) * W) }
@@ -172,7 +172,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               <text
                 x={indent + (hasKids ? 18 : 8)}
                 y={y + ROW_H / 2 + 3}
-                fontSize={isL0 ? 10 : 9}
+                fontSize={isL0 ? 11 : 10}
                 fontWeight={isL0 || isL1 ? 'bold' : 'normal'}
                 fill={isL0 ? '#e2f0f8' : '#a3a3a3'}
                 style={{ cursor: hasKids ? 'pointer' : 'default' }}
@@ -200,16 +200,16 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               ) : (
                 <>
                   {/* Previsto bar */}
-                  <rect x={LABEL_W + bPx} y={y + 4} width={bW} height={7} rx={2} fill="#3a4a6b" opacity={0.5} />
+                  <rect x={LABEL_W + bPx} y={y + 4} width={bW} height={9} rx={2} fill="#3a4a6b" opacity={0.5} />
                   {/* Tendência bar (network-colored) */}
-                  <rect x={LABEL_W + tPx} y={y + 14} width={tW} height={isL0 ? 7 : 5} rx={2} fill={nColor} opacity={0.8} />
+                  <rect x={LABEL_W + tPx} y={y + 17} width={tW} height={isL0 ? 9 : 7} rx={2} fill={nColor} opacity={0.8} />
                   {/* Progress fill */}
                   {act.percentComplete > 0 && (
                     <rect
                       x={LABEL_W + tPx}
-                      y={y + 14}
+                      y={y + 17}
                       width={Math.round(tW * act.percentComplete / 100)}
-                      height={isL0 ? 7 : 5}
+                      height={isL0 ? 9 : 7}
                       rx={2}
                       fill={nColor}
                     />
@@ -411,24 +411,27 @@ export function PlanejamentoMacroPanel() {
   const [search, setSearch]             = useState('')
   const [filterStatus, setFilterStatus] = useState<MasterActivityStatus | ''>('')
   const [filterNetwork, setFilterNetwork] = useState<string>('')
+  const [filterService, setFilterService] = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   const filtered = useMemo(() =>
     activities.filter((a) =>
       (!search || a.name.toLowerCase().includes(search.toLowerCase()) || a.wbsCode.toLowerCase().includes(search.toLowerCase())) &&
-      (!filterStatus  || a.status      === filterStatus) &&
-      (!filterNetwork || a.networkType === filterNetwork)
+      (!filterStatus  || a.status          === filterStatus) &&
+      (!filterNetwork || a.networkType     === filterNetwork) &&
+      (!filterService || a.serviceCategory === filterService)
     ),
-    [activities, search, filterStatus, filterNetwork],
+    [activities, search, filterStatus, filterNetwork, filterService],
   )
 
-  const activeFilterCount = [search, filterStatus, filterNetwork].filter(Boolean).length
+  const activeFilterCount = [search, filterStatus, filterNetwork, filterService].filter(Boolean).length
 
   function clearFilters() {
     setSearch('')
     setFilterStatus('')
     setFilterNetwork('')
+    setFilterService('')
   }
 
   function toggleCollapse(id: string) {
@@ -580,6 +583,27 @@ export function PlanejamentoMacroPanel() {
                 <option value="esgoto">Esgoto</option>
                 <option value="civil">Civil</option>
                 <option value="geral">Geral</option>
+              </select>
+            </div>
+
+            {/* Service category filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-[#6b6b6b] text-xs shrink-0">Serviço:</span>
+              <select
+                value={filterService}
+                onChange={(e) => setFilterService(e.target.value)}
+                className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+              >
+                <option value="">Todos</option>
+                <option value="LA">LA — Ligação de Água</option>
+                <option value="LE">LE — Ligação de Esgoto</option>
+                <option value="intra">Intra</option>
+                <option value="interligacao">Interligação</option>
+                <option value="reposicao">Reposição</option>
+                <option value="na_rede">Na Rede</option>
+                <option value="OS">OS — Ordem de Serviço</option>
+                <option value="pavimentacao">Pavimentação</option>
+                <option value="recomposicao">Recomposição</option>
               </select>
             </div>
 

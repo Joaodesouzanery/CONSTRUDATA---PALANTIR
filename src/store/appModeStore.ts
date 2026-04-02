@@ -45,6 +45,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./bimStore').then(({ useBimStore }) => useBimStore.getState().loadDemoData())
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().loadDemoData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().loadDemoData())
+        import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().loadDemoData())
       } else {
         // Clear all stores to empty state
         import('./projetosStore').then(({ useProjetosStore }) => useProjetosStore.getState().clearData())
@@ -64,6 +65,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./bimStore').then(({ useBimStore }) => useBimStore.getState().clearData())
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().clearData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().clearData())
+        import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().clearData())
       }
 
       return { isDemoMode: next }
