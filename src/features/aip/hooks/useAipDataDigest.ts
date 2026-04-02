@@ -153,7 +153,7 @@ export function useAipDataDigest(): string {
   lines.push(`## Ordens de Manutenção`)
   lines.push(`Total: ${maintOrders.length}`)
   if (maintOrders.length > 0) {
-    const open = maintOrders.filter((o) => o.status === 'open' || o.status === 'in_progress').length
+    const open = maintOrders.filter((o) => o.status === 'scheduled' || o.status === 'in_progress').length
     lines.push(`  Abertas/Em andamento: ${open} | Fechadas: ${maintOrders.length - open}`)
   }
   lines.push('')
@@ -162,11 +162,11 @@ export function useAipDataDigest(): string {
   lines.push(`## Suprimentos`)
   lines.push(`Pedidos de compra: ${purchaseOrders.length} | Itens em estoque: ${estoqueItens.length}`)
   if (purchaseOrders.length > 0) {
-    const pending = purchaseOrders.filter((po) => po.status === 'pending' || po.status === 'approved').length
+    const pending = purchaseOrders.filter((po) => po.status === 'open' || po.status === 'partial').length
     lines.push(`  POs pendentes/aprovados: ${pending}`)
   }
   if (estoqueItens.length > 0) {
-    const lowStock = estoqueItens.filter((i) => i.quantidadeAtual <= i.estoqueMinimo).length
+    const lowStock = estoqueItens.filter((i) => i.qtdDisponivel <= i.estoqueMinimo).length
     if (lowStock > 0) lines.push(`  ⚠️ ${lowStock} item(ns) abaixo do estoque mínimo`)
   }
   lines.push('')
@@ -184,7 +184,7 @@ export function useAipDataDigest(): string {
   lines.push(`## LPS / Lean`)
   lines.push(`Atividades LPS: ${lpsActs.length} | Restrições: ${restrictions.length}`)
   if (restrictions.length > 0) {
-    const open = restrictions.filter((r) => r.status === 'open' || r.status === 'in_progress').length
+    const open = restrictions.filter((r) => r.status === 'identificada' || r.status === 'em_resolucao').length
     lines.push(`  Restrições abertas: ${open} | Resolvidas: ${restrictions.length - open}`)
   }
   if (lpsActs.length > 0) {
@@ -199,7 +199,7 @@ export function useAipDataDigest(): string {
   lines.push(`Obras monitoradas: ${sites.length}`)
   if (sites.length > 0) {
     const totalRisks = sites.reduce((s, site) => s + (site.risks?.length ?? 0), 0)
-    const highRisks = sites.reduce((s, site) => s + (site.risks?.filter((r) => r.severity === 'high' || r.severity === 'critical').length ?? 0), 0)
+    const highRisks = sites.reduce((s, site) => s + (site.risks?.filter((r) => r.level === 'high' || r.level === 'critical').length ?? 0), 0)
     lines.push(`  Riscos totais: ${totalRisks} | Alto/Crítico: ${highRisks}`)
   }
   lines.push('')

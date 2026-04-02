@@ -3,7 +3,6 @@
  * interpretation text, sparkline trends, and summary row.
  */
 import { useEvmStore } from '@/store/evmStore'
-import { cn } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 function indexColor(value: number): string {

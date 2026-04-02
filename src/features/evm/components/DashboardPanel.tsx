@@ -3,7 +3,6 @@
  */
 import { AlertTriangle, CheckCircle, TrendingDown } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
-import { cn } from '@/lib/utils'
 
 const W = 900
 const H = 400

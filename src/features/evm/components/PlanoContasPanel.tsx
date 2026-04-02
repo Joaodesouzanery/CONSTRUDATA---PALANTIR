@@ -5,9 +5,8 @@
 import { useState } from 'react'
 import { Plus, Trash2, Package, Wrench, Users, FileText } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
-import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
-import type { CostPillar, CostAccountEntry } from '@/types'
+import type { CostPillar } from '@/types'
 
 interface PillarConfig {
   key: CostPillar

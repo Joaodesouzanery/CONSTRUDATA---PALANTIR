@@ -5,7 +5,6 @@
 import { useState } from 'react'
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
-import { cn } from '@/lib/utils'
 import type { WeightedMeasurement } from '@/types'
 
 type EditingCell = {

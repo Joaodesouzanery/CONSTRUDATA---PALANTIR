@@ -11,7 +11,7 @@ import { IndicesPanel } from './components/IndicesPanel'
 import { useEvmStore } from '@/store/evmStore'
 import type { EvmTab } from '@/types'
 
-const panels: Record<EvmTab, () => JSX.Element> = {
+const panels: Record<EvmTab, () => React.ReactNode> = {
   'dashboard':      DashboardPanel,
   'medicao':        MedicaoPonderadaPanel,
   'plano-contas':   PlanoContasPanel,

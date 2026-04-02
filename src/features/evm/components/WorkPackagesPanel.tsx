@@ -3,7 +3,7 @@
  * Grid of expandable cards showing work packages with cost accounts & measurements.
  */
 import { useState } from 'react'
-import { Plus, Copy, ChevronDown, ChevronUp, Package, Tag } from 'lucide-react'
+import { Plus, Copy, ChevronDown, ChevronUp, Package } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
