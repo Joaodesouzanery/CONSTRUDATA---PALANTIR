@@ -82,9 +82,9 @@ const numInp = 'w-16 bg-[#1a1a1a] border border-[#525252] rounded px-1.5 py-1 te
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function RdoSabespPanel() {
-  const { sabespRdos, addSabespRdo, removeSabespRdo } = useRdoStore(
-    (s) => ({ sabespRdos: s.sabespRdos, addSabespRdo: s.addSabespRdo, removeSabespRdo: s.removeSabespRdo })
-  )
+  const sabespRdos   = useRdoStore((s) => s.sabespRdos)
+  const addSabespRdo = useRdoStore((s) => s.addSabespRdo)
+  const removeSabespRdo = useRdoStore((s) => s.removeSabespRdo)
 
   const [form, setForm] = useState<Omit<SabespRDO, 'id' | 'createdAt'>>(makeDefaultForm)
   const [saved, setSaved] = useState(false)
