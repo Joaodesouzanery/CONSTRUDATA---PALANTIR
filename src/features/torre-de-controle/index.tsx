@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Shield } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { ObrasListPanel }  from './components/ObrasListPanel'
 import { ObrasMap }         from './components/ObrasMap'
 import { ObraDetailPanel }  from './components/ObraDetailPanel'
@@ -18,6 +20,17 @@ export function TorreDeControlePage() {
 
   return (
     <>
+      {/* Module header */}
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-[#525252] bg-[#2c2c2c] shrink-0">
+        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#f97316]/15">
+          <Shield size={15} className="text-[#f97316]" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-[#f5f5f5] text-base font-bold tracking-tight">Torre de Controle</h1>
+          <HelpTooltip topic="torre-de-controle" />
+        </div>
+      </div>
+
       {/* Mobile tab switcher — only visible on small screens */}
       <div className="flex lg:hidden border-b border-[#525252] bg-[#2c2c2c] shrink-0">
         {MOBILE_TABS.map((tab) => (

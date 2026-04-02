@@ -109,10 +109,55 @@ function EditableNumber({
   )
 }
 
+// ─── Inline editable text cell with suggestions ──────────────────────────────
+
+function EditableText({
+  value, options, onChange, placeholder = '—', width = 'w-20',
+}: { value: string; options: string[]; onChange: (v: string) => void; placeholder?: string; width?: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const listId = useMemo(() => `dl-${Math.random().toString(36).slice(2, 8)}`, [])
+
+  if (editing) {
+    return (
+      <>
+        <input
+          autoFocus
+          list={listId}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => { onChange(draft.trim()); setEditing(false) }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { onChange(draft.trim()); setEditing(false) }
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          className={`${width} bg-[#2c2c2c] border border-[#f97316]/50 rounded px-1 py-0.5 text-[10px] text-[#f5f5f5] focus:outline-none`}
+        />
+        <datalist id={listId}>
+          {options.map((o) => <option key={o} value={o} />)}
+        </datalist>
+      </>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className={`${width} text-[10px] text-left rounded px-1 py-0.5 transition-colors hover:bg-[#525252] truncate ${
+        value ? 'text-[#a3a3a3]' : 'text-[#525252]'
+      }`}
+      title={value || placeholder}
+    >
+      {value || placeholder}
+    </button>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ProgramacaoSemanalPanel() {
   const activities          = usePlanejamentoMestreStore((s) => s.activities)
+  const updateActivity      = usePlanejamentoMestreStore((s) => s.updateActivity)
   const programacaoSemanal  = usePlanejamentoMestreStore((s) => s.programacaoSemanal)
   const setProgramacaoDiaria = usePlanejamentoMestreStore((s) => s.setProgramacaoDiaria)
 
@@ -132,6 +177,18 @@ export function ProgramacaoSemanalPanel() {
     const set = new Set(leafActivities.map((a) => a.nucleo ?? '').filter(Boolean))
     return Array.from(set).sort()
   }, [leafActivities])
+
+  const localOptions = useMemo(() => {
+    const set = new Set(leafActivities.map((a) => a.local ?? '').filter(Boolean))
+    return Array.from(set).sort()
+  }, [leafActivities])
+
+  const coordOptions = useMemo(() => {
+    const set = new Set(leafActivities.map((a) => a.coordenador ?? a.responsibleTeam ?? '').filter(Boolean))
+    return Array.from(set).sort()
+  }, [leafActivities])
+
+  const unitOptions = ['m', 'm²', 'm³', 'un', 'vb', 'kg', 'l', 'ton']
 
   const filtered = useMemo(() => {
     if (!filterNucleo) return leafActivities
@@ -336,25 +393,33 @@ export function ProgramacaoSemanalPanel() {
                 return (
                   <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors`}>
                     <td className={`${tdFixedCls} left-0 z-10 font-mono`}>{a.wbsCode}</td>
-                    <td className={tdCls}>{a.nucleo ?? <span className="text-[#525252]">—</span>}</td>
-                    <td className={tdCls}>{a.local ?? <span className="text-[#525252]">—</span>}</td>
+                    <td className={`${tdCls} p-0.5`}>
+                      <EditableText value={a.nucleo ?? ''} options={nucleos} onChange={(v) => updateActivity(a.id, { nucleo: v || undefined })} width="w-16" />
+                    </td>
+                    <td className={`${tdCls} p-0.5`}>
+                      <EditableText value={a.local ?? ''} options={localOptions} onChange={(v) => updateActivity(a.id, { local: v || undefined })} width="w-24" />
+                    </td>
                     <td className={`${tdCls} max-w-[200px]`}>
                       <span className="block truncate text-[#f5f5f5]" title={a.name}>{a.name}</span>
                     </td>
-                    <td className={`${tdCls} text-right font-mono`}>
-                      {a.comprimento != null ? a.comprimento.toFixed(0) : <span className="text-[#525252]">—</span>}
+                    <td className={`${tdCls} p-0.5 text-right`}>
+                      <EditableNumber value={a.comprimento ?? 0} onChange={(v) => updateActivity(a.id, { comprimento: v || undefined })} />
                     </td>
-                    <td className={`${tdCls} text-center font-mono`}>
-                      {a.quantidadeLigacoes ?? <span className="text-[#525252]">—</span>}
+                    <td className={`${tdCls} p-0.5 text-center`}>
+                      <EditableNumber value={a.quantidadeLigacoes ?? 0} onChange={(v) => updateActivity(a.id, { quantidadeLigacoes: v || undefined })} />
                     </td>
-                    <td className={`${tdCls} text-center font-mono`}>
-                      {a.pesoMeta1000 != null ? `${a.pesoMeta1000}%` : <span className="text-[#525252]">—</span>}
+                    <td className={`${tdCls} p-0.5 text-center`}>
+                      <EditableNumber value={a.pesoMeta1000 ?? 0} onChange={(v) => updateActivity(a.id, { pesoMeta1000: v || undefined })} />
                     </td>
-                    <td className={tdCls}>{a.coordenador ?? a.responsibleTeam ?? <span className="text-[#525252]">—</span>}</td>
-                    <td className={`${tdCls} max-w-[120px]`}>
-                      <span className="block truncate" title={a.notes ?? ''}>{a.notes ?? <span className="text-[#525252]">—</span>}</span>
+                    <td className={`${tdCls} p-0.5`}>
+                      <EditableText value={a.coordenador ?? a.responsibleTeam ?? ''} options={coordOptions} onChange={(v) => updateActivity(a.id, { coordenador: v || undefined })} width="w-20" />
                     </td>
-                    <td className={`${tdCls} text-center`}>{a.unidade ?? 'm'}</td>
+                    <td className={`${tdCls} p-0.5 max-w-[120px]`}>
+                      <EditableText value={a.notes ?? ''} options={[]} onChange={(v) => updateActivity(a.id, { notes: v || undefined })} width="w-24" placeholder="—" />
+                    </td>
+                    <td className={`${tdCls} p-0.5 text-center`}>
+                      <EditableText value={a.unidade ?? 'm'} options={unitOptions} onChange={(v) => updateActivity(a.id, { unidade: v || undefined })} width="w-10" />
+                    </td>
 
                     {weekDates.map((d) => {
                       const dateStr = toDateStr(d)

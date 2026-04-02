@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Layers, Upload, GitBranch, Ruler, DollarSign, CalendarCheck, FolderOpen, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useBimStore } from '@/store/bimStore'
 import type { BimTab } from '@/types'
 
@@ -65,6 +66,7 @@ export function BimHeader({ onUploadClick }: Props) {
             <Layers size={14} className="text-white" />
           </div>
           <span className="text-gray-100 font-semibold text-sm hidden sm:block">BIM 3D / 4D / 5D</span>
+          <HelpTooltip topic="bim" size={12} />
         </div>
 
         {/* Tabs — scrollable on mobile */}

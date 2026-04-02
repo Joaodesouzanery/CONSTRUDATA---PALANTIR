@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { Cpu, TrendingUp, AlertTriangle, DollarSign, Activity } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useOtimizacaoFrotaStore, calcProjectedMonthlySavings } from '@/store/otimizacaoFrotaStore'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { cn } from '@/lib/utils'
@@ -70,9 +71,12 @@ export function OtimizacaoHeader({ activeTab, onTabChange }: Props) {
           <Cpu size={18} className="text-[#f97316]" />
         </div>
         <div>
-          <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">
-            Otimização de Frota e Equipamentos
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">
+              Otimização de Frota e Equipamentos
+            </h1>
+            <HelpTooltip topic="frota" />
+          </div>
           <p className="text-[#6b6b6b] text-xs mt-0.5">
             Roteamento inteligente · Manutenção preditiva · Análise Comprar vs Alugar
           </p>

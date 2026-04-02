@@ -1,4 +1,5 @@
 import { usePreConstrucaoStore } from '@/store/preConstrucaoStore'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { PipelineBar }      from './components/PipelineBar'
 import { UploadZone }       from './components/UploadZone'
 import { ExtractionView }   from './components/ExtractionView'
@@ -24,7 +25,10 @@ export function PreConstrucaoPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <div className="flex items-center justify-between px-3 sm:px-6 py-4 border-b border-[#525252] shrink-0">
           <div>
-            <h1 className="text-[#f5f5f5] font-bold text-base">Pré-Construção</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[#f5f5f5] font-bold text-base">Pré-Construção</h1>
+              <HelpTooltip topic="pre-construcao" />
+            </div>
             <p className="text-[10px] text-[#6b6b6b]">Estimativa e Orçamentação Inteligente</p>
           </div>
         </div>

@@ -25,6 +25,7 @@ const Rede360Page           = lazy(() => import('@/features/rede-360/index').the
 const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
 const AipPage               = lazy(() => import('@/features/aip/AipPage').then((m) => ({ default: m.AipPage })))
 const EvmPage               = lazy(() => import('@/features/evm/index').then((m) => ({ default: m.EvmPage })))
+const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
 
 // ─── Route loading fallback ──────────────────────────────────────────────────
 
@@ -76,6 +77,7 @@ function App() {
           <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
           <Route path="aip"                 element={<LazyRoute><AipPage /></LazyRoute>} />
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
+          <Route path="medicao"            element={<LazyRoute><MedicaoPage /></LazyRoute>} />
           <Route path="*"                   element={<Navigate to="/app/gestao-360" replace />} />
         </Route>
 

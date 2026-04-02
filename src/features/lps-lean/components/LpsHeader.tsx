@@ -3,6 +3,7 @@
  */
 import { useMemo } from 'react'
 import { Target, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useLpsStore, computeWeeklyPPC } from '@/store/lpsStore'
 import type { LpsTab } from '@/types'
 
@@ -73,7 +74,10 @@ export function LpsHeader() {
             <Target size={16} className="text-white" />
           </div>
           <div>
-            <p className="text-xs font-bold text-white leading-tight">LPS / Lean</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-xs font-bold text-white leading-tight">LPS / Lean</p>
+              <HelpTooltip topic="lps" />
+            </div>
             <p className="text-[10px] text-[#6b6b6b] leading-tight">Last Planner System</p>
           </div>
         </div>

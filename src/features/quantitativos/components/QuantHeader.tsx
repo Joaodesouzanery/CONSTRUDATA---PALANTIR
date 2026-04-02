@@ -3,6 +3,7 @@
  * Accent color: #8b5cf6 (violet-500)
  */
 import { Calculator, Download } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportToCsv, exportToXlsx } from '../utils/exportEngine'
 import type { QuantTab } from '@/types'
@@ -28,7 +29,10 @@ export function QuantHeader() {
             <Calculator size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-semibold text-lg leading-tight">Quantitativos e Orçamento</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-white font-semibold text-lg leading-tight">Quantitativos e Orçamento</h1>
+              <HelpTooltip topic="quantitativos" />
+            </div>
             <p className="text-[#a3a3a3] text-xs">SINAPI · SEINFRA · Base Própria</p>
           </div>
         </div>

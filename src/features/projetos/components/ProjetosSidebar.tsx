@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectStatus } from '@/types'
 
@@ -35,8 +36,9 @@ export function ProjetosSidebar() {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3]">
+        <span className="text-xs font-semibold uppercase tracking-widest text-[#a3a3a3] flex items-center gap-1.5">
           Projetos ({projects.length})
+          <HelpTooltip topic="projetos" size={12} />
         </span>
         <button
           onClick={() => setEditingProject('new')}

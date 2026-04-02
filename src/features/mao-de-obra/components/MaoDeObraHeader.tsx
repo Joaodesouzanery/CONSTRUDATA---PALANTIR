@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Users, Clock, ShieldCheck, AlertTriangle, MapPin } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { cn } from '@/lib/utils'
 
@@ -113,7 +114,10 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
           <Users size={18} className="text-[#f97316]" />
         </div>
         <div>
-          <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
+            <HelpTooltip topic="mao-de-obra" />
+          </div>
           <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, frotas, ausências e folha de pagamento</p>
         </div>
       </div>

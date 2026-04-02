@@ -1,4 +1,5 @@
 import { Search, AlertTriangle } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useShallow } from 'zustand/react/shallow'
 import { useRede360Store } from '@/store/rede360Store'
 import type { Rede360Tab } from '@/types'
@@ -26,7 +27,7 @@ export function Rede360Header() {
     <div className="bg-[#0a1628] border-b border-[#525252] shrink-0">
       {/* Top row: brand + search + meta */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-[#525252]/50">
-        <span className="text-[#f97316] font-bold text-sm tracking-wide whitespace-nowrap">Rede 360</span>
+        <span className="text-[#f97316] font-bold text-sm tracking-wide whitespace-nowrap flex items-center gap-1.5">Rede 360 <HelpTooltip topic="rede-360" size={12} /></span>
         <div className="relative flex-1 max-w-xs">
           <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
           <input

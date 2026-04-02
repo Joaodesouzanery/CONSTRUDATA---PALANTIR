@@ -3,6 +3,7 @@
  */
 import { useState } from 'react'
 import { FileText, Plus, Download, Settings } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useRdoStore } from '@/store/rdoStore'
 import { LogoConfigModal } from './LogoConfigModal'
 import type { RdoTab } from '@/types'
@@ -68,7 +69,10 @@ export function RdoHeader() {
             <FileText size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-semibold text-lg leading-tight">RDO</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-white font-semibold text-lg leading-tight">RDO</h1>
+              <HelpTooltip topic="rdo" />
+            </div>
             <p className="text-[#a3a3a3] text-xs">Relatório Diário de Obras</p>
           </div>
         </div>

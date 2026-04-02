@@ -32,6 +32,7 @@ export const MOCK_MASTER_ACTIVITIES: MasterActivity[] = [
     durationDays: 75, percentComplete: 60, status: 'in_progress',
     isMilestone: false, responsibleTeam: 'Equipe A', weight: 8,
     linkedTrechoCodes: ['T-SM-01', 'T-SM-02', 'T-SM-03'],
+    nucleo: 'NE-01', local: 'Rua das Palmeiras', comprimento: 850, quantidadeLigacoes: 45, coordenador: 'Eng. Silva',
   },
   {
     id: 'ma-sm-ag', wbsCode: '1.1.2', name: 'Rede de Água',
@@ -41,6 +42,7 @@ export const MOCK_MASTER_ACTIVITIES: MasterActivity[] = [
     durationDays: 76, percentComplete: 40, status: 'in_progress',
     isMilestone: false, responsibleTeam: 'Equipe B', weight: 8,
     linkedTrechoCodes: ['T-SM-04', 'T-SM-05'],
+    nucleo: 'NE-01', local: 'Av. Principal', comprimento: 620, quantidadeLigacoes: 32, coordenador: 'Eng. Costa',
   },
   {
     id: 'ma-sm-pv', wbsCode: '1.1.3', name: 'PVs',
@@ -165,6 +167,7 @@ export const MOCK_MASTER_ACTIVITIES: MasterActivity[] = [
     durationDays: 76, percentComplete: 45, status: 'in_progress',
     isMilestone: false, responsibleTeam: 'Equipe B', weight: 7,
     linkedTrechoCodes: ['T-TT-01', 'T-TT-02'],
+    nucleo: 'NE-02', local: 'Rua do Morro', comprimento: 720, quantidadeLigacoes: 38, coordenador: 'Eng. Oliveira',
   },
   {
     id: 'ma-tt-ag', wbsCode: '1.2.2', name: 'Rede de Água',

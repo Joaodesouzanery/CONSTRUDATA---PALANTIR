@@ -1,4 +1,5 @@
 import { Settings2 } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { cn } from '@/lib/utils'
 
 interface GestaoHeaderProps {
@@ -23,9 +24,12 @@ export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
           <Settings2 size={18} className="text-[#f97316]" />
         </div>
         <div>
-          <h1 className="text-[#f5f5f5] font-bold text-base leading-tight">
-            Gestão de Equipamentos
-          </h1>
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-[#f5f5f5] font-bold text-base leading-tight">
+              Gestão de Equipamentos
+            </h1>
+            <HelpTooltip topic="gestao-equipamentos" />
+          </div>
           <p className="text-[#6b6b6b] text-xs">Manutenção, utilização e custos da frota</p>
         </div>
       </div>

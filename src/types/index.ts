@@ -1886,3 +1886,44 @@ export interface SCurveMultiPoint {
   earnedValuePct: number
   actualCostPct: number
 }
+
+// ── Medição (Billing/Measurement) ──────────────────────────────────────────
+
+export type MedicaoTab = 'sabesp' | 'criterio' | 'subempreiteiro' | 'fornecedor' | 'conferencia'
+
+export interface MedicaoItem {
+  id: string
+  item: string
+  descricao: string
+  unidade: string
+  qtdContratada: number
+  qtdMedida: number
+  qtdAcumulada: number
+  precoUnitario: number
+  valorMedido: number
+  observacao?: string
+}
+
+export interface MedicaoSheet {
+  id: string
+  tipo: MedicaoTab
+  titulo: string
+  referencia: string
+  contrato?: string
+  fornecedor?: string
+  subempreiteiro?: string
+  items: MedicaoItem[]
+  totalBRL: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ConferenciaResult {
+  itemContrato: string
+  itemPrevisao: string
+  matchStatus: 'matched' | 'divergent' | 'missing_contrato' | 'missing_previsao'
+  valorContrato: number
+  valorPrevisao: number
+  diferenca: number
+  diferencaPct: number
+}

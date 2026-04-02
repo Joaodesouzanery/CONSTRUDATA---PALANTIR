@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { LayoutDashboard, TrendingUp, TrendingDown, AlertTriangle, FileEdit, Activity } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useGestao360Store } from '@/store/gestao360Store'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
@@ -113,9 +114,12 @@ export function Gestao360Header() {
             <LayoutDashboard size={18} className="text-[#f97316]" />
           </div>
           <div>
-            <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">
-              Gestão de Projeto 360
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">
+                Gestão de Projeto 360
+              </h1>
+              <HelpTooltip topic="gestao-360" />
+            </div>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
               Centro de Comando · Custo em Tempo Real · Ordens de Mudança
             </p>

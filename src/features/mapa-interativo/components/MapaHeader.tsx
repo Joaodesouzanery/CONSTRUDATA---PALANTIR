@@ -8,6 +8,7 @@ import {
   Plus, Link, MousePointer, Scissors, Move, Building2,
   ArrowRightLeft, Upload, Download, Maximize2, BarChart2,
 } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useMapaInterativoStore } from '@/store/mapaInterativoStore'
 import { useProjetosStore }       from '@/store/projetosStore'
 import { MapaImportModal }        from './MapaImportModal'
@@ -160,6 +161,7 @@ export function MapaHeader({
               <Map size={14} className="text-white" />
             </div>
             <span className="text-sm font-bold text-white hidden sm:block">Mapa Interativo</span>
+            <HelpTooltip topic="mapa-interativo" size={12} />
           </div>
           <span className="text-xs text-[#6b6b6b] font-mono">
             {nodes.length} pts · {segments.length} trechos

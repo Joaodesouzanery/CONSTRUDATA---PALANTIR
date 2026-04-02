@@ -672,6 +672,104 @@ export function HistoricoPanel() {
                   ))}
                 </div>
               </div>
+              {/* ── Identificação / Contrato ── */}
+              <div>
+                <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Identificação / Contrato</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Local / Obra */}
+                  <div className="col-span-2">
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Local / Obra</label>
+                    <input
+                      type="text"
+                      value={editForm.local ?? editingRdo.local ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, local: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Gerente de Contrato */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Gerente de Contrato</label>
+                    <input
+                      type="text"
+                      value={editForm.gerenteContrato ?? editingRdo.gerenteContrato ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, gerenteContrato: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Técnico de Segurança */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Técnico de Segurança</label>
+                    <input
+                      type="text"
+                      value={editForm.tecnicoSeguranca ?? editingRdo.tecnicoSeguranca ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, tecnicoSeguranca: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Empreiteira */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Empreiteira</label>
+                    <input
+                      type="text"
+                      value={editForm.nomeEmpreiteira ?? editingRdo.nomeEmpreiteira ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, nomeEmpreiteira: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Serviço a Executar */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Serviço a Executar</label>
+                    <input
+                      type="text"
+                      value={editForm.servicoExecutar ?? editingRdo.servicoExecutar ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, servicoExecutar: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Nº OS */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Nº OS</label>
+                    <input
+                      type="text"
+                      value={editForm.numeroOS ?? editingRdo.numeroOS ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, numeroOS: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Nº Contrato */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Nº Contrato</label>
+                    <input
+                      type="text"
+                      value={editForm.numeroContrato ?? editingRdo.numeroContrato ?? ''}
+                      onChange={(e) => setEditForm((f) => ({ ...f, numeroContrato: e.target.value }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Funcionários Diretos */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Func. Diretos</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.funcionariosDiretos ?? editingRdo.funcionariosDiretos ?? 0}
+                      onChange={(e) => setEditForm((f) => ({ ...f, funcionariosDiretos: Number(e.target.value) }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                  {/* Funcionários Indiretos */}
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Func. Indiretos</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editForm.funcionariosIndiretos ?? editingRdo.funcionariosIndiretos ?? 0}
+                      onChange={(e) => setEditForm((f) => ({ ...f, funcionariosIndiretos: Number(e.target.value) }))}
+                      className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
               {/* Observations */}
               <div>
                 <label className="block text-[#a3a3a3] text-xs mb-1">Observações Gerais</label>
@@ -694,6 +792,20 @@ export function HistoricoPanel() {
             </div>
             <div className="px-5 py-4 border-t border-[#525252] flex gap-2 shrink-0">
               <button onClick={handleSaveEdit} className="px-4 py-2 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-sm font-semibold transition-colors">Salvar</button>
+              <button
+                onClick={() => {
+                  if (!editingRdo) return
+                  const updatedRdo: RDO = { ...editingRdo, ...editForm, updatedAt: new Date().toISOString() }
+                  updateRdo(editingRdo.id, editForm)
+                  setEditingRdo(null)
+                  setEditForm({})
+                  printRdoPDF(updatedRdo)
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-semibold transition-colors"
+              >
+                <Printer size={14} />
+                Salvar e Exportar PDF
+              </button>
               <button onClick={() => setEditingRdo(null)} className="px-4 py-2 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm transition-colors">Cancelar</button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileSpreadsheet, Plus } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { SuprimentosHeader }    from './components/SuprimentosHeader'
 import { ConciliacaoPanel }     from './components/ConciliacaoPanel'
 import { ExcecoesPanel }        from './components/ExcecoesPanel'
@@ -30,16 +31,17 @@ export function SuprimentosPage() {
     <div className="flex flex-col h-full p-5 gap-4 overflow-hidden">
       {/* Section switcher + action buttons */}
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1">
-          <button
-            onClick={() => setActiveSection('suprimentos')}
-            className={cn(
-              'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
-              activeSection === 'suprimentos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
-            )}
-          >
-            Suprimentos
-          </button>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1">
+            <button
+              onClick={() => setActiveSection('suprimentos')}
+              className={cn(
+                'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                activeSection === 'suprimentos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              )}
+            >
+              Suprimentos
+            </button>
           <button
             onClick={() => setActiveSection('materiais')}
             className={cn(
@@ -49,6 +51,8 @@ export function SuprimentosPage() {
           >
             Materiais &amp; Estoque
           </button>
+          </div>
+          <HelpTooltip topic="suprimentos" />
         </div>
 
         {activeSection === 'materiais' && (

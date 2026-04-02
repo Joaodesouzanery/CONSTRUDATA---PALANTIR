@@ -2,16 +2,17 @@
  * PlanejamentoMestreHeader — KPI strip + 3-tab navigation for Planejamento Mestre.
  */
 import { BrainCircuit } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import type { PlanejamentoMestreTab } from '@/types'
 
-const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
-  { key: 'macro',     label: 'Longo Prazo'     },
-  { key: 'derivacao', label: 'Médio Prazo'     },
-  { key: 'whatif',    label: 'Curto Prazo'     },
-  { key: 'integrada', label: 'Visão Integrada' },
-  { key: 'semanal',   label: 'Prog. Semanal'   },
+const TABS: { key: PlanejamentoMestreTab; label: string; helpTopic?: string }[] = [
+  { key: 'macro',     label: 'Longo Prazo',     helpTopic: 'longo-prazo'     },
+  { key: 'derivacao', label: 'Médio Prazo',     helpTopic: 'medio-prazo'     },
+  { key: 'whatif',    label: 'Curto Prazo',     helpTopic: 'curto-prazo'     },
+  { key: 'integrada', label: 'Visão Integrada', helpTopic: 'visao-integrada' },
+  { key: 'semanal',   label: 'Prog. Semanal',   helpTopic: 'prog-semanal'   },
 ]
 
 export function PlanejamentoMestreHeader() {
@@ -41,7 +42,10 @@ export function PlanejamentoMestreHeader() {
             <BrainCircuit size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-[#f5f5f5] font-semibold text-lg leading-tight">Planejamento Mestre</h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[#f5f5f5] font-semibold text-lg leading-tight">Planejamento Mestre</h1>
+              <HelpTooltip topic="planejamento-mestre" />
+            </div>
             <p className="text-[#6b6b6b] text-xs">Planejamento Longo, Médio e Curto Prazo</p>
           </div>
         </div>
@@ -74,6 +78,7 @@ export function PlanejamentoMestreHeader() {
             }`}
           >
             {tab.label}
+            {tab.helpTopic && <HelpTooltip topic={tab.helpTopic} size={12} />}
           </button>
         ))}
       </div>

@@ -46,6 +46,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().loadDemoData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().loadDemoData())
         import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().loadDemoData())
+        import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().loadDemoData())
       } else {
         // Clear all stores to empty state
         import('./projetosStore').then(({ useProjetosStore }) => useProjetosStore.getState().clearData())
@@ -66,6 +67,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().clearData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().clearData())
         import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().clearData())
+        import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().clearData())
       }
 
       return { isDemoMode: next }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CalendarDays, Play, LayoutGrid } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { ScenarioCompareModal } from './ScenarioCompareModal'
 import { ModelViewPanel } from './ModelViewPanel'
 
@@ -15,6 +16,7 @@ export function AgendaHeader() {
             <CalendarDays size={15} className="text-[#f97316]" />
           </div>
           <h1 className="text-[#f5f5f5] text-base font-bold tracking-tight">Agenda</h1>
+          <HelpTooltip topic="agenda" />
         </div>
 
         <div className="flex items-center gap-2">

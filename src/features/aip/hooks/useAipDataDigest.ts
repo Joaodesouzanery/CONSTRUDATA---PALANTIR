@@ -44,23 +44,49 @@ export function useAipDataDigest(): string {
   const evmMetrics  = useEvmStore((s) => s.evmMetrics)
   const workPackages = useEvmStore((s) => s.workPackages)
 
+  const financialEntries = useRdoStore((s) => s.financialEntries)
+
   const lines: string[] = []
 
   // ── RDO summary ──────────────────────────────────────────────────────────────
   lines.push(`## RDOs (Relatórios Diários de Obra)`)
   lines.push(`Total registrado: ${rdos.length}`)
   if (rdos.length > 0) {
-    const latest = [...rdos].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3)
-    lines.push(`Últimos 3 RDOs:`)
-    latest.forEach((r) => {
-      lines.push(
-        `  - RDO #${r.number} | ${r.date} | Responsável: ${r.responsible || '—'} ` +
-        `| Local: ${r.local ?? '—'} | OS: ${r.numeroOS ?? '—'} ` +
-        `| Serviços: ${r.services.length} | Equipamentos: ${r.equipment.length} ` +
-        `| Func. Diretos: ${r.funcionariosDiretos ?? 0} | Indiretos: ${r.funcionariosIndiretos ?? 0} ` +
-        `| Clima M/T/N: ${r.climaManha ?? '—'}/${r.climaTarde ?? '—'}/${r.climaNoite ?? '—'}`
-      )
+    const sorted = [...rdos].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)
+    let totalMetersExec = 0
+    let totalServicos = 0
+    let totalEquipHours = 0
+
+    sorted.forEach((r) => {
+      const workers = r.manpower.foremanCount + r.manpower.officialCount + r.manpower.helperCount + r.manpower.operatorCount
+      const metersExec = r.trechos.reduce((s, t) => s + t.executedMeters, 0)
+      totalMetersExec += metersExec
+      totalServicos += r.services.length
+      totalEquipHours += r.equipment.reduce((s, e) => s + e.hours * e.quantity, 0)
+
+      lines.push(`  RDO #${r.number} | ${r.date} | Resp: ${r.responsible || '—'} | Local: ${r.local ?? '—'} | OS: ${r.numeroOS ?? '—'}`)
+      lines.push(`    Efetivo: ${workers} (Enc:${r.manpower.foremanCount} Ofc:${r.manpower.officialCount} Aj:${r.manpower.helperCount} Op:${r.manpower.operatorCount})`)
+      if (r.services.length > 0) {
+        lines.push(`    Serviços: ${r.services.map(s => `${s.description}(${s.quantity}${s.unit})`).join(', ')}`)
+      }
+      if (r.trechos.length > 0) {
+        lines.push(`    Trechos: ${r.trechos.map(t => `${t.trechoCode}:${t.executedMeters}/${t.plannedMeters}m(${t.status})`).join(', ')}`)
+      }
+      if (r.equipment.length > 0) {
+        lines.push(`    Equip: ${r.equipment.map(e => `${e.name}×${e.quantity}(${e.hours}h)`).join(', ')}`)
+      }
+      if (r.observations) lines.push(`    Obs: ${r.observations.slice(0, 100)}`)
+      if (r.incidents) lines.push(`    Ocorrências: ${r.incidents.slice(0, 100)}`)
     })
+
+    lines.push(`  --- Totais Consolidados ---`)
+    lines.push(`  Metros executados: ${totalMetersExec.toFixed(1)}m | Serviços: ${totalServicos} | HH Equipamentos: ${totalEquipHours.toFixed(1)}h`)
+    if (rdos.length > 10) lines.push(`  ... e mais ${rdos.length - 10} RDOs`)
+  }
+  if (financialEntries.length > 0) {
+    const byCategory: Record<string, number> = {}
+    financialEntries.forEach(e => { byCategory[e.category] = (byCategory[e.category] ?? 0) + e.valueBRL })
+    lines.push(`  Financeiro: ${Object.entries(byCategory).map(([k, v]) => `${k}=R$${v.toLocaleString('pt-BR')}`).join(', ')}`)
   }
   lines.push('')
 

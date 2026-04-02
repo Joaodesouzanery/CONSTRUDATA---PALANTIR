@@ -2,6 +2,7 @@
  * EvmHeader — top bar with KPI cards and tab navigation for the EVM module.
  */
 import { DollarSign, Download, RefreshCw } from 'lucide-react'
+import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useEvmStore } from '@/store/evmStore'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
@@ -20,11 +21,13 @@ function KpiCard({
   value,
   isCurrency = false,
   isIndex = false,
+  helpTopic,
 }: {
   label: string
   value: number
   isCurrency?: boolean
   isIndex?: boolean
+  helpTopic?: string
 }) {
   const formatted = isCurrency
     ? formatCurrency(value)
@@ -38,7 +41,10 @@ function KpiCard({
 
   return (
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 min-w-[140px]">
-      <p className="text-[#a3a3a3] text-xs mb-1">{label}</p>
+      <div className="flex items-center gap-1 mb-1">
+        <p className="text-[#a3a3a3] text-xs">{label}</p>
+        {helpTopic && <HelpTooltip topic={helpTopic} size={12} />}
+      </div>
       <p className="font-mono text-lg font-semibold" style={{ color }}>
         {formatted}
       </p>
@@ -59,9 +65,12 @@ export function EvmHeader() {
             <DollarSign size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-semibold text-lg leading-tight">
-              Gerenciamento de Valor (EVM)
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-white font-semibold text-lg leading-tight">
+                Gerenciamento de Valor (EVM)
+              </h1>
+              <HelpTooltip topic="evm" />
+            </div>
             <p className="text-[#a3a3a3] text-xs">Earned Value Management</p>
           </div>
         </div>
@@ -86,8 +95,8 @@ export function EvmHeader() {
 
       {/* KPI cards */}
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
-        <KpiCard label="CPI" value={CPI} isIndex />
-        <KpiCard label="SPI" value={SPI} isIndex />
+        <KpiCard label="CPI" value={CPI} isIndex helpTopic="cpi" />
+        <KpiCard label="SPI" value={SPI} isIndex helpTopic="spi" />
         <KpiCard label="BAC (R$)" value={BAC} isCurrency />
         <KpiCard label="EAC (R$)" value={EAC} isCurrency />
         <KpiCard label="VAC (R$)" value={VAC} isCurrency />

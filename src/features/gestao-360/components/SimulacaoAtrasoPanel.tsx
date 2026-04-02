@@ -355,10 +355,10 @@ export function SimulacaoAtrasoPanel() {
     if (trechos.length === 0) {
       loadDemoData()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trechos.length, loadDemoData])
 
   const runSchedules = useCallback(() => {
-    if (trechos.length === 0 || teams.length === 0) return
+    if (trechos.length === 0 || teams.length === 0 || !scheduleConfig.startDate) return
 
     setIsComputing(true)
     // Use setTimeout to let the spinner render before heavy computation
@@ -384,6 +384,8 @@ export function SimulacaoAtrasoPanel() {
           ganttRows: delayedResult.ganttRows,
           allDates,
         })
+      } catch (err) {
+        console.error('Erro na simulação de atrasos:', err)
       } finally {
         setIsComputing(false)
       }
@@ -610,7 +612,13 @@ export function SimulacaoAtrasoPanel() {
       {trechos.length === 0 && !isComputing && (
         <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-8 text-center">
           <Clock size={32} className="text-[#6b6b6b] mx-auto mb-3" />
-          <p className="text-[#6b6b6b] text-sm">Carregando dados de planejamento…</p>
+          <p className="text-[#6b6b6b] text-sm mb-3">Nenhum trecho cadastrado no Planejamento de Trechos.</p>
+          <button
+            onClick={loadDemoData}
+            className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-sm font-semibold hover:bg-[#ea580c] transition-colors"
+          >
+            Carregar Dados Demo
+          </button>
         </div>
       )}
 
