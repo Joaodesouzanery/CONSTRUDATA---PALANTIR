@@ -103,7 +103,7 @@ function shiftEndDate(shift: Shift): Date {
 }
 
 function makeId(): string {
-  return 'viol-' + Math.random().toString(36).slice(2, 10)
+  return 'viol-' + crypto.randomUUID().replace(/-/g, '').slice(0, 8)
 }
 
 // ─── Individual validators ────────────────────────────────────────────────────

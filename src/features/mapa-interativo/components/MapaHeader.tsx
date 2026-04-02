@@ -136,12 +136,20 @@ export function MapaHeader({
       if (!file) return
       file.text().then((text) => {
         try {
-          const data = JSON.parse(text)
-          if (data.nodes && data.segments) {
-            useMapaInterativoStore.getState().loadDemoData()  // reset
-            // Replace with loaded data
-            useMapaInterativoStore.setState({ nodes: data.nodes, segments: data.segments })
-          }
+          const data: unknown = JSON.parse(text)
+          if (!data || typeof data !== 'object') throw new Error('invalid')
+          const d = data as Record<string, unknown>
+          if (!Array.isArray(d.nodes) || !Array.isArray(d.segments)) throw new Error('invalid')
+          const nodes = (d.nodes as unknown[]).filter(
+            (n): n is Record<string, unknown> => !!n && typeof n === 'object' &&
+              typeof (n as Record<string, unknown>).id === 'string'
+          )
+          const segments = (d.segments as unknown[]).filter(
+            (s): s is Record<string, unknown> => !!s && typeof s === 'object' &&
+              typeof (s as Record<string, unknown>).id === 'string'
+          )
+          useMapaInterativoStore.getState().loadDemoData()
+          useMapaInterativoStore.setState({ nodes: nodes as never, segments: segments as never })
         } catch { alert('Arquivo JSON inválido.') }
       })
     }

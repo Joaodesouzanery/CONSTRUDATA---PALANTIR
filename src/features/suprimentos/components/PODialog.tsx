@@ -10,7 +10,7 @@ interface Props {
 
 function emptyItem(): POItem {
   return {
-    id:          `poi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id:          `poi-${crypto.randomUUID()}`,
     description: '',
     quantity:    1,
     unit:        'un',

@@ -81,7 +81,7 @@ export function TabDocumentos({ project }: { project: Project }) {
       const reader = new FileReader()
       reader.onload = () => {
         const doc: ProjectDocument = {
-          id:          `doc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id:          `doc-${crypto.randomUUID()}`,
           name:        file.name,
           mimeType:    file.type || 'application/octet-stream',
           sizeBytes:   file.size,

@@ -208,7 +208,7 @@ function parseTxt(text: string, bdi: number): ParsedItem[] {
     const parts = line.split(sep).map((p) => p.trim().replace(/"/g, ''))
     if (parts.length < 2) return []
     return [{
-      code:        iCode >= 0  ? parts[iCode]  : `IMP-${Math.random().toString(36).slice(2, 6)}`,
+      code:        iCode >= 0  ? parts[iCode]  : `IMP-${crypto.randomUUID().slice(0, 8)}`,
       description: iDesc >= 0  ? parts[iDesc]  : parts[0] ?? 'Item importado',
       unit:        iUnit >= 0  ? parts[iUnit]  : 'un',
       quantity:    iQty  >= 0  ? parseFloat(parts[iQty])  || 0 : 1,

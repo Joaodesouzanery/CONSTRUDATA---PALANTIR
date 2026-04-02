@@ -193,11 +193,31 @@ function parseShpBbox(buffer: ArrayBuffer, _fileName: string): ParseResult {
   }
 }
 
+function isValidNode(n: unknown): n is MapNode {
+  if (!n || typeof n !== 'object') return false
+  const o = n as Record<string, unknown>
+  return typeof o.id === 'string' &&
+    typeof o.lat === 'number' && o.lat >= -90 && o.lat <= 90 &&
+    typeof o.lng === 'number' && o.lng >= -180 && o.lng <= 180
+}
+
+function isValidSegment(s: unknown): s is MapSegment {
+  if (!s || typeof s !== 'object') return false
+  const o = s as Record<string, unknown>
+  return typeof o.id === 'string' &&
+    typeof o.fromId === 'string' &&
+    typeof o.toId === 'string'
+}
+
 function parseJson(text: string): ParseResult {
   try {
-    const data = JSON.parse(text)
-    const nodes: MapNode[]       = Array.isArray(data.nodes)    ? data.nodes    : []
-    const segments: MapSegment[] = Array.isArray(data.segments) ? data.segments : []
+    const data: unknown = JSON.parse(text)
+    if (!data || typeof data !== 'object') {
+      return { ok: false, message: 'JSON inválido: esperado objeto raiz.' }
+    }
+    const d = data as Record<string, unknown>
+    const nodes: MapNode[]       = Array.isArray(d.nodes)    ? (d.nodes as unknown[]).filter(isValidNode)    : []
+    const segments: MapSegment[] = Array.isArray(d.segments) ? (d.segments as unknown[]).filter(isValidSegment) : []
     if (nodes.length === 0 && segments.length === 0) {
       return { ok: false, message: 'JSON não contém nodes/segments válidos.' }
     }

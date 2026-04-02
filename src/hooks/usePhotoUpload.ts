@@ -14,7 +14,7 @@ export function usePhotoUpload() {
           const photo: ReportPhoto = {
             id: crypto.randomUUID(),
             base64: reader.result as string,
-            label: file.name.replace(/\.[^.]+$/, ''),
+            label: file.name.replace(/\.[^.]+$/, '').replace(/[<>"'&]/g, ''),
             uploadedAt: new Date().toISOString(),
           }
           addPhoto(photo)

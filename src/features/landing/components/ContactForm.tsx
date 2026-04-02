@@ -51,7 +51,7 @@ export function ContactForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          access_key: import.meta.env.VITE_WEB3FORMS_KEY ?? 'YOUR_WEB3FORMS_KEY',
+          access_key: import.meta.env.VITE_WEB3FORMS_KEY ?? '',
           subject: 'Nova Solicitação de Demo — Atlântico',
           from_name: `${form.nome} ${form.sobrenome}`,
           email: form.email,
