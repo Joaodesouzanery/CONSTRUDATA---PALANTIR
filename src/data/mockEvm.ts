@@ -358,6 +358,28 @@ export const MOCK_EVM_METRICS: EvmMetrics = {
   ETC: 3359347,    // EAC - AC
   VAC: -391304,    // BAC - EAC
   TCPI: 1.04,      // (BAC - EV) / (BAC - AC)
+  costBreakdown: {
+    material: 820000,
+    equipamento: 450000,
+    mao_de_obra: 680000,
+    impostos_indiretos: 230000,
+  },
+  eacScenarios: {
+    optimistic: 4500000,   // BAC
+    trend: 4891304,        // BAC / 0.92
+    pessimistic: 5625000,  // BAC / 0.92 * 1.15
+  },
+  pillarDeviations: [
+    { pillar: 'mao_de_obra', label: 'Mão de Obra', budgeted: 600000, actual: 680000, deviation: 80000, deviationPct: 52 },
+    { pillar: 'material', label: 'Material', budgeted: 780000, actual: 820000, deviation: 40000, deviationPct: 26 },
+    { pillar: 'equipamento', label: 'Equipamentos', budgeted: 430000, actual: 450000, deviation: 20000, deviationPct: 13 },
+    { pillar: 'impostos_indiretos', label: 'Impostos/Indiretos', budgeted: 215000, actual: 230000, deviation: 15000, deviationPct: 9 },
+  ],
+  stockAlerts: [
+    { itemId: 'est-001', description: 'Tubo PEAD DN200 (m)', qtdComprada: 2000, qtdInstalada: 800, qtdImobilizada: 1200, custoImobilizado: 96000 },
+    { itemId: 'est-002', description: 'Conexões PVC DN150', qtdComprada: 500, qtdInstalada: 120, qtdImobilizada: 380, custoImobilizado: 22800 },
+  ],
+  healthStatus: 'red' as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -370,71 +392,83 @@ export const MOCK_SCURVE_DATA: SCurveMultiPoint[] = [
     plannedFinancialPct: 5.0,
     actualPhysicalPct: 3.2,
     earnedValuePct: 4.0,
+    actualCostPct: 9.5,
   },
   {
     date: '2026-05-01',
     plannedFinancialPct: 12.5,
     actualPhysicalPct: 8.6,
     earnedValuePct: 10.2,
+    actualCostPct: 15.1,
   },
   {
     date: '2026-06-01',
     plannedFinancialPct: 23.0,
     actualPhysicalPct: 16.4,
     earnedValuePct: 19.5,
+    actualCostPct: 22.8,
   },
   {
     date: '2026-07-01',
     plannedFinancialPct: 36.0,
     actualPhysicalPct: 26.8,
     earnedValuePct: 31.3,
+    actualCostPct: 34.0,
   },
   {
     date: '2026-08-01',
     plannedFinancialPct: 50.0,
     actualPhysicalPct: 38.5,
     earnedValuePct: 43.8,
+    actualCostPct: 45.2,
   },
   {
     date: '2026-09-01',
     plannedFinancialPct: 64.0,
     actualPhysicalPct: 51.2,
     earnedValuePct: 57.0,
+    actualCostPct: 57.8,
   },
   {
     date: '2026-10-01',
     plannedFinancialPct: 76.0,
     actualPhysicalPct: 63.4,
     earnedValuePct: 69.2,
+    actualCostPct: 70.6,
   },
   {
     date: '2026-11-01',
     plannedFinancialPct: 85.5,
     actualPhysicalPct: 74.0,
     earnedValuePct: 79.5,
+    actualCostPct: 80.5,
   },
   {
     date: '2026-12-01',
     plannedFinancialPct: 92.0,
     actualPhysicalPct: 82.8,
     earnedValuePct: 87.0,
+    actualCostPct: 89.4,
   },
   {
     date: '2027-01-01',
     plannedFinancialPct: 96.5,
     actualPhysicalPct: 89.6,
     earnedValuePct: 92.8,
+    actualCostPct: 95.8,
   },
   {
     date: '2027-02-01',
     plannedFinancialPct: 99.0,
     actualPhysicalPct: 94.5,
     earnedValuePct: 96.8,
+    actualCostPct: 100.2,
   },
   {
     date: '2027-03-01',
     plannedFinancialPct: 100.0,
     actualPhysicalPct: 98.2,
     earnedValuePct: 99.5,
+    actualCostPct: 105.0,
   },
 ]

@@ -1841,6 +1841,42 @@ export interface EvmMetrics {
   ETC: number
   VAC: number
   TCPI: number
+  costBreakdown: CostBreakdown
+  eacScenarios: EacScenarios
+  pillarDeviations: PillarDeviation[]
+  stockAlerts: StockAlert[]
+  healthStatus: 'blue' | 'yellow' | 'red'
+}
+
+export interface CostBreakdown {
+  material: number
+  equipamento: number
+  mao_de_obra: number
+  impostos_indiretos: number
+}
+
+export interface EacScenarios {
+  optimistic: number
+  trend: number
+  pessimistic: number
+}
+
+export interface PillarDeviation {
+  pillar: CostPillar
+  label: string
+  budgeted: number
+  actual: number
+  deviation: number
+  deviationPct: number
+}
+
+export interface StockAlert {
+  itemId: string
+  description: string
+  qtdComprada: number
+  qtdInstalada: number
+  qtdImobilizada: number
+  custoImobilizado: number
 }
 
 export interface SCurveMultiPoint {
@@ -1848,4 +1884,5 @@ export interface SCurveMultiPoint {
   plannedFinancialPct: number
   actualPhysicalPct: number
   earnedValuePct: number
+  actualCostPct: number
 }

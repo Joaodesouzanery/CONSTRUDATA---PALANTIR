@@ -101,7 +101,7 @@ function EditableNumber({
     <button
       onClick={() => { setDraft(String(value || '')); setEditing(true) }}
       className={`w-12 text-[10px] font-mono text-center rounded px-1 py-0.5 transition-colors hover:bg-[#525252] ${
-        value > 0 ? 'text-[#f5f5f5]' : 'text-[#3a3a3a]'
+        value > 0 ? 'text-[#f5f5f5]' : 'text-[#525252]'
       }`}
     >
       {value > 0 ? value : '—'}
@@ -336,23 +336,23 @@ export function ProgramacaoSemanalPanel() {
                 return (
                   <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors`}>
                     <td className={`${tdFixedCls} left-0 z-10 font-mono`}>{a.wbsCode}</td>
-                    <td className={tdCls}>{a.nucleo ?? <span className="text-[#3a3a3a]">—</span>}</td>
-                    <td className={tdCls}>{a.local ?? <span className="text-[#3a3a3a]">—</span>}</td>
+                    <td className={tdCls}>{a.nucleo ?? <span className="text-[#525252]">—</span>}</td>
+                    <td className={tdCls}>{a.local ?? <span className="text-[#525252]">—</span>}</td>
                     <td className={`${tdCls} max-w-[200px]`}>
                       <span className="block truncate text-[#f5f5f5]" title={a.name}>{a.name}</span>
                     </td>
                     <td className={`${tdCls} text-right font-mono`}>
-                      {a.comprimento != null ? a.comprimento.toFixed(0) : <span className="text-[#3a3a3a]">—</span>}
+                      {a.comprimento != null ? a.comprimento.toFixed(0) : <span className="text-[#525252]">—</span>}
                     </td>
                     <td className={`${tdCls} text-center font-mono`}>
-                      {a.quantidadeLigacoes ?? <span className="text-[#3a3a3a]">—</span>}
+                      {a.quantidadeLigacoes ?? <span className="text-[#525252]">—</span>}
                     </td>
                     <td className={`${tdCls} text-center font-mono`}>
-                      {a.pesoMeta1000 != null ? `${a.pesoMeta1000}%` : <span className="text-[#3a3a3a]">—</span>}
+                      {a.pesoMeta1000 != null ? `${a.pesoMeta1000}%` : <span className="text-[#525252]">—</span>}
                     </td>
-                    <td className={tdCls}>{a.coordenador ?? a.responsibleTeam ?? <span className="text-[#3a3a3a]">—</span>}</td>
+                    <td className={tdCls}>{a.coordenador ?? a.responsibleTeam ?? <span className="text-[#525252]">—</span>}</td>
                     <td className={`${tdCls} max-w-[120px]`}>
-                      <span className="block truncate" title={a.notes ?? ''}>{a.notes ?? <span className="text-[#3a3a3a]">—</span>}</span>
+                      <span className="block truncate" title={a.notes ?? ''}>{a.notes ?? <span className="text-[#525252]">—</span>}</span>
                     </td>
                     <td className={`${tdCls} text-center`}>{a.unidade ?? 'm'}</td>
 

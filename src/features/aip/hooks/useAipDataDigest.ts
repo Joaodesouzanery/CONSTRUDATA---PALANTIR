@@ -215,14 +215,31 @@ export function useAipDataDigest(): string {
   lines.push('')
 
   // ── EVM (Earned Value Management) ────────────────────────────────────────────
-  lines.push(`## EVM (Gerenciamento de Valor)`)
+  lines.push(`## EVM (Gerenciamento de Valor — Análise Preditiva)`)
   lines.push(`Work Packages: ${workPackages.length}`)
   if (evmMetrics.BAC > 0) {
+    const statusLabel = evmMetrics.healthStatus === 'blue' ? '🔵 Obra Eficiente' : evmMetrics.healthStatus === 'yellow' ? '🟡 Atenção — Atrasado no prazo' : '🔴 Risco Crítico'
+    lines.push(`  Semáforo: ${statusLabel}`)
     lines.push(`  BAC (Orçamento): R$ ${evmMetrics.BAC.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
     lines.push(`  CPI (Índice de Custo): ${evmMetrics.CPI.toFixed(2)} ${evmMetrics.CPI < 1 ? '⚠️ Acima do orçamento' : '✅ Dentro do orçamento'}`)
     lines.push(`  SPI (Índice de Prazo): ${evmMetrics.SPI.toFixed(2)} ${evmMetrics.SPI < 1 ? '⚠️ Atrasado' : '✅ No prazo'}`)
-    lines.push(`  EAC (Estimativa Final): R$ ${evmMetrics.EAC.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-    lines.push(`  VAC (Variação): R$ ${evmMetrics.VAC.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+    lines.push(`  EAC Cenários: Otimista=R$ ${evmMetrics.eacScenarios.optimistic.toLocaleString('pt-BR')} | Tendência=R$ ${evmMetrics.eacScenarios.trend.toLocaleString('pt-BR')} | Pessimista=R$ ${evmMetrics.eacScenarios.pessimistic.toLocaleString('pt-BR')}`)
+    if (evmMetrics.CPI < 1 && evmMetrics.pillarDeviations.length > 0) {
+      const top = evmMetrics.pillarDeviations[0]
+      lines.push(`  ⚠️ Causa Raiz do Desvio: ${top.label} (${top.deviationPct}% do desvio total, R$ ${top.deviation.toLocaleString('pt-BR')} acima)`)
+    }
+    if (evmMetrics.costBreakdown) {
+      const cb = evmMetrics.costBreakdown
+      lines.push(`  AC por Pillar: Material=R$ ${cb.material.toLocaleString('pt-BR')} | Equip=R$ ${cb.equipamento.toLocaleString('pt-BR')} | MO=R$ ${cb.mao_de_obra.toLocaleString('pt-BR')} | Impostos=R$ ${cb.impostos_indiretos.toLocaleString('pt-BR')}`)
+    }
+    if (evmMetrics.stockAlerts.length > 0) {
+      const totalImob = evmMetrics.stockAlerts.reduce((s, a) => s + a.custoImobilizado, 0)
+      lines.push(`  ⚠️ Estoque Imobilizado: ${evmMetrics.stockAlerts.length} item(ns), R$ ${totalImob.toLocaleString('pt-BR')} parado(s) em estoque`)
+    }
+    const estouroPct = evmMetrics.BAC > 0 ? ((evmMetrics.eacScenarios.trend - evmMetrics.BAC) / evmMetrics.BAC * 100).toFixed(1) : '0'
+    if (Number(estouroPct) > 0) {
+      lines.push(`  Projeção: Se manter ritmo atual, obra terminará com ${estouroPct}% de estouro orçamentário`)
+    }
   }
   lines.push('')
 

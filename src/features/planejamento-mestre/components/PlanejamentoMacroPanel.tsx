@@ -674,7 +674,7 @@ export function PlanejamentoMacroPanel() {
                         >
                           {act.networkType}
                         </span>
-                      ) : <span className="text-[#3f3f3f]">—</span>}
+                      ) : <span className="text-[#525252]">—</span>}
                     </td>
                     <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedStart)}</td>
                     <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedEnd)}</td>

@@ -4,7 +4,8 @@
 import { create } from 'zustand'
 import type {
   EvmTab, WorkPackage, CostAccountEntry, WeightedMeasurement,
-  EvmMetrics, SCurveMultiPoint,
+  EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
+  EacScenarios, PillarDeviation, StockAlert,
 } from '@/types'
 
 interface EvmState {
@@ -44,6 +45,18 @@ const EMPTY_METRICS: EvmMetrics = {
   BAC: 0, PV: 0, EV: 0, AC: 0,
   CPI: 0, SPI: 0, CV: 0, SV: 0,
   EAC: 0, ETC: 0, VAC: 0, TCPI: 0,
+  costBreakdown: { material: 0, equipamento: 0, mao_de_obra: 0, impostos_indiretos: 0 },
+  eacScenarios: { optimistic: 0, trend: 0, pessimistic: 0 },
+  pillarDeviations: [],
+  stockAlerts: [],
+  healthStatus: 'blue' as const,
+}
+
+const PILLAR_LABELS: Record<CostPillar, string> = {
+  material: 'Material',
+  equipamento: 'Equipamento',
+  mao_de_obra: 'Mao de Obra',
+  impostos_indiretos: 'Impostos Indiretos',
 }
 
 function computeCompositeScore(m: Omit<WeightedMeasurement, 'id' | 'compositeScore'>): number {
@@ -144,6 +157,7 @@ export const useEvmStore = create<EvmState>((set, get) => ({
   recalculateMetrics: () => {
     const { costAccounts, evmMetrics } = get()
 
+    // Compute BAC from cost accounts
     const BAC = costAccounts.reduce((sum, ca) => sum + ca.totalCostBRL, 0)
 
     if (BAC === 0) {
@@ -151,13 +165,23 @@ export const useEvmStore = create<EvmState>((set, get) => ({
       return
     }
 
-    // Scale PV/EV/AC proportionally to the new BAC
+    // Compute AC broken down by pillar
+    const pillars: CostPillar[] = ['material', 'equipamento', 'mao_de_obra', 'impostos_indiretos']
+    const costBreakdown: CostBreakdown = { material: 0, equipamento: 0, mao_de_obra: 0, impostos_indiretos: 0 }
+
+    for (const ca of costAccounts) {
+      costBreakdown[ca.pillar] += ca.totalCostBRL
+    }
+
+    const AC = costBreakdown.material + costBreakdown.equipamento + costBreakdown.mao_de_obra + costBreakdown.impostos_indiretos
+
+    // Scale PV/EV proportionally to the new BAC
     const oldBAC = evmMetrics.BAC || 1
     const scale = BAC / oldBAC
     const PV = evmMetrics.PV * scale
     const EV = evmMetrics.EV * scale
-    const AC = evmMetrics.AC * scale
 
+    // Core EVM indices
     const CPI = AC !== 0 ? EV / AC : 0
     const SPI = PV !== 0 ? EV / PV : 0
     const CV = EV - AC
@@ -167,8 +191,90 @@ export const useEvmStore = create<EvmState>((set, get) => ({
     const VAC = BAC - EAC
     const TCPI = (BAC - AC) !== 0 ? (BAC - EV) / (BAC - AC) : 0
 
-    set({
-      evmMetrics: { BAC, PV, EV, AC, CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI },
+    // Pillar deviations: for each pillar, compare budgeted vs actual
+    const budgetedByPillar: Record<CostPillar, number> = { material: 0, equipamento: 0, mao_de_obra: 0, impostos_indiretos: 0 }
+    for (const ca of costAccounts) {
+      budgetedByPillar[ca.pillar] += ca.totalCostBRL
+    }
+
+    const totalDeviation = pillars.reduce((sum, p) => sum + Math.abs(costBreakdown[p] - budgetedByPillar[p]), 0)
+
+    const pillarDeviations: PillarDeviation[] = pillars.map((p) => {
+      const budgeted = budgetedByPillar[p]
+      const actual = costBreakdown[p]
+      const deviation = actual - budgeted
+      const deviationPct = totalDeviation !== 0 ? Math.abs(deviation) / totalDeviation : 0
+      return {
+        pillar: p,
+        label: PILLAR_LABELS[p],
+        budgeted,
+        actual,
+        deviation,
+        deviationPct,
+      }
+    })
+
+    // EAC scenarios
+    const eacScenarios: EacScenarios = {
+      optimistic: BAC,
+      trend: CPI !== 0 ? BAC / CPI : 0,
+      pessimistic: CPI !== 0 ? (BAC / CPI) * 1.15 : 0,
+    }
+
+    // Health status
+    let healthStatus: 'blue' | 'yellow' | 'red'
+    if (CPI >= 1 && SPI >= 1) {
+      healthStatus = 'blue'
+    } else if (SPI < 1 && CPI >= 1) {
+      healthStatus = 'yellow'
+    } else {
+      healthStatus = 'red'
+    }
+
+    // Stock alerts — lazy import from suprimentosStore
+    import('./suprimentosStore').then(({ useSuprimentosStore }) => {
+      const { estoqueItens } = useSuprimentosStore.getState()
+      const stockAlerts: StockAlert[] = []
+
+      for (const item of estoqueItens) {
+        if (item.qtdDisponivel > item.estoqueMinimo * 2) {
+          const qtdComprada = item.qtdDisponivel + item.qtdReservada
+          const qtdInstalada = item.qtdReservada
+          const qtdImobilizada = item.qtdDisponivel - item.estoqueMinimo
+          const custoImobilizado = qtdImobilizada * (item.custoUnitario ?? 0)
+          stockAlerts.push({
+            itemId: item.id,
+            description: item.descricao,
+            qtdComprada,
+            qtdInstalada,
+            qtdImobilizada,
+            custoImobilizado,
+          })
+        }
+      }
+
+      set({
+        evmMetrics: {
+          BAC, PV, EV, AC, CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI,
+          costBreakdown,
+          eacScenarios,
+          pillarDeviations,
+          stockAlerts,
+          healthStatus,
+        },
+      })
+    }).catch(() => {
+      // If suprimentos store is unavailable, set metrics without stock alerts
+      set({
+        evmMetrics: {
+          BAC, PV, EV, AC, CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI,
+          costBreakdown,
+          eacScenarios,
+          pillarDeviations,
+          stockAlerts: [],
+          healthStatus,
+        },
+      })
     })
   },
 
