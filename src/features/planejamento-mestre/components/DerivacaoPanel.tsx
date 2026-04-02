@@ -251,7 +251,7 @@ function PpcRow({ weeks, das }: PpcRowProps) {
         return (
           <td key={w} className="px-2 py-1.5 text-center border border-[#525252]/30">
             {v === null ? (
-              <span className="text-[#3f3f3f] text-[9px]">—</span>
+              <span className="text-[#525252] text-[9px]">—</span>
             ) : (
               <span className={cn('px-1.5 py-0.5 rounded border text-[9px] font-bold tabular-nums', ppcColor(v))}>
                 {v}%

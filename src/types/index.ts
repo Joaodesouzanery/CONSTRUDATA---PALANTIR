@@ -1667,6 +1667,8 @@ export interface MasterActivity {
   weight?: number
   notes?: string
   networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+  serviceCategory?: 'LA' | 'LE' | 'intra' | 'interligacao' | 'reposicao' | 'na_rede' | 'OS' | 'pavimentacao' | 'recomposicao'
+  diameterMm?: number
   // Weekly programming extended fields
   nucleo?:             string
   local?:              string
@@ -1783,4 +1785,104 @@ export interface TrendPoint {
   date: string
   plannedCumulativePct: number
   actualCumulativePct: number
+}
+
+// ── EVM (Earned Value Management) ──────────────────────────────────────────
+
+export type EvmTab = 'dashboard' | 'medicao' | 'plano-contas' | 'work-packages' | 'indices'
+
+export type CostPillar = 'material' | 'equipamento' | 'mao_de_obra' | 'impostos_indiretos'
+
+export type ServiceCategory = 'LA' | 'LE' | 'intra' | 'interligacao' | 'reposicao' | 'na_rede' | 'OS' | 'pavimentacao' | 'recomposicao'
+
+export interface WeightedMeasurement {
+  id: string
+  activityId: string
+  activityName: string
+  financialWeight: number
+  durationWeight: number
+  economicWeight: number
+  specificWeight: number
+  compositeScore: number
+}
+
+export interface CostAccountEntry {
+  id: string
+  activityId: string
+  pillar: CostPillar
+  description: string
+  unitCostBRL: number
+  quantity: number
+  totalCostBRL: number
+}
+
+export interface WorkPackage {
+  id: string
+  code: string
+  name: string
+  description: string
+  costAccounts: CostAccountEntry[]
+  measurements: WeightedMeasurement[]
+  totalBudgetBRL: number
+  createdAt: string
+  isTemplate: boolean
+}
+
+export interface EvmMetrics {
+  BAC: number
+  PV: number
+  EV: number
+  AC: number
+  CPI: number
+  SPI: number
+  CV: number
+  SV: number
+  EAC: number
+  ETC: number
+  VAC: number
+  TCPI: number
+  costBreakdown: CostBreakdown
+  eacScenarios: EacScenarios
+  pillarDeviations: PillarDeviation[]
+  stockAlerts: StockAlert[]
+  healthStatus: 'blue' | 'yellow' | 'red'
+}
+
+export interface CostBreakdown {
+  material: number
+  equipamento: number
+  mao_de_obra: number
+  impostos_indiretos: number
+}
+
+export interface EacScenarios {
+  optimistic: number
+  trend: number
+  pessimistic: number
+}
+
+export interface PillarDeviation {
+  pillar: CostPillar
+  label: string
+  budgeted: number
+  actual: number
+  deviation: number
+  deviationPct: number
+}
+
+export interface StockAlert {
+  itemId: string
+  description: string
+  qtdComprada: number
+  qtdInstalada: number
+  qtdImobilizada: number
+  custoImobilizado: number
+}
+
+export interface SCurveMultiPoint {
+  date: string
+  plannedFinancialPct: number
+  actualPhysicalPct: number
+  earnedValuePct: number
+  actualCostPct: number
 }

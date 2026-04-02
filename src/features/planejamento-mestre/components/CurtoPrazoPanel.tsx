@@ -346,7 +346,7 @@ export function CurtoPrazoPanel() {
                               placeholder="—"
                             />
                           ) : (
-                            <span className="text-[#3f3f3f]">—</span>
+                            <span className="text-[#525252]">—</span>
                           )}
                         </td>
                       )
@@ -367,7 +367,7 @@ export function CurtoPrazoPanel() {
                       {v !== null ? (
                         <span className={cn('font-bold font-mono text-[10px]', ppcColor(v))}>{v}%</span>
                       ) : (
-                        <span className="text-[#3f3f3f] text-[10px]">—</span>
+                        <span className="text-[#525252] text-[10px]">—</span>
                       )}
                     </td>
                   )
