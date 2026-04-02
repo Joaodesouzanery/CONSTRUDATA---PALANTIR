@@ -71,8 +71,9 @@ async function fetchApsToken(clientId: string, clientSecret: string): Promise<{ 
 
 function SetupModal({ onClose }: { onClose: () => void }) {
   const { setForgeCredentials, setForgeUrn, forgeUrn } = useBimStore()
-  const [clientId,     setClientId]     = useState(() => localStorage.getItem('aps-client-id')     ?? '')
-  const [clientSecret, setClientSecret] = useState(() => localStorage.getItem('aps-client-secret') ?? '')
+  const [clientId,     setClientId]     = useState(() => localStorage.getItem('aps-client-id')       ?? '')
+  // Secret is read from sessionStorage (cleared on tab close); localStorage is intentionally avoided
+  const [clientSecret, setClientSecret] = useState(() => sessionStorage.getItem('aps-client-secret') ?? '')
   const [urn,          setUrn]          = useState(forgeUrn ?? '')
   const [saving, setSaving] = useState(false)
   const [err,    setErr]    = useState('')

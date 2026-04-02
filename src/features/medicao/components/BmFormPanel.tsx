@@ -6,6 +6,7 @@ import { Plus, Save, Download, Trash2, CheckCircle2, Clock, ChevronRight } from 
 import { useMedicaoStore } from '@/store/medicaoStore'
 import type { BoletimMedicao, MedicaoServico } from '@/types'
 import { OBRAS_LIST } from '@/types'
+import { escapeCell } from '@/features/planejamento/utils/exportEngine'
 
 function fmtBRL(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -66,12 +67,15 @@ export function BmFormPanel() {
 
   function handleExportCsv(bm: BoletimMedicao) {
     const BOM = '\uFEFF'
-    const header = `Boletim de Medição Nº ${bm.numero} - ${bm.obra}\r\nPeríodo: ${bm.periodoInicio} a ${bm.periodoFim}\r\nEmissão: ${bm.dataEmissao}\r\n\r\n`
+    const header = `${escapeCell(`Boletim de Medição Nº ${bm.numero}`)},${escapeCell(bm.obra)}\r\nPeríodo,${escapeCell(bm.periodoInicio)},${escapeCell(bm.periodoFim)}\r\nEmissão,${escapeCell(bm.dataEmissao)}\r\n\r\n`
     const cols = 'Código,Descrição,Un.,Qtd Medida,Valor Unit.,Valor Total\r\n'
     const rows = bm.itens.map((i) =>
-      [i.codigo, `"${i.descricao}"`, i.unidade, i.qtdMesAtual, i.valorUnitario.toFixed(2), i.valorTotal.toFixed(2)].join(',')
+      [
+        escapeCell(i.codigo), escapeCell(i.descricao), escapeCell(i.unidade),
+        escapeCell(i.qtdMesAtual), escapeCell(i.valorUnitario.toFixed(2)), escapeCell(i.valorTotal.toFixed(2)),
+      ].join(',')
     ).join('\r\n')
-    const footer = `\r\n\r\nVALOR TOTAL,,,,,${bm.valorTotal.toFixed(2)}`
+    const footer = `\r\n\r\nVALOR TOTAL,,,,,${escapeCell(bm.valorTotal.toFixed(2))}`
     const blob = new Blob([BOM + header + cols + rows + footer], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

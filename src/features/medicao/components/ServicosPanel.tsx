@@ -6,6 +6,7 @@ import { Download, RefreshCw, Plus, Trash2 } from 'lucide-react'
 import { useMedicaoStore } from '@/store/medicaoStore'
 import type { MedicaoServico } from '@/types'
 import { OBRAS_LIST } from '@/types'
+import { escapeCell } from '@/features/planejamento/utils/exportEngine'
 
 function pct(medida: number, contratada: number) {
   if (!contratada) return 0
@@ -76,8 +77,11 @@ export function ServicosPanel() {
     const rows = servicos.map((s) => {
       const medAcum = acumMap.get(s.codigo) ?? s.qtdMedidaAcumulada
       const p = pct(medAcum, s.qtdContratada)
-      return [s.codigo, `"${s.descricao}"`, s.unidade, s.qtdContratada, medAcum, `${p}%`,
-        s.valorUnitario.toFixed(2), s.valorTotal.toFixed(2)].join(',')
+      return [
+        escapeCell(s.codigo), escapeCell(s.descricao), escapeCell(s.unidade),
+        escapeCell(s.qtdContratada), escapeCell(medAcum), escapeCell(`${p}%`),
+        escapeCell(s.valorUnitario.toFixed(2)), escapeCell(s.valorTotal.toFixed(2)),
+      ].join(',')
     }).join('\r\n')
     const blob = new Blob([BOM + header + rows], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

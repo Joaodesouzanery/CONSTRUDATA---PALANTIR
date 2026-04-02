@@ -442,10 +442,13 @@ export const useBimStore = create<BimState>((set, get) => ({
   setForgeUrn(urn)    { set({ forgeUrn: urn }) },
   setForgeCredentials(clientId, clientSecret) {
     try {
-      localStorage.setItem('aps-client-id',     clientId)
-      localStorage.setItem('aps-client-secret', clientSecret)
+      // Client ID is not confidential — keep in localStorage for convenience across sessions
+      localStorage.setItem('aps-client-id', clientId)
+      // Client Secret is confidential — use sessionStorage so it is cleared when the tab closes.
+      // NOTE: Full security requires a backend proxy; storing any secret in the browser is a
+      // best-effort measure for this SPA-only deployment.
+      sessionStorage.setItem('aps-client-secret', clientSecret)
     } catch { /* noop */ }
     set({ forgeClientId: clientId })
-    void clientSecret  // stored in localStorage only, not in state
   },
 }))

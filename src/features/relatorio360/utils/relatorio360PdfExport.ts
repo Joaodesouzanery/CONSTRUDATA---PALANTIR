@@ -5,6 +5,7 @@
  * Mirrors the pattern from src/features/rdo/utils/rdoPdfExport.ts.
  */
 import type { DailyReport } from '@/types'
+import { escapeHtml } from '@/lib/escapeHtml'
 
 function fmtDate(d: string) {
   if (!d) return '—'
@@ -67,13 +68,13 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
         const crew = report.crews.find((c) => c.id === a.crewId)
         const pct  = a.plannedQty > 0 ? Math.round((a.actualQty / a.plannedQty) * 100) : 0
         return `<tr>
-          <td>${a.name}</td>
-          <td style="text-align:right">${a.plannedQty.toLocaleString('pt-BR')} ${a.unit}</td>
-          <td style="text-align:right">${a.actualQty.toLocaleString('pt-BR')} ${a.unit}</td>
-          <td style="text-align:center">${a.unit}</td>
-          <td>${crew ? crew.foremanName : '—'}</td>
+          <td>${escapeHtml(a.name)}</td>
+          <td style="text-align:right">${a.plannedQty.toLocaleString('pt-BR')} ${escapeHtml(a.unit)}</td>
+          <td style="text-align:right">${a.actualQty.toLocaleString('pt-BR')} ${escapeHtml(a.unit)}</td>
+          <td style="text-align:center">${escapeHtml(a.unit)}</td>
+          <td>${crew ? escapeHtml(crew.foremanName) : '—'}</td>
           <td style="text-align:center;color:${STATUS_COLOR[a.status] ?? '#6b7280'};font-weight:600">
-            ${STATUS_LABEL[a.status] ?? a.status} (${pct}%)
+            ${STATUS_LABEL[a.status] ?? escapeHtml(a.status)} (${pct}%)
           </td>
         </tr>`
       }).join('')
@@ -83,8 +84,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
   const crewsHtml = report.crews.map((crew) => {
     const crewCost = crew.timecards.reduce((s, t) => s + t.hoursWorked * t.hourlyRate, 0)
     const rows = crew.timecards.map((tc) => `<tr>
-      <td>${tc.workerName}</td>
-      <td>${tc.role}</td>
+      <td>${escapeHtml(tc.workerName)}</td>
+      <td>${escapeHtml(tc.role)}</td>
       <td style="text-align:right">${tc.hoursWorked.toFixed(1)}h</td>
       <td style="text-align:right">${fmtCurrency(tc.hourlyRate)}/h</td>
       <td style="text-align:right;font-weight:600">${fmtCurrency(tc.hoursWorked * tc.hourlyRate)}</td>
@@ -92,8 +93,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
 
     return `<div class="crew-section">
       <div class="crew-header">
-        <strong>${crew.foremanName}</strong>
-        <span class="badge">${crew.crewType}</span>
+        <strong>${escapeHtml(crew.foremanName)}</strong>
+        <span class="badge">${escapeHtml(crew.crewType)}</span>
         <span style="margin-left:auto;color:#f97316;font-weight:700">${fmtCurrency(crewCost)}</span>
       </div>
       <table>
@@ -113,8 +114,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
     ? report.equipmentLogs.map((l) => {
         const act = report.activities.find((a) => a.id === l.activityId)
         return `<tr>
-          <td><code>${l.equipmentId}</code><br/><small>${l.type}</small></td>
-          <td>${act?.name ?? '—'}</td>
+          <td><code>${escapeHtml(l.equipmentId)}</code><br/><small>${escapeHtml(l.type)}</small></td>
+          <td>${act ? escapeHtml(act.name) : '—'}</td>
           <td style="text-align:right">${l.utilizationHours.toFixed(1)}h</td>
           <td style="text-align:right;font-weight:600">${fmtCurrency(l.utilizationHours * l.hourlyRate)}</td>
         </tr>`
@@ -126,10 +127,10 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
     ? report.materialLogs.map((l) => {
         const act = report.activities.find((a) => a.id === l.activityId)
         return `<tr>
-          <td><code>${l.materialId}</code></td>
-          <td>${act?.name ?? '—'}</td>
+          <td><code>${escapeHtml(l.materialId)}</code></td>
+          <td>${act ? escapeHtml(act.name) : '—'}</td>
           <td style="text-align:right">${l.quantity.toLocaleString('pt-BR')}</td>
-          <td style="text-align:center">${l.unit}</td>
+          <td style="text-align:center">${escapeHtml(l.unit)}</td>
         </tr>`
       }).join('')
     : '<tr><td colspan="4" style="color:#6b7280;font-style:italic">Sem registros</td></tr>'
@@ -139,8 +140,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
     ? `<div class="photo-grid">
         ${report.photos.map((p) => `
           <figure class="photo-item">
-            <img src="${p.base64}" alt="${p.label}" />
-            <figcaption>${p.label}</figcaption>
+            <img src="${p.base64}" alt="${escapeHtml(p.label)}" />
+            <figcaption>${escapeHtml(p.label)}</figcaption>
           </figure>`).join('')}
        </div>`
     : '<p style="color:#6b7280;font-style:italic">Sem registros fotográficos</p>'
