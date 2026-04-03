@@ -1989,3 +1989,66 @@ export interface CriterioMedicao {
   notas: string
   pageIndex?: number
 }
+
+// ── Núcleo Resumo (Suprimentos) ─────────────────────────────────────────────
+
+export interface NucleoResumo {
+  id: string
+  nucleo: string
+  tipo: string
+  trechosTotal: number
+  trechosExecutados: number
+  trechosPendentes: number
+  metrosTotal: number
+  metrosExecutados: number
+  metrosPendentes: number
+  progressoPct: number
+  ruas: string
+  observacoes?: string
+}
+
+// ── Fluxograma da Obra ──────────────────────────────────────────────────────
+
+export type FluxogramaTab = 'canvas' | 'lista'
+export type FluxoNodeStatus = 'pendente' | 'em_andamento' | 'concluido' | 'bloqueado'
+export type FluxoNodeType = 'etapa' | 'decisao' | 'marco' | 'inicio' | 'fim'
+
+export interface FluxoNode {
+  id: string
+  label: string
+  description?: string
+  type: FluxoNodeType
+  status: FluxoNodeStatus
+  x: number
+  y: number
+  responsavel?: string
+  dataInicio?: string
+  dataFim?: string
+  progressoPct?: number
+  color?: string
+  linkedTrechoId?: string
+}
+
+export interface FluxoEdge {
+  id: string
+  from: string
+  to: string
+  label?: string
+  type: 'sequencia' | 'dependencia' | 'condicional'
+}
+
+// ── Validação Cruzada / Glose ───────────────────────────────────────────────
+
+export interface GloseAlert {
+  id: string
+  tipo: 'quantidade' | 'valor' | 'item_ausente' | 'divergencia'
+  descricao: string
+  itemMedicao: string
+  itemRdo?: string
+  valorMedicao: number
+  valorRdo: number
+  diferenca: number
+  diferencaPct: number
+  severidade: 'info' | 'aviso' | 'critico'
+  criadoEm: string
+}

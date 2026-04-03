@@ -16,6 +16,7 @@ import type {
   MovimentacaoEstoque,
   ReservaMaterial,
   LeadTimeRecord,
+  NucleoResumo,
 } from '@/types'
 import {
   mockPurchaseOrders,
@@ -139,6 +140,9 @@ interface SuprimentosState {
   leadTimeRecords:     LeadTimeRecord[]
   selectedDepositoId:  string | null
 
+  // Resumo por Núcleo
+  nucleoResumos:       NucleoResumo[]
+
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
   updatePO: (id: string, patch: Partial<PurchaseOrder>) => void
@@ -167,6 +171,12 @@ interface SuprimentosState {
   // Framework Agreements
   updateFrameworkAgreement: (id: string, patch: Partial<FrameworkAgreement>) => void
   addFrameworkAgreement:    (fa: Omit<FrameworkAgreement, 'id'>) => void
+
+  // Núcleo Resumo actions
+  importNucleoResumos:  (items: Omit<NucleoResumo, 'id'>[]) => void
+  addNucleoResumo:      (item: Omit<NucleoResumo, 'id'>) => void
+  updateNucleoResumo:   (id: string, patch: Partial<NucleoResumo>) => void
+  removeNucleoResumo:   (id: string) => void
 
   // Estoque actions
   setSelectedDeposito:  (id: string | null) => void
@@ -210,6 +220,9 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
   reservas:           mockReservas,
   leadTimeRecords:    mockLeadTimeRecords,
   selectedDepositoId: mockDepositos[0]?.id ?? null,
+
+  // Resumo por Núcleo
+  nucleoResumos: [],
 
   addPO: (po) =>
     set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
@@ -304,6 +317,31 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
   addFrameworkAgreement: (fa) =>
     set((s) => ({
       frameworkAgreements: [...s.frameworkAgreements, { ...fa, id: crypto.randomUUID() }],
+    })),
+
+  // ─── Núcleo Resumo actions ───────────────────────────────────────────────────
+
+  importNucleoResumos: (items) =>
+    set((s) => ({
+      nucleoResumos: [
+        ...s.nucleoResumos,
+        ...items.map((item) => ({ ...item, id: crypto.randomUUID() })),
+      ],
+    })),
+
+  addNucleoResumo: (item) =>
+    set((s) => ({
+      nucleoResumos: [...s.nucleoResumos, { ...item, id: crypto.randomUUID() }],
+    })),
+
+  updateNucleoResumo: (id, patch) =>
+    set((s) => ({
+      nucleoResumos: s.nucleoResumos.map((n) => (n.id === id ? { ...n, ...patch } : n)),
+    })),
+
+  removeNucleoResumo: (id) =>
+    set((s) => ({
+      nucleoResumos: s.nucleoResumos.filter((n) => n.id !== id),
     })),
 
   // ─── Estoque actions ────────────────────────────────────────────────────────
@@ -450,6 +488,32 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       movimentacoes:       mockMovimentacoes,
       reservas:            mockReservas,
       leadTimeRecords:     mockLeadTimeRecords,
+      nucleoResumos: [
+        {
+          id: 'nr-demo-1', nucleo: 'Núcleo Lapa', tipo: 'Rede de Água',
+          trechosTotal: 42, trechosExecutados: 31, trechosPendentes: 11,
+          metrosTotal: 3780, metrosExecutados: 2790, metrosPendentes: 990,
+          progressoPct: 73.8, ruas: 'R. Guaicurus, R. Catão, Al. Barros',
+        },
+        {
+          id: 'nr-demo-2', nucleo: 'Núcleo Pinheiros', tipo: 'Coletor Tronco',
+          trechosTotal: 28, trechosExecutados: 28, trechosPendentes: 0,
+          metrosTotal: 2100, metrosExecutados: 2100, metrosPendentes: 0,
+          progressoPct: 100, ruas: 'R. Butantan, R. Pio XI, Av. Rebouças',
+        },
+        {
+          id: 'nr-demo-3', nucleo: 'Núcleo Vila Mariana', tipo: 'Ligações Domiciliares',
+          trechosTotal: 65, trechosExecutados: 18, trechosPendentes: 47,
+          metrosTotal: 1950, metrosExecutados: 540, metrosPendentes: 1410,
+          progressoPct: 27.7, ruas: 'R. Domingos de Morais, R. Vergueiro, R. Sena Madureira',
+        },
+        {
+          id: 'nr-demo-4', nucleo: 'Núcleo Santana', tipo: 'Rede de Esgoto',
+          trechosTotal: 36, trechosExecutados: 22, trechosPendentes: 14,
+          metrosTotal: 4320, metrosExecutados: 2640, metrosPendentes: 1680,
+          progressoPct: 61.1, ruas: 'Av. Cruzeiro do Sul, R. Voluntários da Pátria',
+        },
+      ],
     }),
 
   clearData: () =>
@@ -467,5 +531,6 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       movimentacoes:       [],
       reservas:            [],
       leadTimeRecords:     [],
+      nucleoResumos:       [],
     }),
 }))
