@@ -94,7 +94,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
         const { headers: h, rows, headerRow: hr, raw: rawData } = await previewExcel(f)
         setHeaders(h)
         setHeaderRow(hr)
-        setPreviewRows(rows.slice(0, 10))
+        setPreviewRows(rows.slice(0, 30))
         const suggested = autoSuggestMapping(h)
         setMapping(suggested)
         const monthly = detectMonthlyColumns(rawData, hr)
@@ -345,25 +345,27 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
           {/* Step: Preview parsed items */}
           {step === 'preview' && (
             <div>
-              <p className="text-[#a3a3a3] text-xs mb-3">
-                {parsedItems.length} itens encontrados. Primeiras 10 linhas:
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[#a3a3a3] text-xs">
+                  <span className="text-[#f97316] font-semibold text-sm">{parsedItems.length}</span> itens encontrados no arquivo
+                </p>
+              </div>
 
-              <div className="overflow-x-auto rounded-lg border border-[#525252]">
+              <div className="overflow-x-auto rounded-lg border border-[#525252] max-h-[50vh] overflow-y-auto">
                 <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-[#3d3d3d]">
+                  <thead className="sticky top-0 bg-[#3d3d3d] z-10">
+                    <tr>
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Item</th>
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">N. Preço</th>
-                      <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Descricao</th>
+                      <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Descrição</th>
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">UN</th>
-                      <th className="px-3 py-2 text-right text-[#a3a3a3] font-medium">Qtd Med.</th>
+                      <th className="px-3 py-2 text-right text-[#a3a3a3] font-medium">Qtd</th>
                       <th className="px-3 py-2 text-right text-[#a3a3a3] font-medium">PU (R$)</th>
                       <th className="px-3 py-2 text-right text-[#a3a3a3] font-medium">Valor (R$)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedItems.slice(0, 10).map((it, i) => (
+                    {parsedItems.map((it, i) => (
                       <tr
                         key={i}
                         className="border-t border-[#525252] hover:bg-[#484848]"

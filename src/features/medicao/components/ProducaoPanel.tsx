@@ -1,10 +1,25 @@
 /**
- * ProducaoPanel — pulls production data from RDOs and shows measurements by executor.
+ * ProducaoPanel — displays production data imported on-demand from the RDO module,
+ * grouped by executor, with Sabesp cross-referencing.
  */
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useMedicaoStore } from '@/store/medicaoStore'
-import { ClipboardList, ArrowRight } from 'lucide-react'
+import { ClipboardList, ArrowRight, Download, Clock } from 'lucide-react'
+
+interface RdoServiceEntry {
+  id: string
+  description: string
+  quantity: number
+  unit: string
+}
+
+interface Rdo {
+  id: string
+  date: string
+  responsible: string
+  services: RdoServiceEntry[]
+}
 
 interface ProducaoRow {
   executor: string
@@ -15,14 +30,24 @@ interface ProducaoRow {
 }
 
 export function ProducaoPanel() {
-  const rdos = useRdoStore((s) => s.rdos)
   const sheets = useMedicaoStore((s) => s.sheets)
   const sabespSheets = sheets.filter((s) => s.tipo === 'sabesp')
 
-  // Extract production data from RDOs grouped by responsible (executor)
+  // Local state for imported RDO data (no auto-pull from store)
+  const [importedRdos, setImportedRdos] = useState<Rdo[]>([])
+  const [lastImport, setLastImport] = useState<Date | null>(null)
+
+  // On-demand import handler — reads current RDO store snapshot
+  const handleImport = useCallback(() => {
+    const rdos = useRdoStore.getState().rdos
+    setImportedRdos(rdos)
+    setLastImport(new Date())
+  }, [])
+
+  // Extract production data from imported RDOs grouped by responsible (executor)
   const producaoRows = useMemo<ProducaoRow[]>(() => {
     const rows: ProducaoRow[] = []
-    for (const rdo of rdos) {
+    for (const rdo of importedRdos) {
       for (const svc of rdo.services) {
         rows.push({
           executor: rdo.responsible,
@@ -34,7 +59,7 @@ export function ProducaoPanel() {
       }
     }
     return rows.sort((a, b) => a.executor.localeCompare(b.executor))
-  }, [rdos])
+  }, [importedRdos])
 
   // Group by executor
   const grouped = useMemo(() => {
@@ -63,21 +88,48 @@ export function ProducaoPanel() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-white font-semibold text-lg">Produção</h2>
-        <p className="text-[#a3a3a3] text-xs mt-0.5">
-          Dados de produção extraídos dos RDOs, agrupados por executor
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-white font-semibold text-lg">Produção</h2>
+          <p className="text-[#a3a3a3] text-xs mt-0.5">
+            Dados de produção extraídos dos RDOs, agrupados por executor
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {lastImport && (
+            <span className="flex items-center gap-1.5 text-[#a3a3a3] text-xs">
+              <Clock size={12} className="text-[#6b6b6b]" />
+              Última importação:{' '}
+              {lastImport.toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })}
+            </span>
+          )}
+          <button
+            onClick={handleImport}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+              bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors"
+          >
+            <Download size={14} />
+            Importar do módulo RDO
+          </button>
+        </div>
       </div>
 
       {producaoRows.length === 0 ? (
         <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-12 text-center">
           <ClipboardList size={40} className="mx-auto text-[#6b6b6b] mb-3" />
           <p className="text-[#a3a3a3] text-sm">
-            Nenhum dado de produção disponível.
+            Nenhum dado de produção importado.
           </p>
           <p className="text-[#6b6b6b] text-xs mt-1">
-            Crie RDOs com serviços executados para ver os dados aqui.
+            Clique em Importar do módulo RDO para trazer os dados.
           </p>
         </div>
       ) : (

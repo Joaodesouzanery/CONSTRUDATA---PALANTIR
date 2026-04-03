@@ -136,36 +136,43 @@ function parseCriterioPage(
 
   // ── Extract Description ──────────────────────────────────────────────
   let descricao = ''
-
-  // Find the line containing nPreco and get text after it
+  let nPrecoLineIdx = -1
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes(nPreco)) {
-      // Description might be on the same line after nPreco
-      const afterCode = lines[i].substring(lines[i].indexOf(nPreco) + nPreco.length).trim()
-      if (afterCode.length > 5 && !afterCode.match(/^[\s,.:;-]*$/)) {
-        descricao = afterCode.replace(/\s+/g, ' ').trim()
-      }
-      // Or on the next line(s)
-      if (!descricao && i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim()
-        if (nextLine.length > 5 && !nextLine.match(/^(SIntS|UNIDADE|REGULAMENTA|COMPREENDE|MEDI)/i)) {
-          descricao = nextLine
-          // Also check the line after for continuation
-          if (i + 2 < lines.length) {
-            const line3 = lines[i + 2].trim()
-            if (line3.length > 3 && !line3.match(/^(SIntS|UNIDADE|REGULAMENTA|COMPREENDE|MEDI)/i)) {
-              descricao += ' ' + line3
-            }
-          }
-        }
-      }
+      nPrecoLineIdx = i
       break
     }
   }
 
+  if (nPrecoLineIdx >= 0) {
+    // Collect ALL lines between nPreco line and next section marker
+    const descParts: string[] = []
+
+    // Text on same line after the code
+    const afterCode = lines[nPrecoLineIdx]
+      .substring(lines[nPrecoLineIdx].indexOf(nPreco) + nPreco.length)
+      .trim()
+    if (afterCode.length > 3 && !afterCode.match(/^[\s,.:;-]*$/) && !afterCode.match(/^(SIntS|SiiS|UNIDADE|REGULAMENTA|COMPREENDE|MEDI|CAPITULO|REVISAO)/i)) {
+      descParts.push(afterCode)
+    }
+
+    // Subsequent lines until a known section marker
+    for (let i = nPrecoLineIdx + 1; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line || line.length < 2) continue
+      // Stop at section markers
+      if (line.match(/^(SIntS|SiiS|UNIDADE|REGULAMENTA[ÇC]|COMPREENDE|MEDI[ÇC][ÃA]O|NOTAS?|CAPITULO|REVISAO)\b/i)) break
+      // Stop if line looks like a header/metadata (all caps short line that's a section)
+      if (line === line.toUpperCase() && line.length < 30 && line.match(/^[A-Z\s]+$/)) break
+      descParts.push(line)
+    }
+
+    descricao = descParts.join(' ').replace(/\s+/g, ' ').trim()
+  }
+
   // Fallback: regex on full text
   if (!descricao) {
-    const descMatch = text.match(new RegExp(nPreco + '[\\s\\n]+(.+?)(?:SIntS|UNIDADE|REGULAMENTA|COMPREENDE)', 'is'))
+    const descMatch = text.match(new RegExp(nPreco + '[\\s\\n]+(.+?)(?:SIntS|SiiS|UNIDADE|REGULAMENTA|COMPREENDE)', 'is'))
     if (descMatch) {
       descricao = descMatch[1].replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim()
     }
@@ -180,9 +187,32 @@ function parseCriterioPage(
 
   // ── Extract Unidade ──────────────────────────────────────────────────
   let unidade = ''
-  const unidadeMatch = text.match(/UNIDADE\s*[:.]?\s*(M[²³2³]|M|KG|TON|UN|VB|CJ|L|P[ÇC]|GL|CX|GB|MES|DI|H|PA|SC|BR)\b/i)
+  // Strategy 1: UNIDADE followed by unit on same line
+  const unidadeMatch = text.match(/UNIDADE\s*[:.]?\s*(M[²³]|M2|M3|M\b|KG|TON|UN|VB|CJ|L\b|P[ÇC]|GL|CX|GB|MES|DI|H\b|PA|SC|BR)\b/i)
   if (unidadeMatch) {
-    unidade = unidadeMatch[1].toUpperCase()
+    unidade = unidadeMatch[1].toUpperCase().replace('M2', 'M²').replace('M3', 'M³')
+  } else {
+    // Strategy 2: UNIDADE on its own line, unit on next line
+    for (let i = 0; i < lines.length; i++) {
+      if (/UNIDADE/i.test(lines[i])) {
+        // Check same line after UNIDADE
+        const afterUnidade = lines[i].replace(/.*UNIDADE\s*[:.]?\s*/i, '').trim()
+        const sameLineMatch = afterUnidade.match(/^(M[²³]|M2|M3|M\b|KG|TON|UN|VB|CJ|L\b|P[ÇC]|GL|CX|GB|MES|DI|H\b|PA|SC|BR)\b/i)
+        if (sameLineMatch) {
+          unidade = sameLineMatch[1].toUpperCase().replace('M2', 'M²').replace('M3', 'M³')
+          break
+        }
+        // Check next line
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim()
+          const nextMatch = nextLine.match(/^(M[²³]|M2|M3|M\b|KG|TON|UN|VB|CJ|L\b|P[ÇC]|GL|CX|GB|MES|DI|H\b|PA|SC|BR)\b/i)
+          if (nextMatch) {
+            unidade = nextMatch[1].toUpperCase().replace('M2', 'M²').replace('M3', 'M³')
+          }
+        }
+        break
+      }
+    }
   }
 
   // ── Extract Regulamentação / Compreende ──────────────────────────────
@@ -209,6 +239,12 @@ function parseCriterioPage(
     notas = notasMatch[1]
       .replace(/\n\s*(\d+)[.)]\s*/g, '\n$1. ')
       .trim()
+  }
+
+  // Strip SIntS/SiiS prefix from description if it leaked in
+  if (descricao.match(/^(SIntS|SiiS)\s*[:.]?\s*/i)) {
+    descricaoSints = descricaoSints || descricao.replace(/^(SIntS|SiiS)\s*[:.]?\s*/i, '').trim()
+    descricao = descricaoSints
   }
 
   // Use SIntS as fallback description

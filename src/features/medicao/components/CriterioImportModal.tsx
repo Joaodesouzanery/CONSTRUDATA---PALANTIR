@@ -208,7 +208,7 @@ export function CriterioImportModal({ isOpen, onClose }: CriterioImportModalProp
                     </tr>
                   </thead>
                   <tbody>
-                    {parsedCriterios.slice(0, 50).map((c, i) => (
+                    {parsedCriterios.map((c, i) => (
                       <>
                         <tr
                           key={i}
@@ -253,13 +253,6 @@ export function CriterioImportModal({ isOpen, onClose }: CriterioImportModalProp
                     ))}
                   </tbody>
                 </table>
-                {parsedCriterios.length > 50 && (
-                  <div className="px-4 py-2 border-t border-[#525252] bg-[#484848]/30 text-center">
-                    <p className="text-[#6b6b6b] text-xs">
-                      Mostrando 50 de {parsedCriterios.length} critérios
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           )}
