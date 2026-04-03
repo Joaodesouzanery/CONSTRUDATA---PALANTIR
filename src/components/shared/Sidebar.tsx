@@ -5,7 +5,7 @@ import {
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp, ClipboardCheck,
-  Star,
+  Star, GitBranch,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -54,6 +54,7 @@ const NAV_GROUPS = [
       { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },
       { label: 'Pré-Constr.',     icon: FileSearch,       to: '/app/pre-construcao'      },
       { label: 'Mapa Interativo', icon: Map,              to: '/app/mapa-interativo'     },
+      { label: 'Fluxograma',     icon: GitBranch,        to: '/app/fluxograma'          },
     ],
   },
   {
