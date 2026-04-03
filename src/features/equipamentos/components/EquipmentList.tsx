@@ -20,6 +20,7 @@ export function EquipmentList() {
   const selectedId      = useEquipamentosStore((s) => s.selectedId)
   const selectEquipamento = useEquipamentosStore((s) => s.selectEquipamento)
   const setEditing      = useEquipamentosStore((s) => s.setEditing)
+  const setQrCode       = useEquipamentosStore((s) => s.setQrCode)
 
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all')
@@ -102,6 +103,7 @@ export function EquipmentList() {
               isSelected={selectedId === eq.id}
               onSelect={() => selectEquipamento(selectedId === eq.id ? null : eq.id)}
               onEdit={() => setEditing(eq.id)}
+              onQrCode={() => setQrCode(eq.id)}
             />
           ))
         )}

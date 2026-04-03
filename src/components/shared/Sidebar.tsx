@@ -40,7 +40,7 @@ const NAV_GROUPS = [
     items: [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
-      { label: 'Gest. Equip.',    icon: Wrench,           to: '/app/gestao-equipamentos' },
+      { label: 'Equipamentos',    icon: Wrench,           to: '/app/gestao-equipamentos' },
       { label: 'Frota',           icon: Cpu,              to: '/app/otimizacao-frota'    },
       { label: 'Medição',         icon: ClipboardCheck,   to: '/app/medicao'             },
     ],

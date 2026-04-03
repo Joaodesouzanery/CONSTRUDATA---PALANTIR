@@ -171,12 +171,10 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
       )}
 
       {/* Observations */}
-      {rdo.observations && (
-        <div className="mb-4">
-          <h2 className="font-semibold text-base border-b border-gray-300 pb-1 mb-2">Observações Gerais</h2>
-          <p className="text-sm whitespace-pre-wrap">{rdo.observations}</p>
-        </div>
-      )}
+      <div className="mb-4">
+        <h2 className="font-semibold text-base border-b border-gray-300 pb-1 mb-2">Observações Gerais</h2>
+        <p className="text-sm whitespace-pre-wrap">{rdo.observations || 'Sem Observações Gerais'}</p>
+      </div>
       {rdo.incidents && (
         <div className="mb-4">
           <h2 className="font-semibold text-base border-b border-gray-300 pb-1 mb-2">Ocorrências / Incidentes</h2>
@@ -398,12 +396,10 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
           )}
 
           {/* Observations */}
-          {rdo.observations && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Observações</h3>
-              <p className="text-[#a3a3a3] text-sm whitespace-pre-wrap">{rdo.observations}</p>
-            </div>
-          )}
+          <div>
+            <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Observações</h3>
+            <p className="text-[#a3a3a3] text-sm whitespace-pre-wrap">{rdo.observations || 'Sem Observações Gerais'}</p>
+          </div>
           {rdo.incidents && (
             <div>
               <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Ocorrências</h3>

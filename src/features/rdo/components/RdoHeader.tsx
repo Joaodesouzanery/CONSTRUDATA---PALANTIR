@@ -12,6 +12,7 @@ const TABS: { key: RdoTab; label: string }[] = [
   { key: 'dashboard',  label: 'Dashboard'         },
   { key: 'novo',       label: '+ Novo RDO'         },
   { key: 'historico',  label: 'Histórico de RDOs'  },
+  { key: 'equipes',    label: 'Equipes Salvas'     },
   { key: 'integracao', label: 'RDO × Planejamento' },
   { key: 'financeiro', label: 'Financeiro'         },
 ]

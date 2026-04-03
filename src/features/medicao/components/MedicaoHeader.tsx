@@ -7,11 +7,14 @@ import { cn } from '@/lib/utils'
 import type { MedicaoTab } from '@/types'
 
 const TABS: { key: MedicaoTab; label: string }[] = [
-  { key: 'sabesp', label: 'Sabesp' },
-  { key: 'criterio', label: 'Criterio' },
-  { key: 'subempreiteiro', label: 'Subempreiteiro' },
-  { key: 'fornecedor', label: 'Fornecedor' },
-  { key: 'conferencia', label: 'Conferencia' },
+  { key: 'sabesp',          label: 'Planilha Sabesp' },
+  { key: 'criterio',        label: 'Critérios' },
+  { key: 'producao',        label: 'Produção' },
+  { key: 'conferencia',     label: 'Conferência' },
+  { key: 'horasExtras',     label: 'Horas Extras' },
+  { key: 'subempreiteiro',  label: 'Subempreiteiros' },
+  { key: 'fornecedor',      label: 'Fornecedores' },
+  { key: 'medicaoFinal',    label: 'Medição Final' },
 ]
 
 export function MedicaoHeader() {

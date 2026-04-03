@@ -52,13 +52,19 @@ export function printRdoPDF(rdo: RDO) {
     rdo.manpower.foremanCount +
     rdo.manpower.officialCount +
     rdo.manpower.helperCount +
-    rdo.manpower.operatorCount
+    rdo.manpower.operatorCount +
+    (rdo.manpower.engineerCount ?? 0) +
+    (rdo.manpower.driverCount ?? 0) +
+    (rdo.manpower.pointerCount ?? 0)
 
   const manpowerRows = [
     ['Encarregado', rdo.manpower.foremanCount],
     ['Oficial',     rdo.manpower.officialCount],
     ['Ajudante',    rdo.manpower.helperCount],
     ['Operador',    rdo.manpower.operatorCount],
+    ['Engenheiro Civil', rdo.manpower.engineerCount ?? 0],
+    ['Motorista',        rdo.manpower.driverCount ?? 0],
+    ['Apontador',        rdo.manpower.pointerCount ?? 0],
   ].filter(([, v]) => (v as number) > 0)
 
   const employeeNamesHtml = rdo.manpower.employeeNames?.length
@@ -319,6 +325,11 @@ export function printRdoPDF(rdo: RDO) {
         <div class="weather-label">Temperatura</div>
         <div class="weather-value">${rdo.weather.temperatureC}°C</div>
       </div>
+      <div class="weather-cell">
+        <span class="weather-icon">🌧️</span>
+        <div class="weather-label">Chuva</div>
+        <div class="weather-value">${rdo.weather.rainMm ? rdo.weather.rainMm + ' mm' : '—'}</div>
+      </div>
     </div>
   </div>
 
@@ -376,7 +387,7 @@ export function printRdoPDF(rdo: RDO) {
     <div class="section-header"><span class="section-icon">📋</span> Observações e Ocorrências</div>
     <div style="margin-bottom:6px">
       <div style="font-size:8pt;color:#6b7280;margin-bottom:3px;font-weight:600;">Observações Gerais</div>
-      <div class="obs-box">${rdo.observations || '—'}</div>
+      <div class="obs-box">${rdo.observations || 'Sem Observações Gerais'}</div>
     </div>
     ${rdo.incidents ? `
     <div>
@@ -440,13 +451,19 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
     rdo.manpower.foremanCount +
     rdo.manpower.officialCount +
     rdo.manpower.helperCount +
-    rdo.manpower.operatorCount
+    rdo.manpower.operatorCount +
+    (rdo.manpower.engineerCount ?? 0) +
+    (rdo.manpower.driverCount ?? 0) +
+    (rdo.manpower.pointerCount ?? 0)
 
   const manpowerRows = [
     ['Encarregado', rdo.manpower.foremanCount],
     ['Oficial',     rdo.manpower.officialCount],
     ['Ajudante',    rdo.manpower.helperCount],
     ['Operador',    rdo.manpower.operatorCount],
+    ['Engenheiro Civil', rdo.manpower.engineerCount ?? 0],
+    ['Motorista',        rdo.manpower.driverCount ?? 0],
+    ['Apontador',        rdo.manpower.pointerCount ?? 0],
   ].filter(([, v]) => (v as number) > 0)
 
   const equipHtml = rdo.equipment.length
@@ -522,7 +539,7 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
     <div class="section">
       <div class="section-header"><span class="section-icon">📋</span> Observações e Ocorrências</div>
       <div style="margin-bottom:6px"><div style="font-size:8pt;color:#6b7280;margin-bottom:3px;font-weight:600;">Observações Gerais</div>
-      <div class="obs-box">${rdo.observations || '—'}</div></div>
+      <div class="obs-box">${rdo.observations || 'Sem Observações Gerais'}</div></div>
       ${rdo.incidents ? `<div><div style="font-size:8pt;color:#ef4444;margin-bottom:3px;font-weight:600;">⚠️ Ocorrências</div><div class="obs-box" style="border-color:#fca5a5;">${rdo.incidents}</div></div>` : ''}
     </div>
   </div>`

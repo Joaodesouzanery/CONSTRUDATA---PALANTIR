@@ -1,4 +1,4 @@
-import { MapPin, Clock, User, Pencil } from 'lucide-react'
+import { MapPin, Clock, User, Pencil, QrCode } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { EquipmentProfile } from '@/types'
 import { STATUS_CONFIG } from '../constants'
@@ -8,9 +8,10 @@ interface Props {
   isSelected: boolean
   onSelect: () => void
   onEdit: () => void
+  onQrCode?: () => void
 }
 
-export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props) {
+export function EquipmentCard({ equipment, isSelected, onSelect, onEdit, onQrCode }: Props) {
   const cfg = STATUS_CONFIG[equipment.status]
   const activeAlerts = equipment.alerts.filter((a) => !a.acknowledged)
 
@@ -80,14 +81,25 @@ export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props
         )}
       </div>
 
-      {/* Edit link */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onEdit() }}
-        className="self-start flex items-center gap-1 text-[10px] text-[#3f3f3f] hover:text-[#f97316] transition-colors mt-0.5"
-      >
-        <Pencil size={9} />
-        Editar perfil
-      </button>
+      {/* Actions */}
+      <div className="flex items-center gap-3 mt-0.5">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit() }}
+          className="flex items-center gap-1 text-[10px] text-[#3f3f3f] hover:text-[#f97316] transition-colors"
+        >
+          <Pencil size={9} />
+          Editar perfil
+        </button>
+        {onQrCode && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onQrCode() }}
+            className="flex items-center gap-1 text-[10px] text-[#3f3f3f] hover:text-[#f97316] transition-colors"
+          >
+            <QrCode size={9} />
+            QR Code
+          </button>
+        )}
+      </div>
     </div>
   )
 }

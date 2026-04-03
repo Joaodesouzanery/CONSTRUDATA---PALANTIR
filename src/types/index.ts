@@ -1197,21 +1197,26 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'novo' | 'historico' | 'integracao' | 'financeiro'
+export type RdoTab = 'dashboard' | 'novo' | 'historico' | 'integracao' | 'financeiro' | 'equipes'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
   afternoon:    RdoWeatherCondition
   night:        RdoWeatherCondition
   temperatureC: number
+  rainMm?:      number    // precipitação em milímetros (quando chuva)
 }
 
 export interface RdoManpower {
-  foremanCount:  number   // Encarregado
-  officialCount: number   // Oficial
+  foremanCount:     number   // Encarregado
+  officialCount:    number   // Oficial
+  engineerCount?:   number   // Engenheiro Civil
+  driverCount?:     number   // Motorista
+  pointerCount?:    number   // Apontador
   helperCount:   number   // Ajudante
   operatorCount: number   // Operador
   employeeNames?: string[] // lista de nomes dos funcionários presentes
+  customRoles?: { name: string; count: number }[]
 }
 
 export interface RdoEquipmentEntry {
@@ -1244,6 +1249,22 @@ export interface RdoPhoto {
   base64:     string    // data:image/...;base64,...
   label:      string
   uploadedAt: string
+}
+
+export interface RdoSavedTeamMember {
+  role: string
+  name: string
+}
+
+export interface RdoSavedTeam {
+  id: string
+  name: string
+  nucleo?: string
+  encarregado: string
+  membros: RdoSavedTeamMember[]
+  equipamentos: { name: string; quantity: number }[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface RdoFinancialEntry {
@@ -1889,12 +1910,22 @@ export interface SCurveMultiPoint {
 
 // ── Medição (Billing/Measurement) ──────────────────────────────────────────
 
-export type MedicaoTab = 'sabesp' | 'criterio' | 'subempreiteiro' | 'fornecedor' | 'conferencia'
+export type MedicaoTab = 'sabesp' | 'criterio' | 'producao' | 'conferencia' | 'horasExtras' | 'subempreiteiro' | 'fornecedor' | 'medicaoFinal'
+
+export interface MedicaoMensal {
+  mes: string             // "2026-04" format
+  quantidade: number
+  valor: number
+  saldoAcumulado: number
+  executado: number
+  saldoExecutado: number
+}
 
 export interface MedicaoItem {
   id: string
   item: string
   descricao: string
+  nPreco?: string          // N. Preço / código do critério de medição
   unidade: string
   qtdContratada: number
   qtdMedida: number
@@ -1902,7 +1933,10 @@ export interface MedicaoItem {
   precoUnitario: number
   valorMedido: number
   observacao?: string
+  meses?: MedicaoMensal[]  // detalhamento mensal
 }
+
+export type OrcamentoTipo = 'sabesp' | 'empreiteiro'
 
 export interface MedicaoSheet {
   id: string
@@ -1912,6 +1946,7 @@ export interface MedicaoSheet {
   contrato?: string
   fornecedor?: string
   subempreiteiro?: string
+  orcamentoTipo?: OrcamentoTipo
   items: MedicaoItem[]
   totalBRL: number
   createdAt: string
@@ -1926,4 +1961,16 @@ export interface ConferenciaResult {
   valorPrevisao: number
   diferenca: number
   diferencaPct: number
+}
+
+export interface HorasExtrasEntry {
+  id: string
+  funcionario: string
+  cargo?: string
+  horasNormais: number
+  horasExtras50: number
+  horasExtras100: number
+  valorHora: number
+  valorTotal: number
+  mes: string
 }

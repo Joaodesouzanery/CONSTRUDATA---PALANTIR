@@ -22,6 +22,7 @@ export function MedicaoSabespPanel() {
   const {
     sheets,
     addSheet,
+    updateSheet,
     addItem,
     updateItem,
     removeItem,
@@ -43,6 +44,7 @@ export function MedicaoSabespPanel() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newItem, setNewItem] = useState({
     item: '',
+    nPreco: '',
     descricao: '',
     unidade: 'un',
     qtdContratada: 0,
@@ -104,6 +106,7 @@ export function MedicaoSabespPanel() {
     addItem(activeSheet.id, newItem)
     setNewItem({
       item: '',
+      nPreco: '',
       descricao: '',
       unidade: 'un',
       qtdContratada: 0,
@@ -158,6 +161,19 @@ export function MedicaoSabespPanel() {
           <Plus size={13} />
           Nova Planilha
         </button>
+        {activeSheet && (
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-[#a3a3a3] text-xs">Tipo:</span>
+            <select
+              value={activeSheet.orcamentoTipo || 'sabesp'}
+              onChange={(e) => updateSheet(activeSheet.id, { orcamentoTipo: e.target.value as 'sabesp' | 'empreiteiro' })}
+              className="bg-[#484848] border border-[#5e5e5e] rounded-lg px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-[#f97316]/50"
+            >
+              <option value="sabesp">Orçamento Sabesp</option>
+              <option value="empreiteiro">Orçamento Empreiteiro</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {!activeSheet ? (
@@ -209,11 +225,17 @@ export function MedicaoSabespPanel() {
           {/* Add item inline form */}
           {showAddForm && (
             <div className="px-4 py-3 border-b border-[#525252] bg-[#484848]/50">
-              <div className="grid grid-cols-8 gap-2">
+              <div className="grid grid-cols-9 gap-2">
                 <input
                   placeholder="Item"
                   value={newItem.item}
                   onChange={(e) => setNewItem((p) => ({ ...p, item: e.target.value }))}
+                  className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b]"
+                />
+                <input
+                  placeholder="N. Preço"
+                  value={newItem.nPreco ?? ''}
+                  onChange={(e) => setNewItem((p) => ({ ...p, nPreco: e.target.value }))}
                   className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] placeholder:text-[#6b6b6b]"
                 />
                 <input
@@ -266,7 +288,8 @@ export function MedicaoSabespPanel() {
               <thead>
                 <tr className="bg-[#484848]/60">
                   <th className="px-3 py-2.5 text-left text-[#a3a3a3] font-medium w-16">Item</th>
-                  <th className="px-3 py-2.5 text-left text-[#a3a3a3] font-medium">Descricao</th>
+                  <th className="px-3 py-2.5 text-left text-[#a3a3a3] font-medium">Descrição</th>
+                  <th className="px-3 py-2.5 text-left text-[#a3a3a3] font-medium w-20">N. Preço</th>
                   <th className="px-3 py-2.5 text-center text-[#a3a3a3] font-medium w-12">UN</th>
                   <th className="px-3 py-2.5 text-right text-[#a3a3a3] font-medium w-24">Qtd Contrat.</th>
                   <th className="px-3 py-2.5 text-right text-[#a3a3a3] font-medium w-24">Qtd Medida</th>
@@ -286,6 +309,7 @@ export function MedicaoSabespPanel() {
                     <td className="px-3 py-2 text-[#f5f5f5] max-w-[300px] truncate">
                       {it.descricao}
                     </td>
+                    <td className="px-3 py-2 text-[#a3a3a3] font-mono text-sm">{it.nPreco || '—'}</td>
                     <td className="px-3 py-2 text-[#a3a3a3] text-center">{it.unidade}</td>
                     <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">
                       {it.qtdContratada.toLocaleString('pt-BR')}
@@ -351,7 +375,7 @@ export function MedicaoSabespPanel() {
                 {filteredItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 py-8 text-center text-[#6b6b6b] text-sm"
                     >
                       Nenhum item encontrado.

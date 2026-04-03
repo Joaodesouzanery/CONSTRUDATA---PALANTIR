@@ -5,8 +5,8 @@
  *           Georreferenciamento, Observações e Ocorrências.
  * Plus: photo upload (base64, max 20 files, 5 MB each).
  */
-import { useState, useRef } from 'react'
-import { useForm } from 'react-hook-form'
+import React, { useState, useRef } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
@@ -28,6 +28,24 @@ const WEATHER_OPTIONS = [
   { value: 'rain',   label: 'Chuva' },
   { value: 'storm',  label: 'Tempestade' },
 ] as const
+
+const EQUIPMENT_PRESETS = [
+  'Caminhão Basculante',
+  'Saveiro',
+  'Retroescavadeira',
+  'Rolo Compactador',
+  'Escavadeira Hidráulica',
+  'Pá Carregadeira',
+  'Compactador de Solo',
+  'Betoneira',
+  'Vibrador de Concreto',
+  'Guincho',
+  'Placa Vibratória',
+  'Martelete',
+  'Cortadora de Piso',
+  'Gerador',
+  'Bomba de Água',
+]
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_PHOTOS   = 20
@@ -84,7 +102,7 @@ export function NovoRdoPanel() {
   const nextNumber = rdos.length + 1
 
   // react-hook-form for core fields (rdoSchema)
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<RdoFormData>({
+  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<RdoFormData>({
     resolver: zodResolver(rdoSchema),
     defaultValues: {
       date:        todayStr(),
@@ -96,7 +114,10 @@ export function NovoRdoPanel() {
     },
   })
 
+  const weatherVals = useWatch({ control, name: 'weather' })
+
   // Dynamic arrays (not validated by rdoSchema directly — validated per-row below)
+  const [customRoles, setCustomRoles] = useState<{ name: string; count: number }[]>([])
   const [equipment, setEquipment] = useState<Omit<RdoEquipmentEntry, 'id'>[]>([])
   const [services,  setServices]  = useState<Omit<RdoServiceEntry,  'id'>[]>([])
   const [trechos,   setTrechos]   = useState<Omit<RdoTrechoEntry,   'id'>[]>([])
@@ -295,8 +316,8 @@ export function NovoRdoPanel() {
       date:        data.date,
       responsible: data.responsible,
       weather:     data.weather,
-      manpower:    { ...data.manpower, employeeNames },
-      observations: data.observations,
+      manpower:    { ...data.manpower, employeeNames, customRoles: customRoles.filter(r => r.count > 0) },
+      observations: data.observations.trim() || 'Sem Observações Gerais',
       incidents:   data.incidents,
       equipment:   equipment.map((e) => ({ ...e, id: crypto.randomUUID() })),
       services:    services.map((s) => ({ ...s, id: crypto.randomUUID() })),
@@ -332,6 +353,7 @@ export function NovoRdoPanel() {
     setPhotos([])
     setEmployeeNames([])
     setEmployeeInput('')
+    setCustomRoles([])
     setGeolocation(null)
     setGeoError(null)
     setPhotoError(null)
@@ -519,6 +541,12 @@ export function NovoRdoPanel() {
               />
               <FieldError msg={errors.weather?.temperatureC?.message} />
             </div>
+            {(weatherVals?.morning === 'rain' || weatherVals?.morning === 'storm' || weatherVals?.afternoon === 'rain' || weatherVals?.afternoon === 'storm' || weatherVals?.night === 'rain' || weatherVals?.night === 'storm') && (
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Chuva (mm)</label>
+              <input type="number" step="0.1" min={0} {...register('weather.rainMm', { valueAsNumber: true })} className={inputCls} placeholder="0" />
+            </div>
+            )}
           </div>
         </Section>
 
@@ -530,6 +558,9 @@ export function NovoRdoPanel() {
               ['officialCount', 'Oficial'],
               ['helperCount',   'Ajudante'],
               ['operatorCount', 'Operador'],
+              ['engineerCount', 'Engenheiro Civil'],
+              ['driverCount',   'Motorista'],
+              ['pointerCount',  'Apontador'],
             ] as const).map(([field, label]) => (
               <div key={field}>
                 <label className="block text-[#a3a3a3] text-xs mb-1">{label}</label>
@@ -544,6 +575,42 @@ export function NovoRdoPanel() {
               </div>
             ))}
           </div>
+          {/* Custom roles */}
+          {customRoles.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+              {customRoles.map((role, i) => (
+                <div key={i} className="flex items-center gap-1">
+                  <div className="flex-1">
+                    <label className="block text-[#a3a3a3] text-xs mb-1">{role.name}</label>
+                    <input
+                      type="number"
+                      value={role.count}
+                      onChange={(e) => {
+                        const updated = [...customRoles]
+                        updated[i] = { ...updated[i], count: Number(e.target.value) }
+                        setCustomRoles(updated)
+                      }}
+                      min={0}
+                      className={inputCls}
+                    />
+                  </div>
+                  <button type="button" onClick={() => setCustomRoles(prev => prev.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 p-1 mt-4">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              const name = prompt('Nome da nova função:')
+              if (name?.trim()) setCustomRoles(prev => [...prev, { name: name.trim(), count: 0 }])
+            }}
+            className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm mb-4"
+          >
+            <Plus size={14} /> Adicionar Função
+          </button>
           {/* Employee name chips */}
           <div>
             <label className="block text-[#a3a3a3] text-xs mb-1">Funcionários Presentes</label>
@@ -607,13 +674,21 @@ export function NovoRdoPanel() {
             )}
             {equipment.map((row, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={row.name}
-                  onChange={(e) => updateEquipment(i, 'name', e.target.value)}
-                  placeholder="Nome do equipamento"
-                  className={`${inputCls} flex-1`}
-                />
+                <>
+                  <input
+                    type="text"
+                    value={row.name}
+                    onChange={(e) => updateEquipment(i, 'name', e.target.value)}
+                    placeholder="Nome do equipamento"
+                    list="equip-presets"
+                    className={`${inputCls} flex-1`}
+                  />
+                  {i === 0 && (
+                    <datalist id="equip-presets">
+                      {EQUIPMENT_PRESETS.map((p) => <option key={p} value={p} />)}
+                    </datalist>
+                  )}
+                </>
                 <input
                   type="number"
                   value={row.quantity}
@@ -658,7 +733,8 @@ export function NovoRdoPanel() {
               <p className="text-[#6b6b6b] text-sm italic">Nenhum serviço adicionado.</p>
             )}
             {services.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <React.Fragment key={i}>
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={row.description}
@@ -686,6 +762,14 @@ export function NovoRdoPanel() {
                   <Trash2 size={15} />
                 </button>
               </div>
+              {(() => {
+                const norm = row.description.toLowerCase().trim()
+                if (norm.length < 3) return null
+                const similar = services.find((s, j) => j !== i && (s.description.toLowerCase().trim().includes(norm) || norm.includes(s.description.toLowerCase().trim())))
+                if (!similar) return null
+                return <p className="text-yellow-400 text-[10px] mt-0.5">⚠️ Serviço semelhante: &quot;{similar.description}&quot;</p>
+              })()}
+            </React.Fragment>
             ))}
             <button
               type="button"

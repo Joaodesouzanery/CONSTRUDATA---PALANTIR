@@ -25,7 +25,7 @@ export interface ParsedRdoData {
   services:      Omit<RdoServiceEntry,   'id'>[]
   trechos:       Omit<RdoTrechoEntry,    'id'>[]
   equipment:     Omit<RdoEquipmentEntry, 'id'>[]
-  manpower:      { foremanCount: number; officialCount: number; helperCount: number; operatorCount: number }
+  manpower:      { foremanCount: number; officialCount: number; helperCount: number; operatorCount: number; engineerCount: number; driverCount: number; pointerCount: number }
   employeeNames: string[]
   observations:  string
   date?:         string
@@ -105,7 +105,7 @@ export function parseRdoText(raw: string): ParsedRdoData {
   const equipment: Omit<RdoEquipmentEntry, 'id'>[] = []
   const employeeNames: string[] = []
   const obsLines: string[] = []
-  const manpower = { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 }
+  const manpower = { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0, engineerCount: 0, driverCount: 0, pointerCount: 0 }
   let responsible = ''
   let trechoCounter = 0
   let parsedDate: string | undefined
@@ -139,10 +139,10 @@ export function parseRdoText(raw: string): ParsedRdoData {
     [/encanador/,                        'officialCount', false],
     [/operador/,                         'operatorCount', false],
     [/encarregado/,                      'foremanCount',  false],
-    [/motorista/,                        'helperCount',   false],
-    [/apontador/,                        'helperCount',   false],
+    [/motorista/,                        'driverCount',   false],
+    [/apontador/,                        'pointerCount',  false],
     [/tecnico\s+de\s+seguranca/,         'helperCount',   true],  // added to obs only
-    [/engenheiro/,                       'foremanCount',  true],  // added to obs only
+    [/engenheiro/,                       'engineerCount', false],
   ]
 
   for (let i = 0; i < lines.length; i++) {

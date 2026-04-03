@@ -8,6 +8,7 @@ import { NovoRdoPanel }   from './components/NovoRdoPanel'
 import { HistoricoPanel } from './components/HistoricoPanel'
 import { IntegracaoPanel } from './components/IntegracaoPanel'
 import { FinanceiroPanel } from './components/FinanceiroPanel'
+import { EquipesSalvasPanel } from './components/EquipesSalvasPanel'
 
 export function RdoPage() {
   const activeTab = useRdoStore((s) => s.activeTab)
@@ -17,6 +18,7 @@ export function RdoPage() {
       case 'dashboard':  return <DashboardPanel />
       case 'novo':       return <NovoRdoPanel />
       case 'historico':  return <HistoricoPanel />
+      case 'equipes':    return <EquipesSalvasPanel />
       case 'integracao': return <IntegracaoPanel />
       case 'financeiro': return <FinanceiroPanel />
       default:           return <DashboardPanel />

@@ -6,6 +6,7 @@ interface EquipamentosState {
   equipamentos: EquipmentProfile[]
   selectedId: string | null
   editingId: string | null   // 'new' | equipamento.id | null
+  qrCodeId: string | null    // equipamento.id whose QR modal is open
 
   addEquipamento: (eq: Omit<EquipmentProfile, 'id' | 'alerts'>) => void
   updateEquipamento: (id: string, updates: Partial<Omit<EquipmentProfile, 'id' | 'alerts'>>) => void
@@ -15,6 +16,7 @@ interface EquipamentosState {
   addAlert: (equipmentId: string, alert: Omit<EquipmentAlert, 'id' | 'equipmentId' | 'timestamp' | 'acknowledged'>) => void
   selectEquipamento: (id: string | null) => void
   setEditing: (id: string | null) => void
+  setQrCode: (id: string | null) => void
   loadDemoData: () => void
   clearData: () => void
 }
@@ -23,6 +25,7 @@ export const useEquipamentosStore = create<EquipamentosState>((set) => ({
   equipamentos: mockEquipamentos,
   selectedId: null,
   editingId: null,
+  qrCodeId: null,
 
   addEquipamento: (eq) =>
     set((s) => ({
@@ -84,6 +87,7 @@ export const useEquipamentosStore = create<EquipamentosState>((set) => ({
 
   selectEquipamento: (id) => set({ selectedId: id }),
   setEditing: (id) => set({ editingId: id }),
+  setQrCode: (id) => set({ qrCodeId: id }),
 
   loadDemoData: () =>
     set({ equipamentos: mockEquipamentos }),

@@ -4,9 +4,15 @@ import { EquipmentList }     from './components/EquipmentList'
 import { EquipmentMap }      from './components/EquipmentMap'
 import { AlertsPanel }       from './components/AlertsPanel'
 import { EquipmentDialog }   from './components/EquipmentDialog'
+import { QrCodeModal }       from './components/QrCodeModal'
 
 export function EquipamentosPage() {
-  const editingId = useEquipamentosStore((s) => s.editingId)
+  const editingId    = useEquipamentosStore((s) => s.editingId)
+  const qrCodeId     = useEquipamentosStore((s) => s.qrCodeId)
+  const equipamentos = useEquipamentosStore((s) => s.equipamentos)
+  const setQrCode    = useEquipamentosStore((s) => s.setQrCode)
+
+  const qrEquipment = qrCodeId ? equipamentos.find((e) => e.id === qrCodeId) : undefined
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -33,6 +39,9 @@ export function EquipamentosPage() {
 
       {/* Dialog overlay */}
       {editingId && <EquipmentDialog />}
+
+      {/* QR Code modal */}
+      {qrEquipment && <QrCodeModal equipment={qrEquipment} onClose={() => setQrCode(null)} />}
     </div>
   )
 }
