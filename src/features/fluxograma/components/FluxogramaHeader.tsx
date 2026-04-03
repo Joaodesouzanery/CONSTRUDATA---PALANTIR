@@ -1,6 +1,7 @@
-import { GitBranch, Download, Trash2 } from 'lucide-react'
+import { GitBranch, Download, Trash2, Upload, FileDown, FileSpreadsheet, BookOpen, Search } from 'lucide-react'
 import { useFluxogramaStore } from '@/store/fluxogramaStore'
 import { cn } from '@/lib/utils'
+import { exportFluxogramaExcel, exportFluxogramaTemplate } from '../utils/parseFluxogramaExcel'
 import type { FluxogramaTab } from '@/types'
 
 const TABS: { key: FluxogramaTab; label: string }[] = [
@@ -19,8 +20,22 @@ function KpiCard({ label, value, color }: { label: string; value: number; color:
   )
 }
 
-export function FluxogramaHeader() {
-  const { activeTab, setActiveTab, nodes, loadDemoData, clearData } = useFluxogramaStore()
+interface FluxogramaHeaderProps {
+  onOpenImport: () => void
+  showLegenda: boolean
+  onToggleLegenda: () => void
+  showConsultas: boolean
+  onToggleConsultas: () => void
+}
+
+export function FluxogramaHeader({
+  onOpenImport,
+  showLegenda,
+  onToggleLegenda,
+  showConsultas,
+  onToggleConsultas,
+}: FluxogramaHeaderProps) {
+  const { activeTab, setActiveTab, nodes, edges, loadDemoData, clearData } = useFluxogramaStore()
 
   const total       = nodes.filter((n) => n.type === 'etapa' || n.type === 'decisao' || n.type === 'marco').length
   const concluidas  = nodes.filter((n) => n.status === 'concluido').length
@@ -44,6 +59,63 @@ export function FluxogramaHeader() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Import Excel */}
+          <button
+            onClick={onOpenImport}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          >
+            <Upload size={15} />
+            Importar Excel
+          </button>
+
+          {/* Export Excel */}
+          <button
+            onClick={() => exportFluxogramaExcel(nodes, edges)}
+            disabled={nodes.length === 0}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <FileDown size={15} />
+            Exportar Excel
+          </button>
+
+          {/* Export Template */}
+          <button
+            onClick={() => exportFluxogramaTemplate()}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          >
+            <FileSpreadsheet size={15} />
+            Exportar Modelo
+          </button>
+
+          {/* Legenda toggle */}
+          <button
+            onClick={onToggleLegenda}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              showLegenda
+                ? 'bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/40'
+                : 'bg-[#484848] text-[#f5f5f5] hover:bg-[#525252]',
+            )}
+          >
+            <BookOpen size={15} />
+            Legenda
+          </button>
+
+          {/* Consultas toggle */}
+          <button
+            onClick={onToggleConsultas}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              showConsultas
+                ? 'bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/40'
+                : 'bg-[#484848] text-[#f5f5f5] hover:bg-[#525252]',
+            )}
+          >
+            <Search size={15} />
+            Consultas
+          </button>
+
+          {/* Demo / Clear */}
           <button
             onClick={loadDemoData}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] transition-colors hover:bg-[#ea580c]"

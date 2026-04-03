@@ -1,9 +1,12 @@
 /**
  * MedicaoHeader — top bar with title and tab navigation for the Medicao module.
  */
-import { ClipboardCheck, Download } from 'lucide-react'
+import { useState } from 'react'
+import { ClipboardCheck, Download, FileDown, HelpCircle } from 'lucide-react'
 import { useMedicaoStore } from '@/store/medicaoStore'
 import { cn } from '@/lib/utils'
+import { exportEmptyTemplate } from '../utils/medicaoTemplate'
+import { TemplatePreviewPanel } from './TemplatePreviewPanel'
 import type { MedicaoTab } from '@/types'
 
 const TABS: { key: MedicaoTab; label: string }[] = [
@@ -19,6 +22,7 @@ const TABS: { key: MedicaoTab; label: string }[] = [
 
 export function MedicaoHeader() {
   const { activeTab, setActiveTab, loadDemoData } = useMedicaoStore()
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
@@ -39,6 +43,21 @@ export function MedicaoHeader() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setTemplatePanelOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#3d3d3d] text-[#a3a3a3] hover:text-[#f5f5f5] border border-[#525252] transition-colors"
+            title="Ver formato do modelo padrao"
+          >
+            <HelpCircle size={15} />
+            Modelo Padrao
+          </button>
+          <button
+            onClick={exportEmptyTemplate}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          >
+            <FileDown size={15} />
+            Exportar Modelo
+          </button>
           <button
             onClick={loadDemoData}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] transition-colors hover:bg-[#ea580c]"
@@ -71,6 +90,11 @@ export function MedicaoHeader() {
           })}
         </div>
       </div>
+
+      <TemplatePreviewPanel
+        isOpen={templatePanelOpen}
+        onClose={() => setTemplatePanelOpen(false)}
+      />
     </div>
   )
 }

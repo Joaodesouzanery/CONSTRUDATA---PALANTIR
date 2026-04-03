@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import type { FluxogramaTab, FluxoNode, FluxoEdge } from '@/types'
 
+interface FluxoEdgeHint {
+  fromLabel: string
+  toLabel: string
+  type: FluxoEdge['type']
+  label?: string
+}
+
 interface FluxogramaState {
   activeTab: FluxogramaTab
   nodes: FluxoNode[]
@@ -9,6 +16,7 @@ interface FluxogramaState {
   zoom: number
   panX: number
   panY: number
+  filteredNodeIds: string[] | null
 
   setActiveTab: (tab: FluxogramaTab) => void
   addNode: (node: Omit<FluxoNode, 'id'>) => string
@@ -20,6 +28,8 @@ interface FluxogramaState {
   setSelectedNode: (id: string | null) => void
   setZoom: (zoom: number) => void
   setPan: (x: number, y: number) => void
+  setFilteredNodes: (ids: string[] | null) => void
+  importFromExcel: (nodes: Omit<FluxoNode, 'id'>[], edgeHints: FluxoEdgeHint[]) => void
   loadDemoData: () => void
   clearData: () => void
 }
@@ -37,6 +47,7 @@ export const useFluxogramaStore = create<FluxogramaState>((set) => ({
   zoom: 1,
   panX: 0,
   panY: 0,
+  filteredNodeIds: null,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -77,6 +88,42 @@ export const useFluxogramaStore = create<FluxogramaState>((set) => ({
 
   setPan: (x, y) => set({ panX: x, panY: y }),
 
+  setFilteredNodes: (ids) => set({ filteredNodeIds: ids }),
+
+  importFromExcel: (newNodes, edgeHints) => {
+    const createdNodes: FluxoNode[] = newNodes.map((n) => ({
+      ...n,
+      id: uid('n'),
+    }))
+
+    // Build label -> id map
+    const labelToId = new Map<string, string>()
+    for (const node of createdNodes) {
+      labelToId.set(node.label.toLowerCase().trim(), node.id)
+    }
+
+    // Resolve edge hints to real edges
+    const createdEdges: FluxoEdge[] = []
+    for (const hint of edgeHints) {
+      const fromId = labelToId.get(hint.fromLabel.toLowerCase().trim())
+      const toId = labelToId.get(hint.toLabel.toLowerCase().trim())
+      if (fromId && toId) {
+        createdEdges.push({
+          id: uid('e'),
+          from: fromId,
+          to: toId,
+          type: hint.type,
+          label: hint.label,
+        })
+      }
+    }
+
+    set((s) => ({
+      nodes: [...s.nodes, ...createdNodes],
+      edges: [...s.edges, ...createdEdges],
+    }))
+  },
+
   loadDemoData: () => {
     const nodes: FluxoNode[] = [
       { id: 'demo-1',  label: 'Inicio',              type: 'inicio',  status: 'concluido',    x: 400, y: 40,   progressoPct: 100, responsavel: 'Eng. Silva' },
@@ -114,5 +161,5 @@ export const useFluxogramaStore = create<FluxogramaState>((set) => ({
   },
 
   clearData: () =>
-    set({ nodes: [], edges: [], selectedNodeId: null, zoom: 1, panX: 0, panY: 0 }),
+    set({ nodes: [], edges: [], selectedNodeId: null, zoom: 1, panX: 0, panY: 0, filteredNodeIds: null }),
 }))

@@ -17,7 +17,13 @@ import type {
   ReservaMaterial,
   LeadTimeRecord,
   NucleoResumo,
+  ClassificacaoABCXYZ,
+  KanbanCard,
+  SlottingSugestao,
+  AlertaFEFO,
+  KitAtividade,
 } from '@/types'
+import { calcularABCXYZ, calcularKanban, calcularSlotting, calcularFEFO, type ItemComValidade } from '@/lib/fluxoProducao'
 import {
   mockPurchaseOrders,
   mockGoodsReceipts,
@@ -143,6 +149,14 @@ interface SuprimentosState {
   // Resumo por Núcleo
   nucleoResumos:       NucleoResumo[]
 
+  // Fluxo de Produção
+  abcxyzClassification: ClassificacaoABCXYZ[]
+  kanbanCards:           KanbanCard[]
+  slottingSugestoes:     SlottingSugestao[]
+  alertasFEFO:           AlertaFEFO[]
+  kitsAtividade:         KitAtividade[]
+  itensComValidade:      ItemComValidade[]
+
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
   updatePO: (id: string, patch: Partial<PurchaseOrder>) => void
@@ -190,6 +204,13 @@ interface SuprimentosState {
   calcSemaforo:         (depositoId: string, lpsActivityId: string, semana: number) => 'verde' | 'amarelo' | 'vermelho'
   runWhatIf:            (params: { activityId: string; semanaOriginal: number; semanaSimulada: number; depositoId: string }) => WhatIfResult
 
+  // Fluxo de Produção actions
+  recalcularFluxoProducao: () => void
+  addKit: (kit: Omit<KitAtividade, 'id' | 'criadoEm'>) => void
+  updateKitStatus: (id: string, status: KitAtividade['status']) => void
+  addItemValidade: (item: ItemComValidade) => void
+  updateKanbanStatus: (id: string, status: KanbanCard['status']) => void
+
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
@@ -223,6 +244,14 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
 
   // Resumo por Núcleo
   nucleoResumos: [],
+
+  // Fluxo de Produção
+  abcxyzClassification: [],
+  kanbanCards: [],
+  slottingSugestoes: [],
+  alertasFEFO: [],
+  kitsAtividade: [],
+  itensComValidade: [],
 
   addPO: (po) =>
     set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
@@ -473,6 +502,35 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
     }
   },
 
+  // ─── Fluxo de Produção actions ──────────────────────────────────────────────
+
+  recalcularFluxoProducao: () => {
+    const { estoqueItens, movimentacoes, leadTimeRecords, reservas, itensComValidade } = get()
+    const abcxyzClassification = calcularABCXYZ(estoqueItens, movimentacoes)
+    const kanbanCards = calcularKanban(estoqueItens, movimentacoes, leadTimeRecords)
+    const slottingSugestoes = calcularSlotting(estoqueItens, reservas, Math.ceil(Date.now() / (7 * 86400000)))
+    const alertasFEFO = calcularFEFO(itensComValidade)
+    set({ abcxyzClassification, kanbanCards, slottingSugestoes, alertasFEFO })
+  },
+
+  addKit: (kit) =>
+    set((s) => ({
+      kitsAtividade: [...s.kitsAtividade, { ...kit, id: crypto.randomUUID(), criadoEm: new Date().toISOString() }],
+    })),
+
+  updateKitStatus: (id, status) =>
+    set((s) => ({
+      kitsAtividade: s.kitsAtividade.map((k) => (k.id === id ? { ...k, status } : k)),
+    })),
+
+  addItemValidade: (item) =>
+    set((s) => ({ itensComValidade: [...s.itensComValidade, item] })),
+
+  updateKanbanStatus: (id, status) =>
+    set((s) => ({
+      kanbanCards: s.kanbanCards.map((k) => (k.id === id ? { ...k, status } : k)),
+    })),
+
   loadDemoData: () =>
     set({
       purchaseOrders:      mockPurchaseOrders,
@@ -488,6 +546,20 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       movimentacoes:       mockMovimentacoes,
       reservas:            mockReservas,
       leadTimeRecords:     mockLeadTimeRecords,
+      // Fluxo de Produção - FEFO demo data
+      itensComValidade: [
+        { itemId: 'fefo-1', descricao: 'Cimento CP-II 50kg', lote: 'L-2026-001', dataValidade: '2026-04-08', qtdDisponivel: 120 },
+        { itemId: 'fefo-2', descricao: 'Argamassa Polimérica 25kg', lote: 'L-2026-014', dataValidade: '2026-04-15', qtdDisponivel: 45 },
+        { itemId: 'fefo-3', descricao: 'Selante PU Vedação', lote: 'L-2025-089', dataValidade: '2026-04-01', qtdDisponivel: 30 },
+        { itemId: 'fefo-4', descricao: 'Primer Asfáltico 18L', lote: 'L-2026-022', dataValidade: '2026-06-30', qtdDisponivel: 18 },
+        { itemId: 'fefo-5', descricao: 'Adesivo Epóxi Estrutural', lote: 'L-2025-102', dataValidade: '2026-05-10', qtdDisponivel: 25 },
+        { itemId: 'fefo-6', descricao: 'Cal Hidratada 20kg', lote: 'L-2026-005', dataValidade: '2027-01-15', qtdDisponivel: 200 },
+      ],
+      abcxyzClassification: [],
+      kanbanCards: [],
+      slottingSugestoes: [],
+      alertasFEFO: [],
+      kitsAtividade: [],
       nucleoResumos: [
         {
           id: 'nr-demo-1', nucleo: 'Núcleo Lapa', tipo: 'Rede de Água',
@@ -532,5 +604,11 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       reservas:            [],
       leadTimeRecords:     [],
       nucleoResumos:       [],
+      abcxyzClassification: [],
+      kanbanCards:          [],
+      slottingSugestoes:    [],
+      alertasFEFO:         [],
+      kitsAtividade:       [],
+      itensComValidade:    [],
     }),
 }))

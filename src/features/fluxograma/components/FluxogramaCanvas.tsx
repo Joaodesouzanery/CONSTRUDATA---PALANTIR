@@ -243,6 +243,7 @@ function DetailPanel({ node }: { node: FluxoNode }) {
 export function FluxogramaCanvas() {
   const {
     nodes, edges, selectedNodeId, zoom, panX, panY,
+    filteredNodeIds,
     setSelectedNode, moveNode, setZoom, setPan,
   } = useFluxogramaStore()
 
@@ -424,13 +425,34 @@ export function FluxogramaCanvas() {
             {nodes.map((node) => {
               const isSelected = node.id === selectedNodeId
               const fill = STATUS_COLOR[node.status]
+              const isFiltered = filteredNodeIds !== null
+              const isMatch = filteredNodeIds === null || filteredNodeIds.includes(node.id)
+              const dimmed = isFiltered && !isMatch
 
               return (
                 <g
                   key={node.id}
                   onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                   style={{ cursor: 'pointer' }}
+                  opacity={dimmed ? 0.25 : 1}
                 >
+                  {/* Filter highlight (pulsing border) */}
+                  {isFiltered && isMatch && !isSelected && (
+                    <rect
+                      x={node.x - 3}
+                      y={node.y - 3}
+                      width={NODE_W + 6}
+                      height={NODE_H + 6}
+                      rx={11}
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth={1.5}
+                      opacity={0.6}
+                    >
+                      <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite" />
+                    </rect>
+                  )}
+
                   {/* Selection glow */}
                   {isSelected && (
                     <rect

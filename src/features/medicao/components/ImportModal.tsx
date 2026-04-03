@@ -2,12 +2,13 @@
  * ImportModal — reusable drag-and-drop import modal for Excel/PDF files.
  * Parses uploaded files, shows a preview, and allows column mapping before import.
  */
-import { useState, useCallback, useRef } from 'react'
-import { X, Upload, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react'
+import { useState, useCallback, useRef, useMemo } from 'react'
+import { X, Upload, FileSpreadsheet, FileText, ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { previewExcel, autoSuggestMapping, parseMedicaoSheet, parseMedicaoSheetWithMonthly, detectMonthlyColumns } from '../utils/parseMedicaoExcel'
 import type { MonthlyColumnGroup } from '../utils/parseMedicaoExcel'
 import { parseMedicaoPdf } from '../utils/parseMedicaoPdf'
+import { normalizeToTemplate } from '../utils/medicaoTemplate'
 import type { MedicaoItem, MedicaoTab } from '@/types'
 
 interface ImportModalProps {
@@ -42,7 +43,13 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
   const [dragging, setDragging] = useState(false)
   const [monthlyGroups, setMonthlyGroups] = useState<MonthlyColumnGroup[]>([])
   const [headerRow, setHeaderRow] = useState(0)
+  const [normalizeEnabled, setNormalizeEnabled] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const normalizationResult = useMemo(() => {
+    if (parsedItems.length === 0) return null
+    return normalizeToTemplate(parsedItems)
+  }, [parsedItems])
 
   const reset = useCallback(() => {
     setFile(null)
@@ -57,6 +64,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     setDragging(false)
     setMonthlyGroups([])
     setHeaderRow(0)
+    setNormalizeEnabled(true)
   }, [])
 
   const handleClose = useCallback(() => {
@@ -148,9 +156,13 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
   }, [file, mapping, monthlyGroups, headerRow])
 
   const handleImport = useCallback(() => {
-    onImport(parsedItems)
+    if (normalizeEnabled && normalizationResult) {
+      onImport(normalizationResult.normalized)
+    } else {
+      onImport(parsedItems)
+    }
     handleClose()
-  }, [parsedItems, onImport, handleClose])
+  }, [parsedItems, normalizeEnabled, normalizationResult, onImport, handleClose])
 
   if (!isOpen) return null
 
@@ -349,7 +361,44 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
                 <p className="text-[#a3a3a3] text-xs">
                   <span className="text-[#f97316] font-semibold text-sm">{parsedItems.length}</span> itens encontrados no arquivo
                 </p>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={normalizeEnabled}
+                    onChange={(e) => setNormalizeEnabled(e.target.checked)}
+                    className="accent-[#f97316] w-3.5 h-3.5"
+                  />
+                  <span className="text-[#a3a3a3] text-xs">Normalizar para template padrao</span>
+                </label>
               </div>
+
+              {/* Normalization warnings */}
+              {normalizeEnabled && normalizationResult && normalizationResult.warnings.length > 0 && (
+                <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <AlertTriangle size={13} className="text-amber-400" />
+                    <span className="text-amber-400 text-xs font-medium">
+                      {normalizationResult.warnings.length} ajuste{normalizationResult.warnings.length !== 1 ? 's' : ''} de normalizacao
+                    </span>
+                  </div>
+                  <ul className="space-y-0.5 max-h-28 overflow-y-auto">
+                    {normalizationResult.warnings.map((w, i) => (
+                      <li key={i} className="text-[#a3a3a3] text-[11px] font-mono">
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {normalizeEnabled && normalizationResult && normalizationResult.warnings.length === 0 && (
+                <div className="mb-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30 flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="text-green-400" />
+                  <span className="text-green-400 text-xs font-medium">
+                    Dados em conformidade com o template padrao
+                  </span>
+                </div>
+              )}
 
               <div className="overflow-x-auto rounded-lg border border-[#525252] max-h-[50vh] overflow-y-auto">
                 <table className="w-full text-xs">
@@ -439,7 +488,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
               onClick={handleImport}
               className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors"
             >
-              Importar {parsedItems.length} itens
+              {normalizeEnabled ? 'Importar Padronizado' : 'Importar Original'} ({parsedItems.length} itens)
             </button>
           )}
         </div>

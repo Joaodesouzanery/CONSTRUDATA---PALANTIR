@@ -2052,3 +2052,62 @@ export interface GloseAlert {
   severidade: 'info' | 'aviso' | 'critico'
   criadoEm: string
 }
+
+// ── Fluxo de Produção (Suprimentos) ─────────────────────────────────────────
+
+export type ClasseABC = 'A' | 'B' | 'C'
+export type ClasseXYZ = 'X' | 'Y' | 'Z'
+
+export interface ClassificacaoABCXYZ {
+  itemId: string
+  classeABC: ClasseABC
+  classeXYZ: ClasseXYZ
+  valorConsumo: number
+  coeficienteVariacao: number
+  posicaoSugerida: 'frente' | 'meio' | 'fundo'
+}
+
+export interface KitAtividade {
+  id: string
+  atividadeLps: string
+  descricaoAtividade: string
+  semana: number
+  itens: { itemId: string; descricao: string; qtdNecessaria: number; unidade: string }[]
+  status: 'preparando' | 'pronto' | 'entregue'
+  criadoEm: string
+}
+
+export interface SlottingSugestao {
+  itemId: string
+  descricao: string
+  zonaAtual: string
+  zonaSugerida: 'zona_transbordo' | 'prateleira_frente' | 'prateleira_meio' | 'prateleira_fundo' | 'area_remota'
+  diasAteUso: number
+  motivo: string
+}
+
+export interface AlertaFEFO {
+  id: string
+  itemId: string
+  descricao: string
+  lote: string
+  dataValidade: string
+  diasRestantes: number
+  qtdDisponivel: number
+  severidade: 'ok' | 'atencao' | 'urgente' | 'vencido'
+}
+
+export interface KanbanCard {
+  id: string
+  itemId: string
+  descricao: string
+  qtdAtual: number
+  estoqueMinimo: number
+  pontoPedido: number
+  consumoMedioDia: number
+  diasEstoque: number
+  fornecedor: string
+  leadTimeDias: number
+  status: 'normal' | 'atencao' | 'critico' | 'pedido_gerado'
+  geradoEm: string
+}

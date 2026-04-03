@@ -16,6 +16,7 @@ import { useMedicaoStore } from '@/store/medicaoStore'
 import { useCriteriosStore } from '@/store/criteriosStore'
 import { cn, formatCurrency } from '@/lib/utils'
 import { exportMedicaoExcel } from '../utils/exportMedicaoExcel'
+import { exportAsTemplate } from '../utils/medicaoTemplate'
 import { ImportModal } from './ImportModal'
 import type { MedicaoItem } from '@/types'
 
@@ -141,6 +142,11 @@ export function MedicaoSabespPanel() {
     exportMedicaoExcel(activeSheet)
   }, [activeSheet])
 
+  const handleExportTemplate = useCallback(() => {
+    if (!activeSheet) return
+    exportAsTemplate(activeSheet.items, activeSheet.titulo)
+  }, [activeSheet])
+
   const totalValor = filteredItems.reduce((s, it) => s + it.valorMedido, 0)
   const totalQtdMedida = filteredItems.reduce((s, it) => s + it.qtdMedida, 0)
 
@@ -236,6 +242,14 @@ export function MedicaoSabespPanel() {
               >
                 <Download size={13} />
                 Exportar Excel
+              </button>
+              <button
+                onClick={handleExportTemplate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+                title="Exportar no formato padronizado"
+              >
+                <Download size={13} />
+                Exportar Padronizado
               </button>
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
