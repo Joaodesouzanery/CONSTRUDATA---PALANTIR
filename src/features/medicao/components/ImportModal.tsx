@@ -41,6 +41,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
   const [monthlyGroups, setMonthlyGroups] = useState<MonthlyColumnGroup[]>([])
+  const [headerRow, setHeaderRow] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const reset = useCallback(() => {
@@ -55,6 +56,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     setError(null)
     setDragging(false)
     setMonthlyGroups([])
+    setHeaderRow(0)
   }, [])
 
   const handleClose = useCallback(() => {
@@ -89,12 +91,13 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
         setParsedItems(items)
         setStep('preview')
       } else {
-        const { headers: h, rows } = await previewExcel(f)
+        const { headers: h, rows, headerRow: hr, raw: rawData } = await previewExcel(f)
         setHeaders(h)
+        setHeaderRow(hr)
         setPreviewRows(rows.slice(0, 10))
         const suggested = autoSuggestMapping(h)
         setMapping(suggested)
-        const monthly = detectMonthlyColumns(h)
+        const monthly = detectMonthlyColumns(rawData, hr)
         setMonthlyGroups(monthly)
         setStep('mapping')
       }
@@ -133,8 +136,8 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     setError(null)
     try {
       const items = monthlyGroups.length > 0
-        ? await parseMedicaoSheetWithMonthly(file, mapping, monthlyGroups)
-        : await parseMedicaoSheet(file, mapping)
+        ? await parseMedicaoSheetWithMonthly(file, mapping, monthlyGroups, headerRow)
+        : await parseMedicaoSheet(file, mapping, headerRow)
       setParsedItems(items)
       setStep('preview')
     } catch (err) {
@@ -142,7 +145,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     } finally {
       setLoading(false)
     }
-  }, [file, mapping, monthlyGroups])
+  }, [file, mapping, monthlyGroups, headerRow])
 
   const handleImport = useCallback(() => {
     onImport(parsedItems)
