@@ -1974,3 +1974,16 @@ export interface HorasExtrasEntry {
   valorTotal: number
   mes: string
 }
+
+// ── Critérios de Medição ─────────────────────────────────────────────────────
+
+export interface CriterioMedicao {
+  id: string
+  nPreco: string
+  descricao: string
+  descricaoSints?: string
+  unidade: string
+  regulamentacao: string
+  medicao: string
+  notas: string
+}

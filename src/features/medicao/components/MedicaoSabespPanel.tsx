@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useMedicaoStore } from '@/store/medicaoStore'
+import { useCriteriosStore } from '@/store/criteriosStore'
 import { cn, formatCurrency } from '@/lib/utils'
 import { exportMedicaoExcel } from '../utils/exportMedicaoExcel'
 import { ImportModal } from './ImportModal'
@@ -42,6 +43,7 @@ export function MedicaoSabespPanel() {
   } | null>(null)
   const [editValue, setEditValue] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null)
   const [newItem, setNewItem] = useState({
     item: '',
     nPreco: '',
@@ -57,6 +59,8 @@ export function MedicaoSabespPanel() {
   const activeSheet =
     sabespSheets.find((s) => s.id === activeSheetId) ?? sabespSheets[0] ?? null
 
+  const getCriterioByNPreco = useCriteriosStore((s) => s.getCriterioByNPreco)
+
   const filteredItems =
     activeSheet?.items.filter(
       (it) =>
@@ -64,6 +68,13 @@ export function MedicaoSabespPanel() {
         it.item.toLowerCase().includes(search.toLowerCase()) ||
         it.descricao.toLowerCase().includes(search.toLowerCase()),
     ) ?? []
+
+  const availableMonths = Array.from(
+    new Set(
+      filteredItems
+        .flatMap((it) => it.meses?.map((m) => m.mes) ?? [])
+    ),
+  ).sort()
 
   const handleCreateSheet = useCallback(() => {
     const id = addSheet({
@@ -197,6 +208,20 @@ export function MedicaoSabespPanel() {
                 className="flex-1 bg-transparent text-[#f5f5f5] text-xs placeholder:text-[#6b6b6b] outline-none"
               />
             </div>
+            {availableMonths.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedMonth || ''}
+                  onChange={(e) => setSelectedMonth(e.target.value || null)}
+                  className="bg-[#484848] border border-[#5e5e5e] rounded-lg px-2 py-1 text-xs text-gray-100 focus:outline-none focus:border-[#f97316]/50"
+                >
+                  <option value="">Todos os meses</option>
+                  {availableMonths.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setImportOpen(true)}
@@ -296,6 +321,15 @@ export function MedicaoSabespPanel() {
                   <th className="px-3 py-2.5 text-right text-[#a3a3a3] font-medium w-24">Acumulada</th>
                   <th className="px-3 py-2.5 text-right text-[#a3a3a3] font-medium w-24">PU (R$)</th>
                   <th className="px-3 py-2.5 text-right text-[#a3a3a3] font-medium w-28">Valor Medido (R$)</th>
+                  {selectedMonth && (
+                    <>
+                      <th className="px-3 py-2.5 text-right text-sky-400 font-medium w-20">Qtd Mês</th>
+                      <th className="px-3 py-2.5 text-right text-sky-400 font-medium w-20">Valor Mês</th>
+                      <th className="px-3 py-2.5 text-right text-sky-400 font-medium w-20">Saldo Acum.</th>
+                      <th className="px-3 py-2.5 text-right text-sky-400 font-medium w-20">Executado</th>
+                      <th className="px-3 py-2.5 text-right text-sky-400 font-medium w-20">Saldo Exec.</th>
+                    </>
+                  )}
                   <th className="px-3 py-2.5 w-10" />
                 </tr>
               </thead>
@@ -309,7 +343,16 @@ export function MedicaoSabespPanel() {
                     <td className="px-3 py-2 text-[#f5f5f5] max-w-[300px] truncate">
                       {it.descricao}
                     </td>
-                    <td className="px-3 py-2 text-[#a3a3a3] font-mono text-sm">{it.nPreco || '—'}</td>
+                    <td className="px-3 py-2 text-[#a3a3a3] font-mono text-sm">
+                      {it.nPreco ? (
+                        <span className="flex items-center gap-1" title={getCriterioByNPreco(it.nPreco)?.descricao || ''}>
+                          {it.nPreco}
+                          {getCriterioByNPreco(it.nPreco) && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" title="Critério disponível" />
+                          )}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td className="px-3 py-2 text-[#a3a3a3] text-center">{it.unidade}</td>
                     <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">
                       {it.qtdContratada.toLocaleString('pt-BR')}
@@ -362,6 +405,18 @@ export function MedicaoSabespPanel() {
                     <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right font-semibold">
                       {formatCurrency(it.valorMedido)}
                     </td>
+                    {selectedMonth && (() => {
+                      const mesData = it.meses?.find((m) => m.mes === selectedMonth)
+                      return (
+                        <>
+                          <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">{mesData?.quantidade?.toLocaleString('pt-BR') ?? '—'}</td>
+                          <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">{mesData?.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) ?? '—'}</td>
+                          <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">{mesData?.saldoAcumulado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) ?? '—'}</td>
+                          <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">{mesData?.executado?.toLocaleString('pt-BR') ?? '—'}</td>
+                          <td className="px-3 py-2 text-[#f5f5f5] font-mono text-right">{mesData?.saldoExecutado?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) ?? '—'}</td>
+                        </>
+                      )
+                    })()}
                     <td className="px-3 py-2 text-center">
                       <button
                         onClick={() => removeItem(activeSheet.id, it.id)}
@@ -375,7 +430,7 @@ export function MedicaoSabespPanel() {
                 {filteredItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={10}
+                      colSpan={selectedMonth ? 15 : 10}
                       className="px-4 py-8 text-center text-[#6b6b6b] text-sm"
                     >
                       Nenhum item encontrado.

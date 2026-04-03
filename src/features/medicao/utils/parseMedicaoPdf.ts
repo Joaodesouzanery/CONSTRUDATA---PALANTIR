@@ -49,7 +49,7 @@ export async function parseMedicaoPdf(file: File): Promise<Omit<MedicaoItem, 'id
   // Pattern: item code, description, unit, numbers (qtdContratada, qtdMedida, qtdAcumulada, PU, valor)
   // Typical row: "1.1  Escavação mecanizada de vala  m³  500,00  120,00  350,00  45,80  5.496,00"
   const rowRegex =
-    /(\d+(?:\.\d+)*)\s+(.{5,80}?)\s+(m²|m³|m\b|kg|ton|un|vb|cj|l\b|pç|gl|cx)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/gi
+    /(\d+(?:\.\d+)*)\s+(?:(\d{4,8})\s+)?(.{5,80}?)\s+(m²|m³|m\b|kg|ton|un|vb|cj|l\b|pç|gl|cx)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)/gi
 
   for (const line of lines) {
     let match: RegExpExecArray | null
@@ -57,13 +57,14 @@ export async function parseMedicaoPdf(file: File): Promise<Omit<MedicaoItem, 'id
 
     while ((match = rowRegex.exec(line)) !== null) {
       const itemCode = match[1]
-      const descricao = match[2].replace(/\s+/g, ' ').trim()
-      const unidade = match[3].toLowerCase()
-      const qtdContratada = parseNumber(match[4])
-      const qtdMedida = parseNumber(match[5])
-      const qtdAcumulada = parseNumber(match[6])
-      const precoUnitario = parseNumber(match[7])
-      const valorMedido = parseNumber(match[8])
+      const nPreco = match[2] || undefined  // optional N. Preço code
+      const descricao = match[3].replace(/\s+/g, ' ').trim()
+      const unidade = match[4].toLowerCase()
+      const qtdContratada = parseNumber(match[5])
+      const qtdMedida = parseNumber(match[6])
+      const qtdAcumulada = parseNumber(match[7])
+      const precoUnitario = parseNumber(match[8])
+      const valorMedido = parseNumber(match[9])
 
       const key = normalize(descricao).split(/\s+/).slice(0, 4).join(' ')
       if (seen.has(key)) continue
@@ -74,6 +75,7 @@ export async function parseMedicaoPdf(file: File): Promise<Omit<MedicaoItem, 'id
       items.push({
         item: itemCode,
         descricao,
+        nPreco,
         unidade,
         qtdContratada,
         qtdMedida,

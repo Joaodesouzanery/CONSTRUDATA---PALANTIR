@@ -5,7 +5,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { X, Upload, FileSpreadsheet, FileText, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { previewExcel, autoSuggestMapping, parseMedicaoSheet } from '../utils/parseMedicaoExcel'
+import { previewExcel, autoSuggestMapping, parseMedicaoSheet, parseMedicaoSheetWithMonthly, detectMonthlyColumns } from '../utils/parseMedicaoExcel'
+import type { MonthlyColumnGroup } from '../utils/parseMedicaoExcel'
 import { parseMedicaoPdf } from '../utils/parseMedicaoPdf'
 import type { MedicaoItem, MedicaoTab } from '@/types'
 
@@ -18,7 +19,8 @@ interface ImportModalProps {
 
 const FIELDS = [
   { key: 'item', label: 'Item' },
-  { key: 'descricao', label: 'Descricao' },
+  { key: 'descricao', label: 'Descrição' },
+  { key: 'nPreco', label: 'N. Preço' },
   { key: 'unidade', label: 'UN' },
   { key: 'qtdContratada', label: 'Qtd Contratada' },
   { key: 'qtdMedida', label: 'Qtd Medida' },
@@ -38,6 +40,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const [monthlyGroups, setMonthlyGroups] = useState<MonthlyColumnGroup[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   const reset = useCallback(() => {
@@ -51,6 +54,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     setLoading(false)
     setError(null)
     setDragging(false)
+    setMonthlyGroups([])
   }, [])
 
   const handleClose = useCallback(() => {
@@ -90,6 +94,8 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
         setPreviewRows(rows.slice(0, 10))
         const suggested = autoSuggestMapping(h)
         setMapping(suggested)
+        const monthly = detectMonthlyColumns(h)
+        setMonthlyGroups(monthly)
         setStep('mapping')
       }
     } catch (err) {
@@ -126,7 +132,9 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     setLoading(true)
     setError(null)
     try {
-      const items = await parseMedicaoSheet(file, mapping)
+      const items = monthlyGroups.length > 0
+        ? await parseMedicaoSheetWithMonthly(file, mapping, monthlyGroups)
+        : await parseMedicaoSheet(file, mapping)
       setParsedItems(items)
       setStep('preview')
     } catch (err) {
@@ -134,7 +142,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
     } finally {
       setLoading(false)
     }
-  }, [file, mapping])
+  }, [file, mapping, monthlyGroups])
 
   const handleImport = useCallback(() => {
     onImport(parsedItems)
@@ -254,6 +262,21 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
                 ))}
               </div>
 
+              {monthlyGroups.length > 0 && (
+                <div className="mb-4 p-3 rounded-lg bg-sky-500/10 border border-sky-500/30">
+                  <p className="text-sky-400 text-xs font-medium mb-1">
+                    {monthlyGroups.length} grupo{monthlyGroups.length !== 1 ? 's' : ''} de colunas mensais detectado{monthlyGroups.length !== 1 ? 's' : ''}:
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {monthlyGroups.map((mg) => (
+                      <span key={mg.mes} className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 text-[10px] font-mono">
+                        {mg.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Raw preview */}
               {previewRows.length > 0 && (
                 <div>
@@ -310,6 +333,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
                   <thead>
                     <tr className="bg-[#3d3d3d]">
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Item</th>
+                      <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">N. Preço</th>
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Descricao</th>
                       <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">UN</th>
                       <th className="px-3 py-2 text-right text-[#a3a3a3] font-medium">Qtd Med.</th>
@@ -324,6 +348,7 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
                         className="border-t border-[#525252] hover:bg-[#484848]"
                       >
                         <td className="px-3 py-1.5 text-[#f5f5f5] font-mono">{it.item}</td>
+                        <td className="px-3 py-1.5 text-[#a3a3a3] font-mono">{it.nPreco || '—'}</td>
                         <td className="px-3 py-1.5 text-[#f5f5f5] max-w-[200px] truncate">
                           {it.descricao}
                         </td>

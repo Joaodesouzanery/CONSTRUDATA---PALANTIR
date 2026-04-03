@@ -10,12 +10,16 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  FileText,
   ChevronRight,
+  BookOpen,
 } from 'lucide-react'
 import { useMedicaoStore } from '@/store/medicaoStore'
+import { useCriteriosStore } from '@/store/criteriosStore'
 import { cn, formatCurrency } from '@/lib/utils'
 import { exportMedicaoExcel } from '../utils/exportMedicaoExcel'
 import { ImportModal } from './ImportModal'
+import { CriterioImportModal } from './CriterioImportModal'
 import type { MedicaoItem } from '@/types'
 
 /** Local state for per-item peso (weight). Keyed by item id. */
@@ -45,6 +49,8 @@ export function CriterioMedicaoPanel() {
   const [editValue, setEditValue] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [pesos, setPesos] = useState<PesoMap>({})
+  const [criterioImportOpen, setCriterioImportOpen] = useState(false)
+  const { criterios, pdfBase64, pdfFileName } = useCriteriosStore()
   const [newItem, setNewItem] = useState({
     item: '',
     descricao: '',
@@ -217,6 +223,28 @@ export function CriterioMedicaoPanel() {
                 <Plus size={13} />
                 Novo Item
               </button>
+              <button
+                onClick={() => setCriterioImportOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-500 transition-colors"
+              >
+                <BookOpen size={13} />
+                Importar Critérios PDF
+              </button>
+              {pdfBase64 && (
+                <button
+                  onClick={() => {
+                    const w = window.open()
+                    if (w) {
+                      w.document.write(`<iframe src="${pdfBase64}" style="width:100%;height:100%;border:none;" />`);
+                      w.document.title = pdfFileName || 'Critérios PDF'
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+                >
+                  <FileText size={13} />
+                  Ver PDF
+                </button>
+              )}
             </div>
           </div>
 
@@ -456,6 +484,45 @@ export function CriterioMedicaoPanel() {
         onClose={() => setImportOpen(false)}
         onImport={handleImport}
         tipo="criterio"
+      />
+
+      {/* Critérios de Medição importados */}
+      {criterios.length > 0 && (
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#525252] bg-[#484848]/40 flex items-center justify-between">
+            <h3 className="text-white font-medium text-sm">
+              Critérios de Medição Importados
+              <span className="text-[#a3a3a3] font-normal ml-2">({criterios.length})</span>
+            </h3>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-[#3d3d3d]">
+                <tr>
+                  <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium w-20">N. Preço</th>
+                  <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Descrição</th>
+                  <th className="px-3 py-2 text-center text-[#a3a3a3] font-medium w-12">UN</th>
+                  <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium w-32">Medição</th>
+                </tr>
+              </thead>
+              <tbody>
+                {criterios.map((c) => (
+                  <tr key={c.id} className="border-t border-[#525252] hover:bg-[#484848] transition-colors">
+                    <td className="px-3 py-2 text-[#f97316] font-mono font-semibold">{c.nPreco}</td>
+                    <td className="px-3 py-2 text-[#f5f5f5] max-w-[300px] truncate" title={c.descricao}>{c.descricao}</td>
+                    <td className="px-3 py-2 text-[#a3a3a3] text-center">{c.unidade}</td>
+                    <td className="px-3 py-2 text-[#a3a3a3] truncate max-w-[200px]" title={c.medicao}>{c.medicao || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <CriterioImportModal
+        isOpen={criterioImportOpen}
+        onClose={() => setCriterioImportOpen(false)}
       />
     </div>
   )
