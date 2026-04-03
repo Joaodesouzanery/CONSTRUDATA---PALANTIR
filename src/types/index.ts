@@ -1867,6 +1867,7 @@ export interface EvmMetrics {
   pillarDeviations: PillarDeviation[]
   stockAlerts: StockAlert[]
   healthStatus: 'blue' | 'yellow' | 'red'
+  idpFisico: number
 }
 
 export interface CostBreakdown {
@@ -1986,4 +1987,5 @@ export interface CriterioMedicao {
   regulamentacao: string
   medicao: string
   notas: string
+  pageIndex?: number
 }

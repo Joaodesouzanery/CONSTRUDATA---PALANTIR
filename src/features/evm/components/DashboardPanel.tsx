@@ -65,11 +65,63 @@ const HEALTH_CONFIG = {
   },
 } as const
 
+/* ─── Pie Chart for Cost Deviation by Pillar ─────────────────────── */
+
+function PillarPieChart({ deviations }: { deviations: { pillar: string; label: string; deviation: number }[] }) {
+  const total = deviations.reduce((s, d) => s + Math.abs(d.deviation), 0)
+  if (total === 0) return null
+
+  const size = 200
+  const cx = size / 2, cy = size / 2, r = 80
+  let currentAngle = -Math.PI / 2
+
+  const slices = deviations.filter(d => d.deviation !== 0).map((d) => {
+    const pct = Math.abs(d.deviation) / total
+    const angle = pct * 2 * Math.PI
+    const startAngle = currentAngle
+    const endAngle = currentAngle + angle
+    currentAngle = endAngle
+
+    const x1 = cx + r * Math.cos(startAngle)
+    const y1 = cy + r * Math.sin(startAngle)
+    const x2 = cx + r * Math.cos(endAngle)
+    const y2 = cy + r * Math.sin(endAngle)
+    const largeArc = angle > Math.PI ? 1 : 0
+
+    return {
+      ...d,
+      pct,
+      path: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`,
+    }
+  })
+
+  return (
+    <div className="flex items-center gap-6">
+      <svg width={size} height={size}>
+        {slices.map((s) => (
+          <path key={s.pillar} d={s.path} fill={PILLAR_COLORS[s.pillar]} opacity={0.85}>
+            <title>{s.label}: {(s.pct * 100).toFixed(1)}%</title>
+          </path>
+        ))}
+      </svg>
+      <div className="flex flex-col gap-2">
+        {slices.map((s) => (
+          <div key={s.pillar} className="flex items-center gap-2 text-xs">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PILLAR_COLORS[s.pillar] }} />
+            <span className="text-[#a3a3a3]">{s.label}</span>
+            <span className="text-[#f5f5f5] font-mono font-semibold">{(s.pct * 100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ─── Component ───────────────────────────────────────────────────── */
 
 export function DashboardPanel() {
   const { sCurveData, evmMetrics } = useEvmStore()
-  const { CPI, SPI, BAC, pillarDeviations, eacScenarios, stockAlerts, healthStatus } = evmMetrics
+  const { CPI, SPI, BAC, pillarDeviations, eacScenarios, stockAlerts, healthStatus, idpFisico } = evmMetrics
   const n = sCurveData.length
 
   /* Chart helpers */
@@ -89,6 +141,22 @@ export function DashboardPanel() {
   function monthLabel(dateStr: string) {
     const d = new Date(dateStr)
     return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+  }
+
+  /* IDP Físico divergence */
+  const idpDivergencePct = SPI > 0 ? Math.abs((idpFisico - SPI) / SPI) * 100 : 0
+  const hasIdpDivergence = idpDivergencePct > 10
+
+  function idpColor(value: number) {
+    if (value >= 1) return 'text-green-400'
+    if (value >= 0.9) return 'text-yellow-400'
+    return 'text-red-400'
+  }
+
+  function idpBorderColor(value: number) {
+    if (value >= 1) return 'border-green-600'
+    if (value >= 0.9) return 'border-yellow-600'
+    return 'border-red-600'
   }
 
   const costAlert = CPI < 1
@@ -131,6 +199,29 @@ export function DashboardPanel() {
           </p>
         </div>
       </div>
+
+      {/* ── IDP Financeiro vs IDP Físico ───────────────────────── */}
+      {idpFisico > 0 && (
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-5">
+          <h2 className="text-[#f5f5f5] text-sm font-semibold mb-3">IDP Financeiro vs IDP Fisico</h2>
+          <div className="flex items-center gap-6">
+            <div className={`bg-[#2c2c2c] rounded-lg p-4 border-2 ${idpBorderColor(SPI)} flex-1 text-center`}>
+              <p className="text-[#a3a3a3] text-xs uppercase tracking-wide">IDP Financeiro (SPI)</p>
+              <p className={`text-2xl font-bold font-mono mt-1 ${idpColor(SPI)}`}>{SPI.toFixed(2)}</p>
+            </div>
+            <div className={`bg-[#2c2c2c] rounded-lg p-4 border-2 ${idpBorderColor(idpFisico)} flex-1 text-center`}>
+              <p className="text-[#a3a3a3] text-xs uppercase tracking-wide">IDP Fisico</p>
+              <p className={`text-2xl font-bold font-mono mt-1 ${idpColor(idpFisico)}`}>{idpFisico.toFixed(2)}</p>
+            </div>
+          </div>
+          {hasIdpDivergence && (
+            <div className="flex items-center gap-2 mt-3 text-amber-400 text-xs">
+              <AlertTriangle size={14} />
+              <span>Divergencia de {idpDivergencePct.toFixed(1)}% entre progresso financeiro e fisico</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── S-Curve Chart (4 lines) ──────────────────────────────── */}
       <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-5">
@@ -220,6 +311,19 @@ export function DashboardPanel() {
                   />
                 )),
               )}
+
+              {/* IDP Físico horizontal reference line */}
+              {idpFisico > 0 && (
+                <line
+                  x1={PAD.left}
+                  y1={toY(idpFisico * 100)}
+                  x2={W - PAD.right}
+                  y2={toY(idpFisico * 100)}
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  strokeDasharray="8 4"
+                />
+              )}
             </svg>
 
             {/* Legend */}
@@ -233,6 +337,15 @@ export function DashboardPanel() {
                   <span className="text-[#a3a3a3] text-xs">{s.label}</span>
                 </div>
               ))}
+              {idpFisico > 0 && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-3 h-3 rounded-full inline-block"
+                    style={{ backgroundColor: '#a855f7' }}
+                  />
+                  <span className="text-[#a3a3a3] text-xs">IDP Fisico</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -246,6 +359,12 @@ export function DashboardPanel() {
             <h2 className="text-[#f5f5f5] text-sm font-semibold">
               Análise de Causa Raiz — Desvio de Custo
             </h2>
+          </div>
+
+          {/* Pie chart — Onde está o desvio? */}
+          <div className="mb-5">
+            <p className="text-[#a3a3a3] text-xs font-semibold uppercase tracking-wide mb-3">Onde esta o desvio?</p>
+            <PillarPieChart deviations={pillarDeviations} />
           </div>
 
           {/* Stacked horizontal bar */}

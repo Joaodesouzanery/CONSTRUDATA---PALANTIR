@@ -36,6 +36,9 @@ interface EvmState {
   // Recalculate
   recalculateMetrics: () => void
 
+  // Sync from Planejamento
+  syncFromPlanejamento: (bac: number, pv: number, sCurve: SCurveMultiPoint[]) => void
+
   // Data management
   loadDemoData: () => void
   clearData: () => void
@@ -50,6 +53,7 @@ const EMPTY_METRICS: EvmMetrics = {
   pillarDeviations: [],
   stockAlerts: [],
   healthStatus: 'blue' as const,
+  idpFisico: 0,
 }
 
 const PILLAR_LABELS: Record<CostPillar, string> = {
@@ -261,6 +265,7 @@ export const useEvmStore = create<EvmState>((set, get) => ({
           pillarDeviations,
           stockAlerts,
           healthStatus,
+          idpFisico: 0,
         },
       })
     }).catch(() => {
@@ -273,9 +278,66 @@ export const useEvmStore = create<EvmState>((set, get) => ({
           pillarDeviations,
           stockAlerts: [],
           healthStatus,
+          idpFisico: 0,
         },
       })
     })
+
+    // IDP Físico — Physical progress vs planned physical progress (async)
+    Promise.all([
+      import('./planejamentoStore'),
+      import('./rdoStore'),
+    ]).then(([{ usePlanejamentoStore }, { useRdoStore }]) => {
+      const planState = usePlanejamentoStore.getState() as {
+        scurvePoints: Array<{ date: string; cumulativePhysicalPct: number }>
+        totalMeters: number
+      }
+
+      const rdoState = useRdoStore.getState() as {
+        rdos: Array<{ services: Array<{ quantity: number }> }>
+      }
+
+      let calculatedValue = 0
+
+      if (planState.scurvePoints.length > 0 && planState.totalMeters > 0) {
+        // Planned physical progress: closest S-curve point to today
+        const today = new Date().toISOString().slice(0, 10)
+        let plannedPhysicalPct = 0
+        let closestDiff = Infinity
+        for (const pt of planState.scurvePoints) {
+          const diff = Math.abs(new Date(pt.date).getTime() - new Date(today).getTime())
+          if (diff < closestDiff) {
+            closestDiff = diff
+            plannedPhysicalPct = pt.cumulativePhysicalPct
+          }
+        }
+
+        // Actual physical progress: sum of RDO quantities / total planned meters
+        let totalExecuted = 0
+        for (const rdo of rdoState.rdos) {
+          for (const svc of rdo.services || []) {
+            totalExecuted += svc.quantity || 0
+          }
+        }
+        const actualPhysicalPct = (totalExecuted / planState.totalMeters) * 100
+
+        calculatedValue = plannedPhysicalPct > 0 ? actualPhysicalPct / plannedPhysicalPct : 0
+      }
+
+      set((state) => ({
+        evmMetrics: { ...state.evmMetrics, idpFisico: calculatedValue },
+      }))
+    }).catch(() => {})
+  },
+
+  // ── Sync from Planejamento ─────────────────────────────────────────
+
+  syncFromPlanejamento: (bac: number, pv: number, sCurve: SCurveMultiPoint[]) => {
+    set((state) => ({
+      evmMetrics: { ...state.evmMetrics, BAC: bac, PV: pv },
+      sCurveData: sCurve,
+    }))
+    get().recalculateMetrics()
   },
 
   // ── Data management ────────────────────────────────────────────────

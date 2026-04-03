@@ -5,12 +5,14 @@ import {
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp, ClipboardCheck,
+  Star,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
+import { useSidebarStore } from '@/store/sidebarStore'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -97,6 +99,12 @@ export function Sidebar({ onClose }: SidebarProps) {
   )
 
   const alertCounts = useAlertCounts()
+  const { favorites, toggleFavorite } = useSidebarStore()
+
+  const allNavItems = NAV_GROUPS.flatMap((g) => g.items)
+  const favoriteItems = favorites
+    .map((route) => allNavItems.find((item) => item.to === route))
+    .filter(Boolean) as typeof allNavItems
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
@@ -156,11 +164,77 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden sidebar-scroll">
+        {/* ── Favoritos section ─────────────────────────────────────────── */}
+        {favoriteItems.length > 0 && (
+          <div className="flex flex-col">
+            {isOpen ? (
+              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#f97316] select-none">
+                FAVORITOS
+              </span>
+            ) : (
+              <div className="mx-3 my-1.5 border-t border-[#f97316]/30" />
+            )}
+            {favoriteItems.map((item) => (
+              <NavLink
+                key={`fav-${item.to}`}
+                to={item.to}
+                title={isOpen ? undefined : item.label}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    'group relative flex items-center gap-3 mx-2 rounded-lg transition-all',
+                    'h-9 px-3',
+                    isActive
+                      ? 'bg-[#f97316]/10 text-[#f97316]'
+                      : 'text-[#8a8a8a] hover:bg-[#333333] hover:text-[#d4d4d4]',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[#f97316]" />
+                    )}
+                    <span className="relative shrink-0">
+                      <item.icon size={18} strokeWidth={isActive ? 2 : 1.5} />
+                      {(alertCounts[item.to] ?? 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#ef4444] text-white text-[9px] font-bold leading-none">
+                          {alertCounts[item.to] > 9 ? '9+' : alertCounts[item.to]}
+                        </span>
+                      )}
+                    </span>
+                    {isOpen && (
+                      <span className={cn(
+                        'text-xs whitespace-nowrap overflow-hidden text-ellipsis',
+                        isActive ? 'font-semibold' : 'font-normal',
+                      )}>
+                        {item.label}
+                      </span>
+                    )}
+                    {isOpen && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(item.to) }}
+                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Star
+                          size={12}
+                          className="fill-[#f97316] text-[#f97316]"
+                        />
+                      </button>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        )}
+
+        {/* ── Nav groups ────────────────────────────────────────────────── */}
         {NAV_GROUPS.map((group, gi) => (
           <div key={group.label} className={cn('flex flex-col', gi > 0 && 'mt-1')}>
             {/* Group label — only shown when expanded */}
             {isOpen ? (
-              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a] select-none">
+              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#777777] select-none">
                 {group.label}
               </span>
             ) : (
@@ -176,11 +250,11 @@ export function Sidebar({ onClose }: SidebarProps) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex items-center gap-3 mx-2 rounded-lg transition-all',
+                    'group relative flex items-center gap-3 mx-2 rounded-lg transition-all',
                     'h-9 px-3',
                     isActive
                       ? 'bg-[#f97316]/10 text-[#f97316]'
-                      : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                      : 'text-[#8a8a8a] hover:bg-[#333333] hover:text-[#d4d4d4]',
                   )
                 }
               >
@@ -210,6 +284,19 @@ export function Sidebar({ onClose }: SidebarProps) {
                         {item.label}
                       </span>
                     )}
+
+                    {/* Favorite star toggle */}
+                    {isOpen && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorite(item.to) }}
+                        className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Star
+                          size={12}
+                          className={favorites.includes(item.to) ? 'fill-[#f97316] text-[#f97316]' : 'text-[#6b6b6b]'}
+                        />
+                      </button>
+                    )}
                   </>
                 )}
               </NavLink>
@@ -222,7 +309,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#8a8a8a] hover:bg-[#333333] hover:text-[#d4d4d4] transition-colors"
           >
             {isOpen ? <ChevronLeft size={18} className="shrink-0" /> : <ChevronRight size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">Recolher</span>}
@@ -235,7 +322,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               'relative flex items-center gap-3 h-9 px-3 rounded-lg transition-colors',
               isDemoMode
                 ? 'bg-[#f97316]/10 text-[#f97316]'
-                : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                : 'text-[#8a8a8a] hover:bg-[#333333] hover:text-[#d4d4d4]',
             )}
           >
             {isDemoMode && (
@@ -248,7 +335,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#8a8a8a] hover:bg-[#333333] hover:text-[#d4d4d4] transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" strokeWidth={1.5} /> : <Moon size={18} className="shrink-0" strokeWidth={1.5} />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

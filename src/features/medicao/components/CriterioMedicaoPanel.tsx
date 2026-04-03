@@ -20,6 +20,7 @@ import { cn, formatCurrency } from '@/lib/utils'
 import { exportMedicaoExcel } from '../utils/exportMedicaoExcel'
 import { ImportModal } from './ImportModal'
 import { CriterioImportModal } from './CriterioImportModal'
+import { CriterioPdfPageModal } from './CriterioPdfPageModal'
 import type { MedicaoItem } from '@/types'
 
 /** Local state for per-item peso (weight). Keyed by item id. */
@@ -50,6 +51,7 @@ export function CriterioMedicaoPanel() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [pesos, setPesos] = useState<PesoMap>({})
   const [criterioImportOpen, setCriterioImportOpen] = useState(false)
+  const [pdfPageView, setPdfPageView] = useState<{ pageIndex: number; nPreco: string } | null>(null)
   const { criterios, pdfBase64, pdfFileName } = useCriteriosStore()
   const [newItem, setNewItem] = useState({
     item: '',
@@ -503,6 +505,7 @@ export function CriterioMedicaoPanel() {
                   <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium">Descrição</th>
                   <th className="px-3 py-2 text-center text-[#a3a3a3] font-medium w-12">UN</th>
                   <th className="px-3 py-2 text-left text-[#a3a3a3] font-medium w-32">Medição</th>
+                  {pdfBase64 && <th className="px-3 py-2 text-center text-[#a3a3a3] font-medium w-16">PDF</th>}
                 </tr>
               </thead>
               <tbody>
@@ -512,6 +515,20 @@ export function CriterioMedicaoPanel() {
                     <td className="px-3 py-2 text-[#f5f5f5] max-w-[300px] truncate" title={c.descricao}>{c.descricao}</td>
                     <td className="px-3 py-2 text-[#a3a3a3] text-center">{c.unidade}</td>
                     <td className="px-3 py-2 text-[#a3a3a3] truncate max-w-[200px]" title={c.medicao}>{c.medicao || '—'}</td>
+                    {pdfBase64 && (
+                      <td className="px-3 py-2 text-center">
+                        {c.pageIndex ? (
+                          <button
+                            onClick={() => setPdfPageView({ pageIndex: c.pageIndex!, nPreco: c.nPreco })}
+                            className="text-[10px] px-2 py-0.5 rounded bg-[#f97316]/15 text-[#f97316] hover:bg-[#f97316]/25 transition-colors"
+                          >
+                            p.{c.pageIndex}
+                          </button>
+                        ) : (
+                          <span className="text-[#6b6b6b] text-[10px]">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -524,6 +541,16 @@ export function CriterioMedicaoPanel() {
         isOpen={criterioImportOpen}
         onClose={() => setCriterioImportOpen(false)}
       />
+
+      {pdfBase64 && pdfPageView && (
+        <CriterioPdfPageModal
+          isOpen={!!pdfPageView}
+          onClose={() => setPdfPageView(null)}
+          pdfBase64={pdfBase64}
+          pageNumber={pdfPageView.pageIndex}
+          nPreco={pdfPageView.nPreco}
+        />
+      )}
     </div>
   )
 }

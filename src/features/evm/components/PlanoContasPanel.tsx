@@ -3,7 +3,7 @@
  * Sections: Material, Equipamentos, Mão de Obra, Impostos/Indiretos.
  */
 import { useState } from 'react'
-import { Plus, Trash2, Package, Wrench, Users, FileText } from 'lucide-react'
+import { Plus, Trash2, Package, Wrench, Users, FileText, Check, X } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { formatCurrency } from '@/lib/utils'
 import type { CostPillar } from '@/types'
@@ -39,9 +39,30 @@ const EMPTY_FORM: NewEntryForm = {
 }
 
 export function PlanoContasPanel() {
-  const { costAccounts, addCostAccount, removeCostAccount } = useEvmStore()
+  const { costAccounts, addCostAccount, updateCostAccount, removeCostAccount } = useEvmStore()
   const [addingPillar, setAddingPillar] = useState<CostPillar | null>(null)
   const [form, setForm] = useState<NewEntryForm>({ ...EMPTY_FORM })
+  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null)
+  const [editValue, setEditValue] = useState('')
+
+  function startEdit(id: string, field: string, currentValue: string | number) {
+    setEditingCell({ id, field })
+    setEditValue(String(currentValue))
+  }
+
+  function confirmEdit() {
+    if (!editingCell) return
+    const { id, field } = editingCell
+    const value = field === 'description' ? editValue : parseFloat(editValue) || 0
+    updateCostAccount(id, { [field]: value })
+    setEditingCell(null)
+    setEditValue('')
+  }
+
+  function cancelEdit() {
+    setEditingCell(null)
+    setEditValue('')
+  }
 
   function entriesForPillar(pillar: CostPillar) {
     return costAccounts.filter((ca) => ca.pillar === pillar)
@@ -192,17 +213,76 @@ export function PlanoContasPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((ca) => (
+                  {entries.map((ca) => {
+                    const isEditingDesc = editingCell?.id === ca.id && editingCell?.field === 'description'
+                    const isEditingUnit = editingCell?.id === ca.id && editingCell?.field === 'unitCostBRL'
+                    const isEditingQty = editingCell?.id === ca.id && editingCell?.field === 'quantity'
+
+                    return (
                     <tr key={ca.id} className="border-b border-[#525252]/30 hover:bg-[#484848]/30 transition-colors">
                       <td className="px-4 py-2.5">
-                        <span className="text-[#f5f5f5] text-sm">{ca.description}</span>
-                        <span className="text-[#6b6b6b] text-[10px] font-mono ml-2">{ca.activityId}</span>
+                        {isEditingDesc ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') cancelEdit() }}
+                              autoFocus
+                              className="bg-[#2c2c2c] border border-[#f97316] rounded px-2 py-1 text-xs text-[#f5f5f5] font-mono outline-none"
+                            />
+                            <button onClick={confirmEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button>
+                            <button onClick={cancelEdit} className="text-red-400 hover:text-red-300"><X size={13} /></button>
+                          </div>
+                        ) : (
+                          <div className="cursor-pointer group" onClick={() => startEdit(ca.id, 'description', ca.description)}>
+                            <span className="text-[#f5f5f5] text-sm">{ca.description}</span>
+                            <span className="text-[#6b6b6b] text-[10px] font-mono ml-2">{ca.activityId}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
-                        {formatCurrency(ca.unitCostBRL)}
+                        {isEditingUnit ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') cancelEdit() }}
+                              autoFocus
+                              className="w-24 bg-[#2c2c2c] border border-[#f97316] rounded px-2 py-1 text-xs text-[#f5f5f5] font-mono outline-none"
+                            />
+                            <button onClick={confirmEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button>
+                            <button onClick={cancelEdit} className="text-red-400 hover:text-red-300"><X size={13} /></button>
+                          </div>
+                        ) : (
+                          <span className="cursor-pointer" onClick={() => startEdit(ca.id, 'unitCostBRL', ca.unitCostBRL)}>
+                            {formatCurrency(ca.unitCostBRL)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
-                        {ca.quantity.toLocaleString('pt-BR')}
+                        {isEditingQty ? (
+                          <div className="flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              min={0}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') confirmEdit(); if (e.key === 'Escape') cancelEdit() }}
+                              autoFocus
+                              className="w-20 bg-[#2c2c2c] border border-[#f97316] rounded px-2 py-1 text-xs text-[#f5f5f5] font-mono outline-none"
+                            />
+                            <button onClick={confirmEdit} className="text-green-400 hover:text-green-300"><Check size={13} /></button>
+                            <button onClick={cancelEdit} className="text-red-400 hover:text-red-300"><X size={13} /></button>
+                          </div>
+                        ) : (
+                          <span className="cursor-pointer" onClick={() => startEdit(ca.id, 'quantity', ca.quantity)}>
+                            {ca.quantity.toLocaleString('pt-BR')}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-[#f5f5f5] text-sm font-semibold">
                         {formatCurrency(ca.totalCostBRL)}
@@ -216,7 +296,8 @@ export function PlanoContasPanel() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#2c2c2c]/50">

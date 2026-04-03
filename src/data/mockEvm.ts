@@ -380,6 +380,7 @@ export const MOCK_EVM_METRICS: EvmMetrics = {
     { itemId: 'est-002', description: 'Conexões PVC DN150', qtdComprada: 500, qtdInstalada: 120, qtdImobilizada: 380, custoImobilizado: 22800 },
   ],
   healthStatus: 'red' as const,
+  idpFisico: 0,
 }
 
 // ---------------------------------------------------------------------------

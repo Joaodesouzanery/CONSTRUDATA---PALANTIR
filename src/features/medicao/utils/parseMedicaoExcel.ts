@@ -336,12 +336,17 @@ function isDataRow(
     return false
   }
 
-  // Skip category headers: rows with description but NO numeric values
-  const hasValue =
+  // Only skip rows that have NO item code AND no numeric values at all
+  // (keeps items with qtd=0 that haven't been measured yet)
+  const hasAnyNumber =
     num(row, 'qtdContratada') !== 0 ||
     num(row, 'precoUnitario') !== 0 ||
-    num(row, 'valorMedido') !== 0
-  if (!hasValue) return false
+    num(row, 'valorMedido') !== 0 ||
+    num(row, 'qtdMedida') !== 0 ||
+    num(row, 'qtdAcumulada') !== 0
+  const hasItemCode = str(row, 'item').trim().length > 0
+  const hasNPreco = str(row, 'nPreco').trim().length > 0
+  if (!hasAnyNumber && !hasItemCode && !hasNPreco) return false
 
   return true
 }

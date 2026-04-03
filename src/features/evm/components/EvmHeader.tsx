@@ -1,7 +1,8 @@
 /**
  * EvmHeader — top bar with KPI cards and tab navigation for the EVM module.
  */
-import { DollarSign, Download, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
+import { DollarSign, Download, RefreshCw, Link } from 'lucide-react'
 import { HelpTooltip } from '@/components/shared/HelpTooltip'
 import { useEvmStore } from '@/store/evmStore'
 import { cn } from '@/lib/utils'
@@ -22,12 +23,14 @@ function KpiCard({
   isCurrency = false,
   isIndex = false,
   helpTopic,
+  subtitle,
 }: {
   label: string
   value: number
   isCurrency?: boolean
   isIndex?: boolean
   helpTopic?: string
+  subtitle?: string
 }) {
   const formatted = isCurrency
     ? formatCurrency(value)
@@ -48,13 +51,76 @@ function KpiCard({
       <p className="font-mono text-lg font-semibold" style={{ color }}>
         {formatted}
       </p>
+      {subtitle && (
+        <p className="text-[10px] mt-1 leading-tight" style={{ color }}>{subtitle}</p>
+      )}
     </div>
   )
 }
 
+function tcpiStatus(tcpi: number): { color: string; label: string } {
+  if (tcpi <= 0) return { color: '#6b6b6b', label: 'Sem dados' }
+  if (tcpi <= 1.0) return { color: '#22c55e', label: 'Viável — manter ritmo' }
+  if (tcpi <= 1.2) return { color: '#eab308', label: `Atenção — melhore ${Math.round((tcpi - 1) * 100)}%` }
+  return { color: '#ef4444', label: 'Crítico — renegocie escopo' }
+}
+
 export function EvmHeader() {
-  const { activeTab, setActiveTab, evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
-  const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
+  const { activeTab, setActiveTab, evmMetrics, loadDemoData, recalculateMetrics, syncFromPlanejamento, sCurveData } = useEvmStore()
+  const { CPI, SPI, BAC, EAC, VAC, TCPI } = evmMetrics
+  const [syncing, setSyncing] = useState(false)
+  const [syncDone, setSyncDone] = useState(false)
+
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      const { usePlanejamentoStore } = await import('@/store/planejamentoStore')
+      const { scurvePoints, totalCostBRL } = usePlanejamentoStore.getState() as {
+        scurvePoints: Array<{ dayIndex: number; date: string; cumulativePhysicalPct: number; cumulativeFinancialPct: number; cumulativeMeters: number; cumulativeCostBRL: number }>
+        totalCostBRL: number
+      }
+
+      if (scurvePoints.length === 0) {
+        alert('Rode o cronograma no módulo Planejamento primeiro')
+        setSyncing(false)
+        return
+      }
+
+      // Derive PV: find the S-curve point closest to today
+      const today = new Date().toISOString().slice(0, 10)
+      let closestIdx = 0
+      let closestDiff = Infinity
+      for (let i = 0; i < scurvePoints.length; i++) {
+        const diff = Math.abs(new Date(scurvePoints[i].date).getTime() - new Date(today).getTime())
+        if (diff < closestDiff) {
+          closestDiff = diff
+          closestIdx = i
+        }
+      }
+      const pv = scurvePoints[closestIdx].cumulativeFinancialPct * totalCostBRL
+
+      // Map S-curve points to EVM format, preserving existing actual data
+      const existingByDate = new Map(sCurveData.map((p) => [p.date, p]))
+      const newSCurve = scurvePoints.map((pt) => {
+        const existing = existingByDate.get(pt.date)
+        return {
+          date: pt.date,
+          plannedFinancialPct: pt.cumulativeFinancialPct,
+          actualPhysicalPct: existing?.actualPhysicalPct ?? 0,
+          earnedValuePct: existing?.earnedValuePct ?? 0,
+          actualCostPct: existing?.actualCostPct ?? 0,
+        }
+      })
+
+      syncFromPlanejamento(totalCostBRL, pv, newSCurve)
+      setSyncDone(true)
+      setTimeout(() => setSyncDone(false), 2000)
+    } catch {
+      alert('Erro ao sincronizar com Planejamento')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
@@ -90,6 +156,14 @@ export function EvmHeader() {
             <RefreshCw size={15} />
             Recalcular
           </button>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors disabled:opacity-50"
+          >
+            <Link size={15} className={syncing ? 'animate-spin' : ''} />
+            {syncDone ? 'Sincronizado!' : syncing ? 'Sincronizando...' : 'Sincronizar Planejamento'}
+          </button>
         </div>
       </div>
 
@@ -97,6 +171,7 @@ export function EvmHeader() {
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
         <KpiCard label="CPI" value={CPI} isIndex helpTopic="cpi" />
         <KpiCard label="SPI" value={SPI} isIndex helpTopic="spi" />
+        <KpiCard label="TCPI" value={TCPI} isIndex helpTopic="tcpi" subtitle={tcpiStatus(TCPI).label} />
         <KpiCard label="BAC (R$)" value={BAC} isCurrency />
         <KpiCard label="EAC (R$)" value={EAC} isCurrency />
         <KpiCard label="VAC (R$)" value={VAC} isCurrency />

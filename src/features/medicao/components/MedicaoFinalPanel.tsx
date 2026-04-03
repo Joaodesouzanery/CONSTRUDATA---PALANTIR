@@ -4,8 +4,9 @@
  */
 import { useMemo, useState } from 'react'
 import { useMedicaoStore } from '@/store/medicaoStore'
-import { FileCheck, Printer, Check } from 'lucide-react'
+import { FileCheck, Printer, Check, FileSpreadsheet } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { exportMedicaoFinalExcel } from '../utils/exportMedicaoFinalExcel'
 
 const TYPE_META: Record<string, { label: string; color: string; badgeBg: string }> = {
   sabesp: { label: 'Sabesp', color: 'text-[#f97316]', badgeBg: 'bg-[#f97316]/15 text-[#f97316]' },
@@ -216,6 +217,12 @@ export function MedicaoFinalPanel() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
           >
             Refazer Seleção
+          </button>
+          <button
+            onClick={() => exportMedicaoFinalExcel(selectedSheets)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#f97316]/15 text-[#f97316] hover:bg-[#f97316]/25 transition-colors"
+          >
+            <FileSpreadsheet size={13} /> Exportar Excel
           </button>
           <button
             onClick={handlePrint}

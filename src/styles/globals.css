@@ -366,6 +366,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="light"] .hover\:bg-\[\#484848\]:hover { background-color: #eef0f3 !important; }
 [data-theme="light"] .text-\[\#f97316\] { color: #c2410c !important; }
 [data-theme="light"] .text-\[\#ea580c\] { color: #9a3412 !important; }
+/* Sidebar text brightness — dark→light overrides */
+[data-theme="light"] .text-\[\#8a8a8a\] { color: #4a5568 !important; }
+[data-theme="light"] .text-\[\#777777\] { color: #64748b !important; }
+[data-theme="light"] .hover\:text-\[\#d4d4d4\]:hover { color: #1a1d23 !important; }
 
 /* ─── Light Mode — missing overrides ─────────────────────────────────────────── */
 
