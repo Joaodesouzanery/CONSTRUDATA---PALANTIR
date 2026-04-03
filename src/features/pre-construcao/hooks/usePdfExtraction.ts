@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { nanoid } from 'nanoid'
 import type { TakeoffItem } from '@/types'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 export async function extractFromPdf(file: File): Promise<{ text: string; items: TakeoffItem[] }> {
   const arrayBuffer = await file.arrayBuffer()

@@ -301,21 +301,39 @@ export function ImportModal({ isOpen, onClose, onImport, tipo }: ImportModalProp
                         </tr>
                       </thead>
                       <tbody>
-                        {previewRows.map((row, ri) => (
-                          <tr
-                            key={ri}
-                            className="border-t border-[#525252] hover:bg-[#484848]"
-                          >
-                            {row.map((cell, ci) => (
-                              <td
-                                key={ci}
-                                className="px-3 py-1.5 text-[#f5f5f5] whitespace-nowrap"
-                              >
-                                {cell}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
+                        {previewRows.map((row, ri) => {
+                          // Dim rows that will be filtered out (categories, totals)
+                          const descIdx = mapping['descricao'] ?? 1
+                          const desc = (row[descIdx] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                          const isTotal = desc.includes('total do grupo') || desc.includes('total da frente') || desc.startsWith('total') || desc.includes('subtotal')
+                          // Check if row has any numeric values in mapped numeric columns
+                          const numericFields = ['qtdContratada', 'precoUnitario', 'valorMedido']
+                          const hasNumeric = numericFields.some((f) => {
+                            const idx = mapping[f] ?? -1
+                            if (idx < 0 || idx >= row.length) return false
+                            const v = row[idx]?.replace(/[^\d,.-]/g, '')
+                            return v && parseFloat(v.replace(/\./g, '').replace(',', '.')) > 0
+                          })
+                          const isCategory = !isTotal && desc && !hasNumeric
+                          const dimmed = isTotal || isCategory
+
+                          return (
+                            <tr
+                              key={ri}
+                              className={`border-t border-[#525252] ${dimmed ? 'opacity-30 line-through' : 'hover:bg-[#484848]'}`}
+                              title={dimmed ? (isTotal ? 'Linha de total (será ignorada)' : 'Linha de categoria (será ignorada)') : ''}
+                            >
+                              {row.map((cell, ci) => (
+                                <td
+                                  key={ci}
+                                  className="px-3 py-1.5 text-[#f5f5f5] whitespace-nowrap"
+                                >
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

@@ -7,9 +7,10 @@
  * Uses Y-position grouping for better line detection from pdfjs-dist.
  */
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { CriterioMedicao } from '@/types'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 interface ParseProgress {
   current: number

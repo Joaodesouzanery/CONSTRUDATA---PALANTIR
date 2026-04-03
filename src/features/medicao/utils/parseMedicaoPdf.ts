@@ -3,9 +3,10 @@
  * Extracts tabular measurement data from PDF files using pdfjs-dist.
  */
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { MedicaoItem } from '@/types'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 function normalize(s: string): string {
   return s

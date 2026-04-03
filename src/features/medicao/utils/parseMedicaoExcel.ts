@@ -33,15 +33,40 @@ function normalize(s: string): string {
 }
 
 /**
- * Parse a Brazilian-format number string.
- * "5.381.388,60" → 5381388.60
- * "1,00" → 1.00
- * "13.205,59" → 13205.59
+ * Smart number parser that handles both Brazilian (5.381.388,60) and
+ * US (5,381,388.60) formats, as well as raw JS numbers from xlsx.
  */
-function parseBRNumber(s: string): number {
-  const cleaned = s.trim().replace(/\s/g, '').replace(/R\$\s*/gi, '').replace(/\./g, '').replace(',', '.')
-  const v = parseFloat(cleaned)
-  return isNaN(v) ? 0 : v
+function smartParseNumber(value: unknown): number {
+  if (typeof value === 'number') return isNaN(value) ? 0 : value
+  if (value == null) return 0
+
+  const s = String(value).trim().replace(/\s/g, '').replace(/R\$\s*/gi, '').replace(/-\s*$/, '')
+  if (!s || s === '-') return 0
+
+  // Detect format: check if last separator is comma or dot
+  const lastComma = s.lastIndexOf(',')
+  const lastDot = s.lastIndexOf('.')
+
+  if (lastComma > lastDot) {
+    // Brazilian: dots are thousands, comma is decimal → "5.381.388,60"
+    const cleaned = s.replace(/\./g, '').replace(',', '.')
+    const v = parseFloat(cleaned)
+    return isNaN(v) ? 0 : v
+  } else if (lastDot > lastComma) {
+    // US: commas are thousands, dot is decimal → "5,381,388.60"
+    const cleaned = s.replace(/,/g, '')
+    const v = parseFloat(cleaned)
+    return isNaN(v) ? 0 : v
+  } else if (lastComma >= 0) {
+    // Only commas, no dots → Brazilian decimal "1,00"
+    const cleaned = s.replace(',', '.')
+    const v = parseFloat(cleaned)
+    return isNaN(v) ? 0 : v
+  } else {
+    // Only dots or neither → try direct parse "1.00" or "100"
+    const v = parseFloat(s)
+    return isNaN(v) ? 0 : v
+  }
 }
 
 // ─── Smart header row detection ──────────────────────────────────────────────
@@ -292,9 +317,9 @@ export function detectMonthlyColumns(
 // ─── Row filtering helper ────────────────────────────────────────────────────
 
 function isDataRow(
-  row: string[],
-  str: (row: string[], field: string) => string,
-  num: (row: string[], field: string) => number,
+  row: unknown[],
+  str: (row: unknown[], field: string) => string,
+  num: (row: unknown[], field: string) => number,
 ): boolean {
   const desc = str(row, 'descricao').trim()
   if (!desc) return false
@@ -340,10 +365,11 @@ export function parseMedicaoSheet(
         const data = e.target?.result
         const wb = XLSX.read(data, { type: 'binary' })
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const raw: string[][] = XLSX.utils.sheet_to_json(ws, {
+        // Use raw: true to get native JS numbers instead of formatted strings
+        const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, {
           header: 1,
           defval: '',
-          raw: false,
+          raw: true,
         })
 
         if (raw.length <= headerRow + 1) {
@@ -353,14 +379,19 @@ export function parseMedicaoSheet(
 
         const dataRows = raw.slice(headerRow + 1)
 
-        const str = (row: string[], field: string): string => {
+        const cellVal = (row: unknown[], field: string): unknown => {
           const idx = mapping[field]
           if (idx == null || idx < 0 || idx >= row.length) return ''
-          return String(row[idx]).trim()
+          return row[idx]
         }
 
-        const num = (row: string[], field: string): number => {
-          return parseBRNumber(str(row, field))
+        const str = (row: unknown[], field: string): string => {
+          const v = cellVal(row, field)
+          return v == null ? '' : String(v).trim()
+        }
+
+        const num = (row: unknown[], field: string): number => {
+          return smartParseNumber(cellVal(row, field))
         }
 
         const items: Omit<MedicaoItem, 'id'>[] = dataRows
@@ -412,10 +443,11 @@ export function parseMedicaoSheetWithMonthly(
         const data = e.target?.result
         const wb = XLSX.read(data, { type: 'binary' })
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const raw: string[][] = XLSX.utils.sheet_to_json(ws, {
+        // Use raw: true to get native JS numbers
+        const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, {
           header: 1,
           defval: '',
-          raw: false,
+          raw: true,
         })
 
         if (raw.length <= headerRow + 1) {
@@ -425,19 +457,24 @@ export function parseMedicaoSheetWithMonthly(
 
         const dataRows = raw.slice(headerRow + 1)
 
-        const str = (row: string[], field: string): string => {
+        const cellVal = (row: unknown[], field: string): unknown => {
           const idx = mapping[field]
           if (idx == null || idx < 0 || idx >= row.length) return ''
-          return String(row[idx]).trim()
+          return row[idx]
         }
 
-        const num = (row: string[], field: string): number => {
-          return parseBRNumber(str(row, field))
+        const str = (row: unknown[], field: string): string => {
+          const v = cellVal(row, field)
+          return v == null ? '' : String(v).trim()
         }
 
-        const numAt = (row: string[], colIdx: number): number => {
+        const num = (row: unknown[], field: string): number => {
+          return smartParseNumber(cellVal(row, field))
+        }
+
+        const numAt = (row: unknown[], colIdx: number): number => {
           if (colIdx < 0 || colIdx >= row.length) return 0
-          return parseBRNumber(String(row[colIdx]))
+          return smartParseNumber(row[colIdx])
         }
 
         const items: Omit<MedicaoItem, 'id'>[] = dataRows
