@@ -12,6 +12,7 @@ import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { NucleoResumoPanel }    from './components/NucleoResumoPanel'
+import { FluxoProducaoPanel }   from './components/FluxoProducaoPanel'
 import { ExcelImportModal }     from './components/ExcelImportModal'
 import { NovoMaterialModal }    from './components/NovoMaterialModal'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
@@ -28,6 +29,7 @@ export function SuprimentosPage() {
     setActiveTab(
       activeSection === 'suprimentos' ? 'conciliacao'
         : activeSection === 'materiais' ? 'materiais'
+        : activeSection === 'producao' ? 'fluxoProducao'
         : 'nucleoResumo'
     )
   }, [activeSection])
@@ -64,6 +66,15 @@ export function SuprimentosPage() {
             )}
           >
             Resumo Nucleo
+          </button>
+          <button
+            onClick={() => setActiveSection('producao')}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+              activeSection === 'producao' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+            )}
+          >
+            Fluxo de Produção
           </button>
           </div>
           <HelpTooltip topic="suprimentos" />
@@ -105,6 +116,7 @@ export function SuprimentosPage() {
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
       {activeTab === 'nucleoResumo' && <NucleoResumoPanel />}
+      {activeTab === 'fluxoProducao' && <FluxoProducaoPanel />}
 
       {showImport       && <ExcelImportModal onClose={() => setShowImport(false)} />}
       {showNovoMaterial && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}

@@ -531,7 +531,7 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       kanbanCards: s.kanbanCards.map((k) => (k.id === id ? { ...k, status } : k)),
     })),
 
-  loadDemoData: () =>
+  loadDemoData: () => {
     set({
       purchaseOrders:      mockPurchaseOrders,
       receipts:            mockGoodsReceipts,
@@ -559,7 +559,44 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       kanbanCards: [],
       slottingSugestoes: [],
       alertasFEFO: [],
-      kitsAtividade: [],
+      kitsAtividade: [
+        {
+          id: 'kit-demo-1',
+          atividadeLps: 'LPS-ACT-001',
+          descricaoAtividade: 'Assentamento Rede PEAD DN110 - R. Guaicurus',
+          semana: 15,
+          itens: [
+            { itemId: 'est-001', descricao: 'Tubo PEAD DN110 PN10', qtdNecessaria: 120, unidade: 'm' },
+            { itemId: 'est-003', descricao: 'Brita nº 1', qtdNecessaria: 8, unidade: 't' },
+          ],
+          status: 'preparando',
+          criadoEm: '2026-03-28T10:00:00Z',
+        },
+        {
+          id: 'kit-demo-2',
+          atividadeLps: 'LPS-ACT-003',
+          descricaoAtividade: 'Instalação Hidrômetros - Vila Mariana',
+          semana: 14,
+          itens: [
+            { itemId: 'est-005', descricao: 'Hidrômetro Multijato 3/4"', qtdNecessaria: 40, unidade: 'un' },
+            { itemId: 'est-006', descricao: 'Selim PEAD 110x32mm', qtdNecessaria: 40, unidade: 'un' },
+          ],
+          status: 'pronto',
+          criadoEm: '2026-03-25T14:30:00Z',
+        },
+        {
+          id: 'kit-demo-3',
+          atividadeLps: 'LPS-ACT-005',
+          descricaoAtividade: 'Travessia Av. Rebouças - Coletor DN300',
+          semana: 13,
+          itens: [
+            { itemId: 'est-002', descricao: 'Tubo PVC Esgoto DN300', qtdNecessaria: 24, unidade: 'm' },
+            { itemId: 'est-004', descricao: 'Cimento CP-II 50kg', qtdNecessaria: 30, unidade: 'sc' },
+          ],
+          status: 'entregue',
+          criadoEm: '2026-03-20T08:00:00Z',
+        },
+      ],
       nucleoResumos: [
         {
           id: 'nr-demo-1', nucleo: 'Núcleo Lapa', tipo: 'Rede de Água',
@@ -586,7 +623,9 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
           progressoPct: 61.1, ruas: 'Av. Cruzeiro do Sul, R. Voluntários da Pátria',
         },
       ],
-    }),
+    })
+    get().recalcularFluxoProducao()
+  },
 
   clearData: () =>
     set({

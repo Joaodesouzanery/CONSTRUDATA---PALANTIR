@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'nucleoResumo'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'nucleoResumo' | 'fluxoProducao'
 
-export type SuprimentosSection = 'suprimentos' | 'materiais' | 'nucleos'
+export type SuprimentosSection = 'suprimentos' | 'materiais' | 'nucleos' | 'producao'
 
 interface Props {
   section:    SuprimentosSection
@@ -23,16 +23,21 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'semaforo',    label: 'Semáforo de Prontidão',    section: 'materiais'   },
   { key: 'whatif',      label: 'What-if Logístico',        section: 'materiais'   },
   { key: 'nucleoResumo', label: 'Resumo por Núcleo',       section: 'nucleos'     },
+  { key: 'fluxoProducao', label: 'Fluxo de Produção',     section: 'producao'    },
 ]
 
 export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
-  const { purchaseOrders, matches, exceptions, estoqueItens, nucleoResumos } = useSuprimentosStore(
+  const { purchaseOrders, matches, exceptions, estoqueItens, nucleoResumos, kanbanCards, alertasFEFO, kitsAtividade, abcxyzClassification } = useSuprimentosStore(
     useShallow((s) => ({
-      purchaseOrders: s.purchaseOrders,
-      matches:        s.matches,
-      exceptions:     s.exceptions,
-      estoqueItens:   s.estoqueItens,
-      nucleoResumos:  s.nucleoResumos,
+      purchaseOrders:       s.purchaseOrders,
+      matches:              s.matches,
+      exceptions:           s.exceptions,
+      estoqueItens:         s.estoqueItens,
+      nucleoResumos:        s.nucleoResumos,
+      kanbanCards:          s.kanbanCards,
+      alertasFEFO:         s.alertasFEFO,
+      kitsAtividade:       s.kitsAtividade,
+      abcxyzClassification: s.abcxyzClassification,
     }))
   )
 
@@ -84,7 +89,19 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
                                              bg: nucleoAvgProg >= 75 ? 'bg-[#16a34a]/10 border-[#16a34a]/30' : nucleoAvgProg >= 40 ? 'bg-[#ca8a04]/10 border-[#ca8a04]/30' : 'bg-[#dc2626]/10 border-[#dc2626]/30' },
   ]
 
-  const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : nucKpis
+  // ── Produção KPIs ────────────────────────────────────────────────────────────
+  const kanbanCriticos = kanbanCards.filter((k) => k.status === 'critico').length
+  const fefoUrgentes   = alertasFEFO.filter((a) => a.severidade === 'urgente' || a.severidade === 'vencido').length
+  const kitsPreparando = kitsAtividade.filter((k) => k.status === 'preparando').length
+
+  const prodKpis = [
+    { label: 'Classificados ABC',  value: abcxyzClassification.length, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
+    { label: 'Kanban Críticos',    value: kanbanCriticos,              color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
+    { label: 'FEFO Urgentes',      value: fefoUrgentes,                color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
+    { label: 'Kits Preparando',    value: kitsPreparando,              color: 'text-[#38bdf8]', bg: 'bg-[#0ea5e9]/10 border-[#0ea5e9]/30' },
+  ]
+
+  const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : section === 'producao' ? prodKpis : nucKpis
 
   return (
     <div className="flex flex-col gap-4 shrink-0">
