@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'nucleoResumo'
 
-export type SuprimentosSection = 'suprimentos' | 'materiais'
+export type SuprimentosSection = 'suprimentos' | 'materiais' | 'nucleos'
 
 interface Props {
   section:    SuprimentosSection
@@ -22,15 +22,17 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'estoque',     label: 'Mapa de Estoque',          section: 'materiais'   },
   { key: 'semaforo',    label: 'Semáforo de Prontidão',    section: 'materiais'   },
   { key: 'whatif',      label: 'What-if Logístico',        section: 'materiais'   },
+  { key: 'nucleoResumo', label: 'Resumo por Núcleo',       section: 'nucleos'     },
 ]
 
 export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
-  const { purchaseOrders, matches, exceptions, estoqueItens } = useSuprimentosStore(
+  const { purchaseOrders, matches, exceptions, estoqueItens, nucleoResumos } = useSuprimentosStore(
     useShallow((s) => ({
       purchaseOrders: s.purchaseOrders,
       matches:        s.matches,
       exceptions:     s.exceptions,
       estoqueItens:   s.estoqueItens,
+      nucleoResumos:  s.nucleoResumos,
     }))
   )
 
@@ -64,7 +66,25 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
                                              color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
   ]
 
-  const kpis = section === 'suprimentos' ? supKpis : matKpis
+  // ── Núcleos KPIs ────────────────────────────────────────────────────────────
+  const totalNucleos    = nucleoResumos.length
+  const nucleoTrechos   = nucleoResumos.reduce((s, n) => s + n.trechosExecutados, 0)
+  const nucleoTrechosT  = nucleoResumos.reduce((s, n) => s + n.trechosTotal, 0)
+  const nucleoMetrosExec = nucleoResumos.reduce((s, n) => s + n.metrosExecutados, 0)
+  const nucleoAvgProg   = totalNucleos > 0
+    ? nucleoResumos.reduce((s, n) => s + n.progressoPct, 0) / totalNucleos
+    : 0
+
+  const nucKpis = [
+    { label: 'Total Núcleos',       value: totalNucleos,    color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
+    { label: 'Trechos Exec/Total',  value: `${nucleoTrechos}/${nucleoTrechosT}`, color: 'text-[#38bdf8]', bg: 'bg-[#0ea5e9]/10 border-[#0ea5e9]/30' },
+    { label: 'Metros Executados',   value: nucleoMetrosExec.toLocaleString('pt-BR'), color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
+    { label: '% Progresso Médio',   value: `${nucleoAvgProg.toFixed(1)}%`,
+                                             color: nucleoAvgProg >= 75 ? 'text-[#4ade80]' : nucleoAvgProg >= 40 ? 'text-[#fbbf24]' : 'text-[#f87171]',
+                                             bg: nucleoAvgProg >= 75 ? 'bg-[#16a34a]/10 border-[#16a34a]/30' : nucleoAvgProg >= 40 ? 'bg-[#ca8a04]/10 border-[#ca8a04]/30' : 'bg-[#dc2626]/10 border-[#dc2626]/30' },
+  ]
+
+  const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : nucKpis
 
   return (
     <div className="flex flex-col gap-4 shrink-0">

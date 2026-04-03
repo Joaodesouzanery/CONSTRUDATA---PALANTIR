@@ -11,6 +11,7 @@ import { ContractPanel }        from './components/ContractPanel'
 import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
+import { NucleoResumoPanel }    from './components/NucleoResumoPanel'
 import { ExcelImportModal }     from './components/ExcelImportModal'
 import { NovoMaterialModal }    from './components/NovoMaterialModal'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
@@ -24,7 +25,11 @@ export function SuprimentosPage() {
 
   // Reset tab when section changes
   useEffect(() => {
-    setActiveTab(activeSection === 'suprimentos' ? 'conciliacao' : 'materiais')
+    setActiveTab(
+      activeSection === 'suprimentos' ? 'conciliacao'
+        : activeSection === 'materiais' ? 'materiais'
+        : 'nucleoResumo'
+    )
   }, [activeSection])
 
   return (
@@ -50,6 +55,15 @@ export function SuprimentosPage() {
             )}
           >
             Materiais &amp; Estoque
+          </button>
+          <button
+            onClick={() => setActiveSection('nucleos')}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+              activeSection === 'nucleos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+            )}
+          >
+            Resumo Nucleo
           </button>
           </div>
           <HelpTooltip topic="suprimentos" />
@@ -90,6 +104,7 @@ export function SuprimentosPage() {
       {activeTab === 'estoque'     && <MapaEstoquePanel />}
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
+      {activeTab === 'nucleoResumo' && <NucleoResumoPanel />}
 
       {showImport       && <ExcelImportModal onClose={() => setShowImport(false)} />}
       {showNovoMaterial && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
