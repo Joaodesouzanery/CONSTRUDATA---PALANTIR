@@ -26,7 +26,7 @@ export const useQualidadeStore = create<QualidadeState>()(
   persist(
     (set) => ({
       activeTab: 'dashboard',
-      fvss:      MOCK_FVSS,
+      fvss:      [], // inicia vazio; mocks só via Demo Mode (loadDemoData)
 
       setActiveTab: (tab) => set({ activeTab: tab }),
 

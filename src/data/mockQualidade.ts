@@ -44,6 +44,8 @@ export const MOCK_FVSS: FVS[] = [
   {
     id:               'mock-fvs-1',
     number:           1,
+    documentCode:     'FOR-FVS-02',
+    revision:         '00',
     identificationNo: 'FVS-001/2026',
     contractNo:       '00.954/24',
     date:             '2026-04-02',
@@ -66,6 +68,8 @@ export const MOCK_FVSS: FVS[] = [
   {
     id:               'mock-fvs-2',
     number:           2,
+    documentCode:     'FOR-FVS-02',
+    revision:         '00',
     identificationNo: 'FVS-002/2026',
     contractNo:       '00.954/24',
     date:             '2026-04-04',
@@ -101,6 +105,8 @@ export const MOCK_FVSS: FVS[] = [
   {
     id:               'mock-fvs-3',
     number:           3,
+    documentCode:     'FOR-FVS-02',
+    revision:         '00',
     identificationNo: 'FVS-003/2026',
     contractNo:       '00.954/24',
     date:             '2026-04-05',

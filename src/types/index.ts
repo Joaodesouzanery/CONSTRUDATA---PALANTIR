@@ -1317,6 +1317,8 @@ export interface FvsProblemAction {
 export interface FVS {
   id:                string
   number:            number    // sequencial, auto-assigned
+  documentCode:      string    // ex.: "FOR-FVS-02"
+  revision:          string    // ex.: "00"
   identificationNo:  string    // "Nº Identificação FVS"
   contractNo:        string    // ex.: "00.954/24"
   date:              string    // yyyy-MM-dd

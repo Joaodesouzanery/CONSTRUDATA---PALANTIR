@@ -110,16 +110,27 @@ function buildHtml(fvs: FVS): string {
   const ncNaoMark = !fvs.ncRequired ? '✓' : ''
 
   return `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="light" style="color-scheme: light;">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="color-scheme" content="light only" />
   <title>FVS Nº ${escapeHtml(fvs.identificationNo)} — ${fmtDate(fvs.date)}</title>
   <style>
+    /* Força modo claro mesmo se o navegador estiver em dark mode */
+    :root { color-scheme: light only; }
     @page { size: A4; margin: 12mm 12mm 14mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: #ffffff !important;
+      color: #0e1f38 !important;
+    }
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 9pt; color: #0e1f38; background: #fff;
+      font-size: 9pt;
+    }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #ffffff !important; color: #0e1f38 !important; }
+      table, td, th, div { background-color: inherit; color: inherit; }
     }
 
     /* ── Header (matches formulário Integra) ──────────────────────────── */
@@ -269,10 +280,10 @@ function buildHtml(fvs: FVS): string {
         <div class="company-name">${escapeHtml(companyName)}</div>
       </td>
       <td class="title-cell" rowspan="2">FICHA DE VERIFICAÇÃO DE SERVIÇO SOLDA</td>
-      <td class="code-cell"><strong>Código</strong>FOR-FVS-02</td>
+      <td class="code-cell"><strong>Código</strong>${escapeHtml(fvs.documentCode || 'FOR-FVS-02')}</td>
     </tr>
     <tr>
-      <td class="code-cell"><strong>Rev</strong> 00</td>
+      <td class="code-cell"><strong>Rev</strong> ${escapeHtml(fvs.revision || '00')}</td>
     </tr>
   </table>
 

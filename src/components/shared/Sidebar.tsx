@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network, BrainCircuit, TrendingUp, ShieldCheck,
+  Calculator, Layers, Target, Map, X, Network, BrainCircuit, TrendingUp, ShieldCheck, Home,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,12 @@ const SIDEBAR_KEY = 'cdata-sidebar'
 // ─── Nav groups ───────────────────────────────────────────────────────────────
 
 const NAV_GROUPS = [
+  {
+    label: 'INÍCIO',
+    items: [
+      { label: 'Minha Rotina',    icon: Home,             to: '/app/minha-rotina'        },
+    ],
+  },
   {
     label: 'GESTÃO',
     items: [

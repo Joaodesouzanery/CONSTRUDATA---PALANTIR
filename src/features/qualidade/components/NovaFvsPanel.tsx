@@ -144,6 +144,8 @@ export function NovaFvsPanel() {
   const nextNumber = fvss.length > 0 ? Math.max(...fvss.map((f) => f.number)) + 1 : 1
 
   // Header fields
+  const [documentCode,      setDocumentCode]      = useState('FOR-FVS-02')
+  const [revision,          setRevision]          = useState('00')
   const [identificationNo,  setIdentificationNo]  = useState(`FVS-${String(nextNumber).padStart(3, '0')}/${new Date().getFullYear()}`)
   const [contractNo,        setContractNo]        = useState('00.954/24')
   const [date,              setDate]              = useState(todayStr())
@@ -164,6 +166,7 @@ export function NovaFvsPanel() {
   // UI feedback
   const [submitError,   setSubmitError]   = useState<string | null>(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [isSubmitting,  setIsSubmitting]  = useState(false)
 
   const verificacaoSoldaItems = items.filter((i) => i.group === 'verificacao_solda')
   const controleParametrosItems = items.filter((i) => i.group === 'controle_parametros')
@@ -187,6 +190,8 @@ export function NovaFvsPanel() {
   }
 
   function resetForm() {
+    setDocumentCode('FOR-FVS-02')
+    setRevision('00')
     setIdentificationNo(`FVS-${String(nextNumber + 1).padStart(3, '0')}/${new Date().getFullYear()}`)
     setContractNo('00.954/24')
     setDate(todayStr())
@@ -203,7 +208,11 @@ export function NovaFvsPanel() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    e.stopPropagation()
     setSubmitError(null)
+
+    // Anti-duplicate: bloqueia cliques múltiplos / double submit
+    if (isSubmitting || submitSuccess) return
 
     // Validações
     if (!identificationNo.trim()) { setSubmitError('Nº Identificação FVS é obrigatório.');     return }
@@ -222,8 +231,12 @@ export function NovaFvsPanel() {
       return
     }
 
+    setIsSubmitting(true)
+
     try {
       addFvs({
+        documentCode,
+        revision,
         identificationNo,
         contractNo,
         date,
@@ -243,10 +256,12 @@ export function NovaFvsPanel() {
 
       setTimeout(() => {
         setSubmitSuccess(false)
+        setIsSubmitting(false)
         setActiveTab('historico')
       }, 1500)
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erro ao salvar FVS.')
+      setIsSubmitting(false)
     }
   }
 
@@ -316,15 +331,25 @@ export function NovaFvsPanel() {
             </h2>
           </div>
 
-          {/* Código + Rev cells */}
+          {/* Código + Rev cells (editáveis) */}
           <div className="grid grid-rows-2 divide-y-2 divide-[#525252]">
-            <div className="px-3 py-1 text-center bg-[#1f1f1f]">
+            <div className="px-2 py-1 text-center bg-[#1f1f1f] flex flex-col items-center justify-center">
               <div className="text-[9px] text-[#a3a3a3] font-bold uppercase">Código</div>
-              <div className="text-xs text-[#f5f5f5] font-bold">FOR-FVS-02</div>
+              <input
+                type="text"
+                value={documentCode}
+                onChange={(e) => setDocumentCode(e.target.value)}
+                className="w-full bg-transparent text-center text-xs text-[#f5f5f5] font-bold focus:outline-none focus:bg-[#3a3a3a] rounded"
+              />
             </div>
-            <div className="px-3 py-1 text-center bg-[#1f1f1f]">
+            <div className="px-2 py-1 text-center bg-[#1f1f1f] flex flex-col items-center justify-center">
               <div className="text-[9px] text-[#a3a3a3] font-bold uppercase">Rev</div>
-              <div className="text-xs text-[#f5f5f5] font-bold">00</div>
+              <input
+                type="text"
+                value={revision}
+                onChange={(e) => setRevision(e.target.value)}
+                className="w-full bg-transparent text-center text-xs text-[#f5f5f5] font-bold focus:outline-none focus:bg-[#3a3a3a] rounded"
+              />
             </div>
           </div>
         </div>
@@ -574,10 +599,11 @@ export function NovaFvsPanel() {
           {submitSuccess && <span className="text-emerald-400 text-sm font-medium">✓ FVS salva com sucesso!</span>}
           <button
             type="submit"
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-lg font-medium text-sm transition-colors"
+            disabled={isSubmitting || submitSuccess}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save size={16} />
-            Salvar FVS
+            {isSubmitting ? 'Salvando…' : 'Salvar FVS'}
           </button>
         </div>
       </div>

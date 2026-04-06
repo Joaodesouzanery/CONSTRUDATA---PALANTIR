@@ -25,6 +25,7 @@ const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index'
 const Rede360Page           = lazy(() => import('@/features/rede-360/index').then((m) => ({ default: m.Rede360Page })))
 const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
 const EvmPage               = lazy(() => import('@/features/evm/index').then((m) => ({ default: m.EvmPage })))
+const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index').then((m) => ({ default: m.MinhaRotinaPage })))
 
 // ─── Route loading fallback ──────────────────────────────────────────────────
 
@@ -54,7 +55,8 @@ function App() {
 
         {/* App shell with all dashboard routes prefixed by /app */}
         <Route path="/app" element={<AppShell />}>
-          <Route index element={<Navigate to="/app/gestao-360" replace />} />
+          <Route index element={<Navigate to="/app/minha-rotina" replace />} />
+          <Route path="minha-rotina"        element={<LazyRoute><MinhaRotinaPage /></LazyRoute>} />
           <Route path="relatorio360"        element={<LazyRoute><Relatorio360Page /></LazyRoute>} />
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
@@ -76,7 +78,7 @@ function App() {
           <Route path="rede-360"            element={<LazyRoute><Rede360Page /></LazyRoute>} />
           <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
-          <Route path="*"                   element={<Navigate to="/app/gestao-360" replace />} />
+          <Route path="*"                   element={<Navigate to="/app/minha-rotina" replace />} />
         </Route>
 
         {/* Catch-all → landing */}
