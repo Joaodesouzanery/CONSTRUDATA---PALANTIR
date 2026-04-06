@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp,
+  Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp, ShieldCheck,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -39,6 +39,7 @@ const NAV_GROUPS = [
     label: 'CAMPO',
     items: [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
+      { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
       { label: 'Gest. Equip.',    icon: Wrench,           to: '/app/gestao-equipamentos' },
       { label: 'Frota',           icon: Cpu,              to: '/app/otimizacao-frota'    },

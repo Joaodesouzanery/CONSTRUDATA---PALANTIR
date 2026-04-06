@@ -1291,6 +1291,50 @@ export interface RDO {
   updatedAt:    string
 }
 
+// ─── Qualidade / FVS (Ficha de Verificação de Serviço) ──────────────────────
+
+export type FvsConformity = 'conforme' | 'nao_conforme' | 'reinspecao_ok' | null
+export type FvsTab        = 'dashboard' | 'novo' | 'historico'
+export type FvsItemGroup  = 'verificacao_solda' | 'controle_parametros'
+
+export interface FvsItem {
+  id:          string
+  number:      number          // 1..9
+  group:       FvsItemGroup
+  description: string          // ex.: "Condições do Local"
+  criteria:    string          // critério de aceitação (texto livre)
+  conformity:  FvsConformity
+  date:        string | null   // yyyy-MM-dd da verificação do item
+}
+
+export interface FvsProblemAction {
+  id:          string
+  itemNumber:  number
+  description: string
+  action:      string
+}
+
+export interface FVS {
+  id:                string
+  number:            number    // sequencial, auto-assigned
+  identificationNo:  string    // "Nº Identificação FVS"
+  contractNo:        string    // ex.: "00.954/24"
+  date:              string    // yyyy-MM-dd
+  items:             FvsItem[] // 9 itens fixos do formulário
+  problems:          FvsProblemAction[]
+  ncRequired:        boolean
+  ncNumber:          string    // "Nº Não Conformidade"
+  // Fechamento da FVS
+  responsibleLeader: string    // Líder Responsável
+  weldTrackingNo:    string    // N° de rastreio da solda
+  welderSignature:   string    // Assinatura soldador (nome)
+  qualitySignature:  string    // Assinatura Resp. Qualidade (nome)
+  logoId?:           string    // ID da SavedLogo do companySettingsStore (PDF export)
+  // Metadados
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Quantitativos e Orçamento ────────────────────────────────────────────────
 
 export type CostBaseSource = 'sinapi' | 'seinfra' | 'custom' | 'manual'
