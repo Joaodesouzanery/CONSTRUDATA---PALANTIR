@@ -4,7 +4,6 @@ import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Sidebar } from './Sidebar'
 import { DemoBanner } from './DemoBanner'
-import { AipPanel } from '@/features/aip'
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -53,9 +52,6 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-
-      {/* AIP floating assistant — always rendered outside main scroll */}
-      <AipPanel />
     </div>
   )
 }

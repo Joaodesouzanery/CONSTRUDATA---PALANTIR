@@ -304,7 +304,7 @@ const FEATURES: FeatureData[] = [
   {
     id: 'ai', num: '09', tag: 'Atlântico AI',
     title: 'Atlântico AI: A IA que Antecipa o Futuro da Sua Obra.',
-    copy: 'A Atlântico não apenas registra o que aconteceu; ela prevê o que vai acontecer. Nosso motor de Inteligência Artificial (AIP) analisa dados em tempo real do RDO, BIM e ERP.',
+    copy: 'A Atlântico não apenas registra o que aconteceu; ela prevê o que vai acontecer. Nosso motor de Inteligência Artificial analisa dados em tempo real do RDO, BIM e ERP.',
     bullets: [
       { label: 'Detecção Preditiva de Riscos', desc: 'Identifica padrões de atraso e desvio orçamentário antes que se tornem problemas críticos.' },
       { label: 'Sugestões de Mitigação', desc: 'Recomenda realocação de recursos e ajustes de cronograma com base em dados históricos.' },

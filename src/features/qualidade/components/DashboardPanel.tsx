@@ -1,5 +1,6 @@
 /**
  * DashboardPanel — KPIs e visão geral do módulo Qualidade.
+ * Mesma identidade visual do RDO/módulos (#2c2c2c / #f97316).
  */
 import { useMemo } from 'react'
 import {
@@ -17,9 +18,9 @@ interface KpiCardProps {
 
 function KpiCard({ label, value, sub, icon, accent }: KpiCardProps) {
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+    <div className="bg-[#2c2c2c] rounded-xl border border-[#525252] p-4">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-[#a3a3a3] font-medium uppercase tracking-wider">{label}</span>
         <div
           className="w-9 h-9 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: accent }}
@@ -28,7 +29,7 @@ function KpiCard({ label, value, sub, icon, accent }: KpiCardProps) {
         </div>
       </div>
       <div className="text-2xl font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-[#a3a3a3] mt-1">{sub}</div>}
     </div>
   )
 }
@@ -60,7 +61,6 @@ export function DashboardPanel() {
     return { totalFvs, totalItems, conformes, naoConformes, reinspecaoOk, ncAbertas, conformityRate }
   }, [fvss])
 
-  // Distribution per FVS
   const recentFvss = useMemo(
     () => [...fvss].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
     [fvss],
@@ -75,7 +75,7 @@ export function DashboardPanel() {
           value={stats.totalFvs}
           sub="Fichas registradas"
           icon={<ClipboardCheck size={18} className="text-white" />}
-          accent="#14b8a6"
+          accent="#f97316"
         />
         <KpiCard
           label="Taxa de Conformidade"
@@ -101,9 +101,9 @@ export function DashboardPanel() {
       </div>
 
       {/* Conformity Bar */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+      <div className="bg-[#2c2c2c] rounded-xl border border-[#525252] p-5">
         <h3 className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
-          <ShieldCheck size={16} className="text-teal-400" />
+          <ShieldCheck size={16} className="text-[#f97316]" />
           Distribuição de Conformidade (Itens)
         </h3>
         {stats.totalItems > 0 ? (
@@ -128,28 +128,28 @@ export function DashboardPanel() {
                 {stats.naoConformes > 0 && stats.naoConformes}
               </div>
             </div>
-            <div className="flex gap-4 mt-3 text-xs">
-              <span className="flex items-center gap-2 text-gray-300">
+            <div className="flex gap-4 mt-3 text-xs flex-wrap">
+              <span className="flex items-center gap-2 text-[#e5e5e5]">
                 <span className="w-3 h-3 rounded-sm bg-emerald-500"></span> Conforme ({stats.conformes})
               </span>
-              <span className="flex items-center gap-2 text-gray-300">
+              <span className="flex items-center gap-2 text-[#e5e5e5]">
                 <span className="w-3 h-3 rounded-sm bg-blue-500"></span> Conforme após reinspeção ({stats.reinspecaoOk})
               </span>
-              <span className="flex items-center gap-2 text-gray-300">
+              <span className="flex items-center gap-2 text-[#e5e5e5]">
                 <span className="w-3 h-3 rounded-sm bg-red-500"></span> Não Conforme ({stats.naoConformes})
               </span>
             </div>
           </>
         ) : (
-          <p className="text-gray-500 text-sm italic">Nenhuma FVS registrada ainda.</p>
+          <p className="text-[#a3a3a3] text-sm italic">Nenhuma FVS registrada ainda.</p>
         )}
       </div>
 
       {/* Recent FVSs */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-5">
+      <div className="bg-[#2c2c2c] rounded-xl border border-[#525252] p-5">
         <h3 className="text-white font-semibold text-sm mb-4">FVS Recentes</h3>
         {recentFvss.length === 0 ? (
-          <p className="text-gray-500 text-sm italic">Nenhuma FVS registrada ainda.</p>
+          <p className="text-[#a3a3a3] text-sm italic">Nenhuma FVS registrada ainda.</p>
         ) : (
           <div className="space-y-2">
             {recentFvss.map((f) => {
@@ -158,21 +158,21 @@ export function DashboardPanel() {
               return (
                 <div
                   key={f.id}
-                  className="flex items-center justify-between bg-gray-700/50 rounded-lg p-3"
+                  className="flex items-center justify-between bg-[#3a3a3a] rounded-lg p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-teal-900/50 text-teal-300">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[#f97316]/15 text-[#f97316]">
                       #{f.number}
                     </span>
                     <div>
                       <div className="text-white text-sm font-medium">{f.identificationNo}</div>
-                      <div className="text-gray-400 text-xs">
+                      <div className="text-[#a3a3a3] text-xs">
                         {f.responsibleLeader} · {f.date.split('-').reverse().join('/')}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-[#a3a3a3]">
                       {conformes}/{total} conformes
                     </span>
                     {f.ncRequired && (

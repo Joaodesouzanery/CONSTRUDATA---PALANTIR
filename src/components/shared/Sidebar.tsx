@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network, BrainCircuit, Sparkles, TrendingUp, ShieldCheck,
+  Calculator, Layers, Target, Map, X, Network, BrainCircuit, TrendingUp, ShieldCheck,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -60,7 +60,6 @@ const NAV_GROUPS = [
       { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
       { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
       { label: 'Rede 360',        icon: Network,          to: '/app/rede-360'            },
-      { label: 'AIP',             icon: Sparkles,         to: '/app/aip'                 },
     ],
   },
 ]
@@ -138,7 +137,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             >
               Atlântico
             </span>
-            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#6b6b6b' }}>
+            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#a3a3a3' }}>
               ConstruData
             </span>
           </div>
@@ -160,7 +159,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <div key={group.label} className={cn('flex flex-col', gi > 0 && 'mt-1')}>
             {/* Group label — only shown when expanded */}
             {isOpen ? (
-              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#3a3a3a] select-none">
+              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#9ca3af] select-none">
                 {group.label}
               </span>
             ) : (
@@ -180,7 +179,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                     'h-9 px-3',
                     isActive
                       ? 'bg-[#f97316]/10 text-[#f97316]'
-                      : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                      : 'text-[#e5e5e5] hover:bg-[#333333] hover:text-white',
                   )
                 }
               >
@@ -222,7 +221,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors"
           >
             {isOpen ? <ChevronLeft size={18} className="shrink-0" /> : <ChevronRight size={18} className="shrink-0" />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">Recolher</span>}
@@ -235,7 +234,7 @@ export function Sidebar({ onClose }: SidebarProps) {
               'relative flex items-center gap-3 h-9 px-3 rounded-lg transition-colors',
               isDemoMode
                 ? 'bg-[#f97316]/10 text-[#f97316]'
-                : 'text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3]',
+                : 'text-[#e5e5e5] hover:bg-[#333333] hover:text-white',
             )}
           >
             {isDemoMode && (
@@ -248,7 +247,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           <button
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#5a5a5a] hover:bg-[#333333] hover:text-[#a3a3a3] transition-colors"
+            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors"
           >
             {theme === 'dark' ? <Sun size={18} className="shrink-0" strokeWidth={1.5} /> : <Moon size={18} className="shrink-0" strokeWidth={1.5} />}
             {isOpen && <span className="text-xs font-normal whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}

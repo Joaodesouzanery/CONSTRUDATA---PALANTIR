@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
-import portoAtlanticoImg from '@/assets/porto-atlantico.jpg'
+import atlanticoHeroImg from '@/assets/atlantico-hero.jpg'
 
 const SLIDES = [
   {
@@ -200,19 +200,23 @@ export function HeroSection() {
       style={{ minHeight: '100vh' }}
       className="flex flex-col justify-center pt-14 relative overflow-hidden"
     >
-      {/* Background image — ATLÂNTICO port/crane night scene (1920×1080 recommended)
-          Replace src/assets/porto-atlantico.jpg with the actual image to activate */}
+      {/* Background image — ATLÂNTICO porto/guindastes com arco laranja (1920×1080 ou 1024×1024).
+          Caminho do arquivo: src/assets/atlantico-hero.jpg */}
       <div className="absolute inset-0 z-0" style={{
-        backgroundImage: `url(${portoAtlanticoImg})`,
+        backgroundImage: `url(${atlanticoHeroImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        filter: 'blur(4px)',
-        transform: 'scale(1.06)',
-        opacity: 0.45,
+        filter: 'blur(2px)',
+        transform: 'scale(1.04)',
+        opacity: 0.65,
       }} />
-      {/* Dark overlay gradient — tuned for high-contrast night imagery */}
+      {/* Dark overlay — escurece bordas (onde o texto fica) e mantém o centro mais visível */}
       <div className="absolute inset-0 z-0" style={{
-        background: 'linear-gradient(180deg, #2c2c2c 0%, rgba(44,44,44,0.65) 30%, rgba(44,44,44,0.70) 70%, #2c2c2c 100%)',
+        background: 'radial-gradient(ellipse at center, rgba(44,44,44,0.35) 0%, rgba(44,44,44,0.78) 70%, #2c2c2c 100%)',
+      }} />
+      {/* Vinheta superior + inferior para legibilidade do header e CTA */}
+      <div className="absolute inset-0 z-0" style={{
+        background: 'linear-gradient(180deg, rgba(44,44,44,0.85) 0%, rgba(44,44,44,0) 18%, rgba(44,44,44,0) 75%, rgba(44,44,44,0.92) 100%)',
       }} />
       <div className="relative z-10">
       <div className="max-w-7xl mx-auto px-6 py-20 w-full">
