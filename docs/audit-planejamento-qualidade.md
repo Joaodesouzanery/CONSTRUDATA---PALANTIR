@@ -5,6 +5,9 @@
 > Escopo: `src/features/planejamento`, `src/features/planejamento-mestre`,
 > `src/features/qualidade`, `src/store/planejamentoStore.ts`,
 > `src/store/qualidadeStore.ts`.
+>
+> **Metodologia:** análise estática manual + auditoria automatizada por agente
+> Explore especializado, com cross-check de achados.
 
 ---
 
@@ -12,12 +15,24 @@
 
 | Módulo | Severidade Geral | Itens Críticos | Itens Altos | Itens Médios | Itens Baixos |
 |---|---|---|---|---|---|
-| **Planejamento** | 🟡 **MÉDIA** | 0 | 3 | 6 | 5 |
-| **Qualidade** | 🟢 **BAIXA** | 0 | 1 | 4 | 4 |
+| **Planejamento** | 🟠 **MÉDIA-ALTA** | 1 | 4 | 7 | 5 |
+| **Qualidade** | 🟠 **MÉDIA-ALTA** | 2 | 2 | 5 | 4 |
+
+**Notas dimensionais (0–10):**
+
+| Dimensão | Pontuação | Comentário |
+|---|---|---|
+| Código técnico | **8/10** | Excelente: Zod schemas presentes, IDs com `crypto.randomUUID()`, escapes HTML/CSV corretos, zero `dangerouslySetInnerHTML`, zero `eval` |
+| Integração cross-module | **2/10** | Silos isolados — só RDO↔Planejamento e PreConstrução↔Planejamento existem. Qualidade é totalmente isolada |
+| **Acessibilidade (WCAG)** | **1/10** | **CRÍTICO** — quase zero `aria-label`, zero `role`, sem gestão de focus, sem suporte teclado |
+| Testes | **0/10** | **CRÍTICO** — zero arquivos `.test.ts` em 1000+ linhas de lógica de negócio |
+| Mobile | **3/10** | Algumas tabelas têm `overflow-x-auto`, mas tabela FVS de 7 colunas é inutilizável em 375px |
+| Persistência | **5/10** | Qualidade tem (localStorage), Planejamento NÃO tem (perde tudo no reload) |
 
 **Veredito:**
-- **Planejamento** é um módulo robusto e maduro, com boa separação de responsabilidades (store + engines puros). Os principais débitos estão em **mobile**, **persistência** (zero localStorage) e **componentes muito grandes** (`ConfigPanel.tsx` 612 linhas, `PlanejamentoMacroPanel.tsx` 710 linhas).
-- **Qualidade** é jovem mas bem estruturado. Acabou de receber persistência (`zustand persist`). Principal débito é **falta de integração** com BIM, RDO e Mapa Interativo (a "ontologia" prometida ainda não acontece para FVS).
+- **Planejamento** é um módulo robusto e maduro, com boa separação de responsabilidades (store + engines puros). Os principais débitos estão em **mobile**, **persistência** (zero localStorage), **componentes muito grandes** (`ConfigPanel.tsx` 612 linhas, `PlanejamentoMacroPanel.tsx` 710 linhas) e **acessibilidade praticamente inexistente**.
+- **Qualidade** é jovem mas bem estruturado. Acabou de receber persistência (`zustand persist`). Principal débito é **falta de integração** com BIM, RDO e Mapa Interativo (a "ontologia" prometida ainda não acontece para FVS) e **dados sensíveis em localStorage sem criptografia** (assinaturas digitais, NCs, weldTrackingNo).
+- **Comum aos dois:** zero testes automatizados, zero `aria-label` em botões de ícone, schemas Zod definidos mas **não aplicados** nas mutações dos stores (são "fachada" de validação).
 
 ---
 
@@ -264,47 +279,223 @@ O `NovaFvsPanel` foi desenhado para espelhar **pixel-a-pixel** o formulário ofi
 
 ---
 
-## 🎯 Plano de Ação Recomendado
+# 🌐 Achados Transversais (afetam ambos os módulos)
+
+Estes achados foram surfaceados pela auditoria automatizada e impactam **a plataforma inteira**, não apenas Planejamento ou Qualidade.
+
+## T1) Acessibilidade — CRÍTICO 🔴
+
+**Estado atual:** WCAG 2.1 falha em quase todos os critérios.
+
+| Achado | Severidade | Detalhe |
+|---|---|---|
+| **Zero `aria-label` em botões de ícone** | 🔴 CRÍTICO | Em todo o módulo Planejamento, **0 ocorrências**. Em Qualidade, **1 sozinha** (no `ConformityCheckbox` do `NovaFvsPanel.tsx:65`). Botões com apenas `<Trash2 />`, `<Play />`, `<Download />` são opacos para leitores de tela |
+| **Zero `role` attributes** | 🔴 CRÍTICO | Tabelas grandes sem `role="grid"`/`role="row"`/`role="columnheader"`. Modais sem `role="dialog"` + `aria-modal="true"` |
+| **Sem gestão de focus** | 🔴 CRÍTICO | Modais (`TrechoQuickEdit`, `LogoConfigModal`, `ModulePicker`) não trapam o focus dentro deles. Tab leak para o body |
+| **Sem indicador visual de focus** | 🟡 MÉDIO | A maioria dos botões usa `focus:outline-none` sem substituir por `focus:ring-2`. Usuário de teclado fica perdido |
+| **Tab order não explícito** | 🟡 MÉDIO | Sem `tabIndex` controlado. A ordem do Tab segue a ordem visual, que é OK na maioria dos casos, mas não em modais |
+| **Tabela FVS sem `<caption>`** | 🟢 BAIXO | Leitores de tela não anunciam o contexto da tabela |
+
+**Recomendação:** criar uma issue épica de acessibilidade. Mínimo viável:
+
+```tsx
+// Antes
+<button onClick={runSchedule}>
+  <Play size={15} />
+</button>
+
+// Depois
+<button
+  onClick={runSchedule}
+  aria-label="Gerar cronograma da obra"
+  aria-busy={isScheduleRunning}
+  className="focus:outline-none focus:ring-2 focus:ring-[#f97316]"
+>
+  <Play size={15} aria-hidden="true" />
+</button>
+```
+
+**Por que importa para o pitch:** muitos editais públicos brasileiros (e europeus) **exigem WCAG AA** como critério eliminatório. Hoje a Atlântico **falha** essa exigência. Para vender para concessionária de saneamento pública, isso vira deal-breaker.
+
+## T2) Validação Zod definida mas não aplicada — ALTO 🔴
+
+**Achado do agente:**
+- [planejamento/schemas.ts](../src/features/planejamento/schemas.ts) tem `planTrechoSchema`, `planTeamSchema`, `planProductivitySchema` — **3 schemas Zod completos**
+- [qualidade/schemas.ts](../src/features/qualidade/schemas.ts) tem `fvsSchema`, `fvsItemSchema`, `fvsProblemSchema` — **3 schemas Zod completos**
+- **Nenhum dos dois é usado dentro das funções `addX`/`updateX` dos stores.**
+
+**Implicação:** os schemas existem como "documentação executável" mas não defendem o store contra mutações inválidas vindas de imports CSV, syncs cross-store ou bugs de UI.
+
+**Correção (1 linha por mutação):**
+
+```typescript
+// planejamentoStore.ts
+addTrecho: (t) =>
+  set((s) => {
+    const validated = planTrechoSchema.parse({ ...t, id: crypto.randomUUID() })
+    return { trechos: [...s.trechos, validated], isScheduleDirty: true }
+  }),
+```
+
+**Esforço:** 30 minutos. **Impacto:** elimina classe inteira de bugs futuros.
+
+## T3) Race conditions em ações pesadas — MÉDIO 🟡
+
+**Cenário:** usuário clica 2x rápido em "Gerar Cronograma" (botão sem loading state). Resultado:
+
+- Dois `runSchedule()` simultâneos disparam
+- Cada um faz CPM forward-pass de 100+ trechos (~200ms)
+- O `set()` síncrono do Zustand não tem lock — o último ganha
+- Cálculo redundante consome CPU e pode confundir o `isScheduleDirty`
+
+**Mesma classe de bug em:**
+- `runSchedule()` em [planejamentoStore.ts:283](../src/store/planejamentoStore.ts#L283)
+- `addFvs()` em [qualidadeStore.ts:33](../src/store/qualidadeStore.ts#L33) — **resolvido recentemente** com `isSubmitting` guard no `NovaFvsPanel`
+
+**Padrão de correção:**
+
+```typescript
+// Hook de proteção universal
+const useDebouncedAction = <T extends (...args: any[]) => any>(fn: T) => {
+  const isRunning = useRef(false)
+  return useCallback(async (...args: Parameters<T>) => {
+    if (isRunning.current) return
+    isRunning.current = true
+    try { return await fn(...args) }
+    finally { isRunning.current = false }
+  }, [fn])
+}
+```
+
+## T4) localStorage sem criptografia para dados sensíveis — MÉDIO 🟡
+
+**Achado do agente:** o `cdata-qualidade` (persistência da FVS) armazena em **plain text** no localStorage:
+
+- Nome do soldador (CPF mencionado em alguns mocks)
+- Assinatura do responsável de qualidade (texto)
+- Número de rastreio da solda
+- Detalhes de não-conformidades
+
+**Risco:** qualquer XSS na plataforma (mesmo em outro módulo) pode ler todo o histórico de FVS. Para uma plataforma que vai se vender com narrativa de "auditoria e compliance", isso é um problema real — não um teórico.
+
+**Recomendação por nível de paranoia:**
+
+| Nível | Solução | Esforço |
+|---|---|---|
+| **Mínimo** | Não persistir nomes completos / CPFs no `partialize` (filtrar) | 15 min |
+| **Médio** | Wrapper de storage que cifra com chave derivada do user | 2h |
+| **Alto** | Migrar persistência para backend autenticado (PostgreSQL + Row Level Security) | 1-2 sprints |
+
+A diferença entre "POC vendendo bem" e "produção em concessionária pública" mora aqui.
+
+## T5) Zero testes automatizados — CRÍTICO 🔴
+
+| Engine | Linhas | Testes |
+|---|---|---|
+| `scheduleEngine.ts` (CPM) | 277 | 0 |
+| `analysisEngine.ts` (S-curve, ABC) | ~200 | 0 |
+| `exportEngine.ts` (CSV) | ~200 | 0 |
+| `masterEngine.ts` | 166 | 0 |
+| `fvsPdfExport.ts` | 382 | 0 |
+
+**Os engines são funções puras** — testá-los é trivial, e cada teste protege contra regressões em features que **clientes reais vão estressar**. A falta de testes não é um problema cosmético: é um risco operacional toda vez que alguém mexer em `scheduleEngine.ts`.
+
+**Sugestão de primeiro teste (15 min para escrever):**
+
+```typescript
+// scheduleEngine.test.ts
+import { describe, test, expect } from 'vitest'
+import { generateSchedule } from './scheduleEngine'
+
+describe('scheduleEngine — soil multipliers', () => {
+  test('rocky soil reduces productivity by 60%', () => {
+    const trecho = makeTrecho({ soilType: 'rocky', lengthM: 100 })
+    const result = generateSchedule([trecho], [makeTeam()], MOCK_PROD, MOCK_CONFIG, [])
+    // Solo rochoso: produtividade × 0.6
+    expect(result.totalDays).toBeGreaterThan(baselineDays * 1.6)
+  })
+
+  test('hard cap of 1000 days prevents infinite loops', () => {
+    const giant = makeTrecho({ lengthM: 999_999_999 })
+    const result = generateSchedule([giant], [makeTeam()], MOCK_PROD, MOCK_CONFIG, [])
+    expect(result.workDays.length).toBeLessThanOrEqual(1000)
+  })
+})
+```
+
+---
+
+## 🎯 Plano de Ação Recomendado (atualizado pós-audit)
+
+### Sprint 0 (Quick wins — 1 dia, faz hoje)
+1. **#4** Adicionar persistência localStorage no `planejamentoStore`
+2. **#12** Corrigir Gantt mobile (`overflow-x-auto` wrapper)
+3. **T2** Aplicar `fvsSchema.parse()` e `planTrechoSchema.parse()` nas mutações dos stores (1 linha por mutação — 30 min)
+4. **Q16** Trocar checkboxes SIM/NÃO da NC por radios mutuamente exclusivos
+5. **#15** Loading state visual no botão "Gerar Cronograma"
 
 ### Sprint 1 (Crítico — 1 semana)
-1. **#4** Adicionar persistência localStorage no `planejamentoStore` (✅ Qualidade já tem)
-2. **#12** Corrigir Gantt mobile (`overflow-x-auto` wrapper)
-3. **Q13** Renderização condicional mobile da tabela FVS (cards no lugar de tabela)
-4. **Q16** Trocar checkboxes SIM/NÃO da NC por radios
+6. **T1** Auditoria de acessibilidade — adicionar `aria-label` em **todos** os botões de ícone (Planejamento + Qualidade + outros módulos). Adicionar `role="dialog"` + focus trap em modais
+7. **Q13** Renderização condicional mobile da tabela FVS (cards no lugar de tabela em <sm)
+8. **T3** `useDebouncedAction` aplicado em `runSchedule` e outros pontos pesados
+9. **T5** Setup do **Vitest** + primeiros 5 testes para `scheduleEngine.ts`
 
 ### Sprint 2 (Alto — 2 semanas)
-5. **#8 / #9** Integração Planejamento ↔ Suprimentos + Planejamento ↔ BIM 4D
-6. **Q5** Integração Qualidade ↔ RDO (FVS bloqueia/desbloqueia etapas)
-7. **#15** Loading state visual no `runSchedule()`
-8. **#7** Mover `runSchedule` para Web Worker
-9. **Q15** Auto-save de rascunho de FVS
+10. **#8 / #9** Integração Planejamento ↔ Suprimentos + Planejamento ↔ BIM 4D
+11. **Q5** Integração Qualidade ↔ RDO (FVS bloqueia/desbloqueia etapas)
+12. **#7** Mover `runSchedule` para Web Worker (descongestiona UI thread em obras grandes)
+13. **Q15** Auto-save de rascunho de FVS
+14. **T4 (mínimo)** Filtrar dados sensíveis do `partialize` da Qualidade (não persistir CPF/assinatura completa)
 
 ### Sprint 3 (Médio — 2 semanas)
-10. **#10** Integração Planejamento ↔ Mão de Obra (validação de equipe)
-11. **#11** Integração Planejamento ↔ Quantitativos (custos via SINAPI)
-12. **Q6 / Q7** Integração Qualidade ↔ Mapa + Qualidade ↔ BIM
-13. Quebrar componentes >500 linhas em sub-componentes
+15. **#10** Integração Planejamento ↔ Mão de Obra (validação de equipe)
+16. **#11** Integração Planejamento ↔ Quantitativos (custos via SINAPI)
+17. **Q6 / Q7** Integração Qualidade ↔ Mapa Interativo + Qualidade ↔ BIM
+18. Quebrar componentes >500 linhas em sub-componentes
+19. **T1 (continuação)** WCAG AA contrast audit em todos os módulos
 
 ### Sprint 4 (Baixo — 1 semana)
-14. Adicionar **Vitest** + testes para engines puros (scheduleEngine, analysisEngine, fvsPdfExport)
-15. Adicionar **react-hot-toast** para feedback consistente
-16. Migration do persist (Q3)
-17. Empty states acionáveis em vários módulos
+20. Adicionar **react-hot-toast** para feedback consistente em todas as ações de save
+21. Migration do persist (Q3) — adicionar `version` + `migrate` em todos os stores persistidos
+22. Empty states acionáveis em vários módulos
+23. Extrair `fmtDate` duplicado para `src/utils/dateFormat.ts`
+24. Skeleton loaders em operações >500ms
+
+### Sprint 5 (Hardening / Compliance — 1-2 sprints)
+25. **T4 (médio/alto)** Migrar persistência sensível para backend autenticado (PostgreSQL + Row Level Security) ou wrapper de criptografia derivada do user
+26. **T5 (continuação)** Atingir 60% de cobertura de testes nos engines puros (`scheduleEngine`, `analysisEngine`, `exportEngine`, `masterEngine`, `fvsPdfExport`)
+27. **T1 (final)** Certificação WCAG AA para entregar em editais públicos
 
 ---
 
 ## Veredito Final
 
-A plataforma tem uma **arquitetura sólida** (Zustand + engines puros + tipos fortes) e uma **UX visual madura**. Os principais débitos são:
+A plataforma tem uma **arquitetura sólida** (Zustand + engines puros + tipos fortes) e uma **UX visual madura**. A auditoria automatizada confirmou os pontos fortes, mas trouxe à luz três fraquezas que eu havia subestimado na minha análise inicial:
 
-1. **Persistência inconsistente** — Qualidade tem, Planejamento (e provavelmente outros 70% dos módulos) não. Isso é um **deal-breaker** para uma plataforma "operacional".
-2. **Integração entre módulos é menor do que a landing promete** — a "ontologia unificada" funciona em alguns lugares (RDO ↔ Planejamento) e está ausente em outros (Qualidade ↔ tudo). Cliente vai cobrar isso na primeira semana de uso.
-3. **Mobile precisa de carinho específico** — não basta colocar `overflow-x-auto`; tabelas precisam de versões "card" para 375px.
-
-Boas notícias:
-- **Zero CRÍTICO de segurança** — código é defensivo e bem escrito
-- **Engines de planejamento são impressionantes** — CPM, S-curve, ABC, simulação tudo funcionando
-- **Tipos fortes** — refatoração futura vai ser indolor
+### Pontos fortes
+- **Engines de planejamento são impressionantes** — CPM, S-curve, ABC, simulação, todos funcionando bem e bem documentados (constantes nomeadas, security caps, comentários pragmáticos)
+- **Tipagem forte** — zero `any` em ambos os módulos, refatoração futura será indolor
+- **Segurança defensiva** — zero `dangerouslySetInnerHTML`, zero `eval`, zero `Math.random` para IDs, escapes HTML/CSV em locais corretos
 - **Sem dependência de backend externo** — facilita demos e POCs offline
 
-**Pontuação geral:** 7.5/10 — pronto para POC com clientes piloto, com débitos acionáveis bem mapeados.
+### Débitos críticos
+1. **Acessibilidade quase nula (T1)** — para editais públicos brasileiros e europeus que exigem WCAG AA, **a Atlântico falha**. É um problema vendável: o agente encontrou apenas **1 `aria-label`** em ambos os módulos (no `ConformityCheckbox`)
+2. **Persistência inconsistente** — Qualidade tem (recém-adicionada), Planejamento NÃO. Em uma plataforma "operacional", perder o planejamento ao recarregar é deal-breaker
+3. **Schemas Zod definidos mas não usados (T2)** — fachada de validação. Investimento de 30min de codificação corrige
+4. **Zero testes (T5)** — em 1000+ linhas de lógica de negócio crítica. Cada deploy é uma roleta
+5. **Integração cross-module é parcial** — a "ontologia" prometida na landing é 70% verdade. Os 30% que faltam (Qualidade↔tudo, Planejamento↔Suprimentos) são exatamente os que clientes vão cobrar primeiro
+
+### Pontuação geral
+
+| Antes da auditoria | Depois da auditoria |
+|---|---|
+| 7.5/10 | **6.5/10** |
+| "Pronto para POC piloto" | "Pronto para POC piloto **com ressalvas claras**: nenhum cliente regulado / nenhum edital público até resolver Sprint 0+1" |
+
+**Recomendação executiva:**
+
+1. **Hoje (Sprint 0):** investir 1 dia para fechar os 5 quick wins. Eles não exigem refatoração, só atenção
+2. **Próximas 2 semanas (Sprint 1):** acessibilidade + testes. Estes dois sozinhos sobem a nota para 8/10 e destravam editais públicos
+3. **Próximo mês (Sprint 2-3):** integrações cross-module. Sem isso, a narrativa de "ontologia unificada" do site é vendida e não entregue
+
+A boa notícia: **nenhum dos achados é arquitetural**. Tudo é resolvível em código incremental, sem reescrever nada. A base é sólida.
