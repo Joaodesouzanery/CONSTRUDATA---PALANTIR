@@ -49,19 +49,22 @@ export function TorreDeControlePage() {
       </div>
 
       {/* ─── Desktop (lg+): vertical stack — Projetos topo / Mapa meio / Detalhes embaixo ─── */}
+      {/* Alturas FIXAS por seção para garantir que o mapa sempre tenha tamanho
+          conhecido ANTES do Leaflet inicializar. Sem isso, flex-1 com irmão
+          shrink-0 grande pode resolver para 0 e crashear o Leaflet. */}
       <div className="hidden lg:flex lg:flex-col h-full overflow-hidden">
-        {/* TOPO — Lista horizontal de projetos (~28% da altura) */}
-        <div className="shrink-0" style={{ height: '28%', minHeight: 160 }}>
+        {/* TOPO — Lista horizontal de projetos (180px fixo) */}
+        <div className="shrink-0 h-[180px]">
           <ObrasListPanel orientation="horizontal" />
         </div>
 
-        {/* MEIO — Mapa (flex grow, fica com a maior parte da tela) */}
-        <div className="flex-1 min-h-0 border-y border-[#525252]">
+        {/* MEIO — Mapa (flex grow, com altura mínima de segurança) */}
+        <div className="flex-1 min-h-[300px] border-y border-[#525252] relative">
           <ObrasMap />
         </div>
 
-        {/* EMBAIXO — Detalhes do projeto selecionado (~30% da altura) */}
-        <div className="shrink-0 overflow-y-auto" style={{ maxHeight: '30%' }}>
+        {/* EMBAIXO — Detalhes do projeto selecionado (260px fixo, scroll interno) */}
+        <div className="shrink-0 h-[260px] overflow-y-auto">
           <ObraDetailPanel />
         </div>
       </div>

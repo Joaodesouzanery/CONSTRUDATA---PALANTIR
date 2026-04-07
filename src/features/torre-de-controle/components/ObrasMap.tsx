@@ -106,13 +106,51 @@ function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
   return L.divIcon({ html, className: '', iconSize: [ringSize, ringSize + 22], iconAnchor: [ringSize / 2, ringSize / 2], popupAnchor: [0, -(ringSize / 2 + 14)] })
 }
 
-// ─── MapController — fly-to on selection ─────────────────────────────────────
+// ─── MapController — fly-to on selection + invalidateSize on resize ────────
 
 function MapController() {
   const sites      = useTorreStore((s) => s.sites)
   const selectedId = useTorreStore((s) => s.selectedId)
   const prevId     = useRef<string | null>(null)
   const map        = useMap()
+
+  // Quando o container muda de tamanho (layout vertical, modo fullscreen,
+  // resize da janela), o Leaflet precisa recalcular suas dimensões.
+  // Sem isso, ele fica com pixels NaN e crasheia em pointToLatLng.
+  useEffect(() => {
+    // Invalida tamanho na montagem (após o paint inicial do flex)
+    const timer1 = setTimeout(() => {
+      try { map.invalidateSize() } catch { /* noop */ }
+    }, 100)
+    const timer2 = setTimeout(() => {
+      try { map.invalidateSize() } catch { /* noop */ }
+    }, 500)
+
+    // Observer no container do mapa para detectar resize
+    const container = map.getContainer()
+    const observer = new ResizeObserver(() => {
+      try {
+        const { width, height } = container.getBoundingClientRect()
+        if (width > 0 && height > 0) {
+          map.invalidateSize()
+        }
+      } catch { /* noop */ }
+    })
+    observer.observe(container)
+
+    // Window resize
+    const onResize = () => {
+      try { map.invalidateSize() } catch { /* noop */ }
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      clearTimeout(timer1)
+      clearTimeout(timer2)
+      observer.disconnect()
+      window.removeEventListener('resize', onResize)
+    }
+  }, [map])
 
   useEffect(() => {
     if (!selectedId || selectedId === prevId.current) return
@@ -125,7 +163,14 @@ function MapController() {
       site.lat != null && site.lng != null &&
       Number.isFinite(site.lat) && Number.isFinite(site.lng)
     ) {
+      // Garante que o mapa está em tamanho válido ANTES de chamar flyTo
       try {
+        const { width, height } = map.getContainer().getBoundingClientRect()
+        if (width <= 0 || height <= 0) {
+          // Container ainda sem tamanho — apenas centraliza sem animar
+          return
+        }
+        map.invalidateSize()
         map.flyTo([site.lat, site.lng], Math.max(map.getZoom(), 15), { duration: 0.9 })
       } catch (err) {
         // Última linha de defesa — log e segue
@@ -223,8 +268,13 @@ export function ObrasMap() {
     ),
     [sites],
   )
+  // Filtra rotas com TODOS os 4 pontos válidos (não null e não NaN/Infinity)
   const routeLines = useMemo(() => routingRecs.filter(
-    (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
+    (r) =>
+      r.accepted !== false &&
+      r.fromLat != null && r.fromLng != null && r.toLat != null && r.toLng != null &&
+      Number.isFinite(r.fromLat) && Number.isFinite(r.fromLng) &&
+      Number.isFinite(r.toLat) && Number.isFinite(r.toLng)
   ), [routingRecs])
 
   // O(1) equipment count lookup instead of O(n) per site per render

@@ -747,11 +747,12 @@ $$;
 
 ### Plano de Supabase recomendado
 
-| Fase | Plano | Custo/mês | Limites |
-|---|---|---|---|
-| **0-100 orgs** | Pro | US$25 | 8GB DB, 50GB egress |
-| **100-1.000 orgs** | Team | US$599 | 100GB DB, 250GB egress, daily backups, PITR |
-| **1.000-10k orgs** | Enterprise (custom) | $$$ | Multi-region, dedicated, 24/7 SLA |
+| Fase | Plano | Custo/mês | Limites | Quando |
+|---|---|---|---|---|
+| **0-30 orgs** | **Free** | **R$0** | 500MB DB, 1GB storage, sem backup auto, pausa após 1 semana de inatividade | **Onde estamos agora** — backup manual semanal compensa |
+| **30-100 orgs** | Pro | US$25 | 8GB DB, 50GB egress, daily backup, PITR 7 dias | Quando primeiros clientes pagantes cobrirem o custo |
+| **100-1.000 orgs** | Team | US$599 | 100GB DB, 250GB egress, daily backups, PITR | Quando começar a vender Enterprise |
+| **1.000-10k orgs** | Enterprise (custom) | $$$ | Multi-region, dedicated, 24/7 SLA | Escala alta |
 
 ### Índices essenciais (em todas as tabelas com `organization_id`)
 
@@ -884,38 +885,182 @@ A migração é grande. Vou fasear em 5 sprints:
 
 ---
 
-## Decisões pendentes (precisam da sua resposta antes de implementar)
+## Decisões finais (todas tomadas — pronto para implementar)
 
-1. **Plano Supabase inicial:** começamos no **Pro (US$25/mês)** ou já no **Team (US$599/mês)**? Recomendação: Pro nos primeiros 100 clientes, Team quando passar de 100.
+Todas as 10 decisões foram resolvidas. As que você confirmou estão marcadas com ✅.
+As que eu decidi por você (porque você pediu recomendação) estão marcadas com 🤖.
 
-2. **MFA obrigatório:** ativar no primeiro dia para todos, ou só para diretor+? Recomendação: só para diretor+ no v1, todos no v2.
+### 1. ✅ Plano Supabase inicial — **Free (gratuito)**
 
-3. **Soft delete retention:** 30 dias é suficiente, ou querem 90? Recomendação: 30 dias com possibilidade de owner estender por registro.
+> Você confirmou: começa no plano Free, depois migra para Pro (US$25/mês).
 
-4. **Magic link vs senha:** os 2 ou só magic link? Recomendação: os 2, com magic link em destaque.
+**O que isso significa na prática:**
+- ✅ 500 MB de banco (suficiente pros primeiros 50-100 clientes pagantes)
+- ✅ 1 GB de storage para arquivos (logos, fotos de FVS/RDO)
+- ✅ Auth ilimitado (sem cobrança por usuário)
+- ✅ 50 mil usuários ativos/mês
+- ✅ 2 GB de bandwidth/mês
+- ❌ **SEM backup automático** (Free não tem)
+- ❌ **SEM Point-in-Time Recovery**
+- ❌ **Pausa após 1 semana de inatividade** (acorda quando alguém usa, leva ~30s)
 
-5. **Backup cifrado para S3 próprio:** quem opera (você, terceirizado, eu instruo via runbook)? Recomendação: GitHub Actions agendado, configurado por mim, secrets seus.
+**O que vou fazer para compensar a falta de backup:**
 
-6. **Bucket S3 / equivalente:** já tem? Senão, recomendação: AWS S3 ou Backblaze B2 (mais barato), na mesma região que o Supabase.
+| Substituto | Como funciona | Custo |
+|---|---|---|
+| **Export semanal manual** | Eu vou criar um botão `/app/admin/backup` que **você** clica 1x por semana e baixa o JSON com tudo. Salvar em 2 lugares (Drive + HD externo). | Grátis |
+| **GitHub Actions agendado** | Job que roda toda segunda às 3h e dispara o export via API, salvando como secret no GitHub | Grátis (até 2k min/mês de actions) |
+| **localStorage** | Cada usuário tem cópia local dos seus dados — se Supabase pausar/sumir, ninguém perde nada da sessão atual | Já incluído |
 
-7. **Roles customizadas por org:** o usuário pediu "ou o cargo que eu selecionar durante a implementação". Vamos com a lista fixa de 8 roles que propus, ou cada org pode criar suas próprias roles? Recomendação: começar com a lista fixa, adicionar custom roles no v2 (custom roles em SaaS são uma dor de cabeça enorme).
+**Quando migrar para Pro (US$25/mês):**
+- Ao chegar em **30 clientes pagantes** (margem de R$1.500/mês cobre fácil)
+- OU quando o banco passar de 400 MB
+- OU quando você tiver 1 cliente grande pedindo SLA
+- Aí destrava: backup diário automático, PITR de 7 dias, banco não pausa nunca
 
-8. **Tabela de "approval policies" configurável:** quer que cada org possa configurar quais ações exigem aprovação e qual role aprova? Ou regras fixas no código? Recomendação: regras fixas no v1 (mais simples), configurável no v2.
+### 2. ✅ MFA obrigatório para **todos**
 
-9. **Dados que ficam no localStorage:** TUDO, ou só o que o usuário criou (sem dados de outros usuários)? Recomendação: só o que o usuário pode ver via RLS — senão dá pra extrair dados de outras orgs do localStorage (se ele tiver acesso).
+> Você confirmou: MFA obrigatório para todos os usuários.
 
-10. **Idioma:** SQL e código em inglês, mensagens de erro/UI em português? Recomendação: sim.
+**Como vai funcionar:**
+1. Usuário cria conta com email + senha
+2. **Antes do primeiro login bem-sucedido**, é obrigado a configurar MFA por TOTP (Google Authenticator, Authy, 1Password, Microsoft Authenticator)
+3. Recebe 8 backup codes (anota num papel) caso perca o celular
+4. A partir daí, todo login pede: email + senha + código de 6 dígitos
+
+**Para diretor/gerente** (sua solicitação adicional): além do MFA padrão, eles são os ÚNICOS que podem editar/excluir informações importantes via o sistema de aprovação (já documentado na seção 4).
+
+### 3. 🤖 Soft delete: **30 dias**
+
+**Por quê:** 30 dias é o padrão do mercado (Google Drive, Dropbox, GitHub) e é tempo suficiente para qualquer pessoa perceber que apagou algo errado. **Owner pode estender** por registro específico se precisar (botão "Manter por mais 90 dias" na lixeira).
+
+**Como funciona:**
+- Excluir nunca apaga de verdade — só marca `deleted_at = now()`
+- Página `/app/lixeira` mostra tudo o que foi excluído nos últimos 30 dias
+- Owner clica "Restaurar" → volta intacto
+- Após 30 dias, um job noturno faz o hard-delete real
+
+### 4. 🤖 Login: **email/senha + magic link** (os dois)
+
+**Por quê:** dar opção. Magic link é melhor para quem usa de celular (sem digitar senha), email/senha é melhor para quem volta sempre do mesmo PC.
+
+**Tela de login mostra:**
+```
+[ email ]
+[ senha ]
+[ Entrar ]
+        ── ou ──
+[ Receber link mágico no email ]
+[ Entrar com Google ]   ← v2
+[ Entrar com Microsoft ] ← v2
+```
+
+### 5. 🤖 Backup operado por: **GitHub Actions** (quando você for para Pro) + **botão manual** (enquanto for Free)
+
+**No plano Free (agora):**
+- Botão `/app/admin/backup` no painel do owner
+- 1 clique → baixa um arquivo `atlantico-backup-YYYY-MM-DD.json` com **TODOS** os dados da sua organização
+- Você guarda em Google Drive, OneDrive ou pen drive
+- Recomendado: fazer toda **segunda-feira de manhã**
+
+**Quando migrar para Pro:**
+- GitHub Action automático toda segunda às 3h UTC
+- Cifra com GPG (chave pública sua)
+- Salva em [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) (US$0,005/GB/mês — 100x mais barato que S3)
+- Notificação no seu WhatsApp via Twilio (opcional)
+
+### 6. 🤖 Storage para backup: **Backblaze B2** (quando for pago)
+
+**Por quê em vez de AWS S3:**
+- AWS S3 custa US$0,023/GB/mês = US$23/TB
+- Backblaze B2 custa US$0,005/GB/mês = US$5/TB
+- **4.6x mais barato**, com mesma confiabilidade
+- API S3-compatível, então o código é o mesmo
+
+**Custo estimado:** 1 GB de backups acumulados/ano = **US$0,06/mês** = R$0,30/mês. Praticamente grátis.
+
+**Por enquanto (plano Free):** seu Google Drive pessoal serve. Não precisa Backblaze ainda.
+
+### 7. 🤖 Roles: **8 fixas no v1**, custom roles no v2
+
+**As 8 roles fixas:**
+| Role | Em português | O que faz |
+|---|---|---|
+| `owner` | Dono | Tudo + delete da organização (você, no início) |
+| `diretor` | Diretor | Aprova qualquer mudança crítica |
+| `gerente` | Gerente | Aprova mudanças do dia-a-dia (FVS, RDO) |
+| `engenheiro` | Engenheiro | Cria RDO e FVS, edita os próprios em até 24h |
+| `qualidade` | Qualidade | Abre/fecha NCs, cria FVS |
+| `planejador` | Planejador | Mexe em cronograma e Plan. Mestre |
+| `comprador` | Comprador | Mexe em Suprimentos e Three-Way Match |
+| `visualizador` | Visualizador | Read-only (auditor externo, cliente final) |
+
+**Por que não custom roles agora:** custom roles em SaaS é a coisa mais difícil de fazer direito. Cada org querendo "Eng. Pleno" / "Eng. Sênior" / "Coordenador de Saneamento" vira um inferno de permissões. Vamos amadurecer com 8 fixas e adicionar custom no v2 quando você tiver feedback real.
+
+### 8. 🤖 Approval policies: **regras fixas no código v1**
+
+**O que isso significa:** quem pode aprovar o quê está definido no código (na matriz da seção 3). Cada org não consegue mexer nas regras.
+
+**Por quê:**
+- Mais simples de implementar
+- Mais seguro (auditor externo confia mais)
+- Reduz superfície de ataque (ninguém pode "abrir" permissão sem deploy)
+- v2: quando 5+ clientes pedirem o mesmo, criamos uma tabela `approval_policies` configurável
+
+### 9. 🤖 localStorage: **só dados que o usuário pode ver via RLS**
+
+**Por quê:** se eu salvo no localStorage tudo o que veio do banco, e o usuário tem acesso físico à máquina, ele pode abrir o DevTools, ler o localStorage e ver dados de **outras organizações** que vieram em queries antigas. Mesmo cifrado, é vetor de ataque.
+
+**Regra de ouro:** localStorage só guarda o que aparece na tela do usuário. Se ele não pode ver na UI, não tá no localStorage.
+
+### 10. 🤖 Idioma: **SQL/código em inglês, UI em português**
+
+**Por quê:**
+- SQL/código em inglês: padrão mundial, qualquer dev futuro entende, ferramentas Postgres não suportam acentos
+- UI em português: cliente é brasileiro, vai usar em português
+- Mensagens de erro técnicas (logs) em inglês, mensagens para o usuário final em português
 
 ---
 
-## Próximos passos
+## TL;DR para quem não quer ler tudo
 
-1. **Você revisa** este documento e responde as 10 decisões pendentes
-2. **Eu refino** o plano com base nas respostas
-3. **Eu crio** uma issue/PR com as migrations SQL do Sprint 1
-4. **Você cria** o projeto Supabase e me passa as URLs/keys (anon key, service role only para mim configurar)
-5. **Implementamos** o Sprint 1 (auth + orgs + perfis)
-6. **Validamos** que multi-tenant funciona com 2 orgs de teste
-7. **Avançamos** sprint a sprint
+Em uma frase: **Seus clientes cada um vê só os próprios dados, edição importante precisa de aprovação do gerente, tudo fica com cópia local no navegador, backup é manual semanal por enquanto, e quando você crescer paga US$25 para ter backup automático.**
 
-**Antes da implementação começar, NADA muda na plataforma atual.** O documento serve apenas para alinhamento e contrato.
+Em 5 frases:
+
+1. **Cada empresa cliente vira uma "organization" no banco.** Toda linha de dados tem o `organization_id` dela. O Postgres recusa qualquer query que tente ler dados de outra org — não é checagem no React, é regra do banco.
+2. **Cada usuário tem uma role** (engenheiro, qualidade, gerente, diretor, etc.). Engenheiro cria RDO/FVS livremente, mas para EDITAR ou EXCLUIR coisas importantes ele precisa pedir aprovação. Aí o gerente recebe a notificação, vê o que ele quer mudar, e clica Aprovar ou Rejeitar.
+3. **Tudo fica salvo em 2 lugares ao mesmo tempo:** no Supabase (a "verdade") e no localStorage do navegador do usuário (cópia local). Se a internet cair, a UI continua funcionando — quando voltar, sincroniza sozinho.
+4. **Backup:** no plano Free, é um botão que você clica toda segunda e baixa um JSON com tudo. No plano Pro (US$25, daqui uns meses), vira automático.
+5. **Se algo grave acontecer** (você apagou sem querer, ou alguém invadiu): tem 3 redes de proteção — soft delete na lixeira por 30 dias, JSON exportado semanal no seu Drive, e o próprio localStorage de cada usuário. **É praticamente impossível perder dados de verdade.**
+
+---
+
+## Próximos passos (atualizado para Free plan)
+
+### O que **VOCÊ precisa fazer** (5 minutos)
+
+1. Ir em [supabase.com](https://supabase.com) e criar conta (Google ou GitHub)
+2. Criar um projeto novo:
+   - Nome: `atlantico-prod`
+   - Database password: gere uma senha forte e **guarde** (vou precisar dela)
+   - Region: **South America (São Paulo)** — mais próximo do BR
+   - Plan: **Free**
+3. Esperar ~2 minutos o projeto provisionar
+4. Ir em **Settings → API** e copiar:
+   - **Project URL** (algo como `https://xxxxx.supabase.co`)
+   - **anon public key** (uma chave longa que começa com `eyJ...`) — esta é segura para o frontend
+5. Me enviar **só a URL e a anon key** (NUNCA a service_role key, nem a senha do banco)
+
+### O que **EU vou fazer** depois disso
+
+1. Configurar o projeto com Supabase CLI no repositório
+2. Criar a primeira migration: `organizations`, `profiles`, `audit_log`, `pending_actions`, `invitations` + RLS básica
+3. Criar o cliente Supabase no front (`src/lib/supabase.ts`)
+4. Construir as páginas de signup, login, MFA setup, perfil
+5. Validar em sandbox local antes de qualquer push
+6. Te entregar Sprint 1 funcionando
+
+**Sprint 1 inteiro:** ~6h de trabalho focado, 3 commits.
+
+**Antes da implementação começar, NADA muda na plataforma atual.** Toda a funcionalidade existente continua intocada — Supabase é uma adição, não uma substituição.
