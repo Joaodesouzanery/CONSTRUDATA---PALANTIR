@@ -31,6 +31,16 @@ interface PlanejamentoMestreState {
   updateActivity: (id: string, patch: Partial<MasterActivity>) => void
   removeActivity: (id: string) => void
 
+  // Wizard "Criar Cronograma do Zero"
+  createBlankProject: (input: {
+    projectName: string
+    networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+    startDate: string                // yyyy-MM-dd
+    endDate:   string                // yyyy-MM-dd
+    fronts:    string[]              // nomes das frentes/comunidades (Level 1)
+    includeServices: boolean         // gera "Principais Serviços" (Level 2) sob cada frente
+  }) => void
+
   // Baselines
   saveBaseline: (name: string) => void
   loadBaseline: (id: string) => void
@@ -83,6 +93,109 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>((set, 
     set((s) => ({
       activities: s.activities.filter((a) => a.id !== id),
     })),
+
+  /**
+   * Cria um cronograma macro do zero a partir de inputs mínimos do wizard.
+   * Limpa qualquer atividade existente e gera uma estrutura WBS de 2-3 níveis:
+   *   1                    Projeto (Level 0)
+   *   1.1, 1.2, ...        Frentes/comunidades (Level 1)
+   *   1.1.1, 1.2.1, ...    "Principais Serviços" (Level 2, opcional)
+   *
+   * Datas de cada frente são distribuídas igualmente entre startDate e endDate.
+   */
+  createBlankProject: ({ projectName, networkType, startDate, endDate, fronts, includeServices }) => {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const totalMs = Math.max(1, end.getTime() - start.getTime())
+    const totalDays = Math.max(1, Math.round(totalMs / (1000 * 60 * 60 * 24)))
+
+    const newActivities: MasterActivity[] = []
+
+    // ── Level 0: Projeto raiz
+    const rootId = crypto.randomUUID()
+    newActivities.push({
+      id:               rootId,
+      wbsCode:          '1',
+      name:             projectName,
+      parentId:         null,
+      level:            0,
+      plannedStart:     startDate,
+      plannedEnd:       endDate,
+      trendStart:       startDate,
+      trendEnd:         endDate,
+      durationDays:     totalDays,
+      percentComplete:  0,
+      status:           'not_started',
+      isMilestone:      false,
+      weight:           100,
+      networkType,
+    })
+
+    // ── Level 1: frentes/comunidades
+    const frontCount = Math.max(1, fronts.length)
+    const daysPerFront = Math.max(1, Math.floor(totalDays / frontCount))
+    const weightPerFront = Math.round(100 / frontCount)
+
+    fronts.forEach((frontName, idx) => {
+      const frontId = crypto.randomUUID()
+      const frontStart = new Date(start)
+      frontStart.setDate(frontStart.getDate() + idx * daysPerFront)
+      const frontEnd = new Date(frontStart)
+      frontEnd.setDate(frontEnd.getDate() + daysPerFront)
+      const frontStartStr = frontStart.toISOString().slice(0, 10)
+      const frontEndStr = frontEnd.toISOString().slice(0, 10)
+
+      newActivities.push({
+        id:               frontId,
+        wbsCode:          `1.${idx + 1}`,
+        name:             frontName || `Frente ${idx + 1}`,
+        parentId:         rootId,
+        level:            1,
+        plannedStart:     frontStartStr,
+        plannedEnd:       frontEndStr,
+        trendStart:       frontStartStr,
+        trendEnd:         frontEndStr,
+        durationDays:     daysPerFront,
+        percentComplete:  0,
+        status:           'not_started',
+        isMilestone:      false,
+        weight:           weightPerFront,
+        networkType,
+      })
+
+      // ── Level 2 (opcional): Principais Serviços
+      if (includeServices) {
+        newActivities.push({
+          id:               crypto.randomUUID(),
+          wbsCode:          `1.${idx + 1}.1`,
+          name:             'Principais Serviços',
+          parentId:         frontId,
+          level:            2,
+          plannedStart:     frontStartStr,
+          plannedEnd:       frontEndStr,
+          trendStart:       frontStartStr,
+          trendEnd:         frontEndStr,
+          durationDays:     daysPerFront,
+          percentComplete:  0,
+          status:           'not_started',
+          isMilestone:      false,
+          weight:           weightPerFront,
+          networkType,
+        })
+      }
+    })
+
+    set({
+      activities:        newActivities,
+      baselines:         [],
+      activeBaselineId:  null,
+      derivedActivities: [],
+      whatIfAdjustments: [],
+      originalSCurve:    [],
+      simulatedSCurve:   [],
+      programacaoSemanal: {},
+    })
+  },
 
   saveBaseline: (name) =>
     set((s) => ({

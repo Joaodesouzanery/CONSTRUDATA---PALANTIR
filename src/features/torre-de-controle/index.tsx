@@ -35,16 +35,33 @@ export function TorreDeControlePage() {
         ))}
       </div>
 
-      {/* Desktop: all three panels side-by-side */}
-      {/* Mobile: only the active panel */}
-      <div className="flex h-full overflow-hidden">
-        <div className={`${mobileTab === 'lista' ? 'flex flex-1 lg:flex-initial' : 'hidden'} lg:flex flex-col`}>
-          <ObrasListPanel />
+      {/* ─── Mobile: only the active panel (vertical fallback) ─── */}
+      <div className="flex lg:hidden flex-col h-full overflow-hidden">
+        <div className={`${mobileTab === 'lista' ? 'flex flex-1' : 'hidden'} flex-col`}>
+          <ObrasListPanel orientation="vertical" />
         </div>
-        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'} lg:flex lg:flex-1`}>
+        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'}`}>
           <ObrasMap />
         </div>
-        <div className={`${mobileTab === 'detalhes' ? 'flex flex-1 lg:flex-initial' : 'hidden'} lg:flex flex-col`}>
+        <div className={`${mobileTab === 'detalhes' ? 'flex flex-1' : 'hidden'} flex-col`}>
+          <ObraDetailPanel />
+        </div>
+      </div>
+
+      {/* ─── Desktop (lg+): vertical stack — Projetos topo / Mapa meio / Detalhes embaixo ─── */}
+      <div className="hidden lg:flex lg:flex-col h-full overflow-hidden">
+        {/* TOPO — Lista horizontal de projetos (~28% da altura) */}
+        <div className="shrink-0" style={{ height: '28%', minHeight: 160 }}>
+          <ObrasListPanel orientation="horizontal" />
+        </div>
+
+        {/* MEIO — Mapa (flex grow, fica com a maior parte da tela) */}
+        <div className="flex-1 min-h-0 border-y border-[#525252]">
+          <ObrasMap />
+        </div>
+
+        {/* EMBAIXO — Detalhes do projeto selecionado (~30% da altura) */}
+        <div className="shrink-0 overflow-y-auto" style={{ maxHeight: '30%' }}>
           <ObraDetailPanel />
         </div>
       </div>

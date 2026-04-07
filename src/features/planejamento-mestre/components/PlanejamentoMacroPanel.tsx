@@ -3,7 +3,7 @@
  * baseline management, activity CRUD, and export (PDF / Excel / PNG).
  */
 import { useRef, useState, useMemo } from 'react'
-import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal } from 'lucide-react'
+import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
@@ -397,7 +397,12 @@ function exportPdf() {
 
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
-export function PlanejamentoMacroPanel() {
+interface PlanejamentoMacroPanelProps {
+  /** Callback opcional para abrir o wizard "Criar Cronograma do Zero" */
+  onCreateProject?: () => void
+}
+
+export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPanelProps = {}) {
   const activities    = usePlanejamentoMestreStore((s) => s.activities)
   const baselines     = usePlanejamentoMestreStore((s) => s.baselines)
   const activeBlId    = usePlanejamentoMestreStore((s) => s.activeBaselineId)
@@ -504,6 +509,15 @@ export function PlanejamentoMacroPanel() {
           </button>
         </div>
 
+        {onCreateProject && (
+          <button
+            onClick={onCreateProject}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#f97316]/50 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/10 transition-colors"
+            title="Criar cronograma do zero (substitui o atual)"
+          >
+            <Sparkles size={13} />Criar Cronograma
+          </button>
+        )}
         <button
           onClick={() => setShowNewForm(true)}
           className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]"

@@ -28,7 +28,7 @@ const NAV_GROUPS = [
     items: [
       { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/app/gestao-360'          },
       { label: 'Relatório 360',   icon: ClipboardList,    to: '/app/relatorio360'        },
-      { label: 'Torre Control',   icon: Radio,            to: '/app/torre-de-controle'   },
+      { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
     ],
   },
   {

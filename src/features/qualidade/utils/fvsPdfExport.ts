@@ -116,21 +116,40 @@ function buildHtml(fvs: FVS): string {
   <meta name="color-scheme" content="light only" />
   <title>FVS Nº ${escapeHtml(fvs.identificationNo)} — ${fmtDate(fvs.date)}</title>
   <style>
-    /* Força modo claro mesmo se o navegador estiver em dark mode */
-    :root { color-scheme: light only; }
+    /* Força modo claro mesmo se o navegador/SO estiver em dark mode */
+    :root {
+      color-scheme: light only;
+      forced-color-adjust: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     @page { size: A4; margin: 12mm 12mm 14mm 12mm; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box; margin: 0; padding: 0;
+      forced-color-adjust: none;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     html, body {
       background: #ffffff !important;
+      background-color: #ffffff !important;
       color: #0e1f38 !important;
     }
     body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
       font-size: 9pt;
     }
+    /* Defesa em profundidade — todo elemento estrutural fica em branco/escuro */
+    table, thead, tbody, tr, td, th, div, span, p, h1, h2, h3 {
+      background-color: transparent;
+      color: #0e1f38;
+    }
     @media (prefers-color-scheme: dark) {
-      html, body { background: #ffffff !important; color: #0e1f38 !important; }
-      table, td, th, div { background-color: inherit; color: inherit; }
+      html, body { background: #ffffff !important; background-color: #ffffff !important; color: #0e1f38 !important; }
+      table, td, th, div, span, p { background-color: inherit !important; color: inherit !important; }
+    }
+    @media print {
+      html, body { background: #ffffff !important; background-color: #ffffff !important; }
     }
 
     /* ── Header (matches formulário Integra) ──────────────────────────── */

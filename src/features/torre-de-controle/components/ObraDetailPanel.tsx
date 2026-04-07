@@ -234,7 +234,7 @@ export function ObraDetailPanel() {
 
   return (
     <div
-      className="flex flex-col border-l border-[#525252] bg-[#333333] shrink-0 overflow-hidden w-full lg:w-[380px]"
+      className="flex flex-col bg-[#333333] overflow-hidden w-full lg:border-l-0 border-l border-[#525252]"
     >
       {/* Header */}
       <div className="flex items-start justify-between px-4 py-3 border-b border-[#525252] shrink-0 gap-2">

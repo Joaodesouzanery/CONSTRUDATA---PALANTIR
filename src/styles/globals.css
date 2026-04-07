@@ -327,6 +327,20 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Accent, status colors stay the same in both modes */
 
+/* ─── Leaflet z-index containment ──────────────────────────────────────────── */
+/* Leaflet usa z-index ~400 por padrão nos panes/popups/controls — isso vaza
+   por cima de modais que usam Tailwind z-50 (ex.: ObraDialog "Nova Obra").
+   Forçamos os panes para baixo aqui. Modais de aplicação usam z-[1000]+. */
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom { z-index: 10 !important; }
+
+.leaflet-popup-pane { z-index: 20 !important; }
+.leaflet-tooltip-pane { z-index: 25 !important; }
+
+/* Modais de aplicação SEMPRE acima do mapa */
+.modal-overlay { z-index: 1000 !important; }
+
 /* ─── Mobile Optimizations ──────────────────────────────────────────────────── */
 @media (max-width: 767px) {
   .leaflet-container {

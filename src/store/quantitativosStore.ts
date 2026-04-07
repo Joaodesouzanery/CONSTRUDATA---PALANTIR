@@ -39,6 +39,14 @@ interface QuantitativosState {
   removeItem(id: string): void
   resetItems(): void
 
+  // Wizard "Criar Orçamento do Zero"
+  createBlankBudget(input: {
+    costBase:            CostBaseSource
+    bdiGlobal:           number
+    obraType:            'saneamento' | 'edificacao' | 'pavimentacao' | 'geral'
+    includeStarterItems: boolean
+  }): void
+
   // Cross-module import (lazy, read-only)
   importFromPreConstrucao(): Promise<void>
   importFromSuprimentos(): Promise<void>
@@ -113,6 +121,61 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
     set((s) => ({ currentItems: s.currentItems.filter((it) => it.id !== id) })),
 
   resetItems: () => set({ currentItems: [] }),
+
+  /**
+   * Cria um orçamento limpo a partir do wizard.
+   * - Limpa currentItems
+   * - Seta costBase e bdiGlobal
+   * - Opcionalmente popula 5 itens placeholder do tipo de obra (qty=0, cost=0)
+   *   para o usuário só preencher os números.
+   */
+  createBlankBudget: ({ costBase, bdiGlobal, obraType, includeStarterItems }) => {
+    const starterItems: Omit<OrcamentoItem, 'id' | 'totalCost'>[] = []
+    if (includeStarterItems) {
+      const STARTER_TEMPLATES: Record<typeof obraType, Omit<OrcamentoItem, 'id' | 'totalCost'>[]> = {
+        saneamento: [
+          { code: 'SINAPI-93358', description: 'Escavação mecanizada de vala (até 1.5m, solo de 1ª categoria)', unit: 'm³', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Escavação',     source: costBase },
+          { code: 'SINAPI-89714', description: 'Tubo PVC PBA, JEI, DN 200mm, para rede de água',                  unit: 'm',  quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Tubulação',    source: costBase },
+          { code: 'SINAPI-93382', description: 'Reaterro mecanizado de vala com compactação',                     unit: 'm³', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Reaterro',     source: costBase },
+          { code: 'SINAPI-74166', description: 'Poço de visita em concreto pré-moldado (DN 1000mm)',              unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'PV',           source: costBase },
+          { code: 'SINAPI-95995', description: 'Recomposição de pavimento asfáltico (CBUQ, 5cm)',                 unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Pavimentação', source: costBase },
+        ],
+        edificacao: [
+          { code: 'SINAPI-92775', description: 'Concreto FCK 25 MPa usinado bombeado',                            unit: 'm³', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Concreto',     source: costBase },
+          { code: 'SINAPI-92778', description: 'Aço CA-50 8.0mm corte, dobra e montagem',                         unit: 'kg', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Armação',      source: costBase },
+          { code: 'SINAPI-87496', description: 'Alvenaria de bloco cerâmico furado 14x19x39cm',                   unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Alvenaria',    source: costBase },
+          { code: 'SINAPI-87905', description: 'Reboco/emboço para parede interna',                               unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Revestimento', source: costBase },
+          { code: 'SINAPI-88489', description: 'Pintura latex PVA, 2 demãos',                                     unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Acabamento',   source: costBase },
+        ],
+        pavimentacao: [
+          { code: 'SINAPI-72947', description: 'Regularização e compactação de subleito',                         unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Subleito',     source: costBase },
+          { code: 'SINAPI-95878', description: 'Sub-base de brita graduada simples (BGS), 15cm',                  unit: 'm³', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Sub-base',     source: costBase },
+          { code: 'SINAPI-95995', description: 'Concreto betuminoso usinado a quente (CBUQ), 5cm',                unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Capa',         source: costBase },
+          { code: 'SINAPI-94275', description: 'Meio-fio pré-moldado de concreto (15x30cm)',                      unit: 'm',  quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Meio-fio',     source: costBase },
+          { code: 'SINAPI-94322', description: 'Sinalização horizontal de pavimento — tinta acrílica',            unit: 'm²', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Sinalização',  source: costBase },
+        ],
+        geral: [
+          { code: 'NOVO-001', description: 'Item 1 — descrever',  unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Geral', source: costBase },
+          { code: 'NOVO-002', description: 'Item 2 — descrever',  unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Geral', source: costBase },
+          { code: 'NOVO-003', description: 'Item 3 — descrever',  unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Geral', source: costBase },
+          { code: 'NOVO-004', description: 'Item 4 — descrever',  unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Geral', source: costBase },
+          { code: 'NOVO-005', description: 'Item 5 — descrever',  unit: 'un', quantity: 0, unitCost: 0, bdi: bdiGlobal, category: 'Geral', source: costBase },
+        ],
+      }
+      starterItems.push(...STARTER_TEMPLATES[obraType])
+    }
+
+    set({
+      currentItems: starterItems.map((item) => ({
+        ...item,
+        id: crypto.randomUUID(),
+        totalCost: calcTotal(item),
+      })),
+      costBase,
+      bdiGlobal,
+      activeTab: 'composicao',
+    })
+  },
 
   // ── Cross-module import ───────────────────────────────────────────────────────
 

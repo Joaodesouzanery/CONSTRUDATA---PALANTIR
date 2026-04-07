@@ -12,11 +12,12 @@
  *   - Bloco "Fechamento da FVS" (4 campos de assinatura)
  */
 import { useState } from 'react'
-import { Save, Plus, Trash2 } from 'lucide-react'
+import { Save, Plus, Trash2, Printer } from 'lucide-react'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { FVS_ITEMS_TEMPLATE } from '../schemas'
-import type { FvsItem, FvsConformity, FvsProblemAction } from '@/types'
+import { printFvsPDF } from '../utils/fvsPdfExport'
+import type { FVS, FvsItem, FvsConformity, FvsProblemAction } from '@/types'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -263,6 +264,40 @@ export function NovaFvsPanel() {
       setSubmitError(err instanceof Error ? err.message : 'Erro ao salvar FVS.')
       setIsSubmitting(false)
     }
+  }
+
+  /**
+   * Pré-visualização do PDF antes de salvar.
+   * Constrói um objeto FVS temporário (com id/number/createdAt placeholders)
+   * sem persistir nada no store, e abre a janela de impressão em modo claro.
+   */
+  function handlePreviewPdf() {
+    setSubmitError(null)
+    if (!identificationNo.trim() || !contractNo.trim() || !date) {
+      setSubmitError('Preencha Nº FVS, Contrato e Data antes de pré-visualizar.')
+      return
+    }
+    const previewFvs: FVS = {
+      id:                'preview',
+      number:            nextNumber,
+      documentCode,
+      revision,
+      identificationNo,
+      contractNo,
+      date,
+      items,
+      problems:          problems.map((p) => ({ ...p, id: crypto.randomUUID() })),
+      ncRequired,
+      ncNumber,
+      responsibleLeader,
+      weldTrackingNo,
+      welderSignature,
+      qualitySignature,
+      logoId:            selectedLogoId,
+      createdAt:         new Date().toISOString(),
+      updatedAt:         new Date().toISOString(),
+    }
+    printFvsPDF(previewFvs)
   }
 
   return (
@@ -594,9 +629,19 @@ export function NovaFvsPanel() {
         <div className="text-xs text-[#a3a3a3]">
           FVS Nº <span className="font-bold text-[#f5f5f5]">#{nextNumber}</span> · Os dados são salvos no histórico do sistema
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {submitError && <span className="text-red-400 text-sm font-medium">{submitError}</span>}
           {submitSuccess && <span className="text-emerald-400 text-sm font-medium">✓ FVS salva com sucesso!</span>}
+          <button
+            type="button"
+            onClick={handlePreviewPdf}
+            disabled={isSubmitting || submitSuccess}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] border border-[#525252] rounded-lg font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Abrir pré-visualização do PDF em modo claro (sem salvar)"
+          >
+            <Printer size={16} />
+            Pré-visualizar PDF
+          </button>
           <button
             type="submit"
             disabled={isSubmitting || submitSuccess}
