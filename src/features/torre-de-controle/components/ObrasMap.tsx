@@ -118,8 +118,19 @@ function MapController() {
     if (!selectedId || selectedId === prevId.current) return
     prevId.current = selectedId
     const site = sites.find((s) => s.id === selectedId)
-    if (site?.lat != null && site.lng != null) {
-      map.flyTo([site.lat, site.lng], Math.max(map.getZoom(), 15), { duration: 0.9 })
+    // Guard final: rejeita lat/lng null, undefined, NaN ou Infinity.
+    // Leaflet quebra com "Invalid LatLng" se algum desses chegar no flyTo.
+    if (
+      site &&
+      site.lat != null && site.lng != null &&
+      Number.isFinite(site.lat) && Number.isFinite(site.lng)
+    ) {
+      try {
+        map.flyTo([site.lat, site.lng], Math.max(map.getZoom(), 15), { duration: 0.9 })
+      } catch (err) {
+        // Última linha de defesa — log e segue
+        console.warn('[ObrasMap] flyTo falhou:', err)
+      }
     }
   }, [selectedId, sites, map])
 
@@ -203,7 +214,15 @@ export function ObrasMap() {
 
   // ── Memoized derivations ─────────────────────────────────────────────────────
   const mapCSS     = useMemo(() => getMapCSS(isDark), [isDark])
-  const withCoords = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  // Filtra sites com coordenadas válidas (não null e não NaN/Infinity).
+  // Sem essa defesa, um site com lat/lng = NaN quebra o Leaflet (Invalid LatLng).
+  const withCoords = useMemo(
+    () => sites.filter((s) =>
+      s.lat != null && s.lng != null &&
+      Number.isFinite(s.lat) && Number.isFinite(s.lng)
+    ),
+    [sites],
+  )
   const routeLines = useMemo(() => routingRecs.filter(
     (r) => r.accepted !== false && r.fromLat !== null && r.fromLng !== null && r.toLat !== null && r.toLng !== null
   ), [routingRecs])
@@ -241,7 +260,9 @@ export function ObrasMap() {
   const makeClickHandler  = useCallback((id: string) => () => selectSite(id), [selectSite])
   const makeDragHandler   = useCallback((id: string) => (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
     const { lat, lng } = e.target.getLatLng()
-    updateLocation(id, lat, lng)
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      updateLocation(id, lat, lng)
+    }
   }, [updateLocation])
 
   // Circle radius: proportional to totalArea (min 200m, max 800m)

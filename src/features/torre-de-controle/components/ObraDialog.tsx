@@ -93,8 +93,11 @@ export function ObraDialog() {
   function close() { setEditing(null); setConfirmDelete(false) }
 
   function onSubmit(values: SiteFormValues) {
-    const lat = values.lat ? Number(values.lat) : null
-    const lng = values.lng ? Number(values.lng) : null
+    // Parse coords com defesa contra NaN: string vazia → null, valor inválido → null
+    const parsedLat = values.lat ? Number(values.lat) : null
+    const parsedLng = values.lng ? Number(values.lng) : null
+    const lat = parsedLat !== null && Number.isFinite(parsedLat) ? parsedLat : null
+    const lng = parsedLng !== null && Number.isFinite(parsedLng) ? parsedLng : null
     const payload = { ...values, description: values.description ?? '', lat, lng, risks: existing?.risks ?? [] }
 
     if (isNew) {
