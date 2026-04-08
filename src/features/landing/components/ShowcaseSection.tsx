@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Calendar, ListChecks, FileText, Calculator, Monitor, Map, ArrowRight } from 'lucide-react'
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
+import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
 
 /* ── Section divider ─────────────────────────────────────────────── */
 function SectionDivider({ num, tag }: { num: string; tag: string }) {
@@ -280,11 +281,11 @@ export function ShowcaseSection() {
       {/* ── F) CTA Block ───────────────────────────────────────────── */}
       <div style={{ background: '#333333' }} className="py-20">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-center gap-4">
-          <FlowHoverButton variant="accent" href="#contato">
-            Solicitar Demonstração
+          <FlowHoverButton variant="ghost" href={LOGIN_URL}>
+            Login
           </FlowHoverButton>
-          <FlowHoverButton variant="ghost" href="/app/gestao-360">
-            Comece a Construir
+          <FlowHoverButton variant="accent" href={CALENDLY_URL} target="_blank">
+            Agendar Demonstração
           </FlowHoverButton>
         </div>
       </div>

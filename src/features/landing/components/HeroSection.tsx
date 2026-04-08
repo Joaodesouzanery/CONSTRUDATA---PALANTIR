@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
+import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
 import atlanticoHeroImg from '@/assets/atlantico-hero.jpg'
 
 const SLIDES = [
@@ -255,12 +256,12 @@ export function HeroSection() {
             </p>
 
             <div className="flex flex-wrap gap-3 mb-12">
-              <FlowHoverButton variant="accent" href="#contato">
-                Solicitar Demonstração
+              <FlowHoverButton variant="ghost" href={LOGIN_URL}>
+                Login
               </FlowHoverButton>
-              <FlowHoverButton variant="ghost" href="#modulos">
+              <FlowHoverButton variant="accent" href={CALENDLY_URL} target="_blank">
                 <ArrowRight size={14} />
-                Explorar Módulos
+                Agendar Demonstração
               </FlowHoverButton>
             </div>
 

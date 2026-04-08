@@ -1,4 +1,5 @@
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
+import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
 
 export function FooterCTA() {
   return (
@@ -27,9 +28,19 @@ export function FooterCTA() {
           Construa o futuro com a inteligência e a precisão da Atlântico.
         </p>
 
-        <FlowHoverButton variant="accent" href="#contato" className="text-sm px-8 py-3">
-          Agendar uma Demonstração Técnica Gratuita
-        </FlowHoverButton>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <FlowHoverButton variant="ghost" href={LOGIN_URL} className="text-sm px-8 py-3">
+            Login
+          </FlowHoverButton>
+          <FlowHoverButton
+            variant="accent"
+            href={CALENDLY_URL}
+            target="_blank"
+            className="text-sm px-8 py-3"
+          >
+            Agendar Demonstração
+          </FlowHoverButton>
+        </div>
       </div>
     </section>
   )

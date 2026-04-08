@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { LandingHeader } from './components/LandingHeader'
 import { HeroSection } from './components/HeroSection'
 import { OntologiaSection } from './components/OntologiaSection'
+import { MethodologySection } from './components/MethodologySection'
 import { ModulosOverviewSection } from './components/ModulosOverviewSection'
 import { FeatureDeepSection } from './components/FeatureDeepSection'
 import { ShowcaseSection } from './components/ShowcaseSection'
@@ -33,6 +34,7 @@ export function LandingPage() {
       <LandingHeader />
       <HeroSection />
       <OntologiaSection />
+      <MethodologySection />
       <ModulosOverviewSection />
       <FeatureDeepSection />
       <ShowcaseSection />

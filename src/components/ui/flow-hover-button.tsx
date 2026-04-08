@@ -6,6 +6,10 @@ interface FlowHoverButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElem
   children?: React.ReactNode
   variant?: 'accent' | 'ghost' | 'white'
   href?: string
+  /** Para links externos (ex.: Calendly). Quando definido, força rel seguro. */
+  target?: '_blank' | '_self' | '_parent' | '_top'
+  /** Sobrescrever rel — por padrão, links com target="_blank" recebem 'noopener noreferrer nofollow' */
+  rel?: string
 }
 
 export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
@@ -14,6 +18,8 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
   variant = 'accent',
   className,
   href,
+  target,
+  rel,
   ...props
 }) => {
   const base = cn(
@@ -31,8 +37,13 @@ export const FlowHoverButton: React.FC<FlowHoverButtonProps> = ({
   )
 
   if (href) {
+    // Segurança: links externos (target=_blank) sempre recebem rel seguro
+    // para prevenir tabnabbing (CWE-1022) e remover Referer header.
+    const isExternal = target === '_blank'
+    const safeRel = rel ?? (isExternal ? 'noopener noreferrer nofollow' : undefined)
+
     return (
-      <a href={href} className={base}>
+      <a href={href} target={target} rel={safeRel} className={base}>
         {icon && <span className="shrink-0">{icon}</span>}
         <span>{children}</span>
       </a>

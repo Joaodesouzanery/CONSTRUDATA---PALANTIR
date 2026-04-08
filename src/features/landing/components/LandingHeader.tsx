@@ -4,10 +4,17 @@ import { FlowHoverButton } from '@/components/ui/flow-hover-button'
 
 const NAV_LINKS = [
   { label: 'Plataforma', href: '#plataforma' },
+  { label: 'Metodologia', href: '#metodologia' },
   { label: 'Módulos', href: '#modulos' },
   { label: 'Funcionalidades', href: '#funcionalidades' },
-  { label: 'Contato', href: '#contato' },
 ]
+
+// URL pública do Calendly do João — link verificado
+export const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
+
+// Rota de login da aplicação (redireciona para o módulo padrão por enquanto;
+// futuro: rota /login dedicada quando Supabase Auth estiver pronto).
+export const LOGIN_URL = '/app/gestao-360'
 
 export function LandingHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -56,13 +63,25 @@ export function LandingHeader() {
             ))}
           </nav>
 
-          {/* Right actions */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* Right actions — Login + Agendar Demonstração lado a lado */}
+          <div className="hidden md:flex items-center gap-3">
             <button className="text-white/75 hover:text-white transition-colors p-1">
               <Search size={16} />
             </button>
-            <FlowHoverButton variant="accent" href="/app/gestao-360" className="text-xs py-2 px-4">
-              Começar Agora
+            <FlowHoverButton
+              variant="ghost"
+              href={LOGIN_URL}
+              className="text-xs py-2 px-4"
+            >
+              Login
+            </FlowHoverButton>
+            <FlowHoverButton
+              variant="accent"
+              href={CALENDLY_URL}
+              target="_blank"
+              className="text-xs py-2 px-4"
+            >
+              Agendar Demonstração
             </FlowHoverButton>
           </div>
 
@@ -91,9 +110,23 @@ export function LandingHeader() {
                 {link.label}
               </a>
             ))}
-            <FlowHoverButton variant="accent" href="/app/gestao-360" className="w-full justify-center mt-2 text-xs">
-              Começar Agora
-            </FlowHoverButton>
+            <div className="flex flex-col gap-2 mt-2">
+              <FlowHoverButton
+                variant="ghost"
+                href={LOGIN_URL}
+                className="w-full justify-center text-xs"
+              >
+                Login
+              </FlowHoverButton>
+              <FlowHoverButton
+                variant="accent"
+                href={CALENDLY_URL}
+                target="_blank"
+                className="w-full justify-center text-xs"
+              >
+                Agendar Demonstração
+              </FlowHoverButton>
+            </div>
           </div>
         </div>
       )}
