@@ -11,7 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
   CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
-  ShieldAlert, ShieldCheck,
+  ShieldCheck, Info,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
@@ -79,10 +79,11 @@ function FieldError({ msg }: { msg?: string }) {
 const inputCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors'
 const selectCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-[#f97316]/50 transition-colors'
 
-// ─── Integração Qualidade↔RDO: banner de FVS pendentes ──────────────────────
+// ─── Integração Qualidade↔RDO: banner informativo de FVS ───────────────────
 //
-// Renderiza um aviso visual quando há FVS pendente (sem conformidade preenchida)
-// na data do RDO. Auditoria #Q5 — integração ALTA Qualidade↔RDO.
+// Auditoria #Q5 — integração Qualidade ↔ RDO.
+// Mostra o status das FVS da data do RDO de forma PURAMENTE INFORMATIVA.
+// Não bloqueia o salvamento do RDO em hipótese alguma.
 
 function FvsIntegrationBanner({ date }: { date: string }) {
   // Subscribe ao store de Qualidade — força re-render quando FVS muda
@@ -99,13 +100,12 @@ function FvsIntegrationBanner({ date }: { date: string }) {
 
   if (!date) return null
   if (!pending.hasPending && completed.length === 0) {
-    // Nenhuma FVS criada hoje — mostra dica leve
+    // Nenhuma FVS — info leve, sem alarme
     return (
       <div className="flex items-start gap-3 p-3 rounded-lg border border-[#525252] bg-[#3d3d3d]">
-        <ShieldCheck size={16} className="text-[#a3a3a3] shrink-0 mt-0.5" />
+        <Info size={16} className="text-[#a3a3a3] shrink-0 mt-0.5" />
         <div className="text-xs text-[#a3a3a3] leading-relaxed">
-          Nenhuma FVS registrada para esta data. Lembre o time de qualidade
-          de criar as fichas de inspeção dos serviços executados.
+          Nenhuma FVS registrada para esta data — sem problema para salvar o RDO.
         </div>
       </div>
     )
@@ -113,22 +113,22 @@ function FvsIntegrationBanner({ date }: { date: string }) {
 
   if (pending.hasPending) {
     return (
-      <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#f59e0b]/50 bg-[#f59e0b]/10">
-        <ShieldAlert size={18} className="text-[#f59e0b] shrink-0 mt-0.5" />
+      <div className="flex items-start gap-3 p-4 rounded-lg border border-blue-700/40 bg-blue-900/15">
+        <Info size={18} className="text-blue-300 shrink-0 mt-0.5" />
         <div className="flex-1">
-          <div className="text-sm text-[#f59e0b] font-bold mb-1">
-            ⚠ {pending.pendingCount} FVS {pending.pendingCount === 1 ? 'pendente' : 'pendentes'} nesta data
+          <div className="text-sm text-blue-200 font-semibold mb-1">
+            {pending.pendingCount} FVS {pending.pendingCount === 1 ? 'em aberto' : 'em aberto'} nesta data
+            {completed.length > 0 && ` · ${completed.length} concluída${completed.length > 1 ? 's' : ''}`}
           </div>
-          <div className="text-xs text-[#fbbf24] leading-relaxed mb-2">
-            Há ficha{pending.pendingCount > 1 ? 's' : ''} de verificação com itens sem conformidade
-            preenchida. O ideal é fechar essas FVS antes de salvar este RDO para garantir
-            rastreabilidade total.
+          <div className="text-xs text-blue-200/85 leading-relaxed mb-2">
+            Estas fichas de verificação ainda têm itens em aberto. Sem problema
+            para salvar o RDO — só fica como lembrete para o time de qualidade fechar quando puder.
           </div>
-          <ul className="text-xs text-[#fbbf24]/90 space-y-0.5 mb-2">
+          <ul className="text-xs text-blue-200/80 space-y-0.5 mb-2">
             {pending.pendingFvss.slice(0, 5).map((f) => (
               <li key={f.id}>
                 • <span className="font-mono">{f.identificationNo}</span> — {f.responsibleLeader || 'sem responsável'}
-                {f.ncRequired && <span className="ml-2 px-1.5 py-0.5 rounded bg-red-900/40 text-red-200 text-[9px] font-bold">NC</span>}
+                {f.ncRequired && <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-200 text-[9px] font-bold">NC</span>}
               </li>
             ))}
             {pending.pendingFvss.length > 5 && (
@@ -137,7 +137,7 @@ function FvsIntegrationBanner({ date }: { date: string }) {
           </ul>
           <a
             href="/app/qualidade"
-            className="inline-flex items-center gap-1 text-xs text-[#f59e0b] hover:text-[#fbbf24] underline"
+            className="inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200 underline"
           >
             Abrir Qualidade →
           </a>

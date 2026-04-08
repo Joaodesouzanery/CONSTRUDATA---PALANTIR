@@ -1,0 +1,28 @@
+{
+  "name": "atlantico-videos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vídeos da Atlântico Platform — landing, marketing, demos (Remotion 4)",
+  "type": "module",
+  "scripts": {
+    "preview": "remotion studio",
+    "render:hero": "remotion render HeroLoop out/hero-loop.mp4",
+    "render:demo": "remotion render ProductDemo30s out/product-demo-30s.mp4",
+    "render:linkedin": "remotion render LinkedInTeaser60s out/linkedin-teaser-60s.mp4",
+    "render:all": "npm run render:hero && npm run render:demo && npm run render:linkedin"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.4.0"
+  },
+  "remotion": {
+    "entryPoint": "src/index.ts"
+  }
+}
