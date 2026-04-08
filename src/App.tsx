@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
+import { LoginPage }         from '@/features/auth/LoginPage'
 import { lazy, Suspense } from 'react'
 
 // ─── Lazy-loaded modules (code-split per route) ──────────────────────────────
@@ -52,6 +53,9 @@ function App() {
       <Routes>
         {/* Landing page — no AppShell */}
         <Route path="/" element={<LandingPage />} />
+
+        {/* Login page — no AppShell, sem cadastro público */}
+        <Route path="/login" element={<LoginPage />} />
 
         {/* App shell with all dashboard routes prefixed by /app */}
         <Route path="/app" element={<AppShell />}>

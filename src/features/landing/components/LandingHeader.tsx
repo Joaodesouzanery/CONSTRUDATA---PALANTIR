@@ -12,9 +12,8 @@ const NAV_LINKS = [
 // URL pública do Calendly do João — link verificado
 export const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
-// Rota de login da aplicação (redireciona para o módulo padrão por enquanto;
-// futuro: rota /login dedicada quando Supabase Auth estiver pronto).
-export const LOGIN_URL = '/app/gestao-360'
+// Rota de login: página dedicada com form email/senha + MFA (preparado para Supabase Auth)
+export const LOGIN_URL = '/login'
 
 export function LandingHeader() {
   const [menuOpen, setMenuOpen] = useState(false)

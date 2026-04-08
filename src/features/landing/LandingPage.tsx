@@ -5,6 +5,7 @@ import { OntologiaSection } from './components/OntologiaSection'
 import { MethodologySection } from './components/MethodologySection'
 import { ModulosOverviewSection } from './components/ModulosOverviewSection'
 import { FeatureDeepSection } from './components/FeatureDeepSection'
+import { ImpactStatementSection } from './components/ImpactStatementSection'
 import { ShowcaseSection } from './components/ShowcaseSection'
 import { AllModulesGrid } from './components/AllModulesGrid'
 import { FooterCTA } from './components/FooterCTA'
@@ -37,6 +38,7 @@ export function LandingPage() {
       <MethodologySection />
       <ModulosOverviewSection />
       <FeatureDeepSection />
+      <ImpactStatementSection />
       <ShowcaseSection />
       <AllModulesGrid />
       <FooterCTA />

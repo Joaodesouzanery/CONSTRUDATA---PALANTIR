@@ -1,9 +1,11 @@
 /**
  * RestricoesPanel — CRUD table + modal for LPS Restrictions (Análise de Restrições).
  */
-import { useState } from 'react'
-import { Plus, Trash2, AlertTriangle, X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Trash2, AlertTriangle, X, ShieldAlert, Download } from 'lucide-react'
 import { useLpsStore } from '@/store/lpsStore'
+import { useQualidadeStore } from '@/store/qualidadeStore'
+import { getOpenNcsAsRestrictions } from '@/store/crossModuleSync'
 import type { LpsRestriction, LpsRestrictionCategory, LpsRestrictionStatus } from '@/types'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -134,6 +136,46 @@ export function RestricoesPanel() {
     setForm((f) => ({ ...f, tags: f.tags.filter((t) => t !== tag) }))
   }
 
+  // ─── Integração Qualidade ↔ LPS — NCs abertas viram restrições ────────────
+  // Subscribe ao store de Qualidade para reatividade
+  const fvss = useQualidadeStore((s) => s.fvss)
+  const openNcs = useMemo(() => {
+    void fvss // dependency
+    return getOpenNcsAsRestrictions()
+  }, [fvss])
+
+  // Filtra NCs que ainda NÃO foram importadas como restrição
+  // Critério simples: tag "nc:NUMERO" presente em alguma restrição existente
+  const importedNcNumbers = useMemo(
+    () => new Set(
+      restrictions
+        .flatMap((r) => r.tags)
+        .filter((t) => t.startsWith('nc:'))
+        .map((t) => t.replace('nc:', '')),
+    ),
+    [restrictions],
+  )
+  const newNcs = openNcs.filter((nc) => !importedNcNumbers.has(nc.ncNumber))
+
+  function importNcAsRestriction(nc: typeof openNcs[number]) {
+    addRestriction({
+      tema:             `NC ${nc.ncNumber} — FVS #${nc.fvsNumber}`,
+      categoria:        'projeto_engenharia',
+      descricao:        nc.description,
+      impacto:          'Não conformidade aberta no controle de qualidade',
+      responsavel:      nc.responsibleLeader,
+      prazoRemocao:     '',
+      acoesNecessarias: 'Tratar conforme procedimento de NC',
+      tags:             ['qualidade', 'auto', `nc:${nc.ncNumber}`],
+      observacoes:      `Importado automaticamente da FVS #${nc.fvsNumber} em ${new Date().toLocaleDateString('pt-BR')}.`,
+      status:           'identificada',
+    })
+  }
+
+  function importAllNcs() {
+    newNcs.forEach((nc) => importNcAsRestriction(nc))
+  }
+
   return (
     <div className="p-6 flex flex-col gap-6">
       {/* Header + KPIs */}
@@ -152,6 +194,55 @@ export function RestricoesPanel() {
           <Plus size={14} /> Nova Restrição
         </button>
       </div>
+
+      {/* Integração Qualidade ↔ LPS — NCs abertas como restrições sugeridas */}
+      {newNcs.length > 0 && (
+        <div className="rounded-xl border-2 border-[#f59e0b]/40 bg-[#f59e0b]/10 p-4">
+          <div className="flex items-start gap-3 mb-3">
+            <ShieldAlert size={20} className="text-[#f59e0b] shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-[#fbbf24] mb-1">
+                {newNcs.length} {newNcs.length === 1 ? 'Não Conformidade aberta no Controle de Qualidade' : 'Não Conformidades abertas no Controle de Qualidade'}
+              </h3>
+              <p className="text-xs text-[#fbbf24]/85 leading-relaxed">
+                Cada NC aberta na Qualidade deveria virar uma <strong>restrição</strong> no Constraint
+                Register para entrar no fluxo Lean. Você pode importar individualmente ou de uma vez só.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={importAllNcs}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f59e0b] hover:bg-[#d97706] text-[#1c1917] text-xs font-bold transition-colors"
+            >
+              <Download size={13} />
+              Importar todas
+            </button>
+          </div>
+          <ul className="space-y-1.5 ml-8">
+            {newNcs.slice(0, 5).map((nc) => (
+              <li key={nc.fvsId} className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex-1 min-w-0">
+                  <span className="font-mono font-bold text-[#fbbf24]">{nc.ncNumber}</span>
+                  <span className="text-[#fbbf24]/70 mx-2">·</span>
+                  <span className="text-[#fbbf24]/85 truncate">{nc.description}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => importNcAsRestriction(nc)}
+                  className="shrink-0 px-2 py-0.5 text-[10px] font-semibold border border-[#f59e0b]/50 text-[#fbbf24] hover:bg-[#f59e0b]/20 rounded transition-colors"
+                >
+                  Importar
+                </button>
+              </li>
+            ))}
+            {newNcs.length > 5 && (
+              <li className="text-[10px] text-[#fbbf24]/60 italic">
+                ... e mais {newNcs.length - 5} NCs. Use "Importar todas" para incluir todas de uma vez.
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">

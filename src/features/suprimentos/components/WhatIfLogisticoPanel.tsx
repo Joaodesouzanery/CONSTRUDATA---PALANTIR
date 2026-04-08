@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import type { WhatIfResult } from '@/store/suprimentosStore'
 import { cn } from '@/lib/utils'
+import { PlanejamentoImpactWidget } from '@/components/shared/PlanejamentoImpactWidget'
 
 interface Simulation {
   id: string
@@ -80,6 +81,9 @@ export function WhatIfLogisticoPanel() {
 
   return (
     <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
+      {/* Cross-module integration widget — propaga atraso para o Planejamento */}
+      <PlanejamentoImpactWidget />
+
       {/* Form card */}
       <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
         <h2 className="text-sm font-bold text-[#f5f5f5] mb-4">Simulador de Cenário Logístico</h2>

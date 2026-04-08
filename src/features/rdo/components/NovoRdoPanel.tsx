@@ -5,15 +5,18 @@
  *           Georreferenciamento, Observações e Ocorrências.
  * Plus: photo upload (base64, max 20 files, 5 MB each).
  */
-import { useState, useRef } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState, useRef, useMemo } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
   CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
+  ShieldAlert, ShieldCheck,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
+import { useQualidadeStore } from '@/store/qualidadeStore'
+import { checkPendingFvsForDate, getCompletedFvsForDate } from '@/store/crossModuleSync'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
 import type { RdoEquipmentEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus } from '@/types'
@@ -76,6 +79,85 @@ function FieldError({ msg }: { msg?: string }) {
 const inputCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]/50 transition-colors'
 const selectCls = 'w-full bg-[#484848] border border-[#5e5e5e] rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-[#f97316]/50 transition-colors'
 
+// ─── Integração Qualidade↔RDO: banner de FVS pendentes ──────────────────────
+//
+// Renderiza um aviso visual quando há FVS pendente (sem conformidade preenchida)
+// na data do RDO. Auditoria #Q5 — integração ALTA Qualidade↔RDO.
+
+function FvsIntegrationBanner({ date }: { date: string }) {
+  // Subscribe ao store de Qualidade — força re-render quando FVS muda
+  const fvss = useQualidadeStore((s) => s.fvss)
+
+  const { pending, completed } = useMemo(() => {
+    if (!date) return { pending: { hasPending: false, pendingCount: 0, pendingFvss: [], ncOpen: 0 }, completed: [] }
+    return {
+      pending:   checkPendingFvsForDate(date),
+      completed: getCompletedFvsForDate(date),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, fvss])
+
+  if (!date) return null
+  if (!pending.hasPending && completed.length === 0) {
+    // Nenhuma FVS criada hoje — mostra dica leve
+    return (
+      <div className="flex items-start gap-3 p-3 rounded-lg border border-[#525252] bg-[#3d3d3d]">
+        <ShieldCheck size={16} className="text-[#a3a3a3] shrink-0 mt-0.5" />
+        <div className="text-xs text-[#a3a3a3] leading-relaxed">
+          Nenhuma FVS registrada para esta data. Lembre o time de qualidade
+          de criar as fichas de inspeção dos serviços executados.
+        </div>
+      </div>
+    )
+  }
+
+  if (pending.hasPending) {
+    return (
+      <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#f59e0b]/50 bg-[#f59e0b]/10">
+        <ShieldAlert size={18} className="text-[#f59e0b] shrink-0 mt-0.5" />
+        <div className="flex-1">
+          <div className="text-sm text-[#f59e0b] font-bold mb-1">
+            ⚠ {pending.pendingCount} FVS {pending.pendingCount === 1 ? 'pendente' : 'pendentes'} nesta data
+          </div>
+          <div className="text-xs text-[#fbbf24] leading-relaxed mb-2">
+            Há ficha{pending.pendingCount > 1 ? 's' : ''} de verificação com itens sem conformidade
+            preenchida. O ideal é fechar essas FVS antes de salvar este RDO para garantir
+            rastreabilidade total.
+          </div>
+          <ul className="text-xs text-[#fbbf24]/90 space-y-0.5 mb-2">
+            {pending.pendingFvss.slice(0, 5).map((f) => (
+              <li key={f.id}>
+                • <span className="font-mono">{f.identificationNo}</span> — {f.responsibleLeader || 'sem responsável'}
+                {f.ncRequired && <span className="ml-2 px-1.5 py-0.5 rounded bg-red-900/40 text-red-200 text-[9px] font-bold">NC</span>}
+              </li>
+            ))}
+            {pending.pendingFvss.length > 5 && (
+              <li className="italic">... e mais {pending.pendingFvss.length - 5}</li>
+            )}
+          </ul>
+          <a
+            href="/app/qualidade"
+            className="inline-flex items-center gap-1 text-xs text-[#f59e0b] hover:text-[#fbbf24] underline"
+          >
+            Abrir Qualidade →
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // completed > 0 && !pending — tudo OK
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-emerald-700/40 bg-emerald-900/15">
+      <ShieldCheck size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+      <div className="text-xs text-emerald-300 leading-relaxed">
+        ✓ {completed.length} FVS {completed.length === 1 ? 'concluída' : 'concluídas'} nesta data —
+        rastreabilidade de qualidade em dia.
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function NovoRdoPanel() {
@@ -84,7 +166,7 @@ export function NovoRdoPanel() {
   const nextNumber = rdos.length + 1
 
   // react-hook-form for core fields (rdoSchema)
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<RdoFormData>({
+  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<RdoFormData>({
     resolver: zodResolver(rdoSchema),
     defaultValues: {
       date:        todayStr(),
@@ -345,6 +427,9 @@ export function NovoRdoPanel() {
     setRdoNumber(rdos.length + 1)
   }
 
+  // Watch da data do RDO para alimentar o banner de integração com Qualidade
+  const watchedDate = useWatch({ control, name: 'date' }) as string
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -361,6 +446,9 @@ export function NovoRdoPanel() {
           <span className="text-[#a3a3a3] text-sm">RDO #{rdoNumber}</span>
         </div>
       </div>
+
+      {/* Integração Qualidade ↔ RDO — banner de FVS pendentes na data */}
+      <FvsIntegrationBanner date={watchedDate} />
 
       <form onSubmit={handleSubmit(onValid)} className="space-y-4">
 
