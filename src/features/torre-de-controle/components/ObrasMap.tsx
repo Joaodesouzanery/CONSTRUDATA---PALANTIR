@@ -321,7 +321,7 @@ export function ObrasMap() {
 
   return (
     <div
-      className="flex-1 relative overflow-hidden"
+      className="absolute inset-0 overflow-hidden"
       style={{
         background: '#111',
         ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 9999 } : {}),

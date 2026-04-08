@@ -40,7 +40,7 @@ export function TorreDeControlePage() {
         <div className={`${mobileTab === 'lista' ? 'flex flex-1' : 'hidden'} flex-col`}>
           <ObrasListPanel orientation="vertical" />
         </div>
-        <div className={`${mobileTab === 'mapa' ? 'flex flex-1' : 'hidden'}`}>
+        <div className={`${mobileTab === 'mapa' ? 'flex flex-1 relative' : 'hidden'}`}>
           <ObrasMap />
         </div>
         <div className={`${mobileTab === 'detalhes' ? 'flex flex-1' : 'hidden'} flex-col`}>
