@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Users, Clock, ShieldCheck, AlertTriangle, MapPin } from 'lucide-react'
+import { Users, Clock, ShieldCheck, AlertTriangle, MapPin, Upload } from 'lucide-react'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { cn } from '@/lib/utils'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
 
 // Re-export so index.tsx can keep using this import path
 export type { MaoDeObraTab } from '@/store/maoDeObraStore'
@@ -38,6 +40,8 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
       violations: s.violations,
     }))
   )
+  const addWorker = useMaoDeObraStore((s) => s.addWorker)
+  const [importOpen, setImportOpen] = useState(false)
 
   const kpis = useMemo(() => {
     const today     = new Date().toISOString().slice(0, 10)
@@ -108,15 +112,41 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
   return (
     <div className="flex flex-col gap-4 px-6 pt-6 pb-0">
       {/* Title row */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15">
-          <Users size={18} className="text-[#f97316]" />
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15">
+            <Users size={18} className="text-[#f97316]" />
+          </div>
+          <div>
+            <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
+            <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, frotas, ausências e folha de pagamento</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
-          <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, frotas, ausências e folha de pagamento</p>
-        </div>
+        <button
+          onClick={() => setImportOpen(true)}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          title="Importar funcionários de Excel/CSV"
+        >
+          <Upload size={14} />
+          Importar Funcionários
+        </button>
       </div>
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Funcionários"
+        description="Aceita .xlsx, .xls ou .csv. CPF é mascarado automaticamente (LGPD)"
+        config={WORKER_IMPORT_CONFIG}
+        templateFilename="atlantico-funcionarios-template.xlsx"
+        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'funcionário' : 'funcionários'}`}
+        onCommit={(rows) => {
+          rows.forEach((w) => addWorker({
+            ...w,
+            certifications: [],
+          }))
+        }}
+      />
 
       {/* KPI cards — 2 cols on mobile, 5 on xl */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">

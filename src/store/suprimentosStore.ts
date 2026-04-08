@@ -121,6 +121,23 @@ export interface WhatIfResult {
   }[]
 }
 
+// ─── Cadastro leve de fornecedores ─────────────────────────────────────────
+// Histórico: o sistema antigo guardava `supplier` como string crua dentro de PO.
+// Para alimentar o módulo de Suprimentos com lista oficial de fornecedores
+// (importável via XLSX/CSV), criamos uma entidade `Supplier` separada.
+// Os POs continuam a referenciar pelo nome — backward compatible.
+export interface Supplier {
+  id:           string   // 's-' + crypto.randomUUID().slice(0, 8)
+  cnpj:         string
+  name:         string
+  category:     string
+  contactName:  string
+  phone:        string
+  email:        string
+  paymentTerms: string
+  createdAt:    string   // ISO
+}
+
 interface SuprimentosState {
   purchaseOrders:     PurchaseOrder[]
   receipts:           GoodsReceipt[]
@@ -130,6 +147,7 @@ interface SuprimentosState {
   forecasts:          DemandForecast[]
   requisitions:       Requisition[]
   frameworkAgreements: FrameworkAgreement[]
+  suppliers:          Supplier[]
 
   // Estoque Inteligente
   depositos:           DepositoVirtual[]
@@ -143,6 +161,11 @@ interface SuprimentosState {
   addPO:    (po: PurchaseOrder) => void
   updatePO: (id: string, patch: Partial<PurchaseOrder>) => void
   deletePO: (id: string) => void
+
+  // CRUD — Suppliers (cadastro de fornecedores)
+  addSupplier:    (s: Omit<Supplier, 'id' | 'createdAt'>) => void
+  updateSupplier: (id: string, patch: Partial<Omit<Supplier, 'id' | 'createdAt'>>) => void
+  removeSupplier: (id: string) => void
 
   // Receipts + Invoices
   addReceipt: (receipt: GoodsReceipt) => void
@@ -210,6 +233,31 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
   reservas:           mockReservas,
   leadTimeRecords:    mockLeadTimeRecords,
   selectedDepositoId: mockDepositos[0]?.id ?? null,
+
+  // Suppliers — começa vazio; importável via Excel/CSV no SuprimentosHeader
+  suppliers:          [],
+
+  addSupplier: (s) =>
+    set((state) => ({
+      suppliers: [
+        ...state.suppliers,
+        {
+          ...s,
+          id: 's-' + crypto.randomUUID().slice(0, 8),
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    })),
+
+  updateSupplier: (id, patch) =>
+    set((state) => ({
+      suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    })),
+
+  removeSupplier: (id) =>
+    set((state) => ({
+      suppliers: state.suppliers.filter((s) => s.id !== id),
+    })),
 
   addPO: (po) =>
     set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
@@ -467,5 +515,6 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       movimentacoes:       [],
       reservas:            [],
       leadTimeRecords:     [],
+      suppliers:           [],
     }),
 }))

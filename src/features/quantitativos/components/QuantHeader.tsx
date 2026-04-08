@@ -2,9 +2,12 @@
  * QuantHeader — top navigation bar for the Quantitativos e Orçamento module.
  * Accent color: #8b5cf6 (violet-500)
  */
-import { Calculator, Download, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { Calculator, Download, Sparkles, Upload } from 'lucide-react'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportToCsv, exportToXlsx } from '../utils/exportEngine'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { ORCAMENTO_IMPORT_CONFIG } from '@/lib/importConfigs'
 import type { QuantTab } from '@/types'
 
 const TABS: { key: QuantTab; label: string }[] = [
@@ -22,7 +25,8 @@ interface QuantHeaderProps {
 }
 
 export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
-  const { activeTab, setActiveTab, currentItems, bdiGlobal } = useQuantitativosStore()
+  const { activeTab, setActiveTab, currentItems, bdiGlobal, addItems } = useQuantitativosStore()
+  const [importOpen, setImportOpen] = useState(false)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
@@ -50,6 +54,14 @@ export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
             </button>
           )}
           <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            title="Importar orçamento de um Excel ou CSV"
+          >
+            <Upload size={15} />
+            Importar
+          </button>
+          <button
             onClick={() => exportToCsv(currentItems)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
           >
@@ -66,6 +78,17 @@ export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
           </button>
         </div>
       </div>
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Orçamento"
+        description="Aceita .xlsx, .xls ou .csv no template Atlântico"
+        config={ORCAMENTO_IMPORT_CONFIG}
+        templateFilename="atlantico-orcamento-template.xlsx"
+        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'item' : 'itens'}`}
+        onCommit={(rows) => addItems(rows)}
+      />
 
       {/* Tab bar */}
       <div className="overflow-x-auto scrollbar-hide">

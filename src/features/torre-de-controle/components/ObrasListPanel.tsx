@@ -1,6 +1,9 @@
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { OBRA_IMPORT_CONFIG } from '@/lib/importConfigs'
 import type { ConstructionSite, ObraStatus } from '@/types'
 
 const STATUS_LABEL: Record<ObraStatus, string> = {
@@ -34,6 +37,29 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
   const selectedId = useTorreStore((s) => s.selectedId)
   const selectSite = useTorreStore((s) => s.selectSite)
   const setEditing = useTorreStore((s) => s.setEditing)
+  const addSite    = useTorreStore((s) => s.addSite)
+  const [importOpen, setImportOpen] = useState(false)
+
+  // Modal único de import — usado tanto no modo horizontal quanto vertical
+  const importModal = (
+    <ImportModal
+      open={importOpen}
+      onClose={() => setImportOpen(false)}
+      title="Importar Obras"
+      description="Aceita .xlsx, .xls ou .csv no template Atlântico"
+      config={OBRA_IMPORT_CONFIG}
+      templateFilename="atlantico-obras-template.xlsx"
+      commitLabel={(n) => `Importar ${n} ${n === 1 ? 'obra' : 'obras'}`}
+      onCommit={(rows) => {
+        rows.forEach((obra) => {
+          addSite({
+            ...obra,
+            risks: [],
+          })
+        })
+      }}
+    />
+  )
 
   if (orientation === 'horizontal') {
     return (
@@ -44,14 +70,25 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             <span className="text-xs font-bold text-[#f5f5f5]">PROJETOS</span>
             <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
           </div>
-          <button
-            onClick={() => setEditing('new')}
-            className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors px-2 py-1 rounded border border-[#f97316]/30"
-          >
-            <Plus size={12} />
-            Nova Obra
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
+              title="Importar obras de Excel/CSV"
+            >
+              <Upload size={11} />
+              Importar
+            </button>
+            <button
+              onClick={() => setEditing('new')}
+              className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors px-2 py-1 rounded border border-[#f97316]/30"
+            >
+              <Plus size={12} />
+              Nova Obra
+            </button>
+          </div>
         </div>
+        {importModal}
 
         {/* Horizontal scroll strip */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
@@ -91,14 +128,24 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
           <span className="text-xs font-bold text-[#f5f5f5]">Obras</span>
           <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
         </div>
-        <button
-          onClick={() => setEditing('new')}
-          className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors"
-        >
-          <Plus size={13} />
-          Nova Obra
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            title="Importar"
+          >
+            <Upload size={11} />
+          </button>
+          <button
+            onClick={() => setEditing('new')}
+            className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors"
+          >
+            <Plus size={13} />
+            Nova Obra
+          </button>
+        </div>
       </div>
+      {importModal}
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">

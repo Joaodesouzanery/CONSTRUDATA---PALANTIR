@@ -1,6 +1,10 @@
+import { useState } from 'react'
+import { Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
 
 export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif'
 
@@ -33,6 +37,8 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
       estoqueItens:   s.estoqueItens,
     }))
   )
+  const addSupplier = useSuprimentosStore((s) => s.addSupplier)
+  const [importOpen, setImportOpen] = useState(false)
 
   const visibleTabs = ALL_TABS.filter((t) => t.section === section)
 
@@ -78,7 +84,7 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
         ))}
       </div>
 
-      {/* Tab bar + exception badge */}
+      {/* Tab bar + exception badge + import */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1 bg-[#3d3d3d] border border-[#525252] rounded-lg p-1 flex-wrap">
           {visibleTabs.map((tab) => (
@@ -105,7 +111,27 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
             {openExceptions} exceção{openExceptions > 1 ? 'ões' : ''} aberta{openExceptions > 1 ? 's' : ''}
           </span>
         )}
+
+        <button
+          onClick={() => setImportOpen(true)}
+          className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          title="Importar fornecedores de Excel/CSV"
+        >
+          <Upload size={13} />
+          Importar Fornecedores
+        </button>
       </div>
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Fornecedores"
+        description="Aceita .xlsx, .xls ou .csv no template Atlântico"
+        config={SUPPLIER_IMPORT_CONFIG}
+        templateFilename="atlantico-fornecedores-template.xlsx"
+        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'fornecedor' : 'fornecedores'}`}
+        onCommit={(rows) => rows.forEach((s) => addSupplier(s))}
+      />
     </div>
   )
 }

@@ -2,9 +2,12 @@
  * PlanejamentoHeader — top navigation and action bar for the Planejamento module.
  * Accent color: #f97316 (orange-500)
  */
-import { CalendarClock, Play, Download, Printer, AlertTriangle } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarClock, Play, Download, Printer, AlertTriangle, Upload } from 'lucide-react'
 import { usePlanejamentoStore, type PlanejamentoTab } from '@/store/planejamentoStore'
 import { exportFullProjectCsv } from '../utils/exportEngine'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { TRECHO_IMPORT_CONFIG } from '@/lib/importConfigs'
 
 const TABS: { key: PlanejamentoTab; label: string }[] = [
   { key: 'config',     label: 'Configuração'       },
@@ -24,7 +27,9 @@ export function PlanejamentoHeader() {
     isScheduleDirty, runSchedule,
     ganttRows, abcItems, projectEndDate,
     teams,
+    addTrecho,
   } = usePlanejamentoStore()
+  const [importOpen, setImportOpen] = useState(false)
 
   function handleExportCsv() {
     const teamNames = teams.map((t) => t.name)
@@ -59,6 +64,14 @@ export function PlanejamentoHeader() {
             Gerar Planejamento
           </button>
           <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            title="Importar trechos de um Excel ou CSV"
+          >
+            <Upload size={15} />
+            Importar Trechos
+          </button>
+          <button
             onClick={handleExportCsv}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
           >
@@ -74,6 +87,19 @@ export function PlanejamentoHeader() {
           </button>
         </div>
       </div>
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Trechos"
+        description="Aceita .xlsx, .xls ou .csv no template Atlântico"
+        config={TRECHO_IMPORT_CONFIG}
+        templateFilename="atlantico-trechos-template.xlsx"
+        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'trecho' : 'trechos'}`}
+        onCommit={(rows) => {
+          rows.forEach((t) => addTrecho(t))
+        }}
+      />
 
       {/* Dirty warning */}
       {isScheduleDirty && (
