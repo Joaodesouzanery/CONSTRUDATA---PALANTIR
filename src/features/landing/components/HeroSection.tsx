@@ -207,17 +207,16 @@ export function HeroSection() {
         backgroundImage: `url(${atlanticoHeroImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
-        filter: 'blur(2px)',
-        transform: 'scale(1.04)',
-        opacity: 0.65,
+        transform: 'scale(1.02)',
+        opacity: 0.95,
       }} />
-      {/* Dark overlay — escurece bordas (onde o texto fica) e mantém o centro mais visível */}
+      {/* Gradiente lateral — escurece só o lado esquerdo (onde mora o texto) */}
       <div className="absolute inset-0 z-0" style={{
-        background: 'radial-gradient(ellipse at center, rgba(44,44,44,0.35) 0%, rgba(44,44,44,0.78) 70%, #2c2c2c 100%)',
+        background: 'linear-gradient(90deg, rgba(11,26,48,0.92) 0%, rgba(11,26,48,0.72) 35%, rgba(11,26,48,0.20) 70%, rgba(11,26,48,0) 100%)',
       }} />
-      {/* Vinheta superior + inferior para legibilidade do header e CTA */}
+      {/* Vinheta superior + inferior suave para legibilidade do header e CTA */}
       <div className="absolute inset-0 z-0" style={{
-        background: 'linear-gradient(180deg, rgba(44,44,44,0.85) 0%, rgba(44,44,44,0) 18%, rgba(44,44,44,0) 75%, rgba(44,44,44,0.92) 100%)',
+        background: 'linear-gradient(180deg, rgba(11,26,48,0.55) 0%, rgba(11,26,48,0) 18%, rgba(11,26,48,0) 75%, rgba(11,26,48,0.65) 100%)',
       }} />
       <div className="relative z-10">
       <div className="max-w-7xl mx-auto px-6 py-20 w-full">
