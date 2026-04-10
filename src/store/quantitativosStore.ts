@@ -100,6 +100,9 @@ interface QuantitativosState {
   // BDI
   setBdiGlobal(pct: number): void
 
+  // Recalculate all item totals with the current bdiGlobal
+  calculateBudget(): void
+
   loadDemoData(): void
   clearData(): void
 
@@ -383,6 +386,14 @@ export const useQuantitativosStore = create<QuantitativosState>()(
   // ── BDI ──────────────────────────────────────────────────────────────────────
 
   setBdiGlobal: (pct) => set({ bdiGlobal: Math.max(0, Math.min(100, pct)) }),
+
+  calculateBudget: () =>
+    set((s) => ({
+      currentItems: s.currentItems.map((it) => ({
+        ...it,
+        totalCost: it.quantity * it.unitCost * (1 + s.bdiGlobal / 100),
+      })),
+    })),
 
   // ── Demo / Clear ─────────────────────────────────────────────────────────────
 

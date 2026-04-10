@@ -11,8 +11,9 @@ import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { BomPendentePanel }    from './components/BomPendentePanel'
-import { ExcelImportModal }     from './components/ExcelImportModal'
-import { NovoMaterialModal }    from './components/NovoMaterialModal'
+import { ExcelImportModal }          from './components/ExcelImportModal'
+import { NovoMaterialModal }         from './components/NovoMaterialModal'
+import { ImportConsolidadoModal }    from './components/ImportConsolidadoModal'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 
@@ -21,6 +22,7 @@ export function SuprimentosPage() {
   const [activeTab, setActiveTab] = useState<SuprimentosTab>('conciliacao')
   const [showImport, setShowImport] = useState(false)
   const [showNovoMaterial, setShowNovoMaterial] = useState(false)
+  const [showConsolidado, setShowConsolidado] = useState(false)
 
   // Reset tab when section changes
   useEffect(() => {
@@ -52,24 +54,35 @@ export function SuprimentosPage() {
           </button>
         </div>
 
-        {activeSection === 'materiais' && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {activeSection === 'suprimentos' && (
             <button
-              onClick={() => setShowNovoMaterial(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
-            >
-              <Plus size={13} />
-              Adicionar Material
-            </button>
-            <button
-              onClick={() => setShowImport(true)}
+              onClick={() => setShowConsolidado(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
             >
               <FileSpreadsheet size={13} />
-              Importar Excel
+              Importar Consolidado
             </button>
-          </div>
-        )}
+          )}
+          {activeSection === 'materiais' && (
+            <>
+              <button
+                onClick={() => setShowNovoMaterial(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
+              >
+                <Plus size={13} />
+                Adicionar Material
+              </button>
+              <button
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+              >
+                <FileSpreadsheet size={13} />
+                Importar Excel
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <SuprimentosHeader
@@ -89,8 +102,9 @@ export function SuprimentosPage() {
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
 
-      {showImport       && <ExcelImportModal onClose={() => setShowImport(false)} />}
-      {showNovoMaterial && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
+      {showImport        && <ExcelImportModal onClose={() => setShowImport(false)} />}
+      {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
+      {showConsolidado   && <ImportConsolidadoModal onClose={() => setShowConsolidado(false)} />}
     </div>
   )
 }

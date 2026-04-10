@@ -8,6 +8,7 @@ import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportToCsv, exportToXlsx } from '../utils/exportEngine'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { ORCAMENTO_IMPORT_CONFIG } from '@/lib/importConfigs'
+import { CalcWizardModal } from './CalcWizardModal'
 import type { QuantTab } from '@/types'
 
 const TABS: { key: QuantTab; label: string }[] = [
@@ -27,6 +28,7 @@ interface QuantHeaderProps {
 export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
   const { activeTab, setActiveTab, currentItems, bdiGlobal, addItems } = useQuantitativosStore()
   const [importOpen, setImportOpen] = useState(false)
+  const [calcOpen, setCalcOpen] = useState(false)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
@@ -43,6 +45,15 @@ export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setCalcOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white transition-colors shadow-lg"
+            style={{ backgroundColor: ACCENT }}
+            title="Calcular Quantitativo — fluxo OrcaFascio"
+          >
+            <Calculator size={15} />
+            Calcular
+          </button>
           {onCreateBudget && (
             <button
               onClick={onCreateBudget}
@@ -78,6 +89,8 @@ export function QuantHeader({ onCreateBudget }: QuantHeaderProps = {}) {
           </button>
         </div>
       </div>
+
+      {calcOpen && <CalcWizardModal onClose={() => setCalcOpen(false)} />}
 
       <ImportModal
         open={importOpen}

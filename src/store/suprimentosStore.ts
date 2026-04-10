@@ -207,6 +207,9 @@ interface SuprimentosState {
   calcSemaforo:         (depositoId: string, lpsActivityId: string, semana: number) => 'verde' | 'amarelo' | 'vermelho'
   runWhatIf:            (params: { activityId: string; semanaOriginal: number; semanaSimulada: number; depositoId: string }) => WhatIfResult
 
+  // Bulk import from Consolidado / Resumo planilhas
+  importConsolidado: (items: import('@/features/suprimentos/utils/parseSuprimentosConsolidado').ConsolidadoItem[], target: 'po' | 'estoque') => void
+
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
@@ -668,6 +671,50 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       resultado: 'inviavel',
       mensagem: `Cenário inviável: ${insuff.length} item(ns) em ruptura sem pedidos em andamento.`,
       itensInsuficientes: insuff,
+    }
+  },
+
+  importConsolidado: (items, target) => {
+    const now = new Date().toISOString().slice(0, 10)
+    if (target === 'po') {
+      // Create one PO per item that has a saldo > 0 (still needs to be ordered)
+      const newPOs: PurchaseOrder[] = items
+        .filter((it) => it.saldo > 0 || it.qtdTotal > 0)
+        .map((it) => ({
+          id:               'po-' + crypto.randomUUID().slice(0, 8),
+          code:             'OC-' + it.codigo.slice(0, 6).toUpperCase().replace(/\s/g, ''),
+          supplier:         it.fornecedor || '—',
+          responsible:      '',
+          issuedDate:       now,
+          expectedDelivery: '',
+          status:           'open' as const,
+          items: [{
+            id:           'poi-' + crypto.randomUUID().slice(0, 8),
+            poItemId:     '',
+            description:  it.descricao,
+            unit:         it.unidade,
+            quantity:     it.saldo > 0 ? it.saldo : it.qtdTotal,
+            unitPrice:    it.valorUnitario,
+            totalPrice:   (it.saldo > 0 ? it.saldo : it.qtdTotal) * it.valorUnitario,
+          }],
+        }))
+      set((s) => ({ purchaseOrders: [...s.purchaseOrders, ...newPOs] }))
+    } else {
+      // Create or update estoque items
+      const newEstoque = items.map((it) => ({
+        id:                  'ie-' + crypto.randomUUID().slice(0, 8),
+        depositoId:          get().selectedDepositoId ?? get().depositos[0]?.id ?? 'dep-default',
+        descricao:           it.descricao,
+        unidade:             it.unidade,
+        qtdDisponivel:       it.qtdTotal - it.qtdPedida,
+        qtdReservada:        0,
+        qtdTransito:         it.qtdPedida,
+        estoqueMinimo:       0,
+        custoUnitario:       it.valorUnitario || undefined,
+        categoria:           undefined as string | undefined,
+        fornecedorPrincipal: it.fornecedor || undefined,
+      }))
+      set((s) => ({ estoqueItens: [...s.estoqueItens, ...newEstoque] }))
     }
   },
 

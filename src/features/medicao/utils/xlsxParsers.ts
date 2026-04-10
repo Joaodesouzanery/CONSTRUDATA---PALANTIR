@@ -37,11 +37,34 @@ function findCol(row: Row, keywords: string[]): string | undefined {
   return Object.keys(row).find((k) => keywords.some((kw) => norm(k).includes(kw)))
 }
 
+/**
+ * Converts a value to a number, handling both Brazilian (1.234,56)
+ * and English (1234.56) decimal formats, as well as R$ currency strings.
+ */
 function toNum(v: unknown): number {
-  if (typeof v === 'number') return v
-  const s = String(v ?? '').replace(/[R$\s.]/g, '').replace(',', '.')
-  const n = parseFloat(s)
-  return isNaN(n) ? 0 : n
+  if (typeof v === 'number') return isNaN(v) ? 0 : v
+  const s = String(v ?? '').trim()
+  // Remove currency symbol and spaces
+  const clean = s.replace(/R\$\s?/g, '').replace(/\s/g, '')
+  if (!clean) return 0
+  // Brazilian format: both . and , present — . is thousands separator, , is decimal
+  if (clean.includes(',') && clean.includes('.')) {
+    // Check which comes last to determine format
+    const lastDot   = clean.lastIndexOf('.')
+    const lastComma = clean.lastIndexOf(',')
+    if (lastComma > lastDot) {
+      // pt-BR: 1.234,56 → remove dots, replace comma
+      return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
+    } else {
+      // en: 1,234.56 → remove commas
+      return parseFloat(clean.replace(/,/g, '')) || 0
+    }
+  }
+  // Only comma — decimal separator (Brazilian without thousands)
+  if (clean.includes(',') && !clean.includes('.')) {
+    return parseFloat(clean.replace(',', '.')) || 0
+  }
+  return parseFloat(clean) || 0
 }
 
 function toStr(v: unknown): string {
@@ -62,19 +85,16 @@ export interface SabespParseResult {
 }
 
 /**
- * Parses a Sabesp measurement spreadsheet using positional column detection.
+ * Parses a Sabesp measurement spreadsheet.
  *
- * Actual Sabesp file column order:
- *   Col 0: Item (e.g. "02010101")
- *   Col 1: Descrição
- *   Col 2: N. Preço (e.g. "420009")
- *   Col 3: Unid.
- *   Col 4: Quant. (contrato)
- *   Col 5: P. Unit.
- *   Col 6+: period measurement columns (JANEIRO - MED. XX > Quant. | Valor)
+ * Handles both simple and merged-cell Sabesp formats.
+ * Scans cells directly (not just row strings) to find the data header,
+ * since merged cells may appear empty in sheet_to_json output.
  *
- * Grupo is detected from the Item code prefix: "01" → Canteiros, "02" → Esgoto, "03" → Água.
- * Group header rows (those without a numeric N. Preço in col 2) are skipped.
+ * Typical Sabesp column layout after the header:
+ *   Item | Descrição | N. Preço | Unid. | Quant.(contrato) | P. Unit. | [period cols...]
+ *
+ * Grupo detected from Item code prefix: "01" → Canteiros, "02" → Esgoto, "03" → Água.
  */
 export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   const itens: Omit<ItemContrato, 'id'>[] = []
@@ -87,7 +107,8 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   }
 
   const ws = wb.Sheets[sheetName]
-  // Use raw: false so numbers formatted as strings (e.g. "13.205,59") are preserved
+
+  // ── Read as 2D array (raw: false for formatted strings) ───────────────────
   const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }) as unknown[][]
 
   if (raw.length === 0) {
@@ -95,47 +116,100 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     return { itens, errors }
   }
 
-  // ── Find header row ────────────────────────────────────────────────────────
-  // Look for a row that contains "N. Preço" / "N.Preço" / "N Preço" / "Nº Preço"
-  // in any cell, OR has "Item" in col 0 and "Descrição" in col 1.
-  let headerRowIdx = -1
-  for (let i = 0; i < Math.min(raw.length, 20); i++) {
-    const cells = raw[i].map(toStr)
-    const rowStr = cells.join(' ')
-    // Match merged header cells that contain "preço" and "n" pattern
-    if (/n[\s.]?\s*pre/i.test(rowStr) || /n[º°]?\s*pre/i.test(rowStr)) {
-      headerRowIdx = i
-      break
+  // ── Build a flat cell map from raw address access for merged-cell detection ─
+  // XLSX represents merged cells: the anchor cell has the value, others are empty.
+  // We scan all cells in first 30 rows to find "N. Preço" anywhere.
+  const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null
+  const cellValues: Map<string, string> = new Map()
+  if (range) {
+    for (let r = range.s.r; r <= Math.min(range.e.r, 30); r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        const cell = ws[addr]
+        if (cell && cell.v != null) {
+          cellValues.set(addr, toStr(cell.v))
+        }
+      }
     }
-    // Fallback: "Item" in col 0 and "escri" in col 1
-    if (/^item$/i.test(cells[0]) && /escri/i.test(cells[1])) {
+  }
+
+  // ── Find header row ────────────────────────────────────────────────────────
+  // Strategy 1: find a cell containing "n. preço" / "npreço" / "n preço" / "n°preço"
+  // in the first 30 rows (handles merged headers).
+  let headerRowIdx = -1
+
+  // Check 2D array rows first (works for most files)
+  for (let i = 0; i < Math.min(raw.length, 30); i++) {
+    const cells = raw[i].map(toStr)
+    const rowStr = cells.join('|')
+    if (
+      /n[\s.°º]*pre/i.test(rowStr) ||
+      /n[º°]?\s*pre/i.test(rowStr) ||
+      (/^item$/i.test(cells[0] ?? '') && /descri/i.test(cells[1] ?? ''))
+    ) {
       headerRowIdx = i
       break
     }
   }
 
-  // ── Determine column indices ───────────────────────────────────────────────
-  // If we found a header row, try to locate columns by header text.
-  // If not found, fall back to fixed positional layout (0=Item, 1=Descr, 2=NPreco, 3=Un, 4=Quant, 5=PUnit).
-  let iItem = 0, iDescr = 1, iNPreco = 2, iUnid = 3, iQtdContr = 4, iPUnit = 5
-  let iQtdMedida = -1  // period qty column — detected by header text
+  // Strategy 2: scan individual cells (catches merged-cell headers)
+  if (headerRowIdx === -1 && range) {
+    outer: for (let r = range.s.r; r <= Math.min(range.e.r, 30); r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const val = cellValues.get(XLSX.utils.encode_cell({ r, c })) ?? ''
+        if (/n[\s.°º]*pre/i.test(val) || /n[º°]\s*pre/i.test(val)) {
+          headerRowIdx = r
+          break outer
+        }
+      }
+    }
+  }
 
-  if (headerRowIdx >= 0) {
+  // Strategy 3: find first row where col 2 is a pure numeric string → data starts there
+  // (no header detected, use pure positional)
+  if (headerRowIdx === -1) {
+    for (let i = 0; i < Math.min(raw.length, 30); i++) {
+      const col2 = toStr(raw[i][2])
+      if (/^\d{4,}$/.test(col2.replace(/\s/g, ''))) {
+        headerRowIdx = i - 1  // treat row before as header
+        break
+      }
+    }
+  }
+
+  // ── Determine column indices ───────────────────────────────────────────────
+  let iItem = 0, iDescr = 1, iNPreco = 2, iUnid = 3, iQtdContr = 4, iPUnit = 5
+  let iQtdMedida = -1
+
+  if (headerRowIdx >= 0 && headerRowIdx < raw.length) {
     const headers = raw[headerRowIdx].map(toStr)
     headers.forEach((h, idx) => {
       const n = norm(h)
-      if (/^item$/.test(n) && iItem === 0) iItem = idx
-      else if (/descri|servico/.test(n) && iDescr === 1) iDescr = idx
-      else if (/n[\s.]?pre|n[º°]pre/.test(n)) iNPreco = idx
-      else if (/^un(id)?$/.test(n) && iUnid === 3) iUnid = idx
-      else if (/quant|qtd/.test(n) && iQtdContr === 4) iQtdContr = idx
-      else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit/.test(n) && iPUnit === 5) iPUnit = idx
+      if (/^item$/.test(n)) iItem = idx
+      else if (/descri|servico/.test(n) && idx <= 3) iDescr = idx
+      else if (/n[\s.]?pre|n[º°]pre|numero.*pre/.test(n)) iNPreco = idx
+      else if (/^un(id)?$/.test(n) || n === 'un') iUnid = idx
+      else if (/^(quant|qtd|quantidade)$/.test(n) && idx <= 6 && iQtdContr === 4) iQtdContr = idx
+      else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit|valor.*unit/.test(n) && idx <= 7) iPUnit = idx
     })
-    // Period measurement column: look for "quant" after "MED" header
+    // Look for period measurement Quant. column after P.Unit
     for (let ci = iPUnit + 1; ci < headers.length; ci++) {
-      if (/quant|qtd/i.test(headers[ci])) {
+      const hn = norm(headers[ci])
+      if (/quant|qtd/.test(hn)) {
         iQtdMedida = ci
         break
+      }
+    }
+    // Also scan the row ABOVE headerRowIdx for period labels like "MED. 08"
+    // (the quant column is often under a merged "MED.XX" header)
+    if (iQtdMedida === -1 && headerRowIdx > 0) {
+      const above = raw[headerRowIdx - 1].map(toStr)
+      for (let ci = iPUnit + 1; ci < above.length; ci++) {
+        if (/med/i.test(above[ci])) {
+          // Found measurement period column block — quant is first sub-column
+          iQtdMedida = ci
+          break
+        }
       }
     }
   }
@@ -153,37 +227,50 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     // Skip completely empty rows
     if (!item && !nPreco && !descricao) continue
 
-    // Detect grupo from Item code prefix (e.g. "01000000" → '01')
-    const grupoPfx = item.replace(/\s/g, '').slice(0, 2)
+    // Detect grupo from Item code prefix (e.g. "02010101" → '02')
+    const cleanItem = item.replace(/\D/g, '')
+    const grupoPfx = cleanItem.slice(0, 2)
     if (grupoPfx === '01') currentGrupo = '01'
     else if (grupoPfx === '02') currentGrupo = '02'
     else if (grupoPfx === '03') currentGrupo = '03'
     else {
-      // Fallback heuristic from description
+      // Heuristic from description
       const rowStr = [item, descricao].join(' ').toLowerCase()
-      if (rowStr.includes('canteiro') || rowStr.includes('plano de gestao')) currentGrupo = '01'
-      else if (rowStr.includes('esgoto')) currentGrupo = '02'
-      else if (rowStr.includes('agua') || rowStr.includes('água')) currentGrupo = '03'
+      if (/canteiro|plano de gestao|pcmat|pcmso/.test(rowStr)) currentGrupo = '01'
+      else if (/esgoto|esgotamento|coleta|rede coletora/.test(rowStr)) currentGrupo = '02'
+      else if (/agua|abastecimento|adutora|rede de distribui/.test(rowStr)) currentGrupo = '03'
     }
 
-    // Skip group header rows: N. Preço column is empty or non-numeric
-    if (!nPreco || !/^\d+$/.test(nPreco.replace(/\s/g, ''))) continue
+    // Skip group-header rows: N. Preço column empty or non-numeric
+    const nPrecoClean = nPreco.replace(/\s/g, '')
+    if (!nPrecoClean || !/^\d+$/.test(nPrecoClean)) continue
 
-    // Skip header/label rows that appear in the data section
-    if (norm(nPreco).includes('n preco') || norm(nPreco).includes('preco')) continue
+    // Skip rows that look like repeated column headers
+    if (norm(nPreco).includes('preco') || norm(nPreco).includes('n preco')) continue
 
-    const unidade = toStr(row[iUnid]) || 'M'
-    const qtdContrato   = toNum(row[iQtdContr])
+    const unidade     = toStr(row[iUnid]) || 'M'
+    const qtdContrato = toNum(row[iQtdContr])
     const valorUnitario = toNum(row[iPUnit])
-    const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
+    const qtdMedida   = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
 
     if (!descricao && !nPreco) continue
 
-    itens.push({ nPreco: nPreco.trim(), descricao: descricao.trim(), unidade, grupo: currentGrupo, qtdContrato, qtdMedida, valorUnitario })
+    itens.push({
+      nPreco:       nPrecoClean,
+      descricao:    descricao || '—',
+      unidade,
+      grupo:        currentGrupo,
+      qtdContrato,
+      qtdMedida,
+      valorUnitario,
+    })
   }
 
   if (itens.length === 0) {
-    errors.push('Nenhum item de contrato foi encontrado. Verifique se a planilha é a Planilha de Medição Sabesp com colunas: Item | Descrição | N. Preço | Unid. | Quant. | P. Unit.')
+    errors.push(
+      'Nenhum item de contrato foi encontrado. ' +
+      'Verifique se a planilha é a Planilha de Medição Sabesp com colunas: Item | Descrição | N. Preço | Unid. | Quant. | P. Unit.'
+    )
   }
 
   return { itens, errors }
@@ -201,105 +288,166 @@ export interface SubempreiteiroParseResult {
 }
 
 /**
- * Parses a subcontractor measurement sheet (e.g., VIALTA planilha de medição).
+ * Parses a subcontractor measurement sheet (e.g., VIALTA medição).
  *
- * Looks for a header row with: Nº Preço | Descrição | Un | Qtd | Vl. Unit
- * Company name / period may be in the first few rows as metadata.
+ * Strategy:
+ * 1. Extract company metadata from the first ~10 rows (name, period, nucleo)
+ * 2. Find the data header row by scanning for rows with "descri" or "quant" or "unit"
+ * 3. Parse items below the header
+ * 4. Auto-compute totals if not present in the sheet
+ *
+ * Handles multiple sheets by returning the combined result.
  */
 export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParseResult {
-  const sheetName = wb.SheetNames[0]
   const result: SubempreiteiroParseResult = {
-    nome: sheetName ?? 'Subempreiteiro',
+    nome:   wb.SheetNames[0] ?? 'Subempreiteiro',
     nucleo: '',
     periodo: '',
-    itens: [],
+    itens:  [],
     totals: { totalMedido: 0, totalAprovado: 0, retencao: 0 },
     errors: [],
   }
 
-  const ws = sheetName ? wb.Sheets[sheetName] : null
-  if (!ws) { result.errors.push('Planilha vazia.'); return result }
+  // Try all sheets, use first that has items
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName]
+    if (!ws) continue
 
-  // Read as raw 2D array to detect metadata rows before the header
-  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as unknown[][]
+    const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }) as unknown[][]
+    if (raw.length === 0) continue
 
-  // Find the header row (first row containing 'descri' or 'servico')
-  let headerIdx = -1
-  for (let i = 0; i < Math.min(raw.length, 15); i++) {
-    const rowStr = raw[i].map(toStr).join(' ').toLowerCase()
-    if (rowStr.includes('descri') || rowStr.includes('n preco') || rowStr.includes('servico')) {
-      headerIdx = i
-      break
-    }
-    // Try to extract nome / periodo from metadata rows
-    const cells = raw[i].map(toStr).filter(Boolean)
-    if (cells.some((c) => /vialta|wert|consorcio|subempreit/i.test(c))) {
-      result.nome = cells.find((c) => /vialta|wert|consorcio|subempreit/i.test(c)) ?? result.nome
-    }
-    if (cells.some((c) => /jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez/i.test(c))) {
-      result.periodo = cells.find((c) => /jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez/i.test(c)) ?? ''
-    }
-    if (cells.some((c) => /nucleo|paulo|santos|mogi|taubate|sorocaba|campinas|bauru/i.test(c))) {
-      result.nucleo = cells.find((c) => /nucleo|paulo|santos|mogi|taubate|sorocaba|campinas|bauru/i.test(c)) ?? ''
-    }
-  }
+    // ── Extract metadata from first 12 rows ──────────────────────────────────
+    for (let i = 0; i < Math.min(raw.length, 12); i++) {
+      const cells = raw[i].map(toStr).filter(Boolean)
+      if (cells.length === 0) continue
+      const rowStr = cells.join(' ')
 
-  if (headerIdx === -1) {
-    // Fall back to sheet_to_json with auto headers
-    const rows = getRows(wb)
-    const sample = rows[0] ?? {}
-    const colNPreco  = findCol(sample, ['n preco', 'npreco', 'item', 'codigo'])
-    const colDesc    = findCol(sample, ['descricao', 'servico', 'especificacao'])
-    const colUn      = findCol(sample, ['un', 'unidade'])
-    const colQtd     = findCol(sample, ['qtd', 'quantidade', 'qtde'])
-    const colVlUnit  = findCol(sample, ['vl unit', 'valor unit', 'preco unit'])
-
-    for (const row of rows) {
-      const nPreco = colNPreco ? toStr(row[colNPreco]) : ''
-      const descricao = colDesc ? toStr(row[colDesc]) : ''
-      if (!nPreco && !descricao) continue
-      result.itens.push({
-        nPreco,
-        descricao,
-        unidade: colUn ? toStr(row[colUn]) || 'M' : 'M',
-        qtd: colQtd ? toNum(row[colQtd]) : 0,
-        valorUnitario: colVlUnit ? toNum(row[colVlUnit]) : 0,
-      })
-    }
-  } else {
-    const headers = raw[headerIdx].map(toStr)
-    const idxNPreco  = headers.findIndex((h) => /n[\s.]?pre/i.test(h) || /item/i.test(h) || /cod/i.test(h))
-    const idxDesc    = headers.findIndex((h) => /descri/i.test(h) || /servico/i.test(h))
-    const idxUn      = headers.findIndex((h) => /^un/i.test(h))
-    const idxQtd     = headers.findIndex((h) => /^qtd/i.test(h) || /quant/i.test(h))
-    const idxVlUnit  = headers.findIndex((h) => /vl.*unit/i.test(h) || /valor.*unit/i.test(h) || /prec.*unit/i.test(h))
-    const idxTotal   = headers.findIndex((h) => /^total/i.test(h) && !/aprovado|retencao/i.test(h))
-    const idxAprovado = headers.findIndex((h) => /aprovado/i.test(h))
-    const idxRetencao = headers.findIndex((h) => /retenc/i.test(h) || /reten/i.test(h))
-
-    for (let i = headerIdx + 1; i < raw.length; i++) {
-      const cells = raw[i]
-      const nPreco    = idxNPreco  >= 0 ? toStr(cells[idxNPreco])  : ''
-      const descricao = idxDesc    >= 0 ? toStr(cells[idxDesc])    : ''
-      const unidade   = idxUn      >= 0 ? toStr(cells[idxUn]) || 'M' : 'M'
-      const qtd       = idxQtd     >= 0 ? toNum(cells[idxQtd])    : 0
-      const vlUnit    = idxVlUnit  >= 0 ? toNum(cells[idxVlUnit])  : 0
-
-      // Detect summary rows
-      const rowStr = cells.map(toStr).join(' ').toLowerCase()
-      if (idxTotal >= 0 && /^total/i.test(toStr(cells[idxTotal]))) {
-        result.totals.totalMedido = toNum(cells[idxTotal + 1] ?? cells[idxTotal])
+      // Period: look for month/year patterns like "fev/26", "FEVEREIRO/2026", "MED. 08", "02/2026"
+      if (!result.periodo) {
+        const periodMatch = rowStr.match(
+          /\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*[\s/.-]*(\d{2,4})/i
+        ) || rowStr.match(/\b(0[1-9]|1[0-2])\/(\d{4})\b/)
+          || rowStr.match(/\bmed[\s.]*(\d+)\b/i)
+        if (periodMatch) result.periodo = periodMatch[0].trim()
       }
-      if (idxAprovado >= 0) result.totals.totalAprovado = toNum(cells[idxAprovado])
-      if (idxRetencao >= 0) result.totals.retencao = toNum(cells[idxRetencao])
-      if (rowStr.includes('total') && rowStr.includes('aprovado')) continue
-      if (!nPreco && !descricao) continue
 
-      result.itens.push({ nPreco, descricao, unidade, qtd, valorUnitario: vlUnit })
+      // Nucleo: look for city/region names or "nucleo" keyword
+      if (!result.nucleo) {
+        const nuMatch = rowStr.match(/n[uú]cleo[:\s]+([A-Za-zÀ-ÿ\s]+)/i)
+        if (nuMatch) result.nucleo = nuMatch[1].trim().split(/\s+/).slice(0, 2).join(' ')
+      }
+
+      // Company name: first non-empty row that looks like a company/header (not all numbers)
+      if (result.nome === wb.SheetNames[0] && cells.length >= 1 && !/^\d/.test(cells[0])) {
+        // A likely title row: non-numeric first cell, row has few items (not a data row)
+        if (cells.length <= 4 && cells[0].length > 3) {
+          result.nome = cells[0]
+        }
+      }
+    }
+
+    // ── Find header row ────────────────────────────────────────────────────────
+    let headerIdx = -1
+    for (let i = 0; i < Math.min(raw.length, 20); i++) {
+      const rowStr = raw[i].map(toStr).join(' ').toLowerCase()
+      if (
+        (rowStr.includes('descri') || rowStr.includes('servico') || rowStr.includes('especif')) &&
+        (rowStr.includes('unit') || rowStr.includes('qtd') || rowStr.includes('quant') || rowStr.includes('valor'))
+      ) {
+        headerIdx = i
+        break
+      }
+      // Also match rows with "n. preço" or "item" as first column signal
+      if (/n[\s.]?pre/i.test(rowStr) && /descri/i.test(rowStr)) {
+        headerIdx = i
+        break
+      }
+    }
+
+    // ── Parse using detected header ────────────────────────────────────────────
+    if (headerIdx >= 0) {
+      const headers = raw[headerIdx].map(toStr)
+      const idx = (matchers: RegExp[]): number =>
+        headers.findIndex((h) => matchers.some((re) => re.test(norm(h))))
+
+      const idxNPreco   = idx([/n[\s.]?pre/, /^item$/, /^cod/])
+      const idxDesc     = idx([/descri/, /servico/, /especif/])
+      const idxUn       = idx([/^un(id)?$/, /^und$/, /^medida$/])
+      const idxQtd      = idx([/^qtd/, /^quant/, /quantidade/])
+      const idxVlUnit   = idx([/vl.*unit/, /valor.*unit/, /prec.*unit/, /p[\s.]?unit/])
+      const idxTotal    = idx([/^total$/, /vl.*total/, /valor.*total/])
+      const idxAprovado = idx([/aprovado/])
+      const idxRetencao = idx([/retenc/, /reten/])
+
+      const sheetItens: SubempreteiroItem[] = []
+
+      for (let i = headerIdx + 1; i < raw.length; i++) {
+        const cells = raw[i]
+        const rowStr = cells.map(toStr).join(' ').toLowerCase()
+
+        // Detect totals rows
+        if (/total\s*(medido|aprovado|geral)?/.test(rowStr)) {
+          if (idxTotal >= 0) {
+            const tv = toNum(cells[idxTotal])
+            if (tv > 0) result.totals.totalMedido = tv
+          }
+          if (idxAprovado >= 0) {
+            const av = toNum(cells[idxAprovado])
+            if (av > 0) result.totals.totalAprovado = av
+          }
+          if (idxRetencao >= 0) {
+            const rv = toNum(cells[idxRetencao])
+            if (rv > 0) result.totals.retencao = rv
+          }
+          continue
+        }
+
+        const nPreco    = idxNPreco  >= 0 ? toStr(cells[idxNPreco])  : ''
+        const descricao = idxDesc    >= 0 ? toStr(cells[idxDesc])    : ''
+        const unidade   = idxUn      >= 0 ? toStr(cells[idxUn]) || 'M' : 'M'
+        const qtd       = idxQtd     >= 0 ? toNum(cells[idxQtd])    : 0
+        const vlUnit    = idxVlUnit  >= 0 ? toNum(cells[idxVlUnit])  : 0
+
+        if (!descricao && !nPreco) continue
+        // Skip rows that are sub-headers or summary rows
+        if (norm(descricao).includes('descri') || norm(descricao).includes('total')) continue
+
+        sheetItens.push({ nPreco, descricao, unidade, qtd, valorUnitario: vlUnit })
+      }
+
+      if (sheetItens.length > 0) {
+        result.itens = sheetItens
+        break  // Found a valid sheet with items
+      }
+    } else {
+      // Fallback: use sheet_to_json with auto headers
+      const rows = getRows(wb)
+      if (rows.length > 0) {
+        const sample = rows[0] ?? {}
+        const colNPreco = findCol(sample, ['n preco', 'npreco', 'item', 'codigo', 'cod'])
+        const colDesc   = findCol(sample, ['descricao', 'descr', 'servico', 'especificacao'])
+        const colUn     = findCol(sample, ['un', 'unidade', 'und'])
+        const colQtd    = findCol(sample, ['qtd', 'quantidade', 'quant', 'qtde'])
+        const colVlUnit = findCol(sample, ['vl unit', 'valor unit', 'preco unit', 'p unit'])
+
+        for (const row of rows) {
+          const nPreco = colNPreco ? toStr(row[colNPreco]) : ''
+          const descricao = colDesc ? toStr(row[colDesc]) : ''
+          if (!nPreco && !descricao) continue
+          result.itens.push({
+            nPreco,
+            descricao,
+            unidade: colUn ? toStr(row[colUn]) || 'M' : 'M',
+            qtd: colQtd ? toNum(row[colQtd]) : 0,
+            valorUnitario: colVlUnit ? toNum(row[colVlUnit]) : 0,
+          })
+        }
+        if (result.itens.length > 0) break
+      }
     }
   }
 
-  // Auto-compute totalMedido if not found in sheet
+  // ── Auto-compute totals if not found in sheet ──────────────────────────────
   if (result.totals.totalMedido === 0 && result.itens.length > 0) {
     result.totals.totalMedido = result.itens.reduce((s, it) => s + it.qtd * it.valorUnitario, 0)
   }
@@ -308,7 +456,10 @@ export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParse
   }
 
   if (result.itens.length === 0) {
-    result.errors.push('Nenhum item de medição encontrado. Verifique os cabeçalhos da planilha.')
+    result.errors.push(
+      'Nenhum item de medição encontrado. ' +
+      'Verifique se a planilha possui colunas como: Nº Preço | Descrição | Un | Qtd | Vl. Unit.'
+    )
   }
 
   return result
@@ -324,8 +475,11 @@ export interface FornecedorParseResult {
 /**
  * Parses a suppliers spreadsheet.
  *
- * Expected columns: Nome/Empresa | Período | Descrição | Valor Aprovado
- * Also handles single-supplier sheets (metadata in first rows).
+ * Handles two formats:
+ * A) Multi-supplier table: Nome | Período | Descrição | Valor Aprovado (one row per supplier)
+ * B) Single-supplier sheet: Metadata in first rows, total value somewhere in the sheet
+ *
+ * For format B, scans for a "TOTAL" labeled row to find the approved amount.
  */
 export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
   const rows   = getRows(wb)
@@ -337,41 +491,76 @@ export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): Fo
   }
 
   const sample = rows[0]
-  const colNome     = findCol(sample, ['nome', 'empresa', 'fornecedor', 'razao'])
-  const colPeriodo  = findCol(sample, ['periodo', 'mes', 'competencia'])
-  const colDesc     = findCol(sample, ['descricao', 'descr', 'servico', 'objeto'])
-  const colValor    = findCol(sample, ['valor', 'aprovado', 'total'])
+  const colNome    = findCol(sample, ['nome', 'empresa', 'fornecedor', 'razao'])
+  const colPeriodo = findCol(sample, ['periodo', 'mes', 'competencia', 'referencia'])
+  const colDesc    = findCol(sample, ['descricao', 'descr', 'servico', 'objeto'])
+  const colValor   = findCol(sample, ['valor', 'aprovado', 'total', 'vl aprovado'])
 
   if (!colNome && !colValor) {
-    // Single-supplier sheet — treat entire sheet as one fornecedor
+    // ── Format B: single-supplier sheet ────────────────────────────────────
     const sheetName = wb.SheetNames[0] ?? 'Fornecedor'
-    const raw: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' }) as unknown[][]
-    let nome = sheetName
-    let valor = 0
-    let periodo = defaultPeriodo
+    const raw: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false }) as unknown[][]
+
+    let nome      = sheetName
+    let valor     = 0
+    let periodo   = defaultPeriodo
     let descricao = ''
-    for (const row of raw) {
-      const cells = row.map(toStr)
+
+    for (let i = 0; i < raw.length; i++) {
+      const cells = raw[i].map(toStr)
       const rowStr = cells.join(' ')
-      if (!nome && cells.some((c) => /wert|fornecedor|empresa|ambiental/i.test(c))) {
-        nome = cells.find((c) => /wert|fornecedor|empresa|ambiental/i.test(c)) ?? nome
+
+      // Extract nome from first non-empty rows that look like a title
+      if (nome === sheetName && cells.some((c) => c.length > 3 && !/^\d/.test(c))) {
+        const candidate = cells.find((c) => c.length > 3 && !/^\d/.test(c))
+        if (candidate) nome = candidate
       }
-      if (!periodo && cells.some((c) => /jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez/i.test(c))) {
-        periodo = cells.find((c) => /jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez/i.test(c)) ?? periodo
+
+      // Extract period
+      if (!periodo || periodo === defaultPeriodo) {
+        const pMatch = rowStr.match(
+          /\b(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*[\s/.-]*(\d{2,4})/i
+        ) || rowStr.match(/\b(0[1-9]|1[0-2])\/(\d{4})\b/)
+        if (pMatch) periodo = pMatch[0].trim()
       }
-      const numMatch = rowStr.match(/[\d]{1,3}([.,]\d{3})*([.,]\d{2})/)
-      if (numMatch) {
-        const candidate = toNum(numMatch[0])
-        if (candidate > valor) valor = candidate
+
+      // Look for "TOTAL" labeled rows — the value in the adjacent cell is the approved amount
+      const totalIdx = cells.findIndex((c) => /^total/i.test(c.trim()))
+      if (totalIdx >= 0) {
+        // Check cells to the right of "total"
+        for (let j = totalIdx + 1; j < cells.length; j++) {
+          const v = toNum(cells[j])
+          if (v > 0) { valor = v; break }
+        }
+        // Also the same cell if it contains the value after a colon/space
+        if (valor === 0) {
+          const sameCell = cells[totalIdx]
+          const m = sameCell.match(/[\d.,]+$/)
+          if (m) { const v = toNum(m[0]); if (v > 0) valor = v }
+        }
       }
-      if (descricao.length < 200 && rowStr.length > 5 && !/R\$/.test(rowStr)) {
-        descricao += (descricao ? ' ' : '') + rowStr.substring(0, 80)
+
+      // Accumulate description from informative rows (skip numeric-only rows)
+      if (descricao.length < 300 && rowStr.length > 5 && !/^[\d.,\s]+$/.test(rowStr)) {
+        descricao += (descricao ? ' ' : '') + rowStr.substring(0, 100)
       }
     }
-    result.list.push({ nome, periodo, descricao: descricao.trim(), valorAprovado: valor })
+
+    // If still no total found, use the largest monetary value in the sheet
+    if (valor === 0) {
+      for (const row of raw) {
+        for (const cell of row) {
+          const v = toNum(cell)
+          if (v > valor) valor = v
+        }
+      }
+    }
+
+    result.list.push({ nome, periodo, descricao: descricao.trim().substring(0, 500), valorAprovado: valor })
     return result
   }
 
+  // ── Format A: multi-supplier table ──────────────────────────────────────────
   for (const row of rows) {
     const nome = colNome ? toStr(row[colNome]) : ''
     if (!nome) continue
