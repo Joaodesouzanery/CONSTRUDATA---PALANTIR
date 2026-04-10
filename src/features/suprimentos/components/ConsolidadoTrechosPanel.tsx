@@ -3,8 +3,8 @@
  * Filterable table with status colors (verde/vermelho/cinza) and pagination.
  */
 import { useState, useMemo } from 'react'
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react'
-import { consolidadoTrechos } from '@/data/mockPlanilhasConsolidadas'
+import { Search, ChevronLeft, ChevronRight, Upload } from 'lucide-react'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
 import type { ConsolidadoTrecho } from '@/data/mockPlanilhasConsolidadas'
 import { cn } from '@/lib/utils'
 
@@ -17,13 +17,27 @@ const STATUS_STYLE: Record<ConsolidadoTrecho['status'], { bg: string; text: stri
 }
 
 export function ConsolidadoTrechosPanel() {
+  const consolidadoTrechos = useSuprimentosStore((s) => s.planilhaTrechos)
+
   const [filterNucleo, setFilterNucleo] = useState('')
   const [filterTipo, setFilterTipo] = useState<'' | 'AGUA' | 'ESGOTO'>('')
   const [filterStatus, setFilterStatus] = useState<'' | 'EXECUTADO' | 'PENDENTE' | 'CADASTRO'>('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
 
-  const nucleos = useMemo(() => [...new Set(consolidadoTrechos.map((t) => t.nucleo))].sort(), [])
+  const nucleos = useMemo(() => [...new Set(consolidadoTrechos.map((t) => t.nucleo))].sort(), [consolidadoTrechos])
+
+  if (consolidadoTrechos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 gap-3 py-16">
+        <div className="w-14 h-14 rounded-2xl bg-[#3d3d3d] border border-[#525252] flex items-center justify-center">
+          <Upload size={24} className="text-[#6b6b6b]" />
+        </div>
+        <p className="text-[#6b6b6b] text-sm font-medium">Nenhum dado de Consolidado importado</p>
+        <p className="text-[#525252] text-xs">Use o botão "Importar Planilha" acima para carregar a planilha de Consolidado Trechos.</p>
+      </div>
+    )
+  }
 
   const filtered = useMemo(() => {
     let data = consolidadoTrechos
@@ -41,7 +55,7 @@ export function ConsolidadoTrechosPanel() {
       )
     }
     return data
-  }, [filterNucleo, filterTipo, filterStatus, search])
+  }, [consolidadoTrechos, filterNucleo, filterTipo, filterStatus, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)

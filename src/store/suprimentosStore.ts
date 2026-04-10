@@ -36,6 +36,7 @@ import {
   mockLeadTimeRecords,
   mockReservas,
 } from '@/data/mockSuprimentos'
+import type { ResumoNucleo, ConsolidadoTrecho, MaterialNucleo } from '@/data/mockPlanilhasConsolidadas'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
 
@@ -161,6 +162,12 @@ interface SuprimentosState {
   leadTimeRecords:     LeadTimeRecord[]
   selectedDepositoId:  string | null
 
+  // Planilhas Consolidadas (importadas via XLSX)
+  planilhaResumo:      ResumoNucleo[]
+  planilhaTrechos:     ConsolidadoTrecho[]
+  planilhaMateriais:   MaterialNucleo[]
+  planilhaMetadata:    { dataRef: string; contrato: string } | null
+
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
   updatePO: (id: string, patch: Partial<PurchaseOrder>) => void
@@ -209,6 +216,13 @@ interface SuprimentosState {
 
   // Bulk import from Consolidado / Resumo planilhas
   importConsolidado: (items: import('@/features/suprimentos/utils/parseSuprimentosConsolidado').ConsolidadoItem[], target: 'po' | 'estoque') => void
+
+  // Planilhas Consolidadas import
+  importPlanilhaResumo:    (rows: ResumoNucleo[]) => void
+  importPlanilhaTrechos:   (rows: ConsolidadoTrecho[]) => void
+  importPlanilhaMateriais: (rows: MaterialNucleo[]) => void
+  setPlanilhaMetadata:     (meta: { dataRef: string; contrato: string }) => void
+  clearPlanilhas:          () => void
 
   // Demo mode
   loadDemoData: () => void
@@ -313,6 +327,12 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   reservas:           [],
   leadTimeRecords:    [],
   selectedDepositoId: null,
+
+  // Planilhas Consolidadas — começa vazio; populado via importação XLSX
+  planilhaResumo:    [],
+  planilhaTrechos:   [],
+  planilhaMateriais: [],
+  planilhaMetadata:  null,
 
   // Sync (Sprint 2)
   pendingSync:  [],
@@ -674,6 +694,15 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     }
   },
 
+  // ── Planilhas Consolidadas ──────────────────────────────────────────────────
+  importPlanilhaResumo:    (rows) => set({ planilhaResumo: rows }),
+  importPlanilhaTrechos:   (rows) => set({ planilhaTrechos: rows }),
+  importPlanilhaMateriais: (rows) => set({ planilhaMateriais: rows }),
+  setPlanilhaMetadata:     (meta) => set({ planilhaMetadata: meta }),
+  clearPlanilhas: () => set({
+    planilhaResumo: [], planilhaTrechos: [], planilhaMateriais: [], planilhaMetadata: null,
+  }),
+
   importConsolidado: (items, target) => {
     const now = new Date().toISOString().slice(0, 10)
     if (target === 'po') {
@@ -751,6 +780,10 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       reservas:            [],
       leadTimeRecords:     [],
       suppliers:           [],
+      planilhaResumo:      [],
+      planilhaTrechos:     [],
+      planilhaMateriais:   [],
+      planilhaMetadata:    null,
       pendingSync:         [],
       syncError:           null,
     }),
@@ -854,9 +887,14 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,
         // Estoque continua só local-cache até Sprint 3
-        estoqueItens:   s.estoqueItens,
-        movimentacoes:  s.movimentacoes,
-        reservas:       s.reservas,
+        estoqueItens:      s.estoqueItens,
+        movimentacoes:     s.movimentacoes,
+        reservas:          s.reservas,
+        // Planilhas Consolidadas persisted
+        planilhaResumo:    s.planilhaResumo,
+        planilhaTrechos:   s.planilhaTrechos,
+        planilhaMateriais: s.planilhaMateriais,
+        planilhaMetadata:  s.planilhaMetadata,
       }),
     },
   ),

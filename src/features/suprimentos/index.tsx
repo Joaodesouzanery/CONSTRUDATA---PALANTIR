@@ -14,6 +14,7 @@ import { BomPendentePanel }    from './components/BomPendentePanel'
 import { ExcelImportModal }          from './components/ExcelImportModal'
 import { NovoMaterialModal }         from './components/NovoMaterialModal'
 import { ImportConsolidadoModal }    from './components/ImportConsolidadoModal'
+import { ImportPlanilhasModal }      from './components/ImportPlanilhasModal'
 import { ResumoNucleoPanel }         from './components/ResumoNucleoPanel'
 import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
 import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
@@ -26,6 +27,7 @@ export function SuprimentosPage() {
   const [showImport, setShowImport] = useState(false)
   const [showNovoMaterial, setShowNovoMaterial] = useState(false)
   const [showConsolidado, setShowConsolidado] = useState(false)
+  const [showPlanilhas, setShowPlanilhas] = useState(false)
 
   // Reset tab when section changes
   useEffect(() => {
@@ -98,6 +100,15 @@ export function SuprimentosPage() {
               </button>
             </>
           )}
+          {activeSection === 'planilhas' && (
+            <button
+              onClick={() => setShowPlanilhas(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
+            >
+              <FileSpreadsheet size={13} />
+              Importar Planilha
+            </button>
+          )}
         </div>
       </div>
 
@@ -124,6 +135,7 @@ export function SuprimentosPage() {
       {showImport        && <ExcelImportModal onClose={() => setShowImport(false)} />}
       {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
       {showConsolidado   && <ImportConsolidadoModal onClose={() => setShowConsolidado(false)} />}
+      {showPlanilhas     && <ImportPlanilhasModal onClose={() => setShowPlanilhas(false)} />}
     </div>
   )
 }

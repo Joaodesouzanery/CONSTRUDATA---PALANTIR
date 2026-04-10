@@ -1,8 +1,10 @@
 /**
  * ResumoNucleoPanel — Resumo por Núcleo from Planilhas Consolidadas.
- * Shows summary table with 11 nucleos + progress bars + KPI totals.
+ * Reads from store (imported XLSX). Shows empty state when no data.
  */
-import { resumoNucleos, resumoGlobal } from '@/data/mockPlanilhasConsolidadas'
+import { useShallow } from 'zustand/react/shallow'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function ProgressBar({ pct, size = 'md' }: { pct: number; size?: 'sm' | 'md' }) {
@@ -23,6 +25,22 @@ function ProgressBar({ pct, size = 'md' }: { pct: number; size?: 'sm' | 'md' }) 
 }
 
 export function ResumoNucleoPanel() {
+  const { resumoNucleos, metadata } = useSuprimentosStore(
+    useShallow((s) => ({ resumoNucleos: s.planilhaResumo, metadata: s.planilhaMetadata }))
+  )
+
+  if (resumoNucleos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 gap-3 py-16">
+        <div className="w-14 h-14 rounded-2xl bg-[#3d3d3d] border border-[#525252] flex items-center justify-center">
+          <Upload size={24} className="text-[#6b6b6b]" />
+        </div>
+        <p className="text-[#6b6b6b] text-sm font-medium">Nenhum dado de Resumo importado</p>
+        <p className="text-[#525252] text-xs">Use o botão "Importar Planilha" acima para carregar a planilha de Resumo por Núcleo.</p>
+      </div>
+    )
+  }
+
   const totals = {
     trObra: resumoNucleos.reduce((s, r) => s + r.trObra, 0),
     trExec: resumoNucleos.reduce((s, r) => s + r.trExec, 0),
@@ -33,16 +51,19 @@ export function ResumoNucleoPanel() {
     kmPend: resumoNucleos.reduce((s, r) => s + r.kmPend, 0),
   }
 
+  const pctGlobal = totals.trObra > 0 ? Math.round((totals.trExec / totals.trObra) * 100) : 0
+
   return (
     <div className="flex flex-col gap-4 overflow-auto flex-1">
       {/* Info banner */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#3d3d3d] border border-[#525252] text-xs text-[#a3a3a3]">
-        <span className="font-semibold text-[#f5f5f5]">{resumoGlobal.contrato}</span>
-        <span>|</span>
-        <span>Data ref.: {resumoGlobal.dataRef}</span>
-        <span>|</span>
-        <span>{resumoGlobal.execMetros.toLocaleString('pt-BR')}m executados de {(resumoGlobal.execMetros + resumoGlobal.pendMetros).toLocaleString('pt-BR')}m em obra</span>
-      </div>
+      {metadata && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#3d3d3d] border border-[#525252] text-xs text-[#a3a3a3]">
+          {metadata.contrato && <><span className="font-semibold text-[#f5f5f5]">{metadata.contrato}</span><span>|</span></>}
+          <span>Data ref.: {metadata.dataRef}</span>
+          <span>|</span>
+          <span>{resumoNucleos.length} núcleos importados</span>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -126,7 +147,7 @@ export function ResumoNucleoPanel() {
                 <td className="px-2 py-2.5 text-right text-[#4ade80] tabular-nums">{totals.kmExec.toFixed(1)}</td>
                 <td className="px-2 py-2.5 text-right text-[#f87171] tabular-nums">{totals.kmPend.toFixed(1)}</td>
                 <td className="px-2 py-2.5 text-center text-[#6b6b6b]">—</td>
-                <td className="px-3 py-2.5"><ProgressBar pct={resumoGlobal.progressoObra} /></td>
+                <td className="px-3 py-2.5"><ProgressBar pct={pctGlobal} /></td>
               </tr>
             </tbody>
           </table>

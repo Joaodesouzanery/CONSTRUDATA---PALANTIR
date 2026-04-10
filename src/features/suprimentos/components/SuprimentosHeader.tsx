@@ -5,7 +5,6 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
-import { resumoGlobal, resumoNucleos } from '@/data/mockPlanilhasConsolidadas'
 
 export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
 
@@ -34,12 +33,14 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
 ]
 
 export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
-  const { purchaseOrders, matches, exceptions, estoqueItens } = useSuprimentosStore(
+  const { purchaseOrders, matches, exceptions, estoqueItens, planilhaResumo, planilhaTrechos } = useSuprimentosStore(
     useShallow((s) => ({
-      purchaseOrders: s.purchaseOrders,
-      matches:        s.matches,
-      exceptions:     s.exceptions,
-      estoqueItens:   s.estoqueItens,
+      purchaseOrders:  s.purchaseOrders,
+      matches:         s.matches,
+      exceptions:      s.exceptions,
+      estoqueItens:    s.estoqueItens,
+      planilhaResumo:  s.planilhaResumo,
+      planilhaTrechos: s.planilhaTrechos,
     }))
   )
   const addSupplier = useSuprimentosStore((s) => s.addSupplier)
@@ -76,15 +77,23 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
   ]
 
   // ── Planilhas Consolidadas KPIs ─────────────────────────────────────────────
-  const totalTrechos = resumoNucleos.reduce((s, r) => s + r.trObra, 0)
-  const trechosExec  = resumoNucleos.reduce((s, r) => s + r.trExec, 0)
-  const trechosPend  = resumoNucleos.reduce((s, r) => s + r.trPend, 0)
+  // Use resumo if imported, otherwise derive from trechos
+  const totalTrechos = planilhaResumo.length > 0
+    ? planilhaResumo.reduce((s, r) => s + r.trObra, 0)
+    : planilhaTrechos.length
+  const trechosExec = planilhaResumo.length > 0
+    ? planilhaResumo.reduce((s, r) => s + r.trExec, 0)
+    : planilhaTrechos.filter((t) => t.status === 'EXECUTADO').length
+  const trechosPend = planilhaResumo.length > 0
+    ? planilhaResumo.reduce((s, r) => s + r.trPend, 0)
+    : planilhaTrechos.filter((t) => t.status === 'PENDENTE').length
+  const pctExecGlobal = totalTrechos > 0 ? Math.round((trechosExec / totalTrechos) * 100) : 0
 
   const planKpis = [
-    { label: 'Trechos em Obra',  value: totalTrechos, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]'       },
-    { label: 'Executados',       value: trechosExec,  color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
-    { label: 'Pendentes',        value: trechosPend,  color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
-    { label: 'Progresso Geral',  value: `${resumoGlobal.progressoObra}%`, color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
+    { label: 'Trechos em Obra',  value: totalTrechos,            color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]'       },
+    { label: 'Executados',       value: trechosExec,             color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
+    { label: 'Pendentes',        value: trechosPend,             color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
+    { label: 'Progresso Geral',  value: `${pctExecGlobal}%`,    color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
   ]
 
   const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : planKpis
