@@ -26,7 +26,7 @@ export function PlanejamentoHeader() {
     activeTab, setActiveTab,
     isScheduleDirty, runSchedule,
     ganttRows, abcItems, projectEndDate,
-    teams,
+    teams, planName,
     addTrecho,
   } = usePlanejamentoStore()
   const [importOpen, setImportOpen] = useState(false)
@@ -49,7 +49,9 @@ export function PlanejamentoHeader() {
             <CalendarClock size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-white font-semibold text-lg leading-tight">Planejamento de Trechos</h1>
+            <h1 className="text-white font-semibold text-lg leading-tight">
+              {planName || 'Planejamento de Trechos'}
+            </h1>
             <p className="text-[#a3a3a3] text-xs">Cronograma e análise de trechos</p>
           </div>
         </div>

@@ -2,6 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
 import { LoginPage }         from '@/features/auth/LoginPage'
+import { SignupPage }        from '@/features/auth/SignupPage'
+import { MfaSetupPage }      from '@/features/auth/MfaSetupPage'
+import { MfaChallengePage }  from '@/features/auth/MfaChallengePage'
+import { AuthGuard }         from '@/lib/AuthGuard'
 import { lazy, Suspense } from 'react'
 
 // ─── Lazy-loaded modules (code-split per route) ──────────────────────────────
@@ -23,10 +27,18 @@ const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/inde
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
 const QualidadePage         = lazy(() => import('@/features/qualidade/index').then((m) => ({ default: m.QualidadePage })))
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
-const Rede360Page           = lazy(() => import('@/features/rede-360/index').then((m) => ({ default: m.Rede360Page })))
 const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
 const EvmPage               = lazy(() => import('@/features/evm/index').then((m) => ({ default: m.EvmPage })))
 const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index').then((m) => ({ default: m.MinhaRotinaPage })))
+const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
+const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
+const FinanceiroPage        = lazy(() => import('@/features/financeiro/index').then((m) => ({ default: m.FinanceiroPage })))
+
+// Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
+const AprovacoesPage        = lazy(() => import('@/features/admin/AprovacoesPage').then((m) => ({ default: m.AprovacoesPage })))
+const ExportarDadosPage     = lazy(() => import('@/features/admin/ExportarDadosPage').then((m) => ({ default: m.ExportarDadosPage })))
+const AuditoriaPage         = lazy(() => import('@/features/admin/AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })))
+const MatrizAprovacaoPage   = lazy(() => import('@/features/admin/MatrizAprovacaoPage').then((m) => ({ default: m.MatrizAprovacaoPage })))
 
 // ─── Route loading fallback ──────────────────────────────────────────────────
 
@@ -54,13 +66,22 @@ function App() {
         {/* Landing page — no AppShell */}
         <Route path="/" element={<LandingPage />} />
 
-        {/* Login page — no AppShell, sem cadastro público */}
-        <Route path="/login" element={<LoginPage />} />
+        {/* Auth routes — no AppShell */}
+        <Route path="/login"        element={<LoginPage />} />
+        <Route path="/login/mfa"    element={<MfaChallengePage />} />
+        <Route path="/signup"       element={<SignupPage />} />
+        <Route path="/signup/organizacao" element={<SignupPage />} />
+        <Route path="/mfa/ativar"   element={<AuthGuard><MfaSetupPage /></AuthGuard>} />
 
-        {/* App shell with all dashboard routes prefixed by /app */}
-        <Route path="/app" element={<AppShell />}>
+        {/* App shell with all dashboard routes prefixed by /app — protegido por AuthGuard */}
+        <Route path="/app" element={<AuthGuard><AppShell /></AuthGuard>}>
           <Route index element={<Navigate to="/app/minha-rotina" replace />} />
+          <Route path="aprovacoes"   element={<LazyRoute><AprovacoesPage /></LazyRoute>} />
+          <Route path="auditoria"    element={<LazyRoute><AuditoriaPage /></LazyRoute>} />
+          <Route path="exportar-dados" element={<LazyRoute><ExportarDadosPage /></LazyRoute>} />
+          <Route path="configuracoes/aprovacoes" element={<LazyRoute><MatrizAprovacaoPage /></LazyRoute>} />
           <Route path="minha-rotina"        element={<LazyRoute><MinhaRotinaPage /></LazyRoute>} />
+          <Route path="comando-central"     element={<LazyRoute><ComandoCentralPage /></LazyRoute>} />
           <Route path="relatorio360"        element={<LazyRoute><Relatorio360Page /></LazyRoute>} />
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
@@ -79,9 +100,10 @@ function App() {
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
           <Route path="qualidade"           element={<LazyRoute><QualidadePage /></LazyRoute>} />
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
-          <Route path="rede-360"            element={<LazyRoute><Rede360Page /></LazyRoute>} />
           <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
+          <Route path="medicao"             element={<LazyRoute><MedicaoPage /></LazyRoute>} />
+          <Route path="financeiro"          element={<LazyRoute><FinanceiroPage /></LazyRoute>} />
           <Route path="*"                   element={<Navigate to="/app/minha-rotina" replace />} />
         </Route>
 

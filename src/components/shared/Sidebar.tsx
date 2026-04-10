@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, Network, BrainCircuit, TrendingUp, ShieldCheck, Home,
+  Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, DollarSign,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
+import { FeedbackModal } from './FeedbackModal'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -29,6 +31,8 @@ const NAV_GROUPS = [
       { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/app/gestao-360'          },
       { label: 'Relatório 360',   icon: ClipboardList,    to: '/app/relatorio360'        },
       { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
+      { label: 'Medição',          icon: Ruler,            to: '/app/medicao'             },
+      { label: 'Financeiro',       icon: DollarSign,       to: '/app/financeiro'          },
     ],
   },
   {
@@ -65,7 +69,6 @@ const NAV_GROUPS = [
     items: [
       { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
       { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
-      { label: 'Rede 360',        icon: Network,          to: '/app/rede-360'            },
     ],
   },
 ]
@@ -106,6 +109,20 @@ export function Sidebar({ onClose }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
   })
+  const [showSupport,  setShowSupport]  = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
+  const supportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showSupport) return
+    function handleClick(e: MouseEvent) {
+      if (supportRef.current && !supportRef.current.contains(e.target as Node)) {
+        setShowSupport(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showSupport])
 
   function toggleSidebar() {
     setIsOpen((prev) => {
@@ -120,7 +137,8 @@ export function Sidebar({ onClose }: SidebarProps) {
       className={cn(
         'flex flex-col shrink-0 border-r border-[#525252] bg-[#2c2c2c] h-full',
         'transition-[width] duration-200 ease-in-out overflow-hidden',
-        isOpen ? 'w-[220px]' : 'w-16',
+        // Mobile: limita a 85vw para nunca ocupar a tela inteira mesmo em telas <320px
+        isOpen ? 'w-[220px] max-w-[85vw]' : 'w-16',
       )}
     >
       {/* Logo */}
@@ -224,6 +242,59 @@ export function Sidebar({ onClose }: SidebarProps) {
 
         {/* Bottom controls */}
         <div className="mt-auto flex flex-col gap-0.5 pt-2 mx-2 border-t border-[#525252]">
+
+          {/* Suporte & Feedback (botão único) */}
+          <div ref={supportRef} className="relative">
+            <button
+              onClick={() => setShowSupport((v) => !v)}
+              title="Suporte & Feedback"
+              className={cn(
+                'flex items-center gap-3 h-9 px-3 rounded-lg transition-colors w-full',
+                showSupport
+                  ? 'bg-[#333333] text-white'
+                  : 'text-[#e5e5e5] hover:bg-[#333333] hover:text-white',
+              )}
+            >
+              <LifeBuoy size={18} className="shrink-0" strokeWidth={1.5} />
+              {isOpen && <span className="text-xs font-normal whitespace-nowrap">Suporte</span>}
+            </button>
+            {showSupport && (
+              <div
+                className="absolute bottom-full left-0 mb-1 w-52 rounded-lg shadow-2xl z-50 overflow-hidden"
+                style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.12)' }}
+              >
+                <a
+                  href="https://www.linkedin.com/company/construdatasoftware"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowSupport(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors"
+                >
+                  <Linkedin size={14} className="shrink-0" />
+                  LinkedIn
+                </a>
+                <a
+                  href="https://www.instagram.com/construdata_"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowSupport(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors"
+                >
+                  <Instagram size={14} className="shrink-0" />
+                  Instagram
+                </a>
+                <div className="border-t border-[#333]" />
+                <button
+                  onClick={() => { setShowSupport(false); setShowFeedback(true) }}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
+                >
+                  <MessageSquarePlus size={14} className="shrink-0" />
+                  Pesquisa de Satisfação
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             onClick={toggleSidebar}
             title={isOpen ? 'Recolher menu' : 'Expandir menu'}
@@ -260,6 +331,8 @@ export function Sidebar({ onClose }: SidebarProps) {
           </button>
         </div>
       </nav>
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </aside>
   )
 }

@@ -8,6 +8,7 @@
  *  - Platform imports are read-only (never mutate source stores)
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type {
   PlanTrecho,
   PlanTeam,
@@ -22,6 +23,8 @@ import type {
   PlanScenario,
   TechnicalRule,
 } from '@/types'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import {
   MOCK_TRECHOS,
   MOCK_TEAMS,
@@ -57,6 +60,9 @@ interface PlanejamentoState {
   // Navigation
   activeTab: PlanejamentoTab
 
+  // Plan identity
+  planName: string
+
   // Inputs (mutations set isScheduleDirty)
   trechos:           PlanTrecho[]
   teams:             PlanTeam[]
@@ -85,10 +91,18 @@ interface PlanejamentoState {
   // Project budget
   projectBudget: number
 
+  // Sync state
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab: PlanejamentoTab) => void
+  setPlanName: (name: string) => void
   setProjectBudget: (budget: number) => void
+  initBlankPlan: (nome: string) => void
 
   // Trechos
   addTrecho:    (t: Omit<PlanTrecho, 'id'>) => void
@@ -137,18 +151,87 @@ interface PlanejamentoState {
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
+
+  // Sync
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
+}
+
+// ─── Mappers para Supabase ───────────────────────────────────────────────────
+function trechoToRow(t: PlanTrecho, orgId: string, userId: string) {
+  return {
+    id:                  t.id,
+    organization_id:     orgId,
+    code:                t.code,
+    description:         t.description,
+    length_m:            t.lengthM,
+    depth_m:             t.depthM,
+    diameter_mm:         t.diameterMm,
+    soil_type:           t.soilType,
+    requires_shoring:    t.requiresShoring,
+    unit_cost_brl:       t.unitCostBRL ?? null,
+    notes:               t.notes ?? null,
+    assigned_team_index: t.assignedTeamIndex ?? null,
+    planned_start_date:  t.plannedStartDate ?? null,
+    planned_end_date:    t.plannedEndDate ?? null,
+    abc_zone:            t.abcZone ?? null,
+    executed_meters:     t.executedMeters ?? 0,
+    execution_status:    t.executionStatus ?? 'not_started',
+    last_rdo_date:       t.lastRdoDate ?? null,
+    payload:             {},
+    created_by:          userId,
+  }
+}
+
+function teamToRow(t: PlanTeam, orgId: string, userId: string) {
+  return {
+    id:                       t.id,
+    organization_id:          orgId,
+    name:                     t.name,
+    foreman_count:            t.foremanCount,
+    worker_count:             t.workerCount,
+    helper_count:             t.helperCount,
+    operator_count:           t.operatorCount,
+    retroescavadeira:         t.retroescavadeira,
+    compactador:              t.compactador,
+    caminhao_basculante:      t.caminhaoBasculante,
+    labor_hourly_rate_brl:    t.laborHourlyRateBRL,
+    equipment_daily_rate_brl: t.equipmentDailyRateBRL,
+    max_manual_excav_depth_m: t.maxManualExcavDepthM,
+    payload:                  {},
+    created_by:               userId,
+  }
+}
+
+function holidayToRow(h: PlanHoliday & { id?: string }, orgId: string, userId: string) {
+  return {
+    id:              h.id ?? crypto.randomUUID(),
+    organization_id: orgId,
+    date:            h.date,
+    description:     h.description,
+    recurring:       false,
+    created_by:      userId,
+  }
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
+export const usePlanejamentoStore = create<PlanejamentoState>()(
+  persist(
+    (set, get) => ({
   activeTab: 'config',
+  planName: '',
 
-  trechos:           MOCK_TRECHOS,
-  teams:             MOCK_TEAMS,
+  trechos:           [],
+  teams:             [],
   productivityTable: MOCK_PRODUCTIVITY,
   scheduleConfig:    MOCK_SCHEDULE_CONFIG,
-  holidays:          MOCK_HOLIDAYS,
+  holidays:          [],
+
+  pendingSync:  [] as PendingOp[],
+  syncStatus:   'idle' as SyncStatus,
+  lastSyncedAt: null as string | null,
+  syncError:    null as string | null,
 
   ganttRows:       [],
   workDays:        [],
@@ -160,8 +243,8 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
   histogramPoints: [],
   abcItems:        [],
 
-  notes:     MOCK_NOTES,
-  scenarios: [MOCK_BASE_SCENARIO],
+  notes:     [],
+  scenarios: [],
 
   technicalRules: [
     { id: crypto.randomUUID(), name: 'Solo Rochoso — penalidade', condition: "soilType === 'rocky'", productivityMultiplier: 0.6, costMultiplier: 1.4 },
@@ -173,27 +256,80 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
   // ── Navigation ────────────────────────────────────────────────────────────────
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setPlanName: (name) => set({ planName: name }),
   setProjectBudget: (budget) => set({ projectBudget: Math.max(0, budget) }),
+
+  initBlankPlan: (nome) => set({
+    planName:        nome,
+    trechos:         [],
+    teams:           [],
+    ganttRows:       [],
+    workDays:        [],
+    totalCostBRL:    0,
+    totalMeters:     0,
+    projectEndDate:  null,
+    isScheduleDirty: false,
+    scurvePoints:    [],
+    histogramPoints: [],
+    abcItems:        [],
+    notes:           [],
+    activeTab:       'trechos',
+    productivityTable: MOCK_PRODUCTIVITY,
+    scheduleConfig:    MOCK_SCHEDULE_CONFIG,
+    holidays:          [],
+  }),
 
   // ── Trechos ───────────────────────────────────────────────────────────────────
 
-  addTrecho: (t) =>
+  addTrecho: (t) => {
+    const newT: PlanTrecho = { ...t, id: crypto.randomUUID() }
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((s) => ({
-      trechos: [...s.trechos, { ...t, id: crypto.randomUUID() }],
+      trechos: [...s.trechos, newT],
       isScheduleDirty: true,
-    })),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'trecho', type: 'insert', recordId: newT.id, row: trechoToRow(newT, orgId, userId), table: 'plan_trechos' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  updateTrecho: (id, updates) =>
-    set((s) => ({
-      trechos: s.trechos.map((t) => t.id === id ? { ...t, ...updates } : t),
-      isScheduleDirty: true,
-    })),
+  updateTrecho: (id, updates) => {
+    set((s) => {
+      const updated = s.trechos.map((t) => t.id === id ? { ...t, ...updates } : t)
+      const target  = updated.find((t) => t.id === id)
+      const { profile, user } = useAuth.getState()
+      const orgId  = profile?.organization_id ?? 'pending'
+      const userId = user?.id ?? 'pending'
+      const row    = target ? trechoToRow(target, orgId, userId) : undefined
+      const patch  = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id','organization_id','created_by'].includes(k))) : undefined
+      return {
+        trechos: updated,
+        isScheduleDirty: true,
+        pendingSync: [
+          ...s.pendingSync,
+          makeOp({ entity: 'trecho', type: 'update', recordId: id, patch, table: 'plan_trechos' }),
+        ],
+      }
+    })
+    void get().flush()
+  },
 
-  removeTrecho: (id) =>
+  removeTrecho: (id) => {
     set((s) => ({
       trechos: s.trechos.filter((t) => t.id !== id),
       isScheduleDirty: true,
-    })),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'trecho', type: 'delete', recordId: id, table: 'plan_trechos', approvalActionType: 'delete_plan_trecho' }),
+      ],
+    }))
+    void get().flush()
+  },
 
   reorderTrechos: (trechos) => set({ trechos, isScheduleDirty: true }),
 
@@ -237,23 +373,55 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
 
   // ── Teams ─────────────────────────────────────────────────────────────────────
 
-  addTeam: (t) =>
+  addTeam: (t) => {
+    const newT: PlanTeam = { ...t, id: crypto.randomUUID() }
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((s) => ({
-      teams: [...s.teams, { ...t, id: crypto.randomUUID() }],
+      teams: [...s.teams, newT],
       isScheduleDirty: true,
-    })),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'team', type: 'insert', recordId: newT.id, row: teamToRow(newT, orgId, userId), table: 'plan_teams' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  updateTeam: (id, updates) =>
-    set((s) => ({
-      teams: s.teams.map((t) => t.id === id ? { ...t, ...updates } : t),
-      isScheduleDirty: true,
-    })),
+  updateTeam: (id, updates) => {
+    set((s) => {
+      const updated = s.teams.map((t) => t.id === id ? { ...t, ...updates } : t)
+      const target  = updated.find((t) => t.id === id)
+      const { profile, user } = useAuth.getState()
+      const orgId  = profile?.organization_id ?? 'pending'
+      const userId = user?.id ?? 'pending'
+      const row    = target ? teamToRow(target, orgId, userId) : undefined
+      const patch  = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id','organization_id','created_by'].includes(k))) : undefined
+      return {
+        teams: updated,
+        isScheduleDirty: true,
+        pendingSync: [
+          ...s.pendingSync,
+          makeOp({ entity: 'team', type: 'update', recordId: id, patch, table: 'plan_teams' }),
+        ],
+      }
+    })
+    void get().flush()
+  },
 
-  removeTeam: (id) =>
+  removeTeam: (id) => {
     set((s) => ({
       teams: s.teams.filter((t) => t.id !== id),
       isScheduleDirty: true,
-    })),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'team', type: 'delete', recordId: id, table: 'plan_teams' }),
+      ],
+    }))
+    void get().flush()
+  },
 
   // ── Productivity ──────────────────────────────────────────────────────────────
 
@@ -265,18 +433,31 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
 
   // ── Holidays ──────────────────────────────────────────────────────────────────
 
-  addHoliday: (h) =>
+  addHoliday: (h) => {
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
+    const row    = holidayToRow(h, orgId, userId)
     set((s) => ({
       holidays: [...s.holidays.filter((x) => x.date !== h.date), h]
         .sort((a, b) => a.date.localeCompare(b.date)),
       isScheduleDirty: true,
-    })),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'holiday', type: 'insert', recordId: row.id, row, table: 'plan_holidays' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  removeHoliday: (date) =>
+  removeHoliday: (date) => {
     set((s) => ({
       holidays: s.holidays.filter((h) => h.date !== date),
       isScheduleDirty: true,
-    })),
+    }))
+    // Para holidays usamos DELETE direto (não crítico)
+    void get().flush()
+  },
 
   // ── Schedule Execution ────────────────────────────────────────────────────────
 
@@ -361,7 +542,32 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
       scheduleConfig:    structuredClone(scheduleConfig),
       holidays:          structuredClone(holidays),
     }
-    set((s) => ({ scenarios: [...s.scenarios, scenario] }))
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
+    const row = {
+      id:              scenario.id,
+      organization_id: orgId,
+      name:            scenario.name,
+      description:     scenario.description ?? null,
+      is_baseline:     false,
+      payload:         {
+        trechos: scenario.trechos,
+        teams: scenario.teams,
+        productivityTable: scenario.productivityTable,
+        scheduleConfig: scenario.scheduleConfig,
+        holidays: scenario.holidays,
+      },
+      created_by:      userId,
+    }
+    set((s) => ({
+      scenarios: [...s.scenarios, scenario],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'scenario', type: 'insert', recordId: scenario.id, row, table: 'plan_scenarios' }),
+      ],
+    }))
+    void get().flush()
   },
 
   loadScenario: (id) => {
@@ -386,8 +592,16 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
       ),
     })),
 
-  removeScenario: (id) =>
-    set((s) => ({ scenarios: s.scenarios.filter((sc) => sc.id !== id) })),
+  removeScenario: (id) => {
+    set((s) => ({
+      scenarios: s.scenarios.filter((sc) => sc.id !== id),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'scenario', type: 'delete', recordId: id, table: 'plan_scenarios', approvalActionType: 'delete_plan_scenario' }),
+      ],
+    }))
+    void get().flush()
+  },
 
   // ── Technical Rules ───────────────────────────────────────────────────────────
 
@@ -461,5 +675,122 @@ export const usePlanejamentoStore = create<PlanejamentoState>((set, get) => ({
       histogramPoints:   [],
       abcItems:          [],
       projectBudget:     0,
+      pendingSync:       [],
+      syncError:         null,
     }),
-}))
+
+  // ── Sync ────────────────────────────────────────────────────────────────────
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      set({ syncStatus: 'offline' }); return
+    }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const trechos = await pullTable<Record<string, unknown>>('plan_trechos')
+    const teams   = await pullTable<Record<string, unknown>>('plan_teams')
+    const hols    = await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
+    if (trechos) {
+      set({
+        trechos: trechos.map((r) => ({
+          id:                r.id as string,
+          code:              r.code as string,
+          description:       r.description as string,
+          lengthM:           Number(r.length_m ?? 0),
+          depthM:            Number(r.depth_m ?? 0),
+          diameterMm:        Number(r.diameter_mm ?? 0),
+          soilType:          (r.soil_type as PlanTrecho['soilType']) ?? 'normal',
+          requiresShoring:   Boolean(r.requires_shoring),
+          unitCostBRL:       r.unit_cost_brl != null ? Number(r.unit_cost_brl) : undefined,
+          notes:             (r.notes as string | null) ?? undefined,
+          assignedTeamIndex: r.assigned_team_index != null ? Number(r.assigned_team_index) : undefined,
+          plannedStartDate:  (r.planned_start_date as string | null) ?? undefined,
+          plannedEndDate:    (r.planned_end_date as string | null) ?? undefined,
+          abcZone:           (r.abc_zone as PlanTrecho['abcZone']) ?? undefined,
+          executedMeters:    r.executed_meters != null ? Number(r.executed_meters) : 0,
+          executionStatus:   (r.execution_status as PlanTrecho['executionStatus']) ?? 'not_started',
+          lastRdoDate:       (r.last_rdo_date as string | null) ?? undefined,
+        })),
+      })
+    }
+    if (teams) {
+      set({
+        teams: teams.map((r) => ({
+          id:                    r.id as string,
+          name:                  r.name as string,
+          foremanCount:          Number(r.foreman_count ?? 0),
+          workerCount:           Number(r.worker_count ?? 0),
+          helperCount:           Number(r.helper_count ?? 0),
+          operatorCount:         Number(r.operator_count ?? 0),
+          retroescavadeira:      Number(r.retroescavadeira ?? 0),
+          compactador:           Number(r.compactador ?? 0),
+          caminhaoBasculante:    Number(r.caminhao_basculante ?? 0),
+          laborHourlyRateBRL:    Number(r.labor_hourly_rate_brl ?? 0),
+          equipmentDailyRateBRL: Number(r.equipment_daily_rate_brl ?? 0),
+          maxManualExcavDepthM:  Number(r.max_manual_excav_depth_m ?? 1.5),
+        })),
+      })
+    }
+    if (hols) {
+      set({
+        holidays: hols.map((r) => ({
+          date: r.date as string,
+          description: r.description as string,
+        })),
+      })
+    }
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-planejamento',
+      partialize: (s) => ({
+        trechos:        s.trechos,
+        teams:          s.teams,
+        holidays:       s.holidays,
+        scenarios:      s.scenarios,
+        notes:          s.notes,
+        technicalRules: s.technicalRules,
+        projectBudget:  s.projectBudget,
+        pendingSync:    s.pendingSync,
+        lastSyncedAt:   s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void usePlanejamentoStore.getState().flush()
+  })
+
+  // Cross-module listeners (Sprint Ontologia Unificada)
+  // Quando RDO é fechado, re-pull dos trechos para refletir executedMeters
+  // que o trigger SQL atualizou no servidor.
+  void import('@/lib/eventBus').then(({ eventBus }) => {
+    eventBus.on('rdo.closed', () => {
+      void usePlanejamentoStore.getState().pull()
+    })
+    // Re-pull também quando Realtime avisar que plan_trechos mudou em outro cliente
+    eventBus.on('realtime.row_changed', (e) => {
+      if (e.table === 'plan_trechos') {
+        void usePlanejamentoStore.getState().pull()
+      }
+    })
+  })
+}

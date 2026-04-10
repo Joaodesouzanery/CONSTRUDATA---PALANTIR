@@ -1222,10 +1222,11 @@ export interface RdoEquipmentEntry {
 }
 
 export interface RdoServiceEntry {
-  id:          string
-  description: string
-  quantity:    number
-  unit:        string
+  id:                string
+  description:       string
+  quantity:          number
+  unit:              string
+  contractItemCode?: string   // Fase 2: vínculo com item do catálogo de medição
 }
 
 export interface RdoTrechoEntry {
@@ -1332,6 +1333,7 @@ export interface FVS {
   welderSignature:   string    // Assinatura soldador (nome)
   qualitySignature:  string    // Assinatura Resp. Qualidade (nome)
   logoId?:           string    // ID da SavedLogo do companySettingsStore (PDF export)
+  fotos?:            string[]  // base64 das fotos anexadas (TODO: migrar para Supabase Storage)
   // Metadados
   createdAt: string
   updatedAt: string
@@ -1931,4 +1933,65 @@ export interface SCurveMultiPoint {
   actualPhysicalPct: number
   earnedValuePct: number
   actualCostPct: number
+}
+
+// ─── Medição — Consolidado Executado × Projetado × Cadastro ─────────────────
+
+export type MedicaoTab = 'consolidado' | 'materiais' | 'resumo' | 'dashboard'
+
+export type SegmentStatus = 'EXECUTADO' | 'PENDENTE' | 'CADASTRO'
+export type SegmentTipo   = 'ESGOTO' | 'AGUA'
+
+export interface ConsolidatedSegment {
+  id:            string
+  nucleo:        string
+  tipo:          SegmentTipo
+  rua:           string
+  ns:            string
+  pvMont:        string
+  pvJus:         string
+  dnMm:          number | null
+  extM:          number
+  material:      string
+  ctMont:        number | null
+  ctJus:         number | null
+  declPerMil:    number | null
+  status:        SegmentStatus
+  dataExec:      string | null   // dd/MM/yyyy or null
+  networkLayer:  string
+  analise:       string
+}
+
+export interface NucleoSummary {
+  nucleo:    string
+  tipo:      SegmentTipo
+  trTotal:   number
+  trObra:    number
+  trCad:     number
+  trExec:    number
+  trPend:    number
+  kmObra:    number
+  kmExec:    number
+  kmPend:    number
+  kmCad:     number
+  pctExec:   number
+}
+
+// ─── Financeiro ─────────────────────────────────────────────────────────────
+
+export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa'
+
+export type EntradaCategoria = 'medicao' | 'adiantamento' | 'reajuste' | 'outro'
+export type SaidaCategoria   = 'materiais' | 'mao_de_obra' | 'equipamentos' | 'subempreiteiros' | 'administrativo' | 'outro'
+
+export interface FinanceiroEntry {
+  id:          string
+  tipo:        'entrada' | 'saida'
+  descricao:   string
+  valor:       number
+  data:        string   // yyyy-MM-dd
+  categoria:   EntradaCategoria | SaidaCategoria
+  referencia?: string   // nº NF, nº medição, etc.
+  notas?:      string
+  createdAt:   string
 }

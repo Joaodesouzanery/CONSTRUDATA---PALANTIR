@@ -11,8 +11,8 @@
  *   - Linha de NC (SIM/NÃO + Nº NC)
  *   - Bloco "Fechamento da FVS" (4 campos de assinatura)
  */
-import { useState } from 'react'
-import { Save, Plus, Trash2, Printer } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Save, Plus, Trash2, Printer, Camera, X as XIcon } from 'lucide-react'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { FVS_ITEMS_TEMPLATE } from '../schemas'
@@ -156,6 +156,10 @@ export function NovaFvsPanel() {
   const [items,             setItems]             = useState<FvsItem[]>(makeBlankItems)
   const [problems,          setProblems]          = useState<Omit<FvsProblemAction, 'id'>[]>([])
 
+  // Fotos
+  const [fotos,             setFotos]             = useState<string[]>([])
+  const fotoInputRef = useRef<HTMLInputElement>(null)
+
   // NC + Closure
   const [ncRequired,        setNcRequired]        = useState(false)
   const [ncNumber,          setNcNumber]          = useState('')
@@ -205,6 +209,25 @@ export function NovaFvsPanel() {
     setWelderSignature('')
     setQualitySignature('')
     setSelectedLogoId(undefined)
+    setFotos([])
+  }
+
+  function handleAddFotos(files: FileList | null) {
+    if (!files) return
+    const remaining = 10 - fotos.length
+    const toRead = Array.from(files).slice(0, remaining)
+    toRead.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result) setFotos((prev) => [...prev, result])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  function removeFoto(idx: number) {
+    setFotos((prev) => prev.filter((_, i) => i !== idx))
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -250,6 +273,7 @@ export function NovaFvsPanel() {
         welderSignature,
         qualitySignature,
         logoId: selectedLogoId,
+        fotos,
       })
 
       setSubmitSuccess(true)
@@ -621,6 +645,68 @@ export function NovaFvsPanel() {
               className="flex-1 bg-transparent border-b border-[#525252] text-sm text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316] py-1"
             />
           </div>
+        </div>
+      </div>
+
+      {/* ─── Registros Fotográficos ─────────────────────────────────────────── */}
+      <div className="bg-[#2c2c2c] border-2 border-[#525252] overflow-hidden">
+        <div className="bg-[#3a3a3a] px-3 py-2 border-b-2 border-[#525252] flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#f97316] flex items-center gap-2">
+            <Camera size={14} />
+            Registros Fotográficos
+          </h3>
+          <span className="text-[10px] text-[#6b6b6b]">{fotos.length}/10 fotos</span>
+        </div>
+        <div className="p-4">
+          {/* Hidden file input */}
+          <input
+            ref={fotoInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => handleAddFotos(e.target.files)}
+            onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
+          />
+
+          {/* Photo grid */}
+          {fotos.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 mb-3">
+              {fotos.map((src, idx) => (
+                <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-[#525252]">
+                  <img src={src} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeFoto(idx)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                    title="Remover foto"
+                  >
+                    <XIcon size={11} />
+                  </button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-[9px] text-center text-white py-0.5">
+                    {idx + 1}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add button */}
+          {fotos.length < 10 && (
+            <button
+              type="button"
+              onClick={() => fotoInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 border border-dashed border-[#525252] rounded-lg text-xs text-[#a3a3a3] hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors"
+            >
+              <Camera size={14} />
+              {fotos.length === 0 ? 'Adicionar fotos' : 'Adicionar mais fotos'}
+            </button>
+          )}
+          {fotos.length === 0 && (
+            <p className="text-[10px] text-[#6b6b6b] mt-2">
+              Opcional — adicione até 10 fotos para documentar a execução do serviço.
+            </p>
+          )}
         </div>
       </div>
 
