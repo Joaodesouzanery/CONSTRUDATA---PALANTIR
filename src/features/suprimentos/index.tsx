@@ -14,6 +14,9 @@ import { BomPendentePanel }    from './components/BomPendentePanel'
 import { ExcelImportModal }          from './components/ExcelImportModal'
 import { NovoMaterialModal }         from './components/NovoMaterialModal'
 import { ImportConsolidadoModal }    from './components/ImportConsolidadoModal'
+import { ResumoNucleoPanel }         from './components/ResumoNucleoPanel'
+import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
+import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 
@@ -26,7 +29,11 @@ export function SuprimentosPage() {
 
   // Reset tab when section changes
   useEffect(() => {
-    setActiveTab(activeSection === 'suprimentos' ? 'conciliacao' : 'materiais')
+    setActiveTab(
+      activeSection === 'suprimentos' ? 'conciliacao'
+      : activeSection === 'materiais' ? 'materiais'
+      : 'resumo_nucleo'
+    )
   }, [activeSection])
 
   return (
@@ -51,6 +58,15 @@ export function SuprimentosPage() {
             )}
           >
             Materiais &amp; Estoque
+          </button>
+          <button
+            onClick={() => setActiveSection('planilhas')}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+              activeSection === 'planilhas' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+            )}
+          >
+            Planilhas Consolidadas
           </button>
         </div>
 
@@ -101,6 +117,9 @@ export function SuprimentosPage() {
       {activeTab === 'estoque'     && <MapaEstoquePanel />}
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
+      {activeTab === 'resumo_nucleo'       && <ResumoNucleoPanel />}
+      {activeTab === 'consolidado_trechos' && <ConsolidadoTrechosPanel />}
+      {activeTab === 'materiais_pendentes' && <MateriaisPendentesPanel />}
 
       {showImport        && <ExcelImportModal onClose={() => setShowImport(false)} />}
       {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}

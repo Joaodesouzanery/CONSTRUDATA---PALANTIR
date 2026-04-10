@@ -59,7 +59,8 @@ export interface NcAsRestriction {
  * @returns objeto com hasPending boolean + lista de pendências
  */
 export function checkPendingFvsForDate(date: string): PendingFvsCheck {
-  const fvss = useQualidadeStore.getState().fvss
+  const fvss = useQualidadeStore.getState().fvss ?? []
+  if (!fvss.length) return { hasPending: false, pendingCount: 0, pendingFvss: [], ncOpen: 0 }
 
   // FVS é "pendente" se a data bate E ainda tem item sem decisão
   const pendingFvss = fvss.filter((f) => {
@@ -83,7 +84,8 @@ export function checkPendingFvsForDate(date: string): PendingFvsCheck {
  * Útil para mostrar no RDO "FVS realizadas hoje: X".
  */
 export function getCompletedFvsForDate(date: string): FVS[] {
-  const fvss = useQualidadeStore.getState().fvss
+  const fvss = useQualidadeStore.getState().fvss ?? []
+  if (!fvss.length) return []
   return fvss.filter(
     (f) =>
       f.date === date &&
@@ -119,7 +121,8 @@ export function applyMaterialDelayToPlanejamento(
   }
 
   const planStore = usePlanejamentoStore.getState()
-  const trechos = planStore.trechos
+  const trechos = planStore.trechos ?? []
+  if (!trechos.length) return { matchedTrechos: 0, delayDays, affectedTrechosCodes: [] }
 
   // Match: descrição do trecho contém TODAS as palavras-chave (case-insensitive)
   const affected = trechos.filter((t) => {
@@ -166,7 +169,8 @@ export function applyMaterialDelayToPlanejamento(
  * Sprint 3 (Supabase): vira INSERT automático em `lps_constraints`.
  */
 export function getOpenNcsAsRestrictions(): NcAsRestriction[] {
-  const fvss = useQualidadeStore.getState().fvss
+  const fvss = useQualidadeStore.getState().fvss ?? []
+  if (!fvss.length) return []
 
   return fvss
     .filter((f) => f.ncRequired && f.ncNumber.trim() !== '')
@@ -196,7 +200,8 @@ export function getOpenNcsAsRestrictions(): NcAsRestriction[] {
  * é o adapter para chamar de fora sem importar o store diretamente.
  */
 export function syncRdoExecutionToPlanejamento(): { syncedTrechos: number } {
-  const rdos = useRdoStore.getState().rdos
+  const rdos = useRdoStore.getState().rdos ?? []
+  if (!rdos.length) return { syncedTrechos: 0 }
 
   // Para cada trecho que aparece em qualquer RDO, pega o último valor executado
   const trechoMap = new Map<string, { executedMeters: number; date: string }>()

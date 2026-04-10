@@ -5,10 +5,11 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
+import { resumoGlobal, resumoNucleos, consolidadoTrechos } from '@/data/mockPlanilhasConsolidadas'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
 
-export type SuprimentosSection = 'suprimentos' | 'materiais'
+export type SuprimentosSection = 'suprimentos' | 'materiais' | 'planilhas'
 
 interface Props {
   section:    SuprimentosSection
@@ -27,6 +28,9 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'estoque',     label: 'Mapa de Estoque',          section: 'materiais'   },
   { key: 'semaforo',    label: 'Semáforo de Prontidão',    section: 'materiais'   },
   { key: 'whatif',      label: 'What-if Logístico',        section: 'materiais'   },
+  { key: 'resumo_nucleo',       label: 'Resumo por Núcleo',       section: 'planilhas'   },
+  { key: 'consolidado_trechos', label: 'Consolidado Trechos',     section: 'planilhas'   },
+  { key: 'materiais_pendentes', label: 'Materiais Pendentes',     section: 'planilhas'   },
 ]
 
 export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
@@ -71,7 +75,19 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
                                              color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
   ]
 
-  const kpis = section === 'suprimentos' ? supKpis : matKpis
+  // ── Planilhas Consolidadas KPIs ─────────────────────────────────────────────
+  const totalTrechos = resumoNucleos.reduce((s, r) => s + r.trObra, 0)
+  const trechosExec  = resumoNucleos.reduce((s, r) => s + r.trExec, 0)
+  const trechosPend  = resumoNucleos.reduce((s, r) => s + r.trPend, 0)
+
+  const planKpis = [
+    { label: 'Trechos em Obra',  value: totalTrechos, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]'       },
+    { label: 'Executados',       value: trechosExec,  color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
+    { label: 'Pendentes',        value: trechosPend,  color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
+    { label: 'Progresso Geral',  value: `${resumoGlobal.progressoObra}%`, color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
+  ]
+
+  const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : planKpis
 
   return (
     <div className="flex flex-col gap-4 shrink-0">
