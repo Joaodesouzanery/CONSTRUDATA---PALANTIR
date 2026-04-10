@@ -39,6 +39,10 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+  /* Sprint pós-6: previne scroll horizontal acidental em qualquer página.
+     Tabelas/canvases têm seus próprios overflow-x scrolláveis quando precisam. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -96,9 +100,21 @@ body {
 .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 .sidebar-scroll { scrollbar-width: thin; scrollbar-color: #525252 transparent; }
 
-/* Touch-friendly minimum tap target (44×44px recommended by WCAG) */
+/* Touch-friendly minimum tap target (44×44px recommended by Apple HIG / WCAG AAA) */
 @media (max-width: 767px) {
-  button, [role="button"] { min-height: 36px; }
+  button, [role="button"], a.btn, .btn { min-height: 44px; }
+  /* Inputs e selects também precisam de altura mínima para tocar com o dedo */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px; /* Previne zoom automático do iOS Safari ao focar */
+  }
+  /* Checkboxes e radios maiores em mobile */
+  input[type="checkbox"], input[type="radio"] {
+    min-width: 20px;
+    min-height: 20px;
+  }
 }
 
 /* Prevent content overflow on small screens */

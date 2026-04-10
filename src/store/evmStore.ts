@@ -2,11 +2,56 @@
  * evmStore.ts — Zustand store for EVM (Earned Value Management) module.
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   EvmTab, WorkPackage, CostAccountEntry, WeightedMeasurement,
   EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
   EacScenarios, PillarDeviation, StockAlert,
 } from '@/types'
+
+// ─── Mappers ──────────────────────────────────────────────────────────────────
+function workPackageToRow(wp: WorkPackage, orgId: string, userId: string) {
+  return {
+    id:               wp.id,
+    organization_id:  orgId,
+    project_id:       (wp as { projectId?: string }).projectId ?? null,
+    code:             (wp as { code?: string }).code ?? null,
+    name:             wp.name ?? null,
+    total_budget_brl: (wp as { totalBudgetBRL?: number }).totalBudgetBRL ?? null,
+    is_template:      (wp as { isTemplate?: boolean }).isTemplate ?? false,
+    payload:          wp as unknown as Record<string, unknown>,
+    created_by:       userId,
+  }
+}
+function costAccountToRow(ca: CostAccountEntry, orgId: string, userId: string) {
+  return {
+    id:              ca.id,
+    organization_id: orgId,
+    work_package_id: (ca as { workPackageId?: string }).workPackageId ?? null,
+    activity_id:     (ca as { activityId?: string }).activityId ?? null,
+    pillar:          ca.pillar,
+    total_cost_brl:  ca.totalCostBRL,
+    payload:         ca as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function measurementToRow(m: WeightedMeasurement, orgId: string, userId: string) {
+  return {
+    id:              m.id,
+    organization_id: orgId,
+    work_package_id: (m as { workPackageId?: string }).workPackageId ?? null,
+    activity_id:     (m as { activityId?: string }).activityId ?? null,
+    composite_score: m.compositeScore,
+    payload:         m as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
 
 interface EvmState {
   activeTab: EvmTab
@@ -39,6 +84,14 @@ interface EvmState {
   // Data management
   loadDemoData: () => void
   clearData: () => void
+
+  // Sync (Sprint 6)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 }
 
 const EMPTY_METRICS: EvmMetrics = {
@@ -68,7 +121,9 @@ function computeCompositeScore(m: Omit<WeightedMeasurement, 'id' | 'compositeSco
   )
 }
 
-export const useEvmStore = create<EvmState>((set, get) => ({
+export const useEvmStore = create<EvmState>()(
+  persist(
+    (set, get) => ({
   activeTab: 'dashboard',
   workPackages: [],
   costAccounts: [],
@@ -76,43 +131,60 @@ export const useEvmStore = create<EvmState>((set, get) => ({
   evmMetrics: { ...EMPTY_METRICS },
   sCurveData: [],
 
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
+
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   // ── Work Package CRUD ──────────────────────────────────────────────
 
-  addWorkPackage: (wp) =>
+  addWorkPackage: (wp) => {
+    const id = crypto.randomUUID()
+    const newWp: WorkPackage = { ...wp, id, createdAt: new Date().toISOString() }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      workPackages: [
-        ...s.workPackages,
-        { ...wp, id: crypto.randomUUID(), createdAt: new Date().toISOString() },
-      ],
-    })),
+      workPackages: [...s.workPackages, newWp],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_wp', type: 'insert', recordId: id, row: workPackageToRow(newWp, orgId, userId), table: 'evm_work_packages' })],
+    }))
+    void get().flush()
+  },
 
-  updateWorkPackage: (id, patch) =>
-    set((s) => ({
-      workPackages: s.workPackages.map((wp) => (wp.id === id ? { ...wp, ...patch } : wp)),
-    })),
+  updateWorkPackage: (id, patch) => {
+    set((s) => ({ workPackages: s.workPackages.map((wp) => (wp.id === id ? { ...wp, ...patch } : wp)) }))
+    const target = get().workPackages.find((wp) => wp.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = workPackageToRow(target, orgId, userId)
+      const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_wp', type: 'update', recordId: id, patch: updatePatch, table: 'evm_work_packages' })] }))
+      void get().flush()
+    }
+  },
 
-  removeWorkPackage: (id) =>
+  removeWorkPackage: (id) => {
     set((s) => ({
       workPackages: s.workPackages.filter((wp) => wp.id !== id),
-    })),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_wp', type: 'delete', recordId: id, table: 'evm_work_packages', approvalActionType: 'delete_evm_work_package' })],
+    }))
+    void get().flush()
+  },
 
   // ── Cost Account CRUD ──────────────────────────────────────────────
 
-  addCostAccount: (entry) =>
+  addCostAccount: (entry) => {
+    const id = crypto.randomUUID()
+    const newCa: CostAccountEntry = { ...entry, id, totalCostBRL: entry.unitCostBRL * entry.quantity }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      costAccounts: [
-        ...s.costAccounts,
-        {
-          ...entry,
-          id: crypto.randomUUID(),
-          totalCostBRL: entry.unitCostBRL * entry.quantity,
-        },
-      ],
-    })),
+      costAccounts: [...s.costAccounts, newCa],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'insert', recordId: id, row: costAccountToRow(newCa, orgId, userId), table: 'evm_cost_accounts' })],
+    }))
+    void get().flush()
+  },
 
-  updateCostAccount: (id, patch) =>
+  updateCostAccount: (id, patch) => {
     set((s) => ({
       costAccounts: s.costAccounts.map((ca) => {
         if (ca.id !== id) return ca
@@ -120,24 +192,39 @@ export const useEvmStore = create<EvmState>((set, get) => ({
         updated.totalCostBRL = updated.unitCostBRL * updated.quantity
         return updated
       }),
-    })),
+    }))
+    const target = get().costAccounts.find((ca) => ca.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = costAccountToRow(target, orgId, userId)
+      const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'update', recordId: id, patch: updatePatch, table: 'evm_cost_accounts' })] }))
+      void get().flush()
+    }
+  },
 
-  removeCostAccount: (id) =>
+  removeCostAccount: (id) => {
     set((s) => ({
       costAccounts: s.costAccounts.filter((ca) => ca.id !== id),
-    })),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'delete', recordId: id, table: 'evm_cost_accounts', approvalActionType: 'delete_evm_cost_account' })],
+    }))
+    void get().flush()
+  },
 
   // ── Measurement CRUD ───────────────────────────────────────────────
 
-  addMeasurement: (m) =>
+  addMeasurement: (m) => {
+    const id = crypto.randomUUID()
+    const newM: WeightedMeasurement = { ...m, id, compositeScore: computeCompositeScore(m) }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      measurements: [
-        ...s.measurements,
-        { ...m, id: crypto.randomUUID(), compositeScore: computeCompositeScore(m) },
-      ],
-    })),
+      measurements: [...s.measurements, newM],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_meas', type: 'insert', recordId: id, row: measurementToRow(newM, orgId, userId), table: 'evm_measurements' })],
+    }))
+    void get().flush()
+  },
 
-  updateMeasurement: (id, patch) =>
+  updateMeasurement: (id, patch) => {
     set((s) => ({
       measurements: s.measurements.map((m) => {
         if (m.id !== id) return m
@@ -145,12 +232,24 @@ export const useEvmStore = create<EvmState>((set, get) => ({
         updated.compositeScore = computeCompositeScore(updated)
         return updated
       }),
-    })),
+    }))
+    const target = get().measurements.find((m) => m.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = measurementToRow(target, orgId, userId)
+      const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_meas', type: 'update', recordId: id, patch: updatePatch, table: 'evm_measurements' })] }))
+      void get().flush()
+    }
+  },
 
-  removeMeasurement: (id) =>
+  removeMeasurement: (id) => {
     set((s) => ({
       measurements: s.measurements.filter((m) => m.id !== id),
-    })),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_meas', type: 'delete', recordId: id, table: 'evm_measurements', approvalActionType: 'delete_evm_measurement' })],
+    }))
+    void get().flush()
+  },
 
   // ── Recalculate ────────────────────────────────────────────────────
 
@@ -299,5 +398,74 @@ export const useEvmStore = create<EvmState>((set, get) => ({
       measurements: [],
       evmMetrics: { ...EMPTY_METRICS },
       sCurveData: [],
+      pendingSync: [],
+      syncError: null,
     }),
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const wps  = await pullTable<{ payload: WorkPackage }>('evm_work_packages')
+    const cas  = await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
+    const ms   = await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
+    if (wps) set({ workPackages: wps.map((r) => r.payload) })
+    if (cas) set({ costAccounts: cas.map((r) => r.payload) })
+    if (ms)  set({ measurements: ms.map((r) => r.payload) })
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+    // Recomputa metrics localmente após pull
+    get().recalculateMetrics()
+  },
+    }),
+    {
+      name: 'cdata-evm',
+      partialize: (s) => ({
+        workPackages: s.workPackages,
+        costAccounts: s.costAccounts,
+        measurements: s.measurements,
+        sCurveData:   s.sCurveData,
+        pendingSync:  s.pendingSync,
+        lastSyncedAt: s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useEvmStore.getState().flush()
+  })
+
+  // Cross-module listeners (Sprint Ontologia Unificada)
+  // Quando uma PO é fechada, o trigger SQL insere automaticamente um cost_account.
+  // Re-pull aqui para refletir o novo AC no painel EVM.
+  void import('@/lib/eventBus').then(({ eventBus }) => {
+    eventBus.on('po.closed', () => {
+      void useEvmStore.getState().pull().then(() => {
+        useEvmStore.getState().recalculateMetrics()
+      })
+    })
+    eventBus.on('realtime.row_changed', (e) => {
+      if (e.table === 'evm_cost_accounts' || e.table === 'evm_work_packages') {
+        void useEvmStore.getState().pull().then(() => {
+          useEvmStore.getState().recalculateMetrics()
+        })
+      }
+    })
+  })
+}

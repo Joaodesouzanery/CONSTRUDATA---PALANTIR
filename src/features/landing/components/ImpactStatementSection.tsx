@@ -53,7 +53,7 @@ export function ImpactStatementSection() {
         borderTop: '1px solid rgba(255,255,255,0.10)',
         borderBottom: '1px solid rgba(255,255,255,0.10)',
       }}
-      className="py-32 relative overflow-hidden"
+      className="py-16 sm:py-24 lg:py-32 relative overflow-hidden"
     >
       {/* Background ornament — círculo laranja sutil */}
       <div
@@ -83,9 +83,9 @@ export function ImpactStatementSection() {
         }}
       />
 
-      <div className="max-w-6xl mx-auto px-6 relative">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         {/* Section divider */}
-        <div className="flex items-center gap-3 mb-16">
+        <div className="flex items-center gap-3 mb-10 sm:mb-16">
           <span
             style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }}
             className="text-[#f97316] text-xs uppercase font-mono"
@@ -101,7 +101,7 @@ export function ImpactStatementSection() {
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(1.8rem, 4.5vw, 3.5rem)',
+              fontSize: 'clamp(1.6rem, 4.5vw, 3.5rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.02em',
               color: '#f4f5f7',

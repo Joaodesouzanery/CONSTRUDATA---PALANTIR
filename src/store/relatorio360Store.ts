@@ -1,11 +1,22 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { addDays, format, parseISO } from 'date-fns'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { DailyReport, ActivityStatus, ReportPhoto, Activity, Crew, Timecard, EquipmentLog, MaterialLog } from '@/types'
 import { initialReports } from '@/data/mockRelatorio360'
 
 interface Relatorio360State {
   reports: Record<string, DailyReport>
   currentDate: string
+
+  // Sync (Sprint 3)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 
   // Navigation
   goToDate: (date: string) => void
@@ -35,9 +46,16 @@ interface Relatorio360State {
   clearData: () => void
 }
 
-export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
+export const useRelatorio360Store = create<Relatorio360State>()(
+  persist(
+    (set, get) => ({
   reports: initialReports,
   currentDate: Object.keys(initialReports)[0],
+
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   goToDate: (date) => set({ currentDate: date }),
 
@@ -217,6 +235,9 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
     }),
 
   addPhoto: (photo) => {
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((state) => {
       const report = state.reports[state.currentDate]
       if (!report) return state
@@ -228,8 +249,25 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
             photos: [...report.photos, photo],
           },
         },
+        pendingSync: [
+          ...state.pendingSync,
+          makeOp({
+            entity: 'daily_report_photo',
+            type:   'insert',
+            recordId: photo.id,
+            row: {
+              id:              photo.id,
+              organization_id: orgId,
+              report_date:     state.currentDate,
+              payload:         photo as unknown as Record<string, unknown>,
+              created_by:      userId,
+            },
+            table: 'daily_report_photos',
+          }),
+        ],
       }
     })
+    void get().flush()
   },
 
   removePhoto: (photoId) => {
@@ -244,8 +282,19 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
             photos: report.photos.filter((p) => p.id !== photoId),
           },
         },
+        pendingSync: [
+          ...state.pendingSync,
+          makeOp({
+            entity: 'daily_report_photo',
+            type:   'delete',
+            recordId: photoId,
+            table:    'daily_report_photos',
+            approvalActionType: 'delete_daily_report_photo',
+          }),
+        ],
       }
     })
+    void get().flush()
   },
 
   updatePhotoLabel: (photoId, label) => {
@@ -270,5 +319,51 @@ export const useRelatorio360Store = create<Relatorio360State>((set, get) => ({
     set({ reports: initialReports, currentDate: Object.keys(initialReports)[0] }),
 
   clearData: () =>
-    set({ reports: {} }),
-}))
+    set({ reports: {}, pendingSync: [], syncError: null }),
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    // Sprint 3: pull genérico das 4 tabelas. Os dados retornam separadamente
+    // por entidade — a hidratação completa do `reports` aninhado fica para
+    // uma futura iteração. Por enquanto, marca timestamp para diagnóstico.
+    await pullTable<{ payload: ReportPhoto }>('daily_report_photos')
+    await pullTable<{ payload: Activity }>('daily_report_activities')
+    await pullTable<{ payload: EquipmentLog }>('daily_report_equipment_logs')
+    await pullTable<{ payload: MaterialLog }>('daily_report_material_logs')
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-relatorio360',
+      partialize: (s) => ({
+        reports:      s.reports,
+        currentDate:  s.currentDate,
+        pendingSync:  s.pendingSync,
+        lastSyncedAt: s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useRelatorio360Store.getState().flush()
+  })
+}

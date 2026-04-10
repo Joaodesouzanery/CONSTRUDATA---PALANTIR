@@ -3,7 +3,15 @@
  * Manages nodes, segments, tools, layers, undo history, and basemap selection.
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { MapNode, MapSegment, MapLayer, MapTool, MapNetworkType } from '@/types'
+
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
 
 // ─── Snapshot type for undo ────────────────────────────────────────────────
 
@@ -123,6 +131,7 @@ function makeDemoData(): { nodes: MapNode[]; segments: MapSegment[] } {
 // ─── State interface ──────────────────────────────────────────────────────
 
 interface MapaInterativoState {
+  mapId: string  // identifica o "mapa" — 1 row em mapas_interativos
   nodes: MapNode[]
   segments: MapSegment[]
   activeTool: MapTool
@@ -135,6 +144,14 @@ interface MapaInterativoState {
   mapMode: 'saneamento' | 'construcao' | null
   selectedProjectId: string | null
   activeNetworkType: MapNetworkType
+
+  // Sync (Sprint 5)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 
   // Actions
   addNode: (node: Omit<MapNode, 'id'>) => void
@@ -169,9 +186,74 @@ function pushHistory(history: MapSnapshot[], nodes: MapNode[], segments: MapSegm
 
 const { nodes: demoNodes, segments: demoSegments } = makeDemoData()
 
-export const useMapaInterativoStore = create<MapaInterativoState>((set) => ({
+// Debounce do enqueue: evita flood de updates ao desenhar muitos nós em sequência.
+let mapDebounce: ReturnType<typeof setTimeout> | null = null
+
+export const useMapaInterativoStore = create<MapaInterativoState>()(
+  persist(
+    (set, get) => {
+      const enqueueMapUpdate = () => {
+        if (mapDebounce) clearTimeout(mapDebounce)
+        mapDebounce = setTimeout(() => {
+          const s = get()
+          const { orgId, userId } = ctxAuth()
+          // upsert via insert (idempotente — cliente garante mesmo id)
+          const row = {
+            id:              s.mapId,
+            organization_id: orgId,
+            project_id:      s.selectedProjectId,
+            name:            'Mapa principal',
+            map_mode:        s.mapMode,
+            basemap:         s.basemap,
+            payload:         { nodes: s.nodes, segments: s.segments, layers: s.layers },
+            created_by:      userId,
+          }
+          const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+          set((st) => ({ pendingSync: [...st.pendingSync, makeOp({ entity: 'mapa', type: 'update', recordId: s.mapId, patch, table: 'mapas_interativos' })] }))
+          void get().flush()
+        }, 1000)
+      }
+      return {
+  mapId: crypto.randomUUID(),
   nodes: demoNodes,
   segments: demoSegments,
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const rows = await pullTable<{ id: string; payload: { nodes: MapNode[]; segments: MapSegment[]; layers?: MapLayer[] } }>('mapas_interativos')
+    if (rows && rows.length > 0) {
+      const first = rows[0]
+      set({
+        mapId:    first.id,
+        nodes:    first.payload?.nodes ?? [],
+        segments: first.payload?.segments ?? [],
+        layers:   first.payload?.layers ?? DEFAULT_LAYERS,
+      })
+    }
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+
   activeTool: 'idle',
   pendingConnectNodeId: null,
   layers: DEFAULT_LAYERS,
@@ -183,35 +265,43 @@ export const useMapaInterativoStore = create<MapaInterativoState>((set) => ({
   selectedProjectId: null,
   activeNetworkType: 'sewer',
 
-  addNode: (node) =>
+  addNode: (node) => {
     set((s) => ({
       history: pushHistory(s.history, s.nodes, s.segments),
       nodes: [...s.nodes, { ...node, id: crypto.randomUUID() }],
-    })),
+    }))
+    enqueueMapUpdate()
+  },
 
-  removeNodes: (ids) =>
+  removeNodes: (ids) => {
     set((s) => ({
       history: pushHistory(s.history, s.nodes, s.segments),
       nodes: s.nodes.filter((n) => !ids.includes(n.id)),
       segments: s.segments.filter((seg) => !ids.includes(seg.fromNodeId) && !ids.includes(seg.toNodeId)),
-    })),
+    }))
+    enqueueMapUpdate()
+  },
 
-  addSegment: (segment) =>
+  addSegment: (segment) => {
     set((s) => ({
       history: pushHistory(s.history, s.nodes, s.segments),
       segments: [...s.segments, { ...segment, id: crypto.randomUUID() }],
-    })),
+    }))
+    enqueueMapUpdate()
+  },
 
-  removeSegments: (ids) =>
+  removeSegments: (ids) => {
     set((s) => ({
       history: pushHistory(s.history, s.nodes, s.segments),
       segments: s.segments.filter((seg) => !ids.includes(seg.id)),
-    })),
+    }))
+    enqueueMapUpdate()
+  },
 
-  updateNode: (id, updates) =>
-    set((s) => ({
-      nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...updates } : n)),
-    })),
+  updateNode: (id, updates) => {
+    set((s) => ({ nodes: s.nodes.map((n) => (n.id === id ? { ...n, ...updates } : n)) }))
+    enqueueMapUpdate()
+  },
 
   setTool: (tool) => set({ activeTool: tool, pendingConnectNodeId: null, measurePoint1: null }),
 
@@ -284,4 +374,27 @@ export const useMapaInterativoStore = create<MapaInterativoState>((set) => ({
   setSelectedProjectId: (id) => set({ selectedProjectId: id }),
 
   setActiveNetworkType: (t) => set({ activeNetworkType: t }),
-}))
+      }
+    },
+    {
+      name: 'cdata-mapa-interativo',
+      partialize: (s) => ({
+        mapId:    s.mapId,
+        nodes:    s.nodes,
+        segments: s.segments,
+        layers:   s.layers,
+        basemap:  s.basemap,
+        mapMode:  s.mapMode,
+        selectedProjectId: s.selectedProjectId,
+        pendingSync:  s.pendingSync,
+        lastSyncedAt: s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useMapaInterativoStore.getState().flush()
+  })
+}

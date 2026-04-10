@@ -295,7 +295,7 @@ export function BimSaneamentoPanel() {
   ]
 
   return (
-    <div className="w-[260px] shrink-0 flex flex-col bg-[#333333] border-l border-[#525252] overflow-hidden h-full">
+    <div className="w-[260px] max-w-[80vw] shrink-0 flex flex-col bg-[#333333] border-l border-[#525252] overflow-hidden h-full">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-[#525252]">
         <p className="text-[#f97316] text-xs font-semibold">Saneamento</p>

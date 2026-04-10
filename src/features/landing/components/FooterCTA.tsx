@@ -3,9 +3,9 @@ import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
 
 export function FooterCTA() {
   return (
-    <section style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-      <div className="max-w-4xl mx-auto px-6 text-center">
-        <div className="flex items-center justify-center gap-3 mb-12">
+    <section style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="flex items-center justify-center gap-3 mb-8 sm:mb-12">
           <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.10)' }} />
           <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/55 text-xs uppercase font-mono">Próximo Passo</span>
           <div className="h-px flex-1" style={{ background: 'rgba(255,255,255,0.10)' }} />
@@ -15,7 +15,7 @@ export function FooterCTA() {
           style={{
             fontFamily: "'Space Grotesk', sans-serif",
             fontWeight: 700,
-            fontSize: 'clamp(2rem, 5vw, 4.5rem)',
+            fontSize: 'clamp(1.85rem, 5vw, 4.5rem)',
             lineHeight: 1.1,
             letterSpacing: '-0.02em',
           }}
@@ -30,7 +30,7 @@ export function FooterCTA() {
 
         <div className="flex flex-wrap items-center justify-center gap-4">
           <FlowHoverButton variant="ghost" href={LOGIN_URL} className="text-sm px-8 py-3">
-            Login
+            Acessar
           </FlowHoverButton>
           <FlowHoverButton
             variant="accent"

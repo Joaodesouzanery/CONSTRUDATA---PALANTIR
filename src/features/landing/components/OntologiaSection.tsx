@@ -8,21 +8,21 @@ export function OntologiaSection() {
   ]
 
   return (
-    <section id="plataforma" style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-      <div className="max-w-7xl mx-auto px-6">
+    <section id="plataforma" style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section label */}
-        <div className="flex items-center gap-3 mb-16">
+        <div className="flex items-center gap-3 mb-10 sm:mb-16">
           <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">01 / A Plataforma</span>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-20 items-center">
           {/* Left: layer viz */}
           <div>
             <div className="space-y-3">
               {layers.map((l) => (
-                <div key={l.label} className="flex items-center gap-4">
-                  <div className="w-44 shrink-0 text-white/75 text-xs font-mono truncate">{l.label}</div>
+                <div key={l.label} className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-32 sm:w-44 shrink-0 text-white/75 text-xs font-mono truncate">{l.label}</div>
                   <div className="flex-1 h-px relative" style={{ background: 'rgba(255,255,255,0.10)' }}>
                     <div
                       className="absolute left-0 top-0 h-full transition-all duration-1000"
@@ -47,7 +47,7 @@ export function OntologiaSection() {
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 700,
-                fontSize: 'clamp(1.6rem, 3vw, 2.5rem)',
+                fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
                 lineHeight: 1.15,
                 letterSpacing: '-0.01em',
                 color: '#f4f5f7',

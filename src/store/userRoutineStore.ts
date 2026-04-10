@@ -1,13 +1,14 @@
 /**
  * userRoutineStore.ts
  *
- * Persiste a rotina personalizada do usuário: persona, módulos fixados
- * por frequência (diário/semanal/mensal) e flag de onboarding.
- *
- * Persistência: localStorage via zustand persist.
+ * Sprint 6: rotina pessoal do usuário sincroniza com Supabase tabela `user_routines`
+ * (1 row por user, RLS por user_id). Mantém persist localStorage como cache offline.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+import type { SyncStatus } from '@/lib/storeSync'
 
 export type Persona =
   | 'engenheiro'
@@ -30,10 +31,6 @@ export interface PersonaPreset {
   monthly: string[]
 }
 
-/**
- * Presets de persona — cada preset define os módulos que mais
- * fazem sentido para aquele cargo, em cada frequência de uso.
- */
 export const PERSONA_PRESETS: PersonaPreset[] = [
   {
     id: 'engenheiro',
@@ -98,15 +95,31 @@ interface UserRoutineState {
   pinnedMonthly:  string[]
   hasOnboarded:   boolean
 
+  syncStatus:     SyncStatus
+  lastSyncedAt:   string | null
+  syncError:      string | null
+
   setPersona:     (p: Persona) => void
   togglePin:      (path: string, frequency: RoutineFrequency) => void
   isPinned:       (path: string) => RoutineFrequency | null
   resetToPreset:  (persona: Persona) => void
   markOnboarded:  () => void
+
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 }
 
 function getPreset(persona: Persona): PersonaPreset | undefined {
   return PERSONA_PRESETS.find((p) => p.id === persona)
+}
+
+// Debounce do upsert (rotina muda muito quando o usuário arrasta vários pins)
+let routineDebounce: ReturnType<typeof setTimeout> | null = null
+function scheduleSync(get: () => UserRoutineState) {
+  if (routineDebounce) clearTimeout(routineDebounce)
+  routineDebounce = setTimeout(() => {
+    void get().flush()
+  }, 800)
 }
 
 export const useUserRoutineStore = create<UserRoutineState>()(
@@ -118,7 +131,11 @@ export const useUserRoutineStore = create<UserRoutineState>()(
       pinnedMonthly: PERSONA_PRESETS[0].monthly,
       hasOnboarded:  false,
 
-      setPersona: (persona) =>
+      syncStatus:    'idle',
+      lastSyncedAt:  null,
+      syncError:     null,
+
+      setPersona: (persona) => {
         set(() => {
           const preset = getPreset(persona)
           if (!preset || persona === 'custom') return { persona }
@@ -128,23 +145,22 @@ export const useUserRoutineStore = create<UserRoutineState>()(
             pinnedWeekly:  preset.weekly,
             pinnedMonthly: preset.monthly,
           }
-        }),
+        })
+        scheduleSync(get)
+      },
 
-      togglePin: (path, frequency) =>
+      togglePin: (path, frequency) => {
         set((s) => {
-          // Remove de qualquer frequência primeiro
           const cleanDaily   = s.pinnedDaily.filter((p) => p !== path)
           const cleanWeekly  = s.pinnedWeekly.filter((p) => p !== path)
           const cleanMonthly = s.pinnedMonthly.filter((p) => p !== path)
 
-          // Verifica se já estava na frequência alvo (toggle off)
           const wasInTarget =
             (frequency === 'daily'   && s.pinnedDaily.includes(path))   ||
             (frequency === 'weekly'  && s.pinnedWeekly.includes(path))  ||
             (frequency === 'monthly' && s.pinnedMonthly.includes(path))
 
           if (wasInTarget) {
-            // Apenas remove
             return {
               persona:       'custom',
               pinnedDaily:   cleanDaily,
@@ -153,14 +169,15 @@ export const useUserRoutineStore = create<UserRoutineState>()(
             }
           }
 
-          // Adiciona na frequência alvo (e remove das outras)
           return {
             persona:       'custom',
             pinnedDaily:   frequency === 'daily'   ? [...cleanDaily, path]   : cleanDaily,
             pinnedWeekly:  frequency === 'weekly'  ? [...cleanWeekly, path]  : cleanWeekly,
             pinnedMonthly: frequency === 'monthly' ? [...cleanMonthly, path] : cleanMonthly,
           }
-        }),
+        })
+        scheduleSync(get)
+      },
 
       isPinned: (path) => {
         const s = get()
@@ -170,7 +187,7 @@ export const useUserRoutineStore = create<UserRoutineState>()(
         return null
       },
 
-      resetToPreset: (persona) =>
+      resetToPreset: (persona) => {
         set(() => {
           const preset = getPreset(persona)
           if (!preset) return {}
@@ -180,12 +197,78 @@ export const useUserRoutineStore = create<UserRoutineState>()(
             pinnedWeekly:  preset.weekly,
             pinnedMonthly: preset.monthly,
           }
-        }),
+        })
+        scheduleSync(get)
+      },
 
-      markOnboarded: () => set({ hasOnboarded: true }),
+      markOnboarded: () => {
+        set({ hasOnboarded: true })
+        scheduleSync(get)
+      },
+
+      flush: async () => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          set({ syncStatus: 'offline' }); return
+        }
+        const { profile, user } = useAuth.getState()
+        if (!profile || !user) { set({ syncStatus: 'unauth' }); return }
+        set({ syncStatus: 'syncing', syncError: null })
+
+        const s = get()
+        const { error } = await supabase.from('user_routines').upsert({
+          user_id:         user.id,
+          organization_id: profile.organization_id,
+          persona:         s.persona,
+          payload: {
+            pinnedDaily:   s.pinnedDaily,
+            pinnedWeekly:  s.pinnedWeekly,
+            pinnedMonthly: s.pinnedMonthly,
+            hasOnboarded:  s.hasOnboarded,
+          },
+          updated_at: new Date().toISOString(),
+        } as never)
+
+        if (error) {
+          console.warn('[user_routines] upsert failed', error.message)
+          set({ syncStatus: 'error', syncError: error.message })
+          return
+        }
+        set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString(), syncError: null })
+      },
+
+      pull: async () => {
+        const { user } = useAuth.getState()
+        if (!user) return
+        const { data, error } = await supabase
+          .from('user_routines')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (error) {
+          console.warn('[user_routines] pull failed', error.message)
+          return
+        }
+        if (data) {
+          const row = data as { persona: string; payload: { pinnedDaily?: string[]; pinnedWeekly?: string[]; pinnedMonthly?: string[]; hasOnboarded?: boolean } }
+          set({
+            persona:       row.persona as Persona,
+            pinnedDaily:   row.payload?.pinnedDaily ?? [],
+            pinnedWeekly:  row.payload?.pinnedWeekly ?? [],
+            pinnedMonthly: row.payload?.pinnedMonthly ?? [],
+            hasOnboarded:  row.payload?.hasOnboarded ?? false,
+          })
+        }
+        set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+      },
     }),
     {
       name: 'cdata-user-routine',
     },
   ),
 )
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useUserRoutineStore.getState().flush()
+  })
+}

@@ -1,4 +1,7 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   Worker,
   LaborCrew,
@@ -138,6 +141,77 @@ interface MaoDeObraState {
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
+
+  // Sync (Sprint 3)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
+}
+
+// ─── Mappers para Supabase ────────────────────────────────────────────────────
+function workerToRow(w: Worker, orgId: string, userId: string) {
+  return {
+    id:              w.id,
+    organization_id: orgId,
+    name:            w.name,
+    role:            w.role ?? null,
+    status:          w.status ?? 'active',
+    crew_id:         w.crewId ?? null,
+    payload:         w as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function crewToRow(c: LaborCrew, orgId: string, userId: string) {
+  return {
+    id:              c.id,
+    organization_id: orgId,
+    name:            c.name,
+    payload:         c as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function timecardToRow(t: TimecardEntry, orgId: string, userId: string) {
+  return {
+    id:              t.id,
+    organization_id: orgId,
+    worker_id:       t.workerId ?? null,
+    date:            t.date,
+    hours_worked:    t.hoursWorked ?? null,
+    payload:         t as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function shiftToRow(sh: Shift, orgId: string, userId: string) {
+  return {
+    id:              sh.id,
+    organization_id: orgId,
+    worker_id:       sh.workerId ?? null,
+    date:            sh.date,
+    type:            sh.type ?? null,
+    status:          sh.status ?? 'scheduled',
+    payload:         sh as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function absenceToRow(a: WorkerAbsence, orgId: string, userId: string) {
+  return {
+    id:              a.id,
+    organization_id: orgId,
+    worker_id:       a.workerId ?? null,
+    date:            a.date,
+    type:            a.type ?? null,
+    status:          a.status ?? 'open',
+    payload:         a as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
 }
 
 // ─── Reallocation Engine ───────────────────────────────────────────────────────
@@ -212,22 +286,29 @@ function computeSuggestions(
 
 // ─── Store ─────────────────────────────────────────────────────────────────────
 
-export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
-  workers:     mockWorkers,
-  crews:       mockLaborCrews,
-  timecards:   mockTimecards,
+export const useMaoDeObraStore = create<MaoDeObraState>()(
+  persist(
+    (set, get) => ({
+  workers:     [],
+  crews:       [],
+  timecards:   [],
   progress:    mockPhysicalProgress,
   occurrences: mockOccurrences,
   riskAreas:   mockRiskAreas,
   suggestions: mockReallocationSuggestions,
 
-  shifts:         MOCK_SHIFTS,
+  shifts:         [],
   violations:     [],
   workPosts:      MOCK_WORK_POSTS,
-  absences:       MOCK_ABSENCES,
+  absences:       [],
   cltSettings:    MOCK_CLT_SETTINGS,
   activeTab:      'dashboard',
   payrollHistory: [],
+
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -235,42 +316,79 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
 
   // ── Worker CRUD ─────────────────────────────────────────────────────────────
 
-  addWorker: (worker) =>
+  addWorker: (worker) => {
+    const id = crypto.randomUUID()
+    const newWorker: Worker = { ...worker, id }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      workers: [...s.workers, { ...worker, id: `w-${crypto.randomUUID().slice(0, 8)}` }],
-    })),
+      workers: [...s.workers, newWorker],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'insert', recordId: id, row: workerToRow(newWorker, orgId, userId), table: 'workers' })],
+    }))
+    void get().flush()
+  },
 
-  updateWorker: (id, updates) =>
-    set((s) => ({
-      workers: s.workers.map((w) => (w.id === id ? { ...w, ...updates } : w)),
-    })),
+  updateWorker: (id, updates) => {
+    set((s) => ({ workers: s.workers.map((w) => (w.id === id ? { ...w, ...updates } : w)) }))
+    const target = get().workers.find((w) => w.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = workerToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'update', recordId: id, patch, table: 'workers' })] }))
+      void get().flush()
+    }
+  },
 
   // ── Crew CRUD ───────────────────────────────────────────────────────────────
 
-  addCrew: (crew) =>
+  addCrew: (crew) => {
+    const id = crypto.randomUUID()
+    const newCrew: LaborCrew = { ...crew, id }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      crews: [...s.crews, { ...crew, id: `lc-${crypto.randomUUID().slice(0, 8)}` }],
-    })),
+      crews: [...s.crews, newCrew],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'insert', recordId: id, row: crewToRow(newCrew, orgId, userId), table: 'labor_crews' })],
+    }))
+    void get().flush()
+  },
 
-  updateCrew: (id, updates) =>
-    set((s) => ({
-      crews: s.crews.map((c) => (c.id === id ? { ...c, ...updates } : c)),
-    })),
+  updateCrew: (id, updates) => {
+    set((s) => ({ crews: s.crews.map((c) => (c.id === id ? { ...c, ...updates } : c)) }))
+    const target = get().crews.find((c) => c.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = crewToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'update', recordId: id, patch, table: 'labor_crews' })] }))
+      void get().flush()
+    }
+  },
 
   // ── Timecards ───────────────────────────────────────────────────────────────
 
-  addTimecard: (entry) =>
+  addTimecard: (entry) => {
+    const id = crypto.randomUUID()
+    const newEntry: TimecardEntry = { ...entry, id }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      timecards: [...s.timecards, { ...entry, id: `tc-${crypto.randomUUID().slice(0, 8)}` }],
-    })),
+      timecards: [...s.timecards, newEntry],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'timecard', type: 'insert', recordId: id, row: timecardToRow(newEntry, orgId, userId), table: 'timecards' })],
+    }))
+    void get().flush()
+  },
 
-  importTimecards: (entries) =>
+  importTimecards: (entries) => {
+    const { orgId, userId } = ctxAuth()
+    const withIds = entries.map((e) => ({ ...e, id: crypto.randomUUID() }))
     set((s) => ({
-      timecards: [
-        ...s.timecards,
-        ...entries.map((e) => ({ ...e, id: `tc-${crypto.randomUUID().slice(0, 8)}` })),
+      timecards: [...s.timecards, ...withIds],
+      pendingSync: [
+        ...s.pendingSync,
+        ...withIds.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: timecardToRow(t, orgId, userId), table: 'timecards' })),
       ],
-    })),
+    }))
+    void get().flush()
+  },
 
   // ── Progress & Occurrences ───────────────────────────────────────────────────
 
@@ -339,26 +457,49 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
   // ── Shifts ──────────────────────────────────────────────────────────────────
 
   addShift: (shift) => {
-    const id = `sh-${crypto.randomUUID().slice(0, 8)}`
-    set((s) => ({ shifts: [...s.shifts, { ...shift, id }] }))
+    const id = crypto.randomUUID()
+    const newShift: Shift = { ...shift, id }
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      shifts: [...s.shifts, newShift],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'shift', type: 'insert', recordId: id, row: shiftToRow(newShift, orgId, userId), table: 'shifts' })],
+    }))
+    void get().flush()
     return id
   },
 
-  updateShift: (id, updates) =>
-    set((s) => ({
-      shifts: s.shifts.map((sh) => (sh.id === id ? { ...sh, ...updates } : sh)),
-    })),
+  updateShift: (id, updates) => {
+    set((s) => ({ shifts: s.shifts.map((sh) => (sh.id === id ? { ...sh, ...updates } : sh)) }))
+    const target = get().shifts.find((sh) => sh.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = shiftToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'shift', type: 'update', recordId: id, patch, table: 'shifts' })] }))
+      void get().flush()
+    }
+  },
 
-  removeShift: (id) =>
-    set((s) => ({ shifts: s.shifts.filter((sh) => sh.id !== id) })),
-
-  bulkAddShifts: (newShifts) =>
+  removeShift: (id) => {
     set((s) => ({
-      shifts: [
-        ...s.shifts,
-        ...newShifts.map((sh) => ({ ...sh, id: `sh-${crypto.randomUUID().slice(0, 8)}` })),
+      shifts: s.shifts.filter((sh) => sh.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'shift', type: 'delete', recordId: id, table: 'shifts', approvalActionType: 'delete_shift' })],
+    }))
+    void get().flush()
+  },
+
+  bulkAddShifts: (newShifts) => {
+    const { orgId, userId } = ctxAuth()
+    const withIds: Shift[] = newShifts.map((sh) => ({ ...sh, id: crypto.randomUUID() }))
+    set((s) => ({
+      shifts: [...s.shifts, ...withIds],
+      pendingSync: [
+        ...s.pendingSync,
+        ...withIds.map((sh) => makeOp({ entity: 'shift', type: 'insert', recordId: sh.id, row: shiftToRow(sh, orgId, userId), table: 'shifts' })),
       ],
-    })),
+    }))
+    void get().flush()
+  },
 
   generateSchedule: (month) => {
     const { workers, workPosts, cltSettings } = get()
@@ -400,10 +541,14 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
   // ── Absences ────────────────────────────────────────────────────────────────
 
   registerAbsence: (absence) => {
-    const id = `abs-${crypto.randomUUID().slice(0, 8)}`
+    const id = crypto.randomUUID()
+    const newAbsence: WorkerAbsence = { ...absence, id, registeredAt: new Date().toISOString() }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      absences: [...s.absences, { ...absence, id, registeredAt: new Date().toISOString() }],
+      absences: [...s.absences, newAbsence],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'insert', recordId: id, row: absenceToRow(newAbsence, orgId, userId), table: 'worker_absences' })],
     }))
+    void get().flush()
     return id
   },
 
@@ -473,8 +618,65 @@ export const useMaoDeObraStore = create<MaoDeObraState>((set, get) => ({
       workPosts:      [],
       absences:       [],
       payrollHistory: [],
+      pendingSync:    [],
+      syncError:      null,
     }),
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const ws = await pullTable<{ payload: Worker }>('workers')
+    const cs = await pullTable<{ payload: LaborCrew }>('labor_crews')
+    const ts = await pullTable<{ payload: TimecardEntry }>('timecards')
+    const ss = await pullTable<{ payload: Shift }>('shifts')
+    const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
+    if (ws)  set({ workers:   ws.map((r) => r.payload) })
+    if (cs)  set({ crews:     cs.map((r) => r.payload) })
+    if (ts)  set({ timecards: ts.map((r) => r.payload) })
+    if (ss)  set({ shifts:    ss.map((r) => r.payload) })
+    if (as_) set({ absences:  as_.map((r) => r.payload) })
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-mao-de-obra',
+      partialize: (s) => ({
+        workers:        s.workers,
+        crews:          s.crews,
+        timecards:      s.timecards,
+        shifts:         s.shifts,
+        absences:       s.absences,
+        workPosts:      s.workPosts,
+        cltSettings:    s.cltSettings,
+        payrollHistory: s.payrollHistory,
+        pendingSync:    s.pendingSync,
+        lastSyncedAt:   s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useMaoDeObraStore.getState().flush()
+  })
+}
 
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 

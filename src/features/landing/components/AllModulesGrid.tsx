@@ -25,20 +25,20 @@ const MODULES: { icon: LucideIcon; name: string; desc: string; cat: string }[] =
 
 export function AllModulesGrid() {
   return (
-    <section style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-      <div className="max-w-7xl mx-auto px-6">
+    <section style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section label */}
-        <div className="flex items-center gap-3 mb-16">
+        <div className="flex items-center gap-3 mb-10 sm:mb-16">
           <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">10 / Todos os Módulos</span>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-x-16 mb-16">
+        <div className="grid lg:grid-cols-2 gap-x-8 lg:gap-x-16 mb-10 sm:mb-16">
           <h2
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(1.6rem, 3vw, 2.5rem)',
+              fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.01em',
             }}
@@ -49,9 +49,9 @@ export function AllModulesGrid() {
         </div>
 
         {/* Table header */}
-        <div className="grid grid-cols-12 gap-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div className="col-span-1" />
-          <div className="col-span-4 text-white/60 text-xs uppercase tracking-widest">Módulo</div>
+        <div className="grid grid-cols-12 gap-2 sm:gap-4 pb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="col-span-2 sm:col-span-1" />
+          <div className="col-span-10 sm:col-span-4 text-white/60 text-xs uppercase tracking-widest">Módulo</div>
           <div className="col-span-5 text-white/60 text-xs uppercase tracking-widest hidden md:block">Descrição</div>
           <div className="col-span-2 text-white/60 text-xs uppercase tracking-widest hidden lg:block">Categoria</div>
         </div>
@@ -61,15 +61,15 @@ export function AllModulesGrid() {
           <div
             key={name}
             style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
-            className="grid grid-cols-12 gap-4 py-4 hover:bg-white/[0.04] transition-colors group cursor-default"
+            className="grid grid-cols-12 gap-2 sm:gap-4 py-4 hover:bg-white/[0.04] transition-colors group cursor-default"
           >
-            <div className="col-span-1 flex items-center">
+            <div className="col-span-2 sm:col-span-1 flex items-start sm:items-center pt-1 sm:pt-0">
               <Icon size={14} className="text-white/55 group-hover:text-[#f97316] transition-colors" />
             </div>
-            <div className="col-span-4 md:col-span-4 flex items-center">
+            <div className="col-span-10 sm:col-span-4 flex items-center">
               <span style={{ fontFamily: "'Space Grotesk', sans-serif" }} className="text-white/80 text-sm font-medium group-hover:text-white transition-colors">{name}</span>
             </div>
-            <div className="col-span-12 md:col-span-5 flex items-center pl-5 md:pl-0">
+            <div className="col-span-12 md:col-span-5 flex items-start sm:items-center pl-7 sm:pl-7 md:pl-0">
               <span className="text-white/70 text-xs leading-relaxed">{desc}</span>
             </div>
             <div className="hidden lg:flex col-span-2 items-center">

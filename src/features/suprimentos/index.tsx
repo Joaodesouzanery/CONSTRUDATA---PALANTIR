@@ -10,6 +10,7 @@ import { ContractPanel }        from './components/ContractPanel'
 import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
+import { BomPendentePanel }    from './components/BomPendentePanel'
 import { ExcelImportModal }     from './components/ExcelImportModal'
 import { NovoMaterialModal }    from './components/NovoMaterialModal'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
@@ -81,6 +82,7 @@ export function SuprimentosPage() {
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
       {activeTab === 'previsao'    && <PrevisaoDemandaPanel />}
       {activeTab === 'requisicoes' && <RequisicoesPipeline />}
+      {activeTab === 'bom'         && <BomPendentePanel />}
       {activeTab === 'materiais'   && <MateriaisOverviewPanel />}
       {activeTab === 'contratos'   && <ContractPanel />}
       {activeTab === 'estoque'     && <MapaEstoquePanel />}

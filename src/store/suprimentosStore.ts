@@ -1,4 +1,8 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { eventBus } from '@/lib/eventBus'
 import type {
   PurchaseOrder,
   GoodsReceipt,
@@ -206,6 +210,77 @@ interface SuprimentosState {
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
+
+  // Sync (Sprint 2)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
+}
+
+// ─── Mappers para Supabase ───────────────────────────────────────────────────
+function poToRow(po: PurchaseOrder, orgId: string, userId: string) {
+  return {
+    id:                po.id,
+    organization_id:   orgId,
+    code:              po.code,
+    supplier:          po.supplier,
+    responsible:       po.responsible || null,
+    issued_date:       po.issuedDate,
+    expected_delivery: po.expectedDelivery || null,
+    project_ref:       po.projectRef ?? null,
+    status:            po.status,
+    total_brl:         po.items.reduce((s, i) => s + i.totalPrice, 0),
+    payload:           { items: po.items },
+    created_by:        userId,
+  }
+}
+
+function receiptToRow(r: GoodsReceipt, orgId: string, userId: string) {
+  return {
+    id:              r.id,
+    organization_id: orgId,
+    po_id:           r.poId || null,
+    code:            r.code,
+    received_date:   r.receivedDate,
+    received_by:     r.receivedBy || null,
+    payload:         { items: r.items },
+    created_by:      userId,
+  }
+}
+
+function invoiceToRow(inv: Invoice, orgId: string, userId: string) {
+  return {
+    id:              inv.id,
+    organization_id: orgId,
+    po_id:           inv.poId || null,
+    number:          inv.number,
+    supplier:        inv.supplier,
+    issue_date:      inv.issueDate,
+    due_date:        inv.dueDate || null,
+    total_amount:    inv.totalAmount,
+    status:          inv.status,
+    payload:         { items: inv.items },
+    created_by:      userId,
+  }
+}
+
+function supplierToRow(s: Supplier, orgId: string, userId: string) {
+  return {
+    id:              s.id,
+    organization_id: orgId,
+    cnpj:            s.cnpj || null,
+    name:            s.name,
+    category:        s.category || null,
+    contact_name:    s.contactName || null,
+    phone:           s.phone || null,
+    email:           s.email || null,
+    payment_terms:   s.paymentTerms || null,
+    payload:         {},
+    created_by:      userId,
+  }
 }
 
 const REQUISITION_FLOW: RequisitionStatus[] = [
@@ -216,68 +291,181 @@ const REQUISITION_FLOW: RequisitionStatus[] = [
   'ordered',
 ]
 
-export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
-  purchaseOrders:      mockPurchaseOrders,
-  receipts:            mockGoodsReceipts,
-  invoices:            mockInvoices,
-  matches:             mockMatches,
-  exceptions:          mockExceptions,
-  forecasts:           mockForecasts,
-  requisitions:        mockRequisitions,
-  frameworkAgreements: mockFrameworkAgreements,
+export const useSuprimentosStore = create<SuprimentosState>()(
+  persist(
+    (set, get) => ({
+  purchaseOrders:      [],
+  receipts:            [],
+  invoices:            [],
+  matches:             [],
+  exceptions:          [],
+  forecasts:           [],
+  requisitions:        [],
+  frameworkAgreements: [],
 
   // Estoque initial state
-  depositos:          mockDepositos,
-  estoqueItens:       mockEstoqueItens,
-  movimentacoes:      mockMovimentacoes,
-  reservas:           mockReservas,
-  leadTimeRecords:    mockLeadTimeRecords,
-  selectedDepositoId: mockDepositos[0]?.id ?? null,
+  depositos:          [],
+  estoqueItens:       [],
+  movimentacoes:      [],
+  reservas:           [],
+  leadTimeRecords:    [],
+  selectedDepositoId: null,
+
+  // Sync (Sprint 2)
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   // Suppliers — começa vazio; importável via Excel/CSV no SuprimentosHeader
   suppliers:          [],
 
-  addSupplier: (s) =>
+  addSupplier: (s) => {
+    const newS: Supplier = {
+      ...s,
+      id: 's-' + crypto.randomUUID().slice(0, 8),
+      createdAt: new Date().toISOString(),
+    }
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((state) => ({
-      suppliers: [
-        ...state.suppliers,
-        {
-          ...s,
-          id: 's-' + crypto.randomUUID().slice(0, 8),
-          createdAt: new Date().toISOString(),
-        },
+      suppliers: [...state.suppliers, newS],
+      pendingSync: [
+        ...state.pendingSync,
+        makeOp({ entity: 'supplier', type: 'insert', recordId: newS.id, row: supplierToRow(newS, orgId, userId), table: 'suppliers' }),
       ],
-    })),
+    }))
+    void get().flush()
+  },
 
-  updateSupplier: (id, patch) =>
-    set((state) => ({
-      suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    })),
+  updateSupplier: (id, patch) => {
+    set((state) => {
+      const updated = state.suppliers.map((s) => (s.id === id ? { ...s, ...patch } : s))
+      const target  = updated.find((s) => s.id === id)
+      const { profile, user } = useAuth.getState()
+      const orgId  = profile?.organization_id ?? 'pending'
+      const userId = user?.id ?? 'pending'
+      const row    = target ? supplierToRow(target, orgId, userId) : undefined
+      const updatePatch = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id','organization_id','created_by'].includes(k))) : undefined
+      return {
+        suppliers: updated,
+        pendingSync: [
+          ...state.pendingSync,
+          makeOp({ entity: 'supplier', type: 'update', recordId: id, patch: updatePatch, table: 'suppliers' }),
+        ],
+      }
+    })
+    void get().flush()
+  },
 
-  removeSupplier: (id) =>
+  removeSupplier: (id) => {
     set((state) => ({
       suppliers: state.suppliers.filter((s) => s.id !== id),
-    })),
+      pendingSync: [
+        ...state.pendingSync,
+        makeOp({ entity: 'supplier', type: 'delete', recordId: id, table: 'suppliers' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  addPO: (po) =>
-    set((s) => ({ purchaseOrders: [...s.purchaseOrders, po] })),
-
-  updatePO: (id, patch) =>
+  addPO: (po) => {
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((s) => ({
-      purchaseOrders: s.purchaseOrders.map((p) => (p.id === id ? { ...p, ...patch } : p)),
-    })),
+      purchaseOrders: [...s.purchaseOrders, po],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'po', type: 'insert', recordId: po.id, row: poToRow(po, orgId, userId), table: 'purchase_orders' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  deletePO: (id) =>
-    set((s) => ({ purchaseOrders: s.purchaseOrders.filter((p) => p.id !== id) })),
+  updatePO: (id, patch) => {
+    const before = get().purchaseOrders.find((p) => p.id === id)
+    const wasClosed = before?.status === 'closed'
+
+    set((s) => {
+      const updated = s.purchaseOrders.map((p) => (p.id === id ? { ...p, ...patch } : p))
+      const target  = updated.find((p) => p.id === id)
+      const { profile, user } = useAuth.getState()
+      const orgId  = profile?.organization_id ?? 'pending'
+      const userId = user?.id ?? 'pending'
+      const row    = target ? poToRow(target, orgId, userId) : undefined
+      const updatePatch = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id','organization_id','created_by'].includes(k))) : undefined
+      // PO já fechada (closed) precisa de aprovação para UPDATE
+      const isLocked = target?.status === 'closed'
+      return {
+        purchaseOrders: updated,
+        pendingSync: [
+          ...s.pendingSync,
+          isLocked && !wasClosed
+            ? makeOp({ entity: 'po', type: 'update', recordId: id, patch: updatePatch, table: 'purchase_orders' })
+            : isLocked
+            ? makeOp({ entity: 'po', type: 'delete', recordId: id, table: 'purchase_orders', approvalActionType: 'update_po_approved' })
+            : makeOp({ entity: 'po', type: 'update', recordId: id, patch: updatePatch, table: 'purchase_orders' }),
+        ],
+      }
+    })
+
+    // Detecta transição para 'closed' e emite domain event
+    const after = get().purchaseOrders.find((p) => p.id === id)
+    if (after?.status === 'closed' && !wasClosed) {
+      eventBus.emit({
+        type: 'po.closed',
+        poId: id,
+        projectId: (after as { projectId?: string }).projectId ?? null,
+        totalBrl: after.items?.reduce((s, i) => s + i.totalPrice, 0) ?? 0,
+      })
+    }
+
+    void get().flush()
+  },
+
+  deletePO: (id) => {
+    set((s) => ({
+      purchaseOrders: s.purchaseOrders.filter((p) => p.id !== id),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'po', type: 'delete', recordId: id, table: 'purchase_orders', approvalActionType: 'delete_po' }),
+      ],
+    }))
+    void get().flush()
+  },
 
   addReceipt: (receipt) => {
-    set((s) => ({ receipts: [...s.receipts, receipt] }))
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
+    set((s) => ({
+      receipts: [...s.receipts, receipt],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'receipt', type: 'insert', recordId: receipt.id, row: receiptToRow(receipt, orgId, userId), table: 'goods_receipts' }),
+      ],
+    }))
     get().runMatch(receipt.poId)
+    void get().flush()
   },
 
   addInvoice: (invoice) => {
-    set((s) => ({ invoices: [...s.invoices, invoice] }))
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
+    set((s) => ({
+      invoices: [...s.invoices, invoice],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'invoice', type: 'insert', recordId: invoice.id, row: invoiceToRow(invoice, orgId, userId), table: 'invoices' }),
+      ],
+    }))
     get().runMatch(invoice.poId)
+    void get().flush()
   },
 
   runMatch: (poId) => {
@@ -516,5 +704,119 @@ export const useSuprimentosStore = create<SuprimentosState>((set, get) => ({
       reservas:            [],
       leadTimeRecords:     [],
       suppliers:           [],
+      pendingSync:         [],
+      syncError:           null,
     }),
-}))
+
+  // ── Sync ────────────────────────────────────────────────────────────────────
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      set({ syncStatus: 'offline' }); return
+    }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const pos       = await pullTable<Record<string, unknown>>('purchase_orders')
+    const receipts  = await pullTable<Record<string, unknown>>('goods_receipts')
+    const invoices  = await pullTable<Record<string, unknown>>('invoices')
+    const suppliers = await pullTable<Record<string, unknown>>('suppliers')
+
+    if (pos) {
+      set({
+        purchaseOrders: pos.map((r) => ({
+          id:               r.id as string,
+          code:             r.code as string,
+          supplier:         r.supplier as string,
+          responsible:      (r.responsible as string | null) ?? '',
+          issuedDate:       r.issued_date as string,
+          expectedDelivery: (r.expected_delivery as string | null) ?? '',
+          items:            ((r.payload as { items?: PurchaseOrder['items'] })?.items) ?? [],
+          status:           r.status as PurchaseOrder['status'],
+          projectRef:       (r.project_ref as string | null) ?? undefined,
+        })),
+      })
+    }
+    if (receipts) {
+      set({
+        receipts: receipts.map((r) => ({
+          id:           r.id as string,
+          poId:         (r.po_id as string | null) ?? '',
+          code:         r.code as string,
+          receivedDate: r.received_date as string,
+          receivedBy:   (r.received_by as string | null) ?? '',
+          items:        ((r.payload as { items?: GoodsReceipt['items'] })?.items) ?? [],
+        })),
+      })
+    }
+    if (invoices) {
+      set({
+        invoices: invoices.map((r) => ({
+          id:          r.id as string,
+          poId:        (r.po_id as string | null) ?? '',
+          number:      r.number as string,
+          supplier:    r.supplier as string,
+          issueDate:   r.issue_date as string,
+          dueDate:     (r.due_date as string | null) ?? '',
+          totalAmount: Number(r.total_amount ?? 0),
+          status:      r.status as Invoice['status'],
+          items:       ((r.payload as { items?: Invoice['items'] })?.items) ?? [],
+        })),
+      })
+    }
+    if (suppliers) {
+      set({
+        suppliers: suppliers.map((r) => ({
+          id:           r.id as string,
+          cnpj:         (r.cnpj as string | null) ?? '',
+          name:         r.name as string,
+          category:     (r.category as string | null) ?? '',
+          contactName:  (r.contact_name as string | null) ?? '',
+          phone:        (r.phone as string | null) ?? '',
+          email:        (r.email as string | null) ?? '',
+          paymentTerms: (r.payment_terms as string | null) ?? '',
+          createdAt:    r.created_at as string,
+        })),
+      })
+    }
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-suprimentos',
+      partialize: (s) => ({
+        purchaseOrders: s.purchaseOrders,
+        receipts:       s.receipts,
+        invoices:       s.invoices,
+        matches:        s.matches,
+        suppliers:      s.suppliers,
+        pendingSync:    s.pendingSync,
+        lastSyncedAt:   s.lastSyncedAt,
+        // Estoque continua só local-cache até Sprint 3
+        estoqueItens:   s.estoqueItens,
+        movimentacoes:  s.movimentacoes,
+        reservas:       s.reservas,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useSuprimentosStore.getState().flush()
+  })
+}

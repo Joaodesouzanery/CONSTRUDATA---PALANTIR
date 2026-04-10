@@ -66,17 +66,17 @@ export function ContactForm() {
   }
 
   return (
-    <section id="contato" style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-      <div className="max-w-3xl mx-auto px-6">
+    <section id="contato" style={{ background: '#333333', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section label */}
-        <div className="flex items-center gap-3 mb-16">
+        <div className="flex items-center gap-3 mb-10 sm:mb-16">
           <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">11 / Contato</span>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
 
         <div style={{ border: '1px solid rgba(255,255,255,0.14)', background: '#2c2c2c' }}>
           {/* Form header */}
-          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.14)' }} className="px-10 py-8">
+          <div style={{ borderBottom: '1px solid rgba(255,255,255,0.14)' }} className="px-5 sm:px-10 py-6 sm:py-8">
             <h2
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
@@ -94,7 +94,7 @@ export function ContactForm() {
           </div>
 
           {/* Form body */}
-          <div className="px-10 py-10">
+          <div className="px-5 sm:px-10 py-8 sm:py-10">
             {success ? (
               <div className="py-16 text-center">
                 <div style={{ border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.05)' }} className="inline-flex items-center gap-3 px-6 py-4 mb-6">
@@ -110,7 +110,7 @@ export function ContactForm() {
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                <div className="grid sm:grid-cols-2 gap-x-8 gap-y-8 mb-8">
+                <div className="grid sm:grid-cols-2 gap-x-6 sm:gap-x-8 gap-y-6 sm:gap-y-8 mb-6 sm:mb-8">
                   <Field label="Nome *" required placeholder="João" value={form.nome} onChange={set('nome')} />
                   <Field label="Sobrenome *" required placeholder="Silva" value={form.sobrenome} onChange={set('sobrenome')} />
                   <Field label="Endereço de Email *" required type="email" placeholder="joao@empresa.com.br" value={form.email} onChange={set('email')} wrapperClassName="sm:col-span-2" />

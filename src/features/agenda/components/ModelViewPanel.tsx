@@ -120,7 +120,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
   const noData = ganttRows.length === 0
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#525252] shadow-2xl w-full sm:w-[420px]">
+    <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col bg-[#0d1117] border-l border-[#525252] shadow-2xl w-full max-w-[100vw] md:w-[420px]">
       {/* Header */}
       <div className="px-4 py-3.5 border-b border-[#525252] flex items-center justify-between shrink-0">
         <div>

@@ -4,8 +4,45 @@
  * Planejamento (4D dates) and Quantitativos (5D costs).
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { BimProject, BimSegment, BimLayer, BimColorMode, BimTab } from '@/types'
 import { MOCK_BIM_PROJECT, MOCK_BIM_SANEAMENTO, MOCK_BIM_BUILDING } from '@/data/mockBim'
+
+// ─── Mappers ──────────────────────────────────────────────────────────────────
+function bimProjectToRow(p: BimProject, orgId: string, userId: string) {
+  return {
+    id:                p.id,
+    organization_id:   orgId,
+    project_id:        null as string | null,
+    name:              p.name,
+    type:              p.type,
+    source_file_path:  null as string | null,
+    payload: {
+      layers:              p.layers,
+      uploadedAt:          p.uploadedAt,
+      shapefileSourceName: p.shapefileSourceName,
+    } as Record<string, unknown>,
+    created_by:        userId,
+  }
+}
+function bimSegmentToRow(s: BimSegment, bimProjectId: string, orgId: string, userId: string) {
+  return {
+    id:              s.id,
+    organization_id: orgId,
+    bim_project_id:  bimProjectId,
+    trecho_code:     s.trechoCode ?? null,
+    diameter:        s.diameter ?? null,
+    material:        s.material ?? null,
+    payload:         s as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,11 +160,55 @@ interface BimState {
   setForgeToken(token: string, expiry: number): void
   setForgeUrn(urn: string): void
   toggleDroneMode(): void
+
+  // Sync (Sprint 4)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush(): Promise<void>
+  pull():  Promise<void>
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Garante UUID válido em todo o projeto + segments antes de mandar ao Supabase. */
+function normalizeBimProject(p: BimProject): BimProject {
+  const projectId = UUID_RE.test(p.id) ? p.id : crypto.randomUUID()
+  return {
+    ...p,
+    id: projectId,
+    segments: p.segments.map((s) => ({
+      ...s,
+      id: UUID_RE.test(s.id) ? s.id : crypto.randomUUID(),
+    })),
+  }
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useBimStore = create<BimState>((set, get) => ({
+export const useBimStore = create<BimState>()(
+  persist(
+    (set, get) => {
+      const enqueueProject = (p: BimProject) => {
+        const { orgId, userId } = ctxAuth()
+        const projOp = makeOp({
+          entity: 'bim_project',
+          type:   'insert',
+          recordId: p.id,
+          row: bimProjectToRow(p, orgId, userId),
+          table: 'bim_projects',
+        })
+        const segOps = p.segments.map((s) => makeOp({
+          entity: 'bim_segment',
+          type:   'insert',
+          recordId: s.id,
+          row: bimSegmentToRow(s, p.id, orgId, userId),
+          table: 'bim_segments',
+        }))
+        set((s) => ({ pendingSync: [...s.pendingSync, projOp, ...segOps] }))
+      }
+      return {
   activeTab:         'viewer',
   projects:          [],
   activeProjectId:   null,
@@ -148,19 +229,27 @@ export const useBimStore = create<BimState>((set, get) => ({
   forgeUrn:         null,
   forgeClientId:    null,
 
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
+
   setActiveTab(tab) { set({ activeTab: tab }) },
 
   addProject(p) {
-    const range = dateRangeFromSegments(p.segments)
+    const normalized = normalizeBimProject(p)
+    const range = dateRangeFromSegments(normalized.segments)
     set((s) => ({
-      projects:          [...s.projects, p],
-      activeProjectId:   p.id,
-      project:           p,
-      layers:            p.layers.map((l) => ({ ...l, visible: true })),
+      projects:          [...s.projects, normalized],
+      activeProjectId:   normalized.id,
+      project:           normalized,
+      layers:            normalized.layers.map((l) => ({ ...l, visible: true })),
       timelineDateRange: range,
       activeDate:        range.start,
       selectedSegmentId: null,
     }))
+    enqueueProject(normalized)
+    void get().flush()
   },
 
   setActiveProject(id) {
@@ -183,7 +272,7 @@ export const useBimStore = create<BimState>((set, get) => ({
     try {
       const segments = await parseShapefileToSegments(shp, dbf)
       const range = dateRangeFromSegments(segments)
-      const p: BimProject = {
+      const p: BimProject = normalizeBimProject({
         id:                  crypto.randomUUID(),
         name:                'Shapefile importado',
         type:                'sanitation',
@@ -191,7 +280,7 @@ export const useBimStore = create<BimState>((set, get) => ({
         layers:              MOCK_BIM_PROJECT.layers,
         uploadedAt:          new Date().toISOString(),
         shapefileSourceName: 'importado.shp',
-      }
+      })
       set((s) => ({
         projects:          [...s.projects, p],
         activeProjectId:   p.id,
@@ -202,6 +291,8 @@ export const useBimStore = create<BimState>((set, get) => ({
         selectedSegmentId: null,
         isLoading:         false,
       }))
+      enqueueProject(p)
+      void get().flush()
     } catch (err) {
       set({ isLoading: false, loadError: String(err) })
     }
@@ -262,7 +353,7 @@ export const useBimStore = create<BimState>((set, get) => ({
       }
     }
 
-    const p: BimProject = {
+    const p: BimProject = normalizeBimProject({
       id:                  crypto.randomUUID(),
       name:                fileName.replace(/\.[^.]+$/, '') || 'Levantamento',
       type:                'sanitation',
@@ -273,17 +364,19 @@ export const useBimStore = create<BimState>((set, get) => ({
       ],
       uploadedAt:          new Date().toISOString(),
       shapefileSourceName: fileName,
-    }
+    })
 
     set((s) => ({
       projects:          [...s.projects, p],
       activeProjectId:   p.id,
       project:           p,
       layers:            p.layers,
-      timelineDateRange: dateRangeFromSegments(segments),
+      timelineDateRange: dateRangeFromSegments(p.segments),
       activeDate:        new Date().toISOString().slice(0, 10),
       selectedSegmentId: null,
     }))
+    enqueueProject(p)
+    void get().flush()
   },
 
   loadDxfFile(buffer, fileName) {
@@ -302,7 +395,7 @@ export const useBimStore = create<BimState>((set, get) => ({
         const projectType: import('@/types').BimProject['type'] = hasBuilding ? 'building' : 'sanitation'
         const layers = buildLayersFromSegments(segments)
         const range  = dateRangeFromSegments(segments)
-        const p: import('@/types').BimProject = {
+        const p: import('@/types').BimProject = normalizeBimProject({
           id:                  crypto.randomUUID(),
           name:                fileName.replace(/\.dxf$/i, '') || 'DXF importado',
           type:                projectType,
@@ -310,7 +403,7 @@ export const useBimStore = create<BimState>((set, get) => ({
           layers,
           uploadedAt:          new Date().toISOString(),
           shapefileSourceName: fileName,
-        }
+        })
         set((s) => ({
           projects:          [...s.projects, p],
           activeProjectId:   p.id,
@@ -322,6 +415,8 @@ export const useBimStore = create<BimState>((set, get) => ({
           isLoading:         false,
           loadError:         null,
         }))
+        enqueueProject(p)
+        void get().flush()
       } catch (err) {
         set({ isLoading: false, loadError: `Erro ao processar DXF: ${String(err)}` })
       }
@@ -448,4 +543,72 @@ export const useBimStore = create<BimState>((set, get) => ({
     set({ forgeClientId: clientId })
     void clientSecret  // stored in localStorage only, not in state
   },
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const projRows = await pullTable<{ id: string; name: string; type: string; payload: { layers: BimLayer[]; uploadedAt: string; shapefileSourceName?: string } }>('bim_projects')
+    const segRows  = await pullTable<{ id: string; bim_project_id: string; payload: BimSegment }>('bim_segments')
+    if (projRows) {
+      const segByProject = new Map<string, BimSegment[]>()
+      for (const r of segRows ?? []) {
+        const arr = segByProject.get(r.bim_project_id) ?? []
+        arr.push(r.payload)
+        segByProject.set(r.bim_project_id, arr)
+      }
+      const projects: BimProject[] = projRows.map((r) => ({
+        id:                  r.id,
+        name:                r.name,
+        type:                (r.type as BimProject['type']) ?? 'generic',
+        segments:            segByProject.get(r.id) ?? [],
+        layers:              r.payload?.layers ?? [],
+        uploadedAt:          r.payload?.uploadedAt ?? new Date().toISOString(),
+        shapefileSourceName: r.payload?.shapefileSourceName ?? '',
+      }))
+      const first = projects[0]
+      set({
+        projects,
+        activeProjectId: first?.id ?? null,
+        project:         first ?? null,
+        layers:          first?.layers ?? [],
+      })
+    }
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+      }
+    },
+    {
+      name: 'cdata-bim',
+      partialize: (s) => ({
+        projects:         s.projects,
+        activeProjectId:  s.activeProjectId,
+        viewerMode:       s.viewerMode,
+        forgeClientId:    s.forgeClientId,
+        pendingSync:      s.pendingSync,
+        lastSyncedAt:     s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useBimStore.getState().flush()
+  })
+}

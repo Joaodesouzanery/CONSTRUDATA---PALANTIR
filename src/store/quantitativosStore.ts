@@ -8,6 +8,9 @@
  *  - No dangerouslySetInnerHTML
  */
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   QuantTab, CostBaseSource,
   OrcamentoItem, OrcamentoBudget, CustomBaseEntry,
@@ -17,6 +20,39 @@ import {
   MOCK_BUDGETS,
   MOCK_CUSTOM_BASE,
 } from '@/data/mockQuantitativos'
+
+// ─── Mappers ──────────────────────────────────────────────────────────────────
+function budgetToRow(b: OrcamentoBudget, orgId: string, userId: string) {
+  return {
+    id:              b.id,
+    organization_id: orgId,
+    project_id:      (b as { projectId?: string }).projectId ?? null,
+    name:            b.name,
+    cost_base:       b.costBase,
+    bdi_global:      b.bdiGlobal,
+    total_brl:       b.totalBRL,
+    reference_date:  b.referenceDate,
+    payload:         b as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function customBaseToRow(e: CustomBaseEntry, orgId: string, userId: string) {
+  return {
+    id:              e.id,
+    organization_id: orgId,
+    code:            e.code,
+    description:     e.description ?? null,
+    unit:            e.unit ?? null,
+    unit_cost:       e.unitCost ?? null,
+    category:        e.category ?? null,
+    payload:         e as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
 
 // ─── State interface ──────────────────────────────────────────────────────────
 
@@ -66,6 +102,14 @@ interface QuantitativosState {
 
   loadDemoData(): void
   clearData(): void
+
+  // Sync (Sprint 4)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -76,13 +120,20 @@ function calcTotal(item: Omit<OrcamentoItem, 'id' | 'totalCost'>): number {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
+export const useQuantitativosStore = create<QuantitativosState>()(
+  persist(
+    (set, get) => ({
   activeTab:    'composicao',
   costBase:     'sinapi',
-  currentItems: MOCK_CURRENT_ITEMS,
+  currentItems: [],
   bdiGlobal:    25,
-  customBase:   MOCK_CUSTOM_BASE,
-  savedBudgets: MOCK_BUDGETS,
+  customBase:   [],
+  savedBudgets: [],
+
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -253,21 +304,37 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
 
   // ── Custom base ───────────────────────────────────────────────────────────────
 
-  importCustomBase: (entries) =>
+  importCustomBase: (entries) => {
+    const { orgId, userId } = ctxAuth()
+    const withIds: CustomBaseEntry[] = entries.map((e) => ({ ...e, id: crypto.randomUUID() }))
     set((s) => ({
-      customBase: [
-        ...s.customBase,
-        ...entries.map((e) => ({ ...e, id: crypto.randomUUID() })),
+      customBase:  [...s.customBase, ...withIds],
+      pendingSync: [
+        ...s.pendingSync,
+        ...withIds.map((e) => makeOp({ entity: 'custom_base', type: 'insert', recordId: e.id, row: customBaseToRow(e, orgId, userId), table: 'quantitativos_custom_base' })),
       ],
-    })),
+    }))
+    void get().flush()
+  },
 
-  addCustomEntry: (entry) =>
+  addCustomEntry: (entry) => {
+    const id = crypto.randomUUID()
+    const newEntry: CustomBaseEntry = { ...entry, id }
+    const { orgId, userId } = ctxAuth()
     set((s) => ({
-      customBase: [...s.customBase, { ...entry, id: crypto.randomUUID() }],
-    })),
+      customBase:  [...s.customBase, newEntry],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'insert', recordId: id, row: customBaseToRow(newEntry, orgId, userId), table: 'quantitativos_custom_base' })],
+    }))
+    void get().flush()
+  },
 
-  removeCustomEntry: (id) =>
-    set((s) => ({ customBase: s.customBase.filter((e) => e.id !== id) })),
+  removeCustomEntry: (id) => {
+    set((s) => ({
+      customBase:  s.customBase.filter((e) => e.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'delete', recordId: id, table: 'quantitativos_custom_base', approvalActionType: 'delete_quantitativo_custom_base' })],
+    }))
+    void get().flush()
+  },
 
   // ── Budget history ────────────────────────────────────────────────────────────
 
@@ -287,7 +354,12 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
       createdAt:     now,
       updatedAt:     now,
     }
-    set((s) => ({ savedBudgets: [budget, ...s.savedBudgets] }))
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      savedBudgets: [budget, ...s.savedBudgets],
+      pendingSync:  [...s.pendingSync, makeOp({ entity: 'budget', type: 'insert', recordId: budget.id, row: budgetToRow(budget, orgId, userId), table: 'quantitativos_budgets' })],
+    }))
+    void get().flush()
   },
 
   loadBudget: (id) => {
@@ -300,8 +372,13 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
     })
   },
 
-  deleteBudget: (id) =>
-    set((s) => ({ savedBudgets: s.savedBudgets.filter((b) => b.id !== id) })),
+  deleteBudget: (id) => {
+    set((s) => ({
+      savedBudgets: s.savedBudgets.filter((b) => b.id !== id),
+      pendingSync:  [...s.pendingSync, makeOp({ entity: 'budget', type: 'delete', recordId: id, table: 'quantitativos_budgets', approvalActionType: 'delete_quantitativo_budget' })],
+    }))
+    void get().flush()
+  },
 
   // ── BDI ──────────────────────────────────────────────────────────────────────
 
@@ -324,5 +401,53 @@ export const useQuantitativosStore = create<QuantitativosState>((set, get) => ({
       savedBudgets: [],
       customBase:   [],
       bdiGlobal:    25,
+      pendingSync:  [],
+      syncError:    null,
     }),
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const budgets = await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
+    const cb      = await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
+    if (budgets) set({ savedBudgets: budgets.map((r) => r.payload) })
+    if (cb)      set({ customBase:   cb.map((r) => r.payload) })
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-quantitativos',
+      partialize: (s) => ({
+        currentItems: s.currentItems,
+        savedBudgets: s.savedBudgets,
+        customBase:   s.customBase,
+        costBase:     s.costBase,
+        bdiGlobal:    s.bdiGlobal,
+        pendingSync:  s.pendingSync,
+        lastSyncedAt: s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useQuantitativosStore.getState().flush()
+  })
+}

@@ -1,5 +1,8 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   PipelineStep, TakeoffItem, CostMatch, ContractClause,
   BDIConfig, AnalysisSession, SinapiEntry,
@@ -61,6 +64,14 @@ interface PreConstrucaoState {
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
+
+  // Sync (Sprint 4) — persistimos APENAS sessions finalizadas
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 }
 
 export interface UploadedFile {
@@ -79,7 +90,9 @@ const DEFAULT_BDI: BDIConfig = {
   lucro:        7.5,
 }
 
-export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
+export const usePreConstrucaoStore = create<PreConstrucaoState>()(
+  persist(
+    (set, get) => ({
   currentStep:        'upload',
   uploadedFiles:      [],
   takeoffItems:       [],
@@ -89,6 +102,11 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
   bdiConfig:          DEFAULT_BDI,
   sessions:           [],
   sinapiLastRefresh:  new Date().toISOString().slice(0, 10),
+
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   setStep: (step) => set({ currentStep: step }),
 
@@ -201,20 +219,48 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
   setBDI: (config) =>
     set((s) => ({ bdiConfig: { ...s.bdiConfig, ...config } })),
 
-  saveSession: (fileNames, totalItems, totalCost) =>
+  saveSession: (fileNames, totalItems, totalCost) => {
+    const session: AnalysisSession = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      fileNames,
+      totalItems,
+      totalCost,
+      status: 'proposal' as PipelineStep,
+    }
+    // Snapshot do estado do pipeline atual no payload — possibilita auditoria/replay
+    const { takeoffItems, costMatches, clauses, bdiConfig } = get()
+    const { profile, user } = useAuth.getState()
+    const orgId  = profile?.organization_id ?? 'pending'
+    const userId = user?.id ?? 'pending'
     set((s) => ({
-      sessions: [
-        {
-          id: nanoid(),
-          createdAt: new Date().toISOString(),
-          fileNames,
-          totalItems,
-          totalCost,
-          status: 'proposal' as PipelineStep,
-        },
-        ...s.sessions,
+      sessions: [session, ...s.sessions],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({
+          entity: 'preconstrucao_session',
+          type:   'insert',
+          recordId: session.id,
+          row: {
+            id:              session.id,
+            organization_id: orgId,
+            project_id:      null,
+            file_names:      fileNames,
+            total_items:     totalItems,
+            total_cost:      totalCost,
+            status:          'proposal',
+            payload: {
+              ...session,
+              snapshot: { takeoffItems, costMatches, clauses, bdiConfig },
+            },
+            created_by:      userId,
+          },
+          table: 'preconstrucao_sessions',
+        }),
       ],
-    })),
+    }))
+    void get().flush()
+  },
 
   setSinapiLastRefresh: (date) => set({ sinapiLastRefresh: date }),
 
@@ -253,8 +299,53 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>((set) => ({
       clauses:       [],
       costMatches:   [],
       sessions:      [],
+      pendingSync:   [],
+      syncError:     null,
     }),
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const rows = await pullTable<{ payload: AnalysisSession }>('preconstrucao_sessions')
+    if (rows) set({ sessions: rows.map((r) => r.payload) })
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-preconstrucao',
+      partialize: (s) => ({
+        // Persiste só sessions finalizadas + queue. Pipeline em andamento é volátil.
+        sessions:     s.sessions,
+        bdiConfig:    s.bdiConfig,
+        customBase:   s.customBase,
+        pendingSync:  s.pendingSync,
+        lastSyncedAt: s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void usePreConstrucaoStore.getState().flush()
+  })
+}
 
 // ─── BDI calculation helper ───────────────────────────────────────────────────
 

@@ -104,8 +104,8 @@ export function parseRdoText(raw: string): ParsedRdoData {
   const trechos:   Omit<RdoTrechoEntry,    'id'>[] = []
   const equipment: Omit<RdoEquipmentEntry, 'id'>[] = []
   const employeeNames: string[] = []
-  const obsLines: string[] = []
   const manpower = { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 }
+  let explicitObservations = ''
   let responsible = ''
   let trechoCounter = 0
   let parsedDate: string | undefined
@@ -214,6 +214,12 @@ export function parseRdoText(raw: string): ParsedRdoData {
       if (v) { ocorrencias = v; continue }
     }
 
+    // Observações (explicit key only)
+    if (!explicitObservations) {
+      const v = matchKeyValue(lineNorm, line, ['observacoes', 'observações', 'observacao', 'observação', 'obs'])
+      if (v) { explicitObservations = v; continue }
+    }
+
     // Funcionários Diretos
     if (funcionariosDiretos === 0) {
       const v = matchKeyValue(lineNorm, line, ['funcionarios diretos', 'funcionários diretos', 'func diretos', 'diretos'])
@@ -287,7 +293,6 @@ export function parseRdoText(raw: string): ParsedRdoData {
             if (!obsOnly) {
               manpower[field] += count
             }
-            obsLines.push(line)
             matched = true
             break
           }
@@ -324,10 +329,6 @@ export function parseRdoText(raw: string): ParsedRdoData {
           quantity:    meters || 1,
           unit:        meters > 0 ? 'm' : 'un',
         })
-
-        obsLines.push(line)
-      } else if (line.length > 2) {
-        obsLines.push(line)
       }
       continue
     }
@@ -358,19 +359,12 @@ export function parseRdoText(raw: string): ParsedRdoData {
       continue
     }
 
-    // Default — accumulate in observations
-    obsLines.push(line)
   }
 
   // Auto-compute qtdEquipamentosFerramentas from equipment list if not set
   if (qtdEquipamentosFerramentas === 0 && equipment.length > 0) {
     qtdEquipamentosFerramentas = equipment.reduce((acc, e) => acc + e.quantity, 0)
   }
-
-  const observations = obsLines
-    .filter((l) => l.length > 3)
-    .join('\n')
-    .slice(0, 1900)
 
   return {
     responsible,
@@ -379,7 +373,7 @@ export function parseRdoText(raw: string): ParsedRdoData {
     equipment,
     manpower,
     employeeNames,
-    observations,
+    observations: explicitObservations.slice(0, 1900),
     date: parsedDate,
     local,
     gerenteContrato,

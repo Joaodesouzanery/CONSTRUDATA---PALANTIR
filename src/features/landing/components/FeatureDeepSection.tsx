@@ -14,7 +14,7 @@ interface FeatureData {
 
 function SectionDivider({ num, tag }: { num: string; tag: string }) {
   return (
-    <div className="flex items-center gap-3 mb-16">
+    <div className="flex items-center gap-3 mb-10 sm:mb-16">
       <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">{num} / {tag}</span>
       <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
     </div>
@@ -317,17 +317,17 @@ const FEATURES: FeatureData[] = [
 
 function FeatureBlock({ id, num, tag, title, copy, bullets, visual, flip }: FeatureData) {
   return (
-    <div id={id} style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-24 scroll-mt-14">
-      <div className="max-w-7xl mx-auto px-6">
+    <div id={id} style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-12 sm:py-16 lg:py-24 scroll-mt-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <SectionDivider num={num} tag={tag} />
-        <div className={`grid lg:grid-cols-2 gap-16 items-start ${flip ? 'lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1' : ''}`}>
+        <div className={`grid lg:grid-cols-2 gap-8 sm:gap-12 lg:gap-16 items-start ${flip ? 'lg:[&>*:first-child]:order-2 lg:[&>*:last-child]:order-1' : ''}`}>
           {/* Copy */}
           <div>
             <h2
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 700,
-                fontSize: 'clamp(1.5rem, 2.5vw, 2.2rem)',
+                fontSize: 'clamp(1.4rem, 2.5vw, 2.2rem)',
                 lineHeight: 1.2,
                 letterSpacing: '-0.01em',
                 color: '#f4f5f7',

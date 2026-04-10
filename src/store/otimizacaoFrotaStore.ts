@@ -1,4 +1,7 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   RoutingRecommendation,
   PredictiveHealth,
@@ -6,6 +9,44 @@ import type {
   RoutingPriority,
   HealthRisk,
 } from '@/types'
+
+// ─── Mappers (Sprint 5) ───────────────────────────────────────────────────────
+function routingToRow(r: RoutingRecommendation, orgId: string, userId: string) {
+  return {
+    id:              r.id,
+    organization_id: orgId,
+    equipment_id:    r.equipmentId,
+    priority:        r.priority,
+    accepted:        r.accepted ?? null,
+    payload:         r as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function healthToRow(h: PredictiveHealth, orgId: string, userId: string) {
+  return {
+    id:              crypto.randomUUID(),  // PredictiveHealth não tem id próprio; gera no envio
+    organization_id: orgId,
+    equipment_id:    h.equipmentId,
+    risk_level:      h.riskLevel,
+    health_score:    h.healthScore,
+    payload:         h as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function buyLeaseToRow(b: BuyLeaseAnalysis, orgId: string, userId: string) {
+  return {
+    id:              b.id,
+    organization_id: orgId,
+    equipment_type:  b.equipmentType,
+    recommendation:  b.recommendation,
+    payload:         b as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+function ctxAuth() {
+  const { profile, user } = useAuth.getState()
+  return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
 import {
   mockRoutingRecs,
   mockHealthScores,
@@ -106,12 +147,27 @@ interface OtimizacaoFrotaState {
   // Demo / clear
   loadDemoData: () => void
   clearData:    () => void
+
+  // Sync (Sprint 5)
+  pendingSync:  PendingOp[]
+  syncStatus:   SyncStatus
+  lastSyncedAt: string | null
+  syncError:    string | null
+  flush: () => Promise<void>
+  pull:  () => Promise<void>
 }
 
-export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) => ({
-  routingRecs:      mockRoutingRecs,
-  healthScores:     mockHealthScores,
-  buyLeaseAnalyses: mockBuyLeaseAnalyses,
+export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
+  persist(
+    (set, get) => ({
+  routingRecs:      [],
+  healthScores:     [],
+  buyLeaseAnalyses: [],
+
+  pendingSync:  [],
+  syncStatus:   'idle',
+  lastSyncedAt: null,
+  syncError:    null,
 
   // ── Routing ─────────────────────────────────────────────────────────────────
 
@@ -199,15 +255,29 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
     })
   },
 
-  acceptRouting: (id) =>
-    set((s) => ({
-      routingRecs: s.routingRecs.map((r) => (r.id === id ? { ...r, accepted: true } : r)),
-    })),
+  acceptRouting: (id) => {
+    set((s) => ({ routingRecs: s.routingRecs.map((r) => (r.id === id ? { ...r, accepted: true } : r)) }))
+    const target = get().routingRecs.find((r) => r.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = routingToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'otrr', type: 'update', recordId: id, patch, table: 'otimizacao_routing_recommendations' })] }))
+      void get().flush()
+    }
+  },
 
-  dismissRouting: (id) =>
-    set((s) => ({
-      routingRecs: s.routingRecs.map((r) => (r.id === id ? { ...r, accepted: false } : r)),
-    })),
+  dismissRouting: (id) => {
+    set((s) => ({ routingRecs: s.routingRecs.map((r) => (r.id === id ? { ...r, accepted: false } : r)) }))
+    const target = get().routingRecs.find((r) => r.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = routingToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'otrr', type: 'update', recordId: id, patch, table: 'otimizacao_routing_recommendations' })] }))
+      void get().flush()
+    }
+  },
 
   // ── Health ───────────────────────────────────────────────────────────────────
 
@@ -295,8 +365,11 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
     set((s) => ({ healthScores: [...s.healthScores, h] }))
   },
 
-  deleteHealthScore: (equipmentId) =>
-    set((s) => ({ healthScores: s.healthScores.filter((h) => h.equipmentId !== equipmentId) })),
+  deleteHealthScore: (equipmentId) => {
+    set((s) => ({ healthScores: s.healthScores.filter((h) => h.equipmentId !== equipmentId) }))
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'oths', type: 'delete', recordId: equipmentId, table: 'otimizacao_health_scores', approvalActionType: 'delete_otimizacao_health' })] }))
+    void get().flush()
+  },
 
   // ── Buy vs Lease ─────────────────────────────────────────────────────────────
 
@@ -371,8 +444,11 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
       }),
     })),
 
-  deleteBuyLeaseAnalysis: (id) =>
-    set((s) => ({ buyLeaseAnalyses: s.buyLeaseAnalyses.filter((a) => a.id !== id) })),
+  deleteBuyLeaseAnalysis: (id) => {
+    set((s) => ({ buyLeaseAnalyses: s.buyLeaseAnalyses.filter((a) => a.id !== id) }))
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'otbl', type: 'delete', recordId: id, table: 'otimizacao_buy_lease_analyses', approvalActionType: 'delete_otimizacao_buy_lease' })] }))
+    void get().flush()
+  },
 
   // ── Demo / Clear ─────────────────────────────────────────────────────────────
 
@@ -388,8 +464,61 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>((set, get) =
       routingRecs:      [],
       healthScores:     [],
       buyLeaseAnalyses: [],
+      pendingSync:      [],
+      syncError:        null,
     }),
-}))
+
+  flush: async () => {
+    const queue = get().pendingSync
+    if (queue.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+    const { profile } = useAuth.getState()
+    if (!profile) { set({ syncStatus: 'unauth' }); return }
+    set({ syncStatus: 'syncing', syncError: null })
+    const result = await flushQueue(queue)
+    set((s) => ({
+      pendingSync: s.pendingSync
+        .filter((p) => !result.completed.includes(p.id))
+        .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+      syncStatus:   result.lastError ? 'error' : 'idle',
+      lastSyncedAt: new Date().toISOString(),
+      syncError:    result.lastError ?? null,
+    }))
+  },
+
+  pull: async () => {
+    const rr = await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
+    const hs = await pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores')
+    const bl = await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
+    if (rr) set({ routingRecs:      rr.map((r) => r.payload) })
+    if (hs) set({ healthScores:     hs.map((r) => r.payload) })
+    if (bl) set({ buyLeaseAnalyses: bl.map((r) => r.payload) })
+    set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+  },
+    }),
+    {
+      name: 'cdata-otimizacao-frota',
+      partialize: (s) => ({
+        routingRecs:      s.routingRecs,
+        healthScores:     s.healthScores,
+        buyLeaseAnalyses: s.buyLeaseAnalyses,
+        pendingSync:      s.pendingSync,
+        lastSyncedAt:     s.lastSyncedAt,
+      }),
+    },
+  ),
+)
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void useOtimizacaoFrotaStore.getState().flush()
+  })
+}
+
+// Mantém referência aos mappers de health/buyLease (poderão ser usados quando
+// runRoutingEngine/runHealthEngine virarem persist após cada execução).
+void healthToRow
+void buyLeaseToRow
 
 // ─── Derived helpers ──────────────────────────────────────────────────────────
 

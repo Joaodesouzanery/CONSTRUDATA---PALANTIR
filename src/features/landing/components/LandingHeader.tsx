@@ -12,8 +12,8 @@ const NAV_LINKS = [
 // URL pública do Calendly do João — link verificado
 export const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
-// Rota de login: página dedicada com form email/senha + MFA (preparado para Supabase Auth)
-export const LOGIN_URL = '/login'
+// Acesso direto à plataforma (login desabilitado temporariamente)
+export const LOGIN_URL = '/app/minha-rotina'
 
 export function LandingHeader() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -23,7 +23,7 @@ export function LandingHeader() {
       style={{ background: 'rgba(44,44,44,0.96)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm"
     >
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <a href="/" className="flex items-center gap-2.5 group">
@@ -72,7 +72,7 @@ export function LandingHeader() {
               href={LOGIN_URL}
               className="text-xs py-2 px-4"
             >
-              Login
+              Acessar
             </FlowHoverButton>
             <FlowHoverButton
               variant="accent"
@@ -115,7 +115,7 @@ export function LandingHeader() {
                 href={LOGIN_URL}
                 className="w-full justify-center text-xs"
               >
-                Login
+                Acessar
               </FlowHoverButton>
               <FlowHoverButton
                 variant="accent"

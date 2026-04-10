@@ -214,9 +214,9 @@ export function DashboardPanel() {
   })
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Row 1 KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total de RDOs"    value={String(rdos.length)} />
         <KpiCard label="Progresso Geral"  value={`${progressPct.toFixed(1)}%`} accent />
         <KpiCard label="Metros Executados" value={`${totalExecuted.toFixed(2)} m`} accent />
@@ -224,7 +224,7 @@ export function DashboardPanel() {
       </div>
 
       {/* Row 2 KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total Planejado"  value={`${totalPlanned.toFixed(2)} m`}   sub="Extensão total da rede" />
         <KpiCard label="Total Executado"  value={`${totalExecuted.toFixed(2)} m`}  sub="Extensão já executada" accent />
         <KpiCard label="Restante"         value={`${(totalPlanned - totalExecuted).toFixed(2)} m`} sub="A ser executado" />
@@ -251,7 +251,7 @@ export function DashboardPanel() {
         {/* Donut */}
         <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="text-white font-medium text-sm mb-3">Status dos Trechos</div>
-          <div className="flex items-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
             <DonutChart
               completed={counts.completed}
               inProgress={counts.in_progress}

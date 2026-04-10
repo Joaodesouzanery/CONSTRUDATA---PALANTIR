@@ -6,7 +6,7 @@ import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
 /* ── Section divider ─────────────────────────────────────────────── */
 function SectionDivider({ num, tag }: { num: string; tag: string }) {
   return (
-    <div className="flex items-center gap-3 mb-16">
+    <div className="flex items-center gap-3 mb-10 sm:mb-16">
       <span style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }} className="text-white/60 text-xs uppercase font-mono">{num} / {tag}</span>
       <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
     </div>
@@ -73,15 +73,15 @@ export function ShowcaseSection() {
   return (
     <section>
       {/* ── A) AI Headline Block ──────────────────────────────────── */}
-      <div style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-        <div className="max-w-7xl mx-auto px-6">
+      <div style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionDivider num="10" tag="AUTOMAÇÃO IA" />
 
           <h2
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(1.8rem, 3.5vw, 3rem)',
+              fontSize: 'clamp(1.6rem, 3.5vw, 3rem)',
               lineHeight: 1.12,
               letterSpacing: '-0.02em',
               color: '#f4f5f7',
@@ -98,8 +98,8 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── B) Software / Modules Grid ────────────────────────────── */}
-      <div style={{ background: '#333333' }} className="py-24">
-        <div className="max-w-7xl mx-auto px-6">
+      <div style={{ background: '#333333' }} className="py-12 sm:py-16 lg:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-3 md:grid-cols-2 grid-cols-1 gap-px" style={{ background: 'rgba(255,255,255,0.10)' }}>
             {MODULES.map(({ icon: Icon, name, desc }) => (
               <div
@@ -124,16 +124,16 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── C) Mission & Values ────────────────────────────────────── */}
-      <div style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-32">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16">
+      <div style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }} className="py-16 sm:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
             {/* Left — Mission */}
             <div style={{ borderLeft: '3px solid #f97316' }} className="pl-6">
               <h3
                 style={{
                   fontFamily: "'Space Grotesk', sans-serif",
                   fontWeight: 700,
-                  fontSize: 'clamp(1.4rem, 2.5vw, 2rem)',
+                  fontSize: 'clamp(1.3rem, 2.5vw, 2rem)',
                   lineHeight: 1.2,
                   letterSpacing: '-0.01em',
                   color: '#f4f5f7',
@@ -164,7 +164,7 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── D) Quote Block ─────────────────────────────────────────── */}
-      <div style={{ background: '#333333' }} className="py-24">
+      <div style={{ background: '#333333' }} className="py-12 sm:py-16 lg:py-24">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <p
             style={{
@@ -190,15 +190,15 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── E) Testimonials ────────────────────────────────────────── */}
-      <div style={{ background: '#2c2c2c' }} className="py-32">
-        <div className="max-w-7xl mx-auto px-6">
+      <div style={{ background: '#2c2c2c' }} className="py-16 sm:py-24 lg:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionDivider num="11" tag="PARCEIROS" />
 
           <h2
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(1.6rem, 3vw, 2.5rem)',
+              fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.01em',
               color: '#f4f5f7',
@@ -279,10 +279,10 @@ export function ShowcaseSection() {
       </div>
 
       {/* ── F) CTA Block ───────────────────────────────────────────── */}
-      <div style={{ background: '#333333' }} className="py-20">
+      <div style={{ background: '#333333' }} className="py-12 sm:py-20">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-center gap-4">
           <FlowHoverButton variant="ghost" href={LOGIN_URL}>
-            Login
+            Acessar
           </FlowHoverButton>
           <FlowHoverButton variant="accent" href={CALENDLY_URL} target="_blank">
             Agendar Demonstração

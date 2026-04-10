@@ -181,11 +181,11 @@ export function MethodologySection() {
     <section
       id="metodologia"
       style={{ background: '#2c2c2c', borderTop: '1px solid rgba(255,255,255,0.10)' }}
-      className="py-32"
+      className="py-16 sm:py-24 lg:py-32"
     >
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section divider */}
-        <div className="flex items-center gap-3 mb-16">
+        <div className="flex items-center gap-3 mb-10 sm:mb-16">
           <span
             style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }}
             className="text-white/60 text-xs uppercase font-mono"
@@ -207,7 +207,7 @@ export function MethodologySection() {
             style={{
               fontFamily: "'Space Grotesk', sans-serif",
               fontWeight: 700,
-              fontSize: 'clamp(1.8rem, 4vw, 3rem)',
+              fontSize: 'clamp(1.6rem, 4vw, 3rem)',
               lineHeight: 1.1,
               letterSpacing: '-0.02em',
               color: '#f4f5f7',
@@ -247,7 +247,7 @@ export function MethodologySection() {
           style={{
             fontFamily: "'Space Grotesk', sans-serif",
             fontWeight: 700,
-            fontSize: 'clamp(1.4rem, 2.5vw, 2rem)',
+            fontSize: 'clamp(1.3rem, 2.5vw, 2rem)',
             lineHeight: 1.15,
             letterSpacing: '-0.01em',
             color: '#f4f5f7',

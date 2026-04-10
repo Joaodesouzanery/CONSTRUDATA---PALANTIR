@@ -256,7 +256,7 @@ export function HeroSection() {
 
             <div className="flex flex-wrap gap-3 mb-12">
               <FlowHoverButton variant="ghost" href={LOGIN_URL}>
-                Login
+                Acessar
               </FlowHoverButton>
               <FlowHoverButton variant="accent" href={CALENDLY_URL} target="_blank">
                 <ArrowRight size={14} />
