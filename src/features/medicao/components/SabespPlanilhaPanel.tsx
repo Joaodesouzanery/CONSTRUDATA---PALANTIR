@@ -4,11 +4,13 @@
  * Allows entering/editing contract items (itens de contrato) for the
  * active boletim. Groups items by 01/02/03 (Canteiros, Esgoto, Água).
  */
-import { useState } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { CRITERIOS_MEDICAO } from '../data/criterios'
 import type { ItemContrato } from '@/store/medicaoBillingStore'
+import { readWorkbook, parseSabespSheet } from '../utils/xlsxParsers'
+import type { SabespParseResult } from '../utils/xlsxParsers'
 
 const GRUPOS = [
   { id: '01', nome: 'Canteiros e Planos' },
@@ -166,6 +168,127 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
   )
 }
 
+// ─── XLSX Import section ──────────────────────────────────────────────────────
+
+function XlsxImportSabesp() {
+  const { getActiveBoletim, importItensContrato } = useMedicaoBillingStore()
+  const boletim = getActiveBoletim()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<SabespParseResult | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    try {
+      const wb = await readWorkbook(file)
+      setPreview(parseSabespSheet(wb))
+    } finally {
+      setLoading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  function handleConfirm() {
+    if (!preview || preview.errors.length > 0) return
+    importItensContrato(preview.itens, true)
+    setPreview(null)
+  }
+
+  const hasItems = (boletim?.itensContrato.length ?? 0) > 0
+
+  return (
+    <div>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors"
+        >
+          <Upload size={13} />
+          {loading ? 'Lendo...' : 'Importar XLSX / CSV'}
+        </button>
+        {hasItems && (
+          <span className="text-[10px] text-[#6b6b6b]">Re-importar irá substituir todos os itens.</span>
+        )}
+      </div>
+
+      {/* Preview modal */}
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setPreview(null)}>
+          <div
+            className="w-full max-w-xl bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252] flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">Pré-visualização — Planilha Sabesp</span>
+              <button onClick={() => setPreview(null)} className="text-[#6b6b6b] hover:text-white"><XIcon size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {preview.errors.length > 0 ? (
+                <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <div>{preview.errors.join(' ')}</div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens encontrados. Os itens atuais serão substituídos.</p>
+                  <div className="overflow-x-auto max-h-56 border border-[#525252] rounded-lg">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#1f1f1f] text-[#6b6b6b] uppercase text-[9px]">
+                          <th className="px-3 py-2 text-left">Nº Preço</th>
+                          <th className="px-3 py-2 text-left">Descrição</th>
+                          <th className="px-3 py-2 text-center">Un</th>
+                          <th className="px-3 py-2 text-right">Qtd Medida</th>
+                          <th className="px-3 py-2 text-right">Vl. Unit.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.itens.slice(0, 8).map((item, i) => (
+                          <tr key={i} className="border-t border-[#525252]">
+                            <td className="px-3 py-1.5 font-mono text-[#f97316]">{item.nPreco}</td>
+                            <td className="px-3 py-1.5 text-[#f5f5f5] max-w-[200px] truncate">{item.descricao}</td>
+                            <td className="px-3 py-1.5 text-center text-[#a3a3a3]">{item.unidade}</td>
+                            <td className="px-3 py-1.5 text-right">{item.qtdMedida}</td>
+                            <td className="px-3 py-1.5 text-right">{item.valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                        {preview.itens.length > 8 && (
+                          <tr>
+                            <td colSpan={5} className="px-3 py-2 text-center text-[#6b6b6b] text-[10px]">
+                              + {preview.itens.length - 8} itens adicionais
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
+              <button onClick={() => setPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
+              {preview.errors.length === 0 && (
+                <button
+                  onClick={handleConfirm}
+                  className="px-5 py-2 text-xs font-medium text-white rounded-lg transition-colors"
+                  style={{ backgroundColor: '#f97316' }}
+                >
+                  Importar {preview.itens.length} itens
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function SabespPlanilhaPanel() {
   const { getActiveBoletim, addItemContrato, updateItemContrato, removeItemContrato } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
@@ -188,17 +311,20 @@ export function SabespPlanilhaPanel() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-white font-semibold text-base">Planilha de Medição Sabesp</h2>
           <p className="text-[#a3a3a3] text-xs mt-0.5">
             Contrato {boletim.contrato} · {boletim.consorcio} · Período: {boletim.periodo}
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
-          <div className="text-[#f97316] font-bold text-lg">
-            R$ {fmt(boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0))}
+        <div className="flex items-center gap-4">
+          <XlsxImportSabesp />
+          <div className="text-right">
+            <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
+            <div className="text-[#f97316] font-bold text-lg">
+              R$ {fmt(boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0))}
+            </div>
           </div>
         </div>
       </div>

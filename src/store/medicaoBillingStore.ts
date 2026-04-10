@@ -132,6 +132,11 @@ interface MedicaoBillingState {
   computeMedicaoFinal: () => void
   setBoletimStatus: (status: MedicaoBoletim['status']) => void
 
+  // Bulk import (XLSX)
+  importItensContrato: (items: Omit<ItemContrato, 'id'>[], replace?: boolean) => void
+  importSubempreiteiroItems: (subId: string, items: Omit<SubempreteiroItem, never>[], totals: { totalMedido: number; totalAprovado: number; retencao: number }) => void
+  importFornecedores: (list: Omit<Fornecedor, 'id'>[], replace?: boolean) => void
+
   clearData: () => void
 }
 
@@ -384,6 +389,41 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           boletins: s.boletins.map((b) =>
             b.id === s.activeBoletimId ? { ...b, status, updatedAt: new Date().toISOString() } : b
           ),
+        })),
+
+      // ── Bulk import ───────────────────────────────────────────────────────────
+
+      importItensContrato: (items, replace = true) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) => {
+            if (b.id !== s.activeBoletimId) return b
+            const existing = replace ? [] : b.itensContrato
+            const newItems: ItemContrato[] = items.map((i) => ({ ...i, id: crypto.randomUUID() }))
+            return { ...b, itensContrato: [...existing, ...newItems], updatedAt: new Date().toISOString() }
+          }),
+        })),
+
+      importSubempreiteiroItems: (subId, items, totals) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) =>
+            b.id !== s.activeBoletimId ? b : {
+              ...b,
+              subempreiteiros: b.subempreiteiros.map((sub) =>
+                sub.id !== subId ? sub : { ...sub, ...totals, itens: items, updatedAt: new Date().toISOString() }
+              ),
+              updatedAt: new Date().toISOString(),
+            }
+          ),
+        })),
+
+      importFornecedores: (list, replace = false) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) => {
+            if (b.id !== s.activeBoletimId) return b
+            const existing = replace ? [] : b.fornecedores
+            const newItems: Fornecedor[] = list.map((f) => ({ ...f, id: crypto.randomUUID() }))
+            return { ...b, fornecedores: [...existing, ...newItems], updatedAt: new Date().toISOString() }
+          }),
         })),
 
       clearData: () => set({ boletins: [], activeBoletimId: null, activeStep: 1 }),

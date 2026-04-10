@@ -23,21 +23,21 @@ export function VisaoGeralPanel() {
       </div>
 
       {entries.length === 0 ? (
-        <div className="text-center py-16 text-gray-500 text-sm">
+        <div className="text-center py-16 text-[#6b6b6b] text-sm">
           Nenhum lançamento financeiro. Adicione entradas e saídas nas respectivas abas.
         </div>
       ) : (
         <>
           {/* Monthly Chart */}
           {monthly.length > 0 && (
-            <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Receita × Despesa Mensal</p>
+            <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4">
+              <p className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-wider mb-4">Receita × Despesa Mensal</p>
               <div className="space-y-3">
                 {monthly.map((m) => {
                   const max = Math.max(...monthly.map((x) => Math.max(x.entradas, x.saidas)), 1)
                   return (
                     <div key={m.month}>
-                      <div className="flex items-center justify-between text-[10px] text-gray-400 mb-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#a3a3a3] mb-1">
                         <span>{m.month}</span>
                         <span className={m.saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}>Saldo: {fmtBRL(m.saldo)}</span>
                       </div>
@@ -49,7 +49,7 @@ export function VisaoGeralPanel() {
                   )
                 })}
               </div>
-              <div className="flex gap-4 mt-3 text-[10px] text-gray-500">
+              <div className="flex gap-4 mt-3 text-[10px] text-[#6b6b6b]">
                 <span className="flex items-center gap-1"><span className="w-3 h-2 bg-emerald-500/40 rounded" /> Entradas</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-2 bg-red-500/40 rounded" /> Saídas</span>
               </div>
@@ -57,15 +57,15 @@ export function VisaoGeralPanel() {
           )}
 
           {/* Recent entries */}
-          <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Últimos Lançamentos</p>
+          <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4">
+            <p className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-wider mb-3">Últimos Lançamentos</p>
             <div className="space-y-1.5">
               {[...entries].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 10).map((e) => (
-                <div key={e.id} className="flex items-center justify-between py-1.5 border-b border-[#1f2937]/50">
+                <div key={e.id} className="flex items-center justify-between py-1.5 border-b border-[#525252]/50">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${e.tipo === 'entrada' ? 'bg-emerald-400' : 'bg-red-400'}`} />
                     <span className="text-xs text-white">{e.descricao}</span>
-                    <span className="text-[10px] text-gray-500">{e.data}</span>
+                    <span className="text-[10px] text-[#6b6b6b]">{e.data}</span>
                   </div>
                   <span className={`text-xs font-bold tabular-nums ${e.tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}`}>
                     {e.tipo === 'entrada' ? '+' : '-'}{fmtBRL(e.valor)}
@@ -82,8 +82,8 @@ export function VisaoGeralPanel() {
 
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color?: string }) {
   return (
-    <div className="bg-[#111827] border border-[#1f2937] rounded-xl p-4">
-      <div className="flex items-center gap-2 mb-2">{icon}<p className="text-[10px] uppercase tracking-widest text-gray-500">{label}</p></div>
+    <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">{icon}<p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</p></div>
       <p className={`text-xl font-bold ${color || 'text-white'}`}>{value}</p>
     </div>
   )

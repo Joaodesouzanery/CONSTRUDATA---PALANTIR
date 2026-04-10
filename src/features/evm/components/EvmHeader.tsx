@@ -1,18 +1,27 @@
 /**
- * EvmHeader — top bar with KPI cards and tab navigation for the EVM module.
+ * EvmHeader — top bar with KPI cards and tab navigation for EVM + Financeiro modules.
  */
 import { DollarSign, Download, RefreshCw } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
-import type { EvmTab } from '@/types'
+import type { EvmTab, FinanceiroTab } from '@/types'
 
-const TABS: { key: EvmTab; label: string }[] = [
+export type CombinedTab = EvmTab | FinanceiroTab
+
+const EVM_TABS: { key: EvmTab; label: string }[] = [
   { key: 'dashboard',     label: 'Dashboard' },
   { key: 'medicao',       label: 'Medição Ponderada' },
   { key: 'plano-contas',  label: 'Plano de Contas' },
   { key: 'work-packages', label: 'Work Packages' },
   { key: 'indices',       label: 'Índices' },
+]
+
+const FIN_TABS: { key: FinanceiroTab; label: string }[] = [
+  { key: 'visao-geral',  label: 'Visão Geral' },
+  { key: 'entradas',     label: 'Entradas' },
+  { key: 'saidas',       label: 'Saídas' },
+  { key: 'fluxo-caixa', label: 'Fluxo de Caixa' },
 ]
 
 function KpiCard({
@@ -46,8 +55,13 @@ function KpiCard({
   )
 }
 
-export function EvmHeader() {
-  const { activeTab, setActiveTab, evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
+interface EvmHeaderProps {
+  activeTab:    CombinedTab
+  setActiveTab: (tab: CombinedTab) => void
+}
+
+export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
+  const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
   const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
 
   return (
@@ -60,9 +74,9 @@ export function EvmHeader() {
           </div>
           <div>
             <h1 className="text-white font-semibold text-lg leading-tight">
-              Gerenciamento de Valor (EVM)
+              EVM · Financeiro
             </h1>
-            <p className="text-[#a3a3a3] text-xs">Earned Value Management</p>
+            <p className="text-[#a3a3a3] text-xs">Earned Value Management + Gestão Financeira</p>
           </div>
         </div>
 
@@ -93,10 +107,33 @@ export function EvmHeader() {
         <KpiCard label="VAC (R$)" value={VAC} isCurrency />
       </div>
 
-      {/* Tab bar */}
+      {/* Tab bar — EVM + Financeiro */}
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex px-6 gap-1 min-w-max pb-0">
-          {TABS.map((tab) => {
+          {/* EVM tabs */}
+          {EVM_TABS.map((tab) => {
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  'px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2',
+                  isActive
+                    ? 'text-white border-orange-500 bg-[#3d3d3d]'
+                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#3d3d3d]/50',
+                )}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+
+          {/* Divider */}
+          <div className="w-px bg-[#525252] mx-2 self-stretch my-1" />
+
+          {/* Financeiro tabs */}
+          {FIN_TABS.map((tab) => {
             const isActive = activeTab === tab.key
             return (
               <button

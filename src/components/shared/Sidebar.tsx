@@ -5,7 +5,7 @@ import {
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, DollarSign,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -32,7 +32,6 @@ const NAV_GROUPS = [
       { label: 'Relatório 360',   icon: ClipboardList,    to: '/app/relatorio360'        },
       { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
       { label: 'Medição',          icon: Ruler,            to: '/app/medicao'             },
-      { label: 'Financeiro',       icon: DollarSign,       to: '/app/financeiro'          },
     ],
   },
   {

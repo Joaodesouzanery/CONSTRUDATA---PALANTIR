@@ -4,7 +4,7 @@
  * Empty state quando não há atividades — usuário pode criar do zero (wizard)
  * ou carregar dados de exemplo (loadDemoData).
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sparkles, FlaskConical } from 'lucide-react'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
@@ -19,14 +19,17 @@ export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
   const activities = usePlanejamentoMestreStore((s) => s.activities)
   const loadDemoData = usePlanejamentoMestreStore((s) => s.loadDemoData)
+  const pull = usePlanejamentoMestreStore((s) => s.pull)
 
   const [wizardOpen, setWizardOpen] = useState(false)
+
+  useEffect(() => { void pull() }, [])
 
   // Empty state — cliente novo, sem cronograma
   if (activities.length === 0) {
     return (
       <div className="flex flex-col h-full overflow-hidden bg-[#1f1f1f]">
-        <PlanejamentoMestreHeader />
+        <PlanejamentoMestreHeader onNewProject={() => setWizardOpen(true)} />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-xl w-full text-center">
             <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-[#f97316]/15 flex items-center justify-center">
@@ -66,7 +69,7 @@ export function PlanejamentoMestrePage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <PlanejamentoMestreHeader />
+      <PlanejamentoMestreHeader onNewProject={() => setWizardOpen(true)} />
       <div className="flex-1 overflow-y-auto p-6">
         {activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
         {activeTab === 'derivacao' && <DerivacaoPanel />}

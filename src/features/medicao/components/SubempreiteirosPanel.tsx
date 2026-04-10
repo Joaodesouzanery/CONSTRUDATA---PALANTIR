@@ -5,10 +5,12 @@
  * Each subcontractor has: nome, nucleo, periodo, line items (nPreco → qtd → valor),
  * and totals (medido / aprovado / retenção).
  */
-import { useState } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Subempreiteiro, SubempreteiroItem } from '@/store/medicaoBillingStore'
+import { readWorkbook, parseSubempreiteiroSheet } from '../utils/xlsxParsers'
+import type { SubempreiteiroParseResult } from '../utils/xlsxParsers'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -148,6 +150,106 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
   )
 }
 
+// ─── Import button for subcontractor card ─────────────────────────────────────
+
+function ImportSubBtn({ subId }: { subId: string }) {
+  const { importSubempreiteiroItems } = useMedicaoBillingStore()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<SubempreiteiroParseResult | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    try {
+      const wb = await readWorkbook(file)
+      setPreview(parseSubempreiteiroSheet(wb))
+    } finally {
+      setLoading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  function handleConfirm() {
+    if (!preview) return
+    importSubempreiteiroItems(subId, preview.itens, preview.totals)
+    setPreview(null)
+  }
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <button
+        type="button"
+        onClick={() => fileRef.current?.click()}
+        disabled={loading}
+        title="Importar planilha XLSX"
+        className="flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium border border-[#525252] bg-[#3a3a3a] text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5] disabled:opacity-50 transition-colors"
+      >
+        <Upload size={11} />
+        {loading ? '...' : 'XLSX'}
+      </button>
+
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setPreview(null)}>
+          <div className="w-full max-w-xl bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252] flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">Importar Medição — {preview.nome}</span>
+              <button onClick={() => setPreview(null)} className="text-[#6b6b6b] hover:text-white"><XIcon size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {preview.errors.length > 0 ? (
+                <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <div>{preview.errors.join(' ')}</div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens · Total medido: <strong className="text-[#f5f5f5]">{preview.totals.totalMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></p>
+                  <div className="overflow-x-auto max-h-48 border border-[#525252] rounded-lg">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#1f1f1f] text-[#6b6b6b] uppercase text-[9px]">
+                          <th className="px-3 py-2 text-left">Nº Preço</th>
+                          <th className="px-3 py-2 text-left">Descrição</th>
+                          <th className="px-3 py-2 text-right">Qtd</th>
+                          <th className="px-3 py-2 text-right">Vl. Unit.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.itens.slice(0, 6).map((it, i) => (
+                          <tr key={i} className="border-t border-[#525252]">
+                            <td className="px-3 py-1.5 font-mono text-[#f97316]">{it.nPreco}</td>
+                            <td className="px-3 py-1.5 text-[#f5f5f5] truncate max-w-[180px]">{it.descricao}</td>
+                            <td className="px-3 py-1.5 text-right">{it.qtd}</td>
+                            <td className="px-3 py-1.5 text-right">{it.valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                        {preview.itens.length > 6 && (
+                          <tr><td colSpan={4} className="px-3 py-2 text-center text-[#6b6b6b] text-[10px]">+ {preview.itens.length - 6} itens</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
+              <button onClick={() => setPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
+              {preview.errors.length === 0 && (
+                <button onClick={handleConfirm} className="px-5 py-2 text-xs font-medium text-white rounded-lg transition-colors" style={{ backgroundColor: '#f97316' }}>
+                  Importar {preview.itens.length} itens
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
 function SubCard({ sub, onRemove }: { sub: Subempreiteiro; onRemove: () => void }) {
@@ -168,6 +270,7 @@ function SubCard({ sub, onRemove }: { sub: Subempreiteiro; onRemove: () => void 
           <div className="text-emerald-400 font-bold text-sm">{fmt(sub.totalAprovado)}</div>
           <div className="text-[10px] text-[#6b6b6b]">aprovado · retenção {pct(retPct)}%</div>
         </div>
+        <ImportSubBtn subId={sub.id} />
         <button type="button" onClick={() => setExpanded((v) => !v)}
           className="text-[#a3a3a3] hover:text-white transition-colors ml-1">
           {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
