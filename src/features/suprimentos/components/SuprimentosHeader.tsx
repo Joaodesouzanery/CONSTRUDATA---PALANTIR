@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
-import { resumoGlobal, resumoNucleos, consolidadoTrechos } from '@/data/mockPlanilhasConsolidadas'
+import { resumoGlobal, resumoNucleos } from '@/data/mockPlanilhasConsolidadas'
 
 export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
 

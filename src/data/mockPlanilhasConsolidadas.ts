@@ -29,7 +29,7 @@ export interface ConsolidadoTrecho {
   rua: string
   ns: string
   pvMont: string
-  pvJus: string
+  pvJus: string | null
   dnMm: number | null
   extM: number
   mat: string
