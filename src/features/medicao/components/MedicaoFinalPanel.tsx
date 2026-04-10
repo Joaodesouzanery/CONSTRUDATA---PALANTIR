@@ -4,8 +4,9 @@
  * Summary of the billing period: totals, subcontractors, suppliers, balance.
  * Generates a printable Boletim de Medição.
  */
-import { Calculator, Printer, CheckCircle } from 'lucide-react'
+import { Calculator, Printer, CheckCircle, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
+import { exportMedicaoFinalPdf } from '../utils/exportPdf'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -78,6 +79,14 @@ export function MedicaoFinalPanel() {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
               >
                 Recalcular
+              </button>
+              <button
+                type="button"
+                onClick={() => exportMedicaoFinalPdf(boletim)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+              >
+                <FileDown size={15} />
+                Exportar PDF
               </button>
               <button
                 type="button"

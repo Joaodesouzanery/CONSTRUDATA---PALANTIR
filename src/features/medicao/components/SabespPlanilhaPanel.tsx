@@ -5,12 +5,13 @@
  * active boletim. Groups items by 01/02/03 (Canteiros, Esgoto, Água).
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { CRITERIOS_MEDICAO } from '../data/criterios'
 import type { ItemContrato } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSabespSheet } from '../utils/xlsxParsers'
 import type { SabespParseResult } from '../utils/xlsxParsers'
+import { exportSabespPdf } from '../utils/exportPdf'
 
 const GRUPOS = [
   { id: '01', nome: 'Canteiros e Planos' },
@@ -318,8 +319,18 @@ export function SabespPlanilhaPanel() {
             Contrato {boletim.contrato} · {boletim.consorcio} · Período: {boletim.periodo}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <XlsxImportSabesp />
+          {boletim.itensContrato.length > 0 && (
+            <button
+              type="button"
+              onClick={() => exportSabespPdf(boletim.itensContrato, boletim.periodo, boletim.contrato, boletim.consorcio)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <FileDown size={13} />
+              Exportar PDF
+            </button>
+          )}
           <div className="text-right">
             <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
             <div className="text-[#f97316] font-bold text-lg">

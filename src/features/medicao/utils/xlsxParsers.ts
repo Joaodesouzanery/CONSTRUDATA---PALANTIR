@@ -62,76 +62,128 @@ export interface SabespParseResult {
 }
 
 /**
- * Parses a Sabesp measurement spreadsheet.
+ * Parses a Sabesp measurement spreadsheet using positional column detection.
  *
- * Expected columns (flexible header matching):
- *   Nº Preço | Descrição | Un | Qtd Contrato | Qtd Medida | Vl. Unitário | Grupo
+ * Actual Sabesp file column order:
+ *   Col 0: Item (e.g. "02010101")
+ *   Col 1: Descrição
+ *   Col 2: N. Preço (e.g. "420009")
+ *   Col 3: Unid.
+ *   Col 4: Quant. (contrato)
+ *   Col 5: P. Unit.
+ *   Col 6+: period measurement columns (JANEIRO - MED. XX > Quant. | Valor)
+ *
+ * Grupo is detected from the Item code prefix: "01" → Canteiros, "02" → Esgoto, "03" → Água.
+ * Group header rows (those without a numeric N. Preço in col 2) are skipped.
  */
 export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
-  const rows  = getRows(wb)
   const itens: Omit<ItemContrato, 'id'>[] = []
   const errors: string[] = []
 
-  if (rows.length === 0) {
+  const sheetName = wb.SheetNames[0]
+  if (!sheetName) {
+    errors.push('Planilha vazia.')
+    return { itens, errors }
+  }
+
+  const ws = wb.Sheets[sheetName]
+  // Use raw: false so numbers formatted as strings (e.g. "13.205,59") are preserved
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }) as unknown[][]
+
+  if (raw.length === 0) {
     errors.push('Planilha vazia ou sem dados reconhecíveis.')
     return { itens, errors }
   }
 
-  // Detect column keys from the first data row
-  const sample = rows[0]
-  const colNPreco        = findCol(sample, ['n preco', 'npreco', 'n°', 'item', 'codigo', 'cod'])
-  const colDescricao     = findCol(sample, ['descricao', 'descr', 'servico', 'servico', 'especificacao'])
-  const colUnidade       = findCol(sample, ['un', 'unidade'])
-  const colQtdContrato   = findCol(sample, ['qtd contrato', 'qtd contr', 'quantidade contrato', 'qtde contrato'])
-  const colQtdMedida     = findCol(sample, ['qtd medida', 'qtd med', 'quantidade medida', 'qtde medida', 'qtd period', 'qtde'])
-  const colValorUnitario = findCol(sample, ['vl unit', 'valor unit', 'preco unit', 'v unit', 'preço unitario'])
-  const colGrupo         = findCol(sample, ['grupo'])
-
-  if (!colNPreco && !colDescricao) {
-    errors.push('Não foi possível detectar as colunas. Certifique-se de que a planilha tem os cabeçalhos: Nº Preço, Descrição, Un, Qtd Medida, Vl. Unitário.')
-    return { itens, errors }
+  // ── Find header row ────────────────────────────────────────────────────────
+  // Look for a row that contains "N. Preço" / "N.Preço" / "N Preço" / "Nº Preço"
+  // in any cell, OR has "Item" in col 0 and "Descrição" in col 1.
+  let headerRowIdx = -1
+  for (let i = 0; i < Math.min(raw.length, 20); i++) {
+    const cells = raw[i].map(toStr)
+    const rowStr = cells.join(' ')
+    // Match merged header cells that contain "preço" and "n" pattern
+    if (/n[\s.]?\s*pre/i.test(rowStr) || /n[º°]?\s*pre/i.test(rowStr)) {
+      headerRowIdx = i
+      break
+    }
+    // Fallback: "Item" in col 0 and "escri" in col 1
+    if (/^item$/i.test(cells[0]) && /escri/i.test(cells[1])) {
+      headerRowIdx = i
+      break
+    }
   }
 
+  // ── Determine column indices ───────────────────────────────────────────────
+  // If we found a header row, try to locate columns by header text.
+  // If not found, fall back to fixed positional layout (0=Item, 1=Descr, 2=NPreco, 3=Un, 4=Quant, 5=PUnit).
+  let iItem = 0, iDescr = 1, iNPreco = 2, iUnid = 3, iQtdContr = 4, iPUnit = 5
+  let iQtdMedida = -1  // period qty column — detected by header text
+
+  if (headerRowIdx >= 0) {
+    const headers = raw[headerRowIdx].map(toStr)
+    headers.forEach((h, idx) => {
+      const n = norm(h)
+      if (/^item$/.test(n) && iItem === 0) iItem = idx
+      else if (/descri|servico/.test(n) && iDescr === 1) iDescr = idx
+      else if (/n[\s.]?pre|n[º°]pre/.test(n)) iNPreco = idx
+      else if (/^un(id)?$/.test(n) && iUnid === 3) iUnid = idx
+      else if (/quant|qtd/.test(n) && iQtdContr === 4) iQtdContr = idx
+      else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit/.test(n) && iPUnit === 5) iPUnit = idx
+    })
+    // Period measurement column: look for "quant" after "MED" header
+    for (let ci = iPUnit + 1; ci < headers.length; ci++) {
+      if (/quant|qtd/i.test(headers[ci])) {
+        iQtdMedida = ci
+        break
+      }
+    }
+  }
+
+  // ── Parse data rows ────────────────────────────────────────────────────────
+  const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0
   let currentGrupo: '01' | '02' | '03' = '02'
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
+  for (let i = startRow; i < raw.length; i++) {
+    const row = raw[i]
+    const item    = toStr(row[iItem])
+    const nPreco  = toStr(row[iNPreco])
+    const descricao = toStr(row[iDescr])
 
-    // Detect grupo from explicit column or row value hints
-    if (colGrupo) {
-      const g = toStr(row[colGrupo])
-      if (g === '01' || g === '1') currentGrupo = '01'
-      else if (g === '02' || g === '2') currentGrupo = '02'
-      else if (g === '03' || g === '3') currentGrupo = '03'
-    } else {
-      // Heuristic: look for group headers in any cell
-      const rowStr = Object.values(row).map(toStr).join(' ').toLowerCase()
-      if (rowStr.includes('canteiro') || rowStr.includes('grupo 01') || rowStr.includes('grupo 1')) currentGrupo = '01'
-      else if (rowStr.includes('esgoto') || rowStr.includes('grupo 02') || rowStr.includes('grupo 2')) currentGrupo = '02'
-      else if (rowStr.includes('agua') || rowStr.includes('grupo 03') || rowStr.includes('grupo 3')) currentGrupo = '03'
+    // Skip completely empty rows
+    if (!item && !nPreco && !descricao) continue
+
+    // Detect grupo from Item code prefix (e.g. "01000000" → '01')
+    const grupoPfx = item.replace(/\s/g, '').slice(0, 2)
+    if (grupoPfx === '01') currentGrupo = '01'
+    else if (grupoPfx === '02') currentGrupo = '02'
+    else if (grupoPfx === '03') currentGrupo = '03'
+    else {
+      // Fallback heuristic from description
+      const rowStr = [item, descricao].join(' ').toLowerCase()
+      if (rowStr.includes('canteiro') || rowStr.includes('plano de gestao')) currentGrupo = '01'
+      else if (rowStr.includes('esgoto')) currentGrupo = '02'
+      else if (rowStr.includes('agua') || rowStr.includes('água')) currentGrupo = '03'
     }
 
-    const nPreco = colNPreco ? toStr(row[colNPreco]) : ''
-    const descricao = colDescricao ? toStr(row[colDescricao]) : ''
+    // Skip group header rows: N. Preço column is empty or non-numeric
+    if (!nPreco || !/^\d+$/.test(nPreco.replace(/\s/g, ''))) continue
 
-    // Skip rows that look like headers or empty rows
-    if (!nPreco && !descricao) continue
-    if (norm(nPreco).includes('n preco') || norm(nPreco).includes('item')) continue
-    if (norm(descricao).includes('descri')) continue
+    // Skip header/label rows that appear in the data section
+    if (norm(nPreco).includes('n preco') || norm(nPreco).includes('preco')) continue
 
-    itens.push({
-      nPreco,
-      descricao,
-      unidade:       colUnidade ? toStr(row[colUnidade]) || 'M' : 'M',
-      grupo:         currentGrupo,
-      qtdContrato:   colQtdContrato   ? toNum(row[colQtdContrato])   : 0,
-      qtdMedida:     colQtdMedida     ? toNum(row[colQtdMedida])     : 0,
-      valorUnitario: colValorUnitario ? toNum(row[colValorUnitario]) : 0,
-    })
+    const unidade = toStr(row[iUnid]) || 'M'
+    const qtdContrato   = toNum(row[iQtdContr])
+    const valorUnitario = toNum(row[iPUnit])
+    const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
+
+    if (!descricao && !nPreco) continue
+
+    itens.push({ nPreco: nPreco.trim(), descricao: descricao.trim(), unidade, grupo: currentGrupo, qtdContrato, qtdMedida, valorUnitario })
   }
 
   if (itens.length === 0) {
-    errors.push('Nenhum item de contrato foi encontrado na planilha.')
+    errors.push('Nenhum item de contrato foi encontrado. Verifique se a planilha é a Planilha de Medição Sabesp com colunas: Item | Descrição | N. Preço | Unid. | Quant. | P. Unit.')
   }
 
   return { itens, errors }

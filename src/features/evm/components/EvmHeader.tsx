@@ -74,9 +74,9 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
           </div>
           <div>
             <h1 className="text-white font-semibold text-lg leading-tight">
-              EVM · Financeiro
+              Financeiro
             </h1>
-            <p className="text-[#a3a3a3] text-xs">Earned Value Management + Gestão Financeira</p>
+            <p className="text-[#a3a3a3] text-xs">Gestão Financeira do Contrato · EVM</p>
           </div>
         </div>
 

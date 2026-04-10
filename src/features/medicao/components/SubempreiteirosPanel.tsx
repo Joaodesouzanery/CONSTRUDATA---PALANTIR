@@ -6,11 +6,12 @@
  * and totals (medido / aprovado / retenção).
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Subempreiteiro, SubempreteiroItem } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSubempreiteiroSheet } from '../utils/xlsxParsers'
 import type { SubempreiteiroParseResult } from '../utils/xlsxParsers'
+import { exportSubempreiteirosPdf } from '../utils/exportPdf'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -332,18 +333,30 @@ export function SubempreiteirosPanel() {
 
   return (
     <div className="p-6 space-y-4 max-w-[900px] mx-auto">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-white font-semibold text-base">Planilhas dos Subempreiteiros</h2>
           <p className="text-[#a3a3a3] text-xs mt-0.5">{boletim.subempreiteiros.length} subempreiteiros · Período: {boletim.periodo}</p>
         </div>
-        {boletim.subempreiteiros.length > 0 && (
-          <div className="text-right">
-            <div className="text-[10px] text-[#a3a3a3]">Total aprovado</div>
-            <div className="text-emerald-400 font-bold text-base">{fmt(totalAprovado)}</div>
-            <div className="text-[10px] text-red-400">Retenção: {fmt(totalRetencao)}</div>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {boletim.subempreiteiros.length > 0 && (
+            <button
+              type="button"
+              onClick={() => exportSubempreiteirosPdf(boletim.subempreiteiros, boletim.periodo, boletim.contrato)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <FileDown size={13} />
+              Exportar PDF
+            </button>
+          )}
+          {boletim.subempreiteiros.length > 0 && (
+            <div className="text-right">
+              <div className="text-[10px] text-[#a3a3a3]">Total aprovado</div>
+              <div className="text-emerald-400 font-bold text-base">{fmt(totalAprovado)}</div>
+              <div className="text-[10px] text-red-400">Retenção: {fmt(totalRetencao)}</div>
+            </div>
+          )}
+        </div>
       </div>
 
       {boletim.subempreiteiros.map((sub) => (

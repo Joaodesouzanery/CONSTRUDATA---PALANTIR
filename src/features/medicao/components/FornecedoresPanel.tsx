@@ -4,11 +4,12 @@
  * Add/edit supplier billing (e.g., WERT AMBIENTAL - R$ 86.200,00 fev/26).
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, Package, Upload, AlertCircle, X as XIcon } from 'lucide-react'
+import { Plus, Trash2, Package, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Fornecedor } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseFornecedorSheet } from '../utils/xlsxParsers'
 import type { FornecedorParseResult } from '../utils/xlsxParsers'
+import { exportFornecedoresPdf } from '../utils/exportPdf'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -189,8 +190,18 @@ export function FornecedoresPanel() {
             {boletim.fornecedores.length} fornecedores · Período: {boletim.periodo}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <XlsxImportFornecedor periodo={boletim.periodo} />
+          {boletim.fornecedores.length > 0 && (
+            <button
+              type="button"
+              onClick={() => exportFornecedoresPdf(boletim.fornecedores, boletim.periodo, boletim.contrato)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <FileDown size={13} />
+              Exportar PDF
+            </button>
+          )}
           {boletim.fornecedores.length > 0 && (
             <div className="text-right">
               <div className="text-[10px] text-[#a3a3a3]">Total fornecedores</div>

@@ -5,9 +5,10 @@
  * compares Sabesp qty vs. sum of subcontractor qtys.
  * Flags divergências. Allows manual observações.
  */
-import { CheckCircle, AlertTriangle, Clock, RefreshCw } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Clock, RefreshCw, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { ConferenciaItem } from '@/store/medicaoBillingStore'
+import { exportConferenciaPdf } from '../utils/exportPdf'
 
 function StatusBadge({ status }: { status: ConferenciaItem['status'] }) {
   if (status === 'ok') return (
@@ -66,6 +67,16 @@ export function ConferenciaPanel() {
                 <Clock size={13} /> {nPendente} pendentes
               </span>
             </>
+          )}
+          {conf.length > 0 && (
+            <button
+              type="button"
+              onClick={() => exportConferenciaPdf(conf, boletim.periodo, boletim.contrato)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <FileDown size={13} />
+              Exportar PDF
+            </button>
           )}
           <button
             type="button"

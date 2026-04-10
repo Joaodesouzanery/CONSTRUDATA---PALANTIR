@@ -41,7 +41,7 @@ const NAV_GROUPS = [
       { label: 'Plan. Trechos',   icon: CalendarClock,    to: '/app/planejamento'        },
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
       { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
-      { label: 'EVM',             icon: TrendingUp,       to: '/app/evm'                 },
+      { label: 'Financeiro',       icon: TrendingUp,       to: '/app/evm'                 },
     ],
   },
   {

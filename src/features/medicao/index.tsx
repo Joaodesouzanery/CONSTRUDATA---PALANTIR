@@ -13,7 +13,7 @@
  * kept intact and accessible via a toggle at the bottom of the page.
  */
 import { useState } from 'react'
-import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator } from 'lucide-react'
+import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { SabespPlanilhaPanel }   from './components/SabespPlanilhaPanel'
 import { CriteriosMedicaoPanel } from './components/CriteriosMedicaoPanel'
@@ -21,6 +21,7 @@ import { SubempreiteirosPanel }  from './components/SubempreiteirosPanel'
 import { FornecedoresPanel }     from './components/FornecedoresPanel'
 import { ConferenciaPanel }      from './components/ConferenciaPanel'
 import { MedicaoFinalPanel }     from './components/MedicaoFinalPanel'
+import { HistoricoPanel }        from './components/HistoricoPanel'
 import type { BillingStep } from '@/store/medicaoBillingStore'
 
 // ─── Steps metadata ───────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ function NewBoletimModal({ onClose }: { onClose: () => void }) {
 
 // ─── Stepper header ───────────────────────────────────────────────────────────
 
-function StepperHeader() {
+function StepperHeader({ onShowHistorico }: { onShowHistorico: () => void }) {
   const { activeStep, setActiveStep, getActiveBoletim, boletins, setActiveBoletim } = useMedicaoBillingStore()
   const [newOpen, setNewOpen] = useState(false)
   const boletim = getActiveBoletim()
@@ -151,6 +152,14 @@ function StepperHeader() {
                 ))}
               </select>
             )}
+            <button
+              type="button"
+              onClick={onShowHistorico}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <History size={14} />
+              Histórico
+            </button>
             <button
               type="button"
               onClick={() => setNewOpen(true)}
@@ -243,6 +252,7 @@ export function MedicaoPage() {
   const { activeStep, getActiveBoletim, boletins } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const hasBoletins = boletins.length > 0
+  const [view, setView] = useState<'stepper' | 'historico'>('stepper')
 
   function renderStep() {
     switch (activeStep) {
@@ -256,20 +266,33 @@ export function MedicaoPage() {
     }
   }
 
-  if (!hasBoletins) {
+  if (!hasBoletins || view === 'historico') {
     return (
       <div className="flex flex-col h-full bg-gray-950">
-        <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-3 flex items-center gap-3 print:hidden">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#f97316' }}>
-            <Ruler size={20} className="text-white" />
+        <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-3 flex items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#f97316' }}>
+              <Ruler size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-white font-semibold text-base">Módulo de Medição</h1>
+              <p className="text-[#a3a3a3] text-xs">Boletim de Medição Sabesp</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-white font-semibold text-base">Módulo de Medição</h1>
-            <p className="text-[#a3a3a3] text-xs">Boletim de Medição Sabesp</p>
-          </div>
+          {view === 'historico' && hasBoletins && (
+            <button
+              onClick={() => setView('stepper')}
+              className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              ← Voltar ao Boletim
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-auto">
-          <EmptyStateMedicao />
+          {view === 'historico'
+            ? <HistoricoPanel onOpenBoletim={() => setView('stepper')} />
+            : <EmptyStateMedicao />
+          }
         </div>
       </div>
     )
@@ -277,7 +300,7 @@ export function MedicaoPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
-      <StepperHeader />
+      <StepperHeader onShowHistorico={() => setView('historico')} />
       <div className="flex-1 overflow-auto">
         {boletim ? renderStep() : (
           <div className="p-8 text-center text-[#6b6b6b] text-sm">
