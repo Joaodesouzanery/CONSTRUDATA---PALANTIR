@@ -17,6 +17,8 @@ interface FinanceiroState {
   getTotalSaidas: () => number
   getSaldo: () => number
   getMonthlyData: () => { month: string; entradas: number; saidas: number; saldo: number }[]
+  loadDemoData: () => void
+  clearData: () => void
 }
 
 export const useFinanceiroStore = create<FinanceiroState>()(
@@ -41,17 +43,17 @@ export const useFinanceiroStore = create<FinanceiroState>()(
 
       loadDemoData: () => set({
         entries: [
-          { id: 'fin-1', descricao: 'Medição #1 — Esgoto', tipo: 'entrada', valor: 285000, data: '2026-01-15', categoria: 'Medição', observacao: 'Boletim 01/2026' },
-          { id: 'fin-2', descricao: 'Medição #2 — Água', tipo: 'entrada', valor: 142000, data: '2026-02-15', categoria: 'Medição', observacao: 'Boletim 02/2026' },
-          { id: 'fin-3', descricao: 'Medição #3 — Esgoto + Água', tipo: 'entrada', valor: 398000, data: '2026-03-15', categoria: 'Medição', observacao: 'Boletim 03/2026' },
-          { id: 'fin-4', descricao: 'Mão de Obra — Jan', tipo: 'saida', valor: 95000, data: '2026-01-30', categoria: 'Mão de Obra', observacao: 'Folha janeiro' },
-          { id: 'fin-5', descricao: 'Mão de Obra — Fev', tipo: 'saida', valor: 98000, data: '2026-02-28', categoria: 'Mão de Obra', observacao: 'Folha fevereiro' },
-          { id: 'fin-6', descricao: 'Mão de Obra — Mar', tipo: 'saida', valor: 102000, data: '2026-03-30', categoria: 'Mão de Obra', observacao: 'Folha março' },
-          { id: 'fin-7', descricao: 'Materiais — Tubos PVC', tipo: 'saida', valor: 67000, data: '2026-01-20', categoria: 'Materiais', observacao: 'OC-001' },
-          { id: 'fin-8', descricao: 'Materiais — PEAD + Conexões', tipo: 'saida', valor: 43000, data: '2026-02-10', categoria: 'Materiais', observacao: 'OC-002' },
-          { id: 'fin-9', descricao: 'Equipamentos — Aluguel escavadeira', tipo: 'saida', valor: 32000, data: '2026-01-05', categoria: 'Equipamentos', observacao: 'Contrato mensal' },
-          { id: 'fin-10', descricao: 'Equipamentos — Combustível', tipo: 'saida', valor: 18500, data: '2026-02-25', categoria: 'Equipamentos', observacao: '' },
-        ] as FinanceiroEntry[],
+          { id: 'fin-1', descricao: 'Medição #1 — Esgoto', tipo: 'entrada' as const, valor: 285000, data: '2026-01-15', categoria: 'medicao' as const, referencia: 'BOL-01', createdAt: '2026-01-15' },
+          { id: 'fin-2', descricao: 'Medição #2 — Água', tipo: 'entrada' as const, valor: 142000, data: '2026-02-15', categoria: 'medicao' as const, referencia: 'BOL-02', createdAt: '2026-02-15' },
+          { id: 'fin-3', descricao: 'Medição #3', tipo: 'entrada' as const, valor: 398000, data: '2026-03-15', categoria: 'medicao' as const, referencia: 'BOL-03', createdAt: '2026-03-15' },
+          { id: 'fin-4', descricao: 'M.O. — Jan', tipo: 'saida' as const, valor: 95000, data: '2026-01-30', categoria: 'mao_de_obra' as const, createdAt: '2026-01-30' },
+          { id: 'fin-5', descricao: 'M.O. — Fev', tipo: 'saida' as const, valor: 98000, data: '2026-02-28', categoria: 'mao_de_obra' as const, createdAt: '2026-02-28' },
+          { id: 'fin-6', descricao: 'M.O. — Mar', tipo: 'saida' as const, valor: 102000, data: '2026-03-30', categoria: 'mao_de_obra' as const, createdAt: '2026-03-30' },
+          { id: 'fin-7', descricao: 'Tubos PVC', tipo: 'saida' as const, valor: 67000, data: '2026-01-20', categoria: 'materiais' as const, referencia: 'OC-001', createdAt: '2026-01-20' },
+          { id: 'fin-8', descricao: 'PEAD', tipo: 'saida' as const, valor: 43000, data: '2026-02-10', categoria: 'materiais' as const, referencia: 'OC-002', createdAt: '2026-02-10' },
+          { id: 'fin-9', descricao: 'Aluguel escavadeira', tipo: 'saida' as const, valor: 32000, data: '2026-01-05', categoria: 'equipamentos' as const, createdAt: '2026-01-05' },
+          { id: 'fin-10', descricao: 'Combustível', tipo: 'saida' as const, valor: 18500, data: '2026-02-25', categoria: 'equipamentos' as const, createdAt: '2026-02-25' },
+        ],
       }),
 
       clearData: () => set({ entries: [] }),

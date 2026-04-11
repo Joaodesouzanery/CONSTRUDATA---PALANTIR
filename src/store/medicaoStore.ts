@@ -27,6 +27,8 @@ interface MedicaoState {
   updateSegmentStatus: (id: string, status: SegmentStatus, dataExec?: string) => void
   removeSegment: (id: string) => void
   clearSegments: () => void
+  loadDemoData: () => void
+  clearData: () => void
 
   // Derived selectors
   getNucleoSummaries: () => NucleoSummary[]
@@ -146,7 +148,7 @@ export const useMedicaoStore = create<MedicaoState>()(
           { id: 'seg-d4', nucleo: 'Jardim Sul', tipo: 'ESGOTO', rua: 'Av. Brasil', ns: 'NS-001', pvMont: 'PV-20', pvJus: 'PV-21', dnMm: 300, extM: 85.7, mat: 'PVC', ctMont: 2.5, ctJus: 2.3, declPml: 1.5, status: 'PENDENTE', dataExec: null },
           { id: 'seg-d5', nucleo: 'Jardim Sul', tipo: 'AGUA', rua: 'Av. Brasil', ns: 'NS-002', pvMont: 'PV-30', pvJus: 'PV-31', dnMm: 110, extM: 23.4, mat: 'PEAD', ctMont: null, ctJus: null, declPml: null, status: 'CADASTRO', dataExec: null },
           { id: 'seg-d6', nucleo: 'Centro', tipo: 'ESGOTO', rua: 'Rua das Flores', ns: 'NS-001', pvMont: 'PV-40', pvJus: 'PV-41', dnMm: 150, extM: 55.0, mat: 'PVC', ctMont: 1.2, ctJus: 1.6, declPml: 4.1, status: 'EXECUTADO', dataExec: '2026-03-20' },
-        ] as ConsolidatedSegment[],
+        ] as unknown as ConsolidatedSegment[],
       }),
 
       clearData: () => set({ segments: [] }),

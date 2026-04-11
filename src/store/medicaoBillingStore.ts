@@ -137,6 +137,7 @@ interface MedicaoBillingState {
   importSubempreiteiroItems: (subId: string, items: Omit<SubempreteiroItem, never>[], totals: { totalMedido: number; totalAprovado: number; retencao: number }) => void
   importFornecedores: (list: Omit<Fornecedor, 'id'>[], replace?: boolean) => void
 
+  loadDemoData: () => void
   clearData: () => void
 }
 
@@ -431,21 +432,22 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
         set({
           boletins: [{
             id: demoId,
-            numero: 1,
-            periodo: '2026-03',
-            contrato: 'CT 11481051',
-            consorcio: 'Atlântico Construções',
-            createdAt: '2026-03-01T00:00:00Z',
-            updatedAt: '2026-03-31T00:00:00Z',
-            itens: [
-              { id: 'it-1', nPreco: '05.01.001', descricao: 'Escavação mecânica vala', unidade: 'm³', qtdContratada: 1200, qtdMedida: 850, valorUnitario: 32.50, grupo: '02' },
-              { id: 'it-2', nPreco: '05.02.003', descricao: 'Tubo PVC JEI DN 200mm', unidade: 'm', qtdContratada: 2500, qtdMedida: 1800, valorUnitario: 78.40, grupo: '02' },
-              { id: 'it-3', nPreco: '05.03.001', descricao: 'Poço de Visita D=1.20m', unidade: 'un', qtdContratada: 45, qtdMedida: 32, valorUnitario: 3250.00, grupo: '02' },
-              { id: 'it-4', nPreco: '06.01.001', descricao: 'Rede água DN 110mm PEAD', unidade: 'm', qtdContratada: 1800, qtdMedida: 1200, valorUnitario: 45.60, grupo: '03' },
-              { id: 'it-5', nPreco: '01.01.001', descricao: 'Canteiro de serviço', unidade: 'mês', qtdContratada: 12, qtdMedida: 3, valorUnitario: 18500.00, grupo: '01' },
+            periodo: 'mar/26',
+            contrato: '11481051',
+            consorcio: 'SE LIGA NA REDE - SANTOS',
+            status: 'rascunho' as const,
+            itensContrato: [
+              { id: 'it-1', nPreco: '05.01.001', descricao: 'Escavação mecânica vala', unidade: 'm³', qtdContrato: 1200, qtdMedida: 850, valorUnitario: 32.50, grupo: '02' },
+              { id: 'it-2', nPreco: '05.02.003', descricao: 'Tubo PVC JEI DN 200mm', unidade: 'm', qtdContrato: 2500, qtdMedida: 1800, valorUnitario: 78.40, grupo: '02' },
+              { id: 'it-3', nPreco: '05.03.001', descricao: 'Poço de Visita D=1.20m', unidade: 'un', qtdContrato: 45, qtdMedida: 32, valorUnitario: 3250.00, grupo: '02' },
+              { id: 'it-4', nPreco: '06.01.001', descricao: 'Rede água DN 110mm PEAD', unidade: 'm', qtdContrato: 1800, qtdMedida: 1200, valorUnitario: 45.60, grupo: '03' },
+              { id: 'it-5', nPreco: '01.01.001', descricao: 'Canteiro de serviço', unidade: 'mês', qtdContrato: 12, qtdMedida: 3, valorUnitario: 18500.00, grupo: '01' },
             ],
             subempreiteiros: [],
             fornecedores: [],
+            conferencia: [],
+            createdAt: '2026-03-01T00:00:00Z',
+            updatedAt: '2026-03-31T00:00:00Z',
           }],
           activeBoletimId: demoId,
           activeStep: 1,
