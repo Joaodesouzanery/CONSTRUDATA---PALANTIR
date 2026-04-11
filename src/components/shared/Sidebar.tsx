@@ -5,14 +5,16 @@ import {
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, BookOpen,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
+import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
+import { TutorialModal } from './TutorialModal'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -104,13 +106,21 @@ export function Sidebar({ onClose }: SidebarProps) {
   )
 
   const alertCounts = useAlertCounts()
+  const { pinnedPaths, togglePin, isPinned } = useSidebarPinsStore()
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
   })
   const [showSupport,  setShowSupport]  = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(false)
   const supportRef = useRef<HTMLDivElement>(null)
+
+  // Resolve pinned items from NAV_GROUPS
+  const allItems = NAV_GROUPS.flatMap((g) => g.items)
+  const pinnedItems = pinnedPaths
+    .map((path) => allItems.find((item) => item.to === path))
+    .filter(Boolean) as typeof allItems
 
   useEffect(() => {
     if (!showSupport) return
@@ -178,8 +188,72 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden sidebar-scroll">
+        {/* ── FAVORITOS (pinned) ──────────────────────────────────────── */}
+        {pinnedItems.length > 0 && (
+          <div className="flex flex-col">
+            {isOpen ? (
+              <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#f97316] select-none flex items-center gap-1.5">
+                <Pin size={10} /> FAVORITOS
+              </span>
+            ) : (
+              <div className="mx-3 my-1.5 border-t border-[#f97316]/30" />
+            )}
+            {pinnedItems.map((item) => (
+              <NavLink
+                key={`pin-${item.to}`}
+                to={item.to}
+                title={isOpen ? undefined : item.label}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  cn(
+                    'group relative flex items-center gap-3 mx-2 rounded-lg transition-all',
+                    'h-9 px-3',
+                    isActive
+                      ? 'bg-[#f97316]/10 text-[#f97316]'
+                      : 'text-[#e5e5e5] hover:bg-[#333333] hover:text-white',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full bg-[#f97316]" />
+                    )}
+                    <span className="relative shrink-0">
+                      <item.icon size={18} strokeWidth={isActive ? 2 : 1.5} />
+                      {(alertCounts[item.to] ?? 0) > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-[#ef4444] text-white text-[9px] font-bold leading-none">
+                          {alertCounts[item.to] > 9 ? '9+' : alertCounts[item.to]}
+                        </span>
+                      )}
+                    </span>
+                    {isOpen && (
+                      <>
+                        <span className={cn(
+                          'text-xs whitespace-nowrap overflow-hidden text-ellipsis flex-1',
+                          isActive ? 'font-semibold' : 'font-normal',
+                        )}>
+                          {item.label}
+                        </span>
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(item.to) }}
+                          className="shrink-0 text-[#f97316] opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Desafixar"
+                        >
+                          <Pin size={12} />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        )}
+
+        {/* ── Regular NAV_GROUPS ───────────────────────────────────────── */}
         {NAV_GROUPS.map((group, gi) => (
-          <div key={group.label} className={cn('flex flex-col', gi > 0 && 'mt-1')}>
+          <div key={group.label} className={cn('flex flex-col', (gi > 0 || pinnedItems.length > 0) && 'mt-1')}>
             {/* Group label — only shown when expanded */}
             {isOpen ? (
               <span className="px-4 pt-3 pb-1 text-[10px] font-semibold tracking-widest uppercase text-[#9ca3af] select-none">
@@ -198,7 +272,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex items-center gap-3 mx-2 rounded-lg transition-all',
+                    'group relative flex items-center gap-3 mx-2 rounded-lg transition-all',
                     'h-9 px-3',
                     isActive
                       ? 'bg-[#f97316]/10 text-[#f97316]'
@@ -223,14 +297,28 @@ export function Sidebar({ onClose }: SidebarProps) {
                       )}
                     </span>
 
-                    {/* Label */}
+                    {/* Label + pin icon */}
                     {isOpen && (
-                      <span className={cn(
-                        'text-xs whitespace-nowrap overflow-hidden text-ellipsis',
-                        isActive ? 'font-semibold' : 'font-normal',
-                      )}>
-                        {item.label}
-                      </span>
+                      <>
+                        <span className={cn(
+                          'text-xs whitespace-nowrap overflow-hidden text-ellipsis flex-1',
+                          isActive ? 'font-semibold' : 'font-normal',
+                        )}>
+                          {item.label}
+                        </span>
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(item.to) }}
+                          className={cn(
+                            'shrink-0 transition-opacity',
+                            isPinned(item.to)
+                              ? 'text-[#f97316] opacity-100'
+                              : 'text-[#6b6b6b] opacity-0 group-hover:opacity-100',
+                          )}
+                          title={isPinned(item.to) ? 'Desafixar' : 'Fixar no topo'}
+                        >
+                          <Pin size={12} />
+                        </button>
+                      </>
                     )}
                   </>
                 )}
@@ -284,6 +372,13 @@ export function Sidebar({ onClose }: SidebarProps) {
                 </a>
                 <div className="border-t border-[#333]" />
                 <button
+                  onClick={() => { setShowSupport(false); setShowTutorial(true) }}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
+                >
+                  <BookOpen size={14} className="shrink-0" />
+                  Tutorial
+                </button>
+                <button
                   onClick={() => { setShowSupport(false); setShowFeedback(true) }}
                   className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
                 >
@@ -332,6 +427,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
     </aside>
   )
 }

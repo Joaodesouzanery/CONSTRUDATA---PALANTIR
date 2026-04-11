@@ -119,9 +119,11 @@ body {
 
 /* Prevent content overflow on small screens */
 @media (max-width: 639px) {
-  /* Ensure all tables are scrollable on mobile */
-  table { min-width: 480px; }
+  /* Tables scroll horizontally within their containers — no forced min-width */
   .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Any table inside an overflow-x-auto ancestor can scroll freely */
+  .overflow-x-auto > table { min-width: max-content; }
 
   /* Modal responsive sizing */
   .modal-responsive {
@@ -134,6 +136,9 @@ body {
     bottom: 0 !important;
     left: 0 !important;
   }
+
+  /* Fixed modals get mobile-safe padding */
+  .fixed.inset-0 > div { max-height: 95vh; overflow-y: auto; }
 }
 
 /* ─── BIM / Map full-height containers ───────────────────────────────────────── */
