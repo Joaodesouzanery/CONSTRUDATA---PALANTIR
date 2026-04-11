@@ -4,7 +4,6 @@
  */
 import { X } from 'lucide-react'
 import { MODULE_REGISTRY } from '@/features/minha-rotina/moduleRegistry'
-import { cn } from '@/lib/utils'
 
 // Extended descriptions for tutorial (richer than moduleRegistry.description)
 const TUTORIAL_CONTENT: Record<string, string> = {
