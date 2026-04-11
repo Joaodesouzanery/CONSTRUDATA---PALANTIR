@@ -40,32 +40,131 @@ export function PlanejamentoMestrePage() {
       if (!sheetName) { setImportError('Planilha vazia.'); return }
       const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[sheetName], { defval: '' })
       if (raw.length === 0) { setImportError('Nenhuma linha encontrada.'); return }
+
       const norm = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
-      const sample = raw[0]
-      const keys = Object.keys(sample)
+      const keys = Object.keys(raw[0])
       const find = (kws: string[]) => keys.find((k) => kws.some((kw) => norm(k).includes(kw)))
-      const colNome  = find(['nome', 'atividade', 'tarefa', 'descri'])
-      const colWbs   = find(['wbs', 'codigo', 'cod', 'item'])
-      const colStart = find(['inicio', 'start', 'data ini'])
-      const colEnd   = find(['fim', 'end', 'termino', 'data fim', 'data ter'])
-      if (!colNome) { setImportError('Coluna "Nome" não encontrada. Inclua um cabeçalho com o nome da atividade.'); return }
+
+      // Column detection — extended with more aliases
+      const colNome     = find(['nome', 'atividade', 'tarefa', 'descri', 'servico', 'name', 'activity'])
+      const colWbs      = find(['wbs', 'codigo', 'cod', 'item', 'edt', 'id'])
+      const colStart    = find(['inicio', 'start', 'data ini', 'dt inicio', 'planned start'])
+      const colEnd      = find(['fim', 'end', 'termino', 'data fim', 'data ter', 'planned end', 'dt fim'])
+      const colDuration = find(['duracao', 'duration', 'dias', 'days', 'dur'])
+      const colPct      = find(['progresso', 'avanco', 'percent', 'pct', 'completo', 'complete'])
+      const colResp     = find(['responsavel', 'equipe', 'team', 'responsible', 'coordenador'])
+      const colType     = find(['tipo', 'rede', 'type', 'network', 'categoria'])
+      const colWeight   = find(['peso', 'weight', 'prioridade'])
+      const colNucleo   = find(['nucleo', 'frente', 'comunidade', 'localidade'])
+      const colLocal    = find(['local', 'endereco', 'rua', 'logradouro'])
+      const colCompr    = find(['comprimento', 'extensao', 'metros', 'length'])
+      const colLig      = find(['ligacoes', 'conexoes', 'connections'])
+      const colMilestone = find(['marco', 'milestone'])
+
+      if (!colNome) { setImportError('Coluna "Nome/Atividade" não encontrada. Inclua um cabeçalho com o nome da atividade.'); return }
+
       const now = new Date().toISOString().slice(0, 10)
-      const imported = raw.map((row, i) => ({
-        wbsCode:         colWbs   ? String(row[colWbs]   ?? `1.${i + 1}`) : `1.${i + 1}`,
-        name:            String(row[colNome] ?? ''),
-        level:           1,
-        plannedStart:    colStart ? String(row[colStart] ?? now) : now,
-        plannedEnd:      colEnd   ? String(row[colEnd]   ?? now) : now,
-        trendStart:      colStart ? String(row[colStart] ?? now) : now,
-        trendEnd:        colEnd   ? String(row[colEnd]   ?? now) : now,
-        durationDays:    0,
-        percentComplete: 0,
-        status:          'not_started' as const,
-        isMilestone:     false,
-        parentId:        null,
-      })).filter((a) => a.name.trim())
+
+      // Helper: parse date (supports dd/MM/yyyy, yyyy-MM-dd, Excel serial)
+      const parseDate = (v: unknown): string => {
+        if (!v) return now
+        const s = String(v).trim()
+        if (!s) return now
+        // Excel serial number
+        if (/^\d{4,5}$/.test(s)) {
+          const d = new Date((Number(s) - 25569) * 86400000)
+          return isNaN(d.getTime()) ? now : d.toISOString().slice(0, 10)
+        }
+        // dd/MM/yyyy
+        const brMatch = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/)
+        if (brMatch) return `${brMatch[3]}-${brMatch[2].padStart(2, '0')}-${brMatch[1].padStart(2, '0')}`
+        // yyyy-MM-dd (already correct)
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+        return now
+      }
+
+      const toNum = (v: unknown): number => {
+        if (typeof v === 'number') return isNaN(v) ? 0 : v
+        const s = String(v ?? '').trim().replace(/[%,]/g, '')
+        return parseFloat(s) || 0
+      }
+
+      // Detect WBS level from code (e.g., "1.2.1" → level 2)
+      const wbsLevel = (code: string): number => {
+        const parts = code.split(/[.\-/]/).filter(Boolean)
+        return Math.max(0, parts.length - 1)
+      }
+
+      // Infer network type
+      const inferType = (v: string): 'agua' | 'esgoto' | 'civil' | 'geral' => {
+        const s = v.toLowerCase()
+        if (s.includes('agua') || s.includes('water') || s.includes('la')) return 'agua'
+        if (s.includes('esgoto') || s.includes('sewer') || s.includes('le')) return 'esgoto'
+        if (s.includes('civil') || s.includes('pav')) return 'civil'
+        return 'geral'
+      }
+
+      const imported = raw.map((row, i) => {
+        const wbs = colWbs ? String(row[colWbs] ?? `1.${i + 1}`) : `1.${i + 1}`
+        const pStart = parseDate(colStart ? row[colStart] : null)
+        const pEnd   = parseDate(colEnd ? row[colEnd] : null)
+
+        // Calculate duration from dates if not provided
+        let duration = colDuration ? toNum(row[colDuration]) : 0
+        if (duration === 0 && pStart !== now && pEnd !== now) {
+          const d1 = new Date(pStart).getTime()
+          const d2 = new Date(pEnd).getTime()
+          if (d2 > d1) duration = Math.ceil((d2 - d1) / 86400000)
+        }
+
+        const pct = colPct ? toNum(row[colPct]) : 0
+        const isMilestone = colMilestone
+          ? ['sim', 'yes', 'true', '1', 'x'].includes(norm(row[colMilestone]))
+          : duration === 0 && pStart === pEnd && pStart !== now
+
+        return {
+          wbsCode:         wbs,
+          name:            String(row[colNome] ?? ''),
+          level:           wbsLevel(wbs),
+          plannedStart:    pStart,
+          plannedEnd:      pEnd,
+          trendStart:      pStart,
+          trendEnd:        pEnd,
+          durationDays:    duration,
+          percentComplete: Math.min(100, pct > 1 ? pct : pct * 100), // handle 0.75 or 75
+          status:          pct >= 100 ? 'completed' as const
+                         : pct > 0   ? 'in_progress' as const
+                         :             'not_started' as const,
+          isMilestone,
+          parentId:        null as string | null,
+          responsibleTeam: colResp   ? String(row[colResp]   ?? '') : undefined,
+          networkType:     colType   ? inferType(String(row[colType] ?? '')) : undefined,
+          weight:          colWeight ? toNum(row[colWeight]) : undefined,
+          nucleo:          colNucleo ? String(row[colNucleo] ?? '') : undefined,
+          local:           colLocal  ? String(row[colLocal]  ?? '') : undefined,
+          comprimento:     colCompr  ? toNum(row[colCompr]) : undefined,
+          quantidadeLigacoes: colLig ? toNum(row[colLig]) : undefined,
+        }
+      }).filter((a) => a.name.trim())
+
       if (imported.length === 0) { setImportError('Nenhuma atividade válida encontrada.'); return }
+
+      // Auto-detect parent-child from WBS codes (e.g., "1.2" is parent of "1.2.1")
+      const ids: Record<string, string> = {}
+      imported.forEach((a) => {
+        const id = crypto.randomUUID().slice(0, 8)
+        ids[a.wbsCode] = id
+      })
+      imported.forEach((a) => {
+        if (a.level > 0) {
+          const parentWbs = a.wbsCode.split(/[.\-/]/).slice(0, -1).join('.')
+          if (ids[parentWbs]) a.parentId = ids[parentWbs]
+        }
+      })
+
+      // Add all activities
       imported.forEach((a) => addActivity(a))
+      setImportError(null)
     } catch {
       setImportError('Erro ao ler o arquivo. Certifique-se de que é um .xlsx ou .csv válido.')
     } finally {
