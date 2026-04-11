@@ -269,7 +269,7 @@ export function HeroSection() {
               {[
                 { v: '16+', l: 'Módulos' },
                 { v: 'BIM 3D/4D/5D', l: 'Integrado' },
-                { v: '100%', l: 'Web-based' },
+                { v: 'LPS/Lean', l: 'Nativo' },
               ].map((s, i) => ([
                 i > 0 && <div key={`d${i}`} className="w-px h-8 bg-white/10" />,
                 <div key={s.l}>

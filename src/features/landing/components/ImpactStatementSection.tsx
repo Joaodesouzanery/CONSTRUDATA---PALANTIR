@@ -39,7 +39,15 @@ function PersonaCard({ icon, role, where, decision }: PersonaProps) {
       >
         O {role}
       </div>
-      <div className="text-white/70 text-sm leading-relaxed">{decision}</div>
+      <div className="text-white/70 text-sm leading-relaxed mb-4">{decision}</div>
+      <a
+        href={CALENDLY_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-[#f97316] text-xs font-semibold hover:underline"
+      >
+        Ver como funciona &rarr;
+      </a>
     </div>
   )
 }

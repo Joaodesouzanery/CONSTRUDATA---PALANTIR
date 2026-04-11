@@ -5,7 +5,7 @@ import {
   Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, BookOpen,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,6 @@ import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
-import { TutorialModal } from './TutorialModal'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -113,7 +112,6 @@ export function Sidebar({ onClose }: SidebarProps) {
   })
   const [showSupport,  setShowSupport]  = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
-  const [showTutorial, setShowTutorial] = useState(false)
   const supportRef = useRef<HTMLDivElement>(null)
 
   // Resolve pinned items from NAV_GROUPS
@@ -372,13 +370,6 @@ export function Sidebar({ onClose }: SidebarProps) {
                 </a>
                 <div className="border-t border-[#333]" />
                 <button
-                  onClick={() => { setShowSupport(false); setShowTutorial(true) }}
-                  className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
-                >
-                  <BookOpen size={14} className="shrink-0" />
-                  Tutorial
-                </button>
-                <button
                   onClick={() => { setShowSupport(false); setShowFeedback(true) }}
                   className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
                 >
@@ -427,7 +418,6 @@ export function Sidebar({ onClose }: SidebarProps) {
       </nav>
 
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
-      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
     </aside>
   )
 }

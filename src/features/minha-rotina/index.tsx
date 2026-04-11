@@ -9,12 +9,14 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Sun, Calendar as CalendarIcon, CalendarDays, Plus, X, Settings, ChevronRight,
-  ArrowDown,
+  ArrowDown, BookOpen, Home,
 } from 'lucide-react'
 import {
   useUserRoutineStore, PERSONA_PRESETS, type RoutineFrequency,
 } from '@/store/userRoutineStore'
 import { MODULE_REGISTRY, findModule } from './moduleRegistry'
+import { TutorialPanel } from '@/components/shared/TutorialModal'
+import { cn } from '@/lib/utils'
 
 const FREQ_META: Record<RoutineFrequency, { label: string; icon: React.ReactNode; color: string }> = {
   daily: {
@@ -245,6 +247,7 @@ export function MinhaRotinaPage() {
   const setPersona    = useUserRoutineStore((s) => s.setPersona)
   const togglePin     = useUserRoutineStore((s) => s.togglePin)
 
+  const [activeTab, setActiveTab] = useState<'rotina' | 'tutorial'>('rotina')
   const [pickerFreq, setPickerFreq] = useState<RoutineFrequency | null>(null)
   const [showPersonaMenu, setShowPersonaMenu] = useState(false)
 
@@ -261,16 +264,44 @@ export function MinhaRotinaPage() {
     <div className="flex flex-col h-full bg-[#1f1f1f]">
       {/* Header */}
       <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-5 print:hidden">
-        <div className="max-w-6xl mx-auto flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">{personaEmoji}</span>
-              <h1 className="text-white text-xl font-bold">
-                {greeting()}, {personaLabel}
-              </h1>
-            </div>
-            <p className="text-[#a3a3a3] text-sm capitalize">{fmtToday()}</p>
+        <div className="max-w-6xl mx-auto flex flex-col gap-4">
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1 self-start">
+            <button
+              onClick={() => setActiveTab('rotina')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                activeTab === 'rotina' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              )}
+            >
+              <Home size={13} />
+              Minha Rotina
+            </button>
+            <button
+              onClick={() => setActiveTab('tutorial')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                activeTab === 'tutorial' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              )}
+            >
+              <BookOpen size={13} />
+              Tutorial
+            </button>
           </div>
+
+          {/* Title + persona selector */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">{personaEmoji}</span>
+                <h1 className="text-white text-xl font-bold">
+                  {activeTab === 'rotina' ? `${greeting()}, ${personaLabel}` : 'Guia da Plataforma'}
+                </h1>
+              </div>
+              <p className="text-[#a3a3a3] text-sm capitalize">
+                {activeTab === 'rotina' ? fmtToday() : 'Referência completa de módulos e funcionalidades'}
+              </p>
+            </div>
 
           {/* Persona selector */}
           <div className="relative">
@@ -314,6 +345,9 @@ export function MinhaRotinaPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto">
+        {activeTab === 'tutorial' ? (
+          <TutorialPanel />
+        ) : (
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 
           {/* Intro card */}
@@ -364,6 +398,7 @@ export function MinhaRotinaPage() {
             Suas preferências ficam salvas automaticamente neste navegador.
           </div>
         </div>
+        )}
       </div>
 
       {/* Picker modal */}

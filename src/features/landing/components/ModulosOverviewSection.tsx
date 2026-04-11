@@ -72,6 +72,20 @@ export function ModulosOverviewSection() {
             </a>
           ))}
         </div>
+
+        {/* CTA */}
+        <div className="text-center mt-12">
+          <a
+            href="https://calendly.com/joaodsouzanery/demonstracao-construdata"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
+            style={{ backgroundColor: '#f97316' }}
+          >
+            Agendar Demonstração dos Módulos
+          </a>
+          <p className="text-white/40 text-xs mt-2">20 minutos. Sem compromisso.</p>
+        </div>
       </div>
     </section>
   )

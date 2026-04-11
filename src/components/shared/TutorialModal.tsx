@@ -1,8 +1,10 @@
 /**
- * TutorialModal — Guia completo da plataforma, acessível via menu Suporte.
+ * TutorialPanel — Guia completo da plataforma.
+ * Renderizado inline dentro de Minha Rotina (não como modal).
  * Explica todos os módulos e funcionalidades como referência para o usuário.
  */
-import { X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Search } from 'lucide-react'
 import { MODULE_REGISTRY } from '@/features/minha-rotina/moduleRegistry'
 
 // Extended descriptions for tutorial (richer than moduleRegistry.description)
@@ -61,80 +63,83 @@ const GROUP_LABELS: Record<string, string> = {
 
 const GROUP_ORDER = ['gestao', 'planejamento', 'campo', 'projetos', 'analytics']
 
-interface Props {
-  onClose: () => void
-}
+export function TutorialPanel() {
+  const [search, setSearch] = useState('')
 
-export function TutorialModal({ onClose }: Props) {
-  const grouped = GROUP_ORDER.map((g) => ({
-    label: GROUP_LABELS[g] || g,
-    modules: MODULE_REGISTRY.filter((m) => m.group === g),
-  }))
+  const grouped = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return GROUP_ORDER.map((g) => ({
+      key: g,
+      label: GROUP_LABELS[g] || g,
+      modules: MODULE_REGISTRY.filter((m) => {
+        if (m.group !== g) return false
+        if (!q) return true
+        const content = (TUTORIAL_CONTENT[m.path] || m.description).toLowerCase()
+        return m.label.toLowerCase().includes(q) || content.includes(q)
+      }),
+    })).filter((g) => g.modules.length > 0)
+  }, [search])
+
+  const totalModules = grouped.reduce((s, g) => s + g.modules.length, 0)
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 px-4 py-6"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-4xl max-h-[90vh] bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="bg-[#3a3a3a] px-6 py-4 border-b border-[#525252] flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-white font-bold text-lg">Guia da Plataforma</h2>
-            <p className="text-[#a3a3a3] text-xs mt-0.5">
-              Referência completa de todos os módulos e funcionalidades do Atlântico ConstruData
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-[#6b6b6b] hover:text-white transition-colors p-1"
-          >
-            <X size={18} />
-          </button>
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      {/* Header + search */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-white text-lg font-bold">Guia da Plataforma</h2>
+          <p className="text-[#a3a3a3] text-sm mt-0.5">
+            Referência completa de todos os módulos e funcionalidades do Atlântico ConstruData
+          </p>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          {grouped.map(({ label, modules }) => (
-            <section key={label}>
-              <h3 className="text-[#f97316] font-bold text-sm uppercase tracking-widest mb-3">
-                {label}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {modules.map((mod) => (
-                  <div
-                    key={mod.path}
-                    className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 hover:border-[#f97316]/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="w-8 h-8 rounded-lg bg-[#f97316]/10 flex items-center justify-center shrink-0">
-                        <mod.icon size={16} className="text-[#f97316]" />
-                      </div>
-                      <h4 className="text-[#f5f5f5] font-semibold text-sm">{mod.label}</h4>
-                    </div>
-                    <p className="text-[#a3a3a3] text-xs leading-relaxed">
-                      {TUTORIAL_CONTENT[mod.path] || mod.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-[#525252] bg-[#1f1f1f] shrink-0 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 text-xs font-semibold text-white rounded-lg bg-[#f97316] hover:bg-[#ea580c] transition-colors"
-          >
-            Fechar
-          </button>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar módulo..."
+            className="pl-9 pr-4 py-2 rounded-lg text-sm bg-[#2c2c2c] border border-[#525252] text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316] w-64"
+          />
         </div>
       </div>
+
+      {/* Count */}
+      <p className="text-[#6b6b6b] text-xs">
+        {totalModules} {totalModules === 1 ? 'módulo' : 'módulos'} {search ? 'encontrados' : 'disponíveis'}
+      </p>
+
+      {/* Module groups */}
+      {grouped.map(({ key, label, modules }) => (
+        <section key={key}>
+          <h3 className="text-[#f97316] font-bold text-sm uppercase tracking-widest mb-3">
+            {label}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {modules.map((mod) => (
+              <div
+                key={mod.path}
+                className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4 hover:border-[#f97316]/30 transition-colors"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-[#f97316]/10 flex items-center justify-center shrink-0">
+                    <mod.icon size={16} className="text-[#f97316]" />
+                  </div>
+                  <h4 className="text-[#f5f5f5] font-semibold text-sm">{mod.label}</h4>
+                </div>
+                <p className="text-[#a3a3a3] text-xs leading-relaxed">
+                  {TUTORIAL_CONTENT[mod.path] || mod.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {grouped.length === 0 && (
+        <div className="text-center py-12 text-[#6b6b6b] text-sm">
+          Nenhum módulo encontrado para "{search}"
+        </div>
+      )}
     </div>
   )
 }

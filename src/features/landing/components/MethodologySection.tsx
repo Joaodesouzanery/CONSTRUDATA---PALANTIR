@@ -113,7 +113,7 @@ export function MethodologySection() {
       number: '03',
       title: 'Last Planner System Nativo',
       description:
-        'Lean Construction não é palestra — é o jeito da plataforma planejar. PPC, look-ahead de 6 semanas, Constraint Register e Pareto de causas: tudo embutido no fluxo, não num módulo separado.',
+        'Lean Construction não é palestra — é o jeito da plataforma planejar. PPC semanal calculado automaticamente, look-ahead de 6 semanas com restrições rastreáveis, Constraint Register integrado ao cronograma, e Pareto de causas de não-cumprimento. O resultado? PPC de 38% para 72% em 4 meses em caso real.',
       icon: <Target size={20} strokeWidth={1.5} />,
     },
     {
@@ -226,10 +226,23 @@ export function MethodologySection() {
         </div>
 
         {/* 4 Pillars */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
           {pillars.map((p) => (
             <MethodPillar key={p.number} {...p} />
           ))}
+        </div>
+
+        {/* CTA intermediário */}
+        <div className="text-center mb-24">
+          <a
+            href="https://calendly.com/joaodsouzanery/demonstracao-construdata"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ backgroundColor: '#f97316' }}
+          >
+            Veja a Metodologia em ação — agende uma demonstração
+          </a>
         </div>
 
         {/* ── Eficiência: tabela com números em destaque ──────────────────── */}
@@ -238,7 +251,7 @@ export function MethodologySection() {
             style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.15em' }}
             className="text-white/60 text-xs uppercase font-mono"
           >
-            O que o cliente ganha em eficiência
+            Como isso geraria eficiência para a sua obra?
           </span>
           <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.10)' }} />
         </div>
@@ -308,7 +321,7 @@ export function MethodologySection() {
             vezes superior ao custo anual da plataforma.
             <br />
             <span className="text-white/65 text-xs italic mt-2 block">
-              E nós provamos essa economia com relatório PDF assinado em 90 dias. Se não bater, devolvemos.
+              E nós provamos essa economia com relatório PDF assinado em 90 dias.
             </span>
           </p>
         </div>

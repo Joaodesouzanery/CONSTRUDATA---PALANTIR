@@ -82,6 +82,28 @@ export function OntologiaSection() {
                 </div>
               ))}
             </div>
+
+            {/* Mini-case */}
+            <div
+              className="mt-6 p-4 rounded-lg text-sm text-white/80 leading-relaxed"
+              style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}
+            >
+              <strong className="text-[#f97316]">Na prática:</strong> quando o engenheiro atualiza o RDO no campo,
+              o cronograma, o EVM e os suprimentos se ajustam automaticamente — sem retrabalho, sem planilhas paralelas.
+            </div>
+
+            {/* CTA */}
+            <div className="mt-6">
+              <a
+                href="https://calendly.com/joaodsouzanery/demonstracao-construdata"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: '#f97316' }}
+              >
+                Entenda como os dados se conectam — agende uma demo
+              </a>
+            </div>
           </div>
         </div>
       </div>
