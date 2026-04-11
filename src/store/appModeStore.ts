@@ -75,6 +75,14 @@ async function restoreUserData() {
       import('./lpsStore').then(m => m.useLpsStore),
       import('./mapaInterativoStore').then(m => m.useMapaInterativoStore),
       import('./evmStore').then(m => m.useEvmStore),
+      import('./qualidadeStore').then(m => m.useQualidadeStore),
+      import('./planejamentoMestreStore').then(m => m.usePlanejamentoMestreStore),
+      import('./operacaoCampoStore').then(m => m.useOperacaoCampoStore),
+      import('./rede360Store').then(m => m.useRede360Store),
+      import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),
+      import('./medicaoStore').then(m => m.useMedicaoStore),
+      import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore),
+      import('./financeiroStore').then(m => m.useFinanceiroStore),
     ])
     for (const store of stores) {
       store.persist?.rehydrate?.()
@@ -121,6 +129,15 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().loadDemoData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().loadDemoData())
         import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().loadDemoData())
+        // Stores previously missing from cascade
+        import('./qualidadeStore').then(({ useQualidadeStore }) => useQualidadeStore.getState().loadDemoData())
+        import('./planejamentoMestreStore').then(({ usePlanejamentoMestreStore }) => usePlanejamentoMestreStore.getState().loadDemoData())
+        import('./operacaoCampoStore').then(({ useOperacaoCampoStore }) => useOperacaoCampoStore.getState().loadDemoData())
+        import('./rede360Store').then(({ useRede360Store }) => useRede360Store.getState().loadDemoData())
+        import('./frotaVeicularStore').then(({ useFrotaVeicularStore }) => useFrotaVeicularStore.getState().loadDemoData())
+        import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().loadDemoData())
+        import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().loadDemoData())
+        import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().loadDemoData())
       } else {
         // Try to restore user data from snapshot; fallback to clearing
         restoreUserData().then((restored) => {
@@ -144,6 +161,15 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().clearData())
             import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().clearData())
             import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().clearData())
+            // Stores previously missing from cascade
+            import('./qualidadeStore').then(({ useQualidadeStore }) => useQualidadeStore.getState().clearData())
+            import('./planejamentoMestreStore').then(({ usePlanejamentoMestreStore }) => usePlanejamentoMestreStore.getState().clearData())
+            import('./operacaoCampoStore').then(({ useOperacaoCampoStore }) => useOperacaoCampoStore.getState().clearData())
+            import('./frotaVeicularStore').then(({ useFrotaVeicularStore }) => useFrotaVeicularStore.getState().clearData())
+            import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().clearData())
+            import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().clearData())
+            import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
+            // rede360Store has no clearData — skip
           }
         })
       }

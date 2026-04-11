@@ -138,6 +138,19 @@ export const useMedicaoStore = create<MedicaoState>()(
         return summaries.sort((a, b) => a.nucleo.localeCompare(b.nucleo))
       },
 
+      loadDemoData: () => set({
+        segments: [
+          { id: 'seg-d1', nucleo: 'Vila Norte', tipo: 'ESGOTO', rua: 'Rua Principal', ns: 'NS-001', pvMont: 'PV-01', pvJus: 'PV-02', dnMm: 200, extM: 45.5, mat: 'PVC', ctMont: 1.5, ctJus: 1.8, declPml: 3.2, status: 'EXECUTADO', dataExec: '2026-03-15' },
+          { id: 'seg-d2', nucleo: 'Vila Norte', tipo: 'ESGOTO', rua: 'Rua Principal', ns: 'NS-002', pvMont: 'PV-02', pvJus: 'PV-03', dnMm: 200, extM: 38.2, mat: 'PVC', ctMont: 1.8, ctJus: 2.1, declPml: 2.8, status: 'EXECUTADO', dataExec: '2026-03-16' },
+          { id: 'seg-d3', nucleo: 'Vila Norte', tipo: 'AGUA', rua: 'Rua Secundária', ns: 'NS-001', pvMont: 'PV-10', pvJus: 'PV-11', dnMm: 160, extM: 62.0, mat: 'PVC', ctMont: null, ctJus: null, declPml: 5.0, status: 'PENDENTE', dataExec: null },
+          { id: 'seg-d4', nucleo: 'Jardim Sul', tipo: 'ESGOTO', rua: 'Av. Brasil', ns: 'NS-001', pvMont: 'PV-20', pvJus: 'PV-21', dnMm: 300, extM: 85.7, mat: 'PVC', ctMont: 2.5, ctJus: 2.3, declPml: 1.5, status: 'PENDENTE', dataExec: null },
+          { id: 'seg-d5', nucleo: 'Jardim Sul', tipo: 'AGUA', rua: 'Av. Brasil', ns: 'NS-002', pvMont: 'PV-30', pvJus: 'PV-31', dnMm: 110, extM: 23.4, mat: 'PEAD', ctMont: null, ctJus: null, declPml: null, status: 'CADASTRO', dataExec: null },
+          { id: 'seg-d6', nucleo: 'Centro', tipo: 'ESGOTO', rua: 'Rua das Flores', ns: 'NS-001', pvMont: 'PV-40', pvJus: 'PV-41', dnMm: 150, extM: 55.0, mat: 'PVC', ctMont: 1.2, ctJus: 1.6, declPml: 4.1, status: 'EXECUTADO', dataExec: '2026-03-20' },
+        ] as ConsolidatedSegment[],
+      }),
+
+      clearData: () => set({ segments: [] }),
+
       getGlobalKpis: () => {
         const segments = get().segments
         const exec = segments.filter((s) => s.status === 'EXECUTADO')

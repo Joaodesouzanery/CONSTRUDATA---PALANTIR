@@ -39,6 +39,23 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         return ent.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + e.valor, 0) - ent.filter((e) => e.tipo === 'saida').reduce((s, e) => s + e.valor, 0)
       },
 
+      loadDemoData: () => set({
+        entries: [
+          { id: 'fin-1', descricao: 'Medição #1 — Esgoto', tipo: 'entrada', valor: 285000, data: '2026-01-15', categoria: 'Medição', observacao: 'Boletim 01/2026' },
+          { id: 'fin-2', descricao: 'Medição #2 — Água', tipo: 'entrada', valor: 142000, data: '2026-02-15', categoria: 'Medição', observacao: 'Boletim 02/2026' },
+          { id: 'fin-3', descricao: 'Medição #3 — Esgoto + Água', tipo: 'entrada', valor: 398000, data: '2026-03-15', categoria: 'Medição', observacao: 'Boletim 03/2026' },
+          { id: 'fin-4', descricao: 'Mão de Obra — Jan', tipo: 'saida', valor: 95000, data: '2026-01-30', categoria: 'Mão de Obra', observacao: 'Folha janeiro' },
+          { id: 'fin-5', descricao: 'Mão de Obra — Fev', tipo: 'saida', valor: 98000, data: '2026-02-28', categoria: 'Mão de Obra', observacao: 'Folha fevereiro' },
+          { id: 'fin-6', descricao: 'Mão de Obra — Mar', tipo: 'saida', valor: 102000, data: '2026-03-30', categoria: 'Mão de Obra', observacao: 'Folha março' },
+          { id: 'fin-7', descricao: 'Materiais — Tubos PVC', tipo: 'saida', valor: 67000, data: '2026-01-20', categoria: 'Materiais', observacao: 'OC-001' },
+          { id: 'fin-8', descricao: 'Materiais — PEAD + Conexões', tipo: 'saida', valor: 43000, data: '2026-02-10', categoria: 'Materiais', observacao: 'OC-002' },
+          { id: 'fin-9', descricao: 'Equipamentos — Aluguel escavadeira', tipo: 'saida', valor: 32000, data: '2026-01-05', categoria: 'Equipamentos', observacao: 'Contrato mensal' },
+          { id: 'fin-10', descricao: 'Equipamentos — Combustível', tipo: 'saida', valor: 18500, data: '2026-02-25', categoria: 'Equipamentos', observacao: '' },
+        ] as FinanceiroEntry[],
+      }),
+
+      clearData: () => set({ entries: [] }),
+
       getMonthlyData: () => {
         const entries = get().entries
         const map = new Map<string, { entradas: number; saidas: number }>()
