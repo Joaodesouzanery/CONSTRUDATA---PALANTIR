@@ -15,6 +15,25 @@ export function ReportHeader() {
   const [periodStart, setPeriodStart] = useState('')
   const [periodEnd, setPeriodEnd]     = useState('')
 
+  // Module area selection for PDF export
+  const [pdfSections, setPdfSections] = useState({
+    atividades:   true,
+    equipes:      true,
+    equipamentos: true,
+    materiais:    true,
+    fotos:        true,
+    lps:          true,
+    planejamento: true,
+    suprimentos:  true,
+    qualidade:    true,
+    financeiro:   true,
+    maoDeObra:    true,
+  })
+
+  function toggleSection(key: keyof typeof pdfSections) {
+    setPdfSections((s) => ({ ...s, [key]: !s[key] }))
+  }
+
   const displayDate = format(parseISO(currentDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })
   const shortDate   = format(parseISO(currentDate), 'dd/MM/yyyy')
 
@@ -22,7 +41,7 @@ export function ReportHeader() {
 
   function handleSinglePDF() {
     if (!report) return
-    printRelatorio360PDF({ mode: 'single', report })
+    printRelatorio360PDF({ mode: 'single', report, sections: pdfSections })
   }
 
   function handlePeriodPDF() {
@@ -34,7 +53,7 @@ export function ReportHeader() {
       alert('Nenhum relatório encontrado no período selecionado.')
       return
     }
-    printRelatorio360PDF({ mode: 'period', reports: filtered, periodStart, periodEnd })
+    printRelatorio360PDF({ mode: 'period', reports: filtered, periodStart, periodEnd, sections: pdfSections })
   }
 
   return (
@@ -114,41 +133,81 @@ export function ReportHeader() {
         </div>
       </div>
 
-      {/* Period selector panel */}
+      {/* Period selector + section checkboxes panel */}
       {showPeriod && (
-        <div className="flex items-end gap-3 px-6 pb-4 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Data inicial</label>
-            <input
-              type="date"
-              value={periodStart}
-              onChange={(e) => setPeriodStart(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
-            />
+        <div className="px-6 pb-4 space-y-3">
+          {/* Date range */}
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex flex-col gap-1">
+              <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Data inicial</label>
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Data final</label>
+              <input
+                type="date"
+                value={periodEnd}
+                min={periodStart}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              />
+            </div>
+            <button
+              onClick={handlePeriodPDF}
+              disabled={!canPeriodPDF}
+              className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#f97316]/20 border border-[#f97316]/50 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <FileDown size={13} />
+              Gerar PDF do Período
+            </button>
+            {canPeriodPDF && (
+              <span className="text-[#6b6b6b] text-xs self-end pb-1.5">
+                {Object.values(reports).filter((r) => r.date >= periodStart && r.date <= periodEnd).length} relatório(s) no período
+              </span>
+            )}
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Data final</label>
-            <input
-              type="date"
-              value={periodEnd}
-              min={periodStart}
-              onChange={(e) => setPeriodEnd(e.target.value)}
-              className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
-            />
+
+          {/* Section selection */}
+          <div>
+            <p className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider mb-2">Áreas do relatório</p>
+            <div className="flex flex-wrap gap-2">
+              {([
+                ['atividades',   'Atividades'],
+                ['equipes',      'Equipes / M.O.'],
+                ['equipamentos', 'Equipamentos'],
+                ['materiais',    'Materiais'],
+                ['fotos',        'Fotos'],
+                ['lps',          'LPS / PPC'],
+                ['planejamento', 'Planejamento'],
+                ['suprimentos',  'Suprimentos'],
+                ['qualidade',    'Qualidade'],
+                ['financeiro',   'Financeiro / EVM'],
+                ['maoDeObra',    'Mão de Obra'],
+              ] as const).map(([key, label]) => (
+                <label
+                  key={key}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer transition-colors border ${
+                    pdfSections[key]
+                      ? 'bg-[#f97316]/15 border-[#f97316]/50 text-[#f97316]'
+                      : 'bg-[#3d3d3d] border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3]'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={pdfSections[key]}
+                    onChange={() => toggleSection(key)}
+                    className="sr-only"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
           </div>
-          <button
-            onClick={handlePeriodPDF}
-            disabled={!canPeriodPDF}
-            className="flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#f97316]/20 border border-[#f97316]/50 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <FileDown size={13} />
-            Gerar PDF do Período
-          </button>
-          {canPeriodPDF && (
-            <span className="text-[#6b6b6b] text-xs self-end pb-1.5">
-              {Object.values(reports).filter((r) => r.date >= periodStart && r.date <= periodEnd).length} relatório(s) no período
-            </span>
-          )}
         </div>
       )}
     </div>

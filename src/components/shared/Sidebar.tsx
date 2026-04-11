@@ -23,7 +23,7 @@ const NAV_GROUPS = [
   {
     label: 'INÍCIO',
     items: [
-      { label: 'Minha Rotina',    icon: Home,             to: '/app/minha-rotina'        },
+      { label: 'Rotina / Tutorial', icon: Home,            to: '/app/minha-rotina'        },
     ],
   },
   {

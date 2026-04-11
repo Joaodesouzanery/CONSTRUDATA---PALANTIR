@@ -55,7 +55,15 @@ function aggregateReports(reports: DailyReport[]): DailyReport {
   }
 }
 
-function buildHtml(report: DailyReport, title: string, subtitle: string): string {
+function buildHtml(report: DailyReport, title: string, subtitle: string, sections: PdfSections = {}): string {
+  // Default all sections to true if not specified
+  const show = {
+    atividades:   sections.atividades   ?? true,
+    equipes:      sections.equipes      ?? true,
+    equipamentos: sections.equipamentos ?? true,
+    materiais:    sections.materiais    ?? true,
+    fotos:        sections.fotos        ?? true,
+  }
   const totalEquipHours = report.equipmentLogs.reduce((s, l) => s + l.utilizationHours, 0)
   const totalEquipCost  = report.equipmentLogs.reduce((s, l) => s + l.utilizationHours * l.hourlyRate, 0)
   const totalLaborCost  = report.crews.reduce((s, c) => s + c.timecards.reduce((t, tc) => t + tc.hoursWorked * tc.hourlyRate, 0), 0)
@@ -247,7 +255,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
     </div>
   </div>
 
-  <!-- Atividades -->
+  ${show.atividades ? `<!-- Atividades -->
   <div class="section">
     <div class="section-header"><span class="section-dot"></span> Atividades do Dia</div>
     <table>
@@ -258,15 +266,15 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
       </tr></thead>
       <tbody>${activitiesHtml}</tbody>
     </table>
-  </div>
+  </div>` : ''}
 
-  <!-- Equipes -->
+  ${show.equipes ? `<!-- Equipes -->
   <div class="section">
     <div class="section-header"><span class="section-dot"></span> Equipes em Campo</div>
     <div style="margin-top:8px">${crewsHtml || '<p style="padding:8px;color:#6b7280;font-style:italic">Sem equipes</p>'}</div>
-  </div>
+  </div>` : ''}
 
-  <!-- Equipamentos -->
+  ${show.equipamentos ? `<!-- Equipamentos -->
   <div class="section">
     <div class="section-header"><span class="section-dot"></span> Equipamentos Utilizados</div>
     <table>
@@ -276,9 +284,9 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
       </tr></thead>
       <tbody>${equipHtml}</tbody>
     </table>
-  </div>
+  </div>` : ''}
 
-  <!-- Materiais -->
+  ${show.materiais ? `<!-- Materiais -->
   <div class="section">
     <div class="section-header"><span class="section-dot"></span> Materiais Utilizados</div>
     <table>
@@ -288,13 +296,13 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
       </tr></thead>
       <tbody>${materialsHtml}</tbody>
     </table>
-  </div>
+  </div>` : ''}
 
-  <!-- Fotos -->
+  ${show.fotos ? `<!-- Fotos -->
   <div class="section">
     <div class="section-header"><span class="section-dot"></span> Registros Fotográficos</div>
     <div style="margin-top:8px">${photosHtml}</div>
-  </div>
+  </div>` : ''}
 
   <!-- Footer -->
   <div class="footer">
@@ -306,21 +314,37 @@ function buildHtml(report: DailyReport, title: string, subtitle: string): string
 </html>`
 }
 
+export interface PdfSections {
+  atividades?:   boolean
+  equipes?:      boolean
+  equipamentos?: boolean
+  materiais?:    boolean
+  fotos?:        boolean
+  lps?:          boolean
+  planejamento?: boolean
+  suprimentos?:  boolean
+  qualidade?:    boolean
+  financeiro?:   boolean
+  maoDeObra?:    boolean
+}
+
 export function printRelatorio360PDF(
   opts:
-    | { mode: 'single'; report: DailyReport }
-    | { mode: 'period'; reports: DailyReport[]; periodStart: string; periodEnd: string }
+    | { mode: 'single'; report: DailyReport; sections?: PdfSections }
+    | { mode: 'period'; reports: DailyReport[]; periodStart: string; periodEnd: string; sections?: PdfSections }
 ): void {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
 
+  const sections = opts.sections ?? {}
+
   let html: string
   if (opts.mode === 'single') {
-    html = buildHtml(opts.report, `Relatório 360 — ${fmtDate(opts.report.date)}`, fmtDate(opts.report.date))
+    html = buildHtml(opts.report, `Relatório 360 — ${fmtDate(opts.report.date)}`, fmtDate(opts.report.date), sections)
   } else {
     const merged = aggregateReports(opts.reports)
     const subtitle = `${fmtDate(opts.periodStart)} – ${fmtDate(opts.periodEnd)}`
-    html = buildHtml(merged, `Relatório 360 — ${subtitle}`, subtitle)
+    html = buildHtml(merged, `Relatório 360 — ${subtitle}`, subtitle, sections)
   }
 
   win.document.open()

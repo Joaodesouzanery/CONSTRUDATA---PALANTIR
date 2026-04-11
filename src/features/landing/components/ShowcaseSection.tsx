@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { Calendar, ListChecks, FileText, Calculator, Monitor, Map, ArrowRight } from 'lucide-react'
 import { FlowHoverButton } from '@/components/ui/flow-hover-button'
 import { CALENDLY_URL, LOGIN_URL } from './LandingHeader'
@@ -30,45 +29,8 @@ const OBJECTIVES = [
   { label: 'Acessibilidade Universal', desc: 'Plataforma web-based, sem softwares pesados, para toda a equipe' },
 ]
 
-const TESTIMONIALS = [
-  {
-    company: 'Construtora Maranata',
-    quote: 'A Atlântico transformou completamente nossa gestão de obras. O RDO inteligente nos deu visibilidade que nunca tivemos antes.',
-    name: 'Carlos Mendes',
-    role: 'Diretor de Engenharia',
-  },
-  {
-    company: 'Saneamento Nordeste S.A.',
-    quote: 'O Mapa Interativo e o controle de redes nos permitiu reduzir em 30% o tempo de planejamento de novas extensões.',
-    name: 'Ana Ribeiro',
-    role: 'Gerente de Projetos',
-  },
-  {
-    company: 'Infratech Engenharia',
-    quote: 'Com o LPS da Atlântico, nosso PPC subiu de 38% para 72% em 4 meses. A diferença é visível no canteiro.',
-    name: 'Roberto Silva',
-    role: 'Coordenador de Planejamento',
-  },
-]
-
 /* ── Component ────────────────────────────────────────────────────── */
 export function ShowcaseSection() {
-  const [activeTestimonial, setActiveTestimonial] = useState(0)
-  const [isMobile, setIsMobile] = useState(false)
-
-  // Auto-rotate testimonials on desktop
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
-
-  useEffect(() => {
-    if (isMobile) return
-    const timer = setInterval(() => setActiveTestimonial((s) => (s + 1) % TESTIMONIALS.length), 5000)
-    return () => clearInterval(timer)
-  }, [isMobile])
 
   return (
     <section>
@@ -189,96 +151,7 @@ export function ShowcaseSection() {
         </div>
       </div>
 
-      {/* ── E) Testimonials ────────────────────────────────────────── */}
-      <div style={{ background: '#2c2c2c' }} className="py-16 sm:py-24 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SectionDivider num="11" tag="PARCEIROS" />
-
-          <h2
-            style={{
-              fontFamily: "'Space Grotesk', sans-serif",
-              fontWeight: 700,
-              fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
-              lineHeight: 1.15,
-              letterSpacing: '-0.01em',
-              color: '#f4f5f7',
-            }}
-            className="mb-16"
-          >
-            O Que Nossos Parceiros Dizem
-          </h2>
-
-          {/* Desktop: carousel */}
-          <div className="hidden md:block">
-            <div className="relative overflow-hidden">
-              <div
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${activeTestimonial * 100}%)` }}
-              >
-                {TESTIMONIALS.map((t) => (
-                  <div key={t.name} className="w-full shrink-0 px-1">
-                    <div
-                      style={{ border: '1px solid rgba(255,255,255,0.14)', background: 'transparent' }}
-                      className="p-8 max-w-2xl mx-auto"
-                    >
-                      <div className="text-sm font-medium mb-4" style={{ color: '#f97316', fontFamily: "'Space Grotesk', sans-serif" }}>
-                        {t.company}
-                      </div>
-                      <p className="text-white/80 text-base leading-relaxed mb-6">
-                        &ldquo;{t.quote}&rdquo;
-                      </p>
-                      <div>
-                        <span className="text-white/65 text-sm">{t.name}</span>
-                        <span className="text-white/45 text-sm"> — {t.role}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Slide indicators */}
-            <div className="flex items-center gap-4 mt-8 justify-center">
-              {TESTIMONIALS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTestimonial(i)}
-                  style={{
-                    background: i === activeTestimonial ? '#f97316' : 'rgba(255,255,255,0.15)',
-                    height: 2,
-                    width: i === activeTestimonial ? 32 : 16,
-                    transition: 'all 0.3s',
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile: vertical stack */}
-          <div className="md:hidden space-y-4">
-            {TESTIMONIALS.map((t) => (
-              <div
-                key={t.name}
-                style={{ border: '1px solid rgba(255,255,255,0.14)' }}
-                className="p-6"
-              >
-                <div className="text-sm font-medium mb-3" style={{ color: '#f97316', fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {t.company}
-                </div>
-                <p className="text-white/80 text-sm leading-relaxed mb-4">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div>
-                  <span className="text-white/65 text-xs">{t.name}</span>
-                  <span className="text-white/45 text-xs"> — {t.role}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── F) CTA Block ───────────────────────────────────────────── */}
+      {/* ── E) CTA Block ───────────────────────────────────────────── */}
       <div style={{ background: '#333333' }} className="py-12 sm:py-20">
         <div className="max-w-7xl mx-auto px-6 flex flex-wrap items-center justify-center gap-4">
           <FlowHoverButton variant="ghost" href={LOGIN_URL}>
