@@ -340,6 +340,7 @@ export function MinhaRotinaPage() {
               </>
             )}
           </div>
+          </div>
         </div>
       </div>
 
