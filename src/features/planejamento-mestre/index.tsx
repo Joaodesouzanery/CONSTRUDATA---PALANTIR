@@ -5,7 +5,7 @@
  * ou carregar dados de exemplo (loadDemoData).
  */
 import { useState, useEffect, useRef } from 'react'
-import { Sparkles, FlaskConical, FileSpreadsheet } from 'lucide-react'
+import { Sparkles, FlaskConical, FileSpreadsheet, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
@@ -28,6 +28,53 @@ export function PlanejamentoMestrePage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { void pull() }, [])
+
+  function downloadTemplate() {
+    const headers = [
+      'WBS / Código', 'Nome da Atividade', 'Data Início', 'Data Fim',
+      'Duração (dias)', 'Progresso (%)', 'Responsável / Equipe',
+      'Tipo de Rede', 'Núcleo / Frente', 'Local / Rua',
+      'Comprimento (m)', 'Qtd Ligações', 'Peso / Prioridade', 'Marco (S/N)',
+    ]
+    const example = [
+      '1', 'PROJETO GERAL', '01/04/2026', '30/12/2026', '274', '0', 'Gerente Geral', 'geral', '', '', '', '', '10', 'N',
+    ]
+    const example2 = [
+      '1.1', 'Frente Água - Vila Norte', '01/04/2026', '30/09/2026', '183', '0', 'Equipe A', 'agua', 'Vila Norte', '', '', '', '5', 'N',
+    ]
+    const example3 = [
+      '1.1.1', 'Rede DN 160mm - Rua Principal', '01/04/2026', '30/06/2026', '91', '25', 'Equipe A', 'agua', 'Vila Norte', 'Rua Principal', '450', '12', '3', 'N',
+    ]
+    const example4 = [
+      '1.1.2', 'Marco: Conclusão Rede Vila Norte', '30/09/2026', '30/09/2026', '0', '0', '', 'agua', 'Vila Norte', '', '', '', '1', 'S',
+    ]
+    const instructions = [
+      ['INSTRUÇÕES DE PREENCHIMENTO'],
+      [''],
+      ['Coluna', 'Descrição', 'Obrigatório?', 'Exemplo'],
+      ['WBS / Código', 'Código hierárquico (1, 1.1, 1.1.1). Define pai-filho automaticamente.', 'Recomendado', '1.2.1'],
+      ['Nome da Atividade', 'Nome descritivo da atividade ou serviço.', 'SIM', 'Rede DN 200mm - Rua A'],
+      ['Data Início', 'Data planejada de início (dd/MM/yyyy).', 'Recomendado', '01/04/2026'],
+      ['Data Fim', 'Data planejada de término (dd/MM/yyyy).', 'Recomendado', '30/06/2026'],
+      ['Duração (dias)', 'Duração em dias úteis. Calculada automaticamente das datas se omitida.', 'Opcional', '91'],
+      ['Progresso (%)', 'Percentual concluído (0-100). Deixe 0 para atividades não iniciadas.', 'Opcional', '25'],
+      ['Responsável / Equipe', 'Nome da equipe ou responsável pela atividade.', 'Opcional', 'Equipe A'],
+      ['Tipo de Rede', 'agua, esgoto, civil, ou geral.', 'Opcional', 'agua'],
+      ['Núcleo / Frente', 'Nome do núcleo ou frente de obra.', 'Opcional', 'Vila Norte'],
+      ['Local / Rua', 'Endereço ou logradouro da atividade.', 'Opcional', 'Rua Principal'],
+      ['Comprimento (m)', 'Extensão em metros lineares.', 'Opcional', '450'],
+      ['Qtd Ligações', 'Número de ligações/conexões neste trecho.', 'Opcional', '12'],
+      ['Peso / Prioridade', 'Peso para curva S (1-10). Maior = mais importante.', 'Opcional', '3'],
+      ['Marco (S/N)', 'S = marco contratual (duração 0). N = atividade normal.', 'Opcional', 'N'],
+    ]
+
+    const wb = XLSX.utils.book_new()
+    const wsData = XLSX.utils.aoa_to_sheet([headers, example, example2, example3, example4])
+    XLSX.utils.book_append_sheet(wb, wsData, 'Cronograma')
+    const wsInstr = XLSX.utils.aoa_to_sheet(instructions)
+    XLSX.utils.book_append_sheet(wb, wsInstr, 'Instruções')
+    XLSX.writeFile(wb, 'atlantico-planejamento-mestre-template.xlsx')
+  }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -213,6 +260,15 @@ export function PlanejamentoMestrePage() {
                 Importar Planilha
               </button>
             </div>
+
+            {/* Template download */}
+            <button
+              onClick={downloadTemplate}
+              className="mt-4 flex items-center justify-center gap-2 mx-auto text-[#f97316] hover:text-[#ea580c] text-xs font-medium transition-colors"
+            >
+              <Download size={13} />
+              Baixar template padronizado (.xlsx)
+            </button>
             {importError && (
               <p className="mt-3 text-xs text-red-400 bg-red-900/20 border border-red-700/30 rounded-lg px-4 py-2">
                 {importError}

@@ -18,9 +18,9 @@ const CNC_OPTIONS: { value: LpsCncCategory; label: string }[] = [
 ]
 
 const STATUS_COLORS: Record<LpsReadyStatus, string> = {
-  green:  'bg-green-500',
-  yellow: 'bg-yellow-400',
-  red:    'bg-red-500',
+  green:  'bg-[#22c55e]',
+  yellow: 'bg-[#eab308]',
+  red:    'bg-[#ef4444]',
 }
 
 const STATUS_LABELS: Record<LpsReadyStatus, string> = {
@@ -55,7 +55,7 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
       <select
         value={cat}
         onChange={(e) => setCat(e.target.value as LpsCncCategory)}
-        className="bg-[#484848] border border-[#5e5e5e] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+        className="bg-[#484848] border border-[#525252] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#f97316]"
       >
         {CNC_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -66,7 +66,7 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
         onChange={(e) => setDesc(e.target.value)}
         placeholder="Descreva a causa..."
         rows={2}
-        className="bg-[#484848] border border-[#5e5e5e] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500 resize-none"
+        className="bg-[#484848] border border-[#525252] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#f97316] resize-none"
       />
       {confirming ? (
         <ConfirmDialog
@@ -78,7 +78,7 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
         />
       ) : (
         <div className="flex gap-2">
-          <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+          <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors">
             <Check size={11} /> Salvar
           </button>
           <button onClick={handleClear} className="flex items-center gap-1 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
@@ -119,32 +119,32 @@ function AddActivityRow({ onClose }: { onClose: () => void }) {
     <tr className="bg-orange-900/10 border-b border-[#3d3d3d]">
       <td className="px-3 py-2">
         <input value={week} onChange={(e) => setWeek(e.target.value)}
-          className="w-24 bg-[#484848] border border-[#5e5e5e] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-orange-500" />
+          className="w-24 bg-[#484848] border border-[#525252] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]" />
       </td>
       <td className="px-3 py-2">
         <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="T01"
-          className="w-16 bg-[#484848] border border-[#5e5e5e] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-orange-500" />
+          className="w-16 bg-[#484848] border border-[#525252] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]" />
       </td>
       <td className="px-3 py-2">
         <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Descrição..."
-          className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-orange-500" />
+          className="w-full bg-[#484848] border border-[#525252] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]" />
       </td>
       <td className="px-3 py-2">
         <input value={team} onChange={(e) => setTeam(e.target.value)} placeholder="Equipe..."
-          className="w-24 bg-[#484848] border border-[#5e5e5e] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-orange-500" />
+          className="w-24 bg-[#484848] border border-[#525252] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-[#f97316]" />
       </td>
       <td className="px-3 py-2 text-center">
         <span className="inline-block w-3 h-3 rounded-full bg-green-500" />
       </td>
       <td className="px-3 py-2">
         <input value={meters} onChange={(e) => setMeters(e.target.value)} type="number"
-          className="w-16 bg-[#484848] border border-[#5e5e5e] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-orange-500 text-right" />
+          className="w-16 bg-[#484848] border border-[#525252] rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-[#f97316] text-right" />
         <span className="text-xs text-[#6b6b6b] ml-1">m</span>
       </td>
       <td className="px-3 py-2" />
       <td className="px-3 py-2">
         <div className="flex gap-1">
-          <button onClick={handleAdd} className="px-2 py-1 rounded text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+          <button onClick={handleAdd} className="px-2 py-1 rounded text-xs bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors">
             <Check size={11} />
           </button>
           <button onClick={onClose} className="px-2 py-1 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors">
@@ -200,7 +200,7 @@ export function SemaforoPanel() {
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
         <select value={filterWeek} onChange={(e) => setFilterWeek(e.target.value)}
-          className="bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500">
+          className="bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#f97316]">
           <option value="">Todas as semanas</option>
           {weekOptions.map((w) => (
             <option key={w} value={w}>{weekLabel(w)} ({w})</option>
@@ -208,7 +208,7 @@ export function SemaforoPanel() {
         </select>
 
         <select value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)}
-          className="bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500">
+          className="bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#f97316]">
           <option value="">Todas as equipes</option>
           {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -224,7 +224,7 @@ export function SemaforoPanel() {
         )}
 
         <button onClick={() => setShowAdd(true)}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors">
           <Plus size={13} /> Adicionar Atividade
         </button>
       </div>

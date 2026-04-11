@@ -116,7 +116,7 @@ export function LookAheadPanel() {
                 const ppc = ppcByWeek.get(w)
                 const isCurrentWeek = w === isoWeek(today)
                 return (
-                  <th key={w} className={`text-center px-2 py-3 font-semibold min-w-[80px] ${isCurrentWeek ? 'text-orange-400' : 'text-[#a3a3a3]'}`}>
+                  <th key={w} className={`text-center px-2 py-3 font-semibold min-w-[80px] ${isCurrentWeek ? 'text-[#f97316]' : 'text-[#a3a3a3]'}`}>
                     <div>{weekLabel(w)}</div>
                     {ppc !== undefined && (
                       <div className={`text-[10px] font-normal mt-0.5 ${ppc >= 80 ? 'text-green-400' : ppc >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
@@ -153,7 +153,7 @@ export function LookAheadPanel() {
                   const color = teamColor(t.team)
 
                   return (
-                    <td key={w} className={`px-2 py-1.5 text-center ${isCurrentWeek ? 'bg-orange-900/10' : ''}`}>
+                    <td key={w} className={`px-2 py-1.5 text-center ${isCurrentWeek ? 'bg-[#f97316]/10' : ''}`}>
                       <button
                         onClick={() => handleCellClick(t.code, w, t.team)}
                         className="w-full h-10 rounded-md flex items-center justify-center transition-all"

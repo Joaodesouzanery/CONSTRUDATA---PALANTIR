@@ -189,7 +189,7 @@ export function RestricoesPanel() {
         </div>
         <button
           onClick={openNew}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-xs font-semibold transition-colors"
         >
           <Plus size={14} /> Nova Restrição
         </button>
@@ -252,7 +252,7 @@ export function RestricoesPanel() {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
               filter === f
-                ? 'bg-orange-600 text-white'
+                ? 'bg-[#f97316] text-white'
                 : 'bg-[#3d3d3d] text-[#a3a3a3] hover:bg-[#484848]'
             }`}
           >
@@ -395,7 +395,7 @@ export function RestricoesPanel() {
                   value={form.tema}
                   onChange={(e) => setForm((f) => ({ ...f, tema: e.target.value }))}
                   placeholder="Ex: Licença ambiental pendente"
-                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                 />
               </FieldGroup>
 
@@ -404,7 +404,7 @@ export function RestricoesPanel() {
                 <select
                   value={form.categoria}
                   onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value as LpsRestrictionCategory }))}
-                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                 >
                   {(Object.keys(CATEGORY_LABELS) as LpsRestrictionCategory[]).map((c) => (
                     <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
@@ -419,7 +419,7 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
                   rows={3}
                   placeholder="Descreva a restrição..."
-                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] resize-none"
                 />
               </FieldGroup>
 
@@ -431,7 +431,7 @@ export function RestricoesPanel() {
                     value={form.impacto}
                     onChange={(e) => setForm((f) => ({ ...f, impacto: e.target.value }))}
                     placeholder="Ex: Paralisa equipe B"
-                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                   />
                 </FieldGroup>
                 <FieldGroup label="Responsável">
@@ -440,7 +440,7 @@ export function RestricoesPanel() {
                     value={form.responsavel}
                     onChange={(e) => setForm((f) => ({ ...f, responsavel: e.target.value }))}
                     placeholder="Ex: Eng. Ambiental"
-                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                   />
                 </FieldGroup>
               </div>
@@ -452,14 +452,14 @@ export function RestricoesPanel() {
                     type="date"
                     value={form.prazoRemocao}
                     onChange={(e) => setForm((f) => ({ ...f, prazoRemocao: e.target.value }))}
-                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                   />
                 </FieldGroup>
                 <FieldGroup label="Status">
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as LpsRestrictionStatus }))}
-                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
                   >
                     {(Object.keys(STATUS_LABELS) as LpsRestrictionStatus[]).map((s) => (
                       <option key={s} value={s}>{STATUS_LABELS[s]}</option>
@@ -475,7 +475,7 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, acoesNecessarias: e.target.value }))}
                   rows={2}
                   placeholder="Liste as ações para remover esta restrição..."
-                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] resize-none"
                 />
               </FieldGroup>
 
@@ -496,7 +496,7 @@ export function RestricoesPanel() {
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                     placeholder="Digite e pressione Enter"
-                    className="flex-1 bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
+                    className="flex-1 bg-[#3d3d3d] border border-[#525252] rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#f97316]"
                   />
                   <button
                     onClick={addTag}
@@ -514,7 +514,7 @@ export function RestricoesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
                   rows={2}
                   placeholder="Informações adicionais (opcional)..."
-                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] resize-none"
                 />
               </FieldGroup>
             </div>
@@ -530,7 +530,7 @@ export function RestricoesPanel() {
               <button
                 onClick={handleSubmit}
                 disabled={!form.tema.trim() || !form.descricao.trim()}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                className="px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
               >
                 {editId ? 'Salvar' : 'Registrar'}
               </button>

@@ -18,7 +18,7 @@ export function LpsPage() {
   const activeTab = useLpsStore((s) => s.activeTab)
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#1f1f1f] overflow-hidden">
       <LpsHeader />
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'semaforo'            && <SemaforoPanel />}

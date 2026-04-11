@@ -93,7 +93,7 @@ export function PpcDashboard() {
         <KpiCard
           label="Meta PPC"
           value={`${META_PPC}%`}
-          color="text-orange-400"
+          color="text-[#f97316]"
         />
         <div className="rounded-xl border border-[#3d3d3d] bg-[#2c2c2c] p-4 flex flex-col gap-1">
           <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Tendência</p>
