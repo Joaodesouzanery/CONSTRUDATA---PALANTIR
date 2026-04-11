@@ -52,16 +52,6 @@ function getRows(wb: XLSX.WorkBook, sheetIndex = 0): Record<string, unknown>[] {
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: true })
 }
 
-/** Get headers from first sheet. */
-function getHeaders(wb: XLSX.WorkBook, sheetIndex = 0): string[] {
-  const sheetName = wb.SheetNames[sheetIndex]
-  if (!sheetName) return []
-  const ws = wb.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: false })
-  if (rows.length === 0) return []
-  return Object.keys(rows[0])
-}
-
 /** Find the header that best matches one of the hints. Returns the header key or null. */
 function findColumn(headers: string[], hints: string[]): string | null {
   for (const h of headers) {

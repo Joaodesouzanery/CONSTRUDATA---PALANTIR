@@ -8,7 +8,7 @@
  *   4. Confirm → parse all rows → store
  */
 import { useState, useRef } from 'react'
-import { Upload, X, AlertCircle, CheckCircle, FileSpreadsheet, Table2, ChevronDown } from 'lucide-react'
+import { Upload, X, AlertCircle, CheckCircle, Table2, ChevronDown } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import {
   readWorkbook,
