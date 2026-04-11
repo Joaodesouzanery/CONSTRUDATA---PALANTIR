@@ -2,7 +2,7 @@
  * LpsHeader — KPI strip + tab navigation for the LPS/Lean module.
  */
 import { useMemo } from 'react'
-import { Target, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react'
 import { useLpsStore, computeWeeklyPPC } from '@/store/lpsStore'
 import type { LpsTab } from '@/types'
 

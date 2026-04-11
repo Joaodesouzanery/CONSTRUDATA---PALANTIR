@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  BarChart3, Calendar, Truck, Building2, Monitor, Map, HardHat,
-  Package, Users, ListChecks, ClipboardList, FileText, Calculator,
+  BarChart3, Calendar, Building2, Monitor, Map, HardHat,
+  Package, Users, ListChecks, FileText, Calculator,
   Box, Car, Layers3, Target, TrendingUp, ShieldCheck, Wrench, BrainCircuit,
   Ruler, type LucideIcon,
 } from 'lucide-react'
