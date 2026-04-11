@@ -3,6 +3,7 @@ import { LandingHeader } from './components/LandingHeader'
 import { HeroSection } from './components/HeroSection'
 import { OntologiaSection } from './components/OntologiaSection'
 import { MethodologySection } from './components/MethodologySection'
+import { ScreenshotShowcase } from './components/ScreenshotShowcase'
 import { ModulosOverviewSection } from './components/ModulosOverviewSection'
 import { FeatureDeepSection } from './components/FeatureDeepSection'
 import { ImpactStatementSection } from './components/ImpactStatementSection'
@@ -36,6 +37,7 @@ export function LandingPage() {
       <HeroSection />
       <OntologiaSection />
       <MethodologySection />
+      <ScreenshotShowcase />
       <ModulosOverviewSection />
       <FeatureDeepSection />
       <ImpactStatementSection />

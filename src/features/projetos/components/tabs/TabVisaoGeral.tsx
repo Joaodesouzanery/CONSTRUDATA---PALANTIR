@@ -8,12 +8,15 @@ import { StatCard } from '@/components/shared/StatCard'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectPhase, ProjectPhaseStatus, ProjectStatus } from '@/types'
 
-// Fix Leaflet default icon
-delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+// Custom orange marker icon (avoids CDN dependency for default Leaflet icons)
+const orangeMarkerIcon = L.divIcon({
+  className: '',
+  iconSize: [24, 32],
+  iconAnchor: [12, 32],
+  html: `<svg width="24" height="32" viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 9 12 20 12 20s12-11 12-20c0-6.63-5.37-12-12-12z" fill="#f97316"/>
+    <circle cx="12" cy="12" r="5" fill="white"/>
+  </svg>`,
 })
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -136,6 +139,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
               center={[project.lat, project.lng]}
               zoom={13}
               style={{ height: '100%', width: '100%' }}
+              className="leaflet-embedded"
               zoomControl={false}
               scrollWheelZoom={false}
             >
@@ -143,7 +147,7 @@ export function TabVisaoGeral({ project }: { project: Project }) {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               />
-              <Marker position={[project.lat, project.lng]} />
+              <Marker position={[project.lat, project.lng]} icon={orangeMarkerIcon} />
             </MapContainer>
           </div>
           {project.address && (

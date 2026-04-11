@@ -364,7 +364,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* ─── Mobile Optimizations ──────────────────────────────────────────────────── */
 @media (max-width: 767px) {
-  .leaflet-container {
+  .leaflet-container:not(.leaflet-embedded) {
     min-height: 350px !important;
     height: calc(100dvh - 112px) !important;
   }
