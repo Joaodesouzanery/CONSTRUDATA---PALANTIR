@@ -9,7 +9,7 @@ import {
   ClipboardList, Calendar, FolderKanban, Radio, Wrench, FileSearch,
   PackageSearch, Users, Cpu, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, Network, BrainCircuit, TrendingUp,
-  ShieldCheck, type LucideIcon,
+  ShieldCheck, Ruler, type LucideIcon,
 } from 'lucide-react'
 
 export interface ModuleInfo {
@@ -42,6 +42,13 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     icon: Radio,
     group: 'gestao',
     description: 'War room executivo com drill-down até a atividade.',
+  },
+  {
+    path: '/app/medicao',
+    label: 'Medição',
+    icon: Ruler,
+    group: 'gestao',
+    description: 'Medição contratual com conferência automática e PDF.',
   },
 
   // ── PLANEJAMENTO ───────────────────────────────────────────────────────

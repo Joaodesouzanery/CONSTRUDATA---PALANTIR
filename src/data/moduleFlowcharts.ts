@@ -708,19 +708,6 @@ export const MODULE_FLOWS: ModuleFlow[] = [
     ],
   },
 
-  // ─── MEDIÇÃO (path diferente do módulo — adicionar para cobertura)
-  {
-    path: '/app/medicao',
-    moduleName: 'Medição',
-    summary: 'Gestão de medições contratuais em 6 passos sequenciais.',
-    steps: [
-      { id: 'med-1', label: 'Criar Boletim', icon: '1', description: 'Inicie um novo período de medição.', details: ['Período, contrato, consórcio', 'Número sequencial do boletim'] },
-      { id: 'med-2', label: 'Planilha Sabesp', icon: '2', description: 'Preencha itens por nPreço.', details: ['Auto-lookup do catálogo de critérios', 'Qtd contratada, qtd medida, valor unitário', 'Agrupado por: Canteiros, Esgoto, Água'] },
-      { id: 'med-3', label: 'Subempreiteiros + Fornecedores', icon: '3', description: 'Registre medições de terceiros.', details: ['Quantidades por subempreiteiro', 'Notas fiscais de fornecedores'] },
-      { id: 'med-4', label: 'Conferência Automática', icon: '4', description: 'Cruzamento de dados.', details: ['Sabesp vs Subempreiteiros vs Fornecedores', 'Divergências sinalizadas automaticamente'] },
-      { id: 'med-5', label: 'PDF Final', icon: '5', description: 'Gere o boletim em PDF.', details: ['Resumo por grupo de serviço', 'Exporta em modo claro para impressão'] },
-    ],
-  },
 ]
 
 export function getFlowForModule(path: string): ModuleFlow | undefined {

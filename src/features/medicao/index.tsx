@@ -13,7 +13,8 @@
  * kept intact and accessible via a toggle at the bottom of the page.
  */
 import { useState } from 'react'
-import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History } from 'lucide-react'
+import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { SabespPlanilhaPanel }   from './components/SabespPlanilhaPanel'
 import { CriteriosMedicaoPanel } from './components/CriteriosMedicaoPanel'
@@ -34,6 +35,30 @@ const STEPS: { step: BillingStep; label: string; shortLabel: string; icon: React
   { step: 5, label: 'Conferência',        shortLabel: 'Conferência',      icon: CheckCircle     },
   { step: 6, label: 'Medição Final',      shortLabel: 'Medição Final',    icon: Calculator      },
 ]
+
+function downloadMedicaoTemplate() {
+  const headers = ['nPreço', 'Descrição', 'Unidade', 'Qtd Contratada', 'Qtd Medida', 'Valor Unitário (R$)', 'Grupo']
+  const ex1 = ['05.01.001', 'Escavação mecânica em vala', 'm³', '1200', '', '32.50', '02']
+  const ex2 = ['05.02.003', 'Tubo PVC JEI DN 200mm - NTS 048', 'm', '2500', '', '78.40', '02']
+  const ex3 = ['05.03.001', 'Poço de Visita D=1.20m pré-moldado', 'un', '45', '', '3250.00', '02']
+  const ex4 = ['06.01.001', 'Rede água DN 110mm PEAD', 'm', '1800', '', '45.60', '03']
+  const ex5 = ['01.01.001', 'Canteiro de serviço', 'mês', '12', '', '18500.00', '01']
+  const instr = [
+    ['INSTRUÇÕES DE PREENCHIMENTO'], [''],
+    ['Coluna', 'Descrição', 'Obrigatório?'],
+    ['nPreço', 'Número de preço do contrato Sabesp (ex: 05.01.001)', 'SIM'],
+    ['Descrição', 'Nome do serviço (auto-preenchido se nPreço existir no catálogo)', 'SIM'],
+    ['Unidade', 'm, m², m³, un, mês, GB, etc.', 'SIM'],
+    ['Qtd Contratada', 'Quantidade total contratada', 'SIM'],
+    ['Qtd Medida', 'Quantidade medida no período (pode deixar vazio para preencher na plataforma)', 'Não'],
+    ['Valor Unitário (R$)', 'Preço unitário do contrato', 'SIM'],
+    ['Grupo', '01=Canteiros, 02=Esgoto, 03=Água', 'Recomendado'],
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ex1, ex2, ex3, ex4, ex5]), 'Medição')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instr), 'Instruções')
+  XLSX.writeFile(wb, 'atlantico-medicao-template.xlsx')
+}
 
 // ─── New Boletim modal ────────────────────────────────────────────────────────
 
@@ -241,6 +266,15 @@ function EmptyStateMedicao() {
         <Plus size={16} />
         Criar Primeiro Boletim
       </button>
+
+      <button
+        onClick={downloadMedicaoTemplate}
+        className="mt-4 flex items-center gap-2 text-[#f97316] hover:text-[#ea580c] text-xs font-medium transition-colors"
+      >
+        <Download size={13} />
+        Baixar template padronizado (.xlsx)
+      </button>
+
       {newOpen && <NewBoletimModal onClose={() => setNewOpen(false)} />}
     </div>
   )

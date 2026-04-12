@@ -16,13 +16,14 @@ interface Shot {
 }
 
 const SHOTS: Shot[] = [
-  { file: 'relatorio360.png',  module: 'Relatório 360',     label: 'Relatório Diário de Obra',       span: 'col-span-2 row-span-2' },
-  { file: 'gestao360.png',     module: 'Gestão 360',        label: 'Dashboard de Projetos + Mapa',   span: 'col-span-2 row-span-2' },
-  { file: 'lps.png',           module: 'LPS / Lean',        label: 'Look-ahead 6 Semanas',           span: 'col-span-2' },
-  { file: 'projetos.png',      module: 'Projetos + BIM',    label: 'BIM 5D + Análise de Custos',     span: 'col-span-2' },
-  { file: 'quantitativos.png', module: 'Quantitativos',     label: 'Composição SINAPI',              span: 'col-span-2' },
-  { file: 'rdo.png',           module: 'RDO',               label: 'RDO × Planejamento Integrado',   span: 'col-span-2' },
-  { file: 'agenda.png',        module: 'Agenda',            label: 'Gantt de Recursos',              span: 'col-span-2' },
+  { file: 'relatorio-360.png',      module: 'Relatório 360',     label: 'Relatório Diário de Obra',       span: 'col-span-2 row-span-2' },
+  { file: 'gestao360.png',          module: 'Gestão 360',        label: 'Dashboard de Projetos + Mapa',   span: 'col-span-2 row-span-2' },
+  { file: 'torre-controle-mapa.png', module: 'Torre de Controle', label: 'Mapa de Obras + KPIs',          span: 'col-span-2' },
+  { file: 'lps-lookahead.png',      module: 'LPS / Lean',        label: 'Look-ahead 6 Semanas',           span: 'col-span-2' },
+  { file: 'bim-5d.png',             module: 'Projetos + BIM',    label: 'BIM 5D + Análise de Custos',     span: 'col-span-2' },
+  { file: 'quantitativos.png',      module: 'Quantitativos',     label: 'Composição SINAPI',              span: 'col-span-2' },
+  { file: 'rdo-dashboard.png',      module: 'RDO',               label: 'RDO × Planejamento Integrado',   span: 'col-span-2' },
+  { file: 'agenda-gantt.png',       module: 'Agenda',            label: 'Gantt de Recursos',              span: 'col-span-2' },
 ]
 
 export function ScreenshotShowcase() {
