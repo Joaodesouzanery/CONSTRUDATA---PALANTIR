@@ -339,7 +339,7 @@ export function SabespPlanilhaPanel() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1100px] mx-auto">
+    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-white font-semibold text-base">Planilha de Medição Sabesp</h2>
@@ -401,19 +401,19 @@ export function SabespPlanilhaPanel() {
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="bg-[#1f1f1f] text-[#a3a3a3] text-[10px] uppercase">
-                      <th className="px-1 py-2 text-left border-r border-[#525252] w-20">Item</th>
-                      <th className="px-1 py-2 text-left border-r border-[#525252] w-16">N. Preço</th>
-                      <th className="px-1 py-2 text-left border-r border-[#525252]">Descrição</th>
-                      <th className="px-1 py-2 text-center border-r border-[#525252] w-10">Un</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Contr.</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-22">Vl. Unit.</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Anter.</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Atual</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Acum.</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-24">Total Per. (R$)</th>
-                      <th className="px-1 py-2 text-right border-r border-[#525252] w-24">Saldo (R$)</th>
-                      <th className="px-1 py-2 w-8"></th>
+                    <tr className="bg-[#1f1f1f] text-[#a3a3a3] text-[9px] uppercase tracking-wider">
+                      <th className="px-2 py-2 text-left border-r border-[#525252] whitespace-nowrap">Item</th>
+                      <th className="px-2 py-2 text-left border-r border-[#525252] whitespace-nowrap">Descrição / N. Preço</th>
+                      <th className="px-2 py-2 text-center border-r border-[#525252] whitespace-nowrap">Un</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Qtd Contrato</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Qtd Anterior</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Qtd Período</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Qtd Acumulada</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Vl. Unitário</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Total Período (R$)</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Saldo Qtd</th>
+                      <th className="px-2 py-2 text-right border-r border-[#525252] whitespace-nowrap">Saldo (R$)</th>
+                      <th className="px-2 py-2 w-8"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -425,43 +425,60 @@ export function SabespPlanilhaPanel() {
                       </tr>
                     ) : items.map((item) => {
                       const qtdAcum = item.qtdAnterior + item.qtdMedida
+                      const saldoQtd = item.qtdContrato - qtdAcum
                       const totalPeriodo = item.qtdMedida * item.valorUnitario
-                      const saldo = (item.qtdContrato - qtdAcum) * item.valorUnitario
+                      const saldoR$ = saldoQtd * item.valorUnitario
+                      const inputCls = "w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-[10px]"
                       return (
                       <tr key={item.id} className="border-b border-[#525252] hover:bg-[#333]">
-                        <td className="px-1 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px]">{item.itemEAP || '—'}</td>
-                        <td className="px-1 py-2 border-r border-[#525252] font-mono text-[#f97316] text-[10px]">{item.nPreco}</td>
-                        <td className="px-1 py-2 border-r border-[#525252] text-[#f5f5f5] text-[10px]">{item.descricao}</td>
-                        <td className="px-1 py-2 border-r border-[#525252] text-center text-[#a3a3a3] text-[10px]">{item.unidade}</td>
-                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                        {/* Item (EAP) */}
+                        <td className="px-2 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px] whitespace-nowrap">{item.itemEAP || '—'}</td>
+                        {/* Descrição + N. Preço */}
+                        <td className="px-2 py-2 border-r border-[#525252] text-[10px]">
+                          <div className="text-[#f5f5f5] leading-tight">{item.descricao}</div>
+                          <div className="text-[#f97316] font-mono text-[9px] mt-0.5">{item.nPreco}</div>
+                        </td>
+                        {/* Un */}
+                        <td className="px-2 py-2 border-r border-[#525252] text-center text-[#a3a3a3] text-[10px]">{item.unidade}</td>
+                        {/* Qtd Contrato */}
+                        <td className="px-1 py-1 border-r border-[#525252]">
                           <input type="number" min={0} value={item.qtdContrato}
                             onChange={(e) => updateItemContrato(item.id, { qtdContrato: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
+                            className={inputCls} />
                         </td>
-                        <td className="px-1 py-1 border-r border-[#525252] text-right">
-                          <input type="number" min={0} step={0.01} value={item.valorUnitario}
-                            onChange={(e) => updateItemContrato(item.id, { valorUnitario: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
-                        </td>
-                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                        {/* Qtd Anterior */}
+                        <td className="px-1 py-1 border-r border-[#525252]">
                           <input type="number" min={0} value={item.qtdAnterior}
                             onChange={(e) => updateItemContrato(item.id, { qtdAnterior: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
+                            className={inputCls} />
                         </td>
-                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                        {/* Qtd Período (atual) */}
+                        <td className="px-1 py-1 border-r border-[#525252]">
                           <input type="number" min={0} value={item.qtdMedida}
                             onChange={(e) => updateItemContrato(item.id, { qtdMedida: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
+                            className={inputCls} />
                         </td>
-                        <td className="px-1 py-2 border-r border-[#525252] text-right text-[#a3a3a3] text-[10px] font-mono">
-                          {fmt(qtdAcum)}
+                        {/* Qtd Acumulada (calculada) */}
+                        <td className="px-2 py-2 border-r border-[#525252] text-right text-[#a3a3a3] text-[10px] tabular-nums">{fmt(qtdAcum)}</td>
+                        {/* Vl. Unitário */}
+                        <td className="px-1 py-1 border-r border-[#525252]">
+                          <input type="number" min={0} step={0.01} value={item.valorUnitario}
+                            onChange={(e) => updateItemContrato(item.id, { valorUnitario: parseFloat(e.target.value) || 0 })}
+                            className={inputCls} />
                         </td>
-                        <td className="px-1 py-2 border-r border-[#525252] text-right font-medium text-emerald-400 text-[10px]">
+                        {/* Total Período R$ */}
+                        <td className="px-2 py-2 border-r border-[#525252] text-right font-medium text-emerald-400 text-[10px] tabular-nums whitespace-nowrap">
                           R$ {fmt(totalPeriodo)}
                         </td>
-                        <td className={`px-1 py-2 border-r border-[#525252] text-right font-medium text-[10px] ${saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          R$ {fmt(saldo)}
+                        {/* Saldo Qtd */}
+                        <td className={`px-2 py-2 border-r border-[#525252] text-right text-[10px] tabular-nums ${saldoQtd >= 0 ? 'text-[#a3a3a3]' : 'text-red-400 font-bold'}`}>
+                          {fmt(saldoQtd)}
                         </td>
+                        {/* Saldo R$ */}
+                        <td className={`px-2 py-2 border-r border-[#525252] text-right font-medium text-[10px] tabular-nums whitespace-nowrap ${saldoR$ >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          R$ {fmt(saldoR$)}
+                        </td>
+                        {/* Delete */}
                         <td className="px-1 py-2 text-center">
                           <button type="button" onClick={() => removeItemContrato(item.id)}
                             className="text-red-400 hover:bg-red-900/20 rounded p-1 transition-colors">
@@ -473,14 +490,15 @@ export function SabespPlanilhaPanel() {
                   </tbody>
                   {items.length > 0 && (
                     <tfoot>
-                      <tr className="bg-[#1f1f1f]">
-                        <td colSpan={9} className="px-1 py-2 text-right text-[10px] font-semibold text-[#a3a3a3] border-r border-[#525252]">
-                          Subtotal {grupo.nome}
+                      <tr className="bg-[#1a1a1a] border-t-2 border-[#f97316]/30">
+                        <td colSpan={8} className="px-2 py-2.5 text-right text-[10px] font-bold text-white uppercase tracking-wider border-r border-[#525252]">
+                          Total do Grupo — {grupo.nome}
                         </td>
-                        <td className="px-1 py-2 text-right font-bold text-[#f97316] border-r border-[#525252] text-[10px]">
+                        <td className="px-2 py-2.5 text-right font-bold text-[#f97316] border-r border-[#525252] text-xs tabular-nums whitespace-nowrap">
                           R$ {fmt(subtotal)}
                         </td>
-                        <td className="px-1 py-2 text-right font-bold text-[#a3a3a3] border-r border-[#525252] text-[10px]">
+                        <td className="px-2 py-2.5 border-r border-[#525252]" />
+                        <td className="px-2 py-2.5 text-right font-bold text-[#a3a3a3] border-r border-[#525252] text-xs tabular-nums whitespace-nowrap">
                           R$ {fmt(items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0))}
                         </td>
                         <td />

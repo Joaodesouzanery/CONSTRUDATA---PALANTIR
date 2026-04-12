@@ -64,30 +64,37 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
     const grupoSaldo = items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
 
     body += `<table><thead><tr>
-      <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
-      <th class="right">Qtd Contr.</th><th class="right">Vl. Unit.</th>
-      <th class="right">Qtd Anter.</th><th class="right">Qtd Atual</th><th class="right">Qtd Acum.</th>
-      <th class="right">Total Per. (R$)</th><th class="right">Saldo (R$)</th>
+      <th>Item</th><th>Descrição / N. Preço</th><th class="center">Un</th>
+      <th class="right">Qtd Contrato</th><th class="right">Qtd Anterior</th><th class="right">Qtd Período</th><th class="right">Qtd Acumulada</th>
+      <th class="right">Vl. Unitário</th><th class="right">Total Período (R$)</th><th class="right">Saldo Qtd</th><th class="right">Saldo (R$)</th>
     </tr></thead><tbody>`
     for (const i of items) {
       const qtdAcum = i.qtdAnterior + i.qtdMedida
+      const saldoQtd = i.qtdContrato - qtdAcum
       const totalPer = i.qtdMedida * i.valorUnitario
-      const saldo = (i.qtdContrato - qtdAcum) * i.valorUnitario
+      const saldoR = saldoQtd * i.valorUnitario
       body += `<tr>
-        <td>${i.itemEAP || '—'}</td><td>${i.nPreco}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
-        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtBRL(i.valorUnitario)}</td>
-        <td class="right">${fmtNum(i.qtdAnterior)}</td><td class="right">${fmtNum(i.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
-        <td class="right">${fmtBRL(totalPer)}</td>
-        <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
+        <td>${i.itemEAP || '—'}</td>
+        <td>${i.descricao}<br/><span style="color:#f97316;font-size:7pt;">${i.nPreco}</span></td>
+        <td class="center">${i.unidade}</td>
+        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtNum(i.qtdAnterior)}</td>
+        <td class="right">${fmtNum(i.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
+        <td class="right">${fmtBRL(i.valorUnitario)}</td><td class="right">${fmtBRL(totalPer)}</td>
+        <td class="right">${fmtNum(saldoQtd)}</td>
+        <td class="right" style="color:${saldoR >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldoR)}</td>
       </tr>`
       const crit = getAllCriterios().find(cr => cr.nPreco === i.nPreco)
       if (crit) {
-        body += `<tr><td colspan="11" style="background:#fff8f0;padding:3px 10px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;">
-          <strong style="color:#f97316;font-style:normal;">CRITÉRIO ${i.nPreco}</strong> — Medição: ${crit.medicao}
+        body += `<tr><td colspan="11" style="background:#fafaf8;padding:2px 20px 2px 24px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;color:#666;">
+          <strong style="color:#f97316;font-style:normal;">CRITÉRIO ${i.nPreco}</strong> — ${crit.medicao}
         </td></tr>`
       }
     }
-    body += `</tbody><tfoot><tr><td colspan="9" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td class="right">${fmtBRL(grupoSaldo)}</td></tr></tfoot></table>`
+    body += `</tbody><tfoot><tr style="background:#f0f0f0;font-weight:700;">
+      <td colspan="8" class="right">Total do Grupo — ${GRUPOS[gId]}</td>
+      <td class="right">${fmtBRL(subtotal)}</td><td></td>
+      <td class="right">${fmtBRL(grupoSaldo)}</td>
+    </tr></tfoot></table>`
   }
 
   const grandAcumulado = itens.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
@@ -251,35 +258,42 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
       body += `<h2 style="font-size:9.5pt;border-color:#f97316;">Grupo ${gId} — ${GRUPOS[gId]}</h2>`
       const grupoSaldo = items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
       body += `<table><thead><tr>
-        <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
-        <th class="right">Qtd Contr.</th><th class="right">Vl. Unit.</th>
-        <th class="right">Qtd Anter.</th><th class="right">Qtd Atual</th><th class="right">Qtd Acum.</th>
-        <th class="right">Total Per. (R$)</th><th class="right">Saldo (R$)</th>
+        <th>Item</th><th>Descrição / N. Preço</th><th class="center">Un</th>
+        <th class="right">Qtd Contrato</th><th class="right">Qtd Anterior</th><th class="right">Qtd Período</th><th class="right">Qtd Acum.</th>
+        <th class="right">Vl. Unitário</th><th class="right">Total Per. (R$)</th><th class="right">Saldo Qtd</th><th class="right">Saldo (R$)</th>
       </tr></thead><tbody>`
       for (const item of items) {
         const qtdAcum = item.qtdAnterior + item.qtdMedida
+        const saldoQtd = item.qtdContrato - qtdAcum
         const valor = item.qtdMedida * item.valorUnitario
-        const saldo = (item.qtdContrato - qtdAcum) * item.valorUnitario
+        const saldoR = saldoQtd * item.valorUnitario
         body += `<tr>
-          <td>${item.itemEAP || '—'}</td><td>${item.nPreco}</td><td>${item.descricao}</td><td class="center">${item.unidade}</td>
-          <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtBRL(item.valorUnitario)}</td>
-          <td class="right">${fmtNum(item.qtdAnterior)}</td><td class="right">${fmtNum(item.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
-          <td class="right">${fmtBRL(valor)}</td>
-          <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
+          <td>${item.itemEAP || '—'}</td>
+          <td>${item.descricao}<br/><span style="color:#f97316;font-size:7pt;">${item.nPreco}</span></td>
+          <td class="center">${item.unidade}</td>
+          <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtNum(item.qtdAnterior)}</td>
+          <td class="right">${fmtNum(item.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
+          <td class="right">${fmtBRL(item.valorUnitario)}</td><td class="right">${fmtBRL(valor)}</td>
+          <td class="right">${fmtNum(saldoQtd)}</td>
+          <td class="right" style="color:${saldoR >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldoR)}</td>
         </tr>`
         const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
         if (crit) {
-          body += `<tr><td colspan="11" style="background:#fff8f0;padding:3px 10px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;">
-            <strong style="color:#f97316;font-style:normal;">CRITÉRIO DE MEDIÇÃO:</strong> ${crit.medicao}
-            ${crit.notas ? `<br/><span style="color:#888;">Notas: ${crit.notas}</span>` : ''}
+          body += `<tr><td colspan="11" style="background:#fafaf8;padding:2px 20px 2px 24px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;color:#666;">
+            <strong style="color:#f97316;font-style:normal;">CRITÉRIO:</strong> ${crit.medicao}
+            ${crit.notas ? `<br/><span style="color:#999;">Notas: ${crit.notas}</span>` : ''}
           </td></tr>`
         } else {
-          body += `<tr><td colspan="11" style="background:#fff0f0;padding:3px 10px;border-left:3px solid #dc2626;font-size:7pt;color:#dc2626;">
+          body += `<tr><td colspan="11" style="background:#fff0f0;padding:2px 20px;border-left:3px solid #dc2626;font-size:7pt;color:#dc2626;">
             Critério não localizado para nPreço ${item.nPreco}
           </td></tr>`
         }
       }
-      body += `</tbody><tfoot><tr><td colspan="9" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td class="right">${fmtBRL(grupoSaldo)}</td></tr></tfoot></table>`
+      body += `</tbody><tfoot><tr style="background:#f0f0f0;font-weight:700;">
+        <td colspan="8" class="right">Total do Grupo — ${GRUPOS[gId]}</td>
+        <td class="right">${fmtBRL(subtotal)}</td><td></td>
+        <td class="right">${fmtBRL(grupoSaldo)}</td>
+      </tr></tfoot></table>`
     }
   } else {
     body += `<p style="color:#888;font-style:italic;">Nenhum item com quantidade medida no período.</p>`
