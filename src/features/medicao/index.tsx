@@ -37,26 +37,109 @@ const STEPS: { step: BillingStep; label: string; shortLabel: string; icon: React
 ]
 
 function downloadMedicaoTemplate() {
-  const headers = ['nPreço', 'Descrição', 'Unidade', 'Qtd Contratada', 'Qtd Medida', 'Valor Unitário (R$)', 'Grupo']
-  const ex1 = ['05.01.001', 'Escavação mecânica em vala', 'm³', '1200', '', '32.50', '02']
-  const ex2 = ['05.02.003', 'Tubo PVC JEI DN 200mm - NTS 048', 'm', '2500', '', '78.40', '02']
-  const ex3 = ['05.03.001', 'Poço de Visita D=1.20m pré-moldado', 'un', '45', '', '3250.00', '02']
-  const ex4 = ['06.01.001', 'Rede água DN 110mm PEAD', 'm', '1800', '', '45.60', '03']
-  const ex5 = ['01.01.001', 'Canteiro de serviço', 'mês', '12', '', '18500.00', '01']
-  const instr = [
-    ['INSTRUÇÕES DE PREENCHIMENTO'], [''],
-    ['Coluna', 'Descrição', 'Obrigatório?'],
-    ['nPreço', 'Número de preço do contrato Sabesp (ex: 05.01.001)', 'SIM'],
-    ['Descrição', 'Nome do serviço (auto-preenchido se nPreço existir no catálogo)', 'SIM'],
-    ['Unidade', 'm, m², m³, un, mês, GB, etc.', 'SIM'],
-    ['Qtd Contratada', 'Quantidade total contratada', 'SIM'],
-    ['Qtd Medida', 'Quantidade medida no período (pode deixar vazio para preencher na plataforma)', 'Não'],
-    ['Valor Unitário (R$)', 'Preço unitário do contrato', 'SIM'],
-    ['Grupo', '01=Canteiros, 02=Esgoto, 03=Água', 'Recomendado'],
+  // Header row with all contract fields
+  const title = ['ATLÂNTICO CONSTRUDATA — TEMPLATE DE MEDIÇÃO CONTRATUAL']
+  const subtitle = ['Contrato:', '', 'Período:', '', 'Consórcio/Empresa:', '', 'Responsável:', '']
+  const blank: string[] = []
+  const headers = [
+    'Item', 'nPreço', 'SiiS (Código Resumido)', 'Descrição do Serviço', 'Unidade',
+    'Qtd Contratada', 'P. Unitário (R$)', 'Total Contratado (R$)',
+    'Qtd Medida Anterior', 'Qtd Medida Período', 'Qtd Acumulada', 'Saldo Qtd',
+    'Valor Medido Período (R$)', 'Valor Acumulado (R$)', 'Saldo Valor (R$)',
+    'Grupo', 'Status',
   ]
+
+  // 01 - CANTEIROS E PLANOS DE GESTÃO
+  const g01 = ['01000000', '', '', 'CANTEIROS E PLANOS DE GESTÃO', '', '', '', '', '', '', '', '', '', '', '', '01', '']
+  const r1 = ['01010101', '500001', 'CANT OBRAS IMPL ESG', 'Implantação do Canteiro Esgoto', 'GB', '1', '5381388.60', '5381388.60', '', '', '', '', '', '', '', '01', '']
+  const r2 = ['01010102', '500101', 'CANT OBRAS MANUT ESG', 'Manutenção do Canteiro Esgoto', 'MÊS', '24', '165518.49', '3972443.76', '1', '', '', '', '', '', '', '01', '']
+  const r3 = ['01020101', '500003', 'PLANO COMERC LIG', 'Plano de Comercialização de Ligações', 'UN', '28031', '207.10', '5805220.10', '', '', '', '', '', '', '', '01', '']
+  const r4 = ['01020102', '500004', 'PLANO QUALIDADE', 'Plano de Qualidade Total', 'MÊS', '24', '425619.19', '10214860.56', '1', '', '', '', '', '', '', '01', '']
+
+  // 02 - ESGOTO
+  const g02 = ['02000000', '', '', 'ESGOTO', '', '', '', '', '', '', '', '', '', '', '', '02', '']
+  const r5 = ['02010101', '420009', 'ASSENT MEC ESG DN150', 'Assentamento mecanizado rede esgoto PVC DN150 até 2m', 'M', '13205.59', '1648.38', '21767830.44', '', '', '', '', '', '', '', '02', '']
+  const r6 = ['02010103', '420010', 'ASSENT MEC ESG DN200', 'Assentamento mecanizado rede esgoto PVC DN200 até 2m', 'M', '6918.11', '1888.49', '13064781.55', '', '', '', '', '', '', '', '02', '']
+  const r7 = ['02010107', '500008', 'PV CONCRETO 2M MEC', 'PV em tubo de concreto PBJE até 2.00m (escavação mecanizada)', 'UN', '4617', '1721.66', '7948904.22', '', '', '', '', '', '', '', '02', '']
+
+  // 03 - ÁGUA
+  const g03 = ['03000000', '', '', 'ÁGUA', '', '', '', '', '', '', '', '', '', '', '', '03', '']
+  const r8 = ['03020101', '410355', 'PRA PEAD 32MM C/REP', 'Assentamento rede água PEAD 32mm c/ reposição', 'M', '25552.83', '170.06', '4345514.27', '', '', '', '', '', '', '', '03', '']
+  const r9 = ['03030101', '500033', 'LAG ATE 32MM AVUL', 'Ligação/subst ligação avulsa água até 32mm s/repos', 'UN', '2043', '894.48', '1827422.64', '', '', '', '', '', '', '', '03', '']
+
+  // Subempreiteiros sheet
+  const subHeaders = ['FECHAMENTO DE MEDIÇÃO — SUBEMPREITEIRO / FORNECEDOR']
+  const subFields = [
+    ['Mês de Referência:', '', 'Empresa:', '', 'Contrato:', '', 'Obra/Núcleo:', ''],
+    blank,
+    ['Campo', 'Valor (R$)', 'Observação'],
+    ['Medição do Período', '', 'Valor total medido no mês'],
+    ['Medição Aprovada', '', 'Valor aprovado após conferência'],
+    ['Descontos', '', 'Adiantamentos, taxas, etc.'],
+    ['Taxa Adm (%)', '', 'Percentual sobre descontos'],
+    ['Adiantamento', '', 'Valor de adiantamento descontado'],
+    ['Fechamento Mês Anterior', '', 'Saldo do mês anterior'],
+    ['Retenção', '', 'Valor retido (% da medição)'],
+    blank,
+    ['VALOR DA NF', '', 'Valor final para emissão de Nota Fiscal'],
+  ]
+
+  // Instruções
+  const instr = [
+    ['ATLÂNTICO CONSTRUDATA — INSTRUÇÕES DO TEMPLATE DE MEDIÇÃO'], [''],
+    ['ABA', 'CAMPO', 'DESCRIÇÃO', 'OBRIGATÓRIO?', 'EXEMPLO'],
+    ['Medição', 'Item', 'Código hierárquico do item na planilha contratual', 'SIM', '02010101'],
+    ['Medição', 'nPreço', 'Número de preço Sabesp (identificador único do serviço)', 'SIM', '420009'],
+    ['Medição', 'SiiS', 'Código resumido do sistema SiiS da Sabesp', 'Não', 'ASSENT MEC ESG DN150'],
+    ['Medição', 'Descrição do Serviço', 'Nome completo do serviço conforme contrato', 'SIM', 'Assentamento mecanizado...'],
+    ['Medição', 'Unidade', 'Unidade de medição: M, M², M³, UN, MÊS, GB, EQD', 'SIM', 'M'],
+    ['Medição', 'Qtd Contratada', 'Quantidade total prevista no contrato', 'SIM', '13205.59'],
+    ['Medição', 'P. Unitário (R$)', 'Preço unitário do contrato (usar ponto como decimal)', 'SIM', '1648.38'],
+    ['Medição', 'Total Contratado', 'Fórmula: Qtd Contratada × P. Unitário', 'Auto', '=F×G'],
+    ['Medição', 'Qtd Medida Anterior', 'Quantidade acumulada de medições anteriores', 'Não', '0'],
+    ['Medição', 'Qtd Medida Período', 'Quantidade medida NESTE período (preencher)', 'SIM', '618.86'],
+    ['Medição', 'Qtd Acumulada', 'Fórmula: Anterior + Período', 'Auto', '=I+J'],
+    ['Medição', 'Saldo Qtd', 'Fórmula: Contratada - Acumulada', 'Auto', '=F-K'],
+    ['Medição', 'Valor Medido Período', 'Fórmula: Qtd Período × P. Unitário', 'Auto', '=J×G'],
+    ['Medição', 'Valor Acumulado', 'Fórmula: Qtd Acumulada × P. Unitário', 'Auto', '=K×G'],
+    ['Medição', 'Saldo Valor', 'Fórmula: Total Contratado - Valor Acumulado', 'Auto', '=H-N'],
+    ['Medição', 'Grupo', '01=Canteiros, 02=Esgoto, 03=Água', 'Recomendado', '02'],
+    ['Medição', 'Status', 'Não Iniciado / Em Andamento / Concluído', 'Não', 'Em Andamento'],
+    [''],
+    ['Subempreiteiros', 'Medição do Período', 'Valor total executado pelo subempreiteiro no mês', 'SIM', '398835.64'],
+    ['Subempreiteiros', 'Medição Aprovada', 'Valor aprovado pela fiscalização', 'SIM', '198556.72'],
+    ['Subempreiteiros', 'Retenção', 'Valor retido como garantia contratual', 'Não', '200278.93'],
+    [''],
+    ['REGRAS DE CONFERÊNCIA'],
+    ['1. Soma dos subempreiteiros não pode ultrapassar o valor medido na planilha Sabesp'],
+    ['2. nPreço deve existir no documento de Critérios de Medição do contrato'],
+    ['3. Qtd Medida Período não pode ultrapassar Saldo Qtd disponível'],
+    ['4. Grupo deve corresponder à frente de serviço (01=Canteiros, 02=Esgoto, 03=Água)'],
+  ]
+
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, ex1, ex2, ex3, ex4, ex5]), 'Medição')
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(instr), 'Instruções')
+
+  // Sheet 1: Medição
+  const wsMed = XLSX.utils.aoa_to_sheet([title, subtitle, blank, headers, g01, r1, r2, r3, r4, blank, g02, r5, r6, r7, blank, g03, r8, r9])
+  wsMed['!cols'] = [
+    { wch: 12 }, { wch: 10 }, { wch: 22 }, { wch: 50 }, { wch: 8 },
+    { wch: 14 }, { wch: 14 }, { wch: 18 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+    { wch: 18 }, { wch: 18 }, { wch: 16 },
+    { wch: 8 }, { wch: 14 },
+  ]
+  XLSX.utils.book_append_sheet(wb, wsMed, 'Medição Sabesp')
+
+  // Sheet 2: Subempreiteiros
+  const wsSub = XLSX.utils.aoa_to_sheet([subHeaders, ...subFields])
+  wsSub['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 40 }]
+  XLSX.utils.book_append_sheet(wb, wsSub, 'Subempreiteiros')
+
+  // Sheet 3: Instruções
+  const wsInstr = XLSX.utils.aoa_to_sheet(instr)
+  wsInstr['!cols'] = [{ wch: 16 }, { wch: 22 }, { wch: 55 }, { wch: 14 }, { wch: 20 }]
+  XLSX.utils.book_append_sheet(wb, wsInstr, 'Instruções')
+
   XLSX.writeFile(wb, 'atlantico-medicao-template.xlsx')
 }
 

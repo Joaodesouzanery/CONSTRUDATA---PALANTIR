@@ -30,48 +30,79 @@ export function PlanejamentoMestrePage() {
   useEffect(() => { void pull() }, [])
 
   function downloadTemplate() {
+    const title = ['ATLÂNTICO CONSTRUDATA — PLANEJAMENTO MESTRE']
+    const meta = ['Projeto:', '', 'Data Base:', '', 'Responsável:', '', 'Contrato:', '']
+    const blank: string[] = []
     const headers = [
-      'WBS / Código', 'Nome da Atividade', 'Data Início', 'Data Fim',
-      'Duração (dias)', 'Progresso (%)', 'Responsável / Equipe',
-      'Tipo de Rede', 'Núcleo / Frente', 'Local / Rua',
-      'Comprimento (m)', 'Qtd Ligações', 'Peso / Prioridade', 'Marco (S/N)',
+      'WBS / Código', 'Nome da Atividade', 'Nível', 'Data Início Planejada', 'Data Fim Planejada',
+      'Data Início Tendência', 'Data Fim Tendência', 'Duração (dias)', 'Progresso (%)',
+      'Responsável / Equipe', 'Coordenador', 'Tipo de Rede', 'Serviço/Categoria',
+      'Núcleo / Frente', 'Local / Rua', 'Comprimento (m)', 'DN (mm)',
+      'Qtd Ligações', 'Peso / Prioridade', 'Predecessores', 'Marco (S/N)', 'Observações',
     ]
-    const example = [
-      '1', 'PROJETO GERAL', '01/04/2026', '30/12/2026', '274', '0', 'Gerente Geral', 'geral', '', '', '', '', '10', 'N',
-    ]
-    const example2 = [
-      '1.1', 'Frente Água - Vila Norte', '01/04/2026', '30/09/2026', '183', '0', 'Equipe A', 'agua', 'Vila Norte', '', '', '', '5', 'N',
-    ]
-    const example3 = [
-      '1.1.1', 'Rede DN 160mm - Rua Principal', '01/04/2026', '30/06/2026', '91', '25', 'Equipe A', 'agua', 'Vila Norte', 'Rua Principal', '450', '12', '3', 'N',
-    ]
-    const example4 = [
-      '1.1.2', 'Marco: Conclusão Rede Vila Norte', '30/09/2026', '30/09/2026', '0', '0', '', 'agua', 'Vila Norte', '', '', '', '1', 'S',
-    ]
+
+    // Projeto raiz
+    const r0 = ['1', 'SE LIGA NA REDE - SANTOS', '0', '01/04/2026', '30/12/2026', '01/04/2026', '30/12/2026', '274', '0', 'Gerente Geral', 'José Márcio', 'geral', '', '', '', '', '', '', '10', '', 'N', 'Contrato CT 11481051']
+    // Frente 1: Esgoto
+    const r1 = ['1.1', 'FRENTE ESGOTO — Vila Criadores', '1', '01/04/2026', '30/09/2026', '01/04/2026', '30/09/2026', '183', '0', 'Equipe A', 'Priscila', 'esgoto', '', 'Vila Criadores', '', '', '', '', '8', '', 'N', '']
+    const r1a = ['1.1.1', 'Rede Coletora DN 200mm — Rua B', '2', '01/04/2026', '15/06/2026', '01/04/2026', '20/06/2026', '76', '31', 'Equipe A', 'Priscila', 'esgoto', 'LE', 'Vila Criadores', 'Rua B', '350', '200', '8', '5', '', 'N', 'Status: Em execução']
+    const r1b = ['1.1.2', 'Rede Coletora DN 150mm — Beco Amizade', '2', '15/06/2026', '30/07/2026', '20/06/2026', '05/08/2026', '46', '0', 'Equipe A', 'Priscila', 'esgoto', 'LE', 'Vila Criadores', 'Beco da Amizade', '210', '150', '5', '3', '1.1.1', 'N', '']
+    const r1c = ['1.1.3', 'Poços de Visita (PVs)', '2', '01/04/2026', '30/07/2026', '01/04/2026', '05/08/2026', '122', '15', 'Equipe B', 'Priscila', 'esgoto', 'LE', 'Vila Criadores', '', '', '', '25', '4', '', 'N', '']
+    const r1d = ['1.1.4', 'MARCO: Conclusão Esgoto Vila Criadores', '2', '30/09/2026', '30/09/2026', '30/09/2026', '30/09/2026', '0', '0', '', '', 'esgoto', '', 'Vila Criadores', '', '', '', '', '1', '1.1.1;1.1.2;1.1.3', 'S', 'Marco contratual']
+    // Frente 2: Água
+    const r2 = ['1.2', 'FRENTE ÁGUA — Morro do Teteu', '1', '01/05/2026', '30/11/2026', '01/05/2026', '30/11/2026', '214', '0', 'Equipe C', 'José Márcio', 'agua', '', 'Morro do Teteu', '', '', '', '', '7', '', 'N', '']
+    const r2a = ['1.2.1', 'Rede Distribuição PEAD DN 160mm', '2', '01/05/2026', '30/08/2026', '01/05/2026', '30/08/2026', '122', '25', 'Equipe C', '', 'agua', 'LA', 'Morro do Teteu', 'Rua das Pedras', '810', '160', '15', '6', '', 'N', '']
+    const r2b = ['1.2.2', 'Ligações domiciliares (PEAD 32mm)', '2', '01/07/2026', '30/11/2026', '01/07/2026', '30/11/2026', '153', '0', 'Equipe D', '', 'agua', 'LA', 'Morro do Teteu', '', '', '32', '82', '3', '1.2.1', 'N', '']
+    // Frente 3: Pavimentação
+    const r3 = ['1.3', 'REPOSIÇÃO DE PAVIMENTO', '1', '01/06/2026', '30/12/2026', '01/06/2026', '30/12/2026', '214', '0', 'Equipe E', '', 'civil', 'reposicao', '', '', '', '', '', '2', '1.1;1.2', 'N', 'Depende de esgoto e água']
+
     const instructions = [
-      ['INSTRUÇÕES DE PREENCHIMENTO'],
+      ['ATLÂNTICO CONSTRUDATA — INSTRUÇÕES DO TEMPLATE DE PLANEJAMENTO MESTRE'], [''],
+      ['COLUNA', 'DESCRIÇÃO', 'OBRIGATÓRIO?', 'VALORES ACEITOS', 'EXEMPLO'],
+      ['WBS / Código', 'Código hierárquico. Define pai-filho automaticamente (1 → 1.1 → 1.1.1).', 'Recomendado', 'Texto com pontos', '1.2.1'],
+      ['Nome da Atividade', 'Nome descritivo do serviço ou marco.', 'SIM', 'Texto livre', 'Rede DN 200mm - Rua A'],
+      ['Nível', 'Nível na hierarquia WBS. Auto-calculado se omitido.', 'Não', '0=Projeto, 1=Frente, 2=Atividade', '2'],
+      ['Data Início Planejada', 'Data de início do baseline (plano original).', 'Recomendado', 'dd/MM/yyyy', '01/04/2026'],
+      ['Data Fim Planejada', 'Data de fim do baseline.', 'Recomendado', 'dd/MM/yyyy', '30/06/2026'],
+      ['Data Início Tendência', 'Data de início atual (replanejado). Se igual à planejada, copie.', 'Não', 'dd/MM/yyyy', '05/04/2026'],
+      ['Data Fim Tendência', 'Data de fim atual. Permite comparar baseline vs tendência no Gantt.', 'Não', 'dd/MM/yyyy', '15/07/2026'],
+      ['Duração (dias)', 'Dias úteis. Calculada das datas se omitida.', 'Não', 'Número inteiro', '91'],
+      ['Progresso (%)', 'Percentual concluído (0-100).', 'Não', '0 a 100 (ou 0.0 a 1.0)', '25'],
+      ['Responsável / Equipe', 'Nome da equipe responsável pela execução.', 'Recomendado', 'Texto', 'Equipe A'],
+      ['Coordenador', 'Nome do coordenador da frente.', 'Não', 'Texto', 'Priscila'],
+      ['Tipo de Rede', 'Tipo de infraestrutura. Define cores no Gantt.', 'Recomendado', 'agua, esgoto, civil, geral', 'esgoto'],
+      ['Serviço/Categoria', 'Categoria técnica do serviço.', 'Não', 'LA, LE, intra, interligacao, reposicao, OS, pavimentacao', 'LE'],
+      ['Núcleo / Frente', 'Nome do núcleo ou comunidade.', 'Recomendado', 'Texto', 'Vila Criadores'],
+      ['Local / Rua', 'Logradouro específico.', 'Não', 'Texto', 'Rua B'],
+      ['Comprimento (m)', 'Extensão em metros lineares.', 'Não', 'Número decimal', '350'],
+      ['DN (mm)', 'Diâmetro nominal da tubulação.', 'Não', 'Número inteiro', '200'],
+      ['Qtd Ligações', 'Número de ligações domiciliares.', 'Não', 'Número inteiro', '82'],
+      ['Peso / Prioridade', 'Peso para curva S (1-10). Maior = mais impacto.', 'Não', '1 a 10', '5'],
+      ['Predecessores', 'WBS das atividades predecessoras (separar por ;).', 'Não', 'WBS codes', '1.1.1;1.1.2'],
+      ['Marco (S/N)', 'S = marco contratual (duração 0). N = atividade.', 'Não', 'S ou N', 'N'],
+      ['Observações', 'Notas livres.', 'Não', 'Texto', 'Marco contratual'],
       [''],
-      ['Coluna', 'Descrição', 'Obrigatório?', 'Exemplo'],
-      ['WBS / Código', 'Código hierárquico (1, 1.1, 1.1.1). Define pai-filho automaticamente.', 'Recomendado', '1.2.1'],
-      ['Nome da Atividade', 'Nome descritivo da atividade ou serviço.', 'SIM', 'Rede DN 200mm - Rua A'],
-      ['Data Início', 'Data planejada de início (dd/MM/yyyy).', 'Recomendado', '01/04/2026'],
-      ['Data Fim', 'Data planejada de término (dd/MM/yyyy).', 'Recomendado', '30/06/2026'],
-      ['Duração (dias)', 'Duração em dias úteis. Calculada automaticamente das datas se omitida.', 'Opcional', '91'],
-      ['Progresso (%)', 'Percentual concluído (0-100). Deixe 0 para atividades não iniciadas.', 'Opcional', '25'],
-      ['Responsável / Equipe', 'Nome da equipe ou responsável pela atividade.', 'Opcional', 'Equipe A'],
-      ['Tipo de Rede', 'agua, esgoto, civil, ou geral.', 'Opcional', 'agua'],
-      ['Núcleo / Frente', 'Nome do núcleo ou frente de obra.', 'Opcional', 'Vila Norte'],
-      ['Local / Rua', 'Endereço ou logradouro da atividade.', 'Opcional', 'Rua Principal'],
-      ['Comprimento (m)', 'Extensão em metros lineares.', 'Opcional', '450'],
-      ['Qtd Ligações', 'Número de ligações/conexões neste trecho.', 'Opcional', '12'],
-      ['Peso / Prioridade', 'Peso para curva S (1-10). Maior = mais importante.', 'Opcional', '3'],
-      ['Marco (S/N)', 'S = marco contratual (duração 0). N = atividade normal.', 'Opcional', 'N'],
+      ['REGRAS DE IMPORTAÇÃO:'],
+      ['1. A coluna "Nome da Atividade" é obrigatória — linhas sem nome serão ignoradas.'],
+      ['2. Hierarquia WBS: 1 é pai de 1.1, que é pai de 1.1.1. O sistema detecta automaticamente.'],
+      ['3. Datas aceitas: dd/MM/yyyy, yyyy-MM-dd, ou números seriais do Excel.'],
+      ['4. Progresso aceita tanto 25 (percentual) quanto 0.25 (fração).'],
+      ['5. Marcos: atividades com duração 0 ou "Marco (S/N) = S" aparecem como diamante no Gantt.'],
+      ['6. Predecessores: use WBS separados por ; para definir dependências.'],
     ]
 
     const wb = XLSX.utils.book_new()
-    const wsData = XLSX.utils.aoa_to_sheet([headers, example, example2, example3, example4])
-    XLSX.utils.book_append_sheet(wb, wsData, 'Cronograma')
+    const wsCrono = XLSX.utils.aoa_to_sheet([title, meta, blank, headers, r0, blank, r1, r1a, r1b, r1c, r1d, blank, r2, r2a, r2b, blank, r3])
+    wsCrono['!cols'] = [
+      { wch: 14 }, { wch: 48 }, { wch: 6 }, { wch: 16 }, { wch: 16 },
+      { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 10 },
+      { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 14 },
+      { wch: 18 }, { wch: 22 }, { wch: 14 }, { wch: 8 },
+      { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 8 }, { wch: 28 },
+    ]
+    XLSX.utils.book_append_sheet(wb, wsCrono, 'Cronograma Mestre')
     const wsInstr = XLSX.utils.aoa_to_sheet(instructions)
+    wsInstr['!cols'] = [{ wch: 22 }, { wch: 55 }, { wch: 14 }, { wch: 40 }, { wch: 20 }]
     XLSX.utils.book_append_sheet(wb, wsInstr, 'Instruções')
     XLSX.writeFile(wb, 'atlantico-planejamento-mestre-template.xlsx')
   }
