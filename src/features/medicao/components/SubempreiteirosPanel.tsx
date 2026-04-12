@@ -173,6 +173,48 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
   )
 }
 
+// ─── Main-level import: creates a NEW subempreiteiro from XLSX ───────────────
+
+function ImportSubNewBtn({ periodo }: { periodo: string }) {
+  const { addSubempreiteiro, importSubempreiteiroItems } = useMedicaoBillingStore()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLoading(true)
+    try {
+      const wb = await readWorkbook(file)
+      const result = parseSubempreiteiroSheet(wb)
+      if (result.errors.length > 0) { alert(result.errors.join('\n')); return }
+      // Create new subempreiteiro and import items
+      addSubempreiteiro({
+        nome: result.nome,
+        nucleo: result.nucleo || '',
+        periodo: result.periodo || periodo,
+        itens: result.itens,
+        totalMedido: result.totals.totalMedido,
+        totalAprovado: result.totals.totalAprovado,
+        retencao: result.totals.retencao,
+      })
+    } finally {
+      setLoading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  return (
+    <>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={loading}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors">
+        <Upload size={13} /> {loading ? 'Lendo...' : 'Importar XLSX'}
+      </button>
+    </>
+  )
+}
+
 // ─── Import button for subcontractor card ─────────────────────────────────────
 
 function ImportSubBtn({ subId }: { subId: string }) {
@@ -362,7 +404,9 @@ export function SubempreiteirosPanel() {
           <h2 className="text-white font-semibold text-base">Planilhas dos Subempreiteiros</h2>
           <p className="text-[#a3a3a3] text-xs mt-0.5">{boletim.subempreiteiros.length} subempreiteiros · Período: {boletim.periodo}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Main-level import: creates a new subempreiteiro from XLSX */}
+          <ImportSubNewBtn periodo={boletim.periodo} />
           {boletim.subempreiteiros.length > 0 && (
             <>
               <button type="button"

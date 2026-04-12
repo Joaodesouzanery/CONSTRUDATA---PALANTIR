@@ -14,7 +14,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import type { CriterioMedicao } from '../data/criterios'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+// Reuse same worker config as pre-construcao module
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
 
 /**
  * Extract measurement criteria from a Sabesp PDF file.
