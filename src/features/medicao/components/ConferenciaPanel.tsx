@@ -104,6 +104,12 @@ export function ConferenciaPanel() {
     (i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0
   ).length
 
+  // Financial saldo validation
+  const totalContratoValor = boletim.itensContrato.reduce((s, i) => s + i.qtdContrato * i.valorUnitario, 0)
+  const totalAcumuladoValor = boletim.itensContrato.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
+  const saldoFinanceiroTotal = totalContratoValor - totalAcumuladoValor
+  const pctExecutado = totalContratoValor > 0 ? (totalAcumuladoValor / totalContratoValor) * 100 : 0
+
   return (
     <div className="p-6 space-y-5 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -153,12 +159,19 @@ export function ConferenciaPanel() {
       {conf.length > 0 && (
         <div className="space-y-3">
           {/* Financial cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="border rounded-xl p-3 bg-[#3d3d3d] border-[#525252]">
-              <p className="text-[#6b6b6b] text-[10px] uppercase">Medido Sabesp</p>
+              <p className="text-[#6b6b6b] text-[10px] uppercase">Medido Período</p>
               <p className="text-[#f5f5f5] text-lg font-bold tabular-nums">
                 {totalMedidoSabesp.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
               </p>
+            </div>
+            <div className="border rounded-xl p-3 bg-[#3d3d3d] border-[#525252]">
+              <p className="text-[#6b6b6b] text-[10px] uppercase">Saldo Contrato</p>
+              <p className={`text-lg font-bold tabular-nums ${saldoFinanceiroTotal >= 0 ? 'text-[#f5f5f5]' : 'text-[#f87171]'}`}>
+                {saldoFinanceiroTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-[10px] text-[#6b6b6b]">{pctExecutado.toFixed(1)}% executado</p>
             </div>
             <div className="border rounded-xl p-3 bg-[#f97316]/10 border-[#f97316]/30">
               <p className="text-[#6b6b6b] text-[10px] uppercase">Terceiros (Sub+Forn)</p>

@@ -222,16 +222,22 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
 
   for (let i = startRow; i < raw.length; i++) {
     const row = raw[i]
+    // Skip rows that are completely empty or contain only whitespace
+    if (!row || row.every((cell) => !toStr(cell))) continue
+
     const item    = toStr(row[iItem])
     const nPreco  = toStr(row[iNPreco])
     const descricao = toStr(row[iDescr])
 
-    // Skip completely empty rows
+    // Skip completely empty rows (Item, NPreco, and Descricao all empty)
     if (!item && !nPreco && !descricao) continue
 
-    // Detect grupo from Item code prefix (e.g. "02010101" → '02')
+    // Detect grupo from Item code prefix
+    // Handle both 7-digit (CSV: 1010101) and 8-digit (PDF: 01010101) formats
     const cleanItem = item.replace(/\D/g, '')
-    const grupoPfx = cleanItem.slice(0, 2)
+    // Normalize to 8 digits by padding with leading zero if 7 digits
+    const normalizedItem = cleanItem.length === 7 ? '0' + cleanItem : cleanItem
+    const grupoPfx = normalizedItem.slice(0, 2)
     if (grupoPfx === '01') currentGrupo = '01'
     else if (grupoPfx === '02') currentGrupo = '02'
     else if (grupoPfx === '03') currentGrupo = '03'
@@ -249,17 +255,19 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
 
     // Skip rows that look like repeated column headers
     if (norm(nPreco).includes('preco') || norm(nPreco).includes('n preco')) continue
+    // Skip "Total" summary rows
+    if (/^total/i.test(norm(descricao))) continue
 
     const unidade       = toStr(row[iUnid]) || 'M'
     const qtdContrato   = toNum(row[iQtdContr])
     const valorUnitario = toNum(row[iPUnit])
     const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
-    const qtdAnterior  = iQtdAnterior >= 0 ? toNum(row[iQtdAnterior]) : 0
+    const qtdAnterior   = iQtdAnterior >= 0 ? toNum(row[iQtdAnterior]) : 0
 
     if (!descricao && !nPreco) continue
 
     itens.push({
-      itemEAP:      item || cleanItem,
+      itemEAP:      normalizedItem || item,
       nPreco:       nPrecoClean,
       descricao:    descricao || '—',
       unidade,
