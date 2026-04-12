@@ -261,6 +261,12 @@ function XlsxImportSabesp() {
               ) : (
                 <>
                   <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens encontrados. Os itens atuais serão substituídos.</p>
+                  {preview.warnings && preview.warnings.length > 0 && (
+                    <div className="flex items-start gap-2 text-amber-400 text-[10px] bg-amber-900/20 border border-amber-700/30 rounded-lg p-2">
+                      <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                      <div>{preview.warnings.length} aviso(s): {preview.warnings.slice(0, 3).join(' · ')}{preview.warnings.length > 3 ? ` (+${preview.warnings.length - 3})` : ''}</div>
+                    </div>
+                  )}
                   <div className="overflow-x-auto max-h-56 border border-[#525252] rounded-lg">
                     <table className="w-full text-xs border-collapse">
                       <thead>

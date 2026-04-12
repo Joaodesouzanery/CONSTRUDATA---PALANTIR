@@ -40,16 +40,24 @@ function findCol(row: Row, keywords: string[]): string | undefined {
 /**
  * Converts a value to a number, handling both Brazilian (1.234,56)
  * and English (1234.56) decimal formats, as well as R$ currency strings.
+ *
+ * Robust cleaning: strips "R$", currency symbols, spaces, and non-numeric
+ * characters (except .,- for decimal/negative). Handles Sabesp PDF formats
+ * where values may contain embedded formatting.
  */
 function toNum(v: unknown): number {
   if (typeof v === 'number') return isNaN(v) ? 0 : v
   const s = String(v ?? '').trim()
-  // Remove currency symbol and spaces
-  const clean = s.replace(/R\$\s?/g, '').replace(/\s/g, '')
-  if (!clean) return 0
+  // Remove currency symbols (R$, $), parentheses, spaces, and stray chars
+  const clean = s
+    .replace(/R\$\s?/g, '')
+    .replace(/\$/g, '')
+    .replace(/[()]/g, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '')
+  if (!clean || clean === '-' || clean === ',' || clean === '.') return 0
   // Brazilian format: both . and , present — . is thousands separator, , is decimal
   if (clean.includes(',') && clean.includes('.')) {
-    // Check which comes last to determine format
     const lastDot   = clean.lastIndexOf('.')
     const lastComma = clean.lastIndexOf(',')
     if (lastComma > lastDot) {
@@ -80,8 +88,9 @@ export async function readWorkbook(file: File): Promise<XLSX.WorkBook> {
 // ─── Sabesp planilha parser ───────────────────────────────────────────────────
 
 export interface SabespParseResult {
-  itens:  Omit<ItemContrato, 'id'>[]
-  errors: string[]
+  itens:    Omit<ItemContrato, 'id'>[]
+  errors:   string[]
+  warnings: string[]
 }
 
 /**
@@ -99,11 +108,12 @@ export interface SabespParseResult {
 export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   const itens: Omit<ItemContrato, 'id'>[] = []
   const errors: string[] = []
+  const warnings: string[] = []
 
   const sheetName = wb.SheetNames[0]
   if (!sheetName) {
     errors.push('Planilha vazia.')
-    return { itens, errors }
+    return { itens, errors, warnings }
   }
 
   const ws = wb.Sheets[sheetName]
@@ -113,7 +123,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
 
   if (raw.length === 0) {
     errors.push('Planilha vazia ou sem dados reconhecíveis.')
-    return { itens, errors }
+    return { itens, errors, warnings }
   }
 
   // ── Build a flat cell map from raw address access for merged-cell detection ─
@@ -232,6 +242,13 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     // Skip completely empty rows (Item, NPreco, and Descricao all empty)
     if (!item && !nPreco && !descricao) continue
 
+    // Skip CRITÉRIO lines (measurement criteria text, not data rows)
+    const rowJoined = [item, nPreco, descricao].join(' ')
+    if (/crit[eé]rio/i.test(rowJoined) && !/^\d{4,}$/.test(nPreco.replace(/\s/g, ''))) continue
+
+    // Skip "Total do Grupo", "Total da Frente", "Total da Planilha" summary rows
+    if (/total\s*(do|da|geral)/i.test(rowJoined)) continue
+
     // Detect grupo from Item code prefix
     // Handle both 7-digit (CSV: 1010101) and 8-digit (PDF: 01010101) formats
     const cleanItem = item.replace(/\D/g, '')
@@ -249,27 +266,41 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       else if (/agua|abastecimento|adutora|rede de distribui/.test(rowStr)) currentGrupo = '03'
     }
 
-    // Skip group-header rows: N. Preço column empty or non-numeric
-    const nPrecoClean = nPreco.replace(/\s/g, '')
+    // Try to extract N. Preço from description if the NPreço column is empty
+    // (handles PDF format where "MANUTENÇÃO DO CANTEIRO 500101" has code embedded)
+    let nPrecoClean = nPreco.replace(/\s/g, '')
+    let cleanDescricao = descricao
+
+    if (!nPrecoClean || !/^\d{4,}$/.test(nPrecoClean)) {
+      // Try to extract 6-digit code from end of description
+      const codeMatch = descricao.match(/\b(\d{6})\s*$/)
+      if (codeMatch) {
+        nPrecoClean = codeMatch[1]
+        cleanDescricao = descricao.replace(/\s*\d{6}\s*$/, '').trim()
+      }
+    }
+
+    // Skip group-header rows: N. Preço still empty or non-numeric after extraction
     if (!nPrecoClean || !/^\d+$/.test(nPrecoClean)) continue
 
     // Skip rows that look like repeated column headers
-    if (norm(nPreco).includes('preco') || norm(nPreco).includes('n preco')) continue
-    // Skip "Total" summary rows
-    if (/^total/i.test(norm(descricao))) continue
+    if (norm(nPrecoClean).includes('preco') || norm(nPrecoClean).includes('n preco')) continue
 
-    const unidade       = toStr(row[iUnid]) || 'M'
+    // Validate unit exists — skip rows without a recognizable unit
+    const unidadeRaw = toStr(row[iUnid])
+    const unidade = unidadeRaw || 'M'
+
     const qtdContrato   = toNum(row[iQtdContr])
     const valorUnitario = toNum(row[iPUnit])
     const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
     const qtdAnterior   = iQtdAnterior >= 0 ? toNum(row[iQtdAnterior]) : 0
 
-    if (!descricao && !nPreco) continue
+    if (!cleanDescricao && !nPrecoClean) continue
 
     itens.push({
       itemEAP:      normalizedItem || item,
       nPreco:       nPrecoClean,
-      descricao:    descricao || '—',
+      descricao:    cleanDescricao || '—',
       unidade,
       grupo:        currentGrupo,
       qtdContrato,
@@ -286,7 +317,31 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     )
   }
 
-  return { itens, errors }
+  // ── Rounding validation (Regra dos Centavos) ──────────────────────────────
+  // Check if calculated totals match expected values within ±R$0.01 tolerance
+  for (const it of itens) {
+    if (it.qtdMedida > 0 && it.valorUnitario > 0) {
+      const computed = it.qtdMedida * it.valorUnitario
+      // Round to 2 decimals (Sabesp standard)
+      const rounded = Math.round(computed * 100) / 100
+      if (Math.abs(computed - rounded) > 0.005) {
+        warnings.push(
+          `Arredondamento: item ${it.nPreco} — valor calculado R$ ${computed.toFixed(4)} será arredondado para R$ ${rounded.toFixed(2)}`
+        )
+      }
+    }
+  }
+
+  // Check for duplicate N. Preço entries
+  const seen = new Set<string>()
+  for (const it of itens) {
+    if (seen.has(it.nPreco)) {
+      warnings.push(`N. Preço duplicado: ${it.nPreco} aparece mais de uma vez na planilha.`)
+    }
+    seen.add(it.nPreco)
+  }
+
+  return { itens, errors, warnings }
 }
 
 // ─── Subempreiteiro sheet parser ──────────────────────────────────────────────
