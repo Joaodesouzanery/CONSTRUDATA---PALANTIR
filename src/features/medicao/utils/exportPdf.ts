@@ -20,11 +20,12 @@ const BASE_CSS = `
   h1 { font-size: 13pt; margin: 0 0 2px; color: #111; }
   h2 { font-size: 11pt; margin: 14px 0 4px; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
   p.sub { font-size: 8.5pt; color: #555; margin: 0 0 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 14px; }
-  th { background: #f97316; color: #fff; padding: 5px 7px; text-align: left; font-weight: 700; }
-  th.right, td.right { text-align: right; }
+  table { width: 100%; border-collapse: collapse; font-size: 7.5pt; margin-bottom: 14px; }
+  th { background: #f97316; color: #fff; padding: 4px 5px; text-align: left; font-weight: 700; white-space: nowrap; }
+  th.right, td.right { text-align: right; white-space: nowrap; }
   th.center, td.center { text-align: center; }
-  td { padding: 4px 7px; border-bottom: 1px solid #e5e5e5; }
+  td { padding: 3px 5px; border-bottom: 1px solid #e5e5e5; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
   tr:nth-child(even) td { background: #f9f9f9; }
   tfoot td { background: #f0f0f0 !important; font-weight: 700; border-top: 2px solid #ccc; }
   .total { font-size: 11pt; font-weight: 700; color: #f97316; margin: 8px 0 0; }

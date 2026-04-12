@@ -389,6 +389,17 @@ export function SabespPlanilhaPanel() {
         </div>
       </div>
 
+      {/* Alert banner for items with negative balance */}
+      {boletim.itensContrato.some((i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0) && (
+        <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <div>
+            <strong>{boletim.itensContrato.filter((i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0).length} item(ns) com saldo negativo</strong>
+            {' '}— a medição excede a quantidade contratual. Verifique se é aditivo autorizado ou erro de lançamento.
+          </div>
+        </div>
+      )}
+
       {/* Alert banner for items without N. Preço */}
       {boletim.itensContrato.some((i) => i.nPreco.startsWith('EXT')) && (
         <div className="flex items-start gap-2 text-amber-400 text-xs bg-amber-900/20 border border-amber-700/30 rounded-lg p-3">
@@ -448,7 +459,13 @@ export function SabespPlanilhaPanel() {
                       const saldoR$ = saldoQtd * item.valorUnitario
                       const inputCls = "w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-[10px]"
                       return (
-                      <tr key={item.id} className={`border-b border-[#525252] hover:bg-[#333] ${item.nPreco.startsWith('EXT') ? 'bg-amber-950/20 border-l-2 border-l-red-500' : ''}`} title={item.nPreco.startsWith('EXT') ? 'Serviço sem código de catálogo Sabesp — insira o N. Preço ou marque como Aditivo' : undefined}>
+                      <tr key={item.id} className={`border-b border-[#525252] hover:bg-[#333] ${
+                        item.nPreco.startsWith('EXT') ? 'bg-amber-950/20 border-l-2 border-l-red-500' :
+                        saldoQtd < 0 ? 'bg-red-950/15 border-l-2 border-l-amber-500' : ''
+                      }`} title={
+                        item.nPreco.startsWith('EXT') ? 'Serviço sem código de catálogo Sabesp — insira o N. Preço ou marque como Aditivo' :
+                        saldoQtd < 0 ? `Saldo negativo: medição excede contrato em ${Math.abs(saldoQtd).toLocaleString('pt-BR')} ${item.unidade}` : undefined
+                      }>
                         {/* Item (EAP) */}
                         <td className="px-2 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px] whitespace-nowrap">{item.itemEAP || '—'}</td>
                         {/* Descrição + N. Preço */}
