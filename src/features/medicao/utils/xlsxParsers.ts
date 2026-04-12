@@ -271,22 +271,36 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     let nPrecoClean = nPreco.replace(/\s/g, '')
     let cleanDescricao = descricao
 
-    if (!nPrecoClean || !/^\d{4,}$/.test(nPrecoClean)) {
-      // Try to extract 6-digit code from end of description
-      const codeMatch = descricao.match(/\b(\d{6})\s*$/)
+    if (!nPrecoClean || !/^\d{3,}$/.test(nPrecoClean)) {
+      // Try to extract numeric code from end of description (3-6 digits)
+      const codeMatch = descricao.match(/\b(\d{3,6})\s*$/)
       if (codeMatch) {
         nPrecoClean = codeMatch[1]
-        cleanDescricao = descricao.replace(/\s*\d{6}\s*$/, '').trim()
+        cleanDescricao = descricao.replace(/\s*\d{3,6}\s*$/, '').trim()
       }
     }
 
-    // Skip group-header rows: N. Preço still empty or non-numeric after extraction
-    if (!nPrecoClean || !/^\d+$/.test(nPrecoClean)) continue
+    // Check if row has numeric data (quantity or unit price) — accept items
+    // even without standard N. Preço (e.g., "TRANSPORTE DE RESIDUOS" with short codes)
+    const hasNumericData = toNum(row[iQtdContr]) > 0 || toNum(row[iPUnit]) > 0
+
+    // If no N. Preço and no numeric data, it's a group header — skip
+    if ((!nPrecoClean || !/^\d+$/.test(nPrecoClean)) && !hasNumericData) continue
+
+    // Generate temporary ID for items without standard N. Preço
+    if (!nPrecoClean || !/^\d+$/.test(nPrecoClean)) {
+      if (hasNumericData && cleanDescricao) {
+        // Accept the item with a generated code: "EXT-" + row index
+        nPrecoClean = `EXT${String(i).padStart(4, '0')}`
+      } else {
+        continue
+      }
+    }
 
     // Skip rows that look like repeated column headers
     if (norm(nPrecoClean).includes('preco') || norm(nPrecoClean).includes('n preco')) continue
 
-    // Validate unit exists — skip rows without a recognizable unit
+    // Validate unit exists
     const unidadeRaw = toStr(row[iUnid])
     const unidade = unidadeRaw || 'M'
 
@@ -332,13 +346,50 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     }
   }
 
-  // Check for duplicate N. Preço entries
+  // Check for duplicate N. Preço entries (skip generated EXT codes)
   const seen = new Set<string>()
   for (const it of itens) {
+    if (it.nPreco.startsWith('EXT')) continue
     if (seen.has(it.nPreco)) {
       warnings.push(`N. Preço duplicado: ${it.nPreco} aparece mais de uma vez na planilha.`)
     }
     seen.add(it.nPreco)
+  }
+
+  // ── Cross-check: compare imported total vs "Total da Planilha" row ────────
+  // Scan raw data for a row containing "Total da Planilha" and extract its value
+  for (let i = startRow; i < raw.length; i++) {
+    const cells = raw[i]?.map(toStr) ?? []
+    const rowText = cells.join(' ')
+    if (/total\s*(da\s*)?planilha/i.test(rowText)) {
+      // Find the first large numeric value in this row (the total)
+      for (const cell of cells) {
+        const val = toNum(cell)
+        if (val > 1000) {
+          // Compare with sum of all imported items (qtdContrato * valorUnitario)
+          const importedTotal = itens.reduce((s, it) => s + it.qtdContrato * it.valorUnitario, 0)
+          const diff = Math.abs(val - importedTotal)
+          if (diff > 1) {
+            warnings.push(
+              `Alerta de consistência: Total da Planilha no arquivo é R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` +
+              `, mas a soma dos itens importados é R$ ${importedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` +
+              ` (diferença: R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Verifique se todos os itens foram importados.`
+            )
+          }
+          break
+        }
+      }
+      break
+    }
+  }
+
+  // Flag items with generated IDs (no standard N. Preço)
+  const extItems = itens.filter(it => it.nPreco.startsWith('EXT'))
+  if (extItems.length > 0) {
+    warnings.push(
+      `${extItems.length} item(ns) importado(s) sem código N. Preço padrão: ${extItems.map(it => it.descricao).join(', ')}. ` +
+      'Códigos temporários (EXT) foram gerados. Edite manualmente se necessário.'
+    )
   }
 
   return { itens, errors, warnings }
