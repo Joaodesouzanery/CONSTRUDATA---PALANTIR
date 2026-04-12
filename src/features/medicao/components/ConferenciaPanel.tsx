@@ -6,7 +6,7 @@
  * Flags divergências. Allows manual observações.
  */
 import { useState } from 'react'
-import { CheckCircle, AlertTriangle, Clock, RefreshCw, FileDown, BookOpen, ChevronDown, DollarSign } from 'lucide-react'
+import { CheckCircle, AlertTriangle, Clock, RefreshCw, FileDown, BookOpen, ChevronDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { ConferenciaItem } from '@/store/medicaoBillingStore'
 import { exportConferenciaPdf } from '../utils/exportPdf'
