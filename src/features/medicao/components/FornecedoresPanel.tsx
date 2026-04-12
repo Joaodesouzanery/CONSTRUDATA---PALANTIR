@@ -211,14 +211,26 @@ export function FornecedoresPanel() {
             <Download size={13} /> Template XLSX
           </button>
           {boletim.fornecedores.length > 0 && (
-            <button
-              type="button"
-              onClick={() => exportFornecedoresPdf(boletim.fornecedores, boletim.periodo, boletim.contrato)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-            >
-              <FileDown size={13} />
-              Exportar PDF
-            </button>
+            <>
+              <button type="button"
+                onClick={() => {
+                  const rows = boletim.fornecedores.map(f => ({
+                    'Fornecedor': f.nome, 'Período': f.periodo, 'Descrição': f.descricao, 'Valor Aprovado (R$)': f.valorAprovado,
+                  }))
+                  const ws = XLSX.utils.json_to_sheet(rows)
+                  const wb = XLSX.utils.book_new()
+                  XLSX.utils.book_append_sheet(wb, ws, 'Fornecedores')
+                  XLSX.writeFile(wb, `Fornecedores_${boletim.periodo.replace('/', '-')}.xlsx`)
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
+                <FileDown size={13} /> Exportar XLSX
+              </button>
+              <button type="button"
+                onClick={() => exportFornecedoresPdf(boletim.fornecedores, boletim.periodo, boletim.contrato)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
+                <FileDown size={13} /> Exportar PDF
+              </button>
+            </>
           )}
           {boletim.fornecedores.length > 0 && (
             <div className="text-right">

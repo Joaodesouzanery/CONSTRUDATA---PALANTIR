@@ -8,6 +8,7 @@ import { Search, BookOpen, Plus, Trash2, X as XIcon, Upload, AlertCircle } from 
 import * as XLSX from 'xlsx'
 import { searchCriterios, getAllCriterios, addCustomCriterio, removeCustomCriterio, isCustomCriterio } from '../data/criterios'
 import type { CriterioMedicao } from '../data/criterios'
+import { parseCriterioPdf } from '../utils/criterioPdfParser'
 
 const GRUPO_COLORS: Record<string, string> = {
   '01': 'text-amber-400 bg-amber-400/10 border-amber-500/30',
@@ -214,9 +215,17 @@ export function CriteriosMedicaoPanel() {
     if (!file) return
     setImportLoading(true)
     try {
-      const buf = await file.arrayBuffer()
-      const wb = XLSX.read(buf, { type: 'array' })
-      setImportPreview(parseCriteriosXlsx(wb))
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        // PDF import using pdfjs-dist
+        setImportPreview(await parseCriterioPdf(file))
+      } else {
+        // XLSX/CSV import
+        const buf = await file.arrayBuffer()
+        const wb = XLSX.read(buf, { type: 'array' })
+        setImportPreview(parseCriteriosXlsx(wb))
+      }
+    } catch (err) {
+      setImportPreview({ items: [], errors: [`Erro ao ler arquivo: ${err instanceof Error ? err.message : 'formato inválido'}`] })
     } finally {
       setImportLoading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -256,11 +265,11 @@ export function CriteriosMedicaoPanel() {
           </div>
           <div className="text-[10px] text-[#6b6b6b] mt-1.5">{results.length} critérios</div>
           <div className="flex flex-col gap-1.5 mt-2">
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
+            <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
             <button onClick={() => fileRef.current?.click()} disabled={importLoading}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors">
               <Upload size={13} />
-              {importLoading ? 'Lendo...' : 'Importar XLSX / CSV'}
+              {importLoading ? 'Lendo...' : 'Importar PDF / XLSX / CSV'}
             </button>
             <button onClick={() => setAddOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-dashed border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
               <Plus size={13} /> Adicionar manualmente

@@ -364,14 +364,31 @@ export function SubempreiteirosPanel() {
         </div>
         <div className="flex items-center gap-3">
           {boletim.subempreiteiros.length > 0 && (
-            <button
-              type="button"
-              onClick={() => exportSubempreiteirosPdf(boletim.subempreiteiros, boletim.periodo, boletim.contrato)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-            >
-              <FileDown size={13} />
-              Exportar PDF
-            </button>
+            <>
+              <button type="button"
+                onClick={() => {
+                  const rows = boletim.subempreiteiros.flatMap(sub =>
+                    sub.itens.map(it => ({
+                      'Subempreiteiro': sub.nome, 'Núcleo': sub.nucleo, 'Período': sub.periodo,
+                      'Nº Preço': it.nPreco, 'Vínc. Sabesp': it.nPrecoSabesp, 'Descrição': it.descricao,
+                      'Un': it.unidade, 'Qtd': it.qtd, 'Vl. Unitário': it.valorUnitario,
+                      'Total': Math.round(it.qtd * it.valorUnitario * 100) / 100,
+                    }))
+                  )
+                  const ws = XLSX.utils.json_to_sheet(rows)
+                  const wb = XLSX.utils.book_new()
+                  XLSX.utils.book_append_sheet(wb, ws, 'Subempreiteiros')
+                  XLSX.writeFile(wb, `Subempreiteiros_${boletim.periodo.replace('/', '-')}.xlsx`)
+                }}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
+                <FileDown size={13} /> Exportar XLSX
+              </button>
+              <button type="button"
+                onClick={() => exportSubempreiteirosPdf(boletim.subempreiteiros, boletim.periodo, boletim.contrato)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
+                <FileDown size={13} /> Exportar PDF
+              </button>
+            </>
           )}
           {boletim.subempreiteiros.length > 0 && (
             <div className="text-right">
