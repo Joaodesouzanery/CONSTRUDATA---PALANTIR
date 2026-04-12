@@ -101,7 +101,7 @@ export function ConferenciaPanel() {
 
   // Check for negative balance (quantity exceeds contract)
   const negSaldoCount = boletim.itensContrato.filter(
-    (i) => (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) < 0
+    (i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0
   ).length
 
   return (

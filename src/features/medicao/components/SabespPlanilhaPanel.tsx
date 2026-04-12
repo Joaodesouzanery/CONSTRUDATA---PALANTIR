@@ -35,7 +35,7 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
   const [unidade, setUnidade]             = useState('M')
   const [grupo, setGrupo]                 = useState<'01'|'02'|'03'>('02')
   const [qtdContrato, setQtdContrato]     = useState('')
-  const [qtdAcumulada, setQtdAcumulada]   = useState('')
+  const [qtdAnterior, setQtdAcumulada]   = useState('')
   const [qtdMedida, setQtdMedida]         = useState('')
   const [valorUnitario, setValorUnitario] = useState('')
 
@@ -59,7 +59,7 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
       unidade:       unidade.trim() || 'M',
       grupo,
       qtdContrato:   parseFloat(qtdContrato) || 0,
-      qtdAcumulada:  parseFloat(qtdAcumulada) || 0,
+      qtdAnterior:  parseFloat(qtdAnterior) || 0,
       qtdMedida:     parseFloat(qtdMedida)   || 0,
       valorUnitario: parseFloat(valorUnitario.replace(',', '.')) || 0,
     })
@@ -139,11 +139,11 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
             />
           </div>
           <div>
-            <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Qtd Acumulada</label>
+            <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Qtd Anterior</label>
             <input
               type="number"
               min={0}
-              value={qtdAcumulada}
+              value={qtdAnterior}
               onChange={(e) => setQtdAcumulada(e.target.value)}
               placeholder="0"
               className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
@@ -269,7 +269,7 @@ function XlsxImportSabesp() {
                           <th className="px-2 py-2 text-left">Nº Preço</th>
                           <th className="px-2 py-2 text-left">Descrição</th>
                           <th className="px-2 py-2 text-center">Un</th>
-                          <th className="px-2 py-2 text-right">Qtd Acum.</th>
+                          <th className="px-2 py-2 text-right">Qtd Anter.</th>
                           <th className="px-2 py-2 text-right">Qtd Medida</th>
                           <th className="px-2 py-2 text-right">Vl. Unit.</th>
                         </tr>
@@ -281,7 +281,7 @@ function XlsxImportSabesp() {
                             <td className="px-2 py-1.5 font-mono text-[#f97316]">{item.nPreco}</td>
                             <td className="px-2 py-1.5 text-[#f5f5f5] max-w-[160px] truncate">{item.descricao}</td>
                             <td className="px-2 py-1.5 text-center text-[#a3a3a3]">{item.unidade}</td>
-                            <td className="px-2 py-1.5 text-right">{item.qtdAcumulada}</td>
+                            <td className="px-2 py-1.5 text-right">{item.qtdAnterior}</td>
                             <td className="px-2 py-1.5 text-right">{item.qtdMedida}</td>
                             <td className="px-2 py-1.5 text-right">{item.valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                           </tr>
@@ -359,10 +359,24 @@ export function SabespPlanilhaPanel() {
               Exportar PDF
             </button>
           )}
-          <div className="text-right">
-            <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
-            <div className="text-[#f97316] font-bold text-lg">
-              R$ {fmt(boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0))}
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
+              <div className="text-[#f97316] font-bold text-base">
+                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0))}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-[#a3a3a3] uppercase">Acumulado</div>
+              <div className="text-[#a3a3a3] font-bold text-sm">
+                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0))}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-[#a3a3a3] uppercase">Saldo</div>
+              <div className={`font-bold text-sm ${boletim.itensContrato.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0))}
+              </div>
             </div>
           </div>
         </div>
@@ -388,84 +402,70 @@ export function SabespPlanilhaPanel() {
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="bg-[#1f1f1f] text-[#a3a3a3] text-[10px] uppercase">
-                      <th className="px-2 py-2 text-left border-r border-[#525252] w-24">Item</th>
-                      <th className="px-2 py-2 text-left border-r border-[#525252] w-20">Nº Preço</th>
-                      <th className="px-2 py-2 text-left border-r border-[#525252]">Descrição</th>
-                      <th className="px-2 py-2 text-center border-r border-[#525252] w-12">Un</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-24">Qtd Contrato</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-24">Qtd Acum.</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-24">Qtd Medida</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-28">Vl. Unitário</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-28">Vl. Período</th>
-                      <th className="px-2 py-2 text-right border-r border-[#525252] w-28">Saldo</th>
-                      <th className="px-2 py-2 w-10"></th>
+                      <th className="px-1 py-2 text-left border-r border-[#525252] w-20">Item</th>
+                      <th className="px-1 py-2 text-left border-r border-[#525252] w-16">N. Preço</th>
+                      <th className="px-1 py-2 text-left border-r border-[#525252]">Descrição</th>
+                      <th className="px-1 py-2 text-center border-r border-[#525252] w-10">Un</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Contr.</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-22">Vl. Unit.</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Anter.</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Atual</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-20">Qtd Acum.</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-24">Total Per. (R$)</th>
+                      <th className="px-1 py-2 text-right border-r border-[#525252] w-24">Saldo (R$)</th>
+                      <th className="px-1 py-2 w-8"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {items.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="px-3 py-5 text-center text-xs text-[#6b6b6b] italic border-b border-[#525252]">
+                        <td colSpan={12} className="px-3 py-5 text-center text-xs text-[#6b6b6b] italic border-b border-[#525252]">
                           Nenhum item neste grupo. Adicione abaixo.
                         </td>
                       </tr>
                     ) : items.map((item) => {
-                      const saldo = (item.qtdContrato - item.qtdAcumulada - item.qtdMedida) * item.valorUnitario
+                      const qtdAcum = item.qtdAnterior + item.qtdMedida
+                      const totalPeriodo = item.qtdMedida * item.valorUnitario
+                      const saldo = (item.qtdContrato - qtdAcum) * item.valorUnitario
                       return (
                       <tr key={item.id} className="border-b border-[#525252] hover:bg-[#333]">
-                        <td className="px-2 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-xs">{item.itemEAP || '—'}</td>
-                        <td className="px-2 py-2 border-r border-[#525252] font-mono text-[#f97316] text-xs">{item.nPreco}</td>
-                        <td className="px-2 py-2 border-r border-[#525252] text-[#f5f5f5] text-xs">{item.descricao}</td>
-                        <td className="px-2 py-2 border-r border-[#525252] text-center text-[#a3a3a3] text-xs">{item.unidade}</td>
-                        <td className="px-2 py-1 border-r border-[#525252] text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.qtdContrato}
+                        <td className="px-1 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px]">{item.itemEAP || '—'}</td>
+                        <td className="px-1 py-2 border-r border-[#525252] font-mono text-[#f97316] text-[10px]">{item.nPreco}</td>
+                        <td className="px-1 py-2 border-r border-[#525252] text-[#f5f5f5] text-[10px]">{item.descricao}</td>
+                        <td className="px-1 py-2 border-r border-[#525252] text-center text-[#a3a3a3] text-[10px]">{item.unidade}</td>
+                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                          <input type="number" min={0} value={item.qtdContrato}
                             onChange={(e) => updateItemContrato(item.id, { qtdContrato: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-xs"
-                          />
+                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
                         </td>
-                        <td className="px-2 py-1 border-r border-[#525252] text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.qtdAcumulada}
-                            onChange={(e) => updateItemContrato(item.id, { qtdAcumulada: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-xs"
-                          />
-                        </td>
-                        <td className="px-2 py-1 border-r border-[#525252] text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.qtdMedida}
-                            onChange={(e) => updateItemContrato(item.id, { qtdMedida: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-xs"
-                          />
-                        </td>
-                        <td className="px-2 py-1 border-r border-[#525252] text-right">
-                          <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={item.valorUnitario}
+                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                          <input type="number" min={0} step={0.01} value={item.valorUnitario}
                             onChange={(e) => updateItemContrato(item.id, { valorUnitario: parseFloat(e.target.value) || 0 })}
-                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-xs"
-                          />
+                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
                         </td>
-                        <td className="px-2 py-2 border-r border-[#525252] text-right font-medium text-emerald-400 text-xs">
-                          R$ {fmt(item.qtdMedida * item.valorUnitario)}
+                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                          <input type="number" min={0} value={item.qtdAnterior}
+                            onChange={(e) => updateItemContrato(item.id, { qtdAnterior: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
                         </td>
-                        <td className={`px-2 py-2 border-r border-[#525252] text-right font-medium text-xs ${saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <td className="px-1 py-1 border-r border-[#525252] text-right">
+                          <input type="number" min={0} value={item.qtdMedida}
+                            onChange={(e) => updateItemContrato(item.id, { qtdMedida: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-0.5 py-0.5 text-[10px]" />
+                        </td>
+                        <td className="px-1 py-2 border-r border-[#525252] text-right text-[#a3a3a3] text-[10px] font-mono">
+                          {fmt(qtdAcum)}
+                        </td>
+                        <td className="px-1 py-2 border-r border-[#525252] text-right font-medium text-emerald-400 text-[10px]">
+                          R$ {fmt(totalPeriodo)}
+                        </td>
+                        <td className={`px-1 py-2 border-r border-[#525252] text-right font-medium text-[10px] ${saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                           R$ {fmt(saldo)}
                         </td>
-                        <td className="px-2 py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeItemContrato(item.id)}
-                            className="text-red-400 hover:bg-red-900/20 rounded p-1 transition-colors"
-                          >
-                            <Trash2 size={13} />
+                        <td className="px-1 py-2 text-center">
+                          <button type="button" onClick={() => removeItemContrato(item.id)}
+                            className="text-red-400 hover:bg-red-900/20 rounded p-1 transition-colors">
+                            <Trash2 size={12} />
                           </button>
                         </td>
                       </tr>
@@ -474,13 +474,15 @@ export function SabespPlanilhaPanel() {
                   {items.length > 0 && (
                     <tfoot>
                       <tr className="bg-[#1f1f1f]">
-                        <td colSpan={8} className="px-2 py-2 text-right text-xs font-semibold text-[#a3a3a3] border-r border-[#525252]">
+                        <td colSpan={9} className="px-1 py-2 text-right text-[10px] font-semibold text-[#a3a3a3] border-r border-[#525252]">
                           Subtotal {grupo.nome}
                         </td>
-                        <td className="px-2 py-2 text-right font-bold text-[#f97316] border-r border-[#525252]">
+                        <td className="px-1 py-2 text-right font-bold text-[#f97316] border-r border-[#525252] text-[10px]">
                           R$ {fmt(subtotal)}
                         </td>
-                        <td />
+                        <td className="px-1 py-2 text-right font-bold text-[#a3a3a3] border-r border-[#525252] text-[10px]">
+                          R$ {fmt(items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0))}
+                        </td>
                         <td />
                       </tr>
                     </tfoot>

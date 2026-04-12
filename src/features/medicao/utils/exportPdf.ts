@@ -61,30 +61,43 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
     grandTotal += subtotal
 
     body += `<h2>Grupo ${gId} — ${GRUPOS[gId]}</h2>`
+    const grupoSaldo = items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
+
     body += `<table><thead><tr>
       <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
-      <th class="right">Qtd Contrato</th><th class="right">Qtd Acum.</th><th class="right">Qtd Medida</th>
-      <th class="right">Vl. Unitário</th><th class="right">Total Período</th><th class="right">Saldo</th>
+      <th class="right">Qtd Contr.</th><th class="right">Vl. Unit.</th>
+      <th class="right">Qtd Anter.</th><th class="right">Qtd Atual</th><th class="right">Qtd Acum.</th>
+      <th class="right">Total Per. (R$)</th><th class="right">Saldo (R$)</th>
     </tr></thead><tbody>`
     for (const i of items) {
-      const saldo = (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) * i.valorUnitario
+      const qtdAcum = i.qtdAnterior + i.qtdMedida
+      const totalPer = i.qtdMedida * i.valorUnitario
+      const saldo = (i.qtdContrato - qtdAcum) * i.valorUnitario
       body += `<tr>
         <td>${i.itemEAP || '—'}</td><td>${i.nPreco}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
-        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtNum(i.qtdAcumulada)}</td><td class="right">${fmtNum(i.qtdMedida)}</td>
-        <td class="right">${fmtBRL(i.valorUnitario)}</td><td class="right">${fmtBRL(i.qtdMedida * i.valorUnitario)}</td>
+        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtBRL(i.valorUnitario)}</td>
+        <td class="right">${fmtNum(i.qtdAnterior)}</td><td class="right">${fmtNum(i.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
+        <td class="right">${fmtBRL(totalPer)}</td>
         <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
       </tr>`
       const crit = getAllCriterios().find(cr => cr.nPreco === i.nPreco)
       if (crit) {
-        body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
-          <strong style="color:#f97316;">CRITÉRIO ${i.nPreco}</strong> — <strong>Medição:</strong> ${crit.medicao}
+        body += `<tr><td colspan="11" style="background:#fff8f0;padding:3px 10px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;">
+          <strong style="color:#f97316;font-style:normal;">CRITÉRIO ${i.nPreco}</strong> — Medição: ${crit.medicao}
         </td></tr>`
       }
     }
-    body += `</tbody><tfoot><tr><td colspan="8" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td></td></tr></tfoot></table>`
+    body += `</tbody><tfoot><tr><td colspan="9" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td class="right">${fmtBRL(grupoSaldo)}</td></tr></tfoot></table>`
   }
 
-  body += `<p class="total">Total do Período: ${fmtBRL(grandTotal)}</p>`
+  const grandAcumulado = itens.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
+  const grandSaldo = itens.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
+
+  body += `<table style="margin-top:12px;"><tbody>
+    <tr><td><strong>Total do Período</strong></td><td class="right" style="font-size:11pt;font-weight:700;color:#f97316;">${fmtBRL(grandTotal)}</td></tr>
+    <tr><td>Total Acumulado</td><td class="right">${fmtBRL(grandAcumulado)}</td></tr>
+    <tr><td>Saldo Total</td><td class="right" style="color:${grandSaldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(grandSaldo)}</td></tr>
+  </tbody></table>`
   openPrint(`Medição Sabesp ${periodo}`, body)
 }
 
@@ -236,33 +249,37 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
       const subtotal = items.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0)
 
       body += `<h2 style="font-size:9.5pt;border-color:#f97316;">Grupo ${gId} — ${GRUPOS[gId]}</h2>`
+      const grupoSaldo = items.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
       body += `<table><thead><tr>
         <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
-        <th class="right">Qtd Contrato</th><th class="right">Qtd Acum.</th><th class="right">Qtd Medida</th>
-        <th class="right">Vl. Unitário</th><th class="right">Total Período</th><th class="right">Saldo</th>
+        <th class="right">Qtd Contr.</th><th class="right">Vl. Unit.</th>
+        <th class="right">Qtd Anter.</th><th class="right">Qtd Atual</th><th class="right">Qtd Acum.</th>
+        <th class="right">Total Per. (R$)</th><th class="right">Saldo (R$)</th>
       </tr></thead><tbody>`
       for (const item of items) {
+        const qtdAcum = item.qtdAnterior + item.qtdMedida
         const valor = item.qtdMedida * item.valorUnitario
-        const saldo = (item.qtdContrato - item.qtdAcumulada - item.qtdMedida) * item.valorUnitario
+        const saldo = (item.qtdContrato - qtdAcum) * item.valorUnitario
         body += `<tr>
           <td>${item.itemEAP || '—'}</td><td>${item.nPreco}</td><td>${item.descricao}</td><td class="center">${item.unidade}</td>
-          <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtNum(item.qtdAcumulada)}</td><td class="right">${fmtNum(item.qtdMedida)}</td>
-          <td class="right">${fmtBRL(item.valorUnitario)}</td><td class="right">${fmtBRL(valor)}</td>
+          <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtBRL(item.valorUnitario)}</td>
+          <td class="right">${fmtNum(item.qtdAnterior)}</td><td class="right">${fmtNum(item.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
+          <td class="right">${fmtBRL(valor)}</td>
           <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
         </tr>`
         const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
         if (crit) {
-          body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
-            <strong style="color:#f97316;">CRITÉRIO DE MEDIÇÃO:</strong> ${crit.medicao}
+          body += `<tr><td colspan="11" style="background:#fff8f0;padding:3px 10px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;">
+            <strong style="color:#f97316;font-style:normal;">CRITÉRIO DE MEDIÇÃO:</strong> ${crit.medicao}
             ${crit.notas ? `<br/><span style="color:#888;">Notas: ${crit.notas}</span>` : ''}
           </td></tr>`
         } else {
-          body += `<tr><td colspan="10" style="background:#fff0f0;padding:4px 10px;border-left:3px solid #dc2626;font-size:7.5pt;color:#dc2626;">
-            ⚠ Critério não localizado no catálogo para nPreço ${item.nPreco}
+          body += `<tr><td colspan="11" style="background:#fff0f0;padding:3px 10px;border-left:3px solid #dc2626;font-size:7pt;color:#dc2626;">
+            Critério não localizado para nPreço ${item.nPreco}
           </td></tr>`
         }
       }
-      body += `</tbody><tfoot><tr><td colspan="8" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td></td></tr></tfoot></table>`
+      body += `</tbody><tfoot><tr><td colspan="9" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td class="right">${fmtBRL(grupoSaldo)}</td></tr></tfoot></table>`
     }
   } else {
     body += `<p style="color:#888;font-style:italic;">Nenhum item com quantidade medida no período.</p>`
@@ -294,7 +311,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   const totalTerceiros = totalSub + totalForn
   const terceirosOk = totalTerceiros <= totalMedido || totalMedido === 0
   const nDiv = boletim.conferencia.filter(c => c.status === 'divergencia').length
-  const negSaldoCount = boletim.itensContrato.filter(i => (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) < 0).length
+  const negSaldoCount = boletim.itensContrato.filter(i => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0).length
 
   body += `<h2>5. Checklist de Conferência</h2>
   <table><thead><tr><th>Verificação</th><th class="center" style="width:120px;">Resultado</th></tr></thead><tbody>
