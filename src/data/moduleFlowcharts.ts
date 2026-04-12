@@ -593,6 +593,134 @@ export const MODULE_FLOWS: ModuleFlow[] = [
       },
     ],
   },
+
+  // ─── PLANEJAMENTO MESTRE ────────────────────────────────────────────
+  {
+    path: '/app/planejamento-mestre',
+    moduleName: 'Planejamento Mestre',
+    summary: 'Estrutura macro do projeto em 3 horizontes: longo prazo (Gantt WBS), médio prazo (look-ahead), curto prazo (PPC 15 dias).',
+    steps: [
+      { id: 'pm-1', label: 'Criar Cronograma', icon: '1', description: 'Crie do zero com wizard ou importe planilha.', details: ['Wizard de 3 passos: tipo de rede, frentes, datas', 'Ou importe Excel com template padronizado (14 colunas)', 'Template disponível para download na tela inicial'] },
+      { id: 'pm-2', label: 'Estruturar WBS', icon: '2', description: 'Organize atividades em hierarquia.', details: ['Gantt visual com barras planejadas vs tendência', 'Cores por tipo: Água (azul), Esgoto (roxo), Civil (amarelo)', 'Drag para reorganizar'] },
+      { id: 'pm-3', label: 'Salvar Baseline', icon: '3', description: 'Registre a versão oficial do cronograma.', details: ['Snapshot completo para comparação futura', 'Compare baseline vs situação atual a qualquer momento'] },
+      { id: 'pm-4', label: 'Look-ahead 6 Semanas', icon: '4', description: 'Planejamento de médio prazo.', details: ['Aba "Médio Prazo": atividades por semana ISO', 'Agrupadas por tipo de rede', 'Status: Planejado, Pronto, Bloqueado, Concluído'] },
+      { id: 'pm-5', label: 'Programação Semanal', icon: '5', description: 'Detalhe diário previsto vs realizado.', details: ['Tabela Seg-Dom com Previsto/Realizado por atividade', 'Exportável para Excel'] },
+      { id: 'pm-6', label: 'Simulação What-if', icon: '6', description: 'Teste cenários no curto prazo.', details: ['Quadro de 15 dias com curva S dual', 'Adicione ajustes (atrasar, estender duração)', 'Veja impacto imediato na curva'] },
+    ],
+  },
+
+  // ─── AGENDA ────────────────────────────────────────────────────────
+  {
+    path: '/app/agenda',
+    moduleName: 'Agenda',
+    summary: 'Calendário operacional unificado com detecção de conflitos e visualização multi-escala.',
+    steps: [
+      { id: 'ag-1', label: 'Visualizar Calendário', icon: '1', description: 'Escolha a escala de visualização.', details: ['Dia, Semana, Mês, Trimestre, Semestre, Ano', 'Gantt de recursos com barras coloridas por tipo', 'Busca por recurso (equipe, equipamento)'] },
+      { id: 'ag-2', label: 'Criar Tarefas', icon: '2', description: 'Adicione eventos e alocações.', details: ['Clique "+ Nova Tarefa"', 'Defina: recurso, datas, descrição, cor', 'Arraste para reposicionar no Gantt'] },
+      { id: 'ag-3', label: 'Detectar Conflitos', icon: '3', description: 'O sistema identifica sobreposições.', details: ['Mesma equipe em dois lugares = alerta', 'Equipamento com manutenção agendada = bloqueio', 'Conflitos visíveis como sobreposição no Gantt'] },
+      { id: 'ag-4', label: 'Executar Cenários', icon: '4', description: 'Simule realocações.', details: ['Botão "Executar Cenários" no header', 'Teste movimentos antes de confirmar', '"Visão do Modelo" para ver impacto integrado'] },
+    ],
+  },
+
+  // ─── FINANCEIRO / EVM ──────────────────────────────────────────────
+  {
+    path: '/app/evm',
+    moduleName: 'Financeiro / EVM',
+    summary: 'Earned Value Management com controle financeiro de entradas e saídas. CPI, SPI, EAC, ETC calculados automaticamente.',
+    steps: [
+      { id: 'evm-1', label: 'Registrar Entradas', icon: '1', description: 'Registre receitas (medições, adiantamentos).', details: ['Aba "Entradas": adicione por categoria (medição, reajuste, etc.)', 'Valor, data, referência, notas'] },
+      { id: 'evm-2', label: 'Registrar Saídas', icon: '2', description: 'Registre custos (materiais, M.O., equipamentos).', details: ['Aba "Saídas": adicione por categoria', 'Materiais, mão de obra, equipamentos, subempreiteiros, administrativo'] },
+      { id: 'evm-3', label: 'Analisar Fluxo de Caixa', icon: '3', description: 'Visualize entradas vs saídas ao longo do tempo.', details: ['Aba "Fluxo de Caixa": gráfico mensal', 'Saldo acumulado', 'Identifique meses com déficit'] },
+      { id: 'evm-4', label: 'Acompanhar EVM', icon: '4', description: 'KPIs calculados automaticamente.', details: ['CPI (Cost Performance Index): custo vs orçado', 'SPI (Schedule Performance Index): prazo vs planejado', 'EAC, ETC, VAC, TCPI para projeções'] },
+    ],
+  },
+
+  // ─── GESTÃO DE EQUIPAMENTOS ────────────────────────────────────────
+  {
+    path: '/app/gestao-equipamentos',
+    moduleName: 'Gestão de Equipamentos',
+    summary: 'Cadastro de frota fixa, manutenção preventiva/corretiva, e monitoramento de utilização.',
+    steps: [
+      { id: 'geq-1', label: 'Cadastrar Equipamentos', icon: '1', description: 'Registre a frota fixa.', details: ['Nome, tipo, modelo, número de série', 'Status: Disponível, Em Uso, Manutenção'] },
+      { id: 'geq-2', label: 'Agendar Manutenção', icon: '2', description: 'Preventiva e corretiva.', details: ['Manutenção preventiva com intervalo programado', 'Alertas de vencimento', 'Histórico de manutenções'] },
+      { id: 'geq-3', label: 'Registrar Utilização', icon: '3', description: 'Controle de horas por equipamento.', details: ['Horas de utilização diárias', 'Taxa de utilização (disponível vs ativo)', 'Custo operacional por hora'] },
+    ],
+  },
+
+  // ─── FROTA VEICULAR ────────────────────────────────────────────────
+  {
+    path: '/app/otimizacao-frota',
+    moduleName: 'Frota Veicular',
+    summary: 'Gestão de veículos: combustível, motoristas, manutenção e roteirização.',
+    steps: [
+      { id: 'fr-1', label: 'Cadastrar Veículos', icon: '1', description: 'Registre a frota (própria e alugada).', details: ['Placa, modelo, tipo, km atual', 'Status: Ativo, Manutenção, Inativo'] },
+      { id: 'fr-2', label: 'Controlar Combustível', icon: '2', description: 'Registre abastecimentos.', details: ['Litros, km, custo por litro', 'Dashboard de consumo médio', 'Alertas de consumo anormal'] },
+      { id: 'fr-3', label: 'Gerenciar Motoristas', icon: '3', description: 'Vincule motoristas a veículos.', details: ['CNH, categoria, vencimento', 'Histórico de viagens por motorista'] },
+      { id: 'fr-4', label: 'Planejar Rotas', icon: '4', description: 'Otimize deslocamentos.', details: ['Mapa com pontos de parada', 'Cálculo de distância e tempo', 'Custo estimado por rota'] },
+    ],
+  },
+
+  // ─── BIM 3D/4D/5D ─────────────────────────────────────────────────
+  {
+    path: '/app/bim',
+    moduleName: 'BIM 3D/4D/5D',
+    summary: 'Visualizador BIM no navegador: modelo 3D, timeline 4D e heatmap de custos 5D.',
+    steps: [
+      { id: 'bim-1', label: 'Importar Modelo', icon: '1', description: 'Carregue o modelo 3D.', details: ['Aceita arquivos DXF e IFC', 'Upload direto no navegador', 'Modelo renderizado via Three.js/WebGL'] },
+      { id: 'bim-2', label: 'Navegar em 3D', icon: '2', description: 'Explore o modelo interativamente.', details: ['Rotação, zoom, pan com mouse/touch', 'Vistas: Topo, Frente, Isométrica', 'Seleção de elementos individuais'] },
+      { id: 'bim-3', label: 'Timeline 4D', icon: '3', description: 'Sobreponha o cronograma ao modelo.', details: ['Animação temporal: veja a obra sendo construída', 'Vincule elementos do modelo a atividades do planejamento', 'Play/pause/seek na timeline'] },
+      { id: 'bim-4', label: 'Heatmap 5D', icon: '4', description: 'Visualize custos por elemento.', details: ['Cores: verde (no orçamento) → vermelho (estouro)', 'Custo por material e por elemento', 'Integra com módulo Quantitativos (SINAPI)'] },
+    ],
+  },
+
+  // ─── PRÉ-CONSTRUÇÃO ───────────────────────────────────────────────
+  {
+    path: '/app/pre-construcao',
+    moduleName: 'Pré-Construção',
+    summary: 'Due diligence e viabilidade técnica antes do início da obra.',
+    steps: [
+      { id: 'pre-1', label: 'Análise de Viabilidade', icon: '1', description: 'Avalie a viabilidade do projeto.', details: ['Checklist técnico e econômico', 'Estudo de interferências', 'Análise geotécnica'] },
+      { id: 'pre-2', label: 'Documentação', icon: '2', description: 'Organize licenças e permissões.', details: ['Licenças ambientais, alvarás, ART', 'Status de cada documento', 'Alertas de vencimento'] },
+      { id: 'pre-3', label: 'Matriz de Riscos', icon: '3', description: 'Identifique e classifique riscos.', details: ['Probabilidade × Impacto', 'Plano de mitigação por risco', 'Exportável para apresentação'] },
+    ],
+  },
+
+  // ─── MAPA INTERATIVO ──────────────────────────────────────────────
+  {
+    path: '/app/mapa-interativo',
+    moduleName: 'Mapa Interativo',
+    summary: 'GIS de redes de infraestrutura sobre mapa Leaflet com importação UTM.',
+    steps: [
+      { id: 'map-1', label: 'Importar Coordenadas', icon: '1', description: 'Carregue trechos via planilha UTM.', details: ['Upload Excel com coordenadas UTM', 'O sistema converte e plota no mapa', 'Aceita formato E/N ou Lat/Lng'] },
+      { id: 'map-2', label: 'Visualizar Redes', icon: '2', description: 'Veja a rede sobre o mapa.', details: ['Trechos coloridos por status (executado/pendente)', 'Filtros: tipo de rede (água, esgoto, drenagem)', 'Camadas: Ruas, Satélite, Relevo, Escuro'] },
+      { id: 'map-3', label: 'Analisar por Trecho', icon: '3', description: 'Clique em um trecho para detalhes.', details: ['Extensão, diâmetro, material, status', 'Perfil de elevação 3D', 'Custo por segmento'] },
+    ],
+  },
+
+  // ─── REDE 360 ─────────────────────────────────────────────────────
+  {
+    path: '/app/rede-360',
+    moduleName: 'Rede 360',
+    summary: 'Common Operating Picture para redes de distribuição. Dashboard de progresso por núcleo.',
+    steps: [
+      { id: 'r360-1', label: 'Visão da Rede', icon: '1', description: 'Dashboard unificado de toda a rede.', details: ['Status por segmento: executado, pendente, cadastro', 'Progresso por núcleo/frente', 'KPIs globais: km executados, km pendentes'] },
+      { id: 'r360-2', label: 'Filtrar e Analisar', icon: '2', description: 'Foque em áreas específicas.', details: ['Filtros por núcleo, tipo de rede, status', 'Drill-down por frente de obra', 'Integração com dados de campo (RDO)'] },
+    ],
+  },
+
+  // ─── MEDIÇÃO (path diferente do módulo — adicionar para cobertura)
+  {
+    path: '/app/medicao',
+    moduleName: 'Medição',
+    summary: 'Gestão de medições contratuais em 6 passos sequenciais.',
+    steps: [
+      { id: 'med-1', label: 'Criar Boletim', icon: '1', description: 'Inicie um novo período de medição.', details: ['Período, contrato, consórcio', 'Número sequencial do boletim'] },
+      { id: 'med-2', label: 'Planilha Sabesp', icon: '2', description: 'Preencha itens por nPreço.', details: ['Auto-lookup do catálogo de critérios', 'Qtd contratada, qtd medida, valor unitário', 'Agrupado por: Canteiros, Esgoto, Água'] },
+      { id: 'med-3', label: 'Subempreiteiros + Fornecedores', icon: '3', description: 'Registre medições de terceiros.', details: ['Quantidades por subempreiteiro', 'Notas fiscais de fornecedores'] },
+      { id: 'med-4', label: 'Conferência Automática', icon: '4', description: 'Cruzamento de dados.', details: ['Sabesp vs Subempreiteiros vs Fornecedores', 'Divergências sinalizadas automaticamente'] },
+      { id: 'med-5', label: 'PDF Final', icon: '5', description: 'Gere o boletim em PDF.', details: ['Resumo por grupo de serviço', 'Exporta em modo claro para impressão'] },
+    ],
+  },
 ]
 
 export function getFlowForModule(path: string): ModuleFlow | undefined {

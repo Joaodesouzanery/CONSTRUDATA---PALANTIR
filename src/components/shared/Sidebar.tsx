@@ -2,14 +2,13 @@ import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, FolderKanban, Radio,
-  Sun, Moon, Wrench, FileSearch, PackageSearch, Users, FlaskConical,
+  Wrench, FileSearch, PackageSearch, Users, FlaskConical,
   Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
-import { useThemeStore } from '@/store/themeStore'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
@@ -97,9 +96,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onClose }: SidebarProps) {
-  const { theme, toggleTheme } = useThemeStore(
-    useShallow((s) => ({ theme: s.theme, toggleTheme: s.toggleTheme }))
-  )
   const { isDemoMode, toggleDemoMode } = useAppModeStore(
     useShallow((s) => ({ isDemoMode: s.isDemoMode, toggleDemoMode: s.toggleDemoMode }))
   )
@@ -406,14 +402,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             {isOpen && <span className={cn('text-xs whitespace-nowrap', isDemoMode ? 'font-semibold' : 'font-normal')}>Demo</span>}
           </button>
 
-          <button
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
-            className="flex items-center gap-3 h-9 px-3 rounded-lg text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors"
-          >
-            {theme === 'dark' ? <Sun size={18} className="shrink-0" strokeWidth={1.5} /> : <Moon size={18} className="shrink-0" strokeWidth={1.5} />}
-            {isOpen && <span className="text-xs font-normal whitespace-nowrap">{theme === 'dark' ? 'Claro' : 'Escuro'}</span>}
-          </button>
+          {/* Modo claro removido — plataforma opera somente em dark mode */}
         </div>
       </nav>
 

@@ -1,123 +1,132 @@
 /**
- * ScreenshotShowcase — Grid de screenshots da plataforma.
- * Exibido logo após a seção de Metodologia na landing page.
+ * ScreenshotShowcase — Grid de screenshots estilo Palantir Construction.
+ * Mosaico dark com hover zoom e labels de módulo.
  *
- * Para adicionar screenshots reais:
- * 1. Coloque os arquivos .jpg/.png em src/assets/screenshots/
- * 2. Importe e substitua os placeholders abaixo
+ * Para usar: coloque as imagens em public/screenshots/ com os nomes abaixo.
+ * Se a imagem não existir, mostra um placeholder estilizado.
  */
 import { useState } from 'react'
+import { X } from 'lucide-react'
 
-interface Screenshot {
-  id: string
-  label: string
+interface Shot {
+  file: string
   module: string
-  src: string | null  // null = placeholder, string = imported image URL
+  label: string
+  span?: string // grid span class
 }
 
-// Quando tiver as imagens reais, importe assim:
-// import screenshotAgenda from '@/assets/screenshots/agenda.jpg'
-// e substitua src: null por src: screenshotAgenda
-
-const SCREENSHOTS: Screenshot[] = [
-  { id: 'agenda',        label: 'Agenda Gantt',              module: 'Agenda',           src: null },
-  { id: 'gestao360',     label: 'Dashboard de Obras',        module: 'Gestão 360',       src: null },
-  { id: 'lps',           label: 'Look-ahead LPS',            module: 'LPS / Lean',       src: null },
-  { id: 'projetos',      label: 'BIM 5D + Projetos',         module: 'Projetos',         src: null },
-  { id: 'quantitativos', label: 'Composição Orçamentária',   module: 'Quantitativos',    src: null },
-  { id: 'rdo-plan',      label: 'RDO × Planejamento',        module: 'RDO',              src: null },
-  { id: 'relatorio360',  label: 'Relatório Diário de Obra',  module: 'Relatório 360',    src: null },
+const SHOTS: Shot[] = [
+  { file: 'relatorio360.png',  module: 'Relatório 360',     label: 'Relatório Diário de Obra',       span: 'col-span-2 row-span-2' },
+  { file: 'gestao360.png',     module: 'Gestão 360',        label: 'Dashboard de Projetos + Mapa',   span: 'col-span-2 row-span-2' },
+  { file: 'lps.png',           module: 'LPS / Lean',        label: 'Look-ahead 6 Semanas',           span: 'col-span-2' },
+  { file: 'projetos.png',      module: 'Projetos + BIM',    label: 'BIM 5D + Análise de Custos',     span: 'col-span-2' },
+  { file: 'quantitativos.png', module: 'Quantitativos',     label: 'Composição SINAPI',              span: 'col-span-2' },
+  { file: 'rdo.png',           module: 'RDO',               label: 'RDO × Planejamento Integrado',   span: 'col-span-2' },
+  { file: 'agenda.png',        module: 'Agenda',            label: 'Gantt de Recursos',              span: 'col-span-2' },
 ]
 
-function PlaceholderCard({ label, module }: { label: string; module: string }) {
-  return (
-    <div className="w-full aspect-video rounded-lg flex flex-col items-center justify-center"
-      style={{ background: '#1a1a2e', border: '1px solid rgba(249,115,22,0.20)' }}
-    >
-      <span className="text-[#f97316] text-xs font-semibold mb-1">{module}</span>
-      <span className="text-white/40 text-[10px]">{label}</span>
-    </div>
-  )
-}
-
 export function ScreenshotShowcase() {
-  const [selected, setSelected] = useState<string | null>(null)
-  const selectedShot = SCREENSHOTS.find((s) => s.id === selected)
+  const [lightbox, setLightbox] = useState<Shot | null>(null)
 
   return (
     <section
-      style={{ background: '#1f1f1f', borderTop: '1px solid rgba(255,255,255,0.06)' }}
-      className="py-16 sm:py-20"
+      style={{ background: '#111111', borderTop: '1px solid rgba(255,255,255,0.04)' }}
+      className="py-12 sm:py-16"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <p
-            style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.10em' }}
-            className="text-[#f97316] text-xs uppercase font-semibold mb-3"
+            style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '0.12em' }}
+            className="text-[#f97316] text-[10px] uppercase font-semibold mb-2"
           >
             A Plataforma em Ação
           </p>
           <h2
-            style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 'clamp(1.3rem, 2.5vw, 2rem)' }}
-            className="text-white"
+            style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 }}
+            className="text-white text-xl sm:text-2xl"
           >
-            Veja como cada módulo funciona na prática
+            Inteligência Operacional — Do Campo ao Escritório
           </h2>
         </div>
 
-        {/* Screenshot grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {SCREENSHOTS.map((shot) => (
+        {/* Masonry-style grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-1.5 auto-rows-[140px] sm:auto-rows-[180px]">
+          {SHOTS.map((shot) => (
             <button
-              key={shot.id}
-              onClick={() => setSelected(shot.id === selected ? null : shot.id)}
-              className="group relative rounded-xl overflow-hidden transition-all hover:ring-2 hover:ring-[#f97316]/50"
-              style={{
-                border: selected === shot.id ? '2px solid #f97316' : '1px solid rgba(255,255,255,0.08)',
-              }}
+              key={shot.file}
+              onClick={() => setLightbox(shot)}
+              className={`group relative overflow-hidden rounded-lg ${shot.span ?? 'col-span-1'}`}
+              style={{ background: '#1a1a1a' }}
             >
-              {shot.src ? (
-                <img
-                  src={shot.src}
-                  alt={shot.label}
-                  className="w-full aspect-video object-cover object-top"
-                  loading="lazy"
-                />
-              ) : (
-                <PlaceholderCard label={shot.label} module={shot.module} />
-              )}
+              {/* Image — loads from /screenshots/ in public folder */}
+              <img
+                src={`/screenshots/${shot.file}`}
+                alt={shot.label}
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                onError={(e) => {
+                  // Hide broken image, show placeholder
+                  (e.target as HTMLImageElement).style.display = 'none'
+                }}
+              />
 
-              {/* Overlay label */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <span className="text-white text-xs font-semibold">{shot.module}</span>
+              {/* Gradient overlay */}
+              <div
+                className="absolute inset-0 transition-opacity duration-300"
+                style={{
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%)',
+                }}
+              />
+
+              {/* Hover ring */}
+              <div className="absolute inset-0 rounded-lg ring-0 group-hover:ring-1 ring-[#f97316]/50 transition-all" />
+
+              {/* Label */}
+              <div className="absolute bottom-0 left-0 right-0 p-3">
+                <span className="text-[#f97316] text-[10px] font-bold uppercase tracking-wider">
+                  {shot.module}
+                </span>
                 <br />
-                <span className="text-white/60 text-[10px]">{shot.label}</span>
+                <span className="text-white/80 text-xs font-medium">
+                  {shot.label}
+                </span>
+              </div>
+
+              {/* Placeholder if no image */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-white/10 text-xs font-mono">{shot.file}</span>
               </div>
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Expanded view */}
-        {selectedShot && selectedShot.src && (
-          <div className="mt-6 rounded-xl overflow-hidden border border-[#525252]">
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[2000] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="relative max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute -top-10 right-0 text-white/60 hover:text-white"
+            >
+              <X size={24} />
+            </button>
             <img
-              src={selectedShot.src}
-              alt={selectedShot.label}
-              className="w-full"
+              src={`/screenshots/${lightbox.file}`}
+              alt={lightbox.label}
+              className="w-full rounded-lg border border-[#525252]"
             />
-            <div className="bg-[#2c2c2c] px-4 py-2 flex items-center justify-between">
-              <span className="text-white text-sm font-semibold">{selectedShot.module} — {selectedShot.label}</span>
-              <button
-                onClick={() => setSelected(null)}
-                className="text-[#6b6b6b] hover:text-white text-xs"
-              >
-                Fechar
-              </button>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="text-[#f97316] text-sm font-semibold">{lightbox.module}</span>
+              <span className="text-white/60 text-sm">{lightbox.label}</span>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   )
 }
