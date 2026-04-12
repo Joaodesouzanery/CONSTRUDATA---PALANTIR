@@ -3,8 +3,9 @@
  *
  * Search, view and add Sabesp measurement criteria by service code or description.
  */
-import { useState, useCallback } from 'react'
-import { Search, BookOpen, Plus, Trash2, X as XIcon } from 'lucide-react'
+import { useState, useCallback, useRef } from 'react'
+import { Search, BookOpen, Plus, Trash2, X as XIcon, Upload, AlertCircle } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { searchCriterios, getAllCriterios, addCustomCriterio, removeCustomCriterio, isCustomCriterio } from '../data/criterios'
 import type { CriterioMedicao } from '../data/criterios'
 
@@ -98,11 +99,88 @@ function AddCriterioModal({ onClose, onAdd }: { onClose: () => void; onAdd: (c: 
   )
 }
 
+/** Parse an XLSX/CSV file containing Sabesp measurement criteria */
+function parseCriteriosXlsx(wb: XLSX.WorkBook): { items: CriterioMedicao[]; errors: string[] } {
+  const items: CriterioMedicao[] = []
+  const errors: string[] = []
+
+  const sheetName = wb.SheetNames[0]
+  if (!sheetName) { errors.push('Planilha vazia.'); return { items, errors } }
+
+  const raw: unknown[][] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '', raw: false }) as unknown[][]
+  if (raw.length < 2) { errors.push('Planilha sem dados.'); return { items, errors } }
+
+  const norm = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+  // Find header row
+  let headerIdx = -1
+  for (let i = 0; i < Math.min(raw.length, 15); i++) {
+    const rowStr = raw[i].map(norm).join(' ')
+    if (/n[\s.]*preco/.test(rowStr) && /descri/.test(rowStr)) {
+      headerIdx = i
+      break
+    }
+  }
+
+  if (headerIdx === -1) {
+    errors.push('Cabeçalho não encontrado. A planilha deve ter colunas: N. Preço, Descrição, Unidade, Compreende, Medição, Notas.')
+    return { items, errors }
+  }
+
+  const headers = raw[headerIdx].map(norm)
+  const find = (keywords: string[]) => headers.findIndex(h => keywords.some(kw => h.includes(kw)))
+
+  const iNPreco = find(['n preco', 'npreco', 'numero', 'codigo'])
+  const iDesc = find(['descri', 'servico'])
+  const iUnid = find(['unid', 'un'])
+  const iCompr = find(['compreende', 'compreen'])
+  const iMed = find(['medicao', 'medic'])
+  const iNotas = find(['nota', 'observ'])
+  const iGrupo = find(['grupo'])
+
+  if (iNPreco === -1 || iDesc === -1) {
+    errors.push('Colunas obrigatórias não encontradas: N. Preço e Descrição.')
+    return { items, errors }
+  }
+
+  for (let i = headerIdx + 1; i < raw.length; i++) {
+    const row = raw[i]
+    const nPreco = String(row[iNPreco] ?? '').trim()
+    const descricao = String(row[iDesc] ?? '').trim()
+    if (!nPreco || !descricao) continue
+    if (!/^\d+$/.test(nPreco.replace(/\s/g, ''))) continue
+
+    const grupoRaw = iGrupo >= 0 ? String(row[iGrupo] ?? '').trim() : ''
+    let grupo: '01' | '02' | '03' = '03'
+    let grupoNome = 'Água'
+    if (grupoRaw === '01' || /canteiro|plano/i.test(descricao)) { grupo = '01'; grupoNome = 'Canteiros e Planos' }
+    else if (grupoRaw === '02' || /esgoto|rede colet/i.test(descricao)) { grupo = '02'; grupoNome = 'Esgoto' }
+    else if (grupoRaw === '03' || /agua|abastec/i.test(descricao)) { grupo = '03'; grupoNome = 'Água' }
+
+    items.push({
+      nPreco: nPreco.replace(/\s/g, ''),
+      descricao,
+      unidade: iUnid >= 0 ? String(row[iUnid] ?? 'UN').trim() || 'UN' : 'UN',
+      grupo,
+      grupoNome,
+      compreende: iCompr >= 0 ? String(row[iCompr] ?? '').trim() : '',
+      medicao: iMed >= 0 ? String(row[iMed] ?? '').trim() : '',
+      notas: iNotas >= 0 ? String(row[iNotas] ?? '').trim() : '',
+    })
+  }
+
+  if (items.length === 0) errors.push('Nenhum critério válido encontrado na planilha.')
+  return { items, errors }
+}
+
 export function CriteriosMedicaoPanel() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
   const [ver, setVer] = useState(0) // force re-render after add/remove
+  const [importPreview, setImportPreview] = useState<{ items: CriterioMedicao[]; errors: string[] } | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const results = searchCriterios(query)
   const allCriterios = getAllCriterios()
@@ -113,6 +191,27 @@ export function CriteriosMedicaoPanel() {
     setSelected(c.nPreco)
     setVer((v) => v + 1)
   }, [])
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportLoading(true)
+    try {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      setImportPreview(parseCriteriosXlsx(wb))
+    } finally {
+      setImportLoading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  function handleConfirmImport() {
+    if (!importPreview) return
+    for (const c of importPreview.items) addCustomCriterio(c)
+    setImportPreview(null)
+    setVer((v) => v + 1)
+  }
 
   const handleRemove = useCallback((nPreco: string) => {
     removeCustomCriterio(nPreco)
@@ -140,9 +239,16 @@ export function CriteriosMedicaoPanel() {
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-[10px] text-[#6b6b6b]">{results.length} critérios</span>
-            <button onClick={() => setAddOpen(true)} className="flex items-center gap-1 text-[10px] text-[#f97316] hover:text-[#ea580c] font-medium transition-colors">
-              <Plus size={11} /> Adicionar
-            </button>
+            <div className="flex items-center gap-2">
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
+              <button onClick={() => fileRef.current?.click()} disabled={importLoading}
+                className="flex items-center gap-1 text-[10px] text-[#a3a3a3] hover:text-[#f5f5f5] font-medium transition-colors">
+                <Upload size={10} /> {importLoading ? '...' : 'Importar'}
+              </button>
+              <button onClick={() => setAddOpen(true)} className="flex items-center gap-1 text-[10px] text-[#f97316] hover:text-[#ea580c] font-medium transition-colors">
+                <Plus size={11} /> Adicionar
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -239,6 +345,64 @@ export function CriteriosMedicaoPanel() {
       </div>
 
       {addOpen && <AddCriterioModal onClose={() => setAddOpen(false)} onAdd={handleAdd} />}
+
+      {/* Import preview modal */}
+      {importPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setImportPreview(null)}>
+          <div className="w-full max-w-xl bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252] flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">Importar Critérios de Medição</span>
+              <button onClick={() => setImportPreview(null)} className="text-[#6b6b6b] hover:text-white"><XIcon size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {importPreview.errors.length > 0 ? (
+                <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <div>{importPreview.errors.join(' ')}</div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[#a3a3a3] text-xs">{importPreview.items.length} critérios encontrados. Serão adicionados ao catálogo como critérios customizados.</p>
+                  <div className="overflow-x-auto max-h-56 border border-[#525252] rounded-lg">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#1f1f1f] text-[#6b6b6b] uppercase text-[9px]">
+                          <th className="px-3 py-2 text-left">N. Preço</th>
+                          <th className="px-3 py-2 text-left">Descrição</th>
+                          <th className="px-3 py-2 text-center">Un</th>
+                          <th className="px-3 py-2 text-center">Grupo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.items.slice(0, 8).map((c, i) => (
+                          <tr key={i} className="border-t border-[#525252]">
+                            <td className="px-3 py-1.5 font-mono text-[#f97316]">{c.nPreco}</td>
+                            <td className="px-3 py-1.5 text-[#f5f5f5] max-w-[200px] truncate">{c.descricao}</td>
+                            <td className="px-3 py-1.5 text-center text-[#a3a3a3]">{c.unidade}</td>
+                            <td className="px-3 py-1.5 text-center text-[#a3a3a3]">{c.grupo}</td>
+                          </tr>
+                        ))}
+                        {importPreview.items.length > 8 && (
+                          <tr><td colSpan={4} className="px-3 py-2 text-center text-[#6b6b6b] text-[10px]">+ {importPreview.items.length - 8} critérios adicionais</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
+              <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
+              {importPreview.errors.length === 0 && (
+                <button onClick={handleConfirmImport}
+                  className="px-5 py-2 text-xs font-medium text-white rounded-lg transition-colors" style={{ backgroundColor: '#f97316' }}>
+                  Importar {importPreview.items.length} critérios
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

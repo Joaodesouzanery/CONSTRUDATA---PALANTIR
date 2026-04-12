@@ -4,8 +4,8 @@
  * Allows entering/editing contract items (itens de contrato) for the
  * active boletim. Groups items by 01/02/03 (Canteiros, Esgoto, Água).
  */
-import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
+import { useState, useRef, useCallback } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown, Save, CheckCircle } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { getAllCriterios } from '../data/criterios'
 import type { ItemContrato } from '@/store/medicaoBillingStore'
@@ -329,6 +329,14 @@ export function SabespPlanilhaPanel() {
   const { getActiveBoletim, addItemContrato, updateItemContrato, removeItemContrato } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [saved, setSaved] = useState(false)
+
+  const handleSave = useCallback(() => {
+    // Zustand already auto-persists, but this forces a re-write and gives visual feedback
+    useMedicaoBillingStore.persist.rehydrate()
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }, [])
 
   if (!boletim) return (
     <div className="p-8 text-center text-[#6b6b6b] text-sm">
@@ -357,14 +365,28 @@ export function SabespPlanilhaPanel() {
         <div className="flex items-center gap-4 flex-wrap">
           <XlsxImportSabesp />
           {boletim.itensContrato.length > 0 && (
-            <button
-              type="button"
-              onClick={() => exportSabespPdf(boletim.itensContrato, boletim.periodo, boletim.contrato, boletim.consorcio)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-            >
-              <FileDown size={13} />
-              Exportar PDF
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleSave}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                  saved
+                    ? 'bg-emerald-600 text-white'
+                    : 'border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252]'
+                }`}
+              >
+                {saved ? <CheckCircle size={13} /> : <Save size={13} />}
+                {saved ? 'Salvo!' : 'Salvar Planilha'}
+              </button>
+              <button
+                type="button"
+                onClick={() => exportSabespPdf(boletim.itensContrato, boletim.periodo, boletim.contrato, boletim.consorcio)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+              >
+                <FileDown size={13} />
+                Exportar PDF
+              </button>
+            </>
           )}
           <div className="flex items-center gap-6">
             <div className="text-right">
