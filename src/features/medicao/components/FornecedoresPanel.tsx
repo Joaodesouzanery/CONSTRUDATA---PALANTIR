@@ -4,12 +4,26 @@
  * Add/edit supplier billing (e.g., WERT AMBIENTAL - R$ 86.200,00 fev/26).
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, Package, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
+import { Plus, Trash2, Package, Upload, AlertCircle, X as XIcon, FileDown, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Fornecedor } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseFornecedorSheet } from '../utils/xlsxParsers'
 import type { FornecedorParseResult } from '../utils/xlsxParsers'
 import { exportFornecedoresPdf } from '../utils/exportPdf'
+
+function downloadTemplateForn() {
+  const template = [{
+    'Nome / Empresa': 'WERT AMBIENTAL',
+    'Período': 'mar/26',
+    'Descrição': 'Fornecimento de materiais',
+    'Valor Aprovado (R$)': 86200.00,
+  }]
+  const ws = XLSX.utils.json_to_sheet(template)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Fornecedores')
+  XLSX.writeFile(wb, 'Template_Fornecedores_ConstruData.xlsx')
+}
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -192,6 +206,10 @@ export function FornecedoresPanel() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <XlsxImportFornecedor periodo={boletim.periodo} />
+          <button type="button" onClick={downloadTemplateForn}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+            <Download size={13} /> Template XLSX
+          </button>
           {boletim.fornecedores.length > 0 && (
             <button
               type="button"

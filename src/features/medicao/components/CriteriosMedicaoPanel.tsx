@@ -99,6 +99,23 @@ function AddCriterioModal({ onClose, onAdd }: { onClose: () => void; onAdd: (c: 
   )
 }
 
+/** Download empty template XLSX for criteria import */
+function downloadTemplateCriterios() {
+  const template = [{
+    'N. Preço': '500001',
+    'Descrição': 'CANTEIRO DE OBRAS - IMPLANTAÇÃO',
+    'Unidade': 'GB',
+    'Grupo': '01',
+    'Compreende': 'Disponibilização de imóvel e/ou construção de escritórios, vestiários...',
+    'Medição': 'Pelo preço global: 90% após conclusão; 10% após desmobilização.',
+    'Notas': 'Canteiro conforme NR-18.',
+  }]
+  const ws = XLSX.utils.json_to_sheet(template)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Critérios')
+  XLSX.writeFile(wb, 'Template_Criterios_Medicao_ConstruData.xlsx')
+}
+
 /** Parse an XLSX/CSV file containing Sabesp measurement criteria */
 function parseCriteriosXlsx(wb: XLSX.WorkBook): { items: CriterioMedicao[]; errors: string[] } {
   const items: CriterioMedicao[] = []
@@ -237,18 +254,17 @@ export function CriteriosMedicaoPanel() {
               className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg pl-8 pr-3 py-2 text-xs text-[#f5f5f5] placeholder-[#6b6b6b] focus:outline-none focus:border-[#f97316]"
             />
           </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] text-[#6b6b6b]">{results.length} critérios</span>
-            <div className="flex items-center gap-2">
-              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
-              <button onClick={() => fileRef.current?.click()} disabled={importLoading}
-                className="flex items-center gap-1 text-[10px] text-[#a3a3a3] hover:text-[#f5f5f5] font-medium transition-colors">
-                <Upload size={10} /> {importLoading ? '...' : 'Importar'}
-              </button>
-              <button onClick={() => setAddOpen(true)} className="flex items-center gap-1 text-[10px] text-[#f97316] hover:text-[#ea580c] font-medium transition-colors">
-                <Plus size={11} /> Adicionar
-              </button>
-            </div>
+          <div className="text-[10px] text-[#6b6b6b] mt-1.5">{results.length} critérios</div>
+          <div className="flex flex-col gap-1.5 mt-2">
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
+            <button onClick={() => fileRef.current?.click()} disabled={importLoading}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors">
+              <Upload size={13} />
+              {importLoading ? 'Lendo...' : 'Importar XLSX / CSV'}
+            </button>
+            <button onClick={() => setAddOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-dashed border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
+              <Plus size={13} /> Adicionar manualmente
+            </button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -336,10 +352,20 @@ export function CriteriosMedicaoPanel() {
             <p className="text-[#6b6b6b] text-xs mt-1">
               {allCriterios.length} critérios disponíveis · Contrato 11481051
             </p>
-            <button onClick={() => setAddOpen(true)}
-              className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
-              <Plus size={14} /> Adicionar critério manualmente
-            </button>
+            <div className="flex items-center gap-3 mt-4">
+              <button onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: '#f97316' }}>
+                <Upload size={14} /> Importar XLSX
+              </button>
+              <button onClick={() => setAddOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
+                <Plus size={14} /> Adicionar manual
+              </button>
+              <button onClick={downloadTemplateCriterios}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-[#6b6b6b] border border-dashed border-[#525252] hover:text-[#f5f5f5] transition-colors">
+                Template XLSX
+              </button>
+            </div>
           </div>
         )}
       </div>

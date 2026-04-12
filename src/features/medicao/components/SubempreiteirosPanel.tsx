@@ -6,12 +6,28 @@
  * and totals (medido / aprovado / retenção).
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon, FileDown, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Subempreiteiro, SubempreteiroItem } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSubempreiteiroSheet } from '../utils/xlsxParsers'
 import type { SubempreiteiroParseResult } from '../utils/xlsxParsers'
 import { exportSubempreiteirosPdf } from '../utils/exportPdf'
+
+function downloadTemplateSub() {
+  const template = [{
+    'Nº Preço': '420009',
+    'Vínc. Sabesp': '420009',
+    'Descrição': 'Assentamento de rede esgoto PVC DN150',
+    'Unidade': 'M',
+    'Qtd': 100,
+    'Vl. Unitário': 1648.38,
+  }]
+  const ws = XLSX.utils.json_to_sheet(template)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Subempreiteiro')
+  XLSX.writeFile(wb, 'Template_Subempreiteiro_ConstruData.xlsx')
+}
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -378,14 +394,16 @@ export function SubempreiteirosPanel() {
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={() => setAddOpen(true)}
-        className="flex items-center gap-2 px-4 py-2.5 border border-dashed border-[#525252] rounded-lg text-sm text-[#f97316] hover:border-[#f97316]/50 transition-colors"
-      >
-        <Plus size={15} />
-        Adicionar subempreiteiro
-      </button>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={() => setAddOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 border border-dashed border-[#525252] rounded-lg text-sm text-[#f97316] hover:border-[#f97316]/50 transition-colors">
+          <Plus size={15} /> Adicionar subempreiteiro
+        </button>
+        <button type="button" onClick={downloadTemplateSub}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+          <Download size={13} /> Template XLSX
+        </button>
+      </div>
 
       {addOpen && (
         <AddSubModal

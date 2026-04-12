@@ -5,13 +5,55 @@
  * active boletim. Groups items by 01/02/03 (Canteiros, Esgoto, Água).
  */
 import { useState, useRef, useCallback } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown, Save, CheckCircle } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown, Save, CheckCircle, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { getAllCriterios } from '../data/criterios'
 import type { ItemContrato } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSabespSheet } from '../utils/xlsxParsers'
 import type { SabespParseResult } from '../utils/xlsxParsers'
 import { exportSabespPdf } from '../utils/exportPdf'
+
+/** Export current boletim items as XLSX for backup/sharing */
+function exportSabespXlsx(itens: ItemContrato[], periodo: string, contrato: string) {
+  const rows = itens.map(i => ({
+    'Item': i.itemEAP,
+    'N. Preço': i.nPreco,
+    'Descrição': i.descricao,
+    'Unid.': i.unidade,
+    'Qtd Contrato': i.qtdContrato,
+    'Vl. Unitário': i.valorUnitario,
+    'Qtd Anterior': i.qtdAnterior,
+    'Qtd Período': i.qtdMedida,
+    'Qtd Acumulada': i.qtdAnterior + i.qtdMedida,
+    'Total Período (R$)': Math.round(i.qtdMedida * i.valorUnitario * 100) / 100,
+    'Saldo Qtd': i.qtdContrato - i.qtdAnterior - i.qtdMedida,
+    'Saldo (R$)': Math.round((i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario * 100) / 100,
+    'Grupo': i.grupo,
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, `Medição ${periodo}`)
+  XLSX.writeFile(wb, `Medicao_Sabesp_${contrato}_${periodo.replace('/', '-')}.xlsx`)
+}
+
+/** Download empty template XLSX for Sabesp measurement */
+function downloadTemplateSabesp() {
+  const template = [{
+    'Item': '01010101',
+    'N. Preço': '500001',
+    'Descrição': 'IMPLANTAÇÃO DO CANTEIRO ESGOTO',
+    'Unid.': 'GB',
+    'Qtd Contrato': 1,
+    'Vl. Unitário': 5381388.60,
+    'Qtd Anterior': 0,
+    'Qtd Período': 0,
+  }]
+  const ws = XLSX.utils.json_to_sheet(template)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Template Medição')
+  XLSX.writeFile(wb, 'Template_Medicao_Sabesp_ConstruData.xlsx')
+}
 
 const GRUPOS = [
   { id: '01', nome: 'Canteiros e Planos' },
@@ -364,8 +406,19 @@ export function SabespPlanilhaPanel() {
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <XlsxImportSabesp />
+          <button type="button" onClick={downloadTemplateSabesp}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#a3a3a3] transition-colors">
+            <Download size={13} /> Template XLSX
+          </button>
           {boletim.itensContrato.length > 0 && (
             <>
+              <button
+                type="button"
+                onClick={() => exportSabespXlsx(boletim.itensContrato, boletim.periodo, boletim.contrato)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+              >
+                <FileDown size={13} /> Exportar XLSX
+              </button>
               <button
                 type="button"
                 onClick={handleSave}
