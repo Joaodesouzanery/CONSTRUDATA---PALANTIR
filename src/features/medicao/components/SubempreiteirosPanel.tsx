@@ -176,7 +176,7 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
 // ─── Main-level import: creates a NEW subempreiteiro from XLSX ───────────────
 
 function ImportSubNewBtn({ periodo }: { periodo: string }) {
-  const { addSubempreiteiro, importSubempreiteiroItems } = useMedicaoBillingStore()
+  const { addSubempreiteiro } = useMedicaoBillingStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
 
