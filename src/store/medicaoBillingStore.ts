@@ -138,6 +138,7 @@ interface MedicaoBillingState {
   // Step 6 — Medição Final
   computeMedicaoFinal: () => void
   setBoletimStatus: (status: MedicaoBoletim['status']) => void
+  fecharBoletim: () => void  // Transfers Acumulado → Anterior, zeros qtdMedida, sets status finalizado
 
   // Bulk import (XLSX)
   importItensContrato: (items: Omit<ItemContrato, 'id'>[], replace?: boolean) => void
@@ -405,6 +406,26 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
             b.id === s.activeBoletimId ? { ...b, status, updatedAt: new Date().toISOString() } : b
           ),
         })),
+
+      fecharBoletim: () =>
+        set((s) => {
+          const boletim = s.boletins.find((b) => b.id === s.activeBoletimId)
+          if (!boletim) return s
+          return {
+            boletins: s.boletins.map((b) =>
+              b.id !== s.activeBoletimId ? b : {
+                ...b,
+                itensContrato: b.itensContrato.map((i) => ({
+                  ...i,
+                  qtdAnterior: i.qtdAnterior + i.qtdMedida,
+                  qtdMedida: 0,
+                })),
+                status: 'finalizado' as const,
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          }
+        }),
 
       // ── Bulk import ───────────────────────────────────────────────────────────
 

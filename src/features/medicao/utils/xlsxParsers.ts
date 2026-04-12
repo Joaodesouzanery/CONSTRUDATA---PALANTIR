@@ -316,7 +316,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       nPreco:       nPrecoClean,
       descricao:    cleanDescricao || '—',
       unidade,
-      grupo:        currentGrupo,
+      grupo:        nPrecoClean.startsWith('EXT') ? 'EX' : currentGrupo,
       qtdContrato,
       qtdAnterior,
       qtdMedida,

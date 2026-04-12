@@ -4,7 +4,8 @@
  * Summary of the billing period: totals, subcontractors, suppliers, balance.
  * Generates a printable Boletim de Medição.
  */
-import { Calculator, Printer, CheckCircle, FileDown } from 'lucide-react'
+import { useState } from 'react'
+import { Calculator, Printer, CheckCircle, FileDown, Lock } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { exportMedicaoFinalPdf } from '../utils/exportPdf'
 
@@ -36,8 +37,9 @@ function Row({ label, value, highlight = false, negative = false }: {
 }
 
 export function MedicaoFinalPanel() {
-  const { getActiveBoletim, computeMedicaoFinal } = useMedicaoBillingStore()
+  const { getActiveBoletim, computeMedicaoFinal, fecharBoletim } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
+  const [showFecharConfirm, setShowFecharConfirm] = useState(false)
 
   if (!boletim) return (
     <div className="p-8 text-center text-[#6b6b6b] text-sm">Nenhum boletim ativo.</div>
@@ -97,10 +99,53 @@ export function MedicaoFinalPanel() {
                 <Printer size={15} />
                 Imprimir Boletim
               </button>
+              {boletim.status !== 'finalizado' && (
+                <button
+                  type="button"
+                  onClick={() => setShowFecharConfirm(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                >
+                  <Lock size={15} />
+                  Fechar Boletim
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {/* Fechar Boletim confirmation */}
+      {showFecharConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setShowFecharConfirm(false)}>
+          <div className="w-full max-w-md bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252]">
+              <span className="text-white font-semibold text-sm">Fechar Boletim — {boletim.periodo}</span>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-[#a3a3a3] text-sm">
+                Ao fechar este boletim, o sistema irá:
+              </p>
+              <ul className="text-[#f5f5f5] text-sm space-y-1.5 ml-4 list-disc">
+                <li>Transferir <strong>Qtd Acumulada</strong> para <strong>Qtd Anterior</strong></li>
+                <li>Zerar a <strong>Qtd Período</strong> de todos os itens</li>
+                <li>Marcar o boletim como <strong>Finalizado</strong></li>
+              </ul>
+              <p className="text-amber-400 text-xs mt-2">
+                O próximo período de medição partirá dos valores acumulados atuais.
+              </p>
+            </div>
+            <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
+              <button onClick={() => setShowFecharConfirm(false)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
+              <button
+                onClick={() => { fecharBoletim(); setShowFecharConfirm(false) }}
+                className="px-5 py-2 text-xs font-medium text-white rounded-lg bg-emerald-600 hover:bg-emerald-700 transition-colors"
+              >
+                Confirmar e Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!mf ? (
         <div className="py-16 text-center">

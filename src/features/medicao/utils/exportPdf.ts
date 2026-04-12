@@ -46,12 +46,12 @@ function openPrint(title: string, body: string) {
 
 // ─── Step 1: Planilha Sabesp ──────────────────────────────────────────────────
 
-const GRUPOS: Record<string, string> = { '01': 'Canteiros e Planos', '02': 'Esgoto', '03': 'Água' }
+const GRUPOS: Record<string, string> = { '01': 'Canteiros e Planos', '02': 'Esgoto', '03': 'Água', 'EX': 'Extra / Aditivos' }
 
 export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato: string, consorcio: string) {
   let body = `<h1>Planilha de Medição Sabesp — ${periodo}</h1><p class="sub">Contrato ${contrato} · ${consorcio}</p>`
 
-  const grupos = ['01', '02', '03']
+  const grupos = ['01', '02', '03', 'EX']
   let grandTotal = 0
 
   for (const gId of grupos) {
@@ -99,6 +99,13 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
 
   const grandAcumulado = itens.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
   const grandSaldo = itens.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
+  const extCount = itens.filter(i => i.nPreco.startsWith('EXT')).length
+
+  if (extCount > 0) {
+    body += `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:6px 12px;margin-top:10px;font-size:8pt;color:#856404;">
+      <strong>Atenção:</strong> ${extCount} item(ns) sem código de catálogo Sabesp (N. Preço) — verificar antes de enviar à fiscalização.
+    </div>`
+  }
 
   body += `<table style="margin-top:12px;"><tbody>
     <tr><td><strong>Total do Período</strong></td><td class="right" style="font-size:11pt;font-weight:700;color:#f97316;">${fmtBRL(grandTotal)}</td></tr>
@@ -249,7 +256,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   const itensComMedicao = boletim.itensContrato.filter(i => i.qtdMedida > 0)
 
   if (itensComMedicao.length > 0) {
-    const grupos = ['01', '02', '03']
+    const grupos = ['01', '02', '03', 'EX']
     for (const gId of grupos) {
       const items = itensComMedicao.filter(i => i.grupo === gId)
       if (items.length === 0) continue

@@ -17,6 +17,7 @@ const GRUPOS = [
   { id: '01', nome: 'Canteiros e Planos' },
   { id: '02', nome: 'Esgoto' },
   { id: '03', nome: 'Água' },
+  { id: 'EX', nome: 'Extra / Aditivos' },
 ]
 
 function fmt(n: number) {
@@ -388,6 +389,17 @@ export function SabespPlanilhaPanel() {
         </div>
       </div>
 
+      {/* Alert banner for items without N. Preço */}
+      {boletim.itensContrato.some((i) => i.nPreco.startsWith('EXT')) && (
+        <div className="flex items-start gap-2 text-amber-400 text-xs bg-amber-900/20 border border-amber-700/30 rounded-lg p-3">
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <div>
+            <strong>{boletim.itensContrato.filter((i) => i.nPreco.startsWith('EXT')).length} item(ns) sem código N. Preço Sabesp.</strong>
+            {' '}Edite o N. Preço diretamente na tabela ou marque como Aditivo. Itens sem código podem ser rejeitados pela fiscalização.
+          </div>
+        </div>
+      )}
+
       {GRUPOS.map((grupo) => {
         const items = boletim.itensContrato.filter((i) => i.grupo === grupo.id)
         const subtotal = items.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0)
@@ -436,13 +448,23 @@ export function SabespPlanilhaPanel() {
                       const saldoR$ = saldoQtd * item.valorUnitario
                       const inputCls = "w-full bg-transparent text-right text-[#f5f5f5] focus:outline-none focus:bg-[#3a3a3a] rounded px-1 py-0.5 text-[10px]"
                       return (
-                      <tr key={item.id} className="border-b border-[#525252] hover:bg-[#333]">
+                      <tr key={item.id} className={`border-b border-[#525252] hover:bg-[#333] ${item.nPreco.startsWith('EXT') ? 'bg-amber-950/20 border-l-2 border-l-red-500' : ''}`} title={item.nPreco.startsWith('EXT') ? 'Serviço sem código de catálogo Sabesp — insira o N. Preço ou marque como Aditivo' : undefined}>
                         {/* Item (EAP) */}
                         <td className="px-2 py-2 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px] whitespace-nowrap">{item.itemEAP || '—'}</td>
                         {/* Descrição + N. Preço */}
                         <td className="px-2 py-2 border-r border-[#525252] text-[10px]">
                           <div className="text-[#f5f5f5] leading-tight">{item.descricao}</div>
-                          <div className="text-[#f97316] font-mono text-[9px] mt-0.5">{item.nPreco}</div>
+                          {item.nPreco.startsWith('EXT') ? (
+                            <input
+                              type="text"
+                              value={item.nPreco}
+                              onChange={(e) => updateItemContrato(item.id, { nPreco: e.target.value })}
+                              placeholder="Insira N. Preço"
+                              className="mt-0.5 w-24 bg-red-900/30 border border-red-500/50 rounded px-1 py-0.5 text-[9px] text-red-300 font-mono focus:outline-none focus:border-red-400"
+                            />
+                          ) : (
+                            <div className="text-[#f97316] font-mono text-[9px] mt-0.5">{item.nPreco}</div>
+                          )}
                         </td>
                         {/* Un */}
                         <td className="px-2 py-2 border-r border-[#525252] text-center text-[#a3a3a3] text-[10px]">{item.unidade}</td>
