@@ -6,6 +6,7 @@
  */
 import * as XLSX from 'xlsx'
 import type { ItemContrato, SubempreteiroItem, Fornecedor } from '@/store/medicaoBillingStore'
+import { getAllCriterios } from '../data/criterios'
 
 // ─── Generic helpers ──────────────────────────────────────────────────────────
 
@@ -202,7 +203,8 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       else if (/^un(id)?$/.test(n) || n === 'un') iUnid = idx
       else if (/^(quant|qtd|quantidade)$/.test(n) && idx <= 6 && iQtdContr === 4) iQtdContr = idx
       else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit|valor.*unit/.test(n) && idx <= 7) iPUnit = idx
-      else if (/anterior|acum|acumulad/.test(n)) iQtdAnterior = idx
+      else if (/anterior/.test(n)) iQtdAnterior = idx
+      else if (/acum|acumulad/.test(n) && iQtdAnterior === -1) iQtdAnterior = idx
     })
     // Look for period measurement Quant. column after P.Unit
     for (let ci = iPUnit + 1; ci < headers.length; ci++) {
@@ -344,6 +346,25 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
         )
       }
     }
+  }
+
+  // Validate N. Preço against criteria catalog
+  const catalogo = getAllCriterios()
+  const catalogoSet = new Set(catalogo.map(c => c.nPreco))
+  const naoEncontrados = itens.filter(it => !it.nPreco.startsWith('EXT') && !catalogoSet.has(it.nPreco))
+  if (naoEncontrados.length > 0 && naoEncontrados.length <= 10) {
+    warnings.push(
+      `${naoEncontrados.length} N. Preço não encontrado(s) no catálogo de critérios: ${naoEncontrados.map(it => it.nPreco).join(', ')}. ` +
+      'Verifique se os códigos estão corretos ou adicione os critérios manualmente.'
+    )
+  }
+
+  // Validate overrun: items where accumulated > contract
+  const estourados = itens.filter(it => (it.qtdAnterior + it.qtdMedida) > it.qtdContrato && it.qtdContrato > 0)
+  if (estourados.length > 0) {
+    warnings.push(
+      `${estourados.length} item(ns) com medição superior ao contrato (requer Aditivo): ${estourados.map(it => `${it.nPreco} (${((it.qtdAnterior + it.qtdMedida) / it.qtdContrato * 100).toFixed(0)}%)`).join(', ')}`
+    )
   }
 
   // Check for duplicate N. Preço entries (skip generated EXT codes)
