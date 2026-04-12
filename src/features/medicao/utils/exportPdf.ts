@@ -5,7 +5,7 @@
  * triggers window.print(). Consistent with the codebase's existing PDF approach.
  */
 import type { ItemContrato, Subempreiteiro, Fornecedor, ConferenciaItem, MedicaoBoletim } from '@/store/medicaoBillingStore'
-import { CRITERIOS_MEDICAO } from '../data/criterios'
+import { getAllCriterios } from '../data/criterios'
 
 function fmtBRL(n: number) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -74,7 +74,7 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
         <td class="right">${fmtBRL(i.valorUnitario)}</td><td class="right">${fmtBRL(i.qtdMedida * i.valorUnitario)}</td>
         <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
       </tr>`
-      const crit = CRITERIOS_MEDICAO.find(cr => cr.nPreco === i.nPreco)
+      const crit = getAllCriterios().find(cr => cr.nPreco === i.nPreco)
       if (crit) {
         body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
           <strong style="color:#f97316;">CRITÉRIO ${i.nPreco}</strong> — <strong>Medição:</strong> ${crit.medicao}
@@ -152,7 +152,7 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
     </tfoot></table>`
 
     // Checklist
-    const nCrit = conferencia.filter(c => CRITERIOS_MEDICAO.some(cr => cr.nPreco === c.nPreco)).length
+    const nCrit = conferencia.filter(c => getAllCriterios().some(cr => cr.nPreco === c.nPreco)).length
     const nDiv = conferencia.filter(c => c.status === 'divergencia').length
     const terceirosOk = totalTerceiros <= totalMedido || totalMedido === 0
 
@@ -183,7 +183,7 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
     </tr>`
 
     // Add criteria block below the item
-    const crit = CRITERIOS_MEDICAO.find(cr => cr.nPreco === c.nPreco)
+    const crit = getAllCriterios().find(cr => cr.nPreco === c.nPreco)
     if (crit) {
       body += `<tr><td colspan="8" style="background:#fff8f0;padding:6px 12px;border-left:3px solid #f97316;">
         <div style="font-size:7.5pt;color:#666;"><strong style="color:#f97316;">CRITÉRIO ${c.nPreco}</strong> — <strong>Medição:</strong> ${crit.medicao}</div>
@@ -250,7 +250,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
           <td class="right">${fmtBRL(item.valorUnitario)}</td><td class="right">${fmtBRL(valor)}</td>
           <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
         </tr>`
-        const crit = CRITERIOS_MEDICAO.find(cr => cr.nPreco === item.nPreco)
+        const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
         if (crit) {
           body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
             <strong style="color:#f97316;">CRITÉRIO DE MEDIÇÃO:</strong> ${crit.medicao}
@@ -290,7 +290,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   }
 
   // ── 5. CHECKLIST DE CONFERÊNCIA ────────────────────────────
-  const nCrit = itensComMedicao.filter(i => CRITERIOS_MEDICAO.some(cr => cr.nPreco === i.nPreco)).length
+  const nCrit = itensComMedicao.filter(i => getAllCriterios().some(cr => cr.nPreco === i.nPreco)).length
   const totalTerceiros = totalSub + totalForn
   const terceirosOk = totalTerceiros <= totalMedido || totalMedido === 0
   const nDiv = boletim.conferencia.filter(c => c.status === 'divergencia').length

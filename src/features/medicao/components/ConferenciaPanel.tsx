@@ -10,7 +10,7 @@ import { CheckCircle, AlertTriangle, Clock, RefreshCw, FileDown, BookOpen, Chevr
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { ConferenciaItem } from '@/store/medicaoBillingStore'
 import { exportConferenciaPdf } from '../utils/exportPdf'
-import { CRITERIOS_MEDICAO } from '../data/criterios'
+import { getAllCriterios } from '../data/criterios'
 
 function StatusBadge({ status }: { status: ConferenciaItem['status'] }) {
   if (status === 'ok') return (
@@ -32,7 +32,7 @@ function StatusBadge({ status }: { status: ConferenciaItem['status'] }) {
 
 function CriterioPopover({ nPreco }: { nPreco: string }) {
   const [open, setOpen] = useState(false)
-  const criterio = CRITERIOS_MEDICAO.find((c) => c.nPreco === nPreco)
+  const criterio = getAllCriterios().find((c) => c.nPreco === nPreco)
 
   if (!criterio) return (
     <span className="text-[#6b6b6b] text-[10px] italic">Critério não localizado</span>
@@ -97,7 +97,7 @@ export function ConferenciaPanel() {
   const terceirosExcedem = totalTerceiros > totalMedidoSabesp && totalMedidoSabesp > 0
 
   // Check if each nPreco has a matching criterio
-  const nCriteriosEncontrados = conf.filter((c) => CRITERIOS_MEDICAO.some((cr) => cr.nPreco === c.nPreco)).length
+  const nCriteriosEncontrados = conf.filter((c) => getAllCriterios().some((cr) => cr.nPreco === c.nPreco)).length
 
   // Check for negative balance (quantity exceeds contract)
   const negSaldoCount = boletim.itensContrato.filter(

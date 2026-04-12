@@ -7,7 +7,7 @@
 import { useState, useRef } from 'react'
 import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
-import { CRITERIOS_MEDICAO } from '../data/criterios'
+import { getAllCriterios } from '../data/criterios'
 import type { ItemContrato } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSabespSheet } from '../utils/xlsxParsers'
 import type { SabespParseResult } from '../utils/xlsxParsers'
@@ -42,7 +42,7 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
   // Auto-fill from criterios catalog
   function handleNPrecoChange(val: string) {
     setNPreco(val)
-    const crit = CRITERIOS_MEDICAO.find((c) => c.nPreco === val.trim())
+    const crit = getAllCriterios().find((c) => c.nPreco === val.trim())
     if (crit) {
       setDescricao(crit.descricao)
       setUnidade(crit.unidade)

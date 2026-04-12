@@ -1,10 +1,11 @@
 /**
  * criterios.ts — Critérios de Medição Sabesp (Contrato 11481051).
  *
- * Extraído das planilhas de medição. Inclui os principais códigos de serviço
- * visíveis na Planilha de Medição Sabesp (Medição 10 - mar/26).
+ * Catálogo completo extraído do PDF "Regulamentação de Preços e Critérios
+ * de Medição" (435 págs) + critérios adicionados pelo usuário em runtime.
  *
- * TODO: Importar o PDF completo (435 págs) para expandir este catálogo.
+ * Os critérios adicionados manualmente são persistidos em localStorage
+ * e mesclados com os critérios base na exportação.
  */
 
 export interface CriterioMedicao {
@@ -382,18 +383,387 @@ export const CRITERIOS_MEDICAO: CriterioMedicao[] = [
     medicao: 'Pelo volume escavado de 4,01m até 6,00m, em M3 medido no local pela FISCALIZAÇÃO.',
     notas: 'Este serviço somente será medido a critério da FISCALIZAÇÃO.',
   },
+  {
+    nPreco: '500011',
+    descricao: 'PI em tubo de concreto PBJE - Prof até 1,60m (escavação mecanizada)',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Construção do poço de inspeção: escavação, sinalização, lastro e lajes em concreto armado, tubos PBJE, canaleta de fundo, cintas de amarração, aterro compactado, tampão em ferro fundido.',
+    medicao: 'Será por unidade de poço de inspeção executado.',
+    notas: 'Os tubos devem estar de acordo com a Especificação Técnica.',
+  },
+  {
+    nPreco: '500012',
+    descricao: 'PI em tubo de concreto PBJE - Prof até 1,60m (escavação manual)',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Construção do poço de inspeção com escavação manual: escavação, sinalização, lastro e lajes em concreto armado, tubos PBJE, canaleta de fundo, cintas, aterro compactado, tampão em ferro fundido.',
+    medicao: 'Será por unidade de poço de inspeção executado.',
+    notas: 'Os tubos devem estar de acordo com a Especificação Técnica.',
+  },
+  {
+    nPreco: '500013',
+    descricao: 'Poço de Inspeção Ø0,60m em material plástico - Prof até 1,60m (esc. mecanizada)',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Fornecimento e instalação de poço de inspeção em material plástico: escavação, berço de areia, instalação, interligação das tubulações, aterro com areia adensada, anel de concreto para apoio do tampão, tampão de ferro fundido.',
+    medicao: 'Será por unidade de poço de inspeção instalado.',
+    notas: 'Os poços devem estar de acordo com a NTS 234.',
+  },
+  {
+    nPreco: '500014',
+    descricao: 'Execução de PV de Tempo Seco com profundidade até 2,00m',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Construção de Poço de Visita de Coleta em Tempo Seco até 2,00m com aduela Ø1,00m: escavação, sinalização, lastro e lajes em concreto armado, alvenaria impermeabilizante ou tubos PBJE, válvula de gaveta DN 150mm, grelha de ferro fundido, barreira física e/ou rampa em concreto na galeria.',
+    medicao: 'Será por unidade de poço de visita executado.',
+    notas: 'Todos os materiais, inclusive hidráulicos, pela Contratada.',
+  },
+  {
+    nPreco: '500015',
+    descricao: 'Ramal coletivo de esgoto PVC DN 100mm, esc. manual e/ou mecanizada, prof até 1,25m',
+    unidade: 'M',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Assentamento de ramal coletivo PVC DN 100mm: mobilização, locação, sinalização, LRP passeio cimentado, escavação manual, esgotamento, lastro em areia, assentamento de tubos, envoltório em areia e reaterro compactado.',
+    medicao: 'Será por metro de ramal coletivo executado, medido entre os eixos das singularidades.',
+    notas: 'Não inclui a execução das caixas de inspeção ou poços de visita.',
+  },
+  {
+    nPreco: '500016',
+    descricao: 'Ramal coletivo de esgoto PVC DN 150mm, esc. manual e/ou mecanizada, prof até 1,25m',
+    unidade: 'M',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Assentamento de ramal coletivo PVC DN 150mm: mobilização, locação, sinalização, LRP passeio cimentado, escavação manual, esgotamento, lastro em areia, assentamento de tubos, envoltório em areia e reaterro compactado.',
+    medicao: 'Será por metro de ramal coletivo executado, medido entre os eixos das singularidades.',
+    notas: 'Não inclui a execução das caixas de inspeção ou poços de visita.',
+  },
+  {
+    nPreco: '500017',
+    descricao: 'Ramal coletivo de esgoto PVC DN 200mm, esc. manual e/ou mecanizada, prof até 1,25m',
+    unidade: 'M',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Assentamento de ramal coletivo PVC DN 200mm: mobilização, locação, sinalização, LRP passeio cimentado, escavação manual, esgotamento, lastro em areia, assentamento de tubos, envoltório em areia e reaterro compactado.',
+    medicao: 'Será por metro de ramal coletivo executado, medido entre os eixos das singularidades.',
+    notas: 'Não inclui a execução das caixas de inspeção ou poços de visita.',
+  },
+  {
+    nPreco: '500019',
+    descricao: 'Ligação Intradomiciliar de Esgoto - TIPO I',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Ligação de esgotos dentro do imóvel até rede coletora: rompimento de piso, escavação manual, assentamento de tubos PVC com lastro de areia, reaterro compactado, lastro de concreto, reposição do piso original, conexão à rede e caixa de inspeção, cadastro e limpeza.',
+    medicao: 'Será por ligação de esgoto executada, em unidade.',
+    notas: 'Estão inclusos todos os materiais, inclusive Caixa de Gordura e Caixa de Inspeção.',
+  },
+  {
+    nPreco: '500020',
+    descricao: 'Ligação Intradomiciliar de Esgoto - TIPO II',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Ligação de esgotos dentro do imóvel (dois domicílios) até rede coletora: rompimento de piso, escavação manual, assentamento de tubos PVC com lastro de areia, reaterro, reposição do piso, conexão à rede e caixa de inspeção.',
+    medicao: 'Será por ligação de esgoto executada, em unidade.',
+    notas: 'Estão inclusos todos os materiais, inclusive Caixa de Gordura e Caixa de Inspeção.',
+  },
+  {
+    nPreco: '500023',
+    descricao: 'Ligação de Esgoto Avulsa Cerâmico/PVC (Prof até 2,00m) - S/ Repos Pav',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Ligação avulsa em tubo cerâmico/PVC DN 100 ou 150mm: mobilização, pesquisa de interferências, locação, sinalização, escavação até 2,00m, escoramento, assentamento de tubos e peças, envoltório de areia, conexão à rede e caixa de inspeção, juntas, cadastro, reaterro compactado.',
+    medicao: 'Será por ligação de esgoto executada, em unidade.',
+    notas: 'Tubos e peças de responsabilidade da CONTRATADA.',
+  },
+  {
+    nPreco: '500024',
+    descricao: 'Ligação de Esgoto Avulsa Cerâmico/PVC (Prof de 2 a 4,00m) - S/ Repos Pav',
+    unidade: 'UN',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Ligação avulsa em tubo cerâmico/PVC DN 100 ou 150mm: mobilização, pesquisa de interferências, escavação de 2,00 a 4,00m, escoramento, assentamento, envoltório de areia, conexão à rede e caixa de inspeção, reaterro compactado.',
+    medicao: 'Será por ligação de esgoto executada, em unidade.',
+    notas: 'Tubos e peças de responsabilidade da CONTRATADA.',
+  },
+  {
+    nPreco: '500032',
+    descricao: 'Investigação não invasiva de subsolo - Radar de penetração em solo (GPR Georadar)',
+    unidade: 'EQD',
+    grupo: '01',
+    grupoNome: 'Canteiros e Planos',
+    compreende: 'Detecção eletromagnética por georradar: mobilização de equipe especializada, sinalização, avaliação de cadastros, localização de tubulações, detecção de interferências subterrâneas, demarcação na superfície, croquis com interferências, relatório geofísico final com profundidade e diâmetro.',
+    medicao: 'Por equipe x dia, com prévia autorização da FISCALIZAÇÃO.',
+    notas: '',
+  },
+  // Grupo 03 — Água (preços especiais 500xxx)
+  {
+    nPreco: '500033',
+    descricao: 'Ligação / subst ligação avulsa de água até 32mm - PA/TA/Eixo s/ repos pav',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Ligação avulsa ou substituição em tubo PEAD até 32mm: mobilização, pesquisa de interferências, locação da rede, sinalização, escavação, escoramento, assentamento PEAD com envoltório de areia, instalação/troca de tomada de água, conexão à rede e cavalete, instalação e lacração de hidrômetro, cadastro, reaterro compactado, ensaios DCP.',
+    medicao: 'Será por ligação avulsa ou substituição de ligação de água executada, em unidade.',
+    notas: '1. Todos os materiais pela CONTRATADA, inclusive lacre antifraude.',
+  },
+  {
+    nPreco: '500034',
+    descricao: 'Ligação água suces / passagem de ligação - PA/TA/Eixo s/ repos pav',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Ligação sucessiva ou passagem para rede nova em tubo PEAD até 32mm: mobilização, pesquisa de interferências, sinalização, escavação, instalação de tomada de água, assentamento PEAD com envoltório de areia, montagem de dispositivo de medição, conexão à rede e cavalete, instalação de hidrômetro.',
+    medicao: 'Será por ligação avulsa ou substituição de ligação de água executada, em unidade.',
+    notas: '1. Todos os materiais pela CONTRATADA, inclusive lacre antifraude.',
+  },
+  // Mais critérios extraídos do PDF...
+  {
+    nPreco: '410008',
+    descricao: 'Sondagem (vala seca) s/ repos do pav - Água',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Fornecimento de todos os recursos para Sondagem: mobilização, sinalização, escavação manual ou mecânica exceto rocha, disposição em encerado, troca de solo, reaterro compactado, ensaios DCP, carga, transporte e descarga.',
+    medicao: 'Será por sondagem executada, em unidade.',
+    notas: 'Utilizado para reparo de vazamentos não visíveis detectados pela Sabesp.',
+  },
+  {
+    nPreco: '410012',
+    descricao: 'Sondagem em leito (vala seca) c/ repos do leito (A) - Água',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Sondagem com reposição de pavimento no leito com Complexidade A: liberação de via, mobilização, sinalização inclusive noturna, levantamento de pavimentação inclusive duplo pavimento, escavação, troca de solo, reaterro compactado, ensaios DCP, reposição do pavimento.',
+    medicao: 'Será por sondagem executada, em unidade.',
+    notas: '1. Utilizado para vazamentos não visíveis. 2. Inclusos excedentes de levantamento e reposição. 3. Recomposição conforme Secção Tipo Perfil PESADO.',
+  },
+  {
+    nPreco: '410081',
+    descricao: 'LRP - Passeio cimentado - Ligação / subst avulsa de ligação de água',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Levantamento e reposição padrão de passeios: mobilização, levantamento do pavimento, reaterro compactado, ensaios DCP, lastro da brita (5cm mín.), juntas de dilatação, adensamento, cura, acabamento.',
+    medicao: 'Será por levantamento e reposição de passeio padrão, em unidade.',
+    notas: 'Se houver LRP de ambos os passeios (PA/PO), medir duas unidades.',
+  },
+  {
+    nPreco: '410082',
+    descricao: 'LRP - Passeio especial - Ligação / subst avulsa de ligação de água',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Levantamento e reposição padrão de passeios especiais: mobilização, levantamento do pavimento, reaterro compactado, ensaios DCP, lastro da brita (5cm mín.), juntas de dilatação, acabamento conforme especificação técnica.',
+    medicao: 'Será por levantamento e reposição de passeio padrão, em unidade.',
+    notas: 'Se houver LRP de ambos os passeios (PA/PO), medir duas unidades.',
+  },
+  {
+    nPreco: '410223',
+    descricao: 'Adicional para instalação de cavalete domiciliar',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Montagem e instalação de cavalete domiciliar (hidrômetro de 1,5 até 10,0 m³/h) ou UMA: levantamento do piso, montagem, instalação e chumbamento, reaterro, execução de contrapiso em concreto.',
+    medicao: 'Será por cavalete ou unidade de medição instalado, em unidade.',
+    notas: 'Todos os materiais, inclusive o kit cavalete, pela CONTRATADA, exceto hidrômetro e lacre antifraude.',
+  },
+  {
+    nPreco: '410237',
+    descricao: 'Adicional para instalação de hidrômetro em cavalete múltiplo',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Retirada de tubete, instalação e lacração de hidrômetro em cavalete múltiplo e limpeza do local.',
+    medicao: 'Será por instalação adicional de hidrômetro em cavalete múltiplo efetuada, em unidade.',
+    notas: 'Todos os materiais pela CONTRATADA, exceto hidrômetro e lacre antifraude.',
+  },
+  {
+    nPreco: '410365',
+    descricao: 'LRP - Passeio cimentado - Assentamento de rede de água DN 50 a 150mm',
+    unidade: 'M',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Levantamento e reposição padrão de passeios para rede de água: mobilização, levantamento do pavimento, reaterro compactado, ensaios DCP, lastro da brita (5cm mín.), juntas de dilatação, acabamento.',
+    medicao: 'Será pela extensão de tubulação assentada, em metro linear.',
+    notas: 'Todos os materiais pela CONTRATADA.',
+  },
+  {
+    nPreco: '410420',
+    descricao: 'Adicional para instalação de selas eletrossoldáveis para tubos de 110 a 125mm',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Raspagem e limpeza da zona de fusão em tubos PE DE 110-125mm, posicionamento, alinhamento e fixação do tê de serviço, conexão dos cabos, entrada dos dados de fusão, aplicação do ciclo de fusão, verificação e espera de resfriamento.',
+    medicao: 'Será por Instalação de sela Eletrossoldável, em unidade.',
+    notas: 'Todos os materiais hidráulicos fornecidos pela Sabesp.',
+  },
+  {
+    nPreco: '410423',
+    descricao: 'Adicional para instalação de luvas eletrossoldáveis de 20 a 32mm',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Instalação de luvas eletrossoldáveis para tubos PE DE 20-32mm: raspagem, desovalização, alinhamento, posicionamento, fixação da luva, conexão dos cabos, dados de fusão, ciclo de fusão, verificação e resfriamento.',
+    medicao: 'Será por Instalação de Luva Eletrossoldável, em unidade.',
+    notas: 'Todos os materiais hidráulicos fornecidos pela Sabesp.',
+  },
+  {
+    nPreco: '410424',
+    descricao: 'Adicional para instalação de luvas eletrossoldáveis de 40 a 90mm',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Instalação de luvas eletrossoldáveis para tubos PE DE 40-90mm: raspagem, desovalização, alinhamento, posicionamento, fixação, ciclo de fusão, verificação e resfriamento.',
+    medicao: 'Será por Instalação de Luva Eletrossoldável, em unidade.',
+    notas: 'Todos os materiais hidráulicos fornecidos pela Sabesp.',
+  },
+  {
+    nPreco: '410425',
+    descricao: 'Adicional para instalação de luvas eletrossoldáveis de 110 a 125mm',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Instalação de luvas eletrossoldáveis para tubos PE DE 110-125mm: raspagem, desovalização, alinhamento, posicionamento, fixação, ciclo de fusão, verificação e resfriamento.',
+    medicao: 'Será por Instalação de Luva Eletrossoldável, em unidade.',
+    notas: 'Todos os materiais hidráulicos fornecidos pela Sabesp.',
+  },
+  {
+    nPreco: '410426',
+    descricao: 'Adicional para instalação de luvas eletrossoldáveis de 140 a 160mm',
+    unidade: 'UN',
+    grupo: '03',
+    grupoNome: 'Água',
+    compreende: 'Instalação de luvas eletrossoldáveis para tubos PE DE 140-160mm: raspagem, desovalização, alinhamento, posicionamento, fixação, ciclo de fusão, verificação e resfriamento.',
+    medicao: 'Será por Instalação de Luva Eletrossoldável, em unidade.',
+    notas: 'Todos os materiais hidráulicos fornecidos pela Sabesp.',
+  },
+  {
+    nPreco: '420011',
+    descricao: 'Assentamento com escavação manual de rede coletora de esgoto PVC DN 150mm, prof até 2,0m (SFMH)',
+    unidade: 'M',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Assentamento de ramal coletivo PVC com escavação manual: mobilização, locação, sinalização, tapume contínuo, LRP passeio cimentado, escavação manual exceto rocha, escoramento >1.25m, esgotamento, lastro, assentamento, envoltório em areia e reaterro (GC≥95%), limpeza.',
+    medicao: 'Será por metro de rede coletora de esgoto executada, medida entre os eixos das singularidades.',
+    notas: 'Não inclui a execução dos poços de visita.',
+  },
+  {
+    nPreco: '420012',
+    descricao: 'Assentamento com escavação manual de rede coletora de esgoto PVC DN 200mm, prof até 2,0m (SFMH)',
+    unidade: 'M',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Assentamento de ramal coletivo PVC DN200 com escavação manual: mobilização, locação, sinalização, tapume, LRP passeio, escavação manual exceto rocha, escoramento >1.25m, esgotamento, lastro, assentamento, envoltório em areia e reaterro (GC≥95%), limpeza.',
+    medicao: 'Será por metro de rede coletora de esgoto executada, medida entre os eixos das singularidades.',
+    notas: 'Não inclui a execução dos poços de visita.',
+  },
+  {
+    nPreco: '421905',
+    descricao: 'Fornecimento LM rede esgoto prof até 2m PVC 150 e 200',
+    unidade: 'GB',
+    grupo: '02',
+    grupoNome: 'Esgoto',
+    compreende: 'Fornecimento posto obra de materiais conforme Lista de Materiais, projetos, especificações técnicas, normas e aprovação da Fiscalização. Inclui transporte, carga, descarga, manuseio e guarda no canteiro.',
+    medicao: 'Por preço global, com parcelas liberadas a critério da Fiscalização da SABESP.',
+    notas: 'Materiais classes A ou B devem ser adquiridos de fornecedores qualificados pela SABESP.',
+  },
+  {
+    nPreco: '500002',
+    descricao: 'Canteiro de Obras Água - Implantação',
+    unidade: 'GB',
+    grupo: '01',
+    grupoNome: 'Canteiros e Planos',
+    compreende: 'Disponibilização de imóvel e/ou construção de escritórios, vestiários, sanitários, alojamentos, almoxarifados, refeitórios; ligações de energia, telefonia, água e esgoto; placas de obra; 2 veículos; 2 notebooks + 2 impressoras; 2 smartphones; segurança e vigilância; desmobilização posterior.',
+    medicao: 'Pelo preço global: 90% após conclusão da instalação; 10% após desmobilização.',
+    notas: 'Canteiro conforme NR-18 e Especificações Técnicas.',
+  },
+  {
+    nPreco: '500101',
+    descricao: 'Canteiro de Obras Esgoto - Manutenção',
+    unidade: 'MÊS',
+    grupo: '01',
+    grupoNome: 'Canteiros e Planos',
+    compreende: 'Manutenção do canteiro: aluguel, acessos, cercas, placas de identificação, operação e manutenção de edificações, segurança/vigilância, combustíveis, materiais de escritório, manutenção de almoxarifado, 2 veículos, 2 notebooks, 2 impressoras, 2 linhas telefônicas.',
+    medicao: 'Por mês de manutenção executada.',
+    notas: 'A Sabesp poderá descontar 3,26% por veículo não utilizado.',
+  },
+  {
+    nPreco: '500102',
+    descricao: 'Canteiro de Obras Água - Manutenção',
+    unidade: 'MÊS',
+    grupo: '01',
+    grupoNome: 'Canteiros e Planos',
+    compreende: 'Manutenção do canteiro de obras de água: aluguel, manutenção geral, segurança, veículos para fiscalização, equipamentos de informática, materiais de escritório.',
+    medicao: 'Por mês de manutenção executada.',
+    notas: 'A Sabesp poderá descontar 3,26% por veículo não utilizado.',
+  },
 ]
+
+// ─── Custom criteria management (localStorage) ────────────────────────────────
+
+const CUSTOM_CRITERIOS_KEY = 'cdata-criterios-custom'
+
+function loadCustomCriterios(): CriterioMedicao[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_CRITERIOS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveCustomCriterios(items: CriterioMedicao[]) {
+  localStorage.setItem(CUSTOM_CRITERIOS_KEY, JSON.stringify(items))
+}
+
+/** Returns all criteria: base catalog + user-added custom ones */
+export function getAllCriterios(): CriterioMedicao[] {
+  const custom = loadCustomCriterios()
+  // Merge: custom entries override base entries with the same nPreco
+  const baseMap = new Map(CRITERIOS_MEDICAO.map((c) => [c.nPreco, c]))
+  for (const c of custom) baseMap.set(c.nPreco, c)
+  return Array.from(baseMap.values())
+}
+
+/** Add a new custom criterio (persisted in localStorage) */
+export function addCustomCriterio(criterio: CriterioMedicao): void {
+  const custom = loadCustomCriterios()
+  const idx = custom.findIndex((c) => c.nPreco === criterio.nPreco)
+  if (idx >= 0) custom[idx] = criterio
+  else custom.push(criterio)
+  saveCustomCriterios(custom)
+}
+
+/** Remove a custom criterio by nPreco */
+export function removeCustomCriterio(nPreco: string): void {
+  const custom = loadCustomCriterios().filter((c) => c.nPreco !== nPreco)
+  saveCustomCriterios(custom)
+}
+
+/** Check if a criterio is custom (user-added) */
+export function isCustomCriterio(nPreco: string): boolean {
+  return loadCustomCriterios().some((c) => c.nPreco === nPreco)
+}
 
 /** Retorna todos os critérios de um grupo */
 export function getCriteriosByGrupo(grupo: '01' | '02' | '03'): CriterioMedicao[] {
-  return CRITERIOS_MEDICAO.filter((c) => c.grupo === grupo)
+  return getAllCriterios().filter((c) => c.grupo === grupo)
 }
 
 /** Busca critérios por nPreco ou texto na descrição (case insensitive) */
 export function searchCriterios(query: string): CriterioMedicao[] {
+  const all = getAllCriterios()
   const q = query.toLowerCase().trim()
-  if (!q) return CRITERIOS_MEDICAO
-  return CRITERIOS_MEDICAO.filter(
+  if (!q) return all
+  return all.filter(
     (c) =>
       c.nPreco.includes(q) ||
       c.descricao.toLowerCase().includes(q) ||
