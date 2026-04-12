@@ -21,17 +21,21 @@ export type BillingStep = 1 | 2 | 3 | 4 | 5 | 6
 
 export interface ItemContrato {
   id:             string
+  itemEAP:        string   // e.g. "01010101" — hierarquia da obra (EAP)
   nPreco:         string   // e.g. "420009"
   descricao:      string   // e.g. "Assentamento rede esgoto PVC DN150"
   unidade:        string   // "M"
   grupo:          string   // "01" | "02" | "03"
   qtdContrato:    number
+  qtdAcumulada:   number   // acumulado de períodos anteriores
   qtdMedida:      number   // medição do período
   valorUnitario:  number
+  // saldoFinanceiro = (qtdContrato - qtdAcumulada - qtdMedida) * valorUnitario (COMPUTADO)
 }
 
 export interface SubempreteiroItem {
   nPreco:        string
+  nPrecoSabesp:  string   // vínculo com N. Preço da Sabesp para cross-reference
   descricao:     string
   unidade:       string
   qtd:           number
@@ -301,10 +305,12 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           if (!boletim) return s
 
           // Build map: nPreco → total qty from all subempreiteiros
+          // Uses nPrecoSabesp (link to Sabesp item) when available, falls back to nPreco
           const subQtyMap = new Map<string, number>()
           for (const sub of boletim.subempreiteiros) {
             for (const item of sub.itens) {
-              subQtyMap.set(item.nPreco, (subQtyMap.get(item.nPreco) ?? 0) + item.qtd)
+              const key = item.nPrecoSabesp || item.nPreco
+              subQtyMap.set(key, (subQtyMap.get(key) ?? 0) + item.qtd)
             }
           }
 
@@ -366,10 +372,15 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           const totalSubempreiteiros = boletim.subempreiteiros.reduce((acc, sub) => acc + sub.totalAprovado, 0)
           const totalFornecedores    = boletim.fornecedores.reduce((acc, f) => acc + f.valorAprovado, 0)
 
+          const totalAcumulado = boletim.itensContrato.reduce(
+            (acc, i) => acc + (i.qtdAcumulada + i.qtdMedida) * i.valorUnitario,
+            0
+          )
+
           const medicaoFinal: MedicaoFinal = {
             totalContratoValor,
             totalMedidoPeriodo,
-            totalAcumulado:       totalMedidoPeriodo,  // simplified: no historical data yet
+            totalAcumulado,
             totalSubempreiteiros,
             totalFornecedores,
             saldoContratante:     totalMedidoPeriodo - totalSubempreiteiros - totalFornecedores,
@@ -437,11 +448,11 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
             consorcio: 'SE LIGA NA REDE - SANTOS',
             status: 'rascunho' as const,
             itensContrato: [
-              { id: 'it-1', nPreco: '05.01.001', descricao: 'Escavação mecânica vala', unidade: 'm³', qtdContrato: 1200, qtdMedida: 850, valorUnitario: 32.50, grupo: '02' },
-              { id: 'it-2', nPreco: '05.02.003', descricao: 'Tubo PVC JEI DN 200mm', unidade: 'm', qtdContrato: 2500, qtdMedida: 1800, valorUnitario: 78.40, grupo: '02' },
-              { id: 'it-3', nPreco: '05.03.001', descricao: 'Poço de Visita D=1.20m', unidade: 'un', qtdContrato: 45, qtdMedida: 32, valorUnitario: 3250.00, grupo: '02' },
-              { id: 'it-4', nPreco: '06.01.001', descricao: 'Rede água DN 110mm PEAD', unidade: 'm', qtdContrato: 1800, qtdMedida: 1200, valorUnitario: 45.60, grupo: '03' },
-              { id: 'it-5', nPreco: '01.01.001', descricao: 'Canteiro de serviço', unidade: 'mês', qtdContrato: 12, qtdMedida: 3, valorUnitario: 18500.00, grupo: '01' },
+              { id: 'it-1', itemEAP: '02010101', nPreco: '05.01.001', descricao: 'Escavação mecânica vala', unidade: 'm³', qtdContrato: 1200, qtdAcumulada: 200, qtdMedida: 850, valorUnitario: 32.50, grupo: '02' },
+              { id: 'it-2', itemEAP: '02010201', nPreco: '05.02.003', descricao: 'Tubo PVC JEI DN 200mm', unidade: 'm', qtdContrato: 2500, qtdAcumulada: 500, qtdMedida: 1800, valorUnitario: 78.40, grupo: '02' },
+              { id: 'it-3', itemEAP: '02010301', nPreco: '05.03.001', descricao: 'Poço de Visita D=1.20m', unidade: 'un', qtdContrato: 45, qtdAcumulada: 8, qtdMedida: 32, valorUnitario: 3250.00, grupo: '02' },
+              { id: 'it-4', itemEAP: '03010101', nPreco: '06.01.001', descricao: 'Rede água DN 110mm PEAD', unidade: 'm', qtdContrato: 1800, qtdAcumulada: 300, qtdMedida: 1200, valorUnitario: 45.60, grupo: '03' },
+              { id: 'it-5', itemEAP: '01010101', nPreco: '01.01.001', descricao: 'Canteiro de serviço', unidade: 'mês', qtdContrato: 12, qtdAcumulada: 6, qtdMedida: 3, valorUnitario: 18500.00, grupo: '01' },
             ],
             subempreiteiros: [],
             fornecedores: [],
@@ -458,7 +469,28 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
     }),
     {
       name: 'cdata-medicao-billing',
-      version: 1,
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as Record<string, unknown>
+        if (version < 2) {
+          const boletins = (state.boletins ?? []) as Record<string, unknown>[]
+          for (const boletim of boletins) {
+            const itens = (boletim.itensContrato ?? []) as Record<string, unknown>[]
+            for (const item of itens) {
+              item.itemEAP = item.itemEAP ?? ''
+              item.qtdAcumulada = item.qtdAcumulada ?? 0
+            }
+            const subs = (boletim.subempreiteiros ?? []) as Record<string, unknown>[]
+            for (const sub of subs) {
+              const subItens = (sub.itens ?? []) as Record<string, unknown>[]
+              for (const it of subItens) {
+                it.nPrecoSabesp = it.nPrecoSabesp ?? ''
+              }
+            }
+          }
+        }
+        return state as MedicaoBillingState
+      },
     }
   )
 )

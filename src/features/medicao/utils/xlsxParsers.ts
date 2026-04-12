@@ -180,6 +180,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   // ── Determine column indices ───────────────────────────────────────────────
   let iItem = 0, iDescr = 1, iNPreco = 2, iUnid = 3, iQtdContr = 4, iPUnit = 5
   let iQtdMedida = -1
+  let iQtdAcumulada = -1
 
   if (headerRowIdx >= 0 && headerRowIdx < raw.length) {
     const headers = raw[headerRowIdx].map(toStr)
@@ -191,6 +192,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       else if (/^un(id)?$/.test(n) || n === 'un') iUnid = idx
       else if (/^(quant|qtd|quantidade)$/.test(n) && idx <= 6 && iQtdContr === 4) iQtdContr = idx
       else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit|valor.*unit/.test(n) && idx <= 7) iPUnit = idx
+      else if (/acum|anterior|acumulad/.test(n)) iQtdAcumulada = idx
     })
     // Look for period measurement Quant. column after P.Unit
     for (let ci = iPUnit + 1; ci < headers.length; ci++) {
@@ -248,19 +250,22 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     // Skip rows that look like repeated column headers
     if (norm(nPreco).includes('preco') || norm(nPreco).includes('n preco')) continue
 
-    const unidade     = toStr(row[iUnid]) || 'M'
-    const qtdContrato = toNum(row[iQtdContr])
+    const unidade       = toStr(row[iUnid]) || 'M'
+    const qtdContrato   = toNum(row[iQtdContr])
     const valorUnitario = toNum(row[iPUnit])
-    const qtdMedida   = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
+    const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
+    const qtdAcumulada  = iQtdAcumulada >= 0 ? toNum(row[iQtdAcumulada]) : 0
 
     if (!descricao && !nPreco) continue
 
     itens.push({
+      itemEAP:      item || cleanItem,
       nPreco:       nPrecoClean,
       descricao:    descricao || '—',
       unidade,
       grupo:        currentGrupo,
       qtdContrato,
+      qtdAcumulada,
       qtdMedida,
       valorUnitario,
     })
@@ -412,7 +417,7 @@ export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParse
         // Skip rows that are sub-headers or summary rows
         if (norm(descricao).includes('descri') || norm(descricao).includes('total')) continue
 
-        sheetItens.push({ nPreco, descricao, unidade, qtd, valorUnitario: vlUnit })
+        sheetItens.push({ nPreco, nPrecoSabesp: '', descricao, unidade, qtd, valorUnitario: vlUnit })
       }
 
       if (sheetItens.length > 0) {
@@ -436,6 +441,7 @@ export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParse
           if (!nPreco && !descricao) continue
           result.itens.push({
             nPreco,
+            nPrecoSabesp: '',
             descricao,
             unidade: colUn ? toStr(row[colUn]) || 'M' : 'M',
             qtd: colQtd ? toNum(row[colQtd]) : 0,

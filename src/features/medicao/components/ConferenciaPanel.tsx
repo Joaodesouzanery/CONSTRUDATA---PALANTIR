@@ -99,6 +99,11 @@ export function ConferenciaPanel() {
   // Check if each nPreco has a matching criterio
   const nCriteriosEncontrados = conf.filter((c) => CRITERIOS_MEDICAO.some((cr) => cr.nPreco === c.nPreco)).length
 
+  // Check for negative balance (quantity exceeds contract)
+  const negSaldoCount = boletim.itensContrato.filter(
+    (i) => (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) < 0
+  ).length
+
   return (
     <div className="p-6 space-y-5 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -194,6 +199,12 @@ export function ConferenciaPanel() {
                 {nCriteriosEncontrados === conf.length ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#fbbf24]" />}
                 <span className="text-[#a3a3a3]">
                   {nCriteriosEncontrados === conf.length ? 'Todos os nPreço possuem critério vinculado' : `${conf.length - nCriteriosEncontrados} item(ns) sem critério localizado`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {negSaldoCount === 0 ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#f87171]" />}
+                <span className={negSaldoCount === 0 ? 'text-[#a3a3a3]' : 'text-[#f87171] font-medium'}>
+                  {negSaldoCount === 0 ? 'Nenhum item com saldo negativo' : `${negSaldoCount} item(ns) com saldo negativo (qtd excede contrato)`}
                 </span>
               </div>
             </div>

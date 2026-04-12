@@ -39,9 +39,11 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
   const [retencao,      setRetencao]      = useState('')
 
   function addItem() {
-    setItens((prev) => [...prev, { nPreco: '', descricao: '', unidade: 'M', qtd: 0, valorUnitario: 0 }])
+    setItens((prev) => [...prev, { nPreco: '', nPrecoSabesp: '', descricao: '', unidade: 'M', qtd: 0, valorUnitario: 0 }])
   }
   function updateItem(idx: number, patch: Partial<SubempreteiroItem>) {
+    if (patch.qtd !== undefined) patch.qtd = isNaN(patch.qtd) ? 0 : patch.qtd
+    if (patch.valorUnitario !== undefined) patch.valorUnitario = isNaN(patch.valorUnitario) ? 0 : patch.valorUnitario
     setItens((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
   }
   function removeItem(idx: number) {
@@ -96,9 +98,13 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
             <div className="text-[10px] text-[#a3a3a3] font-semibold uppercase mb-2">Itens de Medição</div>
             <div className="space-y-2">
               {itens.map((it, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
+                <div key={idx} className="flex gap-2 items-center flex-wrap">
                   <input value={it.nPreco} onChange={(e) => updateItem(idx, { nPreco: e.target.value })}
                     placeholder="Nº Preço"
+                    className="w-24 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
+                  <input value={it.nPrecoSabesp} onChange={(e) => updateItem(idx, { nPrecoSabesp: e.target.value })}
+                    placeholder="Vínc. Sabesp"
+                    title="N. Preço da Sabesp vinculado"
                     className="w-24 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
                   <input value={it.descricao} onChange={(e) => updateItem(idx, { descricao: e.target.value })}
                     placeholder="Descrição"
@@ -286,6 +292,7 @@ function SubCard({ sub, onRemove }: { sub: Subempreiteiro; onRemove: () => void 
             <thead>
               <tr className="bg-[#1f1f1f] text-[#a3a3a3] uppercase text-[9px]">
                 <th className="px-3 py-2 text-left border-r border-[#525252]">Nº Preço</th>
+                <th className="px-3 py-2 text-left border-r border-[#525252]">Vínc. Sabesp</th>
                 <th className="px-3 py-2 text-left border-r border-[#525252]">Descrição</th>
                 <th className="px-3 py-2 text-center border-r border-[#525252]">Un</th>
                 <th className="px-3 py-2 text-right border-r border-[#525252]">Qtd</th>
@@ -297,6 +304,7 @@ function SubCard({ sub, onRemove }: { sub: Subempreiteiro; onRemove: () => void 
               {sub.itens.map((it, idx) => (
                 <tr key={idx} className="border-b border-[#525252]">
                   <td className="px-3 py-1.5 border-r border-[#525252] font-mono text-[#f97316]">{it.nPreco}</td>
+                  <td className="px-3 py-1.5 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px]">{it.nPrecoSabesp || '—'}</td>
                   <td className="px-3 py-1.5 border-r border-[#525252] text-[#f5f5f5]">{it.descricao}</td>
                   <td className="px-3 py-1.5 border-r border-[#525252] text-center text-[#a3a3a3]">{it.unidade}</td>
                   <td className="px-3 py-1.5 border-r border-[#525252] text-right">{it.qtd.toLocaleString('pt-BR')}</td>

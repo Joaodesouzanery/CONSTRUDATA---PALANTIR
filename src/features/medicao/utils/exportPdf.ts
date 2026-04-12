@@ -31,7 +31,8 @@ const BASE_CSS = `
   .ok { color: #16a34a; font-weight: 700; }
   .div { color: #dc2626; font-weight: 700; }
   .pend { color: #d97706; font-weight: 700; }
-  @media print { body { padding: 0; } }
+  thead { display: table-header-group; }
+  @media print { body { padding: 0; } thead { display: table-header-group; } tr { page-break-inside: avoid; } }
 `
 
 function openPrint(title: string, body: string) {
@@ -61,18 +62,26 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
 
     body += `<h2>Grupo ${gId} — ${GRUPOS[gId]}</h2>`
     body += `<table><thead><tr>
-      <th>Nº Preço</th><th>Descrição</th><th class="center">Un</th>
-      <th class="right">Qtd Contrato</th><th class="right">Qtd Medida</th>
-      <th class="right">Vl. Unitário</th><th class="right">Vl. Período</th>
+      <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
+      <th class="right">Qtd Contrato</th><th class="right">Qtd Acum.</th><th class="right">Qtd Medida</th>
+      <th class="right">Vl. Unitário</th><th class="right">Total Período</th><th class="right">Saldo</th>
     </tr></thead><tbody>`
     for (const i of items) {
+      const saldo = (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) * i.valorUnitario
       body += `<tr>
-        <td>${i.nPreco}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
-        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtNum(i.qtdMedida)}</td>
+        <td>${i.itemEAP || '—'}</td><td>${i.nPreco}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
+        <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtNum(i.qtdAcumulada)}</td><td class="right">${fmtNum(i.qtdMedida)}</td>
         <td class="right">${fmtBRL(i.valorUnitario)}</td><td class="right">${fmtBRL(i.qtdMedida * i.valorUnitario)}</td>
+        <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
       </tr>`
+      const crit = CRITERIOS_MEDICAO.find(cr => cr.nPreco === i.nPreco)
+      if (crit) {
+        body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
+          <strong style="color:#f97316;">CRITÉRIO ${i.nPreco}</strong> — <strong>Medição:</strong> ${crit.medicao}
+        </td></tr>`
+      }
     }
-    body += `</tbody><tfoot><tr><td colspan="6" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td></tr></tfoot></table>`
+    body += `</tbody><tfoot><tr><td colspan="8" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td></td></tr></tfoot></table>`
   }
 
   body += `<p class="total">Total do Período: ${fmtBRL(grandTotal)}</p>`
@@ -87,17 +96,17 @@ export function exportSubempreiteirosPdf(subempreiteiros: Subempreiteiro[], peri
   for (const sub of subempreiteiros) {
     body += `<h2>${sub.nome} — Núcleo: ${sub.nucleo}</h2>`
     body += `<table><thead><tr>
-      <th>Nº Preço</th><th>Descrição</th><th class="center">Un</th>
+      <th>Nº Preço</th><th>Vínc. Sabesp</th><th>Descrição</th><th class="center">Un</th>
       <th class="right">Qtd</th><th class="right">Vl. Unitário</th><th class="right">Vl. Total</th>
     </tr></thead><tbody>`
     for (const i of sub.itens) {
       body += `<tr>
-        <td>${i.nPreco}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
+        <td>${i.nPreco}</td><td>${i.nPrecoSabesp || '—'}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
         <td class="right">${fmtNum(i.qtd)}</td><td class="right">${fmtBRL(i.valorUnitario)}</td>
         <td class="right">${fmtBRL(i.qtd * i.valorUnitario)}</td>
       </tr>`
     }
-    body += `</tbody><tfoot><tr><td colspan="5" class="right">Total Medido</td><td class="right">${fmtBRL(sub.totalMedido)}</td></tr></tfoot></table>`
+    body += `</tbody><tfoot><tr><td colspan="6" class="right">Total Medido</td><td class="right">${fmtBRL(sub.totalMedido)}</td></tr></tfoot></table>`
     body += `<p style="font-size:8.5pt;color:#555;margin:-8px 0 14px;">Aprovado: ${fmtBRL(sub.totalAprovado)} &nbsp;|&nbsp; Retenção: ${fmtBRL(sub.retencao)}</p>`
   }
 
@@ -224,34 +233,36 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
     for (const gId of grupos) {
       const items = itensComMedicao.filter(i => i.grupo === gId)
       if (items.length === 0) continue
+      const subtotal = items.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0)
 
       body += `<h2 style="font-size:9.5pt;border-color:#f97316;">Grupo ${gId} — ${GRUPOS[gId]}</h2>`
+      body += `<table><thead><tr>
+        <th>Item</th><th>N. Preço</th><th>Descrição</th><th class="center">Un</th>
+        <th class="right">Qtd Contrato</th><th class="right">Qtd Acum.</th><th class="right">Qtd Medida</th>
+        <th class="right">Vl. Unitário</th><th class="right">Total Período</th><th class="right">Saldo</th>
+      </tr></thead><tbody>`
       for (const item of items) {
         const valor = item.qtdMedida * item.valorUnitario
-        body += `
-        <table style="margin-bottom:2px;">
-          <thead><tr>
-            <th style="width:80px;">${item.nPreco}</th>
-            <th>${item.descricao}</th>
-            <th class="center" style="width:40px;">${item.unidade}</th>
-            <th class="right" style="width:90px;">Qtd: ${fmtNum(item.qtdMedida)}</th>
-            <th class="right" style="width:120px;">${fmtBRL(valor)}</th>
-          </tr></thead>
-        </table>`
-
-        // Criteria block
+        const saldo = (item.qtdContrato - item.qtdAcumulada - item.qtdMedida) * item.valorUnitario
+        body += `<tr>
+          <td>${item.itemEAP || '—'}</td><td>${item.nPreco}</td><td>${item.descricao}</td><td class="center">${item.unidade}</td>
+          <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtNum(item.qtdAcumulada)}</td><td class="right">${fmtNum(item.qtdMedida)}</td>
+          <td class="right">${fmtBRL(item.valorUnitario)}</td><td class="right">${fmtBRL(valor)}</td>
+          <td class="right" style="color:${saldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldo)}</td>
+        </tr>`
         const crit = CRITERIOS_MEDICAO.find(cr => cr.nPreco === item.nPreco)
         if (crit) {
-          body += `<div style="background:#fff8f0;border-left:3px solid #f97316;padding:4px 10px;margin:0 0 10px;font-size:7.5pt;">
+          body += `<tr><td colspan="10" style="background:#fff8f0;padding:4px 10px;border-left:3px solid #f97316;font-size:7.5pt;">
             <strong style="color:#f97316;">CRITÉRIO DE MEDIÇÃO:</strong> ${crit.medicao}
             ${crit.notas ? `<br/><span style="color:#888;">Notas: ${crit.notas}</span>` : ''}
-          </div>`
+          </td></tr>`
         } else {
-          body += `<div style="background:#fff0f0;border-left:3px solid #dc2626;padding:4px 10px;margin:0 0 10px;font-size:7.5pt;color:#dc2626;">
+          body += `<tr><td colspan="10" style="background:#fff0f0;padding:4px 10px;border-left:3px solid #dc2626;font-size:7.5pt;color:#dc2626;">
             ⚠ Critério não localizado no catálogo para nPreço ${item.nPreco}
-          </div>`
+          </td></tr>`
         }
       }
+      body += `</tbody><tfoot><tr><td colspan="8" class="right">Subtotal ${GRUPOS[gId]}</td><td class="right">${fmtBRL(subtotal)}</td><td></td></tr></tfoot></table>`
     }
   } else {
     body += `<p style="color:#888;font-style:italic;">Nenhum item com quantidade medida no período.</p>`
@@ -283,6 +294,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   const totalTerceiros = totalSub + totalForn
   const terceirosOk = totalTerceiros <= totalMedido || totalMedido === 0
   const nDiv = boletim.conferencia.filter(c => c.status === 'divergencia').length
+  const negSaldoCount = boletim.itensContrato.filter(i => (i.qtdContrato - i.qtdAcumulada - i.qtdMedida) < 0).length
 
   body += `<h2>5. Checklist de Conferência</h2>
   <table><thead><tr><th>Verificação</th><th class="center" style="width:120px;">Resultado</th></tr></thead><tbody>
@@ -290,6 +302,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
     <tr><td>Divergências de quantidade (Sabesp vs Subempreiteiros)</td><td class="center ${nDiv === 0 ? 'ok' : 'pend'}">${nDiv === 0 ? '✅ Nenhuma' : `⚠️ ${nDiv}`}</td></tr>
     <tr><td>Todos os nPreço possuem critério de medição vinculado</td><td class="center ${nCrit === itensComMedicao.length ? 'ok' : 'pend'}">${nCrit === itensComMedicao.length ? '✅ Sim' : `⚠️ ${nCrit}/${itensComMedicao.length}`}</td></tr>
     <tr><td>Saldo para o contratante (margem positiva)</td><td class="center ${saldo >= 0 ? 'ok' : 'div'}">${saldo >= 0 ? '✅ Positivo' : '❌ Negativo'}</td></tr>
+    <tr><td>Itens com saldo negativo (qtd excede contrato)</td><td class="center ${negSaldoCount === 0 ? 'ok' : 'div'}">${negSaldoCount === 0 ? '✅ Nenhum' : `❌ ${negSaldoCount} item(ns)`}</td></tr>
   </tbody></table>`
 
   body += `<p style="text-align:center;font-size:7.5pt;color:#999;margin-top:20px;">Atlântico ConstruData — Documento gerado automaticamente</p>`
