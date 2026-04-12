@@ -489,7 +489,7 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
             }
           }
         }
-        return state as MedicaoBillingState
+        return state as unknown as MedicaoBillingState
       },
     }
   )
