@@ -12,7 +12,6 @@
  * Uses pdfjs-dist (already installed) to extract text per page.
  */
 import * as pdfjsLib from 'pdfjs-dist'
-// @ts-expect-error Vite ?url import for worker
 import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { CriterioMedicao } from '../data/criterios'
 
