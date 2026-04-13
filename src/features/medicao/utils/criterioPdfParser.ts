@@ -14,8 +14,9 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import type { CriterioMedicao } from '../data/criterios'
 
-// Reuse same worker config as pre-construcao module
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+// Disable worker to avoid CDN fetch issues in production
+// Runs on main thread (slower but 100% reliable without external dependencies)
+pdfjsLib.GlobalWorkerOptions.workerSrc = ''
 
 /**
  * Extract measurement criteria from a Sabesp PDF file.

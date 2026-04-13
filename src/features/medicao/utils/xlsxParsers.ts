@@ -486,6 +486,22 @@ export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParse
       }
     }
 
+    // ── Extract financial summary values (SLNR FECHAMENTO format) ────────────
+    for (let i = 0; i < raw.length; i++) {
+      const cells = raw[i].map(toStr)
+      const rowStr = cells.join(' ').toLowerCase()
+      // Look for key-value pairs like "Medição fev/26 | 398.835,64"
+      if (/medi[çc][aã]o\s*aprovada/i.test(rowStr)) {
+        for (const c of cells) { const v = toNum(c); if (v > 0 && v < 100_000_000_000) { result.totals.totalAprovado = v; break } }
+      }
+      if (/reten[çc][aã]o\s*(fev|mar|abr|jan|mai|jun|jul|ago|set|out|nov|dez)/i.test(rowStr)) {
+        for (const c of cells) { const v = toNum(c); if (v > 0 && v < 100_000_000_000) { result.totals.retencao = v; break } }
+      }
+      if (/^medi[çc][aã]o\s*(fev|mar|abr|jan|mai|jun|jul|ago|set|out|nov|dez)/i.test(rowStr.trim()) && result.totals.totalMedido === 0) {
+        for (const c of cells) { const v = toNum(c); if (v > 0 && v < 100_000_000_000) { result.totals.totalMedido = v; break } }
+      }
+    }
+
     // ── Find header row ────────────────────────────────────────────────────────
     let headerIdx = -1
     for (let i = 0; i < Math.min(raw.length, 20); i++) {
@@ -545,12 +561,24 @@ export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParse
         const nPreco    = idxNPreco  >= 0 ? toStr(cells[idxNPreco])  : ''
         const descricao = idxDesc    >= 0 ? toStr(cells[idxDesc])    : ''
         const unidade   = idxUn      >= 0 ? toStr(cells[idxUn]) || 'M' : 'M'
-        const qtd       = idxQtd     >= 0 ? toNum(cells[idxQtd])    : 0
-        const vlUnit    = idxVlUnit  >= 0 ? toNum(cells[idxVlUnit])  : 0
+        let   qtd       = idxQtd     >= 0 ? toNum(cells[idxQtd])    : 0
+        let   vlUnit    = idxVlUnit  >= 0 ? toNum(cells[idxVlUnit])  : 0
+        const totalVal  = idxTotal   >= 0 ? toNum(cells[idxTotal])   : 0
 
         if (!descricao && !nPreco) continue
         // Skip rows that are sub-headers or summary rows
         if (norm(descricao).includes('descri') || norm(descricao).includes('total')) continue
+
+        // For financial summary items (Adiantamento, Retenção, etc.):
+        // If qty is 0 but total column has a value, treat as global value
+        if (qtd === 0 && vlUnit === 0 && totalVal !== 0) {
+          qtd = 1
+          vlUnit = totalVal
+        }
+        // Also handle: if qty > 0 but vlUnit is 0 and total exists, derive vlUnit
+        if (qtd > 0 && vlUnit === 0 && totalVal !== 0) {
+          vlUnit = totalVal / qtd
+        }
 
         sheetItens.push({ nPreco, nPrecoSabesp: '', descricao, unidade, qtd, valorUnitario: vlUnit })
       }
@@ -665,34 +693,44 @@ export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): Fo
         if (pMatch) periodo = pMatch[0].trim()
       }
 
-      // Look for "TOTAL" labeled rows — the value in the adjacent cell is the approved amount
-      const totalIdx = cells.findIndex((c) => /^total/i.test(c.trim()))
-      if (totalIdx >= 0) {
-        // Check cells to the right of "total"
-        for (let j = totalIdx + 1; j < cells.length; j++) {
-          const v = toNum(cells[j])
-          if (v > 0) { valor = v; break }
-        }
-        // Also the same cell if it contains the value after a colon/space
-        if (valor === 0) {
-          const sameCell = cells[totalIdx]
-          const m = sameCell.match(/[\d.,]+$/)
-          if (m) { const v = toNum(m[0]); if (v > 0) valor = v }
+      // Look for specific financial labels and extract value from adjacent cell
+      const financialLabels = [
+        /trabalhos\s*executados\s*aprovados/i,
+        /valor\s*medi[çc][aã]o/i,
+        /^total$/i,
+        /valor\s*(?:nf|nota)/i,
+        /fechamento\s*m[eê]s/i,
+      ]
+      for (const label of financialLabels) {
+        const labelIdx = cells.findIndex((c) => label.test(c.trim()))
+        if (labelIdx >= 0 && valor === 0) {
+          for (let j = labelIdx + 1; j < cells.length; j++) {
+            const cellStr = cells[j]
+            // Skip cells that look like dates (contain /)
+            if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(cellStr)) continue
+            const v = toNum(cellStr)
+            // Sanity check: reject values over R$ 100 billion (clearly a parsing error)
+            if (v > 0 && v < 100_000_000_000) { valor = v; break }
+          }
         }
       }
 
-      // Accumulate description from informative rows (skip numeric-only rows)
-      if (descricao.length < 300 && rowStr.length > 5 && !/^[\d.,\s]+$/.test(rowStr)) {
+      // Accumulate description from informative rows (skip numeric-only rows and dates)
+      if (descricao.length < 300 && rowStr.length > 5 && !/^[\d.,\s/]+$/.test(rowStr)) {
         descricao += (descricao ? ' ' : '') + rowStr.substring(0, 100)
       }
     }
 
-    // If still no total found, use the largest monetary value in the sheet
+    // If still no total found, use the largest REASONABLE monetary value in the sheet
     if (valor === 0) {
       for (const row of raw) {
         for (const cell of row) {
+          const cellStr = toStr(cell)
+          // Skip dates
+          if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(cellStr)) continue
           const v = toNum(cell)
-          if (v > valor) valor = v
+          // Only accept values under R$ 100 billion
+          if (v > valor && v < 100_000_000_000) valor = v
         }
       }
     }
