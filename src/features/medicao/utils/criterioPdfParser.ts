@@ -12,11 +12,11 @@
  * Uses pdfjs-dist (already installed) to extract text per page.
  */
 import * as pdfjsLib from 'pdfjs-dist'
+// @ts-expect-error Vite ?url import for worker
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { CriterioMedicao } from '../data/criterios'
 
-// Disable worker to avoid CDN fetch issues in production
-// Runs on main thread (slower but 100% reliable without external dependencies)
-pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl
 
 /**
  * Extract measurement criteria from a Sabesp PDF file.
