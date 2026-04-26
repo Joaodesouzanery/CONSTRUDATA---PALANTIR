@@ -25,6 +25,7 @@ const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index')
 const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
 const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/index').then((m) => ({ default: m.MapaInterativoPage })))
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
+const RdoSabespPage         = lazy(() => import('@/features/rdo-sabesp/index').then((m) => ({ default: m.RdoSabespPage })))
 const QualidadePage         = lazy(() => import('@/features/qualidade/index').then((m) => ({ default: m.QualidadePage })))
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
 const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
@@ -97,6 +98,7 @@ function App() {
           <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
           <Route path="mapa-interativo"     element={<LazyRoute><MapaInterativoPage /></LazyRoute>} />
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
+          <Route path="rdo-sabesp"          element={<LazyRoute><RdoSabespPage /></LazyRoute>} />
           <Route path="qualidade"           element={<LazyRoute><QualidadePage /></LazyRoute>} />
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
           <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
@@ -107,6 +109,7 @@ function App() {
         </Route>
 
         {/* Catch-all → landing */}
+        <Route path="/rdo-sabesp" element={<Navigate to="/app/rdo-sabesp" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

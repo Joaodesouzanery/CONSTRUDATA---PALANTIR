@@ -2,7 +2,8 @@
  * RdoHeader — top navigation and action bar for the RDO module.
  */
 import { useState } from 'react'
-import { FileText, Plus, Download, Settings } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Building2, FileText, Plus, Download, Settings } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { LogoConfigModal } from './LogoConfigModal'
 import type { RdoTab } from '@/types'
@@ -16,7 +17,12 @@ const TABS: { key: RdoTab; label: string }[] = [
 ]
 
 function escapeCell(value: string | number | null | undefined): string {
-  const str = String(value ?? '').replace(/[\x00-\x1F\x7F]/g, '')
+  const str = Array.from(String(value ?? ''))
+    .filter((char) => {
+      const code = char.charCodeAt(0)
+      return code >= 32 && code !== 127
+    })
+    .join('')
   const neutralized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str
   return `"${neutralized.replace(/"/g, '""')}"`
 }
@@ -74,6 +80,13 @@ export function RdoHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            to="/app/rdo-sabesp"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#0ea5e9]/10 text-[#7dd3fc] hover:bg-[#0ea5e9]/15 transition-colors border border-[#0ea5e9]/30"
+          >
+            <Building2 size={15} />
+            <span className="hidden sm:inline">RDO Sabesp</span>
+          </Link>
           <button
             onClick={() => setShowLogoModal(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#484848] transition-colors border border-[#525252] hover:border-[#f97316]/30"
