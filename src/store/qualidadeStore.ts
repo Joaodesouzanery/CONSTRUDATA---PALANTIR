@@ -12,7 +12,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FVS, FvsTab, FvsItem, FvsProblemAction } from '@/types'
+import type { FVS, FvsTab, FvsItem, FvsProblemAction, QualityNonConformity } from '@/types'
 import { MOCK_FVSS } from '@/data/mockQualidade'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -60,6 +60,21 @@ interface FvsRow {
   created_at:          string
   updated_at:          string
   deleted_at:          string | null
+}
+
+interface QualityNcRow {
+  id:              string
+  organization_id: string
+  number:          number
+  nc_number:       string
+  date:            string
+  location:        string | null
+  status:          QualityNonConformity['status']
+  payload:         Omit<QualityNonConformity, 'id' | 'number' | 'createdAt' | 'updatedAt'>
+  created_by:      string
+  created_at:      string
+  updated_at:      string
+  deleted_at:      string | null
 }
 
 function rowToFvs(row: FvsRow): FVS {
@@ -113,20 +128,61 @@ function fvsToRow(
   }
 }
 
+function rowToQualityNc(row: QualityNcRow): QualityNonConformity {
+  const payload = row.payload ?? ({} as QualityNcRow['payload'])
+  return {
+    ...payload,
+    id:        row.id,
+    number:    row.number,
+    ncNumber:  payload.ncNumber || row.nc_number || '',
+    date:      payload.date || row.date,
+    location:  payload.location || row.location || '',
+    status:    payload.status || row.status || 'aberta',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function qualityNcToRow(
+  nc: QualityNonConformity,
+  orgId: string,
+  userId: string,
+): Omit<QualityNcRow, 'created_at' | 'updated_at' | 'deleted_at'> {
+  const payload = { ...nc } as Record<string, unknown>
+  delete payload.id
+  delete payload.number
+  delete payload.createdAt
+  delete payload.updatedAt
+
+  return {
+    id:              nc.id,
+    organization_id: orgId,
+    number:          nc.number,
+    nc_number:       nc.ncNumber,
+    date:            nc.date,
+    location:        nc.location || null,
+    status:          nc.status,
+    payload:         payload as QualityNcRow['payload'],
+    created_by:      userId,
+  }
+}
+
 // ─── Tipos do store ──────────────────────────────────────────────────────────
 type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'unauth'
 
 interface PendingOp {
   id:        string
+  entity?:   'fvs' | 'quality_nc'
   type:      'insert' | 'update' | 'delete'
   recordId:  string
-  payload?:  Partial<FVS>
+  payload?:  Partial<FVS> | Partial<QualityNonConformity>
   retries:   number
 }
 
 interface QualidadeState {
   activeTab:    FvsTab
   fvss:         FVS[]
+  nonConformities: QualityNonConformity[]
   pendingSync:  PendingOp[]
   syncStatus:   SyncStatus
   lastSyncedAt: string | null
@@ -137,6 +193,9 @@ interface QualidadeState {
   addFvs:    (fvs: Omit<FVS, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => void
   updateFvs: (id: string, updates: Partial<FVS>) => void
   removeFvs: (id: string) => void
+  addNonConformity:    (nc: Omit<QualityNonConformity, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => void
+  updateNonConformity: (id: string, updates: Partial<QualityNonConformity>) => void
+  removeNonConformity: (id: string) => void
 
   loadDemoData: () => void
   clearData:    () => void
@@ -152,6 +211,7 @@ export const useQualidadeStore = create<QualidadeState>()(
     (set, get) => ({
       activeTab:    'dashboard',
       fvss:         [],
+      nonConformities: [],
       pendingSync:  [],
       syncStatus:   'idle',
       lastSyncedAt: null,
@@ -175,7 +235,7 @@ export const useQualidadeStore = create<QualidadeState>()(
           fvss: [...s.fvss, newFvs],
           pendingSync: [
             ...s.pendingSync,
-            { id: crypto.randomUUID(), type: 'insert', recordId: newFvs.id, payload: newFvs, retries: 0 },
+            { id: crypto.randomUUID(), entity: 'fvs', type: 'insert', recordId: newFvs.id, payload: newFvs, retries: 0 },
           ],
         }))
         // Domain events: emite uma vez por NC nova
@@ -191,7 +251,7 @@ export const useQualidadeStore = create<QualidadeState>()(
           ),
           pendingSync: [
             ...s.pendingSync,
-            { id: crypto.randomUUID(), type: 'update', recordId: id, payload: updates, retries: 0 },
+            { id: crypto.randomUUID(), entity: 'fvs', type: 'update', recordId: id, payload: updates, retries: 0 },
           ],
         }))
         // Detecta novas NCs em comparação com o estado anterior
@@ -207,14 +267,60 @@ export const useQualidadeStore = create<QualidadeState>()(
           fvss: s.fvss.filter((f) => f.id !== id),
           pendingSync: [
             ...s.pendingSync,
-            { id: crypto.randomUUID(), type: 'delete', recordId: id, retries: 0 },
+            { id: crypto.randomUUID(), entity: 'fvs', type: 'delete', recordId: id, retries: 0 },
+          ],
+        }))
+        void get().flush()
+      },
+
+      addNonConformity: (nc) => {
+        const now = new Date().toISOString()
+        const nextNumber = get().nonConformities.length > 0
+          ? Math.max(...get().nonConformities.map((item) => item.number)) + 1
+          : 1
+        const newNc: QualityNonConformity = {
+          ...nc,
+          id:        crypto.randomUUID(),
+          number:    nextNumber,
+          createdAt: now,
+          updatedAt: now,
+        }
+        set((s) => ({
+          nonConformities: [...s.nonConformities, newNc],
+          pendingSync: [
+            ...s.pendingSync,
+            { id: crypto.randomUUID(), entity: 'quality_nc', type: 'insert', recordId: newNc.id, payload: newNc, retries: 0 },
+          ],
+        }))
+        void get().flush()
+      },
+
+      updateNonConformity: (id, updates) => {
+        set((s) => ({
+          nonConformities: s.nonConformities.map((nc) =>
+            nc.id === id ? { ...nc, ...updates, updatedAt: new Date().toISOString() } : nc,
+          ),
+          pendingSync: [
+            ...s.pendingSync,
+            { id: crypto.randomUUID(), entity: 'quality_nc', type: 'update', recordId: id, payload: updates, retries: 0 },
+          ],
+        }))
+        void get().flush()
+      },
+
+      removeNonConformity: (id) => {
+        set((s) => ({
+          nonConformities: s.nonConformities.filter((nc) => nc.id !== id),
+          pendingSync: [
+            ...s.pendingSync,
+            { id: crypto.randomUUID(), entity: 'quality_nc', type: 'delete', recordId: id, retries: 0 },
           ],
         }))
         void get().flush()
       },
 
       loadDemoData: () => set({ fvss: MOCK_FVSS }),
-      clearData:    () => set({ fvss: [], pendingSync: [], syncError: null }),
+      clearData:    () => set({ fvss: [], nonConformities: [], pendingSync: [], syncError: null }),
 
       // ─── Sync ────────────────────────────────────────────────────────────
       flush: async () => {
@@ -239,6 +345,46 @@ export const useQualidadeStore = create<QualidadeState>()(
 
         for (const op of queue) {
           try {
+            const entity = op.entity ?? 'fvs'
+
+            if (entity === 'quality_nc') {
+              if (op.type === 'insert' && op.payload) {
+                const row = qualityNcToRow(op.payload as QualityNonConformity, profile.organization_id, user.id)
+                const { error } = await supabase.from('quality_non_conformities').insert(row as never)
+                if (error) throw error
+              }
+
+              if (op.type === 'update') {
+                const fullNc = get().nonConformities.find((nc) => nc.id === op.recordId)
+                if (fullNc) {
+                  const row = qualityNcToRow(fullNc, profile.organization_id, user.id)
+                  const patch = {
+                    nc_number: row.nc_number,
+                    date:      row.date,
+                    location:  row.location,
+                    status:    row.status,
+                    payload:   row.payload,
+                  }
+                  const { error } = await supabase
+                    .from('quality_non_conformities')
+                    .update(patch as never)
+                    .eq('id', op.recordId)
+                  if (error) throw error
+                }
+              }
+
+              if (op.type === 'delete') {
+                const { error } = await supabase
+                  .from('quality_non_conformities')
+                  .update({ deleted_at: new Date().toISOString() } as never)
+                  .eq('id', op.recordId)
+                if (error) throw error
+              }
+
+              completed.push(op.id)
+              continue
+            }
+
             if (op.type === 'insert' && op.payload) {
               const row = fvsToRow(op.payload as FVS, profile.organization_id, user.id)
               const { error } = await supabase.from('fvs').insert(row as never)
@@ -247,7 +393,7 @@ export const useQualidadeStore = create<QualidadeState>()(
 
             if (op.type === 'update' && op.payload) {
               // Para update, mandamos só os campos que mudaram (mapeados para snake_case)
-              const partial = op.payload
+              const partial = op.payload as Partial<FVS>
               const rowPatch: Record<string, unknown> = {}
               if (partial.documentCode      !== undefined) rowPatch.document_code      = partial.documentCode
               if (partial.revision          !== undefined) rowPatch.revision           = partial.revision
@@ -261,10 +407,10 @@ export const useQualidadeStore = create<QualidadeState>()(
               if (partial.welderSignature   !== undefined) rowPatch.welder_signature   = partial.welderSignature || null
               if (partial.qualitySignature  !== undefined) rowPatch.quality_signature  = partial.qualitySignature || null
               if (partial.logoId            !== undefined) rowPatch.logo_id            = partial.logoId ?? null
-              if (partial.items || partial.problems) {
+              if (partial.items || partial.problems || partial.fotos) {
                 const fullFvs = get().fvss.find((f) => f.id === op.recordId)
                 if (fullFvs) {
-                  rowPatch.payload = { items: fullFvs.items, problems: fullFvs.problems }
+                  rowPatch.payload = { items: fullFvs.items, problems: fullFvs.problems, fotos: fullFvs.fotos ?? [] }
                 }
               }
               const { error } = await supabase.from('fvs').update(rowPatch as never).eq('id', op.recordId)
@@ -322,15 +468,37 @@ export const useQualidadeStore = create<QualidadeState>()(
           return
         }
         const items = (data as unknown as FvsRow[] | null)?.map(rowToFvs) ?? []
-        set({ fvss: items, syncStatus: 'idle', lastSyncedAt: new Date().toISOString(), syncError: null })
+
+        const { data: ncData, error: ncError } = await supabase
+          .from('quality_non_conformities')
+          .select('*')
+          .is('deleted_at', null)
+          .order('date', { ascending: false })
+
+        if (ncError) {
+          console.warn('[qualidade:sync] quality_non_conformities pull skipped', ncError)
+        }
+
+        const nonConformities = ncError
+          ? get().nonConformities
+          : ((ncData as unknown as QualityNcRow[] | null)?.map(rowToQualityNc) ?? [])
+
+        set({
+          fvss: items,
+          nonConformities,
+          syncStatus: 'idle',
+          lastSyncedAt: new Date().toISOString(),
+          syncError: null,
+        })
       },
     }),
     {
       name: 'cdata-qualidade',
       partialize: (state) => ({
-        fvss:         state.fvss,
-        pendingSync:  state.pendingSync,
-        lastSyncedAt: state.lastSyncedAt,
+        fvss:            state.fvss,
+        nonConformities: state.nonConformities,
+        pendingSync:     state.pendingSync,
+        lastSyncedAt:    state.lastSyncedAt,
       }),
     },
   ),

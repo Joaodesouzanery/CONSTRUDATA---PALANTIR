@@ -25,7 +25,6 @@ import {
 import { toast } from "sonner";
 import { RdoHeader } from "@/features/rdo/components/RdoHeader";
 import { RdoSabespForm } from "./components/RdoSabespForm";
-import { downloadRdoSabespPdf, downloadRdoSabespBatchZip } from "./lib/rdoSabespPdfGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespDashboardMetrics, sumExecutedQuantities } from "./lib/rdoSabespUtils";
 
@@ -81,8 +80,6 @@ const getDateRangeForPeriod = (period: PeriodFilter, customStart: string, custom
 };
 
 export function RdoSabespPage() {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [projectId, setProjectId] = useState<string>("");
   const [list, setList] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -95,33 +92,22 @@ export function RdoSabespPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-      if (!error && data?.length) setProjects(data);
-      setProjectId("__none__");
-      setLoading(false);
-    })();
-  }, []);
-
   const load = useCallback(async () => {
-    if (!projectId) return;
-
-    let query = supabase
+    const { data, error } = await supabase
       .from("rdo_sabesp" as any)
       .select("*")
       .is("deleted_at", null)
       .order("report_date", { ascending: false });
-    query = projectId === "__none__" ? query.is("project_id", null) : query.eq("project_id", projectId);
 
-    const { data, error } = await query;
     if (error) {
       toast.error(error.message);
+      setLoading(false);
       return;
     }
 
     setList(data || []);
-  }, [projectId]);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     load();
@@ -130,7 +116,7 @@ export function RdoSabespPage() {
   useEffect(() => {
     setSelected(new Set());
     setExpandedActivities(new Set());
-  }, [projectId, periodFilter, customStart, customEnd]);
+  }, [periodFilter, customStart, customEnd]);
 
   const getFilteredList = () => {
     const range = getDateRangeForPeriod(periodFilter, customStart, customEnd);
@@ -189,6 +175,7 @@ export function RdoSabespPage() {
       }
 
       const draftCount = filteredList.filter((item) => selected.has(item.id) && item.status === "draft").length;
+      const { downloadRdoSabespBatchZip } = await import("./lib/rdoSabespPdfGenerator");
       await downloadRdoSabespBatchZip(items);
       toast.success(
         draftCount > 0
@@ -265,28 +252,6 @@ export function RdoSabespPage() {
             </Button>
           </div>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Projeto (opcional)</CardTitle>
-            <CardDescription>Você pode criar RDOs Sabesp sem vincular a nenhum projeto.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Sem projeto vinculado</SelectItem>
-                {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
 
         <Tabs
           value={showNew || editing ? "novo" : "lista"}
@@ -543,6 +508,7 @@ export function RdoSabespPage() {
                               title={isDraft ? "Finalize o RDO para liberar a exportacao em PDF." : "Baixar PDF"}
                               onClick={async () => {
                                 try {
+                                  const { downloadRdoSabespPdf } = await import("./lib/rdoSabespPdfGenerator");
                                   await downloadRdoSabespPdf(rdo);
                                   toast.success("PDF do RDO gerado com sucesso.");
                                 } catch (error: any) {
@@ -579,7 +545,6 @@ export function RdoSabespPage() {
 
           <TabsContent value="novo">
             <RdoSabespForm
-              projectId={projectId === "__none__" ? null : projectId}
               initialData={editing || undefined}
               initialStep={formInitialStep}
               onSaved={() => {

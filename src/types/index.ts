@@ -1295,7 +1295,7 @@ export interface RDO {
 // ─── Qualidade / FVS (Ficha de Verificação de Serviço) ──────────────────────
 
 export type FvsConformity = 'conforme' | 'nao_conforme' | 'reinspecao_ok' | null
-export type FvsTab        = 'dashboard' | 'novo' | 'historico'
+export type FvsTab        = 'dashboard' | 'novo' | 'nao-conformidade' | 'historico'
 export type FvsItemGroup  = 'verificacao_solda' | 'controle_parametros'
 
 export interface FvsItem {
@@ -1313,6 +1313,7 @@ export interface FvsProblemAction {
   itemNumber:  number
   description: string
   action:      string
+  photos?:     string[]
 }
 
 export interface FVS {
@@ -1335,6 +1336,36 @@ export interface FVS {
   logoId?:           string    // ID da SavedLogo do companySettingsStore (PDF export)
   fotos?:            string[]  // base64 das fotos anexadas (TODO: migrar para Supabase Storage)
   // Metadados
+  createdAt: string
+  updatedAt: string
+}
+
+export type QualityNonConformityStatus = 'aberta' | 'em_tratamento' | 'concluida' | 'ineficaz'
+
+export interface QualityNonConformity {
+  id: string
+  number: number
+  documentCode: string
+  revision: string
+  openedBy: string
+  company: string
+  engineerResponsible: string
+  location: string
+  ncNumber: string
+  date: string
+  lvNumber: string
+  local: string
+  description: string
+  evidencePhotos: string[]
+  unmetRequirement: string
+  immediateAction: string
+  deadline: string
+  actionResponsible: string
+  correctiveAction: string
+  correctiveActionDate: string
+  effectivenessResponsible: string
+  status: QualityNonConformityStatus
+  effectivenessDate: string
   createdAt: string
   updatedAt: string
 }

@@ -36,6 +36,7 @@ function KpiCard({ label, value, sub, icon, accent }: KpiCardProps) {
 
 export function DashboardPanel() {
   const fvss = useQualidadeStore((s) => s.fvss)
+  const nonConformities = useQualidadeStore((s) => s.nonConformities)
 
   const stats = useMemo(() => {
     const totalFvs = fvss.length
@@ -54,12 +55,13 @@ export function DashboardPanel() {
     })
 
     const ncAbertas = fvss.filter((f) => f.ncRequired).length
+      + nonConformities.filter((nc) => nc.status !== 'concluida').length
     const conformityRate = totalItems > 0
       ? Math.round(((conformes + reinspecaoOk) / totalItems) * 100)
       : 0
 
     return { totalFvs, totalItems, conformes, naoConformes, reinspecaoOk, ncAbertas, conformityRate }
-  }, [fvss])
+  }, [fvss, nonConformities])
 
   const recentFvss = useMemo(
     () => [...fvss].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
@@ -86,8 +88,8 @@ export function DashboardPanel() {
         />
         <KpiCard
           label="Não Conformidades"
-          value={stats.naoConformes}
-          sub="Itens em desacordo"
+          value={stats.naoConformes + nonConformities.length}
+          sub={`${stats.naoConformes} itens + ${nonConformities.length} registros`}
           icon={<AlertTriangle size={18} className="text-white" />}
           accent="#f59e0b"
         />

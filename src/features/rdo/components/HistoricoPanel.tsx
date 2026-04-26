@@ -13,7 +13,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
-import { downloadRdoSabespPdf, type RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
+import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -456,6 +456,7 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
 
   async function handlePdf() {
     try {
+      const { downloadRdoSabespPdf } = await import('@/features/rdo-sabesp/lib/rdoSabespPdfGenerator')
       await downloadRdoSabespPdf(rdo)
     } catch (error) {
       console.error('Erro ao baixar PDF do RDO Sabesp:', error)

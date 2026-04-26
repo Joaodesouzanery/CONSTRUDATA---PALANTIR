@@ -32,10 +32,6 @@ import {
   EQUIPAMENTOS_PADRAO,
 } from "../lib/rdoSabespCatalog";
 import {
-  downloadRdoSabespPdf,
-  renderRdoSabespPdfPreviewPages,
-} from "../lib/rdoSabespPdfGenerator";
-import {
   COMPARISON_GROUPS,
   compareRdoSabespData,
   type ComparisonGroupId,
@@ -45,7 +41,6 @@ import {
 import { RdoSabespSheet, getMissingRequired, REQUIRED_LABELS } from "./RdoSabespSheet";
 
 interface Props {
-  projectId: string | null;
   initialData?: any;
   initialStep?: Step;
   onSaved?: () => void;
@@ -55,8 +50,8 @@ type Step = "import" | "edit" | "review";
 
 const defaultCompareGroups = COMPARISON_GROUPS.map((group) => group.id);
 
-const empty = (projectId: string | null) => ({
-  project_id: projectId,
+const empty = () => ({
+  project_id: null,
   report_date: new Date().toISOString().slice(0, 10),
   encarregado: "",
   rua_beco: "",
@@ -232,9 +227,9 @@ const extractSignatureCrops = async (src: string) => ({
   consorcio: await cropImageByPercent(src, { x: 0.57, y: 0.74, width: 0.38, height: 0.18 }),
 });
 
-export function RdoSabespForm({ projectId, initialData, initialStep = "import", onSaved }: Props) {
+export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: Props) {
   const orgId = useAuth((state) => state.profile?.organization_id);
-  const [data, setData] = useState<any>(() => initialData || empty(projectId));
+  const [data, setData] = useState<any>(() => initialData || empty());
   const [step, setStep] = useState<Step>(initialData ? "edit" : initialStep);
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -356,7 +351,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
     setUploadingPhotos(true);
     try {
       if (!orgId) throw new Error("Organizacao nao carregada para enviar fotos.");
-      const folder = `${orgId}/${projectId || "no-project"}`;
+      const folder = `${orgId}/no-project`;
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
@@ -430,6 +425,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
   const refreshPdfPreview = async () => {
     setPdfPreviewLoading(true);
     try {
+      const { renderRdoSabespPdfPreviewPages } = await import("../lib/rdoSabespPdfGenerator");
       const pages = await renderRdoSabespPdfPreviewPages(data);
       setPdfPreviewPages(pages);
     } catch (error: any) {
@@ -450,6 +446,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
         (async () => {
           setPdfPreviewLoading(true);
           try {
+            const { renderRdoSabespPdfPreviewPages } = await import("../lib/rdoSabespPdfGenerator");
             const pages = await renderRdoSabespPdfPreviewPages(data);
             if (active) setPdfPreviewPages(pages);
           } catch (error: any) {
@@ -501,7 +498,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
       const { original, aiImage } = await prepareImageForAi(file);
 
       if (orgId) {
-        const folder = `${orgId}/${projectId || "no-project"}`;
+        const folder = `${orgId}/no-project`;
         const safeName = file.name.replace(/[^\w.-]+/g, "_");
         const path = `${folder}/${Date.now()}_${safeName}`;
         const { error: uploadError } = await supabase.storage.from("rdo-sabesp-photos").upload(path, file);
@@ -572,7 +569,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
       const payload = {
         ...data,
         organization_id: orgId,
-        project_id: projectId,
+        project_id: null,
         created_by: authData.user.id,
         status: nextStatus,
         finalized_at: nextStatus === "finalized" ? new Date().toISOString() : null,
@@ -1035,6 +1032,7 @@ export function RdoSabespForm({ projectId, initialData, initialStep = "import", 
                     return;
                   }
                   try {
+                    const { downloadRdoSabespPdf } = await import("../lib/rdoSabespPdfGenerator");
                     await downloadRdoSabespPdf(data);
                     toast.success("PDF do RDO gerado com sucesso.");
                   } catch (error: any) {

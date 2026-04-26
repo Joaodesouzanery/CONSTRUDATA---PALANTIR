@@ -93,12 +93,21 @@ function buildHtml(fvs: FVS): string {
   const problemRows = fvs.problems.length
     ? fvs.problems
         .map(
-          (p) => `
+          (p) => {
+            const photos = (p.photos ?? [])
+              .map((src, idx) => `<img src="${src}" alt="Foto do problema ${idx + 1}" />`)
+              .join('')
+            const photoRow = photos
+              ? `<tr><td></td><td colspan="2"><div class="problem-photos">${photos}</div></td></tr>`
+              : ''
+            return `
         <tr>
           <td class="num-cell">${p.itemNumber}</td>
           <td>${escapeHtml(p.description)}</td>
           <td>${escapeHtml(p.action)}</td>
-        </tr>`,
+        </tr>
+        ${photoRow}`
+          },
         )
         .join('')
     : `
@@ -238,6 +247,14 @@ function buildHtml(fvs: FVS): string {
       font-size: 8.5pt;
     }
     .problems-table tbody td { min-height: 22px; }
+    .problem-photos {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+      padding: 3px 0;
+    }
+    .problem-photos img {
+      width: 100%; height: 95px; object-fit: cover;
+      border: 1px solid #111; background: #fff;
+    }
 
     /* ── NC line ──────────────────────────────────────────────────────── */
     .nc-line {

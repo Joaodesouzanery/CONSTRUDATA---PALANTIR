@@ -11,7 +11,7 @@
  *   - Linha de NC (SIM/NÃO + Nº NC)
  *   - Bloco "Fechamento da FVS" (4 campos de assinatura)
  */
-import { useState, useRef } from 'react'
+import { Fragment, useState, useRef } from 'react'
 import { Save, Plus, Trash2, Printer, Camera, X as XIcon } from 'lucide-react'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
@@ -21,6 +21,32 @@ import type { FVS, FvsItem, FvsConformity, FvsProblemAction } from '@/types'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function compressImage(file: File, maxSize = 1400, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Erro ao ler imagem.'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Erro ao carregar imagem.'))
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(img.width * scale))
+        canvas.height = Math.max(1, Math.round(img.height * scale))
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Canvas indisponível para comprimir imagem.'))
+          return
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.src = String(reader.result)
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 function makeBlankItems(): FvsItem[] {
@@ -185,13 +211,35 @@ export function NovaFvsPanel() {
   }
 
   function addProblem() {
-    setProblems((prev) => [...prev, { itemNumber: 1, description: '', action: '' }])
+    setProblems((prev) => [...prev, { itemNumber: 1, description: '', action: '', photos: [] }])
   }
   function updateProblem(idx: number, patch: Partial<Omit<FvsProblemAction, 'id'>>) {
     setProblems((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)))
   }
   function removeProblem(idx: number) {
     setProblems((prev) => prev.filter((_, i) => i !== idx))
+  }
+  async function handleAddProblemPhotos(idx: number, files: FileList | null) {
+    if (!files) return
+    const current = problems[idx]?.photos ?? []
+    const remaining = 6 - current.length
+    if (remaining <= 0) return
+
+    try {
+      const photos = await Promise.all(Array.from(files).slice(0, remaining).map((file) => compressImage(file)))
+      setProblems((prev) => prev.map((p, i) =>
+        i === idx ? { ...p, photos: [...(p.photos ?? []), ...photos] } : p,
+      ))
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Erro ao adicionar foto do problema.')
+    }
+  }
+  function removeProblemPhoto(problemIdx: number, photoIdx: number) {
+    setProblems((prev) => prev.map((p, i) =>
+      i === problemIdx
+        ? { ...p, photos: (p.photos ?? []).filter((_, idx) => idx !== photoIdx) }
+        : p,
+    ))
   }
 
   function resetForm() {
@@ -212,18 +260,16 @@ export function NovaFvsPanel() {
     setFotos([])
   }
 
-  function handleAddFotos(files: FileList | null) {
+  async function handleAddFotos(files: FileList | null) {
     if (!files) return
     const remaining = 10 - fotos.length
     const toRead = Array.from(files).slice(0, remaining)
-    toRead.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        if (result) setFotos((prev) => [...prev, result])
-      }
-      reader.readAsDataURL(file)
-    })
+    try {
+      const compressed = await Promise.all(toRead.map((file) => compressImage(file)))
+      setFotos((prev) => [...prev, ...compressed])
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Erro ao adicionar fotos.')
+    }
   }
 
   function removeFoto(idx: number) {
@@ -265,7 +311,7 @@ export function NovaFvsPanel() {
         contractNo,
         date,
         items,
-        problems: problems.map((p) => ({ ...p, id: crypto.randomUUID() })),
+        problems: problems.map((p) => ({ ...p, photos: p.photos ?? [], id: crypto.randomUUID() })),
         ncRequired,
         ncNumber,
         responsibleLeader,
@@ -310,7 +356,7 @@ export function NovaFvsPanel() {
       contractNo,
       date,
       items,
-      problems:          problems.map((p) => ({ ...p, id: crypto.randomUUID() })),
+      problems:          problems.map((p) => ({ ...p, photos: p.photos ?? [], id: crypto.randomUUID() })),
       ncRequired,
       ncNumber,
       responsibleLeader,
@@ -318,6 +364,7 @@ export function NovaFvsPanel() {
       welderSignature,
       qualitySignature,
       logoId:            selectedLogoId,
+      fotos,
       createdAt:         new Date().toISOString(),
       updatedAt:         new Date().toISOString(),
     }
@@ -509,7 +556,8 @@ export function NovaFvsPanel() {
                 </tr>
               ) : (
                 problems.map((p, idx) => (
-                  <tr key={idx} className="border-b border-[#525252]">
+                  <Fragment key={idx}>
+                  <tr className="border-b border-[#525252]">
                     <td className="border-r border-[#525252] px-2 py-1 text-center align-middle">
                       <input
                         type="number"
@@ -549,6 +597,44 @@ export function NovaFvsPanel() {
                       </button>
                     </td>
                   </tr>
+                  <tr className="border-b border-[#525252] bg-[#242424]">
+                    <td className="border-r border-[#525252] px-2 py-2 text-center text-[10px] uppercase text-[#a3a3a3]">
+                      Fotos
+                    </td>
+                    <td colSpan={3} className="px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(p.photos ?? []).map((src, photoIdx) => (
+                          <div key={photoIdx} className="relative w-16 h-16 rounded-md overflow-hidden border border-[#525252] group">
+                            <img src={src} alt={`Foto do problema ${photoIdx + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeProblemPhoto(idx, photoIdx)}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                              title="Remover foto"
+                            >
+                              <XIcon size={11} />
+                            </button>
+                          </div>
+                        ))}
+                        {(p.photos ?? []).length < 6 && (
+                          <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-[#525252] rounded-lg text-xs text-[#a3a3a3] hover:border-[#f97316]/50 hover:text-[#f97316] cursor-pointer transition-colors">
+                            <Camera size={14} />
+                            Adicionar fotos do problema
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              onChange={(e) => handleAddProblemPhotos(idx, e.target.files)}
+                              onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
+                            />
+                          </label>
+                        )}
+                        <span className="text-[10px] text-[#6b6b6b]">{(p.photos ?? []).length}/6</span>
+                      </div>
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))
               )}
             </tbody>

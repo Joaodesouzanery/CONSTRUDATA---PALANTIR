@@ -8,6 +8,7 @@ import { useQualidadeStore } from '@/store/qualidadeStore'
 import { QualidadeHeader } from './components/QualidadeHeader'
 import { DashboardPanel }  from './components/DashboardPanel'
 import { NovaFvsPanel }    from './components/NovaFvsPanel'
+import { NaoConformidadePanel } from './components/NaoConformidadePanel'
 import { HistoricoPanel }  from './components/HistoricoPanel'
 
 export function QualidadePage() {
@@ -17,6 +18,7 @@ export function QualidadePage() {
     switch (activeTab) {
       case 'dashboard': return <DashboardPanel />
       case 'novo':      return <NovaFvsPanel />
+      case 'nao-conformidade': return <NaoConformidadePanel />
       case 'historico': return <HistoricoPanel />
       default:          return <DashboardPanel />
     }
