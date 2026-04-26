@@ -9,11 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Building2,
   FileDown,
+  MessageSquare,
   Pencil,
   Trash2,
   Package,
   Loader2,
   Plus,
+  Upload,
   CalendarRange,
   ChevronDown,
   ChevronUp,
@@ -84,6 +86,7 @@ export function RdoSabespPage() {
   const [list, setList] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [formInitialStep, setFormInitialStep] = useState<"import" | "edit" | "review">("import");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedActivities, setExpandedActivities] = useState<Set<string>>(new Set());
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("monthly");
@@ -238,6 +241,29 @@ export function RdoSabespPage() {
               <p className="text-xs text-[#a3a3a3]">Relatório diário no padrão Consórcio Se Liga Na Rede</p>
             </div>
           </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditing(null);
+                setFormInitialStep("import");
+                setShowNew(true);
+              }}
+            >
+              <Upload className="mr-1 h-4 w-4" />
+              Importar foto/texto
+            </Button>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormInitialStep("edit");
+                setShowNew(true);
+              }}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Preencher manual
+            </Button>
+          </div>
         </div>
 
         <Card>
@@ -269,6 +295,7 @@ export function RdoSabespPage() {
               setShowNew(false);
               setEditing(null);
             } else {
+              setFormInitialStep("import");
               setShowNew(true);
             }
           }}
@@ -276,7 +303,12 @@ export function RdoSabespPage() {
           <TabsList>
             <TabsTrigger value="lista">Histórico ({filteredList.length})</TabsTrigger>
             <TabsTrigger value="novo">
-              <Plus className="w-4 h-4 mr-1" /> {editing ? "Editando" : "Novo RDO Sabesp"}
+              {editing ? (
+                <Pencil className="w-4 h-4 mr-1" />
+              ) : (
+                <MessageSquare className="w-4 h-4 mr-1" />
+              )}
+              {editing ? "Editando" : "Importar / Novo RDO Sabesp"}
             </TabsTrigger>
           </TabsList>
 
@@ -526,6 +558,7 @@ export function RdoSabespPage() {
                               variant="ghost"
                               onClick={() => {
                                 setEditing(rdo);
+                                setFormInitialStep("edit");
                                 setShowNew(false);
                               }}
                             >
@@ -548,6 +581,7 @@ export function RdoSabespPage() {
             <RdoSabespForm
               projectId={projectId === "__none__" ? null : projectId}
               initialData={editing || undefined}
+              initialStep={formInitialStep}
               onSaved={() => {
                 setShowNew(false);
                 setEditing(null);

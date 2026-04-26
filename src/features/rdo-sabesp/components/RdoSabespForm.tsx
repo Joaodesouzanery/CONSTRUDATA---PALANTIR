@@ -47,6 +47,7 @@ import { RdoSabespSheet, getMissingRequired, REQUIRED_LABELS } from "./RdoSabesp
 interface Props {
   projectId: string | null;
   initialData?: any;
+  initialStep?: Step;
   onSaved?: () => void;
 }
 
@@ -91,6 +92,19 @@ const toDataUrl = (blob: Blob) =>
     reader.readAsDataURL(blob);
   });
 
+const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string) => {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
+
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -99,6 +113,98 @@ const loadImage = (src: string) =>
     img.onerror = reject;
     img.src = src;
   });
+
+const prepareImageForAi = async (file: File) => {
+  const original = await toDataUrl(file);
+  const image = await loadImage(original);
+  const maxSide = 1800;
+  const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = largestSide > maxSide ? maxSide / largestSide : 1;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) return { original, aiImage: original };
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.82);
+  });
+
+  if (!blob) return { original, aiImage: original };
+  return { original, aiImage: await toDataUrl(blob) };
+};
+
+const parserErrorMessage = (error: any) => {
+  const rawMessage = String(error?.message || error || "");
+  const lower = rawMessage.toLowerCase();
+
+  if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed")) {
+    return "Nao foi possivel conectar ao parser de IA. Verifique a Edge Function parse-rdo-sabesp e tente novamente com uma foto menor.";
+  }
+
+  if (lower.includes("timeout")) {
+    return "O parser demorou demais para responder. Tente novamente ou envie uma foto mais nítida/leve.";
+  }
+
+  return rawMessage || "Erro desconhecido no parser de IA.";
+};
+
+const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
+  const response = await withTimeout(
+    supabase.functions.invoke("parse-rdo-sabesp", { body }),
+    75_000,
+    "timeout ao chamar parse-rdo-sabesp",
+  );
+
+  if (response.error) throw response.error;
+  if (response.data?.error) throw new Error(response.data.error);
+  return response.data?.data || {};
+};
+
+const parseTextLocally = (text: string) => {
+  const getLineValue = (labels: string[]) => {
+    for (const label of labels) {
+      const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const match = text.match(new RegExp(`${escaped}\\s*[:\\-]\\s*(.+)`, "i"));
+      if (match?.[1]) return match[1].split(/\n/)[0].trim();
+    }
+    return "";
+  };
+
+  const dateMatch =
+    text.match(/(\d{4}-\d{2}-\d{2})/) ||
+    text.match(/(\d{2})[./-](\d{2})[./-](\d{4})/);
+  const reportDate = dateMatch
+    ? dateMatch[1].includes("-") && dateMatch[1].length === 10
+      ? dateMatch[1]
+      : `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`
+    : "";
+  const criadouroText = getLineValue(["criadouro", "local", "nucleo", "núcleo"]).toLowerCase();
+  const criadouro = criadouroText.includes("manoel")
+    ? "sao_manoel"
+    : criadouroText.includes("teteu")
+      ? "morro_do_teteu"
+      : criadouroText.includes("joao") || criadouroText.includes("joão")
+        ? "joao_carlos"
+        : criadouroText.includes("pantanal")
+          ? "pantanal_baixo"
+          : criadouroText.includes("israel")
+            ? "vila_israel"
+            : "";
+
+  return {
+    ...(reportDate ? { report_date: reportDate } : {}),
+    encarregado: getLineValue(["encarregado", "responsavel", "responsável"]),
+    rua_beco: getLineValue(["rua", "beco", "endereco", "endereço"]),
+    criadouro,
+    criadouro_outro: criadouro ? "" : getLineValue(["criadouro", "local", "nucleo", "núcleo"]),
+    observacoes: getLineValue(["observacoes", "observações", "obs"]),
+  };
+};
 
 const cropImageByPercent = async (
   src: string,
@@ -126,10 +232,10 @@ const extractSignatureCrops = async (src: string) => ({
   consorcio: await cropImageByPercent(src, { x: 0.57, y: 0.74, width: 0.38, height: 0.18 }),
 });
 
-export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
+export function RdoSabespForm({ projectId, initialData, initialStep = "import", onSaved }: Props) {
   const orgId = useAuth((state) => state.profile?.organization_id);
   const [data, setData] = useState<any>(() => initialData || empty(projectId));
-  const [step, setStep] = useState<Step>(initialData ? "edit" : "import");
+  const [step, setStep] = useState<Step>(initialData ? "edit" : initialStep);
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
@@ -297,13 +403,7 @@ export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
     const blob = await response.blob();
     const base64 = await toDataUrl(blob);
 
-    const { data: aiData, error: aiError } = await supabase.functions.invoke("parse-rdo-sabesp", {
-      body: { mode: "image", image_base64: base64 },
-    });
-
-    if (aiError) throw aiError;
-    if (aiData?.error) throw new Error(aiData.error);
-    return aiData?.data || {};
+    return invokeRdoSabespParser({ mode: "image", image_base64: base64 });
   };
 
   const refreshComparison = async () => {
@@ -398,32 +498,30 @@ export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
   const handlePhoto = async (file: File) => {
     setParsing(true);
     try {
-      const base64 = await toDataUrl(file);
+      const { original, aiImage } = await prepareImageForAi(file);
 
-      if (!orgId) throw new Error("Organizacao nao carregada para processar a foto.");
-      const folder = `${orgId}/${projectId || "no-project"}`;
-      const path = `${folder}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("rdo-sabesp-photos").upload(path, file);
-      if (uploadError) {
-        console.warn("upload warn:", uploadError);
+      if (orgId) {
+        const folder = `${orgId}/${projectId || "no-project"}`;
+        const safeName = file.name.replace(/[^\w.-]+/g, "_");
+        const path = `${folder}/${Date.now()}_${safeName}`;
+        const { error: uploadError } = await supabase.storage.from("rdo-sabesp-photos").upload(path, file);
+        if (uploadError) {
+          console.warn("upload warn:", uploadError);
+        } else {
+          const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(path, 60 * 60 * 24 * 365);
+          set("planilha_foto_url", signed?.signedUrl || null);
+        }
       } else {
-        const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(path, 60 * 60 * 24 * 365);
-        set("planilha_foto_url", signed?.signedUrl || null);
+        set("planilha_foto_url", original);
       }
 
-      const { data: aiData, error: aiError } = await supabase.functions.invoke("parse-rdo-sabesp", {
-        body: { mode: "image", image_base64: base64 },
-      });
-      if (aiError) throw aiError;
-      if (aiData?.error) throw new Error(aiData.error);
-
-      const extractedSnapshot = aiData?.data || {};
+      const extractedSnapshot = await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
       setSourceSnapshot(extractedSnapshot);
 
       const extracted = { ...extractedSnapshot };
-      const signatureCrops = await extractSignatureCrops(base64).catch(() => ({
-        empreiteira: base64,
-        consorcio: base64,
+      const signatureCrops = await extractSignatureCrops(original).catch(() => ({
+        empreiteira: original,
+        consorcio: original,
       }));
       if (extracted.assinatura_empreiteira_presente) {
         extracted.assinatura_empreiteira_url = signatureCrops.empreiteira;
@@ -438,7 +536,7 @@ export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
       toast.success("Foto processada! Confira os dados.");
       setStep("edit");
     } catch (error: any) {
-      toast.error("Erro ao processar foto: " + (error.message || error));
+      toast.error("Erro ao processar foto: " + parserErrorMessage(error));
     } finally {
       setParsing(false);
     }
@@ -449,16 +547,16 @@ export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
     setParsing(true);
     try {
       set("whatsapp_text", whatsappText);
-      const { data: aiData, error: aiError } = await supabase.functions.invoke("parse-rdo-sabesp", {
-        body: { mode: "text", text: whatsappText },
-      });
-      if (aiError) throw aiError;
-      if (aiData?.error) throw new Error(aiData.error);
-      mergeExtracted(aiData?.data || {});
+      const extracted = await invokeRdoSabespParser({ mode: "text", text: whatsappText });
+      mergeExtracted(extracted);
       toast.success("Texto interpretado! Confira os dados.");
       setStep("edit");
     } catch (error: any) {
-      toast.error("Erro ao interpretar texto: " + (error.message || error));
+      const fallback = parseTextLocally(whatsappText);
+      mergeExtracted(fallback);
+      toast.warning("Parser de IA indisponivel. Apliquei uma leitura basica do texto para voce revisar.");
+      console.error("Erro ao interpretar texto:", error);
+      setStep("edit");
     } finally {
       setParsing(false);
     }
@@ -586,7 +684,25 @@ export function RdoSabespForm({ projectId, initialData, onSaved }: Props) {
                 <TabsTrigger value="texto"><MessageSquare className="mr-1 h-4 w-4" /> Texto WhatsApp</TabsTrigger>
               </TabsList>
               <TabsContent value="foto" className="space-y-2 pt-3">
-                <Input type="file" accept="image/*" disabled={parsing} onChange={(event) => event.target.files?.[0] && handlePhoto(event.target.files[0])} />
+                <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[#525252] bg-[#333333] px-4 py-8 text-center text-sm text-[#d4d4d4] transition-colors hover:border-[#f97316]/60 hover:bg-[#3d3d3d]">
+                  {parsing ? <Loader2 className="h-6 w-6 animate-spin text-[#f97316]" /> : <Upload className="h-6 w-6 text-[#f97316]" />}
+                  <span className="font-semibold text-white">Importar foto da planilha RDO Sabesp</span>
+                  <span className="max-w-md text-xs text-[#a3a3a3]">
+                    Use uma foto nítida. O sistema reduz o tamanho da imagem antes de enviar para evitar travamentos.
+                  </span>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={parsing}
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) void handlePhoto(file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
                 {parsing && (
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Loader2 className="h-3 w-3 animate-spin" /> Lendo planilha com IA...

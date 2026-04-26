@@ -2,14 +2,19 @@
  * HistoricoPanel — list of all RDOs with search, date filter,
  * expandable detail view, print layout, and delete confirmation.
  */
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Search, Printer, Trash2, ChevronDown, ChevronRight,
   Cloud, CloudRain, Sun, Zap, Camera, MapPin, Edit3, X,
+  Droplets, FileDown, ImageIcon, ImageOff, Pencil,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
+import { downloadRdoSabespPdf, type RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
+import { getCriadouroLabel, getExecutedActivities, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +43,12 @@ function statusBadge(status: string) {
   if (status === 'completed')   return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-900/50 text-emerald-300">Concluído</span>
   if (status === 'in_progress') return <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-900/50 text-yellow-300">Em Execução</span>
   return <span className="px-2 py-0.5 rounded-full text-xs bg-[#484848] text-[#a3a3a3]">Não Iniciado</span>
+}
+
+type SabespHistoryRecord = RdoSabespData & {
+  id: string
+  created_at?: string | null
+  updated_at?: string | null
 }
 
 // ─── Print layout (hidden on screen, visible when printing) ──────────────────
@@ -435,10 +446,114 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
   )
 }
 
+function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const activities = getExecutedActivities(rdo)
+  const totalQuantity = sumExecutedQuantities(rdo)
+  const photoCount = Array.isArray(rdo.photo_paths) ? rdo.photo_paths.length : 0
+  const isDraft = rdo.status === 'draft'
+  const visibleActivities = expanded ? activities : activities.slice(0, 6)
+
+  async function handlePdf() {
+    try {
+      await downloadRdoSabespPdf(rdo)
+    } catch (error) {
+      console.error('Erro ao baixar PDF do RDO Sabesp:', error)
+      alert('Nao foi possivel gerar o PDF do RDO Sabesp.')
+    }
+  }
+
+  return (
+    <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] overflow-hidden">
+      <div className="px-5 py-4 flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Droplets size={16} className="text-[#38bdf8]" />
+            <span className="text-white font-semibold">{fmtDate(rdo.report_date)}</span>
+            <span className="rounded-full bg-[#f97316] px-2 py-0.5 text-xs font-semibold text-white">Sabesp</span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${isDraft ? 'bg-[#484848] text-[#d4d4d4]' : 'bg-blue-600 text-white'}`}>
+              {isDraft ? 'Rascunho' : 'Finalizado'}
+            </span>
+            {rdo.criadouro && (
+              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white">
+                {getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)}
+              </span>
+            )}
+            {photoCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 px-2 py-0.5 text-xs text-emerald-300">
+                <ImageIcon size={12} />
+                {photoCount} foto{photoCount > 1 ? 's' : ''}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#5e5e5e] px-2 py-0.5 text-xs text-[#a3a3a3]">
+                <ImageOff size={12} />
+                Sem foto
+              </span>
+            )}
+            {rdo.encarregado && <span className="text-sm text-[#a3a3a3]">• {rdo.encarregado}</span>}
+          </div>
+
+          <p className="text-sm text-[#a3a3a3]">{rdo.rua_beco || '-'}</p>
+          <p className="text-xs text-[#6b6b6b]">
+            {activities.length} atividade(s) com apontamento e {totalQuantity} unidade(s) registradas.
+          </p>
+
+          {activities.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {visibleActivities.map((activity) => (
+                  <span
+                    key={activity.id}
+                    className="max-w-full rounded-full border border-[#525252] bg-[#2c2c2c] px-3 py-1 text-xs text-[#f5f5f5]"
+                  >
+                    {activity.label}
+                  </span>
+                ))}
+              </div>
+              {activities.length > 6 && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((value) => !value)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-[#f97316] hover:text-[#ea580c]"
+                >
+                  {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  {expanded ? 'Ocultar atividades' : 'Visualizar todas as atividades'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onOpen}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-xs transition-colors"
+            title="Abrir RDO Sabesp"
+          >
+            <Pencil size={13} />
+            Abrir
+          </button>
+          <button
+            onClick={handlePdf}
+            disabled={isDraft}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] disabled:cursor-not-allowed disabled:opacity-50 text-[#f5f5f5] text-xs transition-colors"
+            title={isDraft ? 'Finalize o RDO Sabesp para exportar' : 'Baixar PDF Sabesp'}
+          >
+            <FileDown size={13} />
+            PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function HistoricoPanel() {
   const { rdos, removeRdo, updateRdo } = useRdoStore()
+  const navigate = useNavigate()
+  const [sabespRdos, setSabespRdos] = useState<SabespHistoryRecord[]>([])
   const [search, setSearch]     = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
@@ -454,6 +569,30 @@ export function HistoricoPanel() {
   const [pdfFrom,   setPdfFrom]   = useState('')
   const [pdfTo,     setPdfTo]     = useState('')
 
+  const loadSabespHistory = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('rdo_sabesp')
+      .select('*')
+      .is('deleted_at', null)
+      .order('report_date', { ascending: false })
+
+    if (error) {
+      console.warn('[rdo] nao foi possivel carregar historico Sabesp', error)
+      setSabespRdos([])
+      return
+    }
+
+    setSabespRdos((data ?? []) as SabespHistoryRecord[])
+  }, [])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadSabespHistory()
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [loadSabespHistory])
+
   const filtered = useMemo(() => {
     return rdos
       .filter((r) => {
@@ -466,6 +605,40 @@ export function HistoricoPanel() {
       .slice()
       .sort((a, b) => b.number - a.number)
   }, [rdos, search, dateFrom, dateTo])
+
+  const filteredSabesp = useMemo(() => {
+    return sabespRdos
+      .filter((r) => {
+        const q = search.toLowerCase()
+        const activityText = getExecutedActivities(r).map((activity) => activity.label).join(' ').toLowerCase()
+        const haystack = [
+          r.report_date,
+          r.encarregado,
+          r.rua_beco,
+          getCriadouroLabel(r.criadouro, r.criadouro_outro),
+          activityText,
+        ].join(' ').toLowerCase()
+        if (q && !haystack.includes(q)) return false
+        if (dateFrom && r.report_date < dateFrom) return false
+        if (dateTo && r.report_date > dateTo) return false
+        return true
+      })
+      .slice()
+      .sort((a, b) => b.report_date.localeCompare(a.report_date))
+  }, [sabespRdos, search, dateFrom, dateTo])
+
+  const historyItems = useMemo(() => {
+    const regularItems = filtered.map((rdo) => ({ type: 'regular' as const, date: rdo.date, id: rdo.id, rdo }))
+    const sabespItems = filteredSabesp.map((rdo) => ({ type: 'sabesp' as const, date: rdo.report_date, id: rdo.id, rdo }))
+
+    return [...regularItems, ...sabespItems].sort((a, b) => {
+      const byDate = b.date.localeCompare(a.date)
+      if (byDate !== 0) return byDate
+      return a.type.localeCompare(b.type)
+    })
+  }, [filtered, filteredSabesp])
+
+  const totalRdoCount = rdos.length + sabespRdos.length
 
   function handleDelete(id: string) {
     if (!confirm('Excluir este RDO? Esta ação não pode ser desfeita.')) return
@@ -567,15 +740,15 @@ export function HistoricoPanel() {
 
       {/* Count */}
       <p className="text-[#6b6b6b] text-sm print:hidden">
-        {filtered.length} RDO{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
-        {rdos.length !== filtered.length && ` de ${rdos.length} total`}
+        {historyItems.length} RDO{historyItems.length !== 1 ? 's' : ''} encontrado{historyItems.length !== 1 ? 's' : ''}
+        {totalRdoCount !== historyItems.length && ` de ${totalRdoCount} total`}
       </p>
 
       {/* Empty state */}
-      {filtered.length === 0 && (
+      {historyItems.length === 0 && (
         <div className="text-center py-16 text-[#6b6b6b] print:hidden">
           <p className="text-lg">Nenhum RDO encontrado.</p>
-          {rdos.length === 0 && (
+          {totalRdoCount === 0 && (
             <p className="text-sm mt-1">Crie o primeiro RDO pela aba "+ Novo RDO".</p>
           )}
         </div>
@@ -583,8 +756,21 @@ export function HistoricoPanel() {
 
       {/* Cards */}
       <div className="space-y-3">
-        {filtered.map((rdo) => (
-          <RdoCard key={rdo.id} rdo={rdo} onDelete={() => handleDelete(rdo.id)} onEdit={() => { setEditingRdo(rdo); setEditForm({ ...rdo }) }} />
+        {historyItems.map((item) => (
+          item.type === 'regular' ? (
+            <RdoCard
+              key={`regular-${item.id}`}
+              rdo={item.rdo}
+              onDelete={() => handleDelete(item.rdo.id)}
+              onEdit={() => { setEditingRdo(item.rdo); setEditForm({ ...item.rdo }) }}
+            />
+          ) : (
+            <SabespRdoCard
+              key={`sabesp-${item.id}`}
+              rdo={item.rdo}
+              onOpen={() => navigate('/app/rdo-sabesp')}
+            />
+          )
         ))}
       </div>
 
