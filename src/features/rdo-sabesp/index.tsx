@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft,
   Building2,
   FileDown,
   Pencil,
@@ -23,6 +21,7 @@ import {
   ImageOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RdoHeader } from "@/features/rdo/components/RdoHeader";
 import { RdoSabespForm } from "./components/RdoSabespForm";
 import { downloadRdoSabespPdf, downloadRdoSabespBatchZip } from "./lib/rdoSabespPdfGenerator";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -80,7 +79,6 @@ const getDateRangeForPeriod = (period: PeriodFilter, customStart: string, custom
 };
 
 export function RdoSabespPage() {
-  const navigate = useNavigate();
   const [projects, setProjects] = useState<any[]>([]);
   const [projectId, setProjectId] = useState<string>("");
   const [list, setList] = useState<any[]>([]);
@@ -96,20 +94,12 @@ export function RdoSabespPage() {
 
   useEffect(() => {
     (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/login");
-        return;
-      }
-
-      const { data } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
-      if (data?.length) setProjects(data);
+      const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+      if (!error && data?.length) setProjects(data);
       setProjectId("__none__");
       setLoading(false);
     })();
-  }, [navigate]);
+  }, []);
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -220,37 +210,36 @@ export function RdoSabespPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" />
+      <div className="flex h-full flex-col bg-gray-950">
+        <RdoHeader />
+        <div className="flex flex-1 items-center justify-center text-[#a3a3a3]">
+          <Loader2 className="w-6 h-6 animate-spin" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-full bg-gray-950 text-[#f5f5f5]">
-      <header className="sticky top-0 z-10 border-b border-[#525252] bg-[#2c2c2c]">
-        <div className="px-6 py-4 flex items-center justify-between gap-4">
+    <div className="flex h-full flex-col bg-gray-950 text-[#f5f5f5]">
+      <RdoHeader />
+
+      <main className="flex-1 overflow-auto">
+        <div className="mx-auto max-w-7xl px-4 py-6 space-y-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/app/rdo")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f97316] text-white">
-                <Building2 className="w-5 h-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f97316] text-white">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-white">RDO Sabesp</h2>
+                <Badge variant="secondary">Sabesp</Badge>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold">RDO Sabesp</span>
-                  <Badge variant="secondary">Sabesp</Badge>
-                </div>
-                <p className="text-xs text-[#a3a3a3]">Relatorio diario no padrao Consorcio Se Liga Na Rede</p>
-              </div>
+              <p className="text-xs text-[#a3a3a3]">Relatório diário no padrão Consórcio Se Liga Na Rede</p>
             </div>
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 space-y-4 sm:px-6">
         <Card>
           <CardHeader>
             <CardTitle>Projeto (opcional)</CardTitle>
@@ -567,6 +556,7 @@ export function RdoSabespPage() {
             />
           </TabsContent>
         </Tabs>
+        </div>
       </main>
     </div>
   );

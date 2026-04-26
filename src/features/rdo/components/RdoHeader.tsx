@@ -2,15 +2,16 @@
  * RdoHeader — top navigation and action bar for the RDO module.
  */
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Building2, FileText, Plus, Download, Settings } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { FileText, Plus, Download, Settings } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { LogoConfigModal } from './LogoConfigModal'
 import type { RdoTab } from '@/types'
 
-const TABS: { key: RdoTab; label: string }[] = [
+const TABS: { key: RdoTab | 'sabesp'; label: string }[] = [
   { key: 'dashboard',  label: 'Dashboard'         },
   { key: 'novo',       label: '+ Novo RDO'         },
+  { key: 'sabesp',     label: 'RDO Sabesp'         },
   { key: 'historico',  label: 'Histórico de RDOs'  },
   { key: 'integracao', label: 'RDO × Planejamento' },
   { key: 'financeiro', label: 'Financeiro'         },
@@ -30,6 +31,16 @@ function escapeCell(value: string | number | null | undefined): string {
 export function RdoHeader() {
   const { activeTab, setActiveTab, rdos } = useRdoStore()
   const [showLogoModal, setShowLogoModal] = useState(false)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const isSabespRoute = location.pathname === '/app/rdo-sabesp'
+
+  function openRdoTab(tab: RdoTab) {
+    setActiveTab(tab)
+    if (location.pathname !== '/app/rdo') {
+      navigate('/app/rdo')
+    }
+  }
 
   function handleExportCsv() {
     const BOM = '\uFEFF'
@@ -88,19 +99,12 @@ export function RdoHeader() {
             <span className="hidden sm:inline">Configurar Logo</span>
           </button>
           <button
-            onClick={() => setActiveTab('novo')}
+            onClick={() => openRdoTab('novo')}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors bg-[#f97316] hover:bg-[#ea580c]"
           >
             <Plus size={15} />
             Novo RDO
           </button>
-          <Link
-            to="/app/rdo-sabesp"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#0ea5e9]/10 text-[#7dd3fc] hover:bg-[#0ea5e9]/15 transition-colors border border-[#0ea5e9]/30"
-          >
-            <Building2 size={15} />
-            <span className="hidden sm:inline">RDO Sabesp</span>
-          </Link>
           <button
             onClick={handleExportCsv}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
@@ -115,11 +119,19 @@ export function RdoHeader() {
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex px-6 gap-1 min-w-max pb-0">
           {TABS.map((tab) => {
-            const isActive = activeTab === tab.key
+            const isSabespTab = tab.key === 'sabesp'
+            const isActive = isSabespTab ? isSabespRoute : !isSabespRoute && activeTab === tab.key
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  if (isSabespTab) {
+                    navigate('/app/rdo-sabesp')
+                    return
+                  }
+
+                  openRdoTab(tab.key as RdoTab)
+                }}
                 className={`px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2 ${
                   isActive
                     ? 'text-[#f97316] border-[#f97316] bg-[#3d3d3d]'
