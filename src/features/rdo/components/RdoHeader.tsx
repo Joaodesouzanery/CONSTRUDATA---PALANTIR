@@ -80,13 +80,6 @@ export function RdoHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            to="/app/rdo-sabesp"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#0ea5e9]/10 text-[#7dd3fc] hover:bg-[#0ea5e9]/15 transition-colors border border-[#0ea5e9]/30"
-          >
-            <Building2 size={15} />
-            <span className="hidden sm:inline">RDO Sabesp</span>
-          </Link>
           <button
             onClick={() => setShowLogoModal(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#484848] transition-colors border border-[#525252] hover:border-[#f97316]/30"
@@ -101,6 +94,13 @@ export function RdoHeader() {
             <Plus size={15} />
             Novo RDO
           </button>
+          <Link
+            to="/app/rdo-sabesp"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[#0ea5e9]/10 text-[#7dd3fc] hover:bg-[#0ea5e9]/15 transition-colors border border-[#0ea5e9]/30"
+          >
+            <Building2 size={15} />
+            <span className="hidden sm:inline">RDO Sabesp</span>
+          </Link>
           <button
             onClick={handleExportCsv}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
