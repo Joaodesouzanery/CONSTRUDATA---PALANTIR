@@ -3,8 +3,9 @@
  * Displays a table of weighted measurements with editable cells and colored bars.
  */
 import { useState } from 'react'
-import { Plus, Trash2, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, Check, X, ListTree } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
+import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import type { WeightedMeasurement } from '@/types'
 
 type EditingCell = {
@@ -14,6 +15,7 @@ type EditingCell = {
 
 function WeightBar({ value, color }: { value: number; color: string }) {
   const pct = Math.min(Math.max(value * 100, 0), 100)
+
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-3 bg-[#2c2c2c] rounded-full overflow-hidden">
@@ -31,7 +33,9 @@ function WeightBar({ value, color }: { value: number; color: string }) {
 
 export function MedicaoPonderadaPanel() {
   const { measurements, addMeasurement, updateMeasurement, removeMeasurement } = useEvmStore()
+  const masterActivities = usePlanejamentoMestreStore((s) => s.activities)
   const [editingCell, setEditingCell] = useState<EditingCell>(null)
+  const [selectedMeasurement, setSelectedMeasurement] = useState<WeightedMeasurement | null>(null)
   const [editValue, setEditValue] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [newActivity, setNewActivity] = useState({ activityId: '', activityName: '', financialWeight: 0.25, durationWeight: 0.25, economicWeight: 0.25, specificWeight: 0.25 })
@@ -76,6 +80,14 @@ export function MedicaoPonderadaPanel() {
     { key: 'economicWeight', label: 'Peso Econômico', color: '#22c55e' },
     { key: 'specificWeight', label: 'Peso Específico', color: '#a78bfa' },
   ]
+
+  const linkedActivities = selectedMeasurement
+    ? masterActivities.filter((a) =>
+        a.id === selectedMeasurement.activityId ||
+        a.workPackageId === selectedMeasurement.activityId ||
+        a.name.toLowerCase().includes(selectedMeasurement.activityName.toLowerCase().slice(0, 8)),
+      )
+    : []
 
   return (
     <div className="p-6 space-y-4">
@@ -173,7 +185,16 @@ export function MedicaoPonderadaPanel() {
                 {measurements.map((m) => (
                   <tr key={m.id} className="border-b border-[#525252]/50 hover:bg-[#484848]/30 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-[#f5f5f5] text-sm">{m.activityName}</p>
+                      <button
+                        onClick={() => setSelectedMeasurement(m)}
+                        className="group text-left"
+                        title="Ver atividades vinculadas do Planejamento"
+                      >
+                        <p className="flex items-center gap-1.5 text-[#f5f5f5] text-sm group-hover:text-[#f97316]">
+                          <ListTree size={13} />
+                          {m.activityName}
+                        </p>
+                      </button>
                       <p className="text-[#6b6b6b] text-[10px] font-mono">{m.activityId}</p>
                     </td>
                     {WEIGHT_COLS.map((col) => {
@@ -235,6 +256,36 @@ export function MedicaoPonderadaPanel() {
           </div>
         )}
       </div>
+      {selectedMeasurement && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-[#525252] bg-[#2c2c2c] p-5 shadow-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase text-[#8a8a8a]">Work package</p>
+              <h3 className="text-sm font-semibold text-[#f5f5f5]">{selectedMeasurement.activityName}</h3>
+            </div>
+            <button onClick={() => setSelectedMeasurement(null)} className="rounded-lg p-2 text-[#a3a3a3] hover:bg-[#3d3d3d] hover:text-white">
+              <X size={16} />
+            </button>
+          </div>
+          <div className="mt-4 rounded-lg border border-[#525252] bg-[#343434] p-3">
+            <p className="text-xs text-[#8a8a8a]">Score composto</p>
+            <p className="font-mono text-xl font-semibold text-[#f97316]">{selectedMeasurement.compositeScore.toFixed(3)}</p>
+          </div>
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase text-[#8a8a8a]">Atividades do Planejamento vinculadas</p>
+            {linkedActivities.length > 0 ? linkedActivities.map((activity) => (
+              <div key={activity.id} className="rounded-lg border border-[#525252] bg-[#343434] p-3">
+                <p className="text-sm font-medium text-[#f5f5f5]">{activity.wbsCode} - {activity.name}</p>
+                <p className="mt-1 text-xs text-[#a3a3a3]">{activity.plannedStart} ate {activity.plannedEnd}</p>
+              </div>
+            )) : (
+              <div className="rounded-lg border border-dashed border-[#525252] p-4 text-sm text-[#8a8a8a]">
+                Nenhuma atividade vinculada encontrada. Use o mesmo ID da atividade ou vincule pelo workPackageId no Planejamento.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

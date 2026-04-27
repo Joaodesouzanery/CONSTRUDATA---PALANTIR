@@ -41,6 +41,21 @@ function fmtDate(iso: string) {
   return `${d}/${m}`
 }
 
+function fmtMoney(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+}
+
+function PlanningKpi({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="min-w-[140px] rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-[#8a8a8a]">{label}</p>
+      <p className={accent ? 'text-sm font-semibold text-[#f97316]' : 'text-sm font-semibold text-[#f5f5f5]'}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
 // ─── Gantt SVG ───────────────────────────────────────────────────────────────
 
 interface GanttChartProps {
@@ -214,6 +229,17 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
                       fill={nColor}
                     />
                   )}
+                  {act.financialProgressPct != null && (
+                    <rect
+                      x={LABEL_W + tPx}
+                      y={y + 27}
+                      width={Math.round(tW * Math.min(100, Math.max(0, act.financialProgressPct)) / 100)}
+                      height={3}
+                      rx={1}
+                      fill="#f97316"
+                      opacity={0.95}
+                    />
+                  )}
                 </>
               )}
             </g>
@@ -245,13 +271,18 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
   const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
   const activities  = usePlanejamentoMestreStore((s) => s.activities)
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => {
+    const start = new Date()
+    const end = new Date(start)
+    end.setDate(start.getDate() + 14)
+    return {
     wbsCode: '', name: '',
     parentId: '' as string,
-    plannedStart: new Date().toISOString().slice(0, 10),
-    plannedEnd: new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10),
+    plannedStart: start.toISOString().slice(0, 10),
+    plannedEnd: end.toISOString().slice(0, 10),
     responsibleTeam: '', isMilestone: false, weight: 5,
     networkType: '' as string,
+    }
   })
 
   const parentActivity = activities.find((a) => a.id === form.parentId) ?? null
@@ -406,6 +437,8 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const activities    = usePlanejamentoMestreStore((s) => s.activities)
   const baselines     = usePlanejamentoMestreStore((s) => s.baselines)
   const activeBlId    = usePlanejamentoMestreStore((s) => s.activeBaselineId)
+  const contract      = usePlanejamentoMestreStore((s) => s.contract)
+  const nuclei        = usePlanejamentoMestreStore((s) => s.nuclei)
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
 
@@ -431,6 +464,14 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   )
 
   const activeFilterCount = [search, filterStatus, filterNetwork, filterService].filter(Boolean).length
+  const averagePhysical = activities.length > 0
+    ? activities.reduce((sum, a) => sum + (a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / activities.length
+    : 0
+  const averageFinancial = activities.length > 0
+    ? activities.reduce((sum, a) => sum + (a.financialProgressPct ?? a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / activities.length
+    : 0
+  const ppcBasedIdc = Math.max(0.35, averagePhysical / 100)
+  const eacByPpc = contract ? contract.bacTotal / ppcBasedIdc : 0
 
   function clearFilters() {
     setSearch('')
@@ -459,6 +500,18 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
 
   return (
     <div className="flex flex-col gap-4 print:gap-2">
+      {contract && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#525252] bg-[#343434] p-3 print:hidden">
+          <PlanningKpi label="Contrato" value={contract.contractName} accent />
+          <PlanningKpi label="Contratante" value={contract.contractor} />
+          <PlanningKpi label="BAC" value={fmtMoney(contract.bacTotal)} />
+          <PlanningKpi label="Nucleos" value={String(nuclei.length || contract.nucleusCount)} />
+          <PlanningKpi label="Takt teorico" value={`${contract.theoreticalTaktDays} dias/nucleo`} />
+          <PlanningKpi label="Fisico medio" value={`${averagePhysical.toFixed(1)}%`} />
+          <PlanningKpi label="Financeiro medio" value={`${averageFinancial.toFixed(1)}%`} />
+          <PlanningKpi label="EAC por PPC" value={fmtMoney(eacByPpc)} accent />
+        </div>
+      )}
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-3 flex-wrap print:hidden">
         {/* Baseline */}

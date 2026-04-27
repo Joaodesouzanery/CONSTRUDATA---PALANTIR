@@ -332,6 +332,31 @@ function MarkerLayer({
   return null
 }
 
+function MapResizeHandler() {
+  const map = useMap()
+
+  useEffect(() => {
+    const invalidate = () => {
+      window.requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+    }
+    invalidate()
+    const timers = [120, 350, 700].map((ms) => window.setTimeout(invalidate, ms))
+    const container = map.getContainer().parentElement
+    const observer = typeof ResizeObserver !== 'undefined' && container
+      ? new ResizeObserver(invalidate)
+      : null
+    observer?.observe(container!)
+    window.addEventListener('resize', invalidate)
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t))
+      observer?.disconnect()
+      window.removeEventListener('resize', invalidate)
+    }
+  }, [map])
+
+  return null
+}
+
 export function ControlMap({
   projects,
   sites = [],
@@ -350,6 +375,7 @@ export function ControlMap({
   const [basemap, setBasemap] = useState<Basemap>('voyager')
   const [showProjects, setShowProjects] = useState(true)
   const [showSites, setShowSites] = useState(sites.length > 0)
+  const [tileError, setTileError] = useState(false)
 
   const projectsWithCoords = projects.filter((p) => p.lat != null && p.lng != null)
   const sitesWithCoords = sites.filter((s) => s.lat != null && s.lng != null)
@@ -371,7 +397,7 @@ export function ControlMap({
   ]
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <div className="flex h-full min-h-[480px] flex-1 flex-col overflow-hidden bg-[#2c2c2c]">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-[#525252] bg-[#2c2c2c] flex-wrap">
         {filters.map((f) => (
           <button key={f.id} onClick={() => setFilter(f.id)} className="px-3 py-1 rounded-full text-xs font-medium transition-colors" style={{
@@ -387,9 +413,20 @@ export function ControlMap({
           <span>{(showProjects ? filteredProjects.length : 0) + (showSites ? sitesWithCoords.length : 0)} marcador(es)</span>
         </div>
       </div>
-      <div className="relative flex-1">
+      <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
         <MapContainer center={[-15.0, -52.0]} zoom={5} style={{ height: '100%', width: '100%', background: '#2c2c2c' }} zoomControl>
-          <TileLayer key={basemap} url={TILE_CONFIG[basemap].url} attribution={TILE_CONFIG[basemap].attribution} subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'} maxZoom={19} />
+          <MapResizeHandler />
+          <TileLayer
+            key={basemap}
+            url={TILE_CONFIG[basemap].url}
+            attribution={TILE_CONFIG[basemap].attribution}
+            subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'}
+            maxZoom={19}
+            eventHandlers={{
+              loading: () => setTileError(false),
+              tileerror: () => setTileError(true),
+            }}
+          />
           <MarkerLayer
             projects={filteredProjects}
             sites={sitesWithCoords}
@@ -401,6 +438,11 @@ export function ControlMap({
             onSiteSelect={(id) => onSiteSelect?.(id)}
           />
         </MapContainer>
+        {tileError && (
+          <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-lg border border-[#525252] bg-[#2c2c2c]/90 px-3 py-2 text-xs text-[#d4d4d4] shadow-lg">
+            Mapa base indisponivel. Marcadores mantidos no fallback local.
+          </div>
+        )}
         <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#333333]/90 border border-[#525252] rounded-lg p-1 backdrop-blur-sm">
           {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
             <button key={b} onClick={() => setBasemap(b)} className="px-2.5 py-1 rounded text-[10px] font-medium transition-colors" style={{ background: basemap === b ? '#f9731620' : 'transparent', color: basemap === b ? '#f97316' : '#6b6b6b', border: `1px solid ${basemap === b ? '#f9731650' : 'transparent'}` }}>{BASEMAP_LABELS[b]}</button>

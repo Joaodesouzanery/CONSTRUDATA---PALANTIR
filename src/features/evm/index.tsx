@@ -10,6 +10,9 @@ import { MedicaoPonderadaPanel } from './components/MedicaoPonderadaPanel'
 import { PlanoContasPanel } from './components/PlanoContasPanel'
 import { WorkPackagesPanel } from './components/WorkPackagesPanel'
 import { IndicesPanel } from './components/IndicesPanel'
+import { PorNucleoPanel } from './components/PorNucleoPanel'
+import { ComparativoNucleosPanel } from './components/ComparativoNucleosPanel'
+import { FluxoMensalPanel } from './components/FluxoMensalPanel'
 import { VisaoGeralPanel } from '@/features/financeiro/components/VisaoGeralPanel'
 import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/EntradasSaidasPanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
@@ -17,6 +20,7 @@ import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPane
 function renderPanel(tab: CombinedTab): React.ReactNode {
   switch (tab) {
     case 'dashboard':     return <DashboardPanel />
+    case 'por-nucleo':    return <PorNucleoPanel />
     case 'medicao':       return <MedicaoPonderadaPanel />
     case 'plano-contas':  return <PlanoContasPanel />
     case 'work-packages': return <WorkPackagesPanel />
@@ -25,6 +29,8 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
     case 'entradas':      return <EntradasPanel />
     case 'saidas':        return <SaidasPanel />
     case 'fluxo-caixa':  return <FluxoCaixaPanel />
+    case 'fluxo-mensal': return <FluxoMensalPanel />
+    case 'comparativo':  return <ComparativoNucleosPanel />
     default:              return <DashboardPanel />
   }
 }

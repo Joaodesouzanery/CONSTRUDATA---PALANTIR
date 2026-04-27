@@ -37,8 +37,8 @@ const NAV_GROUPS = [
   {
     label: 'PLANEJAMENTO',
     items: [
-      { label: 'Plan. Mestre',    icon: BrainCircuit,     to: '/app/planejamento-mestre' },
-      { label: 'Plan. Trechos',   icon: CalendarClock,    to: '/app/planejamento'        },
+      { label: 'Planejamento',    icon: BrainCircuit,     to: '/app/planejamento-mestre' },
+      { label: 'Trechos',         icon: CalendarClock,    to: '/app/planejamento'        },
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
       { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
       { label: 'Financeiro',       icon: TrendingUp,       to: '/app/evm'                 },

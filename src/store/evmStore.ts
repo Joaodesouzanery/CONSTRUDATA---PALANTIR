@@ -9,6 +9,8 @@ import type {
   EvmTab, WorkPackage, CostAccountEntry, WeightedMeasurement,
   EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
   EacScenarios, PillarDeviation, StockAlert,
+  ContratoFinanceiro, NucleoFinanceiro, FinanceiroWorkPackage,
+  MeasurementTemplate,
 } from '@/types'
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -60,8 +62,17 @@ interface EvmState {
   measurements: WeightedMeasurement[]
   evmMetrics: EvmMetrics
   sCurveData: SCurveMultiPoint[]
+  contrato: ContratoFinanceiro | null
+  nucleos: NucleoFinanceiro[]
+  selectedNucleoId: string | null
+  measurementTemplates: MeasurementTemplate[]
+  diagnosticNotes: string[]
 
   setActiveTab: (tab: EvmTab) => void
+  setSelectedNucleo: (id: string | null) => void
+  addNucleoFinanceiro: (nome: string) => void
+  applyMeasurementTemplate: (templateId: string, nucleoId?: string) => void
+  diagnoseSpi: (nucleoId?: string) => void
 
   // Work Package CRUD
   addWorkPackage: (wp: Omit<WorkPackage, 'id' | 'createdAt'>) => void
@@ -121,6 +132,213 @@ function computeCompositeScore(m: Omit<WeightedMeasurement, 'id' | 'compositeSco
   )
 }
 
+function computeWpScore(wp: Pick<FinanceiroWorkPackage, 'pesoFinanceiro' | 'pesoDuracao' | 'pesoEconomico' | 'pesoEspecifico'>) {
+  return wp.pesoFinanceiro * 0.3 + wp.pesoDuracao * 0.25 + wp.pesoEconomico * 0.3 + wp.pesoEspecifico * 0.15
+}
+
+function makeWorkPackageFinanceiro(input: Omit<FinanceiroWorkPackage, 'scoreComposto' | 'evReconhecido'>): FinanceiroWorkPackage {
+  const scoreComposto = computeWpScore(input)
+  const evReconhecido = input.bacWP * (input.progFisico / 100) * input.pesoFinanceiro
+  return { ...input, scoreComposto, evReconhecido }
+}
+
+function makeNucleoFinanceiro(input: {
+  id: string
+  codigo: string
+  nome: string
+  contratoId: string
+  bacAlocado: number
+  bacPercentual: number
+  cor: string
+}): NucleoFinanceiro {
+  return {
+    ...input,
+    descricao: `${input.nome} - controle financeiro por nucleo`,
+    ativo: true,
+    planoContas: {
+      nucleoId: input.id,
+      material: [],
+      maoDeObra: [],
+      equipamentos: [],
+      subcontrato: [],
+      overhead: [],
+      totalOrcado: input.bacAlocado,
+    },
+    workPackages: [
+      makeWorkPackageFinanceiro({
+        id: `${input.id}-wp-esc`,
+        nucleoId: input.id,
+        wbsRef: `${input.codigo}.1`,
+        descricao: 'Escavacao e assentamento',
+        bacWP: input.bacAlocado * 0.35,
+        pesoFinanceiro: 0.25,
+        pesoDuracao: 0.3,
+        pesoEconomico: 0.3,
+        pesoEspecifico: 0.15,
+        progFisico: 52,
+      }),
+      makeWorkPackageFinanceiro({
+        id: `${input.id}-wp-reat`,
+        nucleoId: input.id,
+        wbsRef: `${input.codigo}.2`,
+        descricao: 'Reaterro e recomposicao',
+        bacWP: input.bacAlocado * 0.28,
+        pesoFinanceiro: 0.3,
+        pesoDuracao: 0.25,
+        pesoEconomico: 0.25,
+        pesoEspecifico: 0.2,
+        progFisico: 38,
+      }),
+      makeWorkPackageFinanceiro({
+        id: `${input.id}-wp-teste`,
+        nucleoId: input.id,
+        wbsRef: `${input.codigo}.3`,
+        descricao: 'Teste, limpeza e entrega',
+        bacWP: input.bacAlocado * 0.18,
+        pesoFinanceiro: 0.2,
+        pesoDuracao: 0.2,
+        pesoEconomico: 0.25,
+        pesoEspecifico: 0.35,
+        progFisico: 24,
+      }),
+    ],
+    entradas: [
+      {
+        id: `${input.id}-ent-1`,
+        nucleoId: input.id,
+        tipo: 'medicao',
+        descricao: `Medicao ${input.codigo}`,
+        valor: input.bacAlocado * 0.18,
+        data: '2026-04-20',
+        status: 'aprovado',
+      },
+    ],
+    saidas: [
+      {
+        id: `${input.id}-sai-1`,
+        nucleoId: input.id,
+        categoria: 'material',
+        descricao: `Materiais ${input.codigo}`,
+        fornecedor: 'Fornecedor local',
+        valor: input.bacAlocado * 0.12,
+        data: '2026-04-10',
+        status: 'pago',
+      },
+      {
+        id: `${input.id}-sai-2`,
+        nucleoId: input.id,
+        categoria: 'equipamentos',
+        descricao: `Equipamentos ${input.codigo}`,
+        fornecedor: 'Locadora',
+        valor: input.bacAlocado * 0.08,
+        data: '2026-04-14',
+        status: 'pendente',
+      },
+    ],
+    evm: [
+      {
+        nucleoId: input.id,
+        periodo: '2026-04',
+        pv: input.bacAlocado * 0.3,
+        ev: input.bacAlocado * 0.24,
+        ac: input.bacAlocado * 0.27,
+        cpi: 0.89,
+        spi: 0.8,
+        cv: input.bacAlocado * -0.03,
+        sv: input.bacAlocado * -0.06,
+        eacFormula: input.bacAlocado / 0.89,
+        eacOtimista: input.bacAlocado / 0.96,
+        eacPessimista: input.bacAlocado / 0.76,
+        vac: input.bacAlocado - input.bacAlocado / 0.89,
+        tcpi: 1.1,
+        ppcSemana: [0.72, 0.68, 0.75, 0.7],
+        ppcMedio: 0.71,
+      },
+    ],
+  }
+}
+
+function buildMeasurementTemplates(): MeasurementTemplate[] {
+  return [
+    {
+      id: 'tpl-saneamento',
+      nome: 'Template Saneamento',
+      tipologia: 'saneamento',
+      pesos: [
+        { descricao: 'Mobilizacao e sinalizacao', pesoFinanceiro: 0.1, pesoDuracao: 0.15, pesoEconomico: 0.1, pesoEspecifico: 0.2 },
+        { descricao: 'Escavacao', pesoFinanceiro: 0.25, pesoDuracao: 0.3, pesoEconomico: 0.25, pesoEspecifico: 0.15 },
+        { descricao: 'Assentamento de rede', pesoFinanceiro: 0.3, pesoDuracao: 0.25, pesoEconomico: 0.3, pesoEspecifico: 0.25 },
+        { descricao: 'Reaterro e recomposicao', pesoFinanceiro: 0.25, pesoDuracao: 0.2, pesoEconomico: 0.25, pesoEspecifico: 0.25 },
+        { descricao: 'Teste e entrega', pesoFinanceiro: 0.1, pesoDuracao: 0.1, pesoEconomico: 0.1, pesoEspecifico: 0.15 },
+      ],
+    },
+    {
+      id: 'tpl-edificacao',
+      nome: 'Template Edificacao',
+      tipologia: 'edificacao',
+      pesos: [
+        { descricao: 'Fundacao', pesoFinanceiro: 0.22, pesoDuracao: 0.22, pesoEconomico: 0.24, pesoEspecifico: 0.18 },
+        { descricao: 'Estrutura', pesoFinanceiro: 0.28, pesoDuracao: 0.3, pesoEconomico: 0.26, pesoEspecifico: 0.22 },
+        { descricao: 'Instalacoes', pesoFinanceiro: 0.18, pesoDuracao: 0.2, pesoEconomico: 0.2, pesoEspecifico: 0.24 },
+        { descricao: 'Acabamento', pesoFinanceiro: 0.24, pesoDuracao: 0.2, pesoEconomico: 0.22, pesoEspecifico: 0.24 },
+      ],
+    },
+  ]
+}
+
+function computeFinancialPortfolio(nucleos: NucleoFinanceiro[], onlyIds?: string[]): EvmMetrics {
+  const selected = onlyIds ? nucleos.filter((n) => onlyIds.includes(n.id)) : nucleos
+  if (selected.length === 0) return { ...EMPTY_METRICS }
+  const BAC = selected.reduce((sum, n) => sum + n.bacAlocado, 0)
+  const latestPeriods = selected.flatMap((n) => n.evm.slice(-1))
+  const PV = latestPeriods.reduce((sum, p) => sum + p.pv, 0)
+  const EV = selected.reduce((sum, n) => sum + n.workPackages.reduce((wpSum, wp) => wpSum + wp.evReconhecido, 0), 0)
+  const AC = selected.reduce((sum, n) => sum + n.saidas.reduce((saidaSum, saida) => saidaSum + saida.valor, 0), 0)
+  const CPI = AC > 0 ? EV / AC : 0
+  const SPI = PV > 0 ? EV / PV : 0
+  const CV = EV - AC
+  const SV = EV - PV
+  const ppcValues = latestPeriods.flatMap((p) => p.ppcSemana)
+  const ppcAverage = ppcValues.length > 0 ? ppcValues.reduce((sum, p) => sum + p, 0) / ppcValues.length : 0.8
+  const idc = Math.max(0.35, (CPI || 0.8) * Math.max(0.5, ppcAverage))
+  const EAC = BAC / idc
+  const ETC = EAC - AC
+  const VAC = BAC - EAC
+  const TCPI = BAC - AC !== 0 ? (BAC - EV) / (BAC - AC) : 0
+  return {
+    BAC, PV, EV, AC, CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI,
+    costBreakdown: { material: AC * 0.45, equipamento: AC * 0.25, mao_de_obra: AC * 0.25, impostos_indiretos: AC * 0.05 },
+    eacScenarios: { optimistic: BAC / Math.max(0.6, idc * 1.12), trend: EAC, pessimistic: BAC / Math.max(0.35, idc * 0.86) },
+    pillarDeviations: [],
+    stockAlerts: [],
+    healthStatus: CPI >= 1 && SPI >= 1 ? 'blue' : CPI < 0.9 || SPI < 0.9 ? 'red' : 'yellow',
+  }
+}
+
+function buildDemoFinancialModel() {
+  const contrato: ContratoFinanceiro = {
+    id: 'contrato-atlantico-demo',
+    numero: 'CTR-ATL-2026',
+    descricao: 'Contrato Atlantico - Saneamento Integrado',
+    contratante: 'Sabesp',
+    dataInicio: '2026-01-05',
+    dataFim: '2026-12-20',
+    bac: 4_891_304,
+  }
+  const names = ['Morro do Teteu', 'Vila dos Criadores', 'Sao Manuel', 'Nucleo Norte', 'Nucleo Sul', 'Interligacoes']
+  const colors = ['#f97316', '#22c55e', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444']
+  const nucleos = names.map((nome, idx) => makeNucleoFinanceiro({
+    id: `nucleo-fin-${idx + 1}`,
+    codigo: `N${idx + 1}`,
+    nome,
+    contratoId: contrato.id,
+    bacAlocado: contrato.bac / names.length,
+    bacPercentual: 100 / names.length,
+    cor: colors[idx],
+  }))
+  return { contrato, nucleos }
+}
+
 export const useEvmStore = create<EvmState>()(
   persist(
     (set, get) => ({
@@ -130,6 +348,11 @@ export const useEvmStore = create<EvmState>()(
   measurements: [],
   evmMetrics: { ...EMPTY_METRICS },
   sCurveData: [],
+  contrato: null,
+  nucleos: [],
+  selectedNucleoId: null,
+  measurementTemplates: buildMeasurementTemplates(),
+  diagnosticNotes: [],
 
   pendingSync:  [],
   syncStatus:   'idle',
@@ -137,6 +360,66 @@ export const useEvmStore = create<EvmState>()(
   syncError:    null,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setSelectedNucleo: (id) => set({ selectedNucleoId: id }),
+
+  addNucleoFinanceiro: (nome) => {
+    const contrato = get().contrato
+    const id = `nuc-${crypto.randomUUID().slice(0, 8)}`
+    const novo = makeNucleoFinanceiro({
+      id,
+      codigo: `N${get().nucleos.length + 1}`,
+      nome,
+      contratoId: contrato?.id ?? 'contrato-local',
+      bacAlocado: Math.max(1, (contrato?.bac ?? 0) * 0.1),
+      bacPercentual: 10,
+      cor: '#f97316',
+    })
+    set((s) => ({ nucleos: [...s.nucleos, novo], selectedNucleoId: novo.id }))
+    get().recalculateMetrics()
+  },
+
+  applyMeasurementTemplate: (templateId, nucleoId) => {
+    const template = get().measurementTemplates.find((t) => t.id === templateId)
+    const targetId = nucleoId ?? get().selectedNucleoId ?? get().nucleos[0]?.id
+    if (!template || !targetId) return
+    set((s) => ({
+      nucleos: s.nucleos.map((n) => {
+        if (n.id !== targetId) return n
+        const baseBudget = n.bacAlocado / Math.max(1, template.pesos.length)
+        return {
+          ...n,
+          workPackages: template.pesos.map((p, idx) => makeWorkPackageFinanceiro({
+            id: `${n.id}-tpl-${idx + 1}`,
+            nucleoId: n.id,
+            wbsRef: `${n.codigo}.${idx + 1}`,
+            descricao: p.descricao,
+            bacWP: baseBudget,
+            pesoFinanceiro: p.pesoFinanceiro,
+            pesoDuracao: p.pesoDuracao,
+            pesoEconomico: p.pesoEconomico,
+            pesoEspecifico: p.pesoEspecifico,
+            progFisico: idx === 0 ? 80 : idx === 1 ? 55 : 25,
+          })),
+        }
+      }),
+    }))
+    get().recalculateMetrics()
+  },
+
+  diagnoseSpi: (nucleoId) => {
+    const targetId = nucleoId ?? get().selectedNucleoId
+    const metrics = computeFinancialPortfolio(get().nucleos, targetId ? [targetId] : undefined)
+    const notes: string[] = []
+    if (metrics.SPI < 1) notes.push(`SPI ${metrics.SPI.toFixed(2)}: EV menor que PV, indicando atraso fisico-financeiro no periodo.`)
+    if (metrics.CPI < 1) notes.push(`CPI ${metrics.CPI.toFixed(2)}: custo real acima do valor agregado reconhecido.`)
+    const selected = targetId ? get().nucleos.filter((n) => n.id === targetId) : get().nucleos
+    const lowPpc = selected.flatMap((n) => n.evm).filter((p) => p.ppcMedio < 0.8)
+    if (lowPpc.length > 0) notes.push(`PPC medio abaixo de 80% em ${lowPpc.length} periodo(s), reduzindo o EV operacional.`)
+    const criticalWp = selected.flatMap((n) => n.workPackages).filter((wp) => wp.progFisico < 50 && wp.pesoFinanceiro >= 0.25)
+    if (criticalWp.length > 0) notes.push(`Work packages criticos com baixo progresso: ${criticalWp.slice(0, 3).map((wp) => wp.descricao).join(', ')}.`)
+    if (notes.length === 0) notes.push('Nenhum desvio local relevante encontrado nos dados atuais.')
+    set({ diagnosticNotes: notes })
+  },
 
   // ── Work Package CRUD ──────────────────────────────────────────────
 
@@ -254,6 +537,12 @@ export const useEvmStore = create<EvmState>()(
   // ── Recalculate ────────────────────────────────────────────────────
 
   recalculateMetrics: () => {
+    const financialNucleos = get().nucleos
+    if (financialNucleos.length > 0) {
+      set({ evmMetrics: computeFinancialPortfolio(financialNucleos) })
+      return
+    }
+
     const { costAccounts, evmMetrics } = get()
 
     // Compute BAC from cost accounts
@@ -381,12 +670,18 @@ export const useEvmStore = create<EvmState>()(
 
   loadDemoData: () => {
     import('@/data/mockEvm').then((m) => {
+      const financial = buildDemoFinancialModel()
       set({
         workPackages: structuredClone(m.MOCK_WORK_PACKAGES),
         costAccounts: structuredClone(m.MOCK_COST_ACCOUNTS),
         measurements: structuredClone(m.MOCK_MEASUREMENTS),
-        evmMetrics: structuredClone(m.MOCK_EVM_METRICS),
+        evmMetrics: computeFinancialPortfolio(financial.nucleos),
         sCurveData: structuredClone(m.MOCK_SCURVE_DATA),
+        contrato: financial.contrato,
+        nucleos: financial.nucleos,
+        selectedNucleoId: financial.nucleos[0]?.id ?? null,
+        measurementTemplates: buildMeasurementTemplates(),
+        diagnosticNotes: [],
       })
     })
   },
@@ -398,6 +693,10 @@ export const useEvmStore = create<EvmState>()(
       measurements: [],
       evmMetrics: { ...EMPTY_METRICS },
       sCurveData: [],
+      contrato: null,
+      nucleos: [],
+      selectedNucleoId: null,
+      diagnosticNotes: [],
       pendingSync: [],
       syncError: null,
     }),
@@ -439,6 +738,11 @@ export const useEvmStore = create<EvmState>()(
         costAccounts: s.costAccounts,
         measurements: s.measurements,
         sCurveData:   s.sCurveData,
+        contrato:     s.contrato,
+        nucleos:      s.nucleos,
+        selectedNucleoId: s.selectedNucleoId,
+        measurementTemplates: s.measurementTemplates,
+        diagnosticNotes: s.diagnosticNotes,
         pendingSync:  s.pendingSync,
         lastSyncedAt: s.lastSyncedAt,
       }),

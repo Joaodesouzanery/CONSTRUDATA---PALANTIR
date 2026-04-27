@@ -5,23 +5,26 @@ import { DollarSign, Download, RefreshCw } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
-import type { EvmTab, FinanceiroTab } from '@/types'
+import type { FinanceiroEvmTab } from '@/types'
 
-export type CombinedTab = EvmTab | FinanceiroTab
+export type CombinedTab = FinanceiroEvmTab
 
-const EVM_TABS: { key: EvmTab; label: string }[] = [
+const EVM_TABS: { key: CombinedTab; label: string }[] = [
   { key: 'dashboard',     label: 'Dashboard' },
+  { key: 'por-nucleo',    label: 'Por Nucleo' },
   { key: 'medicao',       label: 'Medição Ponderada' },
   { key: 'plano-contas',  label: 'Plano de Contas' },
   { key: 'work-packages', label: 'Work Packages' },
   { key: 'indices',       label: 'Índices' },
 ]
 
-const FIN_TABS: { key: FinanceiroTab; label: string }[] = [
+const FIN_TABS: { key: CombinedTab; label: string }[] = [
   { key: 'visao-geral',  label: 'Visão Geral' },
   { key: 'entradas',     label: 'Entradas' },
   { key: 'saidas',       label: 'Saídas' },
   { key: 'fluxo-caixa', label: 'Fluxo de Caixa' },
+  { key: 'fluxo-mensal', label: 'Fluxo Mensal' },
+  { key: 'comparativo', label: 'Comparativo' },
 ]
 
 function KpiCard({

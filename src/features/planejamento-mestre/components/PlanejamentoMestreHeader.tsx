@@ -130,7 +130,7 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
               <BrainCircuit size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-[#f5f5f5] font-semibold text-base leading-tight">Planejamento Mestre</h1>
+              <h1 className="text-[#f5f5f5] font-semibold text-base leading-tight">Planejamento</h1>
               <p className="text-[#6b6b6b] text-xs">Longo, Médio e Curto Prazo</p>
             </div>
           </div>

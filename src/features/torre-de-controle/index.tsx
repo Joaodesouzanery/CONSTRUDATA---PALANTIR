@@ -58,13 +58,13 @@ export function TorreDeControlePage() {
         })}
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === 'mapa' && (
-          <div className="flex h-full flex-col overflow-hidden">
-            <div className="h-[160px] shrink-0 lg:h-[180px]">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="max-h-[180px] shrink-0 overflow-hidden">
               <ObrasListPanel orientation="horizontal" />
             </div>
-            <div className="relative min-h-[300px] flex-1 border-t border-[#525252]">
+            <div className="relative min-h-0 flex-1 border-t border-[#525252]">
               <ControlMap
                 projects={projects}
                 sites={sites}

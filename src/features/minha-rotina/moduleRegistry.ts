@@ -54,14 +54,14 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
   // ── PLANEJAMENTO ───────────────────────────────────────────────────────
   {
     path: '/app/planejamento-mestre',
-    label: 'Planejamento Mestre',
+    label: 'Planejamento',
     icon: BrainCircuit,
     group: 'planejamento',
     description: 'WBS, marcos contratuais e estrutura macro do projeto.',
   },
   {
     path: '/app/planejamento',
-    label: 'Planejamento (Trechos)',
+    label: 'Trechos',
     icon: CalendarClock,
     group: 'planejamento',
     description: 'Gantt, CPM, simulação de atrasos e ABC de trechos.',

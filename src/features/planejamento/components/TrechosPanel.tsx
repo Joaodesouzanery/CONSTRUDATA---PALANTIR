@@ -28,12 +28,6 @@ const DEFAULT_TRECHO: Omit<PlanTrecho, 'id'> = {
   soilType: 'normal',
   requiresShoring: false,
   unitCostBRL: 350,
-  activityType: 'esgoto',
-  financialWeightPct: 0,
-  physicalProgressPct: 0,
-  financialProgressPct: 0,
-  estimatedHH: 35,
-  equipmentDemand: { headcount: 6, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
 }
 
 // ─── Inline cell ──────────────────────────────────────────────────────────────
@@ -106,7 +100,7 @@ export function TrechosPanel() {
   }
 
   function update(id: string, field: keyof Omit<PlanTrecho, 'id'>, raw: string) {
-    const numFields = ['lengthM', 'depthM', 'diameterMm', 'unitCostBRL', 'financialWeightPct', 'physicalProgressPct', 'financialProgressPct', 'estimatedHH'] as const
+    const numFields = ['lengthM', 'depthM', 'diameterMm', 'unitCostBRL'] as const
     if ((numFields as readonly string[]).includes(field)) {
       updateTrecho(id, { [field]: parseFloat(raw) || 0 })
     } else {
@@ -162,10 +156,6 @@ export function TrechosPanel() {
               <th className="text-left text-[#a3a3a3] px-3 py-3 font-medium">Solo</th>
               <th className="text-center text-[#a3a3a3] px-3 py-3 font-medium">Escoram.</th>
               <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">R$/m</th>
-              <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">Peso Fin.</th>
-              <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">% Fís.</th>
-              <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">% Fin.</th>
-              <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">HH</th>
               <th className="text-right text-[#a3a3a3] px-3 py-3 font-medium">Executado</th>
               <th className="text-center text-[#a3a3a3] px-3 py-3 font-medium">Zona</th>
               <th className="w-8 px-2 py-3"></th>
@@ -174,7 +164,7 @@ export function TrechosPanel() {
           <tbody className="divide-y divide-[#3d3d3d]">
             {trechos.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-4 py-8 text-center text-[#6b6b6b] text-sm">
+                <td colSpan={13} className="px-4 py-8 text-center text-[#6b6b6b] text-sm">
                   Nenhum trecho cadastrado. Clique em "+ Novo Trecho" ou importe da Pré-Construção.
                 </td>
               </tr>
@@ -234,26 +224,6 @@ export function TrechosPanel() {
                   <EditableCell
                     value={t.unitCostBRL ?? 0} type="number" min={0} step={10}
                     onChange={(v) => update(t.id, 'unitCostBRL', v)} className="text-right" />
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <EditableCell
-                    value={t.financialWeightPct ?? 0} type="number" min={0} max={100} step={1}
-                    onChange={(v) => update(t.id, 'financialWeightPct', v)} className="text-right" />
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <EditableCell
-                    value={t.physicalProgressPct ?? 0} type="number" min={0} max={100} step={1}
-                    onChange={(v) => update(t.id, 'physicalProgressPct', v)} className="text-right" />
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <EditableCell
-                    value={t.financialProgressPct ?? t.physicalProgressPct ?? 0} type="number" min={0} max={100} step={1}
-                    onChange={(v) => update(t.id, 'financialProgressPct', v)} className="text-right" />
-                </td>
-                <td className="px-3 py-2 text-right">
-                  <EditableCell
-                    value={t.estimatedHH ?? 0} type="number" min={0} step={1}
-                    onChange={(v) => update(t.id, 'estimatedHH', v)} className="text-right" />
                 </td>
                 <td className="px-3 py-2 text-right">
                   {(t.executedMeters ?? 0) > 0 ? (

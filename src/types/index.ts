@@ -1835,6 +1835,15 @@ export interface MasterActivity {
   pesoMeta1000?:       number
   coordenador?:        string
   unidade?:            string
+  nucleusId?: string
+  financialWeightPct?: number
+  physicalProgressPct?: number
+  financialProgressPct?: number
+  estimatedHH?: number
+  equipmentDemand?: Partial<ResourceDemand>
+  workPackageId?: string
+  baselineStart?: string
+  baselineEnd?: string
 }
 
 export interface MasterBaseline {
@@ -1948,10 +1957,138 @@ export interface TrendPoint {
 // ── EVM (Earned Value Management) ──────────────────────────────────────────
 
 export type EvmTab = 'dashboard' | 'medicao' | 'plano-contas' | 'work-packages' | 'indices'
+export type FinanceiroEvmTab =
+  | EvmTab
+  | FinanceiroTab
+  | 'por-nucleo'
+  | 'comparativo'
+  | 'fluxo-mensal'
 
 export type CostPillar = 'material' | 'equipamento' | 'mao_de_obra' | 'impostos_indiretos'
 
 export type ServiceCategory = 'LA' | 'LE' | 'intra' | 'interligacao' | 'reposicao' | 'na_rede' | 'OS' | 'pavimentacao' | 'recomposicao'
+
+export type FinanceiroCostPillar = 'material' | 'mao_de_obra' | 'equipamentos' | 'subcontrato' | 'overhead'
+
+export interface ContratoFinanceiro {
+  id: string
+  numero: string
+  descricao: string
+  contratante: string
+  dataInicio: string
+  dataFim: string
+  bac: number
+}
+
+export interface ItemCustoFinanceiro {
+  id: string
+  descricao: string
+  workPackageRef?: string
+  custoUnitario: number
+  quantidade: number
+  total: number
+}
+
+export interface PlanoContasFinanceiro {
+  nucleoId: string
+  material: ItemCustoFinanceiro[]
+  maoDeObra: ItemCustoFinanceiro[]
+  equipamentos: ItemCustoFinanceiro[]
+  subcontrato: ItemCustoFinanceiro[]
+  overhead: ItemCustoFinanceiro[]
+  totalOrcado: number
+}
+
+export interface FinanceiroWorkPackage {
+  id: string
+  nucleoId: string
+  wbsRef: string
+  descricao: string
+  bacWP: number
+  pesoFinanceiro: number
+  pesoDuracao: number
+  pesoEconomico: number
+  pesoEspecifico: number
+  scoreComposto: number
+  progFisico: number
+  evReconhecido: number
+  activityIds?: string[]
+}
+
+export interface EvmPeriodoFinanceiro {
+  nucleoId: string
+  periodo: string
+  pv: number
+  ev: number
+  ac: number
+  cpi: number
+  spi: number
+  cv: number
+  sv: number
+  eacFormula: number
+  eacOtimista: number
+  eacPessimista: number
+  vac: number
+  tcpi: number
+  ppcSemana: number[]
+  ppcMedio: number
+}
+
+export interface EntradaFinanceira {
+  id: string
+  nucleoId: string
+  tipo: 'medicao' | 'antecipacao' | 'reajuste' | 'outro'
+  medicaoRef?: string
+  descricao: string
+  valor: number
+  data: string
+  status: 'previsto' | 'emitido' | 'aprovado' | 'recebido'
+  notaFiscal?: string
+  observacoes?: string
+}
+
+export interface SaidaFinanceira {
+  id: string
+  nucleoId: string
+  categoria: FinanceiroCostPillar
+  workPackageRef?: string
+  descricao: string
+  fornecedor: string
+  valor: number
+  data: string
+  notaFiscal?: string
+  status: 'previsto' | 'pago' | 'pendente'
+}
+
+export interface NucleoFinanceiro {
+  id: string
+  codigo: string
+  nome: string
+  descricao: string
+  contratoId: string
+  bacAlocado: number
+  bacPercentual: number
+  planoContas: PlanoContasFinanceiro
+  workPackages: FinanceiroWorkPackage[]
+  entradas: EntradaFinanceira[]
+  saidas: SaidaFinanceira[]
+  evm: EvmPeriodoFinanceiro[]
+  ativo: boolean
+  cor: string
+}
+
+export interface MeasurementTemplate {
+  id: string
+  nome: string
+  tipologia: 'saneamento' | 'edificacao'
+  pesos: Array<{
+    descricao: string
+    pesoFinanceiro: number
+    pesoDuracao: number
+    pesoEconomico: number
+    pesoEspecifico: number
+  }>
+}
 
 export interface WeightedMeasurement {
   id: string

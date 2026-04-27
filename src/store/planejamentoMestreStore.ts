@@ -12,6 +12,7 @@ import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
   LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
+  PlanningContract, PlanningNucleus, PlanningAuditEntry,
 } from '@/types'
 import {
   computeMasterSCurve, applyWhatIfAdjustments, deriveLookahead,
@@ -55,11 +56,31 @@ function lookaheadToRow(d: LookaheadDerivedActivity, orgId: string, userId: stri
   }
 }
 
+function calcTaktDays(startDate: string, endDate: string, nucleusCount: number) {
+  const start = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000))
+  return Math.max(1, Math.round(days / Math.max(1, nucleusCount)))
+}
+
+function serviceToNetworkType(serviceType?: PlanningNucleus['serviceType']): MasterActivity['networkType'] {
+  if (serviceType === 'agua' || serviceType === 'esgoto') return serviceType
+  if (serviceType === 'drenagem' || serviceType === 'infraestrutura' || serviceType === 'edificacao') return 'civil'
+  return 'geral'
+}
+
+function makeAudit(action: PlanningAuditEntry['action'], summary: string, payload?: Record<string, unknown>): PlanningAuditEntry {
+  return { id: crypto.randomUUID(), createdAt: new Date().toISOString(), action, summary, payload }
+}
+
 interface PlanejamentoMestreState {
   activeTab: PlanejamentoMestreTab
   activities: MasterActivity[]
   baselines: MasterBaseline[]
   activeBaselineId: string | null
+  contract: PlanningContract | null
+  nuclei: PlanningNucleus[]
+  auditLog: PlanningAuditEntry[]
   lookaheadWeeks: number
   derivedActivities: LookaheadDerivedActivity[]
   whatIfAdjustments: WhatIfAdjustment[]
@@ -81,6 +102,12 @@ interface PlanejamentoMestreState {
     fronts:    string[]
     includeServices: boolean
   }) => void
+  createGuidedPlan: (input: {
+    contract: Omit<PlanningContract, 'theoreticalTaktDays'>
+    nuclei: Array<Omit<PlanningNucleus, 'id' | 'budgetBRL'>>
+    activities: Array<Omit<MasterActivity, 'id'>>
+  }) => void
+  addNucleus: (nucleus: Omit<PlanningNucleus, 'id' | 'budgetBRL'>) => void
 
   saveBaseline: (name: string) => void
   loadBaseline: (id: string) => void
@@ -122,6 +149,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         activities: [],
         baselines: [],
         activeBaselineId: null,
+        contract: null,
+        nuclei: [],
+        auditLog: [],
         lookaheadWeeks: 6,
         derivedActivities: [],
         whatIfAdjustments: [],
@@ -219,6 +249,148 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
           void get().flush()
         },
 
+        createGuidedPlan: ({ contract: contractInput, nuclei: nucleusInput, activities: activityInput }) => {
+          const contract: PlanningContract = {
+            ...contractInput,
+            theoreticalTaktDays: calcTaktDays(contractInput.startDate, contractInput.endDate, contractInput.nucleusCount),
+          }
+          const nuclei: PlanningNucleus[] = nucleusInput.map((n) => ({
+            ...n,
+            id: crypto.randomUUID(),
+            budgetBRL: Math.round(contract.bacTotal * (n.bacWeightPct / 100)),
+          }))
+          const rootId = crypto.randomUUID()
+          const root: MasterActivity = {
+            id: rootId,
+            wbsCode: '1',
+            name: contract.contractName,
+            parentId: null,
+            level: 0,
+            plannedStart: contract.startDate,
+            plannedEnd: contract.endDate,
+            trendStart: contract.startDate,
+            trendEnd: contract.endDate,
+            durationDays: Math.max(1, Math.ceil((new Date(contract.endDate).getTime() - new Date(contract.startDate).getTime()) / 86_400_000)),
+            percentComplete: 0,
+            status: 'not_started',
+            isMilestone: false,
+            weight: 100,
+            networkType: 'geral',
+            baselineStart: contract.startDate,
+            baselineEnd: contract.endDate,
+          }
+          const frontActivities = nuclei.map((n, idx): MasterActivity => ({
+            id: crypto.randomUUID(),
+            wbsCode: `1.${idx + 1}`,
+            name: `${n.name} - ${n.serviceType}`,
+            parentId: rootId,
+            level: 1,
+            plannedStart: contract.startDate,
+            plannedEnd: contract.endDate,
+            trendStart: contract.startDate,
+            trendEnd: contract.endDate,
+            durationDays: root.durationDays,
+            percentComplete: 0,
+            status: 'not_started',
+            isMilestone: false,
+            weight: n.bacWeightPct,
+            networkType: serviceToNetworkType(n.serviceType),
+            nucleo: n.name,
+            nucleusId: n.id,
+            financialWeightPct: n.bacWeightPct,
+            physicalProgressPct: 0,
+            financialProgressPct: 0,
+            estimatedHH: 0,
+            equipmentDemand: { headcount: 8, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
+            baselineStart: contract.startDate,
+            baselineEnd: contract.endDate,
+          }))
+          const byNucleus = new Map(nuclei.map((n) => [n.id, n]))
+          const activities: MasterActivity[] = [
+            root,
+            ...frontActivities,
+            ...activityInput.map((a, idx): MasterActivity => {
+              const nucleusId = a.nucleusId ?? nuclei[idx % Math.max(1, nuclei.length)]?.id
+              const nucleus = nucleusId ? byNucleus.get(nucleusId) : undefined
+              const parent = frontActivities.find((f) => f.nucleusId === nucleusId) ?? frontActivities[0]
+              const plannedStart = a.plannedStart || contract.startDate
+              const plannedEnd = a.plannedEnd || contract.endDate
+              return {
+                ...a,
+                id: crypto.randomUUID(),
+                wbsCode: a.wbsCode || `${parent?.wbsCode ?? '1.1'}.${idx + 1}`,
+                name: a.name || `Atividade ${idx + 1}`,
+                parentId: a.parentId ?? parent?.id ?? rootId,
+                level: a.level ?? 2,
+                plannedStart,
+                plannedEnd,
+                trendStart: a.trendStart || plannedStart,
+                trendEnd: a.trendEnd || plannedEnd,
+                durationDays: a.durationDays || Math.max(1, Math.ceil((new Date(plannedEnd).getTime() - new Date(plannedStart).getTime()) / 86_400_000)),
+                percentComplete: a.percentComplete ?? 0,
+                status: a.status ?? 'not_started',
+                isMilestone: a.isMilestone ?? false,
+                networkType: a.networkType ?? serviceToNetworkType(nucleus?.serviceType),
+                nucleo: a.nucleo ?? nucleus?.name,
+                nucleusId,
+                financialWeightPct: a.financialWeightPct ?? (activityInput.length > 0 ? 100 / activityInput.length : 0),
+                physicalProgressPct: a.physicalProgressPct ?? a.percentComplete ?? 0,
+                financialProgressPct: a.financialProgressPct ?? a.percentComplete ?? 0,
+                estimatedHH: a.estimatedHH ?? 40,
+                equipmentDemand: a.equipmentDemand ?? { headcount: 6, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
+                baselineStart: plannedStart,
+                baselineEnd: plannedEnd,
+              }
+            }),
+          ]
+          const baseline: MasterBaseline = {
+            id: crypto.randomUUID(),
+            name: 'Rev.0',
+            createdAt: new Date().toISOString(),
+            activities: structuredClone(activities),
+          }
+          set({
+            activeTab: 'macro',
+            contract,
+            nuclei,
+            activities,
+            baselines: [baseline],
+            activeBaselineId: baseline.id,
+            derivedActivities: deriveLookahead(activities, contract.startDate, 6),
+            originalSCurve: computeMasterSCurve(activities, contract.startDate, contract.endDate),
+            simulatedSCurve: [],
+            auditLog: [
+              makeAudit('wizard_generated', `Planejamento "${contract.contractName}" criado com ${nuclei.length} núcleo(s).`),
+              makeAudit('baseline_created', 'Baseline Rev.0 criado automaticamente.'),
+            ],
+          })
+          const { orgId, userId } = ctx()
+          for (const a of activities) {
+            enqueue(makeOp({ entity: 'master_activity', type: 'insert', recordId: a.id, row: masterActivityToRow(a, orgId, userId), table: 'master_activities' }))
+          }
+          enqueue(makeOp({ entity: 'master_baseline', type: 'insert', recordId: baseline.id, row: masterBaselineToRow(baseline, orgId, userId), table: 'master_baselines' }))
+          void get().flush()
+        },
+
+        addNucleus: (nucleus) => {
+          const contract = get().contract
+          const bac = contract?.bacTotal ?? 0
+          const newNucleus: PlanningNucleus = {
+            ...nucleus,
+            id: crypto.randomUUID(),
+            budgetBRL: Math.round(bac * (nucleus.bacWeightPct / 100)),
+          }
+          set((s) => ({
+            nuclei: [...s.nuclei, newNucleus],
+            contract: s.contract ? {
+              ...s.contract,
+              nucleusCount: s.nuclei.length + 1,
+              theoreticalTaktDays: calcTaktDays(s.contract.startDate, s.contract.endDate, s.nuclei.length + 1),
+            } : s.contract,
+            auditLog: [...s.auditLog, makeAudit('nucleus_added', `Núcleo ${newNucleus.name} adicionado.`, { nucleusId: newNucleus.id })],
+          }))
+        },
+
         saveBaseline: (name) => {
           const baseline: MasterBaseline = {
             id: crypto.randomUUID(), name,
@@ -307,6 +479,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
               activities: structuredClone(m.MOCK_MASTER_ACTIVITIES),
               baselines: [structuredClone(m.MOCK_MASTER_BASELINE)],
               activeBaselineId: m.MOCK_MASTER_BASELINE.id,
+              contract: null,
+              nuclei: [],
+              auditLog: [],
               derivedActivities: structuredClone(m.MOCK_DERIVED_ACTIVITIES),
               originalSCurve: scurve,
               simulatedSCurve: [],
@@ -318,6 +493,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         clearData: () =>
           set({
             activities: [], baselines: [], activeBaselineId: null,
+            contract: null, nuclei: [], auditLog: [],
             derivedActivities: [], whatIfAdjustments: [],
             originalSCurve: [], simulatedSCurve: [], programacaoSemanal: {},
             pendingSync: [], syncError: null,
@@ -358,6 +534,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         activities:        s.activities,
         baselines:         s.baselines,
         activeBaselineId:  s.activeBaselineId,
+        contract:          s.contract,
+        nuclei:            s.nuclei,
+        auditLog:          s.auditLog,
         lookaheadWeeks:    s.lookaheadWeeks,
         derivedActivities: s.derivedActivities,
         programacaoSemanal: s.programacaoSemanal,
