@@ -94,6 +94,7 @@ interface Rede360State {
   updateAsset: (id: string, updates: Partial<NetworkAsset>) => void
   setLayerVisibility: (key: string, visible: boolean) => void
   loadDemoData: () => void
+  clearData: () => void
   flush: () => Promise<void>
   pull:  () => Promise<void>
 }
@@ -194,6 +195,23 @@ export const useRede360Store = create<Rede360State>()(
           structureAssets: MOCK_STRUCTURE_ASSETS,
           vegetationPoints: MOCK_VEGETATION_POINTS,
           hardeningPoints: MOCK_HARDENING_POINTS,
+        }),
+
+        clearData: () => set({
+          assets: [],
+          serviceOrders: [],
+          outages: [],
+          selectedAssetId: null,
+          selectedCircuitId: null,
+          circuitAssets: [],
+          deviceAssets: [],
+          weatherStations: [],
+          customers: [],
+          structureAssets: [],
+          vegetationPoints: [],
+          hardeningPoints: [],
+          pendingSync: [],
+          syncError: null,
         }),
 
         flush: async () => {

@@ -198,6 +198,7 @@ export function CriteriosMedicaoPanel() {
   const [ver, setVer] = useState(0) // force re-render after add/remove
   const [importPreview, setImportPreview] = useState<{ items: CriterioMedicao[]; errors: string[] } | null>(null)
   const [importLoading, setImportLoading] = useState(false)
+  const [importMessage, setImportMessage] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const results = searchCriterios(query)
@@ -214,6 +215,7 @@ export function CriteriosMedicaoPanel() {
     const file = e.target.files?.[0]
     if (!file) return
     setImportLoading(true)
+    setImportMessage(null)
     try {
       if (file.name.toLowerCase().endsWith('.pdf')) {
         // PDF import using pdfjs-dist
@@ -234,7 +236,22 @@ export function CriteriosMedicaoPanel() {
 
   function handleConfirmImport() {
     if (!importPreview) return
-    for (const c of importPreview.items) addCustomCriterio(c)
+    let imported = 0
+    const failures: string[] = []
+    for (const c of importPreview.items) {
+      try {
+        addCustomCriterio(c)
+        imported += 1
+      } catch (err) {
+        failures.push(`${c.nPreco || 'sem código'}: ${err instanceof Error ? err.message : 'erro ao salvar'}`)
+      }
+    }
+    if (imported > 0) {
+      setSelected(importPreview.items[0]?.nPreco ?? null)
+      setImportMessage(`${imported} critério(s) importado(s) com sucesso${failures.length ? `; ${failures.length} falharam.` : '.'}`)
+    } else {
+      setImportMessage(`Nenhum critério foi importado. ${failures.join(' ')}`)
+    }
     setImportPreview(null)
     setVer((v) => v + 1)
   }
@@ -264,6 +281,11 @@ export function CriteriosMedicaoPanel() {
             />
           </div>
           <div className="text-[10px] text-[#6b6b6b] mt-1.5">{results.length} critérios</div>
+          {importMessage && (
+            <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-2 py-1.5 text-[10px] text-emerald-300">
+              {importMessage}
+            </div>
+          )}
           <div className="flex flex-col gap-1.5 mt-2">
             <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
             <button onClick={() => fileRef.current?.click()} disabled={importLoading}
@@ -364,7 +386,7 @@ export function CriteriosMedicaoPanel() {
             <div className="flex items-center gap-3 mt-4">
               <button onClick={() => fileRef.current?.click()}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: '#f97316' }}>
-                <Upload size={14} /> Importar XLSX
+                <Upload size={14} /> Importar PDF/XLSX
               </button>
               <button onClick={() => setAddOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
@@ -390,13 +412,19 @@ export function CriteriosMedicaoPanel() {
               <button onClick={() => setImportPreview(null)} className="text-[#6b6b6b] hover:text-white"><XIcon size={16} /></button>
             </div>
             <div className="p-5 space-y-3">
-              {importPreview.errors.length > 0 ? (
+              {importPreview.errors.length > 0 && importPreview.items.length === 0 ? (
                 <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
                   <AlertCircle size={14} className="shrink-0 mt-0.5" />
                   <div>{importPreview.errors.join(' ')}</div>
                 </div>
               ) : (
                 <>
+                  {importPreview.errors.length > 0 && (
+                    <div className="flex items-start gap-2 text-amber-300 text-xs bg-amber-900/20 border border-amber-700/30 rounded-lg p-3">
+                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      <div>Importação parcial: {importPreview.errors.join(' ')}</div>
+                    </div>
+                  )}
                   <p className="text-[#a3a3a3] text-xs">{importPreview.items.length} critérios encontrados. Serão adicionados ao catálogo como critérios customizados.</p>
                   <div className="overflow-x-auto max-h-56 border border-[#525252] rounded-lg">
                     <table className="w-full text-xs border-collapse">
@@ -428,7 +456,7 @@ export function CriteriosMedicaoPanel() {
             </div>
             <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
               <button onClick={() => setImportPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
-              {importPreview.errors.length === 0 && (
+              {importPreview.items.length > 0 && (
                 <button onClick={handleConfirmImport}
                   className="px-5 py-2 text-xs font-medium text-white rounded-lg transition-colors" style={{ backgroundColor: '#f97316' }}>
                   Importar {importPreview.items.length} critérios

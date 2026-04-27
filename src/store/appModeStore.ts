@@ -28,6 +28,10 @@ const STORE_KEYS = [
   'cdata-manutencoes',
 ]
 
+function clearLocalOnlyModuleData() {
+  localStorage.removeItem('cdata-manutencoes')
+}
+
 /** Snapshot current user data from localStorage before loading demo. */
 function snapshotUserData() {
   const snapshot: Record<string, string> = {}
@@ -166,11 +170,12 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./qualidadeStore').then(({ useQualidadeStore }) => useQualidadeStore.getState().clearData())
             import('./planejamentoMestreStore').then(({ usePlanejamentoMestreStore }) => usePlanejamentoMestreStore.getState().clearData())
             import('./operacaoCampoStore').then(({ useOperacaoCampoStore }) => useOperacaoCampoStore.getState().clearData())
+            import('./rede360Store').then(({ useRede360Store }) => useRede360Store.getState().clearData())
             import('./frotaVeicularStore').then(({ useFrotaVeicularStore }) => useFrotaVeicularStore.getState().clearData())
             import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().clearData())
             import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().clearData())
             import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
-            // rede360Store has no clearData — skip
+            clearLocalOnlyModuleData()
           }
         })
       }

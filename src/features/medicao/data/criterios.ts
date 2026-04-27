@@ -711,17 +711,41 @@ export const CRITERIOS_MEDICAO: CriterioMedicao[] = [
 
 const CUSTOM_CRITERIOS_KEY = 'cdata-criterios-custom'
 
+function normalizeCriterio(raw: Partial<CriterioMedicao> | null | undefined): CriterioMedicao | null {
+  if (!raw?.nPreco || !raw?.descricao) return null
+  const grupo = raw.grupo === '01' || raw.grupo === '02' || raw.grupo === '03' ? raw.grupo : '03'
+  const grupoNome = raw.grupoNome || (grupo === '01' ? 'Canteiros e Planos' : grupo === '02' ? 'Esgoto' : 'Água')
+  return {
+    nPreco: String(raw.nPreco).trim(),
+    descricao: String(raw.descricao).trim(),
+    unidade: String(raw.unidade ?? 'UN').trim() || 'UN',
+    grupo,
+    grupoNome,
+    compreende: String(raw.compreende ?? ''),
+    medicao: String(raw.medicao ?? ''),
+    notas: String(raw.notas ?? ''),
+  }
+}
+
 function loadCustomCriterios(): CriterioMedicao[] {
   try {
     const raw = localStorage.getItem(CUSTOM_CRITERIOS_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((item) => normalizeCriterio(item as Partial<CriterioMedicao>))
+      .filter((item): item is CriterioMedicao => Boolean(item))
   } catch {
     return []
   }
 }
 
 function saveCustomCriterios(items: CriterioMedicao[]) {
-  localStorage.setItem(CUSTOM_CRITERIOS_KEY, JSON.stringify(items))
+  const normalized = items
+    .map((item) => normalizeCriterio(item))
+    .filter((item): item is CriterioMedicao => Boolean(item))
+  localStorage.setItem(CUSTOM_CRITERIOS_KEY, JSON.stringify(normalized))
 }
 
 /** Returns all criteria: base catalog + user-added custom ones */
@@ -735,10 +759,12 @@ export function getAllCriterios(): CriterioMedicao[] {
 
 /** Add a new custom criterio (persisted in localStorage) */
 export function addCustomCriterio(criterio: CriterioMedicao): void {
+  const normalized = normalizeCriterio(criterio)
+  if (!normalized) throw new Error('Critério inválido: informe N. Preço e Descrição.')
   const custom = loadCustomCriterios()
-  const idx = custom.findIndex((c) => c.nPreco === criterio.nPreco)
-  if (idx >= 0) custom[idx] = criterio
-  else custom.push(criterio)
+  const idx = custom.findIndex((c) => c.nPreco === normalized.nPreco)
+  if (idx >= 0) custom[idx] = normalized
+  else custom.push(normalized)
   saveCustomCriterios(custom)
 }
 
@@ -765,8 +791,8 @@ export function searchCriterios(query: string): CriterioMedicao[] {
   if (!q) return all
   return all.filter(
     (c) =>
-      c.nPreco.includes(q) ||
-      c.descricao.toLowerCase().includes(q) ||
-      c.compreende.toLowerCase().includes(q)
+      String(c.nPreco ?? '').includes(q) ||
+      String(c.descricao ?? '').toLowerCase().includes(q) ||
+      String(c.compreende ?? '').toLowerCase().includes(q)
   )
 }

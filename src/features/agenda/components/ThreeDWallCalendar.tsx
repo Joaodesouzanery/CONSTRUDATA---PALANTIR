@@ -200,9 +200,36 @@ function DayCell({ day, tasks, resources, onEdit, onNewTask }: DayCellProps) {
             />
           ))}
           {dayTasks.length > 8 && (
-            <span className="text-[9px] text-[#a3a3a3]">
-              +{dayTasks.length - 8}
-            </span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[9px] text-[#a3a3a3] hover:text-[#f97316]"
+                  aria-label={`Ver ${dayTasks.length - 8} eventos adicionais`}
+                >
+                  +{dayTasks.length - 8}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-3" onClick={(e) => e.stopPropagation()}>
+                <p className="mb-2 text-xs font-semibold text-[#f5f5f5]">
+                  {dayTasks.length} eventos em {format(day, 'dd/MM/yyyy')}
+                </p>
+                <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                  {dayTasks.map((task) => (
+                    <button
+                      key={task.id}
+                      type="button"
+                      onClick={() => onEdit(task.id)}
+                      className="w-full rounded-lg border border-[#525252] bg-[#343434] px-2 py-1.5 text-left text-xs text-[#f5f5f5] hover:border-[#f97316]/40"
+                    >
+                      <span className="block truncate font-semibold">{task.title}</span>
+                      <span className="block truncate text-[10px] text-[#a3a3a3]">{getResourceName(resources, task.resourceId)}</span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           )}
         </div>
 

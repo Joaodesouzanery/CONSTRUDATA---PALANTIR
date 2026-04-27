@@ -71,6 +71,8 @@ interface EvmState {
   setActiveTab: (tab: EvmTab) => void
   setSelectedNucleo: (id: string | null) => void
   addNucleoFinanceiro: (nome: string) => void
+  updateNucleoFinanceiro: (id: string, patch: Partial<Pick<NucleoFinanceiro, 'nome' | 'codigo' | 'descricao' | 'bacAlocado' | 'bacPercentual' | 'cor' | 'ativo'>>) => void
+  removeNucleoFinanceiro: (id: string) => void
   applyMeasurementTemplate: (templateId: string, nucleoId?: string) => void
   diagnoseSpi: (nucleoId?: string) => void
 
@@ -153,7 +155,7 @@ function makeNucleoFinanceiro(input: {
 }): NucleoFinanceiro {
   return {
     ...input,
-    descricao: `${input.nome} - controle financeiro por nucleo`,
+    descricao: `${input.nome} - controle financeiro por núcleo`,
     ativo: true,
     planoContas: {
       nucleoId: input.id,
@@ -325,7 +327,7 @@ function buildDemoFinancialModel() {
     dataFim: '2026-12-20',
     bac: 4_891_304,
   }
-  const names = ['Morro do Teteu', 'Vila dos Criadores', 'Sao Manuel', 'Nucleo Norte', 'Nucleo Sul', 'Interligacoes']
+  const names = ['Morro do Teteu', 'Vila dos Criadores', 'São Manuel', 'Núcleo Norte', 'Núcleo Sul', 'Interligações']
   const colors = ['#f97316', '#22c55e', '#38bdf8', '#a78bfa', '#f59e0b', '#ef4444']
   const nucleos = names.map((nome, idx) => makeNucleoFinanceiro({
     id: `nucleo-fin-${idx + 1}`,
@@ -375,6 +377,37 @@ export const useEvmStore = create<EvmState>()(
       cor: '#f97316',
     })
     set((s) => ({ nucleos: [...s.nucleos, novo], selectedNucleoId: novo.id }))
+    get().recalculateMetrics()
+  },
+
+  updateNucleoFinanceiro: (id, patch) => {
+    set((s) => ({
+      nucleos: s.nucleos.map((n) => {
+        if (n.id !== id) return n
+        const bacAlocado = patch.bacAlocado ?? n.bacAlocado
+        return {
+          ...n,
+          ...patch,
+          bacAlocado,
+          planoContas: {
+            ...n.planoContas,
+            totalOrcado: bacAlocado,
+          },
+        }
+      }),
+    }))
+    get().recalculateMetrics()
+  },
+
+  removeNucleoFinanceiro: (id) => {
+    set((s) => {
+      const remaining = s.nucleos.filter((n) => n.id !== id)
+      return {
+        nucleos: remaining,
+        selectedNucleoId: s.selectedNucleoId === id ? null : s.selectedNucleoId,
+        diagnosticNotes: [],
+      }
+    })
     get().recalculateMetrics()
   },
 
