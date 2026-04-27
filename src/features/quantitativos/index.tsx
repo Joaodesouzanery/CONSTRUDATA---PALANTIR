@@ -14,6 +14,7 @@ import { ResumoPanel }     from './components/ResumoPanel'
 import { BancoDadosPanel } from './components/BancoDadosPanel'
 import { HistoricoPanel }  from './components/HistoricoPanel'
 import { CriarOrcamentoWizard } from './components/CriarOrcamentoWizard'
+import { QuantitativoPersonalizadoPanel } from './components/QuantitativoPersonalizadoPanel'
 
 export function QuantitativosPage() {
   const activeTab    = useQuantitativosStore((s) => s.activeTab)
@@ -25,6 +26,7 @@ export function QuantitativosPage() {
   function renderPanel() {
     switch (activeTab) {
       case 'composicao': return <ComposicaoPanel />
+      case 'personalizado': return <QuantitativoPersonalizadoPanel />
       case 'resumo':     return <ResumoPanel />
       case 'banco':      return <BancoDadosPanel />
       case 'historico':  return <HistoricoPanel />

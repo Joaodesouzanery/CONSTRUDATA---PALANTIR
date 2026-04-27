@@ -13,6 +13,7 @@ import type { QuantTab } from '@/types'
 
 const TABS: { key: QuantTab; label: string }[] = [
   { key: 'composicao', label: 'Composição' },
+  { key: 'personalizado', label: 'Quantitativo Personalizado' },
   { key: 'resumo',     label: 'Resumo de Custos' },
   { key: 'banco',      label: 'Banco de Dados' },
   { key: 'historico',  label: 'Histórico' },

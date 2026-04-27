@@ -25,6 +25,7 @@ const STORE_KEYS = [
   'cdata-qualidade', 'cdata-medicao', 'cdata-medicao-billing',
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
+  'cdata-manutencoes',
 ]
 
 /** Snapshot current user data from localStorage before loading demo. */

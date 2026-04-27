@@ -43,6 +43,7 @@ const NAV_GROUPS = [
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
       { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
       { label: 'Financeiro',       icon: TrendingUp,       to: '/app/evm'                 },
+      { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
     ],
   },
   {
@@ -51,7 +52,7 @@ const NAV_GROUPS = [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
-      { label: 'Manutencoes',     icon: Settings2,        to: '/app/manutencoes'         },
+      { label: 'Manutenções',     icon: Settings2,        to: '/app/manutencoes'         },
       { label: 'Equipamentos',    icon: Wrench,           to: '/app/gestao-equipamentos' },
     ],
   },
@@ -60,12 +61,6 @@ const NAV_GROUPS = [
     items: [
       { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },
       { label: 'Mapa Interativo', icon: Map,              to: '/app/mapa-interativo'     },
-    ],
-  },
-  {
-    label: 'ANALYTICS',
-    items: [
-      { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
     ],
   },
 ]

@@ -1452,7 +1452,7 @@ export interface QualityNonConformity {
 // ─── Quantitativos e Orçamento ────────────────────────────────────────────────
 
 export type CostBaseSource = 'sinapi' | 'seinfra' | 'custom' | 'manual'
-export type QuantTab = 'composicao' | 'resumo' | 'banco' | 'historico'
+export type QuantTab = 'composicao' | 'personalizado' | 'resumo' | 'banco' | 'historico'
 
 export interface OrcamentoItem {
   id:          string

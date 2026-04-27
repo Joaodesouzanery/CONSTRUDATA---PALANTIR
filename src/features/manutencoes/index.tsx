@@ -17,6 +17,7 @@ import {
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
+import { useAppModeStore } from '@/store/appModeStore'
 
 type MaintenanceTab = 'ativos' | 'tarefas' | 'solicitacoes'
 type TaskStatus = 'pendente' | 'em_processo' | 'em_verificacao' | 'concluido'
@@ -93,8 +94,8 @@ const STORAGE_KEY = 'cdata-manutencoes'
 const statusColumns: { key: TaskStatus; label: string; tone: string }[] = [
   { key: 'pendente', label: 'Pendente', tone: 'border-[#fbbf24]/35 bg-[#ca8a04]/10' },
   { key: 'em_processo', label: 'Em Processo', tone: 'border-[#38bdf8]/35 bg-[#0284c7]/10' },
-  { key: 'em_verificacao', label: 'Em Verificacao', tone: 'border-[#a78bfa]/35 bg-[#7c3aed]/10' },
-  { key: 'concluido', label: 'Concluido', tone: 'border-[#4ade80]/35 bg-[#16a34a]/10' },
+  { key: 'em_verificacao', label: 'Em Verificação', tone: 'border-[#a78bfa]/35 bg-[#7c3aed]/10' },
+  { key: 'concluido', label: 'Concluído', tone: 'border-[#4ade80]/35 bg-[#16a34a]/10' },
 ]
 
 const priorityClass: Record<Priority, string> = {
@@ -136,20 +137,20 @@ const emptyQrForm: QrForm = {
 
 const seedState: MaintenanceState = {
   assets: [
-    { id: 'atv-001', name: 'Bomba de recalque BR-02', type: 'Bomba', location: 'Elevatoria Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03' },
+    { id: 'atv-001', name: 'Bomba de recalque BR-02', type: 'Bomba', location: 'Elevatória Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03' },
     { id: 'atv-002', name: 'Gerador GG-110', type: 'Gerador', location: 'Canteiro Central', responsible: 'Marina Alves', project: 'SABESP Lote 03' },
-    { id: 'atv-003', name: 'Painel eletrico PE-07', type: 'Painel Eletrico', location: 'Rua Sao Manoel', responsible: 'Equipe Eletrica', project: 'Rede Agua Norte' },
+    { id: 'atv-003', name: 'Painel elétrico PE-07', type: 'Painel Elétrico', location: 'Rua São Manoel', responsible: 'Equipe Elétrica', project: 'Rede Água Norte' },
   ],
   tasks: [
-    { id: 'mnt-001', title: 'Inspecionar vedacao da bomba', assetId: 'atv-001', assetName: 'Bomba de recalque BR-02', location: 'Elevatoria Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03', priority: 'alta', status: 'pendente', dueDate: '2026-04-30', description: 'Verificar vazamento no selo mecanico e registrar leitura de vibracao.' },
-    { id: 'mnt-002', title: 'Troca preventiva de oleo', assetId: 'atv-002', assetName: 'Gerador GG-110', location: 'Canteiro Central', responsible: 'Marina Alves', project: 'SABESP Lote 03', priority: 'media', status: 'em_processo', dueDate: '2026-05-02', description: 'Servico programado apos 250 horas de operacao.' },
-    { id: 'mnt-003', title: 'Validar aterramento do painel', assetId: 'atv-003', assetName: 'Painel eletrico PE-07', location: 'Rua Sao Manoel', responsible: 'Equipe Eletrica', project: 'Rede Agua Norte', priority: 'critica', status: 'em_verificacao', dueDate: '2026-04-28', description: 'Conferir continuidade e atualizar checklist eletrico.' },
-    { id: 'mnt-004', title: 'Limpeza de filtros', assetId: 'atv-001', assetName: 'Bomba de recalque BR-02', location: 'Elevatoria Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03', priority: 'baixa', status: 'concluido', dueDate: '2026-04-22', description: 'Filtros limpos e equipamento liberado.' },
+    { id: 'mnt-001', title: 'Inspecionar vedação da bomba', assetId: 'atv-001', assetName: 'Bomba de recalque BR-02', location: 'Elevatória Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03', priority: 'alta', status: 'pendente', dueDate: '2026-04-30', description: 'Verificar vazamento no selo mecânico e registrar leitura de vibração.' },
+    { id: 'mnt-002', title: 'Troca preventiva de óleo', assetId: 'atv-002', assetName: 'Gerador GG-110', location: 'Canteiro Central', responsible: 'Marina Alves', project: 'SABESP Lote 03', priority: 'media', status: 'em_processo', dueDate: '2026-05-02', description: 'Serviço programado após 250 horas de operação.' },
+    { id: 'mnt-003', title: 'Validar aterramento do painel', assetId: 'atv-003', assetName: 'Painel elétrico PE-07', location: 'Rua São Manoel', responsible: 'Equipe Elétrica', project: 'Rede Água Norte', priority: 'critica', status: 'em_verificacao', dueDate: '2026-04-28', description: 'Conferir continuidade e atualizar checklist elétrico.' },
+    { id: 'mnt-004', title: 'Limpeza de filtros', assetId: 'atv-001', assetName: 'Bomba de recalque BR-02', location: 'Elevatória Norte', responsible: 'Carlos Lima', project: 'SABESP Lote 03', priority: 'baixa', status: 'concluido', dueDate: '2026-04-22', description: 'Filtros limpos e equipamento liberado.' },
   ],
   qrs: [
-    { id: 'qr-001', local: 'Elevatoria Norte', project: 'SABESP Lote 03', description: 'Solicitacoes de bombas, valvulas e sala eletrica.', status: 'ativo', createdAt: '2026-04-20' },
+    { id: 'qr-001', local: 'Elevatória Norte', project: 'SABESP Lote 03', description: 'Solicitações de bombas, válvulas e sala elétrica.', status: 'ativo', createdAt: '2026-04-20' },
     { id: 'qr-002', local: 'Canteiro Central', project: 'SABESP Lote 03', description: 'Chamados de infraestrutura do canteiro.', status: 'ativo', createdAt: '2026-04-21' },
-    { id: 'qr-003', local: 'Rua Sao Manoel', project: 'Rede Agua Norte', description: 'Ponto antigo substituido por novo QR.', status: 'inativo', createdAt: '2026-04-15' },
+    { id: 'qr-003', local: 'Rua São Manoel', project: 'Rede Água Norte', description: 'Ponto antigo substituído por novo QR.', status: 'inativo', createdAt: '2026-04-15' },
   ],
 }
 
@@ -158,18 +159,19 @@ function makeId(prefix: string) {
 }
 
 function loadState(): MaintenanceState {
-  if (typeof window === 'undefined') return seedState
+  const emptyState: MaintenanceState = { assets: [], tasks: [], qrs: [] }
+  if (typeof window === 'undefined') return emptyState
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return seedState
+    if (!raw) return emptyState
     const parsed = JSON.parse(raw) as Partial<MaintenanceState>
     return {
-      assets: parsed.assets ?? seedState.assets,
-      tasks: parsed.tasks ?? seedState.tasks,
-      qrs: parsed.qrs ?? seedState.qrs,
+      assets: parsed.assets ?? [],
+      tasks: parsed.tasks ?? [],
+      qrs: parsed.qrs ?? [],
     }
   } catch {
-    return seedState
+    return emptyState
   }
 }
 
@@ -253,7 +255,7 @@ function printQr(qr: MaintenanceQr) {
           ${qrSvg(qr)}
           <h1 style="font-size: 24px; margin: 20px 0 6px;">${qr.local}</h1>
           <p style="font-size: 14px; color: #444; margin: 0;">${qr.project}</p>
-          <p style="font-size: 12px; color: #666; max-width: 360px;">Escaneie para abrir uma solicitacao de manutencao.</p>
+          <p style="font-size: 12px; color: #666; max-width: 360px;">Escaneie para abrir uma solicitação de manutenção.</p>
         </main>
       </body>
     </html>
@@ -342,7 +344,11 @@ function TaskCard({ task, onEdit, onDelete }: { task: MaintenanceTask; onEdit: (
 }
 
 export function ManutencoesPage() {
-  const [state, setState] = useState<MaintenanceState>(() => loadState())
+  const isDemoMode = useAppModeStore((s) => s.isDemoMode)
+  const [realState, setRealState] = useState<MaintenanceState>(() => loadState())
+  const [demoState, setDemoState] = useState<MaintenanceState>(() => seedState)
+  const state = isDemoMode ? demoState : realState
+  const setMaintenanceState = isDemoMode ? setDemoState : setRealState
   const [tab, setTab] = useState<MaintenanceTab>('ativos')
 
   const [assetSearch, setAssetSearch] = useState('')
@@ -366,12 +372,14 @@ export function ManutencoesPage() {
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false)
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  }, [state])
+    if (!isDemoMode) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(realState))
+    }
+  }, [isDemoMode, realState])
 
   const assetTypes = useMemo(() => ['todos', ...Array.from(new Set(state.assets.map((asset) => asset.type || 'Sem tipo')))], [state.assets])
   const assetProjects = useMemo(() => ['todos', ...Array.from(new Set(state.assets.map((asset) => asset.project || 'Sem projeto')))], [state.assets])
-  const assetResponsibles = useMemo(() => ['todos', ...Array.from(new Set(state.assets.map((asset) => asset.responsible || 'Sem responsavel')))], [state.assets])
+  const assetResponsibles = useMemo(() => ['todos', ...Array.from(new Set(state.assets.map((asset) => asset.responsible || 'Sem responsável')))], [state.assets])
 
   const filteredAssets = useMemo(() => {
     const q = assetSearch.trim().toLowerCase()
@@ -380,7 +388,7 @@ export function ManutencoesPage() {
       if (q && !text.includes(q)) return false
       if (assetTypeFilter !== 'todos' && (asset.type || 'Sem tipo') !== assetTypeFilter) return false
       if (assetProjectFilter !== 'todos' && (asset.project || 'Sem projeto') !== assetProjectFilter) return false
-      if (assetResponsibleFilter !== 'todos' && (asset.responsible || 'Sem responsavel') !== assetResponsibleFilter) return false
+      if (assetResponsibleFilter !== 'todos' && (asset.responsible || 'Sem responsável') !== assetResponsibleFilter) return false
       return true
     })
   }, [assetProjectFilter, assetResponsibleFilter, assetSearch, assetTypeFilter, state.assets])
@@ -430,7 +438,7 @@ export function ManutencoesPage() {
       responsible: assetForm.responsible.trim(),
       project: assetForm.project.trim(),
     }
-    setState((current) => ({
+    setMaintenanceState((current) => ({
       ...current,
       assets: editingAssetId
         ? current.assets.map((asset) => asset.id === editingAssetId ? payload : asset)
@@ -449,7 +457,7 @@ export function ManutencoesPage() {
   function deleteAsset(asset: AssetRecord) {
     const ok = window.confirm(`Excluir ativo "${asset.name}"? As tarefas existentes ficarao sem vinculo.`)
     if (!ok) return
-    setState((current) => ({
+    setMaintenanceState((current) => ({
       ...current,
       assets: current.assets.filter((item) => item.id !== asset.id),
       tasks: current.tasks.map((task) => task.assetId === asset.id ? { ...task, assetId: '', assetName: 'Ativo removido' } : task),
@@ -499,7 +507,7 @@ export function ManutencoesPage() {
       dueDate: taskForm.dueDate,
       description: taskForm.description.trim(),
     }
-    setState((current) => ({
+    setMaintenanceState((current) => ({
       ...current,
       tasks: editingTaskId
         ? current.tasks.map((task) => task.id === editingTaskId ? payload : task)
@@ -511,14 +519,14 @@ export function ManutencoesPage() {
   function deleteTask(task: MaintenanceTask) {
     const ok = window.confirm(`Excluir tarefa "${task.title}"?`)
     if (!ok) return
-    setState((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== task.id) }))
+    setMaintenanceState((current) => ({ ...current, tasks: current.tasks.filter((item) => item.id !== task.id) }))
   }
 
   function handleDragEnd(event: DragEndEvent) {
     const taskId = String(event.active.id)
     const nextStatus = event.over?.id as TaskStatus | undefined
     if (!nextStatus || !statusColumns.some((column) => column.key === nextStatus)) return
-    setState((current) => ({
+    setMaintenanceState((current) => ({
       ...current,
       tasks: current.tasks.map((task) => task.id === taskId ? { ...task, status: nextStatus } : task),
     }))
@@ -547,7 +555,7 @@ export function ManutencoesPage() {
         ? state.qrs.find((qr) => qr.id === editingQrId)?.createdAt ?? new Date().toISOString().slice(0, 10)
         : new Date().toISOString().slice(0, 10),
     }
-    setState((current) => ({
+    setMaintenanceState((current) => ({
       ...current,
       qrs: editingQrId
         ? current.qrs.map((qr) => qr.id === editingQrId ? payload : qr)
@@ -559,13 +567,13 @@ export function ManutencoesPage() {
   function deleteQr(qr: MaintenanceQr) {
     const ok = window.confirm(`Excluir QR Code de "${qr.local}"?`)
     if (!ok) return
-    setState((current) => ({ ...current, qrs: current.qrs.filter((item) => item.id !== qr.id) }))
+    setMaintenanceState((current) => ({ ...current, qrs: current.qrs.filter((item) => item.id !== qr.id) }))
   }
 
   function openMaintenanceFromQr(qr?: MaintenanceQr) {
     setTaskForm({
       ...emptyTaskForm,
-      title: qr ? `Solicitacao - ${qr.local}` : '',
+      title: qr ? `Solicitação - ${qr.local}` : '',
       location: qr?.local ?? '',
       project: qr?.project ?? '',
       description: qr?.description ?? '',
@@ -582,7 +590,7 @@ export function ManutencoesPage() {
       id: makeId('mnt'),
       title: taskForm.title.trim(),
       assetId: taskForm.assetId,
-      assetName: state.assets.find((asset) => asset.id === taskForm.assetId)?.name ?? 'Solicitacao avulsa',
+      assetName: state.assets.find((asset) => asset.id === taskForm.assetId)?.name ?? 'Solicitação avulsa',
       location: taskForm.location.trim(),
       responsible: taskForm.responsible.trim(),
       project: taskForm.project.trim(),
@@ -591,7 +599,7 @@ export function ManutencoesPage() {
       dueDate: taskForm.dueDate,
       description: taskForm.description.trim(),
     }
-    setState((current) => ({ ...current, tasks: [...current.tasks, payload] }))
+    setMaintenanceState((current) => ({ ...current, tasks: [...current.tasks, payload] }))
     setMaintenanceModalOpen(false)
     setTab('tarefas')
   }
@@ -600,8 +608,16 @@ export function ManutencoesPage() {
     <div className="flex h-full flex-col overflow-hidden bg-[#333333] p-5 text-[#f5f5f5]">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Manutencoes</h1>
-          <p className="text-sm text-[#a3a3a3]">Ativos, tarefas e solicitacoes conectadas por QR Code.</p>
+          <h1 className="text-2xl font-bold">Manutenções</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-sm text-[#a3a3a3]">Ativos, tarefas e solicitações conectadas por QR Code.</p>
+            <span className={cn(
+              'rounded-full px-2.5 py-1 text-[10px] font-bold uppercase',
+              isDemoMode ? 'bg-[#f97316]/15 text-[#f97316]' : 'bg-[#16a34a]/15 text-[#4ade80]',
+            )}>
+              {isDemoMode ? 'Modo DEMO' : 'Dados reais'}
+            </span>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {tab === 'ativos' && (
@@ -624,7 +640,7 @@ export function ManutencoesPage() {
               </button>
               <button type="button" onClick={() => openMaintenanceFromQr()} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]">
                 <Plus size={16} />
-                Nova Manutencao
+                Nova Manutenção
               </button>
             </>
           )}
@@ -633,9 +649,9 @@ export function ManutencoesPage() {
 
       <div className="mb-4 flex gap-1 rounded-lg border border-[#525252] bg-[#3d3d3d] p-1">
         {[
-          { key: 'ativos' as const, label: 'Catalogo de Ativos' },
-          { key: 'tarefas' as const, label: 'Tarefas de Manutencao' },
-          { key: 'solicitacoes' as const, label: 'Solicitacoes de Manutencao' },
+          { key: 'ativos' as const, label: 'Catálogo de Ativos' },
+          { key: 'tarefas' as const, label: 'Tarefas de Manutenção' },
+          { key: 'solicitacoes' as const, label: 'Solicitações de Manutenção' },
         ].map((item) => (
           <button
             key={item.key}
@@ -656,14 +672,14 @@ export function ManutencoesPage() {
           <div className="mb-5 grid gap-3 sm:grid-cols-3">
             <StatBox label="Total de Ativos" value={totalAssets} icon={Wrench} tone="text-[#38bdf8]" />
             <StatBox label="Tipos de Ativos" value={typeCount} icon={Filter} tone="text-[#fbbf24]" />
-            <StatBox label="Com Responsavel" value={withResponsible} icon={CheckCircle2} tone="text-[#4ade80]" />
+            <StatBox label="Com Responsável" value={withResponsible} icon={CheckCircle2} tone="text-[#4ade80]" />
           </div>
 
           <div className="mb-5 rounded-xl border border-[#525252] bg-[#333333] p-4">
             <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_180px_auto]">
               <div className="relative">
                 <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
-                <input value={assetSearch} onChange={(event) => setAssetSearch(event.target.value)} placeholder="Buscar ativo, local, projeto ou responsavel..." className="w-full rounded-lg border border-[#525252] bg-[#3d3d3d] py-2 pl-9 pr-3 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60" />
+                <input value={assetSearch} onChange={(event) => setAssetSearch(event.target.value)} placeholder="Buscar ativo, local, projeto ou responsável..." className="w-full rounded-lg border border-[#525252] bg-[#3d3d3d] py-2 pl-9 pr-3 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60" />
               </div>
               <select value={assetTypeFilter} onChange={(event) => setAssetTypeFilter(event.target.value)} className={inputClass}>
                 {assetTypes.map((type) => <option key={type} value={type}>{type === 'todos' ? 'Todos os tipos' : type}</option>)}
@@ -672,7 +688,7 @@ export function ManutencoesPage() {
                 {assetProjects.map((project) => <option key={project} value={project}>{project === 'todos' ? 'Todos projetos' : project}</option>)}
               </select>
               <select value={assetResponsibleFilter} onChange={(event) => setAssetResponsibleFilter(event.target.value)} className={inputClass}>
-                {assetResponsibles.map((responsible) => <option key={responsible} value={responsible}>{responsible === 'todos' ? 'Todos responsaveis' : responsible}</option>)}
+                {assetResponsibles.map((responsible) => <option key={responsible} value={responsible}>{responsible === 'todos' ? 'Todos responsáveis' : responsible}</option>)}
               </select>
               <button type="button" onClick={() => { setAssetSearch(''); setAssetTypeFilter('todos'); setAssetProjectFilter('todos'); setAssetResponsibleFilter('todos') }} className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-sm font-semibold text-[#e5e5e5] hover:bg-[#484848]">
                 Limpar
@@ -684,7 +700,7 @@ export function ManutencoesPage() {
             <table className="w-full min-w-[920px] text-sm">
               <thead>
                 <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
-                  {['Nome', 'Tipo', 'Localizacao', 'Responsavel', 'Projeto', 'Acoes'].map((head) => (
+                  {['Nome', 'Tipo', 'Localização', 'Responsável', 'Projeto', 'Ações'].map((head) => (
                     <th key={head} className="px-4 py-3 font-semibold">{head}</th>
                   ))}
                 </tr>
@@ -720,7 +736,7 @@ export function ManutencoesPage() {
             <StatBox label="Total de Tarefas" value={totalTasks} icon={Wrench} tone="text-[#38bdf8]" />
             <StatBox label="Pendentes" value={taskCounts.pendente} icon={AlertCircle} tone="text-[#fbbf24]" />
             <StatBox label="Em Processo" value={taskCounts.emProcesso} icon={Filter} tone="text-[#38bdf8]" />
-            <StatBox label="Concluidas" value={taskCounts.concluidas} icon={CheckCircle2} tone="text-[#4ade80]" />
+            <StatBox label="Concluídas" value={taskCounts.concluidas} icon={CheckCircle2} tone="text-[#4ade80]" />
           </div>
 
           <DndContext onDragEnd={handleDragEnd}>
@@ -762,7 +778,7 @@ export function ManutencoesPage() {
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]">
               <div className="relative">
                 <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
-                <input value={qrSearch} onChange={(event) => setQrSearch(event.target.value)} placeholder="Buscar local, projeto ou descricao..." className="w-full rounded-lg border border-[#525252] bg-[#3d3d3d] py-2 pl-9 pr-3 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60" />
+                <input value={qrSearch} onChange={(event) => setQrSearch(event.target.value)} placeholder="Buscar local, projeto ou descrição..." className="w-full rounded-lg border border-[#525252] bg-[#3d3d3d] py-2 pl-9 pr-3 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60" />
               </div>
               <select value={qrStatusFilter} onChange={(event) => setQrStatusFilter(event.target.value)} className={inputClass}>
                 <option value="todos">Todos status</option>
@@ -787,10 +803,10 @@ export function ManutencoesPage() {
                     </div>
                     <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold uppercase', qr.status === 'ativo' ? 'bg-[#16a34a]/15 text-[#4ade80]' : 'bg-[#dc2626]/15 text-[#f87171]')}>{qr.status}</span>
                   </div>
-                  <p className="line-clamp-2 text-sm text-[#e5e5e5]">{qr.description || 'Sem descricao.'}</p>
+                  <p className="line-clamp-2 text-sm text-[#e5e5e5]">{qr.description || 'Sem descrição.'}</p>
                   <p className="mt-2 text-xs text-[#6b6b6b]">Criado em {qr.createdAt}</p>
                   <div className="mt-4 flex flex-wrap justify-end gap-1">
-                    <button type="button" onClick={() => openMaintenanceFromQr(qr)} className="rounded-lg border border-[#525252] px-3 py-2 text-xs font-semibold text-[#e5e5e5] hover:bg-[#484848]">Nova Manutencao</button>
+                    <button type="button" onClick={() => openMaintenanceFromQr(qr)} className="rounded-lg border border-[#525252] px-3 py-2 text-xs font-semibold text-[#e5e5e5] hover:bg-[#484848]">Nova Manutenção</button>
                     <button type="button" onClick={() => downloadQr(qr)} className="rounded-lg p-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-white" title="Exportar QR Code"><Download size={16} /></button>
                     <button type="button" onClick={() => printQr(qr)} className="rounded-lg p-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-white" title="Imprimir QR Code"><Printer size={16} /></button>
                     <button type="button" onClick={() => openQrModal(qr)} className="rounded-lg p-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-white" title="Editar QR Code"><Edit2 size={16} /></button>
@@ -813,8 +829,8 @@ export function ManutencoesPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Nome"><input value={assetForm.name} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, name: event.target.value }))} className={inputClass} placeholder="Nome do ativo" /></Field>
               <Field label="Tipo"><input value={assetForm.type} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, type: event.target.value }))} className={inputClass} placeholder="Tipo do ativo" /></Field>
-              <Field label="Localizacao"><input value={assetForm.location} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, location: event.target.value }))} className={inputClass} placeholder="Localizacao" /></Field>
-              <Field label="Responsavel"><input value={assetForm.responsible} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, responsible: event.target.value }))} className={inputClass} placeholder="Responsavel" /></Field>
+              <Field label="Localização"><input value={assetForm.location} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, location: event.target.value }))} className={inputClass} placeholder="Localização" /></Field>
+              <Field label="Responsável"><input value={assetForm.responsible} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, responsible: event.target.value }))} className={inputClass} placeholder="Responsável" /></Field>
               <Field label="Projeto"><input value={assetForm.project} onChange={(event) => setAssetForm((formValue) => ({ ...formValue, project: event.target.value }))} className={inputClass} placeholder="Projeto relacionado" /></Field>
             </div>
             <ModalActions onCancel={() => setAssetModalOpen(false)} onSave={saveAsset} />
@@ -858,7 +874,7 @@ export function ManutencoesPage() {
 
       {maintenanceModalOpen && (
         <TaskModal
-          title="Nova Manutencao"
+          title="Nova Manutenção"
           assets={state.assets}
           form={taskForm}
           onChange={setTaskForm}
@@ -931,11 +947,11 @@ function TaskModal({
               {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
             </select>
           </Field>
-          <Field label="Localizacao">
+          <Field label="Localização">
             <input value={form.location} onChange={(event) => onChange((formValue) => ({ ...formValue, location: event.target.value }))} className={inputClass} placeholder="Local" />
           </Field>
-          <Field label="Responsavel">
-            <input value={form.responsible} onChange={(event) => onChange((formValue) => ({ ...formValue, responsible: event.target.value }))} className={inputClass} placeholder="Responsavel" />
+          <Field label="Responsável">
+            <input value={form.responsible} onChange={(event) => onChange((formValue) => ({ ...formValue, responsible: event.target.value }))} className={inputClass} placeholder="Responsável" />
           </Field>
           <Field label="Projeto">
             <input value={form.project} onChange={(event) => onChange((formValue) => ({ ...formValue, project: event.target.value }))} className={inputClass} placeholder="Projeto" />
@@ -946,9 +962,9 @@ function TaskModal({
           <Field label="Prioridade">
             <select value={form.priority} onChange={(event) => onChange((formValue) => ({ ...formValue, priority: event.target.value as Priority }))} className={inputClass}>
               <option value="baixa">Baixa</option>
-              <option value="media">Media</option>
+              <option value="media">Média</option>
               <option value="alta">Alta</option>
-              <option value="critica">Critica</option>
+              <option value="critica">Crítica</option>
             </select>
           </Field>
           <Field label="Status">
