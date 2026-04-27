@@ -22,6 +22,12 @@ import type {
   ServiceNote,
   PlanScenario,
   TechnicalRule,
+  PlanningContract,
+  PlanningNucleus,
+  BaselineRevision,
+  ImportedScheduleRow,
+  PlanningAuditEntry,
+  PlanServiceType,
 } from '@/types'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
@@ -53,6 +59,12 @@ export type PlanejamentoTab =
   | 'daily'
   | 'notes'
   | 'scenarios'
+
+interface GuidedPlanInput {
+  contract: Omit<PlanningContract, 'theoreticalTaktDays'>
+  nuclei: Array<Omit<PlanningNucleus, 'id' | 'budgetBRL'>>
+  trechos: Array<Omit<PlanTrecho, 'id'>>
+}
 
 // ─── State interface ──────────────────────────────────────────────────────────
 
@@ -90,6 +102,10 @@ interface PlanejamentoState {
 
   // Project budget
   projectBudget: number
+  contract: PlanningContract | null
+  nuclei: PlanningNucleus[]
+  baselines: BaselineRevision[]
+  auditLog: PlanningAuditEntry[]
 
   // Sync state
   pendingSync:  PendingOp[]
@@ -103,6 +119,11 @@ interface PlanejamentoState {
   setPlanName: (name: string) => void
   setProjectBudget: (budget: number) => void
   initBlankPlan: (nome: string) => void
+  createGuidedPlan: (input: GuidedPlanInput) => void
+  addNucleus: (nucleus: Omit<PlanningNucleus, 'id' | 'budgetBRL'>) => void
+  createBaseline: (reason: string) => void
+  reassignTrechoTeam: (trechoId: string, teamIndex: number) => void
+  importScheduleRows: (rows: ImportedScheduleRow[]) => void
 
   // Trechos
   addTrecho:    (t: Omit<PlanTrecho, 'id'>) => void
@@ -178,7 +199,15 @@ function trechoToRow(t: PlanTrecho, orgId: string, userId: string) {
     executed_meters:     t.executedMeters ?? 0,
     execution_status:    t.executionStatus ?? 'not_started',
     last_rdo_date:       t.lastRdoDate ?? null,
-    payload:             {},
+    payload:             {
+      nucleusId: t.nucleusId ?? null,
+      activityType: t.activityType ?? null,
+      financialWeightPct: t.financialWeightPct ?? null,
+      physicalProgressPct: t.physicalProgressPct ?? null,
+      financialProgressPct: t.financialProgressPct ?? null,
+      estimatedHH: t.estimatedHH ?? null,
+      equipmentDemand: t.equipmentDemand ?? null,
+    },
     created_by:          userId,
   }
 }
@@ -211,6 +240,74 @@ function holidayToRow(h: PlanHoliday & { id?: string }, orgId: string, userId: s
     description:     h.description,
     recurring:       false,
     created_by:      userId,
+  }
+}
+
+function todayIso() {
+  return new Date().toISOString()
+}
+
+function calcTaktDays(startDate: string, endDate: string, nucleusCount: number) {
+  const start = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000))
+  return Math.max(1, Math.round(days / Math.max(1, nucleusCount)))
+}
+
+function normalizeServiceType(value: string | undefined): PlanServiceType {
+  const raw = (value ?? '').toLowerCase()
+  if (raw.includes('agua') || raw.includes('água')) return 'agua'
+  if (raw.includes('esgoto')) return 'esgoto'
+  if (raw.includes('dren')) return 'drenagem'
+  if (raw.includes('edif')) return 'edificacao'
+  if (raw.includes('infra')) return 'infraestrutura'
+  return 'outro'
+}
+
+function makeAudit(action: PlanningAuditEntry['action'], summary: string, payload?: Record<string, unknown>): PlanningAuditEntry {
+  return { id: crypto.randomUUID(), createdAt: todayIso(), action, summary, payload }
+}
+
+function makeBaseline(
+  rev: number,
+  trechos: PlanTrecho[],
+  teams: PlanTeam[],
+  scheduleConfig: PlanScheduleConfig,
+  reason: string,
+): BaselineRevision {
+  const { user } = useAuth.getState()
+  return {
+    id: crypto.randomUUID(),
+    name: `Rev.${rev}`,
+    createdAt: todayIso(),
+    createdBy: user?.email ?? user?.id ?? 'local',
+    reason,
+    trechos: structuredClone(trechos),
+    teams: structuredClone(teams),
+    scheduleConfig: structuredClone(scheduleConfig),
+  }
+}
+
+function defaultTeamForNucleus(nucleus: PlanningNucleus): Omit<PlanTeam, 'id'> {
+  return {
+    name: `Equipe ${nucleus.name}`,
+    foremanCount: 1,
+    workerCount: 4,
+    helperCount: 2,
+    operatorCount: 1,
+    retroescavadeira: 1,
+    compactador: 1,
+    caminhaoBasculante: 1,
+    laborHourlyRateBRL: 45,
+    equipmentDailyRateBRL: 900,
+    maxManualExcavDepthM: 1.5,
+    nucleusId: nucleus.id,
+    capacity: {
+      headcount: 8,
+      retroescavadeira: nucleus.equipmentInventory?.retroescavadeira ?? 1,
+      compactador: nucleus.equipmentInventory?.compactador ?? 1,
+      caminhaoBasculante: nucleus.equipmentInventory?.caminhaoBasculante ?? 1,
+    },
   }
 }
 
@@ -252,6 +349,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   ],
 
   projectBudget: 0,
+  contract: null,
+  nuclei: [],
+  baselines: [],
+  auditLog: [],
 
   // ── Navigation ────────────────────────────────────────────────────────────────
 
@@ -277,7 +378,147 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
     productivityTable: MOCK_PRODUCTIVITY,
     scheduleConfig:    MOCK_SCHEDULE_CONFIG,
     holidays:          [],
+    contract:          null,
+    nuclei:            [],
+    baselines:         [],
+    auditLog:          [],
   }),
+
+  createGuidedPlan: (input) => {
+    const contract: PlanningContract = {
+      ...input.contract,
+      theoreticalTaktDays: calcTaktDays(input.contract.startDate, input.contract.endDate, input.contract.nucleusCount),
+    }
+    const nuclei: PlanningNucleus[] = input.nuclei.map((n) => ({
+      ...n,
+      id: crypto.randomUUID(),
+      budgetBRL: Math.round(contract.bacTotal * (n.bacWeightPct / 100)),
+    }))
+    const fallbackNucleus = nuclei[0]?.id
+    const trechos: PlanTrecho[] = input.trechos.map((t, idx) => ({
+      ...t,
+      id: crypto.randomUUID(),
+      code: t.code || `T${String(idx + 1).padStart(3, '0')}`,
+      nucleusId: t.nucleusId ?? nuclei[idx % Math.max(1, nuclei.length)]?.id ?? fallbackNucleus,
+      activityType: t.activityType ?? nuclei[idx % Math.max(1, nuclei.length)]?.serviceType ?? 'outro',
+      financialWeightPct: t.financialWeightPct ?? (input.trechos.length > 0 ? 100 / input.trechos.length : 0),
+      physicalProgressPct: t.physicalProgressPct ?? 0,
+      financialProgressPct: t.financialProgressPct ?? 0,
+      estimatedHH: t.estimatedHH ?? Math.max(1, Math.round(t.lengthM * 0.35)),
+      equipmentDemand: t.equipmentDemand ?? { retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1, headcount: 6 },
+    }))
+    const teams: PlanTeam[] = nuclei.map((n) => ({ ...defaultTeamForNucleus(n), id: crypto.randomUUID() }))
+    const scheduleConfig: PlanScheduleConfig = {
+      ...MOCK_SCHEDULE_CONFIG,
+      startDate: contract.startDate,
+      targetEndDate: contract.endDate,
+      ganttGroupingMode: 'by_trecho',
+    }
+    const baseline = makeBaseline(0, trechos, teams, scheduleConfig, 'Criação guiada do planejamento')
+    set({
+      planName: contract.contractName,
+      projectBudget: contract.bacTotal,
+      contract,
+      nuclei,
+      trechos,
+      teams,
+      scheduleConfig,
+      holidays: [],
+      baselines: [baseline],
+      auditLog: [
+        makeAudit('wizard_generated', `Planejamento "${contract.contractName}" criado com ${nuclei.length} núcleo(s) e ${trechos.length} trecho(s).`, {
+          contractName: contract.contractName,
+          nucleusCount: nuclei.length,
+          trechoCount: trechos.length,
+        }),
+        makeAudit('baseline_created', 'Baseline Rev.0 criado automaticamente.'),
+      ],
+      activeTab: 'gantt',
+      isScheduleDirty: true,
+    })
+    get().runSchedule()
+    const scheduled = get()
+    set({
+      baselines: [
+        makeBaseline(0, scheduled.trechos, scheduled.teams, scheduled.scheduleConfig, 'Criacao guiada do planejamento'),
+      ],
+    })
+  },
+
+  addNucleus: (nucleus) => {
+    const { contract, nuclei } = get()
+    const bac = contract?.bacTotal ?? get().projectBudget
+    const newNucleus: PlanningNucleus = {
+      ...nucleus,
+      id: crypto.randomUUID(),
+      budgetBRL: Math.round(bac * (nucleus.bacWeightPct / 100)),
+    }
+    set((s) => ({
+      nuclei: [...s.nuclei, newNucleus],
+      teams: [...s.teams, { ...defaultTeamForNucleus(newNucleus), id: crypto.randomUUID() }],
+      contract: s.contract ? {
+        ...s.contract,
+        nucleusCount: nuclei.length + 1,
+        theoreticalTaktDays: calcTaktDays(s.contract.startDate, s.contract.endDate, nuclei.length + 1),
+      } : s.contract,
+      auditLog: [...s.auditLog, makeAudit('nucleus_added', `Novo núcleo "${newNucleus.name}" adicionado.`, { nucleusId: newNucleus.id })],
+      isScheduleDirty: true,
+    }))
+  },
+
+  createBaseline: (reason) => {
+    const { trechos, teams, scheduleConfig, baselines } = get()
+    const baseline = makeBaseline(baselines.length, trechos, teams, scheduleConfig, reason || 'Revisão de baseline')
+    set((s) => ({
+      baselines: [...s.baselines, baseline],
+      auditLog: [...s.auditLog, makeAudit('baseline_created', `Baseline ${baseline.name} criado.`, { baselineId: baseline.id })],
+    }))
+  },
+
+  reassignTrechoTeam: (trechoId, teamIndex) => {
+    const trecho = get().trechos.find((t) => t.id === trechoId)
+    const previousTeam = trecho?.assignedTeamIndex
+    set((s) => ({
+      trechos: s.trechos.map((t) => t.id === trechoId ? { ...t, assignedTeamIndex: teamIndex } : t),
+      auditLog: [...s.auditLog, makeAudit('team_reassigned', `${trecho?.code ?? 'Trecho'} reatribuído para Equipe ${teamIndex + 1}.`, { trechoId, previousTeam, teamIndex })],
+      isScheduleDirty: true,
+    }))
+  },
+
+  importScheduleRows: (rows) => {
+    const nucleiByName = new Map(get().nuclei.map((n) => [n.name.toLowerCase(), n.id]))
+    const imported: PlanTrecho[] = rows.map((row, idx) => {
+      const nucleusId = row.nucleusName ? nucleiByName.get(row.nucleusName.toLowerCase()) : undefined
+      const length = Math.max(1, row.lengthM ?? Math.max(1, (row.durationDays ?? 1) * 12))
+      const serviceType = normalizeServiceType(row.serviceType)
+      return {
+        id: crypto.randomUUID(),
+        code: row.code || `IMP-${String(idx + 1).padStart(3, '0')}`,
+        description: row.name,
+        lengthM: length,
+        depthM: row.depthM ?? 1.5,
+        diameterMm: row.diameterMm ?? 200,
+        soilType: 'normal',
+        requiresShoring: (row.depthM ?? 1.5) >= 1.8,
+        unitCostBRL: row.unitCostBRL ?? 350,
+        nucleusId,
+        activityType: serviceType,
+        financialWeightPct: rows.length > 0 ? 100 / rows.length : 0,
+        physicalProgressPct: 0,
+        financialProgressPct: 0,
+        estimatedHH: Math.round(length * 0.35),
+        equipmentDemand: { headcount: 6, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
+        plannedStartDate: row.startDate,
+        plannedEndDate: row.endDate,
+        notes: row.predecessors ? `Predecessores: ${row.predecessors}` : undefined,
+      }
+    })
+    set((s) => ({
+      trechos: [...s.trechos, ...imported],
+      auditLog: [...s.auditLog, makeAudit('schedule_imported', `${imported.length} atividade(s) importada(s).`, { count: imported.length })],
+      isScheduleDirty: true,
+    }))
+  },
 
   // ── Trechos ───────────────────────────────────────────────────────────────────
 
@@ -359,6 +600,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           soilType: 'normal' as const,
           requiresShoring: false,
           unitCostBRL: item.unitCost,
+          financialWeightPct: mlItems.length > 0 ? 100 / mlItems.length : 0,
+          physicalProgressPct: 0,
+          financialProgressPct: 0,
+          estimatedHH: Math.round(Math.max(1, item.quantity) * 0.35),
+          equipmentDemand: { headcount: 6, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
         }))
 
         set((s) => ({
@@ -490,6 +736,8 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         plannedStartDate: row.startDate,
         plannedEndDate: row.endDate,
         abcZone: abcItem?.zone,
+        physicalProgressPct: t.physicalProgressPct ?? (t.lengthM > 0 ? Math.min(100, ((t.executedMeters ?? 0) / t.lengthM) * 100) : 0),
+        financialProgressPct: t.financialProgressPct ?? (t.physicalProgressPct ?? 0),
       }
     })
 
@@ -630,6 +878,8 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           executedMeters: match.executedMeters,
           executionStatus: status,
           lastRdoDate: match.date,
+          physicalProgressPct: t.lengthM > 0 ? Math.min(100, (match.executedMeters / t.lengthM) * 100) : 0,
+          financialProgressPct: t.financialProgressPct ?? (t.lengthM > 0 ? Math.min(100, (match.executedMeters / t.lengthM) * 100) : 0),
         }
       }),
     })),
@@ -654,6 +904,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
       scurvePoints:      [],
       histogramPoints:   [],
       abcItems:          [],
+      contract:          null,
+      nuclei:            [],
+      baselines:         [],
+      auditLog:          [],
     }),
 
   clearData: () =>
@@ -675,6 +929,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
       histogramPoints:   [],
       abcItems:          [],
       projectBudget:     0,
+      contract:          null,
+      nuclei:            [],
+      baselines:         [],
+      auditLog:          [],
       pendingSync:       [],
       syncError:         null,
     }),
@@ -725,6 +983,13 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           executedMeters:    r.executed_meters != null ? Number(r.executed_meters) : 0,
           executionStatus:   (r.execution_status as PlanTrecho['executionStatus']) ?? 'not_started',
           lastRdoDate:       (r.last_rdo_date as string | null) ?? undefined,
+          nucleusId:         (r.payload as { nucleusId?: string } | undefined)?.nucleusId,
+          activityType:      (r.payload as { activityType?: string } | undefined)?.activityType,
+          financialWeightPct: (r.payload as { financialWeightPct?: number } | undefined)?.financialWeightPct,
+          physicalProgressPct: (r.payload as { physicalProgressPct?: number } | undefined)?.physicalProgressPct,
+          financialProgressPct: (r.payload as { financialProgressPct?: number } | undefined)?.financialProgressPct,
+          estimatedHH:       (r.payload as { estimatedHH?: number } | undefined)?.estimatedHH,
+          equipmentDemand:   (r.payload as { equipmentDemand?: PlanTrecho['equipmentDemand'] } | undefined)?.equipmentDemand,
         })),
       })
     }
@@ -767,6 +1032,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         notes:          s.notes,
         technicalRules: s.technicalRules,
         projectBudget:  s.projectBudget,
+        contract:       s.contract,
+        nuclei:         s.nuclei,
+        baselines:      s.baselines,
+        auditLog:       s.auditLog,
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,
       }),

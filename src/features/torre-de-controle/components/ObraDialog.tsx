@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Trash2, AlertTriangle, MapPin } from 'lucide-react'
@@ -14,18 +14,12 @@ const STATUS_OPTIONS: Array<{ value: ObraStatus; label: string }> = [
   { value: 'completed', label: 'Concluída' },
 ]
 
-const BUILDING_TYPES = [
-  'Residencial Alto Padrão', 'Residencial Popular', 'Comercial / Corporativo',
-  'Galpão Industrial / Logístico', 'Shopping / Varejo', 'Hotel / Hospitality',
-  'Infraestrutura / Obras Viárias', 'Reforma / Retrofit', 'Outro',
-]
-
 function blankDefaults(): SiteFormValues {
   return {
     code: '', name: '', company: '', owner: '', manager: '',
     description: '', status: 'active',
-    street: '', number: '', district: '', city: 'São Paulo', state: 'SP', cep: '',
-    buildingType: '', totalArea: 0, floors: 1,
+    street: '', number: '', district: '', city: '', state: 'SP', cep: '',
+    buildingType: '', totalArea: 0, floors: 0,
     startDate: '', expectedEnd: '',
     lat: '', lng: '',
   }
@@ -81,16 +75,18 @@ export function ObraDialog() {
     } else if (isNew) {
       reset(blankDefaults())
     }
-    setConfirmDelete(false)
   }, [editingId, existing, isNew, reset])
+
+  const close = useCallback(() => {
+    setEditing(null)
+    setConfirmDelete(false)
+  }, [setEditing])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
-
-  function close() { setEditing(null); setConfirmDelete(false) }
+  }, [close])
 
   function onSubmit(values: SiteFormValues) {
     // Parse coords com defesa contra NaN: string vazia → null, valor inválido → null
@@ -98,7 +94,20 @@ export function ObraDialog() {
     const parsedLng = values.lng ? Number(values.lng) : null
     const lat = parsedLat !== null && Number.isFinite(parsedLat) ? parsedLat : null
     const lng = parsedLng !== null && Number.isFinite(parsedLng) ? parsedLng : null
-    const payload = { ...values, description: values.description ?? '', lat, lng, risks: existing?.risks ?? [] }
+    const payload = {
+      ...values,
+      code: values.code?.trim() || `OBR-${String(sites.length + 1).padStart(3, '0')}`,
+      company: values.company ?? '',
+      owner: values.owner ?? '',
+      street: values.street ?? '',
+      number: values.number ?? '',
+      district: values.district ?? '',
+      description: values.description ?? '',
+      serviceScope: values.buildingType,
+      lat,
+      lng,
+      risks: existing?.risks ?? [],
+    }
 
     if (isNew) {
       addSite(payload)
@@ -143,7 +152,7 @@ export function ObraDialog() {
             {/* Identificação */}
             <Section title="Identificação">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Código *" error={errors.code?.message}>
+                <Field label="Código" error={errors.code?.message}>
                   <input {...register('code')} placeholder="OBR-001" className={inp(!!errors.code)} />
                 </Field>
                 <Field label="Status *" error={errors.status?.message}>
@@ -153,21 +162,31 @@ export function ObraDialog() {
                 </Field>
               </div>
               <Field label="Nome da Obra *" error={errors.name?.message}>
-                <input {...register('name')} placeholder="Torre Residencial Paulista" className={inp(!!errors.name)} />
+                <input {...register('name')} placeholder="Setor de Saneamento Norte" className={inp(!!errors.name)} />
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Tipo de Edificação *" error={errors.buildingType?.message}>
-                  <select {...register('buildingType')} className={inp(!!errors.buildingType)}>
-                    <option value="">Selecione...</option>
-                    {BUILDING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                <Field label="Tipo / Escopo da Obra *" error={errors.buildingType?.message}>
+                  <input
+                    {...register('buildingType')}
+                    list="obra-scope-options"
+                    placeholder="Água, esgoto, drenagem, infraestrutura..."
+                    className={inp(!!errors.buildingType)}
+                  />
+                  <datalist id="obra-scope-options">
+                    <option value="Rede de água" />
+                    <option value="Rede de esgoto" />
+                    <option value="Drenagem" />
+                    <option value="Saneamento integrado" />
+                    <option value="Infraestrutura viária" />
+                    <option value="Edificação" />
+                  </datalist>
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Área (m²) *" error={errors.totalArea?.message}>
-                    <input type="number" min="1" {...register('totalArea', { valueAsNumber: true })} placeholder="0" className={inp(!!errors.totalArea)} />
+                  <Field label="Área / Extensão" error={errors.totalArea?.message}>
+                    <input type="number" min="0" {...register('totalArea', { valueAsNumber: true })} placeholder="0" className={inp(!!errors.totalArea)} />
                   </Field>
-                  <Field label="Andares *" error={errors.floors?.message}>
-                    <input type="number" min="1" {...register('floors', { valueAsNumber: true })} placeholder="1" className={inp(!!errors.floors)} />
+                  <Field label="Pavimentos / Frentes" error={errors.floors?.message}>
+                    <input type="number" min="0" {...register('floors', { valueAsNumber: true })} placeholder="0" className={inp(!!errors.floors)} />
                   </Field>
                 </div>
               </div>
@@ -176,10 +195,10 @@ export function ObraDialog() {
             {/* Responsáveis */}
             <Section title="Responsáveis">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field label="Empresa *" error={errors.company?.message}>
+                <Field label="Empresa" error={errors.company?.message}>
                   <input {...register('company')} placeholder="Construtora" className={inp(!!errors.company)} />
                 </Field>
-                <Field label="Dono *" error={errors.owner?.message}>
+                <Field label="Dono / Contratante" error={errors.owner?.message}>
                   <input {...register('owner')} placeholder="Nome ou empresa" className={inp(!!errors.owner)} />
                 </Field>
                 <Field label="Gerente *" error={errors.manager?.message}>
@@ -192,16 +211,16 @@ export function ObraDialog() {
             <Section title="Endereço">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <Field label="Rua / Avenida *" error={errors.street?.message}>
-                    <input {...register('street')} placeholder="Avenida Paulista" className={inp(!!errors.street)} />
+                  <Field label="Rua / Avenida / Referência" error={errors.street?.message}>
+                    <input {...register('street')} placeholder="Setor, bairro, eixo ou referência" className={inp(!!errors.street)} />
                   </Field>
                 </div>
-                <Field label="Número *" error={errors.number?.message}>
+                <Field label="Número" error={errors.number?.message}>
                   <input {...register('number')} placeholder="1578" className={inp(!!errors.number)} />
                 </Field>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Field label="Bairro *" error={errors.district?.message}>
+                <Field label="Bairro / Setor" error={errors.district?.message}>
                   <input {...register('district')} placeholder="Bela Vista" className={inp(!!errors.district)} />
                 </Field>
                 <Field label="Cidade *" error={errors.city?.message}>
@@ -211,7 +230,7 @@ export function ObraDialog() {
                   <Field label="Estado *" error={errors.state?.message}>
                     <input {...register('state')} placeholder="SP" maxLength={2} className={inp(!!errors.state)} />
                   </Field>
-                  <Field label="CEP *" error={errors.cep?.message}>
+                  <Field label="CEP" error={errors.cep?.message}>
                     <input {...register('cep')} placeholder="01310-200" className={inp(!!errors.cep)} />
                   </Field>
                 </div>

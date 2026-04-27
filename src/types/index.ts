@@ -218,6 +218,7 @@ export interface ConstructionSite {
   buildingType: string  // tipo: 'Residencial', 'Comercial', 'Industrial', etc.
   totalArea: number     // m²
   floors: number        // andares / pavimentos
+  serviceScope?: string  // escopo genérico: saneamento, água, esgoto, drenagem, edificação etc.
   startDate: string     // yyyy-MM-dd
   expectedEnd: string   // yyyy-MM-dd
   lat: number | null
@@ -1052,6 +1053,75 @@ export interface FleetScheduleEntry {
 export type WorkWeekMode = 'mon_fri' | 'mon_sat'
 export type AbcZone      = 'A' | 'B' | 'C'
 export type PlanSoilType = 'normal' | 'rocky' | 'mixed'
+export type PlanServiceType = 'agua' | 'esgoto' | 'drenagem' | 'edificacao' | 'infraestrutura' | 'outro'
+
+export interface PlanningContract {
+  contractName: string
+  contractor: string
+  startDate: string
+  endDate: string
+  bacTotal: number
+  nucleusCount: number
+  theoreticalTaktDays: number
+}
+
+export interface PlanningNucleus {
+  id: string
+  name: string
+  location: string
+  serviceType: PlanServiceType
+  bacWeightPct: number
+  budgetBRL: number
+  equipmentInventory?: Partial<Record<'retroescavadeira' | 'compactador' | 'caminhaoBasculante', number>>
+}
+
+export interface ResourceDemand {
+  headcount: number
+  retroescavadeira: number
+  compactador: number
+  caminhaoBasculante: number
+}
+
+export interface FinancialProgress {
+  physicalPct: number
+  financialPct: number
+  earnedValueBRL: number
+  plannedValueBRL: number
+}
+
+export interface BaselineRevision {
+  id: string
+  name: string
+  createdAt: string
+  createdBy: string
+  reason: string
+  trechos: PlanTrecho[]
+  teams: PlanTeam[]
+  scheduleConfig: PlanScheduleConfig
+}
+
+export interface ImportedScheduleRow {
+  code: string
+  name: string
+  startDate?: string
+  endDate?: string
+  durationDays?: number
+  nucleusName?: string
+  serviceType?: PlanServiceType
+  lengthM?: number
+  depthM?: number
+  diameterMm?: number
+  unitCostBRL?: number
+  predecessors?: string
+}
+
+export interface PlanningAuditEntry {
+  id: string
+  createdAt: string
+  action: 'baseline_created' | 'team_reassigned' | 'nucleus_added' | 'wizard_generated' | 'schedule_imported'
+  summary: string
+  payload?: Record<string, unknown>
+}
 
 export interface PlanTrecho {
   id: string
@@ -1064,6 +1134,13 @@ export interface PlanTrecho {
   requiresShoring: boolean
   unitCostBRL?: number      // from SINAPI / custom
   notes?: string
+  nucleusId?: string
+  activityType?: PlanServiceType | string
+  financialWeightPct?: number
+  physicalProgressPct?: number
+  financialProgressPct?: number
+  estimatedHH?: number
+  equipmentDemand?: Partial<ResourceDemand>
   // Derived — set by schedule engine, stored for display
   assignedTeamIndex?: number
   plannedStartDate?: string // yyyy-MM-dd
@@ -1088,6 +1165,8 @@ export interface PlanTeam {
   laborHourlyRateBRL: number
   equipmentDailyRateBRL: number
   maxManualExcavDepthM: number   // depth above which excavation is mechanical-only (default 1.5m)
+  nucleusId?: string
+  capacity?: Partial<ResourceDemand>
 }
 
 export interface PlanProductivityTable {

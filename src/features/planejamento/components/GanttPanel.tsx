@@ -5,7 +5,8 @@
  * Supports inline editing: click a trecho label to edit its key fields.
  */
 import { useState } from 'react'
-import { Play, Pencil, X, Check } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Play, Pencil, X, Check, GitBranch, TrendingUp, AlertTriangle } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import { useThemeStore } from '@/store/themeStore'
 import { fmtDate } from '../utils/exportEngine'
@@ -27,14 +28,15 @@ function fmtR(n: number): string {
 function TrechoQuickEdit({ trechoId, onClose }: { trechoId: string; onClose: () => void }) {
   const { trechos, updateTrecho } = usePlanejamentoStore()
   const t = trechos.find((tr) => tr.id === trechoId)
-  if (!t) return null
 
-  const [lengthM, setLengthM]     = useState(t.lengthM)
-  const [depthM, setDepthM]       = useState(t.depthM)
-  const [diameterMm, setDiameterMm] = useState(t.diameterMm)
-  const [soilType, setSoilType]   = useState(t.soilType)
-  const [shoring, setShoring]     = useState(t.requiresShoring)
-  const [unitCost, setUnitCost]   = useState(t.unitCostBRL ?? 0)
+  const [lengthM, setLengthM]     = useState(t?.lengthM ?? 0)
+  const [depthM, setDepthM]       = useState(t?.depthM ?? 0)
+  const [diameterMm, setDiameterMm] = useState(t?.diameterMm ?? 0)
+  const [soilType, setSoilType]   = useState<PlanSoilType>(t?.soilType ?? 'normal')
+  const [shoring, setShoring]     = useState(t?.requiresShoring ?? false)
+  const [unitCost, setUnitCost]   = useState(t?.unitCostBRL ?? 0)
+
+  if (!t) return null
 
   function save() {
     updateTrecho(trechoId, { lengthM, depthM, diameterMm, soilType, requiresShoring: shoring, unitCostBRL: unitCost })
@@ -89,8 +91,9 @@ function TrechoQuickEdit({ trechoId, onClose }: { trechoId: string; onClose: () 
 export function GanttPanel() {
   const {
     ganttRows, workDays, trechos, teams,
-    totalCostBRL, projectEndDate, scheduleConfig,
-    isScheduleDirty, runSchedule,
+    totalCostBRL, projectEndDate, scheduleConfig, projectBudget,
+    contract, baselines, auditLog,
+    isScheduleDirty, runSchedule, createBaseline,
   } = usePlanejamentoStore()
   const theme = useThemeStore((s) => s.theme)
   const isLight = theme === 'light'
@@ -99,6 +102,35 @@ export function GanttPanel() {
   const groupingMode = scheduleConfig.ganttGroupingMode ?? 'daily_segment'
 
   const totalMeters = trechos.reduce((s, t) => s + t.lengthM, 0)
+  const budgetBase = projectBudget > 0 ? projectBudget : totalCostBRL
+  const trechoById = new Map(trechos.map((t) => [t.id, t]))
+  const baseline = baselines[0] ?? null
+  const latestBaseline = baselines[baselines.length - 1] ?? null
+  const avgPhysical = trechos.length
+    ? trechos.reduce((sum, t) => {
+      const progress = t.physicalProgressPct ?? (t.lengthM > 0 ? ((t.executedMeters ?? 0) / t.lengthM) * 100 : 0)
+      return sum + Math.min(100, Math.max(0, progress))
+    }, 0) / trechos.length
+    : 0
+  const avgFinancial = trechos.length
+    ? trechos.reduce((sum, t) => sum + Math.min(100, Math.max(0, t.financialProgressPct ?? t.physicalProgressPct ?? 0)), 0) / trechos.length
+    : 0
+  const ppcAtual = Math.max(35, avgPhysical || 70)
+  const eacAtual = budgetBase > 0 ? budgetBase / (ppcAtual / 100) : 0
+  const eacMeta = budgetBase > 0 ? budgetBase / 0.85 : 0
+  const eacPessimista = budgetBase > 0 ? budgetBase / 0.6 : 0
+  const earnedValue = budgetBase * (avgFinancial / 100)
+  const resourceAlerts = ganttRows.filter((row) => {
+    const team = teams[row.teamIndex]
+    const demand = trechoById.get(row.trecho.id)?.equipmentDemand
+    if (!team || !demand) return false
+    return (
+      (demand.headcount ?? 0) > (team.capacity?.headcount ?? team.foremanCount + team.workerCount + team.helperCount + team.operatorCount) ||
+      (demand.retroescavadeira ?? 0) > (team.capacity?.retroescavadeira ?? team.retroescavadeira) ||
+      (demand.compactador ?? 0) > (team.capacity?.compactador ?? team.compactador) ||
+      (demand.caminhaoBasculante ?? 0) > (team.capacity?.caminhaoBasculante ?? team.caminhaoBasculante)
+    )
+  })
 
   if (ganttRows.length === 0) {
     return (
@@ -128,12 +160,45 @@ export function GanttPanel() {
           <Kpi label="Data Alvo" value={fmtDate(scheduleConfig.targetEndDate)} />
         )}
         <Kpi label="Custo Total" value={fmtR(totalCostBRL)} accent />
+        <Kpi label="% Fisico" value={`${avgPhysical.toFixed(0)}%`} />
+        <Kpi label="% Financeiro" value={`${avgFinancial.toFixed(0)}%`} accent={avgFinancial >= avgPhysical * 0.9} warn={avgFinancial < avgPhysical * 0.7} />
+        <Kpi label="EV por PPC" value={fmtR(earnedValue)} accent />
+        <Kpi label="EAC Atual" value={fmtR(eacAtual)} warn={eacAtual > budgetBase * 1.08} />
         {isScheduleDirty && (
           <button onClick={runSchedule}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-orange-600 hover:bg-orange-500 text-white transition-colors">
             <Play size={12} /> Atualizar
           </button>
         )}
+        <button
+          onClick={() => createBaseline(`Revisao criada em ${new Date().toLocaleDateString('pt-BR')}`)}
+          className={`${isScheduleDirty ? '' : 'ml-auto'} flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors`}
+          title="Salvar a posicao atual como nova revisao de baseline"
+        >
+          <GitBranch size={12} /> Criar Baseline
+        </button>
+      </div>
+
+      <div className="px-6 py-3 bg-[#262626] border-b border-[#525252] grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+        <InfoCard
+          icon={<GitBranch size={14} />}
+          title="Baselines"
+          value={latestBaseline ? `${latestBaseline.name} · ${fmtDate(latestBaseline.createdAt.slice(0, 10))}` : 'Sem revisao'}
+          detail={baseline ? `Comparando com ${baseline.name}` : 'A primeira revisao nasce no wizard'}
+        />
+        <InfoCard
+          icon={<TrendingUp size={14} />}
+          title="EAC por PPC historico"
+          value={`${fmtR(eacAtual)} atual · ${fmtR(eacMeta)} meta`}
+          detail={`Pessimista: ${fmtR(eacPessimista)} · BAC ${contract ? fmtR(contract.bacTotal) : fmtR(budgetBase)}`}
+        />
+        <InfoCard
+          icon={<AlertTriangle size={14} />}
+          title="Recursos"
+          value={resourceAlerts.length > 0 ? `${resourceAlerts.length} alerta(s)` : 'Sem superalocacao'}
+          detail={auditLog[0]?.summary ?? 'Reatribuicoes ficam registradas no audit log local'}
+          warn={resourceAlerts.length > 0}
+        />
       </div>
 
       {/* Grid */}
@@ -161,6 +226,10 @@ export function GanttPanel() {
             const color = TEAM_BG[row.teamIndex % TEAM_BG.length]
             const colorLight = TEAM_BG_LIGHT[row.teamIndex % TEAM_BG_LIGHT.length]
             const teamName = teams[row.teamIndex]?.name ?? `Equipe ${row.teamIndex + 1}`
+            const currentTrecho = trechoById.get(row.trecho.id) ?? row.trecho
+            const physicalPct = Math.min(100, Math.max(0, currentTrecho.physicalProgressPct ?? (currentTrecho.lengthM > 0 ? ((currentTrecho.executedMeters ?? 0) / currentTrecho.lengthM) * 100 : 0)))
+            const financialPct = Math.min(100, Math.max(0, currentTrecho.financialProgressPct ?? physicalPct))
+            const baselineTrecho = baseline?.trechos.find((t) => t.code === row.trecho.code || t.id === row.trecho.id)
 
             return (
               <div key={row.trecho.id} className="flex border-b border-[#3d3d3d] hover:bg-[#3d3d3d]/30 transition-colors">
@@ -194,6 +263,15 @@ export function GanttPanel() {
                     <div className="text-xs mt-0.5" style={{ color: isLight ? color : colorLight }}>{teamName}</div>
                     <div className="text-[10px] text-gray-600 mt-0.5">{row.durationDays}d · {fmtR(row.totalCostBRL)}</div>
                   </div>
+                  <div className="mt-1 space-y-0.5">
+                    <ProgressMiniBar label="Fis" value={physicalPct} color="#22c55e" />
+                    <ProgressMiniBar label="Fin" value={financialPct} color="#f97316" />
+                  </div>
+                  {baselineTrecho?.plannedStartDate && baselineTrecho?.plannedEndDate && (
+                    <div className="mt-0.5 text-[10px] text-[#8b8b8b] truncate">
+                      Base {baselineTrecho.plannedStartDate} - {baselineTrecho.plannedEndDate}
+                    </div>
+                  )}
                   {editingTrechoId === row.trecho.id && (
                     <TrechoQuickEdit trechoId={row.trecho.id} onClose={() => setEditingTrechoId(null)} />
                   )}
@@ -248,6 +326,12 @@ export function GanttPanel() {
         <span className="flex items-center gap-1.5">
           <span className="w-4 h-4 rounded-sm bg-yellow-500 inline-block" /> Teste Hidrostático
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-2 rounded-sm bg-emerald-500 inline-block" /> % Fisico
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-4 h-2 rounded-sm bg-orange-500 inline-block" /> % Financeiro
+        </span>
         {teams.slice(0, 4).map((t, i) => (
           <span key={t.id} className="flex items-center gap-1.5">
             <span className="w-4 h-4 rounded-sm inline-block" style={{ backgroundColor: TEAM_BG[i] }} />
@@ -264,6 +348,37 @@ function Kpi({ label, value, accent, warn }: { label: string; value: string; acc
     <div className="flex flex-col">
       <span className="text-xs text-[#6b6b6b]">{label}</span>
       <span className={`font-semibold ${warn ? 'text-red-400' : accent ? 'text-orange-400' : 'text-white'}`}>{value}</span>
+    </div>
+  )
+}
+
+function ProgressMiniBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="grid grid-cols-[24px_1fr_28px] items-center gap-1 text-[9px] text-[#a3a3a3]">
+      <span>{label}</span>
+      <div className="h-1.5 rounded-full bg-[#484848] overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
+      </div>
+      <span className="text-right font-mono">{value.toFixed(0)}%</span>
+    </div>
+  )
+}
+
+function InfoCard({ icon, title, value, detail, warn }: {
+  icon: ReactNode
+  title: string
+  value: string
+  detail: string
+  warn?: boolean
+}) {
+  return (
+    <div className={`rounded-lg border px-3 py-2 ${warn ? 'border-amber-700/60 bg-amber-900/20' : 'border-[#525252] bg-[#303030]'}`}>
+      <div className="flex items-center gap-2 text-[#a3a3a3]">
+        {icon}
+        <span className="font-semibold uppercase tracking-wider text-[10px]">{title}</span>
+      </div>
+      <div className={warn ? 'mt-1 font-semibold text-amber-300' : 'mt-1 font-semibold text-[#f5f5f5]'}>{value}</div>
+      <div className="mt-0.5 text-[10px] text-[#8b8b8b] truncate">{detail}</div>
     </div>
   )
 }

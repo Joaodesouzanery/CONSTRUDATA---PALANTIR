@@ -3,11 +3,12 @@
  * Accent color: #f97316 (orange-500)
  */
 import { useState } from 'react'
-import { CalendarClock, Play, Download, Printer, AlertTriangle, Upload } from 'lucide-react'
+import { CalendarClock, Play, Download, Printer, AlertTriangle, Upload, Sparkles } from 'lucide-react'
 import { usePlanejamentoStore, type PlanejamentoTab } from '@/store/planejamentoStore'
 import { exportFullProjectCsv } from '../utils/exportEngine'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { TRECHO_IMPORT_CONFIG } from '@/lib/importConfigs'
+import { PlanningCreationWizard } from './PlanningCreationWizard'
 
 const TABS: { key: PlanejamentoTab; label: string }[] = [
   { key: 'config',     label: 'Configuração'       },
@@ -30,6 +31,7 @@ export function PlanejamentoHeader() {
     addTrecho,
   } = usePlanejamentoStore()
   const [importOpen, setImportOpen] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   function handleExportCsv() {
     const teamNames = teams.map((t) => t.name)
@@ -57,6 +59,13 @@ export function PlanejamentoHeader() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-orange-500/60 bg-orange-500/15 text-orange-200 hover:bg-orange-500/25 transition-colors"
+          >
+            <Sparkles size={15} />
+            Criar do Zero
+          </button>
           <button
             onClick={runSchedule}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
@@ -102,6 +111,7 @@ export function PlanejamentoHeader() {
           rows.forEach((t) => addTrecho(t))
         }}
       />
+      <PlanningCreationWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
 
       {/* Dirty warning */}
       {isScheduleDirty && (

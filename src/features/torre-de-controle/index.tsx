@@ -1,9 +1,11 @@
 import { useSearchParams } from 'react-router-dom'
 import { FolderKanban, ListChecks, Map, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ControlMap } from '@/components/shared/ControlMap'
 import { ProjetosPage } from '@/features/projetos'
+import { useProjetosStore } from '@/store/projetosStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { ObrasListPanel }  from './components/ObrasListPanel'
-import { ObrasMap }         from './components/ObrasMap'
 import { ObraDetailPanel }  from './components/ObraDetailPanel'
 import { ObraDialog }       from './components/ObraDialog'
 import { RiskDialog }       from './components/RiskDialog'
@@ -22,6 +24,11 @@ function parseTorreTab(value: string | null): TorreTab | null {
 
 export function TorreDeControlePage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const projects = useProjetosStore((s) => s.projects)
+  const sites = useTorreStore((s) => s.sites)
+  const selectedId = useTorreStore((s) => s.selectedId)
+  const selectSite = useTorreStore((s) => s.selectSite)
+  const setEditing = useTorreStore((s) => s.setEditing)
   const activeTab = parseTorreTab(searchParams.get('aba')) ?? 'mapa'
 
   function handleTabChange(tab: TorreTab) {
@@ -58,7 +65,13 @@ export function TorreDeControlePage() {
               <ObrasListPanel orientation="horizontal" />
             </div>
             <div className="relative min-h-[300px] flex-1 border-t border-[#525252]">
-              <ObrasMap />
+              <ControlMap
+                projects={projects}
+                sites={sites}
+                selectedSiteId={selectedId}
+                onSiteSelect={selectSite}
+                onEditSite={setEditing}
+              />
             </div>
           </div>
         )}
