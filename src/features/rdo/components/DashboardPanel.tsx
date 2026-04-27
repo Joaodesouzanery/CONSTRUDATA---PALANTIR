@@ -2,9 +2,17 @@
  * DashboardPanel — RDO dashboard with KPIs, charts, and trecho table.
  * All charts use inline SVG (no external library).
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRdoStore } from '@/store/rdoStore'
 import type { RdoTrechoStatus } from '@/types'
+import { supabase } from '@/lib/supabase'
+import { getRdoSabespDashboardMetrics, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import {
+  mergeRdoSabespRemoteWithLocal,
+  readLocalRdoSabesp,
+  writeLocalRdoSabesp,
+  type LocalRdoSabespRecord,
+} from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 
 const STATUS_LABEL: Record<RdoTrechoStatus, string> = {
   not_started: 'Não Iniciado',
@@ -140,10 +148,35 @@ function LineChart({ data }: { data: { date: string; meters: number }[] }) {
 
 export function DashboardPanel() {
   const { rdos } = useRdoStore()
+  const [sabespRdos, setSabespRdos] = useState<LocalRdoSabespRecord[]>(() => readLocalRdoSabesp())
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   const today = new Date().toISOString().slice(0, 10)
+
+  const loadSabespDashboard = useCallback(async () => {
+    const localRows = readLocalRdoSabesp()
+    setSabespRdos(localRows)
+
+    try {
+      const { data, error } = await supabase
+        .from('rdo_sabesp')
+        .select('*')
+        .is('deleted_at', null)
+        .order('report_date', { ascending: false })
+
+      if (error) throw error
+      const merged = mergeRdoSabespRemoteWithLocal(data ?? [], readLocalRdoSabesp(true))
+      writeLocalRdoSabesp(merged)
+      setSabespRdos(merged)
+    } catch (error) {
+      console.warn('[rdo] dashboard Sabesp usando cache local', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSabespDashboard()
+  }, [loadSabespDashboard])
 
   // Aggregate trechos across all RDOs (latest executedMeters per trechoCode)
   const trechoMap = useMemo(() => {
@@ -172,7 +205,9 @@ export function DashboardPanel() {
   const totalPlanned  = trechos.reduce((s, t) => s + t.planned, 0)
   const totalExecuted = trechos.reduce((s, t) => s + t.executed, 0)
   const progressPct   = totalPlanned > 0 ? (totalExecuted / totalPlanned) * 100 : 0
-  const rdosToday     = rdos.filter((r) => r.date === today).length
+  const sabespSummary = getRdoSabespDashboardMetrics(sabespRdos)
+  const totalRdos = rdos.length + sabespSummary.total
+  const rdosToday = rdos.filter((r) => r.date === today).length + sabespRdos.filter((r) => r.report_date === today).length
 
   const counts = {
     completed:   trechos.filter((t) => t.status === 'completed').length,
@@ -201,8 +236,14 @@ export function DashboardPanel() {
         m.set(s.description, (m.get(s.description) ?? 0) + s.quantity)
       }
     }
+    for (const rdo of sabespRdos) {
+      for (const service of getRdoSabespExecutedServices(rdo)) {
+        const name = service.services_catalog.name
+        m.set(name, (m.get(name) ?? 0) + service.quantity)
+      }
+    }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
-  }, [rdos])
+  }, [rdos, sabespRdos])
   const maxSvc = serviceMap[0]?.[1] ?? 1
 
   // Filter trechos table
@@ -217,7 +258,7 @@ export function DashboardPanel() {
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
       {/* Row 1 KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard label="Total de RDOs"    value={String(rdos.length)} />
+        <KpiCard label="Total de RDOs"    value={String(totalRdos)} />
         <KpiCard label="Progresso Geral"  value={`${progressPct.toFixed(1)}%`} accent />
         <KpiCard label="Metros Executados" value={`${totalExecuted.toFixed(2)} m`} accent />
         <KpiCard label="RDOs Hoje"        value={String(rdosToday)} />
@@ -227,15 +268,8 @@ export function DashboardPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total Planejado"  value={`${totalPlanned.toFixed(2)} m`}   sub="Extensão total da rede" />
         <KpiCard label="Total Executado"  value={`${totalExecuted.toFixed(2)} m`}  sub="Extensão já executada" accent />
-        <KpiCard label="Restante"         value={`${(totalPlanned - totalExecuted).toFixed(2)} m`} sub="A ser executado" />
-        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
-          <div className="text-xs text-[#a3a3a3] mb-1">Progresso</div>
-          <div className="text-xl font-bold text-violet-400">{progressPct.toFixed(1)}%</div>
-          <div className="mt-2 h-2 bg-[#484848] rounded-full overflow-hidden">
-            <div className="h-full bg-violet-500 rounded-full transition-all"
-              style={{ width: `${Math.min(100, progressPct)}%` }} />
-          </div>
-        </div>
+        <KpiCard label="RDOs Sabesp"      value={String(sabespSummary.total)} sub={`${sabespSummary.finalized} finalizados`} />
+        <KpiCard label="Atividades Sabesp" value={String(sabespSummary.totalActivities)} sub={`${sabespSummary.totalExecutedQuantity} qtd. registrada`} accent />
       </div>
 
       {/* Charts row */}

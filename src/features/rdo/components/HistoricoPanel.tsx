@@ -15,6 +15,11 @@ import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import {
+  mergeRdoSabespRemoteWithLocal,
+  readLocalRdoSabesp,
+  writeLocalRdoSabesp,
+} from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -554,7 +559,7 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
 export function HistoricoPanel() {
   const { rdos, removeRdo, updateRdo } = useRdoStore()
   const navigate = useNavigate()
-  const [sabespRdos, setSabespRdos] = useState<SabespHistoryRecord[]>([])
+  const [sabespRdos, setSabespRdos] = useState<SabespHistoryRecord[]>(() => readLocalRdoSabesp() as SabespHistoryRecord[])
   const [search, setSearch]     = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo,   setDateTo]   = useState('')
@@ -571,19 +576,23 @@ export function HistoricoPanel() {
   const [pdfTo,     setPdfTo]     = useState('')
 
   const loadSabespHistory = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('rdo_sabesp')
-      .select('*')
-      .is('deleted_at', null)
-      .order('report_date', { ascending: false })
+    const localRows = readLocalRdoSabesp()
+    setSabespRdos(localRows as SabespHistoryRecord[])
 
-    if (error) {
-      console.warn('[rdo] nao foi possivel carregar historico Sabesp', error)
-      setSabespRdos([])
-      return
+    try {
+      const { data, error } = await supabase
+        .from('rdo_sabesp')
+        .select('*')
+        .is('deleted_at', null)
+        .order('report_date', { ascending: false })
+
+      if (error) throw error
+      const merged = mergeRdoSabespRemoteWithLocal(data ?? [], readLocalRdoSabesp(true))
+      writeLocalRdoSabesp(merged)
+      setSabespRdos(merged as SabespHistoryRecord[])
+    } catch (error) {
+      console.warn('[rdo] nao foi possivel carregar historico Sabesp; usando cache local', error)
     }
-
-    setSabespRdos((data ?? []) as SabespHistoryRecord[])
   }, [])
 
   useEffect(() => {

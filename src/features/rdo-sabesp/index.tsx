@@ -27,6 +27,13 @@ import { RdoHeader } from "@/features/rdo/components/RdoHeader";
 import { RdoSabespForm } from "./components/RdoSabespForm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespDashboardMetrics, sumExecutedQuantities } from "./lib/rdoSabespUtils";
+import {
+  isLocalRdoSabespId,
+  mergeRdoSabespRemoteWithLocal,
+  readLocalRdoSabesp,
+  removeLocalRdoSabesp,
+  writeLocalRdoSabesp,
+} from "./lib/rdoSabespLocalStore";
 
 type PeriodFilter = "daily" | "weekly" | "monthly" | "quarterly" | "semiannual" | "annual" | "custom";
 
@@ -41,6 +48,19 @@ const periodLabels: Record<PeriodFilter, string> = {
 };
 
 const getTodayDateString = () => new Date().toISOString().slice(0, 10);
+
+const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number, message: string) => {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+};
 
 const getDateRangeForPeriod = (period: PeriodFilter, customStart: string, customEnd: string) => {
   if (period === "custom") {
@@ -80,7 +100,7 @@ const getDateRangeForPeriod = (period: PeriodFilter, customStart: string, custom
 };
 
 export function RdoSabespPage() {
-  const [list, setList] = useState<any[]>([]);
+  const [list, setList] = useState<any[]>(() => readLocalRdoSabesp());
   const [editing, setEditing] = useState<any | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [formInitialStep, setFormInitialStep] = useState<"import" | "edit" | "review">("import");
@@ -90,23 +110,36 @@ export function RdoSabespPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("rdo_sabesp" as any)
-      .select("*")
-      .is("deleted_at", null)
-      .order("report_date", { ascending: false });
+    const localRows = readLocalRdoSabesp();
+    setList(localRows);
+    setSyncing(true);
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from("rdo_sabesp" as any)
+          .select("*")
+          .is("deleted_at", null)
+          .order("report_date", { ascending: false }),
+        8_000,
+        "timeout ao carregar RDO Sabesp",
+      );
+
+      if (error) throw error;
+      const merged = mergeRdoSabespRemoteWithLocal(data || [], readLocalRdoSabesp(true));
+      writeLocalRdoSabesp(merged);
+      setList(merged);
+    } catch (error: any) {
+      console.warn("[rdo-sabesp] usando cache local", error);
+      if (!localRows.length) {
+        toast.warning("Nao foi possivel carregar o Supabase. A tela segue disponivel para criar e salvar RDOs locais.");
+      }
+    } finally {
+      setSyncing(false);
     }
-
-    setList(data || []);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -131,12 +164,20 @@ export function RdoSabespPage() {
   const remove = async (rdo: any) => {
     if (!confirm("Excluir este RDO Sabesp?")) return;
 
+    removeLocalRdoSabesp(rdo.id);
+    setList(readLocalRdoSabesp());
+
+    if (isLocalRdoSabespId(rdo.id)) {
+      toast.success("RDO Sabesp excluido localmente");
+      return;
+    }
+
     const { error } = await supabase
       .from("rdo_sabesp" as any)
       .update({ deleted_at: new Date().toISOString() } as never)
       .eq("id", rdo.id);
     if (error) {
-      toast.error(error.message);
+      toast.warning("RDO removido localmente. O Supabase nao respondeu para concluir a exclusao remota.");
       return;
     }
 
@@ -198,17 +239,6 @@ export function RdoSabespPage() {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-full flex-col bg-gray-950">
-        <RdoHeader />
-        <div className="flex flex-1 items-center justify-center text-[#a3a3a3]">
-          <Loader2 className="w-6 h-6 animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full flex-col bg-gray-950 text-[#f5f5f5]">
       <RdoHeader />
@@ -224,6 +254,12 @@ export function RdoSabespPage() {
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold text-white">RDO Sabesp</h2>
                 <Badge variant="secondary">Sabesp</Badge>
+                {syncing && (
+                  <Badge variant="outline" className="gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Sincronizando
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-[#a3a3a3]">Relatório diário no padrão Consórcio Se Liga Na Rede</p>
             </div>

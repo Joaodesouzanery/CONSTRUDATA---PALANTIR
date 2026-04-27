@@ -21,6 +21,7 @@ import {
   GitCompareArrows,
   ImagePlus,
   Trash2,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -39,6 +40,13 @@ import {
   type RdoSabespStatus,
 } from "../lib/rdoSabespUtils";
 import { RdoSabespSheet, getMissingRequired, REQUIRED_LABELS } from "./RdoSabespSheet";
+import { downloadRdoSabespWhatsappTemplate, parseRdoSabespWhatsappText } from "../lib/rdoSabespWhatsapp";
+import {
+  isLocalRdoSabespId,
+  removeLocalRdoSabesp,
+  stripLocalRdoSabespFields,
+  upsertLocalRdoSabesp,
+} from "../lib/rdoSabespLocalStore";
 
 interface Props {
   initialData?: any;
@@ -161,6 +169,40 @@ const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
 };
 
 const parseTextLocally = (text: string) => {
+  const parsed = parseRdoSabespWhatsappText(text);
+  const legacy = parseTextLocallyLegacy(text);
+  return {
+    ...legacy,
+    ...Object.fromEntries(Object.entries(parsed).filter(([, value]) => {
+      if (value === "" || value === null || value === undefined) return false;
+      if (Array.isArray(value)) return value.length > 0;
+      return true;
+    })),
+  };
+};
+
+const cropImageByPercent = async (
+  src: string,
+  region: { x: number; y: number; width: number; height: number },
+) => {
+  const image = await loadImage(src);
+  const canvas = document.createElement("canvas");
+  const sx = image.naturalWidth * region.x;
+  const sy = image.naturalHeight * region.y;
+  const sw = image.naturalWidth * region.width;
+  const sh = image.naturalHeight * region.height;
+
+  canvas.width = Math.max(1, Math.round(sw));
+  canvas.height = Math.max(1, Math.round(sh));
+
+  const context = canvas.getContext("2d");
+  if (!context) return src;
+
+  context.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/png");
+};
+
+const parseTextLocallyLegacy = (text: string) => {
   const getLineValue = (labels: string[]) => {
     for (const label of labels) {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -199,27 +241,6 @@ const parseTextLocally = (text: string) => {
     criadouro_outro: criadouro ? "" : getLineValue(["criadouro", "local", "nucleo", "núcleo"]),
     observacoes: getLineValue(["observacoes", "observações", "obs"]),
   };
-};
-
-const cropImageByPercent = async (
-  src: string,
-  region: { x: number; y: number; width: number; height: number },
-) => {
-  const image = await loadImage(src);
-  const canvas = document.createElement("canvas");
-  const sx = image.naturalWidth * region.x;
-  const sy = image.naturalHeight * region.y;
-  const sw = image.naturalWidth * region.width;
-  const sh = image.naturalHeight * region.height;
-
-  canvas.width = Math.max(1, Math.round(sw));
-  canvas.height = Math.max(1, Math.round(sh));
-
-  const context = canvas.getContext("2d");
-  if (!context) return src;
-
-  context.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/png");
 };
 
 const extractSignatureCrops = async (src: string) => ({
@@ -561,51 +582,91 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
   const persist = async (nextStatus: RdoSabespStatus) => {
     setSaving(true);
+    const finalizedAt = nextStatus === "finalized" ? new Date().toISOString() : null;
+    const localRecord = upsertLocalRdoSabesp({
+      ...data,
+      id: data.id || initialData?.id,
+      whatsapp_text: data.whatsapp_text || whatsappText || null,
+      status: nextStatus,
+      finalized_at: finalizedAt,
+      _localOnly: true,
+      _syncError: null,
+    });
+
+    setData((current: any) => ({
+      ...current,
+      ...localRecord,
+      status: nextStatus,
+      finalized_at: finalizedAt,
+    }));
+
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) throw new Error("Usuário não autenticado");
       if (!orgId) throw new Error("Organizacao nao carregada.");
 
-      const payload = {
-        ...data,
+      const payload = stripLocalRdoSabespFields({
+        ...localRecord,
         organization_id: orgId,
         project_id: null,
         created_by: authData.user.id,
         status: nextStatus,
-        finalized_at: nextStatus === "finalized" ? new Date().toISOString() : null,
-      };
+        finalized_at: finalizedAt,
+      });
       let response;
 
-      if (initialData?.id) {
+      if (localRecord.id && !isLocalRdoSabespId(localRecord.id)) {
         const rest = { ...payload };
         delete rest.id;
         delete rest.created_at;
         delete rest.updated_at;
         delete rest.created_by;
         delete rest.organization_id;
-        response = await supabase.from("rdo_sabesp" as any).update(rest).eq("id", initialData.id);
+        response = await supabase.from("rdo_sabesp" as any).update(rest).eq("id", localRecord.id).select("*").single();
       } else {
-        response = await supabase.from("rdo_sabesp" as any).insert(payload);
+        const rest = { ...payload };
+        delete rest.id;
+        delete rest.created_at;
+        delete rest.updated_at;
+        response = await supabase.from("rdo_sabesp" as any).insert(rest).select("*").single();
       }
 
       if (response.error) throw response.error;
+      const savedRecord = response.data || {
+        ...localRecord,
+        _localOnly: false,
+        _syncError: null,
+      };
+      if (savedRecord.id !== localRecord.id) removeLocalRdoSabesp(localRecord.id);
+      upsertLocalRdoSabesp({
+        ...savedRecord,
+        _localOnly: false,
+        _syncError: null,
+      });
       setData((current: any) => ({
         ...current,
+        ...savedRecord,
         status: nextStatus,
-        finalized_at: payload.finalized_at,
+        finalized_at: finalizedAt,
       }));
       toast.success(
         nextStatus === "draft"
-          ? initialData?.id
+          ? initialData?.id || data.id
             ? "Rascunho atualizado!"
             : "Rascunho salvo!"
-          : initialData?.id
+          : initialData?.id || data.id
             ? "RDO finalizado atualizado!"
             : "RDO Sabesp finalizado!",
       );
       onSaved?.();
     } catch (error: any) {
-      toast.error("Erro ao salvar: " + (error.message || error));
+      upsertLocalRdoSabesp({
+        ...localRecord,
+        _localOnly: true,
+        _syncError: error.message || String(error),
+      });
+      toast.warning("RDO salvo localmente. Ele continuara disponivel neste navegador mesmo sem resposta do Supabase.");
+      onSaved?.();
     } finally {
       setSaving(false);
     }
@@ -708,10 +769,16 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
               </TabsContent>
               <TabsContent value="texto" className="space-y-2 pt-3">
                 <Textarea rows={6} placeholder="Cole aqui a mensagem do WhatsApp com os dados do RDO..." value={whatsappText} onChange={(event) => setWhatsappText(event.target.value)} />
-                <Button size="sm" onClick={handleWhatsapp} disabled={parsing || !whatsappText.trim()}>
-                  {parsing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-1 h-4 w-4" />}
-                  Interpretar texto
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={handleWhatsapp} disabled={parsing || !whatsappText.trim()}>
+                    {parsing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-1 h-4 w-4" />}
+                    Interpretar texto
+                  </Button>
+                  <Button size="sm" variant="outline" type="button" onClick={downloadRdoSabespWhatsappTemplate}>
+                    <FileText className="mr-1 h-4 w-4" />
+                    Baixar modelo
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
 
