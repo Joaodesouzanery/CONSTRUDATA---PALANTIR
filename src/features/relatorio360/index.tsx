@@ -7,6 +7,7 @@ import { EquipmentPanel } from './components/EquipmentPanel'
 import { MaterialsPanel } from './components/MaterialsPanel'
 import { PhotosPanel } from './components/PhotosPanel'
 import { LpsPccPanel } from './components/LpsPccPanel'
+import { Ecosystem360Panel } from './components/Ecosystem360Panel'
 
 export function Relatorio360Page() {
   const report = useCurrentReport()
@@ -20,6 +21,8 @@ export function Relatorio360Page() {
           <SummaryRow />
 
           <div className="flex flex-col gap-6 px-6 pb-8">
+            <Ecosystem360Panel date={report.date} projectName={report.projectName} />
+
             {/* Kanban - full width */}
             <section>
               <KanbanBoard />

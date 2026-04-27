@@ -33,10 +33,12 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
     workerName: '', role: '', hoursWorked: 8, hourlyRate: 0,
   })
 
-  const totalHours = crew.timecards.reduce((s, t) => s + t.hoursWorked, 0)
-  const totalCost  = crew.timecards.reduce((s, t) => s + t.hoursWorked * t.hourlyRate, 0)
+  const timecards = crew.timecards ?? []
+  const activityIds = crew.activityIds ?? []
+  const totalHours = timecards.reduce((s, t) => s + t.hoursWorked, 0)
+  const totalCost  = timecards.reduce((s, t) => s + t.hoursWorked * t.hourlyRate, 0)
 
-  const crewActivities = report?.activities.filter((a) => crew.activityIds.includes(a.id)) ?? []
+  const crewActivities = (report?.activities ?? []).filter((a) => activityIds.includes(a.id))
 
   function saveCrew() {
     onUpdateCrew(crew.id, { foremanName: draftForeman.trim() || crew.foremanName, crewType: draftType.trim() || crew.crewType })
@@ -104,7 +106,7 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
               </span>
             </div>
             <div className="flex items-center gap-3 text-xs text-[#a3a3a3]">
-              <span className="flex items-center gap-1"><Users size={11} />{crew.timecards.length} apontamentos</span>
+              <span className="flex items-center gap-1"><Users size={11} />{timecards.length} apontamentos</span>
               <span className="flex items-center gap-1"><Clock size={11} />{formatHours(totalHours)}</span>
               <span className="text-[#f97316] font-mono font-semibold">{formatCurrency(totalCost)}</span>
             </div>
@@ -144,7 +146,7 @@ function CrewCard({ crew, onUpdateCrew, onAddTimecard, onUpdateTimecard, onDelet
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {crew.timecards.map((tc) => (
+              {timecards.map((tc) => (
                 <div key={tc.id} className="flex items-center justify-between text-xs text-[#a3a3a3]">
                   {editing && editingTcId === tc.id ? (
                     <div className="flex-1 grid grid-cols-4 gap-1.5">

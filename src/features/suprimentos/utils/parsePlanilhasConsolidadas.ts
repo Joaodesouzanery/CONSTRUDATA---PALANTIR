@@ -49,7 +49,39 @@ function getRows(wb: XLSX.WorkBook, sheetIndex = 0): Record<string, unknown>[] {
   const sheetName = wb.SheetNames[sheetIndex]
   if (!sheetName) return []
   const ws = wb.Sheets[sheetName]
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: true })
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', raw: true })
+  const headerIndex = findHeaderIndex(matrix)
+  const headers = makeHeaders(matrix[headerIndex] ?? [])
+  return matrix.slice(headerIndex + 1).map((row) =>
+    Object.fromEntries(headers.map((header, idx) => [header, row[idx] ?? '']))
+  )
+}
+
+function makeHeaders(row: unknown[]): string[] {
+  const seen = new Map<string, number>()
+  return row.map((cell, idx) => {
+    const base = str(cell) || `COL_${idx + 1}`
+    const count = seen.get(base) ?? 0
+    seen.set(base, count + 1)
+    return count === 0 ? base : `${base}_${count + 1}`
+  })
+}
+
+function findHeaderIndex(rows: unknown[][]): number {
+  const hints = [
+    'nucleo', 'nome', 'tipo', 'rede', 'rua', 'logradouro', 'material', 'item', 'desc',
+    'qtd', 'quantidade', 'pend', 'pendente', 'exec', 'executad', 'status',
+    'metragem', 'pv mont', 'pv jus', 'ns', 'ext', 'km obra', 'tr obra',
+  ]
+  let best = { index: 0, score: 0 }
+  rows.slice(0, 30).forEach((row, index) => {
+    const values = row.map((cell) => normalize(str(cell))).filter(Boolean)
+    const score = values.reduce((sum, value) => (
+      sum + (hints.some((hint) => value === hint || value.includes(hint) || hint.includes(value)) ? 1 : 0)
+    ), 0)
+    if (score > best.score) best = { index, score }
+  })
+  return best.score >= 2 ? best.index : 0
 }
 
 /** Find the header that best matches one of the hints. Returns the header key or null. */
@@ -76,12 +108,13 @@ export function previewWorkbook(wb: XLSX.WorkBook, sheetIndex = 0): PlanilhaPrev
   const sheetName = wb.SheetNames[sheetIndex]
   if (!sheetName) return { sheetNames: wb.SheetNames, headers: [], sampleRows: [], rowCount: 0 }
   const ws = wb.Sheets[sheetName]
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: false })
-  const headers = raw.length > 0 ? Object.keys(raw[0]) : []
-  const sampleRows = raw.slice(0, 10).map((r) =>
-    Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)]))
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', raw: false })
+  const headerIndex = findHeaderIndex(matrix)
+  const headers = makeHeaders(matrix[headerIndex] ?? [])
+  const rows = matrix.slice(headerIndex + 1).map((row) =>
+    Object.fromEntries(headers.map((header, idx) => [header, String(row[idx] ?? '')]))
   )
-  return { sheetNames: wb.SheetNames, headers, sampleRows, rowCount: raw.length }
+  return { sheetNames: wb.SheetNames, headers, sampleRows: rows.slice(0, 10), rowCount: rows.length }
 }
 
 // ─── 1. Resumo por Núcleo ───────────────────────────────────────────────────
@@ -321,17 +354,26 @@ export function parseMateriais(wb: XLSX.WorkBook, sheetIndex = 0): MateriaisPars
 
     const material = str(cMaterial ? r[cMaterial] : '')
     if (!material) continue
+    if (material.includes('═══')) {
+      lastNucleo = material.replace(/[═]/g, '').trim() || lastNucleo
+      continue
+    }
+    if (material.trim().startsWith('▸')) {
+      lastRua = material.replace('▸', '').trim() || lastRua
+      continue
+    }
 
     const qtd = toNum(cQtd ? r[cQtd] : 0)
     const metRaw = str(cMetragem ? r[cMetragem] : '')
+    const redeRaw = str(cRede ? r[cRede] : '').toUpperCase().slice(0, 3)
 
     const item: MaterialItem = {
       material,
       un: str(cUn ? r[cUn] : 'un'),
-      rede: str(cRede ? r[cRede] : 'ESG').toUpperCase().slice(0, 3),
+      rede: redeRaw,
       qtd,
       metragem: metRaw || null,
-      isSubItem: false,
+      isSubItem: !redeRaw || material.trim().startsWith('•'),
     }
 
     const nucKey = lastNucleo || 'Sem Núcleo'

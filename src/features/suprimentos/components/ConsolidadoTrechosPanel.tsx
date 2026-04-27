@@ -22,6 +22,7 @@ export function ConsolidadoTrechosPanel() {
   const [filterNucleo, setFilterNucleo] = useState('')
   const [filterTipo, setFilterTipo] = useState<'' | 'AGUA' | 'ESGOTO'>('')
   const [filterStatus, setFilterStatus] = useState<'' | 'EXECUTADO' | 'PENDENTE' | 'CADASTRO'>('')
+  const [filterPct, setFilterPct] = useState<'' | '0' | '50' | '100'>('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
 
@@ -44,6 +45,7 @@ export function ConsolidadoTrechosPanel() {
     if (filterNucleo) data = data.filter((t) => t.nucleo === filterNucleo)
     if (filterTipo)   data = data.filter((t) => t.tipo === filterTipo)
     if (filterStatus) data = data.filter((t) => t.status === filterStatus)
+    if (filterPct) data = data.filter((t) => (t.status === 'EXECUTADO' ? 100 : 0) >= Number(filterPct))
     if (search.trim()) {
       const q = search.toLowerCase()
       data = data.filter(
@@ -55,7 +57,7 @@ export function ConsolidadoTrechosPanel() {
       )
     }
     return data
-  }, [consolidadoTrechos, filterNucleo, filterTipo, filterStatus, search])
+  }, [consolidadoTrechos, filterNucleo, filterTipo, filterStatus, filterPct, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
@@ -100,6 +102,17 @@ export function ConsolidadoTrechosPanel() {
           <option value="CADASTRO">Cadastro</option>
         </select>
 
+        <select
+          value={filterPct}
+          onChange={(e) => { setFilterPct(e.target.value as typeof filterPct); setPage(0) }}
+          className="px-2.5 py-1.5 rounded-lg text-xs bg-[#3d3d3d] border border-[#525252] text-[#f5f5f5] outline-none"
+        >
+          <option value="">Qualquer %</option>
+          <option value="0">0%+</option>
+          <option value="50">50%+</option>
+          <option value="100">100%</option>
+        </select>
+
         <div className="relative ml-auto">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
           <input
@@ -133,6 +146,8 @@ export function ConsolidadoTrechosPanel() {
                 <th className="text-left px-2 py-2 text-[#a3a3a3] font-semibold">PV Jus</th>
                 <th className="text-right px-2 py-2 text-[#a3a3a3] font-semibold">DN(mm)</th>
                 <th className="text-right px-2 py-2 text-[#a3a3a3] font-semibold">Ext(m)</th>
+                <th className="text-right px-2 py-2 text-[#a3a3a3] font-semibold">m Exec</th>
+                <th className="text-right px-2 py-2 text-[#a3a3a3] font-semibold">m Pend</th>
                 <th className="text-center px-2 py-2 text-[#a3a3a3] font-semibold">Mat</th>
                 <th className="text-center px-2 py-2 text-[#a3a3a3] font-semibold">Status</th>
                 <th className="text-left px-2 py-2 text-[#a3a3a3] font-semibold">Data Exec</th>
@@ -141,6 +156,8 @@ export function ConsolidadoTrechosPanel() {
             <tbody>
               {pageData.map((t, i) => {
                 const st = STATUS_STYLE[t.status]
+                const mExec = t.status === 'EXECUTADO' ? t.extM : 0
+                const mPend = t.status === 'PENDENTE' ? t.extM : 0
                 return (
                   <tr
                     key={`${t.nucleo}-${t.ns}-${i}`}
@@ -166,6 +183,8 @@ export function ConsolidadoTrechosPanel() {
                     <td className="px-2 py-1.5 text-[#6b6b6b] text-[10px] max-w-[120px] truncate" title={t.pvJus ?? ''}>{t.pvJus ?? '—'}</td>
                     <td className="px-2 py-1.5 text-right text-[#a3a3a3] tabular-nums">{t.dnMm ?? '—'}</td>
                     <td className="px-2 py-1.5 text-right text-[#f5f5f5] tabular-nums font-medium">{t.extM.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 text-right text-[#4ade80] tabular-nums">{mExec.toFixed(1)}</td>
+                    <td className="px-2 py-1.5 text-right text-[#f87171] tabular-nums">{mPend.toFixed(1)}</td>
                     <td className="px-2 py-1.5 text-center text-[#a3a3a3]">{t.mat}</td>
                     <td className="px-2 py-1.5 text-center">
                       <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-bold', st.bg, st.text)}>
@@ -178,7 +197,7 @@ export function ConsolidadoTrechosPanel() {
               })}
               {pageData.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-[#6b6b6b]">
+                  <td colSpan={13} className="px-4 py-8 text-center text-[#6b6b6b]">
                     Nenhum trecho encontrado com os filtros aplicados.
                   </td>
                 </tr>

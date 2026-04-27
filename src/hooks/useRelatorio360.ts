@@ -28,17 +28,20 @@ export function useSummaryMetrics() {
       }
     }
 
-    const allTimecards = report.crews.flatMap((c) => c.timecards)
+    const crews = report.crews ?? []
+    const equipmentLogs = report.equipmentLogs ?? []
+    const activities = report.activities ?? []
+    const allTimecards = crews.flatMap((c) => c.timecards ?? [])
     const timecardCount = allTimecards.length
     const totalTimecardHours = allTimecards.reduce((s, t) => s + t.hoursWorked, 0)
     const totalTimecardCost = allTimecards.reduce((s, t) => s + t.hoursWorked * t.hourlyRate, 0)
 
-    const equipmentCount = report.equipmentLogs.length
-    const totalEquipmentHours = report.equipmentLogs.reduce((s, e) => s + e.utilizationHours, 0)
-    const totalEquipmentCost = report.equipmentLogs.reduce((s, e) => s + e.utilizationHours * e.hourlyRate, 0)
+    const equipmentCount = equipmentLogs.length
+    const totalEquipmentHours = equipmentLogs.reduce((s, e) => s + e.utilizationHours, 0)
+    const totalEquipmentCost = equipmentLogs.reduce((s, e) => s + e.utilizationHours * e.hourlyRate, 0)
 
     return {
-      activityCount: report.activities.length,
+      activityCount: activities.length,
       timecardCount,
       totalTimecardHours,
       totalTimecardCost,

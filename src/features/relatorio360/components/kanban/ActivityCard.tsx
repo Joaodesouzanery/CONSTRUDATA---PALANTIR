@@ -19,7 +19,7 @@ export function ActivityCard({
   onEdit,
 }: ActivityCardProps) {
   const report = useCurrentReport()
-  const crew = report?.crews.find((c) => c.id === activity.crewId)
+  const crew = (report?.crews ?? []).find((c) => c.id === activity.crewId)
 
   const pct =
     activity.plannedQty > 0

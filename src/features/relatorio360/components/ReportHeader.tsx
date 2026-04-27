@@ -34,8 +34,11 @@ export function ReportHeader() {
     setPdfSections((s) => ({ ...s, [key]: !s[key] }))
   }
 
-  const displayDate = format(parseISO(currentDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })
-  const shortDate   = format(parseISO(currentDate), 'dd/MM/yyyy')
+  const safeCurrentDate = /^\d{4}-\d{2}-\d{2}$/.test(currentDate)
+    ? currentDate
+    : new Date().toISOString().slice(0, 10)
+  const displayDate = format(parseISO(safeCurrentDate), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+  const shortDate   = format(parseISO(safeCurrentDate), 'dd/MM/yyyy')
 
   const canPeriodPDF = !!periodStart && !!periodEnd && periodEnd >= periodStart
 
@@ -90,7 +93,7 @@ export function ReportHeader() {
             {/* Native date input */}
             <input
               type="date"
-              value={currentDate}
+              value={safeCurrentDate}
               onChange={(e) => e.target.value && goToDate(e.target.value)}
               className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs font-mono focus:outline-none focus:border-[#f97316]/60 transition-colors"
               title="Ir para data"

@@ -18,8 +18,10 @@ import { ImportPlanilhasModal }      from './components/ImportPlanilhasModal'
 import { ResumoNucleoPanel }         from './components/ResumoNucleoPanel'
 import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
 import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
+import { CadastroManualSuprimentosPanel } from './components/CadastroManualSuprimentosPanel'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 export function SuprimentosPage() {
   const [activeSection, setActiveSection] = useState<SuprimentosSection>('suprimentos')
@@ -28,6 +30,7 @@ export function SuprimentosPage() {
   const [showNovoMaterial, setShowNovoMaterial] = useState(false)
   const [showConsolidado, setShowConsolidado] = useState(false)
   const [showPlanilhas, setShowPlanilhas] = useState(false)
+  const pullPlanilhasSupabase = useSuprimentosStore((s) => s.pullPlanilhasSupabase)
 
   // Reset tab when section changes
   useEffect(() => {
@@ -37,6 +40,12 @@ export function SuprimentosPage() {
       : 'resumo_nucleo'
     )
   }, [activeSection])
+
+  useEffect(() => {
+    if (activeSection === 'planilhas') {
+      void pullPlanilhasSupabase().catch(() => undefined)
+    }
+  }, [activeSection, pullPlanilhasSupabase])
 
   return (
     <div className="flex flex-col h-full p-5 gap-4 overflow-hidden">
@@ -106,7 +115,7 @@ export function SuprimentosPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
             >
               <FileSpreadsheet size={13} />
-              Importar Planilha
+              Importar Excel
             </button>
           )}
         </div>
@@ -128,6 +137,7 @@ export function SuprimentosPage() {
       {activeTab === 'estoque'     && <MapaEstoquePanel />}
       {activeTab === 'semaforo'    && <SemaforoProntidaoPanel />}
       {activeTab === 'whatif'      && <WhatIfLogisticoPanel />}
+      {activeTab === 'entrada_dados'       && <CadastroManualSuprimentosPanel />}
       {activeTab === 'resumo_nucleo'       && <ResumoNucleoPanel />}
       {activeTab === 'consolidado_trechos' && <ConsolidadoTrechosPanel />}
       {activeTab === 'materiais_pendentes' && <MateriaisPendentesPanel />}

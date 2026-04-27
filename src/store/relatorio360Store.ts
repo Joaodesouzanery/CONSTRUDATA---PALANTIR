@@ -6,6 +6,14 @@ import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '
 import type { DailyReport, ActivityStatus, ReportPhoto, Activity, Crew, Timecard, EquipmentLog, MaterialLog } from '@/types'
 import { initialReports } from '@/data/mockRelatorio360'
 
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function safeDate(value: string | null | undefined) {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : today()
+}
+
 interface Relatorio360State {
   reports: Record<string, DailyReport>
   currentDate: string
@@ -50,22 +58,22 @@ export const useRelatorio360Store = create<Relatorio360State>()(
   persist(
     (set, get) => ({
   reports: initialReports,
-  currentDate: Object.keys(initialReports)[0],
+  currentDate: safeDate(Object.keys(initialReports)[0]),
 
   pendingSync:  [],
   syncStatus:   'idle',
   lastSyncedAt: null,
   syncError:    null,
 
-  goToDate: (date) => set({ currentDate: date }),
+  goToDate: (date) => set({ currentDate: safeDate(date) }),
 
   goToPrevDay: () => {
-    const prev = format(addDays(parseISO(get().currentDate), -1), 'yyyy-MM-dd')
+    const prev = format(addDays(parseISO(safeDate(get().currentDate)), -1), 'yyyy-MM-dd')
     set({ currentDate: prev })
   },
 
   goToNextDay: () => {
-    const next = format(addDays(parseISO(get().currentDate), 1), 'yyyy-MM-dd')
+    const next = format(addDays(parseISO(safeDate(get().currentDate)), 1), 'yyyy-MM-dd')
     set({ currentDate: next })
   },
 
@@ -78,7 +86,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            activities: report.activities.map((a) =>
+            activities: (report.activities ?? []).map((a) =>
               a.id === activityId ? { ...a, status: newStatus } : a
             ),
           },
@@ -91,7 +99,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
     set((state) => {
       const report = state.reports[state.currentDate]
       if (!report) return state
-      const activities = [...report.activities]
+      const activities = [...(report.activities ?? [])]
       const activeIndex = activities.findIndex((a) => a.id === activeId)
       const overIndex = activities.findIndex((a) => a.id === overId)
       if (activeIndex === -1 || overIndex === -1) return state
@@ -115,7 +123,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            activities: report.activities.map((a) =>
+            activities: (report.activities ?? []).map((a) =>
               a.id === activityId ? { ...a, ...patch } : a
             ),
           },
@@ -132,7 +140,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            crews: report.crews.map((c) => c.id === crewId ? { ...c, ...patch } : c),
+            crews: (report.crews ?? []).map((c) => c.id === crewId ? { ...c, ...patch } : c),
           },
         },
       }
@@ -147,7 +155,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            crews: report.crews.map((c) =>
+            crews: (report.crews ?? []).map((c) =>
               c.id === crewId
                 ? { ...c, timecards: [...c.timecards, { ...tc, id: crypto.randomUUID() }] }
                 : c
@@ -166,7 +174,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            crews: report.crews.map((c) =>
+            crews: (report.crews ?? []).map((c) =>
               c.id === crewId
                 ? {
                     ...c,
@@ -190,7 +198,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            crews: report.crews.map((c) =>
+            crews: (report.crews ?? []).map((c) =>
               c.id === crewId
                 ? { ...c, timecards: c.timecards.filter((t) => t.id !== timecardId) }
                 : c
@@ -209,7 +217,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            equipmentLogs: report.equipmentLogs.map((l) =>
+            equipmentLogs: (report.equipmentLogs ?? []).map((l) =>
               l.id === logId ? { ...l, ...patch } : l
             ),
           },
@@ -226,7 +234,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            materialLogs: report.materialLogs.map((l) =>
+            materialLogs: (report.materialLogs ?? []).map((l) =>
               l.id === logId ? { ...l, ...patch } : l
             ),
           },
@@ -246,7 +254,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            photos: [...report.photos, photo],
+            photos: [...(report.photos ?? []), photo],
           },
         },
         pendingSync: [
@@ -279,7 +287,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            photos: report.photos.filter((p) => p.id !== photoId),
+            photos: (report.photos ?? []).filter((p) => p.id !== photoId),
           },
         },
         pendingSync: [
@@ -306,7 +314,7 @@ export const useRelatorio360Store = create<Relatorio360State>()(
           ...state.reports,
           [state.currentDate]: {
             ...report,
-            photos: report.photos.map((p) =>
+            photos: (report.photos ?? []).map((p) =>
               p.id === photoId ? { ...p, label } : p
             ),
           },
@@ -316,10 +324,10 @@ export const useRelatorio360Store = create<Relatorio360State>()(
   },
 
   loadDemoData: () =>
-    set({ reports: initialReports, currentDate: Object.keys(initialReports)[0] }),
+    set({ reports: initialReports, currentDate: safeDate(Object.keys(initialReports)[0]) }),
 
   clearData: () =>
-    set({ reports: {}, pendingSync: [], syncError: null }),
+    set({ reports: {}, currentDate: today(), pendingSync: [], syncError: null }),
 
   flush: async () => {
     const queue = get().pendingSync

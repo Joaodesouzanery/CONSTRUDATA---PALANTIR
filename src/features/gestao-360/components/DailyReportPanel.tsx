@@ -10,6 +10,7 @@ import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { getExecutedActivities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import { Ecosystem360Panel } from '@/features/relatorio360/components/Ecosystem360Panel'
 
 function Kpi({ label, value, icon: Icon, tone = '#f97316' }: {
   label: string
@@ -144,6 +145,8 @@ export function DailyReportPanel() {
         <Kpi label="Fotos" value={String(daily.photos.length)} icon={Camera} tone="#38bdf8" />
         <Kpi label="NCs abertas" value={String(daily.ncs.length)} icon={ShieldAlert} tone={daily.ncs.length ? '#ef4444' : '#22c55e'} />
       </div>
+
+      <Ecosystem360Panel date={date} projectName={project.name} compact />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Section title="Atividades e RDOs">

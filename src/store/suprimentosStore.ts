@@ -37,6 +37,19 @@ import {
   mockReservas,
 } from '@/data/mockSuprimentos'
 import type { ResumoNucleo, ConsolidadoTrecho, MaterialNucleo } from '@/data/mockPlanilhasConsolidadas'
+import {
+  createManualItem,
+  createManualNucleo,
+  createManualRua,
+  createSuprimentosOrdem,
+  importSuprimentosPlanilhas,
+  loadSuprimentosPlanilhas,
+  type ManualItemInput,
+  type ManualNucleoInput,
+  type ManualRuaInput,
+  type SuprimentosOperacionalItem,
+  type SuprimentosOrdem,
+} from '@/features/suprimentos/utils/suprimentosPlanilhasSupabase'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
 
@@ -166,6 +179,8 @@ interface SuprimentosState {
   planilhaResumo:      ResumoNucleo[]
   planilhaTrechos:     ConsolidadoTrecho[]
   planilhaMateriais:   MaterialNucleo[]
+  planilhaItensOperacionais: SuprimentosOperacionalItem[]
+  planilhaOrdens:      SuprimentosOrdem[]
   planilhaMetadata:    { dataRef: string; contrato: string } | null
 
   // CRUD — POs
@@ -221,6 +236,12 @@ interface SuprimentosState {
   importPlanilhaResumo:    (rows: ResumoNucleo[]) => void
   importPlanilhaTrechos:   (rows: ConsolidadoTrecho[]) => void
   importPlanilhaMateriais: (rows: MaterialNucleo[]) => void
+  importPlanilhasSupabase: (payload: { resumo?: ResumoNucleo[]; trechos?: ConsolidadoTrecho[]; materiais?: MaterialNucleo[] }) => Promise<void>
+  pullPlanilhasSupabase:   () => Promise<void>
+  addManualNucleo:         (input: ManualNucleoInput) => Promise<void>
+  addManualRua:            (input: ManualRuaInput) => Promise<void>
+  addManualItem:           (input: ManualItemInput) => Promise<void>
+  createOrdemSuprimentos:  (itemIds: string[]) => Promise<void>
   setPlanilhaMetadata:     (meta: { dataRef: string; contrato: string }) => void
   clearPlanilhas:          () => void
 
@@ -332,6 +353,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   planilhaResumo:    [],
   planilhaTrechos:   [],
   planilhaMateriais: [],
+  planilhaItensOperacionais: [],
+  planilhaOrdens:    [],
   planilhaMetadata:  null,
 
   // Sync (Sprint 2)
@@ -698,9 +721,77 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   importPlanilhaResumo:    (rows) => set({ planilhaResumo: rows }),
   importPlanilhaTrechos:   (rows) => set({ planilhaTrechos: rows }),
   importPlanilhaMateriais: (rows) => set({ planilhaMateriais: rows }),
+  importPlanilhasSupabase: async (payload) => {
+    set({ syncStatus: 'syncing', syncError: null })
+    try {
+      const loaded = await importSuprimentosPlanilhas(payload)
+      set({
+        planilhaResumo: loaded.resumo,
+        planilhaTrechos: loaded.trechos,
+        planilhaMateriais: loaded.materiais,
+        planilhaItensOperacionais: loaded.operacional,
+        planilhaOrdens: loaded.ordens,
+        planilhaMetadata: { dataRef: new Date().toISOString().slice(0, 10), contrato: '' },
+        syncStatus: 'idle',
+        lastSyncedAt: new Date().toISOString(),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Falha ao importar planilhas de Suprimentos.'
+      set({ syncStatus: 'error', syncError: message })
+      throw err
+    }
+  },
+  pullPlanilhasSupabase: async () => {
+    try {
+      const loaded = await loadSuprimentosPlanilhas()
+      set({
+        planilhaResumo: loaded.resumo,
+        planilhaTrechos: loaded.trechos,
+        planilhaMateriais: loaded.materiais,
+        planilhaItensOperacionais: loaded.operacional,
+        planilhaOrdens: loaded.ordens,
+        syncStatus: 'idle',
+        lastSyncedAt: new Date().toISOString(),
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Falha ao carregar planilhas de Suprimentos.'
+      set({ syncStatus: 'error', syncError: message })
+      throw err
+    }
+  },
+  addManualNucleo: async (input) => {
+    await createManualNucleo(input)
+    await get().pullPlanilhasSupabase()
+  },
+  addManualRua: async (input) => {
+    await createManualRua(input)
+    await get().pullPlanilhasSupabase()
+  },
+  addManualItem: async (input) => {
+    const loaded = await createManualItem(input)
+    set({
+      planilhaResumo: loaded.resumo,
+      planilhaTrechos: loaded.trechos,
+      planilhaMateriais: loaded.materiais,
+      planilhaItensOperacionais: loaded.operacional,
+      planilhaOrdens: loaded.ordens,
+      lastSyncedAt: new Date().toISOString(),
+    })
+  },
+  createOrdemSuprimentos: async (itemIds) => {
+    const loaded = await createSuprimentosOrdem(itemIds)
+    set({
+      planilhaResumo: loaded.resumo,
+      planilhaTrechos: loaded.trechos,
+      planilhaMateriais: loaded.materiais,
+      planilhaItensOperacionais: loaded.operacional,
+      planilhaOrdens: loaded.ordens,
+      lastSyncedAt: new Date().toISOString(),
+    })
+  },
   setPlanilhaMetadata:     (meta) => set({ planilhaMetadata: meta }),
   clearPlanilhas: () => set({
-    planilhaResumo: [], planilhaTrechos: [], planilhaMateriais: [], planilhaMetadata: null,
+    planilhaResumo: [], planilhaTrechos: [], planilhaMateriais: [], planilhaItensOperacionais: [], planilhaOrdens: [], planilhaMetadata: null,
   }),
 
   importConsolidado: (items, target) => {
@@ -783,6 +874,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       planilhaResumo:      [],
       planilhaTrechos:     [],
       planilhaMateriais:   [],
+      planilhaItensOperacionais: [],
+      planilhaOrdens:      [],
       planilhaMetadata:    null,
       pendingSync:         [],
       syncError:           null,
@@ -894,6 +987,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         planilhaResumo:    s.planilhaResumo,
         planilhaTrechos:   s.planilhaTrechos,
         planilhaMateriais: s.planilhaMateriais,
+        planilhaItensOperacionais: s.planilhaItensOperacionais,
+        planilhaOrdens:    s.planilhaOrdens,
         planilhaMetadata:  s.planilhaMetadata,
       }),
     },

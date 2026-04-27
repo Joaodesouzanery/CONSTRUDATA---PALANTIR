@@ -41,12 +41,17 @@ export interface ConsolidadoTrecho {
 }
 
 export interface MaterialItem {
+  id?: string
   material: string
   un: string
   rede: string
   qtd: number
   metragem: string | null
   isSubItem: boolean
+  status?: 'exec' | 'pend' | 'cad'
+  kmExec?: number
+  kmPend?: number
+  auxiliares?: MaterialItem[]
 }
 
 export interface MaterialRua {

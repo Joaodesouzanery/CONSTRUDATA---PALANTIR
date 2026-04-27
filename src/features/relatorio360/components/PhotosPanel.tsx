@@ -75,7 +75,9 @@ function PhotoCard({ photo }: { photo: ReportPhoto }) {
           </div>
         )}
         <span className="text-[10px] text-[#6b6b6b]">
-          {format(new Date(photo.uploadedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+          {Number.isNaN(new Date(photo.uploadedAt).getTime())
+            ? '--/--/----'
+            : format(new Date(photo.uploadedAt), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
         </span>
       </div>
     </div>
