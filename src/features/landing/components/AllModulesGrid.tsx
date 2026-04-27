@@ -20,7 +20,7 @@ const MODULES: { icon: LucideIcon; name: string; desc: string; cat: string }[] =
   { icon: Calculator, name: 'Quantitativos', desc: 'BOQ com base SINAPI/SEINFRA, BDI configurável e exportação Excel/CSV.', cat: 'Orçamento' },
   { icon: Box, name: 'BIM 3D/4D/5D', desc: 'Visualizador BIM standalone com simulação temporal e heatmap de custos.', cat: 'BIM' },
   { icon: Car, name: 'Frota', desc: 'Frota própria e alugada com log de viagens, combustível e manutenção preventiva.', cat: 'Recursos' },
-  { icon: Layers3, name: 'Gestão 360', desc: 'JobCosting EVM, Ordens de Mudança, Centro de Comando e Simulação de Atrasos.', cat: 'Gestão' },
+  { icon: Layers3, name: 'Gestão 360', desc: 'JobCosting EVM, Ordens de Mudança, Centro de Comando e Daily Report.', cat: 'Gestão' },
 ]
 
 export function AllModulesGrid() {

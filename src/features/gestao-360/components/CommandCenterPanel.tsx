@@ -203,7 +203,7 @@ export function CommandCenterPanel() {
         items.push({
           id:       `maint-${o.id}`,
           severity: 'high',
-          module:   'Gest. Equip.',
+          module:   'Equipamentos',
           icon:     Wrench,
           title:    `Manutenção vencida — ${o.id}`,
           detail:   `Tipo: ${o.type} · Responsável: ${o.responsible}`,

@@ -59,11 +59,20 @@ function calcBudgetDelta(project: Project): number {
   return budgeted > 0 ? ((eac - budgeted) / budgeted) * 100 : 0
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 // ─── Rich pin marker icon ──────────────────────────────────────────────────────
 
 function makeDivIcon(severity: Severity, project: Project, selected: boolean) {
   const color = SEVERITY_COLOR[severity]
-  const code  = project.code.length > 10 ? project.code.slice(0, 10) : project.code
+  const label = project.name.length > 22 ? `${project.name.slice(0, 21)}…` : project.name
   const glow  = selected
     ? `0 0 0 2px ${color}60, 0 0 14px ${color}80`
     : `0 2px 8px rgba(0,0,0,0.6)`
@@ -86,7 +95,8 @@ function makeDivIcon(severity: Severity, project: Project, selected: boolean) {
           border-radius:8px;
           padding:4px 8px;
           box-shadow:${glow};
-          min-width:80px;
+          min-width:118px;
+          max-width:178px;
           justify-content:center;
           transition:all 0.15s;
         ">
@@ -101,7 +111,7 @@ function makeDivIcon(severity: Severity, project: Project, selected: boolean) {
             font-family:Inter,sans-serif;
             white-space:nowrap;
             letter-spacing:0.03em;
-          ">${code}</span>
+          ">${escapeHtml(label)}</span>
         </div>
         <div style="
           width:0;height:0;
@@ -164,9 +174,10 @@ function MarkerLayer({ projects, selected, onSelect }: MarkerLayerProps) {
   }, [selected, projects, map])
 
   useEffect(() => {
+    const markers = markersRef.current
     return () => {
-      markersRef.current.forEach((m) => m.remove())
-      markersRef.current.clear()
+      markers.forEach((m) => m.remove())
+      markers.clear()
     }
   }, [])
 
@@ -203,6 +214,7 @@ function PhaseStatusBadge({ status }: { status: ProjectPhase['status'] }) {
 }
 
 function GanttSvg({ project, W = 420 }: { project: Project; W?: number }) {
+  const [today] = useState(() => Date.now())
   const all: Array<ProjectPhase & { group: string }> = [
     ...project.planningPhases.map((p) => ({ ...p, group: 'Planejamento' })),
     ...project.executionPhases.map((p) => ({ ...p, group: 'Execução' })),
@@ -213,7 +225,6 @@ function GanttSvg({ project, W = 420 }: { project: Project; W?: number }) {
   const span  = Math.max(1, end - start)
   const LABEL = 110, ROW = 24, BAR_H = 12
 
-  const today     = Date.now()
   const todayX    = LABEL + ((today - start) / span) * (W - LABEL)
   const todayClip = Math.min(Math.max(todayX, LABEL), W)
 

@@ -4,7 +4,7 @@ import { Gestao360MapDashboard } from './components/Gestao360MapDashboard'
 import { JobCostingPanel } from './components/JobCostingPanel'
 import { ChangeOrderPanel } from './components/ChangeOrderPanel'
 import { CommandCenterPanel } from './components/CommandCenterPanel'
-import { SimulacaoAtrasoPanel } from './components/SimulacaoAtrasoPanel'
+import { DailyReportPanel } from './components/DailyReportPanel'
 
 export function Gestao360Page() {
   const activeTab = useGestao360Store((s) => s.activeTab)
@@ -22,9 +22,9 @@ export function Gestao360Page() {
       ) : (
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {activeTab === 'jobacosting'  && <JobCostingPanel />}
+          {activeTab === 'daily-report' && <DailyReportPanel />}
           {activeTab === 'changeorders' && <ChangeOrderPanel />}
           {activeTab === 'command'      && <CommandCenterPanel />}
-          {activeTab === 'simulation'   && <SimulacaoAtrasoPanel />}
         </div>
       )}
     </div>

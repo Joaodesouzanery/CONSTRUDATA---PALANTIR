@@ -67,7 +67,7 @@ const MODULOS: ModuleData[] = [
   { icon: Users,         label: 'Mão de Obra',         category: 'campo',
     desc: 'Cadastro, alocação diária, certificações e produtividade.',
     details: 'Cadastro de funcionários com CPF, função, equipe, certificações (com validade). Alocação diária por frente de obra com dashboard visual. Alertas de NR (certificações vencidas). Dashboard de produtividade: m/equipe/dia, custo por hora. Importação em massa via Excel.' },
-  { icon: Wrench,        label: 'Gest. Equipamentos',  category: 'campo',
+  { icon: Wrench,        label: 'Equipamentos',  category: 'campo',
     desc: 'Frota fixa: manutenção preventiva, utilização e custos.',
     details: 'Cadastro de equipamentos fixos (escavadeiras, compressores, geradores). Manutenção preventiva com alertas de vencimento. Taxa de utilização por hora com custo operacional. Histórico de manutenções corretivas. Dashboard de disponibilidade por período.' },
   { icon: Car,           label: 'Frota Veicular',      category: 'campo',

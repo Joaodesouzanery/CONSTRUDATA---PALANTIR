@@ -12,6 +12,7 @@ const TABS: { key: string; label: string }[] = [
   { key: 'manutencoes',  label: 'Manutenções'  },
   { key: 'utilizacao',   label: 'Utilização'   },
   { key: 'custos',       label: 'Custos'       },
+  { key: 'frotas',       label: 'Frotas'       },
 ]
 
 export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
@@ -24,7 +25,7 @@ export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
         </div>
         <div>
           <h1 className="text-[#f5f5f5] font-bold text-base leading-tight">
-            Gestão de Equipamentos
+            Equipamentos
           </h1>
           <p className="text-[#6b6b6b] text-xs">Manutenção, utilização e custos da frota</p>
         </div>

@@ -5,6 +5,7 @@ import { MaintenancePanel }  from './components/MaintenancePanel'
 import { UtilizacaoPanel }   from './components/UtilizacaoPanel'
 import { CustosPanel }       from './components/CustosPanel'
 import { EquipamentosPage }  from '@/features/equipamentos/index'
+import { GestaoFrotasPanel } from '@/features/mao-de-obra/components/gestao-frotas/GestaoFrotasPanel'
 
 export function GestaoEquipamentosPage() {
   const [activeTab, setActiveTab] = useState('equipamentos')
@@ -19,6 +20,11 @@ export function GestaoEquipamentosPage() {
         {activeTab === 'manutencoes'  && <MaintenancePanel />}
         {activeTab === 'utilizacao'   && <UtilizacaoPanel />}
         {activeTab === 'custos'       && <CustosPanel />}
+        {activeTab === 'frotas'       && (
+          <div className="h-full overflow-y-auto px-6 py-5">
+            <GestaoFrotasPanel />
+          </div>
+        )}
       </div>
     </div>
   )

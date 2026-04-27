@@ -8,10 +8,10 @@ import type { Gestao360Tab } from '@/store/gestao360Store'
 
 const TABS: Array<{ id: Gestao360Tab; label: string }> = [
   { id: 'dashboard',    label: 'Dashboard de Obras'    },
+  { id: 'daily-report', label: 'Daily Report'           },
   { id: 'jobacosting',  label: 'Custo em Tempo Real'   },
   { id: 'changeorders', label: 'Ordens de Mudança'      },
   { id: 'command',      label: 'Centro de Comando'      },
-  { id: 'simulation',   label: 'Simulação de Atrasos'  },
 ]
 
 export function Gestao360Header() {

@@ -57,7 +57,6 @@ export type MaoDeObraTab =
   | 'faltas'
   | 'folha'
   | 'rh-financeiro'
-  | 'frotas'
   | 'ausencias'
   | 'apontamentos'
   | 'escalamento'

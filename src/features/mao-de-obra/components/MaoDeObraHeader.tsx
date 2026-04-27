@@ -18,7 +18,6 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'faltas',        label: 'Faltas / Subs'          },
   { id: 'folha',         label: 'Folha de Pagamento'     },
   { id: 'rh-financeiro', label: 'RH Financeiro'          },
-  { id: 'frotas',        label: 'Gestão de Frotas'       },
   { id: 'ausencias',     label: 'Calendário de Ausências'},
   { id: 'apontamentos',  label: 'Apontamentos'           },
   { id: 'escalamento',   label: 'Escalamento'            },
@@ -119,7 +118,7 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
           </div>
           <div>
             <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
-            <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, frotas, ausências e folha de pagamento</p>
+            <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, ausências e folha de pagamento</p>
           </div>
         </div>
         <button

@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, FolderKanban, Radio,
   Wrench, FileSearch, PackageSearch, Users, FlaskConical,
-  Cpu, ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
+  ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin,
 } from 'lucide-react'
@@ -50,8 +50,7 @@ const NAV_GROUPS = [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
-      { label: 'Gest. Equip.',    icon: Wrench,           to: '/app/gestao-equipamentos' },
-      { label: 'Frota',           icon: Cpu,              to: '/app/otimizacao-frota'    },
+      { label: 'Equipamentos',    icon: Wrench,           to: '/app/gestao-equipamentos' },
     ],
   },
   {

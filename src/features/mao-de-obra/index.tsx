@@ -12,7 +12,6 @@ import { CMOPanel }              from './components/CMOPanel'
 import { FaltasSubsPanel }       from './components/FaltasSubsPanel'
 import { FolhaPagamentoPanel }   from './components/FolhaPagamentoPanel'
 import { RHFinanceiroPanel }     from './components/RHFinanceiroPanel'
-import { GestaoFrotasPanel }     from './components/gestao-frotas/GestaoFrotasPanel'
 import { AusenciasCalendarioPanel } from './components/AusenciasCalendarioPanel'
 
 export function MaoDeObraPage() {
@@ -28,7 +27,6 @@ export function MaoDeObraPage() {
       case 'faltas':        return <FaltasSubsPanel />
       case 'folha':         return <FolhaPagamentoPanel />
       case 'rh-financeiro': return <RHFinanceiroPanel />
-      case 'frotas':        return <GestaoFrotasPanel />
       case 'ausencias':     return <AusenciasCalendarioPanel />
       case 'apontamentos':  return <ApontamentosPanel />
       case 'escalamento':   return <EscalamentoPanel />

@@ -110,12 +110,10 @@ export function RdoSabespPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   const load = useCallback(async () => {
     const localRows = readLocalRdoSabesp();
     setList(localRows);
-    setSyncing(true);
 
     try {
       const { data, error } = await withTimeout(
@@ -134,11 +132,6 @@ export function RdoSabespPage() {
       setList(merged);
     } catch (error: any) {
       console.warn("[rdo-sabesp] usando cache local", error);
-      if (!localRows.length) {
-        toast.warning("Nao foi possivel carregar o Supabase. A tela segue disponivel para criar e salvar RDOs locais.");
-      }
-    } finally {
-      setSyncing(false);
     }
   }, []);
 
@@ -254,12 +247,6 @@ export function RdoSabespPage() {
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-semibold text-white">RDO Sabesp</h2>
                 <Badge variant="secondary">Sabesp</Badge>
-                {syncing && (
-                  <Badge variant="outline" className="gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Sincronizando
-                  </Badge>
-                )}
               </div>
               <p className="text-xs text-[#a3a3a3]">Relatório diário no padrão Consórcio Se Liga Na Rede</p>
             </div>

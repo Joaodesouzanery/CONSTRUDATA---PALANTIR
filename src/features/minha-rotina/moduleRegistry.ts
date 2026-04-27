@@ -7,7 +7,7 @@
  */
 import {
   ClipboardList, Calendar, FolderKanban, Radio, Wrench, FileSearch,
-  PackageSearch, Users, Cpu, LayoutDashboard, CalendarClock, FileText,
+  PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, Network, BrainCircuit, TrendingUp,
   ShieldCheck, Ruler, type LucideIcon,
 } from 'lucide-react'
@@ -112,19 +112,11 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
   },
   {
     path: '/app/gestao-equipamentos',
-    label: 'Gestão de Equipamentos',
+    label: 'Equipamentos',
     icon: Wrench,
     group: 'campo',
     description: 'Frota fixa, manutenção preventiva e utilização.',
   },
-  {
-    path: '/app/otimizacao-frota',
-    label: 'Frota',
-    icon: Cpu,
-    group: 'campo',
-    description: 'Veículos, combustível, motoristas e roteirização.',
-  },
-
   // ── PROJETOS ────────────────────────────────────────────────────────────
   {
     path: '/app/projetos',
