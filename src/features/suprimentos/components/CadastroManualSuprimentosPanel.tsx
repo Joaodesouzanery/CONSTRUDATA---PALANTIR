@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle, Loader2, Plus, Save } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { loadManualOptions, type DbRede, type DbStatus, type ManualOptions } from '../utils/suprimentosPlanilhasSupabase'
 import { cn } from '@/lib/utils'
@@ -13,13 +14,15 @@ export function CadastroManualSuprimentosPanel() {
     addManualItem,
     pullPlanilhasSupabase,
     itens,
-  } = useSuprimentosStore((s) => ({
-    addManualNucleo: s.addManualNucleo,
-    addManualRua: s.addManualRua,
-    addManualItem: s.addManualItem,
-    pullPlanilhasSupabase: s.pullPlanilhasSupabase,
-    itens: s.planilhaItensOperacionais,
-  }))
+  } = useSuprimentosStore(
+    useShallow((s) => ({
+      addManualNucleo: s.addManualNucleo,
+      addManualRua: s.addManualRua,
+      addManualItem: s.addManualItem,
+      pullPlanilhasSupabase: s.pullPlanilhasSupabase,
+      itens: s.planilhaItensOperacionais ?? [],
+    }))
+  )
 
   const [options, setOptions] = useState<ManualOptions>({ nucleos: [], ruas: [] })
   const [saving, setSaving] = useState<string | null>(null)

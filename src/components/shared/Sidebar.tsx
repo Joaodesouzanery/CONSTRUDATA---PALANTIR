@@ -5,7 +5,7 @@ import {
   Wrench, PackageSearch, Users, FlaskConical,
   ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, Settings2,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -51,6 +51,7 @@ const NAV_GROUPS = [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
+      { label: 'Manutencoes',     icon: Settings2,        to: '/app/manutencoes'         },
       { label: 'Equipamentos',    icon: Wrench,           to: '/app/gestao-equipamentos' },
     ],
   },
