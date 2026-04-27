@@ -2,6 +2,24 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FinanceiroTab, FinanceiroEntry } from '@/types'
 
+function moneyValue(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const text = String(value ?? '').trim()
+  if (!text) return 0
+  const clean = text
+    .replace(/R\$\s?/g, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '')
+  if (!clean || clean === '-' || clean === ',' || clean === '.') return 0
+  if (clean.includes(',') && clean.includes('.')) {
+    return clean.lastIndexOf(',') > clean.lastIndexOf('.')
+      ? parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
+      : parseFloat(clean.replace(/,/g, '')) || 0
+  }
+  if (clean.includes(',')) return parseFloat(clean.replace(',', '.')) || 0
+  return parseFloat(clean) || 0
+}
+
 interface FinanceiroState {
   activeTab: FinanceiroTab
   setActiveTab: (tab: FinanceiroTab) => void
@@ -34,11 +52,11 @@ export const useFinanceiroStore = create<FinanceiroState>()(
 
       getEntradas: () => get().entries.filter((e) => e.tipo === 'entrada'),
       getSaidas: () => get().entries.filter((e) => e.tipo === 'saida'),
-      getTotalEntradas: () => get().entries.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + e.valor, 0),
-      getTotalSaidas: () => get().entries.filter((e) => e.tipo === 'saida').reduce((s, e) => s + e.valor, 0),
+      getTotalEntradas: () => get().entries.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + moneyValue(e.valor), 0),
+      getTotalSaidas: () => get().entries.filter((e) => e.tipo === 'saida').reduce((s, e) => s + moneyValue(e.valor), 0),
       getSaldo: () => {
         const ent = get().entries
-        return ent.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + e.valor, 0) - ent.filter((e) => e.tipo === 'saida').reduce((s, e) => s + e.valor, 0)
+        return ent.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + moneyValue(e.valor), 0) - ent.filter((e) => e.tipo === 'saida').reduce((s, e) => s + moneyValue(e.valor), 0)
       },
 
       loadDemoData: () => set({
@@ -65,8 +83,8 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           const month = e.data.slice(0, 7) // yyyy-MM
           if (!map.has(month)) map.set(month, { entradas: 0, saidas: 0 })
           const m = map.get(month)!
-          if (e.tipo === 'entrada') m.entradas += e.valor
-          else m.saidas += e.valor
+          if (e.tipo === 'entrada') m.entradas += moneyValue(e.valor)
+          else m.saidas += moneyValue(e.valor)
         }
         let acc = 0
         return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([month, { entradas, saidas }]) => {

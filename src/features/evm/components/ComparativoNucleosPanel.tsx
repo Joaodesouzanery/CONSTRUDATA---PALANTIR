@@ -1,22 +1,41 @@
 import { formatCurrency } from '@/lib/utils'
 import { useEvmStore } from '@/store/evmStore'
 
+function asNumber(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const text = String(value ?? '').trim()
+  if (!text) return 0
+  const clean = text
+    .replace(/R\$\s?/g, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '')
+  if (!clean || clean === '-' || clean === ',' || clean === '.') return 0
+  if (clean.includes(',') && clean.includes('.')) {
+    return clean.lastIndexOf(',') > clean.lastIndexOf('.')
+      ? parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
+      : parseFloat(clean.replace(/,/g, '')) || 0
+  }
+  if (clean.includes(',')) return parseFloat(clean.replace(',', '.')) || 0
+  return parseFloat(clean) || 0
+}
+
 function calc(n: ReturnType<typeof useEvmStore.getState>['nucleos'][number]) {
   const latest = n.evm.at(-1)
-  const pv = latest?.pv ?? 0
-  const ev = n.workPackages.reduce((sum, wp) => sum + wp.evReconhecido, 0)
-  const ac = n.saidas.reduce((sum, s) => sum + s.valor, 0)
+  const pv = asNumber(latest?.pv)
+  const ev = n.workPackages.reduce((sum, wp) => sum + asNumber(wp.evReconhecido), 0)
+  const ac = n.saidas.reduce((sum, s) => sum + asNumber(s.valor), 0)
   const cpi = ac > 0 ? ev / ac : 0
   const spi = pv > 0 ? ev / pv : 0
-  return { pv, ev, ac, cpi, spi, eac: cpi > 0 ? n.bacAlocado / Math.max(0.35, cpi * (latest?.ppcMedio ?? 0.8)) : 0 }
+  const bac = asNumber(n.bacAlocado)
+  return { pv, ev, ac, cpi, spi, eac: cpi > 0 ? bac / Math.max(0.35, cpi * (latest?.ppcMedio ?? 0.8)) : 0 }
 }
 
 export function ComparativoNucleosPanel() {
-  const nucleos = useEvmStore((s) => s.nucleos)
+  const nucleos = useEvmStore((s) => s.nucleos).filter((n) => n.ativo !== false)
   const totals = nucleos.reduce(
     (acc, n) => {
       const m = calc(n)
-      return { bac: acc.bac + n.bacAlocado, pv: acc.pv + m.pv, ev: acc.ev + m.ev, ac: acc.ac + m.ac }
+      return { bac: acc.bac + asNumber(n.bacAlocado), pv: acc.pv + m.pv, ev: acc.ev + m.ev, ac: acc.ac + m.ac }
     },
     { bac: 0, pv: 0, ev: 0, ac: 0 },
   )

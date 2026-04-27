@@ -8,6 +8,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useAgendaStore } from '@/store/agendaStore'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { getExecutedActivities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import { Ecosystem360Panel } from '@/features/relatorio360/components/Ecosystem360Panel'
@@ -46,6 +47,12 @@ function sameProject(haystack: string, projectName: string, projectCode: string)
   return text.includes(projectName.toLowerCase()) || text.includes(projectCode.toLowerCase()) || (firstName.length > 3 && text.includes(firstName))
 }
 
+function happensOnDate(startDate: string, endDate: string | undefined, date: string) {
+  if (!startDate) return false
+  const end = endDate || startDate
+  return startDate <= date && end >= date
+}
+
 export function DailyReportPanel() {
   const projects = useProjetosStore((s) => s.projects)
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
@@ -57,6 +64,8 @@ export function DailyReportPanel() {
   const maintenanceOrders = useGestaoEquipamentosStore((s) => s.orders)
   const requisitions = useSuprimentosStore((s) => s.requisitions)
   const purchaseOrders = useSuprimentosStore((s) => s.purchaseOrders)
+  const agendaTasks = useAgendaStore((s) => s.tasks)
+  const agendaResources = useAgendaStore((s) => s.resources)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   const project = projects.find((p) => p.id === selectedProjectId) ?? projects[0] ?? null
@@ -73,6 +82,7 @@ export function DailyReportPanel() {
         maintenance: [],
         reqs: [],
         pos: [],
+        agenda: [],
         activities: [],
         photos: [],
       }
@@ -91,7 +101,29 @@ export function DailyReportPanel() {
     })
     const reqs = requisitions.filter((req) => req.requestedAt.slice(0, 10) === date)
     const pos = purchaseOrders.filter((po) => po.issuedDate === date)
+    const agenda = agendaTasks.filter((task) => {
+      if (!happensOnDate(task.startDate, task.endDate, date)) return false
+      if (task.linkedProjectId) return task.linkedProjectId === project.id
+      const agendaText = `${task.title} ${task.location ?? ''} ${task.notes ?? ''} ${task.assignedTo ?? ''} ${task.teamLeadName ?? ''}`
+      return sameProject(agendaText, project.name, project.code) || !task.linkedProjectId
+    })
+    const resourceById = new Map(agendaResources.map((resource) => [resource.id, resource]))
     const activities = [
+      ...agenda.map((task) => {
+        const resource = resourceById.get(task.resourceId)
+        const detailParts = [
+          'Agenda',
+          task.startDate === task.endDate ? task.startDate : `${task.startDate} a ${task.endDate}`,
+          task.location,
+          task.assignedTo || task.teamLeadName,
+          resource?.name,
+        ].filter(Boolean)
+        return {
+          label: task.title,
+          status: task.status === 'completed' ? 'concluida' : task.status === 'unscheduled' ? 'sem data' : 'agenda',
+          detail: detailParts.join(' - '),
+        }
+      }),
       ...reports360.flatMap((report) => report.activities.map((activity) => ({
         label: activity.name,
         status: activity.status,
@@ -110,8 +142,8 @@ export function DailyReportPanel() {
     ]
     const photos = reports360.flatMap((report) => report.photos).slice(0, 8)
 
-    return { reports360, regularRdos, sabesp, fvs, ncs, maintenance, reqs, pos, activities, photos }
-  }, [project, reports, date, rdos, sabespRdos, fvss, nonConformities, maintenanceOrders, requisitions, purchaseOrders])
+    return { reports360, regularRdos, sabesp, fvs, ncs, maintenance, reqs, pos, agenda, activities, photos }
+  }, [project, reports, date, rdos, sabespRdos, fvss, nonConformities, maintenanceOrders, requisitions, purchaseOrders, agendaTasks, agendaResources])
 
   if (!project) {
     return <div className="text-sm text-[#a3a3a3]">Nenhum projeto disponível.</div>

@@ -138,10 +138,61 @@ function computeWpScore(wp: Pick<FinanceiroWorkPackage, 'pesoFinanceiro' | 'peso
   return wp.pesoFinanceiro * 0.3 + wp.pesoDuracao * 0.25 + wp.pesoEconomico * 0.3 + wp.pesoEspecifico * 0.15
 }
 
+function financialNumber(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const text = String(value ?? '').trim()
+  if (!text) return 0
+  const clean = text
+    .replace(/R\$\s?/g, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '')
+  if (!clean || clean === '-' || clean === ',' || clean === '.') return 0
+  if (clean.includes(',') && clean.includes('.')) {
+    return clean.lastIndexOf(',') > clean.lastIndexOf('.')
+      ? parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
+      : parseFloat(clean.replace(/,/g, '')) || 0
+  }
+  if (clean.includes(',')) return parseFloat(clean.replace(',', '.')) || 0
+  return parseFloat(clean) || 0
+}
+
 function makeWorkPackageFinanceiro(input: Omit<FinanceiroWorkPackage, 'scoreComposto' | 'evReconhecido'>): FinanceiroWorkPackage {
   const scoreComposto = computeWpScore(input)
   const evReconhecido = input.bacWP * (input.progFisico / 100) * input.pesoFinanceiro
   return { ...input, scoreComposto, evReconhecido }
+}
+
+function rescaleNucleoFinanceiro(n: NucleoFinanceiro, nextBac: number): NucleoFinanceiro {
+  const previousBac = n.bacAlocado > 0 ? n.bacAlocado : nextBac
+  const factor = previousBac > 0 ? nextBac / previousBac : 1
+  const scale = (value: number) => Math.round(value * factor * 100) / 100
+
+  return {
+    ...n,
+    bacAlocado: nextBac,
+    planoContas: {
+      ...n.planoContas,
+      totalOrcado: nextBac,
+    },
+    workPackages: n.workPackages.map((wp) => makeWorkPackageFinanceiro({
+      ...wp,
+      bacWP: scale(wp.bacWP),
+    })),
+    entradas: n.entradas.map((entrada) => ({ ...entrada, valor: scale(entrada.valor) })),
+    saidas: n.saidas.map((saida) => ({ ...saida, valor: scale(saida.valor) })),
+    evm: n.evm.map((periodo) => ({
+      ...periodo,
+      pv: scale(periodo.pv),
+      ev: scale(periodo.ev),
+      ac: scale(periodo.ac),
+      cv: scale(periodo.cv),
+      sv: scale(periodo.sv),
+      eacFormula: scale(periodo.eacFormula),
+      eacOtimista: scale(periodo.eacOtimista),
+      eacPessimista: scale(periodo.eacPessimista),
+      vac: scale(periodo.vac),
+    })),
+  }
 }
 
 function makeNucleoFinanceiro(input: {
@@ -289,13 +340,14 @@ function buildMeasurementTemplates(): MeasurementTemplate[] {
 }
 
 function computeFinancialPortfolio(nucleos: NucleoFinanceiro[], onlyIds?: string[]): EvmMetrics {
-  const selected = onlyIds ? nucleos.filter((n) => onlyIds.includes(n.id)) : nucleos
+  const selected = (onlyIds ? nucleos.filter((n) => onlyIds.includes(n.id)) : nucleos)
+    .filter((n) => n.ativo !== false)
   if (selected.length === 0) return { ...EMPTY_METRICS }
-  const BAC = selected.reduce((sum, n) => sum + n.bacAlocado, 0)
+  const BAC = selected.reduce((sum, n) => sum + financialNumber(n.bacAlocado), 0)
   const latestPeriods = selected.flatMap((n) => n.evm.slice(-1))
-  const PV = latestPeriods.reduce((sum, p) => sum + p.pv, 0)
-  const EV = selected.reduce((sum, n) => sum + n.workPackages.reduce((wpSum, wp) => wpSum + wp.evReconhecido, 0), 0)
-  const AC = selected.reduce((sum, n) => sum + n.saidas.reduce((saidaSum, saida) => saidaSum + saida.valor, 0), 0)
+  const PV = latestPeriods.reduce((sum, p) => sum + financialNumber(p.pv), 0)
+  const EV = selected.reduce((sum, n) => sum + n.workPackages.reduce((wpSum, wp) => wpSum + financialNumber(wp.evReconhecido), 0), 0)
+  const AC = selected.reduce((sum, n) => sum + n.saidas.reduce((saidaSum, saida) => saidaSum + financialNumber(saida.valor), 0), 0)
   const CPI = AC > 0 ? EV / AC : 0
   const SPI = PV > 0 ? EV / PV : 0
   const CV = EV - AC
@@ -385,14 +437,20 @@ export const useEvmStore = create<EvmState>()(
       nucleos: s.nucleos.map((n) => {
         if (n.id !== id) return n
         const bacAlocado = patch.bacAlocado ?? n.bacAlocado
+        const scaled = patch.bacAlocado && patch.bacAlocado !== n.bacAlocado
+          ? rescaleNucleoFinanceiro(n, bacAlocado)
+          : {
+              ...n,
+              bacAlocado,
+              planoContas: {
+                ...n.planoContas,
+                totalOrcado: bacAlocado,
+              },
+            }
         return {
-          ...n,
+          ...scaled,
           ...patch,
           bacAlocado,
-          planoContas: {
-            ...n.planoContas,
-            totalOrcado: bacAlocado,
-          },
         }
       }),
     }))

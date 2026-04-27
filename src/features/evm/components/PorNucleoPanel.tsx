@@ -17,6 +17,24 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
   )
 }
 
+function asNumber(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  const text = String(value ?? '').trim()
+  if (!text) return 0
+  const clean = text
+    .replace(/R\$\s?/g, '')
+    .replace(/\s/g, '')
+    .replace(/[^\d.,-]/g, '')
+  if (!clean || clean === '-' || clean === ',' || clean === '.') return 0
+  if (clean.includes(',') && clean.includes('.')) {
+    return clean.lastIndexOf(',') > clean.lastIndexOf('.')
+      ? parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
+      : parseFloat(clean.replace(/,/g, '')) || 0
+  }
+  if (clean.includes(',')) return parseFloat(clean.replace(',', '.')) || 0
+  return parseFloat(clean) || 0
+}
+
 export function PorNucleoPanel() {
   const {
     contrato,
@@ -31,13 +49,15 @@ export function PorNucleoPanel() {
     diagnoseSpi,
     diagnosticNotes,
   } = useEvmStore()
-  const selected = selectedNucleoId ? nucleos.find((n) => n.id === selectedNucleoId) : null
-  const scopedNucleos = selected ? [selected] : nucleos
+  const activeNucleos = nucleos.filter((n) => n.ativo !== false)
+  const selected = selectedNucleoId ? activeNucleos.find((n) => n.id === selectedNucleoId) : null
+  const scopedNucleos = selected ? [selected] : activeNucleos
+  const totalBac = activeNucleos.reduce((sum, n) => sum + asNumber(n.bacAlocado), 0)
   const latestPeriods = scopedNucleos.flatMap((n) => n.evm.slice(-1))
-  const pv = latestPeriods.reduce((sum, p) => sum + p.pv, 0)
-  const ev = scopedNucleos.reduce((sum, n) => sum + n.workPackages.reduce((wpSum, wp) => wpSum + wp.evReconhecido, 0), 0)
-  const ac = scopedNucleos.reduce((sum, n) => sum + n.saidas.reduce((saidaSum, saida) => saidaSum + saida.valor, 0), 0)
-  const bac = scopedNucleos.reduce((sum, n) => sum + n.bacAlocado, 0)
+  const pv = latestPeriods.reduce((sum, p) => sum + asNumber(p.pv), 0)
+  const ev = scopedNucleos.reduce((sum, n) => sum + n.workPackages.reduce((wpSum, wp) => wpSum + asNumber(wp.evReconhecido), 0), 0)
+  const ac = scopedNucleos.reduce((sum, n) => sum + n.saidas.reduce((saidaSum, saida) => saidaSum + asNumber(saida.valor), 0), 0)
+  const bac = scopedNucleos.reduce((sum, n) => sum + asNumber(n.bacAlocado), 0)
   const cpi = ac > 0 ? ev / ac : 0
   const spi = pv > 0 ? ev / pv : 0
   const ppcMedio = latestPeriods.length
@@ -100,9 +120,9 @@ export function PorNucleoPanel() {
         >
           <span className="flex items-center gap-1 text-[10px] uppercase text-[#8a8a8a]"><Layers3 size={12} /> Geral</span>
           <span className="block truncate text-sm font-semibold text-[#f5f5f5]">Todos os núcleos</span>
-          <span className="block text-xs text-[#a3a3a3]">{formatCurrency(bac)}</span>
+          <span className="block text-xs text-[#a3a3a3]">{formatCurrency(totalBac)}</span>
         </button>
-        {nucleos.map((n) => (
+        {activeNucleos.map((n) => (
           <div
             key={n.id}
             className={cn(
@@ -136,7 +156,7 @@ export function PorNucleoPanel() {
             <Kpi label="CPI" value={cpi.toFixed(2)} tone={ratioColor(cpi)} />
             <Kpi label="SPI" value={spi.toFixed(2)} tone={ratioColor(spi)} />
             <Kpi label="EAC por PPC" value={formatCurrency(eac)} />
-            <Kpi label="Entradas" value={formatCurrency(scopedNucleos.reduce((sum, n) => sum + n.entradas.reduce((entrySum, e) => entrySum + e.valor, 0), 0))} />
+            <Kpi label="Entradas" value={formatCurrency(scopedNucleos.reduce((sum, n) => sum + n.entradas.reduce((entrySum, e) => entrySum + asNumber(e.valor), 0), 0))} />
             <Kpi label="Saídas" value={formatCurrency(ac)} />
             <Kpi label="Work packages" value={String(workPackages.length)} />
             <Kpi label="PPC médio" value={`${(ppcMedio * 100).toFixed(0)}%`} />
