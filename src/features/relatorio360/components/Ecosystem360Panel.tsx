@@ -12,6 +12,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useEvmStore } from '@/store/evmStore'
 import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -84,28 +85,37 @@ export function Ecosystem360Panel({ date, projectName, compact = false }: Props)
   const fvss = useQualidadeStore((s) => s.fvss)
   const nonConformities = useQualidadeStore((s) => s.nonConformities)
   const equipmentOrders = useGestaoEquipamentosStore((s) => s.orders)
-  const { purchaseOrders, requisitions, estoqueItens, planilhaItensOperacionais, planilhaOrdens } = useSuprimentosStore((s) => ({
-    purchaseOrders: s.purchaseOrders,
-    requisitions: s.requisitions,
-    estoqueItens: s.estoqueItens,
-    planilhaItensOperacionais: s.planilhaItensOperacionais,
-    planilhaOrdens: s.planilhaOrdens,
-  }))
+  const { purchaseOrders, requisitions, estoqueItens, planilhaItensOperacionais, planilhaOrdens } = useSuprimentosStore(
+    useShallow((s) => ({
+      purchaseOrders: s.purchaseOrders,
+      requisitions: s.requisitions,
+      estoqueItens: s.estoqueItens,
+      planilhaItensOperacionais: s.planilhaItensOperacionais,
+      planilhaOrdens: s.planilhaOrdens,
+    }))
+  )
   const evmMetrics = useEvmStore((s) => s.evmMetrics)
-  const { trechos, isScheduleDirty, projectEndDate } = usePlanejamentoStore((s) => ({
-    trechos: s.trechos,
-    isScheduleDirty: s.isScheduleDirty,
-    projectEndDate: s.projectEndDate,
-  }))
-  const { workers, timecards, violations, absences } = useMaoDeObraStore((s) => ({
-    workers: s.workers,
-    timecards: s.timecards,
-    violations: s.violations,
-    absences: s.absences,
-  }))
+  const { trechos, isScheduleDirty, projectEndDate } = usePlanejamentoStore(
+    useShallow((s) => ({
+      trechos: s.trechos,
+      isScheduleDirty: s.isScheduleDirty,
+      projectEndDate: s.projectEndDate,
+    }))
+  )
+  const { workers, timecards, violations, absences } = useMaoDeObraStore(
+    useShallow((s) => ({
+      workers: s.workers,
+      timecards: s.timecards,
+      violations: s.violations,
+      absences: s.absences,
+    }))
+  )
   const weeklyPpcResults = useOperacaoCampoStore((s) => s.weeklyPpcResults)
-  const medicaoKpis = useMedicaoStore((s) => s.getGlobalKpis())
-  const { outages, serviceOrders } = useRede360Store((s) => ({ outages: s.outages, serviceOrders: s.serviceOrders }))
+  const getMedicaoKpis = useMedicaoStore((s) => s.getGlobalKpis)
+  const medicaoKpis = getMedicaoKpis()
+  const { outages, serviceOrders } = useRede360Store(
+    useShallow((s) => ({ outages: s.outages, serviceOrders: s.serviceOrders }))
+  )
 
   const sabespRdos = readLocalRdoSabesp().filter((rdo) => rdo.report_date === date && sameProject(`${rdo.rua_beco} ${rdo.encarregado}`, projectName))
   const reportList = Object.values(reports).filter((report) => report.date === date && sameProject(report.projectName, projectName))

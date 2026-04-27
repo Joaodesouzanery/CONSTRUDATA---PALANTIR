@@ -218,6 +218,7 @@ interface SuprimentosState {
   addFrameworkAgreement:    (fa: Omit<FrameworkAgreement, 'id'>) => void
 
   // Estoque actions
+  addDeposito:         (deposito: Omit<DepositoVirtual, 'id' | 'ativo'> & { ativo?: boolean }) => void
   setSelectedDeposito:  (id: string | null) => void
   addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => void
   updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
@@ -589,6 +590,14 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     })),
 
   // ─── Estoque actions ────────────────────────────────────────────────────────
+
+  addDeposito: (deposito) => {
+    const id = crypto.randomUUID()
+    set((s) => ({
+      depositos: [...s.depositos, { ...deposito, id, ativo: deposito.ativo ?? true }],
+      selectedDepositoId: id,
+    }))
+  },
 
   setSelectedDeposito: (id) => set({ selectedDepositoId: id }),
 

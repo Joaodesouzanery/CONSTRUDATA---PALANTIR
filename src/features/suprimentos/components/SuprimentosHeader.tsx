@@ -6,7 +6,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'semaforo' | 'whatif' | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif' | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
 
 export type SuprimentosSection = 'suprimentos' | 'materiais' | 'planilhas'
 
@@ -25,6 +25,7 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'materiais',   label: 'Materiais & Fornecedores', section: 'materiais'   },
   { key: 'contratos',   label: 'Contrato 360',             section: 'materiais'   },
   { key: 'estoque',     label: 'Mapa de Estoque',          section: 'materiais'   },
+  { key: 'almoxarifado', label: 'Almoxarifado',             section: 'materiais'   },
   { key: 'semaforo',    label: 'Semáforo de Prontidão',    section: 'materiais'   },
   { key: 'whatif',      label: 'What-if Logístico',        section: 'materiais'   },
   { key: 'entrada_dados',       label: 'Entrada de Dados',        section: 'planilhas'   },

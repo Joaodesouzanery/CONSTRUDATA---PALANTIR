@@ -31,6 +31,7 @@ const NAV_GROUPS = [
       { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/app/gestao-360'          },
       { label: 'Relatório 360',   icon: ClipboardList,    to: '/app/relatorio360'        },
       { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
+      { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
       { label: 'Medição',          icon: Ruler,            to: '/app/medicao'             },
     ],
   },
@@ -64,7 +65,6 @@ const NAV_GROUPS = [
     label: 'ANALYTICS',
     items: [
       { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
-      { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
     ],
   },
 ]

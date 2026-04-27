@@ -43,6 +43,7 @@ export function MapaEstoquePanel() {
   const {
     depositos, estoqueItens, movimentacoes,
     selectedDepositoId, setSelectedDeposito,
+    addDeposito,
     addItemEstoque, addMovimentacao, consumirMaterial,
   } = useSuprimentosStore(
     useShallow((s) => ({
@@ -51,6 +52,7 @@ export function MapaEstoquePanel() {
       movimentacoes:       s.movimentacoes,
       selectedDepositoId:  s.selectedDepositoId,
       setSelectedDeposito: s.setSelectedDeposito,
+      addDeposito:         s.addDeposito,
       addItemEstoque:      s.addItemEstoque,
       addMovimentacao:     s.addMovimentacao,
       consumirMaterial:    s.consumirMaterial,
@@ -58,7 +60,9 @@ export function MapaEstoquePanel() {
   )
 
   const [showNovoItem, setShowNovoItem] = useState(false)
+  const [showNovoNucleo, setShowNovoNucleo] = useState(false)
   const [showMovForm, setShowMovForm]   = useState(false)
+  const [novoNucleo, setNovoNucleo] = useState({ frente: '', descricao: '' })
   const [novoItem, setNovoItem] = useState<NovoItemForm>({
     descricao: '', unidade: '', qtdDisponivel: '', estoqueMinimo: '', custoUnitario: '', categoria: '',
   })
@@ -93,6 +97,16 @@ export function MapaEstoquePanel() {
     })
     setNovoItem({ descricao: '', unidade: '', qtdDisponivel: '', estoqueMinimo: '', custoUnitario: '', categoria: '' })
     setShowNovoItem(false)
+  }
+
+  function handleSaveNovoNucleo() {
+    if (!novoNucleo.frente.trim()) return
+    addDeposito({
+      frente: novoNucleo.frente.trim(),
+      descricao: novoNucleo.descricao.trim() || undefined,
+    })
+    setNovoNucleo({ frente: '', descricao: '' })
+    setShowNovoNucleo(false)
   }
 
   function handleSaveMov() {
@@ -141,7 +155,40 @@ export function MapaEstoquePanel() {
             {d.frente}
           </button>
         ))}
+        <button
+          onClick={() => setShowNovoNucleo((v) => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#f97316]/15 text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/25 transition-colors"
+        >
+          <Plus size={13} /> Novo Nucleo
+        </button>
       </div>
+
+      {showNovoNucleo && (
+        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_auto] gap-3">
+          <div>
+            <label className="text-[10px] text-[#6b6b6b] mb-1 block">Nome do nucleo*</label>
+            <input
+              value={novoNucleo.frente}
+              onChange={(e) => setNovoNucleo((p) => ({ ...p, frente: e.target.value }))}
+              placeholder="Morro do Teteu"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-[#6b6b6b] mb-1 block">Localizacao / descricao</label>
+            <input
+              value={novoNucleo.descricao}
+              onChange={(e) => setNovoNucleo((p) => ({ ...p, descricao: e.target.value }))}
+              placeholder="Prateleira, obra, frente ou referencia"
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <button onClick={() => setShowNovoNucleo(false)} className="px-3 py-1.5 text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
+            <button onClick={handleSaveNovoNucleo} className="px-4 py-1.5 text-xs font-medium bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/80">Salvar</button>
+          </div>
+        </div>
+      )}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
