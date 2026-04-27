@@ -477,7 +477,7 @@ export function SabespPlanilhaPanel() {
               </button>
               <button
                 type="button"
-                onClick={() => exportSabespPdf(boletim.itensContrato, boletim.periodo, boletim.contrato, boletim.consorcio)}
+                onClick={() => exportSabespPdf(boletim.itensContrato, boletim.periodo, boletim.contrato, boletim.consorcio, boletim.planilhaBase?.sourceTotals)}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
               >
                 <FileDown size={13} />

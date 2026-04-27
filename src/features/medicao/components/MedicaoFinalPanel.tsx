@@ -175,6 +175,7 @@ export function MedicaoFinalPanel() {
             <Row label="Valor total do contrato" value={mf.totalContratoValor} />
             <Row label={`Medição do período (${boletim.periodo})`} value={mf.totalMedidoPeriodo} highlight />
             <Row label="Total acumulado" value={mf.totalAcumulado} />
+            <Row label="Saldo do contrato" value={mf.saldoContrato ?? (mf.totalContratoValor - mf.totalAcumulado)} />
 
             <div className="px-5 py-2 bg-[#1f1f1f]">
               <div className="text-[10px] font-semibold uppercase text-[#6b6b6b] tracking-widest">Comprometimentos</div>

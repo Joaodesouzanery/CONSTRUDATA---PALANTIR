@@ -5,7 +5,7 @@
  * triggers window.print(). Consistent with the codebase's existing PDF approach.
  */
 import { getItensBaseCalculoFromBoletim } from '@/store/medicaoBillingStore'
-import type { ItemContrato, Subempreiteiro, Fornecedor, ConferenciaItem, MedicaoBoletim } from '@/store/medicaoBillingStore'
+import type { ItemContrato, Subempreiteiro, Fornecedor, ConferenciaItem, MedicaoBoletim, MedicaoSourceTotals } from '@/store/medicaoBillingStore'
 import { getAllCriterios } from '../data/criterios'
 
 function fmtBRL(n: number) {
@@ -27,6 +27,8 @@ const BASE_CSS = `
   th.center, td.center { text-align: center; }
   td { padding: 3px 5px; border-bottom: 1px solid #e5e5e5; }
   td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .criterion-note { margin-top: 3px; padding: 3px 5px; background: #f3f4f6; border-left: 2px solid #9ca3af; color: #4b5563; font-size: 6.8pt; line-height: 1.25; }
+  .criterion-note strong { color: #374151; }
   tr:nth-child(even) td { background: #f9f9f9; }
   tfoot td { background: #f0f0f0 !important; font-weight: 700; border-top: 2px solid #ccc; }
   .total { font-size: 11pt; font-weight: 700; color: #f97316; margin: 8px 0 0; }
@@ -50,7 +52,7 @@ function openPrint(title: string, body: string) {
 
 const GRUPOS: Record<string, string> = { '01': 'Canteiros e Planos', '02': 'Esgoto', '03': 'Água', 'EX': 'Extra / Aditivos' }
 
-export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato: string, consorcio: string) {
+export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato: string, consorcio: string, sourceTotals?: MedicaoSourceTotals) {
   let body = `<h1>Planilha de Medição Sabesp — ${periodo}</h1><p class="sub">Contrato ${contrato} · ${consorcio}</p>`
 
   const grupos = ['01', '02', '03', 'EX']
@@ -93,8 +95,10 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
     </tr></tfoot></table>`
   }
 
-  const grandAcumulado = itens.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
-  const grandSaldo = itens.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
+  const grandContrato = sourceTotals?.totalContrato ?? itens.reduce((s, i) => s + i.qtdContrato * i.valorUnitario, 0)
+  const grandPeriodo = sourceTotals?.totalPeriodo ?? grandTotal
+  const grandAcumulado = sourceTotals?.totalAcumulado ?? itens.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
+  const grandSaldo = sourceTotals?.saldo ?? itens.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
   const extCount = itens.filter(i => i.nPreco.startsWith('EXT')).length
 
   if (extCount > 0) {
@@ -104,7 +108,8 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
   }
 
   body += `<table style="margin-top:12px;"><tbody>
-    <tr><td><strong>Total do Período</strong></td><td class="right" style="font-size:11pt;font-weight:700;color:#f97316;">${fmtBRL(grandTotal)}</td></tr>
+    <tr><td>Valor Total do Contrato</td><td class="right">${fmtBRL(grandContrato)}</td></tr>
+    <tr><td><strong>Total do Período</strong></td><td class="right" style="font-size:11pt;font-weight:700;color:#f97316;">${fmtBRL(grandPeriodo)}</td></tr>
     <tr><td>Total Acumulado</td><td class="right">${fmtBRL(grandAcumulado)}</td></tr>
     <tr><td>Saldo Total</td><td class="right" style="color:${grandSaldo >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(grandSaldo)}</td></tr>
   </tbody></table>`
@@ -198,21 +203,17 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
   for (const c of conferencia) {
     const statusCls = c.status === 'ok' ? 'ok' : c.status === 'divergencia' ? 'div' : 'pend'
     const statusLabel = c.status === 'ok' ? 'OK' : c.status === 'divergencia' ? 'Divergência' : 'Pendente'
+    const crit = getAllCriterios().find(cr => cr.nPreco === c.nPreco)
+    const criterioHtml = crit
+      ? `<div class="criterion-note"><strong>Critério ${c.nPreco}:</strong> ${crit.medicao}</div>`
+      : ''
     body += `<tr>
-      <td>${c.nPreco}</td><td>${c.descricao}</td><td class="center">${c.unidade}</td>
+      <td>${c.nPreco}</td><td>${c.descricao}${criterioHtml}</td><td class="center">${c.unidade}</td>
       <td class="right">${fmtNum(c.qtdSabesp)}</td><td class="right">${fmtNum(c.qtdSubempreiteiros)}</td>
       <td class="right">${fmtNum(c.diferenca)}</td>
       <td class="center ${statusCls}">${statusLabel}</td>
       <td>${c.observacao || ''}</td>
     </tr>`
-
-    // Add criteria block below the item
-    const crit = getAllCriterios().find(cr => cr.nPreco === c.nPreco)
-    if (crit) {
-      body += `<tr><td colspan="8" style="background:#fff8f0;padding:6px 12px;border-left:3px solid #f97316;">
-        <div style="font-size:7.5pt;color:#666;"><strong style="color:#f97316;">CRITÉRIO ${c.nPreco}</strong> — <strong>Medição:</strong> ${crit.medicao}</div>
-      </td></tr>`
-    }
   }
   body += `</tbody></table>`
   openPrint(`Conferência ${periodo}`, body)
@@ -243,6 +244,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
     <tr><td>Valor Total do Contrato</td><td class="right">${fmtBRL(mf?.totalContratoValor ?? 0)}</td></tr>
     <tr><td>Total Medido no Período</td><td class="right">${fmtBRL(totalMedido)}</td></tr>
     <tr><td>Total Acumulado</td><td class="right">${fmtBRL(mf?.totalAcumulado ?? 0)}</td></tr>
+    <tr><td>Saldo do Contrato</td><td class="right">${fmtBRL(mf?.saldoContrato ?? ((mf?.totalContratoValor ?? 0) - (mf?.totalAcumulado ?? 0)))}</td></tr>
     <tr><td>Total Subempreiteiros</td><td class="right">${fmtBRL(totalSub)}</td></tr>
     <tr><td>Total Fornecedores</td><td class="right">${fmtBRL(totalForn)}</td></tr>
   </tbody><tfoot>
@@ -272,9 +274,13 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
         const saldoQtd = item.qtdContrato - qtdAcum
         const valor = item.qtdMedida * item.valorUnitario
         const saldoR = saldoQtd * item.valorUnitario
+        const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
+        const criterioHtml = crit
+          ? `<div class="criterion-note"><strong>Critério:</strong> ${crit.medicao}${crit.notas ? `<br/>Notas: ${crit.notas}` : ''}</div>`
+          : `<div class="criterion-note" style="border-left-color:#dc2626;color:#991b1b;"><strong>Critério não localizado</strong> para nPreço ${item.nPreco}</div>`
         body += `<tr>
           <td>${item.itemEAP || '—'}</td>
-          <td>${item.descricao}<br/><span style="color:#f97316;font-size:7pt;">${item.nPreco}</span></td>
+          <td>${item.descricao}<br/><span style="color:#f97316;font-size:7pt;">${item.nPreco}</span>${criterioHtml}</td>
           <td class="center">${item.unidade}</td>
           <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtNum(item.qtdAnterior)}</td>
           <td class="right">${fmtNum(item.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
@@ -282,17 +288,6 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
           <td class="right">${fmtNum(saldoQtd)}</td>
           <td class="right" style="color:${saldoR >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldoR)}</td>
         </tr>`
-        const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
-        if (crit) {
-          body += `<tr><td colspan="11" style="background:#fafaf8;padding:2px 20px 2px 24px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;color:#666;">
-            <strong style="color:#f97316;font-style:normal;">CRITÉRIO:</strong> ${crit.medicao}
-            ${crit.notas ? `<br/><span style="color:#999;">Notas: ${crit.notas}</span>` : ''}
-          </td></tr>`
-        } else {
-          body += `<tr><td colspan="11" style="background:#fff0f0;padding:2px 20px;border-left:3px solid #dc2626;font-size:7pt;color:#dc2626;">
-            Critério não localizado para nPreço ${item.nPreco}
-          </td></tr>`
-        }
       }
       body += `</tbody><tfoot><tr style="background:#f0f0f0;font-weight:700;">
         <td colspan="8" class="right">Total do Grupo — ${GRUPOS[gId]}</td>

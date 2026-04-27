@@ -262,6 +262,9 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   let inExtras = false
   const anchors: MedicaoAnchorTotal[] = []
 
+  const hasFinancialTotals = (row: unknown[]) =>
+    [iContratoTotal, iValorMedida, iValorAcumulado, iSaldoValor].some((idx) => idx >= 0 && toNum(row[idx]) > 0)
+
   const makeAnchor = (row: unknown[], rowIndex: number, label: string): MedicaoAnchorTotal => ({
     label,
     rowIndex,
@@ -280,14 +283,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     const item    = toStr(row[iItem])
     const nPreco  = toStr(row[iNPreco])
     const descricao = toStr(row[iDescr])
-
-    // Skip completely empty rows (Item, NPreco, and Descricao all empty)
-    if (!item && !nPreco && !descricao) continue
-
-    // Skip CRITÉRIO lines (measurement criteria text, not data rows)
-    const rowJoined = [item, nPreco, descricao].join(' ')
     const fullRowJoined = row.map(toStr).join(' ')
-    if (/crit[eé]rio/i.test(rowJoined) && !/^\d{4,}$/.test(nPreco.replace(/\s/g, ''))) continue
 
     // Skip summary rows, but rows after "Total da Planilha" are extras/aditivos.
     if (/total\s+da\s+planilha/i.test(fullRowJoined)) {
@@ -307,6 +303,17 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       anchors.push(makeAnchor(row, i, 'Total'))
       continue
     }
+    if (inExtras && !item && !nPreco && !descricao && hasFinancialTotals(row)) {
+      anchors.push(makeAnchor(row, i, 'Total Geral com Extras'))
+      continue
+    }
+
+    // Skip CRITÉRIO lines (measurement criteria text, not data rows)
+    const rowJoined = [item, nPreco, descricao].join(' ')
+    if (/crit[eé]rio/i.test(rowJoined) && !/^\d{4,}$/.test(nPreco.replace(/\s/g, ''))) continue
+
+    // Skip completely empty rows (Item, NPreco, and Descricao all empty)
+    if (!item && !nPreco && !descricao) continue
 
     // Detect grupo from Item code prefix
     // Handle both 7-digit (CSV: 1010101) and 8-digit (PDF: 01010101) formats
@@ -450,12 +457,14 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     if (iValorAcumulado >= 0) sourceTotals.totalAcumulado = Math.max(sourceTotals.totalAcumulado, toNum(row[iValorAcumulado]))
     if (iSaldoValor >= 0) sourceTotals.saldo = Math.max(sourceTotals.saldo, toNum(row[iSaldoValor]))
   }
+  const finalTotalAnchor = [...anchors].reverse().find((anchor) => /total geral com extras/i.test(anchor.label))
   const totalPlanilhaAnchor = [...anchors].reverse().find((anchor) => /total da planilha/i.test(anchor.label))
-  if (totalPlanilhaAnchor) {
-    sourceTotals.totalContrato = totalPlanilhaAnchor.totalContrato || sourceTotals.totalContrato
-    sourceTotals.totalPeriodo = totalPlanilhaAnchor.totalPeriodo || sourceTotals.totalPeriodo
-    sourceTotals.totalAcumulado = totalPlanilhaAnchor.totalAcumulado || sourceTotals.totalAcumulado
-    sourceTotals.saldo = totalPlanilhaAnchor.saldo || sourceTotals.saldo
+  const preferredTotalsAnchor = finalTotalAnchor ?? (inExtras ? undefined : totalPlanilhaAnchor)
+  if (preferredTotalsAnchor) {
+    sourceTotals.totalContrato = preferredTotalsAnchor.totalContrato || sourceTotals.totalContrato
+    sourceTotals.totalPeriodo = preferredTotalsAnchor.totalPeriodo || sourceTotals.totalPeriodo
+    sourceTotals.totalAcumulado = preferredTotalsAnchor.totalAcumulado || sourceTotals.totalAcumulado
+    sourceTotals.saldo = preferredTotalsAnchor.saldo || sourceTotals.saldo
   }
 
   const importedChecks = [

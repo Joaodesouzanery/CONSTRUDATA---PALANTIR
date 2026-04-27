@@ -366,6 +366,17 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     return path;
   };
 
+  const getOrganizationId = async () => {
+    const currentOrgId = orgId || useAuth.getState().profile?.organization_id;
+    if (currentOrgId) return currentOrgId;
+
+    await useAuth.getState().refreshProfile().catch((error) => {
+      console.warn("Nao foi possivel recarregar a organizacao para upload de fotos:", error);
+    });
+
+    return useAuth.getState().profile?.organization_id || null;
+  };
+
   const mergeExtracted = (extracted: any) => {
     setData((current: any) => {
       const merged = { ...current };
@@ -509,8 +520,8 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
     setUploadingPhotos(true);
     try {
-      if (!orgId) throw new Error("Organizacao nao carregada para enviar fotos.");
-      const folder = `${orgId}/no-project`;
+      const currentOrgId = await getOrganizationId();
+      const folder = currentOrgId ? `${currentOrgId}/no-project` : null;
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
@@ -520,6 +531,11 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         }
 
         const prepared = await resizeImageForStorage(file);
+        if (!folder) {
+          uploadedPaths.push(prepared.preview);
+          continue;
+        }
+
         const path = `${folder}/attachments/${crypto.randomUUID()}_${prepared.fileName}`;
         const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, prepared.blob, {
           contentType: prepared.blob.type || "image/jpeg",
@@ -538,7 +554,11 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
       if (uploadedPaths.length > 0) {
         appendPhotoPaths(uploadedPaths);
-        toast.success(`${uploadedPaths.length} foto(s) adicionada(s) ao RDO.`);
+        toast.success(
+          folder
+            ? `${uploadedPaths.length} foto(s) adicionada(s) ao RDO.`
+            : `${uploadedPaths.length} foto(s) adicionada(s) localmente. Salve o RDO quando a organizacao carregar.`,
+        );
       }
     } catch (error: any) {
       toast.error("Erro ao adicionar fotos: " + (error?.message || "tente novamente."));

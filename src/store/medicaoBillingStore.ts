@@ -114,6 +114,7 @@ export interface MedicaoFinal {
   totalContratoValor:      number
   totalMedidoPeriodo:      number
   totalAcumulado:          number
+  saldoContrato?:          number
   totalSubempreiteiros:    number
   totalFornecedores:       number
   saldoContratante:        number
@@ -422,26 +423,32 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           if (!boletim) return s
 
           const itensBase = get().getItensBaseCalculo(boletim)
-          const totalMedidoPeriodo = itensBase.reduce(
+          const sourceTotals = boletim.planilhaBase?.sourceTotals
+          const calculatedTotalMedidoPeriodo = itensBase.reduce(
             (acc, i) => acc + i.qtdMedida * i.valorUnitario,
             0
           )
-          const totalContratoValor = itensBase.reduce(
+          const calculatedTotalContratoValor = itensBase.reduce(
             (acc, i) => acc + i.qtdContrato * i.valorUnitario,
             0
           )
           const totalSubempreiteiros = boletim.subempreiteiros.reduce((acc, sub) => acc + sub.totalAprovado, 0)
           const totalFornecedores    = boletim.fornecedores.reduce((acc, f) => acc + f.valorAprovado, 0)
 
-          const totalAcumulado = itensBase.reduce(
+          const calculatedTotalAcumulado = itensBase.reduce(
             (acc, i) => acc + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario,
             0
           )
+          const totalContratoValor = sourceTotals?.totalContrato ?? calculatedTotalContratoValor
+          const totalMedidoPeriodo = sourceTotals?.totalPeriodo ?? calculatedTotalMedidoPeriodo
+          const totalAcumulado = sourceTotals?.totalAcumulado ?? calculatedTotalAcumulado
+          const saldoContrato = sourceTotals?.saldo ?? (totalContratoValor - totalAcumulado)
 
           const medicaoFinal: MedicaoFinal = {
             totalContratoValor,
             totalMedidoPeriodo,
             totalAcumulado,
+            saldoContrato,
             totalSubempreiteiros,
             totalFornecedores,
             saldoContratante:     totalMedidoPeriodo - totalSubempreiteiros - totalFornecedores,
