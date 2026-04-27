@@ -243,6 +243,7 @@ function XlsxImportSabesp() {
   const boletim = getActiveBoletim()
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<SabespParseResult | null>(null)
+  const [previewFileName, setPreviewFileName] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -252,6 +253,7 @@ function XlsxImportSabesp() {
     try {
       const wb = await readWorkbook(file)
       setPreview(parseSabespSheet(wb))
+      setPreviewFileName(file.name)
     } finally {
       setLoading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -260,8 +262,14 @@ function XlsxImportSabesp() {
 
   function handleConfirm() {
     if (!preview || preview.errors.length > 0) return
-    importItensContrato(preview.itens, true)
+    importItensContrato(preview.itens, true, {
+      sourceName: previewFileName,
+      sourceTotals: preview.sourceTotals,
+      anchors: preview.anchors,
+      validations: preview.validations,
+    })
     setPreview(null)
+    setPreviewFileName('')
   }
 
   const hasItems = (boletim?.itensContrato.length ?? 0) > 0
@@ -304,6 +312,31 @@ function XlsxImportSabesp() {
               ) : (
                 <>
                   <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens encontrados. Os itens atuais serão substituídos.</p>
+                  {preview.sourceTotals && (
+                    <div className="grid grid-cols-2 gap-2 text-[10px] md:grid-cols-4">
+                      {[
+                        ['Contrato', preview.sourceTotals.totalContrato],
+                        ['Periodo', preview.sourceTotals.totalPeriodo],
+                        ['Acumulado', preview.sourceTotals.totalAcumulado],
+                        ['Saldo', preview.sourceTotals.saldo],
+                      ].map(([label, value]) => (
+                        <div key={String(label)} className="rounded border border-[#525252] bg-[#1f1f1f] p-2">
+                          <div className="text-[#a3a3a3] uppercase">{label}</div>
+                          <div className="text-[#f5f5f5] font-semibold">R$ {fmt(Number(value) || 0)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.extras && preview.extras.length > 0 && (
+                    <div className="rounded-lg border border-blue-700/30 bg-blue-900/20 p-2 text-[10px] text-blue-200">
+                      {preview.extras.length} item(ns) identificado(s) em Extras / Aditivos. Eles serao preservados em tabela separada.
+                    </div>
+                  )}
+                  {preview.validations && preview.validations.length > 0 && (
+                    <div className="rounded-lg border border-[#525252] bg-[#1f1f1f] p-2 text-[10px] text-[#d4d4d4]">
+                      Validacoes: {preview.validations.map((item) => `${item.label}: ${item.ok ? 'OK' : `dif. R$ ${fmt(item.diff)}`}`).join(' · ')}
+                    </div>
+                  )}
                   {preview.warnings && preview.warnings.length > 0 && (
                     <div className="flex items-start gap-2 text-amber-400 text-[10px] bg-amber-900/20 border border-amber-700/30 rounded-lg p-2">
                       <AlertCircle size={12} className="shrink-0 mt-0.5" />
@@ -368,17 +401,23 @@ function XlsxImportSabesp() {
 }
 
 export function SabespPlanilhaPanel() {
-  const { getActiveBoletim, addItemContrato, updateItemContrato, removeItemContrato } = useMedicaoBillingStore()
+  const {
+    getActiveBoletim,
+    addItemContrato,
+    updateItemContrato,
+    removeItemContrato,
+    savePlanilhaBase,
+    setPlanilhaBaseEnabled,
+  } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [saved, setSaved] = useState(false)
 
   const handleSave = useCallback(() => {
-    // Zustand already auto-persists, but this forces a re-write and gives visual feedback
-    useMedicaoBillingStore.persist.rehydrate()
+    savePlanilhaBase()
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-  }, [])
+  }, [savePlanilhaBase])
 
   if (!boletim) return (
     <div className="p-8 text-center text-[#6b6b6b] text-sm">
@@ -474,6 +513,29 @@ export function SabespPlanilhaPanel() {
           </div>
         </div>
       </div>
+
+      {boletim.planilhaBase && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#525252] bg-[#2c2c2c] px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold text-[#f5f5f5]">Planilha-base salva</div>
+            <div className="text-xs text-[#a3a3a3]">
+              {boletim.planilhaBase.itensSnapshot.length} itens
+              {boletim.planilhaBase.sourceName ? ` · ${boletim.planilhaBase.sourceName}` : ''}
+              {' · '}
+              {new Date(boletim.planilhaBase.savedAt).toLocaleString('pt-BR')}
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-[#f5f5f5]">
+            <input
+              type="checkbox"
+              checked={boletim.planilhaBase.enabled}
+              onChange={(event) => setPlanilhaBaseEnabled(event.target.checked)}
+              className="h-4 w-4 accent-[#f97316]"
+            />
+            Usar como base dos cálculos
+          </label>
+        </div>
+      )}
 
       {/* Alert banner for items with negative balance */}
       {boletim.itensContrato.some((i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0) && (

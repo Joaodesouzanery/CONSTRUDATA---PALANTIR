@@ -36,6 +36,41 @@ export interface ItemContrato {
   // saldoFinanceiro = (qtdContrato - qtdAnterior - qtdMedida) * valorUnitario
 }
 
+export interface MedicaoSourceTotals {
+  totalContrato?: number
+  totalPeriodo?: number
+  totalAcumulado?: number
+  saldo?: number
+}
+
+export interface MedicaoAnchorTotal {
+  label: string
+  rowIndex: number
+  grupo?: string
+  totalContrato?: number
+  totalPeriodo?: number
+  totalAcumulado?: number
+  saldo?: number
+}
+
+export interface MedicaoValidation {
+  label: string
+  source: number
+  calculated: number
+  diff: number
+  ok: boolean
+}
+
+export interface PlanilhaBaseMedicao {
+  enabled: boolean
+  savedAt: string
+  sourceName?: string
+  itensSnapshot: ItemContrato[]
+  sourceTotals?: MedicaoSourceTotals
+  anchors?: MedicaoAnchorTotal[]
+  validations?: MedicaoValidation[]
+}
+
 export interface SubempreteiroItem {
   nPreco:        string
   nPrecoSabesp:  string   // vínculo com N. Preço da Sabesp para cross-reference
@@ -92,12 +127,20 @@ export interface MedicaoBoletim {
   consorcio:       string   // "SE LIGA NA REDE - SANTOS"
   status:          'rascunho' | 'em_conferencia' | 'finalizado'
   itensContrato:   ItemContrato[]
+  planilhaBase?:   PlanilhaBaseMedicao
   subempreiteiros: Subempreiteiro[]
   fornecedores:    Fornecedor[]
   conferencia:     ConferenciaItem[]
   medicaoFinal?:   MedicaoFinal
   createdAt:       string
   updatedAt:       string
+}
+
+export function getItensBaseCalculoFromBoletim(boletim?: MedicaoBoletim | null): ItemContrato[] {
+  if (!boletim) return []
+  return boletim.planilhaBase?.enabled && boletim.planilhaBase.itensSnapshot?.length
+    ? boletim.planilhaBase.itensSnapshot
+    : boletim.itensContrato
 }
 
 // ─── Store state ──────────────────────────────────────────────────────────────
@@ -115,6 +158,7 @@ interface MedicaoBillingState {
   setActiveBoletim: (id: string) => void
   removeBoletim: (id: string) => void
   getActiveBoletim: () => MedicaoBoletim | null
+  getItensBaseCalculo: (boletim?: MedicaoBoletim | null) => ItemContrato[]
 
   // Step 1 — Itens Contrato
   addItemContrato: (item: Omit<ItemContrato, 'id'>) => void
@@ -141,7 +185,13 @@ interface MedicaoBillingState {
   fecharBoletim: () => void  // Transfers Acumulado → Anterior, zeros qtdMedida, sets status finalizado
 
   // Bulk import (XLSX)
-  importItensContrato: (items: Omit<ItemContrato, 'id'>[], replace?: boolean) => void
+  importItensContrato: (
+    items: Omit<ItemContrato, 'id'>[],
+    replace?: boolean,
+    meta?: { sourceName?: string; sourceTotals?: MedicaoSourceTotals; anchors?: MedicaoAnchorTotal[]; validations?: MedicaoValidation[] },
+  ) => void
+  savePlanilhaBase: (meta?: { sourceName?: string; sourceTotals?: MedicaoSourceTotals; anchors?: MedicaoAnchorTotal[]; validations?: MedicaoValidation[] }) => void
+  setPlanilhaBaseEnabled: (enabled: boolean) => void
   importSubempreiteiroItems: (subId: string, items: Omit<SubempreteiroItem, never>[], totals: { totalMedido: number; totalAprovado: number; retencao: number }) => void
   importFornecedores: (list: Omit<Fornecedor, 'id'>[], replace?: boolean) => void
 
@@ -163,6 +213,11 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
       getActiveBoletim: () => {
         const { boletins, activeBoletimId } = get()
         return boletins.find((b) => b.id === activeBoletimId) ?? null
+      },
+
+      getItensBaseCalculo: (boletimArg) => {
+        const boletim = boletimArg ?? get().getActiveBoletim()
+        return getItensBaseCalculoFromBoletim(boletim)
       },
 
       createBoletim: (periodo, contrato, consorcio) => {
@@ -321,7 +376,8 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           // Previous observacoes to preserve manual edits
           const prevObsMap = new Map(boletim.conferencia.map((c) => [c.nPreco, c.observacao]))
 
-          const conferencia: ConferenciaItem[] = boletim.itensContrato.map((item) => {
+          const itensBase = get().getItensBaseCalculo(boletim)
+          const conferencia: ConferenciaItem[] = itensBase.map((item) => {
             const qtdSub = subQtyMap.get(item.nPreco) ?? 0
             const diferenca = item.qtdMedida - qtdSub
             return {
@@ -365,18 +421,19 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           const boletim = s.boletins.find((b) => b.id === s.activeBoletimId)
           if (!boletim) return s
 
-          const totalMedidoPeriodo = boletim.itensContrato.reduce(
+          const itensBase = get().getItensBaseCalculo(boletim)
+          const totalMedidoPeriodo = itensBase.reduce(
             (acc, i) => acc + i.qtdMedida * i.valorUnitario,
             0
           )
-          const totalContratoValor = boletim.itensContrato.reduce(
+          const totalContratoValor = itensBase.reduce(
             (acc, i) => acc + i.qtdContrato * i.valorUnitario,
             0
           )
           const totalSubempreiteiros = boletim.subempreiteiros.reduce((acc, sub) => acc + sub.totalAprovado, 0)
           const totalFornecedores    = boletim.fornecedores.reduce((acc, f) => acc + f.valorAprovado, 0)
 
-          const totalAcumulado = boletim.itensContrato.reduce(
+          const totalAcumulado = itensBase.reduce(
             (acc, i) => acc + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario,
             0
           )
@@ -429,14 +486,64 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
 
       // ── Bulk import ───────────────────────────────────────────────────────────
 
-      importItensContrato: (items, replace = true) =>
+      importItensContrato: (items, replace = true, meta) =>
         set((s) => ({
           boletins: s.boletins.map((b) => {
             if (b.id !== s.activeBoletimId) return b
             const existing = replace ? [] : b.itensContrato
             const newItems: ItemContrato[] = items.map((i) => ({ ...i, id: crypto.randomUUID() }))
-            return { ...b, itensContrato: [...existing, ...newItems], updatedAt: new Date().toISOString() }
+            const itensContrato = [...existing, ...newItems]
+            return {
+              ...b,
+              itensContrato,
+              planilhaBase: replace && meta
+                ? {
+                    enabled: false,
+                    savedAt: new Date().toISOString(),
+                    sourceName: meta.sourceName,
+                    itensSnapshot: itensContrato.map((item) => ({ ...item })),
+                    sourceTotals: meta.sourceTotals,
+                    anchors: meta.anchors,
+                    validations: meta.validations,
+                  }
+                : replace ? undefined : b.planilhaBase,
+              updatedAt: new Date().toISOString(),
+            }
           }),
+        })),
+
+      savePlanilhaBase: (meta) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) => {
+            if (b.id !== s.activeBoletimId) return b
+            const snapshot: ItemContrato[] = b.itensContrato.map((item) => ({ ...item }))
+            return {
+              ...b,
+              planilhaBase: {
+                enabled: true,
+                savedAt: new Date().toISOString(),
+                sourceName: meta?.sourceName ?? b.planilhaBase?.sourceName,
+                itensSnapshot: snapshot,
+                sourceTotals: meta?.sourceTotals ?? b.planilhaBase?.sourceTotals,
+                anchors: meta?.anchors ?? b.planilhaBase?.anchors,
+                validations: meta?.validations ?? b.planilhaBase?.validations,
+              },
+              updatedAt: new Date().toISOString(),
+            }
+          }),
+        })),
+
+      setPlanilhaBaseEnabled: (enabled) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) =>
+            b.id !== s.activeBoletimId || !b.planilhaBase
+              ? b
+              : {
+                  ...b,
+                  planilhaBase: { ...b.planilhaBase, enabled },
+                  updatedAt: new Date().toISOString(),
+                }
+          ),
         })),
 
       importSubempreiteiroItems: (subId, items, totals) =>
@@ -493,7 +600,7 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
     }),
     {
       name: 'cdata-medicao-billing',
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>
         const boletins = (state.boletins ?? []) as Record<string, unknown>[]
@@ -524,6 +631,14 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
               }
               item.qtdAnterior = item.qtdAnterior ?? 0
             }
+          }
+        }
+        if (version < 4) {
+          for (const boletim of boletins) {
+            if (!boletim.planilhaBase) continue
+            const base = boletim.planilhaBase as Record<string, unknown>
+            base.enabled = Boolean(base.enabled)
+            base.itensSnapshot = Array.isArray(base.itensSnapshot) ? base.itensSnapshot : []
           }
         }
         return state as unknown as MedicaoBillingState

@@ -73,6 +73,7 @@ function CriterioPopover({ nPreco }: { nPreco: string }) {
 export function ConferenciaPanel() {
   const {
     getActiveBoletim,
+    getItensBaseCalculo,
     computeConferencia,
     updateConferenciaObservacao,
   } = useMedicaoBillingStore()
@@ -86,9 +87,10 @@ export function ConferenciaPanel() {
   const nOk         = conf.filter((c) => c.status === 'ok').length
   const nDivergencia = conf.filter((c) => c.status === 'divergencia').length
   const nPendente    = conf.filter((c) => c.status === 'pendente').length
+  const itensBase = getItensBaseCalculo(boletim)
 
   // Financial validation
-  const totalMedidoSabesp = boletim.itensContrato.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)
+  const totalMedidoSabesp = itensBase.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)
   const totalSubempreiteiros = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalAprovado, 0)
   const totalFornecedores = boletim.fornecedores.reduce((s, f) => s + f.valorAprovado, 0)
   const totalTerceiros = totalSubempreiteiros + totalFornecedores
@@ -100,13 +102,13 @@ export function ConferenciaPanel() {
   const nCriteriosEncontrados = conf.filter((c) => getAllCriterios().some((cr) => cr.nPreco === c.nPreco)).length
 
   // Check for negative balance (quantity exceeds contract)
-  const negSaldoCount = boletim.itensContrato.filter(
+  const negSaldoCount = itensBase.filter(
     (i) => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0
   ).length
 
   // Financial saldo validation
-  const totalContratoValor = boletim.itensContrato.reduce((s, i) => s + i.qtdContrato * i.valorUnitario, 0)
-  const totalAcumuladoValor = boletim.itensContrato.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
+  const totalContratoValor = itensBase.reduce((s, i) => s + i.qtdContrato * i.valorUnitario, 0)
+  const totalAcumuladoValor = itensBase.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
   const saldoFinanceiroTotal = totalContratoValor - totalAcumuladoValor
   const pctExecutado = totalContratoValor > 0 ? (totalAcumuladoValor / totalContratoValor) * 100 : 0
 
@@ -232,7 +234,7 @@ export function ConferenciaPanel() {
             Clique em <strong className="text-[#f97316]">Calcular Conferência</strong> para comparar automaticamente
             as quantidades da Planilha Sabesp com as dos Subempreiteiros.
           </p>
-          {boletim.itensContrato.length === 0 && (
+          {itensBase.length === 0 && (
             <p className="text-amber-400/70 text-xs mt-2">⚠ Adicione itens na Planilha Sabesp (Passo 1) primeiro.</p>
           )}
         </div>

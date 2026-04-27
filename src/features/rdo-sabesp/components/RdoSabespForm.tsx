@@ -80,8 +80,12 @@ const empty = () => ({
   responsavel_consorcio: "",
   assinatura_empreiteira_url: null as string | null,
   assinatura_consorcio_url: null as string | null,
+  assinatura_empreiteira_path: null as string | null,
+  assinatura_consorcio_path: null as string | null,
   photo_paths: [] as string[],
   planilha_foto_url: null as string | null,
+  planilha_foto_path: null as string | null,
+  include_planilha_foto_no_pdf: true,
   whatsapp_text: null as string | null,
   status: "draft" as RdoSabespStatus,
   finalized_at: null as string | null,
@@ -139,6 +143,43 @@ const prepareImageForAi = async (file: File) => {
 
   if (!blob) return { original, aiImage: original };
   return { original, aiImage: await toDataUrl(blob) };
+};
+
+const dataUrlToBlob = async (dataUrl: string) => {
+  const response = await fetch(dataUrl);
+  return response.blob();
+};
+
+const makeImageFileName = (name: string, ext = "jpg") =>
+  name
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^\w.-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) + `.${ext}`;
+
+const resizeImageForStorage = async (file: File) => {
+  const original = await toDataUrl(file);
+  const image = await loadImage(original);
+  const maxSide = 2200;
+  const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
+  const scale = largestSide > maxSide ? maxSide / largestSide : 1;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) return { blob: file, preview: original, fileName: file.name };
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.86));
+  if (!blob) return { blob: file, preview: original, fileName: file.name };
+
+  return {
+    blob,
+    preview: await toDataUrl(blob),
+    fileName: makeImageFileName(file.name || `foto-${Date.now()}`),
+  };
 };
 
 const parserErrorMessage = (error: any) => {
@@ -248,6 +289,33 @@ const extractSignatureCrops = async (src: string) => ({
   consorcio: await cropImageByPercent(src, { x: 0.57, y: 0.74, width: 0.38, height: 0.18 }),
 });
 
+const normalizeBbox = (bbox: any, fallback: { x: number; y: number; width: number; height: number }) => {
+  if (!bbox || typeof bbox !== "object") return fallback;
+  const x = Number(bbox.x);
+  const y = Number(bbox.y);
+  const width = Number(bbox.width);
+  const height = Number(bbox.height);
+  if (![x, y, width, height].every(Number.isFinite)) return fallback;
+  if (width <= 0 || height <= 0) return fallback;
+  return {
+    x: Math.min(0.98, Math.max(0, x)),
+    y: Math.min(0.98, Math.max(0, y)),
+    width: Math.min(1, Math.max(0.01, width)),
+    height: Math.min(1, Math.max(0.01, height)),
+  };
+};
+
+const extractSignatureCropsFromSnapshot = async (src: string, snapshot: any) => ({
+  empreiteira: await cropImageByPercent(
+    src,
+    normalizeBbox(snapshot?.assinatura_empreiteira_bbox, { x: 0.05, y: 0.74, width: 0.38, height: 0.18 }),
+  ),
+  consorcio: await cropImageByPercent(
+    src,
+    normalizeBbox(snapshot?.assinatura_consorcio_bbox, { x: 0.57, y: 0.74, width: 0.38, height: 0.18 }),
+  ),
+});
+
 export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: Props) {
   const orgId = useAuth((state) => state.profile?.organization_id);
   const [data, setData] = useState<any>(() => initialData || empty());
@@ -277,6 +345,25 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       node[parts[parts.length - 1]] = value;
       return copy;
     });
+  };
+
+  const appendPhotoPaths = (paths: string[]) => {
+    if (!paths.length) return;
+    setData((current: any) => ({
+      ...current,
+      photo_paths: [...(Array.isArray(current.photo_paths) ? current.photo_paths : []), ...paths],
+    }));
+  };
+
+  const uploadRdoImage = async (folder: string, fileName: string, blob: Blob) => {
+    const path = `${folder}/${crypto.randomUUID()}_${fileName}`;
+    const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, blob, {
+      contentType: blob.type || "image/jpeg",
+      cacheControl: "3600",
+      upsert: true,
+    });
+    if (error) throw error;
+    return path;
   };
 
   const mergeExtracted = (extracted: any) => {
@@ -342,6 +429,9 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       const previews = await Promise.all(
         photoPaths.map(async (path: string) => {
           try {
+            if (path.startsWith("data:") || /^https?:\/\//i.test(path)) {
+              return { path, url: path };
+            }
             const { data: signed } = await supabase.storage
               .from("rdo-sabesp-photos")
               .createSignedUrl(path, 60 * 60);
@@ -366,6 +456,54 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     };
   }, [data.photo_paths]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const refreshSourcePhotoUrl = async () => {
+      if (!data.planilha_foto_path || data.planilha_foto_url?.startsWith("data:")) return;
+      try {
+        const { data: signed } = await supabase.storage
+          .from("rdo-sabesp-photos")
+          .createSignedUrl(data.planilha_foto_path, 60 * 60);
+        if (!cancelled && signed?.signedUrl && signed.signedUrl !== data.planilha_foto_url) {
+          set("planilha_foto_url", signed.signedUrl);
+        }
+      } catch (error) {
+        console.warn("Erro ao assinar foto original do RDO Sabesp:", error);
+      }
+    };
+
+    void refreshSourcePhotoUrl();
+    return () => {
+      cancelled = true;
+    };
+  }, [data.planilha_foto_path]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refreshSignatureUrls = async () => {
+      const pairs = [
+        ["assinatura_empreiteira_path", "assinatura_empreiteira_url"],
+        ["assinatura_consorcio_path", "assinatura_consorcio_url"],
+      ] as const;
+
+      for (const [pathKey, urlKey] of pairs) {
+        const path = data[pathKey];
+        if (!path || data[urlKey]?.startsWith("data:")) continue;
+        try {
+          const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(path, 60 * 60);
+          if (!cancelled && signed?.signedUrl && signed.signedUrl !== data[urlKey]) set(urlKey, signed.signedUrl);
+        } catch (error) {
+          console.warn("Erro ao assinar assinatura do RDO Sabesp:", error);
+        }
+      }
+    };
+
+    void refreshSignatureUrls();
+    return () => {
+      cancelled = true;
+    };
+  }, [data.assinatura_empreiteira_path, data.assinatura_consorcio_path]);
+
   const handleAdditionalPhotos = async (files: FileList | null) => {
     if (!files?.length) return;
 
@@ -376,9 +514,18 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
-        const safeName = file.name.replace(/\s+/g, "_");
-        const path = `${folder}/attachments/${crypto.randomUUID()}_${safeName}`;
-        const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, file);
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} nao parece ser uma imagem.`);
+          continue;
+        }
+
+        const prepared = await resizeImageForStorage(file);
+        const path = `${folder}/attachments/${crypto.randomUUID()}_${prepared.fileName}`;
+        const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, prepared.blob, {
+          contentType: prepared.blob.type || "image/jpeg",
+          cacheControl: "3600",
+          upsert: true,
+        });
 
         if (error) {
           console.error("Erro ao subir foto do RDO Sabesp:", error);
@@ -390,9 +537,11 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       }
 
       if (uploadedPaths.length > 0) {
-        set("photo_paths", [...(Array.isArray(data.photo_paths) ? data.photo_paths : []), ...uploadedPaths]);
+        appendPhotoPaths(uploadedPaths);
         toast.success(`${uploadedPaths.length} foto(s) adicionada(s) ao RDO.`);
       }
+    } catch (error: any) {
+      toast.error("Erro ao adicionar fotos: " + (error?.message || "tente novamente."));
     } finally {
       setUploadingPhotos(false);
     }
@@ -400,8 +549,10 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
   const handleRemovePhoto = async (path: string) => {
     try {
-      const { error } = await supabase.storage.from("rdo-sabesp-photos").remove([path]);
-      if (error) throw error;
+      if (!path.startsWith("data:") && !/^https?:\/\//i.test(path)) {
+        const { error } = await supabase.storage.from("rdo-sabesp-photos").remove([path]);
+        if (error) throw error;
+      }
 
       set(
         "photo_paths",
@@ -517,38 +668,48 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     setParsing(true);
     try {
       const { original, aiImage } = await prepareImageForAi(file);
+      let planilhaFotoPath: string | null = null;
+      let planilhaFotoUrl = original;
 
       if (orgId) {
         const folder = `${orgId}/no-project`;
-        const safeName = file.name.replace(/[^\w.-]+/g, "_");
-        const path = `${folder}/${Date.now()}_${safeName}`;
-        const { error: uploadError } = await supabase.storage.from("rdo-sabesp-photos").upload(path, file);
-        if (uploadError) {
-          console.warn("upload warn:", uploadError);
-        } else {
-          const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(path, 60 * 60 * 24 * 365);
-          set("planilha_foto_url", signed?.signedUrl || null);
-        }
-      } else {
-        set("planilha_foto_url", original);
+        const prepared = await resizeImageForStorage(file);
+        planilhaFotoPath = await uploadRdoImage(`${folder}/source`, prepared.fileName, prepared.blob);
+        const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(planilhaFotoPath, 60 * 60);
+        planilhaFotoUrl = signed?.signedUrl || prepared.preview;
       }
+      set("planilha_foto_path", planilhaFotoPath);
+      set("planilha_foto_url", planilhaFotoUrl);
 
       const extractedSnapshot = await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
       setSourceSnapshot(extractedSnapshot);
 
       const extracted = { ...extractedSnapshot };
-      const signatureCrops = await extractSignatureCrops(original).catch(() => ({
+      const signatureCrops = await extractSignatureCropsFromSnapshot(original, extractedSnapshot).catch(() => extractSignatureCrops(original)).catch(() => ({
         empreiteira: original,
         consorcio: original,
       }));
       if (extracted.assinatura_empreiteira_presente) {
         extracted.assinatura_empreiteira_url = signatureCrops.empreiteira;
+        if (orgId) {
+          const blob = await dataUrlToBlob(signatureCrops.empreiteira);
+          const path = await uploadRdoImage(`${orgId}/no-project/signatures`, `assinatura-empreiteira-${Date.now()}.png`, blob);
+          extracted.assinatura_empreiteira_path = path;
+        }
       }
       if (extracted.assinatura_consorcio_presente) {
         extracted.assinatura_consorcio_url = signatureCrops.consorcio;
+        if (orgId) {
+          const blob = await dataUrlToBlob(signatureCrops.consorcio);
+          const path = await uploadRdoImage(`${orgId}/no-project/signatures`, `assinatura-consorcio-${Date.now()}.png`, blob);
+          extracted.assinatura_consorcio_path = path;
+        }
       }
       delete extracted.assinatura_empreiteira_presente;
       delete extracted.assinatura_consorcio_presente;
+      delete extracted.assinatura_empreiteira_bbox;
+      delete extracted.assinatura_consorcio_bbox;
+      delete extracted.confidence_by_field;
 
       mergeExtracted(extracted);
       toast.success("Foto processada! Confira os dados.");
@@ -614,6 +775,18 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         finalized_at: finalizedAt,
       });
       let response;
+      const removeDurableAssetColumns = (record: Record<string, any>) => {
+        const legacy = { ...record };
+        delete legacy.planilha_foto_path;
+        delete legacy.assinatura_empreiteira_path;
+        delete legacy.assinatura_consorcio_path;
+        delete legacy.include_planilha_foto_no_pdf;
+        return legacy;
+      };
+      const isMissingDurableAssetColumnError = (error: any) => {
+        const message = String(error?.message || error?.details || "");
+        return /planilha_foto_path|assinatura_empreiteira_path|assinatura_consorcio_path|include_planilha_foto_no_pdf/i.test(message);
+      };
 
       if (localRecord.id && !isLocalRdoSabespId(localRecord.id)) {
         const rest = { ...payload };
@@ -623,12 +796,23 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         delete rest.created_by;
         delete rest.organization_id;
         response = await supabase.from("rdo_sabesp" as any).update(rest).eq("id", localRecord.id).select("*").single();
+        if (response.error && isMissingDurableAssetColumnError(response.error)) {
+          response = await supabase
+            .from("rdo_sabesp" as any)
+            .update(removeDurableAssetColumns(rest))
+            .eq("id", localRecord.id)
+            .select("*")
+            .single();
+        }
       } else {
         const rest = { ...payload };
         delete rest.id;
         delete rest.created_at;
         delete rest.updated_at;
         response = await supabase.from("rdo_sabesp" as any).insert(rest).select("*").single();
+        if (response.error && isMissingDurableAssetColumnError(response.error)) {
+          response = await supabase.from("rdo_sabesp" as any).insert(removeDurableAssetColumns(rest)).select("*").single();
+        }
       }
 
       if (response.error) throw response.error;
@@ -915,6 +1099,15 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
                   Escolha quais blocos do modelo entram na validação antes de exportar. A checagem aponta divergências de conteúdo;
                   assinatura, alinhamento e quebra de linha continuam validados no preview lado a lado.
                 </p>
+                {data.planilha_foto_url && (
+                  <label className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Checkbox
+                      checked={data.include_planilha_foto_no_pdf !== false}
+                      onCheckedChange={(checked) => set("include_planilha_foto_no_pdf", checked === true)}
+                    />
+                    Incluir foto original da planilha no PDF
+                  </label>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">

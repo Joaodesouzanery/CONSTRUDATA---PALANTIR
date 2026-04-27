@@ -37,7 +37,7 @@ function Row({ label, value, highlight = false, negative = false }: {
 }
 
 export function MedicaoFinalPanel() {
-  const { getActiveBoletim, computeMedicaoFinal, fecharBoletim } = useMedicaoBillingStore()
+  const { getActiveBoletim, getItensBaseCalculo, computeMedicaoFinal, fecharBoletim } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const [showFecharConfirm, setShowFecharConfirm] = useState(false)
 
@@ -46,6 +46,7 @@ export function MedicaoFinalPanel() {
   )
 
   const mf = boletim.medicaoFinal
+  const itensBase = getItensBaseCalculo(boletim)
 
   function handlePrint() {
     window.print()
@@ -227,7 +228,7 @@ export function MedicaoFinalPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {boletim.itensContrato
+                  {itensBase
                     .filter((i) => i.qtdMedida > 0)
                     .map((item) => (
                     <tr key={item.id} className="border-b border-[#525252]">

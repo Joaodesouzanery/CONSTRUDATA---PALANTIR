@@ -7,7 +7,15 @@ import { CRIADOUROS } from "./rdoSabespCatalog";
 import { getServiceDisplayLabel } from "./rdoSabespUtils";
 import { supabase } from "@/lib/supabase";
 
-const loadDataUrl = (src: string) =>
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+
+const loadDataUrlWithImage = (src: string) =>
   new Promise<string>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -26,6 +34,20 @@ const loadDataUrl = (src: string) =>
     img.onerror = reject;
     img.src = src;
   });
+
+const loadDataUrl = async (src: string) => {
+  if (!src) throw new Error("Imagem vazia.");
+  if (src.startsWith("data:")) return src;
+
+  try {
+    const response = await fetch(src);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await blobToDataUrl(await response.blob());
+  } catch (error) {
+    console.warn("fetch image fail, trying canvas fallback", error);
+    return loadDataUrlWithImage(src);
+  }
+};
 
 const fmtDate = (dateValue: string) => {
   if (!dateValue) return "";
@@ -88,6 +110,7 @@ const resolveSabespPhotoUrls = async (photoPaths?: string[] | null) => {
   const signedPhotos = await Promise.all(
     photoPaths.map(async (path) => {
       try {
+        if (path.startsWith("data:") || /^https?:\/\//i.test(path)) return path;
         const { data } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(path, 60 * 60);
         return data?.signedUrl || null;
       } catch (error) {
@@ -227,8 +250,19 @@ export interface RdoSabespData {
   responsavel_consorcio?: string | null;
   assinatura_empreiteira_url?: string | null;
   assinatura_consorcio_url?: string | null;
+  assinatura_empreiteira_path?: string | null;
+  assinatura_consorcio_path?: string | null;
   planilha_foto_url?: string | null;
+  planilha_foto_path?: string | null;
+  include_planilha_foto_no_pdf?: boolean | null;
 }
+
+const resolveSabespAssetUrl = async (pathOrUrl?: string | null) => {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("data:") || /^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const { data } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(pathOrUrl, 60 * 60);
+  return data?.signedUrl || null;
+};
 
 export async function generateRdoSabespPdf(rdo: RdoSabespData): Promise<jsPDF> {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -411,19 +445,45 @@ export async function generateRdoSabespPdf(rdo: RdoSabespData): Promise<jsPDF> {
   const drawSig = async (url: string | null | undefined, centerX: number) => {
     if (!url) return;
     try {
-      const dataUrl = url.startsWith("data:") ? url : await loadDataUrl(url);
+      const resolvedUrl = await resolveSabespAssetUrl(url);
+      if (!resolvedUrl) return;
+      const dataUrl = await loadDataUrl(resolvedUrl);
       doc.addImage(dataUrl, "PNG", centerX - 25, y - 18, 50, 16);
     } catch (error) {
       console.warn("sig load fail", error);
     }
   };
 
-  await drawSig(rdo.assinatura_empreiteira_url, margin + 40);
-  await drawSig(rdo.assinatura_consorcio_url, pageWidth - margin - 40);
+  await drawSig(rdo.assinatura_empreiteira_path || rdo.assinatura_empreiteira_url, margin + 40);
+  await drawSig(rdo.assinatura_consorcio_path || rdo.assinatura_consorcio_url, pageWidth - margin - 40);
   doc.line(margin + 5, y, margin + 75, y);
   doc.line(pageWidth - margin - 75, y, pageWidth - margin - 5, y);
   doc.text(rdo.responsavel_empreiteira || "RESPONSAVEL DA EMPREITEIRA", margin + 40, y + 4, { align: "center" });
   doc.text(rdo.responsavel_consorcio || "RESPONSAVEL DO CONSORCIO", pageWidth - margin - 40, y + 4, { align: "center" });
+
+  const sourcePhotoUrl = rdo.include_planilha_foto_no_pdf === false
+    ? null
+    : await resolveSabespAssetUrl(rdo.planilha_foto_path || rdo.planilha_foto_url).catch(() => null);
+  if (sourcePhotoUrl) {
+    doc.addPage();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text("FOTO ORIGINAL DA PLANILHA", margin, 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Anexo de auditoria usado para preenchimento e conferencia do RDO.", margin, 21);
+    doc.setDrawColor(210);
+    doc.rect(margin, 26, pageWidth - margin * 2, pageHeight - 38);
+    try {
+      const dataUrl = await loadDataUrl(sourcePhotoUrl);
+      const format = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+      doc.addImage(dataUrl, format, margin + 2, 28, pageWidth - margin * 2 - 4, pageHeight - 42);
+    } catch (error) {
+      console.warn("Nao foi possivel carregar foto original do RDO Sabesp para o PDF:", error);
+      doc.text("Foto original indisponivel", pageWidth / 2, pageHeight / 2, { align: "center" });
+    }
+  }
 
   const photoUrls = await resolveSabespPhotoUrls(rdo.photo_paths);
   if (photoUrls.length > 0) {
@@ -459,7 +519,8 @@ export async function generateRdoSabespPdf(rdo: RdoSabespData): Promise<jsPDF> {
 
       try {
         const dataUrl = await loadDataUrl(photoUrls[index]);
-        doc.addImage(dataUrl, "PNG", imageX + 1, imageY + 1, photoWidth - 2, photoHeight - 2);
+        const format = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        doc.addImage(dataUrl, format, imageX + 1, imageY + 1, photoWidth - 2, photoHeight - 2);
       } catch (error) {
         console.warn("Nao foi possivel carregar foto do RDO Sabesp para o PDF:", error);
         doc.setFont("helvetica", "normal");

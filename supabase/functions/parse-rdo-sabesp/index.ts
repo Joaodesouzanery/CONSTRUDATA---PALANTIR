@@ -34,6 +34,16 @@ Campos:
 - assinatura_consorcio_presente: true se há assinatura visível no campo do responsável do consórcio
 `;
 
+const BBOX_SCHEMA = {
+  type: "object",
+  properties: {
+    x: { type: "number" },
+    y: { type: "number" },
+    width: { type: "number" },
+    height: { type: "number" },
+  },
+};
+
 const EXTRACT_TOOL = {
   type: "function",
   function: {
@@ -146,6 +156,12 @@ const EXTRACT_TOOL = {
         paralisacao_outro: { type: "string" },
         assinatura_empreiteira_presente: { type: "boolean" },
         assinatura_consorcio_presente: { type: "boolean" },
+        assinatura_empreiteira_bbox: BBOX_SCHEMA,
+        assinatura_consorcio_bbox: BBOX_SCHEMA,
+        confidence_by_field: {
+          type: "object",
+          additionalProperties: { type: "number" },
+        },
       },
       required: ["report_date"],
     },

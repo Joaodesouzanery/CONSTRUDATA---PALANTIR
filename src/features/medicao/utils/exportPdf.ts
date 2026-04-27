@@ -4,6 +4,7 @@
  * Opens a new browser window with a white-background print layout and
  * triggers window.print(). Consistent with the codebase's existing PDF approach.
  */
+import { getItensBaseCalculoFromBoletim } from '@/store/medicaoBillingStore'
 import type { ItemContrato, Subempreiteiro, Fornecedor, ConferenciaItem, MedicaoBoletim } from '@/store/medicaoBillingStore'
 import { getAllCriterios } from '../data/criterios'
 
@@ -157,7 +158,8 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
 
   // Financial summary if boletim available
   if (boletim) {
-    const totalMedido = boletim.itensContrato.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)
+    const itensBase = getItensBaseCalculoFromBoletim(boletim)
+    const totalMedido = itensBase.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)
     const totalSub = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalAprovado, 0)
     const totalForn = boletim.fornecedores.reduce((s, f) => s + f.valorAprovado, 0)
     const totalTerceiros = totalSub + totalForn
@@ -220,6 +222,7 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
 
 export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   const mf = boletim.medicaoFinal
+  const itensBase = getItensBaseCalculoFromBoletim(boletim)
   const totalMedido = mf?.totalMedidoPeriodo ?? 0
   const totalSub = mf?.totalSubempreiteiros ?? 0
   const totalForn = mf?.totalFornecedores ?? 0
@@ -248,7 +251,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
 
   // ── 3. CORPO DA MEDIÇÃO (itens + critérios vinculados) ─────
   body += `<h2>2. Itens Medidos no Período</h2>`
-  const itensComMedicao = boletim.itensContrato.filter(i => i.qtdMedida > 0)
+  const itensComMedicao = itensBase.filter(i => i.qtdMedida > 0)
 
   if (itensComMedicao.length > 0) {
     const grupos = ['01', '02', '03', 'EX']
@@ -327,7 +330,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   const totalTerceiros = totalSub + totalForn
   const terceirosOk = totalTerceiros <= totalMedido || totalMedido === 0
   const nDiv = boletim.conferencia.filter(c => c.status === 'divergencia').length
-  const negSaldoCount = boletim.itensContrato.filter(i => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0).length
+  const negSaldoCount = itensBase.filter(i => (i.qtdContrato - i.qtdAnterior - i.qtdMedida) < 0).length
 
   body += `<h2>5. Checklist de Conferência</h2>
   <table><thead><tr><th>Verificação</th><th class="center" style="width:120px;">Resultado</th></tr></thead><tbody>

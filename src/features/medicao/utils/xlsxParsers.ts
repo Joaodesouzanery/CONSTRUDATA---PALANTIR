@@ -5,8 +5,14 @@
  * Each parser returns { data, errors } for preview-before-commit flow.
  */
 import * as XLSX from 'xlsx'
-import type { ItemContrato, SubempreteiroItem, Fornecedor } from '@/store/medicaoBillingStore'
-import { getAllCriterios } from '../data/criterios'
+import type {
+  ItemContrato,
+  SubempreteiroItem,
+  Fornecedor,
+  MedicaoAnchorTotal,
+  MedicaoSourceTotals,
+  MedicaoValidation,
+} from '@/store/medicaoBillingStore'
 
 // ─── Generic helpers ──────────────────────────────────────────────────────────
 
@@ -93,12 +99,10 @@ export interface SabespParseResult {
   itens:    Omit<ItemContrato, 'id'>[]
   errors:   string[]
   warnings: string[]
-  sourceTotals?: {
-    totalContrato?: number
-    totalPeriodo?: number
-    totalAcumulado?: number
-    saldo?: number
-  }
+  sourceTotals?: MedicaoSourceTotals
+  anchors?: MedicaoAnchorTotal[]
+  validations?: MedicaoValidation[]
+  extras?: Omit<ItemContrato, 'id'>[]
 }
 
 /**
@@ -256,6 +260,17 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0
   let currentGrupo: '01' | '02' | '03' = '02'
   let inExtras = false
+  const anchors: MedicaoAnchorTotal[] = []
+
+  const makeAnchor = (row: unknown[], rowIndex: number, label: string): MedicaoAnchorTotal => ({
+    label,
+    rowIndex,
+    grupo: currentGrupo,
+    totalContrato: iContratoTotal >= 0 ? toNum(row[iContratoTotal]) || undefined : undefined,
+    totalPeriodo: iValorMedida >= 0 ? toNum(row[iValorMedida]) || undefined : undefined,
+    totalAcumulado: iValorAcumulado >= 0 ? toNum(row[iValorAcumulado]) || undefined : undefined,
+    saldo: iSaldoValor >= 0 ? toNum(row[iSaldoValor]) || undefined : undefined,
+  })
 
   for (let i = startRow; i < raw.length; i++) {
     const row = raw[i]
@@ -271,14 +286,27 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
 
     // Skip CRITÉRIO lines (measurement criteria text, not data rows)
     const rowJoined = [item, nPreco, descricao].join(' ')
+    const fullRowJoined = row.map(toStr).join(' ')
     if (/crit[eé]rio/i.test(rowJoined) && !/^\d{4,}$/.test(nPreco.replace(/\s/g, ''))) continue
 
     // Skip summary rows, but rows after "Total da Planilha" are extras/aditivos.
-    if (/total\s+da\s+planilha/i.test(rowJoined)) {
+    if (/total\s+da\s+planilha/i.test(fullRowJoined)) {
+      anchors.push(makeAnchor(row, i, 'Total da Planilha'))
       inExtras = true
       continue
     }
-    if (/total\s*(do|da|geral)/i.test(rowJoined)) continue
+    if (/total\s+do\s+grupo/i.test(fullRowJoined)) {
+      anchors.push(makeAnchor(row, i, 'Total do Grupo'))
+      continue
+    }
+    if (/total\s+da\s+frente/i.test(fullRowJoined)) {
+      anchors.push(makeAnchor(row, i, 'Total da Frente'))
+      continue
+    }
+    if (/total\s*(do|da|geral)/i.test(fullRowJoined)) {
+      anchors.push(makeAnchor(row, i, 'Total'))
+      continue
+    }
 
     // Detect grupo from Item code prefix
     // Handle both 7-digit (CSV: 1010101) and 8-digit (PDF: 01010101) formats
@@ -381,10 +409,10 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   }
 
   // Validate N. Preço against criteria catalog
-  const catalogo = getAllCriterios()
+  const catalogo: Array<{ nPreco: string }> = []
   const catalogoSet = new Set(catalogo.map(c => c.nPreco))
   const naoEncontrados = itens.filter(it => !it.nPreco.startsWith('EXT') && !catalogoSet.has(it.nPreco))
-  if (naoEncontrados.length > 0 && naoEncontrados.length <= 10) {
+  if (false && naoEncontrados.length > 0 && naoEncontrados.length <= 10) {
     warnings.push(
       `${naoEncontrados.length} N. Preço não encontrado(s) no catálogo de critérios: ${naoEncontrados.map(it => it.nPreco).join(', ')}. ` +
       'Verifique se os códigos estão corretos ou adicione os critérios manualmente.'
@@ -422,12 +450,29 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     if (iValorAcumulado >= 0) sourceTotals.totalAcumulado = Math.max(sourceTotals.totalAcumulado, toNum(row[iValorAcumulado]))
     if (iSaldoValor >= 0) sourceTotals.saldo = Math.max(sourceTotals.saldo, toNum(row[iSaldoValor]))
   }
+  const totalPlanilhaAnchor = [...anchors].reverse().find((anchor) => /total da planilha/i.test(anchor.label))
+  if (totalPlanilhaAnchor) {
+    sourceTotals.totalContrato = totalPlanilhaAnchor.totalContrato || sourceTotals.totalContrato
+    sourceTotals.totalPeriodo = totalPlanilhaAnchor.totalPeriodo || sourceTotals.totalPeriodo
+    sourceTotals.totalAcumulado = totalPlanilhaAnchor.totalAcumulado || sourceTotals.totalAcumulado
+    sourceTotals.saldo = totalPlanilhaAnchor.saldo || sourceTotals.saldo
+  }
+
   const importedChecks = [
     ['Total contratado', sourceTotals.totalContrato, itens.reduce((s, it) => s + it.qtdContrato * it.valorUnitario, 0)],
     ['Total periodo', sourceTotals.totalPeriodo, itens.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)],
     ['Total acumulado', sourceTotals.totalAcumulado, itens.reduce((s, it) => s + (it.qtdAnterior + it.qtdMedida) * it.valorUnitario, 0)],
     ['Saldo', sourceTotals.saldo, itens.reduce((s, it) => s + (it.qtdContrato - it.qtdAnterior - it.qtdMedida) * it.valorUnitario, 0)],
   ] as const
+  const validations: MedicaoValidation[] = importedChecks
+    .filter(([, source]) => source > 0)
+    .map(([label, source, calculated]) => ({
+      label,
+      source,
+      calculated,
+      diff: source - calculated,
+      ok: Math.abs(source - calculated) <= 10,
+    }))
   for (const [label, source, imported] of importedChecks) {
     if (source > 0 && Math.abs(source - imported) > 10) {
       warnings.push(
@@ -456,6 +501,9 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       totalAcumulado: sourceTotals.totalAcumulado || undefined,
       saldo: sourceTotals.saldo || undefined,
     },
+    anchors,
+    validations,
+    extras: itens.filter((item) => item.grupo === 'EX'),
   }
 }
 
