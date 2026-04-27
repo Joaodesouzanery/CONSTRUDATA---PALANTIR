@@ -2,7 +2,7 @@
  * BancoDadosPanel — cost base selector (SINAPI/SEINFRA/Custom) with import and CRUD.
  */
 import { useState, useRef } from 'react'
-import { Plus, Trash2, Upload, Download, Search, X, Check } from 'lucide-react'
+import { AlertTriangle, Plus, Trash2, Upload, Download, Search, X, Check } from 'lucide-react'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportCustomBaseToCsv, exportCustomBaseToXlsx, parseExcelToCustomBase } from '../utils/exportEngine'
 import { mockSinapi } from '@/data/mockSinapi'
@@ -125,6 +125,25 @@ export function BancoDadosPanel() {
     return e.description.toLowerCase().includes(q) || e.code.toLowerCase().includes(q) || e.category.toLowerCase().includes(q)
   })
 
+  const sourceAudit =
+    costBase === 'sinapi'
+      ? {
+          title: 'SINAPI em uso: amostra local',
+          text: 'Esta tela carrega mockSinapi do repositório, não o download oficial mensal da CAIXA. Para ver preços atualizados hoje, importe a planilha oficial XLSX como Base Própria ou conecte o download/API oficial no backend.',
+          tone: 'amber',
+        }
+      : costBase === 'seinfra'
+        ? {
+            title: 'SEINFRA em uso: amostra local',
+            text: 'Esta tela carrega mockSeinfra do repositório. Use Base Própria para conferir uma tabela SEINFRA oficial por arquivo e manter rastreabilidade de origem/data.',
+            tone: 'amber',
+          }
+        : {
+            title: `Base Própria ativa: ${customBase.length} entrada(s)`,
+            text: 'A importação Excel/CSV e a inclusão manual alimentam useQuantitativosStore.customBase e ficam disponíveis no módulo de orçamento/levantamento.',
+            tone: 'green',
+          }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -166,6 +185,30 @@ export function BancoDadosPanel() {
             <p className="text-violet-400 text-xs mt-1 font-medium">{opt.count} entradas</p>
           </button>
         ))}
+      </div>
+
+      <div className={`rounded-xl border p-4 ${
+        sourceAudit.tone === 'green'
+          ? 'border-emerald-500/30 bg-emerald-950/20'
+          : 'border-amber-500/30 bg-amber-950/20'
+      }`}>
+        <div className="flex items-start gap-3">
+          <AlertTriangle size={17} className={sourceAudit.tone === 'green' ? 'text-emerald-300 mt-0.5' : 'text-amber-300 mt-0.5'} />
+          <div>
+            <p className="text-[#f5f5f5] text-sm font-semibold">{sourceAudit.title}</p>
+            <p className="text-[#d4d4d4] text-xs leading-relaxed mt-1">{sourceAudit.text}</p>
+            {costBase === 'sinapi' && (
+              <a
+                href="https://www.caixa.gov.br/poder-publico/modernizacao-gestao/sinapi/Paginas/default.aspx"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block text-xs text-violet-300 hover:text-violet-200 mt-2"
+              >
+                Fonte oficial CAIXA/SINAPI
+              </a>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Custom base import controls */}

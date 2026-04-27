@@ -13,6 +13,7 @@ import type {
   MedicaoSourceTotals,
   MedicaoValidation,
 } from '@/store/medicaoBillingStore'
+import { getAllCriterios } from '../data/criterios'
 
 // ─── Generic helpers ──────────────────────────────────────────────────────────
 
@@ -85,6 +86,16 @@ function toNum(v: unknown): number {
 
 function toStr(v: unknown): string {
   return String(v ?? '').trim()
+}
+
+function normUnit(v: unknown): string {
+  return toStr(v)
+    .toUpperCase()
+    .replace(/²/g, '2')
+    .replace(/³/g, '3')
+    .replace(/\s+/g, '')
+    .replace(/^UNID\.?$/, 'UN')
+    .replace(/^UNIDADE$/, 'UN')
 }
 
 /** Read a WorkBook from a File object. */
@@ -415,14 +426,31 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     }
   }
 
-  // Validate N. Preço against criteria catalog
-  const catalogo: Array<{ nPreco: string }> = []
+  // Validate N. Preço against the criteria catalog, including PDF/manual imports.
+  const catalogo = getAllCriterios()
+  const catalogoMap = new Map(catalogo.map(c => [c.nPreco, c]))
   const catalogoSet = new Set(catalogo.map(c => c.nPreco))
   const naoEncontrados = itens.filter(it => !it.nPreco.startsWith('EXT') && !catalogoSet.has(it.nPreco))
-  if (false && naoEncontrados.length > 0 && naoEncontrados.length <= 10) {
+  if (naoEncontrados.length > 0) {
+    const sample = naoEncontrados.slice(0, 20).map(it => it.nPreco).join(', ')
     warnings.push(
-      `${naoEncontrados.length} N. Preço não encontrado(s) no catálogo de critérios: ${naoEncontrados.map(it => it.nPreco).join(', ')}. ` +
+      `${naoEncontrados.length} N. Preço não encontrado(s) no catálogo de critérios: ${sample}${naoEncontrados.length > 20 ? '...' : ''}. ` +
       'Verifique se os códigos estão corretos ou adicione os critérios manualmente.'
+    )
+  }
+
+  const unidadesDivergentes = itens
+    .filter(it => !it.nPreco.startsWith('EXT'))
+    .map((it) => ({ item: it, criterio: catalogoMap.get(it.nPreco) }))
+    .filter(({ item, criterio }) => criterio && normUnit(item.unidade) && normUnit(criterio.unidade) && normUnit(item.unidade) !== normUnit(criterio.unidade))
+
+  if (unidadesDivergentes.length > 0) {
+    const sample = unidadesDivergentes
+      .slice(0, 10)
+      .map(({ item, criterio }) => `${item.nPreco} (${item.unidade} x ${criterio?.unidade})`)
+      .join(', ')
+    warnings.push(
+      `${unidadesDivergentes.length} item(ns) com unidade diferente do critério de medição: ${sample}${unidadesDivergentes.length > 10 ? '...' : ''}.`
     )
   }
 

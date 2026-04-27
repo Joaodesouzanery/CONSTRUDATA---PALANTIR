@@ -49,7 +49,7 @@ export function SuprimentosPage() {
   }, [activeSection, pullPlanilhasSupabase])
 
   return (
-    <div className="flex flex-col h-full p-5 gap-4 overflow-hidden">
+    <div className="suprimentos-readable flex flex-col h-full p-5 gap-4 overflow-hidden">
       {/* Section switcher + action buttons */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1">

@@ -430,6 +430,47 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* Date inputs */
 [data-theme="light"] input[type="date"] { color-scheme: light; }
 
+/* Suprimentos: melhora leitura geral sem mexer nos demais modulos. */
+.suprimentos-readable {
+  font-size: 14px;
+}
+.suprimentos-readable .text-\[10px\] {
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+}
+.suprimentos-readable .text-\[11px\] {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+.suprimentos-readable .text-xs {
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+.suprimentos-readable .text-sm {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+.suprimentos-readable th,
+.suprimentos-readable td,
+.suprimentos-readable button,
+.suprimentos-readable input,
+.suprimentos-readable select,
+.suprimentos-readable textarea {
+  font-size: max(13px, 1em);
+}
+.suprimentos-readable .text-\[\#6b6b6b\] {
+  color: #b8b8b8 !important;
+}
+.suprimentos-readable .text-\[\#a3a3a3\] {
+  color: #d4d4d4 !important;
+}
+[data-theme="light"] .suprimentos-readable .text-\[\#6b6b6b\] {
+  color: #4b5563 !important;
+}
+[data-theme="light"] .suprimentos-readable .text-\[\#a3a3a3\] {
+  color: #374151 !important;
+}
+
 /* Hover states */
 [data-theme="light"] .hover\:bg-\[\#14294e\]:hover { background-color: #eef0f3 !important; }
 [data-theme="light"] .hover\:text-white:hover        { color: #1a1d23 !important; }

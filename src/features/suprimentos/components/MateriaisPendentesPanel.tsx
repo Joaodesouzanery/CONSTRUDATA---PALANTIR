@@ -3,6 +3,7 @@
  * Accordion by Núcleo > Rua with material tables and totals.
  */
 import { useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { ChevronDown, ChevronRight, Package, ShoppingCart, Upload } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import type { MaterialNucleo, MaterialRua } from '@/data/mockPlanilhasConsolidadas'
@@ -21,7 +22,7 @@ function RuaAccordion({
   selected: Set<string>
   onSelect: (id: string, checked: boolean) => void
 }) {
-  const totalQtd = rua.items.reduce((s, i) => s + i.qtd, 0)
+  const totalQtd = rua.items.reduce((s, i) => s + Number(i.qtd ?? 0), 0)
   return (
     <div className="border-t border-[#525252]/30">
       <button
@@ -68,7 +69,7 @@ function RuaAccordion({
                       {item.rede}
                     </span>
                   </td>
-                  <td className="py-1.5 px-2 text-right text-[#f5f5f5] tabular-nums font-medium">{item.qtd.toLocaleString('pt-BR')}</td>
+                  <td className="py-1.5 px-2 text-right text-[#f5f5f5] tabular-nums font-medium">{Number(item.qtd ?? 0).toLocaleString('pt-BR')}</td>
                   <td className="py-1.5 pl-2 text-right text-[#a3a3a3] tabular-nums">{item.metragem ?? '—'}</td>
                 </tr>
               ))}
@@ -93,7 +94,7 @@ function NucleoAccordion({
   const [openRuas, setOpenRuas] = useState<Set<string>>(new Set())
 
   const totalItems = nucleo.ruas.reduce((s, r) => s + r.items.length, 0)
-  const totalQtd = nucleo.ruas.reduce((s, r) => s + r.items.reduce((ss, i) => ss + i.qtd, 0), 0)
+  const totalQtd = nucleo.ruas.reduce((s, r) => s + r.items.reduce((ss, i) => ss + Number(i.qtd ?? 0), 0), 0)
 
   const toggleRua = (rua: string) => {
     setOpenRuas((prev) => {
@@ -144,11 +145,11 @@ export function MateriaisPendentesPanel() {
     materiaisPendentes,
     ordens,
     createOrdemSuprimentos,
-  } = useSuprimentosStore((s) => ({
-    materiaisPendentes: s.planilhaMateriais,
-    ordens: s.planilhaOrdens,
+  } = useSuprimentosStore(useShallow((s) => ({
+    materiaisPendentes: s.planilhaMateriais ?? [],
+    ordens: s.planilhaOrdens ?? [],
     createOrdemSuprimentos: s.createOrdemSuprimentos,
-  }))
+  })))
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -170,7 +171,7 @@ export function MateriaisPendentesPanel() {
     (s, n) => s + n.ruas.reduce((ss, r) => ss + r.items.length, 0), 0,
   )
   const totalQtd = materiaisPendentes.reduce(
-    (s, n) => s + n.ruas.reduce((ss, r) => ss + r.items.reduce((sss, i) => sss + i.qtd, 0), 0), 0,
+    (s, n) => s + n.ruas.reduce((ss, r) => ss + r.items.reduce((sss, i) => sss + Number(i.qtd ?? 0), 0), 0), 0,
   )
 
   function toggleItem(id: string, checked: boolean) {

@@ -777,13 +777,13 @@ export function QuantitativoPersonalizadoPanel() {
         <section className="space-y-4">
           <div className="rounded-xl border border-[#ca8a04]/40 bg-[#ca8a04]/10 p-4 text-sm text-[#fbbf24]">
             <AlertTriangle size={16} className="mr-2 inline" />
-            A base local usada nesta tela é uma amostra SINAPI 07/2025. Como a data atual do sistema é 27/04/2026, ela está desatualizada há mais de 30 dias e os itens ficam marcados como “Revisar”.
+            A base local usada nesta tela é uma amostra SINAPI 07/2025. Como a data atual do sistema é 27/04/2026, ela está desatualizada há mais de 30 dias e os itens ficam marcados como “Revisar”. Para usar valores atualizados, importe a planilha oficial em Quantitativos &gt; Banco de Dados &gt; Base Própria.
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="rounded-xl border border-[#525252] bg-[#333333] p-4">
               <Database size={18} className="mb-2 text-[#38bdf8]" />
               <p className="font-semibold">SINAPI</p>
-              <p className="text-sm text-[#a3a3a3]">Pull atual: constante `priceRefs` neste componente, com fonte “SINAPI 07/2025 - amostra local”. Integração real prevista por arquivo mensal da CAIXA.</p>
+              <p className="text-sm text-[#a3a3a3]">Pull atual: constante `priceRefs` neste componente, com fonte “SINAPI 07/2025 - amostra local”. A atualização fiel depende do arquivo mensal oficial da CAIXA importado como Base Própria ou de conector backend para download/API.</p>
               <a className="mt-2 inline-block text-xs text-[#8b5cf6]" href="https://www.caixa.gov.br/poder-publico/modernizacao-gestao/sinapi/Paginas/default.aspx" target="_blank" rel="noreferrer">Fonte oficial CAIXA/SINAPI</a>
             </div>
             <div className="rounded-xl border border-[#525252] bg-[#333333] p-4">
