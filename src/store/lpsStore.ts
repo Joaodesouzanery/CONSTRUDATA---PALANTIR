@@ -162,6 +162,7 @@ function makeMockActivities(): LpsActivity[] {
         id: crypto.randomUUID(),
         week, trechoCode: t.code, description: t.desc,
         planned, completed: completed && Math.random() > 0.15,
+        committed: planned && wi >= -1,
         readyStatus, responsibleTeam: t.team,
         plannedMeters: [80, 60, 90, 40, 50, 30][ti],
         executedMeters: completed ? [72, 58, 85, 38, 45, 30][ti] : undefined,

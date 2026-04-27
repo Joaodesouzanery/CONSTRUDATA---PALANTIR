@@ -84,12 +84,6 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
         <td class="right">${fmtNum(saldoQtd)}</td>
         <td class="right" style="color:${saldoR >= 0 ? '#16a34a' : '#dc2626'}">${fmtBRL(saldoR)}</td>
       </tr>`
-      const crit = getAllCriterios().find(cr => cr.nPreco === i.nPreco)
-      if (crit) {
-        body += `<tr><td colspan="11" style="background:#fafaf8;padding:2px 20px 2px 24px;border-left:3px solid #f97316;font-size:7pt;font-style:italic;color:#666;">
-          <strong style="color:#f97316;font-style:normal;">CRITÉRIO ${i.nPreco}</strong> — ${crit.medicao}
-        </td></tr>`
-      }
     }
     body += `</tbody><tfoot><tr style="background:#f0f0f0;font-weight:700;">
       <td colspan="8" class="right">Total do Grupo — ${GRUPOS[gId]}</td>

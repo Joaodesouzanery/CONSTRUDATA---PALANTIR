@@ -12,6 +12,7 @@ import { TimelineRestricoesPanel } from './components/TimelineRestricoesPanel'
 import { AlertasPanel } from './components/AlertasPanel'
 import { MaoDeObraLpsPanel } from './components/MaoDeObraLpsPanel'
 import { IntegracoesPanel } from './components/IntegracoesPanel'
+import { ReuniaoSemanalPanel } from './components/ReuniaoSemanalPanel'
 import { useLpsStore } from '@/store/lpsStore'
 
 export function LpsPage() {
@@ -21,6 +22,7 @@ export function LpsPage() {
     <div className="flex flex-col h-full bg-[#1f1f1f] overflow-hidden">
       <LpsHeader />
       <div className="flex-1 overflow-y-auto">
+        {activeTab === 'reuniao'             && <ReuniaoSemanalPanel />}
         {activeTab === 'semaforo'            && <SemaforoPanel />}
         {activeTab === 'lookahead'           && <LookAheadPanel />}
         {activeTab === 'ppc'                 && <PpcDashboard />}

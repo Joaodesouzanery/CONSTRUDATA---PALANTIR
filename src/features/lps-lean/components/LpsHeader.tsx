@@ -8,14 +8,18 @@ import type { LpsTab } from '@/types'
 
 const CNC_LABELS: Record<string, string> = {
   weather:   'Clima',
+  external:  'Condicoes externas',
   equipment: 'Equipamento',
-  labor:     'Mão de Obra',
+  labor:     'Mao de Obra',
   material:  'Material',
   design:    'Projeto',
+  predecessor: 'Predecessora',
+  planning:  'Planejamento',
   other:     'Outro',
 }
 
 const TABS: { id: LpsTab; label: string }[] = [
+  { id: 'reuniao',             label: 'Modo Reuniao' },
   { id: 'semaforo',            label: 'Semáforo' },
   { id: 'lookahead',           label: 'Look-ahead' },
   { id: 'ppc',                 label: 'PPC Dashboard' },
@@ -133,4 +137,3 @@ export function LpsHeader() {
     </div>
   )
 }
-

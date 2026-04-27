@@ -1533,9 +1533,9 @@ export type BimTab = 'viewer' | '4d' | '5d'
 
 // ─── LPS / Lean Construction ──────────────────────────────────────────────────
 
-export type LpsCncCategory = 'weather' | 'equipment' | 'labor' | 'material' | 'design' | 'other'
+export type LpsCncCategory = 'weather' | 'external' | 'equipment' | 'labor' | 'material' | 'design' | 'predecessor' | 'planning' | 'other'
 export type LpsReadyStatus = 'green' | 'yellow' | 'red'
-export type LpsTab = 'semaforo' | 'lookahead' | 'ppc' | 'takt' | 'restricoes' | 'analytics' | 'timeline-restricoes' | 'alertas' | 'mao-de-obra' | 'integracoes'
+export type LpsTab = 'reuniao' | 'semaforo' | 'lookahead' | 'ppc' | 'takt' | 'restricoes' | 'analytics' | 'timeline-restricoes' | 'alertas' | 'mao-de-obra' | 'integracoes'
 
 export type LpsRestrictionCategory =
   | 'projeto_engenharia'
@@ -1573,6 +1573,8 @@ export interface LpsActivity {
   trechoCode: string
   description: string
   planned: boolean
+  committed?: boolean
+  commitmentNote?: string
   completed: boolean
   readyStatus: LpsReadyStatus
   cncCategory?: LpsCncCategory

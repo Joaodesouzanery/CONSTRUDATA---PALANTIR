@@ -1,6 +1,6 @@
 /**
  * PlanejamentoMestreHeader — KPI strip + tab navigation for Planejamento Mestre.
- * Includes baseline management (save/load/delete) and "Novo Projeto" button.
+ * Includes baseline management (save/load/delete) and "Criar Planejamento" button.
  */
 import { useState } from 'react'
 import { BrainCircuit, Plus, Save, ChevronDown, Trash2 } from 'lucide-react'
@@ -177,14 +177,14 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
               Salvar Baseline
             </button>
 
-            {/* New project */}
+            {/* Create planning */}
             <button
               onClick={onNewProject}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors"
               style={{ backgroundColor: '#f97316' }}
             >
               <Plus size={13} />
-              Novo Projeto
+              Criar Planejamento
             </button>
           </div>
         </div>

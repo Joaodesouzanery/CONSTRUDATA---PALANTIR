@@ -82,10 +82,10 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
   const { start: projStart, end: projEnd } = getProjectDateRange(activities)
   const totalDays = Math.max(1, daysBetween(projStart, projEnd))
 
-  const LABEL_W = 300
-  const W       = 1000
-  const ROW_H   = 36
-  const PAD_TOP = 40
+  const LABEL_W = 360
+  const W       = 1120
+  const ROW_H   = 42
+  const PAD_TOP = 48
   const svgH    = PAD_TOP + visible.length * ROW_H + 20
 
   function xOf(date: string) { return Math.round((daysBetween(projStart, date) / totalDays) * W) }
@@ -109,14 +109,17 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
 
   return (
     <div className="overflow-x-auto">
-      <svg ref={svgRef} width={LABEL_W + W + 20} height={svgH} className="font-mono text-[10px]" style={{ background: '#0d1626' }}>
+      <svg ref={svgRef} width={LABEL_W + W + 20} height={svgH} className="font-mono text-[12px]" style={{ background: '#111827' }}>
+        <rect x={0} y={0} width={LABEL_W + W + 20} height={svgH} fill="#111827" />
+        <rect x={0} y={0} width={LABEL_W} height={svgH} fill="#1f1f1f" />
+        <line x1={LABEL_W} y1={0} x2={LABEL_W} y2={svgH} stroke="#525252" strokeWidth={1} />
         {/* Month headers */}
         {months.map((m) => {
           const x = LABEL_W + xOf(m.date)
           return (
             <g key={m.date}>
-              <line x1={x} y1={0} x2={x} y2={svgH - 14} stroke="#1e3a5f" strokeWidth={0.5} />
-              <text x={x + 3} y={14} fontSize={9} fill="#4a7fa0">{m.label}</text>
+              <line x1={x} y1={0} x2={x} y2={svgH - 16} stroke="#2f4663" strokeWidth={0.7} />
+              <text x={x + 6} y={18} fontSize={11} fill="#60a5fa" fontWeight={700}>{m.label}</text>
             </g>
           )
         })}
@@ -126,8 +129,8 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
           const tx = LABEL_W + xOf(today)
           return (
             <>
-              <line x1={tx} y1={0} x2={tx} y2={svgH - 14} stroke="#f97316" strokeWidth={1} strokeDasharray="3,2" opacity={0.7} />
-              <text x={tx + 2} y={24} fontSize={8} fill="#f97316">hoje</text>
+              <line x1={tx} y1={0} x2={tx} y2={svgH - 16} stroke="#f97316" strokeWidth={1.2} strokeDasharray="3,2" opacity={0.8} />
+              <text x={tx + 4} y={32} fontSize={10} fill="#f97316" fontWeight={700}>hoje</text>
             </>
           )
         })()}
@@ -148,7 +151,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
           const tPx   = xOf(act.trendStart)
           const tW    = wOf(act.trendStart, act.trendEnd)
 
-          const maxLabelChars = Math.floor((LABEL_W - indent - 32) / 5.5)
+          const maxLabelChars = Math.floor((LABEL_W - indent - 38) / 6.3)
           const labelName = act.name.length > maxLabelChars
             ? act.name.slice(0, maxLabelChars - 1) + '…'
             : act.name
@@ -161,8 +164,9 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               <title>{tooltip}</title>
 
               {/* Row background */}
-              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#3d3d3d40" />}
-              {isL1 && i % 2 === 0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#0d1f3510" />}
+              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#2c2c2c" />}
+              {!isL0 && i % 2 === 0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#182235" opacity={0.36} />}
+              <line x1={0} y1={y + ROW_H - 1} x2={LABEL_W + W} y2={y + ROW_H - 1} stroke="#2f2f2f" strokeWidth={0.6} />
 
               {/* Network type accent line (left) */}
               {act.networkType && (
@@ -173,9 +177,9 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               {hasKids && (
                 <text
                   x={indent + 5}
-                  y={y + ROW_H / 2 + 3}
-                  fontSize={9}
-                  fill="#4a7fa0"
+                  y={y + ROW_H / 2 + 4}
+                  fontSize={12}
+                  fill="#60a5fa"
                   style={{ cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => onToggle(act.id)}
                 >
@@ -186,10 +190,10 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               {/* WBS label */}
               <text
                 x={indent + (hasKids ? 18 : 8)}
-                y={y + ROW_H / 2 + 3}
-                fontSize={isL0 ? 11 : 10}
+                y={y + ROW_H / 2 + 4}
+                fontSize={isL0 ? 13 : isL1 ? 12 : 11}
                 fontWeight={isL0 || isL1 ? 'bold' : 'normal'}
-                fill={isL0 ? '#e2f0f8' : '#a3a3a3'}
+                fill={isL0 ? '#f5f5f5' : isL1 ? '#d4d4d4' : '#b8b8b8'}
                 style={{ cursor: hasKids ? 'pointer' : 'default' }}
                 onClick={hasKids ? () => onToggle(act.id) : undefined}
               >
@@ -197,7 +201,7 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               </text>
 
               {/* % complete */}
-              <text x={LABEL_W - 30} y={y + ROW_H / 2 + 3} textAnchor="end" fontSize={8} fill={color}>
+              <text x={LABEL_W - 24} y={y + ROW_H / 2 + 4} textAnchor="end" fontSize={10} fontWeight={700} fill={color}>
                 {act.isMilestone ? '◆' : `${act.percentComplete}%`}
               </text>
 
@@ -215,26 +219,26 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
               ) : (
                 <>
                   {/* Previsto bar */}
-                  <rect x={LABEL_W + bPx} y={y + 4} width={bW} height={9} rx={2} fill="#3a4a6b" opacity={0.5} />
+                  <rect x={LABEL_W + bPx} y={y + 7} width={bW} height={10} rx={3} fill="#64748b" opacity={0.45} />
                   {/* Tendência bar (network-colored) */}
-                  <rect x={LABEL_W + tPx} y={y + 17} width={tW} height={isL0 ? 9 : 7} rx={2} fill={nColor} opacity={0.8} />
+                  <rect x={LABEL_W + tPx} y={y + 22} width={tW} height={isL0 ? 10 : 9} rx={3} fill={nColor} opacity={0.78} />
                   {/* Progress fill */}
                   {act.percentComplete > 0 && (
                     <rect
                       x={LABEL_W + tPx}
-                      y={y + 17}
+                      y={y + 22}
                       width={Math.round(tW * act.percentComplete / 100)}
-                      height={isL0 ? 9 : 7}
-                      rx={2}
+                      height={isL0 ? 10 : 9}
+                      rx={3}
                       fill={nColor}
                     />
                   )}
                   {act.financialProgressPct != null && (
                     <rect
                       x={LABEL_W + tPx}
-                      y={y + 27}
+                      y={y + 35}
                       width={Math.round(tW * Math.min(100, Math.max(0, act.financialProgressPct)) / 100)}
-                      height={3}
+                      height={4}
                       rx={1}
                       fill="#f97316"
                       opacity={0.95}
@@ -248,15 +252,15 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
 
         {/* Legend */}
         <g transform={`translate(${LABEL_W + 4}, ${svgH - 16})`}>
-          <rect x={0} y={0} width={8} height={5} rx={1} fill="#3a4a6b" opacity={0.5} />
-          <text x={12} y={5} fontSize={8} fill="#6b6b6b">Previsto</text>
-          <rect x={55} y={0} width={8} height={5} rx={1} fill="#f97316" opacity={0.8} />
-          <text x={67} y={5} fontSize={8} fill="#6b6b6b">Tendência</text>
+          <rect x={0} y={0} width={10} height={6} rx={1} fill="#64748b" opacity={0.5} />
+          <text x={14} y={6} fontSize={10} fill="#a3a3a3">Previsto</text>
+          <rect x={70} y={0} width={10} height={6} rx={1} fill="#f97316" opacity={0.8} />
+          <text x={84} y={6} fontSize={10} fill="#a3a3a3">Tendencia</text>
           {/* Network legend */}
           {Object.entries(NETWORK_COLOR).map(([nt, c], i) => (
-            <g key={nt} transform={`translate(${130 + i * 55}, 0)`}>
-              <rect x={0} y={0} width={8} height={5} rx={1} fill={c} opacity={0.8} />
-              <text x={12} y={5} fontSize={8} fill="#6b6b6b">{nt.charAt(0).toUpperCase() + nt.slice(1)}</text>
+            <g key={nt} transform={`translate(${165 + i * 68}, 0)`}>
+              <rect x={0} y={0} width={10} height={6} rx={1} fill={c} opacity={0.8} />
+              <text x={14} y={6} fontSize={10} fill="#a3a3a3">{nt.charAt(0).toUpperCase() + nt.slice(1)}</text>
             </g>
           ))}
         </g>
@@ -410,7 +414,7 @@ function exportPng(svgEl: SVGSVGElement | null) {
     canvas.height = svgEl.height.baseVal.value * 2
     const ctx = canvas.getContext('2d')!
     ctx.scale(2, 2)
-    ctx.fillStyle = '#0d1626'
+    ctx.fillStyle = '#111827'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(img, 0, 0)
     URL.revokeObjectURL(url)
@@ -429,7 +433,7 @@ function exportPdf() {
 // ─── Main Panel ──────────────────────────────────────────────────────────────
 
 interface PlanejamentoMacroPanelProps {
-  /** Callback opcional para abrir o wizard "Criar Cronograma do Zero" */
+  /** Callback opcional para abrir o wizard "Criar Planejamento do Zero" */
   onCreateProject?: () => void
 }
 
@@ -566,9 +570,9 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
           <button
             onClick={onCreateProject}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#f97316]/50 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/10 transition-colors"
-            title="Criar cronograma do zero (substitui o atual)"
+            title="Criar planejamento do zero (substitui o atual)"
           >
-            <Sparkles size={13} />Criar Cronograma
+            <Sparkles size={13} />Criar Planejamento
           </button>
         )}
         <button
@@ -682,18 +686,18 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
       </div>
 
       {/* ── Gantt Chart ── */}
-      <div className="bg-[#0d1626] border border-[#525252] rounded-xl overflow-hidden print:border-0">
-        <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between print:hidden">
+      <div className="bg-[#111827] border border-[#525252] rounded-lg overflow-hidden print:border-0">
+        <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between print:hidden bg-[#2c2c2c]">
           <div>
-            <h3 className="text-[#f5f5f5] text-sm font-semibold">Cronograma Macro — Previsto vs Tendência</h3>
-            <p className="text-[#6b6b6b] text-xs mt-0.5">
+            <h3 className="text-[#f5f5f5] text-base font-semibold">Cronograma Macro - Previsto vs Tendencia</h3>
+            <p className="text-[#a3a3a3] text-sm mt-0.5">
               {filtered.length} atividade{filtered.length !== 1 ? 's' : ''}
               {activeFilterCount > 0 ? ` (filtrado de ${activities.length})` : ''}
               {' '}· Clique em ▶/▼ para expandir/recolher
             </p>
           </div>
         </div>
-        <div className="p-3">
+        <div className="p-2">
           <GanttChart
             activities={filtered}
             collapsed={collapsed}

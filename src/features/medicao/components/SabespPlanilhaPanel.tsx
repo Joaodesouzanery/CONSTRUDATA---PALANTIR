@@ -395,6 +395,11 @@ export function SabespPlanilhaPanel() {
     })
   }
 
+  const totalContrato = boletim.itensContrato.reduce((s, i) => s + i.qtdContrato * i.valorUnitario, 0)
+  const totalPeriodo = boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0)
+  const totalAcumulado = boletim.itensContrato.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0)
+  const totalSaldo = boletim.itensContrato.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0)
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -443,21 +448,27 @@ export function SabespPlanilhaPanel() {
           )}
           <div className="flex items-center gap-6">
             <div className="text-right">
+              <div className="text-[10px] text-[#a3a3a3] uppercase">Contrato</div>
+              <div className="text-[#f5f5f5] font-bold text-sm">
+                R$ {fmt(totalContrato)}
+              </div>
+            </div>
+            <div className="text-right">
               <div className="text-[10px] text-[#a3a3a3] uppercase">Total período</div>
               <div className="text-[#f97316] font-bold text-base">
-                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + i.qtdMedida * i.valorUnitario, 0))}
+                R$ {fmt(totalPeriodo)}
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] text-[#a3a3a3] uppercase">Acumulado</div>
               <div className="text-[#a3a3a3] font-bold text-sm">
-                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + (i.qtdAnterior + i.qtdMedida) * i.valorUnitario, 0))}
+                R$ {fmt(totalAcumulado)}
               </div>
             </div>
             <div className="text-right">
               <div className="text-[10px] text-[#a3a3a3] uppercase">Saldo</div>
-              <div className={`font-bold text-sm ${boletim.itensContrato.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                R$ {fmt(boletim.itensContrato.reduce((s, i) => s + (i.qtdContrato - i.qtdAnterior - i.qtdMedida) * i.valorUnitario, 0))}
+              <div className={`font-bold text-sm ${totalSaldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                R$ {fmt(totalSaldo)}
               </div>
             </div>
           </div>

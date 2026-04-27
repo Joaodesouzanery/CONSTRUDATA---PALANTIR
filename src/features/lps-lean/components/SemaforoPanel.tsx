@@ -3,19 +3,34 @@
  * Columns: Semana | Trecho | Descrição | Equipe | Semáforo | Status | CNC
  */
 import { useState, useMemo } from 'react'
-import { Plus, Trash2, Check, X } from 'lucide-react'
+import { Plus, Trash2, Check, X, AlertTriangle } from 'lucide-react'
 import { useLpsStore, computeWeeklyPPC, weekLabel, isoWeek } from '@/store/lpsStore'
 import type { LpsActivity, LpsCncCategory, LpsReadyStatus } from '@/types'
 import { ConfirmDialog } from './ConfirmDialog'
 
 const CNC_OPTIONS: { value: LpsCncCategory; label: string }[] = [
-  { value: 'weather',   label: 'Clima' },
-  { value: 'equipment', label: 'Equipamento' },
-  { value: 'labor',     label: 'Mão de Obra' },
+  { value: 'design',    label: 'Projeto / Engenharia' },
   { value: 'material',  label: 'Material' },
-  { value: 'design',    label: 'Projeto' },
+  { value: 'equipment', label: 'Equipamento' },
+  { value: 'labor',     label: 'Mao de Obra' },
+  { value: 'predecessor', label: 'Predecessora' },
+  { value: 'external',  label: 'Condicoes externas' },
+  { value: 'weather',   label: 'Clima' },
+  { value: 'planning',  label: 'Planejamento' },
   { value: 'other',     label: 'Outro' },
 ]
+
+const CNC_EXAMPLES: Record<LpsCncCategory, string> = {
+  design: 'Projeto nao liberado, revisao pendente',
+  material: 'Material nao chegou, material errado',
+  equipment: 'Equipamento quebrado ou indisponivel',
+  labor: 'Equipe incompleta ou falta de skill',
+  predecessor: 'Atividade anterior nao concluida',
+  external: 'Chuva, liberacao de via, interferencia',
+  weather: 'Chuva ou condicao climatica impeditiva',
+  planning: 'Meta irreal ou sem tempo habil',
+  other: 'Outra causa registrada pela equipe',
+}
 
 const STATUS_COLORS: Record<LpsReadyStatus, string> = {
   green:  'bg-[#22c55e]',
@@ -41,7 +56,7 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
     setConfirming(true)
   }
   function confirmSave() {
-    updateActivity(activity.id, { cncCategory: cat, cncDescription: desc, readyStatus: 'red' })
+    updateActivity(activity.id, { completed: false, cncCategory: cat, cncDescription: desc || CNC_EXAMPLES[cat], readyStatus: 'red' })
     onClose()
   }
   function handleClear() {
@@ -61,6 +76,7 @@ function CncEditor({ activity, onClose }: { activity: LpsActivity; onClose: () =
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+      <p className="text-[10px] text-[#a3a3a3]">{CNC_EXAMPLES[cat]}</p>
       <textarea
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
@@ -107,6 +123,7 @@ function AddActivityRow({ onClose }: { onClose: () => void }) {
       trechoCode: code,
       description: desc,
       planned: true,
+      committed: false,
       completed: false,
       readyStatus: 'green',
       responsibleTeam: team,
@@ -160,6 +177,7 @@ function AddActivityRow({ onClose }: { onClose: () => void }) {
 
 export function SemaforoPanel() {
   const activities     = useLpsStore((s) => s.activities)
+  const taktZones      = useLpsStore((s) => s.taktZones)
   const updateActivity = useLpsStore((s) => s.updateActivity)
   const removeActivity = useLpsStore((s) => s.removeActivity)
 
@@ -187,12 +205,24 @@ export function SemaforoPanel() {
     ? Math.round(filteredWeekly.reduce((s, w) => s + w.ppc, 0) / filteredWeekly.length)
     : null
 
+  const taktAlertByTrecho = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const z of taktZones) {
+      if (z.actualDays !== undefined && z.actualDays > z.taktDays) {
+        map.set(z.code, z.actualDays - z.taktDays)
+      }
+    }
+    return map
+  }, [taktZones])
+
   function toggleCompleted(a: LpsActivity) {
     const completed = !a.completed
     updateActivity(a.id, {
       completed,
-      readyStatus: completed ? 'green' : a.readyStatus === 'green' ? 'red' : a.readyStatus,
+      readyStatus: completed ? 'green' : 'red',
+      ...(completed ? { cncCategory: undefined, cncDescription: undefined } : {}),
     })
+    if (!completed) setCncOpenId(a.id)
   }
 
   return (
@@ -255,6 +285,11 @@ export function SemaforoPanel() {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className="text-xs font-semibold text-white">{a.trechoCode}</span>
+                  {taktAlertByTrecho.has(a.trechoCode) && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded border border-red-700/40 bg-red-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+                      <AlertTriangle size={10} /> Acima do takt +{taktAlertByTrecho.get(a.trechoCode)}d
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 text-[#f5f5f5] text-xs max-w-[220px] truncate">
                   {a.description}

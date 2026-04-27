@@ -24,12 +24,12 @@ export function LookAheadPanel() {
   const updateActivity = useLpsStore((s) => s.updateActivity)
   const addActivity    = useLpsStore((s) => s.addActivity)
 
-  const today = new Date()
+  const today = useMemo(() => new Date(), [])
 
   // 6 future weeks starting from current week
   const weeks = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => weekOffset(today, i))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [today])
 
   // All unique trecho codes from activities
   const trechos = useMemo(() => {
@@ -71,11 +71,21 @@ export function LookAheadPanel() {
         trechoCode: code,
         description: trechos.find((t) => t.code === code)?.desc ?? code,
         planned: true,
+        committed: false,
         completed: false,
         readyStatus: 'green',
         responsibleTeam: team,
       })
     }
+  }
+
+  function toggleCommitment(activity: LpsActivity) {
+    const committed = !activity.committed
+    updateActivity(activity.id, {
+      committed,
+      commitmentNote: committed ? 'Compromisso confirmado pela equipe responsavel.' : undefined,
+      readyStatus: committed ? 'green' : 'yellow',
+    })
   }
 
   const ppcByWeek = useMemo(() => {
@@ -94,6 +104,9 @@ export function LookAheadPanel() {
         <div className="flex items-center gap-4 text-xs text-[#6b6b6b]">
           <span className="flex items-center gap-1.5">
             <span className="w-4 h-4 rounded bg-blue-600 inline-block" /> Planejado
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded bg-yellow-600 inline-block" /> Sem compromisso
           </span>
           <span className="flex items-center gap-1.5">
             <Check size={12} className="text-green-400" /> Concluído
@@ -156,10 +169,12 @@ export function LookAheadPanel() {
                     <td key={w} className={`px-2 py-1.5 text-center ${isCurrentWeek ? 'bg-[#f97316]/10' : ''}`}>
                       <button
                         onClick={() => handleCellClick(t.code, w, t.team)}
-                        className="w-full h-10 rounded-md flex items-center justify-center transition-all"
+                        className="relative w-full h-11 rounded-md flex items-center justify-center transition-all"
                         style={
-                          cell?.planned && !cell.completed
+                          cell?.planned && !cell.completed && cell.committed
                             ? { backgroundColor: color + '33', border: `1px solid ${color}66` }
+                            : cell?.planned && !cell.completed
+                              ? { backgroundColor: '#a1620733', border: '1px solid #eab30866' }
                             : cell?.completed
                               ? { backgroundColor: '#15803d33', border: '1px solid #16a34a66' }
                               : { backgroundColor: '#1f2937', border: '1px solid #374151' }
@@ -170,10 +185,19 @@ export function LookAheadPanel() {
                           : 'Não planejado — clique para planejar'
                         }
                       >
+                        {cell?.planned && !cell.completed && (
+                          <span
+                            className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded border border-[#f5f5f5]/40 bg-[#1f1f1f]/70"
+                            onClick={(e) => { e.stopPropagation(); toggleCommitment(cell) }}
+                            title="Comprometido pela equipe responsavel?"
+                          >
+                            {cell.committed && <Check size={10} className="text-blue-300" />}
+                          </span>
+                        )}
                         {cell?.completed
                           ? <Check size={14} className="text-green-400" />
                           : cell?.planned
-                            ? <span className="text-[10px] font-semibold" style={{ color }}>{cell.plannedMeters ? `${cell.plannedMeters}m` : '✓'}</span>
+                            ? <span className="text-[10px] font-semibold" style={{ color: cell.committed ? color : '#facc15' }}>{cell.plannedMeters ? `${cell.plannedMeters}m` : cell.committed ? 'OK' : 'Pendente'}</span>
                             : <Minus size={12} className="text-gray-700" />
                         }
                         {cell?.cncCategory && (

@@ -9,19 +9,25 @@ import type { LpsCncCategory } from '@/types'
 
 const CNC_LABELS: Record<LpsCncCategory, string> = {
   weather:   'Clima',
+  external:  'Condicoes externas',
   equipment: 'Equipamento',
-  labor:     'Mão de Obra',
+  labor:     'Mao de Obra',
   material:  'Material',
-  design:    'Projeto',
+  design:    'Projeto / Engenharia',
+  predecessor: 'Predecessora',
+  planning:  'Planejamento',
   other:     'Outro',
 }
 
 const CNC_COLORS: Record<LpsCncCategory, string> = {
   weather:   '#38bdf8',
+  external:  '#60a5fa',
   equipment: '#7de8f5',
   labor:     '#a78bfa',
   material:  '#4ade80',
   design:    '#f472b6',
+  predecessor: '#fb7185',
+  planning:  '#f97316',
   other:     '#94a3b8',
 }
 
@@ -80,6 +86,21 @@ export function PpcDashboard() {
   }
 
   const metaY = CHART_H - (META_PPC / 100) * CHART_H
+
+  const ppcByTeam = useMemo(() => {
+    const map = new Map<string, { planned: number; completed: number }>()
+    for (const a of activities) {
+      if (!a.planned) continue
+      const team = a.responsibleTeam || 'Sem equipe'
+      const entry = map.get(team) ?? { planned: 0, completed: 0 }
+      entry.planned += 1
+      if (a.completed) entry.completed += 1
+      map.set(team, entry)
+    }
+    return Array.from(map.entries())
+      .map(([team, v]) => ({ team, ...v, ppc: v.planned > 0 ? Math.round((v.completed / v.planned) * 100) : 0 }))
+      .sort((a, b) => a.ppc - b.ppc)
+  }, [activities])
 
   return (
     <div className="p-6 flex flex-col gap-6">
@@ -209,6 +230,44 @@ export function PpcDashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* PPC by team */}
+      <div className="rounded-xl border border-[#3d3d3d] overflow-hidden">
+        <div className="bg-[#2c2c2c] px-4 py-3 border-b border-[#525252]">
+          <p className="text-xs font-semibold text-white">PPC por equipe</p>
+        </div>
+        <table className="w-full text-xs">
+          <thead className="bg-[#3d3d3d]/80 border-b border-[#525252]">
+            <tr>
+              <th className="text-left text-[#a3a3a3] px-4 py-2.5 font-semibold">Equipe</th>
+              <th className="text-right text-[#a3a3a3] px-4 py-2.5 font-semibold">Planejadas</th>
+              <th className="text-right text-[#a3a3a3] px-4 py-2.5 font-semibold">Concluidas</th>
+              <th className="text-right text-[#a3a3a3] px-4 py-2.5 font-semibold">PPC</th>
+              <th className="text-left text-[#a3a3a3] px-4 py-2.5 font-semibold">Leitura</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#3d3d3d]">
+            {ppcByTeam.map((team) => (
+              <tr key={team.team} className="bg-[#2c2c2c] hover:bg-[#3d3d3d]/60">
+                <td className="px-4 py-2 text-[#f5f5f5] font-semibold">{team.team}</td>
+                <td className="px-4 py-2 text-right text-[#a3a3a3]">{team.planned}</td>
+                <td className="px-4 py-2 text-right text-[#a3a3a3]">{team.completed}</td>
+                <td className="px-4 py-2 text-right font-bold font-mono">
+                  <span className={team.ppc >= META_PPC ? 'text-green-400' : team.ppc >= 60 ? 'text-yellow-400' : 'text-red-400'}>{team.ppc}%</span>
+                </td>
+                <td className="px-4 py-2">
+                  <span className={team.ppc >= META_PPC ? 'text-green-400' : team.ppc >= 60 ? 'text-yellow-400' : 'text-red-400'}>
+                    {team.ppc >= META_PPC ? 'Acima da meta' : team.ppc >= 60 ? 'Abaixo da meta' : 'Critico'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+            {ppcByTeam.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-600">Sem atividades planejadas por equipe.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Weekly detail table */}

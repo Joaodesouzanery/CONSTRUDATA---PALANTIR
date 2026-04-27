@@ -71,6 +71,7 @@ function toNum(v: unknown): number {
   }
   // Only comma — decimal separator (Brazilian without thousands)
   if (clean.includes(',') && !clean.includes('.')) {
+    if (/^-?\d{1,3}(,\d{3})+$/.test(clean)) return parseFloat(clean.replace(/,/g, '')) || 0
     return parseFloat(clean.replace(',', '.')) || 0
   }
   return parseFloat(clean) || 0
@@ -92,6 +93,12 @@ export interface SabespParseResult {
   itens:    Omit<ItemContrato, 'id'>[]
   errors:   string[]
   warnings: string[]
+  sourceTotals?: {
+    totalContrato?: number
+    totalPeriodo?: number
+    totalAcumulado?: number
+    saldo?: number
+  }
 }
 
 /**
@@ -192,9 +199,16 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   let iItem = 0, iDescr = 1, iNPreco = 2, iUnid = 3, iQtdContr = 4, iPUnit = 5
   let iQtdMedida = -1
   let iQtdAnterior = -1
+  let iQtdAcumulada = -1
+  let iContratoTotal = -1
+  let iValorMedida = -1
+  let iValorAcumulado = -1
+  let iSaldoValor = -1
 
   if (headerRowIdx >= 0 && headerRowIdx < raw.length) {
     const headers = raw[headerRowIdx].map(toStr)
+    const quantCols: number[] = []
+    const saldoCols: number[] = []
     headers.forEach((h, idx) => {
       const n = norm(h)
       if (/^item$/.test(n)) iItem = idx
@@ -203,15 +217,25 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       else if (/^un(id)?$/.test(n) || n === 'un') iUnid = idx
       else if (/^(quant|qtd|quantidade)$/.test(n) && idx <= 6 && iQtdContr === 4) iQtdContr = idx
       else if (/p[\s.]?\s*unit|prec.*unit|vl.*unit|valor.*unit/.test(n) && idx <= 7) iPUnit = idx
+      else if (/^total$|valor\s*total/.test(n) && idx > iPUnit && iContratoTotal === -1) iContratoTotal = idx
       else if (/anterior/.test(n)) iQtdAnterior = idx
       else if (/acum|acumulad/.test(n) && iQtdAnterior === -1) iQtdAnterior = idx
+      if (idx > iPUnit && /quant|qtd/.test(n)) quantCols.push(idx)
+      if (idx > iPUnit && /valor/.test(n) && iValorMedida === -1) iValorMedida = idx
+      if (idx > iPUnit && /executado/.test(n)) iValorAcumulado = idx
+      if (idx > iPUnit && /saldo/.test(n)) saldoCols.push(idx)
     })
+    iQtdMedida = quantCols[0] ?? iQtdMedida
+    iQtdAcumulada = quantCols[1] ?? -1
+    iSaldoValor = saldoCols[saldoCols.length - 1] ?? -1
     // Look for period measurement Quant. column after P.Unit
-    for (let ci = iPUnit + 1; ci < headers.length; ci++) {
-      const hn = norm(headers[ci])
-      if (/quant|qtd/.test(hn)) {
-        iQtdMedida = ci
-        break
+    if (iQtdMedida === -1) {
+      for (let ci = iPUnit + 1; ci < headers.length; ci++) {
+        const hn = norm(headers[ci])
+        if (/quant|qtd/.test(hn)) {
+          iQtdMedida = ci
+          break
+        }
       }
     }
     // Also scan the row ABOVE headerRowIdx for period labels like "MED. 08"
@@ -231,6 +255,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
   // ── Parse data rows ────────────────────────────────────────────────────────
   const startRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 0
   let currentGrupo: '01' | '02' | '03' = '02'
+  let inExtras = false
 
   for (let i = startRow; i < raw.length; i++) {
     const row = raw[i]
@@ -248,7 +273,11 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     const rowJoined = [item, nPreco, descricao].join(' ')
     if (/crit[eé]rio/i.test(rowJoined) && !/^\d{4,}$/.test(nPreco.replace(/\s/g, ''))) continue
 
-    // Skip "Total do Grupo", "Total da Frente", "Total da Planilha" summary rows
+    // Skip summary rows, but rows after "Total da Planilha" are extras/aditivos.
+    if (/total\s+da\s+planilha/i.test(rowJoined)) {
+      inExtras = true
+      continue
+    }
     if (/total\s*(do|da|geral)/i.test(rowJoined)) continue
 
     // Detect grupo from Item code prefix
@@ -257,10 +286,10 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     // Normalize to 8 digits by padding with leading zero if 7 digits
     const normalizedItem = cleanItem.length === 7 ? '0' + cleanItem : cleanItem
     const grupoPfx = normalizedItem.slice(0, 2)
-    if (grupoPfx === '01') currentGrupo = '01'
-    else if (grupoPfx === '02') currentGrupo = '02'
-    else if (grupoPfx === '03') currentGrupo = '03'
-    else {
+    if (!inExtras && grupoPfx === '01') currentGrupo = '01'
+    else if (!inExtras && grupoPfx === '02') currentGrupo = '02'
+    else if (!inExtras && grupoPfx === '03') currentGrupo = '03'
+    else if (!inExtras) {
       // Heuristic from description
       const rowStr = [item, descricao].join(' ').toLowerCase()
       if (/canteiro|plano de gestao|pcmat|pcmso/.test(rowStr)) currentGrupo = '01'
@@ -309,7 +338,10 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     const qtdContrato   = toNum(row[iQtdContr])
     const valorUnitario = toNum(row[iPUnit])
     const qtdMedida     = iQtdMedida >= 0 ? toNum(row[iQtdMedida]) : 0
-    const qtdAnterior   = iQtdAnterior >= 0 ? toNum(row[iQtdAnterior]) : 0
+    const qtdAcumulada  = iQtdAcumulada >= 0 ? toNum(row[iQtdAcumulada]) : 0
+    const qtdAnterior   = qtdAcumulada > 0
+      ? Math.max(0, qtdAcumulada - qtdMedida)
+      : iQtdAnterior >= 0 ? toNum(row[iQtdAnterior]) : 0
 
     if (!cleanDescricao && !nPrecoClean) continue
 
@@ -318,7 +350,7 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
       nPreco:       nPrecoClean,
       descricao:    cleanDescricao || '—',
       unidade,
-      grupo:        nPrecoClean.startsWith('EXT') ? 'EX' : currentGrupo,
+      grupo:        inExtras || nPrecoClean.startsWith('EXT') ? 'EX' : currentGrupo,
       qtdContrato,
       qtdAnterior,
       qtdMedida,
@@ -377,30 +409,31 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     seen.add(it.nPreco)
   }
 
-  // ── Cross-check: compare imported total vs "Total da Planilha" row ────────
-  // Scan raw data for a row containing "Total da Planilha" and extract its value
+  const sourceTotals = {
+    totalContrato: 0,
+    totalPeriodo: 0,
+    totalAcumulado: 0,
+    saldo: 0,
+  }
   for (let i = startRow; i < raw.length; i++) {
-    const cells = raw[i]?.map(toStr) ?? []
-    const rowText = cells.join(' ')
-    if (/total\s*(da\s*)?planilha/i.test(rowText)) {
-      // Find the first large numeric value in this row (the total)
-      for (const cell of cells) {
-        const val = toNum(cell)
-        if (val > 1000) {
-          // Compare with sum of all imported items (qtdContrato * valorUnitario)
-          const importedTotal = itens.reduce((s, it) => s + it.qtdContrato * it.valorUnitario, 0)
-          const diff = Math.abs(val - importedTotal)
-          if (diff > 1) {
-            warnings.push(
-              `Alerta de consistência: Total da Planilha no arquivo é R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` +
-              `, mas a soma dos itens importados é R$ ${importedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` +
-              ` (diferença: R$ ${diff.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}). Verifique se todos os itens foram importados.`
-            )
-          }
-          break
-        }
-      }
-      break
+    const row = raw[i] ?? []
+    if (iContratoTotal >= 0) sourceTotals.totalContrato = Math.max(sourceTotals.totalContrato, toNum(row[iContratoTotal]))
+    if (iValorMedida >= 0) sourceTotals.totalPeriodo = Math.max(sourceTotals.totalPeriodo, toNum(row[iValorMedida]))
+    if (iValorAcumulado >= 0) sourceTotals.totalAcumulado = Math.max(sourceTotals.totalAcumulado, toNum(row[iValorAcumulado]))
+    if (iSaldoValor >= 0) sourceTotals.saldo = Math.max(sourceTotals.saldo, toNum(row[iSaldoValor]))
+  }
+  const importedChecks = [
+    ['Total contratado', sourceTotals.totalContrato, itens.reduce((s, it) => s + it.qtdContrato * it.valorUnitario, 0)],
+    ['Total periodo', sourceTotals.totalPeriodo, itens.reduce((s, it) => s + it.qtdMedida * it.valorUnitario, 0)],
+    ['Total acumulado', sourceTotals.totalAcumulado, itens.reduce((s, it) => s + (it.qtdAnterior + it.qtdMedida) * it.valorUnitario, 0)],
+    ['Saldo', sourceTotals.saldo, itens.reduce((s, it) => s + (it.qtdContrato - it.qtdAnterior - it.qtdMedida) * it.valorUnitario, 0)],
+  ] as const
+  for (const [label, source, imported] of importedChecks) {
+    if (source > 0 && Math.abs(source - imported) > 10) {
+      warnings.push(
+        `Alerta de consistencia (${label}): arquivo R$ ${source.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` +
+        `, importado R$ ${imported.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+      )
     }
   }
 
@@ -413,7 +446,17 @@ export function parseSabespSheet(wb: XLSX.WorkBook): SabespParseResult {
     )
   }
 
-  return { itens, errors, warnings }
+  return {
+    itens,
+    errors,
+    warnings,
+    sourceTotals: {
+      totalContrato: sourceTotals.totalContrato || undefined,
+      totalPeriodo: sourceTotals.totalPeriodo || undefined,
+      totalAcumulado: sourceTotals.totalAcumulado || undefined,
+      saldo: sourceTotals.saldo || undefined,
+    },
+  }
 }
 
 // ─── Subempreiteiro sheet parser ──────────────────────────────────────────────
