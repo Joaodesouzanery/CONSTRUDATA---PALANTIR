@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
+import { PreConstrucaoPage } from '@/features/pre-construcao'
 import { TabVisaoGeral }   from './tabs/TabVisaoGeral'
 import { TabPlanejamento } from './tabs/TabPlanejamento'
 import { TabExecucao }     from './tabs/TabExecucao'
@@ -11,6 +12,7 @@ import { FolderOpen }      from 'lucide-react'
 const TABS = [
   'Visão Geral',
   'Planejamento',
+  'Pré-Construção',
   'Execução',
   'Orçamento',
   '3D / 4D / 5D',
@@ -58,10 +60,15 @@ export function ProjetosDetail() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 0 && <TabVisaoGeral   project={project} />}
         {activeTab === 1 && <TabPlanejamento project={project} />}
-        {activeTab === 2 && <TabExecucao     project={project} />}
-        {activeTab === 3 && <TabOrcamento    project={project} />}
-        {activeTab === 4 && <TabVisualizacao project={project} />}
-        {activeTab === 5 && <TabDocumentos   project={project} />}
+        {activeTab === 2 && (
+          <div className="h-full overflow-hidden">
+            <PreConstrucaoPage />
+          </div>
+        )}
+        {activeTab === 3 && <TabExecucao     project={project} />}
+        {activeTab === 4 && <TabOrcamento    project={project} />}
+        {activeTab === 5 && <TabVisualizacao project={project} />}
+        {activeTab === 6 && <TabDocumentos   project={project} />}
       </div>
     </div>
   )

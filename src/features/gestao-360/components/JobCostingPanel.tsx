@@ -227,7 +227,7 @@ export function JobCostingPanel() {
         <div className="flex items-center justify-between mb-3">
           <p className="text-[#f5f5f5] text-sm font-semibold">Progresso das Fases</p>
           <Link
-            to="/projetos"
+            to="/app/torre-de-controle?aba=projetos"
             className="flex items-center gap-1 text-[#f97316] text-xs font-medium hover:underline"
           >
             <ExternalLink size={11} /> Ver em Projetos

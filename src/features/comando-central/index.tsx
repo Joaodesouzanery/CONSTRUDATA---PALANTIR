@@ -192,7 +192,7 @@ export function ComandoCentralPage() {
             <CheckCircle2 size={32} className="mx-auto mb-3 opacity-50" />
             <p>Nenhum projeto cadastrado ainda.</p>
             <button
-              onClick={() => navigate('/app/projetos')}
+              onClick={() => navigate('/app/torre-de-controle?aba=projetos')}
               className="mt-3 text-[#f97316] hover:underline text-xs"
             >
               Criar primeiro projeto →

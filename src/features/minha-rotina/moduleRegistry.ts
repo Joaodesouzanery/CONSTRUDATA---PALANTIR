@@ -6,7 +6,7 @@
  * para o picker de "+ Adicionar". Mantém ícones e descrições curtas.
  */
 import {
-  ClipboardList, Calendar, FolderKanban, Radio, Wrench, FileSearch,
+  ClipboardList, Calendar, Radio, Wrench,
   PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, Network, BrainCircuit, TrendingUp,
   ShieldCheck, Ruler, type LucideIcon,
@@ -119,25 +119,11 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
   },
   // ── PROJETOS ────────────────────────────────────────────────────────────
   {
-    path: '/app/projetos',
-    label: 'Projetos',
-    icon: FolderKanban,
-    group: 'projetos',
-    description: 'Cadastro mestre de projetos, escopo, contratos e equipes.',
-  },
-  {
     path: '/app/bim',
     label: 'BIM 3D/4D/5D',
     icon: Layers,
     group: 'projetos',
     description: 'Visualização 3D, timeline 4D e heatmap de custo 5D.',
-  },
-  {
-    path: '/app/pre-construcao',
-    label: 'Pré-Construção',
-    icon: FileSearch,
-    group: 'projetos',
-    description: 'Due diligence, viabilidade técnica e geotécnica.',
   },
   {
     path: '/app/mapa-interativo',

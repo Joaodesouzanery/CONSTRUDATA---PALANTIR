@@ -1,16 +1,14 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
-  ClipboardList, Calendar, Wrench, FolderKanban, Radio,
-  FileSearch, PackageSearch, Users, LayoutDashboard,
+  ClipboardList, Calendar, Wrench, Radio,
+  PackageSearch, Users, LayoutDashboard,
 } from 'lucide-react'
 
 const ALL_MODULES = [
   { label: 'Relatório 360',  icon: ClipboardList,  to: '/relatorio360'        },
   { label: 'Agenda',         icon: Calendar,        to: '/agenda'              },
   { label: 'Equipamentos',   icon: Wrench,          to: '/gestao-equipamentos' },
-  { label: 'Projetos',       icon: FolderKanban,    to: '/projetos'            },
   { label: 'Torre Controle', icon: Radio,           to: '/torre-de-controle'   },
-  { label: 'Pré-Constr.',    icon: FileSearch,      to: '/pre-construcao'      },
   { label: 'Suprimentos',    icon: PackageSearch,   to: '/suprimentos'         },
   { label: 'Mão de Obra',    icon: Users,           to: '/mao-de-obra'         },
   { label: 'Gestão 360',     icon: LayoutDashboard, to: '/gestao-360'          },

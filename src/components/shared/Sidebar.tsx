@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
-  ClipboardList, Calendar, FolderKanban, Radio,
-  Wrench, FileSearch, PackageSearch, Users, FlaskConical,
+  ClipboardList, Calendar, Radio,
+  Wrench, PackageSearch, Users, FlaskConical,
   ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin,
@@ -56,9 +56,7 @@ const NAV_GROUPS = [
   {
     label: 'PROJETOS',
     items: [
-      { label: 'Projetos',        icon: FolderKanban,     to: '/app/projetos'            },
       { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },
-      { label: 'Pré-Constr.',     icon: FileSearch,       to: '/app/pre-construcao'      },
       { label: 'Mapa Interativo', icon: Map,              to: '/app/mapa-interativo'     },
     ],
   },

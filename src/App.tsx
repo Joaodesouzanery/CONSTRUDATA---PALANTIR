@@ -12,10 +12,8 @@ import { lazy, Suspense } from 'react'
 
 const Relatorio360Page      = lazy(() => import('@/features/relatorio360/index').then((m) => ({ default: m.Relatorio360Page })))
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
-const ProjetosPage          = lazy(() => import('@/features/projetos/index').then((m) => ({ default: m.ProjetosPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
-const PreConstrucaoPage     = lazy(() => import('@/features/pre-construcao/index').then((m) => ({ default: m.PreConstrucaoPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
 const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
 const OtimizacaoFrotaPage   = lazy(() => import('@/features/otimizacao-frota/index').then((m) => ({ default: m.default })))
@@ -86,9 +84,9 @@ function App() {
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
           <Route path="gestao-equipamentos" element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
-          <Route path="projetos"            element={<LazyRoute><ProjetosPage /></LazyRoute>} />
+          <Route path="projetos"            element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
-          <Route path="pre-construcao"      element={<LazyRoute><PreConstrucaoPage /></LazyRoute>} />
+          <Route path="pre-construcao"      element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />
           <Route path="mao-de-obra"         element={<LazyRoute><MaoDeObraPage /></LazyRoute>} />
           <Route path="otimizacao-frota"    element={<LazyRoute><OtimizacaoFrotaPage /></LazyRoute>} />

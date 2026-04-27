@@ -74,7 +74,7 @@ export const PERSONA_PRESETS: PersonaPreset[] = [
     emoji: '✅',
     desc: 'Inspeciona, abre FVS, registra NCs.',
     daily:   ['/app/qualidade', '/app/rdo'],
-    weekly:  ['/app/mapa-interativo', '/app/projetos'],
+    weekly:  ['/app/mapa-interativo', '/app/torre-de-controle'],
     monthly: ['/app/relatorio360'],
   },
   {
