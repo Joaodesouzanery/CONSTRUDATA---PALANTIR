@@ -104,6 +104,87 @@ export async function readWorkbook(file: File): Promise<XLSX.WorkBook> {
   return XLSX.read(buf, { type: 'array' })
 }
 
+const MONTH_ALIASES: Record<string, string> = {
+  jan: 'jan',
+  january: 'jan',
+  janeiro: 'jan',
+  feb: 'fev',
+  fev: 'fev',
+  february: 'fev',
+  fevereiro: 'fev',
+  mar: 'mar',
+  march: 'mar',
+  marco: 'mar',
+  março: 'mar',
+  apr: 'abr',
+  abr: 'abr',
+  april: 'abr',
+  abril: 'abr',
+  may: 'mai',
+  mai: 'mai',
+  maio: 'mai',
+  jun: 'jun',
+  june: 'jun',
+  junho: 'jun',
+  jul: 'jul',
+  july: 'jul',
+  julho: 'jul',
+  aug: 'ago',
+  ago: 'ago',
+  august: 'ago',
+  agosto: 'ago',
+  sep: 'set',
+  set: 'set',
+  september: 'set',
+  setembro: 'set',
+  oct: 'out',
+  out: 'out',
+  october: 'out',
+  outubro: 'out',
+  nov: 'nov',
+  november: 'nov',
+  novembro: 'nov',
+  dec: 'dez',
+  dez: 'dez',
+  december: 'dez',
+  dezembro: 'dez',
+}
+
+function normalizePeriodoLabel(value: string): string {
+  const normalized = norm(value)
+  const monthMatch = normalized.match(/\b(jan|janeiro|feb|fev|fevereiro|mar|marco|abr|abril|apr|mai|maio|may|jun|junho|jul|julho|ago|agosto|aug|set|setembro|sep|out|outubro|oct|nov|novembro|dez|dezembro|dec)\b/)
+  const yearMatch = normalized.match(/\b(\d{2,4})\b/)
+  const month = monthMatch ? MONTH_ALIASES[monthMatch[1]] ?? monthMatch[1] : ''
+  const year = yearMatch ? yearMatch[1].slice(-2) : ''
+  if (month && year) return `${month}/${year}`
+  if (month) return month
+  return ''
+}
+
+function samePeriodoMonth(a: string, b: string) {
+  const left = normalizePeriodoLabel(a).split('/')[0]
+  const right = normalizePeriodoLabel(b).split('/')[0]
+  return Boolean(left && right && left === right)
+}
+
+function firstReasonableMoney(cells: string[], startIndex = 0) {
+  for (let i = startIndex; i < cells.length; i += 1) {
+    const cell = cells[i]
+    if (!cell.trim()) continue
+    if (/[a-zA-ZÀ-ÿ]/.test(cell) && !/R\$|\d+[.,]\d{2}/.test(cell)) continue
+    if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(cell)) continue
+    const value = toNum(cell)
+    if (Math.abs(value) > 0 && Math.abs(value) < 100_000_000_000) return value
+  }
+  return 0
+}
+
+function findLabelValue(cells: string[], labels: RegExp[]) {
+  const idx = cells.findIndex((cell) => labels.some((label) => label.test(norm(cell))))
+  if (idx < 0) return ''
+  return cells.slice(idx + 1).find((cell) => cell.trim()) ?? ''
+}
+
 // ─── Sabesp planilha parser ───────────────────────────────────────────────────
 
 export interface SabespParseResult {
@@ -555,6 +636,198 @@ export interface SubempreiteiroParseResult {
   errors:   string[]
 }
 
+function readRawWorksheet(wb: XLSX.WorkBook, sheetName: string): string[][] {
+  const ws = wb.Sheets[sheetName]
+  if (!ws) return []
+  return (XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }) as unknown[][])
+    .map((row) => row.map(toStr))
+}
+
+function isMetadataNoise(value: string) {
+  const n = norm(value)
+  if (!n) return true
+  if (normalizePeriodoLabel(value)) return true
+  if (/^\d+$/.test(n)) return true
+  if (/resumo|fechamento|boletim|controle|medicao/.test(n)) return true
+  return /^(obra|nucleo|contrato|referencia|mes|empreiteiro|fornecedor|periodo|data|revisao|responsavel|slrn|slnr|resumo|fechamento|boletim|medicao|parametros?)$/.test(n)
+}
+
+function pickCompanyCandidate(cells: string[]) {
+  return cells.find((cell) => {
+    const value = cell.trim()
+    if (value.length < 3) return false
+    if (isMetadataNoise(value)) return false
+    if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(value)) return false
+    return /[A-Za-zÀ-ÿ]/.test(value)
+  }) ?? ''
+}
+
+function pickNucleoCandidate(cells: string[]) {
+  return cells.find((cell) => /sao|são|manuel|teteu|morro/i.test(cell) && !/obra|nucleo|núcleo/i.test(norm(cell))) ?? ''
+}
+
+function findHeaderRow(raw: string[][], match: (rowNorm: string) => boolean, limit = 80) {
+  for (let i = 0; i < Math.min(raw.length, limit); i += 1) {
+    const rowNorm = norm(raw[i].join(' '))
+    if (match(rowNorm)) return i
+  }
+  return -1
+}
+
+function findHeaderCol(headers: string[], matchers: RegExp[]) {
+  return headers.findIndex((h) => matchers.some((re) => re.test(norm(h))))
+}
+
+function findMonthPair(periodRow: string[], headers: string[], periodo: string) {
+  if (!periodo) return { qtd: -1, total: -1 }
+  for (let i = 0; i < periodRow.length; i += 1) {
+    if (!samePeriodoMonth(periodRow[i], periodo)) continue
+    const qtd = headers.slice(i, i + 3).findIndex((h) => /qntd|qtd|quant/i.test(norm(h)))
+    const total = headers.slice(i, i + 4).findIndex((h) => /preco total|valor|total/i.test(norm(h)))
+    if (qtd >= 0 && total >= 0) return { qtd: i + qtd, total: i + total }
+  }
+  return { qtd: -1, total: -1 }
+}
+
+function normalizeSheetPriority(name: string) {
+  const n = norm(name)
+  if (n === 'medicao') return 0
+  if (/medicao/.test(n) && !/resumo|desconto|retencao/.test(n)) return 1
+  if (/itens retencao/.test(n)) return 2
+  if (/resumo|nfs|parametro|desconto|material|memoria/.test(n)) return 20
+  return 8
+}
+
+function formatQty(value: number) {
+  return value.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParseResult {
+  const parsed = parseSubempreiteiroSheetOptimized(wb)
+  if (parsed.itens.length > 0) return parsed
+  const legacy = parseSubempreiteiroSheetLegacy(wb)
+  return legacy.itens.length > 0 ? legacy : parsed
+}
+
+function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroParseResult {
+  const result: SubempreiteiroParseResult = {
+    nome:   'Subempreiteiro',
+    nucleo: '',
+    periodo: '',
+    itens:  [],
+    totals: { totalMedido: 0, totalAprovado: 0, retencao: 0 },
+    errors: [],
+  }
+
+  const sheets = wb.SheetNames.map((name) => ({ name, raw: readRawWorksheet(wb, name) }))
+
+  for (const { name, raw } of sheets) {
+    const summaryLike = /resumo|fechamento/.test(norm(name))
+    for (let i = 0; i < Math.min(raw.length, 35); i += 1) {
+      const cells = raw[i].filter(Boolean)
+      if (cells.length === 0) continue
+      const rowNorm = norm(cells.join(' '))
+
+      const labeledName = findLabelValue(cells, [/empreiteiro/, /subempreiteiro/, /contratada/])
+      if (!result.nome || result.nome === 'Subempreiteiro') {
+        result.nome = labeledName || pickCompanyCandidate(cells) || result.nome
+      }
+
+      const labeledNucleo = findLabelValue(cells, [/obra.*nucleo/, /^nucleo$/, /nucleo/])
+      if (!result.nucleo) result.nucleo = labeledNucleo || pickNucleoCandidate(cells)
+
+      if (!result.periodo) {
+        const periodo = cells.map(normalizePeriodoLabel).find(Boolean)
+        if (periodo) result.periodo = periodo
+      }
+
+      if (summaryLike && /medicao\s+aprovada/.test(rowNorm)) {
+        result.totals.totalAprovado = Math.abs(firstReasonableMoney(cells))
+      } else if (summaryLike && (/^retencao\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/.test(rowNorm) || /^retencao$/.test(rowNorm))) {
+        result.totals.retencao = Math.abs(firstReasonableMoney(cells))
+      } else if (summaryLike && /^medicao\s+(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/.test(rowNorm)) {
+        result.periodo = normalizePeriodoLabel(cells.join(' ')) || result.periodo
+        result.totals.totalMedido = Math.abs(firstReasonableMoney(cells))
+      }
+    }
+  }
+
+  const candidates = sheets
+    .filter(({ raw }) => raw.length > 0)
+    .sort((a, b) => normalizeSheetPriority(a.name) - normalizeSheetPriority(b.name))
+
+  for (const { raw } of candidates) {
+    const headerIdx = findHeaderRow(raw, (rowNorm) => /n\s*preco|n preco|descricao do servico/.test(rowNorm) && /qntd|qtd|quant/.test(rowNorm))
+    if (headerIdx < 0) continue
+
+    const periodRow = raw[Math.max(0, headerIdx - 1)] ?? []
+    const headers = raw[headerIdx] ?? []
+    const monthCols = findMonthPair(periodRow, headers, result.periodo)
+
+    const idxNPreco = findHeaderCol(headers, [/n\s*preco/, /^n preco$/, /^item$/])
+    const idxDesc = findHeaderCol(headers, [/descricao.*servico/, /^descricao$/, /servico/])
+    const idxUn = findHeaderCol(headers, [/^unid$/, /^un$/, /^und$/])
+    const idxVlUnit = findHeaderCol(headers, [/preco unit/, /valor unit/, /^p unit/])
+    const idxQtdMesAtual = findHeaderCol(headers, [/mes atual.*fisico/])
+    const idxValorMesAtual = findHeaderCol(headers, [/mes atual.*financeiro/])
+
+    const idxQtd = monthCols.qtd >= 0 ? monthCols.qtd : idxQtdMesAtual
+    const idxTotal = monthCols.total >= 0 ? monthCols.total : idxValorMesAtual
+    if (idxDesc < 0 || idxQtd < 0 || idxTotal < 0) continue
+
+    const items: SubempreteiroItem[] = []
+    for (let i = headerIdx + 1; i < raw.length; i += 1) {
+      const cells = raw[i]
+      const rowNorm = norm(cells.join(' '))
+      if (!rowNorm) continue
+      if (/^(total|subtotal|retencao|observacao|assinatura)/.test(rowNorm)) continue
+
+      const descricao = idxDesc >= 0 ? cells[idxDesc].trim() : ''
+      const nPreco = idxNPreco >= 0 ? cells[idxNPreco].trim() : ''
+      const qtd = toNum(cells[idxQtd])
+      const totalVal = toNum(cells[idxTotal])
+      if ((!descricao && !nPreco) || qtd <= 0 || totalVal <= 0) continue
+      if (/descricao|servico|total|subtotal/.test(norm(descricao))) continue
+
+      const valorUnitarioPlanilha = idxVlUnit >= 0 ? toNum(cells[idxVlUnit]) : 0
+      const valorUnitario = valorUnitarioPlanilha > 0 ? valorUnitarioPlanilha : totalVal / qtd
+      items.push({
+        nPreco,
+        nPrecoSabesp: nPreco,
+        descricao,
+        unidade: idxUn >= 0 ? cells[idxUn].trim() || 'UN' : 'UN',
+        qtd,
+        valorUnitario,
+      })
+    }
+
+    if (items.length > 0) {
+      result.itens = items
+      break
+    }
+  }
+
+  if (!result.periodo) {
+    const allRows = sheets.flatMap((sheet) => sheet.raw.slice(0, 40))
+    result.periodo = allRows.flatMap((row) => row.map(normalizePeriodoLabel)).find(Boolean) ?? ''
+  }
+  if (!result.nucleo) result.nucleo = 'Nao informado'
+  if (!result.nome || result.nome === 'Subempreiteiro') result.nome = wb.SheetNames[0] ?? 'Subempreiteiro'
+  if (result.totals.totalMedido === 0 && result.itens.length > 0) {
+    result.totals.totalMedido = result.itens.reduce((sum, item) => sum + item.qtd * item.valorUnitario, 0)
+  }
+  if (result.totals.totalAprovado === 0) result.totals.totalAprovado = result.totals.totalMedido
+
+  if (result.itens.length === 0) {
+    result.errors.push('Nenhum item de medicao de subempreiteiro encontrado nas abas detalhadas.')
+  }
+  return result
+}
+
 /**
  * Parses a subcontractor measurement sheet (e.g., VIALTA medição).
  *
@@ -566,7 +839,7 @@ export interface SubempreiteiroParseResult {
  *
  * Handles multiple sheets by returning the combined result.
  */
-export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParseResult {
+function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseResult {
   const result: SubempreiteiroParseResult = {
     nome:   wb.SheetNames[0] ?? 'Subempreiteiro',
     nucleo: '',
@@ -769,6 +1042,112 @@ export interface FornecedorParseResult {
   errors: string[]
 }
 
+function fornecedorDetailPriority(name: string) {
+  const n = norm(name)
+  if (/^wert/.test(n)) return 0
+  if (/planilha/.test(n)) return 1
+  if (/resumo/.test(n)) return 8
+  return 4
+}
+
+function parseFornecedorDetailDescription(wb: XLSX.WorkBook) {
+  const groups = new Map<string, { descricao: string; unidade: string; qtd: number; total: number }>()
+  const sheets = wb.SheetNames
+    .map((name) => ({ name, raw: readRawWorksheet(wb, name) }))
+    .sort((a, b) => fornecedorDetailPriority(a.name) - fornecedorDetailPriority(b.name))
+
+  for (const { name, raw } of sheets) {
+    const headerIdx = findHeaderRow(raw, (rowNorm) => /descricao.*servicos|descricao dos servicos/.test(rowNorm) && /quantidades|valores/.test(rowNorm), 40)
+    if (headerIdx < 0) continue
+    const wertLayout = /^wert/.test(norm(name))
+
+    for (let i = headerIdx + 1; i < raw.length; i += 1) {
+      const cells = raw[i]
+      const rowNorm = norm(cells.join(' '))
+      if (!rowNorm || /subtotal|valor da medicao|total/.test(rowNorm)) continue
+
+      const desc = (wertLayout ? cells[1] : cells[2] || cells[1] || '').trim()
+      const unidade = (wertLayout ? cells[5] : cells[4] || cells[5] || '').trim()
+      const qtd = wertLayout ? toNum(cells[8]) : toNum(cells[6])
+      const total = wertLayout ? toNum(cells[11]) : toNum(cells[7])
+      if (!desc || !unidade || qtd <= 0 || total <= 0) continue
+      if (/item|descricao|empreiteiro|nucleo|periodo/.test(norm(desc))) continue
+
+      const key = `${norm(desc)}|${norm(unidade)}`
+      const current = groups.get(key)
+      if (current) {
+        current.qtd += qtd
+        current.total += total
+      } else {
+        groups.set(key, { descricao: desc, unidade, qtd, total })
+      }
+    }
+
+    if (groups.size > 0) break
+  }
+
+  return Array.from(groups.values())
+    .map((item) => `${item.descricao}: ${formatQty(item.qtd)} ${item.unidade} (${formatMoney(item.total)})`)
+    .join('; ')
+}
+
+export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+  const parsed = parseFornecedorSheetOptimized(wb, defaultPeriodo)
+  if (parsed.list.length > 0) return parsed
+  return parseFornecedorSheetLegacy(wb, defaultPeriodo)
+}
+
+function parseFornecedorSheetOptimized(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+  const result: FornecedorParseResult = { list: [], errors: [] }
+  const sheets = wb.SheetNames.map((name) => ({ name, raw: readRawWorksheet(wb, name) }))
+  if (sheets.every((sheet) => sheet.raw.length === 0)) {
+    result.errors.push('Planilha vazia.')
+    return result
+  }
+
+  let nome = ''
+  let periodo = defaultPeriodo
+  let valorAprovado = 0
+
+  for (const { raw } of sheets) {
+    for (let i = 0; i < Math.min(raw.length, 45); i += 1) {
+      const cells = raw[i].filter(Boolean)
+      if (cells.length === 0) continue
+      const rowNorm = norm(cells.join(' '))
+
+      const labeledName = findLabelValue(cells, [/fornecedor/, /contratada/, /empresa/])
+      if (!nome) {
+        const company = cells.find((cell) => /ltda|ambiental|consultoria|gerenciamento|wert/i.test(cell) && !normalizePeriodoLabel(cell))
+        nome = labeledName || company || nome
+      }
+
+      if (!periodo || periodo === defaultPeriodo) {
+        const rowPeriodo = cells.map(normalizePeriodoLabel).find(Boolean)
+        if (rowPeriodo && (rowPeriodo.includes('/') || !periodo)) periodo = rowPeriodo
+      }
+
+      if (/trabalhos executados aprovados|valor medicao|valor da medicao|valor nf|relatorio/.test(rowNorm)) {
+        const value = Math.abs(firstReasonableMoney(cells))
+        if (value > 0) valorAprovado = valorAprovado > 0 ? Math.max(valorAprovado, value) : value
+        const rowPeriodo = cells.map(normalizePeriodoLabel).find(Boolean)
+        if (rowPeriodo && (rowPeriodo.includes('/') || !periodo || periodo === defaultPeriodo)) periodo = rowPeriodo
+      }
+    }
+  }
+
+  const descricao = parseFornecedorDetailDescription(wb)
+  if (!nome) nome = wb.SheetNames.find((name) => !/resumo|planilha/i.test(name)) ?? wb.SheetNames[0] ?? 'Fornecedor'
+
+  if (valorAprovado <= 0) return result
+  result.list.push({
+    nome,
+    periodo: periodo || defaultPeriodo,
+    descricao: descricao || 'Medição de fornecedor importada da planilha.',
+    valorAprovado,
+  })
+  return result
+}
+
 /**
  * Parses a suppliers spreadsheet.
  *
@@ -778,7 +1157,7 @@ export interface FornecedorParseResult {
  *
  * For format B, scans for a "TOTAL" labeled row to find the approved amount.
  */
-export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+function parseFornecedorSheetLegacy(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
   const rows   = getRows(wb)
   const result: FornecedorParseResult = { list: [], errors: [] }
 
