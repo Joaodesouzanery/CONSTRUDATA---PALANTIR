@@ -16,6 +16,16 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+const LEGACY_PROJECT_NAMES = new Set([
+  'Chain Reaction | Construção Fase 2',
+  'Chain Reaction | ConstruÃ§Ã£o Fase 2',
+])
+
+function displayProjectName(name: string | undefined) {
+  if (!name || LEGACY_PROJECT_NAMES.has(name)) return 'Relatorio 360'
+  return name
+}
+
 const STATUS_LABEL: Record<string, string> = {
   planned:     'Planejado',
   in_progress: 'Em andamento',
@@ -55,7 +65,7 @@ function aggregateReports(reports: DailyReport[]): DailyReport {
   }
 }
 
-function buildHtml(report: DailyReport, title: string, subtitle: string, sections: PdfSections = {}): string {
+function buildHtml(report: DailyReport, title: string, subtitle: string, sections: PdfSections = {}, scopeName?: string): string {
   // Default all sections to true if not specified
   const show = {
     atividades:   sections.atividades   ?? true,
@@ -68,6 +78,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
   const totalEquipCost  = report.equipmentLogs.reduce((s, l) => s + l.utilizationHours * l.hourlyRate, 0)
   const totalLaborCost  = report.crews.reduce((s, c) => s + c.timecards.reduce((t, tc) => t + tc.hoursWorked * tc.hourlyRate, 0), 0)
   const totalCost       = totalEquipCost + totalLaborCost
+  const projectName     = scopeName || displayProjectName(report.projectName)
 
   // Activities table
   const activitiesHtml = report.activities.length
@@ -228,7 +239,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
     <div class="cover-logo">R360</div>
     <div>
       <div class="cover-title">Relatório 360</div>
-      <div class="cover-sub">${report.projectName} · ${subtitle}</div>
+      <div class="cover-sub">${projectName} · ${subtitle}</div>
     </div>
     <div class="cover-badges">
       <span class="badge">${fmtDate(report.date)}</span>
@@ -306,7 +317,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
 
   <!-- Footer -->
   <div class="footer">
-    <span>${report.projectName}</span>
+    <span>${projectName}</span>
     <span>${subtitle}</span>
     <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
   </div>
@@ -330,8 +341,8 @@ export interface PdfSections {
 
 export function printRelatorio360PDF(
   opts:
-    | { mode: 'single'; report: DailyReport; sections?: PdfSections }
-    | { mode: 'period'; reports: DailyReport[]; periodStart: string; periodEnd: string; sections?: PdfSections }
+    | { mode: 'single'; report: DailyReport; sections?: PdfSections; scopeName?: string }
+    | { mode: 'period'; reports: DailyReport[]; periodStart: string; periodEnd: string; sections?: PdfSections; scopeName?: string }
 ): void {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
@@ -340,11 +351,11 @@ export function printRelatorio360PDF(
 
   let html: string
   if (opts.mode === 'single') {
-    html = buildHtml(opts.report, `Relatório 360 — ${fmtDate(opts.report.date)}`, fmtDate(opts.report.date), sections)
+    html = buildHtml(opts.report, `Relatório 360 — ${fmtDate(opts.report.date)}`, fmtDate(opts.report.date), sections, opts.scopeName)
   } else {
     const merged = aggregateReports(opts.reports)
     const subtitle = `${fmtDate(opts.periodStart)} – ${fmtDate(opts.periodEnd)}`
-    html = buildHtml(merged, `Relatório 360 — ${subtitle}`, subtitle, sections)
+    html = buildHtml(merged, `Relatório 360 — ${subtitle}`, subtitle, sections, opts.scopeName)
   }
 
   win.document.open()

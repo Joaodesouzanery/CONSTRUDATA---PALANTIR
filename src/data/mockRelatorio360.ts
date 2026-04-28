@@ -5,7 +5,7 @@ const TODAY = '2026-03-22'
 export const mockReport: DailyReport = {
   id: 'report-001',
   date: TODAY,
-  projectName: 'Chain Reaction | Construção Fase 2',
+  projectName: 'Relatorio 360',
   activities: [
     // Planejado
     {
@@ -155,7 +155,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-001',
       materialId: 'MAT-089',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-003',
       quantity: 182,
       unit: 'm³',
@@ -163,7 +163,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-002',
       materialId: 'MAT-034',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-004',
       quantity: 620,
       unit: 'kg',
@@ -171,7 +171,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-003',
       materialId: 'MAT-056',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-005',
       quantity: 97,
       unit: 'm',
@@ -179,7 +179,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-004',
       materialId: 'MAT-018',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-006',
       quantity: 80,
       unit: 'm²',
@@ -187,7 +187,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-005',
       materialId: 'MAT-072',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-007',
       quantity: 4500,
       unit: 'kg',
@@ -195,7 +195,7 @@ export const mockReport: DailyReport = {
     {
       id: 'mat-006',
       materialId: 'MAT-091',
-      projectName: 'Chain Reaction | Construção Fase 2',
+      projectName: 'Relatorio 360',
       activityId: 'act-005',
       quantity: 50,
       unit: 'un',

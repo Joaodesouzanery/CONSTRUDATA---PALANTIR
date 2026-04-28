@@ -38,6 +38,7 @@ export function getViewParams(mode: AgendaViewMode): ViewParams {
     case 'quarter':  return { pixelsPerDay: 1.1,  totalDays: 365, columnDays: 91,  panDays: 91  }
     case 'semester': return { pixelsPerDay: 0.55, totalDays: 548, columnDays: 182, panDays: 182 }
     case 'year':     return { pixelsPerDay: 0.28, totalDays: 730, columnDays: 365, panDays: 365 }
+    default:         return { pixelsPerDay: 20,   totalDays: 70,  columnDays: 7,   panDays: 28  }
   }
 }
 

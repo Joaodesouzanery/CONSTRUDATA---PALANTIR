@@ -213,6 +213,57 @@ function ctxAuth() {
   return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
 }
 
+function list<T>(value: T[] | undefined): T[] {
+  return Array.isArray(value) ? value : []
+}
+
+function normalizeWorker(worker: Worker): Worker {
+  return {
+    ...worker,
+    id: worker.id || crypto.randomUUID(),
+    name: worker.name || 'Colaborador sem nome',
+    role: worker.role || 'Sem funcao',
+    cpfMasked: worker.cpfMasked || '***.***.***-**',
+    crewId: worker.crewId || '',
+    status: ['active', 'inactive', 'suspended', 'pending_approval'].includes(worker.status) ? worker.status : 'active',
+    certifications: list(worker.certifications),
+    hourlyRate: typeof worker.hourlyRate === 'number' ? worker.hourlyRate : 0,
+  }
+}
+
+function normalizeCrew(crew: LaborCrew): LaborCrew {
+  return {
+    ...crew,
+    id: crew.id || crypto.randomUUID(),
+    name: crew.name || 'Equipe sem nome',
+    foreman: crew.foreman || '',
+    specialty: crew.specialty || '',
+    workerIds: list(crew.workerIds),
+    projectRef: crew.projectRef || '',
+  }
+}
+
+function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObraState): MaoDeObraState {
+  return {
+    ...current,
+    ...persisted,
+    workers:        list(persisted.workers).map(normalizeWorker),
+    crews:          list(persisted.crews).map(normalizeCrew),
+    timecards:      list(persisted.timecards),
+    progress:       list(persisted.progress).length ? list(persisted.progress) : current.progress,
+    occurrences:    list(persisted.occurrences).length ? list(persisted.occurrences) : current.occurrences,
+    riskAreas:      list(persisted.riskAreas).length ? list(persisted.riskAreas) : current.riskAreas,
+    suggestions:    list(persisted.suggestions).length ? list(persisted.suggestions) : current.suggestions,
+    shifts:         list(persisted.shifts),
+    violations:     list(persisted.violations),
+    workPosts:      list(persisted.workPosts).length ? list(persisted.workPosts) : current.workPosts,
+    absences:       list(persisted.absences),
+    cltSettings:    persisted.cltSettings ?? current.cltSettings,
+    payrollHistory: list(persisted.payrollHistory),
+    pendingSync:    list(persisted.pendingSync),
+  }
+}
+
 // ─── Reallocation Engine ───────────────────────────────────────────────────────
 
 function computeSuggestions(
@@ -436,7 +487,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const expiredCerts: string[] = []
 
     for (const required of riskArea.requiredCertTypes) {
-      const cert = worker.certifications.find((c) => c.type === required)
+      const cert = list(worker.certifications).find((c) => c.type === required)
       if (!cert) {
         missingCerts.push(required)
       } else if (cert.status === 'expired') {
@@ -645,8 +696,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const ts = await pullTable<{ payload: TimecardEntry }>('timecards')
     const ss = await pullTable<{ payload: Shift }>('shifts')
     const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
-    if (ws)  set({ workers:   ws.map((r) => r.payload) })
-    if (cs)  set({ crews:     cs.map((r) => r.payload) })
+    if (ws)  set({ workers:   ws.map((r) => normalizeWorker(r.payload)) })
+    if (cs)  set({ crews:     cs.map((r) => normalizeCrew(r.payload)) })
     if (ts)  set({ timecards: ts.map((r) => r.payload) })
     if (ss)  set({ shifts:    ss.map((r) => r.payload) })
     if (as_) set({ absences:  as_.map((r) => r.payload) })
@@ -667,6 +718,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,
       }),
+      merge: (persisted, current) =>
+        normalizeMaoState((persisted ?? {}) as Partial<MaoDeObraState>, current as MaoDeObraState),
     },
   ),
 )
@@ -699,7 +752,7 @@ export function calcComplianceRate(workers: Worker[]): number {
   const active = workers.filter((w) => w.status === 'active')
   if (active.length === 0) return 0
   const compliant = active.filter(
-    (w) => w.certifications.every((c) => c.status === 'valid' || c.status === 'expiring')
+    (w) => list(w.certifications).every((c) => c.status === 'valid' || c.status === 'expiring')
   )
   return Math.round((compliant.length / active.length) * 100)
 }
@@ -721,7 +774,7 @@ export function getCertExpiringSoon(
   const results: Array<{ worker: Worker; certType: string; daysLeft: number; expiryDate: string }> = []
 
   for (const w of workers) {
-    for (const cert of w.certifications) {
+    for (const cert of list(w.certifications)) {
       const expiry = new Date(cert.expiryDate)
       if (expiry >= now && expiry <= cutoff) {
         const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / 86_400_000)

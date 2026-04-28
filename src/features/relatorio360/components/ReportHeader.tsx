@@ -1,19 +1,34 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Building2, FileDown, CalendarRange } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
-import { useCurrentDate, useCurrentReport } from '@/hooks/useRelatorio360'
+import { useAgendaStore } from '@/store/agendaStore'
+import { useProjetosStore } from '@/store/projetosStore'
+import { mergeAgendaIntoReport, useCurrentDate, useCurrentReport } from '@/hooks/useRelatorio360'
 import { printRelatorio360PDF } from '../utils/relatorio360PdfExport'
+
+const LEGACY_PROJECT_NAMES = new Set([
+  'Chain Reaction | Construção Fase 2',
+  'Chain Reaction | ConstruÃ§Ã£o Fase 2',
+])
+
+function displayProjectName(name: string | undefined) {
+  if (!name || LEGACY_PROJECT_NAMES.has(name)) return 'Relatorio 360'
+  return name
+}
 
 export function ReportHeader() {
   const currentDate   = useCurrentDate()
   const report        = useCurrentReport()
   const { goToPrevDay, goToNextDay, goToDate, reports } = useRelatorio360Store()
+  const agendaTasks = useAgendaStore((s) => s.tasks)
+  const projects = useProjetosStore((s) => s.projects)
 
   const [showPeriod, setShowPeriod]   = useState(false)
   const [periodStart, setPeriodStart] = useState('')
   const [periodEnd, setPeriodEnd]     = useState('')
+  const [scopeProject, setScopeProject] = useState('')
 
   // Module area selection for PDF export
   const [pdfSections, setPdfSections] = useState({
@@ -41,22 +56,37 @@ export function ReportHeader() {
   const shortDate   = format(parseISO(safeCurrentDate), 'dd/MM/yyyy')
 
   const canPeriodPDF = !!periodStart && !!periodEnd && periodEnd >= periodStart
+  const scopeOptions = useMemo(() => {
+    const names = new Set<string>()
+    projects.forEach((p) => names.add(p.name))
+    Object.values(reports).forEach((r) => {
+      const name = displayProjectName(r.projectName)
+      if (name !== 'Relatorio 360') names.add(name)
+    })
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [projects, reports])
+
+  const projectMatchesScope = (projectName: string | undefined) => {
+    if (!scopeProject) return true
+    return displayProjectName(projectName).toLowerCase() === scopeProject.toLowerCase()
+  }
 
   function handleSinglePDF() {
     if (!report) return
-    printRelatorio360PDF({ mode: 'single', report, sections: pdfSections })
+    printRelatorio360PDF({ mode: 'single', report, sections: pdfSections, scopeName: scopeProject || undefined })
   }
 
   function handlePeriodPDF() {
     if (!canPeriodPDF) return
-    const filtered = Object.values(reports).filter(
-      (r) => r.date >= periodStart && r.date <= periodEnd
-    )
+    const filtered = Object.values(reports)
+      .filter((r) => r.date >= periodStart && r.date <= periodEnd)
+      .filter((r) => projectMatchesScope(r.projectName))
+      .map((r) => mergeAgendaIntoReport(r, agendaTasks) ?? r)
     if (filtered.length === 0) {
       alert('Nenhum relatório encontrado no período selecionado.')
       return
     }
-    printRelatorio360PDF({ mode: 'period', reports: filtered, periodStart, periodEnd, sections: pdfSections })
+    printRelatorio360PDF({ mode: 'period', reports: filtered, periodStart, periodEnd, sections: pdfSections, scopeName: scopeProject || undefined })
   }
 
   return (
@@ -69,7 +99,7 @@ export function ReportHeader() {
             <span>Relatório Diário de Obra</span>
           </div>
           <h1 className="text-[#f5f5f5] text-xl font-bold leading-tight">
-            {report?.projectName ?? 'Sem Projeto'}
+            {displayProjectName(report?.projectName)}
           </h1>
         </div>
 
@@ -141,6 +171,17 @@ export function ReportHeader() {
         <div className="px-6 pb-4 space-y-3">
           {/* Date range */}
           <div className="flex items-end gap-3 flex-wrap">
+            <div className="flex flex-col gap-1 min-w-56">
+              <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Projeto / nucleo</label>
+              <select
+                value={scopeProject}
+                onChange={(e) => setScopeProject(e.target.value)}
+                className="h-8 px-2 rounded-lg border border-[#525252] bg-[#3d3d3d] text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]/60 transition-colors"
+              >
+                <option value="">Todos</option>
+                {scopeOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-[#a3a3a3] text-[10px] font-semibold uppercase tracking-wider">Data inicial</label>
               <input
