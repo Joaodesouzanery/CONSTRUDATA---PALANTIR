@@ -85,7 +85,9 @@ export function TimelineRestricoesPanel() {
           <option value="em_resolucao">Em resolução</option>
           <option value="resolvida">Resolvida</option>
         </select>
-        <span className="text-[#6b6b6b] text-xs ml-auto">{filtered.length} restrição(ões)</span>
+        <span className="text-[#6b6b6b] text-xs ml-auto">
+          {filtered.length} {filtered.length === 1 ? 'restrição' : 'restrições'}
+        </span>
       </div>
 
       {/* Timeline */}

@@ -21,7 +21,7 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'excecoes',    label: 'Exceções',                 section: 'suprimentos' },
   { key: 'previsao',    label: 'Previsão de Demanda',      section: 'suprimentos' },
   { key: 'requisicoes', label: 'Requisições',              section: 'suprimentos' },
-  { key: 'inteligencia', label: 'Inteligencia',             section: 'suprimentos' },
+  { key: 'inteligencia', label: 'Inteligência',             section: 'suprimentos' },
   { key: 'bom',         label: 'Lista de Compras',          section: 'suprimentos' },
   { key: 'materiais',   label: 'Materiais & Fornecedores', section: 'materiais'   },
   { key: 'contratos',   label: 'Contrato 360',             section: 'materiais'   },
@@ -137,7 +137,7 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
             onClick={() => onTabChange('excecoes')}
             className="px-2.5 py-1 rounded-full bg-[#dc2626]/20 text-[#f87171] text-xs font-semibold cursor-pointer hover:bg-[#dc2626]/30 transition-colors"
           >
-            {openExceptions} exceção{openExceptions > 1 ? 'ões' : ''} aberta{openExceptions > 1 ? 's' : ''}
+            {openExceptions} {openExceptions === 1 ? 'exceção aberta' : 'exceções abertas'}
           </span>
         )}
 

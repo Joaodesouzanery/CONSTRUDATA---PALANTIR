@@ -77,7 +77,9 @@ export function IntegracoesPanel() {
                 <div className="bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-lg px-3 py-2 flex items-center gap-2">
                   <CheckCircle2 size={12} className="text-[#22c55e] shrink-0" />
                   <span className="text-[#22c55e] text-xs">
-                    {integration.restrictionsAutoClearable} restrição(ões) podem ser baixadas automaticamente
+                    {integration.restrictionsAutoClearable === 1
+                      ? '1 restrição pode ser baixada automaticamente'
+                      : `${integration.restrictionsAutoClearable} restrições podem ser baixadas automaticamente`}
                   </span>
                 </div>
               )}
@@ -92,7 +94,9 @@ export function IntegracoesPanel() {
           <div>
             <p className="text-[#f5f5f5] text-sm font-semibold">Baixa Automática de Restrições</p>
             <p className="text-[#6b6b6b] text-xs mt-0.5">
-              {totalAutoClearable} restrição(ões) podem ser resolvidas automaticamente com base nos dados dos sistemas integrados.
+              {totalAutoClearable === 1
+                ? '1 restrição pode ser resolvida automaticamente com base nos dados dos sistemas integrados.'
+                : `${totalAutoClearable} restrições podem ser resolvidas automaticamente com base nos dados dos sistemas integrados.`}
             </p>
           </div>
           <button

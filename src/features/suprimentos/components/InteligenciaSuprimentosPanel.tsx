@@ -30,11 +30,11 @@ const FEEDING_MODULES = [
   'Planejamento Mestre',
   'LPS/Lookahead',
   'Quantitativos/BIM',
-  'Medicao',
+  'Medição',
   'RDO',
   'Almoxarifado',
   'Financeiro/EVM',
-  'Projetos/Nucleos',
+  'Projetos/Núcleos',
   'Qualidade',
 ]
 
@@ -87,8 +87,8 @@ interface AuditedRecommendation {
 
 const RISK_META: Record<RiskLevel, { label: string; icon: typeof CheckCircle2; cls: string }> = {
   ok: { label: 'OK', icon: CheckCircle2, cls: 'bg-[#16a34a]/15 text-[#4ade80] border-[#16a34a]/30' },
-  attention: { label: 'Atencao', icon: Clock, cls: 'bg-[#ca8a04]/15 text-[#fbbf24] border-[#ca8a04]/30' },
-  critical: { label: 'Critico', icon: AlertTriangle, cls: 'bg-[#dc2626]/15 text-[#f87171] border-[#dc2626]/30' },
+  attention: { label: 'Atenção', icon: Clock, cls: 'bg-[#ca8a04]/15 text-[#fbbf24] border-[#ca8a04]/30' },
+  critical: { label: 'Crítico', icon: AlertTriangle, cls: 'bg-[#dc2626]/15 text-[#f87171] border-[#dc2626]/30' },
 }
 
 function normalize(text: string) {
@@ -137,16 +137,16 @@ function inferMaterial(trecho: Pick<PlanTrecho, 'description' | 'diameterMm' | '
   const dn = trecho.diameterMm ? ` DN ${trecho.diameterMm}` : ''
 
   if (desc.includes('pv') || desc.includes('poco') || desc.includes('visita')) {
-    return { material: `Aneis e tampao de PV${dn}`, category: 'Civil / PV', unit: 'un' }
+    return { material: `Anéis e tampão de PV${dn}`, category: 'Civil / PV', unit: 'un' }
   }
   if (desc.includes('esgoto')) {
-    return { material: `Tubo PVC esgoto${dn}`, category: 'Tubulacao e Saneamento', unit: 'm' }
+    return { material: `Tubo PVC esgoto${dn}`, category: 'Tubulação e Saneamento', unit: 'm' }
   }
   if (desc.includes('agua') || desc.includes('adutora') || desc.includes('rede')) {
-    return { material: `Tubo PEAD/PVC agua${dn}`, category: 'Tubulacao e Saneamento', unit: 'm' }
+    return { material: `Tubo PEAD/PVC água${dn}`, category: 'Tubulação e Saneamento', unit: 'm' }
   }
   if (trecho.requiresShoring || desc.includes('escav')) {
-    return { material: 'Escoramento e material de vala', category: 'Escavacao', unit: 'm' }
+    return { material: 'Escoramento e material de vala', category: 'Escavação', unit: 'm' }
   }
   return { material: 'Material operacional de frente', category: 'Operacional', unit: 'lote' }
 }
@@ -236,9 +236,9 @@ function buildPlanilhaDemands(
             executedQty: item.kmExec,
             audit: {
               source: 'Planilhas Consolidadas/Suprimentos',
-              rule: 'Itens da aba Materiais Pendentes viram demandas; status pendente do Consolidado e km pendente do Resumo ajustam urgencia.',
+              rule: 'Itens da aba Materiais Pendentes viram demandas; status pendente do Consolidado e km pendente do Resumo ajustam urgência.',
               updatedAt,
-              modules: ['Planilhas Consolidadas/Suprimentos', 'Medição', 'Projetos/Nucleos', 'Almoxarifado'],
+              modules: ['Planilhas Consolidadas/Suprimentos', 'Medição', 'Projetos/Núcleos', 'Almoxarifado'],
             },
           }
         }),
@@ -273,7 +273,7 @@ function buildPlanningDemands(
         executedQty: t.executedMeters ?? 0,
         audit: {
           source: 'Planejamento Mestre',
-          rule: 'Trechos nao concluidos geram demanda pelo comprimento ainda nao executado e pelo DN/tipo da atividade.',
+          rule: 'Trechos não concluídos geram demanda pelo comprimento ainda não executado e pelo DN/tipo da atividade.',
           updatedAt: todayIso,
           modules: ['Planejamento Mestre', 'LPS/Lookahead', 'Quantitativos/BIM', 'Almoxarifado'],
         },
@@ -327,7 +327,7 @@ function recommendationFor(
       : `Faltam ${formatQty(missingQty, demand.unit)} para atender ${demand.activityName}.`,
     audit: {
       ...demand.audit,
-      rule: `${demand.audit.rule} Calculo: necessario + reservado - disponivel - transito; compra sugerida com 5% de folga e lead time.`,
+      rule: `${demand.audit.rule} Cálculo: necessário + reservado - disponível - trânsito; compra sugerida com 5% de folga e lead time.`,
       modules: Array.from(new Set([...demand.audit.modules, 'Financeiro/EVM', 'Qualidade'])),
     },
   }
@@ -391,7 +391,7 @@ export function InteligenciaSuprimentosPanel() {
       plannedDate: addDaysIso(todayIso, 7),
       audit: {
         source: 'LPS/Lookahead',
-        rule: 'Atividades derivadas do lookahead criam pacote minimo de material por semana/frente.',
+        rule: 'Atividades derivadas do lookahead criam pacote mínimo de material por semana/frente.',
         updatedAt: todayIso,
         modules: ['LPS/Lookahead', 'Planejamento Mestre', 'Almoxarifado'],
       },
@@ -415,7 +415,7 @@ export function InteligenciaSuprimentosPanel() {
         plannedDate: safeDateIso(forecast.suggestedOrderDate, todayIso),
         audit: {
           source: 'Previsao manual de Suprimentos',
-          rule: 'Previsoes sugeridas entram como demanda quando ainda nao ha planilha, planejamento ou lookahead.',
+          rule: 'Previsões sugeridas entram como demanda quando ainda não há planilha, planejamento ou lookahead.',
           updatedAt: todayIso,
           modules: ['Planilhas Consolidadas/Suprimentos', 'Almoxarifado'],
         },
@@ -439,7 +439,7 @@ export function InteligenciaSuprimentosPanel() {
     { label: 'Planilhas', count: planilhaMateriais.length + planilhaTrechos.length + planilhaResumo.length },
     { label: 'Planejamento', count: trechos.length + derivedActivities.length },
     { label: 'Quant/BIM', count: quantItems.length + bimProjects.reduce((sum, project) => sum + project.segments.length, 0) },
-    { label: 'Medicao/RDO', count: medicaoSegments.length + rdos.length },
+    { label: 'Medição/RDO', count: medicaoSegments.length + rdos.length },
     { label: 'EVM/Qualidade', count: (evmMetrics.BAC > 0 || evmMetrics.AC > 0 ? 1 : 0) + nonConformities.length },
     { label: 'Projetos', count: projects.length },
   ]
@@ -464,8 +464,8 @@ export function InteligenciaSuprimentosPanel() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Demandas auditadas', value: demands.length, cls: 'text-[#f5f5f5]' },
-          { label: 'Criticas', value: critical, cls: 'text-[#f87171]' },
-          { label: 'Atencao', value: attention, cls: 'text-[#fbbf24]' },
+          { label: 'Críticas', value: critical, cls: 'text-[#f87171]' },
+          { label: 'Atenção', value: attention, cls: 'text-[#fbbf24]' },
           { label: 'Valor sugerido', value: toCurrency(estimated), cls: 'text-[#4ade80]' },
         ].map((kpi) => (
           <div key={kpi.label} className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
@@ -479,10 +479,10 @@ export function InteligenciaSuprimentosPanel() {
         <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#f97316]" />
-            <p className="text-sm font-semibold text-[#f5f5f5]">Inteligencia de Suprimentos auditavel</p>
+            <p className="text-sm font-semibold text-[#f5f5f5]">Inteligência de Suprimentos auditável</p>
           </div>
           <p className="mt-1 text-xs text-[#a3a3a3]">
-            Cada insight mostra fonte, regra, data de atualizacao e os modulos que alimentaram a decisao.
+            Cada insight mostra fonte, regra, data de atualização e os módulos que alimentaram a decisão.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {FEEDING_MODULES.map((module) => (
@@ -524,99 +524,95 @@ export function InteligenciaSuprimentosPanel() {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border border-[#525252] bg-[#2c2c2c]">
-        <table className="w-full min-w-[1180px] border-collapse text-sm">
-          <thead>
-            <tr className="bg-[#484848]">
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#a3a3a3]">Nucleo / Local</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#a3a3a3]">Material</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-[#a3a3a3]">Necessario</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-[#a3a3a3]">Disp. / Res. / Trans.</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-[#a3a3a3]">Falta</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#a3a3a3]">Comprar ate</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-[#a3a3a3]">Auditoria</th>
-              <th className="px-3 py-2 text-center text-xs font-medium text-[#a3a3a3]">Risco</th>
-              <th className="px-3 py-2 text-center text-xs font-medium text-[#a3a3a3]">Acao</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recommendations.map((rec) => {
-              const meta = RISK_META[rec.risk]
-              const Icon = meta.icon
-              const created = createdIds.has(rec.id)
-              return (
-                <tr key={rec.id} className="border-t border-[#525252] hover:bg-[#484848]/40">
-                  <td className="px-3 py-3">
-                    <p className="text-xs font-semibold text-[#f5f5f5]">{rec.nucleo}</p>
-                    <p className="text-[10px] text-[#6b6b6b]">{rec.local} - precisa em {formatDate(rec.neededBy)}</p>
-                  </td>
-                  <td className="px-3 py-3">
-                    <p className="text-xs font-semibold text-[#f5f5f5]">{rec.material}</p>
-                    <p className="text-[10px] text-[#a3a3a3]">{rec.reason}</p>
-                  </td>
-                  <td className="px-3 py-3 text-right text-xs tabular-nums text-[#f5f5f5]">{formatQty(rec.requiredQty, rec.unit)}</td>
-                  <td className="px-3 py-3 text-right text-xs tabular-nums text-[#a3a3a3]">
-                    {formatQty(rec.availableQty, rec.unit)} / {formatQty(rec.reservedQty, rec.unit)} / {formatQty(rec.inTransitQty, rec.unit)}
-                  </td>
-                  <td className="px-3 py-3 text-right text-xs font-bold tabular-nums text-[#f97316]">{formatQty(rec.missingQty, rec.unit)}</td>
-                  <td className="px-3 py-3 text-xs text-[#f5f5f5]">
-                    {formatDate(rec.suggestedOrderDate)}
-                    <span className="ml-1 text-[10px] text-[#6b6b6b]">LT {rec.leadTimeDays}d</span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="max-w-[330px] space-y-1">
-                      <p className="flex items-center gap-1 text-[10px] font-semibold text-[#f5f5f5]">
-                        <FileSpreadsheet size={11} className="text-[#f97316]" /> {rec.audit.source}
-                      </p>
-                      <p className="text-[10px] leading-snug text-[#a3a3a3]">{rec.audit.rule}</p>
-                      <div className="flex flex-wrap gap-1">
-                        <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#6b6b6b]">
-                          Atualizado {formatDate(rec.audit.updatedAt)}
-                        </span>
-                        {rec.audit.modules.slice(0, 4).map((module) => (
-                          <span key={module} className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#a3a3a3]">
-                            {module}
-                          </span>
-                        ))}
-                      </div>
+      <div className="flex-1 overflow-auto rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
+        <div className="grid gap-3">
+          {recommendations.map((rec) => {
+            const meta = RISK_META[rec.risk]
+            const Icon = meta.icon
+            const created = createdIds.has(rec.id)
+            return (
+              <article key={rec.id} className="rounded-xl border border-[#525252] bg-[#333333] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', meta.cls)}>
+                        <Icon size={11} /> {meta.label}
+                      </span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b6b6b]">
+                        {rec.nucleo} / {rec.local}
+                      </span>
                     </div>
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', meta.cls)}>
-                      <Icon size={11} /> {meta.label}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <button
-                      type="button"
-                      disabled={created || rec.suggestedOrderQty <= 0}
-                      onClick={() => prepareForecast(rec)}
-                      className="rounded-lg bg-[#f97316] px-3 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
-                    >
-                      {created ? 'Na previsao' : 'Preparar'}
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-            {recommendations.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-sm text-[#6b6b6b]">
-                  Importe as planilhas ou sincronize planejamento/lookahead para gerar insights auditaveis.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    <h3 className="mt-2 text-sm font-semibold leading-snug text-[#f5f5f5]">{rec.material}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-[#a3a3a3]">{rec.reason}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={created || rec.suggestedOrderQty <= 0}
+                    onClick={() => prepareForecast(rec)}
+                    className="rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
+                  >
+                    {created ? 'Na previsão' : 'Preparar previsão'}
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  {[
+                    ['Necessário', formatQty(rec.requiredQty, rec.unit), 'text-[#f5f5f5]'],
+                    ['Disponível', formatQty(rec.availableQty, rec.unit), 'text-[#4ade80]'],
+                    ['Reservado', formatQty(rec.reservedQty, rec.unit), 'text-[#fbbf24]'],
+                    ['Em trânsito', formatQty(rec.inTransitQty, rec.unit), 'text-[#a3a3a3]'],
+                    ['Falta', formatQty(rec.missingQty, rec.unit), 'text-[#f97316]'],
+                  ].map(([label, value, cls]) => (
+                    <div key={label} className="rounded-lg bg-[#1f1f1f] px-3 py-2">
+                      <p className="text-[10px] text-[#6b6b6b]">{label}</p>
+                      <p className={cn('mt-0.5 text-sm font-bold tabular-nums', cls)}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 grid gap-3 lg:grid-cols-[0.8fr_1.4fr]">
+                  <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+                    <p className="text-[10px] text-[#6b6b6b]">Comprar até</p>
+                    <p className="mt-0.5 text-sm font-semibold text-[#f5f5f5]">{formatDate(rec.suggestedOrderDate)}</p>
+                    <p className="text-[10px] text-[#6b6b6b]">Precisa em {formatDate(rec.neededBy)} / LT {rec.leadTimeDays}d</p>
+                    {rec.preferredSupplier && <p className="mt-1 text-[10px] text-[#a3a3a3]">{rec.preferredSupplier}</p>}
+                  </div>
+
+                  <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+                    <p className="flex items-center gap-1 text-[10px] font-semibold text-[#f5f5f5]">
+                      <FileSpreadsheet size={11} className="text-[#f97316]" /> {rec.audit.source}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-[#a3a3a3]">{rec.audit.rule}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#6b6b6b]">
+                        Atualizado {formatDate(rec.audit.updatedAt)}
+                      </span>
+                      {rec.audit.modules.map((module) => (
+                        <span key={module} className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#a3a3a3]">
+                          {module}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+          {recommendations.length === 0 && (
+            <div className="rounded-xl border border-dashed border-[#525252] px-3 py-8 text-center text-sm text-[#6b6b6b]">
+              Importe as planilhas ou sincronize planejamento/lookahead para gerar insights auditáveis.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
         <div className="flex items-center gap-2">
           <ShieldCheck size={14} className="text-[#22c55e]" />
-          <p className="text-xs font-semibold text-[#f5f5f5]">Governanca do insight</p>
+          <p className="text-xs font-semibold text-[#f5f5f5]">Governança do insight</p>
         </div>
         <p className="mt-1 text-[10px] text-[#a3a3a3]">
-          O sistema importa hoje, substitui a planilha por formularios equivalentes amanha e usa os dados validados como motor da inteligencia.
+          O sistema importa hoje, substitui a planilha por formulários equivalentes amanhã e usa os dados validados como motor da inteligência.
         </p>
       </div>
     </div>
