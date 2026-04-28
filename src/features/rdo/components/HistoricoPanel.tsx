@@ -14,7 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
-import { getCriadouroLabel, getExecutedActivities, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import { getCriadouroLabel, getExecutedActivities, getRdoSabespExecutedServices, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import {
   mergeRdoSabespRemoteWithLocal,
   readLocalRdoSabesp,
@@ -26,6 +26,15 @@ import {
 function fmtDate(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+function isLinearMeterUnit(unit: string) {
+  const normalized = unit
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+  return ['m', 'm.', 'metro', 'metros', 'linear', 'metros lineares'].includes(normalized)
 }
 
 function weatherIcon(cond: RdoWeatherCondition) {
@@ -454,7 +463,11 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
 function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const activities = getExecutedActivities(rdo)
+  const services = getRdoSabespExecutedServices(rdo)
   const totalQuantity = sumExecutedQuantities(rdo)
+  const linearMeters = services
+    .filter((service) => isLinearMeterUnit(service.unit))
+    .reduce((sum, service) => sum + service.quantity, 0)
   const photoCount = Array.isArray(rdo.photo_paths) ? rdo.photo_paths.length : 0
   const isDraft = rdo.status === 'draft'
   const visibleActivities = expanded ? activities : activities.slice(0, 6)
@@ -501,7 +514,8 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
 
           <p className="text-sm text-[#a3a3a3]">{rdo.rua_beco || '-'}</p>
           <p className="text-xs text-[#6b6b6b]">
-            {activities.length} atividade(s) com apontamento e {totalQuantity} unidade(s) registradas.
+            {activities.length} atividade(s), {totalQuantity} unidade(s) registradas
+            {linearMeters > 0 ? ` e ${linearMeters.toFixed(2)} m lineares.` : '.'}
           </p>
 
           {activities.length > 0 && (
@@ -649,6 +663,23 @@ export function HistoricoPanel() {
   }, [filtered, filteredSabesp])
 
   const totalRdoCount = rdos.length + sabespRdos.length
+  const sabespHistorySummary = useMemo(() => {
+    return filteredSabesp.reduce(
+      (acc, rdo) => {
+        const services = getRdoSabespExecutedServices(rdo)
+        acc.services += services.length
+        acc.quantity += sumExecutedQuantities(rdo)
+        acc.linearMeters += services
+          .filter((service) => isLinearMeterUnit(service.unit))
+          .reduce((sum, service) => sum + service.quantity, 0)
+        acc.photos += Array.isArray(rdo.photo_paths) ? rdo.photo_paths.length : 0
+        if (rdo.status === 'draft') acc.drafts += 1
+        else acc.finalized += 1
+        return acc
+      },
+      { services: 0, quantity: 0, linearMeters: 0, photos: 0, drafts: 0, finalized: 0 },
+    )
+  }, [filteredSabesp])
 
   function handleDelete(id: string) {
     if (!confirm('Excluir este RDO? Esta ação não pode ser desfeita.')) return
@@ -753,6 +784,36 @@ export function HistoricoPanel() {
         {historyItems.length} RDO{historyItems.length !== 1 ? 's' : ''} encontrado{historyItems.length !== 1 ? 's' : ''}
         {totalRdoCount !== historyItems.length && ` de ${totalRdoCount} total`}
       </p>
+
+      {filteredSabesp.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 print:hidden">
+          <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">RDOs Sabesp</div>
+            <div className="mt-1 text-xl font-bold text-white">{filteredSabesp.length}</div>
+            <div className="text-xs text-[#6b6b6b]">{sabespHistorySummary.finalized} finalizados</div>
+          </div>
+          <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">Serviços</div>
+            <div className="mt-1 text-xl font-bold text-white">{sabespHistorySummary.services}</div>
+            <div className="text-xs text-[#6b6b6b]">no período filtrado</div>
+          </div>
+          <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">Qtd. Executada</div>
+            <div className="mt-1 text-xl font-bold text-[#f97316]">{sabespHistorySummary.quantity.toFixed(2)}</div>
+            <div className="text-xs text-[#6b6b6b]">todas as unidades</div>
+          </div>
+          <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">Metros</div>
+            <div className="mt-1 text-xl font-bold text-white">{sabespHistorySummary.linearMeters.toFixed(2)} m</div>
+            <div className="text-xs text-[#6b6b6b]">unidade metro</div>
+          </div>
+          <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+            <div className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">Fotos</div>
+            <div className="mt-1 text-xl font-bold text-white">{sabespHistorySummary.photos}</div>
+            <div className="text-xs text-[#6b6b6b]">{sabespHistorySummary.drafts} rascunho(s)</div>
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {historyItems.length === 0 && (

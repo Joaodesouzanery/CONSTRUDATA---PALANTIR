@@ -8,6 +8,8 @@
  * e mesclados com os critérios base na exportação.
  */
 
+import { CRITERIOS_PDF_EXTRAIDOS } from './criteriosPdfExtraidos'
+
 export interface CriterioMedicao {
   nPreco:        string   // ex.: "420009"
   descricao:     string
@@ -705,6 +707,7 @@ export const CRITERIOS_MEDICAO: CriterioMedicao[] = [
     medicao: 'Por mês de manutenção executada.',
     notas: 'A Sabesp poderá descontar 3,26% por veículo não utilizado.',
   },
+  ...CRITERIOS_PDF_EXTRAIDOS,
 ]
 
 // ─── Custom criteria management (localStorage) ────────────────────────────────

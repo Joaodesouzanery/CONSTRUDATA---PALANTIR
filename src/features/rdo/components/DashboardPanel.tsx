@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRdoStore } from '@/store/rdoStore'
+import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import type { RdoTrechoStatus } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { getRdoSabespDashboardMetrics, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
@@ -28,6 +29,47 @@ const STATUS_SVG_COLOR: Record<RdoTrechoStatus, string> = {
   completed:   '#22c55e',
   in_progress: '#f59e0b',
   not_started: '#ef4444',
+}
+
+type DashboardTrecho = {
+  code: string
+  desc: string
+  planned: number
+  executed: number
+  status: RdoTrechoStatus
+  system?: string
+  nucleusId?: string
+  nucleusName: string
+}
+
+function statusFromMeters(planned: number, executed: number, fallback?: RdoTrechoStatus): RdoTrechoStatus {
+  if (planned > 0 && executed >= planned) return 'completed'
+  if (executed > 0) return 'in_progress'
+  return fallback ?? 'not_started'
+}
+
+function isLinearMeterUnit(unit: string) {
+  const normalized = unit
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+  return ['m', 'm.', 'metro', 'metros', 'linear', 'metros lineares'].includes(normalized)
+}
+
+function normalizeSystem(value?: string) {
+  const normalized = String(value ?? 'outro')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+
+  if (normalized.includes('agua')) return 'agua'
+  if (normalized.includes('esgoto') || normalized.includes('saneamento')) return 'esgoto'
+  if (normalized.includes('drenagem')) return 'drenagem'
+  if (normalized.includes('estrutura')) return 'estrutura'
+  if (normalized.includes('paviment')) return 'pavimentacao'
+  return 'outro'
 }
 
 function KpiCard({ label, value, sub, accent }: {
@@ -148,6 +190,8 @@ function LineChart({ data }: { data: { date: string; meters: number }[] }) {
 
 export function DashboardPanel() {
   const { rdos } = useRdoStore()
+  const planejamentoTrechos = usePlanejamentoStore((s) => s.trechos)
+  const planejamentoNuclei = usePlanejamentoStore((s) => s.nuclei)
   const [sabespRdos, setSabespRdos] = useState<LocalRdoSabespRecord[]>(() => readLocalRdoSabesp())
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -178,11 +222,13 @@ export function DashboardPanel() {
     void loadSabespDashboard()
   }, [loadSabespDashboard])
 
-  // Aggregate trechos across all RDOs (latest executedMeters per trechoCode)
-  const trechoMap = useMemo(() => {
-    const map = new Map<string, {
-      code: string; desc: string; planned: number; executed: number; status: RdoTrechoStatus
-    }>()
+  const nucleusNameById = useMemo(() => {
+    return new Map(planejamentoNuclei.map((nucleus) => [nucleus.id, nucleus.name]))
+  }, [planejamentoNuclei])
+
+  // Latest execution reported by trecho in the new RDO flow.
+  const regularTrechoMap = useMemo(() => {
+    const map = new Map<string, DashboardTrecho>()
     for (const rdo of rdos) {
       for (const t of rdo.trechos) {
         const existing = map.get(t.trechoCode)
@@ -193,6 +239,8 @@ export function DashboardPanel() {
             planned: t.plannedMeters,
             executed: t.executedMeters,
             status: t.status,
+            system: normalizeSystem(t.system),
+            nucleusName: 'Sem núcleo',
           })
         }
       }
@@ -200,14 +248,67 @@ export function DashboardPanel() {
     return map
   }, [rdos])
 
-  const trechos = [...trechoMap.values()]
+  const regularTrechoByLowerCode = useMemo(() => {
+    return new Map([...regularTrechoMap.values()].map((trecho) => [trecho.code.toLowerCase(), trecho]))
+  }, [regularTrechoMap])
 
-  const totalPlanned  = trechos.reduce((s, t) => s + t.planned, 0)
-  const totalExecuted = trechos.reduce((s, t) => s + t.executed, 0)
-  const progressPct   = totalPlanned > 0 ? (totalExecuted / totalPlanned) * 100 : 0
+  const planByCode = useMemo(() => {
+    return new Map(planejamentoTrechos.map((trecho) => [trecho.code.toLowerCase(), trecho]))
+  }, [planejamentoTrechos])
+
+  const trechos = useMemo(() => {
+    const map = new Map<string, DashboardTrecho>()
+
+    for (const plan of planejamentoTrechos) {
+      const regular = regularTrechoByLowerCode.get(plan.code.toLowerCase())
+      const planned = Number(plan.lengthM) || regular?.planned || 0
+      const executed = Math.max(Number(plan.executedMeters) || 0, regular?.executed || 0)
+      const nucleusName = plan.nucleusId ? nucleusNameById.get(plan.nucleusId) ?? 'Sem núcleo' : 'Sem núcleo'
+      map.set(plan.code, {
+        code: plan.code,
+        desc: plan.description || regular?.desc || 'Trecho planejado',
+        planned,
+        executed,
+        status: statusFromMeters(planned, executed, plan.executionStatus ?? regular?.status),
+        system: normalizeSystem(regular?.system ?? plan.activityType),
+        nucleusId: plan.nucleusId,
+        nucleusName,
+      })
+    }
+
+    for (const regular of regularTrechoMap.values()) {
+      if (map.has(regular.code)) continue
+      map.set(regular.code, regular)
+    }
+
+    return [...map.values()]
+  }, [nucleusNameById, planejamentoTrechos, regularTrechoByLowerCode, regularTrechoMap])
+
+  const sabespExecutedServices = useMemo(() => {
+    return sabespRdos.flatMap((rdo) =>
+      getRdoSabespExecutedServices(rdo).map((service) => ({
+        ...service,
+        date: rdo.report_date ?? '',
+      })),
+    )
+  }, [sabespRdos])
+
+  const sabespLinearMeters = sabespExecutedServices
+    .filter((service) => isLinearMeterUnit(service.unit))
+    .reduce((sum, service) => sum + service.quantity, 0)
+
+  const totalPlannedFromPlanning = planejamentoTrechos.reduce((sum, trecho) => sum + (Number(trecho.lengthM) || 0), 0)
+  const totalPlannedFromRdo = trechos.reduce((sum, trecho) => sum + trecho.planned, 0)
+  const totalPlanned = totalPlannedFromPlanning > 0 ? totalPlannedFromPlanning : totalPlannedFromRdo
+  const regularExecutedMeters = trechos.reduce((sum, trecho) => sum + trecho.executed, 0)
+  const totalExecuted = regularExecutedMeters + sabespLinearMeters
+  const progressPct = totalPlanned > 0 ? (totalExecuted / totalPlanned) * 100 : 0
   const sabespSummary = getRdoSabespDashboardMetrics(sabespRdos)
   const totalRdos = rdos.length + sabespSummary.total
   const rdosToday = rdos.filter((r) => r.date === today).length + sabespRdos.filter((r) => r.report_date === today).length
+  const regularCodes = [...regularTrechoMap.keys()]
+  const linkedRegularCodes = regularCodes.filter((code) => planByCode.has(code.toLowerCase())).length
+  const planningLinkPct = regularCodes.length > 0 ? (linkedRegularCodes / regularCodes.length) * 100 : 0
 
   const counts = {
     completed:   trechos.filter((t) => t.status === 'completed').length,
@@ -218,33 +319,91 @@ export function DashboardPanel() {
   // Cumulative advance by date
   const advanceData = useMemo(() => {
     const dateMap = new Map<string, number>()
-    for (const rdo of rdos) {
-      const prev = dateMap.get(rdo.date) ?? 0
-      const dayExec = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
-      dateMap.set(rdo.date, Math.max(prev, dayExec))
+    const lastByTrecho = new Map<string, number>()
+    const sortedRdos = [...rdos].sort((a, b) => a.date.localeCompare(b.date))
+
+    for (const rdo of sortedRdos) {
+      for (const trecho of rdo.trechos) {
+        const previous = lastByTrecho.get(trecho.trechoCode) ?? 0
+        const next = Math.max(previous, Number(trecho.executedMeters) || 0)
+        const delta = Math.max(0, next - previous)
+        if (delta > 0) dateMap.set(rdo.date, (dateMap.get(rdo.date) ?? 0) + delta)
+        lastByTrecho.set(trecho.trechoCode, next)
+      }
     }
+
+    for (const service of sabespExecutedServices) {
+      if (!service.date || !isLinearMeterUnit(service.unit)) continue
+      dateMap.set(service.date, (dateMap.get(service.date) ?? 0) + service.quantity)
+    }
+
     const sorted = [...dateMap.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     let cum = 0
-    return sorted.map(([date, m]) => { cum += m; return { date, meters: cum } })
-  }, [rdos])
+    return sorted.map(([date, daily]) => { cum += daily; return { date, meters: cum, daily } })
+  }, [rdos, sabespExecutedServices])
+  const todayAdvance = advanceData.find((entry) => entry.date === today)?.daily ?? 0
 
   // Services aggregated
   const serviceMap = useMemo(() => {
-    const m = new Map<string, number>()
+    const m = new Map<string, { quantity: number; units: Set<string> }>()
     for (const rdo of rdos) {
       for (const s of rdo.services) {
-        m.set(s.description, (m.get(s.description) ?? 0) + s.quantity)
+        const current = m.get(s.description) ?? { quantity: 0, units: new Set<string>() }
+        current.quantity += Number(s.quantity) || 0
+        if (s.unit) current.units.add(s.unit)
+        m.set(s.description, current)
       }
     }
-    for (const rdo of sabespRdos) {
-      for (const service of getRdoSabespExecutedServices(rdo)) {
-        const name = service.services_catalog.name
-        m.set(name, (m.get(name) ?? 0) + service.quantity)
-      }
+    for (const service of sabespExecutedServices) {
+      const name = service.services_catalog.name
+      const current = m.get(name) ?? { quantity: 0, units: new Set<string>() }
+      current.quantity += service.quantity
+      if (service.unit) current.units.add(service.unit)
+      m.set(name, current)
     }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
-  }, [rdos, sabespRdos])
-  const maxSvc = serviceMap[0]?.[1] ?? 1
+    return [...m.entries()]
+      .map(([name, value]) => ({
+        name,
+        quantity: value.quantity,
+        unit: value.units.size === 1 ? [...value.units][0] : 'qtd.',
+      }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 5)
+  }, [rdos, sabespExecutedServices])
+  const maxSvc = serviceMap[0]?.quantity ?? 1
+  const totalServiceExecutions = rdos.reduce((sum, rdo) => sum + rdo.services.length, 0) + sabespExecutedServices.length
+  const totalServiceQuantity = rdos.reduce(
+    (sum, rdo) => sum + rdo.services.reduce((serviceSum, service) => serviceSum + (Number(service.quantity) || 0), 0),
+    0,
+  ) + sabespSummary.totalExecutedQuantity
+
+  const progressByNucleus = useMemo(() => {
+    const rows = new Map<string, { key: string; name: string; planned: number; executed: number }>()
+    const ensure = (key: string, name: string) => {
+      const existing = rows.get(key)
+      if (existing) return existing
+      const created = { key, name, planned: 0, executed: 0 }
+      rows.set(key, created)
+      return created
+    }
+
+    for (const nucleus of planejamentoNuclei) ensure(nucleus.id, nucleus.name)
+
+    for (const trecho of trechos) {
+      const key = trecho.nucleusId ?? 'sem-nucleo'
+      const row = ensure(key, trecho.nucleusName || 'Sem núcleo')
+      row.planned += trecho.planned
+      row.executed += trecho.executed
+    }
+
+    if (sabespLinearMeters > 0) {
+      ensure('sabesp-sem-trecho', 'Sabesp sem trecho vinculado').executed += sabespLinearMeters
+    }
+
+    return [...rows.values()]
+      .filter((row) => row.planned > 0 || row.executed > 0)
+      .sort((a, b) => b.executed - a.executed)
+  }, [planejamentoNuclei, sabespLinearMeters, trechos])
 
   // Filter trechos table
   const filteredTrechos = trechos.filter((t) => {
@@ -261,15 +420,23 @@ export function DashboardPanel() {
         <KpiCard label="Total de RDOs"    value={String(totalRdos)} />
         <KpiCard label="Progresso Geral"  value={`${progressPct.toFixed(1)}%`} accent />
         <KpiCard label="Metros Executados" value={`${totalExecuted.toFixed(2)} m`} accent />
-        <KpiCard label="RDOs Hoje"        value={String(rdosToday)} />
+        <KpiCard label="Avanço Diário" value={`${todayAdvance.toFixed(2)} m`} sub={`${rdosToday} RDO(s) hoje`} />
       </div>
 
       {/* Row 2 KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard label="Total Planejado"  value={`${totalPlanned.toFixed(2)} m`}   sub="Extensão total da rede" />
-        <KpiCard label="Total Executado"  value={`${totalExecuted.toFixed(2)} m`}  sub="Extensão já executada" accent />
-        <KpiCard label="RDOs Sabesp"      value={String(sabespSummary.total)} sub={`${sabespSummary.finalized} finalizados`} />
+        <KpiCard label="Total Planejado" value={`${totalPlanned.toFixed(2)} m`} sub={totalPlannedFromPlanning > 0 ? 'Vem do Planejamento' : 'Fallback dos RDOs'} />
+        <KpiCard label="Total Executado" value={`${totalExecuted.toFixed(2)} m`} sub="RDO novo + Sabesp linear" accent />
+        <KpiCard label="Serviços Executados" value={String(totalServiceExecutions)} sub={`${totalServiceQuantity.toFixed(2)} qtd. apontada`} />
+        <KpiCard label="Conversa com Planejamento" value={`${planningLinkPct.toFixed(0)}%`} sub={`${linkedRegularCodes}/${regularCodes.length} trechos RDO vinculados`} accent={planningLinkPct < 80 && regularCodes.length > 0} />
+      </div>
+
+      {/* Row 3 KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <KpiCard label="RDOs Hoje" value={String(rdosToday)} />
+        <KpiCard label="RDOs Sabesp" value={String(sabespSummary.total)} sub={`${sabespSummary.finalized} finalizados`} />
         <KpiCard label="Atividades Sabesp" value={String(sabespSummary.totalActivities)} sub={`${sabespSummary.totalExecutedQuantity} qtd. registrada`} accent />
+        <KpiCard label="Metros Sabesp" value={`${sabespLinearMeters.toFixed(2)} m`} sub="Serviços com unidade metro" />
       </div>
 
       {/* Charts row */}
@@ -309,15 +476,38 @@ export function DashboardPanel() {
         <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
           <div className="text-white font-medium text-sm mb-3">Serviços Mais Executados</div>
           <div className="space-y-2">
-            {serviceMap.map(([name, qty]) => (
-              <div key={name} className="flex items-center gap-3">
-                <div className="text-[#f5f5f5] text-xs w-48 truncate shrink-0">{name}</div>
+            {serviceMap.map((service) => (
+              <div key={service.name} className="flex items-center gap-3">
+                <div className="text-[#f5f5f5] text-xs w-48 truncate shrink-0">{service.name}</div>
                 <div className="flex-1 h-2 bg-[#484848] rounded-full overflow-hidden">
-                  <div className="h-full bg-sky-500 rounded-full" style={{ width: `${(qty / maxSvc) * 100}%` }} />
+                  <div className="h-full bg-sky-500 rounded-full" style={{ width: `${(service.quantity / maxSvc) * 100}%` }} />
                 </div>
-                <div className="text-[#a3a3a3] text-xs w-16 text-right shrink-0">{qty.toFixed(0)} m</div>
+                <div className="text-[#a3a3a3] text-xs w-20 text-right shrink-0">{service.quantity.toFixed(0)} {service.unit}</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Progresso por Núcleo */}
+      {progressByNucleus.length > 0 && (
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
+          <h3 className="text-white text-sm font-semibold mb-3">Progresso por Núcleo</h3>
+          <div className="flex flex-col gap-2">
+            {progressByNucleus.map((nucleus) => {
+              const pct = nucleus.planned > 0 ? Math.min(100, (nucleus.executed / nucleus.planned) * 100) : 0
+              return (
+                <div key={nucleus.key} className="flex items-center gap-3">
+                  <span className="text-xs text-[#a3a3a3] w-40 shrink-0 truncate">{nucleus.name}</span>
+                  <div className="flex-1 h-4 bg-[#484848] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-[#f97316] transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-[#f5f5f5] w-44 text-right shrink-0">
+                    {nucleus.executed.toFixed(0)}m / {nucleus.planned.toFixed(0)}m ({pct.toFixed(0)}%)
+                  </span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -332,11 +522,10 @@ export function DashboardPanel() {
           { key: 'pavimentacao', label: 'Pavimentação', color: '#fb923c' },
           { key: 'outro',        label: 'Outro',        color: '#94a3b8' },
         ]
-        const allTrechos = rdos.flatMap((r) => r.trechos)
         const sysData = SYSTEMS.map((s) => {
-          const entries = allTrechos.filter((t) => (t.system ?? 'outro') === s.key)
-          const planned  = entries.reduce((acc, t) => acc + t.plannedMeters, 0)
-          const executed = entries.reduce((acc, t) => acc + t.executedMeters, 0)
+          const entries = trechos.filter((t) => normalizeSystem(t.system) === s.key)
+          const planned  = entries.reduce((acc, t) => acc + t.planned, 0)
+          const executed = entries.reduce((acc, t) => acc + t.executed, 0)
           return { ...s, planned, executed, pct: planned > 0 ? Math.min(100, (executed / planned) * 100) : 0 }
         }).filter((s) => s.planned > 0 || s.executed > 0)
 

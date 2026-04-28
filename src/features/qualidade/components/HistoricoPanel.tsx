@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import {
   AlertTriangle,
   Camera,
@@ -57,11 +58,13 @@ function summary(f: FVS) {
 }
 
 export function HistoricoPanel() {
-  const { fvss, nonConformities, removeFvs, removeNonConformity } = useQualidadeStore()
+  const { fvss, nonConformities, removeFvs, removeNonConformity, updateNonConformity } = useQualidadeStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [photoTarget, setPhotoTarget] = useState<{ ncId: string; index: number | null } | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const items = useMemo<HistoryItem[]>(() => {
     const term = searchTerm.toLowerCase()
@@ -108,8 +111,56 @@ export function HistoricoPanel() {
     setDeleteConfirm(null)
   }
 
+  function readEvidencePhoto(file: File) {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  function openEvidencePicker(ncId: string, index: number | null = null) {
+    setPhotoTarget({ ncId, index })
+    window.setTimeout(() => photoInputRef.current?.click(), 0)
+  }
+
+  async function handleEvidenceChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    if (!photoTarget || files.length === 0) return
+
+    const nc = nonConformities.find((item) => item.id === photoTarget.ncId)
+    if (!nc) return
+
+    const maxFiles = photoTarget.index === null ? Math.max(0, 12 - nc.evidencePhotos.length) : 1
+    const photos = await Promise.all(files.slice(0, maxFiles).map(readEvidencePhoto))
+    if (photos.length === 0) return
+
+    const nextPhotos = [...nc.evidencePhotos]
+    if (photoTarget.index === null) nextPhotos.push(...photos)
+    else nextPhotos[photoTarget.index] = photos[0]
+
+    updateNonConformity(nc.id, { evidencePhotos: nextPhotos })
+    setPhotoTarget(null)
+    event.target.value = ''
+  }
+
+  function removeEvidencePhoto(nc: QualityNonConformity, index: number) {
+    updateNonConformity(nc.id, {
+      evidencePhotos: nc.evidencePhotos.filter((_, photoIndex) => photoIndex !== index),
+    })
+  }
+
   return (
     <div className="p-6 space-y-4">
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple={photoTarget?.index === null}
+        onChange={handleEvidenceChange}
+        className="hidden"
+      />
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[220px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a3a3a3]" />
@@ -177,6 +228,16 @@ export function HistoricoPanel() {
                     </span>
 
                     <button
+                      type="button"
+                      onClick={() => openEvidencePicker(nc.id)}
+                      disabled={nc.evidencePhotos.length >= 12}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#484848] hover:bg-[#525252] disabled:cursor-not-allowed disabled:opacity-50 text-[#f5f5f5] rounded-lg text-xs font-medium transition-colors"
+                      title={nc.evidencePhotos.length >= 12 ? 'Limite de 12 evidências atingido' : 'Adicionar evidências'}
+                    >
+                      <Camera size={13} /> Fotos
+                    </button>
+
+                    <button
                       onClick={() => printQualityNonConformityPDF(nc)}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f97316] hover:bg-[#ea580c] text-white rounded-lg text-xs font-medium transition-colors"
                       title="Imprimir / Exportar PDF"
@@ -209,13 +270,48 @@ export function HistoricoPanel() {
                         <div className="text-sm text-[#e5e5e5] mt-2 whitespace-pre-wrap"><strong>Ação corretiva:</strong> {nc.correctiveAction || '—'}</div>
                         <div className="text-sm text-[#e5e5e5] mt-2"><strong>Avaliação:</strong> {nc.effectivenessResponsible || '—'} · {fmtDate(nc.effectivenessDate)}</div>
                       </div>
-                      {nc.evidencePhotos.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                          {nc.evidencePhotos.map((src, idx) => (
-                            <img key={idx} src={src} alt={`Evidência ${idx + 1}`} className="aspect-square w-full object-cover rounded-lg border border-[#525252]" />
-                          ))}
+                      <div>
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <h4 className="text-xs uppercase tracking-wider text-[#a3a3a3] font-bold">Evidências</h4>
+                          <button
+                            type="button"
+                            onClick={() => openEvidencePicker(nc.id)}
+                            disabled={nc.evidencePhotos.length >= 12}
+                            className="px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] disabled:cursor-not-allowed disabled:opacity-50 text-[#f5f5f5] text-xs font-medium transition-colors"
+                          >
+                            Adicionar
+                          </button>
                         </div>
-                      )}
+                        {nc.evidencePhotos.length > 0 ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                            {nc.evidencePhotos.map((src, idx) => (
+                              <div key={idx} className="group relative overflow-hidden rounded-lg border border-[#525252] bg-[#2c2c2c]">
+                                <img src={src} alt={`Evidência ${idx + 1}`} className="aspect-square w-full object-cover" />
+                                <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-black/70 p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEvidencePicker(nc.id, idx)}
+                                    className="flex-1 rounded bg-[#f97316] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#ea580c]"
+                                  >
+                                    Trocar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEvidencePhoto(nc, idx)}
+                                    className="flex-1 rounded bg-red-600 px-2 py-1 text-[10px] font-semibold text-white hover:bg-red-500"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-[#525252] bg-[#2c2c2c] p-4 text-center text-sm text-[#a3a3a3]">
+                            Nenhuma evidência cadastrada.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

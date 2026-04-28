@@ -16,6 +16,12 @@ function cleanText(text: string): string {
     .trim()
 }
 
+function normalizeForSearch(text: string): string {
+  return cleanText(text)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function sectionBetween(text: string, start: RegExp, end: RegExp): string {
   const startMatch = start.exec(text)
   if (!startMatch) return ''
@@ -67,13 +73,14 @@ export function parseCriterioTextPages(pages: string[]): { items: CriterioMedica
 
   pages.forEach((pageText, index) => {
     const text = cleanText(pageText)
+    const searchText = normalizeForSearch(text)
     const nPrecoMatch =
-      text.match(/N[º°]?\s*\.?\s*PRE[ÇC]O\s+DESCRI\p{L}+\s+UNIDADE\s+(\d{6,8})/iu) ||
-      text.match(/N[º°]?\s*\.?\s*PRE[ÇC]O.*?\b(\d{6,8})\b/i) ||
-      text.match(/\b(\d{6,8})\b.*?(?:SiiS|REGULAMENTA|COMPREENDE)/i)
+      searchText.match(/N.?\s*\.?\s*PRECO\s+DESCRICAO\s+UNIDADE\s+(\d{6,8})/i) ||
+      searchText.match(/N.?\s*\.?\s*PRECO.*?\b(\d{6,8})\b/i) ||
+      searchText.match(/\b(\d{6,8})\b.*?(?:SiiS|REGULAMENTA|COMPREENDE)/i)
 
     if (!nPrecoMatch?.[1]) return
-    const nPreco = nPrecoMatch[1]
+    let nPreco = nPrecoMatch[1]
     if (items.some((c) => c.nPreco === nPreco)) return
 
     const codePos = text.indexOf(nPreco)
@@ -82,6 +89,13 @@ export function parseCriterioTextPages(pages: string[]): { items: CriterioMedica
       .replace(new RegExp(`\\s+${UNIT_RE}$`, 'i'), '')
       .replace(/^[-:.\s]+/, '')
       .trim()
+
+    const embeddedHeaderCode = normalizeForSearch(descricao).match(/^Folha\s+\d+\/\d+\s+(\d{6,8})\s+(.+)/i)
+    if (embeddedHeaderCode?.[1]) {
+      nPreco = embeddedHeaderCode[1]
+      descricao = cleanText(descricao.replace(/^Folha\s+\d+\/\d+\s+\d{6,8}\s+/i, ''))
+      if (items.some((c) => c.nPreco === nPreco)) return
+    }
 
     if (!descricao) {
       const descFallback = text.match(/DESCRI\p{L}+\s+UNIDADE\s+\d{6,8}\s+(.+?)(?:SiiS:|REGULAMENTA|COMPREENDE)/iu)
