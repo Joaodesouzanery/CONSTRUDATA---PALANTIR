@@ -524,14 +524,14 @@ export function InteligenciaSuprimentosPanel() {
         </div>
       )}
 
-      <div className="flex-1 overflow-auto rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
-        <div className="grid gap-3">
+      <div className="min-h-[620px] flex-1 overflow-auto rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
+        <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
           {recommendations.map((rec) => {
             const meta = RISK_META[rec.risk]
             const Icon = meta.icon
             const created = createdIds.has(rec.id)
             return (
-              <article key={rec.id} className="rounded-xl border border-[#525252] bg-[#333333] p-4">
+              <article key={rec.id} className="flex min-h-[320px] flex-col rounded-xl border border-[#525252] bg-[#333333] p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -570,7 +570,7 @@ export function InteligenciaSuprimentosPanel() {
                   ))}
                 </div>
 
-                <div className="mt-3 grid gap-3 lg:grid-cols-[0.8fr_1.4fr]">
+                <div className="mt-3 grid flex-1 gap-3">
                   <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
                     <p className="text-[10px] text-[#6b6b6b]">Comprar até</p>
                     <p className="mt-0.5 text-sm font-semibold text-[#f5f5f5]">{formatDate(rec.suggestedOrderDate)}</p>
