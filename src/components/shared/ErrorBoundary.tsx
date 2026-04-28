@@ -22,28 +22,19 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <div
-          style={{
-            padding: '32px',
-            background: '#333333',
-            color: '#f5f5f5',
-            fontFamily: 'monospace',
-            fontSize: '13px',
-            minHeight: '100vh',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div style={{ color: '#ef4444', fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>
-            ⚠ Erro na Aplicação
+        <div className="flex min-h-screen items-center justify-center bg-[#2c2c2c] px-4">
+          <div className="w-full max-w-md rounded-xl border border-[#525252] bg-[#333333] p-6 text-center shadow-xl">
+            <h1 className="text-lg font-semibold text-[#f5f5f5]">Nao foi possivel abrir esta tela.</h1>
+            <p className="mt-2 text-sm text-[#a3a3a3]">
+              Recarregue a pagina ou volte para o menu lateral. O erro tecnico foi registrado no console.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 rounded-lg border border-[#f97316]/50 px-4 py-2 text-sm font-semibold text-[#f97316] hover:bg-[#f97316]/10"
+            >
+              Tentar novamente
+            </button>
           </div>
-          <div style={{ color: '#fca5a5', marginBottom: '12px', wordBreak: 'break-all' }}>
-            {this.state.error.message}
-          </div>
-          {this.state.error.stack && (
-            <pre style={{ color: '#6b6b6b', fontSize: '11px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-              {this.state.error.stack}
-            </pre>
-          )}
         </div>
       )
     }

@@ -5,43 +5,33 @@ import App from './App.tsx'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Toaster } from 'sonner'
 
-// ── Global error display (shows JS crashes before React mounts) ──────────────
-const errorOverlay = document.createElement('div')
-errorOverlay.style.cssText = [
-  'display:none',
-  'position:fixed',
-  'inset:0',
-  'background:#333333',
-  'color:#fca5a5',
-  'padding:32px',
-  'font-family:monospace',
-  'font-size:13px',
-  'z-index:99999',
-  'overflow:auto',
-  'white-space:pre-wrap',
-  'word-break:break-all',
-].join(';')
-
-document.body.appendChild(errorOverlay)
-
-function appendError(msg: string): void {
-  errorOverlay.style.display = 'block'
-  errorOverlay.textContent += msg + '\n\n'
+function errorText(value: unknown): string {
+  if (value instanceof Error) return `${value.message}\n${value.stack ?? ''}`
+  return String(value ?? '')
 }
 
-window.addEventListener('error', (e) => {
-  appendError(
-    `[JS Error] ${e.message}\n` +
-    `File: ${e.filename}:${e.lineno}:${e.colno}\n` +
-    (e.error?.stack ?? ''),
-  )
+function isRecoverableMapError(value: unknown): boolean {
+  return /_leaflet_pos|t_rawPanBy|invalidateSize|leaflet/i.test(errorText(value))
+}
+
+window.addEventListener('error', (event) => {
+  if (isRecoverableMapError(event.error ?? event.message)) {
+    event.preventDefault()
+    console.warn('[Map recovered]', event.message)
+    return
+  }
+  console.error('[GlobalError]', event.message, event.error)
 })
 
-window.addEventListener('unhandledrejection', (e) => {
-  appendError(`[Unhandled Promise] ${String(e.reason)}`)
+window.addEventListener('unhandledrejection', (event) => {
+  if (isRecoverableMapError(event.reason)) {
+    event.preventDefault()
+    console.warn('[Map promise recovered]', event.reason)
+    return
+  }
+  console.error('[UnhandledPromise]', event.reason)
 })
 
-// ── Mount ────────────────────────────────────────────────────────────────────
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

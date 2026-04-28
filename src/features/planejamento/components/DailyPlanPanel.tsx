@@ -65,6 +65,9 @@ function InlineNum({ value, onSave }: { value: number; onSave: (v: number) => vo
 
 interface DailyRow {
   date: string
+  weekLabel: string
+  nucleusId: string
+  nucleusName: string
   trechoCode: string
   trechoDesc: string
   teamName: string
@@ -80,13 +83,24 @@ function fmtR(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+function weekLabel(dateIso: string) {
+  const date = new Date(`${dateIso}T00:00:00`)
+  const day = date.getDay() || 7
+  const start = new Date(date)
+  start.setDate(date.getDate() - day + 1)
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  return `${fmtDate(start.toISOString().slice(0, 10))} - ${fmtDate(end.toISOString().slice(0, 10))}`
+}
+
 export function DailyPlanPanel() {
-  const { ganttRows, teams, runSchedule, isScheduleDirty } = usePlanejamentoStore()
+  const { ganttRows, teams, nuclei, runSchedule, isScheduleDirty } = usePlanejamentoStore()
 
   const [filterStart, setFilterStart]     = useState('')
   const [filterEnd, setFilterEnd]         = useState('')
   const [filterTrecho, setFilterTrecho]   = useState('')
   const [filterTeam, setFilterTeam]       = useState('')
+  const [filterNucleus, setFilterNucleus] = useState('')
   // Local overrides: key = `${date}-${trechoCode}`, value = override production (m)
   const [overrides, setOverrides]         = useState<Record<string, number>>({})
   const [overridesActual, setOverridesActual] = useState<Record<string, number>>({})
@@ -98,6 +112,7 @@ export function DailyPlanPanel() {
     const rows: DailyRow[] = []
     for (const ganttRow of ganttRows) {
       const team = teams[ganttRow.teamIndex]
+      const nucleus = nuclei.find((n) => n.id === ganttRow.trecho.nucleusId)
       const teamName = team?.name ?? `Equipe ${ganttRow.teamIndex + 1}`
       const headcount = (team?.foremanCount ?? 0) + (team?.workerCount ?? 0) +
         (team?.helperCount ?? 0) + (team?.operatorCount ?? 0)
@@ -107,6 +122,9 @@ export function DailyPlanPanel() {
       for (const cell of ganttRow.cells) {
         rows.push({
           date:         cell.date,
+          weekLabel:    weekLabel(cell.date),
+          nucleusId:    ganttRow.trecho.nucleusId ?? '',
+          nucleusName:  nucleus?.name ?? 'Sem nucleo',
           trechoCode:   ganttRow.trecho.code,
           trechoDesc:   ganttRow.trecho.description,
           teamName,
@@ -120,7 +138,7 @@ export function DailyPlanPanel() {
       }
     }
     return rows.sort((a, b) => a.date.localeCompare(b.date))
-  }, [ganttRows, teams])
+  }, [ganttRows, nuclei, teams])
 
   const filteredRows = useMemo(() => {
     return allRows.filter((r) => {
@@ -129,14 +147,31 @@ export function DailyPlanPanel() {
       if (filterTrecho && !r.trechoCode.toLowerCase().includes(filterTrecho.toLowerCase()) &&
           !r.trechoDesc.toLowerCase().includes(filterTrecho.toLowerCase())) return false
       if (filterTeam && r.teamName.toLowerCase() !== filterTeam.toLowerCase()) return false
+      if (filterNucleus && r.nucleusId !== filterNucleus) return false
       return true
     })
-  }, [allRows, filterStart, filterEnd, filterTrecho, filterTeam])
+  }, [allRows, filterStart, filterEnd, filterTrecho, filterTeam, filterNucleus])
 
   const uniqueTeams = [...new Set(allRows.map((r) => r.teamName))]
+  const uniqueNuclei = nuclei.filter((n) => allRows.some((r) => r.nucleusId === n.id))
+
+  const weeklySummary = useMemo(() => {
+    const map = new Map<string, { week: string; nucleus: string; planned: number; actual: number; cost: number; rows: number }>()
+    for (const r of filteredRows) {
+      const key = `${r.weekLabel}|${r.nucleusName}`
+      const rowKey = `${r.date}-${r.trechoCode}`
+      const current = map.get(key) ?? { week: r.weekLabel, nucleus: r.nucleusName, planned: 0, actual: 0, cost: 0, rows: 0 }
+      current.planned += r.isHydroTest ? 0 : overrides[rowKey] ?? r.metersPlanned
+      current.actual += r.isHydroTest ? 0 : overridesActual[rowKey] ?? 0
+      current.cost += r.costBRL
+      current.rows += 1
+      map.set(key, current)
+    }
+    return Array.from(map.values()).slice(0, 8)
+  }, [filteredRows, overrides, overridesActual])
 
   function exportCSV() {
-    const headers = ['Data', 'Trecho', 'Descrição', 'Equipe', 'Atividade', 'Previsto (m)', 'Realizado (m)', '% Realizado', 'Status', 'MO (pess.)', 'Equipam.', 'Custo/Dia']
+    const headers = ['Semana', 'Data', 'Nucleo', 'Trecho', 'Descricao', 'Equipe', 'Atividade', 'Previsto (m)', 'Realizado (m)', '% Realizado', 'Status', 'MO (pess.)', 'Equipam.', 'Custo/Dia']
     const rows = filteredRows.map((r) => {
       const key = `${r.date}-${r.trechoCode}`
       const previsto = r.isHydroTest ? '' : (overrides[key] ?? r.metersPlanned).toFixed(1)
@@ -145,7 +180,7 @@ export function DailyPlanPanel() {
         ((parseFloat(realizado) / (overrides[key] ?? r.metersPlanned)) * 100).toFixed(0) + '%'
       const status = overridesStatus[key] ?? 'não_iniciado'
       return [
-        fmtDate(r.date), r.trechoCode, r.trechoDesc, r.teamName,
+        r.weekLabel, fmtDate(r.date), r.nucleusName, r.trechoCode, r.trechoDesc, r.teamName,
         r.isHydroTest ? 'Teste Hidrostático' : 'Execução',
         previsto, realizado, pct,
         STATUS_LABELS[status],
@@ -203,6 +238,14 @@ export function DailyPlanPanel() {
           <option value="">Todas as equipes</option>
           {uniqueTeams.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
+        <select
+          value={filterNucleus}
+          onChange={(e) => setFilterNucleus(e.target.value)}
+          className="bg-[#484848] border border-[#5e5e5e] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-orange-500"
+        >
+          <option value="">Todos os nucleos</option>
+          {uniqueNuclei.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+        </select>
 
         <div className="ml-auto flex gap-2">
           {hasOverrides && (
@@ -230,6 +273,23 @@ export function DailyPlanPanel() {
         </div>
       </div>
 
+      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {weeklySummary.map((item) => {
+          const pct = item.planned > 0 ? Math.round((item.actual / item.planned) * 100) : 0
+          return (
+            <div key={`${item.week}-${item.nucleus}`} className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+              <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">{item.week}</p>
+              <p className="mt-1 truncate text-sm font-semibold text-[#f5f5f5]">{item.nucleus}</p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                <span className="text-[#a3a3a3]">{item.planned.toFixed(1)} m</span>
+                <span className="text-[#22c55e]">{item.actual.toFixed(1)} m</span>
+                <span className="text-right text-[#f97316]">{pct}%</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
       <p className="text-xs text-[#6b6b6b] mb-3">{filteredRows.length} registros</p>
 
       {/* Table */}
@@ -238,6 +298,7 @@ export function DailyPlanPanel() {
           <thead className="bg-[#3d3d3d] border-b border-[#525252]">
             <tr>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Data</th>
+              <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Nucleo</th>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Trecho</th>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Equipe</th>
               <th className="text-left text-[#a3a3a3] px-4 py-3 font-medium">Atividade</th>
@@ -262,6 +323,7 @@ export function DailyPlanPanel() {
                 <tr key={`${r.date}-${r.trechoCode}-${idx}`}
                   className={`${rowBg} hover:bg-[#3d3d3d]/70 transition-colors`}>
                   <td className="px-4 py-2.5 text-[#f5f5f5] whitespace-nowrap">{fmtDate(r.date)}</td>
+                  <td className="px-4 py-2.5 text-[#a3a3a3] whitespace-nowrap">{r.nucleusName}</td>
                   <td className="px-4 py-2.5">
                     <div className="text-[#f5f5f5] font-medium">{r.trechoCode}</div>
                     <div className="text-[#6b6b6b] text-xs truncate max-w-[200px]">{r.trechoDesc}</div>
@@ -328,7 +390,7 @@ export function DailyPlanPanel() {
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr>
-              {['Data', 'Trecho', 'Equipe', 'Atividade', 'Previsto', 'Realizado', '% Real.', 'Status', 'MO', 'Equip.', 'Custo'].map((h) => (
+              {['Data', 'Nucleo', 'Trecho', 'Equipe', 'Atividade', 'Previsto', 'Realizado', '% Real.', 'Status', 'MO', 'Equip.', 'Custo'].map((h) => (
                 <th key={h} className="border border-gray-400 px-2 py-1 text-left">{h}</th>
               ))}
             </tr>
@@ -343,6 +405,7 @@ export function DailyPlanPanel() {
               return (
                 <tr key={idx}>
                   <td className="border border-gray-300 px-2 py-1">{fmtDate(r.date)}</td>
+                  <td className="border border-gray-300 px-2 py-1">{r.nucleusName}</td>
                   <td className="border border-gray-300 px-2 py-1">{r.trechoCode}</td>
                   <td className="border border-gray-300 px-2 py-1">{r.teamName}</td>
                   <td className="border border-gray-300 px-2 py-1">{r.isHydroTest ? 'Teste Hidrostático' : 'Execução'}</td>

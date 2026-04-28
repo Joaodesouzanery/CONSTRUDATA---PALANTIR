@@ -138,8 +138,8 @@ function normalize(text: string) {
     .toLowerCase()
 }
 
-function matchesProject(project: Project, ref?: string | null) {
-  if (!ref) return true
+function matchesProject(project: Project, ref?: string | null, includeUnscoped = true) {
+  if (!ref) return includeUnscoped
   const text = normalize(ref)
   return [project.id, project.code, project.name].some((value) => value && text.includes(normalize(value)))
 }
@@ -149,8 +149,10 @@ function addEntry(entries: CostLedgerEntry[], entry: CostLedgerEntry) {
   entries.push(entry)
 }
 
-function buildLedger(project: Project): CostLedgerEntry[] {
+function buildLedger(project: Project, options: { includeUnscoped?: boolean; includeEvm?: boolean } = {}): CostLedgerEntry[] {
   const entries: CostLedgerEntry[] = []
+  const includeUnscoped = options.includeUnscoped ?? true
+  const includeEvm = options.includeEvm ?? true
   const todayIso = new Date().toISOString().slice(0, 10)
   const mao = useMaoDeObraStore.getState()
   const equipamentos = useGestaoEquipamentosStore.getState()
@@ -178,7 +180,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
   }
 
   for (const timecard of mao.timecards) {
-    if (!matchesProject(project, timecard.projectRef)) continue
+    if (!matchesProject(project, timecard.projectRef, includeUnscoped)) continue
     const worker = workersById.get(timecard.workerId)
     const amount = timecard.hoursWorked * (worker?.hourlyRate ?? 0)
     if (amount <= 0) continue
@@ -197,7 +199,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
   }
 
   for (const po of suprimentos.purchaseOrders) {
-    if (!matchesProject(project, po.projectRef)) continue
+    if (!matchesProject(project, po.projectRef, includeUnscoped)) continue
     const amount = po.items.reduce((sum, item) => sum + item.totalPrice, 0)
     addEntry(entries, {
       id: `po-${po.id}`,
@@ -215,7 +217,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
 
   for (const invoice of suprimentos.invoices) {
     const po = poById.get(invoice.poId)
-    if (!matchesProject(project, po?.projectRef)) continue
+    if (!matchesProject(project, po?.projectRef, includeUnscoped)) continue
     addEntry(entries, {
       id: `nf-${invoice.id}`,
       date: invoice.issueDate,
@@ -232,7 +234,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
 
   for (const receipt of suprimentos.receipts) {
     const po = poById.get(receipt.poId)
-    if (!matchesProject(project, po?.projectRef)) continue
+    if (!matchesProject(project, po?.projectRef, includeUnscoped)) continue
     addEntry(entries, {
       id: `receipt-${receipt.id}`,
       date: receipt.receivedDate,
@@ -283,7 +285,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
 
   for (const report of rdo.rdos) {
     const reportProject = (report as { projectId?: string | null }).projectId
-    if (!matchesProject(project, reportProject ?? report.local)) continue
+    if (!matchesProject(project, reportProject ?? report.local, includeUnscoped)) continue
     const manpowerAmount =
       report.manpower.foremanCount * 8 * 65 +
       report.manpower.officialCount * 8 * 48 +
@@ -354,7 +356,7 @@ function buildLedger(project: Project): CostLedgerEntry[] {
     })
   }
 
-  if (evm.evmMetrics.AC > 0) {
+  if (includeEvm && evm.evmMetrics.AC > 0) {
     addEntry(entries, {
       id: 'evm-ac',
       date: todayIso,
@@ -372,6 +374,26 @@ function buildLedger(project: Project): CostLedgerEntry[] {
   return entries.sort((a, b) => b.date.localeCompare(a.date))
 }
 
+function aggregateBudgetLines(projects: Project[]) {
+  const byType = new Map<BudgetLineType, Project['budgetLines'][number]>()
+  for (const project of projects) {
+    for (const line of project.budgetLines) {
+      const current = byType.get(line.type)
+      if (!current) {
+        byType.set(line.type, { ...line, id: `agg-${line.type}`, description: LINE_META[line.type]?.label ?? line.description })
+      } else {
+        byType.set(line.type, {
+          ...current,
+          budgeted: current.budgeted + line.budgeted,
+          spent:    current.spent + line.spent,
+          projected: current.projected + line.projected,
+        })
+      }
+    }
+  }
+  return Array.from(byType.values())
+}
+
 export function JobCostingPanel() {
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
   const projects = useProjetosStore((s) => s.projects)
@@ -382,10 +404,15 @@ export function JobCostingPanel() {
   useMedicaoStore()
   useEvmStore()
 
-  const project = projects.find((p) => p.id === selectedProjectId) ?? projects[0] ?? null
-  const ledger = project ? buildLedger(project) : []
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
+  const scopeProjects = selectedProject ? [selectedProject] : projects
+  const scopeLabel = selectedProject ? selectedProject.name : 'Todos os projetos/nucleos'
+  const ledger = scopeProjects.flatMap((project, index) => buildLedger(project, {
+    includeUnscoped: selectedProject ? true : index === 0,
+    includeEvm:      selectedProject ? true : index === 0,
+  })).sort((a, b) => b.date.localeCompare(a.date))
 
-  if (!project) {
+  if (scopeProjects.length === 0) {
     return (
       <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-8 text-center">
         <p className="text-[#6b6b6b] text-sm">Selecione um projeto para ver o custo em tempo real.</p>
@@ -393,7 +420,7 @@ export function JobCostingPanel() {
     )
   }
 
-  const lines = project.budgetLines
+  const lines = aggregateBudgetLines(scopeProjects)
   const budgeted = lines.reduce((s, l) => s + l.budgeted, 0)
   const actualCost = ledger.filter((e) => e.type === 'actual').reduce((sum, item) => sum + item.amountBRL, 0)
   const committedCost = ledger.filter((e) => e.type === 'committed').reduce((sum, item) => sum + item.amountBRL, 0)
@@ -422,17 +449,20 @@ export function JobCostingPanel() {
     return { ...line, spent: lineSpent, projected: lineProjected }
   })
 
-  const execPhases = project.executionPhases
+  const execPhases = scopeProjects.flatMap((project) => project.executionPhases)
   const avgProgress = execPhases.length ? execPhases.reduce((s, p) => s + p.progress, 0) / execPhases.length : 0
   const today = new Date()
-  const start = new Date(project.startDate + 'T00:00:00')
-  const end = new Date(project.endDate + 'T00:00:00')
+  const start = new Date(Math.min(...scopeProjects.map((project) => new Date(project.startDate + 'T00:00:00').getTime())))
+  const end = new Date(Math.max(...scopeProjects.map((project) => new Date(project.endDate + 'T00:00:00').getTime())))
   const totalMs = Math.max(1, end.getTime() - start.getTime())
   const elapsedMs = Math.min(totalMs, Math.max(0, today.getTime() - start.getTime()))
   const plannedPct = (elapsedMs / totalMs) * 100
   const spi = plannedPct > 0 ? avgProgress / plannedPct : 1
   const cpi = spent > 0 ? (budgeted * (avgProgress / 100)) / spent : 1
-  const allPhases = [...project.planningPhases, ...project.executionPhases]
+  const allPhases = scopeProjects.flatMap((project) => [
+    ...project.planningPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
+    ...project.executionPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
+  ])
   const modulesInLedger = Array.from(new Set(ledger.map((entry) => entry.module)))
 
   return (
@@ -462,7 +492,7 @@ export function JobCostingPanel() {
             <p className="text-[#f5f5f5] text-sm font-semibold">Livro razao de custo</p>
           </div>
           <p className="mt-1 text-[#a3a3a3] text-xs">
-            Atualizado por evento: apontamento, recebimento, NF, consumo, medicao, RDO e avanco fisico.
+            {scopeLabel} atualizado por evento: apontamento, recebimento, NF, consumo, medicao, RDO e avanco fisico.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {modulesInLedger.map((module) => (

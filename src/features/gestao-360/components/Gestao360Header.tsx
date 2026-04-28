@@ -28,24 +28,29 @@ export function Gestao360Header() {
   const healthScores  = useOtimizacaoFrotaStore((s) => s.healthScores)
   const sites         = useTorreStore((s) => s.sites)
 
-  const project = projects.find((p) => p.id === selectedProjectId) ?? projects[0] ?? null
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
+  const scopeProjects = selectedProject ? [selectedProject] : projects
 
   // ─── EAC derived values ────────────────────────────────────────────
-  const lines        = project?.budgetLines ?? []
+  const lines        = scopeProjects.flatMap((p) => p.budgetLines)
   const budgeted     = lines.reduce((s, l) => s + l.budgeted, 0)
   const spent        = lines.reduce((s, l) => s + l.spent, 0)
   const eac          = lines.reduce((s, l) => s + l.projected, 0)
   const budgetDelta  = budgeted > 0 ? ((eac - budgeted) / budgeted) * 100 : 0
 
   // ─── SPI/CPI from execution phases ────────────────────────────────
-  const execPhases = project?.executionPhases ?? []
+  const execPhases = scopeProjects.flatMap((p) => p.executionPhases)
   const avgProgress = execPhases.length
     ? execPhases.reduce((s, p) => s + p.progress, 0) / execPhases.length
     : 0
 
   const today = new Date()
-  const start = project ? new Date(project.startDate + 'T00:00:00') : today
-  const end   = project ? new Date(project.endDate   + 'T00:00:00') : today
+  const start = scopeProjects.length
+    ? new Date(Math.min(...scopeProjects.map((p) => new Date(p.startDate + 'T00:00:00').getTime())))
+    : today
+  const end = scopeProjects.length
+    ? new Date(Math.max(...scopeProjects.map((p) => new Date(p.endDate + 'T00:00:00').getTime())))
+    : today
   const totalMs    = Math.max(1, end.getTime() - start.getTime())
   const elapsedMs  = Math.min(totalMs, Math.max(0, today.getTime() - start.getTime()))
   const plannedPct = (elapsedMs / totalMs) * 100
@@ -125,10 +130,11 @@ export function Gestao360Header() {
         {/* Project selector */}
         {projects.length > 0 && (
           <select
-            value={selectedProjectId ?? project?.id ?? ''}
-            onChange={(e) => selectProject(e.target.value)}
+            value={selectedProjectId ?? '__all__'}
+            onChange={(e) => selectProject(e.target.value === '__all__' ? null : e.target.value)}
             className="ml-auto px-3 py-1.5 rounded-lg bg-[#3d3d3d] border border-[#525252] text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]/60"
           >
+            <option value="__all__">Todos os projetos/nucleos (360)</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.code} — {p.name}

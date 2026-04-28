@@ -285,6 +285,14 @@ function MarkerLayer({
   const projectMarkers = useRef<Map<string, L.Marker>>(new Map())
   const siteMarkers = useRef<Map<string, L.Marker>>(new Map())
 
+  const safeRemove = (marker: L.Marker) => {
+    try {
+      marker.remove()
+    } catch (error) {
+      console.warn('[ControlMap] marker cleanup ignored', error)
+    }
+  }
+
   useEffect(() => {
     const sync = <T extends { id: string; lat?: number | null; lng?: number | null }>(
       markers: Map<string, L.Marker>,
@@ -294,7 +302,7 @@ function MarkerLayer({
     ) => {
       markers.forEach((marker, id) => {
         if (!rows.find((row) => row.id === id)) {
-          marker.remove()
+          safeRemove(marker)
           markers.delete(id)
         }
       })
@@ -318,13 +326,17 @@ function MarkerLayer({
     const targetSite = sites.find((s) => s.id === selectedSiteId)
     const target = targetProject ?? targetSite
     if (target?.lat != null && target.lng != null) {
-      map.setView([target.lat, target.lng], Math.max(map.getZoom(), 11), { animate: true })
+      try {
+        map.setView([target.lat, target.lng], Math.max(map.getZoom(), 11), { animate: true })
+      } catch (error) {
+        console.warn('[ControlMap] setView ignored', error)
+      }
     }
   }, [map, projects, selectedProjectId, selectedSiteId, sites])
 
   useEffect(() => () => {
-    projectMarkers.current.forEach((m) => m.remove())
-    siteMarkers.current.forEach((m) => m.remove())
+    projectMarkers.current.forEach(safeRemove)
+    siteMarkers.current.forEach(safeRemove)
     projectMarkers.current.clear()
     siteMarkers.current.clear()
   }, [])
@@ -336,18 +348,38 @@ function MapResizeHandler() {
   const map = useMap()
 
   useEffect(() => {
+    let active = true
+    let frame: number | null = null
+
+    const safeInvalidate = () => {
+      if (!active) return
+      try {
+        const container = map.getContainer()
+        if (!container?.isConnected || container.offsetWidth === 0 || container.offsetHeight === 0) return
+        map.invalidateSize({ animate: false, pan: false })
+      } catch (error) {
+        console.warn('[ControlMap] resize ignored', error)
+      }
+    }
+
     const invalidate = () => {
-      window.requestAnimationFrame(() => map.invalidateSize({ animate: false }))
+      if (frame != null) window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        frame = null
+        safeInvalidate()
+      })
     }
     invalidate()
     const timers = [120, 350, 700].map((ms) => window.setTimeout(invalidate, ms))
-    const container = map.getContainer().parentElement
+    const container = map.getContainer().parentElement ?? map.getContainer()
     const observer = typeof ResizeObserver !== 'undefined' && container
       ? new ResizeObserver(invalidate)
       : null
-    observer?.observe(container!)
+    observer?.observe(container)
     window.addEventListener('resize', invalidate)
     return () => {
+      active = false
+      if (frame != null) window.cancelAnimationFrame(frame)
       timers.forEach((t) => window.clearTimeout(t))
       observer?.disconnect()
       window.removeEventListener('resize', invalidate)

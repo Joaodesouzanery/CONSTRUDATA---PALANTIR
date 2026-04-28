@@ -680,8 +680,11 @@ function findHeaderCol(headers: string[], matchers: RegExp[]) {
 
 function findMonthPair(periodRow: string[], headers: string[], periodo: string) {
   if (!periodo) return { qtd: -1, total: -1 }
+  const periodoNorm = normalizePeriodoLabel(periodo)
+  const monthToken = periodoNorm.split('/')[0]
   for (let i = 0; i < periodRow.length; i += 1) {
-    if (!samePeriodoMonth(periodRow[i], periodo)) continue
+    const periodCell = norm(periodRow[i])
+    if (!samePeriodoMonth(periodRow[i], periodo) && !(monthToken && periodCell.includes(monthToken))) continue
     const qtd = headers.slice(i, i + 3).findIndex((h) => /qntd|qtd|quant/i.test(norm(h)))
     const total = headers.slice(i, i + 4).findIndex((h) => /preco total|valor|total/i.test(norm(h)))
     if (qtd >= 0 && total >= 0) return { qtd: i + qtd, total: i + total }
@@ -768,7 +771,8 @@ function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroPar
     const headers = raw[headerIdx] ?? []
     const monthCols = findMonthPair(periodRow, headers, result.periodo)
 
-    const idxNPreco = findHeaderCol(headers, [/n\s*preco/, /^n preco$/, /^item$/])
+    const idxNPrecoExact = findHeaderCol(headers, [/n\s*preco/, /^n preco$/, /n\.?\s*preco/])
+    const idxNPreco = idxNPrecoExact >= 0 ? idxNPrecoExact : findHeaderCol(headers, [/^item$/, /^cod/])
     const idxDesc = findHeaderCol(headers, [/descricao.*servico/, /^descricao$/, /servico/])
     const idxUn = findHeaderCol(headers, [/^unid$/, /^un$/, /^und$/])
     const idxVlUnit = findHeaderCol(headers, [/preco unit/, /valor unit/, /^p unit/])
@@ -927,7 +931,8 @@ function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseR
       const idx = (matchers: RegExp[]): number =>
         headers.findIndex((h) => matchers.some((re) => re.test(norm(h))))
 
-      const idxNPreco   = idx([/n[\s.]?pre/, /^item$/, /^cod/])
+      const idxNPrecoExact = idx([/n[\s.]?pre/])
+      const idxNPreco = idxNPrecoExact >= 0 ? idxNPrecoExact : idx([/^item$/, /^cod/])
       const idxDesc     = idx([/descri/, /servico/, /especif/])
       const idxUn       = idx([/^un(id)?$/, /^und$/, /^medida$/])
       const idxQtd      = idx([/^qtd/, /^quant/, /quantidade/])

@@ -16,7 +16,7 @@ const TABS: { key: PlanejamentoTab; label: string }[] = [
   { key: 'scurve',     label: 'Curva S'             },
   { key: 'abc',        label: 'Curva ABC'           },
   { key: 'histogram',  label: 'Histograma'          },
-  { key: 'daily',      label: 'Plano Diário'        },
+  { key: 'daily',      label: 'Programacao Semanal'  },
   { key: 'notes',      label: 'Notas de Serviço'    },
   { key: 'scenarios',  label: 'Planejamentos Salvos' },
 ]
