@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, Plus, GanttChart, CalendarDays } from 'lucide-react'
 import { useAgendaStore } from '@/store/agendaStore'
-import { formatViewRange } from '../utils'
+import { formatViewRangeByDays, getViewParams } from '../utils'
 import type { AgendaViewMode } from '@/types'
 import { cn } from '@/lib/utils'
 import { format, startOfWeek, parseISO } from 'date-fns'
@@ -12,12 +12,13 @@ interface AgendaToolbarProps {
 }
 
 const VIEW_MODES: { key: AgendaViewMode; label: string }[] = [
-  { key: 'day',      label: 'Dia'       },
-  { key: 'week',     label: 'Semana'    },
-  { key: 'month',    label: 'Mês'       },
-  { key: 'quarter',  label: 'Trimestre' },
-  { key: 'semester', label: 'Semestre'  },
-  { key: 'year',     label: 'Ano'       },
+  { key: 'day', label: 'Dia' },
+  { key: 'week', label: 'Semana' },
+  { key: 'sixWeeks', label: '6 Semanas' },
+  { key: 'month', label: 'Mes' },
+  { key: 'quarter', label: 'Trimestre' },
+  { key: 'semester', label: 'Semestre' },
+  { key: 'year', label: 'Ano' },
 ]
 
 export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaToolbarProps) {
@@ -27,21 +28,20 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
     displayView, setDisplayView,
     setVisibleWeeks, setViewStart,
   } = useAgendaStore()
-  const range = formatViewRange(viewStart, visibleWeeks)
+
+  const viewParams = getViewParams(viewMode)
+  const range = formatViewRangeByDays(viewStart, viewParams.totalDays)
 
   function handleDateJump(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     if (!val) return
-    // val is yyyy-MM-dd; snap to start of that week (Monday)
     const monday = format(startOfWeek(parseISO(val), { weekStartsOn: 1 }), 'yyyy-MM-dd')
     setViewStart(monday)
   }
 
   return (
     <div className="flex flex-col border-b border-[#525252] bg-[#333333] shrink-0">
-      {/* Top row */}
       <div className="flex flex-wrap items-center gap-2 px-5 py-2">
-        {/* Search */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#525252] bg-[#2c2c2c] w-40">
           <Search size={13} className="text-[#6b6b6b] shrink-0" />
           <input
@@ -53,12 +53,10 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           />
         </div>
 
-        {/* Filter */}
         <button className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] hover:border-[#1f3c5e] transition-colors">
           <SlidersHorizontal size={14} />
         </button>
 
-        {/* Display view toggle */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setDisplayView('gantt')}
@@ -80,13 +78,12 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
                 : 'border-[#525252] text-[#6b6b6b] hover:text-[#a3a3a3] hover:border-[#2a3a5e]'
             )}
           >
-            <CalendarDays size={13} /> Calendário
+            <CalendarDays size={13} /> Calendario
           </button>
         </div>
 
         <div className="h-5 w-px bg-[#525252]" />
 
-        {/* Date navigation */}
         <div className="flex items-center gap-1">
           <button
             onClick={panLeft}
@@ -101,13 +98,12 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           <button
             onClick={panRight}
             className="flex items-center justify-center w-7 h-7 rounded-lg border border-[#525252] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
-            title="Avançar"
+            title="Avancar"
           >
             <ChevronRight size={14} />
           </button>
         </div>
 
-        {/* Jump to date */}
         <div className="flex items-center gap-1.5" title="Ir para data">
           <span className="text-[10px] text-[#6b6b6b] hidden sm:block">Data:</span>
           <input
@@ -118,22 +114,26 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
           />
         </div>
 
-        {/* Weeks count */}
-        <div className="flex items-center gap-1.5" title="Semanas visíveis">
-          <input
-            type="number"
-            min={1}
-            max={52}
-            value={visibleWeeks}
-            onChange={(e) => setVisibleWeeks(parseInt(e.target.value) || 1)}
-            className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] text-center outline-none focus:border-[#f97316]/60 w-14"
-          />
-          <span className="text-[10px] text-[#6b6b6b]">sem.</span>
-        </div>
+        {viewMode === 'sixWeeks' ? (
+          <div className="px-2.5 py-1 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 text-[10px] font-semibold text-[#f97316]">
+            6 sem.
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5" title="Semanas visiveis">
+            <input
+              type="number"
+              min={1}
+              max={52}
+              value={visibleWeeks}
+              onChange={(e) => setVisibleWeeks(parseInt(e.target.value) || 1)}
+              className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2 py-1 text-xs text-[#a3a3a3] text-center outline-none focus:border-[#f97316]/60 w-14"
+            />
+            <span className="text-[10px] text-[#6b6b6b]">sem.</span>
+          </div>
+        )}
 
         <div className="flex-1" />
 
-        {/* Add task */}
         <button
           onClick={onAddTask}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316]/15 border border-[#f97316]/30 text-[#f97316] text-xs font-semibold hover:bg-[#f97316]/25 transition-colors"
@@ -143,11 +143,10 @@ export function AgendaToolbar({ searchTerm, onSearchChange, onAddTask }: AgendaT
         </button>
       </div>
 
-      {/* ViewMode buttons row — only for Gantt view */}
       {displayView === 'gantt' && (
         <div className="flex items-center gap-1 px-5 pb-2">
           <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mr-2">
-            Visualização:
+            Visualizacao:
           </span>
           {VIEW_MODES.map((vm) => (
             <button

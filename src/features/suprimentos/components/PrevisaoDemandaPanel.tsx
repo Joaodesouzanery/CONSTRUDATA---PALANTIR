@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
@@ -162,6 +162,8 @@ export function PrevisaoDemandaPanel() {
   const [showNewPO,   setShowNewPO]   = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId,   setEditingId]   = useState<string | null>(null)
+  const [todayIso] = useState(() => new Date().toISOString().slice(0, 10))
+  const todayTime = new Date(`${todayIso}T00:00:00`).getTime()
 
   const suggested  = forecasts.filter((f) => f.status === 'suggested').length
   const totalValue = forecasts.filter((f) => f.status === 'suggested').reduce((acc, f) => acc + f.estimatedValue, 0)
@@ -169,7 +171,7 @@ export function PrevisaoDemandaPanel() {
     .filter((f) => f.status === 'suggested')
     .sort((a, b) => a.suggestedOrderDate.localeCompare(b.suggestedOrderDate))[0]
   const daysToNext = nextCritical
-    ? Math.ceil((new Date(nextCritical.suggestedOrderDate).getTime() - Date.now()) / 86_400_000)
+    ? Math.ceil((new Date(`${nextCritical.suggestedOrderDate}T00:00:00`).getTime() - todayTime) / 86_400_000)
     : null
 
   const kpis = [
@@ -256,11 +258,11 @@ export function PrevisaoDemandaPanel() {
           <tbody>
             {forecasts.map((f) => {
               const daysLeft = Math.ceil(
-                (new Date(f.suggestedOrderDate).getTime() - Date.now()) / 86_400_000
+                (new Date(`${f.suggestedOrderDate}T00:00:00`).getTime() - todayTime) / 86_400_000
               )
               return (
-                <>
-                  <tr key={f.id} className="border-t border-[#525252] hover:bg-[#484848]/50 transition-colors">
+                <Fragment key={f.id}>
+                  <tr className="border-t border-[#525252] hover:bg-[#484848]/50 transition-colors">
                     <td className="px-3 py-2.5 text-[#f5f5f5] text-xs">{f.weekLabel}</td>
                     <td className="px-3 py-2.5 text-[#f5f5f5] text-xs font-medium">{f.materialCategory}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-[#f5f5f5] text-xs">{f.estimatedQty.toLocaleString('pt-BR')}</td>
@@ -314,7 +316,7 @@ export function PrevisaoDemandaPanel() {
                     </td>
                   </tr>
                   {editingId === f.id && (
-                    <tr key={`${f.id}-edit`} className="border-t border-[#525252]">
+                    <tr className="border-t border-[#525252]">
                       <td colSpan={9} className="px-3 py-3">
                         <ForecastForm
                           initialValues={{
@@ -332,7 +334,7 @@ export function PrevisaoDemandaPanel() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               )
             })}
           </tbody>

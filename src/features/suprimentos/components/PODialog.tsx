@@ -8,9 +8,16 @@ interface Props {
   onClose: () => void
 }
 
+let localIdSeed = 0
+
+function nextLocalId(prefix: string) {
+  localIdSeed += 1
+  return `${prefix}-${localIdSeed}`
+}
+
 function emptyItem(): POItem {
   return {
-    id:          `poi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    id:          nextLocalId('poi'),
     description: '',
     quantity:    1,
     unit:        'un',
@@ -25,15 +32,18 @@ export function PODialog({ po, onClose }: Props) {
     updatePO: s.updatePO,
   }))
 
-  const [form, setForm] = useState({
-    code:             po?.code             ?? `OC-${new Date().getFullYear()}-${String(Date.now()).slice(-3)}`,
-    supplier:         po?.supplier         ?? '',
-    responsible:      po?.responsible      ?? '',
-    issuedDate:       po?.issuedDate       ?? new Date().toISOString().slice(0, 10),
-    expectedDelivery: po?.expectedDelivery ?? '',
-    projectRef:       po?.projectRef       ?? '',
+  const [form, setForm] = useState(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return {
+      code:             po?.code             ?? `OC-${new Date().getFullYear()}-${nextLocalId('tmp')}`,
+      supplier:         po?.supplier         ?? '',
+      responsible:      po?.responsible      ?? '',
+      issuedDate:       po?.issuedDate       ?? today,
+      expectedDelivery: po?.expectedDelivery ?? '',
+      projectRef:       po?.projectRef       ?? '',
+    }
   })
-  const [items, setItems] = useState<POItem[]>(po?.items ?? [emptyItem()])
+  const [items, setItems] = useState<POItem[]>(() => po?.items ?? [emptyItem()])
 
   function setItemField(id: string, field: keyof POItem, raw: string) {
     setItems((prev) =>
@@ -55,7 +65,7 @@ export function PODialog({ po, onClose }: Props) {
       updatePO(po.id, { ...form, items: totalItems })
     } else {
       addPO({
-        id:     `po-${Date.now()}`,
+        id:     nextLocalId('po'),
         status: 'open',
         items:  totalItems,
         ...form,

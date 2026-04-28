@@ -97,6 +97,14 @@ export function ConferenciaPanel() {
   const margemBruta = totalMedidoSabesp - totalTerceiros
   const margemPct = totalMedidoSabesp > 0 ? (margemBruta / totalMedidoSabesp) * 100 : 0
   const terceirosExcedem = totalTerceiros > totalMedidoSabesp && totalMedidoSabesp > 0
+  const sourceValidations = boletim.planilhaBase?.validations ?? []
+  const sourceValidationFailures = sourceValidations.filter((v) => !v.ok)
+  const subItensSemVinculo = boletim.subempreiteiros.reduce(
+    (sum, sub) => sum + sub.itens.filter((it) => !it.nPrecoSabesp?.trim()).length,
+    0
+  )
+  const totalSubMedido = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalMedido, 0)
+  const totalSubRetencao = boletim.subempreiteiros.reduce((s, sub) => s + sub.retencao, 0)
 
   // Check if each nPreco has a matching criterio
   const nCriteriosEncontrados = conf.filter((c) => getAllCriterios().some((cr) => cr.nPreco === c.nPreco)).length
@@ -199,6 +207,16 @@ export function ConferenciaPanel() {
             <p className="text-[10px] text-[#f97316] font-bold uppercase mb-2">Checklist de Conferência</p>
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-xs">
+                {sourceValidationFailures.length === 0 ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#f87171]" />}
+                <span className={sourceValidationFailures.length === 0 ? 'text-[#a3a3a3]' : 'text-[#f87171] font-medium'}>
+                  {sourceValidations.length === 0
+                    ? 'Planilha base sem totais fonte para validar'
+                    : sourceValidationFailures.length === 0
+                      ? `${sourceValidations.length} total(is) importado(s) batem com o calculado`
+                      : `${sourceValidationFailures.length} total(is) da planilha base divergente(s) do calculado`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
                 {!terceirosExcedem ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#f87171]" />}
                 <span className={!terceirosExcedem ? 'text-[#a3a3a3]' : 'text-[#f87171] font-medium'}>
                   Terceiros {terceirosExcedem ? 'EXCEDEM' : 'dentro do'} valor medido Sabesp
@@ -220,6 +238,21 @@ export function ConferenciaPanel() {
                 {negSaldoCount === 0 ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#f87171]" />}
                 <span className={negSaldoCount === 0 ? 'text-[#a3a3a3]' : 'text-[#f87171] font-medium'}>
                   {negSaldoCount === 0 ? 'Nenhum item com saldo negativo' : `${negSaldoCount} item(ns) com saldo negativo (qtd excede contrato)`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {subItensSemVinculo === 0 ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#fbbf24]" />}
+                <span className={subItensSemVinculo === 0 ? 'text-[#a3a3a3]' : 'text-[#fbbf24] font-medium'}>
+                  {subItensSemVinculo === 0 ? 'Todos os itens de subempreiteiro possuem vinculo Sabesp' : `${subItensSemVinculo} item(ns) de subempreiteiro sem N. Preco Sabesp vinculado`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <CheckCircle size={13} className="text-[#4ade80]" />
+                <span className="text-[#a3a3a3]">
+                  Subempreiteiros: medido {totalSubMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })},
+                  aprovado {totalSubempreiteiros.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })},
+                  retencao {totalSubRetencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })};
+                  fornecedores aprovados {totalFornecedores.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                 </span>
               </div>
             </div>

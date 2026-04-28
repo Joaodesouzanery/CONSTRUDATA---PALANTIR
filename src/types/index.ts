@@ -247,7 +247,7 @@ export interface ConstructionMilestone {
 
 export type TaskColor    = 'blue' | 'orange' | 'green' | 'red' | 'purple'
 export type AgendaPriority = 'low' | 'medium' | 'high' | 'critical'
-export type AgendaViewMode = 'day' | 'week' | 'month' | 'quarter' | 'semester' | 'year'
+export type AgendaViewMode = 'day' | 'week' | 'sixWeeks' | 'month' | 'quarter' | 'semester' | 'year'
 export type AgendaDisplayView = 'gantt' | 'calendar'
 
 export interface AgendaTask {
@@ -472,6 +472,45 @@ export interface DemandForecast {
   relatedPhase: string
   estimatedValue: number
   status: 'suggested' | 'ordered' | 'dismissed'
+}
+
+export type SupplyRiskLevel = 'ok' | 'atenção' | 'crítico'
+
+export interface SupplyIntelligenceDemand {
+  id: string
+  source: 'planejamento' | 'lookahead' | 'rdo' | 'manual'
+  nucleo: string
+  local: string
+  activityId?: string
+  activityName: string
+  material: string
+  category: string
+  unit: string
+  requiredQty: number
+  plannedDate: string
+  executedQty?: number
+}
+
+export interface SupplyIntelligenceRecommendation {
+  id: string
+  demandId: string
+  nucleo: string
+  material: string
+  category: string
+  unit: string
+  requiredQty: number
+  availableQty: number
+  reservedQty: number
+  inTransitQty: number
+  missingQty: number
+  suggestedOrderQty: number
+  suggestedOrderDate: string
+  neededBy: string
+  leadTimeDays: number
+  preferredSupplier?: string
+  estimatedValue: number
+  risk: SupplyRiskLevel
+  reason: string
 }
 
 // ─── Suprimentos: Requisitions & Framework Agreements ────────────────────────

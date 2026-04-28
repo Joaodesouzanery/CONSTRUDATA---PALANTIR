@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
@@ -37,6 +37,7 @@ export function RiskDialog() {
   const existing = isNew || !editingRisk
     ? null
     : site?.risks.find((r) => r.id === editingRisk.riskId) ?? null
+  const close = useCallback(() => setEditingRisk(null), [setEditingRisk])
 
   const {
     register,
@@ -66,9 +67,7 @@ export function RiskDialog() {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
-
-  function close() { setEditingRisk(null) }
+  }, [close])
 
   function onSubmit(values: RiskFormValues) {
     if (!editingRisk) return

@@ -9,9 +9,10 @@ interface GanttChartProps {
 }
 
 export function GanttChart({ filteredResourceIds }: GanttChartProps) {
-  const { tasks, resources, viewStart, visibleWeeks, viewMode } = useAgendaStore()
+  const { tasks, resources, viewStart, viewMode } = useAgendaStore()
 
   const viewParams = useMemo(() => getViewParams(viewMode), [viewMode])
+  const viewWeeks = Math.ceil(viewParams.totalDays / 7)
 
   const visibleResources = useMemo(
     () => resources.filter((r) => filteredResourceIds.includes(r.id)),
@@ -19,8 +20,8 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
   )
 
   const todayOffset = useMemo(
-    () => getTodayOffset(viewStart, visibleWeeks, viewParams.pixelsPerDay),
-    [viewStart, visibleWeeks, viewParams.pixelsPerDay]
+    () => getTodayOffset(viewStart, viewWeeks, viewParams.pixelsPerDay),
+    [viewStart, viewWeeks, viewParams.pixelsPerDay]
   )
 
   // Grid background column width based on viewMode
@@ -59,7 +60,7 @@ export function GanttChart({ filteredResourceIds }: GanttChartProps) {
                 resource={resource}
                 tasks={rowTasks}
                 viewStart={viewStart}
-                visibleWeeks={visibleWeeks}
+                visibleWeeks={viewWeeks}
                 index={index}
                 gridStyle={gridStyle}
                 viewParams={viewParams}

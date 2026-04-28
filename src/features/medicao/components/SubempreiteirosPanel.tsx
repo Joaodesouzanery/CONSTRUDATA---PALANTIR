@@ -272,6 +272,24 @@ function ImportSubBtn({ subId }: { subId: string }) {
               ) : (
                 <>
                   <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens · Total medido: <strong className="text-[#f5f5f5]">{preview.totals.totalMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></p>
+                  <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                    <div className="rounded-lg border border-[#525252] bg-[#333333] p-2">
+                      <p className="text-[10px] uppercase text-[#6b6b6b]">Itens</p>
+                      <p className="font-bold text-[#f5f5f5]">{preview.itens.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-[#525252] bg-[#333333] p-2">
+                      <p className="text-[10px] uppercase text-[#6b6b6b]">Medido</p>
+                      <p className="font-bold text-[#f5f5f5]">{preview.totals.totalMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                    </div>
+                    <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/10 p-2">
+                      <p className="text-[10px] uppercase text-[#6b6b6b]">Aprovado</p>
+                      <p className="font-bold text-emerald-400">{preview.totals.totalAprovado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-700/30 bg-amber-900/10 p-2">
+                      <p className="text-[10px] uppercase text-[#6b6b6b]">Retencao</p>
+                      <p className="font-bold text-amber-400">{preview.totals.retencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                    </div>
+                  </div>
                   <div className="overflow-x-auto max-h-48 border border-[#525252] rounded-lg">
                     <table className="w-full text-xs border-collapse">
                       <thead>

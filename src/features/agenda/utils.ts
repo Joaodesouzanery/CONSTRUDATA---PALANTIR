@@ -33,6 +33,7 @@ export function getViewParams(mode: AgendaViewMode): ViewParams {
   switch (mode) {
     case 'day':      return { pixelsPerDay: 40,   totalDays: 14,  columnDays: 1,   panDays: 7   }
     case 'week':     return { pixelsPerDay: 20,   totalDays: 70,  columnDays: 7,   panDays: 28  }
+    case 'sixWeeks': return { pixelsPerDay: 24,   totalDays: 42,  columnDays: 7,   panDays: 14  }
     case 'month':    return { pixelsPerDay: 3.33, totalDays: 180, columnDays: 30,  panDays: 90  }
     case 'quarter':  return { pixelsPerDay: 1.1,  totalDays: 365, columnDays: 91,  panDays: 91  }
     case 'semester': return { pixelsPerDay: 0.55, totalDays: 548, columnDays: 182, panDays: 182 }
@@ -46,6 +47,7 @@ export function getColumnLabel(date: Date, mode: AgendaViewMode): string {
     case 'day':
       return format(date, 'EEE d', { locale: ptBR })
     case 'week':
+    case 'sixWeeks':
       return `Sem ${getISOWeek(date)}`
     case 'month':
       return format(date, 'MMM yyyy', { locale: ptBR })
@@ -67,6 +69,7 @@ export function getTopHeaderLabel(date: Date, mode: AgendaViewMode): string {
   switch (mode) {
     case 'day':
     case 'week':
+    case 'sixWeeks':
       return format(date, 'MMMM yyyy', { locale: ptBR })
     case 'month':
     case 'quarter':
@@ -198,6 +201,14 @@ export function formatViewRange(viewStart: string, visibleWeeks: number): string
   const end   = addWeeks(start, visibleWeeks)
   const startStr = format(start, 'dd/MM/yyyy', { locale: ptBR })
   const endStr   = format(end,   'dd/MM/yyyy', { locale: ptBR })
+  return `${startStr} — ${endStr}`
+}
+
+export function formatViewRangeByDays(viewStart: string, totalDays: number): string {
+  const start = parseISO(viewStart)
+  const end = addDays(start, Math.max(1, totalDays) - 1)
+  const startStr = format(start, 'dd/MM/yyyy', { locale: ptBR })
+  const endStr = format(end, 'dd/MM/yyyy', { locale: ptBR })
   return `${startStr} — ${endStr}`
 }
 

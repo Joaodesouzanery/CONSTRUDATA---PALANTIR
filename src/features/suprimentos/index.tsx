@@ -4,6 +4,7 @@ import { SuprimentosHeader }    from './components/SuprimentosHeader'
 import { ConciliacaoPanel }     from './components/ConciliacaoPanel'
 import { ExcecoesPanel }        from './components/ExcecoesPanel'
 import { PrevisaoDemandaPanel } from './components/PrevisaoDemandaPanel'
+import { InteligenciaSuprimentosPanel } from './components/InteligenciaSuprimentosPanel'
 import { RequisicoesPipeline }  from './components/RequisicoesPipeline'
 import { MateriaisOverviewPanel } from './components/MateriaisOverviewPanel'
 import { ContractPanel }        from './components/ContractPanel'
@@ -24,6 +25,12 @@ import type { SuprimentosTab, SuprimentosSection } from './components/Suprimento
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
+function defaultTabForSection(section: SuprimentosSection): SuprimentosTab {
+  if (section === 'suprimentos') return 'conciliacao'
+  if (section === 'materiais') return 'materiais'
+  return 'resumo_nucleo'
+}
+
 export function SuprimentosPage() {
   const [activeSection, setActiveSection] = useState<SuprimentosSection>('suprimentos')
   const [activeTab, setActiveTab] = useState<SuprimentosTab>('conciliacao')
@@ -33,14 +40,10 @@ export function SuprimentosPage() {
   const [showPlanilhas, setShowPlanilhas] = useState(false)
   const pullPlanilhasSupabase = useSuprimentosStore((s) => s.pullPlanilhasSupabase)
 
-  // Reset tab when section changes
-  useEffect(() => {
-    setActiveTab(
-      activeSection === 'suprimentos' ? 'conciliacao'
-      : activeSection === 'materiais' ? 'materiais'
-      : 'resumo_nucleo'
-    )
-  }, [activeSection])
+  function selectSection(section: SuprimentosSection) {
+    setActiveSection(section)
+    setActiveTab(defaultTabForSection(section))
+  }
 
   useEffect(() => {
     if (activeSection === 'planilhas') {
@@ -54,7 +57,7 @@ export function SuprimentosPage() {
       <div className="flex items-center justify-between shrink-0">
         <div className="flex gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1">
           <button
-            onClick={() => setActiveSection('suprimentos')}
+            onClick={() => selectSection('suprimentos')}
             className={cn(
               'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
               activeSection === 'suprimentos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
@@ -63,7 +66,7 @@ export function SuprimentosPage() {
             Suprimentos
           </button>
           <button
-            onClick={() => setActiveSection('materiais')}
+            onClick={() => selectSection('materiais')}
             className={cn(
               'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
               activeSection === 'materiais' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
@@ -72,7 +75,7 @@ export function SuprimentosPage() {
             Materiais &amp; Estoque
           </button>
           <button
-            onClick={() => setActiveSection('planilhas')}
+            onClick={() => selectSection('planilhas')}
             className={cn(
               'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
               activeSection === 'planilhas' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
@@ -131,6 +134,7 @@ export function SuprimentosPage() {
       {activeTab === 'conciliacao' && <ConciliacaoPanel />}
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
       {activeTab === 'previsao'    && <PrevisaoDemandaPanel />}
+      {activeTab === 'inteligencia' && <InteligenciaSuprimentosPanel />}
       {activeTab === 'requisicoes' && <RequisicoesPipeline />}
       {activeTab === 'bom'         && <BomPendentePanel />}
       {activeTab === 'materiais'   && <MateriaisOverviewPanel />}

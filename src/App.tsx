@@ -6,7 +6,7 @@ import { SignupPage }        from '@/features/auth/SignupPage'
 import { MfaSetupPage }      from '@/features/auth/MfaSetupPage'
 import { MfaChallengePage }  from '@/features/auth/MfaChallengePage'
 import { AuthGuard }         from '@/lib/AuthGuard'
-import { lazy, Suspense } from 'react'
+import { Component, lazy, Suspense, type ReactNode } from 'react'
 
 // ─── Lazy-loaded modules (code-split per route) ──────────────────────────────
 
@@ -52,8 +52,45 @@ function RouteFallback() {
   )
 }
 
-function LazyRoute({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+class ModuleErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error('Erro ao carregar modulo', error)
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center">
+        <div className="max-w-md rounded-xl border border-[#525252] bg-[#2c2c2c] p-5">
+          <p className="text-sm font-semibold text-[#f5f5f5]">Nao foi possivel abrir este modulo.</p>
+          <p className="mt-2 text-xs text-[#a3a3a3]">
+            A tela encontrou um erro local. Voce pode tentar recarregar a pagina ou trocar de modulo pelo menu lateral.
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+            className="mt-4 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-semibold text-[#f97316] hover:border-[#f97316]/40"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    )
+  }
+}
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return (
+    <ModuleErrorBoundary>
+      <Suspense fallback={<RouteFallback />}>{children}</Suspense>
+    </ModuleErrorBoundary>
+  )
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────

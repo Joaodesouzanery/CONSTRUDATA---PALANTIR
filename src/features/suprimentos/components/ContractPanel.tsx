@@ -74,6 +74,13 @@ const sel = 'bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-[#f5f5f
 type PaymentRow = NonNullable<FrameworkAgreement['paymentSchedule']>[number]
 type DeliveryRow = NonNullable<FrameworkAgreement['deliverySchedule']>[number]
 
+function getAgreementUsagePct(fa: FrameworkAgreement) {
+  const seed = `${fa.id}-${fa.supplier}-${fa.category}`
+    .split('')
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0)
+  return Math.min(100, 10 + (seed % 70))
+}
+
 export function ContractPanel() {
   const { frameworkAgreements, updateFrameworkAgreement } = useSuprimentosStore(
     useShallow((s) => ({
@@ -133,7 +140,7 @@ export function ContractPanel() {
         </p>
 
         {frameworkAgreements.map((fa) => {
-          const pctConsumed = Math.min(100, Math.round((Math.random() * 0.7 + 0.1) * 100))
+          const pctConsumed = getAgreementUsagePct(fa)
           const isSelected  = fa.id === selectedId
 
           return (

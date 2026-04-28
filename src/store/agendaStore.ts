@@ -14,6 +14,7 @@ import { mockTasks, mockResources, INITIAL_VIEW_START, INITIAL_VISIBLE_WEEKS } f
 const PAN_DAYS: Record<AgendaViewMode, number> = {
   day:      7,
   week:     28,
+  sixWeeks: 14,
   month:    90,
   quarter:  91,
   semester: 182,
@@ -160,7 +161,7 @@ export const useAgendaStore = create<AgendaState>()(
           set((s) => ({ viewStart: format(addDays(parseISO(s.viewStart), PAN_DAYS[s.viewMode]), 'yyyy-MM-dd') })),
         zoomIn: () => set((s) => ({ visibleWeeks: Math.max(4, s.visibleWeeks - 2) })),
         zoomOut: () => set((s) => ({ visibleWeeks: Math.min(26, s.visibleWeeks + 2) })),
-        setViewMode: (mode) => set({ viewMode: mode }),
+        setViewMode: (mode) => set((s) => ({ viewMode: mode, visibleWeeks: mode === 'sixWeeks' ? 6 : s.visibleWeeks })),
         selectTask: (id) => set({ selectedTaskId: id }),
         setEditingTask: (id) => set({ editingTaskId: id }),
         setDisplayView: (view) => set({ displayView: view }),

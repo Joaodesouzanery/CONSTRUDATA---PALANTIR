@@ -6,7 +6,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
 
-export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif' | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
+export type SuprimentosTab = 'conciliacao' | 'excecoes' | 'previsao' | 'inteligencia' | 'requisicoes' | 'bom' | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif' | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
 
 export type SuprimentosSection = 'suprimentos' | 'materiais' | 'planilhas'
 
@@ -21,6 +21,7 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'excecoes',    label: 'Exceções',                 section: 'suprimentos' },
   { key: 'previsao',    label: 'Previsão de Demanda',      section: 'suprimentos' },
   { key: 'requisicoes', label: 'Requisições',              section: 'suprimentos' },
+  { key: 'inteligencia', label: 'Inteligencia',             section: 'suprimentos' },
   { key: 'bom',         label: 'Lista de Compras',          section: 'suprimentos' },
   { key: 'materiais',   label: 'Materiais & Fornecedores', section: 'materiais'   },
   { key: 'contratos',   label: 'Contrato 360',             section: 'materiais'   },
