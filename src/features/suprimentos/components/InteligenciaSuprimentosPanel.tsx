@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Clock,
   Database,
-  FileSpreadsheet,
   Network,
   ShieldCheck,
   Sparkles,
@@ -459,8 +458,14 @@ export function InteligenciaSuprimentosPanel() {
     setCreatedIds((prev) => new Set(prev).add(rec.id))
   }
 
+  const lanes: Array<{ id: RiskLevel; title: string; items: AuditedRecommendation[] }> = [
+    { id: 'critical', title: 'Críticas', items: recommendations.filter((rec) => rec.risk === 'critical') },
+    { id: 'attention', title: 'Atenção', items: recommendations.filter((rec) => rec.risk === 'attention') },
+    { id: 'ok', title: 'Cobertas', items: recommendations.filter((rec) => rec.risk === 'ok') },
+  ]
+
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+    <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: 'Demandas auditadas', value: demands.length, cls: 'text-[#f5f5f5]' },
@@ -524,85 +529,82 @@ export function InteligenciaSuprimentosPanel() {
         </div>
       )}
 
-      <div className="min-h-[620px] flex-1 overflow-auto rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
-        <div className="grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
-          {recommendations.map((rec) => {
-            const meta = RISK_META[rec.risk]
-            const Icon = meta.icon
-            const created = createdIds.has(rec.id)
+      <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-[#f5f5f5]">Quadro macro de previsão</p>
+            <p className="text-xs text-[#6b6b6b]">{recommendations.length} recomendações classificadas por risco e data de compra.</p>
+          </div>
+          <span className="rounded-full border border-[#525252] bg-[#1f1f1f] px-3 py-1 text-xs font-semibold text-[#a3a3a3]">
+            Sem rolagem interna
+          </span>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          {lanes.map((lane) => {
+            const laneMeta = RISK_META[lane.id]
             return (
-              <article key={rec.id} className="flex min-h-[320px] flex-col rounded-xl border border-[#525252] bg-[#333333] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={cn('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold', meta.cls)}>
-                        <Icon size={11} /> {meta.label}
-                      </span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#6b6b6b]">
-                        {rec.nucleo} / {rec.local}
-                      </span>
-                    </div>
-                    <h3 className="mt-2 text-sm font-semibold leading-snug text-[#f5f5f5]">{rec.material}</h3>
-                    <p className="mt-1 text-xs leading-relaxed text-[#a3a3a3]">{rec.reason}</p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={created || rec.suggestedOrderQty <= 0}
-                    onClick={() => prepareForecast(rec)}
-                    className="rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
-                  >
-                    {created ? 'Na previsão' : 'Preparar previsão'}
-                  </button>
+              <section key={lane.id} className="rounded-xl border border-[#525252] bg-[#292929] p-3">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className={cn('rounded-full border px-2 py-0.5 text-xs font-semibold', laneMeta.cls)}>{lane.title}</span>
+                  <span className="text-xs font-bold text-[#f5f5f5]">{lane.items.length}</span>
                 </div>
-
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                  {[
-                    ['Necessário', formatQty(rec.requiredQty, rec.unit), 'text-[#f5f5f5]'],
-                    ['Disponível', formatQty(rec.availableQty, rec.unit), 'text-[#4ade80]'],
-                    ['Reservado', formatQty(rec.reservedQty, rec.unit), 'text-[#fbbf24]'],
-                    ['Em trânsito', formatQty(rec.inTransitQty, rec.unit), 'text-[#a3a3a3]'],
-                    ['Falta', formatQty(rec.missingQty, rec.unit), 'text-[#f97316]'],
-                  ].map(([label, value, cls]) => (
-                    <div key={label} className="rounded-lg bg-[#1f1f1f] px-3 py-2">
-                      <p className="text-[10px] text-[#6b6b6b]">{label}</p>
-                      <p className={cn('mt-0.5 text-sm font-bold tabular-nums', cls)}>{value}</p>
+                <div className="grid gap-3">
+                  {lane.items.map((rec) => {
+                    const created = createdIds.has(rec.id)
+                    return (
+                      <article key={rec.id} className="rounded-xl border border-[#525252] bg-[#333333] p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#6b6b6b]">{rec.nucleo} / {rec.local}</p>
+                            <h3 className="mt-1 text-sm font-semibold leading-snug text-[#f5f5f5]">{rec.material}</h3>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={created || rec.suggestedOrderQty <= 0}
+                            onClick={() => prepareForecast(rec)}
+                            className="shrink-0 rounded-lg bg-[#f97316] px-3 py-1.5 text-[10px] font-semibold text-white transition-colors hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-[#3d3d3d] disabled:text-[#6b6b6b]"
+                          >
+                            {created ? 'Na previsão' : 'Preparar'}
+                          </button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2">
+                          <div className="rounded-lg bg-[#1f1f1f] px-2 py-2">
+                            <p className="text-[9px] text-[#6b6b6b]">Necessário</p>
+                            <p className="text-xs font-bold text-[#f5f5f5]">{formatQty(rec.requiredQty, rec.unit)}</p>
+                          </div>
+                          <div className="rounded-lg bg-[#1f1f1f] px-2 py-2">
+                            <p className="text-[9px] text-[#6b6b6b]">Falta</p>
+                            <p className="text-xs font-bold text-[#f97316]">{formatQty(rec.missingQty, rec.unit)}</p>
+                          </div>
+                          <div className="rounded-lg bg-[#1f1f1f] px-2 py-2">
+                            <p className="text-[9px] text-[#6b6b6b]">Comprar</p>
+                            <p className="text-xs font-bold text-[#f5f5f5]">{formatDate(rec.suggestedOrderDate)}</p>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[10px] leading-relaxed text-[#a3a3a3]">{rec.reason}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#6b6b6b]">
+                            {rec.audit.source}
+                          </span>
+                          <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#6b6b6b]">
+                            LT {rec.leadTimeDays}d
+                          </span>
+                          {rec.preferredSupplier && (
+                            <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#a3a3a3]">{rec.preferredSupplier}</span>
+                          )}
+                        </div>
+                      </article>
+                    )
+                  })}
+                  {lane.items.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-[#525252] px-3 py-8 text-center text-xs text-[#6b6b6b]">
+                      Nenhuma recomendação nesta faixa.
                     </div>
-                  ))}
+                  )}
                 </div>
-
-                <div className="mt-3 grid flex-1 gap-3">
-                  <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
-                    <p className="text-[10px] text-[#6b6b6b]">Comprar até</p>
-                    <p className="mt-0.5 text-sm font-semibold text-[#f5f5f5]">{formatDate(rec.suggestedOrderDate)}</p>
-                    <p className="text-[10px] text-[#6b6b6b]">Precisa em {formatDate(rec.neededBy)} / LT {rec.leadTimeDays}d</p>
-                    {rec.preferredSupplier && <p className="mt-1 text-[10px] text-[#a3a3a3]">{rec.preferredSupplier}</p>}
-                  </div>
-
-                  <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
-                    <p className="flex items-center gap-1 text-[10px] font-semibold text-[#f5f5f5]">
-                      <FileSpreadsheet size={11} className="text-[#f97316]" /> {rec.audit.source}
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-[#a3a3a3]">{rec.audit.rule}</p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      <span className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#6b6b6b]">
-                        Atualizado {formatDate(rec.audit.updatedAt)}
-                      </span>
-                      {rec.audit.modules.map((module) => (
-                        <span key={module} className="rounded bg-[#1f1f1f] px-1.5 py-0.5 text-[9px] text-[#a3a3a3]">
-                          {module}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </article>
+              </section>
             )
           })}
-          {recommendations.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[#525252] px-3 py-8 text-center text-sm text-[#6b6b6b]">
-              Importe as planilhas ou sincronize planejamento/lookahead para gerar insights auditáveis.
-            </div>
-          )}
         </div>
       </div>
 
