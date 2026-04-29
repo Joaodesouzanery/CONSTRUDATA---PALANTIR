@@ -156,6 +156,72 @@ export interface Supplier {
   createdAt:    string   // ISO
 }
 
+export type SupplyChainNodeType = 'cliente' | 'centro_distribuicao' | 'planta' | 'fornecedor'
+export type SupplyChainAlertStatus = 'aberto' | 'em_analise' | 'mitigado' | 'resolvido'
+export type SupplyChainAlertPriority = 'crítica' | 'alta' | 'média' | 'baixa'
+export type SupplyChainRiskType = 'atraso_fornecedor' | 'falha_producao' | 'ruptura_estoque' | 'logistica' | 'custo' | 'qualidade'
+
+export interface SupplyChainNode {
+  id: string
+  tipo: SupplyChainNodeType
+  nome: string
+  material: string
+  cidade: string
+  latitude: number
+  longitude: number
+  status: 'normal' | 'atenção' | 'crítico'
+  otif: number
+  usoMensal: number
+  capacidade: number
+  leadTimeDias: number
+  contato: string
+  observacoes: string
+}
+
+export interface SupplyChainAlert {
+  id: string
+  titulo: string
+  status: SupplyChainAlertStatus
+  prioridade: SupplyChainAlertPriority
+  tipoRisco: SupplyChainRiskType
+  planta: string
+  fornecedor: string
+  visaoGeral: string
+  criadoEm: string
+}
+
+export interface SupplyChainPlan {
+  id: string
+  nome: string
+  processo: 'S&OE' | 'S&OP'
+  status: 'monitorando' | 'em_execucao' | 'concluido'
+  gatilho: string
+  solucao: string
+  aderenciaPlano: number
+  impactoOtif: number
+  resiliencia: number
+  atualizadoEm: string
+}
+
+const mockSupplyChainNodes: SupplyChainNode[] = [
+  { id: 'scn-for-1', tipo: 'fornecedor', nome: 'TIGRE', material: 'Tubos PVC', cidade: 'Joinville/SC', latitude: -26.3044, longitude: -48.8487, status: 'normal', otif: 94, usoMensal: 6200, capacidade: 12000, leadTimeDias: 5, contato: 'suprimentos@tigre.example', observacoes: 'Fornecedor estratégico de tubulação.' },
+  { id: 'scn-for-2', tipo: 'fornecedor', nome: 'AMANCO', material: 'PEAD e conexões', cidade: 'São Paulo/SP', latitude: -23.5505, longitude: -46.6333, status: 'atenção', otif: 87, usoMensal: 4300, capacidade: 9000, leadTimeDias: 8, contato: 'operacoes@amanco.example', observacoes: 'Monitorar pedidos com PEAD DN63.' },
+  { id: 'scn-plant-1', tipo: 'planta', nome: 'Planta Atlântico Norte', material: 'Pré-montagem hidráulica', cidade: 'Santos/SP', latitude: -23.9608, longitude: -46.3336, status: 'normal', otif: 92, usoMensal: 3100, capacidade: 7000, leadTimeDias: 2, contato: 'planejamento@atlantico.example', observacoes: 'Unidade produtiva de kits.' },
+  { id: 'scn-cd-1', tipo: 'centro_distribuicao', nome: 'CD Baixada', material: 'Materiais de saneamento', cidade: 'Cubatão/SP', latitude: -23.895, longitude: -46.4253, status: 'normal', otif: 91, usoMensal: 8400, capacidade: 15000, leadTimeDias: 1, contato: 'cd.baixada@example', observacoes: 'Hub para frentes litorâneas.' },
+  { id: 'scn-cli-1', tipo: 'cliente', nome: 'Obra Morro do Tetéu', material: 'Tubos, conexões e hidrômetros', cidade: 'São Vicente/SP', latitude: -23.9631, longitude: -46.3919, status: 'atenção', otif: 84, usoMensal: 2100, capacidade: 3200, leadTimeDias: 1, contato: 'obra.teteu@example', observacoes: 'Frente com risco de ruptura em TSI 63x20.' },
+]
+
+const mockSupplyChainAlerts: SupplyChainAlert[] = [
+  { id: 'sca-1', titulo: 'Atraso previsto em PEAD DN63', status: 'aberto', prioridade: 'alta', tipoRisco: 'atraso_fornecedor', planta: 'Planta Atlântico Norte', fornecedor: 'AMANCO', visaoGeral: 'Lead time subiu para 8 dias e pode impactar ligações da próxima semana.', criadoEm: '2026-04-28T09:00:00Z' },
+  { id: 'sca-2', titulo: 'Ruptura de TSI 63x20 na frente leste', status: 'em_analise', prioridade: 'crítica', tipoRisco: 'ruptura_estoque', planta: 'CD Baixada', fornecedor: 'AMANCO', visaoGeral: 'Estoque disponível abaixo da reserva planejada para execução quase em tempo real.', criadoEm: '2026-04-28T11:30:00Z' },
+  { id: 'sca-3', titulo: 'Custo de atendimento acima do previsto', status: 'mitigado', prioridade: 'média', tipoRisco: 'custo', planta: 'CD Baixada', fornecedor: 'TIGRE', visaoGeral: 'Roteirização alternativa reduz frete por SKU em 6%.', criadoEm: '2026-04-27T15:10:00Z' },
+]
+
+const mockSupplyChainPlans: SupplyChainPlan[] = [
+  { id: 'scp-1', nome: 'Replanejamento autônomo PEAD DN63', processo: 'S&OE', status: 'em_execucao', gatilho: 'Atraso do fornecedor AMANCO acima de 48h', solucao: 'Realocar 30 unidades do CD Baixada para Morro do Tetéu e priorizar entrega parcial.', aderenciaPlano: 88, impactoOtif: 4, resiliencia: 91, atualizadoEm: '2026-04-28T12:00:00Z' },
+  { id: 'scp-2', nome: 'Ciclo mensal de demanda de saneamento', processo: 'S&OP', status: 'monitorando', gatilho: 'Aumento de consumo mensal em conexões hidráulicas', solucao: 'Ajustar plano agregado com estoque mínimo por frente e contratos guarda-chuva.', aderenciaPlano: 93, impactoOtif: 3, resiliencia: 89, atualizadoEm: '2026-04-27T17:00:00Z' },
+]
+
 interface SuprimentosState {
   purchaseOrders:     PurchaseOrder[]
   receipts:           GoodsReceipt[]
@@ -183,6 +249,11 @@ interface SuprimentosState {
   planilhaOrdens:      SuprimentosOrdem[]
   planilhaMetadata:    { dataRef: string; contrato: string } | null
 
+  // Cadeia de Suprimentos
+  supplyChainNodes:  SupplyChainNode[]
+  supplyChainAlerts: SupplyChainAlert[]
+  supplyChainPlans:  SupplyChainPlan[]
+
   // CRUD — POs
   addPO:    (po: PurchaseOrder) => void
   updatePO: (id: string, patch: Partial<PurchaseOrder>) => void
@@ -192,6 +263,17 @@ interface SuprimentosState {
   addSupplier:    (s: Omit<Supplier, 'id' | 'createdAt'>) => void
   updateSupplier: (id: string, patch: Partial<Omit<Supplier, 'id' | 'createdAt'>>) => void
   removeSupplier: (id: string) => void
+
+  // Cadeia de Suprimentos CRUD
+  addSupplyChainNode:    (node: Omit<SupplyChainNode, 'id'>) => void
+  updateSupplyChainNode: (id: string, patch: Partial<SupplyChainNode>) => void
+  removeSupplyChainNode: (id: string) => void
+  addSupplyChainAlert:    (alert: Omit<SupplyChainAlert, 'id' | 'criadoEm'> & { criadoEm?: string }) => void
+  updateSupplyChainAlert: (id: string, patch: Partial<SupplyChainAlert>) => void
+  removeSupplyChainAlert: (id: string) => void
+  addSupplyChainPlan:    (plan: Omit<SupplyChainPlan, 'id' | 'atualizadoEm'> & { atualizadoEm?: string }) => void
+  updateSupplyChainPlan: (id: string, patch: Partial<SupplyChainPlan>) => void
+  removeSupplyChainPlan: (id: string) => void
 
   // Receipts + Invoices
   addReceipt: (receipt: GoodsReceipt) => void
@@ -358,6 +440,10 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   planilhaOrdens:    [],
   planilhaMetadata:  null,
 
+  supplyChainNodes:  mockSupplyChainNodes,
+  supplyChainAlerts: mockSupplyChainAlerts,
+  supplyChainPlans:  mockSupplyChainPlans,
+
   // Sync (Sprint 2)
   pendingSync:  [],
   syncStatus:   'idle',
@@ -366,6 +452,45 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   // Suppliers — começa vazio; importável via Excel/CSV no SuprimentosHeader
   suppliers:          [],
+
+  addSupplyChainNode: (node) =>
+    set((s) => ({
+      supplyChainNodes: [...s.supplyChainNodes, { ...node, id: 'scn-' + crypto.randomUUID().slice(0, 8) }],
+    })),
+
+  updateSupplyChainNode: (id, patch) =>
+    set((s) => ({
+      supplyChainNodes: s.supplyChainNodes.map((node) => node.id === id ? { ...node, ...patch } : node),
+    })),
+
+  removeSupplyChainNode: (id) =>
+    set((s) => ({ supplyChainNodes: s.supplyChainNodes.filter((node) => node.id !== id) })),
+
+  addSupplyChainAlert: (alert) =>
+    set((s) => ({
+      supplyChainAlerts: [...s.supplyChainAlerts, { ...alert, id: 'sca-' + crypto.randomUUID().slice(0, 8), criadoEm: alert.criadoEm ?? new Date().toISOString() }],
+    })),
+
+  updateSupplyChainAlert: (id, patch) =>
+    set((s) => ({
+      supplyChainAlerts: s.supplyChainAlerts.map((alert) => alert.id === id ? { ...alert, ...patch } : alert),
+    })),
+
+  removeSupplyChainAlert: (id) =>
+    set((s) => ({ supplyChainAlerts: s.supplyChainAlerts.filter((alert) => alert.id !== id) })),
+
+  addSupplyChainPlan: (plan) =>
+    set((s) => ({
+      supplyChainPlans: [...s.supplyChainPlans, { ...plan, id: 'scp-' + crypto.randomUUID().slice(0, 8), atualizadoEm: plan.atualizadoEm ?? new Date().toISOString() }],
+    })),
+
+  updateSupplyChainPlan: (id, patch) =>
+    set((s) => ({
+      supplyChainPlans: s.supplyChainPlans.map((plan) => plan.id === id ? { ...plan, ...patch, atualizadoEm: new Date().toISOString() } : plan),
+    })),
+
+  removeSupplyChainPlan: (id) =>
+    set((s) => ({ supplyChainPlans: s.supplyChainPlans.filter((plan) => plan.id !== id) })),
 
   addSupplier: (s) => {
     const newS: Supplier = {
@@ -862,6 +987,9 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       movimentacoes:       mockMovimentacoes,
       reservas:            mockReservas,
       leadTimeRecords:     mockLeadTimeRecords,
+      supplyChainNodes:    mockSupplyChainNodes,
+      supplyChainAlerts:   mockSupplyChainAlerts,
+      supplyChainPlans:    mockSupplyChainPlans,
     }),
 
   clearData: () =>
@@ -886,6 +1014,9 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       planilhaItensOperacionais: [],
       planilhaOrdens:      [],
       planilhaMetadata:    null,
+      supplyChainNodes:    mockSupplyChainNodes,
+      supplyChainAlerts:   mockSupplyChainAlerts,
+      supplyChainPlans:    mockSupplyChainPlans,
       pendingSync:         [],
       syncError:           null,
     }),
@@ -999,6 +1130,9 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         planilhaItensOperacionais: s.planilhaItensOperacionais,
         planilhaOrdens:    s.planilhaOrdens,
         planilhaMetadata:  s.planilhaMetadata,
+        supplyChainNodes:  s.supplyChainNodes,
+        supplyChainAlerts: s.supplyChainAlerts,
+        supplyChainPlans:  s.supplyChainPlans,
       }),
     },
   ),

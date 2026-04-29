@@ -21,6 +21,7 @@ import { ResumoNucleoPanel }         from './components/ResumoNucleoPanel'
 import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
 import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
 import { CadastroManualSuprimentosPanel } from './components/CadastroManualSuprimentosPanel'
+import { CadeiaSuprimentosPanel } from './components/CadeiaSuprimentosPanel'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -28,6 +29,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 function defaultTabForSection(section: SuprimentosSection): SuprimentosTab {
   if (section === 'suprimentos') return 'conciliacao'
   if (section === 'materiais') return 'materiais'
+  if (section === 'cadeia') return 'cadeia_rede'
   return 'resumo_nucleo'
 }
 
@@ -82,6 +84,15 @@ export function SuprimentosPage() {
             )}
           >
             Planilhas Consolidadas
+          </button>
+          <button
+            onClick={() => selectSection('cadeia')}
+            className={cn(
+              'px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+              activeSection === 'cadeia' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+            )}
+          >
+            Cadeia de Suprimentos
           </button>
         </div>
 
@@ -147,6 +158,9 @@ export function SuprimentosPage() {
       {activeTab === 'resumo_nucleo'       && <ResumoNucleoPanel />}
       {activeTab === 'consolidado_trechos' && <ConsolidadoTrechosPanel />}
       {activeTab === 'materiais_pendentes' && <MateriaisPendentesPanel />}
+      {(activeTab === 'cadeia_rede' || activeTab === 'cadeia_alertas' || activeTab === 'cadeia_planejamento') && (
+        <CadeiaSuprimentosPanel activeTab={activeTab} />
+      )}
 
       {showImport        && <ExcelImportModal onClose={() => setShowImport(false)} />}
       {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
