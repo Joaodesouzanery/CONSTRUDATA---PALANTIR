@@ -1,18 +1,48 @@
-/**
- * SubempreiteirosPanel — Step 3: Planilhas dos Subempreiteiros.
- *
- * Add/edit subcontractor measurement sheets (e.g., VIALTA - São Manuel).
- * Each subcontractor has: nome, nucleo, periodo, line items (nPreco → qtd → valor),
- * and totals (medido / aprovado / retenção).
- */
-import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Users, Upload, AlertCircle, X as XIcon, FileDown, Download } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, Download, FileDown, Plus, RefreshCw, Trash2, Upload, Users, X as XIcon } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Subempreiteiro, SubempreteiroItem } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSubempreiteiroSheet } from '../utils/xlsxParsers'
 import type { SubempreiteiroParseResult } from '../utils/xlsxParsers'
 import { exportSubempreiteirosPdf } from '../utils/exportPdf'
+import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
+import { getCriadouroLabel, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import { useContractorStore } from '@/store/contractorStore'
+
+type TabId = 'resumo' | 'rdos' | 'itens' | 'parametros' | 'descontos' | 'rh' | 'nfs'
+
+const tabs: Array<{ id: TabId; label: string }> = [
+  { id: 'resumo', label: 'Resumo' },
+  { id: 'rdos', label: 'RDOs' },
+  { id: 'itens', label: 'Itens Medidos' },
+  { id: 'parametros', label: 'Parâmetros e Retenção' },
+  { id: 'descontos', label: 'Descontos' },
+  { id: 'rh', label: 'RH' },
+  { id: 'nfs', label: 'NFs' },
+]
+
+const fieldClass = 'rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 py-2 text-sm text-white outline-none focus:border-[#f97316]'
+const btnMuted = 'inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#484848] px-3 py-2 text-xs font-medium text-[#f5f5f5] hover:bg-[#525252]'
+
+function fmt(n: number) {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function fmtNum(n: number) {
+  return n.toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+}
+
+function monthFromDate(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(`${value}T12:00:00`)
+  if (Number.isNaN(date.getTime())) return value.slice(0, 7)
+  return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
+}
+
+function itemTotal(item: SubempreteiroItem) {
+  return item.qtd * item.valorUnitario
+}
 
 function downloadTemplateSub() {
   const template = [{
@@ -29,143 +59,53 @@ function downloadTemplateSub() {
   XLSX.writeFile(wb, 'Template_Subempreiteiro_ConstruData.xlsx')
 }
 
-function fmt(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-function pct(n: number) {
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-}
-
-// ─── Add Subempreiteiro Modal ─────────────────────────────────────────────────
-
 interface AddSubModalProps {
   onClose: () => void
-  onAdd:   (sub: Omit<Subempreiteiro, 'id'>) => void
+  onAdd: (sub: Omit<Subempreiteiro, 'id'>) => void
   periodo: string
 }
 
 function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
-  const [nome,    setNome]    = useState('')
-  const [nucleo,  setNucleo]  = useState('')
-  const [per,     setPer]     = useState(periodo)
-  const [itens,   setItens]   = useState<SubempreteiroItem[]>([])
-  const [totalMedido,   setTotalMedido]   = useState('')
-  const [totalAprovado, setTotalAprovado] = useState('')
-  const [retencao,      setRetencao]      = useState('')
-
-  function addItem() {
-    setItens((prev) => [...prev, { nPreco: '', nPrecoSabesp: '', descricao: '', unidade: 'M', qtd: 0, valorUnitario: 0 }])
-  }
-  function updateItem(idx: number, patch: Partial<SubempreteiroItem>) {
-    if (patch.qtd !== undefined) patch.qtd = isNaN(patch.qtd) ? 0 : patch.qtd
-    if (patch.valorUnitario !== undefined) patch.valorUnitario = isNaN(patch.valorUnitario) ? 0 : patch.valorUnitario
-    setItens((prev) => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
-  }
-  function removeItem(idx: number) {
-    setItens((prev) => prev.filter((_, i) => i !== idx))
-  }
+  const [nome, setNome] = useState('')
+  const [nucleo, setNucleo] = useState('')
+  const [per, setPer] = useState(periodo)
 
   function handleAdd() {
     if (!nome.trim()) return
     onAdd({
-      nome:          nome.trim(),
-      nucleo:        nucleo.trim(),
-      periodo:       per.trim(),
-      itens,
-      totalMedido:   parseFloat(totalMedido.replace(',', '.'))   || 0,
-      totalAprovado: parseFloat(totalAprovado.replace(',', '.')) || 0,
-      retencao:      parseFloat(retencao.replace(',', '.'))      || 0,
+      nome: nome.trim(),
+      nucleo: nucleo.trim(),
+      periodo: per.trim(),
+      contractorId: null,
+      itens: [],
+      parametros: [],
+      descontos: [],
+      rh: [],
+      nfs: [],
+      retencoes: [],
+      totalMedido: 0,
+      totalAprovado: 0,
+      retencao: 0,
     })
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-10 px-4 bg-black/60" onClick={onClose}>
-      <div
-        className="w-full max-w-2xl bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252] flex items-center justify-between">
-          <span className="text-white font-semibold text-sm">Novo Subempreiteiro</span>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-white text-xl leading-none">&times;</button>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-16" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-[#525252] bg-[#2c2c2c] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-[#525252] bg-[#3a3a3a] px-5 py-3">
+          <span className="text-sm font-semibold text-white">Novo Subempreiteiro</span>
+          <button onClick={onClose} className="text-[#a3a3a3] hover:text-white"><XIcon size={16} /></button>
         </div>
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Nome / Empresa</label>
-              <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="ex.: VIALTA"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-            <div>
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Período</label>
-              <input value={per} onChange={(e) => setPer(e.target.value)} placeholder="fev/26"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-            <div className="col-span-3">
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Núcleo</label>
-              <input value={nucleo} onChange={(e) => setNucleo(e.target.value)} placeholder="ex.: São Manuel"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-          </div>
-
-          {/* Itens */}
-          <div>
-            <div className="text-[10px] text-[#a3a3a3] font-semibold uppercase mb-2">Itens de Medição</div>
-            <div className="space-y-2">
-              {itens.map((it, idx) => (
-                <div key={idx} className="flex gap-2 items-center flex-wrap">
-                  <input value={it.nPreco} onChange={(e) => updateItem(idx, { nPreco: e.target.value })}
-                    placeholder="Nº Preço"
-                    className="w-24 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <input value={it.nPrecoSabesp} onChange={(e) => updateItem(idx, { nPrecoSabesp: e.target.value })}
-                    placeholder="Vínc. Sabesp"
-                    title="N. Preço da Sabesp vinculado"
-                    className="w-24 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <input value={it.descricao} onChange={(e) => updateItem(idx, { descricao: e.target.value })}
-                    placeholder="Descrição"
-                    className="flex-1 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <input value={it.unidade} onChange={(e) => updateItem(idx, { unidade: e.target.value })}
-                    placeholder="Un" className="w-12 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <input type="number" value={it.qtd} onChange={(e) => updateItem(idx, { qtd: parseFloat(e.target.value) || 0 })}
-                    placeholder="Qtd" className="w-20 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <input type="number" value={it.valorUnitario} onChange={(e) => updateItem(idx, { valorUnitario: parseFloat(e.target.value) || 0 })}
-                    placeholder="R$/Un" className="w-24 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-                  <button onClick={() => removeItem(idx)} className="text-red-400 hover:bg-red-900/20 rounded p-1"><Trash2 size={12} /></button>
-                </div>
-              ))}
-              <button type="button" onClick={addItem}
-                className="flex items-center gap-1.5 text-[#f97316] text-xs hover:text-[#ea580c] transition-colors">
-                <Plus size={13} /> Adicionar item
-              </button>
-            </div>
-          </div>
-
-          {/* Totais */}
-          <div className="grid grid-cols-3 gap-3 border-t border-[#525252] pt-4">
-            <div>
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Total Medido (R$)</label>
-              <input value={totalMedido} onChange={(e) => setTotalMedido(e.target.value)} placeholder="0,00"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-            <div>
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Total Aprovado (R$)</label>
-              <input value={totalAprovado} onChange={(e) => setTotalAprovado(e.target.value)} placeholder="0,00"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-            <div>
-              <label className="text-[10px] text-[#a3a3a3] font-semibold uppercase block mb-1">Retenção (R$)</label>
-              <input value={retencao} onChange={(e) => setRetencao(e.target.value)} placeholder="0,00"
-                className="w-full bg-[#1f1f1f] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]" />
-            </div>
-          </div>
+        <div className="space-y-3 p-5">
+          <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Empreiteira / Subempreiteiro" className={fieldClass} />
+          <input value={nucleo} onChange={(e) => setNucleo(e.target.value)} placeholder="Núcleo" className={fieldClass} />
+          <input value={per} onChange={(e) => setPer(e.target.value)} placeholder="Período" className={fieldClass} />
         </div>
-        <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
-          <button onClick={onClose} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
-          <button onClick={handleAdd} disabled={!nome.trim()}
-            className="px-5 py-2 text-xs font-medium text-white rounded-lg disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: '#f97316' }}>
-            Salvar Subempreiteiro
+        <div className="flex justify-end gap-2 border-t border-[#525252] bg-[#1f1f1f] px-5 py-3">
+          <button onClick={onClose} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-white">Cancelar</button>
+          <button onClick={handleAdd} disabled={!nome.trim()} className="rounded-lg bg-[#f97316] px-5 py-2 text-xs font-medium text-white disabled:opacity-50">
+            Salvar
           </button>
         </div>
       </div>
@@ -173,58 +113,14 @@ function AddSubModal({ onClose, onAdd, periodo }: AddSubModalProps) {
   )
 }
 
-// ─── Main-level import: creates a NEW subempreiteiro from XLSX ───────────────
-
-function ImportSubNewBtn({ periodo }: { periodo: string }) {
-  const { addSubempreiteiro } = useMedicaoBillingStore()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [loading, setLoading] = useState(false)
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setLoading(true)
-    try {
-      const wb = await readWorkbook(file)
-      const result = parseSubempreiteiroSheet(wb)
-      if (result.errors.length > 0) { alert(result.errors.join('\n')); return }
-      // Create new subempreiteiro and import items
-      addSubempreiteiro({
-        nome: result.nome,
-        nucleo: result.nucleo || '',
-        periodo: result.periodo || periodo,
-        itens: result.itens,
-        totalMedido: result.totals.totalMedido,
-        totalAprovado: result.totals.totalAprovado,
-        retencao: result.totals.retencao,
-      })
-    } finally {
-      setLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
-    }
-  }
-
-  return (
-    <>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={loading}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors">
-        <Upload size={13} /> {loading ? 'Lendo...' : 'Importar XLSX'}
-      </button>
-    </>
-  )
-}
-
-// ─── Import button for subcontractor card ─────────────────────────────────────
-
-function ImportSubBtn({ subId }: { subId: string }) {
-  const { importSubempreiteiroItems } = useMedicaoBillingStore()
+function ImportSubBtn({ subId, periodo }: { subId?: string; periodo: string }) {
+  const { addSubempreiteiro, importSubempreiteiroDetalhado } = useMedicaoBillingStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<SubempreiteiroParseResult | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
     if (!file) return
     setLoading(true)
     try {
@@ -236,95 +132,68 @@ function ImportSubBtn({ subId }: { subId: string }) {
     }
   }
 
-  function handleConfirm() {
-    if (!preview) return
-    importSubempreiteiroItems(subId, preview.itens, preview.totals)
+  function confirm() {
+    if (!preview || preview.errors.length) return
+    const payload = {
+      nome: preview.nome,
+      nucleo: preview.nucleo,
+      periodo: preview.periodo || periodo,
+      itens: preview.itens.map((item) => ({ ...item, origem: 'Importação XLSX' as const, mes: item.mes || preview.periodo || periodo })),
+      parametros: preview.parametros ?? [],
+      descontos: preview.descontos ?? [],
+      rh: preview.rh ?? [],
+      nfs: preview.nfs ?? [],
+      retencoes: preview.retencoes ?? [],
+      totalMedido: preview.totals.totalMedido,
+      totalAprovado: preview.totals.totalAprovado,
+      retencao: preview.totals.retencao,
+    }
+    if (subId) {
+      importSubempreiteiroDetalhado(subId, payload)
+    } else {
+      addSubempreiteiro({
+        contractorId: null,
+        ...payload,
+      })
+    }
     setPreview(null)
   }
 
   return (
     <>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        disabled={loading}
-        title="Importar planilha XLSX"
-        className="flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium border border-[#525252] bg-[#3a3a3a] text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5] disabled:opacity-50 transition-colors"
-      >
-        <Upload size={11} />
-        {loading ? '...' : 'XLSX'}
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={loading} className={btnMuted}>
+        <Upload size={13} /> {loading ? 'Lendo...' : 'Importar XLSX'}
       </button>
-
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setPreview(null)}>
-          <div className="w-full max-w-xl bg-[#2c2c2c] border border-[#525252] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-[#3a3a3a] px-5 py-3 border-b border-[#525252] flex items-center justify-between">
-              <span className="text-white font-semibold text-sm">Importar Medição — {preview.nome}</span>
-              <button onClick={() => setPreview(null)} className="text-[#6b6b6b] hover:text-white"><XIcon size={16} /></button>
+          <div className="w-full max-w-2xl rounded-2xl border border-[#525252] bg-[#2c2c2c] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#525252] bg-[#3a3a3a] px-5 py-3">
+              <span className="text-sm font-semibold text-white">Prévia de importação - {preview.nome}</span>
+              <button onClick={() => setPreview(null)} className="text-[#a3a3a3] hover:text-white"><XIcon size={16} /></button>
             </div>
-            <div className="p-5 space-y-3">
+            <div className="space-y-4 p-5">
               {preview.errors.length > 0 ? (
-                <div className="flex items-start gap-2 text-red-400 text-xs bg-red-900/20 border border-red-700/30 rounded-lg p-3">
-                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                  <div>{preview.errors.join(' ')}</div>
+                <div className="flex gap-2 rounded-lg border border-red-700/30 bg-red-900/20 p-3 text-xs text-red-300">
+                  <AlertCircle size={14} /> {preview.errors.join(' ')}
                 </div>
               ) : (
                 <>
-                  <p className="text-[#a3a3a3] text-xs">{preview.itens.length} itens · Total medido: <strong className="text-[#f5f5f5]">{preview.totals.totalMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong></p>
-                  <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                    <div className="rounded-lg border border-[#525252] bg-[#333333] p-2">
-                      <p className="text-[10px] uppercase text-[#6b6b6b]">Itens</p>
-                      <p className="font-bold text-[#f5f5f5]">{preview.itens.length}</p>
-                    </div>
-                    <div className="rounded-lg border border-[#525252] bg-[#333333] p-2">
-                      <p className="text-[10px] uppercase text-[#6b6b6b]">Medido</p>
-                      <p className="font-bold text-[#f5f5f5]">{preview.totals.totalMedido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    </div>
-                    <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/10 p-2">
-                      <p className="text-[10px] uppercase text-[#6b6b6b]">Aprovado</p>
-                      <p className="font-bold text-emerald-400">{preview.totals.totalAprovado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    </div>
-                    <div className="rounded-lg border border-amber-700/30 bg-amber-900/10 p-2">
-                      <p className="text-[10px] uppercase text-[#6b6b6b]">Retencao</p>
-                      <p className="font-bold text-amber-400">{preview.totals.retencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    </div>
+                  <div className="grid gap-2 sm:grid-cols-4">
+                    <Metric label="Itens" value={preview.itens.length} />
+                    <Metric label="Medido" value={fmt(preview.totals.totalMedido)} />
+                    <Metric label="Retenção" value={fmt(preview.totals.retencao)} />
+                    <Metric label="NFs" value={preview.nfs?.length ?? 0} />
                   </div>
-                  <div className="overflow-x-auto max-h-48 border border-[#525252] rounded-lg">
-                    <table className="w-full text-xs border-collapse">
-                      <thead>
-                        <tr className="bg-[#1f1f1f] text-[#6b6b6b] uppercase text-[9px]">
-                          <th className="px-3 py-2 text-left">Nº Preço</th>
-                          <th className="px-3 py-2 text-left">Descrição</th>
-                          <th className="px-3 py-2 text-right">Qtd</th>
-                          <th className="px-3 py-2 text-right">Vl. Unit.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {preview.itens.slice(0, 6).map((it, i) => (
-                          <tr key={i} className="border-t border-[#525252]">
-                            <td className="px-3 py-1.5 font-mono text-[#f97316]">{it.nPreco}</td>
-                            <td className="px-3 py-1.5 text-[#f5f5f5] truncate max-w-[180px]">{it.descricao}</td>
-                            <td className="px-3 py-1.5 text-right">{it.qtd}</td>
-                            <td className="px-3 py-1.5 text-right">{it.valorUnitario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                          </tr>
-                        ))}
-                        {preview.itens.length > 6 && (
-                          <tr><td colSpan={4} className="px-3 py-2 text-center text-[#6b6b6b] text-[10px]">+ {preview.itens.length - 6} itens</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  <p className="text-xs text-[#a3a3a3]">
+                    Também serão importados parâmetros ({preview.parametros?.length ?? 0}), descontos ({preview.descontos?.length ?? 0}) e RH ({preview.rh?.length ?? 0}).
+                  </p>
                 </>
               )}
             </div>
-            <div className="px-5 py-3 border-t border-[#525252] flex justify-end gap-2 bg-[#1f1f1f]">
-              <button onClick={() => setPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors">Cancelar</button>
-              {preview.errors.length === 0 && (
-                <button onClick={handleConfirm} className="px-5 py-2 text-xs font-medium text-white rounded-lg transition-colors" style={{ backgroundColor: '#f97316' }}>
-                  Importar {preview.itens.length} itens
-                </button>
-              )}
+            <div className="flex justify-end gap-2 border-t border-[#525252] bg-[#1f1f1f] px-5 py-3">
+              <button onClick={() => setPreview(null)} className="px-4 py-2 text-xs text-[#a3a3a3] hover:text-white">Cancelar</button>
+              {preview.errors.length === 0 && <button onClick={confirm} className="rounded-lg bg-[#f97316] px-5 py-2 text-xs font-medium text-white">Confirmar importação</button>}
             </div>
           </div>
         </div>
@@ -333,164 +202,331 @@ function ImportSubBtn({ subId }: { subId: string }) {
   )
 }
 
-// ─── Card ─────────────────────────────────────────────────────────────────────
-
-function SubCard({ sub, onRemove }: { sub: Subempreiteiro; onRemove: () => void }) {
-  const [expanded, setExpanded] = useState(false)
-  const retPct = sub.totalMedido > 0 ? (sub.retencao / sub.totalMedido) * 100 : 0
-
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-hidden">
-      <div className="flex items-center px-4 py-3 gap-3">
-        <div className="w-9 h-9 rounded-lg bg-[#f97316]/10 border border-[#f97316]/30 flex items-center justify-center shrink-0">
-          <Users size={17} className="text-[#f97316]" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-white font-semibold text-sm">{sub.nome}</div>
-          <div className="text-[#a3a3a3] text-xs">{sub.nucleo} · {sub.periodo}</div>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-emerald-400 font-bold text-sm">{fmt(sub.totalAprovado)}</div>
-          <div className="text-[10px] text-[#6b6b6b]">aprovado · retenção {pct(retPct)}%</div>
-        </div>
-        <ImportSubBtn subId={sub.id} />
-        <button type="button" onClick={() => setExpanded((v) => !v)}
-          className="text-[#a3a3a3] hover:text-white transition-colors ml-1">
-          {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-        </button>
-        <button type="button" onClick={onRemove} className="text-red-400 hover:bg-red-900/20 rounded p-1 transition-colors">
-          <Trash2 size={14} />
-        </button>
-      </div>
-      {expanded && sub.itens.length > 0 && (
-        <div className="border-t border-[#525252] overflow-x-auto">
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#1f1f1f] text-[#a3a3a3] uppercase text-[9px]">
-                <th className="px-3 py-2 text-left border-r border-[#525252]">Nº Preço</th>
-                <th className="px-3 py-2 text-left border-r border-[#525252]">Vínc. Sabesp</th>
-                <th className="px-3 py-2 text-left border-r border-[#525252]">Descrição</th>
-                <th className="px-3 py-2 text-center border-r border-[#525252]">Un</th>
-                <th className="px-3 py-2 text-right border-r border-[#525252]">Qtd</th>
-                <th className="px-3 py-2 text-right border-r border-[#525252]">Vl. Unit.</th>
-                <th className="px-3 py-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sub.itens.map((it, idx) => (
-                <tr key={idx} className="border-b border-[#525252]">
-                  <td className="px-3 py-1.5 border-r border-[#525252] font-mono text-[#f97316]">{it.nPreco}</td>
-                  <td className="px-3 py-1.5 border-r border-[#525252] font-mono text-[#a3a3a3] text-[10px]">{it.nPrecoSabesp || '—'}</td>
-                  <td className="px-3 py-1.5 border-r border-[#525252] text-[#f5f5f5]">{it.descricao}</td>
-                  <td className="px-3 py-1.5 border-r border-[#525252] text-center text-[#a3a3a3]">{it.unidade}</td>
-                  <td className="px-3 py-1.5 border-r border-[#525252] text-right">{it.qtd.toLocaleString('pt-BR')}</td>
-                  <td className="px-3 py-1.5 border-r border-[#525252] text-right">{fmt(it.valorUnitario)}</td>
-                  <td className="px-3 py-1.5 text-right font-medium text-emerald-400">{fmt(it.qtd * it.valorUnitario)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-2 bg-[#1f1f1f] flex gap-6 justify-end text-xs border-t border-[#525252]">
-            <span className="text-[#a3a3a3]">Medido: <strong className="text-[#f5f5f5]">{fmt(sub.totalMedido)}</strong></span>
-            <span className="text-[#a3a3a3]">Aprovado: <strong className="text-emerald-400">{fmt(sub.totalAprovado)}</strong></span>
-            <span className="text-[#a3a3a3]">Retenção: <strong className="text-red-400">{fmt(sub.retencao)}</strong></span>
-          </div>
-        </div>
-      )}
+    <div className="rounded-lg border border-[#525252] bg-[#1f1f1f] p-3">
+      <p className="text-[10px] uppercase tracking-wide text-[#a3a3a3]">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white">{value}</p>
     </div>
   )
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-export function SubempreiteirosPanel() {
-  const { getActiveBoletim, addSubempreiteiro, removeSubempreiteiro } = useMedicaoBillingStore()
-  const [addOpen, setAddOpen] = useState(false)
-  const boletim = getActiveBoletim()
-
-  if (!boletim) return (
-    <div className="p-8 text-center text-[#6b6b6b] text-sm">Nenhum boletim ativo.</div>
+function SubSelector({ subs, selectedId, onSelect, onRemove }: { subs: Subempreiteiro[]; selectedId: string; onSelect: (id: string) => void; onRemove: (id: string) => void }) {
+  return (
+    <div className="grid gap-2 lg:grid-cols-3">
+      {subs.map((sub) => (
+        <button
+          key={sub.id}
+          type="button"
+          onClick={() => onSelect(sub.id)}
+          className={`rounded-lg border p-3 text-left ${selectedId === sub.id ? 'border-[#f97316] bg-[#f97316]/10' : 'border-[#525252] bg-[#2c2c2c] hover:border-[#6b6b6b]'}`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-white">{sub.nome}</p>
+              <p className="text-xs text-[#a3a3a3]">{sub.nucleo || 'Sem núcleo'} · {sub.periodo}</p>
+            </div>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(event) => { event.stopPropagation(); onRemove(sub.id) }}
+              className="text-red-300 hover:text-red-200"
+            >
+              <Trash2 size={14} />
+            </span>
+          </div>
+          <div className="mt-3 flex gap-2 text-[10px] text-[#a3a3a3]">
+            <span>{sub.itens.length} itens</span>
+            <span>{fmt(sub.totalMedido)}</span>
+          </div>
+        </button>
+      ))}
+    </div>
   )
+}
 
-  const totalAprovado = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalAprovado, 0)
-  const totalRetencao = boletim.subempreiteiros.reduce((s, sub) => s + sub.retencao, 0)
+function ResumoTab({ sub }: { sub: Subempreiteiro }) {
+  const descontos = (sub.descontos ?? []).reduce((sum, item) => sum + item.total, 0)
+  const nfPago = (sub.nfs ?? []).reduce((sum, nf) => sum + nf.valorPago, 0)
+  const saldoRetencao = (sub.retencoes ?? []).at(-1)?.saldoFinal ?? sub.retencao
+  return (
+    <div className="grid gap-3 md:grid-cols-4">
+      <Metric label="Medição" value={fmt(sub.totalMedido)} />
+      <Metric label="Medição aprovada" value={fmt(sub.totalAprovado)} />
+      <Metric label="Descontos" value={fmt(descontos)} />
+      <Metric label="Saldo retenção" value={fmt(saldoRetencao)} />
+      <Metric label="Liberação NF" value={fmt(nfPago)} />
+      <Metric label="Itens RDO" value={sub.itens.filter((item) => item.origem === 'RDO Sabesp').length} />
+      <Metric label="Itens manuais" value={sub.itens.filter((item) => item.origem !== 'RDO Sabesp').length} />
+      <Metric label="NFs" value={sub.nfs?.length ?? 0} />
+    </div>
+  )
+}
+
+function RdosTab({ pendingCount }: { pendingCount: number }) {
+  const contractors = useContractorStore((state) => state.contractors)
+  const resolveRdoContractor = useContractorStore((state) => state.resolveRdoContractor)
+  const rows = readLocalRdoSabesp().filter((rdo) => rdo.status !== 'draft')
+  return (
+    <div className="space-y-3">
+      {pendingCount > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300">
+          {pendingCount} RDO(s) estão pendentes de empreiteira ou núcleo e ainda não entram na medição.
+        </div>
+      )}
+      {rows.map((rdo) => {
+        const contractor = resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
+        const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
+        const services = getRdoSabespExecutedServices(rdo)
+        return (
+          <div key={rdo.id} className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-semibold text-white">{rdo.report_date}</span>
+              <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-xs text-sky-200">{nucleo}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${contractor ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                {contractor?.name || 'Empreiteira pendente'}
+              </span>
+              {rdo.encarregado && <span className="text-xs text-[#a3a3a3]">{rdo.encarregado}</span>}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {services.map((service) => (
+                <span key={service.service_id} className="rounded-full border border-[#525252] px-2 py-1 text-xs text-[#d4d4d4]">
+                  {service.services_catalog.name}: {fmtNum(service.quantity)} {service.unit}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+      {rows.length === 0 && <p className="py-8 text-center text-sm text-[#6b6b6b]">Nenhum RDO Sabesp finalizado encontrado.</p>}
+      <p className="text-xs text-[#6b6b6b]">Empreiteiras cadastradas: {contractors.filter((item) => !item.deleted_at).length}</p>
+    </div>
+  )
+}
+
+function ItensTab({ sub, onUpdate }: { sub: Subempreiteiro; onUpdate: (patch: Partial<Subempreiteiro>) => void }) {
+  const [form, setForm] = useState({ nPreco: '', descricao: '', unidade: 'UN', qtd: 0, valorUnitario: 0 })
+
+  function addManual() {
+    if (!form.descricao.trim()) return
+    onUpdate({
+      itens: [
+        ...sub.itens,
+        {
+          ...form,
+          id: crypto.randomUUID(),
+          nPrecoSabesp: form.nPreco,
+          origem: 'Manual',
+          mes: sub.periodo,
+          nucleo: sub.nucleo,
+        },
+      ],
+      totalMedido: sub.totalMedido + form.qtd * form.valorUnitario,
+    })
+    setForm({ nPreco: '', descricao: '', unidade: 'UN', qtd: 0, valorUnitario: 0 })
+  }
+
+  function removeItem(id?: string) {
+    const next = sub.itens.filter((item) => item.id !== id)
+    onUpdate({ itens: next, totalMedido: next.reduce((sum, item) => sum + itemTotal(item), 0) })
+  }
 
   return (
-    <div className="p-6 space-y-4 max-w-[900px] mx-auto">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="space-y-4">
+      <div className="grid gap-2 md:grid-cols-[120px,1fr,80px,100px,120px,auto]">
+        <input value={form.nPreco} onChange={(e) => setForm((v) => ({ ...v, nPreco: e.target.value }))} placeholder="N. Preço" className={fieldClass} />
+        <input value={form.descricao} onChange={(e) => setForm((v) => ({ ...v, descricao: e.target.value }))} placeholder="Descrição manual" className={fieldClass} />
+        <input value={form.unidade} onChange={(e) => setForm((v) => ({ ...v, unidade: e.target.value }))} placeholder="Un." className={fieldClass} />
+        <input type="number" value={form.qtd} onChange={(e) => setForm((v) => ({ ...v, qtd: Number(e.target.value) }))} placeholder="Qtd" className={fieldClass} />
+        <input type="number" value={form.valorUnitario} onChange={(e) => setForm((v) => ({ ...v, valorUnitario: Number(e.target.value) }))} placeholder="Vl. Unit." className={fieldClass} />
+        <button onClick={addManual} className="rounded-lg bg-[#f97316] px-4 py-2 text-sm font-medium text-white">Adicionar</button>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-[#525252]">
+        <table className="w-full min-w-[900px] text-sm">
+          <thead className="bg-[#1f1f1f] text-left text-xs uppercase text-[#a3a3a3]">
+            <tr><th className="p-2">Mês</th><th>N. Preço</th><th>Descrição</th><th>Un</th><th className="text-right">Qtd</th><th className="text-right">Vl. Unit.</th><th>Origem</th><th></th></tr>
+          </thead>
+          <tbody>
+            {sub.itens.map((item) => (
+              <tr key={item.id} className="border-t border-[#3d3d3d] text-[#f5f5f5]">
+                <td className="p-2">{item.mes || sub.periodo}</td><td>{item.nPreco}</td><td>{item.descricao}</td><td>{item.unidade}</td>
+                <td className="text-right">{fmtNum(item.qtd)}</td><td className="text-right">{fmt(item.valorUnitario)}</td>
+                <td><span className="rounded-full bg-[#484848] px-2 py-1 text-xs text-[#d4d4d4]">{item.origem || 'Manual'}</span></td>
+                <td className="text-right"><button onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-200"><Trash2 size={14} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ParametrosTab({ sub }: { sub: Subempreiteiro }) {
+  return (
+    <div className="space-y-4">
+      <DataTable
+        rows={sub.parametros ?? []}
+        columns={['mes', 'empreiteiro', 'nucleo', 'contrato', 'engenheiro', 'gerenteProducao', 'revisao', 'data', 'status']}
+      />
+      <h3 className="text-sm font-semibold text-white">Histórico de retenção</h3>
+      <DataTable rows={sub.retencoes ?? []} columns={['mes', 'valorRetido', 'valorLiberado', 'saldoAnterior', 'saldoFinal', 'observacao']} moneyCols={['valorRetido', 'valorLiberado', 'saldoAnterior', 'saldoFinal']} />
+    </div>
+  )
+}
+
+function DataTable({ rows, columns, moneyCols = [] }: { rows: object[]; columns: string[]; moneyCols?: string[] }) {
+  if (rows.length === 0) return <p className="rounded-lg border border-dashed border-[#525252] p-6 text-sm text-[#6b6b6b]">Sem registros ainda.</p>
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[#525252]">
+      <table className="w-full min-w-[760px] text-sm">
+        <thead className="bg-[#1f1f1f] text-left text-xs uppercase text-[#a3a3a3]"><tr>{columns.map((column) => <th key={column} className="p-2">{column}</th>)}</tr></thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const record = row as Record<string, unknown>
+            return (
+            <tr key={String(record.id ?? index)} className="border-t border-[#3d3d3d] text-[#f5f5f5]">
+              {columns.map((column) => {
+                const value = record[column]
+                return <td key={column} className="p-2">{moneyCols.includes(column) ? fmt(Number(value) || 0) : String(value ?? '')}</td>
+              })}
+            </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function SubempreiteirosPanel() {
+  const { getActiveBoletim, addSubempreiteiro, updateSubempreiteiro, removeSubempreiteiro, syncRdoSabespSubempreiteiros } = useMedicaoBillingStore()
+  const contractorStore = useContractorStore()
+  const [addOpen, setAddOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<TabId>('resumo')
+  const [selectedId, setSelectedId] = useState('')
+  const boletim = getActiveBoletim()
+
+  useEffect(() => {
+    void contractorStore.load()
+  }, [contractorStore.load])
+
+  const rdoRows = useMemo(() => {
+    return readLocalRdoSabesp().filter((rdo) => rdo.status !== 'draft').flatMap((rdo) => {
+      const contractor = contractorStore.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
+      const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
+      if (!contractor || !nucleo || nucleo === 'Nao informado') return []
+      return getRdoSabespExecutedServices(rdo).map((service) => ({
+        contractorId: contractor.id,
+        contractorName: contractor.name,
+        nucleo,
+        periodo: monthFromDate(rdo.report_date),
+        rdoId: rdo.id,
+        rdoDate: String(rdo.report_date || ''),
+        serviceId: service.service_id,
+        nPreco: service.service_id.split('-')[0] || '',
+        descricao: service.services_catalog.name,
+        unidade: service.unit || service.services_catalog.unit || '',
+        qtd: service.quantity,
+      }))
+    })
+  }, [contractorStore.contractors, contractorStore.foremen, contractorStore.rdoLinks])
+
+  const pendingRdoCount = useMemo(() => {
+    return readLocalRdoSabesp().filter((rdo) => {
+      if (rdo.status === 'draft') return false
+      const contractor = contractorStore.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
+      const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
+      return !contractor || !nucleo || nucleo === 'Nao informado'
+    }).length
+  }, [contractorStore.contractors, contractorStore.foremen, contractorStore.rdoLinks])
+
+  useEffect(() => {
+    if (rdoRows.length > 0) syncRdoSabespSubempreiteiros(rdoRows)
+  }, [rdoRows, syncRdoSabespSubempreiteiros])
+
+  const subs = boletim?.subempreiteiros ?? []
+  const selected = subs.find((sub) => sub.id === selectedId) ?? subs[0] ?? null
+
+  useEffect(() => {
+    if (!selectedId && subs[0]) {
+      setSelectedId(subs[0].id)
+      return
+    }
+    if (selectedId && !subs.some((sub) => sub.id === selectedId)) {
+      setSelectedId(subs[0]?.id ?? '')
+    }
+  }, [selectedId, subs])
+
+  if (!boletim) return <div className="p-8 text-center text-sm text-[#6b6b6b]">Nenhum boletim ativo.</div>
+
+  const totalAprovado = subs.reduce((sum, sub) => sum + sub.totalAprovado, 0)
+  const totalRetencao = subs.reduce((sum, sub) => sum + sub.retencao, 0)
+
+  return (
+    <div className="mx-auto max-w-[1180px] space-y-4 p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-white font-semibold text-base">Planilhas dos Subempreiteiros</h2>
-          <p className="text-[#a3a3a3] text-xs mt-0.5">{boletim.subempreiteiros.length} subempreiteiros · Período: {boletim.periodo}</p>
+          <h2 className="text-base font-semibold text-white">Subempreiteiros</h2>
+          <p className="mt-0.5 text-xs text-[#a3a3a3]">
+            RDO Sabesp identificado entra automaticamente na medição por núcleo e empreiteira.
+          </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Main-level import: creates a new subempreiteiro from XLSX */}
-          <ImportSubNewBtn periodo={boletim.periodo} />
-          {boletim.subempreiteiros.length > 0 && (
-            <>
-              <button type="button"
-                onClick={() => {
-                  const rows = boletim.subempreiteiros.flatMap(sub =>
-                    sub.itens.map(it => ({
-                      'Subempreiteiro': sub.nome, 'Núcleo': sub.nucleo, 'Período': sub.periodo,
-                      'Nº Preço': it.nPreco, 'Vínc. Sabesp': it.nPrecoSabesp, 'Descrição': it.descricao,
-                      'Un': it.unidade, 'Qtd': it.qtd, 'Vl. Unitário': it.valorUnitario,
-                      'Total': Math.round(it.qtd * it.valorUnitario * 100) / 100,
-                    }))
-                  )
-                  const ws = XLSX.utils.json_to_sheet(rows)
-                  const wb = XLSX.utils.book_new()
-                  XLSX.utils.book_append_sheet(wb, ws, 'Subempreiteiros')
-                  XLSX.writeFile(wb, `Subempreiteiros_${boletim.periodo.replace('/', '-')}.xlsx`)
-                }}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
-                <FileDown size={13} /> Exportar XLSX
-              </button>
-              <button type="button"
-                onClick={() => exportSubempreiteirosPdf(boletim.subempreiteiros, boletim.periodo, boletim.contrato)}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
-                <FileDown size={13} /> Exportar PDF
-              </button>
-            </>
-          )}
-          {boletim.subempreiteiros.length > 0 && (
-            <div className="text-right">
-              <div className="text-[10px] text-[#a3a3a3]">Total aprovado</div>
-              <div className="text-emerald-400 font-bold text-base">{fmt(totalAprovado)}</div>
-              <div className="text-[10px] text-red-400">Retenção: {fmt(totalRetencao)}</div>
-            </div>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          <ImportSubBtn periodo={boletim.periodo} />
+          {selected && <ImportSubBtn subId={selected.id} periodo={selected.periodo || boletim.periodo} />}
+          <button type="button" onClick={() => syncRdoSabespSubempreiteiros(rdoRows)} className={btnMuted}>
+            <RefreshCw size={13} /> Sincronizar RDOs
+          </button>
+          <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-medium text-white">
+            <Plus size={13} /> Adicionar
+          </button>
+          <button type="button" onClick={downloadTemplateSub} className={btnMuted}><Download size={13} /> Template</button>
+          {subs.length > 0 && <button type="button" onClick={() => exportSubempreiteirosPdf(subs, boletim.periodo, boletim.contrato)} className={btnMuted}><FileDown size={13} /> PDF</button>}
         </div>
       </div>
 
-      {boletim.subempreiteiros.map((sub) => (
-        <SubCard key={sub.id} sub={sub} onRemove={() => removeSubempreiteiro(sub.id)} />
-      ))}
+      <div className="grid gap-3 md:grid-cols-3">
+        <Metric label="Subempreiteiros" value={subs.length} />
+        <Metric label="Total aprovado" value={fmt(totalAprovado)} />
+        <Metric label="Retenção registrada" value={fmt(totalRetencao)} />
+      </div>
 
-      {boletim.subempreiteiros.length === 0 && (
-        <div className="py-12 text-center text-[#6b6b6b] text-sm">
+      <SubSelector subs={subs} selectedId={selected?.id ?? ''} onSelect={setSelectedId} onRemove={removeSubempreiteiro} />
+
+      {!selected ? (
+        <div className="py-12 text-center text-sm text-[#6b6b6b]">
           <Users size={32} className="mx-auto mb-3 text-[#525252]" />
           Nenhum subempreiteiro adicionado ainda.
         </div>
+      ) : (
+        <div className="rounded-xl border border-[#525252] bg-[#2c2c2c]">
+          <div className="overflow-x-auto border-b border-[#525252]">
+            <div className="flex min-w-max gap-1 p-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium ${activeTab === tab.id ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="p-4">
+            {activeTab === 'resumo' && <ResumoTab sub={selected} />}
+            {activeTab === 'rdos' && <RdosTab pendingCount={pendingRdoCount} />}
+            {activeTab === 'itens' && <ItensTab sub={selected} onUpdate={(patch) => updateSubempreiteiro(selected.id, patch)} />}
+            {activeTab === 'parametros' && <ParametrosTab sub={selected} />}
+            {activeTab === 'descontos' && <DataTable rows={selected.descontos ?? []} columns={['mes', 'rh', 'agregados', 'materiaisFerramentas', 'materiaisEpi', 'maquinas', 'combustivel', 'epi', 'total']} moneyCols={['rh', 'agregados', 'materiaisFerramentas', 'materiaisEpi', 'maquinas', 'combustivel', 'epi', 'total']} />}
+            {activeTab === 'rh' && <DataTable rows={selected.rh ?? []} columns={['mes', 'funcionariosClt', 'funcionariosPj', 'adiantamento', 'folhaSalarial', 'folhaPj', 'inss', 'total']} moneyCols={['adiantamento', 'folhaSalarial', 'folhaPj', 'inss', 'total']} />}
+            {activeTab === 'nfs' && <DataTable rows={selected.nfs ?? []} columns={['numero', 'fornecedor', 'valorNf', 'valorPago', 'dataEmissao', 'vencimento', 'competencia', 'status', 'dataPagamento']} moneyCols={['valorNf', 'valorPago']} />}
+          </div>
+        </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 border border-dashed border-[#525252] rounded-lg text-sm text-[#f97316] hover:border-[#f97316]/50 transition-colors">
-          <Plus size={15} /> Adicionar subempreiteiro
-        </button>
-        <button type="button" onClick={downloadTemplateSub}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
-          <Download size={13} /> Template XLSX
-        </button>
-      </div>
-
-      {addOpen && (
-        <AddSubModal
-          onClose={() => setAddOpen(false)}
-          onAdd={addSubempreiteiro}
-          periodo={boletim.periodo}
-        />
-      )}
+      {addOpen && <AddSubModal onClose={() => setAddOpen(false)} onAdd={addSubempreiteiro} periodo={boletim.periodo} />}
     </div>
   )
 }

@@ -8,6 +8,11 @@ import * as XLSX from 'xlsx'
 import type {
   ItemContrato,
   SubempreteiroItem,
+  SubempreiteiroParametroMensal,
+  SubempreiteiroDescontoMensal,
+  SubempreiteiroRhMensal,
+  SubempreiteiroNotaFiscal,
+  SubempreiteiroRetencaoMensal,
   Fornecedor,
   MedicaoAnchorTotal,
   MedicaoSourceTotals,
@@ -633,6 +638,11 @@ export interface SubempreiteiroParseResult {
   periodo:  string
   itens:    SubempreteiroItem[]
   totals:   { totalMedido: number; totalAprovado: number; retencao: number }
+  parametros?: SubempreiteiroParametroMensal[]
+  descontos?: SubempreiteiroDescontoMensal[]
+  rh?: SubempreiteiroRhMensal[]
+  nfs?: SubempreiteiroNotaFiscal[]
+  retencoes?: SubempreiteiroRetencaoMensal[]
   errors:   string[]
 }
 
@@ -711,9 +721,228 @@ function formatMoney(value: number) {
 
 export function parseSubempreiteiroSheet(wb: XLSX.WorkBook): SubempreiteiroParseResult {
   const parsed = parseSubempreiteiroSheetOptimized(wb)
+  appendSubempreiteiroDetailedTabs(wb, parsed)
   if (parsed.itens.length > 0) return parsed
   const legacy = parseSubempreiteiroSheetLegacy(wb)
+  appendSubempreiteiroDetailedTabs(wb, legacy)
   return legacy.itens.length > 0 ? legacy : parsed
+}
+
+function makeLocalId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function getSheetByNorm(wb: XLSX.WorkBook, matcher: RegExp) {
+  const name = wb.SheetNames.find((sheet) => matcher.test(norm(sheet)))
+  return name ? readRawWorksheet(wb, name) : []
+}
+
+function cellDateOrText(value: string) {
+  return value.trim()
+}
+
+function appendSubempreiteiroDetailedTabs(wb: XLSX.WorkBook, result: SubempreiteiroParseResult) {
+  result.parametros = parseSubParametros(wb, result)
+  result.descontos = parseSubDescontos(wb)
+  result.rh = parseSubRh(wb)
+  result.nfs = parseSubNfs(wb)
+  const retentionItems = parseSubItensRetencao(wb, result.periodo)
+  if (retentionItems.length > 0) {
+    const retentionKeys = new Map(retentionItems.map((item) => [norm(`${item.nPreco}|${item.descricao}|${item.mes ?? ''}`), item]))
+    result.itens = result.itens.map((item) => {
+      const found = retentionKeys.get(norm(`${item.nPreco}|${item.descricao}|${item.mes ?? result.periodo}`))
+        ?? retentionKeys.get(norm(`${item.nPreco}|${item.descricao}|`))
+      return found ? { ...item, retencaoObservacao: found.retencaoObservacao, retencaoPercentual: found.retencaoPercentual } : item
+    })
+  }
+  result.retencoes = buildSubRetencoes(result)
+}
+
+function parseSubParametros(wb: XLSX.WorkBook, base: SubempreiteiroParseResult): SubempreiteiroParametroMensal[] {
+  const raw = getSheetByNorm(wb, /^parametros?$/)
+  if (raw.length === 0) return []
+  const months = new Set<number>()
+  for (let r = 0; r < Math.min(raw.length, 12); r += 1) {
+    for (let c = 0; c < (raw[r]?.length ?? 0); c += 1) {
+      if (normalizePeriodoLabel(raw[r][c])) months.add(c)
+    }
+  }
+  return Array.from(months).map((col) => ({
+    id: makeLocalId('param'),
+    mes: normalizePeriodoLabel(raw[0]?.[col] ?? '') || base.periodo,
+    empreiteiro: raw[1]?.[col] || base.nome,
+    nucleo: raw[2]?.[col] || base.nucleo,
+    contrato: raw[3]?.[col] || '',
+    engenheiro: raw[4]?.[col] || '',
+    gerenteProducao: raw[5]?.[col] || '',
+    revisao: raw[6]?.[col] || '',
+    data: cellDateOrText(raw[7]?.[col] || ''),
+    status: (/prev/i.test(raw[8]?.[col] || '') ? 'previa' : 'fechado') as 'previa' | 'fechado',
+  })).filter((item) => item.mes || item.empreiteiro || item.nucleo)
+}
+
+function parseSubDescontos(wb: XLSX.WorkBook): SubempreiteiroDescontoMensal[] {
+  const raw = getSheetByNorm(wb, /^descontos$/)
+  if (raw.length === 0) return []
+  const headerIdx = findHeaderRow(raw, (row) => /^mes rh agregados/.test(row) || (/mes/.test(row) && /agregados/.test(row)), 10)
+  if (headerIdx < 0) return []
+  return raw.slice(headerIdx + 1).map((row) => {
+    const mes = normalizePeriodoLabel(row[0]) || row[0]
+    if (!mes) return null
+    const values = row.slice(1, 12).map(toNum)
+    const total = values.reduce((sum, value) => sum + value, 0)
+    if (total === 0) return null
+    return {
+      id: makeLocalId('desc'),
+      mes,
+      rh: values[0] ?? 0,
+      agregados: values[1] ?? 0,
+      materiaisFerramentas: values[2] ?? 0,
+      materiaisEpi: values[3] ?? 0,
+      maquinas: values[4] ?? 0,
+      servicos: values[5] ?? 0,
+      veiculos: values[6] ?? 0,
+      combustivel: values[7] ?? 0,
+      abastecimentoComboio: values[8] ?? 0,
+      locEquipamentos: values[9] ?? 0,
+      epi: values[10] ?? 0,
+      total,
+      origem: 'Importação XLSX' as const,
+    }
+  }).filter(Boolean) as SubempreiteiroDescontoMensal[]
+}
+
+function parseSubRh(wb: XLSX.WorkBook): SubempreiteiroRhMensal[] {
+  const raw = getSheetByNorm(wb, /^rh$/)
+  if (raw.length < 3) return []
+  const monthRow = raw[1] ?? []
+  const monthCols = monthRow.map((value, col) => ({ col, mes: normalizePeriodoLabel(value) || value })).filter((item) => item.col > 0 && item.mes)
+  const rowByLabel = (pattern: RegExp) => raw.find((row) => pattern.test(norm(row[0] ?? ''))) ?? []
+  const clt = rowByLabel(/funcionarios clt/)
+  const pj = rowByLabel(/funcionarios pj/)
+  const adiantamento = rowByLabel(/adiantamento/)
+  const folha = rowByLabel(/folha salarial/)
+  const folhaPj = rowByLabel(/folha pj/)
+  const inss = rowByLabel(/inss/)
+  return monthCols.map(({ col, mes }) => {
+    const total = [adiantamento, folha, folhaPj, inss].reduce((sum, row) => sum + toNum(row[col]), 0)
+    return {
+      id: makeLocalId('rh'),
+      mes,
+      funcionariosClt: toNum(clt[col]),
+      funcionariosPj: toNum(pj[col]),
+      adiantamento: toNum(adiantamento[col]),
+      folhaSalarial: toNum(folha[col]),
+      folhaPj: toNum(folhaPj[col]),
+      inss: toNum(inss[col]),
+      total,
+      origem: 'Importação XLSX' as const,
+    }
+  }).filter((item) => item.total > 0 || item.funcionariosClt > 0 || item.funcionariosPj > 0)
+}
+
+function parseSubNfs(wb: XLSX.WorkBook): SubempreiteiroNotaFiscal[] {
+  const raw = getSheetByNorm(wb, /^nfs$/)
+  if (raw.length < 2) return []
+  return raw.slice(1).map((row) => {
+    const valorNf = toNum(row[4])
+    const numero = row[1]?.trim()
+    if (!numero && valorNf <= 0) return null
+    const status = norm(row[9]).includes('paga') ? 'PAGA' : norm(row[9]).includes('pend') ? 'PENDENTE' : 'ENVIADA'
+    return {
+      id: makeLocalId('nf'),
+      numero: numero || '',
+      fornecedor: row[2] || '',
+      observacao: row[3] || '',
+      valorNf,
+      valorPago: toNum(row[5]),
+      dataEmissao: cellDateOrText(row[6] || ''),
+      vencimento: cellDateOrText(row[7] || ''),
+      competencia: normalizePeriodoLabel(row[8]) || row[8] || '',
+      status,
+      dataPagamento: cellDateOrText(row[10] || ''),
+      origem: 'Importação XLSX' as const,
+    }
+  }).filter(Boolean) as SubempreiteiroNotaFiscal[]
+}
+
+function parseRetentionPercent(text: string) {
+  const match = text.match(/(\d+(?:[,.]\d+)?)\s*%/)
+  return match ? toNum(match[1]) : undefined
+}
+
+function parseSubItensRetencao(wb: XLSX.WorkBook, defaultPeriodo: string): SubempreteiroItem[] {
+  const raw = getSheetByNorm(wb, /^itens retencao$/)
+  if (raw.length === 0) return []
+  const headerIdx = findHeaderRow(raw, (row) => /descricao.*servico/.test(row) && /qntd|qtd/.test(row), 20)
+  if (headerIdx < 0) return []
+  const periodRow = raw[Math.max(0, headerIdx - 1)] ?? []
+  const headers = raw[headerIdx] ?? []
+  const pairs: Array<{ qtd: number; total: number; mes: string }> = []
+  for (let col = 0; col < headers.length; col += 1) {
+    if (!/qntd|qtd|quant/.test(norm(headers[col]))) continue
+    const total = headers.slice(col, col + 3).findIndex((h) => /preco total|valor|total/.test(norm(h)))
+    pairs.push({ qtd: col, total: total >= 0 ? col + total : col + 1, mes: normalizePeriodoLabel(periodRow[col]) || defaultPeriodo })
+  }
+  const items: SubempreteiroItem[] = []
+  for (let rowIndex = headerIdx + 1; rowIndex < raw.length; rowIndex += 1) {
+    const row = raw[rowIndex]
+    const descricao = row[1] || ''
+    const nPreco = row[2] || row[0] || ''
+    if (!descricao || /total|descricao/.test(norm(descricao))) continue
+    const obs = row.find((cell) => /retencao|reten/.test(norm(cell))) ?? ''
+    for (const pair of pairs) {
+      const qtd = toNum(row[pair.qtd])
+      const total = toNum(row[pair.total])
+      if (qtd <= 0 && total <= 0) continue
+      items.push({
+        id: makeLocalId('retitem'),
+        nPreco,
+        nPrecoSabesp: nPreco,
+        descricao,
+        unidade: row[3] || 'UN',
+        qtd,
+        valorUnitario: qtd > 0 ? total / qtd : 0,
+        mes: pair.mes,
+        origem: 'Importação XLSX',
+        retencaoObservacao: obs || 'Item com retenção',
+        retencaoPercentual: parseRetentionPercent(obs),
+      })
+    }
+  }
+  return items
+}
+
+function buildSubRetencoes(result: SubempreiteiroParseResult): SubempreiteiroRetencaoMensal[] {
+  const months = new Set<string>([
+    result.periodo,
+    ...(result.parametros ?? []).map((item) => item.mes),
+    ...(result.itens ?? []).map((item) => item.mes ?? ''),
+  ].filter(Boolean))
+  let saldo = 0
+  return Array.from(months).sort().map((mes) => {
+    const retidoPorItem = result.itens
+      .filter((item) => (item.mes || result.periodo) === mes && (item.retencaoPercentual || item.retencaoObservacao))
+      .reduce((sum, item) => {
+        const percent = item.retencaoPercentual ?? 0
+        return sum + (percent > 0 ? item.qtd * item.valorUnitario * (percent / 100) : 0)
+      }, 0)
+    const valorRetido = mes === result.periodo && result.totals.retencao > 0 ? result.totals.retencao : retidoPorItem
+    const valorLiberado = (result.nfs ?? []).filter((nf) => normalizePeriodoLabel(nf.competencia) === mes).reduce((sum, nf) => sum + nf.valorPago, 0)
+    const saldoAnterior = saldo
+    const saldoFinal = saldoAnterior + valorRetido - valorLiberado
+    saldo = saldoFinal
+    return {
+      id: makeLocalId('ret'),
+      mes,
+      valorRetido,
+      valorLiberado,
+      saldoAnterior,
+      saldoFinal,
+      observacao: 'Saldo calculado pela medição, retenção explícita e liberação de NF.',
+      origem: 'Importação XLSX' as const,
+    }
+  })
 }
 
 function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroParseResult {

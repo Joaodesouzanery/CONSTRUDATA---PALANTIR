@@ -72,12 +72,92 @@ export interface PlanilhaBaseMedicao {
 }
 
 export interface SubempreteiroItem {
+  id?:            string
   nPreco:        string
   nPrecoSabesp:  string   // vínculo com N. Preço da Sabesp para cross-reference
   descricao:     string
   unidade:       string
   qtd:           number
   valorUnitario: number
+  mes?:          string
+  origem?:       'Manual' | 'RDO Sabesp' | 'Importação XLSX'
+  sourceKey?:    string
+  rdoId?:        string
+  serviceId?:    string
+  contractorId?: string | null
+  nucleo?:       string
+  retencaoPercentual?: number
+  retencaoObservacao?: string
+}
+
+export interface SubempreiteiroParametroMensal {
+  id: string
+  mes: string
+  empreiteiro: string
+  nucleo: string
+  contrato: string
+  engenheiro: string
+  gerenteProducao: string
+  revisao: string
+  data: string
+  status: 'previa' | 'fechado'
+}
+
+export interface SubempreiteiroDescontoMensal {
+  id: string
+  mes: string
+  rh: number
+  agregados: number
+  materiaisFerramentas: number
+  materiaisEpi: number
+  maquinas: number
+  servicos: number
+  veiculos: number
+  combustivel: number
+  abastecimentoComboio: number
+  locEquipamentos: number
+  epi: number
+  total: number
+  origem?: 'Manual' | 'Importação XLSX'
+}
+
+export interface SubempreiteiroRhMensal {
+  id: string
+  mes: string
+  funcionariosClt: number
+  funcionariosPj: number
+  adiantamento: number
+  folhaSalarial: number
+  folhaPj: number
+  inss: number
+  total: number
+  origem?: 'Manual' | 'Importação XLSX'
+}
+
+export interface SubempreiteiroNotaFiscal {
+  id: string
+  numero: string
+  fornecedor: string
+  observacao: string
+  valorNf: number
+  valorPago: number
+  dataEmissao: string
+  vencimento: string
+  competencia: string
+  status: 'PAGA' | 'PENDENTE' | 'ENVIADA' | 'APROVADA' | 'GLOSADA'
+  dataPagamento: string
+  origem?: 'Manual' | 'Importação XLSX'
+}
+
+export interface SubempreiteiroRetencaoMensal {
+  id: string
+  mes: string
+  valorRetido: number
+  valorLiberado: number
+  saldoAnterior: number
+  saldoFinal: number
+  observacao: string
+  origem?: 'Manual' | 'RDO Sabesp' | 'Importação XLSX'
 }
 
 export interface Subempreiteiro {
@@ -85,7 +165,13 @@ export interface Subempreiteiro {
   nome:           string   // "VIALTA"
   nucleo:         string   // "São Manuel"
   periodo:        string   // "fev/26"
+  contractorId?:  string | null
   itens:          SubempreteiroItem[]
+  parametros?:    SubempreiteiroParametroMensal[]
+  descontos?:     SubempreiteiroDescontoMensal[]
+  rh?:            SubempreiteiroRhMensal[]
+  nfs?:           SubempreiteiroNotaFiscal[]
+  retencoes?:     SubempreiteiroRetencaoMensal[]
   totalMedido:    number
   totalAprovado:  number
   retencao:       number
@@ -144,6 +230,50 @@ export function getItensBaseCalculoFromBoletim(boletim?: MedicaoBoletim | null):
     : boletim.itensContrato
 }
 
+function makeSubItem(item: SubempreteiroItem): SubempreteiroItem {
+  return { ...item, id: item.id ?? crypto.randomUUID() }
+}
+
+function sumSubItems(items: SubempreteiroItem[]) {
+  return items.reduce((sum, item) => sum + item.qtd * item.valorUnitario, 0)
+}
+
+function normalizeSubKey(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function createRetentionBalance(retencoes: SubempreiteiroRetencaoMensal[] = []) {
+  let saldo = 0
+  return [...retencoes]
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .map((item) => {
+      const saldoAnterior = item.saldoAnterior || saldo
+      const saldoFinal = saldoAnterior + item.valorRetido - item.valorLiberado
+      saldo = saldoFinal
+      return { ...item, saldoAnterior, saldoFinal }
+    })
+}
+
+function ensureSubArrays(sub: Subempreiteiro): Subempreiteiro {
+  const itens = (sub.itens ?? []).map(makeSubItem)
+  return {
+    ...sub,
+    contractorId: sub.contractorId ?? null,
+    itens,
+    parametros: sub.parametros ?? [],
+    descontos: sub.descontos ?? [],
+    rh: sub.rh ?? [],
+    nfs: sub.nfs ?? [],
+    retencoes: createRetentionBalance(sub.retencoes ?? []),
+    totalMedido: sub.totalMedido || sumSubItems(itens),
+  }
+}
+
 // ─── Store state ──────────────────────────────────────────────────────────────
 
 interface MedicaoBillingState {
@@ -194,6 +324,20 @@ interface MedicaoBillingState {
   savePlanilhaBase: (meta?: { sourceName?: string; sourceTotals?: MedicaoSourceTotals; anchors?: MedicaoAnchorTotal[]; validations?: MedicaoValidation[] }) => void
   setPlanilhaBaseEnabled: (enabled: boolean) => void
   importSubempreiteiroItems: (subId: string, items: Omit<SubempreteiroItem, never>[], totals: { totalMedido: number; totalAprovado: number; retencao: number }) => void
+  importSubempreiteiroDetalhado: (subId: string, data: Partial<Pick<Subempreiteiro, 'itens' | 'parametros' | 'descontos' | 'rh' | 'nfs' | 'retencoes' | 'totalMedido' | 'totalAprovado' | 'retencao' | 'nome' | 'nucleo' | 'periodo'>>) => void
+  syncRdoSabespSubempreiteiros: (items: Array<{
+    contractorId: string
+    contractorName: string
+    nucleo: string
+    periodo: string
+    rdoId: string
+    rdoDate: string
+    serviceId: string
+    nPreco: string
+    descricao: string
+    unidade: string
+    qtd: number
+  }>) => void
   importFornecedores: (list: Omit<Fornecedor, 'id'>[], replace?: boolean) => void
 
   loadDemoData: () => void
@@ -297,7 +441,7 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
         set((s) => ({
           boletins: s.boletins.map((b) =>
             b.id === s.activeBoletimId
-              ? { ...b, subempreiteiros: [...b.subempreiteiros, { ...sub, id: crypto.randomUUID() }], updatedAt: new Date().toISOString() }
+              ? { ...b, subempreiteiros: [...b.subempreiteiros, ensureSubArrays({ ...sub, id: crypto.randomUUID() })], updatedAt: new Date().toISOString() }
               : b
           ),
         })),
@@ -559,12 +703,125 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
             b.id !== s.activeBoletimId ? b : {
               ...b,
               subempreiteiros: b.subempreiteiros.map((sub) =>
-                sub.id !== subId ? sub : { ...sub, ...totals, itens: items, updatedAt: new Date().toISOString() }
+                sub.id !== subId ? sub : ensureSubArrays({ ...sub, ...totals, itens: items.map((item) => ({ ...item, origem: item.origem ?? 'Importação XLSX' })) })
               ),
               updatedAt: new Date().toISOString(),
             }
           ),
         })),
+
+      importSubempreiteiroDetalhado: (subId, data) =>
+        set((s) => ({
+          boletins: s.boletins.map((b) => {
+            if (b.id !== s.activeBoletimId) return b
+            return {
+              ...b,
+              subempreiteiros: b.subempreiteiros.map((sub) => {
+                if (sub.id !== subId) return sub
+                const nextItens = data.itens
+                  ? [
+                      ...sub.itens.filter((item) => item.origem !== 'Importação XLSX'),
+                      ...data.itens.map((item) => makeSubItem({ ...item, origem: item.origem ?? 'Importação XLSX' })),
+                    ]
+                  : sub.itens
+                const retencoes = createRetentionBalance(data.retencoes ?? sub.retencoes ?? [])
+                return ensureSubArrays({
+                  ...sub,
+                  ...data,
+                  itens: nextItens,
+                  parametros: data.parametros ?? sub.parametros ?? [],
+                  descontos: data.descontos ?? sub.descontos ?? [],
+                  rh: data.rh ?? sub.rh ?? [],
+                  nfs: data.nfs ?? sub.nfs ?? [],
+                  retencoes,
+                  totalMedido: data.totalMedido ?? sumSubItems(nextItens),
+                  totalAprovado: data.totalAprovado ?? sub.totalAprovado,
+                  retencao: data.retencao ?? sub.retencao,
+                })
+              }),
+              updatedAt: new Date().toISOString(),
+            }
+          }),
+        })),
+
+      syncRdoSabespSubempreiteiros: (items) =>
+        set((s) => {
+          if (!s.activeBoletimId || items.length === 0) return s
+          const incomingRdoIds = new Set(items.map((item) => item.rdoId))
+          const bySub = new Map<string, typeof items>()
+          for (const item of items) {
+            const key = [
+              normalizeSubKey(item.contractorId),
+              normalizeSubKey(item.nucleo),
+              normalizeSubKey(item.periodo),
+            ].join('|')
+            bySub.set(key, [...(bySub.get(key) ?? []), item])
+          }
+
+          return {
+            boletins: s.boletins.map((b) => {
+              if (b.id !== s.activeBoletimId) return b
+              let subs = b.subempreiteiros.map((sub) => ensureSubArrays({
+                ...sub,
+                itens: sub.itens.filter((item) => !(item.origem === 'RDO Sabesp' && item.rdoId && incomingRdoIds.has(item.rdoId))),
+              }))
+
+              for (const group of bySub.values()) {
+                const first = group[0]
+                const keyMatch = (sub: Subempreiteiro) =>
+                  normalizeSubKey(sub.contractorId ?? '') === normalizeSubKey(first.contractorId)
+                  && normalizeSubKey(sub.nucleo) === normalizeSubKey(first.nucleo)
+                  && normalizeSubKey(sub.periodo) === normalizeSubKey(first.periodo)
+                let existing = subs.find(keyMatch)
+                if (!existing) {
+                  existing = ensureSubArrays({
+                    id: crypto.randomUUID(),
+                    contractorId: first.contractorId,
+                    nome: first.contractorName,
+                    nucleo: first.nucleo,
+                    periodo: first.periodo,
+                    itens: [],
+                    totalMedido: 0,
+                    totalAprovado: 0,
+                    retencao: 0,
+                  })
+                  subs = [...subs, existing]
+                }
+
+                const rdoItems: SubempreteiroItem[] = group.map((item) => makeSubItem({
+                  nPreco: item.nPreco,
+                  nPrecoSabesp: item.nPreco,
+                  descricao: item.descricao,
+                  unidade: item.unidade,
+                  qtd: item.qtd,
+                  valorUnitario: 0,
+                  mes: item.periodo,
+                  origem: 'RDO Sabesp',
+                  sourceKey: `${item.rdoId}|${item.serviceId}|${item.contractorId}|${item.nucleo}`,
+                  rdoId: item.rdoId,
+                  serviceId: item.serviceId,
+                  contractorId: item.contractorId,
+                  nucleo: item.nucleo,
+                }))
+
+                subs = subs.map((sub) => {
+                  if (sub.id !== existing?.id) return sub
+                  const nextItens = [...sub.itens, ...rdoItems]
+                  const totalMedido = sumSubItems(nextItens)
+                  const wasAutoApproved = sub.totalAprovado === 0 || Math.abs(sub.totalAprovado - sub.totalMedido) < 0.01
+                  return ensureSubArrays({
+                    ...sub,
+                    itens: nextItens,
+                    totalMedido,
+                    totalAprovado: wasAutoApproved ? totalMedido : sub.totalAprovado,
+                  })
+                })
+              }
+
+              return { ...b, subempreiteiros: subs, updatedAt: new Date().toISOString() }
+            }),
+          }
+        }),
 
       importFornecedores: (list, replace = false) =>
         set((s) => ({
@@ -607,7 +864,7 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
     }),
     {
       name: 'cdata-medicao-billing',
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Record<string, unknown>
         const boletins = (state.boletins ?? []) as Record<string, unknown>[]
@@ -646,6 +903,24 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
             const base = boletim.planilhaBase as Record<string, unknown>
             base.enabled = Boolean(base.enabled)
             base.itensSnapshot = Array.isArray(base.itensSnapshot) ? base.itensSnapshot : []
+          }
+        }
+        if (version < 5) {
+          for (const boletim of boletins) {
+            const subs = (boletim.subempreiteiros ?? []) as Record<string, unknown>[]
+            for (const sub of subs) {
+              sub.contractorId = sub.contractorId ?? null
+              sub.parametros = Array.isArray(sub.parametros) ? sub.parametros : []
+              sub.descontos = Array.isArray(sub.descontos) ? sub.descontos : []
+              sub.rh = Array.isArray(sub.rh) ? sub.rh : []
+              sub.nfs = Array.isArray(sub.nfs) ? sub.nfs : []
+              sub.retencoes = Array.isArray(sub.retencoes) ? sub.retencoes : []
+              const subItens = (sub.itens ?? []) as Record<string, unknown>[]
+              for (const item of subItens) {
+                item.id = item.id ?? crypto.randomUUID()
+                item.origem = item.origem ?? 'Manual'
+              }
+            }
           }
         }
         return state as unknown as MedicaoBillingState
