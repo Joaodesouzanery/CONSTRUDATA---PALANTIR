@@ -68,7 +68,7 @@ export const SERVICOS_AGUA: ServicoCatalogo[] = [
     codigo: "",
     descricao: "REPOSIÇÃO DO PAVIMENTO - VALA DE REDE",
     unidade: "M",
-    opcoesDisponiveis: ["Cimentado", "Asfalto"],
+    opcoesDisponiveis: ["Cimentado", "Asfalto", "DN32", "DN63", "DN100"],
   },
   {
     codigo: "",
@@ -80,7 +80,7 @@ export const SERVICOS_AGUA: ServicoCatalogo[] = [
     codigo: "",
     descricao: "REPOSIÇÃO DO PAVIMENTO - INTERLIGAÇÕES",
     unidade: "UN",
-    opcoesDisponiveis: ["Cimentado", "Asfalto"],
+    opcoesDisponiveis: ["Cimentado", "Asfalto", "DN 50 a 100", "DN 150 a 250"],
   },
 ];
 
