@@ -121,10 +121,24 @@ const loadImage = (src: string) =>
     img.src = src;
   });
 
+const AI_IMAGE_MAX_SIDE = 1400;
+const AI_IMAGE_MAX_BYTES = 850_000;
+const AI_IMAGE_QUALITIES = [0.82, 0.72, 0.62, 0.52];
+
+const blobToDataUrl = (blob: Blob) => toDataUrl(blob);
+
+const dataUrlByteSize = (dataUrl: string) => {
+  const base64 = dataUrl.split(",")[1] || "";
+  return Math.ceil((base64.length * 3) / 4);
+};
+
+const canvasToJpegBlob = (canvas: HTMLCanvasElement, quality: number) =>
+  new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+
 const prepareImageForAi = async (file: File) => {
   const original = await toDataUrl(file);
   const image = await loadImage(original);
-  const maxSide = 1800;
+  const maxSide = AI_IMAGE_MAX_SIDE;
   const largestSide = Math.max(image.naturalWidth, image.naturalHeight);
   const scale = largestSide > maxSide ? maxSide / largestSide : 1;
 
@@ -135,14 +149,37 @@ const prepareImageForAi = async (file: File) => {
   const context = canvas.getContext("2d");
   if (!context) return { original, aiImage: original };
 
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", 0.82);
-  });
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = imageData.data;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const gray = pixels[index] * 0.299 + pixels[index + 1] * 0.587 + pixels[index + 2] * 0.114;
+    const contrast = Math.max(0, Math.min(255, (gray - 128) * 1.22 + 128));
+    const cleaned = contrast > 242 ? 255 : contrast;
+    pixels[index] = cleaned;
+    pixels[index + 1] = cleaned;
+    pixels[index + 2] = cleaned;
+  }
+  context.putImageData(imageData, 0, 0);
 
-  if (!blob) return { original, aiImage: original };
-  return { original, aiImage: await toDataUrl(blob) };
+  for (const quality of AI_IMAGE_QUALITIES) {
+    const blob = await canvasToJpegBlob(canvas, quality);
+    if (!blob) continue;
+    const aiImage = await blobToDataUrl(blob);
+    if (dataUrlByteSize(aiImage) <= AI_IMAGE_MAX_BYTES || quality === AI_IMAGE_QUALITIES[AI_IMAGE_QUALITIES.length - 1]) {
+      return { original, aiImage };
+    }
+  }
+
+  return { original, aiImage: original };
+};
+
+const prepareBlobForAi = async (blob: Blob, name = "rdo-sabesp.jpg") => {
+  const file = new File([blob], name, { type: blob.type || "image/jpeg" });
+  return prepareImageForAi(file);
 };
 
 const dataUrlToBlob = async (dataUrl: string) => {
@@ -186,8 +223,16 @@ const parserErrorMessage = (error: any) => {
   const rawMessage = String(error?.message || error || "");
   const lower = rawMessage.toLowerCase();
 
-  if (lower.includes("failed to fetch") || lower.includes("networkerror") || lower.includes("load failed")) {
-    return "Nao foi possivel conectar ao parser de IA. Verifique a Edge Function parse-rdo-sabesp e tente novamente com uma foto menor.";
+  if (
+    lower.includes("failed to send a request") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("fetch failed") ||
+    lower.includes("networkerror") ||
+    lower.includes("load failed") ||
+    lower.includes("edge function") ||
+    lower.includes("functions.invoke")
+  ) {
+    return "Nao foi possivel conectar ao parser de IA. A foto foi mantida para revisao manual; verifique a Edge Function parse-rdo-sabesp e tente novamente depois.";
   }
 
   if (lower.includes("timeout")) {
@@ -208,6 +253,32 @@ const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
   if (response.data?.error) throw new Error(response.data.error);
   return response.data?.data || {};
 };
+
+const makePhotoParserFallback = (current: any, planilhaFotoUrl: string, reason: string) => ({
+  report_date: current?.report_date || "",
+  encarregado: current?.encarregado || "",
+  rua_beco: current?.rua_beco || "",
+  criadouro: current?.criadouro || "",
+  criadouro_outro: current?.criadouro_outro || "",
+  condicoes_climaticas: current?.condicoes_climaticas,
+  qualidade: current?.qualidade,
+  paralisacoes: current?.paralisacoes || [],
+  paralisacao_outro: current?.paralisacao_outro || "",
+  horarios: current?.horarios,
+  mao_de_obra: [],
+  equipamentos: [],
+  servicos_esgoto: [],
+  servicos_agua: [],
+  observacoes:
+    current?.observacoes ||
+    `Foto da planilha importada para revisao manual. Parser de IA indisponivel: ${reason}`,
+  responsavel_empreiteira: current?.responsavel_empreiteira || "",
+  responsavel_consorcio: current?.responsavel_consorcio || "",
+  planilha_foto_url: planilhaFotoUrl,
+  confidence_by_field: { fallback_local: 0 },
+});
+
+const isPhotoParserFallback = (snapshot: any) => snapshot?.confidence_by_field?.fallback_local === 0;
 
 const parseTextLocally = (text: string) => {
   const parsed = parseRdoSabespWhatsappText(text);
@@ -588,9 +659,13 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     const response = await fetch(url);
     if (!response.ok) throw new Error("Não foi possível abrir a foto original da planilha.");
     const blob = await response.blob();
-    const base64 = await toDataUrl(blob);
+    const { aiImage } = await prepareBlobForAi(blob);
 
-    return invokeRdoSabespParser({ mode: "image", image_base64: base64 });
+    try {
+      return await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
+    } catch (error) {
+      return makePhotoParserFallback(data, url, parserErrorMessage(error));
+    }
   };
 
   const refreshComparison = async () => {
@@ -604,6 +679,11 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     try {
       const snapshot = sourceSnapshot || await extractFromPhotoUrl(data.planilha_foto_url);
       if (!sourceSnapshot) setSourceSnapshot(snapshot);
+      if (isPhotoParserFallback(snapshot)) {
+        setComparisonError("Comparação automática indisponível porque o parser de IA não respondeu. Confira a foto anexada manualmente.");
+        setDivergences([]);
+        return;
+      }
       setDivergences(compareRdoSabespData(data, snapshot, compareGroups));
       setComparisonError(null);
     } catch (error: any) {
@@ -664,6 +744,11 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
             const snapshot = sourceSnapshot || await extractFromPhotoUrl(data.planilha_foto_url);
             if (active && !sourceSnapshot) setSourceSnapshot(snapshot);
             if (active) {
+              if (isPhotoParserFallback(snapshot)) {
+                setComparisonError("Comparação automática indisponível porque o parser de IA não respondeu. Confira a foto anexada manualmente.");
+                setDivergences([]);
+                return;
+              }
               setDivergences(compareRdoSabespData(data, snapshot, compareGroups));
               setComparisonError(null);
             }
@@ -690,18 +775,34 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       const { original, aiImage } = await prepareImageForAi(file);
       let planilhaFotoPath: string | null = null;
       let planilhaFotoUrl = original;
+      const currentOrgId = await getOrganizationId();
 
-      if (orgId) {
-        const folder = `${orgId}/no-project`;
-        const prepared = await resizeImageForStorage(file);
-        planilhaFotoPath = await uploadRdoImage(`${folder}/source`, prepared.fileName, prepared.blob);
-        const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(planilhaFotoPath, 60 * 60);
-        planilhaFotoUrl = signed?.signedUrl || prepared.preview;
+      if (currentOrgId) {
+        try {
+          const folder = `${currentOrgId}/no-project`;
+          const prepared = await resizeImageForStorage(file);
+          planilhaFotoPath = await uploadRdoImage(`${folder}/source`, prepared.fileName, prepared.blob);
+          const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(planilhaFotoPath, 60 * 60);
+          planilhaFotoUrl = signed?.signedUrl || prepared.preview;
+        } catch (error) {
+          console.warn("Nao foi possivel armazenar a foto original do RDO Sabesp; usando preview local:", error);
+          toast.warning("Nao consegui subir a foto agora. Ela foi mantida localmente para revisao.");
+        }
       }
       set("planilha_foto_path", planilhaFotoPath);
       set("planilha_foto_url", planilhaFotoUrl);
 
-      const extractedSnapshot = await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
+      let extractedSnapshot: any;
+      let usedLocalFallback = false;
+      let parserFailure: any = null;
+      try {
+        extractedSnapshot = await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
+      } catch (error) {
+        parserFailure = error;
+        usedLocalFallback = true;
+        extractedSnapshot = makePhotoParserFallback(data, planilhaFotoUrl, parserErrorMessage(error));
+        console.warn("Parser de IA do RDO Sabesp indisponivel; usando fallback local:", error);
+      }
       setSourceSnapshot(extractedSnapshot);
 
       const extracted = { ...extractedSnapshot };
@@ -711,18 +812,26 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       }));
       if (extracted.assinatura_empreiteira_presente) {
         extracted.assinatura_empreiteira_url = signatureCrops.empreiteira;
-        if (orgId) {
-          const blob = await dataUrlToBlob(signatureCrops.empreiteira);
-          const path = await uploadRdoImage(`${orgId}/no-project/signatures`, `assinatura-empreiteira-${Date.now()}.png`, blob);
-          extracted.assinatura_empreiteira_path = path;
+        if (currentOrgId) {
+          try {
+            const blob = await dataUrlToBlob(signatureCrops.empreiteira);
+            const path = await uploadRdoImage(`${currentOrgId}/no-project/signatures`, `assinatura-empreiteira-${Date.now()}.png`, blob);
+            extracted.assinatura_empreiteira_path = path;
+          } catch (error) {
+            console.warn("Nao foi possivel armazenar a assinatura da empreiteira:", error);
+          }
         }
       }
       if (extracted.assinatura_consorcio_presente) {
         extracted.assinatura_consorcio_url = signatureCrops.consorcio;
-        if (orgId) {
-          const blob = await dataUrlToBlob(signatureCrops.consorcio);
-          const path = await uploadRdoImage(`${orgId}/no-project/signatures`, `assinatura-consorcio-${Date.now()}.png`, blob);
-          extracted.assinatura_consorcio_path = path;
+        if (currentOrgId) {
+          try {
+            const blob = await dataUrlToBlob(signatureCrops.consorcio);
+            const path = await uploadRdoImage(`${currentOrgId}/no-project/signatures`, `assinatura-consorcio-${Date.now()}.png`, blob);
+            extracted.assinatura_consorcio_path = path;
+          } catch (error) {
+            console.warn("Nao foi possivel armazenar a assinatura do consorcio:", error);
+          }
         }
       }
       delete extracted.assinatura_empreiteira_presente;
@@ -732,7 +841,14 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       delete extracted.confidence_by_field;
 
       mergeExtracted(extracted);
-      toast.success("Foto processada! Confira os dados.");
+      if (usedLocalFallback) {
+        toast.warning(
+          "Nao consegui conectar ao parser de IA. Mantive a foto da planilha e abri o RDO para preenchimento/conferencia manual.",
+        );
+        console.warn("Falha original do parser de foto:", parserFailure);
+      } else {
+        toast.success("Foto processada! Confira os dados.");
+      }
       setStep("edit");
     } catch (error: any) {
       toast.error("Erro ao processar foto: " + parserErrorMessage(error));
@@ -784,11 +900,12 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) throw new Error("Usuário não autenticado");
-      if (!orgId) throw new Error("Organizacao nao carregada.");
+      const currentOrgId = await getOrganizationId();
+      if (!currentOrgId) throw new Error("Organizacao nao carregada.");
 
       const payload = stripLocalRdoSabespFields({
         ...localRecord,
-        organization_id: orgId,
+        organization_id: currentOrgId,
         project_id: null,
         created_by: authData.user.id,
         status: nextStatus,
