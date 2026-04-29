@@ -243,13 +243,45 @@ const parserErrorMessage = (error: any) => {
 };
 
 const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
-  const response = await withTimeout(
-    supabase.functions.invoke("parse-rdo-sabesp", { body }),
-    75_000,
-    "timeout ao chamar parse-rdo-sabesp",
-  );
+  const invokeVercelParser = async () => {
+    const apiResponse = await withTimeout(
+      fetch("/api/parse-rdo-sabesp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      75_000,
+      "timeout ao chamar /api/parse-rdo-sabesp",
+    );
 
-  if (response.error) throw response.error;
+    let payload: any = null;
+    try {
+      payload = await apiResponse.json();
+    } catch {
+      payload = null;
+    }
+
+    if (!apiResponse.ok) throw new Error(payload?.error || `Erro ${apiResponse.status} no parser Vercel`);
+    if (payload?.error) throw new Error(payload.error);
+    return payload?.data || {};
+  };
+
+  let response: any;
+  try {
+    response = await withTimeout(
+      supabase.functions.invoke("parse-rdo-sabesp", { body }),
+      75_000,
+      "timeout ao chamar parse-rdo-sabesp",
+    );
+  } catch (error) {
+    console.warn("Parser Supabase indisponivel; tentando parser Vercel:", error);
+    return invokeVercelParser();
+  }
+
+  if (response.error) {
+    console.warn("Parser Supabase retornou erro; tentando parser Vercel:", response.error);
+    return invokeVercelParser();
+  }
   if (response.data?.error) throw new Error(response.data.error);
   return response.data?.data || {};
 };

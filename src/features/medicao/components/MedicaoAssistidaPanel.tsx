@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, ClipboardCheck, FileSpreadsheet, Link2, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { AlertTriangle, CheckCircle2, ClipboardCheck, FileSpreadsheet, Link2, Plus, Trash2, Upload } from 'lucide-react'
 import { useMedicaoAssistidaStore, type MedicaoAssistidaItem, type MedicaoAssistidaParceiro } from '@/store/medicaoAssistidaStore'
 import { getItensBaseCalculoFromBoletim, useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -31,6 +31,14 @@ const tabs: { key: AssistidaTab; label: string }[] = [
 const brl = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const num = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
 const decimal = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+const firstValue = (row: Record<string, unknown>, keys: string[]) => {
+  const normalized = Object.fromEntries(Object.entries(row).map(([key, value]) => [key.trim().toLowerCase(), value]))
+  for (const key of keys) {
+    const value = normalized[key.toLowerCase()]
+    if (value !== undefined && value !== null && String(value).trim() !== '') return value
+  }
+  return ''
+}
 
 function SmallInput({ value, onChange, type = 'text', className }: { value: string | number; onChange: (value: string) => void; type?: string; className?: string }) {
   return (
@@ -120,6 +128,9 @@ export function MedicaoAssistidaPanel() {
   const lpsRestrictions = useLpsStore((state) => state.restrictions)
   const rdos = useRdoStore((state) => state.rdos)
   const [tab, setTab] = useState<AssistidaTab>('fluxo')
+  const itemImportRef = useRef<HTMLInputElement>(null)
+  const criterioImportRef = useRef<HTMLInputElement>(null)
+  const parceiroImportRef = useRef<HTMLInputElement>(null)
 
   const activeBoletim = boletins.find((boletim) => boletim.id === activeBoletimId)
   const medicao = medicoes.find((item) => item.id === activeMedicaoId) ?? medicoes[0] ?? null
@@ -135,7 +146,9 @@ export function MedicaoAssistidaPanel() {
   const saldoContrato = medicaoItens.reduce((total, item) => total + Math.max(0, item.qtdContrato - item.qtdAnterior - item.qtdPeriodo) * item.precoUnitario, 0)
 
   function createDefaultMedicao() {
+    const sequence = medicoes.length + 1
     const id = createMedicao({
+      nome: `Medição Assistida ${sequence}`,
       periodo: activeBoletim?.periodo ?? 'mai/26',
       contrato: activeBoletim?.contrato ?? '11481051',
       obra: activeBoletim?.consorcio ?? 'SE LIGA NA REDE - SANTOS',
@@ -143,6 +156,70 @@ export function MedicaoAssistidaPanel() {
       origem: activeBoletim ? 'Boletim Sabesp existente' : 'Criada do zero no sistema',
     })
     setActiveMedicao(id)
+    setTab('final')
+  }
+
+  async function readSheetRows(file: File) {
+    const XLSX = await import('xlsx')
+    const buffer = await file.arrayBuffer()
+    const workbook = XLSX.read(buffer, { type: 'array' })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+  }
+
+  async function importItens(file: File | null) {
+    if (!file || !medicao) return
+    const rows = await readSheetRows(file)
+    rows.forEach((row, index) => {
+      addItem({
+        medicaoId: medicao.id,
+        codigo: String(firstValue(row, ['codigo', 'código', 'npreco', 'n preço', 'nPreço']) || `ITEM-${String(medicaoItens.length + index + 1).padStart(3, '0')}`),
+        descricao: String(firstValue(row, ['descricao', 'descrição', 'item', 'atividade']) || 'Item importado'),
+        unidade: String(firstValue(row, ['unidade', 'un']) || 'un'),
+        qtdContrato: num(firstValue(row, ['qtd contrato', 'quantidade contrato', 'contrato'])),
+        qtdAnterior: num(firstValue(row, ['qtd anterior', 'anterior', 'acumulado anterior'])),
+        qtdPeriodo: num(firstValue(row, ['qtd periodo', 'qtd período', 'periodo', 'período', 'quantidade'])),
+        precoUnitario: num(firstValue(row, ['preco unitario', 'preço unitário', 'pu', 'valor unitario', 'valor unitário'])),
+        criterioId: criterios[0]?.id ?? '',
+        fornecedor: String(firstValue(row, ['fornecedor'])),
+        subempreiteiro: String(firstValue(row, ['subempreiteiro'])),
+        evidencia: String(firstValue(row, ['evidencia', 'evidência'])),
+        origem: `Importado de ${file.name}`,
+      })
+    })
+  }
+
+  async function importCriterios(file: File | null) {
+    if (!file) return
+    const rows = await readSheetRows(file)
+    rows.forEach((row) => {
+      addCriterio({
+        nome: String(firstValue(row, ['nome', 'criterio', 'critério']) || 'Critério importado'),
+        regra: String(firstValue(row, ['regra', 'descricao', 'descrição']) || 'Regra importada.'),
+        unidade: String(firstValue(row, ['unidade', 'un']) || 'un'),
+        evidenciaObrigatoria: String(firstValue(row, ['evidencia', 'evidência', 'evidencia obrigatoria', 'evidência obrigatória'])),
+        condicaoAceite: String(firstValue(row, ['condicao aceite', 'condição aceite', 'aceite', 'condicao'])),
+      })
+    })
+  }
+
+  async function importParceiros(file: File | null) {
+    if (!file || !medicao) return
+    const rows = await readSheetRows(file)
+    rows.forEach((row) => {
+      const tipoRaw = String(firstValue(row, ['tipo', 'categoria'])).toLowerCase()
+      addParceiro({
+        medicaoId: medicao.id,
+        tipo: tipoRaw.includes('forn') ? 'fornecedor' : 'subempreiteiro',
+        nome: String(firstValue(row, ['nome', 'parceiro', 'fornecedor', 'subempreiteiro']) || 'Parceiro importado'),
+        itemCodigo: String(firstValue(row, ['item', 'codigo item', 'código item', 'codigo', 'código'])),
+        valorMedido: num(firstValue(row, ['valor medido', 'medido'])),
+        valorAprovado: num(firstValue(row, ['valor aprovado', 'aprovado', 'valor'])),
+        retencao: num(firstValue(row, ['retencao', 'retenção'])),
+        nf: String(firstValue(row, ['nf', 'nota fiscal'])),
+        status: 'pendente',
+      })
+    })
   }
 
   function addManualItem() {
@@ -219,7 +296,7 @@ export function MedicaoAssistidaPanel() {
         <div className="flex flex-wrap items-center gap-2">
           {medicoes.length > 0 && (
             <select value={medicao?.id ?? ''} onChange={(event) => setActiveMedicao(event.target.value)} className="h-9 rounded border border-[#525252] bg-[#1f1f1f] px-2 text-xs text-[#f5f5f5]">
-              {medicoes.map((item) => <option key={item.id} value={item.id}>{item.periodo} - {item.contrato}</option>)}
+              {medicoes.map((item) => <option key={item.id} value={item.id}>{item.nome || `${item.periodo} - ${item.contrato}`}</option>)}
             </select>
           )}
           <button onClick={createDefaultMedicao} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ea580c]">
@@ -236,6 +313,14 @@ export function MedicaoAssistidaPanel() {
             <Kpi label="Saldo contratual" value={brl(saldoContrato)} tone="text-[#38bdf8]" />
             <Kpi label="Parceiros aprovados" value={brl(totalParceiros)} tone="text-[#fbbf24]" />
             <Kpi label="Divergências abertas" value={divergenciasAbertas.length} tone={divergenciasAbertas.length > 0 ? 'text-[#f87171]' : 'text-[#4ade80]'} />
+          </div>
+
+          <div className="grid gap-3 rounded-lg border border-[#525252] bg-[#2c2c2c] p-4 md:grid-cols-5">
+            <SmallInput value={medicao.nome || ''} onChange={(value) => updateMedicao(medicao.id, { nome: value })} />
+            <SmallInput value={medicao.periodo} onChange={(value) => updateMedicao(medicao.id, { periodo: value })} />
+            <SmallInput value={medicao.contrato} onChange={(value) => updateMedicao(medicao.id, { contrato: value })} />
+            <SmallInput value={medicao.obra} onChange={(value) => updateMedicao(medicao.id, { obra: value })} />
+            <SmallInput value={medicao.responsavel} onChange={(value) => updateMedicao(medicao.id, { responsavel: value })} />
           </div>
 
           <div className="flex flex-wrap gap-1 rounded-lg border border-[#525252] bg-[#2c2c2c] p-1">
@@ -271,6 +356,8 @@ export function MedicaoAssistidaPanel() {
               <div className="flex flex-wrap gap-2">
                 <button onClick={addManualItem} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white"><Plus size={14} /> Item manual</button>
                 <button onClick={mirrorSabespItems} disabled={!activeBoletim} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-xs font-semibold text-[#f5f5f5] disabled:opacity-40"><FileSpreadsheet size={14} /> Espelhar Sabesp</button>
+                <button onClick={() => itemImportRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-xs font-semibold text-[#f5f5f5]"><Upload size={14} /> Importar itens</button>
+                <input ref={itemImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => { void importItens(event.target.files?.[0] ?? null); event.target.value = '' }} />
               </div>
               <div className="overflow-x-auto rounded-lg border border-[#525252]">
                 <table className="w-full min-w-[1180px] text-xs">
@@ -306,6 +393,10 @@ export function MedicaoAssistidaPanel() {
 
           {tab === 'criterios' && (
             <div className="grid gap-3 lg:grid-cols-2">
+              <div className="flex flex-wrap gap-2 lg:col-span-2">
+                <button onClick={() => criterioImportRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-xs font-semibold text-[#f5f5f5]"><Upload size={14} /> Importar critérios</button>
+                <input ref={criterioImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => { void importCriterios(event.target.files?.[0] ?? null); event.target.value = '' }} />
+              </div>
               {criterios.map((criterio) => (
                 <div key={criterio.id} className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -351,6 +442,8 @@ export function MedicaoAssistidaPanel() {
               <div className="flex flex-wrap gap-2">
                 <button onClick={() => addDefaultParceiro('subempreiteiro')} className="rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white">+ Subempreiteiro</button>
                 <button onClick={() => addDefaultParceiro('fornecedor')} className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-xs font-semibold text-[#f5f5f5]">+ Fornecedor</button>
+                <button onClick={() => parceiroImportRef.current?.click()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-xs font-semibold text-[#f5f5f5]"><Upload size={14} /> Importar parceiros</button>
+                <input ref={parceiroImportRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(event) => { void importParceiros(event.target.files?.[0] ?? null); event.target.value = '' }} />
               </div>
               <div className="overflow-x-auto rounded-lg border border-[#525252]">
                 <table className="w-full min-w-[980px] text-xs">

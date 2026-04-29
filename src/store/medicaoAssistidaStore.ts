@@ -7,6 +7,7 @@ export type MedicaoAssistidaDivergenciaStatus = 'pendente' | 'resolvida'
 
 export interface MedicaoAssistida {
   id: string
+  nome?: string
   periodo: string
   contrato: string
   obra: string
