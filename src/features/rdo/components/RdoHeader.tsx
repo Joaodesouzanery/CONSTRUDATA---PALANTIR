@@ -12,6 +12,7 @@ const TABS: { key: RdoTab | 'sabesp'; label: string }[] = [
   { key: 'dashboard',  label: 'Dashboard'         },
   { key: 'novo',       label: '+ Novo RDO'         },
   { key: 'sabesp',     label: 'RDO Sabesp'         },
+  { key: 'empreiteiros', label: 'Empreiteiros'     },
   { key: 'historico',  label: 'Histórico de RDOs'  },
   { key: 'integracao', label: 'RDO × Planejamento' },
   { key: 'financeiro', label: 'Financeiro'         },

@@ -10,6 +10,7 @@ import {
   Droplets, FileDown, ImageIcon, ImageOff, Pencil,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { useContractorStore } from '@/store/contractorStore'
 import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import type { RDO, RdoWeatherCondition } from '@/types'
@@ -462,6 +463,9 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
 
 function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  const contractor = useContractorStore((state) =>
+    state.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado }),
+  )
   const activities = getExecutedActivities(rdo)
   const services = getRdoSabespExecutedServices(rdo)
   const totalQuantity = sumExecutedQuantities(rdo)
@@ -509,6 +513,9 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
                 Sem foto
               </span>
             )}
+            <span className={`rounded-full border px-2 py-0.5 text-xs ${contractor ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+              {contractor?.name || 'Empreiteira nao identificada'}
+            </span>
             {rdo.encarregado && <span className="text-sm text-[#a3a3a3]">• {rdo.encarregado}</span>}
           </div>
 
@@ -572,6 +579,7 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
 
 export function HistoricoPanel() {
   const { rdos, removeRdo, updateRdo } = useRdoStore()
+  const loadContractors = useContractorStore((state) => state.load)
   const navigate = useNavigate()
   const [sabespRdos, setSabespRdos] = useState<SabespHistoryRecord[]>(() => readLocalRdoSabesp() as SabespHistoryRecord[])
   const [search, setSearch]     = useState('')
@@ -612,10 +620,11 @@ export function HistoricoPanel() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void loadSabespHistory()
+      void loadContractors()
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [loadSabespHistory])
+  }, [loadSabespHistory, loadContractors])
 
   const filtered = useMemo(() => {
     return rdos

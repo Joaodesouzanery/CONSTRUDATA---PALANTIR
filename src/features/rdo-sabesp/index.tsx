@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { RdoHeader } from "@/features/rdo/components/RdoHeader";
+import { useContractorStore } from "@/store/contractorStore";
 import { RdoSabespForm } from "./components/RdoSabespForm";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespDashboardMetrics, sumExecutedQuantities } from "./lib/rdoSabespUtils";
@@ -110,6 +111,11 @@ export function RdoSabespPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
+  const contractorStore = useContractorStore();
+
+  useEffect(() => {
+    void contractorStore.load();
+  }, [contractorStore.load]);
 
   const load = useCallback(async () => {
     const localRows = readLocalRdoSabesp();
@@ -432,6 +438,11 @@ export function RdoSabespPage() {
                     const isDraft = rdo.status === "draft";
                     const isExpanded = expandedActivities.has(rdo.id);
                     const visibleActivities = isExpanded ? activities : activities.slice(0, 6);
+                    const contractor = contractorStore.resolveRdoContractor({
+                      rdoId: rdo.id,
+                      rdoType: "sabesp",
+                      foremanName: rdo.encarregado,
+                    });
 
                     return (
                       <div key={rdo.id} className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-4 shadow-sm">
@@ -473,6 +484,9 @@ export function RdoSabespPage() {
                                     Sem foto
                                   </Badge>
                                 )}
+                                <Badge variant="outline" className={contractor ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}>
+                                  {contractor?.name || "Empreiteira nao identificada"}
+                                </Badge>
                                 {rdo.encarregado && <span className="text-sm text-[#a3a3a3]">- {rdo.encarregado}</span>}
                               </div>
 

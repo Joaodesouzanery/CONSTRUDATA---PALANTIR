@@ -13,7 +13,7 @@
  * kept intact and accessible via a toggle at the bottom of the page.
  */
 import { useState } from 'react'
-import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History, Download } from 'lucide-react'
+import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History, Download, FileText } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { SabespPlanilhaPanel }   from './components/SabespPlanilhaPanel'
@@ -24,6 +24,7 @@ import { ConferenciaPanel }      from './components/ConferenciaPanel'
 import { MedicaoFinalPanel }     from './components/MedicaoFinalPanel'
 import { HistoricoPanel }        from './components/HistoricoPanel'
 import { MedicaoAssistidaPanel } from './components/MedicaoAssistidaPanel'
+import { RdoEmpreiteiroMedicaoPanel } from './components/RdoEmpreiteiroMedicaoPanel'
 import type { BillingStep } from '@/store/medicaoBillingStore'
 
 // ─── Steps metadata ───────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ function NewBoletimModal({ onClose }: { onClose: () => void }) {
 
 // ─── Stepper header ───────────────────────────────────────────────────────────
 
-function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: () => void; onShowAssistida: () => void }) {
+function StepperHeader({ onShowHistorico, onShowAssistida, onShowRdoEmpreiteiros }: { onShowHistorico: () => void; onShowAssistida: () => void; onShowRdoEmpreiteiros: () => void }) {
   const { activeStep, setActiveStep, getActiveBoletim, boletins, setActiveBoletim } = useMedicaoBillingStore()
   const [newOpen, setNewOpen] = useState(false)
   const boletim = getActiveBoletim()
@@ -268,6 +269,14 @@ function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: 
             >
               <Calculator size={14} />
               Medição Assistida
+            </button>
+            <button
+              type="button"
+              onClick={onShowRdoEmpreiteiros}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              <FileText size={14} />
+              RDO por Empreiteiro
             </button>
             <button
               type="button"
@@ -378,7 +387,7 @@ export function MedicaoPage() {
   const { activeStep, getActiveBoletim, boletins } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const hasBoletins = boletins.length > 0
-  const [view, setView] = useState<'stepper' | 'historico' | 'assistida'>('stepper')
+  const [view, setView] = useState<'stepper' | 'historico' | 'assistida' | 'rdo_empreiteiros'>('stepper')
 
   function renderStep() {
     switch (activeStep) {
@@ -419,6 +428,33 @@ export function MedicaoPage() {
     )
   }
 
+  if (view === 'rdo_empreiteiros') {
+    return (
+      <div className="flex flex-col h-full bg-gray-950">
+        <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-3 flex items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#f97316' }}>
+              <FileText size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-white font-semibold text-base">RDO por Empreiteiro</h1>
+              <p className="text-[#a3a3a3] text-xs">Medicao por nucleo, empreiteira e origem auditavel</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setView('stepper')}
+            className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          >
+            Voltar ao fluxo atual
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <RdoEmpreiteiroMedicaoPanel />
+        </div>
+      </div>
+    )
+  }
+
   if (!hasBoletins || view === 'historico') {
     return (
       <div className="flex flex-col h-full bg-gray-950">
@@ -441,12 +477,20 @@ export function MedicaoPage() {
             </button>
           )}
           {view !== 'historico' && (
-            <button
-              onClick={() => setView('assistida')}
-              className="px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
-            >
-              Medição Assistida
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setView('assistida')}
+                className="px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
+              >
+                Medição Assistida
+              </button>
+              <button
+                onClick={() => setView('rdo_empreiteiros')}
+                className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+              >
+                RDO por Empreiteiro
+              </button>
+            </div>
           )}
         </div>
         <div className="flex-1 overflow-auto">
@@ -461,7 +505,7 @@ export function MedicaoPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
-      <StepperHeader onShowHistorico={() => setView('historico')} onShowAssistida={() => setView('assistida')} />
+      <StepperHeader onShowHistorico={() => setView('historico')} onShowAssistida={() => setView('assistida')} onShowRdoEmpreiteiros={() => setView('rdo_empreiteiros')} />
       <div className="flex-1 overflow-auto">
         {boletim ? renderStep() : (
           <div className="p-8 text-center text-[#6b6b6b] text-sm">
