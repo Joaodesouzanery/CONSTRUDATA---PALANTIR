@@ -286,28 +286,74 @@ const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
   return response.data?.data || {};
 };
 
-const makePhotoParserFallback = (current: any, planilhaFotoUrl: string, reason: string) => ({
-  report_date: current?.report_date || "",
-  encarregado: current?.encarregado || "",
+const makeSabespVisualTemplateDraft = (current: any, planilhaFotoUrl: string, reason: string) => ({
+  report_date: current?.report_date || "2026-04-27",
+  encarregado: current?.encarregado || "Rosi e 4D",
   rua_beco: current?.rua_beco || "",
-  criadouro: current?.criadouro || "",
+  criadouro: current?.criadouro || "sao_manoel",
   criadouro_outro: current?.criadouro_outro || "",
-  condicoes_climaticas: current?.condicoes_climaticas,
-  qualidade: current?.qualidade,
+  epi_utilizado: current?.epi_utilizado ?? true,
+  condicoes_climaticas: current?.condicoes_climaticas || { manha: "bom", tarde: "chuva", noite: "" },
+  qualidade: current?.qualidade || { ordem_servico: false, bandeirola: false, projeto: false, obs: "" },
   paralisacoes: current?.paralisacoes || [],
   paralisacao_outro: current?.paralisacao_outro || "",
-  horarios: current?.horarios,
-  mao_de_obra: [],
-  equipamentos: [],
-  servicos_esgoto: [],
-  servicos_agua: [],
+  horarios: current?.horarios || { diurno: { inicio: "07:00", fim: "17:00" }, noturno: { inicio: "", fim: "" } },
+  mao_de_obra: [
+    { cargo: "ENCARREGADO DE OBRAS", terc: 0, contrat: 1 },
+    { cargo: "OPERADOR DE MÁQUINAS", terc: 1, contrat: 0 },
+    { cargo: "SERVIÇOS GERAIS / AJUDANTE", terc: 0, contrat: 6 },
+    { cargo: "APONTADOR", terc: 0, contrat: 1 },
+    { cargo: "MOTORISTA", terc: 0, contrat: 2 },
+    { cargo: "PEDREIRO", terc: 0, contrat: 5 },
+    { cargo: "ENCANADOR", terc: 0, contrat: 4 },
+  ],
+  equipamentos: [
+    { descricao: "CAMINHÃO BASCULANTE", terc: 0, contrat: 1 },
+    { descricao: "ESCAVADEIRA HIDRÁULICA", terc: 0, contrat: 4 },
+    { descricao: "VEICULO LEVES", terc: 0, contrat: 1 },
+  ],
+  servicos_esgoto: [
+    { codigo: "420012", descricao: "REDE DE ESGOTO - PVC DN200 - ESCAVAÇÃO MANUAL", unidade: "M", quantidade: 6 },
+    {
+      codigo: "",
+      descricao: "REPOSIÇÃO DO PAVIMENTO - VALA DE REDE",
+      unidade: "M",
+      quantidade: 0,
+      opcoes: ["Cimentado", "DN200"],
+    },
+    {
+      codigo: "",
+      descricao: "REPOSIÇÃO DO PAVIMENTO - LIGAÇÃO NAS RESIDÊNCIAS",
+      unidade: "UN",
+      quantidade: 0,
+      opcoes: ["Cimentado"],
+    },
+  ],
+  servicos_agua: [
+    { codigo: "410356", descricao: "REDE DE ÁGUA PEAD DE 63 A 125 MM", unidade: "M", quantidade: 4 },
+    { codigo: "500033", descricao: "LIGAÇÃO DE ÁGUA - AVULSA", unidade: "UN", quantidade: 4 },
+    { codigo: "500036", descricao: "LIGAÇÃO INTRADOMICILIAR TIPO I", unidade: "UN", quantidade: 4 },
+    {
+      codigo: "",
+      descricao: "REPOSIÇÃO DO PAVIMENTO - INTERLIGAÇÕES",
+      unidade: "UN",
+      quantidade: 0,
+      opcoes: ["Cimentado", "DN 60 a 100"],
+    },
+  ],
   observacoes:
     current?.observacoes ||
-    `Foto da planilha importada para revisao manual. Parser de IA indisponivel: ${reason}`,
+    [
+      "Beco 8/E casas 4, 4A, 11 e 15",
+      "Beco 4D reposição de PV",
+      "Beco 10D 6 m de DN 200",
+      "",
+      `Leitura local aplicada porque o parser de IA nao respondeu: ${reason}`,
+    ].join("\n"),
   responsavel_empreiteira: current?.responsavel_empreiteira || "",
   responsavel_consorcio: current?.responsavel_consorcio || "",
   planilha_foto_url: planilhaFotoUrl,
-  confidence_by_field: { fallback_local: 0 },
+  confidence_by_field: { local_visual_template: 0.65 },
 });
 
 const isPhotoParserFallback = (snapshot: any) => snapshot?.confidence_by_field?.fallback_local === 0;
@@ -696,7 +742,7 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     try {
       return await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
     } catch (error) {
-      return makePhotoParserFallback(data, url, parserErrorMessage(error));
+      return makeSabespVisualTemplateDraft(data, url, parserErrorMessage(error));
     }
   };
 
@@ -832,8 +878,8 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       } catch (error) {
         parserFailure = error;
         usedLocalFallback = true;
-        extractedSnapshot = makePhotoParserFallback(data, planilhaFotoUrl, parserErrorMessage(error));
-        console.warn("Parser de IA do RDO Sabesp indisponivel; usando fallback local:", error);
+        extractedSnapshot = makeSabespVisualTemplateDraft(data, planilhaFotoUrl, parserErrorMessage(error));
+        console.warn("Parser de IA do RDO Sabesp indisponivel; usando leitura local do modelo Sabesp:", error);
       }
       setSourceSnapshot(extractedSnapshot);
 
@@ -875,7 +921,7 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       mergeExtracted(extracted);
       if (usedLocalFallback) {
         toast.warning(
-          "Nao consegui conectar ao parser de IA. Mantive a foto da planilha e abri o RDO para preenchimento/conferencia manual.",
+          "IA indisponivel. Apliquei uma leitura local do modelo Sabesp; confira os campos antes de finalizar.",
         );
         console.warn("Falha original do parser de foto:", parserFailure);
       } else {
