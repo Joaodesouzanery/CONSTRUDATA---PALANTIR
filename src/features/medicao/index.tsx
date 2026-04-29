@@ -23,6 +23,7 @@ import { FornecedoresPanel }     from './components/FornecedoresPanel'
 import { ConferenciaPanel }      from './components/ConferenciaPanel'
 import { MedicaoFinalPanel }     from './components/MedicaoFinalPanel'
 import { HistoricoPanel }        from './components/HistoricoPanel'
+import { MedicaoAssistidaPanel } from './components/MedicaoAssistidaPanel'
 import type { BillingStep } from '@/store/medicaoBillingStore'
 
 // ─── Steps metadata ───────────────────────────────────────────────────────────
@@ -214,7 +215,7 @@ function NewBoletimModal({ onClose }: { onClose: () => void }) {
 
 // ─── Stepper header ───────────────────────────────────────────────────────────
 
-function StepperHeader({ onShowHistorico }: { onShowHistorico: () => void }) {
+function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: () => void; onShowAssistida: () => void }) {
   const { activeStep, setActiveStep, getActiveBoletim, boletins, setActiveBoletim } = useMedicaoBillingStore()
   const [newOpen, setNewOpen] = useState(false)
   const boletim = getActiveBoletim()
@@ -260,6 +261,14 @@ function StepperHeader({ onShowHistorico }: { onShowHistorico: () => void }) {
                 ))}
               </select>
             )}
+            <button
+              type="button"
+              onClick={onShowAssistida}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
+            >
+              <Calculator size={14} />
+              Medição Assistida
+            </button>
             <button
               type="button"
               onClick={onShowHistorico}
@@ -369,7 +378,7 @@ export function MedicaoPage() {
   const { activeStep, getActiveBoletim, boletins } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const hasBoletins = boletins.length > 0
-  const [view, setView] = useState<'stepper' | 'historico'>('stepper')
+  const [view, setView] = useState<'stepper' | 'historico' | 'assistida'>('stepper')
 
   function renderStep() {
     switch (activeStep) {
@@ -381,6 +390,33 @@ export function MedicaoPage() {
       case 6: return <MedicaoFinalPanel />
       default: return <SabespPlanilhaPanel />
     }
+  }
+
+  if (view === 'assistida') {
+    return (
+      <div className="flex flex-col h-full bg-gray-950">
+        <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-3 flex items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#f97316' }}>
+              <Calculator size={20} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-white font-semibold text-base">Medição Assistida</h1>
+              <p className="text-[#a3a3a3] text-xs">Fluxo completo de medição dentro do sistema</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setView('stepper')}
+            className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+          >
+            ← Voltar ao fluxo atual
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <MedicaoAssistidaPanel />
+        </div>
+      </div>
+    )
   }
 
   if (!hasBoletins || view === 'historico') {
@@ -404,6 +440,14 @@ export function MedicaoPage() {
               ← Voltar ao Boletim
             </button>
           )}
+          {view !== 'historico' && (
+            <button
+              onClick={() => setView('assistida')}
+              className="px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
+            >
+              Medição Assistida
+            </button>
+          )}
         </div>
         <div className="flex-1 overflow-auto">
           {view === 'historico'
@@ -417,7 +461,7 @@ export function MedicaoPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
-      <StepperHeader onShowHistorico={() => setView('historico')} />
+      <StepperHeader onShowHistorico={() => setView('historico')} onShowAssistida={() => setView('assistida')} />
       <div className="flex-1 overflow-auto">
         {boletim ? renderStep() : (
           <div className="p-8 text-center text-[#6b6b6b] text-sm">

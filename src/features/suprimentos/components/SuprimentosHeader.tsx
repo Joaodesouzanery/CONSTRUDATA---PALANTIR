@@ -7,7 +7,7 @@ import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 export type SuprimentosTab =
-  | 'conciliacao' | 'excecoes' | 'previsao' | 'inteligencia' | 'requisicoes' | 'bom'
+  | 'fluxo' | 'conciliacao' | 'excecoes' | 'previsao' | 'inteligencia' | 'requisicoes' | 'bom'
   | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif'
   | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
   | 'cadeia_rede' | 'cadeia_alertas' | 'cadeia_planejamento'
@@ -21,6 +21,7 @@ interface Props {
 }
 
 const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSection }[] = [
+  { key: 'fluxo', label: 'Fluxo do Gestor', section: 'suprimentos' },
   { key: 'conciliacao', label: 'Conciliação', section: 'suprimentos' },
   { key: 'excecoes', label: 'Exceções', section: 'suprimentos' },
   { key: 'previsao', label: 'Previsão de Demanda', section: 'suprimentos' },

@@ -15,6 +15,7 @@ import { CurtoPrazoPanel } from './components/CurtoPrazoPanel'
 import { VisaoIntegradaPanel } from './components/VisaoIntegradaPanel'
 import { ProgramacaoSemanalPanel } from './components/ProgramacaoSemanalPanel'
 import { CriarCronogramaWizard } from './components/CriarCronogramaWizard'
+import { PlanejamentoRestricoesPanel } from './components/PlanejamentoRestricoesPanel'
 
 export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
@@ -27,7 +28,7 @@ export function PlanejamentoMestrePage() {
   const [importError, setImportError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { void pull() }, [])
+  useEffect(() => { void pull() }, [pull])
 
   function downloadTemplate() {
     const title = ['ATLÂNTICO CONSTRUDATA — PLANEJAMENTO MESTRE']
@@ -323,6 +324,7 @@ export function PlanejamentoMestrePage() {
         {activeTab === 'whatif'    && <CurtoPrazoPanel />}
         {activeTab === 'integrada' && <VisaoIntegradaPanel />}
         {activeTab === 'semanal'   && <ProgramacaoSemanalPanel />}
+        {activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
       </div>
       <CriarCronogramaWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>

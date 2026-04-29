@@ -14,6 +14,7 @@ const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
   { key: 'whatif',    label: 'Curto Prazo'     },
   { key: 'integrada', label: 'Visão Integrada' },
   { key: 'semanal',   label: 'Prog. Semanal'   },
+  { key: 'restricoes', label: 'Planejamento por Restrições' },
 ]
 
 interface Props {

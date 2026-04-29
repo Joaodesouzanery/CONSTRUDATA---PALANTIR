@@ -22,12 +22,13 @@ import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
 import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
 import { CadastroManualSuprimentosPanel } from './components/CadastroManualSuprimentosPanel'
 import { CadeiaSuprimentosPanel } from './components/CadeiaSuprimentosPanel'
+import { FluxoGestorSuprimentosPanel } from './components/FluxoGestorSuprimentosPanel'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 function defaultTabForSection(section: SuprimentosSection): SuprimentosTab {
-  if (section === 'suprimentos') return 'conciliacao'
+  if (section === 'suprimentos') return 'fluxo'
   if (section === 'materiais') return 'materiais'
   if (section === 'cadeia') return 'cadeia_rede'
   return 'resumo_nucleo'
@@ -45,6 +46,14 @@ export function SuprimentosPage() {
   function selectSection(section: SuprimentosSection) {
     setActiveSection(section)
     setActiveTab(defaultTabForSection(section))
+  }
+
+  function navigateFlow(tab: SuprimentosTab) {
+    if (tab === 'cadeia_rede' || tab === 'cadeia_alertas' || tab === 'cadeia_planejamento') setActiveSection('cadeia')
+    else if (tab === 'materiais' || tab === 'contratos' || tab === 'estoque' || tab === 'almoxarifado' || tab === 'semaforo' || tab === 'whatif') setActiveSection('materiais')
+    else if (tab === 'entrada_dados' || tab === 'resumo_nucleo' || tab === 'consolidado_trechos' || tab === 'materiais_pendentes') setActiveSection('planilhas')
+    else setActiveSection('suprimentos')
+    setActiveTab(tab)
   }
 
   useEffect(() => {
@@ -142,6 +151,7 @@ export function SuprimentosPage() {
         onTabChange={setActiveTab}
       />
 
+      {activeTab === 'fluxo' && <FluxoGestorSuprimentosPanel onNavigate={navigateFlow} />}
       {activeTab === 'conciliacao' && <ConciliacaoPanel />}
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
       {activeTab === 'previsao'    && <PrevisaoDemandaPanel />}
