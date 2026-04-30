@@ -1116,6 +1116,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         receipts:       s.receipts,
         invoices:       s.invoices,
         matches:        s.matches,
+        frameworkAgreements: s.frameworkAgreements,
         suppliers:      s.suppliers,
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,

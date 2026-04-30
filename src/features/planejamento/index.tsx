@@ -13,6 +13,7 @@ import { HistogramPanel }   from './components/HistogramPanel'
 import { DailyPlanPanel }   from './components/DailyPlanPanel'
 import { NotesPanel }       from './components/NotesPanel'
 import { ScenariosPanel }   from './components/ScenariosPanel'
+import { IntegracaoPanel as RdoPlanejamentoPanel } from '@/features/rdo/components/IntegracaoPanel'
 
 export function PlanejamentoPage() {
   const { activeTab } = usePlanejamentoStore()
@@ -26,6 +27,7 @@ export function PlanejamentoPage() {
       case 'abc':       return <AbcPanel />
       case 'histogram': return <HistogramPanel />
       case 'daily':     return <DailyPlanPanel />
+      case 'rdo':       return <RdoPlanejamentoPanel />
       case 'notes':     return <NotesPanel />
       case 'scenarios': return <ScenariosPanel />
       default:          return <ConfigPanel />

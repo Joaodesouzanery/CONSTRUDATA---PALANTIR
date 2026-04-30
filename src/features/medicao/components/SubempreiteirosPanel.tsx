@@ -212,8 +212,26 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 function SubSelector({ subs, selectedId, onSelect, onRemove }: { subs: Subempreiteiro[]; selectedId: string; onSelect: (id: string) => void; onRemove: (id: string) => void }) {
+  const totalItens = subs.reduce((sum, sub) => sum + sub.itens.length, 0)
+  const totalMedido = subs.reduce((sum, sub) => sum + sub.totalMedido, 0)
   return (
     <div className="grid gap-2 lg:grid-cols-3">
+      <button
+        type="button"
+        onClick={() => onSelect('__all')}
+        className={`rounded-lg border p-3 text-left ${selectedId === '__all' ? 'border-[#f97316] bg-[#f97316]/10' : 'border-[#525252] bg-[#2c2c2c] hover:border-[#6b6b6b]'}`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-white">Geral - todos os subempreiteiros</p>
+            <p className="text-xs text-[#a3a3a3]">Medição consolidada por RDO, núcleo e empreiteira</p>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2 text-[10px] text-[#a3a3a3]">
+          <span>{totalItens} itens</span>
+          <span>{fmt(totalMedido)}</span>
+        </div>
+      </button>
       {subs.map((sub) => (
         <button
           key={sub.id}
@@ -263,10 +281,17 @@ function ResumoTab({ sub }: { sub: Subempreiteiro }) {
   )
 }
 
-function RdosTab({ pendingCount }: { pendingCount: number }) {
+function RdosTab({ pendingCount, contractorFilter, nucleoFilter }: { pendingCount: number; contractorFilter: string; nucleoFilter: string }) {
   const contractors = useContractorStore((state) => state.contractors)
   const resolveRdoContractor = useContractorStore((state) => state.resolveRdoContractor)
-  const rows = readLocalRdoSabesp().filter((rdo) => rdo.status !== 'draft')
+  const rows = readLocalRdoSabesp().filter((rdo) => {
+    if (rdo.status === 'draft') return false
+    const contractor = resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
+    const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
+    if (contractorFilter !== 'all' && contractor?.name !== contractorFilter) return false
+    if (nucleoFilter !== 'all' && nucleo !== nucleoFilter) return false
+    return true
+  })
   return (
     <div className="space-y-3">
       {pendingCount > 0 && (
@@ -404,7 +429,9 @@ export function SubempreiteirosPanel() {
   const contractorStore = useContractorStore()
   const [addOpen, setAddOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>('resumo')
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedId, setSelectedId] = useState('__all')
+  const [contractorFilter, setContractorFilter] = useState('all')
+  const [nucleoFilter, setNucleoFilter] = useState('all')
   const boletim = getActiveBoletim()
 
   useEffect(() => {
@@ -446,22 +473,49 @@ export function SubempreiteirosPanel() {
   }, [rdoRows, syncRdoSabespSubempreiteiros])
 
   const subs = boletim?.subempreiteiros ?? []
-  const selected = subs.find((sub) => sub.id === selectedId) ?? subs[0] ?? null
+  const contractorOptions = useMemo(() => Array.from(new Set(subs.map((sub) => sub.nome).filter(Boolean))).sort(), [subs])
+  const nucleoOptions = useMemo(() => Array.from(new Set(subs.map((sub) => sub.nucleo).filter(Boolean))).sort(), [subs])
+  const filteredSubs = useMemo(() => subs.filter((sub) => {
+    if (contractorFilter !== 'all' && sub.nome !== contractorFilter) return false
+    if (nucleoFilter !== 'all' && sub.nucleo !== nucleoFilter) return false
+    return true
+  }), [contractorFilter, nucleoFilter, subs])
+  const aggregateSub = useMemo<Subempreiteiro>(() => ({
+    id: '__all',
+    nome: 'Todos os subempreiteiros',
+    nucleo: nucleoFilter === 'all' ? 'Todos os núcleos' : nucleoFilter,
+    periodo: boletim?.periodo ?? '',
+    contractorId: null,
+    itens: filteredSubs.flatMap((sub) => sub.itens.map((item) => ({
+      ...item,
+      contractorId: item.contractorId ?? sub.contractorId ?? null,
+      nucleo: item.nucleo ?? sub.nucleo,
+    }))),
+    parametros: filteredSubs.flatMap((sub) => sub.parametros ?? []),
+    descontos: filteredSubs.flatMap((sub) => sub.descontos ?? []),
+    rh: filteredSubs.flatMap((sub) => sub.rh ?? []),
+    nfs: filteredSubs.flatMap((sub) => sub.nfs ?? []),
+    retencoes: filteredSubs.flatMap((sub) => sub.retencoes ?? []),
+    totalMedido: filteredSubs.reduce((sum, sub) => sum + sub.totalMedido, 0),
+    totalAprovado: filteredSubs.reduce((sum, sub) => sum + sub.totalAprovado, 0),
+    retencao: filteredSubs.reduce((sum, sub) => sum + sub.retencao, 0),
+  }), [boletim?.periodo, filteredSubs, nucleoFilter])
+  const selected = selectedId === '__all' ? aggregateSub : filteredSubs.find((sub) => sub.id === selectedId) ?? filteredSubs[0] ?? null
 
   useEffect(() => {
-    if (!selectedId && subs[0]) {
-      setSelectedId(subs[0].id)
+    if (!selectedId) {
+      setSelectedId('__all')
       return
     }
-    if (selectedId && !subs.some((sub) => sub.id === selectedId)) {
-      setSelectedId(subs[0]?.id ?? '')
+    if (selectedId !== '__all' && !filteredSubs.some((sub) => sub.id === selectedId)) {
+      setSelectedId('__all')
     }
-  }, [selectedId, subs])
+  }, [filteredSubs, selectedId])
 
   if (!boletim) return <div className="p-8 text-center text-sm text-[#6b6b6b]">Nenhum boletim ativo.</div>
 
-  const totalAprovado = subs.reduce((sum, sub) => sum + sub.totalAprovado, 0)
-  const totalRetencao = subs.reduce((sum, sub) => sum + sub.retencao, 0)
+  const totalAprovado = filteredSubs.reduce((sum, sub) => sum + sub.totalAprovado, 0)
+  const totalRetencao = filteredSubs.reduce((sum, sub) => sum + sub.retencao, 0)
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-4 p-6">
@@ -474,7 +528,7 @@ export function SubempreiteirosPanel() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ImportSubBtn periodo={boletim.periodo} />
-          {selected && <ImportSubBtn subId={selected.id} periodo={selected.periodo || boletim.periodo} />}
+          {selected && selected.id !== '__all' && <ImportSubBtn subId={selected.id} periodo={selected.periodo || boletim.periodo} />}
           <button type="button" onClick={() => syncRdoSabespSubempreiteiros(rdoRows)} className={btnMuted}>
             <RefreshCw size={13} /> Sincronizar RDOs
           </button>
@@ -482,22 +536,33 @@ export function SubempreiteirosPanel() {
             <Plus size={13} /> Adicionar
           </button>
           <button type="button" onClick={downloadTemplateSub} className={btnMuted}><Download size={13} /> Template</button>
-          {subs.length > 0 && <button type="button" onClick={() => exportSubempreiteirosPdf(subs, boletim.periodo, boletim.contrato)} className={btnMuted}><FileDown size={13} /> PDF</button>}
+          {filteredSubs.length > 0 && <button type="button" onClick={() => exportSubempreiteirosPdf(filteredSubs, boletim.periodo, boletim.contrato)} className={btnMuted}><FileDown size={13} /> PDF</button>}
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Metric label="Subempreiteiros" value={subs.length} />
+        <Metric label="Subempreiteiros" value={filteredSubs.length} />
         <Metric label="Total aprovado" value={fmt(totalAprovado)} />
         <Metric label="Retenção registrada" value={fmt(totalRetencao)} />
       </div>
 
-      <SubSelector subs={subs} selectedId={selected?.id ?? ''} onSelect={setSelectedId} onRemove={removeSubempreiteiro} />
+      <div className="grid gap-2 rounded-xl border border-[#525252] bg-[#2c2c2c] p-3 md:grid-cols-2">
+        <select value={contractorFilter} onChange={(event) => setContractorFilter(event.target.value)} className={fieldClass}>
+          <option value="all">Todos os empreiteiros</option>
+          {contractorOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
+        <select value={nucleoFilter} onChange={(event) => setNucleoFilter(event.target.value)} className={fieldClass}>
+          <option value="all">Todos os nucleos</option>
+          {nucleoOptions.map((nucleo) => <option key={nucleo} value={nucleo}>{nucleo}</option>)}
+        </select>
+      </div>
+
+      <SubSelector subs={filteredSubs} selectedId={selected?.id ?? ''} onSelect={setSelectedId} onRemove={removeSubempreiteiro} />
 
       {!selected ? (
         <div className="py-12 text-center text-sm text-[#6b6b6b]">
           <Users size={32} className="mx-auto mb-3 text-[#525252]" />
-          Nenhum subempreiteiro adicionado ainda.
+          Nenhum subempreiteiro encontrado para o filtro.
         </div>
       ) : (
         <div className="rounded-xl border border-[#525252] bg-[#2c2c2c]">
@@ -516,8 +581,9 @@ export function SubempreiteirosPanel() {
           </div>
           <div className="p-4">
             {activeTab === 'resumo' && <ResumoTab sub={selected} />}
-            {activeTab === 'rdos' && <RdosTab pendingCount={pendingRdoCount} />}
-            {activeTab === 'itens' && <ItensTab sub={selected} onUpdate={(patch) => updateSubempreiteiro(selected.id, patch)} />}
+            {activeTab === 'rdos' && <RdosTab pendingCount={pendingRdoCount} contractorFilter={contractorFilter} nucleoFilter={nucleoFilter} />}
+            {activeTab === 'itens' && selected.id !== '__all' && <ItensTab sub={selected} onUpdate={(patch) => updateSubempreiteiro(selected.id, patch)} />}
+            {activeTab === 'itens' && selected.id === '__all' && <DataTable rows={selected.itens} columns={['mes', 'nucleo', 'nPreco', 'descricao', 'unidade', 'qtd', 'valorUnitario', 'origem', 'rdoId']} moneyCols={['valorUnitario']} />}
             {activeTab === 'parametros' && <ParametrosTab sub={selected} />}
             {activeTab === 'descontos' && <DataTable rows={selected.descontos ?? []} columns={['mes', 'rh', 'agregados', 'materiaisFerramentas', 'materiaisEpi', 'maquinas', 'combustivel', 'epi', 'total']} moneyCols={['rh', 'agregados', 'materiaisFerramentas', 'materiaisEpi', 'maquinas', 'combustivel', 'epi', 'total']} />}
             {activeTab === 'rh' && <DataTable rows={selected.rh ?? []} columns={['mes', 'funcionariosClt', 'funcionariosPj', 'adiantamento', 'folhaSalarial', 'folhaPj', 'inss', 'total']} moneyCols={['adiantamento', 'folhaSalarial', 'folhaPj', 'inss', 'total']} />}

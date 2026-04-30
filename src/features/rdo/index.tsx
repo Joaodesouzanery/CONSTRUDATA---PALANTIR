@@ -6,8 +6,6 @@ import { RdoHeader }      from './components/RdoHeader'
 import { DashboardPanel } from './components/DashboardPanel'
 import { NovoRdoPanel }   from './components/NovoRdoPanel'
 import { HistoricoPanel } from './components/HistoricoPanel'
-import { IntegracaoPanel } from './components/IntegracaoPanel'
-import { FinanceiroPanel } from './components/FinanceiroPanel'
 import { EmpreiteirosPanel } from './components/EmpreiteirosPanel'
 
 export function RdoPage() {
@@ -19,8 +17,6 @@ export function RdoPage() {
       case 'novo':       return <NovoRdoPanel />
       case 'empreiteiros': return <EmpreiteirosPanel />
       case 'historico':  return <HistoricoPanel />
-      case 'integracao': return <IntegracaoPanel />
-      case 'financeiro': return <FinanceiroPanel />
       default:           return <DashboardPanel />
     }
   }

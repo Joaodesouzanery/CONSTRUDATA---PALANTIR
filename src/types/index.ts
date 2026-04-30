@@ -539,6 +539,9 @@ export interface FrameworkAgreement {
   code: string              // FA-001
   supplier: string
   category: string
+  contractorId?: string | null
+  contractorName?: string
+  nucleo?: string
   validFrom: string         // yyyy-MM-dd
   validTo: string
   agreedUnitPrice: number
@@ -1315,7 +1318,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'novo' | 'empreiteiros' | 'historico' | 'integracao' | 'financeiro'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'empreiteiros'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition

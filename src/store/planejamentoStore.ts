@@ -57,6 +57,7 @@ export type PlanejamentoTab =
   | 'abc'
   | 'histogram'
   | 'daily'
+  | 'rdo'
   | 'notes'
   | 'scenarios'
 

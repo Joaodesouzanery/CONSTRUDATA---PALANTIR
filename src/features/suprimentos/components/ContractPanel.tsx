@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { FrameworkAgreement } from '@/types'
-import { Copy, Check, ExternalLink, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
+import { Copy, Check, ExternalLink, ChevronDown, ChevronUp, Pencil, Plus, X } from 'lucide-react'
+import { useContractorStore } from '@/store/contractorStore'
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
 
@@ -82,18 +83,38 @@ function getAgreementUsagePct(fa: FrameworkAgreement) {
 }
 
 export function ContractPanel() {
-  const { frameworkAgreements, updateFrameworkAgreement } = useSuprimentosStore(
+  const { frameworkAgreements, updateFrameworkAgreement, addFrameworkAgreement } = useSuprimentosStore(
     useShallow((s) => ({
       frameworkAgreements:      s.frameworkAgreements,
       updateFrameworkAgreement: s.updateFrameworkAgreement,
+      addFrameworkAgreement:    s.addFrameworkAgreement,
     }))
+  )
+  const { contractors, load: loadContractors } = useContractorStore(
+    useShallow((s) => ({ contractors: s.contractors, load: s.load })),
   )
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editMode, setEditMode]     = useState(false)
   const [editData, setEditData]     = useState<FrameworkAgreement | null>(null)
+  const [contractorFilter, setContractorFilter] = useState('all')
+  const [nucleoFilter, setNucleoFilter] = useState('all')
+  const [quickContractorId, setQuickContractorId] = useState('')
+  const [quickNucleo, setQuickNucleo] = useState('')
 
-  const selected = frameworkAgreements.find((fa) => fa.id === selectedId) ?? null
+  useEffect(() => {
+    void loadContractors()
+  }, [loadContractors])
+
+  const activeContractors = contractors.filter((contractor) => !contractor.deleted_at)
+  const nucleoOptions = useMemo(() => Array.from(new Set(frameworkAgreements.map((fa) => fa.nucleo).filter(Boolean))).sort(), [frameworkAgreements])
+  const filteredAgreements = useMemo(() => frameworkAgreements.filter((fa) => {
+    if (contractorFilter !== 'all' && fa.contractorId !== contractorFilter && fa.contractorName !== contractorFilter) return false
+    if (nucleoFilter !== 'all' && fa.nucleo !== nucleoFilter) return false
+    return true
+  }), [contractorFilter, frameworkAgreements, nucleoFilter])
+
+  const selected = filteredAgreements.find((fa) => fa.id === selectedId) ?? null
 
   function startEdit() {
     if (!selected) return
@@ -111,6 +132,32 @@ export function ContractPanel() {
     updateFrameworkAgreement(editData.id, editData)
     setEditMode(false)
     setEditData(null)
+  }
+
+  function createContractorAgreement() {
+    const contractor = activeContractors.find((item) => item.id === quickContractorId)
+    if (!contractor) return
+    addFrameworkAgreement({
+      code: `EMP-${String(frameworkAgreements.length + 1).padStart(3, '0')}`,
+      supplier: contractor.name,
+      category: 'Contrato de empreiteiro',
+      contractorId: contractor.id,
+      contractorName: contractor.name,
+      nucleo: quickNucleo.trim(),
+      validFrom: new Date().toISOString().slice(0, 10),
+      validTo: '',
+      agreedUnitPrice: 0,
+      maxQuantity: 0,
+      unit: 'MED',
+      leadTimeDays: 0,
+      confidenceScore: 3,
+      status: 'active',
+      terms: 'Contrato operacional de empreiteiro vinculado ao nucleo e aos RDOs.',
+      paymentSchedule: [],
+      deliverySchedule: [],
+    })
+    setQuickContractorId('')
+    setQuickNucleo('')
   }
 
   function setED<K extends keyof FrameworkAgreement>(k: K, v: FrameworkAgreement[K]) {
@@ -136,10 +183,29 @@ export function ContractPanel() {
       {/* ── Left: FA list ── */}
       <div className="w-72 shrink-0 flex flex-col gap-2 overflow-y-auto">
         <p className="text-[#6b6b6b] text-xs font-semibold uppercase tracking-wide px-1">
-          Acordos Marco ({frameworkAgreements.length})
+          Contratos ({filteredAgreements.length})
         </p>
 
-        {frameworkAgreements.map((fa) => {
+        <div className="space-y-2 rounded-xl border border-[#525252] bg-[#3d3d3d] p-2">
+          <select value={contractorFilter} onChange={(event) => setContractorFilter(event.target.value)} className={sel}>
+            <option value="all">Todos os empreiteiros</option>
+            {activeContractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
+          </select>
+          <select value={nucleoFilter} onChange={(event) => setNucleoFilter(event.target.value)} className={sel}>
+            <option value="all">Todos os nucleos</option>
+            {nucleoOptions.map((nucleo) => <option key={nucleo} value={nucleo}>{nucleo}</option>)}
+          </select>
+          <select value={quickContractorId} onChange={(event) => setQuickContractorId(event.target.value)} className={sel}>
+            <option value="">Novo contrato por empreiteiro</option>
+            {activeContractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
+          </select>
+          <input value={quickNucleo} onChange={(event) => setQuickNucleo(event.target.value)} placeholder="Nucleo do contrato" className={inp} />
+          <button onClick={createContractorAgreement} disabled={!quickContractorId} className="flex w-full items-center justify-center gap-1 rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">
+            <Plus size={12} /> Adicionar contrato
+          </button>
+        </div>
+
+        {filteredAgreements.map((fa) => {
           const pctConsumed = getAgreementUsagePct(fa)
           const isSelected  = fa.id === selectedId
 
@@ -218,6 +284,16 @@ export function ContractPanel() {
                     <div className="flex flex-col gap-2 mt-1">
                       <input className={cn(inp, 'text-sm font-bold')} value={editData.supplier} onChange={(e) => setED('supplier', e.target.value)} placeholder="Fornecedor" />
                       <div className="flex gap-2">
+                        <select className={sel} value={editData.contractorId ?? ''} onChange={(e) => {
+                          const contractor = activeContractors.find((item) => item.id === e.target.value)
+                          setEditData((prev) => prev ? { ...prev, contractorId: contractor?.id ?? null, contractorName: contractor?.name ?? '' } : prev)
+                        }}>
+                          <option value="">Sem empreiteiro</option>
+                          {activeContractors.map((contractor) => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
+                        </select>
+                        <input className={inp} value={editData.nucleo ?? ''} onChange={(e) => setED('nucleo', e.target.value)} placeholder="Nucleo" />
+                      </div>
+                      <div className="flex gap-2">
                         <input className={inp} value={editData.validFrom} onChange={(e) => setED('validFrom', e.target.value)} type="date" />
                         <span className="text-[#6b6b6b] text-xs self-center">→</span>
                         <input className={inp} value={editData.validTo} onChange={(e) => setED('validTo', e.target.value)} type="date" />
@@ -237,6 +313,12 @@ export function ContractPanel() {
                     <>
                       <p className="text-[#f5f5f5] font-bold text-base">{display.supplier}</p>
                       <p className="text-[#6b6b6b] text-xs mt-0.5">{display.category}</p>
+                      {(display.contractorName || display.nucleo) && (
+                        <p className="mt-2 text-xs text-[#a3a3a3]">
+                          Empreiteiro: <strong className="text-[#f5f5f5]">{display.contractorName || display.supplier}</strong>
+                          {display.nucleo ? <> · Nucleo: <strong className="text-[#f5f5f5]">{display.nucleo}</strong></> : null}
+                        </p>
+                      )}
                       <div className="mt-3 flex gap-4 text-xs text-[#6b6b6b]">
                         <span>Vigência: <strong className="text-[#f5f5f5]">{display.validFrom}</strong> → <strong className="text-[#f5f5f5]">{display.validTo}</strong></span>
                         <span>Confiança: <strong className="text-[#f5f5f5]">{display.confidenceScore.toFixed(1)}/5.0</strong></span>
