@@ -40,6 +40,10 @@ function monthFromDate(value?: string | null) {
   return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
 }
 
+function isKnownNucleo(value: string) {
+  return Boolean(value && value !== 'Nao informado')
+}
+
 function itemTotal(item: SubempreteiroItem) {
   return item.qtd * item.valorUnitario
 }
@@ -432,6 +436,7 @@ export function SubempreiteirosPanel() {
   const [selectedId, setSelectedId] = useState('__all')
   const [contractorFilter, setContractorFilter] = useState('all')
   const [nucleoFilter, setNucleoFilter] = useState('all')
+  const [lastSyncMessage, setLastSyncMessage] = useState('')
   const boletim = getActiveBoletim()
 
   useEffect(() => {
@@ -442,7 +447,7 @@ export function SubempreiteirosPanel() {
     return readLocalRdoSabesp().filter((rdo) => rdo.status !== 'draft').flatMap((rdo) => {
       const contractor = contractorStore.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
       const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
-      if (!contractor || !nucleo || nucleo === 'Nao informado') return []
+      if (!contractor || !isKnownNucleo(nucleo)) return []
       return getRdoSabespExecutedServices(rdo).map((service) => ({
         contractorId: contractor.id,
         contractorName: contractor.name,
@@ -464,7 +469,7 @@ export function SubempreiteirosPanel() {
       if (rdo.status === 'draft') return false
       const contractor = contractorStore.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })
       const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro)
-      return !contractor || !nucleo || nucleo === 'Nao informado'
+      return !contractor || !isKnownNucleo(nucleo)
     }).length
   }, [contractorStore.contractors, contractorStore.foremen, contractorStore.rdoLinks])
 
@@ -472,9 +477,31 @@ export function SubempreiteirosPanel() {
     if (rdoRows.length > 0) syncRdoSabespSubempreiteiros(rdoRows)
   }, [rdoRows, syncRdoSabespSubempreiteiros])
 
+  function handleSyncRdos() {
+    syncRdoSabespSubempreiteiros(rdoRows)
+    if (rdoRows.length === 0) {
+      setLastSyncMessage('Nenhum RDO Sabesp apto para sincronizar. Confira se ele esta finalizado, com empreiteiro, nucleo e servicos executados.')
+      return
+    }
+    setLastSyncMessage(`${rdoRows.length} item(ns) de RDO sincronizado(s) por empreiteiro, nucleo e mes.`)
+  }
+
   const subs = boletim?.subempreiteiros ?? []
-  const contractorOptions = useMemo(() => Array.from(new Set(subs.map((sub) => sub.nome).filter(Boolean))).sort(), [subs])
-  const nucleoOptions = useMemo(() => Array.from(new Set(subs.map((sub) => sub.nucleo).filter(Boolean))).sort(), [subs])
+  const rdoFilterRefs = useMemo(() => {
+    return readLocalRdoSabesp().filter((rdo) => rdo.status !== 'draft').map((rdo) => ({
+      contractor: contractorStore.resolveRdoContractor({ rdoId: rdo.id, rdoType: 'sabesp', foremanName: rdo.encarregado })?.name ?? '',
+      nucleo: getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro),
+    }))
+  }, [contractorStore.contractors, contractorStore.foremen, contractorStore.rdoLinks])
+  const contractorOptions = useMemo(() => Array.from(new Set([
+    ...contractorStore.contractors.filter((item) => !item.deleted_at).map((item) => item.name),
+    ...subs.map((sub) => sub.nome),
+    ...rdoFilterRefs.map((item) => item.contractor),
+  ].filter(Boolean))).sort(), [contractorStore.contractors, rdoFilterRefs, subs])
+  const nucleoOptions = useMemo(() => Array.from(new Set([
+    ...subs.map((sub) => sub.nucleo),
+    ...rdoFilterRefs.map((item) => item.nucleo).filter(isKnownNucleo),
+  ].filter(Boolean))).sort(), [rdoFilterRefs, subs])
   const filteredSubs = useMemo(() => subs.filter((sub) => {
     if (contractorFilter !== 'all' && sub.nome !== contractorFilter) return false
     if (nucleoFilter !== 'all' && sub.nucleo !== nucleoFilter) return false
@@ -529,7 +556,7 @@ export function SubempreiteirosPanel() {
         <div className="flex flex-wrap items-center gap-2">
           <ImportSubBtn periodo={boletim.periodo} />
           {selected && selected.id !== '__all' && <ImportSubBtn subId={selected.id} periodo={selected.periodo || boletim.periodo} />}
-          <button type="button" onClick={() => syncRdoSabespSubempreiteiros(rdoRows)} className={btnMuted}>
+          <button type="button" onClick={handleSyncRdos} className={btnMuted}>
             <RefreshCw size={13} /> Sincronizar RDOs
           </button>
           <button type="button" onClick={() => setAddOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-medium text-white">
@@ -539,6 +566,12 @@ export function SubempreiteirosPanel() {
           {filteredSubs.length > 0 && <button type="button" onClick={() => exportSubempreiteirosPdf(filteredSubs, boletim.periodo, boletim.contrato)} className={btnMuted}><FileDown size={13} /> PDF</button>}
         </div>
       </div>
+
+      {lastSyncMessage && (
+        <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-xs text-[#d4d4d4]">
+          {lastSyncMessage}
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-3">
         <Metric label="Subempreiteiros" value={filteredSubs.length} />

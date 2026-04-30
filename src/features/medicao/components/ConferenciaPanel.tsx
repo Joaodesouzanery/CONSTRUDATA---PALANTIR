@@ -105,6 +105,45 @@ export function ConferenciaPanel() {
   )
   const totalSubMedido = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalMedido, 0)
   const totalSubRetencao = boletim.subempreiteiros.reduce((s, sub) => s + sub.retencao, 0)
+  const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  const subResumo = boletim.subempreiteiros.map((sub) => {
+    const rdoItens = sub.itens.filter((item) => item.origem === 'RDO Sabesp')
+    const manualItens = sub.itens.filter((item) => item.origem !== 'RDO Sabesp')
+    return {
+      id: sub.id,
+      nome: sub.nome,
+      nucleo: sub.nucleo || 'Sem nucleo',
+      itens: sub.itens.length,
+      rdos: new Set(rdoItens.map((item) => item.rdoId).filter(Boolean)).size,
+      qtdRdo: rdoItens.reduce((sum, item) => sum + item.qtd, 0),
+      valorRdo: rdoItens.reduce((sum, item) => sum + item.qtd * item.valorUnitario, 0),
+      valorManual: manualItens.reduce((sum, item) => sum + item.qtd * item.valorUnitario, 0),
+      aprovado: sub.totalAprovado,
+      retencao: sub.retencao,
+    }
+  })
+  const nucleoResumo = Array.from(boletim.subempreiteiros.reduce((map, sub) => {
+    const key = sub.nucleo || 'Sem nucleo'
+    const prev = map.get(key) ?? { nucleo: key, empreiteiros: new Set<string>(), itens: 0, rdos: new Set<string>(), medido: 0, aprovado: 0 }
+    sub.itens.forEach((item) => {
+      prev.itens += 1
+      if (item.rdoId) prev.rdos.add(item.rdoId)
+    })
+    prev.empreiteiros.add(sub.nome)
+    prev.medido += sub.totalMedido
+    prev.aprovado += sub.totalAprovado
+    map.set(key, prev)
+    return map
+  }, new Map<string, { nucleo: string; empreiteiros: Set<string>; itens: number; rdos: Set<string>; medido: number; aprovado: number }>()).values())
+  const origemResumo = Array.from(boletim.subempreiteiros.flatMap((sub) => sub.itens).reduce((map, item) => {
+    const key = item.origem ?? 'Manual'
+    const prev = map.get(key) ?? { origem: key, itens: 0, valor: 0, rdos: new Set<string>() }
+    prev.itens += 1
+    prev.valor += item.qtd * item.valorUnitario
+    if (item.rdoId) prev.rdos.add(item.rdoId)
+    map.set(key, prev)
+    return map
+  }, new Map<string, { origem: string; itens: number; valor: number; rdos: Set<string> }>()).values())
 
   // Check if each nPreco has a matching criterio
   const nCriteriosEncontrados = conf.filter((c) => getAllCriterios().some((cr) => cr.nPreco === c.nPreco)).length
@@ -254,6 +293,63 @@ export function ConferenciaPanel() {
                   retencao {totalSubRetencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })};
                   fornecedores aprovados {totalFornecedores.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                 </span>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
+              <p className="mb-3 text-[10px] font-bold uppercase text-[#f97316]">Separacao por empreiteiro</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[680px] text-xs">
+                  <thead className="text-left uppercase text-[#6b6b6b]">
+                    <tr><th className="py-2">Empreiteiro</th><th>Nucleo</th><th>RDOs</th><th>Itens</th><th>Qtd RDO</th><th>Aprovado</th><th>Retencao</th></tr>
+                  </thead>
+                  <tbody>
+                    {subResumo.map((row) => (
+                      <tr key={row.id} className="border-t border-[#3d3d3d] text-[#d4d4d4]">
+                        <td className="py-2 font-medium text-white">{row.nome}</td>
+                        <td>{row.nucleo}</td>
+                        <td>{row.rdos}</td>
+                        <td>{row.itens}</td>
+                        <td>{row.qtdRdo.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td>
+                        <td>{money(row.aprovado)}</td>
+                        <td>{money(row.retencao)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
+              <p className="mb-3 text-[10px] font-bold uppercase text-[#f97316]">Separacao por nucleo e origem</p>
+              <div className="space-y-3">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-xs">
+                    <thead className="text-left uppercase text-[#6b6b6b]">
+                      <tr><th className="py-2">Nucleo</th><th>Empreiteiros</th><th>RDOs</th><th>Itens</th><th>Medido</th><th>Aprovado</th></tr>
+                    </thead>
+                    <tbody>
+                      {nucleoResumo.map((row) => (
+                        <tr key={row.nucleo} className="border-t border-[#3d3d3d] text-[#d4d4d4]">
+                          <td className="py-2 font-medium text-white">{row.nucleo}</td>
+                          <td>{row.empreiteiros.size}</td>
+                          <td>{row.rdos.size}</td>
+                          <td>{row.itens}</td>
+                          <td>{money(row.medido)}</td>
+                          <td>{money(row.aprovado)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {origemResumo.map((row) => (
+                    <span key={row.origem} className="rounded-full border border-[#525252] bg-[#1f1f1f] px-3 py-1 text-xs text-[#d4d4d4]">
+                      {row.origem}: {row.itens} itens, {row.rdos.size} RDOs, {money(row.valor)}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
