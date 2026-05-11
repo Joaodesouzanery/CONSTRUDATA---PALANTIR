@@ -20,6 +20,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
+import { Badge } from '@/components/ui/badge'
+import { Marquee } from '@/components/ui/marquee'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 const LOGIN_URL = '/app/minha-rotina'
@@ -40,12 +42,12 @@ interface ModuleItem {
   connected: string[]
 }
 
-const categories: Array<{ id: ModuleCategory; label: string; description: string }> = [
-  { id: 'gestao', label: 'Gestão e decisão', description: 'Diretoria, controle, medição e financeiro.' },
-  { id: 'planejamento', label: 'Planejamento', description: 'Cronograma, LPS, EVM, agenda e restrições.' },
-  { id: 'campo', label: 'Campo e execução', description: 'RDO, qualidade, mão de obra e equipamentos.' },
-  { id: 'projetos', label: 'Projetos e BIM', description: 'BIM, mapa, quantitativos e frente física.' },
-  { id: 'suprimentos', label: 'Suprimentos', description: 'Fornecedores, compras, recebimento e NF.' },
+const moduleCategories: Array<{ id: ModuleCategory; label: string }> = [
+  { id: 'gestao', label: 'Gestão e Decisão' },
+  { id: 'planejamento', label: 'Planejamento' },
+  { id: 'campo', label: 'Campo e Execução' },
+  { id: 'projetos', label: 'Projetos e BIM' },
+  { id: 'suprimentos', label: 'Suprimentos' },
 ]
 
 const modules: ModuleItem[] = [
@@ -54,10 +56,10 @@ const modules: ModuleItem[] = [
     category: 'gestao',
     icon: Layers3,
     title: 'Gestão 360',
-    kicker: 'Visão executiva em tempo real',
-    copy: 'Consolida CPI, SPI, curva S, alertas e avanço físico-financeiro para a diretoria entender onde agir primeiro.',
+    kicker: 'Diretoria em tempo real',
+    copy: 'Consolida CPI, SPI, curva S, alertas, custo, prazo e avanço físico-financeiro por obra.',
     screenshot: '/screenshots/gestao360.png',
-    features: ['Curva S e avanço consolidado', 'Custo, prazo e risco no mesmo painel', 'Drill-down por obra, núcleo e frente'],
+    features: ['Curva S executiva', 'Indicadores CPI/SPI', 'Alertas por exceção'],
     connected: ['RDO', 'Medição', 'Planejamento', 'EVM'],
   },
   {
@@ -65,10 +67,10 @@ const modules: ModuleItem[] = [
     category: 'gestao',
     icon: LineChart,
     title: 'Torre de Controle',
-    kicker: 'War room para portfólio e obra',
-    copy: 'Mostra status, mapa, alertas e exceções para gerir por risco e não por reunião manual de acompanhamento.',
+    kicker: 'War room operacional',
+    copy: 'Mostra mapa, status, riscos, exceções e decisões urgentes para gerir por prioridade.',
     screenshot: '/screenshots/torre-controle-mapa.png',
-    features: ['Mapa com status operacional', 'Alertas por exceção', 'Risco e tendência por obra'],
+    features: ['Mapa de obras', 'Matriz de risco', 'Drill-down por frente'],
     connected: ['Gestão 360', 'Qualidade', 'Suprimentos', 'LPS'],
   },
   {
@@ -76,10 +78,10 @@ const modules: ModuleItem[] = [
     category: 'gestao',
     icon: ClipboardCheck,
     title: 'Medição',
-    kicker: 'Rascunho defensável com origem',
-    copy: 'Transforma RDO, planilhas, fornecedores, NFs, descontos e retenções em medição conferível por período.',
+    kicker: 'Memória defensável',
+    copy: 'Transforma RDO, planilhas, fornecedores, NFs, descontos e retenções em medição conferível.',
     screenshot: '/screenshots/relatorio-360.png',
-    features: ['Memória de cálculo', 'Pendências bloqueantes', 'Aprovação humana antes do fechamento'],
+    features: ['Memória de cálculo', 'Pendências bloqueantes', 'Aprovação humana'],
     connected: ['RDO', 'Suprimentos', 'Qualidade', 'Planejamento'],
   },
   {
@@ -88,9 +90,9 @@ const modules: ModuleItem[] = [
     icon: CalendarClock,
     title: 'Planejamento',
     kicker: 'Baseline, avanço e tendência',
-    copy: 'Conecta cronograma, WBS, marcos, frente física e avanço aprovado sem mexer na baseline oficial automaticamente.',
+    copy: 'Conecta cronograma, WBS, marcos, frente física e avanço aprovado sem alterar baseline automaticamente.',
     screenshot: '/screenshots/agenda-gantt.png',
-    features: ['WBS e marcos', 'Gantt operacional', 'Atualização por avanço aprovado'],
+    features: ['WBS e marcos', 'Gantt operacional', 'Avanço aprovado'],
     connected: ['RDO', 'Medição', 'LPS', 'EVM'],
   },
   {
@@ -101,7 +103,7 @@ const modules: ModuleItem[] = [
     kicker: 'Last Planner nativo',
     copy: 'Look-ahead, restrições, compromissos, PPC e causas de não cumprimento conectados ao cronograma real.',
     screenshot: '/screenshots/lps-lookahead.png',
-    features: ['Look-ahead de 6 semanas', 'Registro de restrições', 'PPC e causas de não cumprimento'],
+    features: ['Look-ahead 6 semanas', 'PPC semanal', 'Restrições conectadas'],
     connected: ['Planejamento', 'Suprimentos', 'Mão de Obra', 'Qualidade'],
   },
   {
@@ -109,10 +111,10 @@ const modules: ModuleItem[] = [
     category: 'campo',
     icon: FileText,
     title: 'RDO',
-    kicker: 'Dado de campo que vira decisão',
+    kicker: 'Campo que vira decisão',
     copy: 'Registra serviço, local, equipe, equipamento, material, foto, ocorrência e assinatura com rastreabilidade.',
     screenshot: '/screenshots/rdo-dashboard.png',
-    features: ['Produção por local e serviço', 'Fotos e evidências', 'Origem para medição'],
+    features: ['Produção por serviço', 'Fotos e evidências', 'Origem da medição'],
     connected: ['Medição', 'Qualidade', 'Planejamento', 'Torre'],
   },
   {
@@ -121,8 +123,8 @@ const modules: ModuleItem[] = [
     icon: ShieldCheck,
     title: 'Qualidade',
     kicker: 'FVS e não conformidades',
-    copy: 'Conecta inspeção, evidência, não conformidade e liberação ao avanço físico e ao bloqueio de medição.',
-    features: ['FVS digital', 'Tratamento de NC', 'Liberação ou bloqueio de fechamento'],
+    copy: 'Conecta inspeção, evidência, não conformidade e liberação ao avanço e ao bloqueio de medição.',
+    features: ['FVS digital', 'Tratamento de NC', 'Liberação de fechamento'],
     connected: ['RDO', 'Medição', 'LPS', 'Torre'],
   },
   {
@@ -141,7 +143,7 @@ const modules: ModuleItem[] = [
     icon: Wrench,
     title: 'Equipamentos',
     kicker: 'Uso, manutenção e custo',
-    copy: 'Torna máquina e equipamento parte da operação: disponibilidade, uso em campo, manutenção e custo por frente.',
+    copy: 'Máquinas entram na chave operacional da obra: disponibilidade, uso no campo, manutenção e custo por frente.',
     features: ['Controle de uso', 'Manutenção preventiva', 'Custo operacional'],
     connected: ['RDO', 'LPS', 'Suprimentos', 'EVM'],
   },
@@ -161,7 +163,7 @@ const modules: ModuleItem[] = [
     category: 'projetos',
     icon: Map,
     title: 'Mapa Interativo',
-    kicker: 'Local físico como chave da operação',
+    kicker: 'Local físico como chave',
     copy: 'Conecta rua, trecho, rede, núcleo, evidência e status para reduzir retrabalho em obras distribuídas.',
     features: ['Redes e trechos', 'Status por local', 'Base para RDO e medição'],
     connected: ['RDO', 'Medição', 'Planejamento', 'Torre'],
@@ -171,7 +173,7 @@ const modules: ModuleItem[] = [
     category: 'projetos',
     icon: BadgeDollarSign,
     title: 'Quantitativos',
-    kicker: 'Orçamento que alimenta execução',
+    kicker: 'Orçamento para execução',
     copy: 'Itens, composições, bases SINAPI/SEINFRA e N. Preço viram referência para planejamento, medição e EVM.',
     screenshot: '/screenshots/quantitativos.png',
     features: ['SINAPI e SEINFRA', 'BDI e composições', 'Exportação estruturada'],
@@ -184,217 +186,107 @@ const modules: ModuleItem[] = [
     title: 'Suprimentos',
     kicker: 'Compra, recebimento e NF',
     copy: 'Vincula requisição, pedido, recebimento, nota fiscal e fornecedor ao planejamento e à medição.',
-    features: ['Three-Way Match', 'Recebimento e NF', 'Scorecard de fornecedores'],
+    features: ['Three-Way Match', 'Recebimento e NF', 'Scorecard de fornecedor'],
     connected: ['Medição', 'LPS', 'Planejamento', 'EVM'],
   },
 ]
 
+const marqueeData = [
+  'RDO incompleto vira pendência visível',
+  'Medição com origem e evidência',
+  'Planejamento atualizado sem planilha paralela',
+  'LPS com restrições conectadas',
+  'Suprimentos conversa com cronograma',
+  'Qualidade bloqueia fechamento quando precisa',
+  'CPI/SPI sem relatório manual',
+  'BIM, custo e avanço no mesmo contexto',
+  'Fornecedor medido com vínculo explícito',
+  'Diretoria decide pelo celular',
+  'Núcleo, rua, serviço e período na mesma chave',
+  'Campo e escritório na mesma fonte de verdade',
+]
+
 const impactRows = [
-  {
-    category: '(0.1) Ganhe uma Vantagem Desleal',
-    impact: 'Redução de 3-5% no custo total sobre o faturamento.',
-    how: 'Otimização de suprimentos e eliminação de perdas por erros de faturamento via Three-Way Match.',
-  },
-  {
-    category: '(0.2) Entregue com Velocidade',
-    impact: 'Controle total da sua obra em dias, não meses.',
-    how: 'Integração instantânea de cronogramas, planejamento, financeiro e execução do campo na mesma ontologia de dados.',
-  },
-  {
-    category: '(0.3) Economize Tempo',
-    impact: 'Redução de 80% no tempo de orçamentação.',
-    how: 'Automação de processos de alocação e ciclos de relatórios em tempo real, com RDO digital.',
-  },
-  {
-    category: '(0.4) Fortaleça sua Cadeia',
-    impact: 'Queda de 40% nos riscos de falta de material.',
-    how: 'Alertas preditivos e monitoramento proativo de interrupções na cadeia de suprimentos.',
-  },
-  {
-    category: '(0.5) Controle do Avanço Físico-Financeiro',
-    impact: 'Controle todas as decisões financeiras dentro da sua obra.',
-    how: 'Integração dos módulos e das decisões da obra dentro do sistema, para controle financeiro total de cada setor e núcleo.',
-  },
+  ['(0.1) Ganhe uma Vantagem Desleal', 'Redução de 3-5% no custo total sobre o faturamento.', 'Otimização de suprimentos e eliminação de perdas por erros de faturamento via Three-Way Match.'],
+  ['(0.2) Entregue com Velocidade', 'Controle total da sua obra em dias, não meses.', 'Integração instantânea de cronogramas, planejamento, financeiro e execução do campo na mesma ontologia de dados.'],
+  ['(0.3) Economize Tempo', 'Redução de 80% no tempo de orçamentação.', 'Automação de processos de alocação e ciclos de relatórios em tempo real, com RDO digital.'],
+  ['(0.4) Fortaleça sua Cadeia', 'Queda de 40% nos riscos de falta de material.', 'Alertas preditivos e monitoramento proativo de interrupções na cadeia de suprimentos.'],
+  ['(0.5) Controle do Avanço Físico-Financeiro', 'Controle todas as decisões financeiras dentro da sua obra.', 'Integração dos módulos e das decisões da obra dentro do sistema, para controle financeiro total de cada setor e núcleo.'],
 ]
 
 const differentiators = [
-  {
-    number: '01',
-    title: 'Ontologia da construção',
-    copy: 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo operacional em todos os módulos.',
-  },
-  {
-    number: '02',
-    title: 'Loop de feedback rápido',
-    copy: 'O que o campo registra no RDO alimenta medição, qualidade, planejamento, gestão e relatórios sem retrabalho.',
-  },
-  {
-    number: '03',
-    title: 'LPS / Lean nativo',
-    copy: 'Last Planner System com look-ahead de 6 semanas, PPC semanal, restrições, compromissos e causas de não cumprimento conectados ao cronograma real.',
-  },
-  {
-    number: '04',
-    title: 'Decisão antes do relatório',
-    copy: 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.',
-  },
+  ['01', 'Ontologia da construção', 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo operacional em todos os módulos.'],
+  ['02', 'Loop de feedback rápido', 'O que o campo registra no RDO alimenta medição, qualidade, planejamento, gestão e relatórios sem retrabalho.'],
+  ['03', 'LPS / Lean nativo', 'Last Planner System com look-ahead de 6 semanas, PPC semanal, restrições, compromissos e causas de não cumprimento conectados ao cronograma real.'],
+  ['04', 'Decisão antes do relatório', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
 ]
 
 const audience = [
-  {
-    title: 'Construtoras de médio porte',
-    problem: 'A diretoria enxerga resultado tarde demais, depois que planilha, RDO e financeiro já divergiram.',
-    solution: 'O ConstruData cria uma base operacional única para acompanhar campo, medição, custo e prazo por obra.',
-  },
-  {
-    title: 'Saneamento e infraestrutura',
-    problem: 'Serviços por rua, núcleo, OS e evidência ficam espalhados entre equipes, fiscais e medição.',
-    solution: 'RDO, mapa, cronograma e medição usam os mesmos códigos, locais e evidências para reduzir retrabalho.',
-  },
-  {
-    title: 'EPC e consórcios',
-    problem: 'Várias empresas participam da entrega, mas a governança precisa de rastreabilidade e permissão por perfil.',
-    solution: 'A plataforma organiza empresas, usuários, aprovações, evidências e auditoria em ambiente multiempresa.',
-  },
-  {
-    title: 'Empreiteiras',
-    problem: 'A produção executada no campo demora para virar medição defensável com memória e anexos.',
-    solution: 'O RDO finalizado gera rascunho de medição por empreiteiro, núcleo, serviço e evidência para conferência.',
-  },
+  ['Construtoras de médio porte', 'A diretoria enxerga resultado tarde demais, depois que planilha, RDO e financeiro já divergiram.', 'O ConstruData cria uma base operacional única para acompanhar campo, medição, custo e prazo por obra.'],
+  ['Saneamento e infraestrutura', 'Serviços por rua, núcleo, OS e evidência ficam espalhados entre equipes, fiscais e medição.', 'RDO, mapa, cronograma e medição usam os mesmos códigos, locais e evidências para reduzir retrabalho.'],
+  ['EPC e consórcios', 'Várias empresas participam da entrega, mas a governança precisa de rastreabilidade e permissão por perfil.', 'A plataforma organiza empresas, usuários, aprovações, evidências e auditoria em ambiente multiempresa.'],
+  ['Empreiteiras', 'A produção executada no campo demora para virar medição defensável com memória e anexos.', 'O RDO finalizado gera rascunho de medição por empreiteiro, núcleo, serviço e evidência para conferência.'],
 ]
 
 const autonomyCards = [
-  {
-    place: 'No canteiro',
-    person: 'O engenheiro',
-    copy: 'decide melhor sobre o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.',
-  },
-  {
-    place: 'No escritório',
-    person: 'O gerente',
-    copy: 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.',
-  },
-  {
-    place: 'No celular',
-    person: 'O diretor',
-    copy: 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.',
-  },
+  ['No canteiro', 'O engenheiro', 'decide melhor sobre o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.'],
+  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.'],
+  ['No celular', 'O diretor', 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.'],
 ]
 
 const testimonials = [
-  { name: 'Felipe Nery', role: 'Engenheiro Engelfer', quote: 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.' },
-  { name: 'Fabrizzio de Paoli', role: 'Consórcio Se Liga Na Rede', quote: 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.' },
-  { name: 'Matheus Marques', role: 'Vila Rica Engenharia', quote: 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.' },
+  ['Felipe Nery', 'Engenheiro Engelfer', 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.'],
+  ['Fabrizzio de Paoli', 'Consórcio Se Liga Na Rede', 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.'],
+  ['Matheus Marques', 'Vila Rica Engenharia', 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.'],
 ]
 
 const logos = [
-  { src: '/logos/social-proof/engelfer-horizontal.png', alt: 'Engelfer Engenharia' },
-  { src: '/logos/social-proof/cslnr.jpg', alt: 'Consórcio Se Liga na Rede' },
-  { src: '/logos/social-proof/vr.jfif', alt: 'Vila Rica Engenharia' },
-  { src: '/logos/social-proof/engelfer-selo.png', alt: 'Engelfer Engenharia' },
+  ['/logos/social-proof/engelfer-horizontal.png', 'Engelfer Engenharia'],
+  ['/logos/social-proof/cslnr.jpg', 'Consórcio Se Liga na Rede'],
+  ['/logos/social-proof/vr.jfif', 'Vila Rica Engenharia'],
+  ['/logos/social-proof/engelfer-selo.png', 'Engelfer Engenharia'],
 ]
 
 const faqs = [
-  {
-    q: 'O ConstruData substitui minhas planilhas no primeiro dia?',
-    a: 'Não precisa. A plataforma importa bases existentes, preserva origem e transforma planilhas em dados rastreáveis para medição, planejamento e controle.',
-  },
-  {
-    q: 'O RDO fecha automaticamente a medição?',
-    a: 'Ele gera fonte e rascunho quando há vínculo suficiente. Fechamento e aprovação continuam exigindo revisão humana.',
-  },
-  {
-    q: 'Funciona para saneamento e infraestrutura?',
-    a: 'Sim. A estrutura foi pensada para contrato, núcleo, rua/local, serviço, período, equipes, materiais e evidências.',
-  },
-  {
-    q: 'A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?',
-    a: 'Sim. A proposta é conectar bases técnicas, orçamento, modelo, planejamento e execução em uma camada operacional única.',
-  },
-  {
-    q: 'Como começa uma obra nova?',
-    a: 'Começa com contrato, orçamento, cronograma, frentes ou núcleos, fornecedores, subempreiteiros, RDO atual e responsáveis. A partir disso a base operacional é estruturada.',
-  },
-  {
-    q: 'Preciso mudar todos os processos antes de usar?',
-    a: 'Não. O ConstruData foi pensado para absorver o que já existe, organizar a operação e amadurecer os fluxos por módulo.',
-  },
+  ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A plataforma importa bases existentes, preserva origem e transforma planilhas em dados rastreáveis para medição, planejamento e controle.'],
+  ['O RDO fecha automaticamente a medição?', 'Ele gera fonte e rascunho quando há vínculo suficiente. Fechamento e aprovação continuam exigindo revisão humana.'],
+  ['Funciona para saneamento e infraestrutura?', 'Sim. A estrutura foi pensada para contrato, núcleo, rua/local, serviço, período, equipes, materiais e evidências.'],
+  ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. A proposta é conectar bases técnicas, orçamento, modelo, planejamento e execução em uma camada operacional única.'],
+  ['Como começa uma obra nova?', 'Começa com contrato, orçamento, cronograma, frentes ou núcleos, fornecedores, subempreiteiros, RDO atual e responsáveis.'],
+  ['Preciso mudar todos os processos antes de usar?', 'Não. O ConstruData foi pensado para absorver o que já existe, organizar a operação e amadurecer os fluxos por módulo.'],
 ]
 
-function SectionIntro({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
+function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
   return (
-    <div className="grid gap-5 border-t border-white/12 pt-8 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+    <div className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
       <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{eyebrow}</p>
-      <div>
-        <h2 className="font-['Space_Grotesk'] text-3xl font-bold leading-tight text-white sm:text-5xl">{title}</h2>
-        {copy && <p className="mt-6 max-w-3xl text-base leading-8 text-white/70">{copy}</p>}
-      </div>
+      <h2 className="max-w-4xl font-['Space_Grotesk'] text-4xl font-medium leading-tight text-white sm:text-5xl lg:text-6xl">{title}</h2>
+      {copy && <p className="max-w-3xl text-base leading-8 text-white/70 md:text-lg">{copy}</p>}
     </div>
   )
 }
 
-function HeroAnimation() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="absolute inset-0 bg-[#070707]" />
-      <div className="hero-grid absolute inset-0 opacity-45" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_28%,rgba(249,115,22,0.22),transparent_30%),radial-gradient(circle_at_28%_74%,rgba(255,255,255,0.08),transparent_34%)]" />
-      <svg className="absolute right-[-6%] top-24 h-[620px] w-[760px] text-[#f97316]/35" viewBox="0 0 760 620" fill="none">
-        <path className="draw-path" d="M82 498H615M170 498V175L438 72V498M170 250H438M170 334H438M298 124V498M538 498V254H650V498M538 254L594 168L650 254" stroke="currentColor" strokeWidth="2" />
-        <path className="draw-path delay-1" d="M84 540H680M108 540C150 508 198 508 240 540C282 572 330 572 372 540C414 508 462 508 504 540C546 572 594 572 636 540" stroke="white" strokeOpacity="0.18" strokeWidth="2" />
-        <circle className="pulse-node" cx="170" cy="250" r="6" fill="currentColor" />
-        <circle className="pulse-node delay-1" cx="438" cy="334" r="6" fill="currentColor" />
-        <circle className="pulse-node delay-2" cx="594" cy="168" r="6" fill="currentColor" />
-      </svg>
-      <div className="absolute inset-0 bg-gradient-to-r from-[#070707] via-[#070707]/92 to-[#070707]/48" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#111111]" />
-    </div>
-  )
-}
+function MarqueeRows() {
+  const m1 = marqueeData.slice(0, 4)
+  const m2 = marqueeData.slice(4, 8)
+  const m3 = marqueeData.slice(8)
 
-function HeroSystemPanel() {
   return (
-    <div className="relative border border-white/14 bg-[#181818]/92 p-4 shadow-2xl shadow-black/50">
-      <div className="mb-4 flex items-center justify-between border-b border-white/12 pb-3">
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-white/55">ConstruData OS</span>
-        <span className="flex items-center gap-2 font-mono text-[11px] text-[#f97316]">
-          <span className="h-2 w-2 animate-pulse bg-[#f97316]" />
-          operação ao vivo
-        </span>
-      </div>
-      <img src="/screenshots/gestao360.png" alt="Dashboard ConstruData" className="h-64 w-full border border-white/10 object-cover object-top sm:h-80" />
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {[
-          ['RDO', 'origem'],
-          ['Medição', 'conferência'],
-          ['LPS', 'restrição'],
-        ].map(([title, label]) => (
-          <div key={title} className="border border-white/12 bg-[#111111] p-4">
-            <div className="font-['Space_Grotesk'] text-lg font-bold text-white">{title}</div>
-            <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white/44">{label}</div>
-          </div>
+    <div className="relative mx-auto max-w-5xl overflow-hidden">
+      <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-linear-to-r from-[#2c2c2c]" />
+      <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-linear-to-l from-[#2c2c2c]" />
+      <div className="-mx-6 flex w-screen flex-col md:-mx-10 lg:-mx-16">
+        {[m1, m2, m3].map((row, index) => (
+          <Marquee key={index} className={`[--duration:${index === 1 ? '52s' : index === 2 ? '44s' : '48s'}] [--gap:0.75rem]`} repeat={4} reverse={index === 1}>
+            {row.map((item) => (
+              <Badge key={item} variant="outline" className="rounded-none border-[#525252] bg-[#3d3d3d] px-3 py-1 text-white/80">
+                {item}
+              </Badge>
+            ))}
+          </Marquee>
         ))}
       </div>
     </div>
-  )
-}
-
-function CompaniesStrip() {
-  return (
-    <section id="empresas" className="border-t border-white/12 bg-[#111111] py-16 sm:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <p className="mb-8 font-mono text-xs font-bold uppercase tracking-[0.18em] text-white/45">Empresas que confiam no ConstruData</p>
-        <div className="relative overflow-hidden border-y border-white/12 py-6">
-          <div className="logos-track flex w-max items-center gap-14 pr-14">
-            {[...logos, ...logos].map((logo, index) => (
-              <div key={`${logo.alt}-${index}`} className="flex h-24 w-56 shrink-0 items-center justify-center border border-white/12 bg-[#181818] p-5">
-                <img src={logo.src} alt={logo.alt} loading="lazy" className="max-h-full max-w-full object-contain brightness-110" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
   )
 }
 
@@ -411,88 +303,70 @@ function ModulesSection() {
   }
 
   return (
-    <section id="modulos" className="bg-[#111111] py-20 sm:py-28">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <SectionIntro
-          eyebrow="Módulos"
-          title="Clique em uma frente da operação e veja os módulos relacionados."
-          copy="Cada módulo tem sua própria interface, mas todos usam a mesma ontologia para manter campo, planejamento, medição, qualidade, suprimentos e gestão na mesma fonte de verdade."
-        />
-        <div className="mt-12 grid gap-8 lg:grid-cols-[0.44fr_0.56fr]">
+    <section id="modulos" className="relative bg-[#2c2c2c] pt-20 sm:pt-32">
+      <SectionHeader
+        eyebrow="Módulos"
+        title="Clique em uma frente da operação e veja os módulos relacionados."
+        copy="Cada módulo é uma peça da inteligência operacional. Todos compartilham a mesma ontologia de dados."
+      />
+      <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
+        <div className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-[0.38fr_0.62fr] lg:divide-x lg:divide-y-0">
+          <div className="flex flex-col">
+            {moduleCategories.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => selectCategory(item.id)}
+                className={`border-b border-dashed border-[#525252] px-5 py-5 text-left text-xl font-medium transition last:border-b-0 ${category === item.id ? 'bg-[#f97316] text-white' : 'bg-[#333333] text-white/70 hover:bg-[#3d3d3d] hover:text-white'}`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
           <div>
-            <div className="grid gap-2">
-              {categories.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => selectCategory(item.id)}
-                  className={`group border p-5 text-left transition ${category === item.id ? 'border-[#f97316] bg-[#f97316] text-white' : 'border-white/12 bg-[#181818] text-white hover:border-white/32'}`}
-                >
-                  <span className="block font-['Space_Grotesk'] text-xl font-bold">{item.label}</span>
-                  <span className={`mt-2 block text-sm leading-6 ${category === item.id ? 'text-white/78' : 'text-white/52'}`}>{item.description}</span>
-                </button>
-              ))}
-            </div>
-            <div className="mt-6 grid gap-2">
-              {filtered.map((module) => {
-                const Icon = module.icon
-                const selected = activeModule.id === module.id
-                return (
-                  <button
-                    key={module.id}
-                    type="button"
-                    onClick={() => setActiveId(module.id)}
-                    className={`grid grid-cols-[42px_1fr] gap-3 border p-3 text-left transition ${selected ? 'border-[#f97316]/70 bg-[#2a1d14]' : 'border-white/12 bg-[#181818] hover:border-[#f97316]/50'}`}
-                  >
-                    <span className={`flex h-10 w-10 items-center justify-center ${selected ? 'bg-[#f97316] text-white' : 'bg-[#0d0d0d] text-[#f97316]'}`}>
-                      <Icon size={18} />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-bold text-white">{module.title}</span>
-                      <span className="mt-1 block text-xs leading-5 text-white/50">{module.kicker}</span>
-                    </span>
-                  </button>
-                )
-              })}
+            <div className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="flex flex-col divide-y divide-dashed divide-[#525252]">
+                {filtered.map((module) => {
+                  const Icon = module.icon
+                  return (
+                    <button
+                      key={module.id}
+                      type="button"
+                      onClick={() => setActiveId(module.id)}
+                      className={`flex gap-4 px-5 py-5 text-left transition ${activeModule.id === module.id ? 'bg-[#3d3d3d]' : 'bg-[#333333] hover:bg-[#3d3d3d]'}`}
+                    >
+                      <Icon className="mt-1 size-6 shrink-0 text-[#f97316]" />
+                      <span>
+                        <span className="block text-lg font-medium text-white">{module.title}</span>
+                        <span className="mt-1 block text-sm leading-6 text-white/60">{module.kicker}</span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              <article className="bg-[#333333]">
+                {activeModule.screenshot ? (
+                  <img src={activeModule.screenshot} alt={`Tela do módulo ${activeModule.title}`} className="h-64 w-full border-b border-dashed border-[#525252] object-cover object-top" />
+                ) : (
+                  <div className="flex h-64 items-center justify-center border-b border-dashed border-[#525252]">
+                    <DatabaseZap className="size-12 text-[#f97316]" />
+                  </div>
+                )}
+                <div className="p-6">
+                  <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#f97316]">{activeModule.kicker}</p>
+                  <h3 className="mt-3 font-['Space_Grotesk'] text-4xl font-medium text-white">{activeModule.title}</h3>
+                  <p className="mt-5 text-sm leading-7 text-white/70">{activeModule.copy}</p>
+                  <div className="mt-7 flex flex-wrap gap-2">
+                    {[...activeModule.features, ...activeModule.connected].map((item) => (
+                      <Badge key={item} variant="secondary" className="rounded-none">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
-          <article className="border border-white/12 bg-[#181818]">
-            {activeModule.screenshot ? (
-              <img src={activeModule.screenshot} alt={`Tela do módulo ${activeModule.title}`} className="h-72 w-full border-b border-white/12 object-cover object-top" />
-            ) : (
-              <div className="flex h-72 items-center justify-center border-b border-white/12 bg-[#0c0c0c]">
-                <DatabaseZap className="text-[#f97316]" size={46} />
-              </div>
-            )}
-            <div className="p-6 sm:p-8">
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#f97316]">{activeModule.kicker}</p>
-              <h3 className="mt-3 font-['Space_Grotesk'] text-4xl font-bold text-white">{activeModule.title}</h3>
-              <p className="mt-5 max-w-3xl text-sm leading-7 text-white/70">{activeModule.copy}</p>
-              <div className="mt-8 grid gap-6 md:grid-cols-2">
-                <div>
-                  <h4 className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-white/45">Funcionalidades</h4>
-                  <div className="grid gap-2">
-                    {activeModule.features.map((feature) => (
-                      <div key={feature} className="flex items-center gap-3 border border-white/12 bg-[#111111] p-3 text-sm text-white/78">
-                        <CheckCircle2 size={16} className="text-[#f97316]" />
-                        {feature}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="mb-3 font-mono text-xs font-bold uppercase tracking-[0.16em] text-white/45">Conecta com</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {activeModule.connected.map((item) => (
-                      <span key={item} className="border border-white/12 bg-[#111111] px-3 py-2 text-xs font-semibold text-white/72">
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
         </div>
       </div>
     </section>
@@ -507,7 +381,7 @@ function Input({ label, name, type = 'text', required = false }: { label: string
         name={name}
         type={type}
         required={required}
-        className="h-12 w-full border border-white/12 bg-[#111111] px-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]"
+        className="h-12 w-full rounded-none border border-[#525252] bg-[#333333] px-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]"
       />
     </label>
   )
@@ -558,9 +432,9 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070707] text-white antialiased">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/12 bg-[#070707]/92 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#2c2c2c] text-white antialiased">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-dashed border-[#525252] bg-[#2c2c2c]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-10">
           <a href="/" className="flex items-center gap-3">
             <BrandLockup />
           </a>
@@ -578,7 +452,7 @@ export function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={LOGIN_URL} className="hidden border border-white/16 px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white sm:inline-flex">
+            <a href={LOGIN_URL} className="hidden border border-dashed border-[#525252] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white sm:inline-flex">
               Acessar
             </a>
             <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#f97316] px-4 py-2 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
@@ -589,245 +463,230 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="relative min-h-screen overflow-hidden pt-28">
-          <HeroAnimation />
-          <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-4 pb-24 sm:px-6 lg:grid-cols-[0.98fr_1.02fr] lg:px-8 lg:pb-32 lg:pt-20">
-            <div className="flex flex-col justify-center">
-              <p className="mb-8 max-w-fit border-l-2 border-[#f97316] pl-4 font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">
+        <section className="relative bg-[#2c2c2c] pt-28 sm:pt-40">
+          <div className="mx-auto max-w-full">
+            <div className="mx-auto flex max-w-6xl flex-col items-center justify-center space-y-6 px-5 text-center md:px-10">
+              <Badge className="rounded-none border-[#525252] bg-[#333333] px-4 py-1 text-[#f97316]" variant="outline">
                 Plataforma de Planejamento e Gestão da Execução da Obra
-              </p>
-              <h1 className="font-['Space_Grotesk'] text-6xl font-bold leading-[0.92] text-white sm:text-7xl lg:text-8xl">
+              </Badge>
+              <h1 className="max-w-5xl font-['Space_Grotesk'] text-6xl font-medium leading-[0.95] text-white sm:text-7xl lg:text-8xl">
                 ConstruData
               </h1>
-              <p className="mt-7 max-w-3xl font-['Space_Grotesk'] text-2xl font-semibold leading-tight text-white sm:text-4xl">
+              <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white sm:text-5xl">
                 Automação Alimentada por IA para cada Decisão na Construção.
+              </h2>
+              <p className="max-w-3xl text-base leading-8 text-white/72 md:text-lg">
+                Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
               </p>
-              <div className="mt-8 max-w-2xl space-y-5 text-base leading-8 text-white/72">
-                <p>
-                  Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
-                </p>
-                <p>
-                  Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
-                </p>
-              </div>
-              <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <p className="max-w-3xl text-base leading-8 text-white/72 md:text-lg">
+                Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-3 bg-[#f97316] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
                   Ver como funciona <ArrowRight size={17} />
                 </a>
-                <a href={LOGIN_URL} className="inline-flex items-center justify-center border border-white/16 bg-white/[0.03] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:border-[#f97316]">
+                <a href={LOGIN_URL} className="inline-flex items-center justify-center border border-dashed border-[#525252] bg-[#333333] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:border-[#f97316]">
                   Acessar plataforma
                 </a>
               </div>
+              <MarqueeRows />
             </div>
-            <div className="self-center">
-              <HeroSystemPanel />
-            </div>
-          </div>
-        </section>
 
-        <section id="ontologia" className="bg-[#111111] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="A Ontologia da Construção"
-              title="O Diferencial Técnico"
-              copy="A Ontologia da Construção integra todas as funções centrais, da pré-construção ao suprimento, execução no canteiro e encerramento do projeto, através de uma camada semântica unificada."
-            />
-            <div className="mt-12 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="border border-white/12 bg-[#181818] p-6 sm:p-8">
-                <DatabaseZap className="mb-6 text-[#f97316]" size={32} />
-                <p className="text-base leading-8 text-white/72">
-                  Em sua essência, a Ontologia padroniza como os departamentos interagem com objetos de negócio compartilhados, como projetos, atividades, equipamentos e subempreiteiros, garantindo definições consistentes e sincronização em tempo real em toda a empresa.
-                </p>
-              </div>
-              <div className="space-y-6 text-base leading-8 text-white/72">
-                <p>
-                  Construída sob uma perspectiva "campo-primeiro", a Ontologia conecta o que acontece no canteiro de obras aos sistemas que o suportam (ERP, BIM, Cronogramas) em um ambiente low-code acessível a todos os usuários, independentemente do background técnico.
-                </p>
-                <p>
-                  O ConstruData faz a ponte entre plataformas fundamentais e casos de uso críticos. Ela permite decisões baseadas em IA que preveem atrasos no cronograma antes que ocorram, aceleram o alinhamento de fornecedores e sintetizam a entrega do projeto com metas de segurança, orçamento e prazo, reduzindo o risco em toda a execução, enquanto preserva seus investimentos tecnológicos existentes.
-                </p>
-                <p className="border-l-2 border-[#f97316] pl-5 font-semibold text-white">
-                  Na prática: quando o engenheiro atualiza o RDO no campo, o cronograma, o EVM e os suprimentos se ajustam automaticamente — sem retrabalho, sem planilhas paralelas.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="impacto" className="bg-[#070707] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="Impacto real em escala"
-              title="ConstruData Impulsiona Impacto Real em Escala"
-              copy="Ajudamos empresas de engenharia e construção a dominarem o mercado."
-            />
-            <div className="mt-12 overflow-hidden border border-white/12">
-              <div className="hidden grid-cols-[0.9fr_0.9fr_1.2fr] border-b border-white/12 bg-white/[0.04] px-5 py-4 font-mono text-xs font-bold uppercase tracking-[0.16em] text-white/42 lg:grid">
-                <span>Categoria</span>
-                <span>Impacto Mensurável</span>
-                <span>Como Acontece</span>
-              </div>
-              {impactRows.map((row) => (
-                <div key={row.category} className="grid gap-4 border-b border-white/12 bg-[#111111] p-5 last:border-b-0 lg:grid-cols-[0.9fr_0.9fr_1.2fr] lg:items-center">
-                  <h3 className="font-['Space_Grotesk'] text-xl font-bold text-white">{row.category}</h3>
-                  <p className="text-sm font-semibold leading-6 text-white/84">{row.impact}</p>
-                  <p className="text-sm leading-7 text-white/64">{row.how}</p>
+            <div className="mt-16 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+              {[
+                ['16+', 'módulos conectados'],
+                ['D+0', 'dado de campo'],
+                ['100%', 'origem rastreável'],
+              ].map(([value, label]) => (
+                <div key={label} className="bg-[#333333] px-5 py-8 text-center">
+                  <div className="font-['Space_Grotesk'] text-4xl font-medium text-white">{value}</div>
+                  <div className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-white/45">{label}</div>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <CompaniesStrip />
+        <section id="ontologia" className="bg-[#333333] pt-20 sm:pt-32">
+          <SectionHeader
+            eyebrow="A Ontologia da Construção"
+            title="O Diferencial Técnico"
+            copy="A Ontologia da Construção integra todas as funções centrais, da pré-construção ao suprimento, execução no canteiro e encerramento do projeto, através de uma camada semântica unificada."
+          />
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+            {[
+              'Em sua essência, a Ontologia padroniza como os departamentos interagem com objetos de negócio compartilhados, como projetos, atividades, equipamentos e subempreiteiros.',
+              'Construída sob uma perspectiva campo-primeiro, conecta o que acontece no canteiro aos sistemas que o suportam: ERP, BIM e cronogramas.',
+              'Na prática: quando o engenheiro atualiza o RDO no campo, cronograma, EVM e suprimentos se ajustam automaticamente, sem retrabalho.',
+            ].map((copy, index) => (
+              <div key={copy} className="flex flex-col gap-5 bg-[#333333] px-5 py-8 lg:px-8 lg:py-12">
+                <DatabaseZap className="size-12 text-[#f97316]" />
+                <div className="pt-8 lg:pt-14">
+                  <h3 className="font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">0{index + 1}</h3>
+                  <p className="mt-4 leading-7 text-white/72">{copy}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <section id="diferencial" className="bg-[#111111] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="Diferencial único"
-              title="Todo mundo tem acesso a código. Nem todo mundo tem metodologia."
-              copy="O ConstruData não é apenas um software de gestão. É uma metodologia operacional para obras de construção civil e saneamento, com dados conectados desde o campo até a decisão executiva."
-            />
-            <div className="mt-12 grid gap-px bg-white/12 md:grid-cols-2">
-              {differentiators.map((item) => (
-                <article key={item.number} className="bg-[#181818] p-6 transition hover:bg-[#202020] sm:p-8">
-                  <span className="font-mono text-sm font-bold text-[#f97316]">{item.number}</span>
-                  <h3 className="mt-8 font-['Space_Grotesk'] text-2xl font-bold text-white">{item.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/68">{item.copy}</p>
-                </article>
+        <section id="impacto" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+          <SectionHeader
+            eyebrow="Impacto real em escala"
+            title="ConstruData Impulsiona Impacto Real em Escala"
+            copy="Ajudamos empresas de engenharia e construção a dominarem o mercado."
+          />
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252]">
+            {impactRows.map(([category, impact, how]) => (
+              <div key={category} className="grid gap-5 bg-[#333333] px-5 py-7 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-8">
+                <h3 className="font-['Space_Grotesk'] text-2xl font-medium text-white">{category}</h3>
+                <p className="font-semibold leading-7 text-white/84">{impact}</p>
+                <p className="leading-7 text-white/64">{how}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="empresas" className="bg-[#333333] pt-20 sm:pt-32">
+          <SectionHeader eyebrow="Empresas que confiam no ConstruData" title="Logotipos em movimento, dados em movimento." />
+          <div className="relative mt-12 overflow-hidden border-y border-dashed border-[#525252] py-8">
+            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-linear-to-r from-[#333333]" />
+            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-linear-to-l from-[#333333]" />
+            <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
+              {logos.map(([src, alt]) => (
+                <div key={src} className="flex h-28 w-64 shrink-0 items-center justify-center border border-dashed border-[#525252] bg-[#2c2c2c] p-5">
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain brightness-110" />
+                </div>
               ))}
-            </div>
+            </Marquee>
+          </div>
+        </section>
+
+        <section id="diferencial" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+          <SectionHeader
+            eyebrow="Diferencial único"
+            title="Todo mundo tem acesso a código. Nem todo mundo tem metodologia."
+            copy="O ConstruData não é apenas um software de gestão. É uma metodologia operacional para obras de construção civil e saneamento, com dados conectados desde o campo até a decisão executiva."
+          />
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-2 sm:divide-x lg:grid-cols-4">
+            {differentiators.map(([number, title, copy]) => (
+              <div key={number} className="flex flex-col gap-5 bg-[#333333] px-5 py-8 lg:px-6 lg:py-10">
+                <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
+                <div className="flex flex-col gap-3 pt-10 lg:pt-20">
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-white sm:text-3xl">{title}</h3>
+                  <p className="leading-7 text-white/68">{copy}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
         <ModulesSection />
 
-        <section id="depoimentos" className="bg-[#070707] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="O que os líderes da construção estão dizendo"
-              title="Provas sociais focadas em ROI e transformação digital."
-              copy="Logotipos em movimento e depoimentos preparados para conversar com decisores, operação e engenharia."
-            />
-            <div className="mt-12 grid gap-4 lg:grid-cols-3">
-              {testimonials.map((item) => (
-                <figure key={item.name} className="border border-white/12 bg-[#111111] p-6">
-                  <blockquote className="text-base leading-8 text-white/72">“{item.quote}”</blockquote>
-                  <figcaption className="mt-8 border-t border-white/12 pt-5">
-                    <div className="font-['Space_Grotesk'] text-xl font-bold text-white">{item.name}</div>
-                    <div className="mt-1 font-mono text-xs font-bold uppercase tracking-[0.12em] text-[#f97316]">{item.role}</div>
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+        <section id="depoimentos" className="bg-[#333333] pt-20 sm:pt-32">
+          <SectionHeader eyebrow="O que os líderes da construção estão dizendo" title="Provas sociais focadas em ROI e transformação digital." />
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+            {testimonials.map(([name, role, quote]) => (
+              <figure key={name} className="bg-[#333333] px-5 py-8 lg:px-8 lg:py-12">
+                <blockquote className="text-xl leading-9 text-white/80">“{quote}”</blockquote>
+                <figcaption className="mt-10 border-t border-dashed border-[#525252] pt-5">
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white">{name}</div>
+                  <div className="mt-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#f97316]">{role}</div>
+                </figcaption>
+              </figure>
+            ))}
           </div>
         </section>
 
-        <section id="perfis" className="bg-[#111111] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="Para quem é o ConstruData?"
-              title="O visitante certo se reconhece rápido."
-              copy="Cada perfil entra por uma dor diferente, mas todos precisam do mesmo ponto de chegada: dado de campo confiável virando decisão, medição e planejamento."
-            />
-            <div className="mt-12 grid gap-4 md:grid-cols-2">
-              {audience.map((item) => (
-                <article key={item.title} className="border border-white/12 bg-[#181818] p-6">
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-bold text-white">{item.title}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/66">
-                    <strong className="text-white">Problema:</strong> {item.problem}
-                  </p>
-                  <p className="mt-4 text-sm leading-7 text-white/66">
-                    <strong className="text-white">Como resolve:</strong> {item.solution}
-                  </p>
-                </article>
-              ))}
-            </div>
+        <section id="perfis" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+          <SectionHeader
+            eyebrow="Para quem é o ConstruData?"
+            title="O visitante certo se reconhece rápido."
+            copy="Cada perfil entra por uma dor diferente, mas todos precisam do mesmo ponto de chegada: dado de campo confiável virando decisão, medição e planejamento."
+          />
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] md:grid-cols-2 md:divide-x">
+            {audience.map(([title, problem, solution]) => (
+              <article key={title} className="bg-[#333333] px-5 py-8 lg:p-10">
+                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">{title}</h3>
+                <p className="mt-6 leading-7 text-white/68"><strong className="text-white">Problema:</strong> {problem}</p>
+                <p className="mt-4 leading-7 text-white/68"><strong className="text-white">Como resolve:</strong> {solution}</p>
+              </article>
+            ))}
           </div>
         </section>
 
-        <section id="linkedin" className="bg-[#070707] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="grid gap-8 border border-white/12 bg-[#111111] p-6 sm:p-8 lg:grid-cols-[0.75fr_1.25fr]">
-              <div>
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Artigo no LinkedIn</p>
-                <h2 className="mt-8 font-['Space_Grotesk'] text-4xl font-bold leading-tight text-white">A visão por trás da ConstruData.</h2>
-              </div>
-              <div>
-                <p className="text-base leading-8 text-white/72">
-                  Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
-                </p>
-                <div className="mt-8 border-l-2 border-[#f97316] pl-5">
-                  <p className="font-['Space_Grotesk'] text-2xl font-bold text-white">ConstruData Software</p>
-                  <p className="mt-2 text-sm leading-7 text-white/68">
-                    Dados conectados, automação e decisões melhores para obras reais.
-                  </p>
-                </div>
-                <p className="mt-6 text-sm leading-7 text-white/68">
-                  Leia o artigo publicado no LinkedIn e veja como a plataforma posiciona RDO, planejamento, suprimentos, medição, qualidade e gestão como uma camada única de operação.
-                </p>
-                <a href={LINKEDIN_ARTICLE_URL} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
-                  Ler artigo no LinkedIn <ArrowRight size={16} />
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="autonomia" className="bg-[#111111] py-20 sm:py-28">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <SectionIntro
-              eyebrow="Autonomia para a cadeia inteira"
-              title="A obra inteira fica mais inteligente."
-              copy="Não porque tem mais dashboards. Porque tem mais pessoas decidindo bem, no momento certo, com a informação certa. É isso que distribui autonomia de verdade pela cadeia da sua construção."
-            />
-            <p className="mt-10 max-w-3xl font-['Space_Grotesk'] text-2xl font-bold leading-tight text-white">
-              Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
-            </p>
-            <div className="mt-12 grid gap-4 lg:grid-cols-3">
-              {autonomyCards.map((item) => (
-                <article key={item.place} className="border border-white/12 bg-[#181818] p-6">
-                  <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{item.place}</p>
-                  <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-bold text-white">{item.person}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/68">{item.copy}</p>
-                  <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-white">
-                    Ver como funciona <ArrowRight size={14} />
-                  </a>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="contato" className="bg-[#070707] py-20 sm:py-28">
-          <div className="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
+        <section id="linkedin" className="bg-[#333333] px-5 py-20 sm:py-32 md:px-10">
+          <div className="mx-auto grid max-w-6xl gap-8 border border-dashed border-[#525252] bg-[#2c2c2c] p-6 lg:grid-cols-[0.8fr_1.2fr] lg:p-10">
             <div>
-              <SectionIntro eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Artigo no LinkedIn</p>
+              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight text-white">A visão por trás da ConstruData.</h2>
+            </div>
+            <div>
+              <p className="text-lg leading-8 text-white/72">
+                Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
+              </p>
+              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-white">ConstruData Software</h3>
+              <p className="mt-3 leading-7 text-white/68">Dados conectados, automação e decisões melhores para obras reais.</p>
+              <a href={LINKEDIN_ARTICLE_URL} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
+                Ler artigo no LinkedIn <ArrowRight size={16} />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="autonomia" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+          <SectionHeader
+            eyebrow="Autonomia para a cadeia inteira"
+            title="A obra inteira fica mais inteligente."
+            copy="Não porque tem mais dashboards. Porque tem mais pessoas decidindo bem, no momento certo, com a informação certa. É isso que distribui autonomia de verdade pela cadeia da sua construção."
+          />
+          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white">
+            Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
+          </p>
+          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+            {autonomyCards.map(([place, person, copy]) => (
+              <article key={place} className="bg-[#333333] px-5 py-8 lg:p-10">
+                <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
+                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium text-white">{person}</h3>
+                <p className="mt-5 leading-7 text-white/68">{copy}</p>
+                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-white">
+                  Ver como funciona <ArrowRight size={14} />
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="contato" className="bg-[#333333] px-5 py-20 sm:py-32 md:px-10">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr]">
+            <div>
+              <SectionHeader eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
               <div className="mt-8 grid gap-3">
-                {faqs.map((item) => (
-                  <details key={item.q} className="group border border-white/12 bg-[#111111] p-5">
+                {faqs.map(([question, answer]) => (
+                  <details key={question} className="group border border-dashed border-[#525252] bg-[#2c2c2c] p-5">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                      <span className="font-['Space_Grotesk'] text-base font-bold text-white">{item.q}</span>
+                      <span className="font-['Space_Grotesk'] text-base font-medium text-white">{question}</span>
                       <span className="text-[#f97316] transition group-open:rotate-45">+</span>
                     </summary>
-                    <p className="mt-4 text-sm leading-7 text-white/68">{item.a}</p>
+                    <p className="mt-4 leading-7 text-white/68">{answer}</p>
                   </details>
                 ))}
               </div>
             </div>
-            <form onSubmit={handleSubmit} className="border border-white/12 bg-[#111111] p-5 sm:p-7">
+            <form onSubmit={handleSubmit} className="border border-dashed border-[#525252] bg-[#2c2c2c] p-5 sm:p-7">
               {sent ? (
                 <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                   <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-bold text-white">Solicitação enviada.</h3>
-                  <p className="mt-3 max-w-md text-sm leading-7 text-white/68">Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.</p>
+                  <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Solicitação enviada.</h3>
+                  <p className="mt-3 max-w-md leading-7 text-white/68">Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.</p>
                 </div>
               ) : (
                 <>
                   <div className="mb-7 flex items-center gap-3">
                     <LockKeyhole className="text-[#f97316]" size={20} />
                     <div>
-                      <h3 className="font-['Space_Grotesk'] text-2xl font-bold text-white">Formulário de Qualificação</h3>
-                      <p className="mt-1 text-xs leading-5 text-white/48">Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.</p>
+                      <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Formulário de Qualificação</h3>
+                      <p className="mt-1 text-sm leading-6 text-white/48">Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.</p>
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -838,7 +697,7 @@ export function LandingPage() {
                     <Input name="cargo" label="Cargo" required />
                     <label className="block sm:col-span-2">
                       <span className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Principal dor</span>
-                      <textarea name="dor" rows={4} className="w-full border border-white/12 bg-[#111111] px-3 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]" placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..." />
+                      <textarea name="dor" rows={4} className="w-full rounded-none border border-[#525252] bg-[#333333] px-3 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]" placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..." />
                     </label>
                   </div>
                   {error && <p className="mt-4 border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">{error}</p>}
@@ -852,54 +711,12 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/12 bg-[#070707] py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 text-center sm:flex-row sm:px-6 lg:px-8">
+      <footer className="border-t border-dashed border-[#525252] bg-[#2c2c2c] py-8">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row md:px-10">
           <span className="text-xs text-white/62">© 2026 ConstruData</span>
           <span className="text-xs text-white/42">CONSTRUÇÃO · SANEAMENTO · INFRAESTRUTURA</span>
         </div>
       </footer>
-
-      <style>{`
-        .hero-grid {
-          background-image:
-            linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
-          background-size: 84px 84px;
-          animation: grid-pan 18s linear infinite;
-        }
-        .draw-path {
-          stroke-dasharray: 1200;
-          stroke-dashoffset: 1200;
-          animation: draw 6s ease-in-out infinite alternate;
-        }
-        .delay-1 { animation-delay: 1.2s; }
-        .delay-2 { animation-delay: 2.2s; }
-        .pulse-node {
-          animation: pulse-node 2.7s ease-in-out infinite;
-          transform-origin: center;
-        }
-        .logos-track {
-          animation: logos-scroll 28s linear infinite;
-        }
-        @keyframes grid-pan {
-          from { transform: translate3d(0,0,0); }
-          to { transform: translate3d(84px,84px,0); }
-        }
-        @keyframes draw {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes pulse-node {
-          0%, 100% { opacity: 0.35; transform: scale(0.8); }
-          50% { opacity: 1; transform: scale(1.25); }
-        }
-        @keyframes logos-scroll {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .hero-grid, .draw-path, .pulse-node, .logos-track { animation: none; }
-        }
-      `}</style>
     </div>
   )
 }

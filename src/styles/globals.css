@@ -31,6 +31,29 @@
   --radius-xl: 1rem;
 }
 
+@theme inline {
+  --animate-marquee: marquee var(--duration, 40s) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration, 40s) linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -319,6 +342,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 /* SVG fill overrides */
 [data-theme="light"] .fill-gray-500 { fill: #6b7280 !important; }
 
+/* Planejamento/LPS dark mode readability */
+.planning-lps-readable .text-\[\#6b6b6b\],
+.planning-lps-readable .text-gray-600 {
+  color: #b8b8b8 !important;
+}
+.planning-lps-readable .text-\[\#a3a3a3\],
+.planning-lps-readable .text-gray-500,
+.planning-lps-readable .text-gray-400 {
+  color: #d4d4d4 !important;
+}
+.planning-lps-readable thead,
+.planning-lps-readable table th {
+  color: #d4d4d4;
+}
+
 /* ─── Dark Mode Overrides ───────────────────────────────────────────────────── */
 /* Modules using bg-white/bg-gray-50 etc need dark equivalents in dark mode.    */
 
@@ -337,6 +375,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 [data-theme="dark"] .border-gray-200 { border-color: #5e5e5e !important; }
 [data-theme="dark"] .divide-gray-100 > * + * { border-color: #525252 !important; }
 [data-theme="dark"] .divide-gray-200 > * + * { border-color: #5e5e5e !important; }
+
+/* RDO Sabesp is a literal document preview and must stay paper-white in dark UI. */
+[data-theme="dark"] .rdo-sabesp-sheet,
+[data-theme="dark"] .rdo-sabesp-sheet .bg-white {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+[data-theme="dark"] .rdo-sabesp-sheet .bg-slate-100 { background-color: #f1f5f9 !important; }
+[data-theme="dark"] .rdo-sabesp-sheet .bg-slate-200 { background-color: #e2e8f0 !important; }
+[data-theme="dark"] .rdo-sabesp-sheet .bg-orange-100 { background-color: #ffedd5 !important; }
+[data-theme="dark"] .rdo-sabesp-sheet .bg-orange-300 { background-color: #fdba74 !important; }
+[data-theme="dark"] .rdo-sabesp-sheet .bg-sky-300 { background-color: #7dd3fc !important; }
 
 /* ─── Print styles (PDF export) ─────────────────────────────────────────────── */
 @media print {
@@ -477,3 +527,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* Landing page sections always render in their intended colors (not overridden by dark mode) */
 /* These selectors target the AllModulesGrid dark background which is intentional on landing */
+
+.landing-reveal {
+  animation: landingFadeUp 0.55s ease both;
+}
+
+@keyframes landingFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-reveal {
+    animation: none !important;
+  }
+}
