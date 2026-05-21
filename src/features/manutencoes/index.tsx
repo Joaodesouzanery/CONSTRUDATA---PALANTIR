@@ -25,6 +25,8 @@ import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { useProjetosStore } from '@/store/projetosStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import {
   type MaintenanceAsset,
   type MaintenanceAssetStatus,
@@ -36,6 +38,7 @@ import {
   type MaintenanceWorkOrder,
   useManutencoesStore,
 } from '@/store/manutencoesStore'
+import type { ConstructionSite, Project } from '@/types'
 
 type MaintenanceTab = 'painel' | 'ativos' | 'monitoramento' | 'tarefas' | 'ordens' | 'kanban' | 'calendario'
 type ModalState =
@@ -109,6 +112,20 @@ function assetScope(asset: MaintenanceAsset) {
   if (asset.constructionSiteId) return 'Obra vinculada'
   if (asset.projectId) return 'Projeto vinculado'
   return 'Corporativo/Geral'
+}
+
+function projectLabel(project?: Project) {
+  if (!project) return ''
+  return `${project.code || 'Projeto'} · ${project.name}`
+}
+
+function siteLabel(site?: ConstructionSite) {
+  if (!site) return ''
+  return `${site.code || 'Obra'} · ${site.name}`
+}
+
+function siteProjectId(site?: ConstructionSite) {
+  return (site as { projectId?: string } | undefined)?.projectId ?? null
 }
 
 function statusTone(status: MaintenanceStatus) {
@@ -227,6 +244,64 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+function ScopeFields({
+  projects,
+  sites,
+  projectId,
+  constructionSiteId,
+  onChange,
+}: {
+  projects: Project[]
+  sites: ConstructionSite[]
+  projectId: string
+  constructionSiteId: string
+  onChange: (patch: { projectId?: string; constructionSiteId?: string }) => void
+}) {
+  const selectedProject = projects.find((project) => project.id === projectId)
+  const selectedSite = sites.find((site) => site.id === constructionSiteId)
+  const scopeText = selectedSite
+    ? `Vinculado à obra ${siteLabel(selectedSite)}`
+    : selectedProject
+      ? `Vinculado ao projeto ${projectLabel(selectedProject)}`
+      : 'Corporativo/Geral: ativo disponível para a empresa inteira, sem obra específica.'
+
+  return (
+    <>
+      <Field label="Projeto">
+        <select
+          value={projectId}
+          onChange={(event) => onChange({ projectId: event.target.value, constructionSiteId })}
+          className={inputClass}
+        >
+          <option value="">Corporativo/Geral</option>
+          {projectId && !selectedProject && <option value={projectId}>Projeto salvo ({projectId.slice(0, 8)})</option>}
+          {projects.map((project) => <option key={project.id} value={project.id}>{projectLabel(project)}</option>)}
+        </select>
+      </Field>
+      <Field label="Obra">
+        <select
+          value={constructionSiteId}
+          onChange={(event) => {
+            const nextSite = sites.find((site) => site.id === event.target.value)
+            onChange({
+              constructionSiteId: event.target.value,
+              projectId: siteProjectId(nextSite) ?? projectId,
+            })
+          }}
+          className={inputClass}
+        >
+          <option value="">Sem obra específica</option>
+          {constructionSiteId && !selectedSite && <option value={constructionSiteId}>Obra salva ({constructionSiteId.slice(0, 8)})</option>}
+          {sites.map((site) => <option key={site.id} value={site.id}>{siteLabel(site)}</option>)}
+        </select>
+      </Field>
+      <div className="rounded-lg border border-[#525252] bg-[#333333] px-3 py-2 text-xs text-[#a3a3a3] md:col-span-2">
+        {scopeText}
+      </div>
+    </>
+  )
+}
+
 function ModalActions({ onCancel, saving }: { onCancel: () => void; saving: boolean }) {
   return (
     <div className="mt-5 flex justify-end gap-2 border-t border-[#525252] pt-4">
@@ -240,7 +315,7 @@ function ModalActions({ onCancel, saving }: { onCancel: () => void; saving: bool
   )
 }
 
-function AssetModal({ item, onClose }: { item?: MaintenanceAsset; onClose: () => void }) {
+function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsset; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
   const addAsset = useManutencoesStore((state) => state.addAsset)
   const updateAsset = useManutencoesStore((state) => state.updateAsset)
   const [saving, setSaving] = useState(false)
@@ -296,8 +371,7 @@ function AssetModal({ item, onClose }: { item?: MaintenanceAsset; onClose: () =>
           </Field>
           <Field label="Localização"><input value={form.location} onChange={(e) => setForm((s) => ({ ...s, location: e.target.value }))} className={inputClass} placeholder="Local, setor, pavimento ou frente" /></Field>
           <Field label="QR / Identificador"><input value={form.qrCode} onChange={(e) => setForm((s) => ({ ...s, qrCode: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Project ID opcional"><input value={form.projectId} onChange={(e) => setForm((s) => ({ ...s, projectId: e.target.value }))} className={inputClass} placeholder="Vazio = Corporativo/Geral" /></Field>
-          <Field label="Obra ID opcional"><input value={form.constructionSiteId} onChange={(e) => setForm((s) => ({ ...s, constructionSiteId: e.target.value }))} className={inputClass} placeholder="Vazio = sem obra específica" /></Field>
+          <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
         <ModalActions onCancel={onClose} saving={saving} />
       </form>
@@ -305,7 +379,7 @@ function AssetModal({ item, onClose }: { item?: MaintenanceAsset; onClose: () =>
   )
 }
 
-function PlanModal({ item, assets, onClose }: { item?: MaintenancePlan; assets: MaintenanceAsset[]; onClose: () => void }) {
+function PlanModal({ item, assets, projects, sites, onClose }: { item?: MaintenancePlan; assets: MaintenanceAsset[]; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
   const addPlan = useManutencoesStore((state) => state.addPlan)
   const updatePlan = useManutencoesStore((state) => state.updatePlan)
   const [saving, setSaving] = useState(false)
@@ -358,8 +432,7 @@ function PlanModal({ item, assets, onClose }: { item?: MaintenancePlan; assets: 
           </Field>
           <Field label="Próxima data"><input type="date" value={form.nextDueDate} onChange={(e) => setForm((s) => ({ ...s, nextDueDate: e.target.value }))} className={inputClass} /></Field>
           <Field label="Duração prevista (min)"><input type="number" min={0} value={form.estimatedDurationMinutes} onChange={(e) => setForm((s) => ({ ...s, estimatedDurationMinutes: Number(e.target.value) }))} className={inputClass} /></Field>
-          <Field label="Project ID opcional"><input value={form.projectId} onChange={(e) => setForm((s) => ({ ...s, projectId: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Obra ID opcional"><input value={form.constructionSiteId} onChange={(e) => setForm((s) => ({ ...s, constructionSiteId: e.target.value }))} className={inputClass} /></Field>
+          <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <Field label="Descrição"><textarea value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} className={cn(inputClass, 'min-h-28')} /></Field>
@@ -379,7 +452,7 @@ function PlanModal({ item, assets, onClose }: { item?: MaintenancePlan; assets: 
   )
 }
 
-function OrderModal({ item, assets, plans, onClose }: { item?: MaintenanceWorkOrder; assets: MaintenanceAsset[]; plans: MaintenancePlan[]; onClose: () => void }) {
+function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: MaintenanceWorkOrder; assets: MaintenanceAsset[]; plans: MaintenancePlan[]; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
   const addWorkOrder = useManutencoesStore((state) => state.addWorkOrder)
   const updateWorkOrder = useManutencoesStore((state) => state.updateWorkOrder)
   const [saving, setSaving] = useState(false)
@@ -501,8 +574,7 @@ function OrderModal({ item, assets, plans, onClose }: { item?: MaintenanceWorkOr
           <Field label="Duração prevista (min)"><input type="number" min={0} value={form.estimatedDurationMinutes} onChange={(e) => setForm((s) => ({ ...s, estimatedDurationMinutes: Number(e.target.value) }))} className={inputClass} /></Field>
           <Field label="Custo previsto"><input type="number" min={0} value={form.estimatedCost} onChange={(e) => setForm((s) => ({ ...s, estimatedCost: Number(e.target.value) }))} className={inputClass} /></Field>
           <Field label="Custo real"><input type="number" min={0} value={form.actualCost} onChange={(e) => setForm((s) => ({ ...s, actualCost: Number(e.target.value) }))} className={inputClass} /></Field>
-          <Field label="Project ID opcional"><input value={form.projectId} onChange={(e) => setForm((s) => ({ ...s, projectId: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Obra ID opcional"><input value={form.constructionSiteId} onChange={(e) => setForm((s) => ({ ...s, constructionSiteId: e.target.value }))} className={inputClass} /></Field>
+          <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <Field label="Descrição"><textarea value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} className={cn(inputClass, 'min-h-24')} /></Field>
@@ -526,7 +598,7 @@ function OrderModal({ item, assets, plans, onClose }: { item?: MaintenanceWorkOr
   )
 }
 
-function MonitoringModal({ item, assets, onClose }: { item?: MaintenanceMonitoringPoint; assets: MaintenanceAsset[]; onClose: () => void }) {
+function MonitoringModal({ item, assets, projects, sites, onClose }: { item?: MaintenanceMonitoringPoint; assets: MaintenanceAsset[]; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
   const addMonitoringPoint = useManutencoesStore((state) => state.addMonitoringPoint)
   const updateMonitoringPoint = useManutencoesStore((state) => state.updateMonitoringPoint)
   const [saving, setSaving] = useState(false)
@@ -608,8 +680,7 @@ function MonitoringModal({ item, assets, onClose }: { item?: MaintenanceMonitori
           <Field label="Última leitura"><input value={form.lastReadingValue} onChange={(e) => setForm((s) => ({ ...s, lastReadingValue: e.target.value }))} className={inputClass} placeholder="24,1; Máximo: 30" /></Field>
           <Field label="Mínimo"><input type="number" value={form.minValue} onChange={(e) => setForm((s) => ({ ...s, minValue: e.target.value }))} className={inputClass} /></Field>
           <Field label="Máximo"><input type="number" value={form.maxValue} onChange={(e) => setForm((s) => ({ ...s, maxValue: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Project ID opcional"><input value={form.projectId} onChange={(e) => setForm((s) => ({ ...s, projectId: e.target.value }))} className={inputClass} /></Field>
-          <Field label="Obra ID opcional"><input value={form.constructionSiteId} onChange={(e) => setForm((s) => ({ ...s, constructionSiteId: e.target.value }))} className={inputClass} /></Field>
+          <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
         <div className="mt-3">
           <Field label="Observações"><textarea value={form.notes} onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))} className={cn(inputClass, 'min-h-24')} /></Field>
@@ -629,7 +700,7 @@ function DroppableColumn({ id, children }: { id: MaintenanceStatus; children: Re
   return <div ref={setNodeRef} className={cn('min-h-[480px] rounded-lg border border-[#525252] bg-[#303030] p-3', isOver && 'ring-2 ring-[#f97316]/60')}>{children}</div>
 }
 
-function OrderCard({ order, assets, onEdit, onDelete }: { order: MaintenanceWorkOrder; assets: MaintenanceAsset[]; onEdit: () => void; onDelete: () => void }) {
+function OrderCard({ order, assets, onEdit, onDelete, onOpenAsset }: { order: MaintenanceWorkOrder; assets: MaintenanceAsset[]; onEdit: () => void; onDelete: () => void; onOpenAsset: (assetId: string) => void }) {
   return (
     <div className="rounded-lg border border-[#525252] bg-[#3a3a3a] p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -641,7 +712,20 @@ function OrderCard({ order, assets, onEdit, onDelete }: { order: MaintenanceWork
       </div>
       <div className="space-y-2 text-xs text-[#d4d4d4]">
         <p className="line-clamp-2">{order.description || 'Sem descrição.'}</p>
-        <p><Wrench size={12} className="mr-1 inline" />{order.assetIds.length ? order.assetIds.map((id) => assets.find((asset) => asset.id === id)?.name ?? 'Ativo removido').join(', ') : 'Sem ativo'}</p>
+        <p>
+          <Wrench size={12} className="mr-1 inline" />
+          {order.assetIds.length ? order.assetIds.map((id, index) => {
+            const asset = assets.find((item) => item.id === id)
+            return (
+              <span key={id}>
+                {index > 0 ? ', ' : ''}
+                <button type="button" onClick={() => onOpenAsset(id)} className="font-semibold text-[#fed7aa] hover:text-white">
+                  {asset?.name ?? 'Ativo removido'}
+                </button>
+              </span>
+            )
+          }) : 'Sem ativo'}
+        </p>
         <div className="h-2 rounded-full bg-[#525252]"><div className="h-2 rounded-full bg-[#22c55e]" style={{ width: `${order.progress}%` }} /></div>
         <div className="flex justify-between text-[11px] text-[#a3a3a3]"><span>{order.dueDate || '-'}</span><span>{order.progress}%</span></div>
       </div>
@@ -653,7 +737,7 @@ function OrderCard({ order, assets, onEdit, onDelete }: { order: MaintenanceWork
   )
 }
 
-function DraggableOrderCard(props: { order: MaintenanceWorkOrder; assets: MaintenanceAsset[]; onEdit: () => void; onDelete: () => void }) {
+function DraggableOrderCard(props: { order: MaintenanceWorkOrder; assets: MaintenanceAsset[]; onEdit: () => void; onDelete: () => void; onOpenAsset: (assetId: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: props.order.id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform) }} className={isDragging ? 'z-50 opacity-80' : ''} {...attributes} {...listeners}>
@@ -664,6 +748,12 @@ function DraggableOrderCard(props: { order: MaintenanceWorkOrder; assets: Mainte
 
 export function ManutencoesPage() {
   const profileOrgId = useAuth((state) => state.profile?.organization_id)
+  const projects = useProjetosStore((state) => state.projects)
+  const sites = useTorreStore((state) => state.sites)
+  const ensureProjetosScope = useProjetosStore((state) => state.ensureTenantScope)
+  const ensureTorreScope = useTorreStore((state) => state.ensureTenantScope)
+  const pullProjetos = useProjetosStore((state) => state.pull)
+  const pullTorre = useTorreStore((state) => state.pull)
   const assets = useManutencoesStore((state) => state.assets)
   const plans = useManutencoesStore((state) => state.plans)
   const workOrders = useManutencoesStore((state) => state.workOrders)
@@ -692,8 +782,12 @@ export function ManutencoesPage() {
   useEffect(() => {
     if (!profileOrgId) return
     ensureTenantScope(profileOrgId)
+    ensureProjetosScope(profileOrgId)
+    ensureTorreScope(profileOrgId)
+    void pullProjetos()
+    void pullTorre()
     void pull()
-  }, [ensureTenantScope, profileOrgId, pull])
+  }, [ensureProjetosScope, ensureTenantScope, ensureTorreScope, profileOrgId, pull, pullProjetos, pullTorre])
 
   const tenantReady = !!profileOrgId && activeOrgId === profileOrgId
   const q = query.trim().toLowerCase()
@@ -749,6 +843,11 @@ export function ManutencoesPage() {
     if (!status || !statusColumns.some((column) => column.key === status)) return
     const progress = status === 'concluida' ? 100 : status === 'pendente' ? 0 : undefined
     await updateWorkOrder(orderId, { status, ...(progress !== undefined ? { progress } : {}) })
+  }
+
+  function openAsset(assetId: string) {
+    setSelectedAssetId(assetId)
+    setTab('ativos')
   }
 
   const calendarDays = useMemo(() => {
@@ -959,7 +1058,7 @@ export function ManutencoesPage() {
                           <div className="flex items-center gap-2 text-[#6b7280]">
                             <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Visualizar / editar" className="hover:text-[#2563eb]"><Eye size={17} /></button>
                             <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Editar" className="hover:text-[#2563eb]"><Edit2 size={17} /></button>
-                            <button type="button" title="Vínculo do ativo" className="hover:text-[#2563eb]"><Link2 size={17} /></button>
+                            <button type="button" onClick={() => point.assetId && openAsset(point.assetId)} title="Abrir ativo vinculado" className="hover:text-[#2563eb]"><Link2 size={17} /></button>
                             <button type="button" onClick={() => confirmDelete(point.description, () => void deleteMonitoringPoint(point.id))} title="Excluir" className="hover:text-[#dc2626]"><Trash2 size={17} /></button>
                           </div>
                         </td>
@@ -1032,7 +1131,13 @@ export function ManutencoesPage() {
                         <td className="px-4 py-3 text-[#d4d4d4]">{order.code || order.id.slice(0, 8)}</td>
                         <td className="px-4 py-3"><Badge className={statusTone(order.status)}>{statusLabels[order.status]}</Badge></td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{order.code || '-'}</td>
-                        <td className="px-4 py-3 text-[#d4d4d4]">{order.assetIds.length ? order.assetIds.map((id) => <div key={id}><AssetName id={id} assets={assets} /></div>) : 'Sem ativo'}</td>
+                        <td className="px-4 py-3 text-[#d4d4d4]">
+                          {order.assetIds.length ? order.assetIds.map((id) => (
+                            <button key={id} type="button" onClick={() => openAsset(id)} className="block text-left hover:text-[#fb923c]">
+                              <AssetName id={id} assets={assets} />
+                            </button>
+                          )) : 'Sem ativo'}
+                        </td>
                         <td className="px-4 py-3"><Badge className={order.status === 'cancelada' ? 'border-[#dc2626]/30 bg-[#dc2626]/10 text-[#f87171]' : 'border-[#16a34a]/30 bg-[#16a34a]/10 text-[#4ade80]'}>{order.status === 'cancelada' ? 'Sim' : 'Não'}</Badge></td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{order.leanLps.restriction ? '1' : '0'}</td>
                         <td className="px-4 py-3 font-semibold text-[#f5f5f5]">{order.title}</td>
@@ -1065,7 +1170,7 @@ export function ManutencoesPage() {
                       </div>
                       <div className="space-y-3">
                         {orders.map((order) => (
-                          <DraggableOrderCard key={order.id} order={order} assets={assets} onEdit={() => setModal({ type: 'order', item: order })} onDelete={() => confirmDelete(order.title, () => void deleteWorkOrder(order.id))} />
+                          <DraggableOrderCard key={order.id} order={order} assets={assets} onEdit={() => setModal({ type: 'order', item: order })} onDelete={() => confirmDelete(order.title, () => void deleteWorkOrder(order.id))} onOpenAsset={openAsset} />
                         ))}
                       </div>
                     </DroppableColumn>
@@ -1106,10 +1211,10 @@ export function ManutencoesPage() {
         </div>
       )}
 
-      {modal?.type === 'asset' && <AssetModal item={modal.item} onClose={() => setModal(null)} />}
-      {modal?.type === 'monitoring' && <MonitoringModal item={modal.item} assets={assets} onClose={() => setModal(null)} />}
-      {modal?.type === 'plan' && <PlanModal item={modal.item} assets={assets} onClose={() => setModal(null)} />}
-      {modal?.type === 'order' && <OrderModal item={modal.item} assets={assets} plans={plans} onClose={() => setModal(null)} />}
+      {modal?.type === 'asset' && <AssetModal item={modal.item} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {modal?.type === 'monitoring' && <MonitoringModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {modal?.type === 'plan' && <PlanModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {modal?.type === 'order' && <OrderModal item={modal.item} assets={assets} plans={plans} projects={projects} sites={sites} onClose={() => setModal(null)} />}
     </div>
   )
 }

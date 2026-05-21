@@ -22,6 +22,7 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
+import heroBackground from '@/assets/hero2.png'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 const LOGIN_URL = '/app/minha-rotina'
@@ -191,21 +192,6 @@ const modules: ModuleItem[] = [
   },
 ]
 
-const marqueeData = [
-  'RDO incompleto vira pendência visível',
-  'Medição com origem e evidência',
-  'Planejamento atualizado sem planilha paralela',
-  'LPS com restrições conectadas',
-  'Suprimentos conversa com cronograma',
-  'Qualidade bloqueia fechamento quando precisa',
-  'CPI/SPI sem relatório manual',
-  'BIM, custo e avanço no mesmo contexto',
-  'Fornecedor medido com vínculo explícito',
-  'Diretoria decide pelo celular',
-  'Núcleo, rua, serviço e período na mesma chave',
-  'Campo e escritório na mesma fonte de verdade',
-]
-
 const impactRows = [
   ['(0.1) Ganhe uma Vantagem Desleal', 'Redução de 3-5% no custo total sobre o faturamento.', 'Otimização de suprimentos e eliminação de perdas por erros de faturamento via Three-Way Match.'],
   ['(0.2) Entregue com Velocidade', 'Controle total da sua obra em dias, não meses.', 'Integração instantânea de cronogramas, planejamento, financeiro e execução do campo na mesma ontologia de dados.'],
@@ -256,36 +242,20 @@ const faqs = [
   ['Preciso mudar todos os processos antes de usar?', 'Não. O ConstruData foi pensado para absorver o que já existe, organizar a operação e amadurecer os fluxos por módulo.'],
 ]
 
+const heroSignals = [
+  ['RDO', 'Campo alimentando medição', 'origem rastreável'],
+  ['LPS', 'Restrições antes do atraso', 'look-ahead ativo'],
+  ['Gestão 360', 'Custo, prazo e produção', 'decisão executiva'],
+  ['Suprimentos', 'Material antes da falta', 'impacto no prazo'],
+  ['Medição', 'Avanço com evidência', 'fechamento defensável'],
+]
+
 function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
   return (
     <div className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
       <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{eyebrow}</p>
       <h2 className="max-w-4xl font-['Space_Grotesk'] text-4xl font-medium leading-tight text-white sm:text-5xl lg:text-6xl">{title}</h2>
       {copy && <p className="max-w-3xl text-base leading-8 text-white/70 md:text-lg">{copy}</p>}
-    </div>
-  )
-}
-
-function MarqueeRows() {
-  const m1 = marqueeData.slice(0, 4)
-  const m2 = marqueeData.slice(4, 8)
-  const m3 = marqueeData.slice(8)
-
-  return (
-    <div className="relative mx-auto max-w-5xl overflow-hidden">
-      <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-linear-to-r from-[#2c2c2c]" />
-      <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-linear-to-l from-[#2c2c2c]" />
-      <div className="-mx-6 flex w-screen flex-col md:-mx-10 lg:-mx-16">
-        {[m1, m2, m3].map((row, index) => (
-          <Marquee key={index} className={`[--duration:${index === 1 ? '52s' : index === 2 ? '44s' : '48s'}] [--gap:0.75rem]`} repeat={4} reverse={index === 1}>
-            {row.map((item) => (
-              <Badge key={item} variant="outline" className="rounded-none border-[#525252] bg-[#3d3d3d] px-3 py-1 text-white/80">
-                {item}
-              </Badge>
-            ))}
-          </Marquee>
-        ))}
-      </div>
     </div>
   )
 }
@@ -443,7 +413,9 @@ export function LandingPage() {
               ['Ontologia', '#ontologia'],
               ['Impacto', '#impacto'],
               ['Módulos', '#modulos'],
+              ['Notícias', '/noticias'],
               ['Perfis', '#perfis'],
+              ['Radar', '/noticias'],
               ['Contato', '#contato'],
             ].map(([label, href]) => (
               <a key={href} href={href} className="text-xs font-semibold uppercase tracking-[0.12em] text-white/58 transition hover:text-white">
@@ -463,48 +435,80 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="relative bg-[#2c2c2c] pt-28 sm:pt-40">
-          <div className="mx-auto max-w-full">
-            <div className="mx-auto flex max-w-6xl flex-col items-center justify-center space-y-6 px-5 text-center md:px-10">
-              <Badge className="rounded-none border-[#525252] bg-[#333333] px-4 py-1 text-[#f97316]" variant="outline">
+        <section className="relative min-h-screen overflow-hidden border-b border-[#f97316]/35 pt-24">
+          <div className="absolute inset-0">
+            <img src={heroBackground} alt="" className="h-full w-full object-cover object-center" />
+            <div className="absolute inset-0 bg-black/58" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.92)_0%,rgba(0,0,0,0.74)_43%,rgba(0,0,0,0.38)_74%,rgba(0,0,0,0.18)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.24)_0%,rgba(0,0,0,0)_42%,rgba(0,0,0,0.52)_100%)]" />
+          </div>
+
+          <div className="relative z-10 mx-auto grid min-h-[calc(100vh-6rem)] max-w-7xl items-center gap-10 px-5 pb-12 pt-10 md:px-10 lg:grid-cols-[1.16fr_0.84fr]">
+            <div className="max-w-3xl">
+              <Badge className="rounded-none border-[#525252] bg-[#252525]/90 px-4 py-1 text-[#f97316]" variant="outline">
                 Plataforma de Planejamento e Gestão da Execução da Obra
               </Badge>
-              <h1 className="max-w-5xl font-['Space_Grotesk'] text-6xl font-medium leading-[0.95] text-white sm:text-7xl lg:text-8xl">
+              <h1 className="mt-8 font-['Space_Grotesk'] text-6xl font-medium leading-[0.92] text-white sm:text-7xl lg:text-8xl">
                 ConstruData
               </h1>
-              <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white sm:text-5xl">
+              <h2 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white sm:text-5xl lg:text-6xl">
                 Automação Alimentada por IA para cada Decisão na Construção.
               </h2>
-              <p className="max-w-3xl text-base leading-8 text-white/72 md:text-lg">
-                Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
-              </p>
-              <p className="max-w-3xl text-base leading-8 text-white/72 md:text-lg">
-                Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="mt-8 space-y-5 text-base leading-8 text-white/82 md:text-lg">
+                <p>
+                  Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
+                </p>
+                <p>
+                  Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
+                </p>
+              </div>
+              <div className="mt-8 h-0.5 w-14 bg-[#f97316]" />
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-3 bg-[#f97316] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
                   Ver como funciona <ArrowRight size={17} />
                 </a>
-                <a href={LOGIN_URL} className="inline-flex items-center justify-center border border-dashed border-[#525252] bg-[#333333] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:border-[#f97316]">
+                <a href={LOGIN_URL} className="inline-flex items-center justify-center border border-white/22 bg-[#2f2f2f]/75 px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:border-[#f97316]">
                   Acessar plataforma
                 </a>
               </div>
-              <MarqueeRows />
             </div>
 
-            <div className="mt-16 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-              {[
-                ['16+', 'módulos conectados'],
-                ['D+0', 'dado de campo'],
-                ['100%', 'origem rastreável'],
-              ].map(([value, label]) => (
-                <div key={label} className="bg-[#333333] px-5 py-8 text-center">
-                  <div className="font-['Space_Grotesk'] text-4xl font-medium text-white">{value}</div>
-                  <div className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-white/45">{label}</div>
-                </div>
-              ))}
+            <div className="relative hidden min-h-[560px] items-center lg:flex">
+              <div className="absolute right-2 top-10 h-72 w-72 rounded-full border border-white/16" />
+              <div className="absolute right-24 top-28 h-80 w-80 rounded-full border border-white/10" />
+              <div className="relative z-10 ml-auto flex w-full max-w-[520px] flex-col gap-3">
+                {heroSignals.map(([tag, title, subtitle], index) => (
+                  <div
+                    key={title}
+                    className="border border-white/8 bg-[#191919]/92 px-5 py-4 shadow-2xl shadow-black/35 backdrop-blur-sm"
+                    style={{ marginLeft: index === 4 ? '3rem' : index === 0 ? '0' : index % 2 === 0 ? '1.75rem' : '0.25rem' }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#f97316]">{tag}</p>
+                        <h3 className="mt-4 text-base font-bold text-white">{title}</h3>
+                        <p className="mt-1 text-sm text-white/58">{subtitle}</p>
+                      </div>
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#f97316]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        </section>
+
+        <section className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {[
+            ['16+', 'módulos conectados'],
+            ['D+0', 'dado de campo'],
+            ['100%', 'origem rastreável'],
+          ].map(([value, label]) => (
+            <div key={label} className="bg-[#333333] px-5 py-8 text-center">
+              <div className="font-['Space_Grotesk'] text-4xl font-medium text-white">{value}</div>
+              <div className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-white/45">{label}</div>
+            </div>
+          ))}
         </section>
 
         <section id="ontologia" className="bg-[#333333] pt-20 sm:pt-32">
