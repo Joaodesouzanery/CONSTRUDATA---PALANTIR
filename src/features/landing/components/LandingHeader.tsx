@@ -7,7 +7,6 @@ const NAV_LINKS = [
   { label: 'Metodologia', href: '#metodologia' },
   { label: 'Módulos', href: '#modulos' },
   { label: 'Funcionalidades', href: '#funcionalidades' },
-  { label: 'Notícias', href: '/noticias' },
 ]
 
 // URL pública do Calendly do João — link verificado

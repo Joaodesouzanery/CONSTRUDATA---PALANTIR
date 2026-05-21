@@ -13,7 +13,6 @@ import {
   LineChart,
   LockKeyhole,
   Map,
-  Newspaper,
   PackageCheck,
   ShieldCheck,
   Users,
@@ -23,7 +22,6 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
-import { sanitationNewsItems } from './newsData'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 const LOGIN_URL = '/app/minha-rotina'
@@ -614,38 +612,6 @@ export function LandingPage() {
                 <p className="mt-4 leading-7 text-white/68"><strong className="text-white">Como resolve:</strong> {solution}</p>
               </article>
             ))}
-          </div>
-        </section>
-
-        <section id="radar-saneamento" className="bg-[#333333] px-5 py-14 md:px-10">
-          <div className="mx-auto grid max-w-6xl gap-6 border border-dashed border-[#525252] bg-[#2c2c2c] p-6 lg:grid-cols-[0.78fr_1.22fr] lg:p-8">
-            <div className="flex items-start gap-4">
-              <div className="flex size-12 shrink-0 items-center justify-center border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316]">
-                <Newspaper size={24} />
-              </div>
-              <div>
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Radar do Saneamento</p>
-                <h2 className="mt-4 font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white sm:text-4xl">
-                  Notícias setoriais sem ocupar a landing inteira.
-                </h2>
-              </div>
-            </div>
-            <div className="flex flex-col justify-between gap-5">
-              <p className="max-w-3xl text-base leading-7 text-white/68">
-                Acompanhe fontes oficiais, operadoras, entidades técnicas e buscas RSS sobre saneamento, marco legal, recursos hídricos, concessões e infraestrutura. A leitura completa fica sempre na fonte original.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="border border-[#525252] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-white/58">
-                  {sanitationNewsItems.length} fontes e temas
-                </span>
-                <span className="border border-[#525252] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-white/58">
-                  Metadados, resumo próprio e link canônico
-                </span>
-                <a href="/noticias" className="inline-flex items-center gap-2 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
-                  Abrir notícias <ArrowRight size={14} />
-                </a>
-              </div>
-            </div>
           </div>
         </section>
 
