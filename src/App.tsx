@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
+import { NoticiasPage }      from '@/features/landing/NoticiasPage'
 import { LoginPage }         from '@/features/auth/LoginPage'
 import { SignupPage }        from '@/features/auth/SignupPage'
 import { MfaSetupPage }      from '@/features/auth/MfaSetupPage'
@@ -101,6 +102,7 @@ function App() {
       <Routes>
         {/* Landing page — no AppShell */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/noticias" element={<NoticiasPage />} />
 
         {/* Auth routes — no AppShell */}
         <Route path="/login"        element={<LoginPage />} />
