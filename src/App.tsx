@@ -3,13 +3,13 @@ import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
 import { NoticiasPage }      from '@/features/landing/NoticiasPage'
 import { LoginPage }         from '@/features/auth/LoginPage'
-import { SignupPage }        from '@/features/auth/SignupPage'
+import { AcceptInvitationPage } from '@/features/auth/AcceptInvitationPage'
 import { MfaSetupPage }      from '@/features/auth/MfaSetupPage'
 import { MfaChallengePage }  from '@/features/auth/MfaChallengePage'
 import { AuthGuard }         from '@/lib/AuthGuard'
 import { Component, lazy, Suspense, type ReactNode } from 'react'
 
-// ─── Lazy-loaded modules (code-split per route) ──────────────────────────────
+// Lazy-loaded modules (code-split per route)
 
 const Relatorio360Page      = lazy(() => import('@/features/relatorio360/index').then((m) => ({ default: m.Relatorio360Page })))
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
@@ -40,7 +40,7 @@ const ExportarDadosPage     = lazy(() => import('@/features/admin/ExportarDadosP
 const AuditoriaPage         = lazy(() => import('@/features/admin/AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })))
 const MatrizAprovacaoPage   = lazy(() => import('@/features/admin/MatrizAprovacaoPage').then((m) => ({ default: m.MatrizAprovacaoPage })))
 
-// ─── Route loading fallback ──────────────────────────────────────────────────
+// Route loading fallback
 
 function RouteFallback() {
   return (
@@ -94,24 +94,25 @@ function LazyRoute({ children }: { children: ReactNode }) {
   )
 }
 
-// ─── App ─────────────────────────────────────────────────────────────────────
+// App
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Landing page — no AppShell */}
+        {/* Landing page - no AppShell */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/noticias" element={<NoticiasPage />} />
 
-        {/* Auth routes — no AppShell */}
+        {/* Auth routes - no AppShell */}
         <Route path="/login"        element={<LoginPage />} />
         <Route path="/login/mfa"    element={<MfaChallengePage />} />
-        <Route path="/signup"       element={<SignupPage />} />
-        <Route path="/signup/organizacao" element={<SignupPage />} />
+        <Route path="/signup"       element={<Navigate to="/login" replace />} />
+        <Route path="/signup/organizacao" element={<Navigate to="/login" replace />} />
+        <Route path="/aceitar-convite" element={<AcceptInvitationPage />} />
         <Route path="/mfa/ativar"   element={<AuthGuard><MfaSetupPage /></AuthGuard>} />
 
-        {/* App shell with all dashboard routes prefixed by /app — protegido por AuthGuard */}
+        {/* App shell with all dashboard routes prefixed by /app - protegido por AuthGuard */}
         <Route path="/app" element={<AuthGuard><AppShell /></AuthGuard>}>
           <Route index element={<Navigate to="/app/minha-rotina" replace />} />
           <Route path="aprovacoes"   element={<LazyRoute><AprovacoesPage /></LazyRoute>} />
@@ -147,7 +148,7 @@ function App() {
           <Route path="*"                   element={<Navigate to="/app/minha-rotina" replace />} />
         </Route>
 
-        {/* Catch-all → landing */}
+        {/* Catch-all -> landing */}
         <Route path="/rdo-sabesp" element={<Navigate to="/app/rdo-sabesp" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

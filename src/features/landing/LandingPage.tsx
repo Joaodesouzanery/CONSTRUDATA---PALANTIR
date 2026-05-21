@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import {
   ArrowRight,
   BadgeDollarSign,
@@ -13,8 +13,12 @@ import {
   LineChart,
   LockKeyhole,
   Map,
+  Newspaper,
   PackageCheck,
+  Plus,
+  Ruler,
   ShieldCheck,
+  Sparkles,
   Users,
   Wrench,
   type LucideIcon,
@@ -22,14 +26,18 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
-import heroBackground from '@/assets/hero2.png'
+import hero1Img from '@/assets/hero1.png'
+import hero2Img from '@/assets/hero2.png'
+import hero3Img from '@/assets/hero3.png'
+import { sanitationNewsItems } from './newsData'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
-const LOGIN_URL = '/app/minha-rotina'
+const LOGIN_URL = '/login'
 const LINKEDIN_ARTICLE_URL =
   'https://www.linkedin.com/posts/construdatasoftware_activity-7454469394803531776-O9rE?utm_source=share&utm_medium=member_desktop&rcm=ACoAAErBDOwBwdLxQtMem1Gp0OBHExuydnHDjKg'
 
 type ModuleCategory = 'gestao' | 'planejamento' | 'campo' | 'projetos' | 'suprimentos'
+type ModulePain = 'avanco' | 'planilhas' | 'custo' | 'diretoria'
 
 interface ModuleItem {
   id: string
@@ -38,17 +46,90 @@ interface ModuleItem {
   title: string
   kicker: string
   copy: string
-  screenshot?: string
+  how: string
+  efficiency: string
   features: string[]
   connected: string[]
 }
 
-const moduleCategories: Array<{ id: ModuleCategory; label: string }> = [
-  { id: 'gestao', label: 'Gestão e Decisão' },
-  { id: 'planejamento', label: 'Planejamento' },
-  { id: 'campo', label: 'Campo e Execução' },
-  { id: 'projetos', label: 'Projetos e BIM' },
-  { id: 'suprimentos', label: 'Suprimentos' },
+const heroImages = [hero1Img, hero2Img, hero3Img]
+
+const valueProofCards = [
+  {
+    metric: '20+ Módulos Conectados',
+    title: 'Reduza retrabalho entre campo e escritório',
+    copy: 'O dado nasce no RDO, na medição, no planejamento ou em suprimentos e segue conectado até a gestão executiva.',
+  },
+  {
+    metric: '100% Origem Rastreável',
+    title: 'Conecte RDO, medição, planejamento e suprimentos',
+    copy: 'Serviço, local, equipe, evidência, material e custo usam a mesma base operacional para evitar versões paralelas.',
+  },
+  {
+    metric: 'Dados em Tempo Real',
+    title: 'Tenha rastreabilidade executiva por obra',
+    copy: 'A diretoria acompanha avanço, pendências, custo e risco com contexto de campo, sem esperar consolidação manual.',
+  },
+]
+
+const modulePainTabs: Array<{
+  id: ModulePain
+  label: string
+  title: string
+  challenge: string
+  solution: string
+  outcome: string
+  icon: LucideIcon
+  moduleIds: string[]
+}> = [
+  {
+    id: 'avanco',
+    label: 'Não sei o avanço real da obra',
+    title: 'Avanço real da obra',
+    challenge:
+      'A obra até produz informação, mas o avanço real demora para aparecer porque RDO, medição, fotos, equipe e gestão executiva ficam separados.',
+    solution:
+      'RDO, Medição e Gestão 360 conectam produção diária, evidências, critérios de medição e indicadores executivos na mesma leitura operacional.',
+    outcome: 'A liderança entende o que foi executado, o que pode ser medido e o que ainda depende de aceite ou evidência.',
+    icon: ClipboardCheck,
+    moduleIds: ['rdo', 'medicao', 'gestao-360'],
+  },
+  {
+    id: 'planilhas',
+    label: 'Tenho retrabalho com planilhas',
+    title: 'Menos planilha paralela',
+    challenge:
+      'Levantamentos, planilhas de medição, compras, cronogramas e relatórios vivem em arquivos diferentes, exigindo conferência manual a cada fechamento.',
+    solution:
+      'Quantitativos, Planejamento e Suprimentos transformam documentos e controles existentes em base estruturada para execução, compra e acompanhamento.',
+    outcome: 'A equipe reduz digitação duplicada, reaproveita dados aprovados e diminui divergência entre escritório e canteiro.',
+    icon: DatabaseZap,
+    moduleIds: ['levantamento', 'quantitativos', 'planejamento'],
+  },
+  {
+    id: 'custo',
+    label: 'Perco controle de custo',
+    title: 'Custo sob controle operacional',
+    challenge:
+      'O custo real aparece tarde quando mão de obra, materiais, equipamentos e avanço físico não conversam com orçamento e produção.',
+    solution:
+      'EVM, Mão de Obra e Almoxarifado conectam produtividade, consumo, estoque, custo previsto e realizado por obra, frente e serviço.',
+    outcome: 'A empresa enxerga desvios antes do fechamento mensal e consegue agir sobre consumo, equipe e produtividade.',
+    icon: BadgeDollarSign,
+    moduleIds: ['gestao-360', 'mao-de-obra', 'suprimentos'],
+  },
+  {
+    id: 'diretoria',
+    label: 'Preciso prestar contas para diretoria',
+    title: 'Prestação de contas executiva',
+    challenge:
+      'Diretoria, cliente e fiscalização precisam de uma visão confiável, mas os dados chegam fragmentados, sem trilha clara de origem e decisão.',
+    solution:
+      'Torre de Controle e Dashboard Executivo organizam exceções, status, riscos, avanço e decisões em uma rotina de comando por obra.',
+    outcome: 'A conversa sai da disputa de planilhas e entra em decisão: onde agir, quem responde e qual impacto em prazo, custo e produção.',
+    icon: LineChart,
+    moduleIds: ['torre', 'gestao-360', 'mapa'],
+  },
 ]
 
 const modules: ModuleItem[] = [
@@ -59,7 +140,8 @@ const modules: ModuleItem[] = [
     title: 'Gestão 360',
     kicker: 'Diretoria em tempo real',
     copy: 'Consolida CPI, SPI, curva S, alertas, custo, prazo e avanço físico-financeiro por obra.',
-    screenshot: '/screenshots/gestao360.png',
+    how: 'Cruza RDO, medição, planejamento, EVM e pendências para formar uma visão executiva única por contrato, obra e frente.',
+    efficiency: 'Reduz apuração manual e antecipa decisões de portfólio, caixa, prazo e prioridade antes do fechamento do mês.',
     features: ['Curva S executiva', 'Indicadores CPI/SPI', 'Alertas por exceção'],
     connected: ['RDO', 'Medição', 'Planejamento', 'EVM'],
   },
@@ -70,7 +152,8 @@ const modules: ModuleItem[] = [
     title: 'Torre de Controle',
     kicker: 'War room operacional',
     copy: 'Mostra mapa, status, riscos, exceções e decisões urgentes para gerir por prioridade.',
-    screenshot: '/screenshots/torre-controle-mapa.png',
+    how: 'Organiza alertas, riscos, locais críticos, decisões pendentes e obras fora da curva em uma rotina de comando operacional.',
+    efficiency: 'Ajuda líderes a priorizarem exceções reais, reduzindo reuniões improdutivas e atraso por falta de visibilidade.',
     features: ['Mapa de obras', 'Matriz de risco', 'Drill-down por frente'],
     connected: ['Gestão 360', 'Qualidade', 'Suprimentos', 'LPS'],
   },
@@ -81,7 +164,8 @@ const modules: ModuleItem[] = [
     title: 'Medição',
     kicker: 'Memória defensável',
     copy: 'Transforma RDO, planilhas, fornecedores, NFs, descontos e retenções em medição conferível.',
-    screenshot: '/screenshots/relatorio-360.png',
+    how: 'Vincula avanço, evidência, memória de cálculo, fornecedor e critérios contratuais antes da aprovação humana.',
+    efficiency: 'Diminui glosas, retrabalho de conferência e divergência entre campo, contrato, financeiro e cliente.',
     features: ['Memória de cálculo', 'Pendências bloqueantes', 'Aprovação humana'],
     connected: ['RDO', 'Suprimentos', 'Qualidade', 'Planejamento'],
   },
@@ -92,7 +176,8 @@ const modules: ModuleItem[] = [
     title: 'Planejamento',
     kicker: 'Baseline, avanço e tendência',
     copy: 'Conecta cronograma, WBS, marcos, frente física e avanço aprovado sem alterar baseline automaticamente.',
-    screenshot: '/screenshots/agenda-gantt.png',
+    how: 'Relaciona atividades planejadas, produção real, restrições, marcos e desvios em uma base operacional auditável.',
+    efficiency: 'Aumenta previsibilidade e reduz o tempo gasto reconciliando cronograma, planilhas e reportes de obra.',
     features: ['WBS e marcos', 'Gantt operacional', 'Avanço aprovado'],
     connected: ['RDO', 'Medição', 'LPS', 'EVM'],
   },
@@ -103,7 +188,8 @@ const modules: ModuleItem[] = [
     title: 'LPS / Lean',
     kicker: 'Last Planner nativo',
     copy: 'Look-ahead, restrições, compromissos, PPC e causas de não cumprimento conectados ao cronograma real.',
-    screenshot: '/screenshots/lps-lookahead.png',
+    how: 'Transforma restrições, compromissos semanais, causas de falha e PPC em sinais conectados ao planejamento mestre.',
+    efficiency: 'Antecipa bloqueios antes que virem atraso e melhora o cumprimento dos pacotes de trabalho no canteiro.',
     features: ['Look-ahead 6 semanas', 'PPC semanal', 'Restrições conectadas'],
     connected: ['Planejamento', 'Suprimentos', 'Mão de Obra', 'Qualidade'],
   },
@@ -114,7 +200,8 @@ const modules: ModuleItem[] = [
     title: 'RDO',
     kicker: 'Campo que vira decisão',
     copy: 'Registra serviço, local, equipe, equipamento, material, foto, ocorrência e assinatura com rastreabilidade.',
-    screenshot: '/screenshots/rdo-dashboard.png',
+    how: 'Captura a rotina diária com evidências, responsáveis, condições de execução e vínculo com serviços planejados.',
+    efficiency: 'Transforma dado de campo em origem de medição, qualidade e planejamento, reduzindo planilhas paralelas.',
     features: ['Produção por serviço', 'Fotos e evidências', 'Origem da medição'],
     connected: ['Medição', 'Qualidade', 'Planejamento', 'Torre'],
   },
@@ -125,6 +212,8 @@ const modules: ModuleItem[] = [
     title: 'Qualidade',
     kicker: 'FVS e não conformidades',
     copy: 'Conecta inspeção, evidência, não conformidade e liberação ao avanço e ao bloqueio de medição.',
+    how: 'Organiza checklists, fotos, ocorrências, aceite técnico e pendências de liberação por serviço, frente e responsável.',
+    efficiency: 'Evita fechamento sem evidência, reduz retrabalho e cria trilha clara para liberar avanço com segurança.',
     features: ['FVS digital', 'Tratamento de NC', 'Liberação de fechamento'],
     connected: ['RDO', 'Medição', 'LPS', 'Torre'],
   },
@@ -135,6 +224,8 @@ const modules: ModuleItem[] = [
     title: 'Mão de Obra',
     kicker: 'Equipe, função e produtividade',
     copy: 'Organiza cadastro, alocação, certificações e produtividade por frente para orientar planejamento e custo.',
+    how: 'Relaciona equipe diária, função, frente, produção, produtividade e certificações necessárias para cada serviço.',
+    efficiency: 'Melhora alocação, reduz ociosidade e permite comparar produtividade prevista contra realizada.',
     features: ['Alocação diária', 'Certificações', 'Produtividade por equipe'],
     connected: ['RDO', 'LPS', 'EVM', 'Planejamento'],
   },
@@ -145,6 +236,8 @@ const modules: ModuleItem[] = [
     title: 'Equipamentos',
     kicker: 'Uso, manutenção e custo',
     copy: 'Máquinas entram na chave operacional da obra: disponibilidade, uso no campo, manutenção e custo por frente.',
+    how: 'Acompanha disponibilidade, uso, parada, manutenção preventiva, custo e vínculo com a frente executada.',
+    efficiency: 'Aumenta disponibilidade operacional e ajuda a evitar gargalos por equipamento parado ou mal alocado.',
     features: ['Controle de uso', 'Manutenção preventiva', 'Custo operacional'],
     connected: ['RDO', 'LPS', 'Suprimentos', 'EVM'],
   },
@@ -155,7 +248,8 @@ const modules: ModuleItem[] = [
     title: 'BIM 3D/4D/5D',
     kicker: 'Modelo, tempo e custo',
     copy: 'Aproxima projeto, cronograma, orçamento e avanço real para transformar modelo em operação.',
-    screenshot: '/screenshots/bim-5d.png',
+    how: 'Conecta modelo, atividades, quantitativos, custos e avanço aprovado para comparar projeto com execução.',
+    efficiency: 'Dá contexto visual ao planejamento e reduz desalinhamento entre projeto, orçamento e obra real.',
     features: ['Visualização 3D', 'Simulação 4D', 'Análise 5D'],
     connected: ['Planejamento', 'Quantitativos', 'EVM', 'Torre'],
   },
@@ -166,6 +260,8 @@ const modules: ModuleItem[] = [
     title: 'Mapa Interativo',
     kicker: 'Local físico como chave',
     copy: 'Conecta rua, trecho, rede, núcleo, evidência e status para reduzir retrabalho em obras distribuídas.',
+    how: 'Usa localização, frente, trecho, evidências e status como referência comum entre campo, fiscalização e medição.',
+    efficiency: 'Reduz perda de informação espacial e acelera decisões em obras distribuídas por rua, núcleo ou lote.',
     features: ['Redes e trechos', 'Status por local', 'Base para RDO e medição'],
     connected: ['RDO', 'Medição', 'Planejamento', 'Torre'],
   },
@@ -176,9 +272,22 @@ const modules: ModuleItem[] = [
     title: 'Quantitativos',
     kicker: 'Orçamento para execução',
     copy: 'Itens, composições, bases SINAPI/SEINFRA e N. Preço viram referência para planejamento, medição e EVM.',
-    screenshot: '/screenshots/quantitativos.png',
+    how: 'Estrutura unidades, composições, memória de cálculo, bases de preço e vínculo com serviços executáveis.',
+    efficiency: 'Acelera orçamento, reduz erro de levantamento e cria referência confiável para medir avanço e custo.',
     features: ['SINAPI e SEINFRA', 'BDI e composições', 'Exportação estruturada'],
     connected: ['Medição', 'EVM', 'Planejamento', 'BIM'],
+  },
+  {
+    id: 'levantamento',
+    category: 'projetos',
+    icon: Ruler,
+    title: 'Levantamento de Obra',
+    kicker: 'Planilha técnica dentro do sistema',
+    copy: 'Importa levantamentos de campo, medidas, custos, orçamento e registro fotográfico para uma base editável por obra.',
+    how: 'Transforma a planilha de levantamento em abas estruturadas com cálculo de medidas, mão de obra, orçamento, fotos e resumo.',
+    efficiency: 'Reduz retrabalho entre Excel, orçamento, medição e gestão, mantendo cada levantamento separado por empresa e obra.',
+    features: ['Importação Excel', 'Cálculo de medidas', 'Resumo e aprovação'],
+    connected: ['Quantitativos', 'Medição', 'Planejamento', 'Gestão 360'],
   },
   {
     id: 'suprimentos',
@@ -187,6 +296,8 @@ const modules: ModuleItem[] = [
     title: 'Suprimentos',
     kicker: 'Compra, recebimento e NF',
     copy: 'Vincula requisição, pedido, recebimento, nota fiscal e fornecedor ao planejamento e à medição.',
+    how: 'Conecta necessidade planejada, requisição, compra, entrega, nota fiscal, fornecedor e impacto operacional.',
+    efficiency: 'Reduz risco de falta de material, divergência de nota e atraso por compra desconectada do cronograma.',
     features: ['Three-Way Match', 'Recebimento e NF', 'Scorecard de fornecedor'],
     connected: ['Medição', 'LPS', 'Planejamento', 'EVM'],
   },
@@ -204,7 +315,7 @@ const differentiators = [
   ['01', 'Ontologia da construção', 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo operacional em todos os módulos.'],
   ['02', 'Loop de feedback rápido', 'O que o campo registra no RDO alimenta medição, qualidade, planejamento, gestão e relatórios sem retrabalho.'],
   ['03', 'LPS / Lean nativo', 'Last Planner System com look-ahead de 6 semanas, PPC semanal, restrições, compromissos e causas de não cumprimento conectados ao cronograma real.'],
-  ['04', 'Decisão antes do relatório', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
+  ['04', 'Decisão antes do relatério', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
 ]
 
 const audience = [
@@ -216,7 +327,7 @@ const audience = [
 
 const autonomyCards = [
   ['No canteiro', 'O engenheiro', 'decide melhor sobre o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.'],
-  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.'],
+  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatério manual.'],
   ['No celular', 'O diretor', 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.'],
 ]
 
@@ -234,126 +345,300 @@ const logos = [
 ]
 
 const faqs = [
-  ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A plataforma importa bases existentes, preserva origem e transforma planilhas em dados rastreáveis para medição, planejamento e controle.'],
-  ['O RDO fecha automaticamente a medição?', 'Ele gera fonte e rascunho quando há vínculo suficiente. Fechamento e aprovação continuam exigindo revisão humana.'],
-  ['Funciona para saneamento e infraestrutura?', 'Sim. A estrutura foi pensada para contrato, núcleo, rua/local, serviço, período, equipes, materiais e evidências.'],
-  ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. A proposta é conectar bases técnicas, orçamento, modelo, planejamento e execução em uma camada operacional única.'],
-  ['Como começa uma obra nova?', 'Começa com contrato, orçamento, cronograma, frentes ou núcleos, fornecedores, subempreiteiros, RDO atual e responsáveis.'],
-  ['Preciso mudar todos os processos antes de usar?', 'Não. O ConstruData foi pensado para absorver o que já existe, organizar a operação e amadurecer os fluxos por módulo.'],
+  ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A implantação pode começar absorvendo as planilhas, PDFs, fotos e controles que a empresa já usa. O sistema organiza essas informações, preserva a origem dos dados e transforma o que antes era planilha solta em base rastreável para medição, planejamento, RDO, qualidade e gestão executiva.'],
+  ['O RDO fecha automaticamente a medição?', 'O RDO pode alimentar a medição quando existe vínculo suficiente entre serviço, local, quantidade, período, equipe e evidência. Mesmo assim, o fechamento continua exigindo revisão humana. A lógica é acelerar a conferência e reduzir retrabalho, sem tirar o controle técnico e financeiro de quem aprova.'],
+  ['Funciona para saneamento e infraestrutura?', 'Sim. A estrutura foi pensada para contratos com núcleos, ruas, trechos, frentes de serviço, OS, equipes, materiais, fotos e medições por período. O mapa, o RDO e a medição usam a mesma chave operacional para reduzir divergência entre campo, fiscalização e escritório.'],
+  ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. O ConstruData foi desenhado para conectar bases técnicas, composições, orçamento, modelos BIM, cronogramas e execução real. A ideia não é trocar todos os sistemas de uma vez, mas criar uma camada operacional que faça esses dados conversarem com menos retrabalho.'],
+  ['Como começa uma obra nova?', 'Uma obra normalmente começa com contrato, proposta, orçamento, cronograma, frentes ou núcleos, responsáveis, fornecedores, subempreiteiros, critérios de medição e modelo de RDO. A partir disso, o sistema cria a base para acompanhar avanço, pendências, evidências, equipe, equipamentos, qualidade e suprimentos.'],
+  ['Preciso mudar todos os processos antes de usar?', 'Não. A implantação pode ser progressiva. Primeiro entram os dados essenciais e os fluxos mais críticos, como RDO, medição, planejamento ou suprimentos. Depois a empresa amadurece os demais módulos conforme a operação ganha confiança e padronização.'],
+  ['Quem consegue usar no campo pelo celular?', 'Engenheiros, encarregados, técnicos, fiscais e equipes autorizadas podem registrar informações pelo celular, conforme permissões da empresa. A experiência é pensada para o canteiro: poucos cliques, campos objetivos, fotos, ocorrências, equipe, equipamentos e serviços executados.'],
+  ['Como o ConstruData evita dados falsos ou sem origem?', 'Cada informação importante precisa manter vínculo com origem, responsável, data, obra, frente, serviço e evidência quando aplicável. O sistema diferencia rascunho, dado importado, dado validado e dado aprovado, criando uma trilha de auditoria para reduzir discussões no fechamento.'],
+  ['É possível controlar várias empresas ou obras na mesma conta?', 'Sim. O ambiente é multiempresa e multiobra. Usuários globais ou administradores podem alternar entre empresas autorizadas, enquanto cada equipe comum acessa apenas o que foi liberado por perfil, organização e permissão.'],
+  ['O sistema serve para empreiteiros e subcontratados?', 'Sim. Empreiteiros podem ter controles de produção, evidências, medições, pendências e aprovações vinculadas ao contrato. Isso ajuda a tornar o fechamento mais claro, com menos troca de mensagens e menos divergência sobre o que foi executado.'],
+  ['O que acontece quando falta informação para criar uma obra completa?', 'O sistema pode trabalhar com checklist de pendências. O que já existe entra como base, e o que falta fica sinalizado: contrato final, endereço, áreas, quantitativos, cronograma, responsáveis, fornecedores, critérios de aceite, fotos iniciais e regras de medição.'],
+  ['Quanto tempo leva para implantar?', 'Depende da qualidade dos dados e do escopo inicial. Uma implantação enxuta pode começar por uma obra, um fluxo e poucos módulos críticos. Conforme os dados são validados, a empresa amplia para planejamento, qualidade, suprimentos, EVM, BIM e gestão executiva.'],
+  ['O ConstruData usa IA para tomar decisões sozinho?', 'Não. A IA ajuda a organizar dados, identificar riscos, sugerir pendências, resumir documentos e apontar inconsistências. Decisões críticas, aprovações, medições e alterações contratuais continuam passando por confirmação humana.'],
+  ['Como sei se o sistema está gerando eficiência de verdade?', 'A eficiência aparece em indicadores práticos: menos tempo para fechar medição, menos planilhas paralelas, menos RDO incompleto, maior previsibilidade de prazo, menos falta de material, menos retrabalho de conferência e mais decisões tomadas com dado de campo rastreável.'],
 ]
 
-const heroSignals = [
-  ['RDO', 'Campo alimentando medição', 'origem rastreável'],
-  ['LPS', 'Restrições antes do atraso', 'look-ahead ativo'],
-  ['Gestão 360', 'Custo, prazo e produção', 'decisão executiva'],
-  ['Suprimentos', 'Material antes da falta', 'impacto no prazo'],
-  ['Medição', 'Avanço com evidência', 'fechamento defensável'],
+const ontologyCards: Array<{ icon: LucideIcon; title: string; copy: string }> = [
+  {
+    icon: Layers3,
+    title: 'Funções centrais conectadas',
+    copy: 'A Ontologia da Construção integra todas as funções centrais, da pré-construção ao suprimento, execução no canteiro e encerramento do projeto, através de uma camada semântica unificada.',
+  },
+  {
+    icon: DatabaseZap,
+    title: 'Objetos de negócio compartilhados',
+    copy: 'Em sua essência, a Ontologia padroniza como os departamentos interagem com objetos de negócio compartilhados, como projetos, atividades, equipamentos e subempreiteiros, garantindo definições consistentes e sincronização em tempo real em toda a empresa.',
+  },
+  {
+    icon: FileText,
+    title: 'Campo-primeiro',
+    copy: 'Construída sob uma perspectiva "campo-primeiro", a Ontologia conecta o que acontece no canteiro de obras aos sistemas que o suportam (ERP, BIM, Cronogramas) em um ambiente low-code acessível a todos os usuários, independentemente do background técnico.',
+  },
+  {
+    icon: BrainCircuit,
+    title: 'IA aplicada à execução',
+    copy: 'O ConstruData faz a ponte entre plataformas fundamentais e casos de uso críticos. Ela permite decisões baseadas em IA que preveem atrasos no cronograma antes que ocorram, aceleram o alinhamento de fornecedores e sintetizam a entrega do projeto com metas de segurança, orçamento e prazo, reduzindo o risco em toda a execução, enquanto preserva seus investimentos tecnológicos existentes.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Na prática',
+    copy: 'Quando o engenheiro atualiza o RDO no campo, o cronograma, o EVM e os suprimentos se ajustam automaticamente - sem retrabalho, sem planilhas paralelas.',
+  },
 ]
 
-function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) {
+function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title?: string; copy?: string }) {
   return (
     <div className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
       <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{eyebrow}</p>
-      <h2 className="max-w-4xl font-['Space_Grotesk'] text-4xl font-medium leading-tight text-white sm:text-5xl lg:text-6xl">{title}</h2>
-      {copy && <p className="max-w-3xl text-base leading-8 text-white/70 md:text-lg">{copy}</p>}
+      {title && <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c] sm:text-5xl lg:text-6xl">{title}</h2>}
+      {copy && <p className="max-w-3xl text-base leading-8 text-[#10251c]/70 md:text-lg">{copy}</p>}
     </div>
   )
 }
 
-function ModulesSection() {
-  const [category, setCategory] = useState<ModuleCategory>('gestao')
-  const filtered = useMemo(() => modules.filter((module) => module.category === category), [category])
-  const [activeId, setActiveId] = useState(filtered[0]?.id ?? modules[0].id)
-  const activeModule = modules.find((module) => module.id === activeId) ?? filtered[0] ?? modules[0]
-
-  function selectCategory(next: ModuleCategory) {
-    setCategory(next)
-    const first = modules.find((module) => module.category === next)
-    if (first) setActiveId(first.id)
-  }
+function NewsSection() {
+  const sourcesCount = new Set(sanitationNewsItems.map((item) => item.source)).size
+  const categoriesCount = new Set(sanitationNewsItems.map((item) => item.category)).size
 
   return (
-    <section id="modulos" className="relative bg-[#2c2c2c] pt-20 sm:pt-32">
-      <SectionHeader
-        eyebrow="Módulos"
-        title="Clique em uma frente da operação e veja os módulos relacionados."
-        copy="Cada módulo é uma peça da inteligência operacional. Todos compartilham a mesma ontologia de dados."
-      />
-      <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
-        <div className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-[0.38fr_0.62fr] lg:divide-x lg:divide-y-0">
-          <div className="flex flex-col">
-            {moduleCategories.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => selectCategory(item.id)}
-                className={`border-b border-dashed border-[#525252] px-5 py-5 text-left text-xl font-medium transition last:border-b-0 ${category === item.id ? 'bg-[#f97316] text-white' : 'bg-[#333333] text-white/70 hover:bg-[#3d3d3d] hover:text-white'}`}
-              >
-                {item.label}
-              </button>
-            ))}
+    <section id="radar-saneamento" className="bg-[#f5f0e5] px-5 pt-14 md:px-10">
+      <div className="mx-auto grid max-w-7xl gap-5 border-y border-[#10251c]/14 bg-[#fffaf0]/72 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-7">
+        <div className="flex items-start gap-4">
+          <div className="flex size-12 shrink-0 items-center justify-center border border-[#10251c]/14 bg-[#10251c] text-[#f97316]">
+            <Newspaper size={22} />
           </div>
           <div>
-            <div className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] md:grid-cols-2 md:divide-x md:divide-y-0">
-              <div className="flex flex-col divide-y divide-dashed divide-[#525252]">
-                {filtered.map((module) => {
-                  const Icon = module.icon
-                  return (
-                    <button
-                      key={module.id}
-                      type="button"
-                      onClick={() => setActiveId(module.id)}
-                      className={`flex gap-4 px-5 py-5 text-left transition ${activeModule.id === module.id ? 'bg-[#3d3d3d]' : 'bg-[#333333] hover:bg-[#3d3d3d]'}`}
-                    >
-                      <Icon className="mt-1 size-6 shrink-0 text-[#f97316]" />
-                      <span>
-                        <span className="block text-lg font-medium text-white">{module.title}</span>
-                        <span className="mt-1 block text-sm leading-6 text-white/60">{module.kicker}</span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <article className="bg-[#333333]">
-                {activeModule.screenshot ? (
-                  <img src={activeModule.screenshot} alt={`Tela do módulo ${activeModule.title}`} className="h-64 w-full border-b border-dashed border-[#525252] object-cover object-top" />
-                ) : (
-                  <div className="flex h-64 items-center justify-center border-b border-dashed border-[#525252]">
-                    <DatabaseZap className="size-12 text-[#f97316]" />
+            <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#f97316]">Radar do Saneamento</p>
+            <h2 className="mt-2 font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] md:text-3xl">
+              Notícias do setor ficam em uma página própria, com fonte e filtros.
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#10251c]/68">
+              Acompanhe {sourcesCount} fontes e {categoriesCount} categorias sem ocupar a landing principal. Os cards usam resumo próprio e direcionam a leitura completa para a fonte original.
+            </p>
+          </div>
+        </div>
+        <a href="/noticias" className="inline-flex min-h-11 items-center justify-center gap-3 bg-[#f97316] px-5 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
+          Abrir notícias <ArrowRight size={15} />
+        </a>
+      </div>
+    </section>
+  )
+  /*
+  return (
+    <section id="radar-saneamento" className="bg-[#f5f0e5] pt-16 sm:pt-24">
+      <SectionHeader
+        eyebrow="Radar do Saneamento"
+        title="Notícias e fontes do setor, sem perder a fonte original."
+        copy="Uma curadoria para acompanhar regulação, universalização, companhias, concessões e obras de saneamento. O conteúdo completo fica sempre na fonte oficial."
+      />
+      <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 border-y border-[#10251c]/14 px-5 py-6 md:grid-cols-2 md:px-10 xl:grid-cols-3">
+        {sanitationNewsItems.slice(0, 6).map((item) => <NewsCard key={item.id} item={item} />)}
+      </div>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-5 md:px-10">
+        <div className="inline-flex items-center gap-3 text-sm font-semibold text-[#10251c]/64">
+          <Newspaper size={18} className="text-[#f97316]" />
+          Curadoria com resumo próprio, atribuição e link canônico para a fonte.
+        </div>
+        <a href="/noticias" className="inline-flex items-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
+          Ver radar completo <ArrowRight size={15} />
+        </a>
+      </div>
+    </section>
+  )
+  */
+}
+
+function ModulesSection() {
+  const [activePain, setActivePain] = useState<ModulePain>('avanco')
+  const activeDetails = modulePainTabs.find((pain) => pain.id === activePain) ?? modulePainTabs[0]
+  const ActiveIcon = activeDetails.icon
+  const activeModules = activeDetails.moduleIds
+    .map((moduleId) => modules.find((module) => module.id === moduleId))
+    .filter((module): module is ModuleItem => Boolean(module))
+  const featuredModules = activeModules.slice(0, 3)
+
+  return (
+    <section id="modulos" className="relative bg-[#f5f0e5] pt-20 sm:pt-32">
+      <SectionHeader
+        eyebrow="Módulos"
+        title="Escolha a dor da operação e veja quais módulos resolvem."
+        copy="O visitante se reconhece no problema antes de avaliar a funcionalidade. Cada módulo continua conectado à mesma base operacional."
+      />
+      <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
+        <div className="flex flex-wrap gap-3 border-b border-[#10251c]/20 pb-10">
+          {modulePainTabs.map((pain) => (
+            <button
+              key={pain.id}
+              type="button"
+              onClick={() => setActivePain(pain.id)}
+              className={`min-h-12 w-full rounded-full border px-5 py-2.5 text-left text-sm font-semibold transition sm:w-auto sm:px-7 sm:text-center sm:text-base ${
+                activePain === pain.id
+                  ? 'border-[#10251c] bg-[#10251c] text-white shadow-[0_12px_34px_rgba(16,37,28,0.14)]'
+                  : 'border-[#10251c]/28 bg-transparent text-[#10251c] hover:border-[#f97316] hover:text-[#f97316]'
+              }`}
+            >
+              {pain.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-0 border-b border-[#10251c]/18 lg:grid-cols-[0.34fr_0.36fr_0.3fr]">
+          <aside className="border-b border-[#10251c]/18 bg-[#fffaf0]/72 p-5 sm:p-7 lg:border-b-0 lg:border-r">
+            <div className="flex min-h-24 items-center gap-4 border border-[#10251c]/16 bg-[#f5f0e5] p-4 sm:min-h-28 sm:p-5">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#10251c] text-white">
+                <ActiveIcon size={22} />
+              </span>
+              <h3 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] sm:text-4xl">{activeDetails.title}</h3>
+            </div>
+            <div className="mt-7 grid gap-3">
+              {activeModules.map((module) => {
+                const Icon = module.icon
+                return (
+                  <div key={module.id} className="flex items-center gap-3 border border-[#10251c]/12 bg-[#fffaf0] p-3">
+                    <Icon className="size-5 shrink-0 text-[#f97316]" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-[#10251c]">{module.title}</p>
+                      <p className="truncate text-xs text-[#10251c]/56">{module.kicker}</p>
+                    </div>
                   </div>
-                )}
-                <div className="p-6">
-                  <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#f97316]">{activeModule.kicker}</p>
-                  <h3 className="mt-3 font-['Space_Grotesk'] text-4xl font-medium text-white">{activeModule.title}</h3>
-                  <p className="mt-5 text-sm leading-7 text-white/70">{activeModule.copy}</p>
-                  <div className="mt-7 flex flex-wrap gap-2">
-                    {[...activeModule.features, ...activeModule.connected].map((item) => (
-                      <Badge key={item} variant="secondary" className="rounded-none">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
+                )
+              })}
+            </div>
+          </aside>
+
+          <article className="border-b border-[#10251c]/18 bg-[#fffaf0]/72 p-5 sm:p-7 lg:border-b-0 lg:border-r">
+            <p className="text-base font-semibold leading-7 text-[#10251c] sm:text-lg sm:leading-8">{activeDetails.challenge}</p>
+            <p className="mt-6 text-base leading-7 text-[#10251c]/78 sm:mt-8 sm:text-lg sm:leading-8">{activeDetails.solution}</p>
+            <div className="mt-8 border-l-2 border-[#f97316] pl-5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">Ganho operacional</p>
+              <p className="mt-2 leading-7 text-[#10251c]/72">{activeDetails.outcome}</p>
+            </div>
+          </article>
+
+          <div className="bg-[#fffaf0]/72 p-5 sm:p-7">
+            <div className="space-y-8">
+              {featuredModules.map((module) => (
+                <div key={module.id}>
+                  <h4 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] sm:text-3xl">{module.title}</h4>
+                  <p className="mt-3 text-sm leading-7 text-[#10251c]/72">{module.copy}</p>
+                  <p className="mt-3 text-sm leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Eficiência:</strong> {module.efficiency}</p>
                 </div>
-              </article>
+              ))}
             </div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 border-b border-[#10251c]/18 md:grid-cols-2 xl:grid-cols-3">
+          {activeModules.map((module) => {
+            const Icon = module.icon
+            return (
+              <article key={module.id} className="flex flex-col border-b border-[#10251c]/14 bg-[#fffaf0]/56 p-5 md:border-r lg:min-h-[360px] lg:p-7 xl:[&:nth-child(3n)]:border-r-0">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex size-12 items-center justify-center border border-[#10251c]/14 bg-[#f5f0e5] text-[#f97316]">
+                    <Icon size={24} />
+                  </div>
+                  <span className="max-w-[9rem] text-right font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#f97316] sm:max-w-[11rem] sm:tracking-[0.16em]">{module.kicker}</span>
+                </div>
+                <h4 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium text-[#10251c] sm:mt-8 sm:text-3xl">{module.title}</h4>
+                <div className="mt-5 space-y-4 text-sm leading-7 text-[#10251c]/70">
+                  <p><strong className="text-[#10251c]">Como faz:</strong> {module.how}</p>
+                  <p><strong className="text-[#10251c]">Resultado:</strong> {module.efficiency}</p>
+                </div>
+                <div className="mt-auto flex flex-wrap gap-2 pt-7">
+                  {[...module.features, ...module.connected].map((item) => (
+                    <Badge key={item} variant="secondary" className="rounded-none border border-[#10251c]/10 bg-[#f5f0e5] text-[#10251c]/70">
+                      {item}
+                    </Badge>
+                  ))}
+                </div>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
   )
 }
 
-function Input({ label, name, type = 'text', required = false }: { label: string; name: string; type?: string; required?: boolean }) {
+function Input({ label, name, type = 'text', required = false, icon: Icon }: { label: string; name: string; type?: string; required?: boolean; icon?: LucideIcon }) {
   return (
     <label className="block">
-      <span className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">{label}</span>
+      <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#10251c]/55">
+        {Icon && <Icon size={13} className="text-[#f97316]" />}
+        {label}
+      </span>
       <input
         name={name}
         type={type}
         required={required}
-        className="h-12 w-full rounded-none border border-[#525252] bg-[#333333] px-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]"
+        className="h-12 w-full rounded-none border border-[#10251c]/18 bg-[#fffaf0] px-3 text-sm text-[#10251c] outline-none transition placeholder:text-[#10251c]/30 focus:border-[#f97316]"
       />
     </label>
+  )
+}
+
+function HeroCarousel() {
+  const [current, setCurrent] = useState(0)
+  const [previous, setPrevious] = useState<number | null>(null)
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrent((index) => {
+        setPrevious(index)
+        return (index + 1) % heroImages.length
+      })
+    }, 5000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (previous === null) return
+    const timeout = window.setTimeout(() => setPrevious(null), 1100)
+    return () => window.clearTimeout(timeout)
+  }, [previous])
+
+  return (
+    <div className="absolute inset-0">
+      {previous !== null && previous !== current && (
+        <div
+          key={`previous-${heroImages[previous]}`}
+          className="absolute inset-0 bg-cover bg-[position:56%_center] sm:bg-center"
+          style={{ backgroundImage: `url(${heroImages[previous]})` }}
+        />
+      )}
+      <div
+        key={`current-${heroImages[current]}`}
+        className="absolute inset-0 animate-[heroFade_1s_ease-out] bg-cover bg-[position:56%_center] sm:bg-center"
+        style={{ backgroundImage: `url(${heroImages[current]})` }}
+      />
+    </div>
+  )
+}
+
+function LandingSurfaceStyles() {
+  return (
+    <style>{`
+      .landing-light {
+        background: #f5f0e5;
+        color: #10251c;
+      }
+      .landing-light section:not(.landing-hero) {
+        border-color: rgba(16, 37, 28, 0.12);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .landing-light * {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+      @keyframes heroFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    `}</style>
   )
 }
 
@@ -402,9 +687,10 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#2c2c2c] text-white antialiased">
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-dashed border-[#525252] bg-[#2c2c2c]/95 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 md:px-10">
+    <div className="landing-light min-h-screen bg-[#f5f0e5] text-[#10251c] antialiased">
+      <LandingSurfaceStyles />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#0d0d0d]/88 text-white backdrop-blur-xl">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
             <BrandLockup />
           </a>
@@ -415,19 +701,19 @@ export function LandingPage() {
               ['Módulos', '#modulos'],
               ['Notícias', '/noticias'],
               ['Perfis', '#perfis'],
-              ['Radar', '/noticias'],
+              ['Radar', '#radar-saneamento'],
               ['Contato', '#contato'],
             ].map(([label, href]) => (
-              <a key={href} href={href} className="text-xs font-semibold uppercase tracking-[0.12em] text-white/58 transition hover:text-white">
+              <a key={href} href={href} className="text-xs font-semibold uppercase tracking-[0.12em] text-white/64 transition hover:text-white">
                 {label}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={LOGIN_URL} className="hidden border border-dashed border-[#525252] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white sm:inline-flex">
+            <a href={LOGIN_URL} className="hidden border border-white/18 px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white sm:inline-flex">
               Acessar
             </a>
-            <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#f97316] px-4 py-2 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
+            <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#f97316] px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#ea580c] sm:px-4 sm:text-xs sm:tracking-[0.1em]">
               Demo <ArrowRight size={14} />
             </a>
           </div>
@@ -435,166 +721,183 @@ export function LandingPage() {
       </header>
 
       <main>
-        <section className="relative min-h-screen overflow-hidden border-b border-[#f97316]/35 pt-24">
-          <div className="absolute inset-0">
-            <img src={heroBackground} alt="" className="h-full w-full object-cover object-center" />
-            <div className="absolute inset-0 bg-black/58" />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.92)_0%,rgba(0,0,0,0.74)_43%,rgba(0,0,0,0.38)_74%,rgba(0,0,0,0.18)_100%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.24)_0%,rgba(0,0,0,0)_42%,rgba(0,0,0,0.52)_100%)]" />
-          </div>
-
-          <div className="relative z-10 mx-auto grid min-h-[calc(100vh-6rem)] max-w-7xl items-center gap-10 px-5 pb-12 pt-10 md:px-10 lg:grid-cols-[1.16fr_0.84fr]">
-            <div className="max-w-3xl">
-              <Badge className="rounded-none border-[#525252] bg-[#252525]/90 px-4 py-1 text-[#f97316]" variant="outline">
-                Plataforma de Planejamento e Gestão da Execução da Obra
-              </Badge>
-              <h1 className="mt-8 font-['Space_Grotesk'] text-6xl font-medium leading-[0.92] text-white sm:text-7xl lg:text-8xl">
-                ConstruData
-              </h1>
-              <h2 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white sm:text-5xl lg:text-6xl">
-                Automação Alimentada por IA para cada Decisão na Construção.
-              </h2>
-              <div className="mt-8 space-y-5 text-base leading-8 text-white/82 md:text-lg">
-                <p>
+        <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0d0d0d] pt-16 lg:min-h-screen">
+          <HeroCarousel />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.12)_0%,rgba(10,10,10,0.48)_42%,rgba(10,10,10,0.98)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,10,0.9)_0%,rgba(10,10,10,0.56)_46%,rgba(10,10,10,0.08)_100%)]" />
+          <div className="pointer-events-none absolute right-[4%] top-[14%] hidden h-72 w-72 rounded-full border border-white/18 lg:block" />
+          <div className="pointer-events-none absolute right-[10%] top-[20%] hidden h-[28rem] w-[28rem] rounded-full border border-white/10 lg:block" />
+          <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-0 pt-6 sm:px-5 md:px-10 lg:pt-24">
+            <div className="grid flex-1 items-end gap-10 py-7 sm:py-10 lg:grid-cols-[0.58fr_0.42fr] lg:py-16">
+              <div className="flex max-w-3xl animate-[fadeIn_0.7s_ease-out] flex-col items-start justify-end space-y-4 text-left sm:space-y-6">
+                <Badge className="max-w-full rounded-none border-white/18 bg-white/10 px-3 py-1 text-left text-[10px] leading-4 text-[#f97316] backdrop-blur-md sm:px-4 sm:text-xs" variant="outline">
+                  Plataforma de Planejamento e Gestão da Execução da Obra
+                </Badge>
+                <h1 className="font-['Space_Grotesk'] text-5xl font-medium leading-[0.95] text-white sm:text-7xl lg:text-8xl">
+                  ConstruData
+                </h1>
+                <h2 className="max-w-4xl font-['Space_Grotesk'] text-2xl font-medium leading-tight text-white sm:text-5xl">
+                  Automação Alimentada por IA para cada Decisão na Construção.
+                </h2>
+                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
                   Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
                 </p>
-                <p>
+                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
                   Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
                 </p>
+                <div className="h-[2px] w-14 bg-[#f97316]" />
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                  <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]">
+                    Ver como funciona <ArrowRight size={17} />
+                  </a>
+                  <a href={LOGIN_URL} className="inline-flex min-h-12 items-center justify-center border border-white/24 bg-white/10 px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[#f97316] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]">
+                    Acessar plataforma
+                  </a>
+                </div>
               </div>
-              <div className="mt-8 h-0.5 w-14 bg-[#f97316]" />
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-3 bg-[#f97316] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
-                  Ver como funciona <ArrowRight size={17} />
-                </a>
-                <a href={LOGIN_URL} className="inline-flex items-center justify-center border border-white/22 bg-[#2f2f2f]/75 px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:border-[#f97316]">
-                  Acessar plataforma
-                </a>
+
+              <div className="hidden lg:block">
+                <div className="ml-auto max-w-md space-y-3 pb-14">
+                  {[
+                    ['RDO', 'Campo alimentando medição', 'origem rastreável'],
+                    ['LPS', 'Restrições antes do atraso', 'look-ahead ativo'],
+                    ['Gestão 360', 'Custo, prazo e produção', 'decisão executiva'],
+                    ['Suprimentos', 'Material antes da falta', 'impacto no prazo'],
+                    ['Medição', 'Avanço com evidência', 'fechamento defensável'],
+                  ].map(([title, copy, meta], index) => (
+                    <div key={title} className={`overflow-hidden border border-white/10 bg-[#1a1a1a]/82 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${index === 4 ? 'ml-12 p-3' : 'p-4'}`}>
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="font-mono text-[10px] font-black uppercase text-[#f97316]">{title}</p>
+                        <span className="h-2 w-2 rounded-full bg-[#f97316] shadow-[0_0_18px_rgba(249,115,22,0.85)]" />
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-white">{copy}</p>
+                      <p className="mt-1 text-xs text-white/58">{meta}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="relative hidden min-h-[560px] items-center lg:flex">
-              <div className="absolute right-2 top-10 h-72 w-72 rounded-full border border-white/16" />
-              <div className="absolute right-24 top-28 h-80 w-80 rounded-full border border-white/10" />
-              <div className="relative z-10 ml-auto flex w-full max-w-[520px] flex-col gap-3">
-                {heroSignals.map(([tag, title, subtitle], index) => (
-                  <div
-                    key={title}
-                    className="border border-white/8 bg-[#191919]/92 px-5 py-4 shadow-2xl shadow-black/35 backdrop-blur-sm"
-                    style={{ marginLeft: index === 4 ? '3rem' : index === 0 ? '0' : index % 2 === 0 ? '1.75rem' : '0.25rem' }}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#f97316]">{tag}</p>
-                        <h3 className="mt-4 text-base font-bold text-white">{title}</h3>
-                        <p className="mt-1 text-sm text-white/58">{subtitle}</p>
-                      </div>
-                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#f97316]" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="relative z-10 grid grid-cols-1 border-t border-white/14 bg-[#0a0a0a]/82 backdrop-blur-md sm:grid-cols-3 sm:divide-x sm:divide-white/14">
+              {valueProofCards.map((card) => (
+                <div key={card.metric} className="px-4 py-4 text-left sm:px-5 sm:py-7">
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white sm:text-4xl">{card.metric}</div>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-white sm:mt-4 sm:text-base">{card.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-white/58 sm:mt-2 sm:text-sm sm:leading-6">{card.copy}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {[
-            ['16+', 'módulos conectados'],
-            ['D+0', 'dado de campo'],
-            ['100%', 'origem rastreável'],
-          ].map(([value, label]) => (
-            <div key={label} className="bg-[#333333] px-5 py-8 text-center">
-              <div className="font-['Space_Grotesk'] text-4xl font-medium text-white">{value}</div>
-              <div className="mt-2 font-mono text-xs uppercase tracking-[0.16em] text-white/45">{label}</div>
-            </div>
-          ))}
-        </section>
+        <NewsSection />
 
-        <section id="ontologia" className="bg-[#333333] pt-20 sm:pt-32">
-          <SectionHeader
-            eyebrow="A Ontologia da Construção"
-            title="O Diferencial Técnico"
-            copy="A Ontologia da Construção integra todas as funções centrais, da pré-construção ao suprimento, execução no canteiro e encerramento do projeto, através de uma camada semântica unificada."
-          />
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
-            {[
-              'Em sua essência, a Ontologia padroniza como os departamentos interagem com objetos de negócio compartilhados, como projetos, atividades, equipamentos e subempreiteiros.',
-              'Construída sob uma perspectiva campo-primeiro, conecta o que acontece no canteiro aos sistemas que o suportam: ERP, BIM e cronogramas.',
-              'Na prática: quando o engenheiro atualiza o RDO no campo, cronograma, EVM e suprimentos se ajustam automaticamente, sem retrabalho.',
-            ].map((copy, index) => (
-              <div key={copy} className="flex flex-col gap-5 bg-[#333333] px-5 py-8 lg:px-8 lg:py-12">
-                <DatabaseZap className="size-12 text-[#f97316]" />
-                <div className="pt-8 lg:pt-14">
-                  <h3 className="font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">0{index + 1}</h3>
-                  <p className="mt-4 leading-7 text-white/72">{copy}</p>
+        <section id="ontologia" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+          <SectionHeader eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
+            {ontologyCards.map(({ icon: Icon, title, copy }) => (
+              <article key={title} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 p-6 lg:border-r lg:p-8 xl:[&:nth-child(3n)]:border-r-0">
+                <div className="flex size-12 items-center justify-center border border-[#10251c]/14 bg-[#f5f0e5] text-[#f97316]">
+                  <Icon size={24} />
                 </div>
-              </div>
+                <h3 className="mt-10 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-[#10251c]">{title}</h3>
+                <p className="mt-4 leading-7 text-[#10251c]/72">{copy}</p>
+              </article>
             ))}
           </div>
         </section>
 
-        <section id="impacto" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+        <section id="impacto" className="bg-[#f5f0e5] pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Impacto real em escala"
             title="ConstruData Impulsiona Impacto Real em Escala"
             copy="Ajudamos empresas de engenharia e construção a dominarem o mercado."
           />
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252]">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10">
             {impactRows.map(([category, impact, how]) => (
-              <div key={category} className="grid gap-5 bg-[#333333] px-5 py-7 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-8">
-                <h3 className="font-['Space_Grotesk'] text-2xl font-medium text-white">{category}</h3>
-                <p className="font-semibold leading-7 text-white/84">{impact}</p>
-                <p className="leading-7 text-white/64">{how}</p>
+              <div key={category} className="grid gap-5 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-7 last:border-b-0 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-8">
+                <div className="flex items-center gap-3">
+                  <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium text-[#10251c]">{category}</h3>
+                </div>
+                <p className="font-semibold leading-7 text-[#10251c]/84">{impact}</p>
+                <p className="leading-7 text-[#10251c]/64">{how}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section id="empresas" className="bg-[#333333] pt-20 sm:pt-32">
-          <SectionHeader eyebrow="Empresas que confiam no ConstruData" title="Logotipos em movimento, dados em movimento." />
-          <div className="relative mt-12 overflow-hidden border-y border-dashed border-[#525252] py-8">
-            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-linear-to-r from-[#333333]" />
-            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-linear-to-l from-[#333333]" />
+        <section id="empresas" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+          <SectionHeader eyebrow="Empresas que confiam no ConstruData" />
+          <div className="relative mt-12 overflow-hidden border-y border-[#10251c]/14 py-8">
+            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-gradient-to-r from-[#f5f0e5]" />
+            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-gradient-to-l from-[#f5f0e5]" />
             <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
               {logos.map(([src, alt]) => (
-                <div key={src} className="flex h-28 w-64 shrink-0 items-center justify-center border border-dashed border-[#525252] bg-[#2c2c2c] p-5">
-                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain brightness-110" />
+                <div key={src} className="flex h-28 w-64 shrink-0 items-center justify-center border border-[#10251c]/14 bg-[#fffaf0] p-5">
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
                 </div>
               ))}
             </Marquee>
           </div>
         </section>
 
-        <section id="diferencial" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+        <section id="diferencial" className="bg-[#f5f0e5] pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Diferencial único"
             title="Todo mundo tem acesso a código. Nem todo mundo tem metodologia."
             copy="O ConstruData não é apenas um software de gestão. É uma metodologia operacional para obras de construção civil e saneamento, com dados conectados desde o campo até a decisão executiva."
           />
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] sm:grid-cols-2 sm:divide-x lg:grid-cols-4">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
             {differentiators.map(([number, title, copy]) => (
-              <div key={number} className="flex flex-col gap-5 bg-[#333333] px-5 py-8 lg:px-6 lg:py-10">
-                <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
-                <div className="flex flex-col gap-3 pt-10 lg:pt-20">
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-white sm:text-3xl">{title}</h3>
-                  <p className="leading-7 text-white/68">{copy}</p>
+              <div key={number} className="flex flex-col gap-5 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 sm:border-r lg:min-h-[320px] lg:px-6 lg:py-10 lg:[&:nth-child(4n)]:border-r-0">
+                <div className="flex items-center justify-between">
+                  <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
+                  <ShieldCheck className="size-5 text-[#f97316]" />
+                </div>
+                <div className="flex flex-col gap-3 pt-6 lg:pt-20">
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-[#10251c] sm:text-3xl">{title}</h3>
+                  <p className="leading-7 text-[#10251c]/68">{copy}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
+        <section className="bg-[#f5f0e5] px-5 pt-20 sm:pt-32 md:px-10">
+          <div className="mx-auto grid max-w-7xl border-y border-[#10251c]/14 bg-[#fffaf0]/72 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="border-b border-[#10251c]/14 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Implantação em obras reais</p>
+              <h2 className="mt-8 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c] sm:text-5xl">
+                Comece com os documentos que a obra já usa.
+              </h2>
+            </div>
+            <div className="grid gap-0 sm:grid-cols-3">
+              {[
+                ['Planilhas, medições e RDOs', 'O sistema aproveita controles existentes para criar uma base inicial sem parar a operação.'],
+                ['Fotos, propostas e relatórios', 'Cada evidência entra com contexto, origem e destino recomendado nos módulos corretos.'],
+                ['Evolução sem ruptura', 'O ConstruData organiza os dados por módulo e permite amadurecer o controle sem trocar tudo no primeiro dia.'],
+              ].map(([title, copy]) => (
+                <article key={title} className="border-b border-[#10251c]/14 p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 sm:p-7">
+                  <FileText className="size-7 text-[#f97316]" />
+                  <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c]">{title}</h3>
+                  <p className="mt-4 text-sm leading-7 text-[#10251c]/68">{copy}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <ModulesSection />
 
-        <section id="depoimentos" className="bg-[#333333] pt-20 sm:pt-32">
-          <SectionHeader eyebrow="O que os líderes da construção estão dizendo" title="Provas sociais focadas em ROI e transformação digital." />
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+        <section id="depoimentos" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+          <SectionHeader eyebrow="O que os líderes da construção estão dizendo" />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-3">
             {testimonials.map(([name, role, quote]) => (
-              <figure key={name} className="bg-[#333333] px-5 py-8 lg:px-8 lg:py-12">
-                <blockquote className="text-xl leading-9 text-white/80">“{quote}”</blockquote>
-                <figcaption className="mt-10 border-t border-dashed border-[#525252] pt-5">
-                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white">{name}</div>
+              <figure key={name} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 lg:border-r lg:px-8 lg:py-12 lg:[&:nth-child(3n)]:border-r-0">
+                <blockquote className="text-xl leading-9 text-[#10251c]/80">"{quote}"</blockquote>
+                <figcaption className="mt-10 border-t border-[#10251c]/14 pt-5">
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-[#10251c]">{name}</div>
                   <div className="mt-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#f97316]">{role}</div>
                 </figcaption>
               </figure>
@@ -602,35 +905,36 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="perfis" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+        <section id="perfis" className="bg-[#f5f0e5] pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Para quem é o ConstruData?"
             title="O visitante certo se reconhece rápido."
             copy="Cada perfil entra por uma dor diferente, mas todos precisam do mesmo ponto de chegada: dado de campo confiável virando decisão, medição e planejamento."
           />
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] md:grid-cols-2 md:divide-x">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:grid-cols-2 md:px-10">
             {audience.map(([title, problem, solution]) => (
-              <article key={title} className="bg-[#333333] px-5 py-8 lg:p-10">
-                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">{title}</h3>
-                <p className="mt-6 leading-7 text-white/68"><strong className="text-white">Problema:</strong> {problem}</p>
-                <p className="mt-4 leading-7 text-white/68"><strong className="text-white">Como resolve:</strong> {solution}</p>
+              <article key={title} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0">
+                <Users className="size-9 text-[#f97316]" />
+                <h3 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">{title}</h3>
+                <p className="mt-6 leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Problema:</strong> {problem}</p>
+                <p className="mt-4 leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Como resolve:</strong> {solution}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="linkedin" className="bg-[#333333] px-5 py-20 sm:py-32 md:px-10">
-          <div className="mx-auto grid max-w-6xl gap-8 border border-dashed border-[#525252] bg-[#2c2c2c] p-6 lg:grid-cols-[0.8fr_1.2fr] lg:p-10">
+        <section id="linkedin" className="bg-[#f5f0e5] px-5 py-20 sm:py-32 md:px-10">
+          <div className="mx-auto grid max-w-6xl gap-8 border border-[#10251c]/14 bg-[#fffaf0]/72 p-6 lg:grid-cols-[0.8fr_1.2fr] lg:p-10">
             <div>
               <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Artigo no LinkedIn</p>
-              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight text-white">A visão por trás da ConstruData.</h2>
+              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight text-[#10251c]">A visão por trás da ConstruData.</h2>
             </div>
             <div>
-              <p className="text-lg leading-8 text-white/72">
+              <p className="text-lg leading-8 text-[#10251c]/72">
                 Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
               </p>
-              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-white">ConstruData Software</h3>
-              <p className="mt-3 leading-7 text-white/68">Dados conectados, automação e decisões melhores para obras reais.</p>
+              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">ConstruData Software</h3>
+              <p className="mt-3 leading-7 text-[#10251c]/68">Dados conectados, automação e decisões melhores para obras reais.</p>
               <a href={LINKEDIN_ARTICLE_URL} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
                 Ler artigo no LinkedIn <ArrowRight size={16} />
               </a>
@@ -638,22 +942,22 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="autonomia" className="bg-[#2c2c2c] pt-20 sm:pt-32">
+        <section id="autonomia" className="bg-[#f5f0e5] pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Autonomia para a cadeia inteira"
             title="A obra inteira fica mais inteligente."
             copy="Não porque tem mais dashboards. Porque tem mais pessoas decidindo bem, no momento certo, com a informação certa. É isso que distribui autonomia de verdade pela cadeia da sua construção."
           />
-          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight text-white">
+          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c]">
             Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
           </p>
-          <div className="mt-12 grid grid-cols-1 divide-y divide-dashed divide-[#525252] border-y border-dashed border-[#525252] lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-3">
             {autonomyCards.map(([place, person, copy]) => (
-              <article key={place} className="bg-[#333333] px-5 py-8 lg:p-10">
+              <article key={place} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0">
                 <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
-                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium text-white">{person}</h3>
-                <p className="mt-5 leading-7 text-white/68">{copy}</p>
-                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-white">
+                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium text-[#10251c]">{person}</h3>
+                <p className="mt-5 leading-7 text-[#10251c]/68">{copy}</p>
+                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-[#ea580c]">
                   Ver como funciona <ArrowRight size={14} />
                 </a>
               </article>
@@ -661,64 +965,69 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="contato" className="bg-[#333333] px-5 py-20 sm:py-32 md:px-10">
-          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr]">
-            <div>
-              <SectionHeader eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
-              <div className="mt-8 grid gap-3">
-                {faqs.map(([question, answer]) => (
-                  <details key={question} className="group border border-dashed border-[#525252] bg-[#2c2c2c] p-5">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                      <span className="font-['Space_Grotesk'] text-base font-medium text-white">{question}</span>
-                      <span className="text-[#f97316] transition group-open:rotate-45">+</span>
-                    </summary>
-                    <p className="mt-4 leading-7 text-white/68">{answer}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
-            <form onSubmit={handleSubmit} className="border border-dashed border-[#525252] bg-[#2c2c2c] p-5 sm:p-7">
-              {sent ? (
-                <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-                  <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
-                  <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Solicitação enviada.</h3>
-                  <p className="mt-3 max-w-md leading-7 text-white/68">Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-7 flex items-center gap-3">
-                    <LockKeyhole className="text-[#f97316]" size={20} />
-                    <div>
-                      <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Formulário de Qualificação</h3>
-                      <p className="mt-1 text-sm leading-6 text-white/48">Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Input name="nome" label="Nome" required />
-                    <Input name="sobrenome" label="Sobrenome" required />
-                    <Input name="email" label="E-mail corporativo" type="email" required />
-                    <Input name="empresa" label="Nome da empresa" required />
-                    <Input name="cargo" label="Cargo" required />
-                    <label className="block sm:col-span-2">
-                      <span className="mb-2 block font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Principal dor</span>
-                      <textarea name="dor" rows={4} className="w-full rounded-none border border-[#525252] bg-[#333333] px-3 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316]" placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..." />
-                    </label>
-                  </div>
-                  {error && <p className="mt-4 border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">{error}</p>}
-                  <button type="submit" disabled={sending} className="mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60">
-                    {sending ? 'Enviando...' : 'Solicitar demonstração'} <ArrowRight size={16} />
-                  </button>
-                </>
-              )}
-            </form>
+        <section id="contato" className="bg-[#f5f0e5] px-5 py-20 sm:py-32 md:px-10">
+          <SectionHeader eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
+          <div className="mx-auto mt-10 grid max-w-5xl gap-3">
+            {faqs.map(([question, answer]) => (
+              <details key={question} className="group border border-[#10251c]/14 bg-[#fffaf0]/72 p-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+                  <span className="flex items-center gap-3 font-['Space_Grotesk'] text-base font-medium text-[#10251c]">
+                    <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
+                    {question}
+                  </span>
+                  <Plus className="size-5 shrink-0 text-[#f97316] transition group-open:rotate-45" />
+                </summary>
+                <p className="mt-4 leading-7 text-[#10251c]/68">{answer}</p>
+              </details>
+            ))}
           </div>
+        </section>
+
+        <section id="qualificacao" className="bg-[#f5f0e5] px-5 pb-20 sm:pb-32 md:px-10">
+          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-[#10251c]/14 bg-[#fffaf0]/72 p-5 sm:p-7">
+            {sent ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+                <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
+                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">Solicitação enviada.</h3>
+                <p className="mt-3 max-w-md leading-7 text-[#10251c]/68">Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.</p>
+              </div>
+            ) : (
+              <>
+                <div className="mb-7 flex items-center gap-3">
+                  <LockKeyhole className="text-[#f97316]" size={20} />
+                  <div>
+                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">Formulário de Qualificação</h3>
+                    <p className="mt-1 text-sm leading-6 text-[#10251c]/48">Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.</p>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Input name="nome" label="Nome" required icon={Users} />
+                  <Input name="sobrenome" label="Sobrenome" required icon={Users} />
+                  <Input name="email" label="E-mail corporativo" type="email" required icon={FileText} />
+                  <Input name="empresa" label="Nome da empresa" required icon={Building2} />
+                  <Input name="cargo" label="Cargo" required icon={ClipboardCheck} />
+                  <label className="block sm:col-span-2">
+                    <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#10251c]/55">
+                      <BrainCircuit size={13} className="text-[#f97316]" />
+                      Principal dor
+                    </span>
+                    <textarea name="dor" rows={4} className="w-full rounded-none border border-[#10251c]/18 bg-[#fffaf0] px-3 py-3 text-sm text-[#10251c] outline-none transition placeholder:text-[#10251c]/30 focus:border-[#f97316]" placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..." />
+                  </label>
+                </div>
+                {error && <p className="mt-4 border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">{error}</p>}
+                <button type="submit" disabled={sending} className="mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60">
+                  {sending ? 'Enviando...' : 'Solicitar demonstração'} <ArrowRight size={16} />
+                </button>
+              </>
+            )}
+          </form>
         </section>
       </main>
 
-      <footer className="border-t border-dashed border-[#525252] bg-[#2c2c2c] py-8">
+      <footer className="border-t border-[#10251c]/14 bg-[#f5f0e5] py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row md:px-10">
-          <span className="text-xs text-white/62">© 2026 ConstruData</span>
-          <span className="text-xs text-white/42">CONSTRUÇÃO · SANEAMENTO · INFRAESTRUTURA</span>
+          <span className="text-xs text-[#10251c]/62">© 2026 ConstruData</span>
+          <span className="text-xs text-[#10251c]/42">CONSTRUÇÃO - SANEAMENTO - INFRAESTRUTURA</span>
         </div>
       </footer>
     </div>
