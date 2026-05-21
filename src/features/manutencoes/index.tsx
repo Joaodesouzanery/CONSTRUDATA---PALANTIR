@@ -750,8 +750,6 @@ export function ManutencoesPage() {
   const profileOrgId = useAuth((state) => state.profile?.organization_id)
   const projects = useProjetosStore((state) => state.projects)
   const sites = useTorreStore((state) => state.sites)
-  const ensureProjetosScope = useProjetosStore((state) => state.ensureTenantScope)
-  const ensureTorreScope = useTorreStore((state) => state.ensureTenantScope)
   const pullProjetos = useProjetosStore((state) => state.pull)
   const pullTorre = useTorreStore((state) => state.pull)
   const assets = useManutencoesStore((state) => state.assets)
@@ -782,12 +780,10 @@ export function ManutencoesPage() {
   useEffect(() => {
     if (!profileOrgId) return
     ensureTenantScope(profileOrgId)
-    ensureProjetosScope(profileOrgId)
-    ensureTorreScope(profileOrgId)
     void pullProjetos()
     void pullTorre()
     void pull()
-  }, [ensureProjetosScope, ensureTenantScope, ensureTorreScope, profileOrgId, pull, pullProjetos, pullTorre])
+  }, [ensureTenantScope, profileOrgId, pull, pullProjetos, pullTorre])
 
   const tenantReady = !!profileOrgId && activeOrgId === profileOrgId
   const q = query.trim().toLowerCase()
