@@ -1,0 +1,148 @@
+Sim. Eu estruturaria isso como um Kit de Implementação Ágil ConstruData, com promessa clara: “obra cadastrada e operação piloto rodando em semanas, não meses”.
+
+1. Plano De Implementação Ágil
+
+Objetivo: reduzir o tempo entre contrato fechado e obra operando na plataforma.
+
+Semana 0: Fechamento e diagnóstico
+Logo após fechar com a empresa, pedir um pacote mínimo:
+
+Lista de obras ativas e obras piloto.
+Organograma da empresa e responsáveis por obra.
+Usuários que terão acesso, com cargo e nível de permissão.
+Planilhas/modelos atuais: RDO, medição, suprimentos, planejamento, equipamentos, qualidade.
+Cronograma atual: MS Project, Primavera, Excel ou PDF.
+Contratos ou critérios de medição.
+Lista de fornecedores, empreiteiros e equipes.
+Lista de equipamentos relevantes.
+Principais dores atuais: atraso, retrabalho, medição, RDO, falta de material, manutenção, produtividade.
+Semana 1: Padronização mínima
+Criar com a empresa uma “base comum”:
+
+Código padrão de obra.
+Estrutura de frentes/trechos/locais.
+EAP ou pacotes de trabalho.
+Unidades de medição.
+Papéis e permissões.
+Modelo padrão de RDO.
+Critérios de aprovação.
+Critérios de medição.
+Campos obrigatórios de evidência: foto, responsável, data, local, assinatura, status.
+Semana 2: Adaptação Rápida
+Aqui entra seu diferencial.
+
+A empresa envia os arquivos atuais e a ConstruData transforma isso em estrutura operacional:
+
+Ler planilhas e documentos existentes.
+Mapear para módulos: RDO, planejamento, medição, suprimentos, equipamentos, manutenção.
+Identificar campos faltantes.
+Criar checklist de pendências.
+Subir a obra piloto com dados reais.
+Validar com o engenheiro responsável.
+Semana 3: Piloto em obra real
+Rodar com uma obra ou frente específica:
+
+RDO real.
+Medição real.
+Planejamento conectado.
+Suprimentos e pendências.
+Manutenções/equipamentos se aplicável.
+Treinamento rápido da equipe de campo e gestão.
+Semana 4: Expansão
+Depois do piloto validado:
+
+Ajustar padrões.
+Subir novas obras.
+Treinar demais equipes.
+Criar painel executivo.
+Definir rotina semanal de acompanhamento.
+O Que Pedir Para A Empresa Preencher
+
+Eu criaria um formulário chamado Ficha de Implantação Rápida da Obra com:
+
+Dados da empresa.
+Dados da obra.
+Responsáveis.
+Usuários e permissões.
+Frentes de serviço.
+Empreiteiros.
+Equipamentos.
+Materiais críticos.
+Modelo atual de RDO.
+Modelo atual de medição.
+Cronograma atual.
+Principais gargalos.
+Indicadores que a diretoria quer acompanhar.
+Isso vira o insumo padrão para a “Adaptação Rápida”.
+
+2. Posts Nesse Formato
+
+Post 1
+
+Sabe aquele software que você usa na obra, mas sente que ele foi feito para uma operação genérica, não para a sua?
+
+Você paga caro por uma solução que deveria ajudar, mas no fim ela cria mais planilhas, mais retrabalho e mais etapas manuais.
+
+A ConstruData nasce justamente para o contrário: adaptar a plataforma à forma como sua obra realmente funciona.
+
+RDO, medição, planejamento, suprimentos, equipamentos, manutenção e indicadores conectados em tempo real.
+
+Conte para mim o que você não gosta no sistema que usa hoje, ou o que gostaria que existisse.
+
+Nós estruturamos uma solução para a sua operação e implementamos em semanas, não em meses.
+
+Com treinamento da equipe incluso.
+
+Post 2
+
+Toda obra tem um jeito próprio de funcionar.
+
+Mas a maioria dos softwares tenta obrigar sua equipe a trabalhar do jeito deles.
+
+O resultado?
+
+Mais retrabalho, mais planilhas paralelas, mais WhatsApp perdido e menos controle real.
+
+Na ConstruData, fazemos diferente.
+
+Pegamos seus modelos atuais, RDOs, medições, cronogramas e controles, e adaptamos a plataforma para conectar os dados da sua operação em tempo real.
+
+Campo, engenharia e gestão falando a mesma língua.
+
+Implementação em semanas, não em meses.
+
+E com treinamento da equipe incluso.
+
+Post 3
+
+Se o seu sistema de gestão de obra não conversa com a rotina real do campo, ele vira só mais uma obrigação.
+
+A equipe preenche porque precisa, mas a decisão continua acontecendo fora do sistema.
+
+A proposta da ConstruData é outra:
+
+Transformar os dados que já nascem na obra em informação útil para planejamento, medição, suprimentos, manutenção e gestão.
+
+Sem depender de dezenas de planilhas paralelas.
+
+Se você pudesse mudar uma coisa no software que usa hoje, o que seria?
+
+A gente quer ouvir essa dor e transformar em solução prática.
+
+Post 4
+
+Implementar software em obra não deveria levar meses.
+
+Também não deveria exigir que sua empresa mudasse toda a operação para caber dentro de uma ferramenta genérica.
+
+Na ConstruData, usamos um processo de Adaptação Rápida:
+
+Analisamos seus modelos atuais, padronizamos o essencial, cadastramos a obra piloto e treinamos a equipe para começar a operar em semanas.
+
+RDO, medição, planejamento, suprimentos, equipamentos e indicadores conectados desde o campo.
+
+Menos retrabalho.
+
+Mais rastreabilidade.
+
+Mais decisão com dado real.
