@@ -17,13 +17,25 @@ dist-ssr
 .env.*
 !.env.example
 
+# Supabase — never commit local state, branches, or DB dumps
+supabase/.branches/
+supabase/.temp/
+supabase/seed.dev.sql
+*.dump
+*.sql.gz
+*.backup
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
+Microsoft/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
