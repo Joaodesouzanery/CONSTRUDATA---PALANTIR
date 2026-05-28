@@ -135,6 +135,10 @@ export interface Database {
           invited_by:       string
           token:            string
           accepted_at:      string | null
+          accepted_by:      string | null
+          revoked_at:       string | null
+          revoked_by:       string | null
+          membership_id:    string | null
           expires_at:       string
           created_at:       string
         }
@@ -146,6 +150,29 @@ export interface Database {
           token:           string
         }
         Update: Partial<Database['public']['Tables']['invitations']['Row']>
+      }
+      memberships: {
+        Row: {
+          id:               string
+          organization_id:  string
+          user_id:          string
+          role:             UserRole
+          status:           'invited' | 'active' | 'blocked' | 'left'
+          invited_by:       string | null
+          joined_at:        string | null
+          blocked_at:       string | null
+          blocked_by:       string | null
+          block_reason:     string | null
+          created_at:       string
+          updated_at:       string
+          deleted_at:       string | null
+        }
+        Insert: Partial<Database['public']['Tables']['memberships']['Row']> & {
+          organization_id: string
+          user_id:         string
+          role:            UserRole
+        }
+        Update: Partial<Database['public']['Tables']['memberships']['Row']>
       }
       fvs: {
         Row: {
@@ -180,13 +207,84 @@ export interface Database {
         }
         Update: Partial<Database['public']['Tables']['fvs']['Row']>
       }
+      measurement_sources: {
+        Row: {
+          id:                  string
+          organization_id:     string
+          created_by:          string
+          measurement_id:      string | null
+          rdo_id:              string | null
+          rdo_type:            'regular' | 'sabesp' | null
+          contractor_id:       string | null
+          supplier_id:         string | null
+          nucleo:              string | null
+          source_kind:         'rdo' | 'rdo_sabesp' | 'spreadsheet' | 'manual'
+          source_uid:          string | null
+          source_date:         string | null
+          service_code:        string | null
+          service_description: string
+          unit:                string | null
+          quantity:            number
+          amount:              number
+          origin_label:        string
+          quality_status:      'clear' | 'pending_quality' | 'blocked_by_nc' | 'released' | 'glosa_review'
+          quality_nc_id:       string | null
+          quality_note:        string | null
+          source_payload:      Json
+          created_at:          string
+          updated_at:          string
+          deleted_at:          string | null
+        }
+        Insert: Partial<Database['public']['Tables']['measurement_sources']['Row']> & {
+          organization_id:     string
+          created_by:          string
+          service_description: string
+        }
+        Update: Partial<Database['public']['Tables']['measurement_sources']['Row']>
+      }
+      measurement_quality_flags: {
+        Row: {
+          id:              string
+          organization_id: string
+          created_by:     string
+          nc_id:          string
+          source_id:      string | null
+          rdo_id:         string | null
+          rdo_type:       'regular' | 'sabesp' | null
+          service_code:   string | null
+          status:         'pending' | 'blocked' | 'released' | 'rejected' | 'glosa_review'
+          severity:       'low' | 'medium' | 'high' | 'critical'
+          note:           string | null
+          payload:        Json
+          created_at:     string
+          updated_at:     string
+          deleted_at:     string | null
+        }
+        Insert: Partial<Database['public']['Tables']['measurement_quality_flags']['Row']> & {
+          organization_id: string
+          created_by:     string
+          nc_id:          string
+        }
+        Update: Partial<Database['public']['Tables']['measurement_quality_flags']['Row']>
+      }
     }
     Views: Record<string, never>
     Functions: {
       user_org:                   { Args: Record<string, never>; Returns: string }
       user_role:                  { Args: Record<string, never>; Returns: UserRole }
       has_role:                   { Args: { roles: UserRole[] }; Returns: boolean }
+      has_org_access:             { Args: { p_org_id: string }; Returns: boolean }
+      has_org_role:               { Args: { p_org_id: string; roles: UserRole[] }; Returns: boolean }
       required_approver_for:      { Args: { action: string }; Returns: UserRole }
+      set_default_organization:   { Args: { p_org_id: string }; Returns: void }
+      invite_org_member:          { Args: { p_email: string; p_role: UserRole }; Returns: { invitation_id: string; invitation_token: string }[] }
+      accept_invitation:          { Args: { p_token: string; p_full_name?: string | null }; Returns: string }
+      change_member_role:         { Args: { p_membership_id: string; p_role: UserRole }; Returns: void }
+      block_member:               { Args: { p_membership_id: string; p_reason?: string | null }; Returns: void }
+      reactivate_member:          { Args: { p_membership_id: string }; Returns: void }
+      sync_rdo_sabesp_to_measurement: { Args: { p_rdo_id: string }; Returns: number }
+      sync_regular_rdo_to_measurement: { Args: { p_rdo_id: string }; Returns: number }
+      sync_quality_nc_to_measurement:  { Args: { p_nc_id: string }; Returns: number }
       request_action:             { Args: { p_action_type: string; p_target_table: string; p_target_id: string | null; p_payload: Json }; Returns: string }
       approve_pending_action:     { Args: { p_action_id: string }; Returns: void }
       reject_pending_action:      { Args: { p_action_id: string; p_reason: string }; Returns: void }
