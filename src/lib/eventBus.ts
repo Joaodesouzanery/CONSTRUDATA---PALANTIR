@@ -20,17 +20,37 @@
 
 // ─── Tipos de evento ──────────────────────────────────────────────────────────
 
+export interface OperationalKey {
+  contractNo?: string | null
+  projectId?: string | null
+  nucleo?: string | null
+  local?: string | null
+  serviceCode?: string | null
+  nPreco?: string | null
+  period?: string | null
+}
+
 export type DomainEvent =
   // RDO closed → planejamento atualiza %
   | { type: 'rdo.closed';            rdoId: string;       projectId?: string | null; date: string }
+  | { type: 'rdo.finalized';         rdoId: string;       projectId?: string | null; date: string; operationalKey?: OperationalKey | null }
   // Purchase order fechada → EVM AC
   | { type: 'po.closed';             poId: string;        projectId?: string | null; totalBrl: number }
   // Purchase order recebida (goods receipt) → estoque disponível
   | { type: 'po.received';           poId: string;        projectId?: string | null }
+  | { type: 'supply.receipt_approved'; receiptId: string; poId?: string | null; projectId?: string | null; operationalKey?: OperationalKey | null }
+  | { type: 'supply.invoice_approved'; invoiceId: string; poId?: string | null; projectId?: string | null; amount?: number; operationalKey?: OperationalKey | null }
   // FVS NC aberta → LPS bloqueia restrição
   | { type: 'fvs.nc_opened';         fvsId: string;       projectId?: string | null; ncNumber: string; description?: string }
   // FVS NC resolvida → LPS libera restrição
   | { type: 'fvs.nc_resolved';       fvsId: string;       ncNumber: string }
+  | { type: 'quality.blocked';       qualityId: string;   projectId?: string | null; reason: string; operationalKey?: OperationalKey | null }
+  | { type: 'quality.released';      qualityId: string;   projectId?: string | null; operationalKey?: OperationalKey | null }
+  | { type: 'measurement.draft_created'; sourceId: string; projectId?: string | null; operationalKey?: OperationalKey | null }
+  | { type: 'measurement.blocked';   sourceId: string;    projectId?: string | null; blockingIssues: string[]; operationalKey?: OperationalKey | null }
+  | { type: 'measurement.approved';  sourceId: string;    projectId?: string | null; quantity?: number; amount?: number; operationalKey?: OperationalKey | null }
+  | { type: 'planning.activity_imported'; activityId: string; projectId?: string | null; operationalKey?: OperationalKey | null }
+  | { type: 'lps.commitment_updated'; commitmentId: string; projectId?: string | null; operationalKey?: OperationalKey | null }
   // Worker absent → Planejamento alerta produtividade
   | { type: 'worker.absent';         workerId: string;    projectId?: string | null; date: string }
   // Equipment alocado a projeto

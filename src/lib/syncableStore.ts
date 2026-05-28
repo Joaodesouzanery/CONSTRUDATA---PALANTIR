@@ -23,6 +23,7 @@ import { create, type StateCreator } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
+import { isNonProductionDataMode } from './runtimeMode'
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error'
 
@@ -36,6 +37,7 @@ export interface PendingOp<T> {
 }
 
 export interface SyncableState<T extends { id: string; updated_at?: string }> {
+  activeOrgId:   string | null
   items:         T[]
   pendingSync:   PendingOp<T>[]
   lastSyncedAt:  string | null
@@ -51,6 +53,7 @@ export interface SyncableState<T extends { id: string; updated_at?: string }> {
   flush:  () => Promise<void>
   pull:   () => Promise<void>
   reset:  () => void
+  ensureTenantScope: (organizationId: string) => void
 }
 
 interface CreateSyncableStoreOpts<T, Row> {
@@ -78,6 +81,7 @@ export function createSyncableStore<
   } = opts
 
   const initializer: StateCreator<SyncableState<T>> = (set, get) => ({
+    activeOrgId:  null,
     items:        [],
     pendingSync:  [],
     lastSyncedAt: null,
@@ -85,6 +89,8 @@ export function createSyncableStore<
     error:        null,
 
     add: (item) => {
+      const orgId = useAuth.getState().profile?.organization_id
+      if (orgId) get().ensureTenantScope(orgId)
       set((s) => ({
         items: [...s.items, item],
         pendingSync: [
@@ -96,6 +102,8 @@ export function createSyncableStore<
     },
 
     update: (id, patch) => {
+      const orgId = useAuth.getState().profile?.organization_id
+      if (orgId) get().ensureTenantScope(orgId)
       set((s) => ({
         items: s.items.map((it) => (it.id === id ? { ...it, ...patch, updated_at: new Date().toISOString() } as T : it)),
         pendingSync: [
@@ -107,6 +115,8 @@ export function createSyncableStore<
     },
 
     remove: (id) => {
+      const orgId = useAuth.getState().profile?.organization_id
+      if (orgId) get().ensureTenantScope(orgId)
       set((s) => ({
         items: s.items.filter((it) => it.id !== id),
         pendingSync: [
@@ -118,6 +128,11 @@ export function createSyncableStore<
     },
 
     flush: async () => {
+      if (isNonProductionDataMode()) {
+        set({ syncStatus: 'idle' })
+        return
+      }
+
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         set({ syncStatus: 'offline' })
         return
@@ -128,6 +143,8 @@ export function createSyncableStore<
         // Não autenticado: mantém na fila local até logar
         return
       }
+
+      get().ensureTenantScope(profile.organization_id)
 
       const queue = get().pendingSync
       if (queue.length === 0) return
@@ -149,7 +166,11 @@ export function createSyncableStore<
             // Remove organization_id e created_by do update (imutáveis)
             const { organization_id: _o, created_by: _c, id: _i, ...rest } = row
             void _o; void _c; void _i
-            const { error } = await supabase.from(table).update(rest as never).eq('id', op.recordId)
+            const { error } = await supabase
+              .from(table)
+              .update(rest as never)
+              .eq('id', op.recordId)
+              .eq('organization_id', profile.organization_id)
             if (error) throw error
           }
 
@@ -163,13 +184,22 @@ export function createSyncableStore<
               })
               if (error) throw error
               // Re-adiciona na lista local (delete só efetiva após aprovação)
-              const pulled = await supabase.from(table).select('*').eq('id', op.recordId).maybeSingle()
+              const pulled = await supabase
+                .from(table)
+                .select('*')
+                .eq('id', op.recordId)
+                .eq('organization_id', profile.organization_id)
+                .maybeSingle()
               if (pulled.data) {
                 const row = pulled.data as unknown as Row
                 set((s) => ({ items: [...s.items.filter((i) => i.id !== op.recordId), mapFromRow(row)] }))
               }
             } else {
-              const { error } = await supabase.from(table).delete().eq('id', op.recordId)
+              const { error } = await supabase
+                .from(table)
+                .delete()
+                .eq('id', op.recordId)
+                .eq('organization_id', profile.organization_id)
               if (error) throw error
             }
           }
@@ -198,8 +228,14 @@ export function createSyncableStore<
     },
 
     pull: async () => {
+      if (isNonProductionDataMode()) {
+        set({ syncStatus: 'idle' })
+        return
+      }
+
       const profile = useAuth.getState().profile
       if (!profile) return
+      get().ensureTenantScope(profile.organization_id)
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         set({ syncStatus: 'offline' })
         return
@@ -208,6 +244,7 @@ export function createSyncableStore<
       const { data, error } = await supabase
         .from(table)
         .select('*')
+        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -219,7 +256,19 @@ export function createSyncableStore<
       set({ items, syncStatus: 'idle', lastSyncedAt: new Date().toISOString(), error: null })
     },
 
-    reset: () => set({ items: [], pendingSync: [], lastSyncedAt: null, syncStatus: 'idle', error: null }),
+    reset: () => set({ activeOrgId: null, items: [], pendingSync: [], lastSyncedAt: null, syncStatus: 'idle', error: null }),
+
+    ensureTenantScope: (organizationId) => {
+      if (!organizationId || get().activeOrgId === organizationId) return
+      set({
+        activeOrgId: organizationId,
+        items: [],
+        pendingSync: [],
+        lastSyncedAt: null,
+        syncStatus: 'idle',
+        error: null,
+      })
+    },
   })
 
   const useStore = create<SyncableState<T>>()(
@@ -227,6 +276,7 @@ export function createSyncableStore<
       name,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        activeOrgId:   state.activeOrgId,
         items:        state.items,
         pendingSync:  state.pendingSync,
         lastSyncedAt: state.lastSyncedAt,

@@ -5,13 +5,13 @@ import {
 } from 'lucide-react'
 
 const ALL_MODULES = [
-  { label: 'Relatório 360',  icon: ClipboardList,  to: '/relatorio360'        },
-  { label: 'Agenda',         icon: Calendar,        to: '/agenda'              },
-  { label: 'Equipamentos',   icon: Wrench,          to: '/gestao-equipamentos' },
-  { label: 'Torre Controle', icon: Radio,           to: '/torre-de-controle'   },
-  { label: 'Suprimentos',    icon: PackageSearch,   to: '/suprimentos'         },
-  { label: 'Mão de Obra',    icon: Users,           to: '/mao-de-obra'         },
-  { label: 'Gestão 360',     icon: LayoutDashboard, to: '/gestao-360'          },
+  { label: 'Relatório 360',  icon: ClipboardList,  to: '/app/relatorio360'        },
+  { label: 'Agenda',         icon: Calendar,        to: '/app/agenda'              },
+  { label: 'Equipamentos',   icon: Wrench,          to: '/app/gestao-equipamentos' },
+  { label: 'Torre Controle', icon: Radio,           to: '/app/torre-de-controle'   },
+  { label: 'Suprimentos',    icon: PackageSearch,   to: '/app/suprimentos'         },
+  { label: 'Mão de Obra',    icon: Users,           to: '/app/mao-de-obra'         },
+  { label: 'Gestão 360',     icon: LayoutDashboard, to: '/app/gestao-360'          },
 ]
 
 interface Props {

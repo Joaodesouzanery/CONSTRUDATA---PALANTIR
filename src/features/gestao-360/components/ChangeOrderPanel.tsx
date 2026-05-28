@@ -4,6 +4,8 @@ import { Plus, Camera, Check, X, ChevronRight, FileEdit, Clock, Send } from 'luc
 import { useGestao360Store } from '@/store/gestao360Store'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { ChangeOrder, ChangeOrderType } from '@/types'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { mergeProjectsWithSites } from '../utils/siteProjects'
 
 // ─── Status meta ──────────────────────────────────────────────────────────────
 
@@ -235,7 +237,9 @@ function NewCOForm({ onClose }: { onClose: () => void }) {
   const { addChangeOrder, selectedProjectId } = useGestao360Store(
     useShallow((s) => ({ addChangeOrder: s.addChangeOrder, selectedProjectId: s.selectedProjectId }))
   )
-  const projects = useProjetosStore((s) => s.projects)
+  const baseProjects = useProjetosStore((s) => s.projects)
+  const sites = useTorreStore((s) => s.sites)
+  const projects = mergeProjectsWithSites(baseProjects, sites)
   const project  = projects.find((p) => p.id === selectedProjectId) ?? projects[0]
 
   const [form, setForm] = useState({

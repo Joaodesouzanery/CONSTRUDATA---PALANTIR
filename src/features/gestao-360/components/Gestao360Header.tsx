@@ -5,6 +5,8 @@ import { useProjetosStore } from '@/store/projetosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import type { Gestao360Tab } from '@/store/gestao360Store'
+import { mergeProjectsWithSites } from '../utils/siteProjects'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 const TABS: Array<{ id: Gestao360Tab; label: string }> = [
   { id: 'dashboard',    label: 'Dashboard de Obras'    },
@@ -24,9 +26,10 @@ export function Gestao360Header() {
       changeOrders:      s.changeOrders,
     }))
   )
-  const projects      = useProjetosStore((s) => s.projects)
+  const baseProjects  = useProjetosStore((s) => s.projects)
   const healthScores  = useOtimizacaoFrotaStore((s) => s.healthScores)
   const sites         = useTorreStore((s) => s.sites)
+  const projects      = mergeProjectsWithSites(baseProjects, sites)
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
   const scopeProjects = selectedProject ? [selectedProject] : projects
@@ -59,7 +62,7 @@ export function Gestao360Header() {
   const cpi = spent > 0 ? (budgeted * (avgProgress / 100)) / spent : 1
 
   // ─── Cross-module critical alerts ─────────────────────────────────
-  const criticalEquip = healthScores.filter((h) => h.riskLevel === 'critical' || h.riskLevel === 'high').length
+  const criticalEquip = isDemoModeEnabled() ? healthScores.filter((h) => h.riskLevel === 'critical' || h.riskLevel === 'high').length : 0
   const criticalRisks = sites.flatMap((s) => s.risks).filter((r) => r.level === 'critical' && r.status === 'active').length
   const totalAlerts   = criticalEquip + criticalRisks
   const openCOs       = changeOrders.filter((co) => co.status === 'submitted').length

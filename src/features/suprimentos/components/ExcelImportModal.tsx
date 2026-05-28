@@ -6,12 +6,13 @@
  * Step 4: Confirm import → addItemEstoque
  */
 import { useState, useRef } from 'react'
-import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle } from 'lucide-react'
+import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle, FileImage, Plus, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { previewExcel, autoSuggestField, applyColumnMapping } from '../utils/parseExcelEstoque'
 import type { ExcelPreview } from '../utils/parseExcelEstoque'
 import { cn } from '@/lib/utils'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'ignorar',           label: '— Ignorar —'           },
@@ -20,6 +21,7 @@ const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'qtdDisponivel',     label: 'Qtd. Disponível'       },
   { value: 'estoqueMinimo',     label: 'Estoque Mínimo'        },
   { value: 'custoUnitario',     label: 'Custo Unitário (R$)'   },
+  { value: 'valorTotal',        label: 'Valor Total (R$)'      },
   { value: 'categoria',         label: 'Categoria'             },
   { value: 'fornecedorPrincipal', label: 'Fornecedor Principal' },
 ]
@@ -28,7 +30,38 @@ interface Props {
   onClose: () => void
 }
 
-type Step = 'upload' | 'mapping' | 'preview' | 'done'
+type Step = 'upload' | 'mapping' | 'preview' | 'image' | 'done'
+
+type ImageMaterialRow = {
+  descricao: string
+  unidade: string
+  qtdDisponivel: string
+  custoUnitario: string
+  categoria: string
+}
+
+const EMPTY_IMAGE_ROW: ImageMaterialRow = { descricao: '', unidade: '', qtdDisponivel: '', custoUnitario: '', categoria: '' }
+
+const KNOWN_IMAGE_TEMPLATES: Record<string, ImageMaterialRow[]> = {
+  spin: [
+    { descricao: 'Abastecimento SPIN 01/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '322.25', categoria: 'Combustível' },
+    { descricao: 'Abastecimento SPIN 06/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '321.23', categoria: 'Combustível' },
+    { descricao: 'Abastecimento SPIN 13/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '313.00', categoria: 'Combustível' },
+    { descricao: 'Abastecimento SPIN 16/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '278.97', categoria: 'Combustível' },
+    { descricao: 'Abastecimento SPIN 24/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '319.44', categoria: 'Combustível' },
+    { descricao: 'Abastecimento SPIN 29/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '334.97', categoria: 'Combustível' },
+  ],
+  insumos: [
+    { descricao: 'Álcool', unidade: '', qtdDisponivel: '1', custoUnitario: '96.16', categoria: 'Insumos' },
+    { descricao: 'Arame', unidade: '', qtdDisponivel: '2', custoUnitario: '18.99', categoria: 'Insumos' },
+    { descricao: 'Bota NUBUCK', unidade: '', qtdDisponivel: '1', custoUnitario: '162.00', categoria: 'EPI' },
+    { descricao: 'Carrinho de mão', unidade: '', qtdDisponivel: '1', custoUnitario: '215.00', categoria: 'Ferramentas' },
+    { descricao: 'Disco diamantado', unidade: '', qtdDisponivel: '10', custoUnitario: '13.75', categoria: 'Ferramentas' },
+    { descricao: 'Fita crepe', unidade: '', qtdDisponivel: '24', custoUnitario: '6.58', categoria: 'Insumos' },
+    { descricao: 'Respirador PFF2', unidade: '', qtdDisponivel: '115', custoUnitario: '1.15', categoria: 'EPI' },
+    { descricao: 'Rolo 9cm', unidade: '', qtdDisponivel: '48', custoUnitario: '9.14', categoria: 'Insumos' },
+  ],
+}
 
 export function ExcelImportModal({ onClose }: Props) {
   const { depositos, selectedDepositoId, addItemEstoque } = useSuprimentosStore(
@@ -47,10 +80,19 @@ export function ExcelImportModal({ onClose }: Props) {
   const [targetDeposito, setTargetDeposito] = useState(selectedDepositoId ?? depositos[0]?.id ?? '')
   const [error, setError]         = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [imageUrl, setImageUrl]   = useState('')
+  const [imageRows, setImageRows] = useState<ImageMaterialRow[]>([{ ...EMPTY_IMAGE_ROW }])
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
     setError(null)
+    if (file.type.startsWith('image/')) {
+      setFilename(file.name)
+      setImageUrl(URL.createObjectURL(file))
+      setImageRows([{ ...EMPTY_IMAGE_ROW }])
+      setStep('image')
+      return
+    }
     try {
       const p = await previewExcel(file)
       if (p.headers.length === 0) {
@@ -99,8 +141,40 @@ export function ExcelImportModal({ onClose }: Props) {
     setImporting(false)
   }
 
+  function handleImageImport() {
+    setImporting(true)
+    for (const row of imageRows) {
+      if (!row.descricao.trim()) continue
+      const quantity = parseLocaleNumber(row.qtdDisponivel)
+      const unitValue = parseLocaleNumber(row.custoUnitario)
+      addItemEstoque({
+        depositoId: targetDeposito,
+        descricao: row.descricao.trim(),
+        unidade: row.unidade.trim(),
+        qtdDisponivel: quantity,
+        qtdReservada: 0,
+        qtdTransito: 0,
+        estoqueMinimo: 0,
+        custoUnitario: unitValue || undefined,
+        categoria: row.categoria.trim() || undefined,
+      })
+    }
+    setStep('done')
+    setImporting(false)
+  }
+
+  function patchImageRow(index: number, patch: Partial<ImageMaterialRow>) {
+    setImageRows((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } : row))
+  }
+
+  function applyImageTemplate(key: keyof typeof KNOWN_IMAGE_TEMPLATES) {
+    setImageRows(KNOWN_IMAGE_TEMPLATES[key].map((row) => ({ ...row })))
+  }
+
   const previewItems = preview ? applyColumnMapping(preview.rows.slice(0, 5), mapping) : []
   const totalItems   = preview ? applyColumnMapping(preview.rows, mapping).length : 0
+  const imageTotalItems = imageRows.filter((row) => row.descricao.trim()).length
+  const importedCount = totalItems || imageTotalItems
   const deposito     = depositos.find((d) => d.id === targetDeposito)
 
   return (
@@ -119,6 +193,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 {step === 'upload'  && 'Passo 1: Selecionar arquivo'}
                 {step === 'mapping' && 'Passo 2: Mapear colunas'}
                 {step === 'preview' && 'Passo 3: Confirmar importação'}
+                {step === 'image'   && 'Imagem guiada: confirmar materiais'}
                 {step === 'done'    && 'Importação concluída'}
               </p>
             </div>
@@ -175,7 +250,7 @@ export function ExcelImportModal({ onClose }: Props) {
               <input
                 ref={inputRef}
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".xlsx,.xls,.csv,image/*"
                 className="hidden"
                 onChange={handleInputChange}
               />
@@ -270,6 +345,54 @@ export function ExcelImportModal({ onClose }: Props) {
             </div>
           )}
 
+          {step === 'image' && (
+            <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-xl border border-[#525252] bg-[#2c2c2c]">
+                  {imageUrl ? <img src={imageUrl} alt={filename} className="max-h-[360px] w-full object-contain" /> : <FileImage className="m-8 text-[#6b6b6b]" />}
+                </div>
+                <div className="grid gap-2">
+                  <button type="button" onClick={() => applyImageTemplate('spin')} className="rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#f5f5f5] hover:border-[#f97316]/50">
+                    Aplicar modelo SPIN
+                  </button>
+                  <button type="button" onClick={() => applyImageTemplate('insumos')} className="rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#f5f5f5] hover:border-[#f97316]/50">
+                    Aplicar modelo gastos de insumos
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#f5f5f5]">Conferência manual da imagem</p>
+                  <p className="mt-1 text-xs text-[#a3a3a3]">A imagem fica como referência visual. Confirme ou edite as linhas antes de gravar no estoque.</p>
+                </div>
+                <select
+                  value={targetDeposito}
+                  onChange={(e) => setTargetDeposito(e.target.value)}
+                  className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                >
+                  {depositos.filter((d) => d.ativo).map((d) => (
+                    <option key={d.id} value={d.id}>{d.frente}</option>
+                  ))}
+                </select>
+                <div className="space-y-2">
+                  {imageRows.map((row, index) => (
+                    <div key={index} className="grid gap-2 rounded-lg border border-[#525252] bg-[#2c2c2c] p-2 sm:grid-cols-[1fr_70px_80px_90px_120px_32px]">
+                      <input className="rounded border border-[#525252] bg-[#3d3d3d] px-2 py-1 text-xs text-[#f5f5f5]" placeholder="Material" value={row.descricao} onChange={(e) => patchImageRow(index, { descricao: e.target.value })} />
+                      <input className="rounded border border-[#525252] bg-[#3d3d3d] px-2 py-1 text-xs text-[#f5f5f5]" placeholder="Qtd." value={row.qtdDisponivel} onChange={(e) => patchImageRow(index, { qtdDisponivel: e.target.value })} />
+                      <input className="rounded border border-[#525252] bg-[#3d3d3d] px-2 py-1 text-xs text-[#f5f5f5]" placeholder="Un." value={row.unidade} onChange={(e) => patchImageRow(index, { unidade: e.target.value })} />
+                      <input className="rounded border border-[#525252] bg-[#3d3d3d] px-2 py-1 text-xs text-[#f5f5f5]" placeholder="Unitário" value={row.custoUnitario} onChange={(e) => patchImageRow(index, { custoUnitario: e.target.value })} />
+                      <input className="rounded border border-[#525252] bg-[#3d3d3d] px-2 py-1 text-xs text-[#f5f5f5]" placeholder="Categoria" value={row.categoria} onChange={(e) => patchImageRow(index, { categoria: e.target.value })} />
+                      <button type="button" onClick={() => setImageRows((rows) => rows.filter((_, i) => i !== index))} className="rounded text-[#a3a3a3] hover:bg-[#dc2626]/20 hover:text-[#f87171]"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setImageRows((rows) => [...rows, { ...EMPTY_IMAGE_ROW }])} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#f5f5f5] hover:border-[#f97316]/50">
+                  <Plus size={13} /> Adicionar linha
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Step 4: Done */}
           {step === 'done' && (
             <div className="flex flex-col items-center gap-4 py-8">
@@ -277,7 +400,7 @@ export function ExcelImportModal({ onClose }: Props) {
               <div className="text-center">
                 <p className="text-sm font-bold text-[#f5f5f5]">Importação concluída!</p>
                 <p className="text-xs text-[#6b6b6b] mt-1">
-                  {totalItems} ite{totalItems !== 1 ? 'ns foram adicionados' : 'm foi adicionado'} a{' '}
+                  {importedCount} ite{importedCount !== 1 ? 'ns foram adicionados' : 'm foi adicionado'} a{' '}
                   <span className="text-[#f97316]">{deposito?.frente}</span>.
                 </p>
               </div>
@@ -318,6 +441,15 @@ export function ExcelImportModal({ onClose }: Props) {
                   {importing ? 'Importando...' : `Importar ${totalItems} ite${totalItems !== 1 ? 'ns' : 'm'}`}
                 </button>
               </>
+            )}
+            {step === 'image' && (
+              <button
+                onClick={handleImageImport}
+                disabled={importing || imageTotalItems === 0}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#22c55e] text-white hover:bg-[#22c55e]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {importing ? 'Importando...' : `Importar ${imageTotalItems} ite${imageTotalItems !== 1 ? 'ns' : 'm'}`}
+              </button>
             )}
           </div>
         </div>

@@ -47,13 +47,13 @@ export function AlertsPanel() {
     return (
       <div className="border-t border-[#525252] bg-[#333333] shrink-0">
         <div className="flex items-center justify-between px-3 sm:px-6 py-3">
-          <div className="flex items-center gap-2 text-xs text-[#3f3f3f]">
+          <div className="flex items-center gap-2 text-xs text-[#a3a3a3]">
             <CheckCheck size={13} className="text-[#22c55e]" />
             Nenhum alerta ativo — todos os equipamentos estão dentro dos parâmetros
           </div>
           <button
             onClick={() => { setShowAdd(true); setOpen(true) }}
-            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-[#525252] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
           >
             <Plus size={10} />
             Adicionar Alerta
@@ -92,7 +92,7 @@ export function AlertsPanel() {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Mensagem do alerta..."
             maxLength={200}
-            className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316] placeholder:text-[#3f3f3f]"
+            className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316] placeholder:text-[#8a8a8a]"
           />
           <button
             onClick={handleAdd}
@@ -104,7 +104,7 @@ export function AlertsPanel() {
           </button>
           <button
             onClick={() => setShowAdd(false)}
-            className="flex items-center justify-center w-6 h-6 rounded text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
           >
             <X size={11} />
           </button>
@@ -138,15 +138,15 @@ export function AlertsPanel() {
               'flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors',
               showAdd
                 ? 'border-[#f97316]/50 bg-[#f97316]/15 text-[#f97316]'
-                : 'border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40'
+                : 'border-[#525252] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40'
             )}
           >
             <Plus size={9} />
             Adicionar
           </button>
           {open
-            ? <ChevronDown size={14} className="text-[#6b6b6b]" />
-            : <ChevronUp   size={14} className="text-[#6b6b6b]" />}
+            ? <ChevronDown size={14} className="text-[#a3a3a3]" />
+            : <ChevronUp   size={14} className="text-[#a3a3a3]" />}
         </div>
       </button>
 
@@ -190,7 +190,7 @@ export function AlertsPanel() {
                   title="Reconhecer alerta"
                   className={cn(
                     'shrink-0 flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors',
-                    'border-[#525252] text-[#6b6b6b] hover:border-[#22c55e] hover:text-[#22c55e]'
+                    'border-[#525252] text-[#a3a3a3] hover:border-[#22c55e] hover:text-[#22c55e]'
                   )}
                 >
                   <Check size={9} />

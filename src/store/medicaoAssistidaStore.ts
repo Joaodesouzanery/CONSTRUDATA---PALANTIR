@@ -95,6 +95,7 @@ interface MedicaoAssistidaState {
 
   resolveDivergencia: (medicaoId: string, divergenciaKey: string, observacao?: string) => void
   reopenDivergencia: (medicaoId: string, divergenciaKey: string) => void
+  clearData: () => void
 }
 
 const nowIso = () => new Date().toISOString()
@@ -201,6 +202,15 @@ export const useMedicaoAssistidaStore = create<MedicaoAssistidaState>()(
         set((state) => ({
           divergenciasResolvidas: state.divergenciasResolvidas.filter((divergencia) => !(divergencia.medicaoId === medicaoId && divergencia.divergenciaKey === divergenciaKey)),
         })),
+
+      clearData: () => set({
+        medicoes: [],
+        activeMedicaoId: null,
+        criterios: criteriosIniciais,
+        itens: [],
+        parceiros: [],
+        divergenciasResolvidas: [],
+      }),
     }),
     { name: 'cdata-medicao-assistida' },
   ),

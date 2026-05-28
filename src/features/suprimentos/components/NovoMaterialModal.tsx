@@ -3,6 +3,7 @@ import { X, Package } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 interface Props {
   onClose: () => void
@@ -33,7 +34,7 @@ export function NovoMaterialModal({ onClose }: Props) {
 
   const [form, setForm] = useState({
     descricao: '',
-    unidade: 'un',
+    unidade: '',
     depositoId: depositos[0]?.id ?? '',
     qtdDisponivel: '',
     estoqueMinimo: '',
@@ -51,7 +52,6 @@ export function NovoMaterialModal({ onClose }: Props) {
   function validate() {
     const errs: Record<string, string> = {}
     if (!form.descricao.trim()) errs.descricao = 'Obrigatório'
-    if (!form.unidade.trim())   errs.unidade   = 'Obrigatório'
     if (!form.depositoId)       errs.depositoId = 'Selecione um depósito'
     return errs
   }
@@ -63,12 +63,12 @@ export function NovoMaterialModal({ onClose }: Props) {
     addItemEstoque({
       depositoId:           form.depositoId,
       descricao:            form.descricao.trim(),
-      unidade:              form.unidade,
-      qtdDisponivel:        parseFloat(form.qtdDisponivel) || 0,
+      unidade:              form.unidade.trim(),
+      qtdDisponivel:        parseLocaleNumber(form.qtdDisponivel),
       qtdReservada:         0,
       qtdTransito:          0,
-      estoqueMinimo:        parseFloat(form.estoqueMinimo) || 0,
-      custoUnitario:        form.custoUnitario ? parseFloat(form.custoUnitario) : undefined,
+      estoqueMinimo:        parseLocaleNumber(form.estoqueMinimo),
+      custoUnitario:        form.custoUnitario ? parseLocaleNumber(form.custoUnitario) : undefined,
       categoria:            form.categoria || undefined,
       fornecedorPrincipal:  form.fornecedorPrincipal || undefined,
     })
@@ -138,13 +138,14 @@ export function NovoMaterialModal({ onClose }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
-                Unidade *
+                Unidade
               </label>
               <select
                 value={form.unidade}
                 onChange={(e) => set('unidade', e.target.value)}
-                className={inp(!!errors.unidade)}
+                className={inp()}
               >
+                <option value="">Sem unidade</option>
                 {UNIDADE_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -170,9 +171,8 @@ export function NovoMaterialModal({ onClose }: Props) {
                 Qtd. Disponível
               </label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 value={form.qtdDisponivel}
                 onChange={(e) => set('qtdDisponivel', e.target.value)}
                 placeholder="0"
@@ -184,9 +184,8 @@ export function NovoMaterialModal({ onClose }: Props) {
                 Estoque Mínimo
               </label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 value={form.estoqueMinimo}
                 onChange={(e) => set('estoqueMinimo', e.target.value)}
                 placeholder="0"
@@ -202,9 +201,8 @@ export function NovoMaterialModal({ onClose }: Props) {
                 Custo Unit. (R$)
               </label>
               <input
-                type="number"
-                min="0"
-                step="any"
+                type="text"
+                inputMode="decimal"
                 value={form.custoUnitario}
                 onChange={(e) => set('custoUnitario', e.target.value)}
                 placeholder="0,00"

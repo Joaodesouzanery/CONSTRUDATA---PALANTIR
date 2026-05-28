@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { isNonProductionDataMode } from "@/lib/runtimeMode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,13 +22,14 @@ import {
   ChevronUp,
   ImageIcon,
   ImageOff,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { RdoHeader } from "@/features/rdo/components/RdoHeader";
 import { useContractorStore } from "@/store/contractorStore";
 import { RdoSabespForm } from "./components/RdoSabespForm";
 import { Checkbox } from "@/components/ui/checkbox";
-import { getCriadouroLabel, getExecutedActivities, getRdoSabespDashboardMetrics, sumExecutedQuantities } from "./lib/rdoSabespUtils";
+import { getCriadouroLabel, getExecutedActivities, getRdoSabespDashboardMetrics, getRdoSabespExecutedServices, sumExecutedQuantities } from "./lib/rdoSabespUtils";
 import {
   isLocalRdoSabespId,
   mergeRdoSabespRemoteWithLocal,
@@ -111,7 +113,9 @@ export function RdoSabespPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [openedFromQuery, setOpenedFromQuery] = useState(false);
   const contractorStore = useContractorStore();
+  const measurementSources = useContractorStore((state) => state.measurementSources);
 
   useEffect(() => {
     void contractorStore.load();
@@ -120,6 +124,8 @@ export function RdoSabespPage() {
   const load = useCallback(async () => {
     const localRows = readLocalRdoSabesp();
     setList(localRows);
+
+    if (isNonProductionDataMode()) return;
 
     try {
       const { data, error } = await withTimeout(
@@ -146,6 +152,18 @@ export function RdoSabespPage() {
   }, [load]);
 
   useEffect(() => {
+    if (openedFromQuery || !list.length) return;
+    const rdoId = new URLSearchParams(window.location.search).get("rdo");
+    if (!rdoId) return;
+    const match = list.find((item) => item.id === rdoId);
+    if (!match) return;
+    setEditing(match);
+    setFormInitialStep("review");
+    setShowNew(false);
+    setOpenedFromQuery(true);
+  }, [list, openedFromQuery]);
+
+  useEffect(() => {
     setSelected(new Set());
     setExpandedActivities(new Set());
   }, [periodFilter, customStart, customEnd]);
@@ -159,6 +177,84 @@ export function RdoSabespPage() {
 
   const filteredList = getFilteredList();
   const summary = getRdoSabespDashboardMetrics(filteredList);
+  const measurementCountByRdo = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const source of measurementSources) {
+      if (!source.rdo_id || source.deleted_at) continue;
+      counts.set(source.rdo_id, (counts.get(source.rdo_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [measurementSources]);
+  const rdoPendencies = useMemo(() => {
+    return filteredList.flatMap((rdo) => {
+      if (rdo.status === "draft") {
+        const requiresReview = Boolean(rdo.review_requested_at || rdo.parser_ran_at || rdo.parser_result || rdo.parser_status === "success" || rdo.parser_status === "manual_fallback" || rdo.whatsapp_text);
+        const reviewStartedAt = rdo.review_requested_at || rdo.parser_ran_at || rdo.updated_at || rdo.created_at;
+        const reviewAgeDays = reviewStartedAt
+          ? Math.floor((Date.now() - new Date(reviewStartedAt).getTime()) / 86_400_000)
+          : 0;
+        if (!requiresReview || reviewAgeDays < 2) return [];
+        const contractor = contractorStore.resolveRdoContractor({
+          rdoId: rdo.id,
+          rdoType: "sabesp",
+          foremanName: rdo.encarregado,
+        });
+        return [{
+          id: rdo.id,
+          date: rdo.report_date,
+          rua: rdo.rua_beco || "-",
+          encarregado: rdo.encarregado || "-",
+          nucleo: getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro),
+          contractor: contractor?.name || "-",
+          reasons: ["D2 vencido - responsavel precisa preencher"],
+          optionalWarnings: ["justificativa do gestor obrigatoria"],
+          suggestions: [],
+        }];
+      }
+      const contractor = contractorStore.resolveRdoContractor({
+        rdoId: rdo.id,
+        rdoType: "sabesp",
+        foremanName: rdo.encarregado,
+      });
+      const nucleo = getCriadouroLabel(rdo.criadouro, rdo.criadouro_outro);
+      const sources = measurementSources.filter((source) => source.rdo_id === rdo.id && !source.deleted_at);
+      const qualityBlocked = sources.some((source) => source.quality_status === "blocked_by_nc")
+        || (rdo.qualidade && !rdo.qualidade.ordem_servico && !rdo.qualidade.bandeirola && !rdo.qualidade.projeto);
+      const evidenceMissing = !(Array.isArray(rdo.photo_paths) && rdo.photo_paths.length > 0)
+        && !rdo.assinatura_empreiteira_url
+        && !rdo.assinatura_consorcio_url;
+      const services = getRdoSabespExecutedServices(rdo);
+      const missingPrice = services.filter((service) => {
+        const candidate = String(service.service_id.split("-")[0] || "").trim();
+        return !candidate || candidate === "sem" || candidate === "sem-codigo";
+      });
+      const reasons: string[] = [];
+      const optionalWarnings: string[] = [];
+      if (!contractor) reasons.push("sem subempreiteiro");
+      if (!nucleo || nucleo === "Não informado" || nucleo === "Nao informado") reasons.push("sem núcleo");
+      if (missingPrice.length > 0) reasons.push(`${missingPrice.length} item(ns) sem N. Preço`);
+      if (qualityBlocked) reasons.push("bloqueado pela qualidade");
+      if (evidenceMissing) reasons.push("sem evidência");
+      if (sources.length === 0) reasons.push("nao sincronizado na Medicao");
+      const blockingReasons = reasons.filter((reason) => {
+        const lower = reason.toLowerCase();
+        return !lower.includes("evid") && !lower.includes("pre");
+      });
+      if (missingPrice.length > 0) optionalWarnings.push(`${missingPrice.length} item(ns) sem N. Preco`);
+      if (evidenceMissing) optionalWarnings.push("sem evidencia");
+      return blockingReasons.length || optionalWarnings.length ? [{
+        id: rdo.id,
+        date: rdo.report_date,
+        rua: rdo.rua_beco || "-",
+        encarregado: rdo.encarregado || "-",
+        nucleo,
+        contractor: contractor?.name || "-",
+        reasons: blockingReasons,
+        optionalWarnings,
+        suggestions: services.map((service) => String(service.service_id.split("-")[0] || "").trim()).filter((value) => value && value !== "sem" && value !== "sem-codigo"),
+      }] : [];
+    });
+  }, [contractorStore, filteredList, measurementSources]);
 
   const remove = async (rdo: any) => {
     if (!confirm("Excluir este RDO Sabesp?")) return;
@@ -166,7 +262,7 @@ export function RdoSabespPage() {
     removeLocalRdoSabesp(rdo.id);
     setList(readLocalRdoSabesp());
 
-    if (isLocalRdoSabespId(rdo.id)) {
+    if (isLocalRdoSabespId(rdo.id) || isNonProductionDataMode()) {
       toast.success("RDO Sabesp excluido localmente");
       return;
     }
@@ -414,6 +510,65 @@ export function RdoSabespPage() {
               </Card>
             </div>
 
+            <Card className={rdoPendencies.length ? "border-amber-500/40" : "border-emerald-500/30"}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className={rdoPendencies.length ? "h-4 w-4 text-amber-300" : "h-4 w-4 text-emerald-300"} />
+                  Pendências para Medição
+                </CardTitle>
+                <CardDescription>
+                  RDOs sem subempreiteiro, núcleo, N. Preço, evidência, sincronização ou liberação de qualidade.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {rdoPendencies.length === 0 ? (
+                  <p className="text-sm text-emerald-300">Nenhuma pendência crítica no período filtrado.</p>
+                ) : (
+                  rdoPendencies.slice(0, 8).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-[#525252] bg-[#252525] p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white">{item.date} - {item.rua}</p>
+                          <p className="mt-1 text-xs text-[#a3a3a3]">
+                            {item.contractor} · {item.nucleo} · {item.encarregado}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const match = list.find((rdo) => rdo.id === item.id);
+                            if (!match) return;
+                            setEditing(match);
+                            setFormInitialStep("edit");
+                            setShowNew(false);
+                          }}
+                        >
+                          Revisar RDO
+                        </Button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.reasons.map((reason) => (
+                          <Badge key={reason} variant="outline" className="border-amber-500/40 text-amber-200">{reason}</Badge>
+                        ))}
+                        {item.optionalWarnings?.map((warning) => (
+                          <Badge key={warning} variant="outline" className="border-sky-500/40 text-sky-200">{warning} (opcional)</Badge>
+                        ))}
+                      </div>
+                      {item.suggestions.length > 0 && (
+                        <p className="mt-2 text-xs text-[#a3a3a3]">
+                          Sugestões de N. Preço: {Array.from(new Set(item.suggestions)).slice(0, 6).join(", ")}. A aprovação final fica em Medição &gt; Subempreiteiros &gt; Memória.
+                        </p>
+                      )}
+                    </div>
+                  ))
+                )}
+                {rdoPendencies.length > 8 && (
+                  <p className="text-xs text-[#a3a3a3]">Mais {rdoPendencies.length - 8} pendência(s) no filtro atual.</p>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={toggleAll}>
                 {selected.size === filteredList.length && filteredList.length ? "Desmarcar todos" : "Selecionar todos"}
@@ -438,6 +593,7 @@ export function RdoSabespPage() {
                     const isDraft = rdo.status === "draft";
                     const isExpanded = expandedActivities.has(rdo.id);
                     const visibleActivities = isExpanded ? activities : activities.slice(0, 6);
+                    const measurementCount = measurementCountByRdo.get(rdo.id) ?? 0;
                     const contractor = contractorStore.resolveRdoContractor({
                       rdoId: rdo.id,
                       rdoType: "sabesp",
@@ -487,6 +643,9 @@ export function RdoSabespPage() {
                                 <Badge variant="outline" className={contractor ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}>
                                   {contractor?.name || "Empreiteira nao identificada"}
                                 </Badge>
+                                <Badge variant="outline" className={measurementCount > 0 ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300"}>
+                                  Medição: {measurementCount} item{measurementCount === 1 ? "" : "s"}
+                                </Badge>
                                 {rdo.encarregado && <span className="text-sm text-[#a3a3a3]">- {rdo.encarregado}</span>}
                               </div>
 
@@ -495,6 +654,13 @@ export function RdoSabespPage() {
                               <p className="text-xs text-[#6b6b6b]">
                                 {activities.length} atividade(s) com apontamento e {totalQuantity} unidade(s) registradas.
                               </p>
+                              {!isDraft && (
+                                <p className={`text-xs ${measurementCount > 0 ? "text-emerald-300" : "text-amber-300"}`}>
+                                  {measurementCount > 0
+                                    ? `Este RDO já alimentou ${measurementCount} fonte(s) da Medição.`
+                                    : "Este RDO ainda não aparece em Fontes da Medição; confirme o salvamento remoto e a sincronização."}
+                                </p>
+                              )}
 
                               {activities.length > 0 ? (
                                 <div className="space-y-2">

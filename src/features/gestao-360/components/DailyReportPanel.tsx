@@ -12,6 +12,9 @@ import { useAgendaStore } from '@/store/agendaStore'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { getExecutedActivities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import { Ecosystem360Panel } from '@/features/relatorio360/components/Ecosystem360Panel'
+import { mergeProjectsWithSites } from '../utils/siteProjects'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 function Kpi({ label, value, icon: Icon, tone = '#f97316' }: {
   label: string
@@ -54,7 +57,9 @@ function happensOnDate(startDate: string, endDate: string | undefined, date: str
 }
 
 export function DailyReportPanel() {
-  const projects = useProjetosStore((s) => s.projects)
+  const baseProjects = useProjetosStore((s) => s.projects)
+  const sites = useTorreStore((s) => s.sites)
+  const projects = mergeProjectsWithSites(baseProjects, sites)
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
   const changeOrders = useGestao360Store((s) => s.changeOrders)
   const reports = useRelatorio360Store((s) => s.reports)
@@ -105,7 +110,7 @@ export function DailyReportPanel() {
       if (!happensOnDate(task.startDate, task.endDate, date)) return false
       if (task.linkedProjectId) return task.linkedProjectId === project.id
       const agendaText = `${task.title} ${task.location ?? ''} ${task.notes ?? ''} ${task.assignedTo ?? ''} ${task.teamLeadName ?? ''}`
-      return sameProject(agendaText, project.name, project.code) || !task.linkedProjectId
+      return sameProject(agendaText, project.name, project.code) || (isDemoModeEnabled() && !task.linkedProjectId)
     })
     const resourceById = new Map(agendaResources.map((resource) => [resource.id, resource]))
     const activities = [

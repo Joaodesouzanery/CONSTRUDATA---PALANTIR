@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { CheckCircle, AlertTriangle, Clock, RefreshCw, FileDown, BookOpen, ChevronDown } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
+import { useMedicaoUnificadaStore } from '@/store/medicaoUnificadaStore'
 import type { ConferenciaItem } from '@/store/medicaoBillingStore'
 import { exportConferenciaPdf } from '../utils/exportPdf'
 import { getAllCriterios } from '../data/criterios'
@@ -79,6 +80,9 @@ export function ConferenciaPanel() {
   } = useMedicaoBillingStore()
 
   const boletim = getActiveBoletim()
+  const unifiedSources = useMedicaoUnificadaStore((state) => state.sources)
+  const unifiedMemoryLines = useMedicaoUnificadaStore((state) => state.memoryLines)
+  const unifiedFinancialEntries = useMedicaoUnificadaStore((state) => state.financialEntries)
   if (!boletim) return (
     <div className="p-8 text-center text-[#6b6b6b] text-sm">Nenhum boletim ativo.</div>
   )
@@ -105,6 +109,17 @@ export function ConferenciaPanel() {
   )
   const totalSubMedido = boletim.subempreiteiros.reduce((s, sub) => s + sub.totalMedido, 0)
   const totalSubRetencao = boletim.subempreiteiros.reduce((s, sub) => s + sub.retencao, 0)
+  const approvedUnifiedSources = unifiedSources.filter((source) => !source.deleted_at && source.status === 'approved')
+  const approvedUnifiedMemory = unifiedMemoryLines.filter((line) => !line.deleted_at && line.review_status === 'approved')
+  const approvedUnifiedFinancial = unifiedFinancialEntries.filter((entry) => !entry.deleted_at && ['approved', 'paid'].includes(entry.status))
+  const totalUnifiedSourcesQty = approvedUnifiedSources.reduce((sum, source) => sum + Number(source.quantity || 0), 0)
+  const totalUnifiedMemoryValue = approvedUnifiedMemory.reduce((sum, line) => sum + Number(line.quantity || 0) * Number(line.unit_price || 0), 0)
+  const totalUnifiedDeductions = approvedUnifiedFinancial
+    .filter((entry) => entry.entry_type !== 'invoice')
+    .reduce((sum, entry) => sum + Math.abs(Number(entry.amount || 0)), 0)
+  const totalUnifiedInvoices = approvedUnifiedFinancial
+    .filter((entry) => entry.entry_type === 'invoice')
+    .reduce((sum, entry) => sum + Math.abs(Number(entry.amount || 0)), 0)
   const money = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
   const subResumo = boletim.subempreiteiros.map((sub) => {
     const rdoItens = sub.itens.filter((item) => item.origem === 'RDO Sabesp')
@@ -292,6 +307,18 @@ export function ConferenciaPanel() {
                   aprovado {totalSubempreiteiros.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })},
                   retencao {totalSubRetencao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })};
                   fornecedores aprovados {totalFornecedores.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                {approvedUnifiedSources.length > 0 ? <CheckCircle size={13} className="text-[#4ade80]" /> : <AlertTriangle size={13} className="text-[#fbbf24]" />}
+                <span className="text-[#a3a3a3]">
+                  Fontes unificadas aprovadas: {approvedUnifiedSources.length} fonte(s), {totalUnifiedSourcesQty.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} un.; memoria aprovada {totalUnifiedMemoryValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <CheckCircle size={13} className="text-[#4ade80]" />
+                <span className="text-[#a3a3a3]">
+                  Financeiro unificado aprovado: descontos/retencoes {totalUnifiedDeductions.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}; NFs {totalUnifiedInvoices.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
                 </span>
               </div>
             </div>

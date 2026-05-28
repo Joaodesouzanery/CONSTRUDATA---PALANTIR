@@ -10,6 +10,9 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useMedicaoStore } from '@/store/medicaoStore'
 import { useEvmStore } from '@/store/evmStore'
 import type { BudgetLineType, Project } from '@/types'
+import { mergeProjectsWithSites } from '../utils/siteProjects'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 const LINE_META: Record<BudgetLineType, { label: string; color: string }> = {
   labor: { label: 'Mao de Obra', color: '#3b82f6' },
@@ -396,7 +399,8 @@ function aggregateBudgetLines(projects: Project[]) {
 
 export function JobCostingPanel() {
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
-  const projects = useProjetosStore((s) => s.projects)
+  const baseProjects = useProjetosStore((s) => s.projects)
+  const sites = useTorreStore((s) => s.sites)
   useMaoDeObraStore()
   useGestaoEquipamentosStore()
   useSuprimentosStore()
@@ -404,12 +408,13 @@ export function JobCostingPanel() {
   useMedicaoStore()
   useEvmStore()
 
+  const projects = mergeProjectsWithSites(baseProjects, sites)
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
   const scopeProjects = selectedProject ? [selectedProject] : projects
   const scopeLabel = selectedProject ? selectedProject.name : 'Todos os projetos/nucleos'
   const ledger = scopeProjects.flatMap((project, index) => buildLedger(project, {
-    includeUnscoped: selectedProject ? true : index === 0,
-    includeEvm:      selectedProject ? true : index === 0,
+    includeUnscoped: isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
+    includeEvm:      isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
   })).sort((a, b) => b.date.localeCompare(a.date))
 
   if (scopeProjects.length === 0) {

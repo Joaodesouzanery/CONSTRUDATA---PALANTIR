@@ -38,6 +38,7 @@ interface CompanySettingsState {
   removeLogo:     (id: string) => void
   updateLogoName: (id: string, name: string) => void
   setCompanyName: (name: string) => void
+  clearData: () => void
   flush: () => Promise<void>
   pull:  () => Promise<void>
 }
@@ -160,6 +161,15 @@ export const useCompanySettingsStore = create<CompanySettingsState>()(
           set({ lastSyncedAt: new Date().toISOString(), syncError: null })
         }, 800)
       },
+
+      clearData: () => set({
+        logos: [],
+        companyName: '',
+        pendingSync: [],
+        syncStatus: 'idle',
+        lastSyncedAt: null,
+        syncError: null,
+      }),
 
       flush: async () => {
         const queue = get().pendingSync

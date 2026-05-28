@@ -23,7 +23,7 @@ const STATUS_BADGE: Record<WorkOrderStatus, string> = {
   scheduled:   'bg-[#1d4ed8]/20 text-[#60a5fa]',
   in_progress: 'bg-[#f97316]/20 text-[#f97316]',
   completed:   'bg-[#16a34a]/20 text-[#4ade80]',
-  cancelled:   'bg-[#1f3c5e] text-[#6b6b6b]',
+  cancelled:   'bg-[#1f3c5e] text-[#a3a3a3]',
 }
 
 const STATUS_LABEL: Record<WorkOrderStatus, string> = {
@@ -49,7 +49,7 @@ const TYPE_BADGE: Record<string, string> = {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#8a8a8a] transition-colors',
     hasError
       ? 'border-[#ef4444] focus:border-[#ef4444]'
       : 'border-[#525252] focus:border-[#f97316]',
@@ -173,7 +173,7 @@ function WorkOrderDialog() {
           </h2>
           <button
             onClick={() => setEditingOrder(null)}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
           >
             <X size={15} />
           </button>
@@ -338,7 +338,7 @@ export function MaintenancePanel() {
                 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors',
                 filter === tab.key
                   ? 'bg-[#f97316] text-white'
-                  : 'bg-[#3d3d3d] text-[#6b6b6b] hover:text-[#a3a3a3] border border-[#525252]',
+                  : 'bg-[#3d3d3d] text-[#a3a3a3] hover:text-[#f5f5f5] border border-[#525252]',
               )}
             >
               {tab.label}
@@ -363,7 +363,7 @@ export function MaintenancePanel() {
       <div className="flex-1 overflow-auto overflow-x-auto px-6 py-4">
         {filtered.length === 0 ? (
           <div className="flex items-center justify-center h-40">
-            <p className="text-sm text-[#6b6b6b]">Nenhuma ordem de serviço encontrada.</p>
+            <p className="text-sm text-[#a3a3a3]">Nenhuma ordem de serviço encontrada.</p>
           </div>
         ) : (
           <table className="w-full text-xs border-collapse">
@@ -373,7 +373,7 @@ export function MaintenancePanel() {
                   (col) => (
                     <th
                       key={col}
-                      className="text-left text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold pb-2 pr-4 whitespace-nowrap"
+                      className="text-left text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold pb-2 pr-4 whitespace-nowrap"
                     >
                       {col}
                     </th>
@@ -445,7 +445,7 @@ export function MaintenancePanel() {
                           setConfirmDeleteId(null)
                           setEditingOrder(order.id)
                         }}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"
                         title="Editar"
                       >
                         <Pencil size={13} />
@@ -471,7 +471,7 @@ export function MaintenancePanel() {
                       ) : (
                         <button
                           onClick={() => handleDeleteClick(order.id)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors"
                           title="Excluir"
                         >
                           <Trash2 size={13} />

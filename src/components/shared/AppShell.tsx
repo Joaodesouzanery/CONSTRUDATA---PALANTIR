@@ -22,8 +22,7 @@ export function AppShell() {
           <Menu size={20} />
         </button>
         <div className="flex flex-col leading-none">
-          <span className="text-[#f5f5f5] text-sm font-bold tracking-wide">Atlântico</span>
-          <span className="text-[8px] font-semibold tracking-[0.16em] uppercase text-[#6b6b6b]">ConstruData</span>
+          <span className="text-[#f5f5f5] text-sm font-bold tracking-wide">ConstruData</span>
         </div>
       </div>
 
@@ -48,7 +47,7 @@ export function AppShell() {
           <Sidebar onClose={() => setMobileOpen(false)} />
         </div>
 
-        <main className="flex-1 overflow-y-auto min-w-0">
+        <main className="app-main flex-1 overflow-y-auto min-w-0">
           <Outlet />
         </main>
       </div>

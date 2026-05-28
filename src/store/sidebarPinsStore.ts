@@ -10,6 +10,7 @@ interface SidebarPinsState {
   pinnedPaths: string[]
   togglePin:   (path: string) => void
   isPinned:    (path: string) => boolean
+  movePin:     (path: string, direction: -1 | 1) => void
 }
 
 export const useSidebarPinsStore = create<SidebarPinsState>()(
@@ -28,6 +29,17 @@ export const useSidebarPinsStore = create<SidebarPinsState>()(
         }),
 
       isPinned: (path) => get().pinnedPaths.includes(path),
+
+      movePin: (path, direction) =>
+        set((s) => {
+          const index = s.pinnedPaths.indexOf(path)
+          const nextIndex = index + direction
+          if (index < 0 || nextIndex < 0 || nextIndex >= s.pinnedPaths.length) return s
+          const next = [...s.pinnedPaths]
+          const [item] = next.splice(index, 1)
+          next.splice(nextIndex, 0, item)
+          return { pinnedPaths: next }
+        }),
     }),
     { name: 'cdata-sidebar-pins' },
   ),

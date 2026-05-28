@@ -8,10 +8,11 @@
  * abaixo despacha cada op para o handler correto baseado em `entity`.
  *
  * Conflict resolution v1: last-write-wins por updated_at do servidor.
- * Quando push falha, retry up to 5x; depois drop e marca syncError.
+ * Quando push falha, a operação fica na fila e syncError mostra o motivo.
  */
 import { supabase } from './supabase'
 import { useAuth } from './auth'
+import { isNonProductionDataMode } from './runtimeMode'
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'unauth' | 'error'
 
@@ -43,18 +44,38 @@ export interface PendingOp<TEntity extends string = string> {
 }
 
 export interface FlushResult {
-  completed:  string[]   // ids das ops drenadas (sucesso ou drop)
+  completed:  string[]   // ids das ops drenadas com sucesso confirmado
   errored:    string[]   // ids que falharam mas continuam na fila
   lastError?: string
+}
+
+function rowCount(data: unknown): number {
+  return Array.isArray(data) ? data.length : data ? 1 : 0
+}
+
+function assertAffectedRows(table: string, op: PendingOp, data: unknown) {
+  if (rowCount(data) > 0) return
+  throw new Error(`Nenhuma linha confirmada em ${table} para ${op.type} ${op.recordId}. Verifique RLS, organização ativa ou se o registro ainda existe.`)
+}
+
+function softDeleteRpcFor(op: PendingOp): 'soft_delete_suprimentos_deposito' | 'soft_delete_suprimentos_estoque_item' | null {
+  if (op.type !== 'update' || !op.patch?.deleted_at) return null
+  if (op.table === 'suprimentos_depositos') return 'soft_delete_suprimentos_deposito'
+  if (op.table === 'suprimentos_estoque_itens') return 'soft_delete_suprimentos_estoque_item'
+  return null
 }
 
 /**
  * Drena uma fila de pending ops contra o Supabase.
  * Retorna quais ops foram completadas (remover da fila) e quais erraram
- * (incrementar retry, manter na fila se < 5 retries).
+ * (incrementar retry e manter na fila para nova tentativa).
  */
 export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   const result: FlushResult = { completed: [], errored: [] }
+
+  if (isNonProductionDataMode()) {
+    return result
+  }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     return result
@@ -68,14 +89,24 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   for (const op of queue) {
     try {
       if (op.type === 'insert' && op.row) {
-        const { error } = await supabase.from(op.table).insert(op.row as never)
-        if (error) throw error
-      } else if (op.type === 'update' && op.patch) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from(op.table)
-          .update(op.patch as never)
-          .eq('id', op.recordId)
+          .upsert(op.row as never, { onConflict: 'id' })
+          .select('id')
         if (error) throw error
+        assertAffectedRows(op.table, op, data)
+      } else if (op.type === 'update' && op.patch) {
+        const softDeleteRpc = softDeleteRpcFor(op)
+        const { data, error } = softDeleteRpc
+          ? await supabase.rpc(softDeleteRpc, { p_id: op.recordId })
+          : await supabase
+            .from(op.table)
+            .update(op.patch as never)
+            .eq('id', op.recordId)
+            .eq('organization_id', profile.organization_id)
+            .select('id')
+        if (error) throw error
+        assertAffectedRows(op.table, op, data)
       } else if (op.type === 'delete') {
         if (op.approvalActionType) {
           const { error } = await supabase.rpc('request_action', {
@@ -86,8 +117,14 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
           } as never)
           if (error) throw error
         } else {
-          const { error } = await supabase.from(op.table).delete().eq('id', op.recordId)
+          const { data, error } = await supabase
+            .from(op.table)
+            .delete()
+            .eq('id', op.recordId)
+            .eq('organization_id', profile.organization_id)
+            .select('id')
           if (error) throw error
+          assertAffectedRows(op.table, op, data)
         }
       }
       result.completed.push(op.id)
@@ -95,12 +132,7 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
       const msg = err instanceof Error ? err.message : String(err)
       console.warn(`[sync:${op.table}] op ${op.type} failed`, op, msg)
       result.lastError = msg
-      if (op.retries >= 4) {
-        // Drop após 5 tentativas (drop = considera completed pra remover da fila)
-        result.completed.push(op.id)
-      } else {
-        result.errored.push(op.id)
-      }
+      result.errored.push(op.id)
     }
   }
 
@@ -125,18 +157,32 @@ export function makeOp(opts: Omit<PendingOp, 'id' | 'retries' | 'createdAt'>): P
  */
 export async function pullTable<TRow = unknown>(
   table: string,
-  orderBy: { column: string; ascending?: boolean } = { column: 'created_at', ascending: false },
+  orderBy: { column: string; ascending?: boolean; activeOnly?: boolean } = { column: 'created_at', ascending: false, activeOnly: true },
 ): Promise<TRow[] | null> {
+  if (isNonProductionDataMode()) return null
   if (typeof navigator !== 'undefined' && !navigator.onLine) return null
   const { profile } = useAuth.getState()
   if (!profile) return null
 
-  const { data, error } = await supabase
+  const activeOnly = orderBy.activeOnly ?? true
+  let query = supabase
     .from(table)
     .select('*')
-    .order(orderBy.column, { ascending: orderBy.ascending ?? false })
+    .eq('organization_id', profile.organization_id)
+  if (activeOnly) query = query.is('deleted_at', null)
+
+  const { data, error } = await query.order(orderBy.column, { ascending: orderBy.ascending ?? false })
 
   if (error) {
+    const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase()
+    if (activeOnly && message.includes('deleted_at')) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from(table)
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .order(orderBy.column, { ascending: orderBy.ascending ?? false })
+      if (!fallbackError) return (fallbackData ?? []) as TRow[]
+    }
     console.warn(`[sync:${table}] pull failed`, error)
     return null
   }

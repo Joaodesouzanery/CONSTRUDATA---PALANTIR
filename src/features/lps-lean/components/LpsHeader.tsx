@@ -25,7 +25,7 @@ const TABS: { id: LpsTab; label: string }[] = [
   { id: 'ppc',                 label: 'PPC Dashboard' },
   { id: 'takt',                label: 'Takt Time' },
   { id: 'restricoes',          label: 'Restrições' },
-  { id: 'analytics',           label: 'Analytics' },
+  { id: 'analytics',           label: 'Pareto' },
   { id: 'timeline-restricoes', label: 'Timeline Restrições' },
   { id: 'alertas',             label: 'Alertas' },
   { id: 'mao-de-obra',         label: 'Mão de Obra' },

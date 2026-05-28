@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Calculator, Printer, CheckCircle, FileDown, Lock } from 'lucide-react'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
+import { useMedicaoUnificadaStore } from '@/store/medicaoUnificadaStore'
 import { exportMedicaoFinalPdf } from '../utils/exportPdf'
 
 function fmt(n: number) {
@@ -40,6 +41,7 @@ export function MedicaoFinalPanel() {
   const { getActiveBoletim, getItensBaseCalculo, computeMedicaoFinal, fecharBoletim } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
   const [showFecharConfirm, setShowFecharConfirm] = useState(false)
+  const unifiedFinancialEntries = useMedicaoUnificadaStore((state) => state.financialEntries)
 
   if (!boletim) return (
     <div className="p-8 text-center text-[#6b6b6b] text-sm">Nenhum boletim ativo.</div>
@@ -47,6 +49,13 @@ export function MedicaoFinalPanel() {
 
   const mf = boletim.medicaoFinal
   const itensBase = getItensBaseCalculo(boletim)
+  const approvedUnifiedFinancial = unifiedFinancialEntries.filter((entry) => !entry.deleted_at && ['approved', 'paid'].includes(entry.status))
+  const unifiedDeductions = approvedUnifiedFinancial
+    .filter((entry) => entry.entry_type !== 'invoice')
+    .reduce((sum, entry) => sum + Math.abs(Number(entry.amount || 0)), 0)
+  const unifiedInvoices = approvedUnifiedFinancial
+    .filter((entry) => entry.entry_type === 'invoice')
+    .reduce((sum, entry) => sum + Math.abs(Number(entry.amount || 0)), 0)
 
   function handlePrint() {
     window.print()
@@ -181,8 +190,10 @@ export function MedicaoFinalPanel() {
               <div className="text-[10px] font-semibold uppercase text-[#6b6b6b] tracking-widest">Comprometimentos</div>
             </div>
 
-            <Row label="Total subempreiteiros (aprovado)" value={mf.totalSubempreiteiros} negative />
+            <Row label="Total empreiteiros (aprovado)" value={mf.totalSubempreiteiros} negative />
             <Row label="Total fornecedores (aprovado)" value={mf.totalFornecedores} negative />
+            <Row label="Descontos/retenÃ§Ãµes unificados aprovados" value={unifiedDeductions} negative />
+            <Row label="NFs unificadas aprovadas/pagas" value={unifiedInvoices} />
 
             <div className={`flex items-center justify-between px-5 py-4 ${
               mf.saldoContratante >= 0 ? 'bg-emerald-900/20' : 'bg-red-900/20'
@@ -192,12 +203,16 @@ export function MedicaoFinalPanel() {
                 {fmt(mf.saldoContratante)}
               </span>
             </div>
+            <div className="flex items-center justify-between bg-[#1f1f1f] px-5 py-3">
+              <span className="text-sm font-semibold text-[#a3a3a3]">Saldo considerando lanÃ§amentos unificados</span>
+              <span className="font-bold text-[#f97316]">{fmt(mf.saldoContratante - unifiedDeductions)}</span>
+            </div>
           </div>
 
           {/* Proporções */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Subempreiteiros', value: mf.totalSubempreiteiros, color: 'text-[#f97316]', bg: 'bg-[#f97316]/10 border-[#f97316]/30' },
+              { label: 'Empreiteiros', value: mf.totalSubempreiteiros, color: 'text-[#f97316]', bg: 'bg-[#f97316]/10 border-[#f97316]/30' },
               { label: 'Fornecedores',    value: mf.totalFornecedores,    color: 'text-blue-400',   bg: 'bg-blue-400/10 border-blue-400/30' },
               { label: 'Saldo',           value: mf.saldoContratante,     color: mf.saldoContratante >= 0 ? 'text-emerald-400' : 'text-red-400', bg: 'bg-emerald-400/5 border-[#525252]' },
             ].map((item) => (

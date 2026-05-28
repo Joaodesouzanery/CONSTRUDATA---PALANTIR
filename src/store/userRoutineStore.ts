@@ -104,6 +104,7 @@ interface UserRoutineState {
   isPinned:       (path: string) => RoutineFrequency | null
   resetToPreset:  (persona: Persona) => void
   markOnboarded:  () => void
+  clearData: () => void
 
   flush: () => Promise<void>
   pull:  () => Promise<void>
@@ -206,6 +207,17 @@ export const useUserRoutineStore = create<UserRoutineState>()(
         scheduleSync(get)
       },
 
+      clearData: () => set({
+        persona: 'engenheiro',
+        pinnedDaily: PERSONA_PRESETS[0].daily,
+        pinnedWeekly: PERSONA_PRESETS[0].weekly,
+        pinnedMonthly: PERSONA_PRESETS[0].monthly,
+        hasOnboarded: false,
+        syncStatus: 'idle',
+        lastSyncedAt: null,
+        syncError: null,
+      }),
+
       flush: async () => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           set({ syncStatus: 'offline' }); return
@@ -237,12 +249,13 @@ export const useUserRoutineStore = create<UserRoutineState>()(
       },
 
       pull: async () => {
-        const { user } = useAuth.getState()
-        if (!user) return
+        const { profile, user } = useAuth.getState()
+        if (!profile || !user) return
         const { data, error } = await supabase
           .from('user_routines')
           .select('*')
           .eq('user_id', user.id)
+          .eq('organization_id', profile.organization_id)
           .maybeSingle()
         if (error) {
           console.warn('[user_routines] pull failed', error.message)

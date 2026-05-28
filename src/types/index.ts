@@ -108,6 +108,7 @@ export interface EquipmentProfile {
   lastMaintenance: string  // yyyy-MM-dd
   nextMaintenance: string  // yyyy-MM-dd
   operator: string | null
+  contractorName?: string | null
   engineHours: number
   alerts: EquipmentAlert[]
 }
@@ -1179,6 +1180,7 @@ export interface PlanTrecho {
   nucleusId?: string
   activityType?: PlanServiceType | string
   financialWeightPct?: number
+  plannedProgressPct?: number
   physicalProgressPct?: number
   financialProgressPct?: number
   estimatedHH?: number
@@ -1347,7 +1349,52 @@ export interface RdoServiceEntry {
   description:       string
   quantity:          number
   unit:              string
+  planningActivityId?: string
+  operationalKey?:    string
+  activityStage?:    string
+  front?:            string
+  measurementWeightPct?: number
+  measurementWeightWithoutMaterialPct?: number
+  dailyProgressPct?: number
+  accumulatedProgressPct?: number
+  measurementCriterion?: string
+  qualityStatus?: 'pending' | 'approved' | 'rework'
+  evidenceRequired?: boolean
   contractItemCode?: string   // Fase 2: vínculo com item do catálogo de medição
+}
+
+export interface RdoQualityChecklist {
+  ordemServico: boolean
+  bandeirola:   boolean
+  projeto:      boolean
+  obs?:         string
+}
+
+export interface RdoMaterialConsumptionEntry {
+  id:           string
+  material:     string
+  quantity:     number
+  unit?:        string
+  unitCostBRL?: number
+  totalCostBRL?: number
+  source?:      'almoxarifado' | 'compra_direta' | 'apoio'
+  activityStage?: string
+  front?:       string
+  notes?:       string
+}
+
+export interface RdoStoppageEntry {
+  period: 'morning' | 'afternoon' | 'night'
+  reason: string
+  start:  string
+  end:    string
+}
+
+export interface RdoWorkforceRow {
+  id:         string
+  role:       string
+  outsourced: number
+  direct:     number
 }
 
 export interface RdoTrechoEntry {
@@ -1386,6 +1433,7 @@ export interface RDO {
   manpower:     RdoManpower
   equipment:    RdoEquipmentEntry[]
   services:     RdoServiceEntry[]
+  materials?:    RdoMaterialConsumptionEntry[]
   trechos:      RdoTrechoEntry[]
   geolocation:  { lat: string; lng: string } | null
   observations: string
@@ -1408,6 +1456,17 @@ export interface RDO {
   climaManha?:                  string
   climaTarde?:                  string
   climaNoite?:                  string
+  localTipo?:                   string
+  epiUtilizado?:                boolean
+  qualityChecklist?:            RdoQualityChecklist
+  stoppages?:                   RdoStoppageEntry[]
+  activityHours?:               {
+    dayStart?:   string
+    dayEnd?:     string
+    nightStart?: string
+    nightEnd?:   string
+  }
+  workforceRows?:               RdoWorkforceRow[]
 
   createdAt:    string
   updatedAt:    string
@@ -1597,6 +1656,11 @@ export interface LpsRestriction {
   impacto?: string
   responsavel?: string
   prazoRemocao?: string       // 'YYYY-MM-DD'
+  nucleo?: string
+  obraProjeto?: string
+  tipoServico?: string
+  dataParaCumprir?: string    // 'YYYY-MM-DD'
+  porque?: string
   acoesNecessarias?: string
   tags: string[]
   observacoes?: string
@@ -1841,7 +1905,7 @@ export interface HardeningPoint {
 
 // ── Planejamento Mestre ──────────────────────────────────────────────────────
 
-export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal' | 'restricoes'
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal' | 'restricoes' | 'operacional' | 'medicao-planejamento'
 
 export interface ProgramacaoDiaria {
   previsto:  number
@@ -1881,6 +1945,7 @@ export interface MasterActivity {
   unidade?:            string
   nucleusId?: string
   financialWeightPct?: number
+  plannedProgressPct?: number
   physicalProgressPct?: number
   financialProgressPct?: number
   estimatedHH?: number
@@ -1888,6 +1953,21 @@ export interface MasterActivity {
   workPackageId?: string
   baselineStart?: string
   baselineEnd?: string
+  area?: string
+  nPreco?: string
+  sourceImportId?: string
+  sourceFileName?: string
+  sourceImportType?: 'mpp' | 'xml' | 'excel'
+  criticalPath?: boolean
+  totalSlack?: string | number
+  resources?: string[]
+  rdoLinkedIds?: string[]
+  rdoExecutedQty?: number
+  rdoPlannedQty?: number
+  plannedQuantity?: number
+  executedQuantity?: number
+  lastRdoDate?: string
+  operationalKey?: string
 }
 
 export interface MasterBaseline {
@@ -1946,7 +2026,7 @@ export interface StaffingDimension {
   status: 'ok' | 'deficit' | 'surplus'
 }
 
-export type IntegrationSourceType = 'suprimentos' | 'mao_de_obra' | 'rdo'
+export type IntegrationSourceType = 'suprimentos' | 'mao_de_obra' | 'rdo' | 'qualidade' | 'equipamentos' | 'medicao'
 
 export interface IntegrationStatus {
   source: IntegrationSourceType
@@ -2285,4 +2365,119 @@ export interface FinanceiroEntry {
   referencia?: string   // nº NF, nº medição, etc.
   notas?:      string
   createdAt:   string
+}
+
+// Economia / ROI
+
+export type EconomySourceModule =
+  | 'suprimentos'
+  | 'lps'
+  | 'planejamento'
+  | 'rdo'
+  | 'relatorio360'
+  | 'equipamentos'
+  | 'medicao'
+  | 'evm'
+  | 'manual'
+
+export type EconomyEventCategory =
+  | 'material_waste'
+  | 'production_stoppage'
+  | 'restriction_removed'
+  | 'equipment_idle'
+  | 'management_hours'
+  | 'measurement_discrepancy'
+  | 'schedule_alert'
+  | 'cost_deviation'
+
+export type EconomyEventStatus = 'detected' | 'validated' | 'dismissed' | 'reported'
+export type EconomyReportStatus = 'draft' | 'sent' | 'archived'
+export type EconomyConfidence = 'low' | 'medium' | 'high'
+
+export interface EconomyBaseline {
+  id: string
+  projectId: string | null
+  projectName: string
+  capturedAt: string
+  period: string
+  ppcPercent: number
+  materialDeviationPercent: number
+  manualReportHoursPerWeek: number
+  stoppagesLastQuarter: number
+  workersCount: number
+  costPerPersonDayBRL: number
+  materialMonthlyBudgetBRL: number
+  targetMaterialDeviationPercent: number
+  platformMonthlyFeeBRL: number
+  managerHourlyCostBRL: number
+  equipmentDailyCostBRL: number
+  manualMeasurementHoursPerSub?: number
+  automatedMeasurementHoursPerSub?: number
+  baselineMeasurementErrorRatePercent?: number
+  costOfCapitalMonthlyPercent?: number
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EconomyValuationRule {
+  id: string
+  category: EconomyEventCategory
+  label: string
+  formula: string
+  assumptions: Record<string, number>
+  enabled: boolean
+  updatedAt: string
+}
+
+export interface EconomyEventEvidence {
+  label: string
+  value?: string
+  url?: string
+}
+
+export interface EconomyEvent {
+  id: string
+  stableKey: string
+  sourceModule: EconomySourceModule
+  sourceId: string
+  category: EconomyEventCategory
+  projectId: string | null
+  projectName: string
+  date: string
+  period: string
+  title: string
+  description: string
+  impactBRL: number
+  formula: string
+  assumptions: Record<string, number>
+  confidence: EconomyConfidence
+  status: EconomyEventStatus
+  evidence: EconomyEventEvidence[]
+  createdAt: string
+  updatedAt: string
+  validatedAt?: string
+  reportedAt?: string
+}
+
+export interface EconomyReport {
+  id: string
+  period: string
+  projectId: string | null
+  projectName: string
+  baselineId: string | null
+  eventIds: string[]
+  detectedEvents: number
+  avoidedLossBRL: number
+  platformFeeBRL: number
+  roiPercent: number
+  ppcBefore: number
+  ppcAfter: number
+  materialDeviationBefore: number
+  materialDeviationAfter: number
+  materialSavingsBRL: number
+  status: EconomyReportStatus
+  generatedAt: string
+  sentAt?: string
+  notes?: string
 }

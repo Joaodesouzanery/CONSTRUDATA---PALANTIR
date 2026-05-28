@@ -47,9 +47,17 @@ export interface ManualNucleoInput {
   tipo: DbRede
 }
 
+export interface ManualNucleoUpdateInput extends ManualNucleoInput {
+  id: string
+}
+
 export interface ManualRuaInput {
   nucleoId: string
   nome: string
+}
+
+export interface ManualRuaUpdateInput extends ManualRuaInput {
+  id: string
 }
 
 export interface ManualItemInput {
@@ -61,6 +69,10 @@ export interface ManualItemInput {
   status: DbStatus
   kmExec: number
   kmPend: number
+}
+
+export interface ManualItemUpdateInput extends ManualItemInput {
+  id: string
 }
 
 export interface ManualOptions {
@@ -508,6 +520,52 @@ export async function createManualNucleo(input: ManualNucleoInput) {
   return upsertNucleo(input.nome.trim(), input.tipo)
 }
 
+export async function updateManualNucleo(input: ManualNucleoUpdateInput) {
+  const { orgId } = await context()
+  const { error } = await table('suprimentos_nucleos')
+    .update({
+      nome: input.nome.trim(),
+      tipo: input.tipo,
+    } as never)
+    .eq('organization_id', orgId)
+    .eq('id', input.id)
+  if (error) throw error
+  return loadSuprimentosPlanilhas()
+}
+
+export async function removeManualNucleo(id: string) {
+  const { orgId } = await context()
+  const now = new Date().toISOString()
+  const { data: ruas, error: ruasError } = await table('suprimentos_ruas')
+    .select('id')
+    .eq('organization_id', orgId)
+    .eq('nucleo_id', id)
+    .is('deleted_at', null)
+  if (ruasError) throw ruasError
+
+  const ruaIds = ((ruas ?? []) as unknown as { id: string }[]).map((rua) => rua.id)
+  if (ruaIds.length > 0) {
+    const { error: itensError } = await table('suprimentos_itens')
+      .update({ deleted_at: now } as never)
+      .eq('organization_id', orgId)
+      .in('rua_id', ruaIds)
+    if (itensError) throw itensError
+
+    const { error: ruasSoftDeleteError } = await table('suprimentos_ruas')
+      .update({ deleted_at: now } as never)
+      .eq('organization_id', orgId)
+      .in('id', ruaIds)
+    if (ruasSoftDeleteError) throw ruasSoftDeleteError
+  }
+
+  const { error } = await table('suprimentos_nucleos')
+    .update({ deleted_at: now } as never)
+    .eq('organization_id', orgId)
+    .eq('id', id)
+  if (error) throw error
+  return loadSuprimentosPlanilhas()
+}
+
 export async function loadManualOptions(): Promise<ManualOptions> {
   const { orgId } = await context()
   const [{ data: nucleos, error: nError }, { data: ruas, error: rError }] = await Promise.all([
@@ -545,6 +603,36 @@ export async function createManualRua(input: ManualRuaInput) {
   return upsertRua(nucleo as unknown as DbNucleo, input.nome.trim())
 }
 
+export async function updateManualRua(input: ManualRuaUpdateInput) {
+  const { orgId } = await context()
+  const { error } = await table('suprimentos_ruas')
+    .update({
+      nucleo_id: input.nucleoId,
+      nome: input.nome.trim(),
+    } as never)
+    .eq('organization_id', orgId)
+    .eq('id', input.id)
+  if (error) throw error
+  return loadSuprimentosPlanilhas()
+}
+
+export async function removeManualRua(id: string) {
+  const { orgId } = await context()
+  const now = new Date().toISOString()
+  const { error: itensError } = await table('suprimentos_itens')
+    .update({ deleted_at: now } as never)
+    .eq('organization_id', orgId)
+    .eq('rua_id', id)
+  if (itensError) throw itensError
+
+  const { error } = await table('suprimentos_ruas')
+    .update({ deleted_at: now } as never)
+    .eq('organization_id', orgId)
+    .eq('id', id)
+  if (error) throw error
+  return loadSuprimentosPlanilhas()
+}
+
 export async function createManualItem(input: ManualItemInput) {
   const { orgId } = await context()
   const { data: rua, error } = await table('suprimentos_ruas')
@@ -564,6 +652,36 @@ export async function createManualItem(input: ManualItemInput) {
     kmPend: input.kmPend,
     payload: { source: 'manual' },
   })
+  return loadSuprimentosPlanilhas()
+}
+
+export async function updateManualItem(input: ManualItemUpdateInput) {
+  const { orgId } = await context()
+  const { error } = await table('suprimentos_itens')
+    .update({
+      rua_id: input.ruaId,
+      material: input.material.trim(),
+      unidade: input.unidade.trim() || null,
+      quantidade: input.quantidade,
+      rede: input.rede,
+      status: input.status,
+      km_exec: input.kmExec,
+      km_pend: input.kmPend,
+      payload: { source: 'manual' },
+    } as never)
+    .eq('organization_id', orgId)
+    .eq('id', input.id)
+  if (error) throw error
+  return loadSuprimentosPlanilhas()
+}
+
+export async function removeManualItem(id: string) {
+  const { orgId } = await context()
+  const { error } = await table('suprimentos_itens')
+    .update({ deleted_at: new Date().toISOString() } as never)
+    .eq('organization_id', orgId)
+    .eq('id', id)
+  if (error) throw error
   return loadSuprimentosPlanilhas()
 }
 

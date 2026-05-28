@@ -1,9 +1,9 @@
 /**
- * PlanejamentoMestreHeader — KPI strip + tab navigation for Planejamento Mestre.
+ * PlanejamentoMestreHeader â€” KPI strip + tab navigation for Planejamento Mestre.
  * Includes baseline management (save/load/delete) and "Criar Planejamento" button.
  */
 import { useState } from 'react'
-import { BrainCircuit, Plus, Save, ChevronDown, Trash2 } from 'lucide-react'
+import { BrainCircuit, Plus, Save, ChevronDown, Trash2, Upload } from 'lucide-react'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import type { PlanejamentoMestreTab } from '@/types'
@@ -15,10 +15,14 @@ const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
   { key: 'integrada', label: 'Visão Integrada' },
   { key: 'semanal',   label: 'Prog. Semanal'   },
   { key: 'restricoes', label: 'Planejamento por Restrições' },
+  { key: 'operacional', label: 'Planejamento Operacional' },
+  { key: 'medicao-planejamento', label: 'Medição -> Planejamento TESTE' },
 ]
 
 interface Props {
   onNewProject: () => void
+  onImportProject?: () => void
+  showTabs?: boolean
 }
 
 function SaveBaselineModal({ onClose }: { onClose: () => void }) {
@@ -100,7 +104,7 @@ function BaselineDropdown({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function PlanejamentoMestreHeader({ onNewProject }: Props) {
+export function PlanejamentoMestreHeader({ onNewProject, onImportProject, showTabs = true }: Props) {
   const activeTab   = usePlanejamentoMestreStore((s) => s.activeTab)
   const setTab      = usePlanejamentoMestreStore((s) => s.setActiveTab)
   const activities  = usePlanejamentoMestreStore((s) => s.activities)
@@ -115,7 +119,7 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
     ? Math.round(activities.reduce((s, a) => s + (a.weight ?? 1) * a.percentComplete, 0) /
         Math.max(1, activities.reduce((s, a) => s + (a.weight ?? 1), 0)))
     : 0
-  const activeBaseline = baselines.find((b) => b.id === activeBlId)?.name ?? '—'
+  const activeBaseline = baselines.find((b) => b.id === activeBlId)?.name ?? 'â€”'
   const { end } = getProjectDateRange(activities)
   const daysRemaining = activities.length > 0
     ? daysBetween(new Date().toISOString().slice(0, 10), end)
@@ -142,7 +146,7 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
               {[
                 { label: 'Atividades', value: String(totalActivities) },
                 { label: '% Concluído', value: `${avgComplete}%` },
-                { label: 'Dias p/ fim', value: daysRemaining > 0 ? String(daysRemaining) : '—' },
+                { label: 'Dias p/ fim', value: daysRemaining > 0 ? String(daysRemaining) : 'â€”' },
               ].map(({ label, value }) => (
                 <div key={label} className="text-center">
                   <p className="text-[9px] uppercase tracking-widest text-[#6b6b6b]">{label}</p>
@@ -157,7 +161,7 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
                 onClick={() => setBaselineDropOpen((v) => !v)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
               >
-                <span className="max-w-[120px] truncate">{activeBaseline === '—' ? 'Baselines' : activeBaseline}</span>
+                <span className="max-w-[120px] truncate">{activeBaseline === 'â€”' ? 'Baselines' : activeBaseline}</span>
                 <ChevronDown size={12} />
               </button>
               {baselineDropOpen && (
@@ -167,6 +171,15 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
                 </>
               )}
             </div>
+
+            {/* Save baseline */}
+            <button
+              onClick={onImportProject}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/50 bg-[#f97316]/10 text-[#fed7aa] hover:bg-[#f97316]/20 transition-colors"
+            >
+              <Upload size={13} />
+              Importar Excel/XML MS Project
+            </button>
 
             {/* Save baseline */}
             <button
@@ -191,21 +204,23 @@ export function PlanejamentoMestreHeader({ onNewProject }: Props) {
         </div>
 
         {/* Tabs */}
-        <div className="px-6 flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setTab(tab.key)}
-              className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap ${
-                activeTab === tab.key
-                  ? 'bg-[#3d3d3d] text-[#f97316] border-b-2 border-[#f97316]'
-                  : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#3d3d3d]/50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {showTabs && (
+          <div className="px-6 flex gap-1 overflow-x-auto">
+            {TABS.filter((tab) => ['macro', 'derivacao', 'whatif', 'semanal'].includes(tab.key)).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setTab(tab.key)}
+                className={`px-4 py-2 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? 'bg-[#3d3d3d] text-[#f97316] border-b-2 border-[#f97316]'
+                    : 'text-[#6b6b6b] hover:text-[#a3a3a3] hover:bg-[#3d3d3d]/50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {saveModalOpen && <SaveBaselineModal onClose={() => setSaveModalOpen(false)} />}

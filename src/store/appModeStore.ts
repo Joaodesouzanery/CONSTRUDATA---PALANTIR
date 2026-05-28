@@ -18,14 +18,16 @@ const SNAPSHOT_KEY = 'cdata-user-snapshot'
 // All persist keys used by feature stores (user data that must be preserved)
 const STORE_KEYS = [
   'cdata-rdo', 'cdata-suprimentos', 'cdata-agenda', 'cdata-projetos',
-  'cdata-planejamento', 'cdata-quantitativos', 'cdata-relatorio360', 'cdata-bim',
+  'cdata-planejamento', 'cdata-planejamento-restricoes', 'cdata-quantitativos', 'cdata-relatorio360', 'cdata-bim',
   'cdata-torre-controle', 'cdata-equipamentos', 'cdata-gestao-equipamentos',
   'cdata-preconstrucao', 'cdata-mao-de-obra', 'cdata-otimizacao-frota',
   'cdata-lps', 'cdata-evm', 'cdata-mapa-interativo', 'cdata-gestao-360',
   'cdata-qualidade', 'cdata-medicao', 'cdata-medicao-billing',
+  'cdata-medicao-unificada', 'cdata-medicao-assistida',
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
-  'cdata-manutencoes',
+  'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
+  'cdata-manutencoes', 'cdata-user-routine',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -98,9 +100,45 @@ async function restoreUserData() {
   }
 }
 
-// Default to demo mode ON so first-time visitors see a populated platform.
+async function pullRealData() {
+  const stores = await Promise.all([
+    import('./projetosStore').then(m => m.useProjetosStore),
+    import('./agendaStore').then(m => m.useAgendaStore),
+    import('./relatorio360Store').then(m => m.useRelatorio360Store),
+    import('./equipamentosStore').then(m => m.useEquipamentosStore),
+    import('./gestaoEquipamentosStore').then(m => m.useGestaoEquipamentosStore),
+    import('./torreDeControleStore').then(m => m.useTorreStore),
+    import('./suprimentosStore').then(m => m.useSuprimentosStore),
+    import('./preConstrucaoStore').then(m => m.usePreConstrucaoStore),
+    import('./maoDeObraStore').then(m => m.useMaoDeObraStore),
+    import('./otimizacaoFrotaStore').then(m => m.useOtimizacaoFrotaStore),
+    import('./gestao360Store').then(m => m.useGestao360Store),
+    import('./planejamentoStore').then(m => m.usePlanejamentoStore),
+    import('./rdoStore').then(m => m.useRdoStore),
+    import('./quantitativosStore').then(m => m.useQuantitativosStore),
+    import('./bimStore').then(m => m.useBimStore),
+    import('./lpsStore').then(m => m.useLpsStore),
+    import('./mapaInterativoStore').then(m => m.useMapaInterativoStore),
+    import('./evmStore').then(m => m.useEvmStore),
+    import('./qualidadeStore').then(m => m.useQualidadeStore),
+    import('./planejamentoMestreStore').then(m => m.usePlanejamentoMestreStore),
+    import('./operacaoCampoStore').then(m => m.useOperacaoCampoStore),
+    import('./rede360Store').then(m => m.useRede360Store),
+    import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),
+    import('./medicaoStore').then(m => m.useMedicaoStore),
+    import('./financeiroStore').then(m => m.useFinanceiroStore),
+  ])
+
+  await Promise.allSettled(stores.map((store) => {
+    const state = store.getState() as { pull?: () => Promise<void> | void }
+    return state.pull?.()
+  }))
+  const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
+  await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+}
+
 const savedRaw = localStorage.getItem(STORAGE_KEY)
-const initialDemo: boolean = savedRaw === null ? true : savedRaw === 'true'
+const initialDemo: boolean = savedRaw === 'true'
 
 export const useAppModeStore = create<AppModeState>((set) => ({
   isDemoMode: initialDemo,
@@ -159,6 +197,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./maoDeObraStore').then(({ useMaoDeObraStore }) => useMaoDeObraStore.getState().clearData())
             import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().clearData())
             import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().clearData())
+            import('./levantamentoObraStore').then(({ useLevantamentoObraStore }) => useLevantamentoObraStore.getState().clearData())
             import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().clearData())
             import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().clearData())
             import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().clearData())
@@ -177,6 +216,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
             clearLocalOnlyModuleData()
           }
+          void pullRealData()
         })
       }
 

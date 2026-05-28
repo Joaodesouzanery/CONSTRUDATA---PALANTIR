@@ -53,6 +53,11 @@ function blankForm(): Omit<LpsRestriction, 'id' | 'createdAt'> {
     impacto: '',
     responsavel: '',
     prazoRemocao: '',
+    nucleo: '',
+    obraProjeto: '',
+    tipoServico: '',
+    dataParaCumprir: '',
+    porque: '',
     acoesNecessarias: '',
     tags: [],
     observacoes: '',
@@ -69,6 +74,9 @@ export function RestricoesPanel() {
   const removeRestriction = useLpsStore((s) => s.removeRestriction)
 
   const [filter, setFilter]             = useState<FilterStatus>('all')
+  const [nucleoFilter, setNucleoFilter] = useState('all')
+  const [obraProjetoFilter, setObraProjetoFilter] = useState('all')
+  const [tipoServicoFilter, setTipoServicoFilter] = useState('all')
   const [modalOpen, setModalOpen]       = useState(false)
   const [editId, setEditId]             = useState<string | null>(null)
   const [form, setForm]                 = useState(blankForm())
@@ -78,9 +86,17 @@ export function RestricoesPanel() {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  const visible = filter === 'all'
-    ? restrictions
-    : restrictions.filter((r) => r.status === filter)
+  const nucleoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.nucleo).filter(Boolean))).sort(), [restrictions])
+  const obraProjetoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.obraProjeto).filter(Boolean))).sort(), [restrictions])
+  const tipoServicoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.tipoServico).filter(Boolean))).sort(), [restrictions])
+
+  const visible = restrictions.filter((r) => {
+    if (filter !== 'all' && r.status !== filter) return false
+    if (nucleoFilter !== 'all' && r.nucleo !== nucleoFilter) return false
+    if (obraProjetoFilter !== 'all' && r.obraProjeto !== obraProjetoFilter) return false
+    if (tipoServicoFilter !== 'all' && r.tipoServico !== tipoServicoFilter) return false
+    return true
+  })
 
   const counts = {
     total:        restrictions.length,
@@ -105,6 +121,11 @@ export function RestricoesPanel() {
       impacto: r.impacto ?? '',
       responsavel: r.responsavel ?? '',
       prazoRemocao: r.prazoRemocao ?? '',
+      nucleo: r.nucleo ?? '',
+      obraProjeto: r.obraProjeto ?? '',
+      tipoServico: r.tipoServico ?? '',
+      dataParaCumprir: r.dataParaCumprir ?? r.prazoRemocao ?? '',
+      porque: r.porque ?? '',
       acoesNecessarias: r.acoesNecessarias ?? '',
       tags: [...r.tags],
       observacoes: r.observacoes ?? '',
@@ -259,6 +280,30 @@ export function RestricoesPanel() {
             {f === 'all' ? 'Todas' : STATUS_LABELS[f]}
           </button>
         ))}
+        <select
+          value={nucleoFilter}
+          onChange={(e) => setNucleoFilter(e.target.value)}
+          className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-1.5 text-xs text-[#f5f5f5] outline-none"
+        >
+          <option value="all">Todos os núcleos / obras</option>
+          {nucleoOptions.map((nucleo) => <option key={nucleo} value={nucleo}>{nucleo}</option>)}
+        </select>
+        <select
+          value={tipoServicoFilter}
+          onChange={(e) => setTipoServicoFilter(e.target.value)}
+          className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-1.5 text-xs text-[#f5f5f5] outline-none"
+        >
+          <option value="all">Todos os tipos de serviço</option>
+          {tipoServicoOptions.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
+        </select>
+        <select
+          value={obraProjetoFilter}
+          onChange={(e) => setObraProjetoFilter(e.target.value)}
+          className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-1.5 text-xs text-[#f5f5f5] outline-none"
+        >
+          <option value="all">Todas as obras / projetos</option>
+          {obraProjetoOptions.map((obra) => <option key={obra} value={obra}>{obra}</option>)}
+        </select>
       </div>
 
       {/* Table */}
@@ -445,6 +490,45 @@ export function RestricoesPanel() {
                 </FieldGroup>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <FieldGroup label="Núcleo / Obra / Projeto">
+                  <input
+                    type="text"
+                    value={form.nucleo}
+                    onChange={(e) => setForm((f) => ({ ...f, nucleo: e.target.value }))}
+                    placeholder="Ex: Morro do Teteu"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
+                  />
+                </FieldGroup>
+                <FieldGroup label="Tipo de Serviço">
+                  <input
+                    type="text"
+                    value={form.tipoServico}
+                    onChange={(e) => setForm((f) => ({ ...f, tipoServico: e.target.value }))}
+                    placeholder="Ex: ligação água"
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
+                  />
+                </FieldGroup>
+                <FieldGroup label="Data para Cumprir">
+                  <input
+                    type="date"
+                    value={form.dataParaCumprir}
+                    onChange={(e) => setForm((f) => ({ ...f, dataParaCumprir: e.target.value, prazoRemocao: f.prazoRemocao || e.target.value }))}
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316]"
+                  />
+                </FieldGroup>
+              </div>
+
+              <FieldGroup label="Por quê">
+                <textarea
+                  value={form.porque}
+                  onChange={(e) => setForm((f) => ({ ...f, porque: e.target.value }))}
+                  rows={2}
+                  placeholder="Explique por que a restrição existe ou por que o compromisso não foi cumprido."
+                  className="w-full bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#f97316] resize-none"
+                />
+              </FieldGroup>
+
               {/* Prazo + Status row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FieldGroup label="Prazo de Remoção">
@@ -561,4 +645,3 @@ function FieldGroup({ label, children }: { label: string; children: React.ReactN
     </div>
   )
 }
-

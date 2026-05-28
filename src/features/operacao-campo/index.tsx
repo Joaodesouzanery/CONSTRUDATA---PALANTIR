@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useOperacaoCampoStore } from '@/store/operacaoCampoStore'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { OperacaoCampoHeader } from './components/OperacaoCampoHeader'
 import { CalendarioPanel } from './components/CalendarioPanel'
 import { DashboardsPanel } from './components/DashboardsPanel'
@@ -15,7 +16,7 @@ export function OperacaoCampoPage() {
   const [mobileView, setMobileView] = useState<'calendario' | 'dashboards'>('calendario')
 
   useEffect(() => {
-    if (activities.length === 0) loadDemoData()
+    if (activities.length === 0 && isDemoModeEnabled()) loadDemoData()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

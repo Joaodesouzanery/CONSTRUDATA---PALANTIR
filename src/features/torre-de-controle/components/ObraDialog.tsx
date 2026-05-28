@@ -18,7 +18,7 @@ function blankDefaults(): SiteFormValues {
   return {
     code: '', name: '', company: '', owner: '', manager: '',
     description: '', status: 'active',
-    street: '', number: '', district: '', city: '', state: 'SP', cep: '',
+    street: '', number: '', district: '', city: '', state: '', cep: '',
     buildingType: '', totalArea: 0, floors: 0,
     startDate: '', expectedEnd: '',
     lat: '', lng: '',
@@ -99,11 +99,15 @@ export function ObraDialog() {
       code: values.code?.trim() || `OBR-${String(sites.length + 1).padStart(3, '0')}`,
       company: values.company ?? '',
       owner: values.owner ?? '',
+      manager: values.manager ?? '',
       street: values.street ?? '',
       number: values.number ?? '',
       district: values.district ?? '',
+      city: values.city ?? '',
+      state: values.state ?? '',
+      buildingType: values.buildingType ?? '',
       description: values.description ?? '',
-      serviceScope: values.buildingType,
+      serviceScope: values.buildingType ?? '',
       lat,
       lng,
       risks: existing?.risks ?? [],
@@ -155,7 +159,7 @@ export function ObraDialog() {
                 <Field label="Código" error={errors.code?.message}>
                   <input {...register('code')} placeholder="OBR-001" className={inp(!!errors.code)} />
                 </Field>
-                <Field label="Status *" error={errors.status?.message}>
+                <Field label="Status" error={errors.status?.message}>
                   <select {...register('status')} className={inp(!!errors.status)}>
                     {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -165,7 +169,7 @@ export function ObraDialog() {
                 <input {...register('name')} placeholder="Setor de Saneamento Norte" className={inp(!!errors.name)} />
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Tipo / Escopo da Obra *" error={errors.buildingType?.message}>
+                <Field label="Tipo / Escopo da Obra" error={errors.buildingType?.message}>
                   <input
                     {...register('buildingType')}
                     list="obra-scope-options"
@@ -179,14 +183,16 @@ export function ObraDialog() {
                     <option value="Saneamento integrado" />
                     <option value="Infraestrutura viária" />
                     <option value="Edificação" />
+                    <option value="Torre Comercial" />
+                    <option value="Outro" />
                   </datalist>
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Área / Extensão" error={errors.totalArea?.message}>
-                    <input type="number" min="0" {...register('totalArea', { valueAsNumber: true })} placeholder="0" className={inp(!!errors.totalArea)} />
+                    <input type="number" min="0" {...register('totalArea', { setValueAs: (value) => value === '' || Number.isNaN(Number(value)) ? 0 : Number(value) })} placeholder="0" className={inp(!!errors.totalArea)} />
                   </Field>
                   <Field label="Pavimentos / Frentes" error={errors.floors?.message}>
-                    <input type="number" min="0" {...register('floors', { valueAsNumber: true })} placeholder="0" className={inp(!!errors.floors)} />
+                    <input type="number" min="0" {...register('floors', { setValueAs: (value) => value === '' || Number.isNaN(Number(value)) ? 0 : Number(value) })} placeholder="0" className={inp(!!errors.floors)} />
                   </Field>
                 </div>
               </div>
@@ -201,7 +207,7 @@ export function ObraDialog() {
                 <Field label="Dono / Contratante" error={errors.owner?.message}>
                   <input {...register('owner')} placeholder="Nome ou empresa" className={inp(!!errors.owner)} />
                 </Field>
-                <Field label="Gerente *" error={errors.manager?.message}>
+                <Field label="Gerente" error={errors.manager?.message}>
                   <input {...register('manager')} placeholder="Nome do gerente" className={inp(!!errors.manager)} />
                 </Field>
               </div>
@@ -223,11 +229,11 @@ export function ObraDialog() {
                 <Field label="Bairro / Setor" error={errors.district?.message}>
                   <input {...register('district')} placeholder="Bela Vista" className={inp(!!errors.district)} />
                 </Field>
-                <Field label="Cidade *" error={errors.city?.message}>
+                <Field label="Cidade" error={errors.city?.message}>
                   <input {...register('city')} placeholder="São Paulo" className={inp(!!errors.city)} />
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
-                  <Field label="Estado *" error={errors.state?.message}>
+                  <Field label="Estado" error={errors.state?.message}>
                     <input {...register('state')} placeholder="SP" maxLength={2} className={inp(!!errors.state)} />
                   </Field>
                   <Field label="CEP" error={errors.cep?.message}>
@@ -240,10 +246,10 @@ export function ObraDialog() {
             {/* Cronograma */}
             <Section title="Cronograma">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Data de Início *" error={errors.startDate?.message}>
+                <Field label="Data de Inicio" error={errors.startDate?.message}>
                   <input type="date" {...register('startDate')} className={inp(!!errors.startDate)} />
                 </Field>
-                <Field label="Previsão de Término *" error={errors.expectedEnd?.message}>
+                <Field label="Previsao de Termino" error={errors.expectedEnd?.message}>
                   <input type="date" {...register('expectedEnd')} className={inp(!!errors.expectedEnd)} />
                 </Field>
               </div>
@@ -327,3 +333,6 @@ function Section({ title, children }: { title: React.ReactNode; children: React.
     </fieldset>
   )
 }
+
+
+

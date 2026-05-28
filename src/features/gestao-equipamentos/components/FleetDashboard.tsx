@@ -41,7 +41,7 @@ function KpiCard({
 }) {
   return (
     <div className="flex flex-col gap-1 bg-[#2c2c2c] border border-[#525252] rounded-xl px-5 py-4">
-      <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">
+      <span className="text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold">
         {label}
       </span>
       <span
@@ -50,7 +50,7 @@ function KpiCard({
       >
         {value}
       </span>
-      {sub && <span className="text-xs text-[#6b6b6b]">{sub}</span>}
+      {sub && <span className="text-xs text-[#a3a3a3]">{sub}</span>}
     </div>
   )
 }
@@ -64,7 +64,7 @@ function EquipCard({ equip }: { equip: EquipmentProfile }) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-[#f5f5f5] truncate">{equip.name}</p>
-          <p className="text-[10px] text-[#6b6b6b]">{equip.code}</p>
+          <p className="text-[10px] text-[#a3a3a3]">{equip.code}</p>
         </div>
         <span
           className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -73,7 +73,7 @@ function EquipCard({ equip }: { equip: EquipmentProfile }) {
           {statusCfg.label}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#6b6b6b]">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-[#a3a3a3]">
         <span>Horas: <span className="text-[#a3a3a3]">{equip.engineHours.toLocaleString('pt-BR')}h</span></span>
         {equip.operator && <span className="truncate">Op: <span className="text-[#a3a3a3]">{equip.operator}</span></span>}
         {equip.nextMaintenance && (
@@ -86,7 +86,7 @@ function EquipCard({ equip }: { equip: EquipmentProfile }) {
       </div>
       <button
         onClick={() => useEquipamentosStore.getState().setEditing(equip.id)}
-        className="self-end text-[10px] px-2 py-0.5 rounded border border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+        className="self-end text-[10px] px-2 py-0.5 rounded border border-[#525252] text-[#a3a3a3] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
       >
         Editar
       </button>
@@ -254,7 +254,7 @@ export function FleetDashboard() {
             {(Object.entries(STATUS_COLOR) as [EquipmentStatus, string][]).map(([status, color]) => (
               <div key={status} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="text-[10px] text-[#6b6b6b] capitalize">{status}</span>
+                <span className="text-[10px] text-[#a3a3a3] capitalize">{status}</span>
               </div>
             ))}
           </div>
@@ -266,7 +266,7 @@ export function FleetDashboard() {
             Próximas Manutenções
           </h2>
           {upcoming.length === 0 ? (
-            <p className="text-xs text-[#6b6b6b] mt-2">Nenhuma OS agendada.</p>
+            <p className="text-xs text-[#a3a3a3] mt-2">Nenhuma OS agendada.</p>
           ) : (
             <div className="flex flex-col divide-y divide-[#3d3d3d]">
               {upcoming.map((order) => (
@@ -276,7 +276,7 @@ export function FleetDashboard() {
                     <span className="text-xs font-semibold text-[#f5f5f5] truncate">
                       {equipmentName(order.equipmentId)}
                     </span>
-                    <span className="text-[10px] text-[#6b6b6b]">
+                    <span className="text-[10px] text-[#a3a3a3]">
                       {equipmentCode(order.equipmentId)}
                     </span>
                   </div>
@@ -293,7 +293,7 @@ export function FleetDashboard() {
                     {new Date(order.scheduledDate + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </span>
                   {/* Responsible */}
-                  <span className="shrink-0 text-[10px] text-[#6b6b6b] hidden xl:block max-w-[90px] truncate">
+                  <span className="shrink-0 text-[10px] text-[#a3a3a3] hidden xl:block max-w-[90px] truncate">
                     {order.responsible}
                   </span>
                 </div>

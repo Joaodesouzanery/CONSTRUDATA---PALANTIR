@@ -11,6 +11,8 @@ import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useShallow } from 'zustand/react/shallow'
 import { ModuleQuickLinks } from '@/components/shared/ModuleQuickLinks'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { mergeProjectsWithSites } from '../utils/siteProjects'
 
 // ─── Feed item type ────────────────────────────────────────────────────────────
 
@@ -124,14 +126,36 @@ export function CommandCenterPanel() {
   )
   const sites            = useTorreStore((s) => s.sites)
   const changeOrders     = useGestao360Store((s) => s.changeOrders)
+  const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
   const maintenanceOrders = useGestaoEquipamentosStore((s) => s.orders)
-  const projects         = useProjetosStore((s) => s.projects)
+  const baseProjects     = useProjetosStore((s) => s.projects)
+  const projects         = useMemo(() => mergeProjectsWithSites(baseProjects, sites), [baseProjects, sites])
+  const demoEnabled      = isDemoModeEnabled()
+  const selectedSiteId   = selectedProjectId?.startsWith('site:') ? selectedProjectId.slice(5) : null
+  const scopedSites      = useMemo(
+    () => selectedSiteId ? sites.filter((site) => site.id === selectedSiteId) : sites,
+    [selectedSiteId, sites],
+  )
+  const scopedProjects   = useMemo(
+    () => selectedProjectId ? projects.filter((project) => project.id === selectedProjectId) : projects,
+    [projects, selectedProjectId],
+  )
+  const scopedChangeOrders = useMemo(
+    () => selectedProjectId
+      ? changeOrders.filter((co) => co.projectId === selectedProjectId)
+      : changeOrders,
+    [changeOrders, selectedProjectId],
+  )
 
   // ─── Unified feed ─────────────────────────────────────────────────────────
   const feed: FeedItem[] = useMemo(() => {
     const items: FeedItem[] = []
 
-    healthScores
+    const visibleHealthScores = demoEnabled ? healthScores : []
+    const visibleRoutingRecs = demoEnabled ? routingRecs : []
+    const visibleMaintenanceOrders = demoEnabled ? maintenanceOrders : []
+
+    visibleHealthScores
       .filter((h) => h.riskLevel === 'critical' || h.riskLevel === 'high')
       .forEach((h) => {
         items.push({
@@ -146,7 +170,7 @@ export function CommandCenterPanel() {
         })
       })
 
-    routingRecs
+    visibleRoutingRecs
       .filter((r) => r.accepted === undefined && r.priority === 'critical')
       .forEach((r) => {
         items.push({
@@ -161,7 +185,7 @@ export function CommandCenterPanel() {
         })
       })
 
-    sites.forEach((site) => {
+    scopedSites.forEach((site) => {
       site.risks
         .filter((r) => r.status === 'active' && (r.level === 'critical' || r.level === 'high'))
         .forEach((r) => {
@@ -178,7 +202,7 @@ export function CommandCenterPanel() {
         })
     })
 
-    changeOrders
+    scopedChangeOrders
       .filter((co) => co.status === 'submitted')
       .forEach((co) => {
         items.push({
@@ -194,7 +218,7 @@ export function CommandCenterPanel() {
       })
 
     const today = new Date()
-    maintenanceOrders
+    visibleMaintenanceOrders
       .filter((o) => {
         if (o.status === 'completed' || o.status === 'cancelled') return false
         return new Date(o.scheduledDate + 'T00:00:00') < today
@@ -217,7 +241,7 @@ export function CommandCenterPanel() {
       if (sevDiff !== 0) return sevDiff
       return new Date(b.date).getTime() - new Date(a.date).getTime()
     })
-  }, [healthScores, routingRecs, sites, changeOrders, maintenanceOrders])
+  }, [demoEnabled, healthScores, routingRecs, scopedSites, scopedChangeOrders, maintenanceOrders])
 
   // ─── Recommendations engine ───────────────────────────────────────────────
   const recommendations: Recommendation[] = useMemo(() => {
@@ -249,7 +273,11 @@ export function CommandCenterPanel() {
     }
 
     // Per-project rules
-    for (const proj of projects) {
+    const visibleHealthScores = demoEnabled ? healthScores : []
+    const visibleRoutingRecs = demoEnabled ? routingRecs : []
+    const visibleMaintenanceOrders = demoEnabled ? maintenanceOrders : []
+
+    for (const proj of scopedProjects) {
       const { cpi, spi, pctOver } = projectMetrics(proj)
 
       if (cpi < 0.85) {
@@ -314,7 +342,7 @@ export function CommandCenterPanel() {
     }
 
     // Equipment rules
-    healthScores
+    visibleHealthScores
       .filter((h) => h.riskLevel === 'critical')
       .forEach((h) => {
         recs.push({
@@ -327,7 +355,7 @@ export function CommandCenterPanel() {
         })
       })
 
-    healthScores
+    visibleHealthScores
       .filter((h) => h.riskLevel === 'high')
       .forEach((h) => {
         recs.push({
@@ -341,7 +369,7 @@ export function CommandCenterPanel() {
       })
 
     // Change orders
-    const openCOs = changeOrders.filter((co) => co.status === 'submitted')
+    const openCOs = scopedChangeOrders.filter((co) => co.status === 'submitted')
     if (openCOs.length > 3) {
       recs.push({
         id:       `co-excess-${seq++}`,
@@ -375,7 +403,7 @@ export function CommandCenterPanel() {
     })
 
     // Critical risks
-    sites.flatMap((s) => s.risks)
+    scopedSites.flatMap((s) => s.risks)
       .filter((r) => r.level === 'critical' && r.status === 'active')
       .forEach((r) => {
         recs.push({
@@ -390,7 +418,7 @@ export function CommandCenterPanel() {
 
     // Overdue maintenance
     const today = new Date()
-    maintenanceOrders
+    visibleMaintenanceOrders
       .filter((o) => o.status !== 'completed' && o.status !== 'cancelled' && new Date(o.scheduledDate + 'T00:00:00') < today)
       .forEach((o) => {
         recs.push({
@@ -404,7 +432,7 @@ export function CommandCenterPanel() {
       })
 
     // Pending reallocations
-    const pendingRealoc = routingRecs.filter((r) => r.accepted === undefined)
+    const pendingRealoc = visibleRoutingRecs.filter((r) => r.accepted === undefined)
     if (pendingRealoc.length > 0) {
       recs.push({
         id:       `realoc-${seq++}`,
@@ -423,7 +451,7 @@ export function CommandCenterPanel() {
       if (catDiff !== 0) return catDiff
       return b.urgency - a.urgency
     })
-  }, [projects, healthScores, changeOrders, sites, maintenanceOrders, routingRecs])
+  }, [demoEnabled, scopedProjects, healthScores, scopedChangeOrders, scopedSites, maintenanceOrders, routingRecs])
 
   return (
     <div className="flex flex-col gap-5">

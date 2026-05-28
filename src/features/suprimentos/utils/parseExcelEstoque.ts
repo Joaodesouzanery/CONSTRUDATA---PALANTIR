@@ -4,6 +4,7 @@
  */
 import * as XLSX from 'xlsx'
 import type { ItemEstoque } from '@/types'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 export interface ExcelPreview {
   headers: string[]
@@ -16,7 +17,8 @@ const FIELD_HINTS: Record<string, string[]> = {
   unidade:             ['unidade', 'un', 'unit', 'und', 'medida'],
   qtdDisponivel:       ['qtd disponivel', 'quantidade disponivel', 'disponivel', 'estoque', 'saldo', 'quantidade', 'qtd', 'qty', 'qtdatual'],
   estoqueMinimo:       ['estoque minimo', 'minimo', 'min', 'estoque_min', 'qtd_minima', 'qtd min'],
-  custoUnitario:       ['custo unitario', 'custo', 'preco', 'preço', 'valor', 'price', 'unit cost', 'custounit'],
+  custoUnitario:       ['custo unitario', 'valor unitario', 'unitario', 'custo', 'preco unitario', 'preço unitário', 'price', 'unit cost', 'custounit'],
+  valorTotal:          ['valor total', 'total', 'custo total', 'preco total', 'preço total'],
   categoria:           ['categoria', 'category', 'grupo', 'tipo', 'class'],
   fornecedorPrincipal: ['fornecedor', 'supplier', 'vendor', 'fornecedorprincipal', 'fornec'],
 }
@@ -84,17 +86,16 @@ export function applyColumnMapping(
     })
     .map((row) => {
       const str  = (field: string) => (inv[field] ? row[inv[field]]?.trim() ?? '' : '')
-      const num  = (field: string) => {
-        const raw = str(field).replace(',', '.')
-        const v   = parseFloat(raw)
-        return isNaN(v) ? 0 : v
-      }
+      const num  = (field: string) => parseLocaleNumber(str(field))
+      const quantidade = num('qtdDisponivel')
+      const valorTotal = num('valorTotal')
+      const custoUnitario = num('custoUnitario') || (quantidade > 0 && valorTotal > 0 ? valorTotal / quantidade : 0)
       return {
         descricao:           str('descricao')           || '—',
-        unidade:             str('unidade')             || 'un',
-        qtdDisponivel:       num('qtdDisponivel'),
+        unidade:             str('unidade')             || '',
+        qtdDisponivel:       quantidade,
         estoqueMinimo:       num('estoqueMinimo'),
-        custoUnitario:       num('custoUnitario') || undefined,
+        custoUnitario:       custoUnitario || undefined,
         categoria:           str('categoria')           || undefined,
         fornecedorPrincipal: str('fornecedorPrincipal') || undefined,
       }

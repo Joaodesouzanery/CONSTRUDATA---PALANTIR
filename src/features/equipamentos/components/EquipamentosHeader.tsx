@@ -18,7 +18,7 @@ export function EquipamentosHeader() {
         </div>
         <div>
           <h1 className="text-[#f5f5f5] font-bold text-base">Perfil dos Equipamentos</h1>
-          <p className="text-[#6b6b6b] text-xs">
+          <p className="text-[#a3a3a3] text-xs">
             {equipamentos.length} equipamentos
             {alertCount > 0 && (
               <span className="text-[#ef4444] ml-1">· {alertCount} alerta{alertCount !== 1 ? 's' : ''} ativo{alertCount !== 1 ? 's' : ''}</span>

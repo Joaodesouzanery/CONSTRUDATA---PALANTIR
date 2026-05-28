@@ -7,6 +7,8 @@ export type ContractorStatus = 'active' | 'inactive'
 export type RdoContractorLinkType = 'regular' | 'sabesp'
 export type MeasurementAdjustmentKind = 'extra' | 'discount' | 'manual_adjustment'
 export type ContractorInvoiceStatus = 'pendente' | 'enviada' | 'aprovada' | 'paga' | 'glosada'
+export type MeasurementSourceKind = 'rdo' | 'rdo_sabesp' | 'spreadsheet' | 'manual' | 'suprimentos' | 'quality_return'
+export type MeasurementQualityStatus = 'clear' | 'pending_quality' | 'blocked_by_nc' | 'released' | 'glosa_review'
 
 export interface Contractor {
   id: string
@@ -72,6 +74,44 @@ export interface MeasurementAdjustment {
   _syncError?: string | null
 }
 
+export interface MeasurementSource {
+  id: string
+  organization_id?: string
+  created_by?: string
+  measurement_id?: string | null
+  rdo_id?: string | null
+  rdo_type?: RdoContractorLinkType | null
+  contractor_id?: string | null
+  nucleo?: string | null
+  local?: string | null
+  street?: string | null
+  service_order?: string | null
+  n_preco?: string | null
+  source_workbook_name?: string | null
+  source_sheet?: string | null
+  source_row?: number | null
+  parse_confidence?: number | null
+  import_warnings?: string[] | null
+  blocking_issues?: string[] | null
+  evidence_url?: string | null
+  source_kind: MeasurementSourceKind
+  source_uid?: string | null
+  source_date?: string | null
+  service_code?: string | null
+  service_description: string
+  unit?: string | null
+  quantity: number
+  amount: number
+  origin_label: string
+  quality_status: MeasurementQualityStatus
+  quality_nc_id?: string | null
+  quality_note?: string | null
+  source_payload?: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+  deleted_at?: string | null
+}
+
 export interface ContractorInvoice {
   id: string
   organization_id?: string
@@ -107,6 +147,7 @@ interface ContractorState {
   contractors: Contractor[]
   foremen: ContractorForeman[]
   rdoLinks: RdoContractorLink[]
+  measurementSources: MeasurementSource[]
   adjustments: MeasurementAdjustment[]
   invoices: ContractorInvoice[]
   invoiceEvents: ContractorInvoiceEvent[]
@@ -114,6 +155,7 @@ interface ContractorState {
   syncError: string | null
 
   load: () => Promise<void>
+  clearData: () => void
   addContractor: (input: Pick<Contractor, 'name'> & Partial<Contractor>) => Promise<string>
   updateContractor: (id: string, patch: Partial<Omit<Contractor, 'id'>>) => Promise<void>
   removeContractor: (id: string) => Promise<void>
@@ -169,7 +211,13 @@ async function tryUpsert(table: string, row: object) {
 }
 
 async function trySoftDelete(table: string, idValue: string) {
-  const { error } = await supabase.from(table).update({ deleted_at: nowIso() }).eq('id', idValue)
+  const { profile } = useAuth.getState()
+  if (!profile) return
+  const { error } = await supabase
+    .from(table)
+    .update({ deleted_at: nowIso() })
+    .eq('id', idValue)
+    .eq('organization_id', profile.organization_id)
   if (error) throw error
 }
 
@@ -179,6 +227,7 @@ export const useContractorStore = create<ContractorState>()(
       contractors: [],
       foremen: [],
       rdoLinks: [],
+      measurementSources: [],
       adjustments: [],
       invoices: [],
       invoiceEvents: [],
@@ -194,25 +243,28 @@ export const useContractorStore = create<ContractorState>()(
             contractors,
             foremen,
             rdoLinks,
+            measurementSources,
             adjustments,
             invoices,
             invoiceEvents,
           ] = await Promise.all([
-            supabase.from('contractors').select('*').is('deleted_at', null).order('name'),
-            supabase.from('contractor_foremen').select('*').is('deleted_at', null).order('name'),
-            supabase.from('rdo_contractor_links').select('*'),
-            supabase.from('measurement_adjustments').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
-            supabase.from('contractor_invoices').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
-            supabase.from('contractor_invoice_events').select('*').order('created_at', { ascending: false }),
+            supabase.from('contractors').select('*').eq('organization_id', profile.organization_id).is('deleted_at', null).order('name'),
+            supabase.from('contractor_foremen').select('*').eq('organization_id', profile.organization_id).is('deleted_at', null).order('name'),
+            supabase.from('rdo_contractor_links').select('*').eq('organization_id', profile.organization_id),
+            supabase.from('measurement_sources').select('*').eq('organization_id', profile.organization_id).is('deleted_at', null).order('source_date', { ascending: false }),
+            supabase.from('measurement_adjustments').select('*').eq('organization_id', profile.organization_id).is('deleted_at', null).order('created_at', { ascending: false }),
+            supabase.from('contractor_invoices').select('*').eq('organization_id', profile.organization_id).is('deleted_at', null).order('created_at', { ascending: false }),
+            supabase.from('contractor_invoice_events').select('*').eq('organization_id', profile.organization_id).order('created_at', { ascending: false }),
           ])
 
-          const firstError = contractors.error || foremen.error || rdoLinks.error || adjustments.error || invoices.error || invoiceEvents.error
+          const firstError = contractors.error || foremen.error || rdoLinks.error || measurementSources.error || adjustments.error || invoices.error || invoiceEvents.error
           if (firstError) throw firstError
 
           set({
             contractors: contractors.data ?? [],
             foremen: foremen.data ?? [],
             rdoLinks: rdoLinks.data ?? [],
+            measurementSources: measurementSources.data ?? [],
             adjustments: adjustments.data ?? [],
             invoices: invoices.data ?? [],
             invoiceEvents: invoiceEvents.data ?? [],
@@ -225,6 +277,18 @@ export const useContractorStore = create<ContractorState>()(
           set({ loading: false, syncError: message })
         }
       },
+
+      clearData: () => set({
+        contractors: [],
+        foremen: [],
+        rdoLinks: [],
+        measurementSources: [],
+        adjustments: [],
+        invoices: [],
+        invoiceEvents: [],
+        loading: false,
+        syncError: null,
+      }),
 
       addContractor: async (input) => {
         const row: Contractor = {
@@ -460,6 +524,7 @@ export const useContractorStore = create<ContractorState>()(
         contractors: state.contractors,
         foremen: state.foremen,
         rdoLinks: state.rdoLinks,
+        measurementSources: state.measurementSources,
         adjustments: state.adjustments,
         invoices: state.invoices,
         invoiceEvents: state.invoiceEvents,

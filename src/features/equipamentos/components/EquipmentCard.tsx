@@ -34,12 +34,12 @@ export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[#f97316] font-mono text-xs font-semibold">{equipment.code}</span>
-              <span className="text-[10px] text-[#6b6b6b] uppercase tracking-wider">{equipment.type}</span>
+              <span className="text-[10px] text-[#a3a3a3] uppercase tracking-wider">{equipment.type}</span>
             </div>
             <p className="text-[#f5f5f5] font-semibold text-sm leading-snug truncate">
               {equipment.name}
             </p>
-            <p className="text-[#6b6b6b] text-xs">
+            <p className="text-[#a3a3a3] text-xs">
               {equipment.brand} {equipment.model} · {equipment.year}
             </p>
           </div>
@@ -61,7 +61,7 @@ export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props
       </div>
 
       {/* Info row */}
-      <div className="flex items-center gap-3 text-[11px] text-[#6b6b6b] flex-wrap">
+      <div className="flex items-center gap-3 text-[11px] text-[#a3a3a3] flex-wrap">
         {equipment.siteName && (
           <span className="flex items-center gap-1 truncate max-w-[140px]">
             <MapPin size={10} className="shrink-0" />
@@ -78,12 +78,17 @@ export function EquipmentCard({ equipment, isSelected, onSelect, onEdit }: Props
             <span className="truncate">{equipment.operator}</span>
           </span>
         )}
+        {equipment.contractorName && (
+          <span className="truncate max-w-[150px] rounded border border-[#525252] px-1.5 py-0.5 text-[10px]">
+            {equipment.contractorName}
+          </span>
+        )}
       </div>
 
       {/* Edit link */}
       <button
         onClick={(e) => { e.stopPropagation(); onEdit() }}
-        className="self-start flex items-center gap-1 text-[10px] text-[#3f3f3f] hover:text-[#f97316] transition-colors mt-0.5"
+        className="self-start flex items-center gap-1 text-[10px] text-[#8a8a8a] hover:text-[#f97316] transition-colors mt-0.5"
       >
         <Pencil size={9} />
         Editar perfil

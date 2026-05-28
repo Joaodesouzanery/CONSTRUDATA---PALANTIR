@@ -9,6 +9,7 @@ import { useGestao360Store }       from '@/store/gestao360Store'
 import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useMaoDeObraStore }       from '@/store/maoDeObraStore'
 import { useFrotaVeicularStore }   from '@/store/frotaVeicularStore'
+import { useEconomiaStore }        from '@/store/economiaStore'
 
 export interface AlertCounts {
   [route: string]: number
@@ -39,6 +40,9 @@ export function useAlertCounts(): AlertCounts {
       (a) => a.isActive && (a.severity === 'critical' || a.severity === 'high'),
     ).length
   )
+  const economyEvents = useEconomiaStore((s) =>
+    s.events.filter((event) => event.status === 'detected' && event.impactBRL > 0).length
+  )
 
   return {
     '/app/otimizacao-frota':    healthAlerts,
@@ -46,5 +50,6 @@ export function useAlertCounts(): AlertCounts {
     '/app/gestao-360':          changeOrders,
     '/app/gestao-equipamentos': maintOrders,
     '/app/mao-de-obra':         occurrences + fleetAlerts,
+    '/app/economia':            economyEvents,
   }
 }

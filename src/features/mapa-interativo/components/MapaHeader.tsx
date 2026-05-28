@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useMapaInterativoStore } from '@/store/mapaInterativoStore'
 import { useProjetosStore }       from '@/store/projetosStore'
+import { isDemoModeEnabled }      from '@/lib/runtimeMode'
 import { MapaImportModal }        from './MapaImportModal'
 import { MapaExportModal }        from './MapaExportModal'
 import { MapaTransformCrsModal }  from './MapaTransformCrsModal'
@@ -58,6 +59,7 @@ export function MapaHeader({
   const setSelectedProjectId = useMapaInterativoStore((s) => s.setSelectedProjectId)
 
   const projects = useProjetosStore((s) => s.projects)
+  const isDemoMode = isDemoModeEnabled()
 
   const [showImport, setShowImport]     = useState(false)
   const [showExport, setShowExport]     = useState(false)
@@ -138,8 +140,7 @@ export function MapaHeader({
         try {
           const data = JSON.parse(text)
           if (data.nodes && data.segments) {
-            useMapaInterativoStore.getState().loadDemoData()  // reset
-            // Replace with loaded data
+            useMapaInterativoStore.getState().clearAll()
             useMapaInterativoStore.setState({ nodes: data.nodes, segments: data.segments })
           }
         } catch { alert('Arquivo JSON inválido.') }
@@ -169,7 +170,7 @@ export function MapaHeader({
         {/* Row 2: Tool buttons — horizontally scrollable on mobile */}
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
           {/* View tools */}
-          <ToolBtn label="Ajustar" icon={<Maximize2 size={13} />} onClick={() => loadDemoData()} />
+          {isDemoMode && <ToolBtn label="Demo" icon={<Maximize2 size={13} />} onClick={() => loadDemoData()} />}
           <ToolBtn label="Desfazer" icon={<RotateCcw size={13} />} onClick={undo} disabled={history.length === 0} />
           <ToolBtn label="Limpar" icon={<Trash2 size={13} />} onClick={clearAll} danger />
           <ToolBtn label="Salvar" icon={<Save size={13} />} onClick={handleSave} />

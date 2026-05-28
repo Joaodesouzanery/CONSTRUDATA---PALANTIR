@@ -27,7 +27,7 @@ export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
           <h1 className="text-[#f5f5f5] font-bold text-base leading-tight">
             Equipamentos
           </h1>
-          <p className="text-[#6b6b6b] text-xs">Manutenção, utilização e custos da frota</p>
+          <p className="text-[#a3a3a3] text-xs">Manutenção, utilização e custos da frota</p>
         </div>
       </div>
 
@@ -43,7 +43,7 @@ export function GestaoHeader({ activeTab, onTabChange }: GestaoHeaderProps) {
                 'relative px-5 py-4 text-xs font-semibold transition-colors whitespace-nowrap',
                 isActive
                   ? 'text-[#f97316]'
-                  : 'text-[#6b6b6b] hover:text-[#a3a3a3]',
+                  : 'text-[#a3a3a3] hover:text-[#f5f5f5]',
               )}
             >
               {tab.label}

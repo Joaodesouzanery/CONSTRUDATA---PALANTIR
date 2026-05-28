@@ -204,7 +204,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             id: rootId, wbsCode: '1', name: projectName, parentId: null, level: 0,
             plannedStart: startDate, plannedEnd: endDate, trendStart: startDate, trendEnd: endDate,
             durationDays: totalDays, percentComplete: 0, status: 'not_started', isMilestone: false,
-            weight: 100, networkType,
+            weight: 100, plannedProgressPct: 100, networkType: networkType ?? 'geral',
           })
           const frontCount = Math.max(1, fronts.length)
           const daysPerFront = Math.max(1, Math.floor(totalDays / frontCount))
@@ -223,7 +223,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
               plannedStart: frontStartStr, plannedEnd: frontEndStr,
               trendStart: frontStartStr, trendEnd: frontEndStr,
               durationDays: daysPerFront, percentComplete: 0, status: 'not_started',
-              isMilestone: false, weight: weightPerFront, networkType,
+              isMilestone: false, weight: weightPerFront, plannedProgressPct: weightPerFront, networkType: networkType ?? 'geral',
             })
             if (includeServices) {
               newActivities.push({
@@ -232,7 +232,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
                 plannedStart: frontStartStr, plannedEnd: frontEndStr,
                 trendStart: frontStartStr, trendEnd: frontEndStr,
                 durationDays: daysPerFront, percentComplete: 0, status: 'not_started',
-                isMilestone: false, weight: weightPerFront, networkType,
+                isMilestone: false, weight: weightPerFront, plannedProgressPct: weightPerFront, networkType: networkType ?? 'geral',
               })
             }
           })
@@ -275,6 +275,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             status: 'not_started',
             isMilestone: false,
             weight: 100,
+            plannedProgressPct: 100,
             networkType: 'geral',
             baselineStart: contract.startDate,
             baselineEnd: contract.endDate,
@@ -294,6 +295,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             status: 'not_started',
             isMilestone: false,
             weight: n.bacWeightPct,
+            plannedProgressPct: n.bacWeightPct,
             networkType: serviceToNetworkType(n.serviceType),
             nucleo: n.name,
             nucleusId: n.id,
@@ -334,6 +336,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
                 nucleo: a.nucleo ?? nucleus?.name,
                 nucleusId,
                 financialWeightPct: a.financialWeightPct ?? (activityInput.length > 0 ? 100 / activityInput.length : 0),
+                plannedProgressPct: a.plannedProgressPct ?? a.financialWeightPct ?? (activityInput.length > 0 ? 100 / activityInput.length : 0),
                 physicalProgressPct: a.physicalProgressPct ?? a.percentComplete ?? 0,
                 financialProgressPct: a.financialProgressPct ?? a.percentComplete ?? 0,
                 estimatedHH: a.estimatedHH ?? 40,

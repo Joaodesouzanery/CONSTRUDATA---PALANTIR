@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
+import { buildOperationalKey } from '@/lib/operationalKey'
 import type {
   PurchaseOrder,
   GoodsReceipt,
@@ -44,12 +45,22 @@ import {
   createSuprimentosOrdem,
   importSuprimentosPlanilhas,
   loadSuprimentosPlanilhas,
+  removeManualItem,
+  removeManualNucleo,
+  removeManualRua,
+  updateManualItem,
+  updateManualNucleo,
+  updateManualRua,
   type ManualItemInput,
+  type ManualItemUpdateInput,
   type ManualNucleoInput,
+  type ManualNucleoUpdateInput,
   type ManualRuaInput,
+  type ManualRuaUpdateInput,
   type SuprimentosOperacionalItem,
   type SuprimentosOrdem,
 } from '@/features/suprimentos/utils/suprimentosPlanilhasSupabase'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
 
@@ -300,7 +311,9 @@ interface SuprimentosState {
   addFrameworkAgreement:    (fa: Omit<FrameworkAgreement, 'id'>) => void
 
   // Estoque actions
-  addDeposito:         (deposito: Omit<DepositoVirtual, 'id' | 'ativo'> & { ativo?: boolean }) => void
+  addDeposito:         (deposito: Omit<DepositoVirtual, 'id' | 'ativo'> & { ativo?: boolean }) => string
+  updateDeposito:      (id: string, patch: Partial<Omit<DepositoVirtual, 'id'>>) => void
+  removeDeposito:      (id: string) => void
   setSelectedDeposito:  (id: string | null) => void
   addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => void
   updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
@@ -322,8 +335,14 @@ interface SuprimentosState {
   importPlanilhasSupabase: (payload: { resumo?: ResumoNucleo[]; trechos?: ConsolidadoTrecho[]; materiais?: MaterialNucleo[] }) => Promise<void>
   pullPlanilhasSupabase:   () => Promise<void>
   addManualNucleo:         (input: ManualNucleoInput) => Promise<void>
+  updateManualNucleo:      (input: ManualNucleoUpdateInput) => Promise<void>
+  removeManualNucleo:      (id: string) => Promise<void>
   addManualRua:            (input: ManualRuaInput) => Promise<void>
+  updateManualRua:         (input: ManualRuaUpdateInput) => Promise<void>
+  removeManualRua:         (id: string) => Promise<void>
   addManualItem:           (input: ManualItemInput) => Promise<void>
+  updateManualItem:        (input: ManualItemUpdateInput) => Promise<void>
+  removeManualItem:        (id: string) => Promise<void>
   createOrdemSuprimentos:  (itemIds: string[]) => Promise<void>
   setPlanilhaMetadata:     (meta: { dataRef: string; contrato: string }) => void
   clearPlanilhas:          () => void
@@ -331,6 +350,9 @@ interface SuprimentosState {
   // Demo mode
   loadDemoData: () => void
   clearData: () => void
+  sanitizeDemoData: () => void
+  activeOrgId: string | null
+  ensureTenantScope: (organizationId: string) => void
 
   // Sync (Sprint 2)
   pendingSync:  PendingOp[]
@@ -404,6 +426,79 @@ function supplierToRow(s: Supplier, orgId: string, userId: string) {
   }
 }
 
+function depositoToRow(deposito: DepositoVirtual, orgId: string, userId: string) {
+  return {
+    id:              deposito.id,
+    organization_id: orgId,
+    frente:          deposito.frente,
+    descricao:       deposito.descricao ?? null,
+    ativo:           deposito.ativo,
+    created_by:      userId,
+  }
+}
+
+function estoqueItemToRow(item: ItemEstoque, orgId: string, userId: string) {
+  return {
+    id:                   item.id,
+    organization_id:      orgId,
+    deposito_id:          item.depositoId || null,
+    descricao:            item.descricao,
+    unidade:              item.unidade || null,
+    qtd_disponivel:       item.qtdDisponivel,
+    qtd_reservada:        item.qtdReservada,
+    qtd_transito:         item.qtdTransito,
+    estoque_minimo:       item.estoqueMinimo,
+    custo_unitario:       item.custoUnitario ?? null,
+    lps_activity_id:      item.lpsActivityId ?? null,
+    categoria:            item.categoria ?? null,
+    fornecedor_principal: item.fornecedorPrincipal ?? null,
+    created_by:           userId,
+  }
+}
+
+function movimentacaoToRow(mov: MovimentacaoEstoque, orgId: string, userId: string) {
+  return {
+    id:              mov.id,
+    organization_id: orgId,
+    item_id:         mov.itemId,
+    deposito_id:     mov.depositoId || null,
+    tipo:            mov.tipo,
+    quantidade:      mov.quantidade,
+    data_movimento:  mov.dataMovimento,
+    data_compra:     mov.dataCompra ?? null,
+    fornecedor:      mov.fornecedor ?? null,
+    nf:              mov.nf ?? null,
+    lead_time_dias:  mov.leadTimeDias ?? null,
+    lps_activity_id: mov.lpsActivityId ?? null,
+    observacoes:     mov.observacoes ?? null,
+    created_by:      userId,
+  }
+}
+
+function currentSyncContext() {
+  const { profile, user } = useAuth.getState()
+  return {
+    orgId:  profile?.organization_id ?? 'pending',
+    userId: user?.id ?? 'pending',
+  }
+}
+
+const demoIds = {
+  purchaseOrders:      new Set(mockPurchaseOrders.map((item) => item.id)),
+  receipts:            new Set(mockGoodsReceipts.map((item) => item.id)),
+  invoices:            new Set(mockInvoices.map((item) => item.id)),
+  matches:             new Set(mockMatches.map((item) => item.id)),
+  exceptions:          new Set(mockExceptions.map((item) => item.id)),
+  forecasts:           new Set(mockForecasts.map((item) => item.id)),
+  requisitions:        new Set(mockRequisitions.map((item) => item.id)),
+  frameworkAgreements: new Set(mockFrameworkAgreements.map((item) => item.id)),
+  depositos:           new Set(mockDepositos.map((item) => item.id)),
+  estoqueItens:        new Set(mockEstoqueItens.map((item) => item.id)),
+  movimentacoes:       new Set(mockMovimentacoes.map((item) => item.id)),
+  reservas:            new Set(mockReservas.map((item) => item.id)),
+  leadTimeRecords:     new Set(mockLeadTimeRecords.map((item) => item.id)),
+}
+
 const REQUISITION_FLOW: RequisitionStatus[] = [
   'submitted',
   'parsing',
@@ -440,9 +535,11 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   planilhaOrdens:    [],
   planilhaMetadata:  null,
 
-  supplyChainNodes:  mockSupplyChainNodes,
-  supplyChainAlerts: mockSupplyChainAlerts,
-  supplyChainPlans:  mockSupplyChainPlans,
+  supplyChainNodes:  [],
+  supplyChainAlerts: [],
+  supplyChainPlans:  [],
+
+  activeOrgId: null,
 
   // Sync (Sprint 2)
   pendingSync:  [],
@@ -621,6 +718,14 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         makeOp({ entity: 'receipt', type: 'insert', recordId: receipt.id, row: receiptToRow(receipt, orgId, userId), table: 'goods_receipts' }),
       ],
     }))
+    eventBus.emit({
+      type: 'supply.receipt_approved',
+      receiptId: receipt.id,
+      poId: receipt.poId,
+      operationalKey: buildOperationalKey({
+        period: receipt.receivedDate?.slice(0, 7),
+      }),
+    })
     get().runMatch(receipt.poId)
     void get().flush()
   },
@@ -636,6 +741,15 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         makeOp({ entity: 'invoice', type: 'insert', recordId: invoice.id, row: invoiceToRow(invoice, orgId, userId), table: 'invoices' }),
       ],
     }))
+    eventBus.emit({
+      type: 'supply.invoice_approved',
+      invoiceId: invoice.id,
+      poId: invoice.poId,
+      amount: invoice.totalAmount,
+      operationalKey: buildOperationalKey({
+        period: invoice.issueDate?.slice(0, 7),
+      }),
+    })
     get().runMatch(invoice.poId)
     void get().flush()
   },
@@ -718,33 +832,131 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addDeposito: (deposito) => {
     const id = crypto.randomUUID()
+    const row = { ...deposito, id, ativo: deposito.ativo ?? true }
+    const { orgId, userId } = currentSyncContext()
     set((s) => ({
-      depositos: [...s.depositos, { ...deposito, id, ativo: deposito.ativo ?? true }],
+      depositos: [...s.depositos, row],
       selectedDepositoId: id,
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'estoque_deposito', type: 'insert', recordId: id, row: depositoToRow(row, orgId, userId), table: 'suprimentos_depositos' }),
+      ],
     }))
+    void get().flush()
+    return id
+  },
+
+  updateDeposito: (id, patch) => {
+    const { orgId, userId } = currentSyncContext()
+    set((s) => {
+      const updated = s.depositos.map((d) => (d.id === id ? { ...d, ...patch } : d))
+      const target = updated.find((d) => d.id === id)
+      const row = target ? depositoToRow(target, orgId, userId) : undefined
+      const updatePatch = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id', 'organization_id', 'created_by'].includes(k))) : undefined
+      return {
+        depositos: updated,
+        pendingSync: [
+          ...s.pendingSync,
+          makeOp({ entity: 'estoque_deposito', type: 'update', recordId: id, patch: updatePatch, table: 'suprimentos_depositos' }),
+        ],
+      }
+    })
+    void get().flush()
+  },
+
+  removeDeposito: (id) => {
+    const deletedAt = new Date().toISOString()
+    set((s) => {
+      const remainingItems = s.estoqueItens.filter((item) => item.depositoId !== id)
+      const removedItemIds = s.estoqueItens.filter((item) => item.depositoId === id).map((item) => item.id)
+      const removedItemSet = new Set(removedItemIds)
+      return {
+        depositos: s.depositos.filter((d) => d.id !== id),
+        selectedDepositoId: s.selectedDepositoId === id ? null : s.selectedDepositoId,
+        estoqueItens: remainingItems,
+        movimentacoes: s.movimentacoes.filter((mov) => !removedItemSet.has(mov.itemId)),
+        pendingSync: [
+          ...s.pendingSync,
+          makeOp({ entity: 'estoque_deposito', type: 'update', recordId: id, patch: { deleted_at: deletedAt }, table: 'suprimentos_depositos' }),
+          ...removedItemIds.map((itemId) =>
+            makeOp({ entity: 'estoque_item', type: 'update', recordId: itemId, patch: { deleted_at: deletedAt }, table: 'suprimentos_estoque_itens' }),
+          ),
+        ],
+      }
+    })
+    void get().flush()
   },
 
   setSelectedDeposito: (id) => set({ selectedDepositoId: id }),
 
-  addItemEstoque: (item) =>
+  addItemEstoque: (item) => {
+    const id = crypto.randomUUID()
+    const { orgId, userId } = currentSyncContext()
+    let depositoId = item.depositoId
+    let depositoRow: DepositoVirtual | null = null
+    if (!depositoId || depositoId === 'dep-default') {
+      depositoId = crypto.randomUUID()
+      depositoRow = { id: depositoId, frente: 'Almoxarifado Central', descricao: 'Depósito padrão criado automaticamente', ativo: true }
+    }
+    const row: ItemEstoque = { ...item, id, depositoId, unidade: item.unidade ?? '' }
     set((s) => ({
-      estoqueItens: [...s.estoqueItens, { ...item, id: crypto.randomUUID() }],
-    })),
+      depositos: depositoRow ? [...s.depositos, depositoRow] : s.depositos,
+      selectedDepositoId: s.selectedDepositoId ?? depositoId,
+      estoqueItens: [...s.estoqueItens, row],
+      pendingSync: [
+        ...s.pendingSync,
+        ...(depositoRow ? [makeOp({ entity: 'estoque_deposito', type: 'insert', recordId: depositoRow.id, row: depositoToRow(depositoRow, orgId, userId), table: 'suprimentos_depositos' })] : []),
+        makeOp({ entity: 'estoque_item', type: 'insert', recordId: id, row: estoqueItemToRow(row, orgId, userId), table: 'suprimentos_estoque_itens' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  updateItemEstoque: (id, patch) =>
-    set((s) => ({
-      estoqueItens: s.estoqueItens.map((i) => (i.id === id ? { ...i, ...patch } : i)),
-    })),
+  updateItemEstoque: (id, patch) => {
+    const { orgId, userId } = currentSyncContext()
+    set((s) => {
+      const updated = s.estoqueItens.map((i) => (i.id === id ? { ...i, ...patch } : i))
+      const target = updated.find((i) => i.id === id)
+      const row = target ? estoqueItemToRow(target, orgId, userId) : undefined
+      const updatePatch = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
+        !['id', 'organization_id', 'created_by'].includes(k))) : undefined
+      return {
+        estoqueItens: updated,
+        pendingSync: [
+          ...s.pendingSync,
+          makeOp({ entity: 'estoque_item', type: 'update', recordId: id, patch: updatePatch, table: 'suprimentos_estoque_itens' }),
+        ],
+      }
+    })
+    void get().flush()
+  },
 
-  removeItemEstoque: (id) =>
+  removeItemEstoque: (id) => {
     set((s) => ({
       estoqueItens: s.estoqueItens.filter((i) => i.id !== id),
-    })),
+      movimentacoes: s.movimentacoes.filter((mov) => mov.itemId !== id),
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'estoque_item', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'suprimentos_estoque_itens' }),
+      ],
+    }))
+    void get().flush()
+  },
 
-  addMovimentacao: (mov) =>
+  addMovimentacao: (mov) => {
+    const id = crypto.randomUUID()
+    const row = { ...mov, id }
+    const { orgId, userId } = currentSyncContext()
     set((s) => ({
-      movimentacoes: [...s.movimentacoes, { ...mov, id: crypto.randomUUID() }],
-    })),
+      movimentacoes: [...s.movimentacoes, row],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'estoque_movimentacao', type: 'insert', recordId: id, row: movimentacaoToRow(row, orgId, userId), table: 'suprimentos_estoque_movimentacoes' }),
+      ],
+    }))
+    void get().flush()
+  },
 
   addReserva: (r) =>
     set((s) => ({
@@ -762,24 +974,32 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     if (!item) return
 
     const newQtd = Math.max(0, item.qtdDisponivel - qty)
+    const mov: MovimentacaoEstoque = {
+      id: crypto.randomUUID(),
+      itemId,
+      depositoId: item.depositoId,
+      tipo: 'saida',
+      quantidade: qty,
+      dataMovimento: new Date().toISOString().slice(0, 10),
+      lpsActivityId: opts?.lpsActivityId,
+      observacoes: opts?.observacoes,
+    }
+    const { orgId, userId } = currentSyncContext()
     set((s) => ({
       estoqueItens: s.estoqueItens.map((i) =>
         i.id === itemId ? { ...i, qtdDisponivel: newQtd } : i
       ),
       movimentacoes: [
         ...s.movimentacoes,
-        {
-          id: crypto.randomUUID(),
-          itemId,
-          depositoId: item.depositoId,
-          tipo: 'saida' as const,
-          quantidade: qty,
-          dataMovimento: new Date().toISOString().slice(0, 10),
-          lpsActivityId: opts?.lpsActivityId,
-          observacoes: opts?.observacoes,
-        },
+        mov,
+      ],
+      pendingSync: [
+        ...s.pendingSync,
+        makeOp({ entity: 'estoque_item', type: 'update', recordId: itemId, patch: { qtd_disponivel: newQtd }, table: 'suprimentos_estoque_itens' }),
+        makeOp({ entity: 'estoque_movimentacao', type: 'insert', recordId: mov.id, row: movimentacaoToRow(mov, orgId, userId), table: 'suprimentos_estoque_movimentacoes' }),
       ],
     }))
+    void get().flush()
   },
 
   calcSemaforo: (depositoId, lpsActivityId, semana) => {
@@ -876,6 +1096,16 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     }
   },
   pullPlanilhasSupabase: async () => {
+    const orgId = useAuth.getState().profile?.organization_id
+    if (orgId) get().ensureTenantScope(orgId)
+    set({
+      planilhaResumo: [],
+      planilhaTrechos: [],
+      planilhaMateriais: [],
+      planilhaItensOperacionais: [],
+      planilhaOrdens: [],
+      planilhaMetadata: null,
+    })
     try {
       const loaded = await loadSuprimentosPlanilhas()
       set({
@@ -897,12 +1127,50 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     await createManualNucleo(input)
     await get().pullPlanilhasSupabase()
   },
+  updateManualNucleo: async (input) => {
+    await updateManualNucleo(input)
+    await get().pullPlanilhasSupabase()
+  },
+  removeManualNucleo: async (id) => {
+    await removeManualNucleo(id)
+    await get().pullPlanilhasSupabase()
+  },
   addManualRua: async (input) => {
     await createManualRua(input)
     await get().pullPlanilhasSupabase()
   },
+  updateManualRua: async (input) => {
+    await updateManualRua(input)
+    await get().pullPlanilhasSupabase()
+  },
+  removeManualRua: async (id) => {
+    await removeManualRua(id)
+    await get().pullPlanilhasSupabase()
+  },
   addManualItem: async (input) => {
     const loaded = await createManualItem(input)
+    set({
+      planilhaResumo: loaded.resumo,
+      planilhaTrechos: loaded.trechos,
+      planilhaMateriais: loaded.materiais,
+      planilhaItensOperacionais: loaded.operacional,
+      planilhaOrdens: loaded.ordens,
+      lastSyncedAt: new Date().toISOString(),
+    })
+  },
+  updateManualItem: async (input) => {
+    const loaded = await updateManualItem(input)
+    set({
+      planilhaResumo: loaded.resumo,
+      planilhaTrechos: loaded.trechos,
+      planilhaMateriais: loaded.materiais,
+      planilhaItensOperacionais: loaded.operacional,
+      planilhaOrdens: loaded.ordens,
+      lastSyncedAt: new Date().toISOString(),
+    })
+  },
+  removeManualItem: async (id) => {
+    const loaded = await removeManualItem(id)
     set({
       planilhaResumo: loaded.resumo,
       planilhaTrechos: loaded.trechos,
@@ -935,7 +1203,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       const newPOs: PurchaseOrder[] = items
         .filter((it) => it.saldo > 0 || it.qtdTotal > 0)
         .map((it) => ({
-          id:               'po-' + crypto.randomUUID().slice(0, 8),
+          id:               crypto.randomUUID(),
           code:             'OC-' + it.codigo.slice(0, 6).toUpperCase().replace(/\s/g, ''),
           supplier:         it.fornecedor || '—',
           responsible:      '',
@@ -956,7 +1224,6 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     } else {
       // Create or update estoque items
       const newEstoque = items.map((it) => ({
-        id:                  'ie-' + crypto.randomUUID().slice(0, 8),
         depositoId:          get().selectedDepositoId ?? get().depositos[0]?.id ?? 'dep-default',
         descricao:           it.descricao,
         unidade:             it.unidade,
@@ -968,7 +1235,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         categoria:           undefined as string | undefined,
         fornecedorPrincipal: it.fornecedor || undefined,
       }))
-      set((s) => ({ estoqueItens: [...s.estoqueItens, ...newEstoque] }))
+      for (const item of newEstoque) get().addItemEstoque(item)
     }
   },
 
@@ -1014,12 +1281,71 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       planilhaItensOperacionais: [],
       planilhaOrdens:      [],
       planilhaMetadata:    null,
-      supplyChainNodes:    mockSupplyChainNodes,
-      supplyChainAlerts:   mockSupplyChainAlerts,
-      supplyChainPlans:    mockSupplyChainPlans,
+      supplyChainNodes:    [],
+      supplyChainAlerts:   [],
+      supplyChainPlans:    [],
       pendingSync:         [],
+      activeOrgId:         null,
       syncError:           null,
     }),
+
+  ensureTenantScope: (organizationId) => {
+    if (!organizationId || get().activeOrgId === organizationId) return
+    set({
+      activeOrgId:          organizationId,
+      purchaseOrders:       [],
+      receipts:             [],
+      invoices:             [],
+      matches:              [],
+      exceptions:           [],
+      forecasts:            [],
+      requisitions:         [],
+      frameworkAgreements:  [],
+      suppliers:            [],
+      depositos:            [],
+      estoqueItens:         [],
+      movimentacoes:        [],
+      reservas:             [],
+      leadTimeRecords:      [],
+      selectedDepositoId:   null,
+      planilhaResumo:       [],
+      planilhaTrechos:      [],
+      planilhaMateriais:    [],
+      planilhaItensOperacionais: [],
+      planilhaOrdens:       [],
+      planilhaMetadata:     null,
+      supplyChainNodes:     [],
+      supplyChainAlerts:    [],
+      supplyChainPlans:     [],
+      pendingSync:          [],
+      syncStatus:           'idle',
+      lastSyncedAt:         null,
+      syncError:            null,
+    })
+  },
+
+  sanitizeDemoData: () => {
+    if (isDemoModeEnabled()) return
+    set((s) => ({
+      purchaseOrders:      s.purchaseOrders.filter((item) => !demoIds.purchaseOrders.has(item.id)),
+      receipts:            s.receipts.filter((item) => !demoIds.receipts.has(item.id)),
+      invoices:            s.invoices.filter((item) => !demoIds.invoices.has(item.id)),
+      matches:             s.matches.filter((item) => !demoIds.matches.has(item.id)),
+      exceptions:          s.exceptions.filter((item) => !demoIds.exceptions.has(item.id)),
+      forecasts:           s.forecasts.filter((item) => !demoIds.forecasts.has(item.id)),
+      requisitions:        s.requisitions.filter((item) => !demoIds.requisitions.has(item.id)),
+      frameworkAgreements: s.frameworkAgreements.filter((item) => !demoIds.frameworkAgreements.has(item.id)),
+      depositos:           s.depositos.filter((item) => !demoIds.depositos.has(item.id)),
+      estoqueItens:        s.estoqueItens.filter((item) => !demoIds.estoqueItens.has(item.id)),
+      movimentacoes:       s.movimentacoes.filter((item) => !demoIds.movimentacoes.has(item.id)),
+      reservas:            s.reservas.filter((item) => !demoIds.reservas.has(item.id)),
+      leadTimeRecords:     s.leadTimeRecords.filter((item) => !demoIds.leadTimeRecords.has(item.id)),
+      supplyChainNodes:    [],
+      supplyChainAlerts:   [],
+      supplyChainPlans:    [],
+      selectedDepositoId:  s.selectedDepositoId && demoIds.depositos.has(s.selectedDepositoId) ? null : s.selectedDepositoId,
+    }))
+  },
 
   // ── Sync ────────────────────────────────────────────────────────────────────
   flush: async () => {
@@ -1044,10 +1370,46 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   },
 
   pull: async () => {
-    const pos       = await pullTable<Record<string, unknown>>('purchase_orders')
-    const receipts  = await pullTable<Record<string, unknown>>('goods_receipts')
-    const invoices  = await pullTable<Record<string, unknown>>('invoices')
-    const suppliers = await pullTable<Record<string, unknown>>('suppliers')
+    const orgId = useAuth.getState().profile?.organization_id
+    if (!orgId) {
+      set({ syncStatus: 'unauth' })
+      return
+    }
+    get().ensureTenantScope(orgId)
+    if (!isDemoModeEnabled()) {
+      set({
+        purchaseOrders:     [],
+        receipts:           [],
+        invoices:           [],
+        suppliers:          [],
+        depositos:          [],
+        estoqueItens:       [],
+        movimentacoes:      [],
+        reservas:           [],
+        leadTimeRecords:    [],
+        selectedDepositoId: null,
+        supplyChainNodes:   [],
+        supplyChainAlerts:  [],
+        supplyChainPlans:   [],
+      })
+    }
+    const pos          = await pullTable<Record<string, unknown>>('purchase_orders')
+    const receipts     = await pullTable<Record<string, unknown>>('goods_receipts')
+    const invoices     = await pullTable<Record<string, unknown>>('invoices')
+    const suppliers    = await pullTable<Record<string, unknown>>('suppliers')
+    const depositos    = await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
+    const estoqueItens = await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
+    const movimentos   = await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
+    const pendingDeleteIds = (table: string) => new Set(
+      get().pendingSync
+        .filter((op) =>
+          op.table === table
+          && (op.type === 'delete' || (op.type === 'update' && Boolean(op.patch?.deleted_at)))
+        )
+        .map((op) => op.recordId),
+    )
+    const pendingDeletedDepositos = pendingDeleteIds('suprimentos_depositos')
+    const pendingDeletedItens = pendingDeleteIds('suprimentos_estoque_itens')
 
     if (pos) {
       set({
@@ -1106,6 +1468,58 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         })),
       })
     }
+    if (depositos) {
+      set({
+        depositos: depositos.filter((r) => !pendingDeletedDepositos.has(r.id as string)).map((r) => ({
+          id:        r.id as string,
+          frente:    r.frente as string,
+          descricao: (r.descricao as string | null) ?? undefined,
+          ativo:     Boolean(r.ativo ?? true),
+        })),
+      })
+    }
+    if (estoqueItens) {
+      set({
+        estoqueItens: estoqueItens
+          .filter((r) => !pendingDeletedItens.has(r.id as string))
+          .filter((r) => !pendingDeletedDepositos.has((r.deposito_id as string | null) ?? ''))
+          .map((r) => ({
+          id:                  r.id as string,
+          depositoId:          (r.deposito_id as string | null) ?? '',
+          descricao:           r.descricao as string,
+          unidade:             (r.unidade as string | null) ?? '',
+          qtdDisponivel:       Number(r.qtd_disponivel ?? 0),
+          qtdReservada:        Number(r.qtd_reservada ?? 0),
+          qtdTransito:         Number(r.qtd_transito ?? 0),
+          estoqueMinimo:       Number(r.estoque_minimo ?? 0),
+          custoUnitario:       r.custo_unitario == null ? undefined : Number(r.custo_unitario),
+          lpsActivityId:       (r.lps_activity_id as string | null) ?? undefined,
+          categoria:           (r.categoria as string | null) ?? undefined,
+          fornecedorPrincipal: (r.fornecedor_principal as string | null) ?? undefined,
+        })),
+      })
+    }
+    if (movimentos) {
+      set({
+        movimentacoes: movimentos
+          .filter((r) => !pendingDeletedItens.has(r.item_id as string))
+          .filter((r) => !pendingDeletedDepositos.has((r.deposito_id as string | null) ?? ''))
+          .map((r) => ({
+          id:             r.id as string,
+          itemId:         r.item_id as string,
+          depositoId:     (r.deposito_id as string | null) ?? '',
+          tipo:           r.tipo as MovimentacaoEstoque['tipo'],
+          quantidade:     Number(r.quantidade ?? 0),
+          dataMovimento:  r.data_movimento as string,
+          dataCompra:     (r.data_compra as string | null) ?? undefined,
+          fornecedor:     (r.fornecedor as string | null) ?? undefined,
+          nf:             (r.nf as string | null) ?? undefined,
+          leadTimeDias:   r.lead_time_dias == null ? undefined : Number(r.lead_time_dias),
+          lpsActivityId:  (r.lps_activity_id as string | null) ?? undefined,
+          observacoes:    (r.observacoes as string | null) ?? undefined,
+        })),
+      })
+    }
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),
@@ -1121,9 +1535,6 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,
         // Estoque continua só local-cache até Sprint 3
-        estoqueItens:      s.estoqueItens,
-        movimentacoes:     s.movimentacoes,
-        reservas:          s.reservas,
         // Planilhas Consolidadas persisted
         planilhaResumo:    s.planilhaResumo,
         planilhaTrechos:   s.planilhaTrechos,
@@ -1131,10 +1542,23 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         planilhaItensOperacionais: s.planilhaItensOperacionais,
         planilhaOrdens:    s.planilhaOrdens,
         planilhaMetadata:  s.planilhaMetadata,
-        supplyChainNodes:  s.supplyChainNodes,
-        supplyChainAlerts: s.supplyChainAlerts,
-        supplyChainPlans:  s.supplyChainPlans,
+        activeOrgId:       s.activeOrgId,
       }),
+      version: 2,
+      migrate: (persisted) => {
+        if (!persisted || typeof persisted !== 'object') return persisted
+        const state = persisted as Partial<SuprimentosState>
+        delete state.depositos
+        delete state.selectedDepositoId
+        delete state.estoqueItens
+        delete state.movimentacoes
+        delete state.reservas
+        delete state.leadTimeRecords
+        delete state.supplyChainNodes
+        delete state.supplyChainAlerts
+        delete state.supplyChainPlans
+        return state
+      },
     },
   ),
 )

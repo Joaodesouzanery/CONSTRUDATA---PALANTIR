@@ -64,8 +64,8 @@ export function PODialog({ po, onClose }: Props) {
     if (po) {
       updatePO(po.id, { ...form, items: totalItems })
     } else {
-      addPO({
-        id:     nextLocalId('po'),
+    addPO({
+        id:     crypto.randomUUID(),
         status: 'open',
         items:  totalItems,
         ...form,

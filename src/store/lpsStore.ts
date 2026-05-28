@@ -121,6 +121,7 @@ interface LpsState {
   acknowledgeAlert: (id: string) => void
   computeStaffingDimensions: () => void
   refreshIntegrationStatus: () => void
+  syncPlatformFlow: () => Promise<void>
   autoClearRestrictions: () => void
 
   loadDemoData: () => void
@@ -207,6 +208,9 @@ export const useLpsStore = create<LpsState>()(
           { source: 'suprimentos', label: 'Suprimentos', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
           { source: 'mao_de_obra', label: 'Mão de Obra', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
           { source: 'rdo', label: 'RDO', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+          { source: 'qualidade', label: 'Qualidade', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+          { source: 'equipamentos', label: 'Equipamentos', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
+          { source: 'medicao', label: 'Medição', lastSyncAt: null, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'disconnected' },
         ],
 
         pendingSync:  [],
@@ -340,13 +344,159 @@ export const useLpsStore = create<LpsState>()(
           const { restrictions } = get()
           const matRestrictions = restrictions.filter((r) => r.categoria === 'materiais' && r.status !== 'resolvida').length
           const mdoRestrictions = restrictions.filter((r) => r.categoria === 'mao_de_obra' && r.status !== 'resolvida').length
+          const eqRestrictions = restrictions.filter((r) => r.categoria === 'equipamentos' && r.status !== 'resolvida').length
+          const qualityRestrictions = restrictions.filter((r) => r.tags?.includes('qualidade') && r.status !== 'resolvida').length
+          const medicaoRestrictions = restrictions.filter((r) => r.tags?.includes('medicao') && r.status !== 'resolvida').length
           set({
             integrationStatuses: [
               { source: 'suprimentos', label: 'Suprimentos', lastSyncAt: now, itemsLinked: matRestrictions, restrictionsAutoClearable: Math.floor(matRestrictions * 0.3), status: matRestrictions > 0 ? 'partial' : 'connected' },
               { source: 'mao_de_obra', label: 'Mão de Obra', lastSyncAt: now, itemsLinked: mdoRestrictions, restrictionsAutoClearable: Math.floor(mdoRestrictions * 0.2), status: mdoRestrictions > 0 ? 'partial' : 'connected' },
-              { source: 'rdo', label: 'RDO', lastSyncAt: now, itemsLinked: 0, restrictionsAutoClearable: 0, status: 'connected' },
+              { source: 'rdo', label: 'RDO', lastSyncAt: now, itemsLinked: get().activities.filter((a) => a.executedMeters !== undefined).length, restrictionsAutoClearable: 0, status: 'connected' },
+              { source: 'qualidade', label: 'Qualidade', lastSyncAt: now, itemsLinked: qualityRestrictions, restrictionsAutoClearable: 0, status: qualityRestrictions > 0 ? 'partial' : 'connected' },
+              { source: 'equipamentos', label: 'Equipamentos', lastSyncAt: now, itemsLinked: eqRestrictions, restrictionsAutoClearable: Math.floor(eqRestrictions * 0.2), status: eqRestrictions > 0 ? 'partial' : 'connected' },
+              { source: 'medicao', label: 'Medição', lastSyncAt: now, itemsLinked: medicaoRestrictions, restrictionsAutoClearable: 0, status: medicaoRestrictions > 0 ? 'partial' : 'connected' },
             ],
           })
+        },
+
+        syncPlatformFlow: async () => {
+          const now = new Date().toISOString()
+          const todayIso = now.slice(0, 10)
+          const current = get()
+          const nextRestrictions = [...current.restrictions]
+          const known = new Set(nextRestrictions.map((r) => `${r.tags.join('|')}|${r.tema}`))
+          const addRestriction = (restriction: Omit<LpsRestriction, 'id' | 'createdAt'>) => {
+            const key = `${restriction.tags.join('|')}|${restriction.tema}`
+            if (known.has(key)) return
+            known.add(key)
+            nextRestrictions.push({ ...restriction, id: crypto.randomUUID(), createdAt: todayIso })
+          }
+
+          const [
+            { useRdoStore },
+            { readLocalRdoSabesp },
+            { getRdoSabespExecutedServices },
+            { useQualidadeStore },
+            { useSuprimentosStore },
+            { useGestaoEquipamentosStore },
+            { useMedicaoBillingStore },
+          ] = await Promise.all([
+            import('@/store/rdoStore'),
+            import('@/features/rdo-sabesp/lib/rdoSabespLocalStore'),
+            import('@/features/rdo-sabesp/lib/rdoSabespUtils'),
+            import('@/store/qualidadeStore'),
+            import('@/store/suprimentosStore'),
+            import('@/store/gestaoEquipamentosStore'),
+            import('@/store/medicaoBillingStore'),
+          ])
+
+          const executedByCode = new Map<string, number>()
+          for (const rdo of useRdoStore.getState().rdos ?? []) {
+            for (const trecho of rdo.trechos ?? []) {
+              if (trecho.trechoCode) executedByCode.set(trecho.trechoCode, trecho.executedMeters)
+            }
+          }
+          for (const rdo of readLocalRdoSabesp().filter((item) => item.status !== 'draft')) {
+            for (const service of getRdoSabespExecutedServices(rdo)) {
+              const code = service.service_id.split('-')[0]
+              if (code) executedByCode.set(code, (executedByCode.get(code) ?? 0) + service.quantity)
+            }
+          }
+
+          const nextActivities = current.activities.map((activity) => {
+            const executed = executedByCode.get(activity.trechoCode)
+            if (executed === undefined) return activity
+            const completed = activity.plannedMeters ? executed >= activity.plannedMeters : executed > 0
+            return {
+              ...activity,
+              executedMeters: executed,
+              completed,
+              readyStatus: completed ? 'green' as const : activity.committed ? 'red' as const : activity.readyStatus,
+              cncCategory: completed ? undefined : activity.cncCategory ?? 'planning' as const,
+              cncDescription: completed ? undefined : activity.cncDescription ?? 'Execução real do RDO abaixo do prometido no LPS.',
+            }
+          })
+
+          const qualidade = useQualidadeStore.getState()
+          for (const nc of qualidade.nonConformities ?? []) {
+            const status = String((nc as any).status ?? '').toLowerCase()
+            if (['fechada', 'resolvida', 'closed', 'resolved'].includes(status)) continue
+            addRestriction({
+              tema: `NC Qualidade - ${(nc as any).title ?? (nc as any).titulo ?? nc.id}`,
+              categoria: 'projeto_engenharia',
+              descricao: (nc as any).description ?? (nc as any).descricao ?? 'Não conformidade aberta bloqueando liberação operacional.',
+              impacto: 'Bloqueia atividade no LPS, medição e fechamento até liberação da qualidade.',
+              responsavel: (nc as any).responsible ?? (nc as any).responsavel ?? 'Qualidade',
+              prazoRemocao: (nc as any).deadline ?? (nc as any).prazo ?? todayIso,
+              acoesNecessarias: 'Tratar NC, anexar evidência e liberar qualidade.',
+              tags: ['qualidade', 'gate_operacional', `nc:${nc.id}`],
+              status: 'identificada',
+            })
+          }
+
+          for (const fvs of qualidade.fvss ?? []) {
+            const pending = (fvs as any).items?.some((item: any) => item.conformity === null) || (fvs as any).ncRequired
+            if (!pending) continue
+            addRestriction({
+              tema: `FVS pendente - ${(fvs as any).identificationNo ?? (fvs as any).number ?? fvs.id}`,
+              categoria: 'projeto_engenharia',
+              descricao: 'FVS pendente ou com NC exigida antes da liberação do serviço.',
+              impacto: 'Bloqueia RDO finalizado, medição e fechamento vinculados ao serviço/frente.',
+              responsavel: (fvs as any).responsibleLeader ?? 'Qualidade',
+              prazoRemocao: (fvs as any).date ?? todayIso,
+              acoesNecessarias: 'Concluir FVS e registrar decisão de conformidade.',
+              tags: ['qualidade', 'fvs', 'gate_operacional', `fvs:${fvs.id}`],
+              status: 'identificada',
+            })
+          }
+
+          for (const alert of useSuprimentosStore.getState().supplyChainAlerts ?? []) {
+            if (!['aberto', 'em_analise'].includes(alert.status)) continue
+            addRestriction({
+              tema: alert.titulo,
+              categoria: alert.tipoRisco === 'ruptura_estoque' || alert.tipoRisco === 'atraso_fornecedor' ? 'materiais' : 'externo',
+              descricao: alert.visaoGeral,
+              impacto: 'Pode impedir promessa semanal ou sequência planejada.',
+              responsavel: 'Suprimentos',
+              acoesNecessarias: 'Regularizar material, fornecedor ou plano de abastecimento.',
+              tags: ['suprimentos', `alerta:${alert.id}`, alert.tipoRisco],
+              status: alert.prioridade === 'crítica' ? 'identificada' : 'em_resolucao',
+            })
+          }
+
+          for (const order of useGestaoEquipamentosStore.getState().orders ?? []) {
+            if (!['scheduled', 'open', 'in_progress'].includes(String(order.status))) continue
+            addRestriction({
+              tema: `Equipamento indisponível - ${(order as any).title ?? (order as any).equipmentName ?? order.id}`,
+              categoria: 'equipamentos',
+              descricao: (order as any).description ?? 'Ordem de manutenção aberta pode afetar disponibilidade de máquina.',
+              impacto: 'Pode impedir compromisso semanal por falta de equipamento.',
+              responsavel: (order as any).assignee ?? 'Equipamentos',
+              prazoRemocao: (order as any).scheduledDate ?? todayIso,
+              acoesNecessarias: 'Concluir manutenção ou realocar equipamento.',
+              tags: ['equipamentos', `ordem:${order.id}`],
+              status: 'identificada',
+            })
+          }
+
+          const boletim = useMedicaoBillingStore.getState().getActiveBoletim()
+          const blockedLines = boletim?.subempreiteiros.flatMap((sub) => sub.memoria ?? []).filter((line) => line.status === 'bloqueado' || line.status === 'glosado') ?? []
+          for (const line of blockedLines) {
+            addRestriction({
+              tema: `Medição bloqueada - ${line.nPreco || line.descricao}`,
+              categoria: 'projeto_engenharia',
+              descricao: line.descricao,
+              impacto: 'Item não deve entrar no fechamento até liberação técnica.',
+              responsavel: 'Qualidade / Medição',
+              prazoRemocao: line.data ?? todayIso,
+              acoesNecessarias: 'Liberar qualidade, evidência e vínculo de medição.',
+              tags: ['medicao', 'qualidade', `memoria:${line.id}`],
+              status: 'identificada',
+            })
+          }
+
+          set({ activities: nextActivities, restrictions: nextRestrictions })
+          get().refreshIntegrationStatus()
         },
 
         autoClearRestrictions: () => {
@@ -431,8 +581,23 @@ if (typeof window !== 'undefined') {
     eventBus.on('fvs.nc_opened', () => {
       void useLpsStore.getState().pull()
     })
+    eventBus.on('measurement.approved', () => {
+      void useLpsStore.getState().pull()
+    })
+    eventBus.on('measurement.blocked', () => {
+      void useLpsStore.getState().pull()
+    })
+    eventBus.on('lps.commitment_updated', () => {
+      void useLpsStore.getState().pull()
+    })
     eventBus.on('realtime.row_changed', (e) => {
-      if (e.table === 'lps_restrictions' || e.table === 'lps_activities') {
+      if (
+        e.table === 'lps_restrictions'
+        || e.table === 'lps_activities'
+        || e.table === 'measurement_sources'
+        || e.table === 'measurement_memory_lines'
+        || e.table === 'plan_trechos'
+      ) {
         void useLpsStore.getState().pull()
       }
     })

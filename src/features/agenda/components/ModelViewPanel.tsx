@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Play, Pause, RotateCcw, CalendarDays, DollarSign, Clock } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 function fmtBRL(n: number) {
   if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(2)}M`
@@ -37,9 +38,9 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
   const [playing, setPlaying]   = useState(false)
   const intervalRef             = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Load demo data + run schedule on mount if needed
+  // Load demo data only when demo mode is enabled; homologation/production stay empty until real data exists.
   useEffect(() => {
-    if (trechos.length === 0) {
+    if (trechos.length === 0 && isDemoModeEnabled()) {
       loadDemoData()
     } else if (isScheduleDirty || ganttRows.length === 0) {
       runSchedule()

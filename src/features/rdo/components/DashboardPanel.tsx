@@ -348,10 +348,11 @@ export function DashboardPanel() {
     const m = new Map<string, { quantity: number; units: Set<string> }>()
     for (const rdo of rdos) {
       for (const s of rdo.services) {
-        const current = m.get(s.description) ?? { quantity: 0, units: new Set<string>() }
+        const serviceName = s.activityStage || s.description
+        const current = m.get(serviceName) ?? { quantity: 0, units: new Set<string>() }
         current.quantity += Number(s.quantity) || 0
         if (s.unit) current.units.add(s.unit)
-        m.set(s.description, current)
+        m.set(serviceName, current)
       }
     }
     for (const service of sabespExecutedServices) {
@@ -376,6 +377,34 @@ export function DashboardPanel() {
     (sum, rdo) => sum + rdo.services.reduce((serviceSum, service) => serviceSum + (Number(service.quantity) || 0), 0),
     0,
   ) + sabespSummary.totalExecutedQuantity
+  const rdoUnitTotals = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const rdo of rdos) {
+      for (const service of rdo.services) {
+        const unit = service.unit?.trim() || 'qtd.'
+        totals.set(unit, (totals.get(unit) ?? 0) + (Number(service.quantity) || 0))
+      }
+    }
+    return [...totals.entries()]
+      .map(([unit, quantity]) => ({ unit, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
+  }, [rdos])
+  const materialCostBRL = rdos.reduce(
+    (sum, rdo) => sum + (rdo.materials ?? []).reduce((materialSum, material) => materialSum + (Number(material.totalCostBRL) || 0), 0),
+    0,
+  )
+  const materialEntries = rdos.reduce((sum, rdo) => sum + (rdo.materials?.length ?? 0), 0)
+  const acceptanceSummary = rdos.reduce(
+    (acc, rdo) => {
+      for (const service of rdo.services) {
+        if (service.qualityStatus === 'approved') acc.approved += 1
+        else if (service.qualityStatus === 'rework') acc.rework += 1
+        else acc.pending += 1
+      }
+      return acc
+    },
+    { approved: 0, pending: 0, rework: 0 },
+  )
 
   const progressByNucleus = useMemo(() => {
     const rows = new Map<string, { key: string; name: string; planned: number; executed: number }>()
@@ -437,6 +466,31 @@ export function DashboardPanel() {
         <KpiCard label="RDOs Sabesp" value={String(sabespSummary.total)} sub={`${sabespSummary.finalized} finalizados`} />
         <KpiCard label="Atividades Sabesp" value={String(sabespSummary.totalActivities)} sub={`${sabespSummary.totalExecutedQuantity} qtd. registrada`} accent />
         <KpiCard label="Metros Sabesp" value={`${sabespLinearMeters.toFixed(2)} m`} sub="Serviços com unidade metro" />
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <KpiCard
+          label="Unidades do Novo RDO"
+          value={rdoUnitTotals.length > 0 ? rdoUnitTotals.slice(0, 2).map((item) => `${item.quantity.toFixed(0)} ${item.unit}`).join(' / ') : '0'}
+          sub="m², ml, un ou unidade lançada"
+          accent
+        />
+        <KpiCard
+          label="Custo de Materiais"
+          value={materialCostBRL.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          sub={`${materialEntries} item(ns) em RDO`}
+        />
+        <KpiCard
+          label="Aceite Aprovado"
+          value={String(acceptanceSummary.approved)}
+          sub={`${acceptanceSummary.pending} pendente(s)`}
+        />
+        <KpiCard
+          label="Retrabalho"
+          value={String(acceptanceSummary.rework)}
+          sub="Etapas marcadas para correção"
+          accent={acceptanceSummary.rework > 0}
+        />
       </div>
 
       {/* Charts row */}

@@ -8,6 +8,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 function StatusBar({ disponivel, minimo }: { disponivel: number; minimo: number }) {
   if (minimo === 0) return <span className="text-[#6b6b6b] text-[10px]">—</span>
@@ -88,11 +89,11 @@ export function MapaEstoquePanel() {
       depositoId:     depId,
       descricao:      novoItem.descricao,
       unidade:        novoItem.unidade,
-      qtdDisponivel:  Number(novoItem.qtdDisponivel) || 0,
+      qtdDisponivel:  parseLocaleNumber(novoItem.qtdDisponivel),
       qtdReservada:   0,
       qtdTransito:    0,
-      estoqueMinimo:  Number(novoItem.estoqueMinimo) || 0,
-      custoUnitario:  Number(novoItem.custoUnitario) || 0,
+      estoqueMinimo:  parseLocaleNumber(novoItem.estoqueMinimo),
+      custoUnitario:  parseLocaleNumber(novoItem.custoUnitario),
       categoria:      novoItem.categoria || undefined,
     })
     setNovoItem({ descricao: '', unidade: '', qtdDisponivel: '', estoqueMinimo: '', custoUnitario: '', categoria: '' })
@@ -111,7 +112,7 @@ export function MapaEstoquePanel() {
 
   function handleSaveMov() {
     if (!movForm.itemId || !movForm.quantidade) return
-    const qty       = Number(movForm.quantidade)
+    const qty       = parseLocaleNumber(movForm.quantidade)
     const leadTime  = movForm.dataCompra && movForm.dataMovimento
       ? Math.max(0, Math.round((new Date(movForm.dataMovimento).getTime() - new Date(movForm.dataCompra).getTime()) / 86400000))
       : undefined
@@ -227,15 +228,16 @@ export function MapaEstoquePanel() {
           {[
             { label: 'Descrição*', key: 'descricao' as const, span: true },
             { label: 'Unidade*',   key: 'unidade' as const },
-            { label: 'Qtd Inicial', key: 'qtdDisponivel' as const, type: 'number' },
-            { label: 'Estoque Mínimo', key: 'estoqueMinimo' as const, type: 'number' },
-            { label: 'Custo Unit. (R$)', key: 'custoUnitario' as const, type: 'number' },
+            { label: 'Qtd Inicial', key: 'qtdDisponivel' as const, type: 'decimal' },
+            { label: 'Estoque Mínimo', key: 'estoqueMinimo' as const, type: 'decimal' },
+            { label: 'Custo Unit. (R$)', key: 'custoUnitario' as const, type: 'decimal' },
             { label: 'Categoria', key: 'categoria' as const },
           ].map(({ label, key, type, span }) => (
             <div key={key} className={span ? 'col-span-2 sm:col-span-3' : ''}>
               <label className="text-[10px] text-[#6b6b6b] mb-1 block">{label}</label>
               <input
-                type={type ?? 'text'}
+                type="text"
+                inputMode={type === 'decimal' ? 'decimal' : undefined}
                 value={novoItem[key]}
                 onChange={(e) => setNovoItem((p) => ({ ...p, [key]: e.target.value }))}
                 className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"

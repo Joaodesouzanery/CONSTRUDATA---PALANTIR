@@ -12,7 +12,7 @@ interface BomLine {
 
 /** Estimate BOM for a group of pending segments */
 function calcBom(segs: ConsolidatedSegment[]): BomLine[] {
-  let totalMetersEsg200 = 0, totalMetersEsg300 = 0, totalMetersAg63 = 0, totalMetersAg110 = 0, totalMetersOther = 0
+  let totalMetersEsg200 = 0, totalMetersEsg300 = 0, totalMetersAg63 = 0, totalMetersAg110 = 0
   let pvCount = 0
 
   for (const seg of segs) {
@@ -20,11 +20,9 @@ function calcBom(segs: ConsolidatedSegment[]): BomLine[] {
     if (seg.tipo === 'ESGOTO') {
       if ((seg.dnMm ?? 0) <= 200) totalMetersEsg200 += m
       else if ((seg.dnMm ?? 0) <= 300) totalMetersEsg300 += m
-      else totalMetersOther += m
     } else {
       if ((seg.dnMm ?? 0) <= 63) totalMetersAg63 += m
       else if ((seg.dnMm ?? 0) <= 110) totalMetersAg110 += m
-      else totalMetersOther += m
     }
     // ~1 PV per segment (simplification)
     pvCount++

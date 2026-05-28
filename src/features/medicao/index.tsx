@@ -4,7 +4,7 @@
  * Steps:
  *   1. Planilha Sabesp  — enter contract items (nPreco, qtd, valor)
  *   2. Critérios        — reference viewer for measurement criteria
- *   3. Subempreiteiros  — subcontractor measurement sheets
+ *   3. Empreiteiros     — contractor measurement sheets
  *   4. Fornecedores     — supplier billing
  *   5. Conferência      — auto-computed cross-check (Sabesp vs. subcontractors)
  *   6. Medição Final    — summary + PDF export
@@ -12,8 +12,8 @@
  * The existing medicaoStore (segment tracking for operational reporting) is
  * kept intact and accessible via a toggle at the bottom of the page.
  */
-import { useState } from 'react'
-import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History, Download } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Ruler, Plus, ChevronRight, FileSpreadsheet, BookOpen, Users, Package, CheckCircle, Calculator, History, Download, Link2, FileText, Receipt, ClipboardList, CalendarPlus } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { SabespPlanilhaPanel }   from './components/SabespPlanilhaPanel'
@@ -23,7 +23,7 @@ import { FornecedoresPanel }     from './components/FornecedoresPanel'
 import { ConferenciaPanel }      from './components/ConferenciaPanel'
 import { MedicaoFinalPanel }     from './components/MedicaoFinalPanel'
 import { HistoricoPanel }        from './components/HistoricoPanel'
-import { MedicaoAssistidaPanel } from './components/MedicaoAssistidaPanel'
+import { MedicaoUnificadaPanel } from './components/MedicaoUnificadaPanel'
 import type { BillingStep } from '@/store/medicaoBillingStore'
 
 // ─── Steps metadata ───────────────────────────────────────────────────────────
@@ -31,11 +31,64 @@ import type { BillingStep } from '@/store/medicaoBillingStore'
 const STEPS: { step: BillingStep; label: string; shortLabel: string; icon: React.ElementType }[] = [
   { step: 1, label: 'Planilha Sabesp',    shortLabel: 'Sabesp',          icon: FileSpreadsheet },
   { step: 2, label: 'Critérios',          shortLabel: 'Critérios',        icon: BookOpen        },
-  { step: 3, label: 'Subempreiteiros',    shortLabel: 'Subempreit.',      icon: Users           },
+  { step: 3, label: 'Empreiteiros',       shortLabel: 'Empreit.',         icon: Users           },
   { step: 4, label: 'Fornecedores',       shortLabel: 'Fornecedores',     icon: Package         },
   { step: 5, label: 'Conferência',        shortLabel: 'Conferência',      icon: CheckCircle     },
   { step: 6, label: 'Medição Final',      shortLabel: 'Medição Final',    icon: Calculator      },
 ]
+
+const EXPANDED_STEPS: { step: BillingStep; label: string; shortLabel: string; icon: React.ElementType }[] = [
+  { step: 1, label: 'Resumo', shortLabel: 'Resumo', icon: ClipboardList },
+  { step: 2, label: 'Planilha Sabesp', shortLabel: 'Sabesp', icon: FileSpreadsheet },
+  { step: 3, label: 'Criterios', shortLabel: 'Criterios', icon: BookOpen },
+  { step: 4, label: 'Memoria', shortLabel: 'Memoria', icon: FileText },
+  { step: 5, label: 'Empreiteiros', shortLabel: 'Empreit.', icon: Users },
+  { step: 6, label: 'Fornecedores', shortLabel: 'Fornecedores', icon: Package },
+  { step: 7, label: 'Descontos / Retencoes / NFs', shortLabel: 'Financeiro', icon: Receipt },
+  { step: 8, label: 'Conferencia', shortLabel: 'Conferencia', icon: CheckCircle },
+  { step: 9, label: 'Medicao Final', shortLabel: 'Final', icon: Calculator },
+]
+
+void STEPS
+
+const MONTH_ALIASES: Record<string, string> = {
+  jan: 'fev',
+  janeiro: 'fev',
+  fev: 'mar',
+  fevereiro: 'mar',
+  mar: 'abr',
+  março: 'abr',
+  marco: 'abr',
+  abr: 'mai',
+  abril: 'mai',
+  mai: 'jun',
+  maio: 'jun',
+  jun: 'jul',
+  junho: 'jul',
+  jul: 'ago',
+  julho: 'ago',
+  ago: 'set',
+  agosto: 'set',
+  set: 'out',
+  setembro: 'out',
+  out: 'nov',
+  outubro: 'nov',
+  nov: 'dez',
+  novembro: 'dez',
+  dez: 'jan',
+  dezembro: 'jan',
+}
+
+function inferNextPeriodo(periodo: string) {
+  const trimmed = periodo.trim()
+  const match = trimmed.match(/^([a-zçã]+)\s*\/\s*(\d{2,4})$/i)
+  if (!match) return trimmed
+  const nextMonth = MONTH_ALIASES[match[1].toLowerCase()]
+  if (!nextMonth) return trimmed
+  const yearNumber = Number(match[2].length === 2 ? `20${match[2]}` : match[2])
+  const nextYear = nextMonth === 'jan' ? yearNumber + 1 : yearNumber
+  return `${nextMonth}/${String(nextYear).slice(-2)}`
+}
 
 function downloadMedicaoTemplate() {
   // Header row with all contract fields
@@ -68,8 +121,8 @@ function downloadMedicaoTemplate() {
   const r8 = ['03020101', '410355', 'PRA PEAD 32MM C/REP', 'Assentamento rede água PEAD 32mm c/ reposição', 'M', '25552.83', '170.06', '4345514.27', '', '', '', '', '', '', '', '03', '']
   const r9 = ['03030101', '500033', 'LAG ATE 32MM AVUL', 'Ligação/subst ligação avulsa água até 32mm s/repos', 'UN', '2043', '894.48', '1827422.64', '', '', '', '', '', '', '', '03', '']
 
-  // Subempreiteiros sheet
-  const subHeaders = ['FECHAMENTO DE MEDIÇÃO — SUBEMPREITEIRO / FORNECEDOR']
+  // Empreiteiros sheet
+  const subHeaders = ['FECHAMENTO DE MEDIÇÃO — EMPREITEIRO / FORNECEDOR']
   const subFields = [
     ['Mês de Referência:', '', 'Empresa:', '', 'Contrato:', '', 'Obra/Núcleo:', ''],
     blank,
@@ -107,12 +160,12 @@ function downloadMedicaoTemplate() {
     ['Medição', 'Grupo', '01=Canteiros, 02=Esgoto, 03=Água', 'Recomendado', '02'],
     ['Medição', 'Status', 'Não Iniciado / Em Andamento / Concluído', 'Não', 'Em Andamento'],
     [''],
-    ['Subempreiteiros', 'Medição do Período', 'Valor total executado pelo subempreiteiro no mês', 'SIM', '398835.64'],
-    ['Subempreiteiros', 'Medição Aprovada', 'Valor aprovado pela fiscalização', 'SIM', '198556.72'],
-    ['Subempreiteiros', 'Retenção', 'Valor retido como garantia contratual', 'Não', '200278.93'],
+    ['Empreiteiros', 'Medição do Período', 'Valor total executado pelo empreiteiro no mês', 'SIM', '398835.64'],
+    ['Empreiteiros', 'Medição Aprovada', 'Valor aprovado pela fiscalização', 'SIM', '198556.72'],
+    ['Empreiteiros', 'Retenção', 'Valor retido como garantia contratual', 'Não', '200278.93'],
     [''],
     ['REGRAS DE CONFERÊNCIA'],
-    ['1. Soma dos subempreiteiros não pode ultrapassar o valor medido na planilha Sabesp'],
+    ['1. Soma dos empreiteiros não pode ultrapassar o valor medido na planilha Sabesp'],
     ['2. nPreço deve existir no documento de Critérios de Medição do contrato'],
     ['3. Qtd Medida Período não pode ultrapassar Saldo Qtd disponível'],
     ['4. Grupo deve corresponder à frente de serviço (01=Canteiros, 02=Esgoto, 03=Água)'],
@@ -131,10 +184,10 @@ function downloadMedicaoTemplate() {
   ]
   XLSX.utils.book_append_sheet(wb, wsMed, 'Medição Sabesp')
 
-  // Sheet 2: Subempreiteiros
+  // Sheet 2: Empreiteiros
   const wsSub = XLSX.utils.aoa_to_sheet([subHeaders, ...subFields])
   wsSub['!cols'] = [{ wch: 28 }, { wch: 18 }, { wch: 40 }]
-  XLSX.utils.book_append_sheet(wb, wsSub, 'Subempreiteiros')
+  XLSX.utils.book_append_sheet(wb, wsSub, 'Empreiteiros')
 
   // Sheet 3: Instruções
   const wsInstr = XLSX.utils.aoa_to_sheet(instr)
@@ -215,10 +268,17 @@ function NewBoletimModal({ onClose }: { onClose: () => void }) {
 
 // ─── Stepper header ───────────────────────────────────────────────────────────
 
-function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: () => void; onShowAssistida: () => void }) {
-  const { activeStep, setActiveStep, getActiveBoletim, boletins, setActiveBoletim } = useMedicaoBillingStore()
+function StepperHeader({ onShowHistorico }: { onShowHistorico: () => void }) {
+  const { activeStep, setActiveStep, getActiveBoletim, boletins, setActiveBoletim, createNextBoletimFromBoletim } = useMedicaoBillingStore()
   const [newOpen, setNewOpen] = useState(false)
   const boletim = getActiveBoletim()
+
+  function handleCreateNextBoletim() {
+    if (!boletim) return
+    const nextPeriodo = window.prompt('Período do próximo boletim', inferNextPeriodo(boletim.periodo))
+    if (!nextPeriodo?.trim()) return
+    createNextBoletimFromBoletim(boletim.id, nextPeriodo.trim())
+  }
 
   return (
     <>
@@ -263,11 +323,11 @@ function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: 
             )}
             <button
               type="button"
-              onClick={onShowAssistida}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
+              hidden
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-colors"
             >
-              <Calculator size={14} />
-              Medição Assistida
+              <Link2 size={14} />
+              Medição Unificada
             </button>
             <button
               type="button"
@@ -277,6 +337,16 @@ function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: 
               <History size={14} />
               Histórico
             </button>
+            {boletim && (
+              <button
+                type="button"
+                onClick={handleCreateNextBoletim}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#fed7aa] hover:bg-[#f97316]/20 transition-colors"
+              >
+                <CalendarPlus size={14} />
+                Gerar Próximo Mês
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setNewOpen(true)}
@@ -291,7 +361,7 @@ function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: 
         {/* Stepper */}
         <div className="overflow-x-auto scrollbar-hide">
           <div className="flex px-4 py-2 gap-1 min-w-max">
-            {STEPS.map((s, idx) => {
+            {EXPANDED_STEPS.map((s, idx) => {
               const isActive = activeStep === s.step
               const isPast   = activeStep > s.step
               const Icon     = s.icon
@@ -316,7 +386,7 @@ function StepperHeader({ onShowHistorico, onShowAssistida }: { onShowHistorico: 
                   </span>
                   <Icon size={13} className="shrink-0" />
                   <span className="hidden sm:inline">{s.shortLabel}</span>
-                  {idx < STEPS.length - 1 && (
+                  {idx < EXPANDED_STEPS.length - 1 && (
                     <ChevronRight size={11} className="ml-1 opacity-40 hidden md:block" />
                   )}
                 </button>
@@ -346,7 +416,7 @@ function EmptyStateMedicao() {
       </div>
       <h2 className="text-white text-xl font-bold mb-2">Nenhum boletim criado</h2>
       <p className="text-[#a3a3a3] text-sm max-w-md mb-8">
-        Crie um Boletim de Medição para registrar as quantidades executadas no período, conferir com os subempreiteiros
+        Crie um Boletim de Medição para registrar as quantidades executadas no período, conferir com os empreiteiros
         e gerar o relatório final para o contratante (Sabesp).
       </p>
       <button
@@ -376,44 +446,54 @@ function EmptyStateMedicao() {
 
 export function MedicaoPage() {
   const { activeStep, getActiveBoletim, boletins } = useMedicaoBillingStore()
+  const loadRemote = useMedicaoBillingStore((state) => state.loadRemote)
   const boletim = getActiveBoletim()
   const hasBoletins = boletins.length > 0
-  const [view, setView] = useState<'stepper' | 'historico' | 'assistida'>('stepper')
+  const [view, setView] = useState<'stepper' | 'historico' | 'unificada'>('stepper')
+
+  useEffect(() => {
+    void loadRemote()
+  }, [loadRemote])
 
   function renderStep() {
     switch (activeStep) {
-      case 1: return <SabespPlanilhaPanel />
-      case 2: return <CriteriosMedicaoPanel />
-      case 3: return <SubempreiteirosPanel />
-      case 4: return <FornecedoresPanel />
-      case 5: return <ConferenciaPanel />
-      case 6: return <MedicaoFinalPanel />
+      case 1: return <MedicaoUnificadaPanel key="resumo" initialTab="resumo" lockedTab embedded title="Resumo operacional-financeiro" subtitle="Visao do periodo, pendencias, fontes, memoria e financeiro dentro do fluxo legado." />
+      case 2: return <SabespPlanilhaPanel />
+      case 3: return <CriteriosMedicaoPanel />
+      case 4: return <MedicaoUnificadaPanel key="memoria" initialTab="memoria" lockedTab embedded title="Memoria de calculo" subtitle="Quantidades detalhadas por servico, local, trecho, evidencia e N. Preco." />
+      case 5: return <SubempreiteirosPanel />
+      case 6: return <FornecedoresPanel />
+      case 7: return <MedicaoUnificadaPanel key="financeiro" initialTab="financeiro" lockedTab embedded title="Descontos, retencoes e NFs" subtitle="Lancamentos financeiros por categoria para compor o fechamento do boletim." />
+      case 8: return <ConferenciaPanel />
+      case 9: return <MedicaoFinalPanel />
       default: return <SabespPlanilhaPanel />
     }
   }
 
-  if (view === 'assistida') {
+  if (view === 'unificada') {
     return (
       <div className="flex flex-col h-full bg-gray-950">
         <div className="bg-[#2c2c2c] border-b border-[#525252] px-6 py-3 flex items-center justify-between gap-3 print:hidden">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: '#f97316' }}>
-              <Calculator size={20} className="text-white" />
+              <Link2 size={20} className="text-white" />
             </div>
             <div>
-              <h1 className="text-white font-semibold text-base">Medição Assistida</h1>
-              <p className="text-[#a3a3a3] text-xs">Fluxo completo de medição dentro do sistema</p>
+              <h1 className="text-white font-semibold text-base">Medição Unificada</h1>
+              <p className="text-[#a3a3a3] text-xs">Fontes, memória, itens, financeiro e fechamento no mesmo fluxo</p>
             </div>
           </div>
-          <button
-            onClick={() => setView('stepper')}
-            className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-          >
-            ← Voltar ao fluxo atual
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setView('stepper')}
+              className="px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            >
+              Fluxo legado
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-auto">
-          <MedicaoAssistidaPanel />
+          <MedicaoUnificadaPanel />
         </div>
       </div>
     )
@@ -440,14 +520,6 @@ export function MedicaoPage() {
               ← Voltar ao Boletim
             </button>
           )}
-          {view !== 'historico' && (
-            <button
-              onClick={() => setView('assistida')}
-              className="px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors"
-            >
-              Medição Assistida
-            </button>
-          )}
         </div>
         <div className="flex-1 overflow-auto">
           {view === 'historico'
@@ -461,7 +533,7 @@ export function MedicaoPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-950">
-      <StepperHeader onShowHistorico={() => setView('historico')} onShowAssistida={() => setView('assistida')} />
+      <StepperHeader onShowHistorico={() => setView('historico')} />
       <div className="flex-1 overflow-auto">
         {boletim ? renderStep() : (
           <div className="p-8 text-center text-[#6b6b6b] text-sm">

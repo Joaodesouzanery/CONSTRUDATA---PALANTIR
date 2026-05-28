@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,12 +26,14 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
+import { isNonProductionDataMode } from "@/lib/runtimeMode";
 import {
   SERVICOS_ESGOTO,
   SERVICOS_AGUA,
   CARGOS_PADRAO,
   EQUIPAMENTOS_PADRAO,
 } from "../lib/rdoSabespCatalog";
+import { normalizeForemanName, useContractorStore } from "@/store/contractorStore";
 import {
   COMPARISON_GROUPS,
   compareRdoSabespData,
@@ -89,6 +91,12 @@ const empty = () => ({
   whatsapp_text: null as string | null,
   status: "draft" as RdoSabespStatus,
   finalized_at: null as string | null,
+  parser_status: "not_requested",
+  parser_provider: null as string | null,
+  parser_model: null as string | null,
+  parser_result: null as any,
+  parser_error: null as string | null,
+  parser_ran_at: null as string | null,
 });
 
 const toDataUrl = (blob: Blob) =>
@@ -356,6 +364,42 @@ const makeSabespVisualTemplateDraft = (current: any, planilhaFotoUrl: string, re
   confidence_by_field: { local_visual_template: 0.65 },
 });
 
+void makeSabespVisualTemplateDraft;
+
+const makeSabespManualReviewDraft = (current: any, planilhaFotoUrl: string, reason: string) => ({
+  report_date: current?.report_date || new Date().toISOString().slice(0, 10),
+  encarregado: current?.encarregado || "",
+  rua_beco: current?.rua_beco || "",
+  criadouro: current?.criadouro || "",
+  criadouro_outro: current?.criadouro_outro || "",
+  epi_utilizado: current?.epi_utilizado ?? null,
+  condicoes_climaticas: current?.condicoes_climaticas || { manha: "", tarde: "", noite: "" },
+  qualidade: current?.qualidade || { ordem_servico: false, bandeirola: false, projeto: false, obs: "" },
+  paralisacoes: current?.paralisacoes || [],
+  paralisacao_outro: current?.paralisacao_outro || "",
+  horarios: current?.horarios || { diurno: { inicio: "", fim: "" }, noturno: { inicio: "", fim: "" } },
+  mao_de_obra: current?.mao_de_obra || CARGOS_PADRAO.map((cargo) => ({ cargo, terc: 0, contrat: 0 })),
+  equipamentos: current?.equipamentos || EQUIPAMENTOS_PADRAO.map((descricao) => ({ descricao, terc: 0, contrat: 0 })),
+  servicos_esgoto: current?.servicos_esgoto || SERVICOS_ESGOTO.map((servico) => ({ ...servico, quantidade: 0, opcoes: [] })),
+  servicos_agua: current?.servicos_agua || SERVICOS_AGUA.map((servico) => ({ ...servico, quantidade: 0, opcoes: [] })),
+  observacoes:
+    current?.observacoes ||
+    [
+      "Foto do RDO mantida para auditoria e revisão manual.",
+      `O parser de IA não retornou uma extração confiável: ${reason}`,
+    ].join("\n"),
+  responsavel_empreiteira: current?.responsavel_empreiteira || "",
+  responsavel_consorcio: current?.responsavel_consorcio || "",
+  planilha_foto_url: planilhaFotoUrl,
+  parser_status: "manual_fallback",
+  parser_provider: "manual-review",
+  parser_model: "manual-review",
+  parser_result: null,
+  parser_error: reason,
+  parser_ran_at: new Date().toISOString(),
+  confidence_by_field: { fallback_local: 0 },
+});
+
 const isPhotoParserFallback = (snapshot: any) => snapshot?.confidence_by_field?.fallback_local === 0;
 
 const parseTextLocally = (text: string) => {
@@ -467,11 +511,14 @@ const extractSignatureCropsFromSnapshot = async (src: string, snapshot: any) => 
 
 export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: Props) {
   const orgId = useAuth((state) => state.profile?.organization_id);
+  const contractorStore = useContractorStore();
   const [data, setData] = useState<any>(() => initialData || empty());
   const [step, setStep] = useState<Step>(initialData ? "edit" : initialStep);
   const [saving, setSaving] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const additionalPhotosInputRef = useRef<HTMLInputElement | null>(null);
+  const signedOriginalInputRef = useRef<HTMLInputElement | null>(null);
   const [whatsappText, setWhatsappText] = useState("");
   const [sourceSnapshot, setSourceSnapshot] = useState<any | null>(null);
   const [compareGroups, setCompareGroups] = useState<ComparisonGroupId[]>(defaultCompareGroups);
@@ -481,6 +528,21 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
   const [pdfPreviewPages, setPdfPreviewPages] = useState<string[]>([]);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [photoPreviewUrls, setPhotoPreviewUrls] = useState<Array<{ path: string; url: string }>>([]);
+  const [aiReviewConfirmed, setAiReviewConfirmed] = useState(() => initialData?.status === "finalized");
+  const [selectedContractorId, setSelectedContractorId] = useState<string>("");
+
+  useEffect(() => {
+    void contractorStore.load();
+  }, [contractorStore.load]);
+
+  useEffect(() => {
+    const linked = contractorStore.resolveRdoContractor({
+      rdoId: data.id || initialData?.id || "",
+      rdoType: "sabesp",
+      foremanName: data.encarregado,
+    });
+    setSelectedContractorId(linked?.id || "");
+  }, [contractorStore.contractors, contractorStore.foremen, contractorStore.rdoLinks, data.id, data.encarregado, initialData?.id]);
 
   const set = (path: string, value: any) => {
     setData((current: any) => {
@@ -496,23 +558,74 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     });
   };
 
-  const appendPhotoPaths = (paths: string[]) => {
-    if (!paths.length) return;
-    setData((current: any) => ({
-      ...current,
-      photo_paths: [...(Array.isArray(current.photo_paths) ? current.photo_paths : []), ...paths],
-    }));
+  useEffect(() => {
+    if (step !== "review" || data.review_requested_at || data.status === "finalized") return;
+    set("review_requested_at", new Date().toISOString());
+  }, [step, data.review_requested_at, data.status]);
+
+  const persistPhotoPaths = async (nextPhotoPaths: string[], nextAuditAttachments?: any[]) => {
+    const now = new Date().toISOString();
+    let cached: any = null;
+    let snapshot: any = null;
+
+    setData((current: any) => {
+      const nextRecord = {
+        ...current,
+        id: current.id || initialData?.id,
+        photo_paths: nextPhotoPaths,
+        audit_attachments: nextAuditAttachments ?? current.audit_attachments,
+        updated_at: now,
+      };
+      cached = upsertLocalRdoSabesp({ ...nextRecord, _localOnly: true, _syncError: null });
+      snapshot = { ...nextRecord, id: cached.id };
+      return snapshot;
+    });
+
+    if (!cached || !snapshot) return;
+
+    const canPersistRemote =
+      cached.id
+      && !isNonProductionDataMode()
+      && !isLocalRdoSabespId(cached.id)
+      && nextPhotoPaths.every((path) => path && !path.startsWith("data:") && !path.startsWith("blob:") && !/^https?:\/\//i.test(path));
+
+    if (!canPersistRemote) return;
+
+    const { error } = await supabase
+      .from("rdo_sabesp")
+      .update({ photo_paths: nextPhotoPaths, updated_at: now })
+      .eq("id", cached.id);
+
+    if (error) {
+      upsertLocalRdoSabesp({ ...snapshot, id: cached.id, _localOnly: true, _syncError: error.message });
+      throw error;
+    }
+
+    upsertLocalRdoSabesp({ ...snapshot, id: cached.id, _localOnly: false, _syncError: null });
   };
 
   const uploadRdoImage = async (folder: string, fileName: string, blob: Blob) => {
+    if (isNonProductionDataMode()) {
+      return URL.createObjectURL(blob);
+    }
+
     const path = `${folder}/${crypto.randomUUID()}_${fileName}`;
-    const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, blob, {
-      contentType: blob.type || "image/jpeg",
-      cacheControl: "3600",
-      upsert: true,
-    });
+    const { error } = await withTimeout(
+      supabase.storage.from("rdo-sabesp-photos").upload(path, blob, {
+        contentType: blob.type || "image/jpeg",
+        cacheControl: "3600",
+        upsert: true,
+      }),
+      30_000,
+      "timeout ao enviar imagem para o Supabase Storage",
+    );
     if (error) throw error;
     return path;
+  };
+
+  const getCurrentUserId = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    return authData.user?.id || null;
   };
 
   const getOrganizationId = async () => {
@@ -524,6 +637,103 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     });
 
     return useAuth.getState().profile?.organization_id || null;
+  };
+
+  const getStorageBaseFolder = async () => {
+    const [currentOrgId, currentUserId] = await Promise.all([getOrganizationId(), getCurrentUserId()]);
+    if (!currentOrgId) return { currentOrgId: null, currentUserId, folder: null };
+    return {
+      currentOrgId,
+      currentUserId,
+      folder: `${currentOrgId}/${currentUserId || "sem-perfil"}/no-project`,
+    };
+  };
+
+  const getAuditAttachments = (record: any) => {
+    const direct = Array.isArray(record?.audit_attachments) ? record.audit_attachments : [];
+    const fromParser = Array.isArray(record?.parser_result?.audit_attachments) ? record.parser_result.audit_attachments : [];
+    return [...direct, ...fromParser].filter(Boolean);
+  };
+
+  const setAuditAttachments = (updater: (current: any[]) => any[]) => {
+    setData((current: any) => {
+      const nextAttachments = updater(getAuditAttachments(current));
+      return {
+        ...current,
+        audit_attachments: nextAttachments,
+        parser_result: {
+          ...(current.parser_result && typeof current.parser_result === "object" ? current.parser_result : {}),
+          audit_attachments: nextAttachments,
+        },
+      };
+    });
+  };
+
+  const registerRdoAsset = async (
+    assetKind: string,
+    storagePath: string,
+    file: { fileName?: string; mimeType?: string; sizeBytes?: number },
+    metadata: Record<string, unknown> = {},
+  ) => {
+    if (isNonProductionDataMode()) return;
+
+    const { currentOrgId, currentUserId } = await getStorageBaseFolder();
+    if (!currentOrgId || !currentUserId || storagePath.startsWith("data:") || /^https?:\/\//i.test(storagePath)) return;
+
+    const { error } = await supabase.from("rdo_sabesp_assets" as any).insert({
+      organization_id: currentOrgId,
+      created_by: currentUserId,
+      uploaded_by: currentUserId,
+      asset_kind: assetKind,
+      storage_bucket: "rdo-sabesp-photos",
+      storage_path: storagePath,
+      file_name: file.fileName || null,
+      mime_type: file.mimeType || null,
+      size_bytes: file.sizeBytes || null,
+      metadata,
+    });
+
+    if (error) {
+      console.warn("Nao foi possivel auditar asset do RDO Sabesp. O arquivo foi salvo normalmente:", error);
+    }
+  };
+
+  const linkAuditArtifactsToRdo = async (rdoId: string, record: any, organizationId: string) => {
+    if (!rdoId || isLocalRdoSabespId(rdoId)) return;
+
+    const paths = Array.from(
+      new Set(
+        [
+          record?.planilha_foto_path,
+          record?.assinatura_empreiteira_path,
+          record?.assinatura_consorcio_path,
+          ...getAuditAttachments(record).map((attachment) => attachment.path || attachment.url),
+          ...(Array.isArray(record?.photo_paths) ? record.photo_paths : []),
+        ].filter((path) => typeof path === "string" && path && !path.startsWith("data:") && !/^https?:\/\//i.test(path)),
+      ),
+    );
+
+    if (paths.length > 0) {
+      const { error } = await supabase
+        .from("rdo_sabesp_assets" as any)
+        .update({ rdo_sabesp_id: rdoId })
+        .eq("organization_id", organizationId)
+        .is("rdo_sabesp_id", null)
+        .in("storage_path", paths);
+
+      if (error) console.warn("Nao foi possivel vincular assets ao RDO Sabesp salvo:", error);
+    }
+
+    if (record?.planilha_foto_path) {
+      const { error } = await supabase
+        .from("rdo_sabesp_parser_runs" as any)
+        .update({ rdo_sabesp_id: rdoId })
+        .eq("organization_id", organizationId)
+        .is("rdo_sabesp_id", null)
+        .eq("input_storage_path", record.planilha_foto_path);
+
+      if (error) console.warn("Nao foi possivel vincular auditoria do parser ao RDO Sabesp salvo:", error);
+    }
   };
 
   const mergeExtracted = (extracted: any) => {
@@ -579,7 +789,14 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     let cancelled = false;
 
     const loadPhotoPreviews = async () => {
-      const photoPaths = Array.isArray(data.photo_paths) ? data.photo_paths.filter(Boolean) : [];
+      const attachmentPhotos = getAuditAttachments(data)
+        .filter((attachment) => attachment.role === "daily_photo")
+        .map((attachment) => attachment.path || attachment.url)
+        .filter(Boolean);
+      const photoPaths = Array.from(new Set([
+        ...(Array.isArray(data.photo_paths) ? data.photo_paths.filter(Boolean) : []),
+        ...attachmentPhotos,
+      ]));
 
       if (!photoPaths.length) {
         setPhotoPreviewUrls([]);
@@ -614,7 +831,7 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     return () => {
       cancelled = true;
     };
-  }, [data.photo_paths]);
+  }, [data.photo_paths, data.audit_attachments, data.parser_result]);
 
   useEffect(() => {
     let cancelled = false;
@@ -669,8 +886,7 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
     setUploadingPhotos(true);
     try {
-      const currentOrgId = await getOrganizationId();
-      const folder = currentOrgId ? `${currentOrgId}/no-project` : null;
+      const { folder } = await getStorageBaseFolder();
       const uploadedPaths: string[] = [];
 
       for (const file of Array.from(files)) {
@@ -680,29 +896,62 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         }
 
         const prepared = await resizeImageForStorage(file);
-        if (!folder) {
+        if (!folder || isNonProductionDataMode()) {
           uploadedPaths.push(prepared.preview);
           continue;
         }
 
         const path = `${folder}/attachments/${crypto.randomUUID()}_${prepared.fileName}`;
-        const { error } = await supabase.storage.from("rdo-sabesp-photos").upload(path, prepared.blob, {
-          contentType: prepared.blob.type || "image/jpeg",
-          cacheControl: "3600",
-          upsert: true,
-        });
+        const { error } = await withTimeout(
+          supabase.storage.from("rdo-sabesp-photos").upload(path, prepared.blob, {
+            contentType: prepared.blob.type || "image/jpeg",
+            cacheControl: "3600",
+            upsert: true,
+          }),
+          30_000,
+          `timeout ao enviar ${file.name}`,
+        );
 
         if (error) {
           console.error("Erro ao subir foto do RDO Sabesp:", error);
-          toast.error(`Não foi possível enviar ${file.name}.`);
+          uploadedPaths.push(prepared.preview);
+          toast.warning(`Não consegui enviar ${file.name} ao Supabase agora. A foto ficou anexada localmente ao RDO.`);
           continue;
         }
 
+        await registerRdoAsset("attachment", path, {
+          fileName: prepared.fileName,
+          mimeType: prepared.blob.type || file.type || "image/jpeg",
+          sizeBytes: prepared.blob.size,
+        }, {
+          tags: ["Foto do dia", "Evidencia RDO"],
+          has_signature: false,
+          uploaded_at: new Date().toISOString(),
+          original_file_name: file.name,
+          rdo_report_date: data.report_date,
+          attachment_role: "daily_photo",
+        });
         uploadedPaths.push(path);
       }
 
       if (uploadedPaths.length > 0) {
-        appendPhotoPaths(uploadedPaths);
+        const nextPhotoPaths = [...(Array.isArray(data.photo_paths) ? data.photo_paths : []), ...uploadedPaths];
+        const now = new Date().toISOString();
+        const currentAttachments = Array.isArray(data.audit_attachments) ? data.audit_attachments : [];
+        const nextAuditAttachments = [
+          ...currentAttachments,
+          ...uploadedPaths.map((path, index) => ({
+            id: crypto.randomUUID(),
+            path,
+            url: path,
+            file_name: Array.from(files)[index]?.name || `foto-rdo-${index + 1}.jpg`,
+            mime_type: "image/jpeg",
+            role: "daily_photo",
+            tags: ["Foto do dia", "Evidencia RDO", "Auditoria"],
+            uploaded_at: now,
+          })),
+        ];
+        await persistPhotoPaths(nextPhotoPaths, nextAuditAttachments);
         toast.success(
           folder
             ? `${uploadedPaths.length} foto(s) adicionada(s) ao RDO.`
@@ -716,17 +965,108 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     }
   };
 
+  const handleSignedOriginal = async (file: File | null) => {
+    if (!file) return;
+
+    const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+    const isImage = file.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      toast.error("Envie uma imagem ou PDF do RDO original assinado.");
+      return;
+    }
+
+    setUploadingPhotos(true);
+    try {
+      const { folder } = await getStorageBaseFolder();
+      const now = new Date().toISOString();
+      const extension = isPdf ? "pdf" : "jpg";
+      const fileName = isPdf ? makeImageFileName(file.name, "pdf") : makeImageFileName(file.name || `rdo-assinado-${Date.now()}`, extension);
+      const prepared = isImage ? await resizeImageForStorage(file) : { blob: file as Blob, preview: URL.createObjectURL(file), fileName };
+      const attachment = {
+        id: crypto.randomUUID(),
+        path: prepared.preview,
+        url: prepared.preview,
+        file_name: file.name || fileName,
+        mime_type: isPdf ? "application/pdf" : prepared.blob.type || file.type || "image/jpeg",
+        role: "signed_original",
+        tags: ["RDO com Assinatura", "Original Assinado"],
+        uploaded_at: now,
+      };
+
+      if (folder && !isNonProductionDataMode()) {
+        const path = `${folder}/signed-originals/${crypto.randomUUID()}_${fileName}`;
+        const { error } = await withTimeout(
+          supabase.storage.from("rdo-sabesp-photos").upload(path, prepared.blob, {
+            contentType: attachment.mime_type,
+            cacheControl: "3600",
+            upsert: true,
+          }),
+          30_000,
+          `timeout ao enviar ${file.name}`,
+        );
+        if (error) throw error;
+
+        await registerRdoAsset(isPdf ? "pdf" : "source_sheet", path, {
+          fileName: file.name || fileName,
+          mimeType: attachment.mime_type,
+          sizeBytes: prepared.blob.size,
+        }, {
+          tags: attachment.tags,
+          has_signature: true,
+          uploaded_at: now,
+          original_file_name: file.name,
+          rdo_report_date: data.report_date,
+          attachment_role: "signed_original",
+        });
+
+        attachment.path = path;
+        attachment.url = path;
+      }
+
+      setAuditAttachments((current) => [
+        ...current.filter((item) => item.role !== "signed_original"),
+        attachment,
+      ]);
+
+      if (isImage && !data.planilha_foto_path && !data.planilha_foto_url) {
+        set("planilha_foto_url", attachment.url);
+        if (attachment.path && attachment.path === attachment.url && !attachment.path.startsWith("blob:")) {
+          set("planilha_foto_path", attachment.path);
+        }
+      }
+
+      toast.success("Original assinado anexado ao RDO.");
+    } catch (error: any) {
+      toast.error("Erro ao anexar original assinado: " + (error?.message || "tente novamente."));
+    } finally {
+      setUploadingPhotos(false);
+    }
+  };
+
+  const removeSignedOriginal = async (id?: string, path?: string) => {
+    if (!id) return;
+    try {
+      if (path && !isNonProductionDataMode() && !path.startsWith("data:") && !path.startsWith("blob:") && !/^https?:\/\//i.test(path)) {
+        const { error } = await supabase.storage.from("rdo-sabesp-photos").remove([path]);
+        if (error) throw error;
+      }
+      setAuditAttachments((current) => current.filter((item) => item.id !== id));
+      toast.success("Original assinado removido.");
+    } catch (error: any) {
+      toast.error("Erro ao remover original assinado: " + (error.message || error));
+    }
+  };
+
   const handleRemovePhoto = async (path: string) => {
     try {
-      if (!path.startsWith("data:") && !/^https?:\/\//i.test(path)) {
+      if (!isNonProductionDataMode() && !path.startsWith("data:") && !/^https?:\/\//i.test(path)) {
         const { error } = await supabase.storage.from("rdo-sabesp-photos").remove([path]);
         if (error) throw error;
       }
 
-      set(
-        "photo_paths",
-        (Array.isArray(data.photo_paths) ? data.photo_paths : []).filter((photoPath: string) => photoPath !== path),
-      );
+      const nextPhotoPaths = (Array.isArray(data.photo_paths) ? data.photo_paths : []).filter((photoPath: string) => photoPath !== path);
+      const nextAuditAttachments = getAuditAttachments(data).filter((attachment) => (attachment.path || attachment.url) !== path);
+      await persistPhotoPaths(nextPhotoPaths, nextAuditAttachments);
       toast.success("Foto removida do RDO.");
     } catch (error: any) {
       toast.error("Erro ao remover foto: " + (error.message || error));
@@ -742,7 +1082,7 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
     try {
       return await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
     } catch (error) {
-      return makeSabespVisualTemplateDraft(data, url, parserErrorMessage(error));
+      return makeSabespManualReviewDraft(data, url, parserErrorMessage(error));
     }
   };
 
@@ -853,13 +1193,17 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       const { original, aiImage } = await prepareImageForAi(file);
       let planilhaFotoPath: string | null = null;
       let planilhaFotoUrl = original;
-      const currentOrgId = await getOrganizationId();
+      const { currentOrgId, currentUserId, folder } = await getStorageBaseFolder();
 
-      if (currentOrgId) {
+      if (currentOrgId && folder) {
         try {
-          const folder = `${currentOrgId}/no-project`;
           const prepared = await resizeImageForStorage(file);
           planilhaFotoPath = await uploadRdoImage(`${folder}/source`, prepared.fileName, prepared.blob);
+          await registerRdoAsset("source_sheet", planilhaFotoPath, {
+            fileName: prepared.fileName,
+            mimeType: prepared.blob.type || file.type || "image/jpeg",
+            sizeBytes: prepared.blob.size,
+          });
           const { data: signed } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(planilhaFotoPath, 60 * 60);
           planilhaFotoUrl = signed?.signedUrl || prepared.preview;
         } catch (error) {
@@ -869,31 +1213,51 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       }
       set("planilha_foto_path", planilhaFotoPath);
       set("planilha_foto_url", planilhaFotoUrl);
+      set("planilha_foto_uploaded_by", currentUserId);
+      set("planilha_foto_uploaded_at", planilhaFotoPath ? new Date().toISOString() : null);
 
       let extractedSnapshot: any;
       let usedLocalFallback = false;
       let parserFailure: any = null;
       try {
-        extractedSnapshot = await invokeRdoSabespParser({ mode: "image", image_base64: aiImage });
+        extractedSnapshot = await invokeRdoSabespParser({
+          mode: "image",
+          image_base64: aiImage,
+          storage_path: planilhaFotoPath,
+          mime_type: "image/jpeg",
+        });
       } catch (error) {
         parserFailure = error;
         usedLocalFallback = true;
-        extractedSnapshot = makeSabespVisualTemplateDraft(data, planilhaFotoUrl, parserErrorMessage(error));
-        console.warn("Parser de IA do RDO Sabesp indisponivel; usando leitura local do modelo Sabesp:", error);
+        extractedSnapshot = makeSabespManualReviewDraft(data, planilhaFotoUrl, parserErrorMessage(error));
+        console.warn("Parser de IA do RDO Sabesp indisponivel; mantendo foto para revisão manual:", error);
       }
       setSourceSnapshot(extractedSnapshot);
 
       const extracted = { ...extractedSnapshot };
+      if (!usedLocalFallback) {
+        extracted.parser_status = "success";
+        extracted.parser_provider = "parse-rdo-sabesp";
+        extracted.parser_model = "remote-ai";
+        extracted.parser_result = extractedSnapshot;
+        extracted.parser_error = null;
+        extracted.parser_ran_at = new Date().toISOString();
+      }
       const signatureCrops = await extractSignatureCropsFromSnapshot(original, extractedSnapshot).catch(() => extractSignatureCrops(original)).catch(() => ({
         empreiteira: original,
         consorcio: original,
       }));
       if (extracted.assinatura_empreiteira_presente) {
         extracted.assinatura_empreiteira_url = signatureCrops.empreiteira;
-        if (currentOrgId) {
+        if (currentOrgId && folder) {
           try {
             const blob = await dataUrlToBlob(signatureCrops.empreiteira);
-            const path = await uploadRdoImage(`${currentOrgId}/no-project/signatures`, `assinatura-empreiteira-${Date.now()}.png`, blob);
+            const path = await uploadRdoImage(`${folder}/signatures`, `assinatura-empreiteira-${Date.now()}.png`, blob);
+            await registerRdoAsset("signature_contractor", path, {
+              fileName: "assinatura-empreiteira.png",
+              mimeType: blob.type || "image/png",
+              sizeBytes: blob.size,
+            });
             extracted.assinatura_empreiteira_path = path;
           } catch (error) {
             console.warn("Nao foi possivel armazenar a assinatura da empreiteira:", error);
@@ -902,10 +1266,15 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       }
       if (extracted.assinatura_consorcio_presente) {
         extracted.assinatura_consorcio_url = signatureCrops.consorcio;
-        if (currentOrgId) {
+        if (currentOrgId && folder) {
           try {
             const blob = await dataUrlToBlob(signatureCrops.consorcio);
-            const path = await uploadRdoImage(`${currentOrgId}/no-project/signatures`, `assinatura-consorcio-${Date.now()}.png`, blob);
+            const path = await uploadRdoImage(`${folder}/signatures`, `assinatura-consorcio-${Date.now()}.png`, blob);
+            await registerRdoAsset("signature_consortium", path, {
+              fileName: "assinatura-consorcio.png",
+              mimeType: blob.type || "image/png",
+              sizeBytes: blob.size,
+            });
             extracted.assinatura_consorcio_path = path;
           } catch (error) {
             console.warn("Nao foi possivel armazenar a assinatura do consorcio:", error);
@@ -919,9 +1288,10 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       delete extracted.confidence_by_field;
 
       mergeExtracted(extracted);
+      setAiReviewConfirmed(false);
       if (usedLocalFallback) {
         toast.warning(
-          "IA indisponivel. Apliquei uma leitura local do modelo Sabesp; confira os campos antes de finalizar.",
+          "IA indisponível. Mantive a foto do RDO para auditoria; preencha e revise os campos antes de finalizar.",
         );
         console.warn("Falha original do parser de foto:", parserFailure);
       } else {
@@ -942,11 +1312,13 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       set("whatsapp_text", whatsappText);
       const extracted = await invokeRdoSabespParser({ mode: "text", text: whatsappText });
       mergeExtracted(extracted);
+      setAiReviewConfirmed(false);
       toast.success("Texto interpretado! Confira os dados.");
       setStep("edit");
     } catch (error: any) {
       const fallback = parseTextLocally(whatsappText);
       mergeExtracted(fallback);
+      setAiReviewConfirmed(false);
       toast.warning("Parser de IA indisponivel. Apliquei uma leitura basica do texto para voce revisar.");
       console.error("Erro ao interpretar texto:", error);
       setStep("edit");
@@ -975,6 +1347,22 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       finalized_at: finalizedAt,
     }));
 
+    if (isNonProductionDataMode()) {
+      if (localRecord.id && (selectedContractorId || data.encarregado)) {
+        await contractorStore.linkRdo({
+          rdo_id: localRecord.id,
+          rdo_type: "sabesp",
+          contractor_id: selectedContractorId || null,
+          foreman_name: data.encarregado || null,
+          source: selectedContractorId ? "manual" : "auto",
+        });
+      }
+      toast.success(nextStatus === "draft" ? "Rascunho demo salvo localmente." : "RDO demo finalizado localmente.");
+      setSaving(false);
+      onSaved?.();
+      return;
+    }
+
     try {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) throw new Error("Usuário não autenticado");
@@ -992,15 +1380,25 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
       let response;
       const removeDurableAssetColumns = (record: Record<string, any>) => {
         const legacy = { ...record };
+        delete legacy.audit_attachments;
         delete legacy.planilha_foto_path;
         delete legacy.assinatura_empreiteira_path;
         delete legacy.assinatura_consorcio_path;
         delete legacy.include_planilha_foto_no_pdf;
+        delete legacy.review_requested_at;
+        delete legacy.review_delay_justification;
+        delete legacy.review_status;
+        delete legacy.parser_status;
+        delete legacy.parser_provider;
+        delete legacy.parser_model;
+        delete legacy.parser_result;
+        delete legacy.parser_error;
+        delete legacy.parser_ran_at;
         return legacy;
       };
       const isMissingDurableAssetColumnError = (error: any) => {
         const message = String(error?.message || error?.details || "");
-        return /planilha_foto_path|assinatura_empreiteira_path|assinatura_consorcio_path|include_planilha_foto_no_pdf/i.test(message);
+        return /planilha_foto_path|assinatura_empreiteira_path|assinatura_consorcio_path|include_planilha_foto_no_pdf|parser_status|parser_provider|parser_model|parser_result|parser_error|parser_ran_at/i.test(message);
       };
 
       if (localRecord.id && !isLocalRdoSabespId(localRecord.id)) {
@@ -1010,6 +1408,10 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         delete rest.updated_at;
         delete rest.created_by;
         delete rest.organization_id;
+        delete rest.audit_attachments;
+        delete rest.review_requested_at;
+        delete rest.review_delay_justification;
+        delete rest.review_status;
         response = await supabase.from("rdo_sabesp" as any).update(rest).eq("id", localRecord.id).select("*").single();
         if (response.error && isMissingDurableAssetColumnError(response.error)) {
           response = await supabase
@@ -1024,6 +1426,10 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         delete rest.id;
         delete rest.created_at;
         delete rest.updated_at;
+        delete rest.audit_attachments;
+        delete rest.review_requested_at;
+        delete rest.review_delay_justification;
+        delete rest.review_status;
         response = await supabase.from("rdo_sabesp" as any).insert(rest).select("*").single();
         if (response.error && isMissingDurableAssetColumnError(response.error)) {
           response = await supabase.from("rdo_sabesp" as any).insert(removeDurableAssetColumns(rest)).select("*").single();
@@ -1036,6 +1442,24 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         _localOnly: false,
         _syncError: null,
       };
+      if (savedRecord.id && (selectedContractorId || data.encarregado)) {
+        await contractorStore.linkRdo({
+          rdo_id: savedRecord.id,
+          rdo_type: "sabesp",
+          contractor_id: selectedContractorId || null,
+          foreman_name: data.encarregado || null,
+          source: selectedContractorId ? "manual" : "auto",
+        });
+      }
+      await linkAuditArtifactsToRdo(savedRecord.id, savedRecord, currentOrgId);
+      if (nextStatus === "finalized" && savedRecord.id) {
+        try {
+          const { error: syncError } = await (supabase as any).rpc("sync_rdo_sabesp_to_measurement", { p_rdo_id: savedRecord.id });
+          if (syncError) throw syncError;
+        } catch (error) {
+          console.warn("Nao foi possivel forcar sincronizacao RDO Sabesp -> Medicao:", error);
+        }
+      }
       if (savedRecord.id !== localRecord.id) removeLocalRdoSabesp(localRecord.id);
       upsertLocalRdoSabesp({
         ...savedRecord,
@@ -1077,7 +1501,19 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
   const finalizeRdo = async () => {
     if (uniqueMissingLabels.length > 0) {
-      toast.error(`Preencha os ${uniqueMissingLabels.length} campo(s) obrigatorios(s) antes de finalizar o RDO.`);
+      toast.error(`Preencha os ${uniqueMissingLabels.length} campo(s) obrigatório(s) antes de finalizar o RDO.`);
+      return;
+    }
+
+    if (requiresAiReview && !aiReviewConfirmed) {
+      toast.error("Confirme a revisão humana dos dados extraídos por IA antes de finalizar.");
+      setStep("review");
+      return;
+    }
+
+    if (reviewD2Overdue && !String(data.review_delay_justification || "").trim()) {
+      toast.error("Informe a justificativa D2 do gestor para concluir uma revisão vencida.");
+      setStep("review");
       return;
     }
 
@@ -1097,7 +1533,33 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
   const missingLabels = Array.from(missing).map((key) => REQUIRED_LABELS[key] || key);
   const uniqueMissingLabels = Array.from(new Set(missingLabels));
   const photoCount = Array.isArray(data.photo_paths) ? data.photo_paths.length : 0;
+  const signedOriginals = getAuditAttachments(data).filter((attachment) => attachment.role === "signed_original");
   const currentStatus: RdoSabespStatus = data.status === "finalized" ? "finalized" : "draft";
+  const requiresAiReview = Boolean(
+    sourceSnapshot ||
+    data.parser_status === "success" ||
+    data.parser_status === "manual_fallback" ||
+    data.parser_provider ||
+    data.parser_result ||
+    data.whatsapp_text,
+  );
+  const foremanOptions = useMemo(
+    () => Array.from(new Set(contractorStore.foremen.filter((item) => !item.deleted_at).map((item) => item.name).filter(Boolean))).sort(),
+    [contractorStore.foremen],
+  );
+  const matchingForemen = useMemo(() => {
+    const normalized = normalizeForemanName(data.encarregado);
+    if (!normalized) return contractorStore.foremen.filter((item) => !item.deleted_at).slice(0, 8);
+    return contractorStore.foremen
+      .filter((item) => !item.deleted_at && item.normalized_name.includes(normalized))
+      .slice(0, 8);
+  }, [contractorStore.foremen, data.encarregado]);
+  const reviewStartedAt = data.review_requested_at || data.parser_ran_at || data.updated_at || data.created_at || initialData?.updated_at || initialData?.created_at;
+  const reviewAgeDays = reviewStartedAt
+    ? Math.floor((Date.now() - new Date(reviewStartedAt).getTime()) / 86_400_000)
+    : 0;
+  const reviewD2Overdue = currentStatus === "draft" && requiresAiReview && reviewAgeDays >= 2;
+  const measurementWithoutEvidence = photoCount === 0 && !data.planilha_foto_path && !data.planilha_foto_url && !data.assinatura_empreiteira_url && !data.assinatura_consorcio_url;
   const selectedGroups = useMemo(
     () => COMPARISON_GROUPS.filter((group) => compareGroups.includes(group.id)),
     [compareGroups],
@@ -1192,32 +1654,140 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
 
       {step === "edit" && (
         <>
-          <RdoSabespSheet data={data} set={set} />
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Fotos do RDO</CardTitle>
+              <CardTitle className="text-base">Empreiteira e encarregado</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Ao digitar o encarregado, selecione a empreiteira para o RDO já entrar corretamente na medição.
+              </p>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Encarregado</label>
+                <Input
+                  value={data.encarregado || ""}
+                  list="rdo-sabesp-foremen"
+                  onChange={(event) => set("encarregado", event.target.value)}
+                  placeholder="Digite ou selecione o encarregado"
+                />
+                {matchingForemen.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto rounded-md border bg-muted/20 p-1">
+                    {matchingForemen.map((foreman) => {
+                      const contractor = contractorStore.contractors.find((item) => item.id === foreman.contractor_id && !item.deleted_at);
+                      return (
+                        <button
+                          key={foreman.id}
+                          type="button"
+                          onClick={() => {
+                            set("encarregado", foreman.name);
+                            setSelectedContractorId(foreman.contractor_id);
+                          }}
+                          className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
+                        >
+                          <span className="font-medium">{foreman.name}</span>
+                          <span className="text-muted-foreground"> - {contractor?.name || "empreiteira não vinculada"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Empreiteira</label>
+                <select
+                  value={selectedContractorId}
+                  onChange={(event) => setSelectedContractorId(event.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecionar empreiteira</option>
+                  {contractorStore.contractors.filter((item) => !item.deleted_at).map((contractor) => (
+                    <option key={contractor.id} value={contractor.id}>{contractor.name}</option>
+                  ))}
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+          <RdoSabespSheet data={data} set={set} foremanOptions={foremanOptions} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Anexos e fotos do RDO</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white">Original assinado</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Anexe a foto ou PDF do RDO original com assinatura. Ele fica marcado com a tag "RDO com Assinatura".
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={uploadingPhotos}
+                    onClick={() => signedOriginalInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Adicionar original assinado</span>
+                  </button>
+                  <input
+                    ref={signedOriginalInputRef}
+                    type="file"
+                    accept="image/*,application/pdf,.pdf"
+                    className="sr-only"
+                    disabled={uploadingPhotos}
+                    onChange={(event) => {
+                      void handleSignedOriginal(event.target.files?.[0] || null);
+                      event.target.value = "";
+                    }}
+                  />
+                </div>
+                {signedOriginals.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {signedOriginals.map((attachment) => (
+                      <div key={attachment.id || attachment.path || attachment.url} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#3d3d3d] bg-[#1f1f1f] px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-white">{attachment.file_name || "RDO original assinado"}</p>
+                          <p className="text-xs text-muted-foreground">{attachment.mime_type || "arquivo"} - {(attachment.tags || []).join(", ")}</p>
+                        </div>
+                        <Button type="button" size="sm" variant="ghost" onClick={() => removeSignedOriginal(attachment.id, attachment.path || attachment.url)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                    Nenhum original assinado anexado.
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="text-sm text-muted-foreground">
                   As fotos ficam anexadas ao RDO e entram no PDF/exportação logo depois das assinaturas.
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted">
+                  <button
+                    type="button"
+                    disabled={uploadingPhotos}
+                    onClick={() => additionalPhotosInputRef.current?.click()}
+                    className="inline-flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted disabled:cursor-wait disabled:opacity-60"
+                  >
                     <ImagePlus className="h-4 w-4" />
                     <span>Adicionar fotos</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      disabled={uploadingPhotos}
-                      onChange={(event) => {
-                        handleAdditionalPhotos(event.target.files);
-                        event.target.value = "";
-                      }}
-                    />
-                  </label>
+                  </button>
+                  <input
+                    ref={additionalPhotosInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    disabled={uploadingPhotos}
+                    onChange={(event) => {
+                      void handleAdditionalPhotos(event.target.files);
+                      event.target.value = "";
+                    }}
+                  />
                   {uploadingPhotos && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                 </div>
               </div>
@@ -1287,10 +1857,60 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
             <Badge variant={currentStatus === "draft" ? "secondary" : "default"}>
               {currentStatus === "draft" ? "Rascunho" : "Finalizado"}
             </Badge>
+            {reviewD2Overdue && <Badge variant="destructive">D2 vencido</Badge>}
+            {measurementWithoutEvidence && <Badge variant="outline">Evidência opcional</Badge>}
             <span className="text-xs text-muted-foreground">
               Rascunhos podem ficar incompletos e ser retomados depois. Finalizados entram prontos para controle e exportacao.
             </span>
           </div>
+
+          {reviewD2Overdue && (
+            <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                Revisão vencida: o responsável tinha 2 dias para responder.
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Solicite a resposta do responsável e registre a justificativa D2 do gestor antes de finalizar.
+              </p>
+              <Textarea
+                className="mt-3"
+                rows={3}
+                value={data.review_delay_justification || ""}
+                onChange={(event) => set("review_delay_justification", event.target.value)}
+                placeholder="Justificativa do gestor para atraso D2"
+              />
+            </div>
+          )}
+
+          {measurementWithoutEvidence && (
+            <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-sm">
+              <div className="font-semibold text-sky-700">Pode enviar para Medição mesmo sem foto.</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                A evidência fica marcada como pendência opcional; os serviços executados, quantidades, unidade e código seguem para a Medição.
+              </p>
+            </div>
+          )}
+
+          {requiresAiReview && (
+            <div className={`rounded-lg border p-3 ${aiReviewConfirmed ? "border-green-500/40 bg-green-500/10" : "border-amber-500/40 bg-amber-500/10"}`}>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={aiReviewConfirmed}
+                  onCheckedChange={(checked) => setAiReviewConfirmed(checked === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block font-semibold">
+                    Revisei os campos extraídos por IA e confirmo que este RDO pode alimentar a Medição.
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Esta confirmação é obrigatória porque a foto/texto foi interpretado automaticamente. A foto original e as assinaturas ficam preservadas para auditoria.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
             <Card>
@@ -1525,9 +2145,9 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
                 {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
                 Salvar rascunho
               </Button>
-              <Button onClick={finalizeRdo} disabled={saving || reviewBusy}>
+              <Button onClick={finalizeRdo} disabled={saving || reviewBusy || (requiresAiReview && !aiReviewConfirmed) || (reviewD2Overdue && !String(data.review_delay_justification || "").trim())}>
                 {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-                {currentStatus === "finalized" ? "Atualizar finalizado" : "Finalizar e salvar"}
+                {measurementWithoutEvidence ? "Enviar para Medição sem evidência" : currentStatus === "finalized" ? "Atualizar finalizado" : "Finalizar e salvar"}
               </Button>
             </div>
           </div>

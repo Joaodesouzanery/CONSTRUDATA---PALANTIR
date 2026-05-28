@@ -33,6 +33,8 @@ interface PlanejamentoRestricoesState {
   addRestricao: (restricao: Omit<PlanejamentoRestricao, 'id' | 'createdAt' | 'updatedAt' | 'resolvedAt'>) => void
   updateRestricao: (id: string, patch: Partial<Omit<PlanejamentoRestricao, 'id' | 'createdAt'>>) => void
   removeRestricao: (id: string) => void
+  loadDemoData: () => void
+  clearData: () => void
   importFromLps: (input: {
     titulo: string
     descricao: string
@@ -101,7 +103,7 @@ export function prontidaoRestricao(restricao: Pick<PlanejamentoRestricao, 'statu
 export const usePlanejamentoRestricoesStore = create<PlanejamentoRestricoesState>()(
   persist(
     (set, get) => ({
-      restricoes: restricoesIniciais,
+      restricoes: [],
 
       addRestricao: (restricao) =>
         set((state) => ({
@@ -123,6 +125,10 @@ export const usePlanejamentoRestricoesStore = create<PlanejamentoRestricoesState
         })),
 
       removeRestricao: (idValue) => set((state) => ({ restricoes: state.restricoes.filter((restricao) => restricao.id !== idValue) })),
+
+      loadDemoData: () => set({ restricoes: restricoesIniciais }),
+
+      clearData: () => set({ restricoes: [] }),
 
       importFromLps: (input) => {
         const exists = get().restricoes.some((restricao) => restricao.lpsRestrictionId === input.lpsRestrictionId)

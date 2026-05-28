@@ -38,6 +38,7 @@ function ctxAuth() {
 }
 
 interface Gestao360State {
+  activeOrgId: string | null
   changeOrders:      ChangeOrder[]
   selectedProjectId: string | null
   activeTab:         Gestao360Tab
@@ -48,6 +49,7 @@ interface Gestao360State {
   lastSyncedAt: string | null
   syncError:    string | null
 
+  ensureTenantScope: (organizationId: string) => void
   selectProject: (id: string | null) => void
   setActiveTab:  (tab: Gestao360Tab) => void
 
@@ -92,6 +94,7 @@ export const useGestao360Store = create<Gestao360State>()(
         void get().flush()
       }
       return {
+        activeOrgId:       null,
         changeOrders:      [],
         selectedProjectId: null,
         activeTab:         'dashboard',
@@ -99,6 +102,18 @@ export const useGestao360Store = create<Gestao360State>()(
         syncStatus:        'idle',
         lastSyncedAt:      null,
         syncError:         null,
+
+        ensureTenantScope: (organizationId) => {
+          if (!organizationId || get().activeOrgId === organizationId) return
+          set({
+            activeOrgId: organizationId,
+            changeOrders: [],
+            selectedProjectId: null,
+            pendingSync: [],
+            syncStatus: 'idle',
+            syncError: null,
+          })
+        },
 
         selectProject: (id) => set({ selectedProjectId: id }),
         setActiveTab:  (tab) => set({ activeTab: tab }),
@@ -216,7 +231,7 @@ export const useGestao360Store = create<Gestao360State>()(
           })
         },
 
-        clearData: () => set({ changeOrders: [], selectedProjectId: null, pendingSync: [], syncError: null }),
+        clearData: () => set({ activeOrgId: null, changeOrders: [], selectedProjectId: null, pendingSync: [], syncError: null }),
 
         flush: async () => {
           const queue = get().pendingSync
@@ -237,6 +252,13 @@ export const useGestao360Store = create<Gestao360State>()(
         },
 
         pull: async () => {
+          const { profile } = useAuth.getState()
+          if (!profile) {
+            set({ syncStatus: 'unauth' })
+            return
+          }
+          get().ensureTenantScope(profile.organization_id)
+          set({ changeOrders: [], selectedProjectId: null })
           const rows = await pullTable<{ payload: ChangeOrder }>('change_orders')
           if (rows) set({ changeOrders: rows.map((r) => r.payload) })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
@@ -246,6 +268,7 @@ export const useGestao360Store = create<Gestao360State>()(
     {
       name: 'cdata-gestao-360',
       partialize: (s) => ({
+        activeOrgId:       s.activeOrgId,
         changeOrders:      s.changeOrders,
         selectedProjectId: s.selectedProjectId,
         pendingSync:       s.pendingSync,

@@ -90,6 +90,10 @@ export function KanbanBoard() {
 
   function handleSaveActivity(patch: Partial<Omit<Activity, 'id'>>) {
     if (!editingId) return
+    if (editingId.startsWith('agenda-')) {
+      setEditingId(null)
+      return
+    }
     updateActivity(editingId, patch)
 
     // Cross-module sync: update projetosStore phase progress if name matches
@@ -138,7 +142,9 @@ export function KanbanBoard() {
             draggingId={drag?.activity.id ?? null}
             colRef={(el) => { colRefs.current[status] = el }}
             onGripPointerDown={handleGripPointerDown}
-            onEditActivity={(id) => setEditingId(id)}
+            onEditActivity={(id) => {
+              if (!id.startsWith('agenda-')) setEditingId(id)
+            }}
           />
         ))}
       </div>

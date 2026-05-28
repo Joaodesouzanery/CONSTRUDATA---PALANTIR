@@ -16,6 +16,7 @@ export const equipamentoSchema = z.object({
   lastMaintenance: z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),
   nextMaintenance: z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),
   operator:        z.string().max(100).optional(),
+  contractorName:  z.string().max(100).optional(),
   engineHours:     z.number().min(0, 'Deve ser positivo'),
   // lat/lng stored as strings in the form, validated here, parsed in onSubmit
   lat:  z.string().optional().refine(

@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
+import { buildOperationalKey } from '@/lib/operationalKey'
 
 // ─── Mapeamento RDO ↔ Row ────────────────────────────────────────────────────
 interface RdoRow {
@@ -53,7 +54,15 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     weather:                   rdo.weather,
     manpower:                  rdo.manpower,
     equipment:                 rdo.equipment,
-    services:                  rdo.services,
+    services:                  rdo.services.map((service) => ({
+      ...service,
+      code: service.contractItemCode,
+      codigo: service.contractItemCode,
+      descricao: service.description,
+      quantidade: service.quantity,
+      unidade: service.unit,
+    })),
+    materials:                 rdo.materials ?? [],
     trechos:                   rdo.trechos,
     photos:                    rdo.photos,
     geolocation:               rdo.geolocation,
@@ -72,6 +81,12 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     climaManha:                rdo.climaManha,
     climaTarde:                rdo.climaTarde,
     climaNoite:                rdo.climaNoite,
+    localTipo:                 rdo.localTipo,
+    epiUtilizado:              rdo.epiUtilizado,
+    qualityChecklist:          rdo.qualityChecklist,
+    stoppages:                 rdo.stoppages,
+    activityHours:             rdo.activityHours,
+    workforceRows:             rdo.workforceRows,
   }
   return {
     id:               rdo.id,
@@ -83,7 +98,7 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     contract_no:      rdo.numeroContrato ?? null,
     service_order_no: rdo.numeroOS ?? null,
     payload,
-    closed:           false,
+    closed:           true,
     created_by:       userId,
   }
 }
@@ -98,7 +113,11 @@ function rowToRdo(row: RdoRow): RDO {
     weather:      (p.weather as RDO['weather'])         ?? { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 25 },
     manpower:     (p.manpower as RDO['manpower'])       ?? { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 },
     equipment:    (p.equipment as RDO['equipment'])     ?? [],
-    services:     (p.services  as RDO['services'])      ?? [],
+    services:     ((p.services as RDO['services']) ?? []).map((service) => ({
+      ...service,
+      contractItemCode: service.contractItemCode ?? (service as unknown as { code?: string; codigo?: string }).code ?? (service as unknown as { codigo?: string }).codigo,
+    })),
+    materials:    (p.materials as RDO['materials'])      ?? [],
     trechos:      (p.trechos   as RDO['trechos'])       ?? [],
     geolocation:  (p.geolocation as RDO['geolocation']) ?? null,
     observations: (p.observations as string)            ?? '',
@@ -119,6 +138,12 @@ function rowToRdo(row: RdoRow): RDO {
     climaManha:                  p.climaManha                  as string | undefined,
     climaTarde:                  p.climaTarde                  as string | undefined,
     climaNoite:                  p.climaNoite                  as string | undefined,
+    localTipo:                   p.localTipo                   as string | undefined,
+    epiUtilizado:                p.epiUtilizado                as boolean | undefined,
+    qualityChecklist:            p.qualityChecklist            as RDO['qualityChecklist'],
+    stoppages:                   p.stoppages                   as RDO['stoppages'],
+    activityHours:               p.activityHours               as RDO['activityHours'],
+    workforceRows:               p.workforceRows               as RDO['workforceRows'],
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,
   }
@@ -212,6 +237,21 @@ export const useRdoStore = create<RdoState>()(
           rdoId: newRdo.id,
           projectId: row.project_id,
           date: newRdo.date,
+        })
+        eventBus.emit({
+          type: 'rdo.finalized',
+          rdoId: newRdo.id,
+          projectId: row.project_id,
+          date: newRdo.date,
+          operationalKey: buildOperationalKey({
+            contractNo: newRdo.numeroContrato ?? row.contract_no,
+            projectId: row.project_id,
+            nucleo: newRdo.localTipo,
+            local: newRdo.local,
+            serviceCode: newRdo.servicoExecutar ?? newRdo.services?.[0]?.contractItemCode,
+            nPreco: newRdo.services?.[0]?.contractItemCode,
+            period: newRdo.date.slice(0, 7),
+          }),
         })
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         void get().flush()
@@ -308,6 +348,7 @@ export const useRdoStore = create<RdoState>()(
       syncExecutionToPlanejamento: () => {
         const { rdos } = get()
         const execMap = new Map<string, { executedMeters: number; date: string }>()
+        const masterExecMap = new Map<string, { quantity: number; date: string; progressPct: number; status: string }>()
         const sortedRdos = [...rdos].sort((a, b) => a.date.localeCompare(b.date))
         for (const rdo of sortedRdos) {
           for (const t of rdo.trechos) {
@@ -317,18 +358,54 @@ export const useRdoStore = create<RdoState>()(
               date: rdo.date,
             })
           }
+          for (const service of rdo.services ?? []) {
+            const key = service.planningActivityId || service.operationalKey
+            if (!key) continue
+            const prev = masterExecMap.get(key)
+            const quantity = (prev?.quantity ?? 0) + (Number(service.quantity) || 0)
+            const progressPct = Math.max(prev?.progressPct ?? 0, Number(service.accumulatedProgressPct) || Number(service.dailyProgressPct) || 0)
+            const status = service.qualityStatus === 'approved'
+              ? 'completed'
+              : quantity > 0 || progressPct > 0
+                ? 'in_progress'
+                : 'not_started'
+            masterExecMap.set(key, { quantity, date: rdo.date, progressPct, status })
+          }
         }
         const entries = Array.from(execMap.entries()).map(([code, data]) => ({
           trechoCode: code,
           executedMeters: data.executedMeters,
           date: data.date,
         }))
-        if (entries.length === 0) return
-        import('./planejamentoStore')
-          .then(({ usePlanejamentoStore }) => {
-            usePlanejamentoStore.getState().syncExecutionFromRdo(entries)
-          })
-          .catch(() => {})
+        if (entries.length > 0) {
+          import('./planejamentoStore')
+            .then(({ usePlanejamentoStore }) => {
+              usePlanejamentoStore.getState().syncExecutionFromRdo(entries)
+            })
+            .catch(() => {})
+        }
+        if (masterExecMap.size > 0) {
+          import('./planejamentoMestreStore')
+            .then(({ usePlanejamentoMestreStore }) => {
+              const store = usePlanejamentoMestreStore.getState()
+              for (const activity of store.activities) {
+                const data = masterExecMap.get(activity.id) ?? (activity.operationalKey ? masterExecMap.get(activity.operationalKey) : undefined)
+                if (!data) continue
+                const planned = Number(activity.plannedQuantity) || 0
+                const percentComplete = planned > 0
+                  ? Math.min(100, Math.round((data.quantity / planned) * 10000) / 100)
+                  : Math.min(100, Math.round(data.progressPct * 100) / 100)
+                store.updateActivity(activity.id, {
+                  executedQuantity: data.quantity,
+                  lastRdoDate: data.date,
+                  percentComplete,
+                  physicalProgressPct: percentComplete,
+                  status: percentComplete >= 100 ? 'completed' : data.status as typeof activity.status,
+                })
+              }
+            })
+            .catch(() => {})
+        }
       },
 
       loadDemoData: () =>

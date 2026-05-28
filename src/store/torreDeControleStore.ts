@@ -40,6 +40,7 @@ function ctxAuth() {
 }
 
 interface TorreState {
+  activeOrgId: string | null
   sites: ConstructionSite[]
   selectedId: string | null
   editingId: string | null
@@ -52,6 +53,7 @@ interface TorreState {
 }
 
 interface TorreActions {
+  ensureTenantScope: (organizationId: string) => void
   addSite: (payload: Omit<ConstructionSite, 'id'>) => void
   updateSite: (id: string, patch: Partial<Omit<ConstructionSite, 'id'>>) => void
   deleteSite: (id: string) => void
@@ -82,6 +84,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         void get().flush()
       }
       return {
+        activeOrgId: null,
         sites: [],
         selectedId: null,
         editingId: null,
@@ -90,6 +93,20 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         syncStatus:   'idle',
         lastSyncedAt: null,
         syncError:    null,
+
+        ensureTenantScope: (organizationId) => {
+          if (!organizationId || get().activeOrgId === organizationId) return
+          set({
+            activeOrgId: organizationId,
+            sites: [],
+            selectedId: null,
+            editingId: null,
+            editingRisk: null,
+            pendingSync: [],
+            syncStatus: 'idle',
+            syncError: null,
+          })
+        },
 
         addSite: (payload) => {
           const id = crypto.randomUUID()
@@ -164,7 +181,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         loadDemoData: () => set({ sites: MOCK_OBRAS, selectedId: MOCK_OBRAS[0]?.id ?? null }),
-        clearData: () => set({ sites: [], selectedId: null, pendingSync: [], syncError: null }),
+        clearData: () => set({ activeOrgId: null, sites: [], selectedId: null, pendingSync: [], syncError: null }),
 
         flush: async () => {
           const queue = get().pendingSync
@@ -185,8 +202,18 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         pull: async () => {
+          const { profile } = useAuth.getState()
+          if (!profile) {
+            set({ syncStatus: 'unauth' })
+            return
+          }
+          get().ensureTenantScope(profile.organization_id)
+          set({ sites: [], selectedId: null })
           const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
-          if (rows) set({ sites: rows.map((r) => r.payload) })
+          if (rows) {
+            const sites = rows.map((r) => r.payload)
+            set({ sites, selectedId: sites[0]?.id ?? null })
+          }
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }
@@ -194,6 +221,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
     {
       name: 'cdata-torre-controle',
       partialize: (s) => ({
+        activeOrgId: s.activeOrgId,
         sites:        s.sites,
         selectedId:   s.selectedId,
         pendingSync:  s.pendingSync,
@@ -206,5 +234,29 @@ export const useTorreStore = create<TorreState & TorreActions>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void useTorreStore.getState().flush()
+  })
+
+  void import('@/lib/eventBus').then(({ eventBus }) => {
+    eventBus.on('measurement.draft_created', () => {
+      void useTorreStore.getState().pull()
+    })
+    eventBus.on('measurement.blocked', () => {
+      void useTorreStore.getState().pull()
+    })
+    eventBus.on('measurement.approved', () => {
+      void useTorreStore.getState().pull()
+    })
+    eventBus.on('realtime.row_changed', (event) => {
+      if (
+        event.table === 'construction_sites'
+        || event.table === 'projects'
+        || event.table === 'measurement_sources'
+        || event.table === 'measurement_memory_lines'
+        || event.table === 'plan_trechos'
+        || event.table === 'lps_restrictions'
+      ) {
+        void useTorreStore.getState().pull()
+      }
+    })
   })
 }

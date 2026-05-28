@@ -1056,9 +1056,43 @@ if (typeof window !== 'undefined') {
     eventBus.on('rdo.closed', () => {
       void usePlanejamentoStore.getState().pull()
     })
+    eventBus.on('measurement.approved', (event) => {
+      const key = event.operationalKey
+      if (!key) return
+      const serviceKey = (key.nPreco || key.serviceCode || '').toLowerCase()
+      const localKey = (key.local || '').toLowerCase()
+      const quantity = Math.max(0, Number(event.quantity ?? 0))
+      if (!serviceKey && !localKey) return
+
+      const state = usePlanejamentoStore.getState()
+      const matched = state.trechos
+        .filter((trecho) => {
+          const haystack = `${trecho.code} ${trecho.description}`.toLowerCase()
+          return Boolean((serviceKey && haystack.includes(serviceKey)) || (localKey && haystack.includes(localKey)))
+        })
+        .map((trecho) => ({
+          trechoCode: trecho.code,
+          executedMeters: Math.max(Number(trecho.executedMeters ?? 0), quantity || Number(trecho.executedMeters ?? 0)),
+          date: new Date().toISOString().slice(0, 10),
+        }))
+
+      if (matched.length > 0) {
+        state.syncExecutionFromRdo(matched)
+        state.runSchedule()
+      } else {
+        void state.pull()
+      }
+    })
     // Re-pull também quando Realtime avisar que plan_trechos mudou em outro cliente
     eventBus.on('realtime.row_changed', (e) => {
-      if (e.table === 'plan_trechos') {
+      if (
+        e.table === 'plan_trechos'
+        || e.table === 'measurement_sources'
+        || e.table === 'measurement_memory_lines'
+        || e.table === 'measurement_financial_entries'
+        || e.table === 'lps_activities'
+        || e.table === 'lps_restrictions'
+      ) {
         void usePlanejamentoStore.getState().pull()
       }
     })

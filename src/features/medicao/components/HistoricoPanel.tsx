@@ -10,6 +10,12 @@ function fmtBRL(n: number) {
   return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+function withoutId<T extends { id?: unknown }>(item: T): Omit<T, 'id'> {
+  const copy = { ...item }
+  Reflect.deleteProperty(copy, 'id')
+  return copy
+}
+
 function StatusBadge({ status }: { status: 'rascunho' | 'em_conferencia' | 'finalizado' }) {
   if (status === 'finalizado')
     return <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Finalizado</span>
@@ -86,8 +92,8 @@ export function HistoricoPanel({ onOpenBoletim }: { onOpenBoletim: () => void })
     const newId = createBoletim(`${src.periodo} (cópia)`, src.contrato, src.consorcio)
     // Copy items from source to new boletim (via store's importItensContrato)
     const { importItensContrato, importFornecedores } = useMedicaoBillingStore.getState()
-    importItensContrato(src.itensContrato.map(({ id: _id, ...rest }) => rest), true)
-    importFornecedores(src.fornecedores.map(({ id: _id, ...rest }) => rest), true)
+    importItensContrato(src.itensContrato.map(withoutId), true)
+    importFornecedores(src.fornecedores.map(withoutId), true)
     setActiveBoletim(newId)
     onOpenBoletim()
   }

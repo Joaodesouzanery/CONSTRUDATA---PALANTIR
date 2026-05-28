@@ -9,7 +9,7 @@ import {
   ClipboardList, Calendar, Radio, Wrench,
   PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Target, Map, Network, BrainCircuit, TrendingUp,
-  ShieldCheck, Ruler, type LucideIcon,
+  ShieldCheck, Ruler, BadgeDollarSign, type LucideIcon,
 } from 'lucide-react'
 
 export interface ModuleInfo {
@@ -118,6 +118,20 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     description: 'Frota fixa, manutenção preventiva e utilização.',
   },
   // ── PROJETOS ────────────────────────────────────────────────────────────
+  {
+    path: '/app/levantamento-obra',
+    label: 'Levantamento',
+    icon: Ruler,
+    group: 'projetos',
+    description: 'Levantamento tecnico, custos, orcamento e fotos da obra.',
+  },
+  {
+    path: '/app/economia',
+    label: 'Economia',
+    icon: BadgeDollarSign,
+    group: 'projetos',
+    description: 'ROI, eventos de economia, baseline e relatorio mensal de valor.',
+  },
   {
     path: '/app/bim',
     label: 'BIM 3D/4D/5D',

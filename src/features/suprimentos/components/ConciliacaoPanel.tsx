@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Plus, ClipboardList, FileText, Package, Receipt, RefreshCw } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, ClipboardList, FileText, Package, Receipt, RefreshCw, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -60,10 +60,11 @@ interface PORowProps {
   matchStatus: MatchStatus | undefined
   onRegisterReceipt: () => void
   onEditPO: () => void
+  onDeletePO: () => void
   onRunMatch: () => void
 }
 
-function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: PORowProps) {
+function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onDeletePO, onRunMatch }: PORowProps) {
   const [open, setOpen] = useState(false)
   const { receipts, invoices } = useSuprimentosStore(
     useShallow((s) => ({ receipts: s.receipts, invoices: s.invoices }))
@@ -188,6 +189,13 @@ function PORow({ po, matchStatus, onRegisterReceipt, onEditPO, onRunMatch }: POR
               <RefreshCw size={12} />
               Executar Match
             </button>
+            <button
+              onClick={onDeletePO}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 text-xs font-medium transition-colors"
+            >
+              <Trash2 size={12} />
+              Excluir OC
+            </button>
           </div>
         </div>
       )}
@@ -260,8 +268,8 @@ function ThreeWayMatchSummary() {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function ConciliacaoPanel() {
-  const { purchaseOrders, matches, runMatch } = useSuprimentosStore(
-    useShallow((s) => ({ purchaseOrders: s.purchaseOrders, matches: s.matches, runMatch: s.runMatch }))
+  const { purchaseOrders, matches, runMatch, deletePO } = useSuprimentosStore(
+    useShallow((s) => ({ purchaseOrders: s.purchaseOrders, matches: s.matches, runMatch: s.runMatch, deletePO: s.deletePO }))
   )
 
   const [showNewPO,     setShowNewPO]     = useState(false)
@@ -295,6 +303,9 @@ export function ConciliacaoPanel() {
             matchStatus={match?.status}
             onRegisterReceipt={() => setRegisterRcFor(po)}
             onEditPO={() => setEditPO(po)}
+            onDeletePO={() => {
+              if (window.confirm(`Excluir a OC ${po.code}?`)) deletePO(po.id)
+            }}
             onRunMatch={() => runMatch(po.id)}
           />
         )

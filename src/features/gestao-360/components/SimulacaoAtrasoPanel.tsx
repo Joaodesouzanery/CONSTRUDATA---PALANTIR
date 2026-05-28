@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, Clock, AlertTriangle, CalendarDays, DollarSign, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react'
 import { generateSchedule } from '@/features/planejamento/utils/scheduleEngine'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import type { TrechoDelay, GanttRow } from '@/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -350,9 +351,9 @@ export function SimulacaoAtrasoPanel() {
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
-  // Auto-load demo data if store is empty
+  // Auto-load demo data only in demo mode; live/homologation environments must not leak mocks.
   useEffect(() => {
-    if (trechos.length === 0) {
+    if (trechos.length === 0 && isDemoModeEnabled()) {
       loadDemoData()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

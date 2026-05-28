@@ -17,6 +17,8 @@ import { MOCK_FVSS } from '@/data/mockQualidade'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { eventBus } from '@/lib/eventBus'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { buildOperationalKey } from '@/lib/operationalKey'
 
 /**
  * Emite evento `fvs.nc_opened` quando uma NC é registrada num FVS.
@@ -33,6 +35,18 @@ function emitNcEventsIfAny(after: FVS, before?: FVS) {
       projectId: (after as { projectId?: string | null }).projectId ?? null,
       ncNumber: after.ncNumber,
       description: after.problems?.[0]?.description ?? undefined,
+    })
+    eventBus.emit({
+      type: 'quality.blocked',
+      qualityId: after.id,
+      projectId: (after as { projectId?: string | null }).projectId ?? null,
+      reason: after.problems?.[0]?.description ?? `NC ${after.ncNumber} aberta`,
+      operationalKey: buildOperationalKey({
+        contractNo: after.contractNo,
+        projectId: (after as { projectId?: string | null }).projectId ?? null,
+        local: after.identificationNo,
+        period: after.date.slice(0, 7),
+      }),
     })
   }
 }
@@ -324,6 +338,11 @@ export const useQualidadeStore = create<QualidadeState>()(
 
       // ─── Sync ────────────────────────────────────────────────────────────
       flush: async () => {
+        if (isNonProductionDataMode()) {
+          set({ syncStatus: 'idle' })
+          return
+        }
+
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           set({ syncStatus: 'offline' })
           return
@@ -369,6 +388,7 @@ export const useQualidadeStore = create<QualidadeState>()(
                     .from('quality_non_conformities')
                     .update(patch as never)
                     .eq('id', op.recordId)
+                    .eq('organization_id', profile.organization_id)
                   if (error) throw error
                 }
               }
@@ -378,6 +398,7 @@ export const useQualidadeStore = create<QualidadeState>()(
                   .from('quality_non_conformities')
                   .update({ deleted_at: new Date().toISOString() } as never)
                   .eq('id', op.recordId)
+                  .eq('organization_id', profile.organization_id)
                 if (error) throw error
               }
 
@@ -413,7 +434,11 @@ export const useQualidadeStore = create<QualidadeState>()(
                   rowPatch.payload = { items: fullFvs.items, problems: fullFvs.problems, fotos: fullFvs.fotos ?? [] }
                 }
               }
-              const { error } = await supabase.from('fvs').update(rowPatch as never).eq('id', op.recordId)
+              const { error } = await supabase
+                .from('fvs')
+                .update(rowPatch as never)
+                .eq('id', op.recordId)
+                .eq('organization_id', profile.organization_id)
               if (error) throw error
             }
 
@@ -451,6 +476,11 @@ export const useQualidadeStore = create<QualidadeState>()(
       },
 
       pull: async () => {
+        if (isNonProductionDataMode()) {
+          set({ syncStatus: 'idle' })
+          return
+        }
+
         const { profile } = useAuth.getState()
         if (!profile) return
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -461,6 +491,8 @@ export const useQualidadeStore = create<QualidadeState>()(
         const { data, error } = await supabase
           .from('fvs')
           .select('*')
+          .eq('organization_id', profile.organization_id)
+          .is('deleted_at', null)
           .order('number', { ascending: false })
 
         if (error) {
@@ -472,6 +504,7 @@ export const useQualidadeStore = create<QualidadeState>()(
         const { data: ncData, error: ncError } = await supabase
           .from('quality_non_conformities')
           .select('*')
+          .eq('organization_id', profile.organization_id)
           .is('deleted_at', null)
           .order('date', { ascending: false })
 

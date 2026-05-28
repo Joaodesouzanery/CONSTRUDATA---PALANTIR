@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react-refresh/only-export-components */
-import type { ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 import { Check as CheckIcon } from "lucide-react";
 import { CRIADOUROS, MOTIVOS_PARALISACAO } from "../lib/rdoSabespCatalog";
 import { cn } from "@/lib/utils";
@@ -11,13 +11,59 @@ interface SheetProps {
   set?: (path: string, val: any) => void;
   readOnly?: boolean;
   missing?: Set<string>;
+  foremanOptions?: string[];
 }
 
-const shell = "border border-black px-2 py-1.5 text-[11px] align-top leading-tight whitespace-normal break-words";
-const head = "border border-black px-2 py-1.5 text-[11px] font-bold text-center bg-slate-200 whitespace-normal break-words";
-const subhead = "border border-black px-2 py-1.5 text-[10px] font-bold text-center bg-slate-100 whitespace-normal break-words";
+const shell = "border border-black px-1.5 py-1 text-[11px] align-top leading-tight whitespace-normal break-words sm:px-2 sm:py-1.5";
+const head = "border border-black px-1.5 py-1 text-[11px] font-bold text-center bg-slate-200 whitespace-normal break-words sm:px-2 sm:py-1.5";
+const subhead = "border border-black px-1.5 py-1 text-[10px] font-bold text-center bg-slate-100 whitespace-normal break-words sm:px-2 sm:py-1.5";
 const orange = "border border-black px-2 py-1.5 text-[12px] font-bold text-center bg-orange-300";
 const blue = "border border-black px-2 py-1.5 text-[12px] font-bold text-center bg-sky-300";
+const SHEET_DESIGN_WIDTH = 1180;
+
+function FitToWidth({ children }: { children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const [metrics, setMetrics] = useState({ scale: 1, height: 0 });
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+
+    const update = () => {
+      const available = outer.clientWidth || SHEET_DESIGN_WIDTH;
+      const contentWidth = inner.scrollWidth || SHEET_DESIGN_WIDTH;
+      const scale = Math.min(1, available / contentWidth);
+      setMetrics({ scale, height: inner.scrollHeight * scale });
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(outer);
+    observer.observe(inner);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+
+  return (
+    <div ref={outerRef} className="w-full overflow-hidden" style={{ height: metrics.height || undefined }}>
+      <div
+        ref={innerRef}
+        style={{
+          width: SHEET_DESIGN_WIDTH,
+          transform: `scale(${metrics.scale})`,
+          transformOrigin: "top left",
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function Field({
   value,
@@ -27,6 +73,7 @@ function Field({
   type = "text",
   className = "",
   placeholder,
+  list,
 }: {
   value: any;
   onChange?: (v: string) => void;
@@ -35,6 +82,7 @@ function Field({
   type?: string;
   className?: string;
   placeholder?: string;
+  list?: string;
 }) {
   if (readOnly) {
     return (
@@ -49,6 +97,7 @@ function Field({
       type={type}
       value={value ?? ""}
       placeholder={placeholder}
+      list={list}
       onChange={(e) => onChange?.(e.target.value)}
       className={cn(
         "h-8 w-full rounded-sm border border-transparent bg-transparent px-1.5 text-[11px] outline-none transition focus:border-slate-300 focus:bg-slate-50",
@@ -206,7 +255,7 @@ function SectionTable({
   );
 }
 
-export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<string>() }: SheetProps) {
+export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<string>(), foremanOptions = [] }: SheetProps) {
   const m = (key: string) => missing.has(key);
   const cc = data.condicoes_climaticas || {};
   const q = data.qualidade || {};
@@ -262,21 +311,40 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
     set(path, rows);
   };
 
+  const addEquipmentRow = () => {
+    if (!set) return;
+    const rows = [...equipments];
+    rows.push({ descricao: "", terc: 0, contrat: 0 });
+    set("equipamentos", rows);
+  };
+
+  const addWorkforceRow = () => {
+    if (!set) return;
+    const rows = [...workforces];
+    rows.push({ cargo: "", terc: 0, contrat: 0 });
+    set("mao_de_obra", rows);
+  };
+
   const maxRows = Math.max(workforces.length, 8);
   const maxEquipments = Math.max(equipments.length, 7);
   const maxServices = Math.max(esgoto.length, agua.length);
   const qualityMissing = m("qualidade.ordem_servico") || m("qualidade.bandeirola") || m("qualidade.projeto");
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-collapse bg-white text-black">
+    <div className="rdo-sabesp-sheet max-w-full rounded-xl border border-slate-300 bg-white shadow-sm">
+      {!readOnly && foremanOptions.length > 0 && (
+        <datalist id="rdo-sabesp-foremen">
+          {foremanOptions.map((name) => <option key={name} value={name} />)}
+        </datalist>
+      )}
+      <FitToWidth>
+        <table className="table-fixed border-collapse bg-white text-black" style={{ width: SHEET_DESIGN_WIDTH }}>
           <tbody>
             <tr>
               <td className={shell} colSpan={2}>
-                <img src={logoSabesp} alt="Sabesp" className="mx-auto h-12 object-contain" />
+                <img src={logoSabesp} alt="Sabesp" className="mx-auto h-8 object-contain sm:h-12" />
               </td>
-              <td className="border border-black px-2 py-1.5 text-center text-[15px] font-bold" colSpan={5}>
+              <td className="border border-black px-1.5 py-1 text-center text-[12px] font-bold sm:px-2 sm:py-1.5 sm:text-[15px]" colSpan={5}>
                 RELATÓRIO DIÁRIO DE OBRA (RDO)
               </td>
               <td className={shell} colSpan={5}>
@@ -297,7 +365,7 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
                 </div>
               </td>
               <td className={shell} colSpan={2}>
-                <img src={logoCslnr} alt="CSLNR" className="mx-auto h-12 object-contain" />
+                <img src={logoCslnr} alt="CSLNR" className="mx-auto h-8 object-contain sm:h-12" />
               </td>
             </tr>
 
@@ -308,11 +376,11 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
               </td>
               <td className={cn(shell, "font-bold")} colSpan={1}>ENCARREGADO</td>
               <td className={shell} colSpan={4}>
-                <Field value={data.encarregado} onChange={(value) => set?.("encarregado", value)} readOnly={readOnly} missing={m("encarregado")} />
+                <Field value={data.encarregado} onChange={(value) => set?.("encarregado", value)} readOnly={readOnly} missing={m("encarregado")} list={!readOnly ? "rdo-sabesp-foremen" : undefined} />
               </td>
               <td className={cn(shell, "font-bold")} colSpan={1}>DATA</td>
               <td className={shell} colSpan={2}>
-                <Field type="date" value={data.report_date} onChange={(value) => set?.("report_date", value)} readOnly={readOnly} missing={m("report_date")} className="min-w-[128px]" />
+                <Field type="date" value={data.report_date} onChange={(value) => set?.("report_date", value)} readOnly={readOnly} missing={m("report_date")} />
               </td>
             </tr>
 
@@ -517,10 +585,10 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
                   <div className="mt-3 flex justify-end">
                     <button
                       type="button"
-                      onClick={() => addServiceRow("servicos_esgoto")}
+                      onClick={addWorkforceRow}
                       className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                     >
-                      Adicionar Atividades
+                      Adicionar cargo
                     </button>
                   </div>
                 )}
@@ -536,18 +604,29 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
                     return (
                       <tr key={`equipment-${index}`}>
                         <td className={shell}>
-                          <MultilineField value={row?.descricao} onChange={(value) => updateRow("equipamentos", index, "descricao", value)} readOnly={readOnly} rows={2} />
+                          <MultilineField value={row?.descricao} onChange={(value) => updateRow("equipamentos", index, "descricao", value)} readOnly={readOnly} rows={2} className="text-[13px] leading-snug" />
                         </td>
                         <td className={shell}>
-                          <Field type="number" value={row?.terc} onChange={(value) => updateRow("equipamentos", index, "terc", Number(value) || 0)} readOnly={readOnly} className="text-center" />
+                          <Field type="number" value={row?.terc} onChange={(value) => updateRow("equipamentos", index, "terc", Number(value) || 0)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                         <td className={shell}>
-                          <Field type="number" value={row?.contrat} onChange={(value) => updateRow("equipamentos", index, "contrat", Number(value) || 0)} readOnly={readOnly} className="text-center" />
+                          <Field type="number" value={row?.contrat} onChange={(value) => updateRow("equipamentos", index, "contrat", Number(value) || 0)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                       </tr>
                     );
                   }}
                 />
+                {!readOnly && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={addEquipmentRow}
+                      className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                      Adicionar equipamentos
+                    </button>
+                  </div>
+                )}
               </td>
             </tr>
 
@@ -567,19 +646,19 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
                     return (
                       <tr key={`esgoto-${index}`}>
                         <td className={shell}>
-                          <Field value={service?.codigo} onChange={(value) => updateService("servicos_esgoto", index, "codigo", value)} readOnly={readOnly} className="text-[10px]" />
+                          <Field value={service?.codigo} onChange={(value) => updateService("servicos_esgoto", index, "codigo", value)} readOnly={readOnly} className="text-[12px] sm:text-[13px]" />
                         </td>
                         <td className={shell}>
                           <div className="space-y-1">
-                            <MultilineField value={service?.descricao} onChange={(value) => updateService("servicos_esgoto", index, "descricao", value)} readOnly={readOnly} rows={3} className="text-[10px]" />
+                            <MultilineField value={service?.descricao} onChange={(value) => updateService("servicos_esgoto", index, "descricao", value)} readOnly={readOnly} rows={3} className="text-[12px] leading-snug sm:text-[13px]" />
                             <ServiceOptions service={service} readOnly={readOnly} onToggle={(option) => toggleServiceOption("servicos_esgoto", index, option)} />
                           </div>
                         </td>
                         <td className={shell}>
-                          <Field type="number" value={service?.quantidade} onChange={(value) => updateService("servicos_esgoto", index, "quantidade", value)} readOnly={readOnly} className="text-center text-[10px]" />
+                          <Field type="number" value={service?.quantidade} onChange={(value) => updateService("servicos_esgoto", index, "quantidade", value)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                         <td className={shell}>
-                          <Field value={service?.unidade} onChange={(value) => updateService("servicos_esgoto", index, "unidade", value)} readOnly={readOnly} className="text-center text-[10px]" />
+                          <Field value={service?.unidade} onChange={(value) => updateService("servicos_esgoto", index, "unidade", value)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                       </tr>
                     );
@@ -608,19 +687,19 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
                     return (
                       <tr key={`agua-${index}`}>
                         <td className={shell}>
-                          <Field value={service?.codigo} onChange={(value) => updateService("servicos_agua", index, "codigo", value)} readOnly={readOnly} className="text-[10px]" />
+                          <Field value={service?.codigo} onChange={(value) => updateService("servicos_agua", index, "codigo", value)} readOnly={readOnly} className="text-[12px] sm:text-[13px]" />
                         </td>
                         <td className={shell}>
                           <div className="space-y-1">
-                            <MultilineField value={service?.descricao} onChange={(value) => updateService("servicos_agua", index, "descricao", value)} readOnly={readOnly} rows={3} className="text-[10px]" />
+                            <MultilineField value={service?.descricao} onChange={(value) => updateService("servicos_agua", index, "descricao", value)} readOnly={readOnly} rows={3} className="text-[12px] leading-snug sm:text-[13px]" />
                             <ServiceOptions service={service} readOnly={readOnly} onToggle={(option) => toggleServiceOption("servicos_agua", index, option)} />
                           </div>
                         </td>
                         <td className={shell}>
-                          <Field type="number" value={service?.quantidade} onChange={(value) => updateService("servicos_agua", index, "quantidade", value)} readOnly={readOnly} className="text-center text-[10px]" />
+                          <Field type="number" value={service?.quantidade} onChange={(value) => updateService("servicos_agua", index, "quantidade", value)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                         <td className={shell}>
-                          <Field value={service?.unidade} onChange={(value) => updateService("servicos_agua", index, "unidade", value)} readOnly={readOnly} className="text-center text-[10px]" />
+                          <Field value={service?.unidade} onChange={(value) => updateService("servicos_agua", index, "unidade", value)} readOnly={readOnly} className="text-center text-[13px] font-semibold" />
                         </td>
                       </tr>
                     );
@@ -681,7 +760,7 @@ export function RdoSabespSheet({ data, set, readOnly = false, missing = new Set<
             </tr>
           </tbody>
         </table>
-      </div>
+      </FitToWidth>
     </div>
   );
 }
@@ -718,10 +797,10 @@ export const REQUIRED_LABELS: Record<string, string> = {
   rua_beco: "Rua / Beco",
   encarregado: "Encarregado",
   criadouro: "Criadouro",
-  epi_utilizado: "EPI utilizado (Sim/Nao)",
-  "condicoes_climaticas.manha": "Condicao climatica - Manha",
-  "condicoes_climaticas.tarde": "Condicao climatica - Tarde",
-  "condicoes_climaticas.noite": "Condicao climatica - Noite",
+  epi_utilizado: "EPI utilizado (Sim/Não)",
+  "condicoes_climaticas.manha": "Condição climática - Manhã",
+  "condicoes_climaticas.tarde": "Condição climática - Tarde",
+  "condicoes_climaticas.noite": "Condição climática - Noite",
   "qualidade.ordem_servico": "Qualidade (marcar OS, Bandeirola ou Projeto)",
   "qualidade.bandeirola": "Qualidade (marcar OS, Bandeirola ou Projeto)",
   "qualidade.projeto": "Qualidade (marcar OS, Bandeirola ou Projeto)",

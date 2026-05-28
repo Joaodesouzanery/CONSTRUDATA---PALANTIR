@@ -36,6 +36,7 @@ interface EditingBudgetLine {
 }
 
 interface ProjetosState {
+  activeOrgId: string | null
   projects: Project[]
   selectedProjectId: string | null
   activeTab: number
@@ -52,6 +53,7 @@ interface ProjetosState {
 }
 
 interface ProjetosActions {
+  ensureTenantScope: (organizationId: string) => void
   addProject: (payload: Omit<Project, 'id'>) => void
   updateProject: (id: string, patch: Partial<Omit<Project, 'id'>>) => void
   deleteProject: (id: string) => void
@@ -104,6 +106,7 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
     (set, get) => {
       const enqueue = (op: PendingOp) => set((s) => ({ pendingSync: [...s.pendingSync, op] }))
       return {
+        activeOrgId: null,
         projects: [],
         selectedProjectId: null,
         activeTab: 0,
@@ -116,6 +119,22 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
         syncStatus:   'idle',
         lastSyncedAt: null,
         syncError:    null,
+
+        ensureTenantScope: (organizationId) => {
+          if (!organizationId || get().activeOrgId === organizationId) return
+          set({
+            activeOrgId: organizationId,
+            projects: [],
+            selectedProjectId: null,
+            activeTab: 0,
+            editingProjectId: null,
+            editingPhase: null,
+            editingBudgetLine: null,
+            pendingSync: [],
+            syncStatus: 'idle',
+            syncError: null,
+          })
+        },
 
         addProject: (payload) => {
           const id = crypto.randomUUID()
@@ -323,7 +342,7 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
           set({ projects: MOCK_PROJETOS, selectedProjectId: MOCK_PROJETOS[0]?.id ?? null }),
 
         clearData: () =>
-          set({ projects: [], selectedProjectId: null, pendingSync: [], syncError: null }),
+          set({ activeOrgId: null, projects: [], selectedProjectId: null, pendingSync: [], syncError: null }),
 
         flush: async () => {
           const queue = get().pendingSync
@@ -344,8 +363,18 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
         },
 
         pull: async () => {
+          const { profile } = useAuth.getState()
+          if (!profile) {
+            set({ syncStatus: 'unauth' })
+            return
+          }
+          get().ensureTenantScope(profile.organization_id)
+          set({ projects: [], selectedProjectId: null })
           const rows = await pullTable<{ payload: Project }>('projects')
-          if (rows) set({ projects: rows.map((r) => r.payload) })
+          if (rows) {
+            const projects = rows.map((r) => r.payload)
+            set({ projects, selectedProjectId: projects[0]?.id ?? null })
+          }
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }
@@ -353,6 +382,7 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
     {
       name: 'cdata-projetos',
       partialize: (s) => ({
+        activeOrgId:       s.activeOrgId,
         projects:         s.projects,
         selectedProjectId: s.selectedProjectId,
         pendingSync:      s.pendingSync,

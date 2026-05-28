@@ -85,6 +85,27 @@ export function LpsAnalyticsPanel() {
   }, [restrictions])
 
   // Chart 4: Evolução semanal (criadas vs resolvidas ao longo do tempo)
+  const paretoProblems = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const r of restrictions) {
+      const k = String((r as any).porque || r.descricao || r.tema || 'Sem causa').trim()
+      map[k] = (map[k] ?? 0) + 1
+    }
+    const totalProblems = Object.values(map).reduce((sum, count) => sum + count, 0)
+    let cumulative = 0
+    return Object.entries(map)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
+      .map(([label, value]) => {
+        cumulative += value
+        return {
+          label,
+          value,
+          cumulativePct: totalProblems > 0 ? Math.round((cumulative / totalProblems) * 100) : 0,
+        }
+      })
+  }, [restrictions])
+
   const weeklyEvolution = useMemo(() => {
     // Group by creation week
     const created: Record<string, number> = {}
@@ -115,6 +136,29 @@ export function LpsAnalyticsPanel() {
 
       {/* Charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="Pareto 80/20 - principais problemas">
+          {paretoProblems.length === 0 ? (
+            <Empty />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {paretoProblems.map((item) => (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between gap-3 mb-0.5">
+                    <span className="truncate text-xs text-[#f5f5f5]" title={item.label}>{item.label}</span>
+                    <span className="shrink-0 text-xs font-semibold text-[#f5f5f5]">{item.value} - {item.cumulativePct}%</span>
+                  </div>
+                  <div className="h-2.5 bg-[#3d3d3d] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${item.cumulativePct <= 80 ? 'bg-orange-500' : 'bg-slate-500'}`}
+                      style={{ width: `${Math.min(100, item.cumulativePct)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ChartCard>
+
         {/* Chart 1: Restrições por Tipo */}
         <ChartCard title="Restrições por Tipo">
           {byCategory.length === 0 ? (

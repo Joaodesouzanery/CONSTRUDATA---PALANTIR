@@ -220,7 +220,7 @@ export function UtilizacaoPanel() {
           Taxa de Utilização da Frota (%) — Últimas 8 Semanas
         </h2>
         <LineChart />
-        <p className="text-[10px] text-[#3f3f3f]">
+        <p className="text-[10px] text-[#a3a3a3]">
           Dados simulados para ilustração do comportamento semanal da frota.
         </p>
       </div>
@@ -246,7 +246,7 @@ export function UtilizacaoPanel() {
                   (col) => (
                     <th
                       key={col}
-                      className="text-left text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold pb-2 pr-4 whitespace-nowrap"
+                      className="text-left text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold pb-2 pr-4 whitespace-nowrap"
                     >
                       {col}
                     </th>
@@ -260,7 +260,7 @@ export function UtilizacaoPanel() {
                   <td className="py-2.5 pr-4">
                     <div className="flex flex-col">
                       <span className="text-[#f5f5f5] font-medium">{eq.name}</span>
-                      <span className="text-[10px] text-[#6b6b6b]">{eq.code}</span>
+                      <span className="text-[10px] text-[#a3a3a3]">{eq.code}</span>
                     </div>
                   </td>
                   <td className="py-2.5 pr-4 text-[#f5f5f5] font-mono">

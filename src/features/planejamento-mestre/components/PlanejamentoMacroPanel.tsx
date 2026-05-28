@@ -58,6 +58,24 @@ function PlanningKpi({ label, value, accent = false }: { label: string; value: s
 
 // ─── Gantt SVG ───────────────────────────────────────────────────────────────
 
+function PercentCell({ value, onChange, color = '#f5f5f5' }: { value: number; onChange: (value: number) => void; color?: string }) {
+  return (
+    <div className="inline-flex items-center gap-1">
+      <input
+        type="number"
+        min={0}
+        max={100}
+        step="0.01"
+        value={Number.isFinite(value) ? value : 0}
+        onChange={(event) => onChange(Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
+        className="w-16 rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-right font-mono text-xs outline-none focus:border-[#f97316]/60"
+        style={{ color }}
+      />
+      <span className="text-[#6b6b6b]">%</span>
+    </div>
+  )
+}
+
 interface GanttChartProps {
   activities: MasterActivity[]
   collapsed: Set<string>
@@ -285,7 +303,12 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
     plannedStart: start.toISOString().slice(0, 10),
     plannedEnd: end.toISOString().slice(0, 10),
     responsibleTeam: '', isMilestone: false, weight: 5,
-    networkType: '' as string,
+    networkType: 'geral' as string,
+    local: '',
+    unidade: '',
+    plannedQuantity: '',
+    plannedProgressPct: 0,
+    operationalKey: '',
     }
   })
 
@@ -305,6 +328,12 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
       isMilestone: form.isMilestone, responsibleTeam: form.responsibleTeam || undefined,
       weight: form.weight,
       networkType: (form.networkType || undefined) as MasterActivity['networkType'],
+      plannedProgressPct: Math.min(100, Math.max(0, Number(form.plannedProgressPct) || 0)),
+      local: form.local || undefined,
+      unidade: form.unidade || undefined,
+      plannedQuantity: Number(form.plannedQuantity) || undefined,
+      executedQuantity: 0,
+      operationalKey: form.operationalKey || `${form.wbsCode}|${form.name}`.toLowerCase(),
     })
     onClose()
   }
@@ -347,6 +376,14 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
           <input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
         </div>
         <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Frente / local</label>
+          <input className={inputCls} value={form.local} onChange={(e) => setForm((f) => ({ ...f, local: e.target.value }))} placeholder="Ex: garagem, subsolo 1" />
+        </div>
+        <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Chave para RDO</label>
+          <input className={inputCls} value={form.operationalKey} onChange={(e) => setForm((f) => ({ ...f, operationalKey: e.target.value }))} placeholder="Opcional; usada para vincular apontamentos" />
+        </div>
+        <div>
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Início</label>
           <input type="date" className={inputCls} value={form.plannedStart} onChange={(e) => setForm((f) => ({ ...f, plannedStart: e.target.value }))} />
         </div>
@@ -359,8 +396,20 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
           <input className={inputCls} value={form.responsibleTeam} onChange={(e) => setForm((f) => ({ ...f, responsibleTeam: e.target.value }))} />
         </div>
         <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Unidade</label>
+          <input className={inputCls} value={form.unidade} onChange={(e) => setForm((f) => ({ ...f, unidade: e.target.value }))} placeholder="m2, ml, un..." />
+        </div>
+        <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">Quantidade planejada</label>
+          <input type="number" min={0} step="0.01" className={inputCls} value={form.plannedQuantity} onChange={(e) => setForm((f) => ({ ...f, plannedQuantity: e.target.value }))} />
+        </div>
+        <div>
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Peso</label>
           <input type="number" min={0} max={100} className={inputCls} value={form.weight} onChange={(e) => setForm((f) => ({ ...f, weight: Number(e.target.value) }))} />
+        </div>
+        <div>
+          <label className="text-[#6b6b6b] text-[10px] block mb-1">% previsto do serviço</label>
+          <input type="number" min={0} max={100} step="0.01" className={inputCls} value={form.plannedProgressPct} onChange={(e) => setForm((f) => ({ ...f, plannedProgressPct: Number(e.target.value) }))} placeholder="Ex: Lixamento 15" />
         </div>
         <div className="col-span-2 flex items-center gap-2">
           <input type="checkbox" checked={form.isMilestone} onChange={(e) => setForm((f) => ({ ...f, isMilestone: e.target.checked }))} className="accent-[#f97316]" />
@@ -389,6 +438,7 @@ function exportExcel(activities: MasterActivity[]) {
     'Fim Plan':    a.plannedEnd,
     'Início Tend': a.trendStart,
     'Fim Tend':    a.trendEnd,
+    '% Previsto':  a.plannedProgressPct ?? '',
     '% Conc.':     a.percentComplete,
     'Status':      a.status,
     'Equipe':      a.responsibleTeam ?? '',
@@ -445,6 +495,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const nuclei        = usePlanejamentoMestreStore((s) => s.nuclei)
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
+  const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
 
   const [showNewForm, setShowNewForm]   = useState(false)
   const [blName, setBlName]             = useState('')
@@ -719,7 +770,8 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Início</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Fim</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Tendência</th>
-                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">%</th>
+                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Prev.</th>
+                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Conc.</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Status</th>
               </tr>
             </thead>
@@ -738,7 +790,18 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                     </td>
                     <td className="px-3 py-2 text-[#f5f5f5]">{act.name}</td>
                     <td className="px-3 py-2">
-                      {act.networkType ? (
+                      <select
+                        value={act.networkType ?? 'geral'}
+                        onChange={(event) => updateActivity(act.id, { networkType: event.target.value as MasterActivity['networkType'] })}
+                        className="rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[10px] font-semibold uppercase outline-none"
+                        style={{ color: nColor }}
+                      >
+                        <option value="geral">Geral</option>
+                        <option value="agua">Água</option>
+                        <option value="esgoto">Esgoto</option>
+                        <option value="civil">Civil</option>
+                      </select>
+                      {false && act.networkType ? (
                         <span
                           className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase"
                           style={{ backgroundColor: nColor + '20', color: nColor }}
@@ -754,7 +817,20 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                         {fmtDate(act.trendEnd)}{delta > 0 ? ` (+${delta}d)` : delta < 0 ? ` (${delta}d)` : ''}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center font-mono" style={{ color }}>{act.percentComplete}%</td>
+                    <td className="px-3 py-2 text-center">
+                      <PercentCell value={act.plannedProgressPct ?? 0} onChange={(value) => updateActivity(act.id, { plannedProgressPct: value })} />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <PercentCell
+                        value={act.percentComplete}
+                        color={color}
+                        onChange={(value) => updateActivity(act.id, {
+                          percentComplete: value,
+                          physicalProgressPct: value,
+                          status: value >= 100 ? 'completed' : value > 0 ? 'in_progress' : 'not_started',
+                        })}
+                      />
+                    </td>
                     <td className="px-3 py-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: color + '18', color }}>
                         {STATUS_LABEL[act.status]}

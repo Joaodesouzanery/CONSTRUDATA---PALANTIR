@@ -16,7 +16,7 @@
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 
-export type StorageBucket = 'project-documents' | 'bim-uploads'
+export type StorageBucket = 'project-documents' | 'bim-uploads' | 'obra-levantamentos'
 
 export interface UploadResult {
   path: string

@@ -112,6 +112,7 @@ function MapController() {
   const sites      = useTorreStore((s) => s.sites)
   const selectedId = useTorreStore((s) => s.selectedId)
   const prevId     = useRef<string | null>(null)
+  const didFit      = useRef(false)
   const map        = useMap()
 
   // Quando o container muda de tamanho (layout vertical, modo fullscreen,
@@ -151,6 +152,27 @@ function MapController() {
       window.removeEventListener('resize', onResize)
     }
   }, [map])
+
+  useEffect(() => {
+    if (selectedId || didFit.current) return
+    const validSites = sites.filter((site) =>
+      site.lat != null && site.lng != null &&
+      Number.isFinite(site.lat) && Number.isFinite(site.lng)
+    )
+    if (validSites.length === 0) return
+    didFit.current = true
+    try {
+      map.invalidateSize()
+      if (validSites.length === 1) {
+        map.setView([validSites[0].lat!, validSites[0].lng!], 15)
+      } else {
+        const bounds = L.latLngBounds(validSites.map((site) => [site.lat!, site.lng!] as [number, number]))
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
+      }
+    } catch (err) {
+      console.warn('[ObrasMap] ajuste inicial de mapa falhou:', err)
+    }
+  }, [selectedId, sites, map])
 
   useEffect(() => {
     if (!selectedId || selectedId === prevId.current) return
@@ -330,7 +352,7 @@ export function ObrasMap() {
       <style>{mapCSS}</style>
 
       <MapContainer
-        center={[-23.5505, -46.6333]}
+        center={[-15.7939, -47.8828]}
         zoom={11}
         style={{ height: '100%', width: '100%', background: '#f5f5f5' }}
         zoomControl
@@ -441,21 +463,21 @@ export function ObrasMap() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f5', marginBottom: 6, lineHeight: 1.3 }}>
                   {site.name}
                 </div>
-                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 2 }}>📍 {site.street}, {site.number}</div>
-                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 8 }}>{site.district} — {site.city}/{site.state}</div>
-                <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 4 }}>👷 Gerente: {site.manager}</div>
+                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 2 }}>📍 {site.street}, {site.number}</div>
+                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 8 }}>{site.district} — {site.city}/{site.state}</div>
+                <div style={{ fontSize: 12, color: '#e5e5e5', marginBottom: 4 }}>👷 Gerente: {site.manager}</div>
 
                 {/* Equipment count */}
                 {(() => {
                   const cnt = equipCountBySiteName.get(site.name) ?? 0
                   return cnt > 0 ? (
-                    <div style={{ fontSize: 11, color: '#a3a3a3', marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, color: '#e5e5e5', marginBottom: 8 }}>
                       🚜 {cnt} equipamento{cnt !== 1 ? 's' : ''} no canteiro
                     </div>
                   ) : null
                 })()}
 
-                <div style={{ fontSize: 11, color: '#6b6b6b', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 8 }}>
                   📐 {site.totalArea.toLocaleString('pt-BR')} m² · {site.floors} {site.floors === 1 ? 'piso' : 'pisos'}
                 </div>
 
@@ -476,6 +498,17 @@ export function ObrasMap() {
                 >
                   Editar Obra
                 </button>
+                <a
+                  href={`https://www.google.com/maps?q=${site.lat},${site.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block', textAlign: 'center', marginTop: 8,
+                    color: '#f97316', fontSize: 11, fontWeight: 700, textDecoration: 'none',
+                  }}
+                >
+                  Conferir no Google Maps
+                </a>
                 <div style={{ textAlign: 'center', fontSize: 9, color: '#3f3f3f', marginTop: 6 }}>
                   Arraste para reposicionar
                 </div>

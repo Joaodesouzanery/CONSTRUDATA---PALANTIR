@@ -12,17 +12,28 @@ import type {
   SubempreiteiroDescontoMensal,
   SubempreiteiroRhMensal,
   SubempreiteiroNotaFiscal,
+  SubempreiteiroParametroFinanceiro,
+  SubempreiteiroRetencaoDetalhada,
   SubempreiteiroRetencaoMensal,
+  SubempreiteiroDetalhadoMensal,
+  SubempreiteiroCustoLancamento,
   Fornecedor,
   MedicaoAnchorTotal,
   MedicaoSourceTotals,
   MedicaoValidation,
 } from '@/store/medicaoBillingStore'
+import { normalizeNPreco } from '@/lib/medicaoCodeMap'
 import { getAllCriterios } from '../data/criterios'
 
 // ─── Generic helpers ──────────────────────────────────────────────────────────
 
 type Row = Record<string, unknown>
+
+function withSabespCode<T extends { nPreco: string; nPrecoSabesp?: string }>(item: T): T {
+  const original = String(item.nPreco ?? '').trim()
+  const linked = normalizeNPreco(item.nPrecoSabesp || original)
+  return { ...item, nPreco: original, nPrecoSabesp: linked || original }
+}
 
 /** Reads all rows from the first worksheet of a WorkBook. */
 function getRows(wb: XLSX.WorkBook): Row[] {
@@ -91,6 +102,80 @@ function toNum(v: unknown): number {
 
 function toStr(v: unknown): string {
   return String(v ?? '').trim()
+}
+
+function excelSerialToIso(value: number) {
+  if (!Number.isFinite(value) || value < 20000 || value > 80000) return ''
+  const date = new Date((value - 25569) * 86400000)
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10)
+}
+
+function displayCell(value: unknown): string {
+  if (typeof value === 'number') return excelSerialToIso(value) || String(value)
+  return toStr(value)
+}
+
+function collectWorkbookFormulaIssues(wb: XLSX.WorkBook) {
+  const issues: string[] = []
+  const errorPattern = /#(VALUE|REF|DIV\/0|N\/A|NAME|NUM|NULL)!?/i
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName]
+    const ref = ws?.['!ref']
+    if (!ws || !ref) continue
+    const range = XLSX.utils.decode_range(ref)
+    for (let row = range.s.r; row <= range.e.r; row += 1) {
+      for (let col = range.s.c; col <= range.e.c; col += 1) {
+        const addr = XLSX.utils.encode_cell({ r: row, c: col })
+        const cell = ws[addr] as XLSX.CellObject | undefined
+        if (!cell) continue
+        const displayed = String(cell.w ?? cell.v ?? '').trim()
+        if (cell.t === 'e' || errorPattern.test(displayed)) {
+          issues.push(`${sheetName}!${addr}: erro de formula ${displayed || '#ERROR'}`)
+        }
+      }
+    }
+  }
+  return issues
+}
+
+function rowValue(row: Row, patterns: RegExp[], fallbackKeys: string[] = []) {
+  for (const key of fallbackKeys) {
+    if (row[key] != null && toStr(row[key])) return row[key]
+  }
+  const found = Object.keys(row).find((key) => patterns.some((pattern) => pattern.test(norm(key))))
+  return found ? row[found] : ''
+}
+
+function supplierBlockingIssues(input: {
+  fornecedor?: string
+  nucleo?: string
+  periodo?: string
+  precoUnitario?: number
+  quantidade?: number
+  valor?: number
+  medicaoItens?: Array<{ pendencias?: string[] }>
+  memoriaItens?: unknown[]
+  valorTotalMedicaoNf?: number
+  valorAprovado?: number
+}) {
+  const issues = [
+    !input.fornecedor ? 'Sem fornecedor/subcontratado' : '',
+    !input.periodo ? 'Sem periodo/competencia' : '',
+    input.nucleo === '' ? 'Sem nucleo' : '',
+    input.precoUnitario != null && input.precoUnitario <= 0 ? 'Sem preco unitario' : '',
+    input.quantidade != null && input.quantidade <= 0 ? 'Sem quantidade' : '',
+    input.valor != null && input.valor <= 0 ? 'Sem valor de medicao' : '',
+    input.medicaoItens && input.medicaoItens.length === 0 ? 'Sem linhas de boletim' : '',
+    input.memoriaItens && input.memoriaItens.length === 0 ? 'Sem memoria MC' : '',
+    input.valorAprovado != null && input.valorTotalMedicaoNf != null && Math.abs(input.valorAprovado - input.valorTotalMedicaoNf) > 1 ? 'Divergencia entre aprovado e valor NF' : '',
+    ...(input.medicaoItens ?? []).flatMap((item) => item.pendencias ?? []),
+  ].filter(Boolean)
+  return Array.from(new Set(issues))
+}
+
+function parseConfidenceFromIssues(totalChecks: number, issueCount: number) {
+  if (totalChecks <= 0) return 0
+  return Math.max(0, Math.round(((totalChecks - issueCount) / totalChecks) * 100))
 }
 
 function normUnit(v: unknown): string {
@@ -641,8 +726,22 @@ export interface SubempreiteiroParseResult {
   parametros?: SubempreiteiroParametroMensal[]
   descontos?: SubempreiteiroDescontoMensal[]
   rh?: SubempreiteiroRhMensal[]
+  agregados?: SubempreiteiroCustoLancamento[]
+  materiaisFerramentas?: SubempreiteiroCustoLancamento[]
+  materiaisEpi?: SubempreiteiroCustoLancamento[]
+  maquinas?: SubempreiteiroCustoLancamento[]
+  servicos?: SubempreiteiroCustoLancamento[]
+  veiculos?: SubempreiteiroCustoLancamento[]
+  combustivel?: SubempreiteiroCustoLancamento[]
+  abastecimentoComboio?: SubempreiteiroCustoLancamento[]
+  locEquipamentos?: SubempreiteiroCustoLancamento[]
+  epis?: SubempreiteiroCustoLancamento[]
+  parametrosFinanceiros?: SubempreiteiroParametroFinanceiro[]
+  retencaoDetalhada?: SubempreiteiroRetencaoDetalhada[]
+  detalhadoMensal?: SubempreiteiroDetalhadoMensal[]
   nfs?: SubempreiteiroNotaFiscal[]
   retencoes?: SubempreiteiroRetencaoMensal[]
+  warnings?: string[]
   errors:   string[]
 }
 
@@ -650,7 +749,7 @@ function readRawWorksheet(wb: XLSX.WorkBook, sheetName: string): string[][] {
   const ws = wb.Sheets[sheetName]
   if (!ws) return []
   return (XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false }) as unknown[][])
-    .map((row) => row.map(toStr))
+    .map((row) => row.map(displayCell))
 }
 
 function isMetadataNoise(value: string) {
@@ -737,15 +836,53 @@ function getSheetByNorm(wb: XLSX.WorkBook, matcher: RegExp) {
   return name ? readRawWorksheet(wb, name) : []
 }
 
+function getSheetNamesByNorm(wb: XLSX.WorkBook, matcher: RegExp) {
+  return wb.SheetNames.filter((sheet) => matcher.test(norm(sheet)))
+}
+
+function nucleoFromSheetName(sheetName: string, fallback = '') {
+  const n = norm(sheetName)
+  if (/\b(s m|sao manuel|s manuel)\b/.test(n)) return 'SAO MANUEL'
+  if (/\b(j c|joao carlos|j carlos)\b/.test(n)) return 'JOAO CARLOS'
+  return fallback
+}
+
+function subMeasurementSheetNames(wb: XLSX.WorkBook) {
+  const names = wb.SheetNames.filter((name) => {
+    const n = norm(name)
+    if (/resumo|fechamento|desconto|retencao|reten|nfs|nota|parametro|memoria|^mc$|material|epi|rh/.test(n)) return false
+    return /^medicao(\s|$)/.test(n) || /detalhado|controle.*medicao|medicao.*empreiteiro/.test(n)
+  })
+  const splitNames = names.filter((name) => {
+    const n = norm(name)
+    return /\b(s m|j c|sao manuel|joao carlos)\b/.test(n)
+  })
+  return splitNames.length > 0 ? splitNames : names
+}
+
 function cellDateOrText(value: string) {
   return value.trim()
 }
 
 function appendSubempreiteiroDetailedTabs(wb: XLSX.WorkBook, result: SubempreiteiroParseResult) {
+  result.warnings = Array.from(new Set([...(result.warnings ?? []), ...collectWorkbookFormulaIssues(wb)]))
   result.parametros = parseSubParametros(wb, result)
   result.descontos = parseSubDescontos(wb)
   result.rh = parseSubRh(wb)
+  result.agregados = parseSubCostSheet(wb, /^agregados$/)
+  result.materiaisFerramentas = parseSubCostSheet(wb, /materiais.*ferramentas|mat.*ferram/)
+  result.materiaisEpi = parseSubCostSheet(wb, /mat.*e.*epis?|mat.*epis?|materiais.*epis?/)
+  result.maquinas = parseSubCostSheet(wb, /^maquinas$/)
+  result.servicos = parseSubCostSheet(wb, /^servicos$/)
+  result.veiculos = parseSubCostSheet(wb, /^veiculos$/)
+  result.combustivel = parseSubCostSheet(wb, /^combustivel$/)
+  result.abastecimentoComboio = parseSubCostSheet(wb, /abast.*comboio/)
+  result.locEquipamentos = parseSubCostSheet(wb, /loc.*equipamentos/)
+  result.epis = parseSubCostSheet(wb, /^epi$/)
   result.nfs = parseSubNfs(wb)
+  result.parametrosFinanceiros = parseSubParametrosFinanceiros(wb, result)
+  result.retencaoDetalhada = parseSubRetencaoDetalhada(wb, result.periodo)
+  result.detalhadoMensal = parseSubDetalhadoMensal(wb, result.periodo)
   const retentionItems = parseSubItensRetencao(wb, result.periodo)
   if (retentionItems.length > 0) {
     const retentionKeys = new Map(retentionItems.map((item) => [norm(`${item.nPreco}|${item.descricao}|${item.mes ?? ''}`), item]))
@@ -756,6 +893,54 @@ function appendSubempreiteiroDetailedTabs(wb: XLSX.WorkBook, result: Subempreite
     })
   }
   result.retencoes = buildSubRetencoes(result)
+}
+
+function parseSubCostSheet(wb: XLSX.WorkBook, sheetMatcher: RegExp): SubempreiteiroCustoLancamento[] {
+  const rows: SubempreiteiroCustoLancamento[] = []
+  const sheetNames = getSheetNamesByNorm(wb, sheetMatcher)
+  for (const sheetName of sheetNames) {
+  const raw = readRawWorksheet(wb, sheetName)
+  if (raw.length < 2) continue
+  const headerIdx = findHeaderRow(raw, (row) => /data|descricao|item|valor|total|qtde|qtd|quantidade/.test(row), 20)
+  if (headerIdx < 0) continue
+  const headers = raw[headerIdx] ?? []
+  const idx = (patterns: RegExp[]) => findHeaderCol(headers, patterns)
+  const iData = idx([/^data/, /emissao/])
+  const iDesc = idx([/descri/, /material/, /item/, /maquina/, /servico/, /veiculo/])
+  const iQtd = idx([/^qtd/, /qtde/, /quantidade/, /litros/, /dias/])
+  const iUnit = idx([/valor.*unit/, /vl.*unit/, /custo.*unit/, /unit$/])
+  const iTotal = idx([/valor.*total/, /vl.*total/, /^total$/, /valor final/])
+  const iFornecedor = idx([/fornecedor/, /empresa/, /locadora/, /dono/])
+  const iNf = idx([/^nf$/, /nfs/, /nota/])
+  const iPlaca = idx([/placa/, /modelo/])
+  const iOperador = idx([/operador/, /motorista/, /nome/])
+  rows.push(...raw.slice(headerIdx + 1).map((row, offset) => {
+    const descricao = iDesc >= 0 ? row[iDesc] : row.find((cell) => /[^\d\s.,;:/\\-]/.test(cell)) ?? ''
+    const quantidade = iQtd >= 0 ? toNum(row[iQtd]) : 1
+    const valorTotal = iTotal >= 0 ? toNum(row[iTotal]) : 0
+    const valorUnitario = iUnit >= 0 ? toNum(row[iUnit]) : quantidade > 0 ? valorTotal / quantidade : valorTotal
+    const total = valorTotal || quantidade * valorUnitario
+    if (!descricao || /total|descricao|material|item/.test(norm(descricao)) || total === 0) return null
+    return {
+      id: makeLocalId('custo'),
+      mes: '',
+      data: iData >= 0 ? cellDateOrText(row[iData]) : '',
+      descricao,
+      quantidade,
+      valorUnitario,
+      valorTotal: total,
+      fornecedor: iFornecedor >= 0 ? row[iFornecedor] : '',
+      nf: iNf >= 0 ? row[iNf] : '',
+      placa: iPlaca >= 0 ? row[iPlaca] : '',
+      operador: iOperador >= 0 ? row[iOperador] : '',
+      sourceSheet: sheetName,
+      sourceRow: headerIdx + offset + 2,
+      origem: 'Importação XLSX' as const,
+      status: 'em_revisao' as const,
+    }
+  }).filter(Boolean) as SubempreiteiroCustoLancamento[])
+  }
+  return rows
 }
 
 function parseSubParametros(wb: XLSX.WorkBook, base: SubempreiteiroParseResult): SubempreiteiroParametroMensal[] {
@@ -779,6 +964,48 @@ function parseSubParametros(wb: XLSX.WorkBook, base: SubempreiteiroParseResult):
     data: cellDateOrText(raw[7]?.[col] || ''),
     status: (/prev/i.test(raw[8]?.[col] || '') ? 'previa' : 'fechado') as 'previa' | 'fechado',
   })).filter((item) => item.mes || item.empreiteiro || item.nucleo)
+}
+
+function parseSubParametrosFinanceiros(wb: XLSX.WorkBook, base: SubempreiteiroParseResult): SubempreiteiroParametroFinanceiro[] {
+  const raw = getSheetByNorm(wb, /parametros?|fechamento|resumo/)
+  if (raw.length === 0) return []
+  const rows: SubempreiteiroParametroFinanceiro[] = []
+  let mes = base.periodo
+  for (const row of raw) {
+    const label = row.find((cell) => /[a-z]/.test(norm(cell))) ?? ''
+    const labelNorm = norm(label)
+    const monthCandidate = row.map(normalizePeriodoLabel).find(Boolean)
+    if (monthCandidate) mes = monthCandidate
+    if (!label || /descricao|valor|fornecedor|status|data/.test(labelNorm)) continue
+    if (!/medicao|desconto|taxa|adiantamento|fechamento|ajuste|locacao|retencao|liberacao|saldo/.test(labelNorm)) continue
+    const valueCell = row.slice(1).find((cell) => toNum(cell) !== 0 || /#error/i.test(cell))
+    const tipo: SubempreiteiroParametroFinanceiro['tipo'] = /medicao aprovada/.test(labelNorm)
+      ? 'aprovada'
+      : /^medicao/.test(labelNorm)
+        ? 'medicao'
+        : /desconto|taxa|locacao/.test(labelNorm)
+          ? 'desconto'
+          : /adiantamento/.test(labelNorm)
+            ? 'adiantamento'
+            : /retencao/.test(labelNorm)
+              ? 'retencao'
+              : /liberacao|nf/.test(labelNorm)
+                ? 'nf'
+                : /saldo/.test(labelNorm)
+                  ? 'saldo'
+                  : /fechamento/.test(labelNorm)
+                    ? 'fechamento'
+                    : 'ajuste'
+    rows.push({
+      id: makeLocalId('paramfin'),
+      mes,
+      descricao: label,
+      valor: /#error/i.test(valueCell ?? '') ? 0 : toNum(valueCell),
+      tipo,
+      origem: 'Importação XLSX',
+    })
+  }
+  return rows
 }
 
 function parseSubDescontos(wb: XLSX.WorkBook): SubempreiteiroDescontoMensal[] {
@@ -842,13 +1069,20 @@ function parseSubRh(wb: XLSX.WorkBook): SubempreiteiroRhMensal[] {
 }
 
 function parseSubNfs(wb: XLSX.WorkBook): SubempreiteiroNotaFiscal[] {
-  const raw = getSheetByNorm(wb, /^nfs$/)
-  if (raw.length < 2) return []
-  return raw.slice(1).map((row) => {
+  const rows: SubempreiteiroNotaFiscal[] = []
+  for (const sheetName of getSheetNamesByNorm(wb, /^(nfs|nfs pg|notas fiscais|nf)(\s|$)/)) {
+  const raw = readRawWorksheet(wb, sheetName)
+  if (raw.length < 2) continue
+  rows.push(...raw.slice(1).map((row, offset) => {
     const valorNf = toNum(row[4])
     const numero = row[1]?.trim()
     if (!numero && valorNf <= 0) return null
-    const status = norm(row[9]).includes('paga') ? 'PAGA' : norm(row[9]).includes('pend') ? 'PENDENTE' : 'ENVIADA'
+    const statusNorm = norm(row[9])
+    const status = statusNorm.includes('glos') ? 'GLOSADA'
+      : statusNorm.includes('apro') ? 'APROVADA'
+        : statusNorm.includes('paga') ? 'PAGA'
+          : statusNorm.includes('pend') ? 'PENDENTE'
+            : 'ENVIADA'
     return {
       id: makeLocalId('nf'),
       numero: numero || '',
@@ -861,9 +1095,13 @@ function parseSubNfs(wb: XLSX.WorkBook): SubempreiteiroNotaFiscal[] {
       competencia: normalizePeriodoLabel(row[8]) || row[8] || '',
       status,
       dataPagamento: cellDateOrText(row[10] || ''),
+      sourceSheet: sheetName,
+      sourceRow: offset + 2,
       origem: 'Importação XLSX' as const,
     }
-  }).filter(Boolean) as SubempreiteiroNotaFiscal[]
+  }).filter(Boolean) as SubempreiteiroNotaFiscal[])
+  }
+  return rows
 }
 
 function parseRetentionPercent(text: string) {
@@ -895,7 +1133,7 @@ function parseSubItensRetencao(wb: XLSX.WorkBook, defaultPeriodo: string): Subem
       const qtd = toNum(row[pair.qtd])
       const total = toNum(row[pair.total])
       if (qtd <= 0 && total <= 0) continue
-      items.push({
+      items.push(withSabespCode({
         id: makeLocalId('retitem'),
         nPreco,
         nPrecoSabesp: nPreco,
@@ -907,10 +1145,113 @@ function parseSubItensRetencao(wb: XLSX.WorkBook, defaultPeriodo: string): Subem
         origem: 'Importação XLSX',
         retencaoObservacao: obs || 'Item com retenção',
         retencaoPercentual: parseRetentionPercent(obs),
-      })
+      }))
     }
   }
   return items
+}
+
+function parseSubRetencaoDetalhada(wb: XLSX.WorkBook, defaultPeriodo: string): SubempreiteiroRetencaoDetalhada[] {
+  const raw = getSheetByNorm(wb, /retencao|reten|itens retencao/)
+  if (raw.length === 0) return []
+  const headerIdx = findHeaderRow(raw, (row) => /descricao.*servico/.test(row) && /n.*preco|preco/.test(row), 30)
+  if (headerIdx < 0) return []
+  const headers = raw[headerIdx] ?? []
+  const idx = (patterns: RegExp[]) => findHeaderCol(headers, patterns)
+  const iItem = idx([/^item$/, /^cod/])
+  const iDesc = idx([/descri/, /servico/])
+  const iNPreco = idx([/n.*preco/])
+  const iUn = idx([/^unid?$/, /^und$/])
+  const iQtd = idx([/qntd|qtd|quant/])
+  const iTotal = idx([/preco.*total|valor.*total|total/])
+  const iObs = idx([/observ/])
+  const periodRow = raw[Math.max(0, headerIdx - 1)] ?? []
+  const mes = periodRow.map(normalizePeriodoLabel).find(Boolean) || defaultPeriodo
+  return raw.slice(headerIdx + 1).map((row) => {
+    const descricao = iDesc >= 0 ? row[iDesc] : ''
+    if (!descricao || /total|descricao/.test(norm(descricao))) return null
+    const qtd = iQtd >= 0 ? toNum(row[iQtd]) : 0
+    const precoTotal = iTotal >= 0 ? toNum(row[iTotal]) : 0
+    const obs = iObs >= 0 ? row[iObs] : row.find((cell) => /retencao|reten/.test(norm(cell))) ?? ''
+    return {
+      id: makeLocalId('retdet'),
+      mes,
+      item: iItem >= 0 ? row[iItem] : '',
+      descricao,
+      nPreco: iNPreco >= 0 ? row[iNPreco] : '',
+      unidade: iUn >= 0 ? row[iUn] || 'UN' : 'UN',
+      qtd,
+      precoTotal,
+      fisicoMes: qtd,
+      fisicoAcumulado: qtd,
+      financeiroMes: precoTotal,
+      financeiroAcumulado: precoTotal,
+      percentualFisico: 0,
+      percentualFinanceiro: 0,
+      retencaoPercentual: parseRetentionPercent(obs),
+      observacoes: obs,
+      origem: 'Importação XLSX' as const,
+    }
+  }).filter(Boolean) as SubempreiteiroRetencaoDetalhada[]
+}
+
+function parseSubDetalhadoMensal(wb: XLSX.WorkBook, defaultPeriodo: string): SubempreiteiroDetalhadoMensal[] {
+  const rows: SubempreiteiroDetalhadoMensal[] = []
+  const sheetNames = getSheetNamesByNorm(wb, /detalhado|controle.*medicao|medicao.*empreiteiro|^medicao(\s|$)/)
+  for (const sheetName of sheetNames) {
+  const raw = readRawWorksheet(wb, sheetName)
+  if (raw.length === 0) continue
+  const headerIdx = findHeaderRow(raw, (row) => /descricao.*servico/.test(row) && /qtd|quant|preco/.test(row), 35)
+  if (headerIdx < 0) continue
+  const headers = raw[headerIdx] ?? []
+  const idx = (patterns: RegExp[]) => findHeaderCol(headers, patterns)
+  const iItem = idx([/^item$/, /^cod/])
+  const iDesc = idx([/descri/, /servico/])
+  const iNPreco = idx([/n.*preco/])
+  const iUn = idx([/^unid?$/, /^und$/])
+  const iQtdContrato = idx([/qtd.*contratada/, /contratada/])
+  const iUnit = idx([/preco.*unit/, /valor.*unit/])
+  const iTotal = idx([/preco.*total.*empreiteiro/, /total.*empreiteiro/])
+  const iQtdMes = idx([/qntd|qtd|quant/])
+  const iTotalMes = idx([/preco total\d*$/, /valor.*total/, /^total$/])
+  const iObs = idx([/observ/])
+  const periodRow = raw[Math.max(0, headerIdx - 1)] ?? []
+  const mes = periodRow.map(normalizePeriodoLabel).find(Boolean) || defaultPeriodo
+  rows.push(...raw.slice(headerIdx + 1).map((row, offset) => {
+    const descricao = iDesc >= 0 ? row[iDesc] : ''
+    if (!descricao || /total|descricao/.test(norm(descricao))) return null
+    const qtdContratada = iQtdContrato >= 0 ? toNum(row[iQtdContrato]) : 0
+    const precoUnitario = iUnit >= 0 ? toNum(row[iUnit]) : 0
+    const qtdMes = iQtdMes >= 0 ? toNum(row[iQtdMes]) : 0
+    const precoTotalMes = iTotalMes >= 0 ? toNum(row[iTotalMes]) : qtdMes * precoUnitario
+    const precoTotal = iTotal >= 0 ? toNum(row[iTotal]) : qtdContratada * precoUnitario
+    return {
+      id: makeLocalId('det'),
+      mes,
+      item: iItem >= 0 ? row[iItem] : '',
+      descricao,
+      nPreco: iNPreco >= 0 ? row[iNPreco] : '',
+      unidade: iUn >= 0 ? row[iUn] || 'UN' : 'UN',
+      qtdContratada,
+      precoUnitario,
+      precoTotal,
+      qtdMes,
+      precoTotalMes,
+      fisicoMes: qtdMes,
+      fisicoAcumulado: qtdMes,
+      financeiroMes: precoTotalMes,
+      financeiroAcumulado: precoTotalMes,
+      percentualFisico: 0,
+      percentualFinanceiro: 0,
+      observacoes: iObs >= 0 ? row[iObs] : '',
+      sourceSheet: sheetName,
+      sourceRow: headerIdx + offset + 2,
+      origem: 'Importação XLSX' as const,
+      status: 'em_revisao' as const,
+    }
+  }).filter(Boolean) as SubempreiteiroDetalhadoMensal[])
+  }
+  return rows
 }
 
 function buildSubRetencoes(result: SubempreiteiroParseResult): SubempreiteiroRetencaoMensal[] {
@@ -952,6 +1293,7 @@ function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroPar
     periodo: '',
     itens:  [],
     totals: { totalMedido: 0, totalAprovado: 0, retencao: 0 },
+    warnings: collectWorkbookFormulaIssues(wb),
     errors: [],
   }
 
@@ -988,11 +1330,14 @@ function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroPar
     }
   }
 
+  const measurementNames = subMeasurementSheetNames(wb)
+  const candidateNames = new Set(measurementNames.length > 0 ? measurementNames : wb.SheetNames)
   const candidates = sheets
     .filter(({ raw }) => raw.length > 0)
+    .filter(({ name }) => candidateNames.has(name))
     .sort((a, b) => normalizeSheetPriority(a.name) - normalizeSheetPriority(b.name))
 
-  for (const { raw } of candidates) {
+  for (const { name, raw } of candidates) {
     const headerIdx = findHeaderRow(raw, (rowNorm) => /n\s*preco|n preco|descricao do servico/.test(rowNorm) && /qntd|qtd|quant/.test(rowNorm))
     if (headerIdx < 0) continue
 
@@ -1013,6 +1358,7 @@ function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroPar
     if (idxDesc < 0 || idxQtd < 0 || idxTotal < 0) continue
 
     const items: SubempreteiroItem[] = []
+    const sheetNucleo = nucleoFromSheetName(name, result.nucleo)
     for (let i = headerIdx + 1; i < raw.length; i += 1) {
       const cells = raw[i]
       const rowNorm = norm(cells.join(' '))
@@ -1028,19 +1374,21 @@ function parseSubempreiteiroSheetOptimized(wb: XLSX.WorkBook): SubempreiteiroPar
 
       const valorUnitarioPlanilha = idxVlUnit >= 0 ? toNum(cells[idxVlUnit]) : 0
       const valorUnitario = valorUnitarioPlanilha > 0 ? valorUnitarioPlanilha : totalVal / qtd
-      items.push({
+      items.push(withSabespCode({
         nPreco,
         nPrecoSabesp: nPreco,
         descricao,
         unidade: idxUn >= 0 ? cells[idxUn].trim() || 'UN' : 'UN',
         qtd,
         valorUnitario,
-      })
+        mes: result.periodo,
+        nucleo: sheetNucleo,
+        sourceKey: `${name}:${i + 1}`,
+      }))
     }
 
     if (items.length > 0) {
-      result.itens = items
-      break
+      result.itens.push(...items)
     }
   }
 
@@ -1079,6 +1427,7 @@ function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseR
     periodo: '',
     itens:  [],
     totals: { totalMedido: 0, totalAprovado: 0, retencao: 0 },
+    warnings: collectWorkbookFormulaIssues(wb),
     errors: [],
   }
 
@@ -1215,7 +1564,7 @@ function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseR
           vlUnit = totalVal / qtd
         }
 
-        sheetItens.push({ nPreco, nPrecoSabesp: '', descricao, unidade, qtd, valorUnitario: vlUnit })
+        sheetItens.push(withSabespCode({ nPreco, nPrecoSabesp: nPreco, descricao, unidade, qtd, valorUnitario: vlUnit }))
       }
 
       if (sheetItens.length > 0) {
@@ -1237,14 +1586,14 @@ function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseR
           const nPreco = colNPreco ? toStr(row[colNPreco]) : ''
           const descricao = colDesc ? toStr(row[colDesc]) : ''
           if (!nPreco && !descricao) continue
-          result.itens.push({
+          result.itens.push(withSabespCode({
             nPreco,
-            nPrecoSabesp: '',
+            nPrecoSabesp: nPreco,
             descricao,
             unidade: colUn ? toStr(row[colUn]) || 'M' : 'M',
             qtd: colQtd ? toNum(row[colQtd]) : 0,
             valorUnitario: colVlUnit ? toNum(row[colVlUnit]) : 0,
-          })
+          }))
         }
         if (result.itens.length > 0) break
       }
@@ -1274,6 +1623,475 @@ function parseSubempreiteiroSheetLegacy(wb: XLSX.WorkBook): SubempreiteiroParseR
 export interface FornecedorParseResult {
   list:   Omit<Fornecedor, 'id'>[]
   errors: string[]
+}
+
+function withFornecedorWorkbookWarnings(result: FornecedorParseResult, warnings: string[]) {
+  if (warnings.length === 0) return result
+  return {
+    ...result,
+    list: result.list.map((fornecedor) => ({
+      ...fornecedor,
+      importWarnings: Array.from(new Set([...(fornecedor.importWarnings ?? []), ...warnings])),
+      status: 'pendente' as const,
+    })),
+  }
+}
+
+function newLocalId(prefix: string) {
+  return `${prefix}-${crypto.randomUUID()}`
+}
+
+function findAdjacentLabelValue(cells: string[], label: RegExp) {
+  const idx = cells.findIndex((cell) => label.test(norm(cell)))
+  if (idx < 0) return ''
+  return cells.slice(idx + 1).find((cell) => cell.trim()) ?? ''
+}
+
+function parseSupplierResumo(wb: XLSX.WorkBook, defaultPeriodo: string) {
+  const resumoName = wb.SheetNames.find((name) => /resumo/i.test(name))
+  const raw = resumoName ? readRawWorksheet(wb, resumoName) : []
+  const meta: Partial<Omit<Fornecedor, 'id'>> = { periodo: defaultPeriodo }
+  const totals = {
+    valorAprovado: 0,
+    totalDescontos: 0,
+    adiantamento: 0,
+    fechamentoAnterior: 0,
+    relatorio: 0,
+    valorTotalMedicaoNf: 0,
+  }
+
+  for (const row of raw) {
+    const cells = row.map(toStr)
+    const rowNorm = norm(cells.join(' '))
+    const mes = findAdjacentLabelValue(cells, /mes.*referencia/)
+    const empresa = findAdjacentLabelValue(cells, /empresa|fornecedor|contratada/)
+    const obraNucleo = findAdjacentLabelValue(cells, /obra.*nucleo|nucleo/)
+    const contrato = findAdjacentLabelValue(cells, /contrato/)
+    const medicao = findAdjacentLabelValue(cells, /^medicao/)
+    const periodo = findAdjacentLabelValue(cells, /periodo/)
+    const responsavel = findAdjacentLabelValue(cells, /responsavel/)
+    const setor = findAdjacentLabelValue(cells, /setor/)
+    const revisao = findAdjacentLabelValue(cells, /revisao/)
+    const data = findAdjacentLabelValue(cells, /^data$/)
+
+    if (mes) meta.mesReferencia = normalizePeriodoLabel(mes) || mes
+    if (empresa) {
+      meta.nome = empresa
+      meta.empresa = empresa
+    }
+    if (obraNucleo) meta.obraNucleo = obraNucleo
+    if (contrato) meta.contrato = contrato
+    if (medicao) meta.medicao = medicao
+    if (periodo) meta.periodo = periodo
+    if (responsavel) meta.responsavel = responsavel
+    if (setor) meta.setor = setor
+    if (revisao) meta.numeroRevisao = revisao
+    if (data) meta.data = data
+
+    const value = Math.abs(firstReasonableMoney(cells, 1))
+    if (/trabalhos.*executados.*aprovados/.test(rowNorm)) totals.valorAprovado = value
+    if (/total.*descontos/.test(rowNorm)) totals.totalDescontos = value
+    if (/adiantamento/.test(rowNorm)) totals.adiantamento = value
+    if (/fechamento.*anterior/.test(rowNorm)) totals.fechamentoAnterior = value
+    if (/relatorio/.test(rowNorm)) totals.relatorio = value
+    if (/valor.*total.*medicao.*nf|valor.*nf/.test(rowNorm)) totals.valorTotalMedicaoNf = value
+  }
+
+  const competencia = meta.mesReferencia || normalizePeriodoLabel(String(meta.periodo ?? '')) || defaultPeriodo
+  return {
+    ...meta,
+    periodo: meta.periodo || competencia || defaultPeriodo,
+    mesReferencia: competencia || defaultPeriodo,
+    valorAprovado: totals.valorAprovado,
+    totalDescontos: totals.totalDescontos,
+    adiantamento: totals.adiantamento,
+    fechamentoAnterior: totals.fechamentoAnterior,
+    relatorio: totals.relatorio,
+    valorTotalMedicaoNf: totals.valorTotalMedicaoNf,
+  }
+}
+
+function parseFornecedorBoletimLines(wb: XLSX.WorkBook): NonNullable<Fornecedor['medicaoItens']> {
+  const lines: NonNullable<Fornecedor['medicaoItens']> = []
+  const detailNames = wb.SheetNames.filter((name) => !/resumo|^mc$|planilha|controle|cadastro|calendario|lista|base/i.test(name))
+
+  for (const sheetName of detailNames) {
+    const raw = readRawWorksheet(wb, sheetName)
+    const headerIdx = findHeaderRow(raw, (rowNorm) => /item/.test(rowNorm) && /descricao/.test(rowNorm) && /empreiteiro/.test(rowNorm) && /nucleo/.test(rowNorm), 30)
+    if (headerIdx < 0) continue
+
+    for (let i = headerIdx + 1; i < raw.length; i += 1) {
+      const row = raw[i]
+      const rowNorm = norm(row.join(' '))
+      if (!rowNorm || /unitario|anterior|acumulado|subtotal|observacoes|valor da medicao|total/.test(rowNorm)) continue
+      const item = toStr(row[0])
+      const descricao = toStr(row[1])
+      const empreiteiro = toStr(row[2])
+      const nucleo = toStr(row[3])
+      const periodo = toStr(row[4])
+      const unidade = toStr(row[5])
+      const precoUnitario = toNum(row[6])
+      const quantidadeAnterior = toNum(row[7])
+      const quantidadeMes = toNum(row[8]) || (precoUnitario > 0 ? toNum(row[11]) / precoUnitario : 0)
+      const quantidadeAcumulada = toNum(row[9])
+      const valorAnterior = toNum(row[10])
+      const valorMes = toNum(row[11]) || quantidadeMes * precoUnitario
+      const valorAcumulado = toNum(row[12])
+      if (!descricao || /descricao|locacao|caminhao|maquina|servico/.test(norm(item)) && !empreiteiro && !nucleo && precoUnitario <= 0) continue
+      if (precoUnitario <= 0 && valorMes <= 0 && quantidadeMes <= 0) continue
+      const pendencias = [
+        !empreiteiro ? 'Sem empreiteiro' : '',
+        !nucleo ? 'Sem nucleo' : '',
+        !periodo ? 'Sem periodo' : '',
+        precoUnitario <= 0 ? 'Sem preco unitario' : '',
+        quantidadeMes <= 0 ? 'Sem quantidade no mes' : '',
+      ].filter(Boolean)
+      const blockingIssues = supplierBlockingIssues({
+        fornecedor: empreiteiro,
+        nucleo,
+        periodo,
+        precoUnitario,
+        quantidade: quantidadeMes,
+        valor: valorMes,
+      })
+      lines.push({
+        id: newLocalId('forn-line'),
+        item,
+        descricao,
+        empreiteiro,
+        nucleo,
+        periodo,
+        unidade,
+        precoUnitario,
+        noMes: valorMes,
+        total: valorMes,
+        quantidadeAnterior,
+        quantidadeMes,
+        quantidadeAcumulada,
+        valorAnterior,
+        valorMes,
+        valorAcumulado,
+        origem: 'Boletim',
+        pendencias,
+        blockingIssues,
+        sourceSheet: sheetName,
+        sourceRow: i + 1,
+      })
+    }
+    if (lines.length > 0) break
+  }
+  return lines
+}
+
+function parseFornecedorMemoryLines(wb: XLSX.WorkBook): NonNullable<Fornecedor['memoriaItens']> {
+  const rows: NonNullable<Fornecedor['memoriaItens']> = []
+  const mcNames = wb.SheetNames.filter((name) => /^mc$/i.test(name) || /^memoria/i.test(name))
+  for (const sheetName of mcNames) {
+    const raw = readRawWorksheet(wb, sheetName)
+    const headerIdx = findHeaderRow(raw, (rowNorm) => /descricao/.test(rowNorm) && (/qntd|quantidade|valor/.test(rowNorm)), 25)
+    if (headerIdx < 0) continue
+    const header = raw[headerIdx].map(norm)
+    const idx = (patterns: RegExp[], fallback: number) => {
+      const found = header.findIndex((cell) => patterns.some((pattern) => pattern.test(cell)))
+      return found >= 0 ? found : fallback
+    }
+    const iItem = idx([/^item$/], 0)
+    const iDesc = idx([/descricao/], 1)
+    const iNumero = idx([/numero/], 2)
+    const iPlaca = idx([/placa|modelo/], 2)
+    const iEmp = idx([/empreiteiro/], 2)
+    const iNucleo = idx([/nucleo/], 3)
+    const iInicio = idx([/inicio/], 4)
+    const iTermino = idx([/termino/], 5)
+    const iDias = idx([/total.*dias/], 6)
+    const iUnid = idx([/unid/], 7)
+    const iQtd = idx([/qntd|quantidade/], 8)
+    const iValor = idx([/valor.*unit|valor$/], 9)
+    const iFinal = idx([/valor.*final|total/], 10)
+
+    for (let i = headerIdx + 1; i < raw.length; i += 1) {
+      const row = raw[i]
+      const rowNorm = norm(row.join(' '))
+      if (!rowNorm || /empreiteiro|valor final|subtotal|total geral/.test(rowNorm)) continue
+      const descricao = toStr(row[iDesc])
+      const valorFinal = toNum(row[iFinal])
+      const quantidade = toNum(row[iQtd])
+      if (!descricao || (valorFinal <= 0 && quantidade <= 0)) continue
+      rows.push({
+        id: newLocalId('forn-mem'),
+        item: toStr(row[iItem]),
+        descricao,
+        numero: toStr(row[iNumero]),
+        placaModelo: toStr(row[iPlaca]),
+        empreiteiro: toStr(row[iEmp]),
+        nucleo: toStr(row[iNucleo]),
+        dataInicio: toStr(row[iInicio]),
+        dataTermino: toStr(row[iTermino]),
+        totalDias: toNum(row[iDias]),
+        unidade: toStr(row[iUnid]),
+        quantidade,
+        valorUnitario: toNum(row[iValor]),
+        valorFinal,
+        origem: sheetName,
+        sourceSheet: sheetName,
+        sourceRow: i + 1,
+        blockingIssues: supplierBlockingIssues({
+          fornecedor: toStr(row[iEmp]),
+          nucleo: toStr(row[iNucleo]),
+          precoUnitario: toNum(row[iValor]),
+          quantidade,
+          valor: valorFinal,
+        }),
+      })
+    }
+  }
+  return rows
+}
+
+function parseSupplierControlWorkbook(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+  const result: FornecedorParseResult = { list: [], errors: [] }
+  const controlName = wb.SheetNames.find((name) => /controle.*medi/i.test(name))
+  const monthlyName = wb.SheetNames.find((name) => /controle mensal/i.test(name))
+  if (!controlName && !monthlyName) return result
+
+  const bySupplier = new Map<string, Omit<Fornecedor, 'id'>>()
+  const ensure = (name: string, periodo: string) => {
+    const key = `${norm(name)}|${periodo || defaultPeriodo}`
+    const current = bySupplier.get(key)
+    if (current) return current
+    const row: Omit<Fornecedor, 'id'> = {
+      nome: name,
+      empresa: name,
+      periodo: periodo || defaultPeriodo,
+      mesReferencia: periodo || defaultPeriodo,
+      descricao: 'Medição importada do controle geral de subcontratados.',
+      valorAprovado: 0,
+      valorTotalMedicaoNf: 0,
+      medicaoItens: [],
+      controleLinhas: [],
+      etapasAprovacao: parseApprovalStages(wb),
+      servicosBase: parseBaseServices(wb),
+      sourceSheets: wb.SheetNames,
+      status: 'pendente',
+      importWarnings: [],
+    }
+    bySupplier.set(key, row)
+    return row
+  }
+
+  if (controlName) {
+    const rows = XLSX.utils.sheet_to_json<Row>(wb.Sheets[controlName], { defval: '' })
+    for (const row of rows) {
+      const subcontratado = toStr(row['Subcontratado'])
+      if (!subcontratado) continue
+      const periodo = toStr(row['Mês Referência']) || defaultPeriodo
+      const fornecedor = ensure(subcontratado, periodo)
+      const valor = toNum(row['Valor Medição (R$)'])
+      fornecedor.valorAprovado = (fornecedor.valorAprovado || 0) + valor
+      fornecedor.valorTotalMedicaoNf = (fornecedor.valorTotalMedicaoNf || 0) + valor
+      fornecedor.descricao = toStr(row['Serviço']) || fornecedor.descricao
+      fornecedor.obraNucleo = toStr(row['Núcleo']) || fornecedor.obraNucleo
+      fornecedor.status = norm(row['Status']).includes('aprov') ? 'aprovado' : 'pendente'
+      fornecedor.controleLinhas = [
+        ...(fornecedor.controleLinhas ?? []),
+        {
+          id: newLocalId('forn-ctrl'),
+          nucleo: toStr(row['Núcleo']),
+          empreiteiro: toStr(row['Empreiteiro']),
+          subcontratado,
+          servico: toStr(row['Serviço']),
+          mesReferencia: periodo,
+          valorMedicao: valor,
+          dataEntregaMedicao: toStr(row['Data Entrega Medição']),
+          engenheiroValidou: toStr(row['Engenheiro Validou']),
+          coordenacao: toStr(row['Coordenação']),
+          gerencia: toStr(row['Gerência']),
+          status: toStr(row['Status']),
+          dataLimitePagamento: toStr(row['Data Limite P/ Pagamento']),
+          diasEmAberto: toNum(row['Dias em Aberto']),
+          observacoes: toStr(row['Observações']),
+        },
+      ]
+      fornecedor.medicaoItens = [
+        ...(fornecedor.medicaoItens ?? []),
+        {
+          id: newLocalId('forn-line'),
+          item: String((fornecedor.medicaoItens?.length ?? 0) + 1),
+          descricao: toStr(row['Serviço']) || 'Medição de fornecedor',
+          empreiteiro: toStr(row['Empreiteiro']),
+          nucleo: toStr(row['Núcleo']),
+          periodo,
+          unidade: 'VB',
+          precoUnitario: valor,
+          noMes: valor,
+          total: valor,
+          valorMes: valor,
+          valorAcumulado: valor,
+          origem: 'Controle',
+        },
+      ]
+    }
+  }
+
+  if (monthlyName && bySupplier.size === 0) {
+    const raw = readRawWorksheet(wb, monthlyName)
+    const header = raw.find((row) => row.some((cell) => /competencia/i.test(cell))) ?? []
+    const monthLabels = header.slice(2)
+    for (const row of raw.slice(2)) {
+      const name = toStr(row[0])
+      const service = toStr(row[1])
+      if (!name || /fornecedor/i.test(name)) continue
+      monthLabels.forEach((month, index) => {
+        const value = toNum(row[index + 2])
+        if (value <= 0) return
+        const fornecedor = ensure(name, toStr(month))
+        fornecedor.descricao = service || fornecedor.descricao
+        fornecedor.valorAprovado = (fornecedor.valorAprovado || 0) + value
+        fornecedor.valorTotalMedicaoNf = (fornecedor.valorTotalMedicaoNf || 0) + value
+      })
+    }
+  }
+
+  result.list = Array.from(bySupplier.values())
+  return result
+}
+
+function parseSupplierControlWorkbookV2(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+  const result: FornecedorParseResult = { list: [], errors: [] }
+  const controlName = wb.SheetNames.find((name) => /controle.*medi/i.test(name))
+  if (!controlName) return parseSupplierControlWorkbook(wb, defaultPeriodo)
+
+  const rows = XLSX.utils.sheet_to_json<Row>(wb.Sheets[controlName], { defval: '' })
+  const bySupplier = new Map<string, Omit<Fornecedor, 'id'>>()
+  const ensure = (name: string, periodo: string) => {
+    const key = `${norm(name)}|${periodo || defaultPeriodo}`
+    const current = bySupplier.get(key)
+    if (current) return current
+    const row: Omit<Fornecedor, 'id'> = {
+      nome: name,
+      empresa: name,
+      periodo: periodo || defaultPeriodo,
+      mesReferencia: periodo || defaultPeriodo,
+      descricao: 'Medicao importada do controle geral de subcontratados.',
+      valorAprovado: 0,
+      valorTotalMedicaoNf: 0,
+      medicaoItens: [],
+      controleLinhas: [],
+      etapasAprovacao: parseApprovalStages(wb),
+      servicosBase: parseBaseServices(wb),
+      sourceSheet: controlName,
+      sourceSheets: wb.SheetNames,
+      status: 'pendente',
+      importWarnings: [],
+      blockingIssues: [],
+      parseConfidence: 100,
+    }
+    bySupplier.set(key, row)
+    return row
+  }
+
+  rows.forEach((row, index) => {
+    const subcontratado = toStr(rowValue(row, [/subcontratado/, /fornecedor/, /empresa/], ['Subcontratado']))
+    if (!subcontratado) return
+    const rawPeriodo = toStr(rowValue(row, [/mes.*referencia/, /competencia/, /periodo/], ['Mês Referência', 'MÃªs ReferÃªncia']))
+    const periodo = normalizePeriodoLabel(rawPeriodo) || rawPeriodo || defaultPeriodo
+    const valor = toNum(rowValue(row, [/valor.*medicao/, /valor/], ['Valor Medição (R$)', 'Valor MediÃ§Ã£o (R$)']))
+    const nucleo = toStr(rowValue(row, [/nucleo/], ['Núcleo', 'NÃºcleo']))
+    const empreiteiro = toStr(rowValue(row, [/empreiteiro/], ['Empreiteiro']))
+    const servico = toStr(rowValue(row, [/servico/], ['Serviço', 'ServiÃ§o']))
+    const status = toStr(rowValue(row, [/status/], ['Status']))
+    const fornecedor = ensure(subcontratado, periodo)
+    const rowIssues = supplierBlockingIssues({ fornecedor: subcontratado, nucleo, periodo, valor })
+
+    fornecedor.valorAprovado = (fornecedor.valorAprovado || 0) + valor
+    fornecedor.valorTotalMedicaoNf = (fornecedor.valorTotalMedicaoNf || 0) + valor
+    fornecedor.descricao = servico || fornecedor.descricao
+    fornecedor.obraNucleo = nucleo || fornecedor.obraNucleo
+    fornecedor.status = norm(status).includes('aprov') ? 'aprovado' : 'pendente'
+    fornecedor.blockingIssues = Array.from(new Set([...(fornecedor.blockingIssues ?? []), ...rowIssues]))
+    fornecedor.parseConfidence = parseConfidenceFromIssues(5, fornecedor.blockingIssues.length)
+
+    fornecedor.controleLinhas = [
+      ...(fornecedor.controleLinhas ?? []),
+      {
+        id: newLocalId('forn-ctrl'),
+        nucleo,
+        empreiteiro,
+        subcontratado,
+        servico,
+        mesReferencia: periodo,
+        valorMedicao: valor,
+        dataEntregaMedicao: toStr(rowValue(row, [/data.*entrega/], ['Data Entrega Medição', 'Data Entrega MediÃ§Ã£o'])),
+        engenheiroValidou: toStr(rowValue(row, [/engenheiro.*validou/], ['Engenheiro Validou'])),
+        coordenacao: toStr(rowValue(row, [/coordenacao/], ['Coordenação', 'CoordenaÃ§Ã£o'])),
+        gerencia: toStr(rowValue(row, [/gerencia/], ['Gerência', 'GerÃªncia'])),
+        status,
+        dataLimitePagamento: toStr(rowValue(row, [/data.*limite/], ['Data Limite P/ Pagamento'])),
+        diasEmAberto: toNum(rowValue(row, [/dias.*aberto/], ['Dias em Aberto'])),
+        observacoes: toStr(rowValue(row, [/observacoes/], ['Observações', 'ObservaÃ§Ãµes'])),
+        sourceSheet: controlName,
+        sourceRow: index + 2,
+        blockingIssues: rowIssues,
+      },
+    ]
+
+    fornecedor.medicaoItens = [
+      ...(fornecedor.medicaoItens ?? []),
+      {
+        id: newLocalId('forn-line'),
+        item: String((fornecedor.medicaoItens?.length ?? 0) + 1),
+        descricao: servico || 'Medicao de fornecedor',
+        empreiteiro,
+        nucleo,
+        periodo,
+        unidade: 'VB',
+        precoUnitario: valor,
+        noMes: valor,
+        total: valor,
+        valorMes: valor,
+        valorAcumulado: valor,
+        origem: 'Controle',
+        sourceSheet: controlName,
+        sourceRow: index + 2,
+        blockingIssues: rowIssues,
+        pendencias: rowIssues,
+      },
+    ]
+  })
+
+  result.list = Array.from(bySupplier.values()).map((fornecedor) => ({
+    ...fornecedor,
+    importWarnings: [
+      ...(fornecedor.importWarnings ?? []),
+      ...((fornecedor.blockingIssues ?? []).length ? [`Rascunho conferivel: ${(fornecedor.blockingIssues ?? []).join('; ')}`] : []),
+    ],
+  }))
+  return result.list.length > 0 ? result : parseSupplierControlWorkbook(wb, defaultPeriodo)
+}
+
+function parseApprovalStages(wb: XLSX.WorkBook): Fornecedor['etapasAprovacao'] {
+  const sheetName = wb.SheetNames.find((name) => /calendario|calendário/i.test(name))
+  if (!sheetName) return []
+  const rows = XLSX.utils.sheet_to_json<Row>(wb.Sheets[sheetName], { defval: '' })
+  return rows.map((row) => ({
+    id: newLocalId('forn-stage'),
+    etapa: toStr(row['Etapa']),
+    responsavel: toStr(row['Responsável']),
+    prazoLimite: toStr(row['Prazo limite (dia do mês)']),
+    descricao: toStr(row['O que precisa ser enviado/validado']),
+    status: 'pendente' as const,
+  })).filter((row) => row.etapa)
+}
+
+function parseBaseServices(wb: XLSX.WorkBook): Fornecedor['servicosBase'] {
+  const sheetName = wb.SheetNames.find((name) => /base.*serv/i.test(name))
+  if (!sheetName) return []
+  const rows = XLSX.utils.sheet_to_json<Row>(wb.Sheets[sheetName], { defval: '' })
+  return rows.map((row) => ({
+    id: newLocalId('forn-base'),
+    nome: toStr(row['NOME'] || row['Nome']),
+    descricao: toStr(row['DESCRIÇÃO'] || row['Descrição']),
+  })).filter((row) => row.nome || row.descricao)
 }
 
 function fornecedorDetailPriority(name: string) {
@@ -1326,9 +2144,13 @@ function parseFornecedorDetailDescription(wb: XLSX.WorkBook) {
 }
 
 export function parseFornecedorSheet(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
+  const workbookWarnings = collectWorkbookFormulaIssues(wb)
+  const control = parseSupplierControlWorkbookV2(wb, defaultPeriodo)
+  if (control.list.length > 0) return withFornecedorWorkbookWarnings(control, workbookWarnings)
+
   const parsed = parseFornecedorSheetOptimized(wb, defaultPeriodo)
-  if (parsed.list.length > 0) return parsed
-  return parseFornecedorSheetLegacy(wb, defaultPeriodo)
+  if (parsed.list.length > 0) return withFornecedorWorkbookWarnings(parsed, workbookWarnings)
+  return withFornecedorWorkbookWarnings(parseFornecedorSheetLegacy(wb, defaultPeriodo), workbookWarnings)
 }
 
 function parseFornecedorSheetOptimized(wb: XLSX.WorkBook, defaultPeriodo = ''): FornecedorParseResult {
@@ -1339,9 +2161,10 @@ function parseFornecedorSheetOptimized(wb: XLSX.WorkBook, defaultPeriodo = ''): 
     return result
   }
 
-  let nome = ''
-  let periodo = defaultPeriodo
-  let valorAprovado = 0
+  const resumo = parseSupplierResumo(wb, defaultPeriodo)
+  let nome = resumo.nome ?? ''
+  let periodo = resumo.mesReferencia || resumo.periodo || defaultPeriodo
+  let valorAprovado = resumo.valorAprovado ?? 0
 
   for (const { raw } of sheets) {
     for (let i = 0; i < Math.min(raw.length, 45); i += 1) {
@@ -1369,15 +2192,82 @@ function parseFornecedorSheetOptimized(wb: XLSX.WorkBook, defaultPeriodo = ''): 
     }
   }
 
+  const medicaoItens = parseFornecedorBoletimLines(wb)
+  const memoriaItens = parseFornecedorMemoryLines(wb)
   const descricao = parseFornecedorDetailDescription(wb)
   if (!nome) nome = wb.SheetNames.find((name) => !/resumo|planilha/i.test(name)) ?? wb.SheetNames[0] ?? 'Fornecedor'
 
+  const boletimTotal = medicaoItens.reduce((sum, item) => sum + (Number(item.valorMes ?? item.total) || 0), 0)
+  const memoriaTotal = memoriaItens.reduce((sum, item) => sum + (Number(item.valorFinal) || 0), 0)
+  if (valorAprovado <= 0) valorAprovado = boletimTotal || memoriaTotal
+
   if (valorAprovado <= 0) return result
+  const totalDescontos = resumo.totalDescontos ?? 0
+  const adiantamento = resumo.adiantamento ?? 0
+  const fechamentoAnterior = resumo.fechamentoAnterior ?? 0
+  const relatorio = resumo.relatorio ?? 0
+  const valorTotalMedicaoNf = (resumo.valorTotalMedicaoNf ?? 0) > 0
+    ? resumo.valorTotalMedicaoNf ?? 0
+    : valorAprovado - totalDescontos - adiantamento + fechamentoAnterior + relatorio
+  const importWarnings = [
+    medicaoItens.length === 0 ? 'Nenhuma linha de boletim MEDICAO foi identificada.' : '',
+    memoriaItens.length === 0 ? 'Nenhuma aba MC/memoria foi identificada.' : '',
+    ...medicaoItens.flatMap((item) => item.pendencias ?? []).map((msg) => `Linha ${msg}`),
+  ].filter(Boolean)
+  const blockingIssues = supplierBlockingIssues({
+    fornecedor: nome,
+    nucleo: resumo.obraNucleo ?? '',
+    periodo: periodo || defaultPeriodo,
+    medicaoItens,
+    memoriaItens,
+    valorAprovado,
+    valorTotalMedicaoNf,
+  })
+
   result.list.push({
+    ...resumo,
     nome,
     periodo: periodo || defaultPeriodo,
     descricao: descricao || 'Medição de fornecedor importada da planilha.',
     valorAprovado,
+    empresa: resumo.empresa || nome,
+    totalDescontos,
+    adiantamento,
+    fechamentoAnterior,
+    relatorio,
+    valorTotalMedicaoNf,
+    medicaoItens,
+    memoriaItens,
+    etapasAprovacao: parseApprovalStages(wb),
+    servicosBase: parseBaseServices(wb),
+    sourceSheet: resumo.sourceSheet ?? wb.SheetNames[0],
+    sourceSheets: wb.SheetNames,
+    importWarnings: [
+      ...importWarnings,
+      ...(blockingIssues.length ? [`Rascunho conferivel: ${blockingIssues.join('; ')}`] : []),
+    ],
+    blockingIssues,
+    parseConfidence: parseConfidenceFromIssues(7, blockingIssues.length),
+    status: importWarnings.length > 0 || blockingIssues.length > 0 ? 'pendente' : 'aprovado',
+    pacoteMedicao: {
+      fornecedor: nome,
+      competencia: resumo.mesReferencia || periodo || defaultPeriodo,
+      contrato: resumo.contrato,
+      obraNucleo: resumo.obraNucleo,
+      medicao: resumo.medicao,
+      responsavel: resumo.responsavel,
+      setor: resumo.setor,
+      revisao: resumo.numeroRevisao,
+      data: resumo.data,
+      totalAprovado: valorAprovado,
+      totalDescontos,
+      adiantamento,
+      fechamentoAnterior,
+      relatorio,
+      valorTotalMedicaoNf,
+      status: importWarnings.length > 0 ? 'pendente' : 'aprovado',
+      origem: 'importado',
+    },
   })
   return result
 }

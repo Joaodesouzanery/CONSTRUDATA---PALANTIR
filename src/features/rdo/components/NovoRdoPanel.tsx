@@ -11,15 +11,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import {
   ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
   CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
-  ShieldCheck, Info,
+  ShieldCheck, Info, CheckSquare, Package, Calculator,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { checkPendingFvsForDate, getCompletedFvsForDate } from '@/store/crossModuleSync'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
-import type { RdoEquipmentEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus } from '@/types'
+import type { RdoEquipmentEntry, RdoMaterialConsumptionEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus, RdoStoppageEntry, RdoWorkforceRow } from '@/types'
 import { TextParseModal } from './TextParseModal'
 import type { ParsedRdoData } from '../utils/parseRdoText'
 
@@ -30,6 +31,24 @@ const WEATHER_OPTIONS = [
   { value: 'cloudy', label: 'Nublado' },
   { value: 'rain',   label: 'Chuva' },
   { value: 'storm',  label: 'Tempestade' },
+] as const
+
+const LOCAL_TIPOS = ['Frente principal', 'Rua / beco', 'Trecho', 'Edificacao', 'Infraestrutura', 'Outro']
+const STOPPAGE_REASONS = ['Chuva', 'Falta de material', 'Falta de equipe', 'Interferencia', 'Aguardando liberacao', 'Outro']
+const ACTIVITY_STAGES = [
+  { stage: 'Lixamento', unit: 'm²', weight: 15.5, weightWithoutMaterial: 12.4, materials: ['Disco diamantado', 'Disco fibra', 'Lixa ferro'] },
+  { stage: 'Primeira demão de primer', unit: 'm²', weight: 10, weightWithoutMaterial: 8, materials: ['Primer', 'Rolo 9cm', 'Pincel'] },
+  { stage: 'Segunda demão de primer', unit: 'm²', weight: 10, weightWithoutMaterial: 8, materials: ['Primer', 'Rolo 9cm', 'Pincel'] },
+  { stage: 'Raspadinha', unit: 'm²', weight: 10, weightWithoutMaterial: 8, materials: ['Disco fibra', 'Lixa ferro'] },
+  { stage: 'Polimento', unit: 'm²', weight: 8, weightWithoutMaterial: 6.4, materials: ['Disco fibra', 'Panos'] },
+  { stage: 'Pintura', unit: 'm²', weight: 15.5, weightWithoutMaterial: 12.4, materials: ['Epóxi', 'Concrecor', 'Rolo 9cm'] },
+  { stage: 'Demarcação', unit: 'ml', weight: 15.5, weightWithoutMaterial: 12.4, materials: ['Fita crepe', 'Trena'] },
+  { stage: 'Pintura da demarcação', unit: 'ml', weight: 15.5, weightWithoutMaterial: 12.4, materials: ['Tinta de demarcação', 'Pincel'] },
+] as const
+const MATERIAL_SOURCES = [
+  { value: 'almoxarifado', label: 'Almoxarifado' },
+  { value: 'compra_direta', label: 'Compra direta' },
+  { value: 'apoio', label: 'Apoio / evidência' },
 ] as const
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -162,6 +181,7 @@ function FvsIntegrationBanner({ date }: { date: string }) {
 
 export function NovoRdoPanel() {
   const { rdos, addRdo, setActiveTab, loadTrechosFromPlanejamento } = useRdoStore()
+  const planningActivities = usePlanejamentoMestreStore((s) => s.activities)
   const logos = useCompanySettingsStore((s) => s.logos)
   const nextNumber = rdos.length + 1
 
@@ -181,6 +201,7 @@ export function NovoRdoPanel() {
   // Dynamic arrays (not validated by rdoSchema directly — validated per-row below)
   const [equipment, setEquipment] = useState<Omit<RdoEquipmentEntry, 'id'>[]>([])
   const [services,  setServices]  = useState<Omit<RdoServiceEntry,  'id'>[]>([])
+  const [materials, setMaterials] = useState<Omit<RdoMaterialConsumptionEntry, 'id'>[]>([])
   const [trechos,   setTrechos]   = useState<Omit<RdoTrechoEntry,   'id'>[]>([])
   const [photos,    setPhotos]    = useState<Omit<RdoPhoto,         'id'>[]>([])
   const [employeeNames, setEmployeeNames] = useState<string[]>([])
@@ -210,8 +231,27 @@ export function NovoRdoPanel() {
   const [rdoClimaManha,       setRdoClimaManha]       = useState('')
   const [rdoClimaTarde,       setRdoClimaTarde]       = useState('')
   const [rdoClimaNoite,       setRdoClimaNoite]       = useState('')
+  const [rdoLocalTipo,        setRdoLocalTipo]        = useState('Frente principal')
+  const [epiUtilizado,        setEpiUtilizado]        = useState<boolean | null>(null)
+  const [qualityChecklist,    setQualityChecklist]    = useState({ ordemServico: false, bandeirola: false, projeto: false, obs: '' })
+  const [stoppages,           setStoppages]           = useState<RdoStoppageEntry[]>([
+    { period: 'morning', reason: '', start: '', end: '' },
+    { period: 'afternoon', reason: '', start: '', end: '' },
+    { period: 'night', reason: '', start: '', end: '' },
+  ])
+  const [activityHours,       setActivityHours]       = useState({ dayStart: '', dayEnd: '', nightStart: '', nightEnd: '' })
+  const [workforceRows,       setWorkforceRows]       = useState<Omit<RdoWorkforceRow, 'id'>[]>([
+    { role: 'Encarregado', outsourced: 0, direct: 0 },
+    { role: 'Oficial', outsourced: 0, direct: 0 },
+    { role: 'Ajudante', outsourced: 0, direct: 0 },
+    { role: 'Operador', outsourced: 0, direct: 0 },
+  ])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const executablePlanningActivities = useMemo(
+    () => planningActivities.filter((activity) => activity.level >= 1 && !activity.isMilestone),
+    [planningActivities],
+  )
 
   // ── Equipment helpers ──────────────────────────────────────────────────────
   function addEquipmentRow() {
@@ -225,14 +265,130 @@ export function NovoRdoPanel() {
   }
 
   // ── Service helpers ────────────────────────────────────────────────────────
-  function addServiceRow() {
-    setServices((prev) => [...prev, { description: '', quantity: 1, unit: 'm' }])
+  function addServiceRow(stageName?: string) {
+    const stage = ACTIVITY_STAGES.find((item) => item.stage === stageName)
+    setServices((prev) => [...prev, {
+      contractItemCode: '',
+      description: stage?.stage ?? '',
+      activityStage: stage?.stage ?? '',
+      front: rdoLocalTipo || '',
+      quantity: 0,
+      unit: stage?.unit ?? 'm²',
+      measurementWeightPct: stage?.weight,
+      measurementWeightWithoutMaterialPct: stage?.weightWithoutMaterial,
+      dailyProgressPct: 0,
+      accumulatedProgressPct: 0,
+      measurementCriterion: stage ? `Executado conforme critério de medição da etapa ${stage.stage}.` : '',
+      qualityStatus: 'pending',
+      evidenceRequired: true,
+    }])
+  }
+  function addActivityTemplate() {
+    setServices((prev) => [
+      ...prev,
+      ...ACTIVITY_STAGES.map((stage) => ({
+        contractItemCode: '',
+        description: stage.stage,
+        activityStage: stage.stage,
+        front: rdoLocalTipo || '',
+        quantity: 0,
+        unit: stage.unit,
+        measurementWeightPct: stage.weight,
+        measurementWeightWithoutMaterialPct: stage.weightWithoutMaterial,
+        dailyProgressPct: 0,
+        accumulatedProgressPct: 0,
+        measurementCriterion: `Executado conforme critério de medição da etapa ${stage.stage}.`,
+        qualityStatus: 'pending' as const,
+        evidenceRequired: true,
+      })),
+    ])
   }
   function updateService(i: number, field: keyof Omit<RdoServiceEntry, 'id'>, val: string | number) {
     setServices((prev) => prev.map((row, idx) => idx === i ? { ...row, [field]: val } : row))
   }
+  function patchService(i: number, patch: Partial<Omit<RdoServiceEntry, 'id'>>) {
+    setServices((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
+  }
+  function linkPlanningActivity(i: number, activityId: string) {
+    const activity = executablePlanningActivities.find((item) => item.id === activityId)
+    if (!activity) {
+      patchService(i, { planningActivityId: undefined, operationalKey: undefined })
+      return
+    }
+    patchService(i, {
+      planningActivityId: activity.id,
+      operationalKey: activity.operationalKey || `${activity.wbsCode}|${activity.name}`.toLowerCase(),
+      contractItemCode: services[i]?.contractItemCode || activity.wbsCode,
+      description: services[i]?.description || activity.name,
+      front: activity.local || services[i]?.front || rdoLocalTipo || '',
+      unit: activity.unidade || services[i]?.unit || 'un',
+      quantity: services[i]?.quantity ?? 0,
+      accumulatedProgressPct: activity.percentComplete ?? services[i]?.accumulatedProgressPct ?? 0,
+    })
+  }
   function removeService(i: number) {
     setServices((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  // â”€â”€ Material helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function addMaterialRow(materialName = '') {
+    setMaterials((prev) => [...prev, {
+      material: materialName,
+      quantity: 0,
+      unit: '',
+      unitCostBRL: 0,
+      totalCostBRL: 0,
+      source: 'almoxarifado',
+      activityStage: '',
+      front: rdoLocalTipo || '',
+      notes: '',
+    }])
+  }
+  function addMaterialTemplate() {
+    const materialNames = [...new Set(ACTIVITY_STAGES.flatMap((stage) => stage.materials))]
+    setMaterials((prev) => [
+      ...prev,
+      ...materialNames.map((material) => ({
+        material,
+        quantity: 0,
+        unit: '',
+        unitCostBRL: 0,
+        totalCostBRL: 0,
+        source: 'almoxarifado' as const,
+        activityStage: '',
+        front: rdoLocalTipo || '',
+        notes: '',
+      })),
+    ])
+  }
+  function patchMaterial(i: number, patch: Partial<Omit<RdoMaterialConsumptionEntry, 'id'>>) {
+    setMaterials((prev) => prev.map((row, idx) => {
+      if (idx !== i) return row
+      const next = { ...row, ...patch }
+      const quantity = Number(next.quantity) || 0
+      const unitCost = Number(next.unitCostBRL) || 0
+      const shouldRecalculate = 'quantity' in patch || 'unitCostBRL' in patch || next.totalCostBRL === undefined
+      return shouldRecalculate ? { ...next, totalCostBRL: quantity * unitCost } : next
+    }))
+  }
+  function removeMaterial(i: number) {
+    setMaterials((prev) => prev.filter((_, idx) => idx !== i))
+  }
+
+  function updateStoppage(i: number, patch: Partial<RdoStoppageEntry>) {
+    setStoppages((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
+  }
+
+  function addWorkforceRow() {
+    setWorkforceRows((prev) => [...prev, { role: '', outsourced: 0, direct: 0 }])
+  }
+
+  function updateWorkforceRow(i: number, patch: Partial<Omit<RdoWorkforceRow, 'id'>>) {
+    setWorkforceRows((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
+  }
+
+  function removeWorkforceRow(i: number) {
+    setWorkforceRows((prev) => prev.filter((_, idx) => idx !== i))
   }
 
   // ── Trecho helpers ─────────────────────────────────────────────────────────
@@ -382,6 +538,11 @@ export function NovoRdoPanel() {
       incidents:   data.incidents,
       equipment:   equipment.map((e) => ({ ...e, id: crypto.randomUUID() })),
       services:    services.map((s) => ({ ...s, id: crypto.randomUUID() })),
+      materials:   materials.map((m) => ({
+        ...m,
+        id: crypto.randomUUID(),
+        totalCostBRL: m.totalCostBRL ?? ((Number(m.quantity) || 0) * (Number(m.unitCostBRL) || 0)),
+      })),
       trechos:     trechos.map((t) => ({ ...t, id: crypto.randomUUID() })),
       photos:      photos.map((p) => ({ ...p, id: crypto.randomUUID() })),
       geolocation,
@@ -401,6 +562,12 @@ export function NovoRdoPanel() {
       climaManha:                 rdoClimaManha || undefined,
       climaTarde:                 rdoClimaTarde || undefined,
       climaNoite:                 rdoClimaNoite || undefined,
+      localTipo:                  rdoLocalTipo || undefined,
+      epiUtilizado:               epiUtilizado ?? undefined,
+      qualityChecklist,
+      stoppages,
+      activityHours,
+      workforceRows:              workforceRows.map((row) => ({ ...row, id: crypto.randomUUID() })),
     })
     setActiveTab('historico')
   }
@@ -410,6 +577,7 @@ export function NovoRdoPanel() {
     reset()
     setEquipment([])
     setServices([])
+    setMaterials([])
     setTrechos([])
     setPhotos([])
     setEmployeeNames([])
@@ -424,6 +592,21 @@ export function NovoRdoPanel() {
     setRdoFuncDiretos(0); setRdoFuncIndiretos(0); setRdoQtdEquip(0)
     setRdoNumeroOS(''); setRdoContrato('')
     setRdoClimaManha(''); setRdoClimaTarde(''); setRdoClimaNoite('')
+    setRdoLocalTipo('Frente principal')
+    setEpiUtilizado(null)
+    setQualityChecklist({ ordemServico: false, bandeirola: false, projeto: false, obs: '' })
+    setStoppages([
+      { period: 'morning', reason: '', start: '', end: '' },
+      { period: 'afternoon', reason: '', start: '', end: '' },
+      { period: 'night', reason: '', start: '', end: '' },
+    ])
+    setActivityHours({ dayStart: '', dayEnd: '', nightStart: '', nightEnd: '' })
+    setWorkforceRows([
+      { role: 'Encarregado', outsourced: 0, direct: 0 },
+      { role: 'Oficial', outsourced: 0, direct: 0 },
+      { role: 'Ajudante', outsourced: 0, direct: 0 },
+      { role: 'Operador', outsourced: 0, direct: 0 },
+    ])
     setRdoNumber(rdos.length + 1)
   }
 
@@ -431,7 +614,7 @@ export function NovoRdoPanel() {
   const watchedDate = useWatch({ control, name: 'date' }) as string
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-4">
+    <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-white font-semibold text-lg">Novo RDO</h2>
         <div className="flex items-center gap-2">
@@ -526,6 +709,12 @@ export function NovoRdoPanel() {
               <input type="text" value={rdoLocal} onChange={(e) => setRdoLocal(e.target.value)} placeholder="Ex: Rua das Palmeiras, 100 — Centro" className={inputCls} />
             </div>
             <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Tipo de local</label>
+              <select value={rdoLocalTipo} onChange={(e) => setRdoLocalTipo(e.target.value)} className={selectCls}>
+                {LOCAL_TIPOS.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
+              </select>
+            </div>
+            <div>
               <label className="block text-[#a3a3a3] text-xs mb-1">Nº Ordem de Serviço</label>
               <input type="text" value={rdoNumeroOS} onChange={(e) => setRdoNumeroOS(e.target.value)} placeholder="Ex: 2024/0587" className={inputCls} />
             </div>
@@ -610,6 +799,85 @@ export function NovoRdoPanel() {
           </div>
         </Section>
 
+        <Section title="Controle Operacional e Qualidade" icon={<CheckSquare size={16} className="text-[#f97316]" />}>
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 py-2 text-sm text-[#e5e5e5]">
+                <input
+                  type="checkbox"
+                  checked={epiUtilizado === true}
+                  onChange={(e) => setEpiUtilizado(e.target.checked ? true : null)}
+                  className="h-4 w-4 accent-[#f97316]"
+                />
+                EPI utilizado
+              </label>
+              {([
+                ['ordemServico', 'Ordem de serviço'],
+                ['bandeirola', 'Bandeirola'],
+                ['projeto', 'Projeto'],
+              ] as const).map(([field, label]) => (
+                <label key={field} className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 py-2 text-sm text-[#e5e5e5]">
+                  <input
+                    type="checkbox"
+                    checked={qualityChecklist[field]}
+                    onChange={(e) => setQualityChecklist((prev) => ({ ...prev, [field]: e.target.checked }))}
+                    className="h-4 w-4 accent-[#f97316]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Observação de qualidade</label>
+              <textarea
+                value={qualityChecklist.obs}
+                onChange={(e) => setQualityChecklist((prev) => ({ ...prev, obs: e.target.value }))}
+                rows={2}
+                className={`${inputCls} resize-y`}
+                placeholder="Pendências, liberações ou evidências de controle"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Início diurno</label>
+                <input type="time" value={activityHours.dayStart} onChange={(e) => setActivityHours((prev) => ({ ...prev, dayStart: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Fim diurno</label>
+                <input type="time" value={activityHours.dayEnd} onChange={(e) => setActivityHours((prev) => ({ ...prev, dayEnd: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Início noturno</label>
+                <input type="time" value={activityHours.nightStart} onChange={(e) => setActivityHours((prev) => ({ ...prev, nightStart: e.target.value }))} className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Fim noturno</label>
+                <input type="time" value={activityHours.nightEnd} onChange={(e) => setActivityHours((prev) => ({ ...prev, nightEnd: e.target.value }))} className={inputCls} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-[#a3a3a3] text-xs">Paralisações por período</div>
+              {stoppages.map((row, i) => {
+                const labels = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' }
+                return (
+                  <div key={row.period} className="grid grid-cols-1 sm:grid-cols-[90px_1fr_120px_120px] gap-2 items-center">
+                    <div className="text-sm text-[#e5e5e5]">{labels[row.period]}</div>
+                    <select value={row.reason} onChange={(e) => updateStoppage(i, { reason: e.target.value })} className={selectCls}>
+                      <option value="">Sem paralisação</option>
+                      {STOPPAGE_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+                    </select>
+                    <input type="time" value={row.start} onChange={(e) => updateStoppage(i, { start: e.target.value })} className={inputCls} />
+                    <input type="time" value={row.end} onChange={(e) => updateStoppage(i, { end: e.target.value })} className={inputCls} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </Section>
+
         {/* 3. Mão de Obra */}
         <Section title="Mão de Obra" icon={<Users size={16} className="text-[#f97316]" />}>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -631,6 +899,50 @@ export function NovoRdoPanel() {
                 <FieldError msg={errors.manpower?.[field]?.message} />
               </div>
             ))}
+          </div>
+          <div className="mb-4 rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="text-[#e5e5e5] text-sm font-medium">Mão de obra detalhada</div>
+              <button
+                type="button"
+                onClick={addWorkforceRow}
+                className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm"
+              >
+                <Plus size={14} /> Adicionar cargo
+              </button>
+            </div>
+            <div className="space-y-2">
+              {workforceRows.map((row, i) => (
+                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px_32px] gap-2 items-center">
+                  <input
+                    type="text"
+                    value={row.role}
+                    onChange={(e) => updateWorkforceRow(i, { role: e.target.value })}
+                    placeholder="Cargo"
+                    className={inputCls}
+                  />
+                  <input
+                    type="number"
+                    value={row.outsourced}
+                    onChange={(e) => updateWorkforceRow(i, { outsourced: Number(e.target.value) })}
+                    min={0}
+                    className={inputCls}
+                    title="Terceirizados"
+                  />
+                  <input
+                    type="number"
+                    value={row.direct}
+                    onChange={(e) => updateWorkforceRow(i, { direct: Number(e.target.value) })}
+                    min={0}
+                    className={inputCls}
+                    title="Contratados"
+                  />
+                  <button type="button" onClick={() => removeWorkforceRow(i)} className="text-red-400 hover:text-red-300 p-1">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           {/* Employee name chips */}
           <div>
@@ -740,13 +1052,40 @@ export function NovoRdoPanel() {
         </Section>
 
         {/* 5. Serviços Executados */}
-        <Section title="Serviços Executados" icon={<ClipboardList size={16} className="text-[#f97316]" />}>
-          <div className="space-y-2">
+        <Section title="Serviços Executados e Medição" icon={<ClipboardList size={16} className="text-[#f97316]" />}>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <div className="text-[#f5f5f5] text-sm font-medium">Controle por etapa do serviço</div>
+                  <p className="text-[#a3a3a3] text-xs mt-1">
+                    Lance a frente, unidade, quantidade executada, peso de medição e status de aceite. Esses dados alimentam o dashboard do RDO.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={addActivityTemplate} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 text-xs font-medium">
+                    <Calculator size={14} /> Etapas padrão
+                  </button>
+                  <button type="button" onClick={() => addServiceRow()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#f5f5f5] hover:border-[#f97316]/50 text-xs font-medium">
+                    <Plus size={14} /> Etapa avulsa
+                  </button>
+                </div>
+              </div>
+            </div>
             {services.length === 0 && (
               <p className="text-[#6b6b6b] text-sm italic">Nenhum serviço adicionado.</p>
             )}
             {services.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <input
+                  type="text"
+                  value={row.contractItemCode ?? ''}
+                  onChange={(e) => updateService(i, 'contractItemCode', e.target.value)}
+                  placeholder="Código / Nº preço"
+                  className={`${inputCls} sm:w-40`}
+                  title="Código ou Nº preço para Medição"
+                />
                 <input
                   type="text"
                   value={row.description}
@@ -773,15 +1112,198 @@ export function NovoRdoPanel() {
                 <button type="button" onClick={() => removeService(i)} className="text-red-400 hover:text-red-300 p-1">
                   <Trash2 size={15} />
                 </button>
+                </div>
+
+                <div>
+                  <label className="block text-[#a3a3a3] text-xs mb-1">Atividade do Planejamento</label>
+                  <select
+                    value={row.planningActivityId ?? ''}
+                    onChange={(e) => linkPlanningActivity(i, e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="">Sem vínculo com Planejamento</option>
+                    {executablePlanningActivities.map((activity) => (
+                      <option key={activity.id} value={activity.id}>
+                        {activity.wbsCode} - {activity.name}
+                        {activity.local ? ` (${activity.local})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Etapa padrão</label>
+                    <select
+                      value={row.activityStage ?? ''}
+                      onChange={(e) => {
+                        const stage = ACTIVITY_STAGES.find((item) => item.stage === e.target.value)
+                        patchService(i, {
+                          activityStage: e.target.value,
+                          description: stage?.stage ?? row.description,
+                          unit: stage?.unit ?? row.unit,
+                          measurementWeightPct: stage?.weight ?? row.measurementWeightPct,
+                          measurementWeightWithoutMaterialPct: stage?.weightWithoutMaterial ?? row.measurementWeightWithoutMaterialPct,
+                        })
+                      }}
+                      className={selectCls}
+                    >
+                      <option value="">Sem etapa padrão</option>
+                      {ACTIVITY_STAGES.map((stage) => <option key={stage.stage} value={stage.stage}>{stage.stage}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Frente / local</label>
+                    <input
+                      type="text"
+                      value={row.front ?? ''}
+                      onChange={(e) => updateService(i, 'front', e.target.value)}
+                      placeholder="Ex: garagem, subsolo 1, setor B"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Peso medição %</label>
+                    <input type="number" value={row.measurementWeightPct ?? 0} onChange={(e) => updateService(i, 'measurementWeightPct', Number(e.target.value))} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Sem material %</label>
+                    <input type="number" value={row.measurementWeightWithoutMaterialPct ?? 0} onChange={(e) => updateService(i, 'measurementWeightWithoutMaterialPct', Number(e.target.value))} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">% dia</label>
+                    <input type="number" value={row.dailyProgressPct ?? 0} onChange={(e) => updateService(i, 'dailyProgressPct', Number(e.target.value))} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">% acumulado</label>
+                    <input type="number" value={row.accumulatedProgressPct ?? 0} onChange={(e) => updateService(i, 'accumulatedProgressPct', Number(e.target.value))} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Aceite</label>
+                    <select value={row.qualityStatus ?? 'pending'} onChange={(e) => patchService(i, { qualityStatus: e.target.value as RdoServiceEntry['qualityStatus'] })} className={selectCls}>
+                      <option value="pending">Pendente</option>
+                      <option value="approved">Aprovado</option>
+                      <option value="rework">Retrabalho</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[#a3a3a3] text-xs mb-1">Critério / observação da medição</label>
+                  <input
+                    type="text"
+                    value={row.measurementCriterion ?? ''}
+                    onChange={(e) => updateService(i, 'measurementCriterion', e.target.value)}
+                    placeholder="Ex: medir após cura, limpeza, aceite técnico e evidência fotográfica"
+                    className={inputCls}
+                  />
+                </div>
+
+                <label className="inline-flex items-center gap-2 text-xs text-[#d4d4d4]">
+                  <input
+                    type="checkbox"
+                    checked={row.evidenceRequired ?? false}
+                    onChange={(e) => patchService(i, { evidenceRequired: e.target.checked })}
+                    className="h-4 w-4 accent-[#f97316]"
+                  />
+                  Exigir foto/evidência para esta etapa
+                </label>
               </div>
             ))}
             <button
               type="button"
-              onClick={addServiceRow}
+              onClick={() => addServiceRow()}
               className="flex items-center gap-1.5 text-[#f97316] hover:text-[#ea580c] text-sm mt-1"
             >
               <Plus size={14} /> Adicionar Serviço
             </button>
+          </div>
+        </Section>
+
+        <Section title="Materiais e Consumo" icon={<Package size={16} className="text-[#f97316]" />}>
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3">
+              <p className="text-[#a3a3a3] text-xs leading-relaxed">
+                Registre material usado no dia, origem, valor unitário e total. O total é calculado automaticamente por quantidade x valor unitário.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={addMaterialTemplate} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 text-xs font-medium">
+                  <Package size={14} /> Insumos base
+                </button>
+                <button type="button" onClick={() => addMaterialRow()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#f5f5f5] hover:border-[#f97316]/50 text-xs font-medium">
+                  <Plus size={14} /> Material avulso
+                </button>
+              </div>
+            </div>
+            {materials.length === 0 && (
+              <p className="text-[#6b6b6b] text-sm italic">Nenhum material adicionado.</p>
+            )}
+            {materials.map((row, i) => (
+              <div key={i} className="rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_32px] gap-2 items-end">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Material</label>
+                    <input type="text" value={row.material} onChange={(e) => patchMaterial(i, { material: e.target.value })} placeholder="Ex: disco diamantado, fita crepe, rolo 9cm" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Origem</label>
+                    <select value={row.source ?? 'almoxarifado'} onChange={(e) => patchMaterial(i, { source: e.target.value as RdoMaterialConsumptionEntry['source'] })} className={selectCls}>
+                      {MATERIAL_SOURCES.map((source) => <option key={source.value} value={source.value}>{source.label}</option>)}
+                    </select>
+                  </div>
+                  <button type="button" onClick={() => removeMaterial(i)} className="text-red-400 hover:text-red-300 p-2">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Quantidade</label>
+                    <input type="number" value={row.quantity} onChange={(e) => patchMaterial(i, { quantity: Number(e.target.value) })} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Unidade</label>
+                    <input type="text" value={row.unit ?? ''} onChange={(e) => patchMaterial(i, { unit: e.target.value })} placeholder="Opcional" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Valor unitário</label>
+                    <input type="number" value={row.unitCostBRL ?? 0} onChange={(e) => patchMaterial(i, { unitCostBRL: Number(e.target.value) })} min={0} step="0.01" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Valor total</label>
+                    <input type="number" value={row.totalCostBRL ?? 0} readOnly className={`${inputCls} opacity-80`} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Etapa vinculada</label>
+                    <select value={row.activityStage ?? ''} onChange={(e) => patchMaterial(i, { activityStage: e.target.value })} className={selectCls}>
+                      <option value="">Sem vínculo</option>
+                      {ACTIVITY_STAGES.map((stage) => <option key={stage.stage} value={stage.stage}>{stage.stage}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Frente / local</label>
+                    <input type="text" value={row.front ?? ''} onChange={(e) => patchMaterial(i, { front: e.target.value })} placeholder="Ex: garagem, subsolo 1" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Observação</label>
+                    <input type="text" value={row.notes ?? ''} onChange={(e) => patchMaterial(i, { notes: e.target.value })} placeholder="Nota, pedido, evidência ou comentário" className={inputCls} />
+                  </div>
+                </div>
+              </div>
+            ))}
+            {materials.length > 0 && (
+              <div className="text-right text-sm text-[#f5f5f5]">
+                Total de materiais no RDO: <strong className="text-[#f97316]">
+                  {materials.reduce((sum, item) => sum + (Number(item.totalCostBRL) || 0), 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </strong>
+              </div>
+            )}
           </div>
         </Section>
 
@@ -1026,17 +1548,17 @@ export function NovoRdoPanel() {
         )}
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-sm font-medium transition-colors"
+            className="rounded-lg bg-[#484848] px-4 py-2 text-sm font-medium text-[#f5f5f5] transition-colors hover:bg-[#525252]"
           >
             Limpar
           </button>
           <button
             type="submit"
-            className="px-6 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+            className="rounded-lg px-6 py-2 text-sm font-medium text-white transition-colors"
             style={{ backgroundColor: '#0ea5e9' }}
           >
             Salvar RDO

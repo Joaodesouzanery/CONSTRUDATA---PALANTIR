@@ -2,8 +2,17 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/sanitation-news",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/((?!assets/|api/).*)",
+      "destination": "/"
+    }
   ],
   "headers": [
     {
@@ -16,6 +25,19 @@
         {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
+        }
+      ]
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Clear-Site-Data",
+          "value": "\"cache\""
         }
       ]
     },

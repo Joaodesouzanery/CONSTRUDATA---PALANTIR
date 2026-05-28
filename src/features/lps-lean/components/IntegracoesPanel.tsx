@@ -13,10 +13,10 @@ const STATUS_META: Record<IntegrationStatus['status'], { label: string; color: s
 }
 
 export function IntegracoesPanel() {
-  const { integrationStatuses, refreshIntegrationStatus, autoClearRestrictions, restrictions } = useLpsStore(
+  const { integrationStatuses, syncPlatformFlow, autoClearRestrictions, restrictions } = useLpsStore(
     useShallow((s) => ({
       integrationStatuses:      s.integrationStatuses,
-      refreshIntegrationStatus: s.refreshIntegrationStatus,
+      syncPlatformFlow:         s.syncPlatformFlow,
       autoClearRestrictions:    s.autoClearRestrictions,
       restrictions:             s.restrictions,
     }))
@@ -30,7 +30,7 @@ export function IntegracoesPanel() {
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={refreshIntegrationStatus}
+          onClick={() => void syncPlatformFlow()}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] transition-colors"
         >
           <RefreshCw size={12} />Sincronizar Todos

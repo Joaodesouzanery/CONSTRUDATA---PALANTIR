@@ -4,15 +4,20 @@ import {
   ClipboardList, Calendar, Radio,
   Wrench, PackageSearch, Users, FlaskConical,
   ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, Settings2,
+  Calculator, Layers, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, Settings2, ArrowUp, ArrowDown,
+  BadgeDollarSign,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
+import { useAuth } from '@/lib/auth'
+import { isGlobalAdminUser } from '@/lib/globalAdmin'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
+import { OrganizationSwitcher } from './OrganizationSwitcher'
+import { WaterDropLogo } from './BrandLogo'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
 
@@ -41,7 +46,6 @@ const NAV_GROUPS = [
       { label: 'Planejamento',    icon: BrainCircuit,     to: '/app/planejamento-mestre' },
       { label: 'Trechos',         icon: CalendarClock,    to: '/app/planejamento'        },
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
-      { label: 'LPS/Lean',        icon: Target,           to: '/app/lps-lean'            },
       { label: 'Financeiro',       icon: TrendingUp,       to: '/app/evm'                 },
       { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
     ],
@@ -59,31 +63,22 @@ const NAV_GROUPS = [
   {
     label: 'PROJETOS',
     items: [
+      { label: 'Levantamento', icon: Ruler,            to: '/app/levantamento-obra'  },
+      { label: 'Economia',      icon: BadgeDollarSign,  to: '/app/economia'            },
       { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },
       { label: 'Mapa Interativo', icon: Map,              to: '/app/mapa-interativo'     },
+    ],
+  },
+  {
+    label: 'ADMIN',
+    items: [
+      { label: 'Homologação',      icon: FlaskConical,   to: '/app/homologacao', adminOnly: true },
+      { label: 'Adaptação Rápida', icon: ClipboardList,  to: '/app/adaptacao-rapida', adminOnly: true },
     ],
   },
 ]
 
 // ─── Atlântico water-drop logo ────────────────────────────────────────────────
-function WaterDropLogo({ size = 22 }: { size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 36 44"
-      fill="none"
-      stroke="#f97316"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      width={size}
-      height={Math.round(size * 44 / 36)}
-    >
-      <path d="M18 2 C18 2 33 17 33 28 C33 37.2 26.3 43 18 43 C9.7 43 3 37.2 3 28 C3 17 18 2 18 2Z" />
-      <path d="M18 12 C18 12 27 23 27 29.5 C27 35.5 23 39.5 18 39.5 C13 39.5 9 35.5 9 29.5 C9 23 18 12 18 12Z" />
-    </svg>
-  )
-}
-
 interface SidebarProps {
   onClose?: () => void
 }
@@ -94,7 +89,9 @@ export function Sidebar({ onClose }: SidebarProps) {
   )
 
   const alertCounts = useAlertCounts()
-  const { pinnedPaths, togglePin, isPinned } = useSidebarPinsStore()
+  const { pinnedPaths, togglePin, isPinned, movePin } = useSidebarPinsStore()
+  const profile = useAuth((state) => state.profile)
+  const user = useAuth((state) => state.user)
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
@@ -104,10 +101,17 @@ export function Sidebar({ onClose }: SidebarProps) {
   const supportRef = useRef<HTMLDivElement>(null)
 
   // Resolve pinned items from NAV_GROUPS
-  const allItems = NAV_GROUPS.flatMap((g) => g.items)
+  const canUseGlobalAdmin = isGlobalAdminUser(profile, user)
+  const visibleGroups = NAV_GROUPS
+    .map((group) => ({ ...group, items: group.items.filter((item) => !('adminOnly' in item) || canUseGlobalAdmin) }))
+    .filter((group) => group.items.length > 0)
+  const allItems = visibleGroups.flatMap((g) => g.items)
   const pinnedItems = pinnedPaths
     .map((path) => allItems.find((item) => item.to === path))
     .filter(Boolean) as typeof allItems
+  const regularGroups = visibleGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => !pinnedPaths.includes(item.to)) }))
+    .filter((group) => group.items.length > 0)
 
   useEffect(() => {
     if (!showSupport) return
@@ -155,9 +159,6 @@ export function Sidebar({ onClose }: SidebarProps) {
               className="text-sm font-bold whitespace-nowrap"
               style={{ color: '#f5f5f5', letterSpacing: '0.02em' }}
             >
-              Atlântico
-            </span>
-            <span className="text-[8px] font-semibold tracking-[0.16em] uppercase" style={{ color: '#a3a3a3' }}>
               ConstruData
             </span>
           </div>
@@ -175,6 +176,8 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden sidebar-scroll">
+        <OrganizationSwitcher expanded={isOpen} />
+
         {/* ── FAVORITOS (pinned) ──────────────────────────────────────── */}
         {pinnedItems.length > 0 && (
           <div className="flex flex-col">
@@ -185,7 +188,7 @@ export function Sidebar({ onClose }: SidebarProps) {
             ) : (
               <div className="mx-3 my-1.5 border-t border-[#f97316]/30" />
             )}
-            {pinnedItems.map((item) => (
+            {pinnedItems.map((item, index) => (
               <NavLink
                 key={`pin-${item.to}`}
                 to={item.to}
@@ -222,13 +225,31 @@ export function Sidebar({ onClose }: SidebarProps) {
                         )}>
                           {item.label}
                         </span>
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(item.to) }}
-                          className="shrink-0 text-[#f97316] opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Desafixar"
-                        >
-                          <Pin size={12} />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); movePin(item.to, -1) }}
+                            disabled={index === 0}
+                            className="text-[#a3a3a3] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Subir favorito"
+                          >
+                            <ArrowUp size={11} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); movePin(item.to, 1) }}
+                            disabled={index === pinnedItems.length - 1}
+                            className="text-[#a3a3a3] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Descer favorito"
+                          >
+                            <ArrowDown size={11} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(item.to) }}
+                            className="text-[#f97316]"
+                            title="Desafixar"
+                          >
+                            <Pin size={12} />
+                          </button>
+                        </div>
                       </>
                     )}
                   </>
@@ -239,7 +260,7 @@ export function Sidebar({ onClose }: SidebarProps) {
         )}
 
         {/* ── Regular NAV_GROUPS ───────────────────────────────────────── */}
-        {NAV_GROUPS.map((group, gi) => (
+        {regularGroups.map((group, gi) => (
           <div key={group.label} className={cn('flex flex-col', (gi > 0 || pinnedItems.length > 0) && 'mt-1')}>
             {/* Group label — only shown when expanded */}
             {isOpen ? (

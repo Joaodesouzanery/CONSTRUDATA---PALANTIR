@@ -46,8 +46,9 @@ export function ActivityCard({
           {onEdit && !isOverlay && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit() }}
+              disabled={activity.id.startsWith('agenda-')}
               className="text-[#3f3f3f] hover:text-[#f97316] transition-colors mt-0.5"
-              title="Editar atividade"
+              title={activity.id.startsWith('agenda-') ? 'Atividade sincronizada da Agenda' : 'Editar atividade'}
             >
               <Pencil size={11} />
             </button>

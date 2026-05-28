@@ -13,7 +13,6 @@ import {
   LineChart,
   LockKeyhole,
   Map,
-  Newspaper,
   PackageCheck,
   Plus,
   Ruler,
@@ -29,7 +28,6 @@ import { Marquee } from '@/components/ui/marquee'
 import hero1Img from '@/assets/hero1.png'
 import hero2Img from '@/assets/hero2.png'
 import hero3Img from '@/assets/hero3.png'
-import { sanitationNewsItems } from './newsData'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 const LOGIN_URL = '/login'
@@ -399,58 +397,6 @@ function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title?: stri
   )
 }
 
-function NewsSection() {
-  const sourcesCount = new Set(sanitationNewsItems.map((item) => item.source)).size
-  const categoriesCount = new Set(sanitationNewsItems.map((item) => item.category)).size
-
-  return (
-    <section id="radar-saneamento" className="bg-[#f5f0e5] px-5 pt-14 md:px-10">
-      <div className="mx-auto grid max-w-7xl gap-5 border-y border-[#10251c]/14 bg-[#fffaf0]/72 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-7">
-        <div className="flex items-start gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center border border-[#10251c]/14 bg-[#10251c] text-[#f97316]">
-            <Newspaper size={22} />
-          </div>
-          <div>
-            <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#f97316]">Radar do Saneamento</p>
-            <h2 className="mt-2 font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] md:text-3xl">
-              Notícias do setor ficam em uma página própria, com fonte e filtros.
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[#10251c]/68">
-              Acompanhe {sourcesCount} fontes e {categoriesCount} categorias sem ocupar a landing principal. Os cards usam resumo próprio e direcionam a leitura completa para a fonte original.
-            </p>
-          </div>
-        </div>
-        <a href="/noticias" className="inline-flex min-h-11 items-center justify-center gap-3 bg-[#f97316] px-5 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
-          Abrir notícias <ArrowRight size={15} />
-        </a>
-      </div>
-    </section>
-  )
-  /*
-  return (
-    <section id="radar-saneamento" className="bg-[#f5f0e5] pt-16 sm:pt-24">
-      <SectionHeader
-        eyebrow="Radar do Saneamento"
-        title="Notícias e fontes do setor, sem perder a fonte original."
-        copy="Uma curadoria para acompanhar regulação, universalização, companhias, concessões e obras de saneamento. O conteúdo completo fica sempre na fonte oficial."
-      />
-      <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 border-y border-[#10251c]/14 px-5 py-6 md:grid-cols-2 md:px-10 xl:grid-cols-3">
-        {sanitationNewsItems.slice(0, 6).map((item) => <NewsCard key={item.id} item={item} />)}
-      </div>
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-5 md:px-10">
-        <div className="inline-flex items-center gap-3 text-sm font-semibold text-[#10251c]/64">
-          <Newspaper size={18} className="text-[#f97316]" />
-          Curadoria com resumo próprio, atribuição e link canônico para a fonte.
-        </div>
-        <a href="/noticias" className="inline-flex items-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
-          Ver radar completo <ArrowRight size={15} />
-        </a>
-      </div>
-    </section>
-  )
-  */
-}
-
 function ModulesSection() {
   const [activePain, setActivePain] = useState<ModulePain>('avanco')
   const activeDetails = modulePainTabs.find((pain) => pain.id === activePain) ?? modulePainTabs[0]
@@ -699,10 +645,7 @@ export function LandingPage() {
               ['Ontologia', '#ontologia'],
               ['Impacto', '#impacto'],
               ['Módulos', '#modulos'],
-              ['Notícias', '/noticias'],
-              ['Perfis', '#perfis'],
-              ['Radar', '#radar-saneamento'],
-              ['Contato', '#contato'],
+              ['Perfis', '#perfis'],              ['Contato', '#contato'],
             ].map(([label, href]) => (
               <a key={href} href={href} className="text-xs font-semibold uppercase tracking-[0.12em] text-white/64 transition hover:text-white">
                 {label}
@@ -789,8 +732,6 @@ export function LandingPage() {
             </div>
           </div>
         </section>
-
-        <NewsSection />
 
         <section id="ontologia" className="bg-[#f5f0e5] pt-20 sm:pt-32">
           <SectionHeader eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" />
@@ -1033,3 +974,6 @@ export function LandingPage() {
     </div>
   )
 }
+
+
+

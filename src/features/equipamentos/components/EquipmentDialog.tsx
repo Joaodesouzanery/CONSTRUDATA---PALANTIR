@@ -49,6 +49,7 @@ export function EquipmentDialog() {
         lastMaintenance: existing.lastMaintenance,
         nextMaintenance: existing.nextMaintenance,
         operator:        existing.operator ?? '',
+        contractorName:  existing.contractorName ?? '',
         engineHours:     existing.engineHours,
         lat:             existing.lat !== null ? String(existing.lat) : '',
         lng:             existing.lng !== null ? String(existing.lng) : '',
@@ -90,6 +91,7 @@ export function EquipmentDialog() {
       lastMaintenance: values.lastMaintenance,
       nextMaintenance: values.nextMaintenance,
       operator:        values.operator || null,
+      contractorName:  values.contractorName || null,
       engineHours:     values.engineHours,
       lat,
       lng,
@@ -130,7 +132,7 @@ export function EquipmentDialog() {
           </h2>
           <button
             onClick={close}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors"
           >
             <X size={15} />
           </button>
@@ -197,6 +199,15 @@ export function EquipmentDialog() {
                     className={inp(false)}
                   />
                 </Field>
+                <Field label="Empreiteiro" error={errors.contractorName?.message}>
+                  <input
+                    {...register('contractorName')}
+                    placeholder="Empresa / subempreiteiro"
+                    className={inp(false)}
+                  />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Horas de Motor *" error={errors.engineHours?.message}>
                   <input
                     type="number"
@@ -245,7 +256,7 @@ export function EquipmentDialog() {
                 </span>
               }
             >
-              <p className="text-[10px] text-[#3f3f3f] -mt-1">
+              <p className="text-[10px] text-[#a3a3a3] -mt-1">
                 Preencha as coordenadas geográficas decimais. Após salvar, o marcador aparecerá no mapa e poderá ser arrastado para ajuste fino.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -304,7 +315,7 @@ export function EquipmentDialog() {
                 <button
                   type="button"
                   onClick={handleDelete}
-                  className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#ef4444] transition-colors"
+                  className="flex items-center gap-1.5 text-xs text-[#a3a3a3] hover:text-[#ef4444] transition-colors"
                 >
                   <Trash2 size={13} />
                   Excluir Equipamento
@@ -346,14 +357,14 @@ function blankDefaults(): EquipamentoFormValues {
     status: 'active',
     description: '', maxLoad: '',
     lastMaintenance: '', nextMaintenance: '',
-    operator: '', engineHours: 0,
+    operator: '', contractorName: '', engineHours: 0,
     lat: '', lng: '', siteName: '',
   }
 }
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#8a8a8a] transition-colors',
     hasError
       ? 'border-[#ef4444] focus:border-[#ef4444]'
       : 'border-[#525252] focus:border-[#f97316]'
@@ -389,7 +400,7 @@ function Section({
 }) {
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-0.5 w-full pb-1 border-b border-[#525252]">
+      <legend className="text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold mb-0.5 w-full pb-1 border-b border-[#525252]">
         {title}
       </legend>
       {children}

@@ -255,6 +255,17 @@ export interface RdoSabespData {
   planilha_foto_url?: string | null;
   planilha_foto_path?: string | null;
   include_planilha_foto_no_pdf?: boolean | null;
+  audit_attachments?: Array<{
+    id?: string;
+    path?: string;
+    url?: string;
+    file_name?: string;
+    mime_type?: string;
+    role?: "signed_original" | "daily_photo" | "other";
+    tags?: string[];
+    uploaded_at?: string;
+  }> | null;
+  parser_result?: any;
 }
 
 const resolveSabespAssetUrl = async (pathOrUrl?: string | null) => {
@@ -262,6 +273,47 @@ const resolveSabespAssetUrl = async (pathOrUrl?: string | null) => {
   if (pathOrUrl.startsWith("data:") || /^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
   const { data } = await supabase.storage.from("rdo-sabesp-photos").createSignedUrl(pathOrUrl, 60 * 60);
   return data?.signedUrl || null;
+};
+
+const getAttachmentUrl = async (attachment: NonNullable<RdoSabespData["audit_attachments"]>[number]) =>
+  resolveSabespAssetUrl(attachment.path || attachment.url || null);
+
+const renderExternalPdfBlobToImages = async (blob: Blob, scale = 1.35) => {
+  await ensurePdfWorker();
+  const pdfjsLib = await getPdfjsLib();
+  const data = new Uint8Array(await blob.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({
+    data,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
+
+  const pages: string[] = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    if (!context) continue;
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: context, viewport }).promise;
+    pages.push(canvas.toDataURL("image/png"));
+    try {
+      await (page as any).cleanup?.();
+    } catch {
+      // ignore cleanup failures
+    }
+  }
+
+  try {
+    await (pdf as any).destroy?.();
+  } catch {
+    // ignore destroy failures
+  }
+
+  return pages;
 };
 
 export async function generateRdoSabespPdf(rdo: RdoSabespData): Promise<jsPDF> {
@@ -485,7 +537,57 @@ export async function generateRdoSabespPdf(rdo: RdoSabespData): Promise<jsPDF> {
     }
   }
 
-  const photoUrls = await resolveSabespPhotoUrls(rdo.photo_paths);
+  const signedOriginalAttachments = [
+    ...(Array.isArray(rdo.audit_attachments) ? rdo.audit_attachments : []),
+    ...(Array.isArray(rdo.parser_result?.audit_attachments) ? rdo.parser_result.audit_attachments : []),
+  ].filter((attachment: any) => attachment?.role === "signed_original");
+
+  for (const attachment of signedOriginalAttachments) {
+    const attachmentUrl = await getAttachmentUrl(attachment).catch(() => null);
+    if (!attachmentUrl) continue;
+
+    doc.addPage();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0);
+    doc.text("RDO ORIGINAL ASSINADO", margin, 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(attachment.file_name || "Anexo original preservado para auditoria.", margin, 21);
+
+    try {
+      if (String(attachment.mime_type || "").includes("pdf") || /\.pdf($|\?)/i.test(attachmentUrl)) {
+        const response = await fetch(attachmentUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const pages = await renderExternalPdfBlobToImages(await response.blob());
+        pages.forEach((page, index) => {
+          if (index > 0) doc.addPage();
+          doc.addImage(page, "PNG", 0, 0, pageWidth, pageHeight);
+        });
+      } else {
+        doc.setDrawColor(210);
+        doc.rect(margin, 26, pageWidth - margin * 2, pageHeight - 38);
+        const dataUrl = await loadDataUrl(attachmentUrl);
+        const format = dataUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        doc.addImage(dataUrl, format, margin + 2, 28, pageWidth - margin * 2 - 4, pageHeight - 42);
+      }
+    } catch (error) {
+      console.warn("Nao foi possivel carregar original assinado para o PDF:", error);
+      doc.text("Original assinado indisponivel", pageWidth / 2, pageHeight / 2, { align: "center" });
+    }
+  }
+
+  const dailyPhotoAttachments = [
+    ...(Array.isArray(rdo.audit_attachments) ? rdo.audit_attachments : []),
+    ...(Array.isArray(rdo.parser_result?.audit_attachments) ? rdo.parser_result.audit_attachments : []),
+  ].filter((attachment: any) => attachment?.role === "daily_photo");
+  const attachmentPhotoUrls = await Promise.all(
+    dailyPhotoAttachments.map((attachment) => getAttachmentUrl(attachment).catch(() => null)),
+  );
+  const photoUrls = Array.from(new Set([
+    ...(await resolveSabespPhotoUrls(rdo.photo_paths)),
+    ...attachmentPhotoUrls.filter((url): url is string => Boolean(url)),
+  ]));
   if (photoUrls.length > 0) {
     doc.addPage();
     let photoY = 16;

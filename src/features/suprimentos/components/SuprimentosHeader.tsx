@@ -1,9 +1,6 @@
-import { useState } from 'react'
 import { Upload } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { ImportModal } from '@/components/shared/ImportModal'
 import { cn } from '@/lib/utils'
-import { SUPPLIER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 export type SuprimentosTab =
@@ -18,32 +15,33 @@ interface Props {
   section: SuprimentosSection
   activeTab: SuprimentosTab
   onTabChange: (tab: SuprimentosTab) => void
+  onImportMaterials?: () => void
 }
 
 const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSection }[] = [
-  { key: 'fluxo', label: 'Fluxo do Gestor', section: 'suprimentos' },
+  { key: 'fluxo', label: 'Dashboard', section: 'suprimentos' },
+  { key: 'almoxarifado', label: 'Estoque / Almoxarifado', section: 'suprimentos' },
   { key: 'conciliacao', label: 'Conciliação', section: 'suprimentos' },
   { key: 'excecoes', label: 'Exceções', section: 'suprimentos' },
   { key: 'previsao', label: 'Previsão de Demanda', section: 'suprimentos' },
   { key: 'requisicoes', label: 'Requisições', section: 'suprimentos' },
   { key: 'inteligencia', label: 'Inteligência', section: 'suprimentos' },
-  { key: 'bom', label: 'Lista de Compras', section: 'suprimentos' },
+  { key: 'bom', label: 'Cotações / Lista', section: 'suprimentos' },
   { key: 'materiais', label: 'Materiais & Fornecedores', section: 'materiais' },
-  { key: 'contratos', label: 'Contrato 360', section: 'materiais' },
-  { key: 'estoque', label: 'Mapa de Estoque', section: 'materiais' },
-  { key: 'almoxarifado', label: 'Almoxarifado', section: 'materiais' },
+  { key: 'contratos', label: 'Pedidos / Contratos', section: 'suprimentos' },
+  { key: 'estoque', label: 'Mapa de Estoque', section: 'suprimentos' },
   { key: 'semaforo', label: 'Semáforo de Prontidão', section: 'materiais' },
   { key: 'whatif', label: 'What-if Logístico', section: 'materiais' },
-  { key: 'entrada_dados', label: 'Entrada de Dados', section: 'planilhas' },
+  { key: 'entrada_dados', label: 'Importação / Entrada', section: 'planilhas' },
   { key: 'resumo_nucleo', label: 'Resumo por Núcleo', section: 'planilhas' },
   { key: 'consolidado_trechos', label: 'Consolidado Trechos', section: 'planilhas' },
   { key: 'materiais_pendentes', label: 'Materiais Pendentes', section: 'planilhas' },
-  { key: 'cadeia_rede', label: 'Rede', section: 'cadeia' },
-  { key: 'cadeia_alertas', label: 'Alertas', section: 'cadeia' },
-  { key: 'cadeia_planejamento', label: 'Planejamento', section: 'cadeia' },
+  { key: 'cadeia_rede', label: 'Torre de Controle', section: 'cadeia' },
+  { key: 'cadeia_alertas', label: 'Riscos e Alertas', section: 'cadeia' },
+  { key: 'cadeia_planejamento', label: 'Planos de Contingência', section: 'cadeia' },
 ]
 
-export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
+export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMaterials }: Props) {
   const {
     purchaseOrders,
     matches,
@@ -67,9 +65,6 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
       supplyChainPlans: s.supplyChainPlans,
     })),
   )
-  const addSupplier = useSuprimentosStore((s) => s.addSupplier)
-  const [importOpen, setImportOpen] = useState(false)
-
   const visibleTabs = ALL_TABS.filter((tab) => tab.section === section)
 
   const totalPOs = purchaseOrders.length
@@ -130,14 +125,14 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1 rounded-lg border border-[#525252] bg-[#3d3d3d] p-1">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex w-full gap-1 overflow-x-auto rounded-lg border border-[#525252] bg-[#3d3d3d] p-1 scrollbar-none lg:w-auto lg:flex-wrap">
           {visibleTabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => onTabChange(tab.key)}
               className={cn(
-                'rounded px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
+                'shrink-0 rounded px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors',
                 activeTab === tab.key ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
               )}
             >
@@ -156,25 +151,14 @@ export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
         )}
 
         <button
-          onClick={() => setImportOpen(true)}
-          className="ml-auto flex items-center gap-2 rounded-lg border border-[#525252] bg-[#484848] px-3 py-1.5 text-xs font-medium text-[#f5f5f5] transition-colors hover:bg-[#525252]"
-          title="Importar fornecedores de Excel/CSV"
+          onClick={onImportMaterials}
+          className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#525252] bg-[#484848] px-3 py-1.5 text-xs font-medium text-[#f5f5f5] transition-colors hover:bg-[#525252] sm:w-auto lg:ml-auto"
+          title="Importar materiais por planilha ou imagem guiada"
         >
           <Upload size={13} />
-          Importar Fornecedores
+          Importar Materiais
         </button>
       </div>
-
-      <ImportModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title="Importar Fornecedores"
-        description="Aceita .xlsx, .xls ou .csv no template Atlântico"
-        config={SUPPLIER_IMPORT_CONFIG}
-        templateFilename="atlantico-fornecedores-template.xlsx"
-        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'fornecedor' : 'fornecedores'}`}
-        onCommit={(rows) => rows.forEach((supplier) => addSupplier(supplier))}
-      />
     </div>
   )
 }

@@ -1022,9 +1022,9 @@ export function ManutencoesPage() {
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-lg border border-[#525252] bg-[#f8fafc] text-[#404040]">
+              <div className="overflow-x-auto rounded-lg border border-[#525252] bg-[#333333] text-[#d4d4d4]">
                 <table className="w-full min-w-[1480px] text-sm">
-                  <thead className="border-b border-[#e5e7eb] text-left text-[#111827]">
+                  <thead className="border-b border-[#525252] text-left text-[#f5f5f5]">
                     <tr>
                       <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Selecionar todos" /></th>
                       <th className="px-3 py-3 font-semibold">Ações</th>
@@ -1046,32 +1046,32 @@ export function ManutencoesPage() {
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#e5e7eb]">
+                  <tbody className="divide-y divide-[#525252]/60">
                     {filteredMonitoringPoints.map((point) => (
-                      <tr key={point.id} className="hover:bg-[#eef2ff]">
+                      <tr key={point.id} className="hover:bg-[#3c3c3c]">
                         <td className="px-4 py-3"><input type="checkbox" aria-label={`Selecionar ${point.description}`} /></td>
                         <td className="px-3 py-3">
-                          <div className="flex items-center gap-2 text-[#6b7280]">
-                            <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Visualizar / editar" className="hover:text-[#2563eb]"><Eye size={17} /></button>
-                            <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Editar" className="hover:text-[#2563eb]"><Edit2 size={17} /></button>
-                            <button type="button" onClick={() => point.assetId && openAsset(point.assetId)} title="Abrir ativo vinculado" className="hover:text-[#2563eb]"><Link2 size={17} /></button>
+                          <div className="flex items-center gap-2 text-[#a3a3a3]">
+                            <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Visualizar / editar" className="hover:text-[#f97316]"><Eye size={17} /></button>
+                            <button type="button" onClick={() => setModal({ type: 'monitoring', item: point })} title="Editar" className="hover:text-[#f97316]"><Edit2 size={17} /></button>
+                            <button type="button" onClick={() => point.assetId && openAsset(point.assetId)} title="Abrir ativo vinculado" className="hover:text-[#f97316]"><Link2 size={17} /></button>
                             <button type="button" onClick={() => confirmDelete(point.description, () => void deleteMonitoringPoint(point.id))} title="Excluir" className="hover:text-[#dc2626]"><Trash2 size={17} /></button>
                           </div>
                         </td>
-                        <td className="px-3 py-3 font-medium text-[#666]">{point.locationPart || '-'}</td>
-                        <td className="px-3 py-3 text-[#666]">{point.description}</td>
-                        <td className="px-3 py-3 text-center text-[#666]">{point.deviceState || '--'}</td>
+                        <td className="px-3 py-3 font-medium text-[#f5f5f5]">{point.locationPart || '-'}</td>
+                        <td className="px-3 py-3 text-[#d4d4d4]">{point.description}</td>
+                        <td className="px-3 py-3 text-center text-[#d4d4d4]">{point.deviceState || '--'}</td>
                         <td className="px-3 py-3"><span className={cn('rounded-full px-3 py-1 font-semibold', point.enabled ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fee2e2] text-[#dc2626]')}>{point.enabled ? 'Sim' : 'Não'}</span></td>
-                        <td className="px-3 py-3 text-[#666]">{point.serialNumber || '-'}</td>
+                        <td className="px-3 py-3 text-[#d4d4d4]">{point.serialNumber || '-'}</td>
                         <td className="px-3 py-3"><span className={cn('rounded-full px-3 py-1 font-semibold', point.isCounter ? 'bg-[#dbeafe] text-[#2563eb]' : 'bg-[#fee2e2] text-[#dc2626]')}>{point.isCounter ? 'Sim' : 'Não'}</span></td>
-                        <td className="px-3 py-3 text-[#666]">{point.unit || '-'}</td>
-                        <td className="px-3 py-3 text-[#666]">{point.lastReadingDate || '---'}</td>
-                        <td className="px-3 py-3 font-semibold text-[#666]">{point.lastReadingValue || '---'}</td>
+                        <td className="px-3 py-3 text-[#d4d4d4]">{point.unit || '-'}</td>
+                        <td className="px-3 py-3 text-[#d4d4d4]">{point.lastReadingDate || '---'}</td>
+                        <td className="px-3 py-3 font-semibold text-[#f5f5f5]">{point.lastReadingValue || '---'}</td>
                         {monitoringMode === 'avancado' && (
                           <>
-                            <td className="px-3 py-3 text-[#666]">{point.minValue ?? '-'} / {point.maxValue ?? '-'}</td>
-                            <td className="px-3 py-3 text-[#666]">{point.assetId ? <AssetName id={point.assetId} assets={assets} /> : 'Sem ativo'}</td>
-                            <td className="px-3 py-3 text-[#666]">{point.notes || '-'}</td>
+                            <td className="px-3 py-3 text-[#d4d4d4]">{point.minValue ?? '-'} / {point.maxValue ?? '-'}</td>
+                            <td className="px-3 py-3 text-[#d4d4d4]">{point.assetId ? <AssetName id={point.assetId} assets={assets} /> : 'Sem ativo'}</td>
+                            <td className="px-3 py-3 text-[#d4d4d4]">{point.notes || '-'}</td>
                           </>
                         )}
                       </tr>

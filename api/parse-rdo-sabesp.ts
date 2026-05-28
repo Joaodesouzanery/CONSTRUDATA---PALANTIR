@@ -106,6 +106,98 @@ const extractTool = {
   },
 }
 
+const parseDataUrl = (dataUrl: string) => {
+  const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/)
+  if (!match) return { mimeType: 'image/jpeg', base64: dataUrl }
+  return { mimeType: match[1] || 'image/jpeg', base64: match[2] || '' }
+}
+
+const callGemini = async ({ mode, image_base64, text }: any) => {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new Error('GEMINI_API_KEY nao configurada')
+
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const parts: any[] = [
+    {
+      text:
+        SCHEMA_DESCRIPTION +
+        '\nRetorne somente JSON valido no schema solicitado. Sem markdown.',
+    },
+  ]
+
+  if (mode === 'image') {
+    const image = parseDataUrl(image_base64)
+    parts.push({ inline_data: { mime_type: image.mimeType, data: image.base64 } })
+  } else {
+    parts.push({ text: `Extraia os campos deste RDO Sabesp enviado por texto:\n\n${text}` })
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          temperature: 0,
+          response_mime_type: 'application/json',
+          response_schema: extractTool.function.parameters,
+        },
+      }),
+    },
+  )
+
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) throw new Error(payload?.error?.message || `Gemini retornou ${response.status}`)
+  const jsonText = payload?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!jsonText) throw new Error('Gemini nao retornou JSON estruturado')
+  return JSON.parse(jsonText)
+}
+
+const callLovable = async ({ mode, image_base64, text }: any) => {
+  const apiKey = process.env.LOVABLE_API_KEY || process.env.AI_GATEWAY_API_KEY
+  if (!apiKey) throw new Error('LOVABLE_API_KEY/AI_GATEWAY_API_KEY nao configurada')
+
+  const userContent: any[] = []
+  if (mode === 'image') {
+    userContent.push({
+      type: 'text',
+      text: 'Esta e uma foto de uma planilha RDO Sabesp preenchida a mao. Leia o formulario inteiro, inclusive marcacoes, quantidades manuscritas e observacoes.',
+    })
+    userContent.push({ type: 'image_url', image_url: { url: image_base64 } })
+  } else {
+    userContent.push({ type: 'text', text: `Extraia os campos deste RDO Sabesp enviado por texto:\n\n${text}` })
+  }
+
+  const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: SCHEMA_DESCRIPTION },
+        { role: 'user', content: userContent },
+      ],
+      tools: [extractTool],
+      tool_choice: { type: 'function', function: { name: 'extract_rdo_sabesp' } },
+    }),
+  })
+
+  if (!aiResp.ok) {
+    const errText = await aiResp.text()
+    throw new Error(errText || 'Erro ao processar com IA')
+  }
+
+  const data = await aiResp.json()
+  const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0]
+  if (!toolCall?.function?.arguments) throw new Error('IA nao retornou dados estruturados')
+  return JSON.parse(toolCall.function.arguments)
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'authorization, x-client-info, apikey, content-type')
@@ -114,58 +206,25 @@ export default async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo nao permitido' })
 
-  const apiKey = process.env.LOVABLE_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ error: 'LOVABLE_API_KEY nao configurada no Vercel' })
+  if (!process.env.GEMINI_API_KEY && !process.env.LOVABLE_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
+    return res.status(500).json({ error: 'Configure GEMINI_API_KEY, LOVABLE_API_KEY ou AI_GATEWAY_API_KEY no Vercel' })
   }
 
   try {
     const { mode, image_base64, text } = req.body || {}
-    const userContent: any[] = []
 
     if (mode === 'image') {
       if (!image_base64) return res.status(400).json({ error: 'image_base64 e obrigatorio' })
-      userContent.push({
-        type: 'text',
-        text: 'Esta e uma foto de uma planilha RDO Sabesp preenchida a mao. Leia o formulario inteiro, inclusive marcacoes, quantidades manuscritas e observacoes.',
-      })
-      userContent.push({ type: 'image_url', image_url: { url: image_base64 } })
     } else if (mode === 'text') {
       if (!text) return res.status(400).json({ error: 'text e obrigatorio' })
-      userContent.push({ type: 'text', text: `Extraia os campos deste RDO Sabesp enviado por texto:\n\n${text}` })
     } else {
       return res.status(400).json({ error: 'mode invalido' })
     }
 
-    const aiResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: SCHEMA_DESCRIPTION },
-          { role: 'user', content: userContent },
-        ],
-        tools: [extractTool],
-        tool_choice: { type: 'function', function: { name: 'extract_rdo_sabesp' } },
-      }),
-    })
-
-    if (!aiResp.ok) {
-      const errText = await aiResp.text()
-      return res.status(aiResp.status).json({ error: errText || 'Erro ao processar com IA' })
-    }
-
-    const data = await aiResp.json()
-    const toolCall = data?.choices?.[0]?.message?.tool_calls?.[0]
-    if (!toolCall?.function?.arguments) {
-      return res.status(500).json({ error: 'IA nao retornou dados estruturados' })
-    }
-
-    return res.status(200).json({ data: JSON.parse(toolCall.function.arguments) })
+    const data = process.env.GEMINI_API_KEY
+      ? await callGemini({ mode, image_base64, text })
+      : await callLovable({ mode, image_base64, text })
+    return res.status(200).json({ data })
   } catch (error: any) {
     return res.status(500).json({ error: error?.message || 'Erro desconhecido' })
   }
