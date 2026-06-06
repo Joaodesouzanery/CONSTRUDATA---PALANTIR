@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -538,7 +538,7 @@ function ModulesSection() {
               const Icon = module.icon
               return (
                 <div key={module.id} className="group flex items-start gap-5 p-7 transition-colors duration-200 hover:bg-[#f6f5f2] sm:p-9">
-                  <div className="flex size-12 shrink-0 items-center justify-center border border-black/15 bg-white text-[#f97316] transition-colors duration-200 group-hover:border-[#0a0a0a] group-hover:bg-[#0a0a0a] group-hover:text-white">
+                  <div className="flex size-12 shrink-0 items-center justify-center border border-black/15 bg-white text-[#f97316] transition-colors duration-200 group-hover:border-[#f97316] group-hover:bg-[#f97316] group-hover:text-white">
                     <Icon size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -573,19 +573,20 @@ function ModulesSection() {
                   key={module.id}
                   data-sr
                   data-sr-delay={String((i % 3) + 1)}
-                  className="group relative flex min-h-[230px] flex-col border-b border-r border-black/10 bg-white p-6 transition-colors duration-300 hover:bg-[#0a0a0a] sm:p-7"
+                  className="group relative flex min-h-[230px] flex-col border-b border-r border-black/10 bg-white p-6 transition-colors duration-300 hover:bg-[#f6f5f2] sm:p-7"
                 >
+                  <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                   <div className="flex items-start justify-between">
-                    <div className="flex size-11 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-white/25">
+                    <div className="flex size-11 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-[#f97316]">
                       <Icon size={20} />
                     </div>
                     <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#f97316]">{module.kicker}</span>
                   </div>
-                  <h4 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">
+                  <h4 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a]">
                     {module.title}
                   </h4>
-                  <p className="mt-3 text-sm leading-6 text-black/55 transition-colors duration-300 group-hover:text-white/65">{module.copy}</p>
-                  <div className="mt-auto flex items-center gap-2 pt-6 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-black/35 transition-colors duration-300 group-hover:text-white/55">
+                  <p className="mt-3 text-sm leading-6 text-black/55">{module.copy}</p>
+                  <div className="mt-auto flex items-center gap-2 pt-6 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-black/35">
                     Conecta com {module.connected.slice(0, 2).join(', ')}
                     <ArrowUpRight size={13} className="text-[#f97316] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                   </div>
@@ -670,6 +671,21 @@ export function LandingPage() {
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scrolled, setScrolled] = useState(false)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
+
+  // The landing may render inside a scroll container (not the window), so a
+  // window scroll listener never fires. An IntersectionObserver on a top
+  // sentinel works regardless of which element actually scrolls.
+  useEffect(() => {
+    const el = topSentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(([entry]) => setScrolled(!entry.isIntersecting), {
+      threshold: 0,
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const html = document.documentElement
@@ -722,11 +738,18 @@ export function LandingPage() {
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
       `}</style>
 
-      {/* ── Header (light, Palantir-style) ── */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-black/[0.08] bg-white/85 backdrop-blur-xl">
+      {/* Sentinel: when it scrolls out the top, the header switches to solid white. */}
+      <div ref={topSentinelRef} aria-hidden className="pointer-events-none h-px w-full" />
+
+      {/* ── Header (transparent over hero → solid white on scroll) ── */}
+      <header
+        className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
+          scrolled ? 'border-b border-black/[0.08] bg-white/85 backdrop-blur-xl' : 'border-b border-transparent bg-transparent'
+        }`}
+      >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
-            <BrandLockup dark />
+            <BrandLockup dark={scrolled} />
           </a>
           <nav className="hidden items-center gap-8 lg:flex">
             {[
@@ -739,7 +762,9 @@ export function LandingPage() {
               <a
                 key={href}
                 href={href}
-                className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/50 transition hover:text-[#0a0a0a]"
+                className={`font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+                  scrolled ? 'text-black/50 hover:text-[#0a0a0a]' : 'text-white/70 hover:text-white'
+                }`}
               >
                 {label}
               </a>
@@ -748,7 +773,11 @@ export function LandingPage() {
           <div className="flex items-center gap-2">
             <a
               href={LOGIN_URL}
-              className="hidden border border-black/15 px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-black/65 transition hover:border-[#0a0a0a] hover:text-[#0a0a0a] sm:inline-flex"
+              className={`hidden border px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] transition sm:inline-flex ${
+                scrolled
+                  ? 'border-black/15 text-black/65 hover:border-[#0a0a0a] hover:text-[#0a0a0a]'
+                  : 'border-white/30 text-white/85 hover:border-white hover:text-white'
+              }`}
             >
               Acessar
             </a>
@@ -756,7 +785,9 @@ export function LandingPage() {
               href={CALENDLY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2 bg-[#0a0a0a] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-[#f97316] sm:px-4"
+              className={`group inline-flex items-center gap-2 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] transition sm:px-4 ${
+                scrolled ? 'bg-[#0a0a0a] text-white hover:bg-[#f97316]' : 'bg-white text-[#0a0a0a] hover:bg-white/90'
+              }`}
             >
               Demo <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </a>
@@ -774,24 +805,24 @@ export function LandingPage() {
           <div className="pointer-events-none absolute right-[10%] top-[20%] hidden h-[28rem] w-[28rem] rounded-full border border-white/10 lg:block" />
           <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-0 pt-6 sm:px-5 md:px-10 lg:pt-24">
             <div className="grid flex-1 items-end gap-10 py-7 sm:py-10 lg:grid-cols-[0.58fr_0.42fr] lg:py-16">
-              <div className="flex max-w-3xl animate-[fadeIn_0.7s_ease-out] flex-col items-start justify-end space-y-4 text-left sm:space-y-6">
+              <div className="flex max-w-3xl animate-[fadeIn_0.7s_ease-out] flex-col items-start justify-end space-y-4 text-left sm:space-y-5">
                 <Badge
                   className="max-w-full rounded-none border-white/18 bg-white/10 px-3 py-1 text-left text-[10px] leading-4 text-[#f97316] backdrop-blur-md sm:px-4 sm:text-xs"
                   variant="outline"
                 >
                   Plataforma de Planejamento e Gestão da Execução da Obra
                 </Badge>
-                <h1 className="font-['Space_Grotesk'] text-5xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-7xl lg:text-8xl">
+                <h1 className="font-['Space_Grotesk'] text-4xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-6xl lg:text-7xl">
                   ConstruData
                 </h1>
-                <h2 className="max-w-4xl font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-white sm:text-5xl">
-                  Automação Alimentada por IA para cada Decisão na Construção.
-                </h2>
-                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
-                  Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
+                <p className="max-w-3xl font-['Space_Grotesk'] text-xl font-medium leading-[1.15] tracking-[-0.01em] text-white sm:text-3xl lg:text-[2.5rem]">
+                  Tecnologia boa consegue realizar tarefas que você precisa fazer mais rápido. Mas excelentes tecnologias te permitem realizar coisas que você não conseguia antes.
                 </p>
-                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
-                  Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade — e flui, sem retrabalho, até a decisão.
+                <p className="max-w-2xl text-base font-semibold leading-7 text-[#f97316] sm:text-lg">
+                  Automação Alimentada por IA para cada Decisão na Construção.
+                </p>
+                <p className="max-w-2xl text-sm leading-7 text-white/75 sm:text-base md:leading-7">
+                  Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
                 </p>
                 <div className="h-[2px] w-14 bg-[#f97316]" />
                 <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -813,24 +844,59 @@ export function LandingPage() {
               </div>
 
               <div className="hidden lg:block">
-                <div className="ml-auto max-w-md space-y-3 pb-14">
+                <div className="ml-auto max-w-sm space-y-6 pb-14">
                   {[
-                    ['RDO', 'Campo alimentando medição', 'origem rastreável'],
-                    ['LPS', 'Restrições antes do atraso', 'look-ahead ativo'],
-                    ['Gestão 360', 'Custo, prazo e produção', 'decisão executiva'],
-                    ['Suprimentos', 'Material antes da falta', 'impacto no prazo'],
-                    ['Medição', 'Avanço com evidência', 'fechamento defensável'],
-                  ].map(([title, copy, meta], index) => (
+                    {
+                      icon: Building2,
+                      name: 'Obra Orla Marítima',
+                      role: 'Saneamento · 6 frentes ativas',
+                      offset: '',
+                      rows: [
+                        ['RDO de hoje', 5, '12 frentes'],
+                        ['Medição', 4, '87% conferido'],
+                        ['Qualidade', 5, 'sem NC'],
+                      ] as Array<[string, number, string]>,
+                    },
+                    {
+                      icon: Layers3,
+                      name: 'Núcleo Vila Nova',
+                      role: 'Infraestrutura · 5 equipes',
+                      offset: 'translate-x-8',
+                      rows: [
+                        ['Planejamento', 5, 'no prazo'],
+                        ['Suprimentos', 4, '2 alertas'],
+                        ['Avanço físico', 5, '93%'],
+                      ] as Array<[string, number, string]>,
+                    },
+                  ].map(({ icon: CardIcon, name, role, offset, rows }) => (
                     <div
-                      key={title}
-                      className={`overflow-hidden border border-white/10 bg-[#1a1a1a]/82 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${index === 4 ? 'ml-12 p-3' : 'p-4'}`}
+                      key={name}
+                      className={`border border-white/12 bg-[#161616]/85 p-4 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${offset}`}
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <p className="font-mono text-[10px] font-black uppercase text-[#f97316]">{title}</p>
-                        <span className="h-2 w-2 rounded-full bg-[#f97316] shadow-[0_0_18px_rgba(249,115,22,0.85)]" />
+                      <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f97316]/15 text-[#f97316]">
+                          <CardIcon size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">{name}</p>
+                          <p className="truncate text-[11px] text-white/55">{role}</p>
+                        </div>
                       </div>
-                      <p className="mt-3 text-sm font-semibold text-white">{copy}</p>
-                      <p className="mt-1 text-xs text-white/58">{meta}</p>
+                      <div className="mt-3 space-y-2.5">
+                        {rows.map(([label, filled, metric]) => (
+                          <div key={label} className="flex items-center justify-between gap-3">
+                            <span className="text-xs text-white/80">{label}</span>
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex gap-1">
+                                {[0, 1, 2, 3, 4].map((d) => (
+                                  <span key={d} className={`size-2 rounded-full ${d < filled ? 'bg-[#22c55e]' : 'bg-white/15'}`} />
+                                ))}
+                              </div>
+                              <span className="w-20 text-right text-[10px] text-white/45">{metric}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -838,11 +904,15 @@ export function LandingPage() {
             </div>
 
             <div className="relative z-10 grid grid-cols-1 border-t border-white/14 bg-[#0a0a0a]/82 backdrop-blur-md sm:grid-cols-3 sm:divide-x sm:divide-white/14">
-              {valueProofCards.map((card) => (
-                <div key={card.metric} className="px-4 py-4 text-left sm:px-5 sm:py-7">
-                  <div className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-white sm:text-4xl">{card.metric}</div>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-white sm:mt-4 sm:text-base">{card.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-white/58 sm:mt-2 sm:text-sm sm:leading-6">{card.copy}</p>
+              {valueProofCards.map((card, i) => (
+                <div key={card.metric} className="flex items-start gap-4 px-4 py-5 text-left sm:px-6 sm:py-7">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/25 font-mono text-[11px] font-bold text-white/70">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#f97316]">{card.metric}</p>
+                    <p className="mt-1.5 text-sm leading-6 text-white/85">{card.copy}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -858,15 +928,14 @@ export function LandingPage() {
                 key={title}
                 data-sr
                 data-sr-delay={String((i % 3) + 1)}
-                className="group border-b border-black/10 bg-white p-7 transition-colors duration-300 hover:bg-[#0a0a0a] lg:border-r lg:p-9 xl:[&:nth-child(3n)]:border-r-0"
+                className="group relative border-b border-black/10 bg-white p-7 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:p-9 xl:[&:nth-child(3n)]:border-r-0"
               >
-                <div className="flex size-12 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-white/25">
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
+                <div className="flex size-12 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-[#f97316]">
                   <Icon size={24} />
                 </div>
-                <h3 className="mt-9 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">
-                  {title}
-                </h3>
-                <p className="mt-4 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">{copy}</p>
+                <h3 className="mt-9 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{title}</h3>
+                <p className="mt-4 leading-7 text-black/55">{copy}</p>
               </article>
             ))}
           </div>
@@ -1000,8 +1069,9 @@ export function LandingPage() {
                 key={name}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:px-9 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
+                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:px-9 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
               >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <blockquote className="text-xl leading-9 text-[#0a0a0a]">"{quote}"</blockquote>
                 <figcaption className="mt-auto border-t border-black/10 pt-6">
                   <div className="font-['Space_Grotesk'] text-xl font-medium text-[#0a0a0a]">{name}</div>
@@ -1026,17 +1096,18 @@ export function LandingPage() {
                 key={title}
                 data-sr
                 data-sr-delay={String((i % 2) + 1)}
-                className="group border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#0a0a0a] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
+                className="group relative border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
               >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <Users className="size-9 text-[#f97316]" />
-                <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white sm:text-3xl">
+                <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] sm:text-3xl">
                   {title}
                 </h3>
-                <p className="mt-6 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">
-                  <strong className="font-semibold text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">Problema:</strong> {problem}
+                <p className="mt-6 leading-7 text-black/55">
+                  <strong className="font-semibold text-[#0a0a0a]">Problema:</strong> {problem}
                 </p>
-                <p className="mt-4 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">
-                  <strong className="font-semibold text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">Como resolve:</strong> {solution}
+                <p className="mt-4 leading-7 text-black/55">
+                  <strong className="font-semibold text-[#0a0a0a]">Como resolve:</strong> {solution}
                 </p>
               </article>
             ))}
@@ -1086,8 +1157,9 @@ export function LandingPage() {
                 key={place}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
+                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
               >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
                 <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{person}</h3>
                 <p className="mt-5 leading-7 text-black/55">{copy}</p>
