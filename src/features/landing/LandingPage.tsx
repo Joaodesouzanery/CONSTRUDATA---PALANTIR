@@ -1,6 +1,7 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import {
   ArrowRight,
+  ArrowUpRight,
   BadgeDollarSign,
   BrainCircuit,
   Building2,
@@ -399,7 +400,7 @@ function useScrollReveal() {
             observer.unobserve(e.target)
           }
         }),
-      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
     )
     const els = document.querySelectorAll('[data-sr]')
     els.forEach((el) => observer.observe(el))
@@ -407,17 +408,67 @@ function useScrollReveal() {
   }, [])
 }
 
-function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title?: string; copy?: string }) {
+/* Palantir-style section header: numbered monospace eyebrow, large grotesque
+   headline left-aligned, supporting copy on the right, thin hairline below. */
+function SectionHeader({
+  index,
+  eyebrow,
+  title,
+  copy,
+}: {
+  index?: string
+  eyebrow: string
+  title?: string
+  copy?: string
+}) {
   return (
-    <div data-sr className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
-      <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{eyebrow}</p>
-      {title && (
-        <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-          {title}
-        </h2>
-      )}
-      {copy && <p className="max-w-3xl text-base leading-8 text-white/58 md:text-lg">{copy}</p>}
+    <div data-sr className="mx-auto max-w-7xl px-5 md:px-10">
+      <div className="grid gap-6 border-b border-black/10 pb-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+        <div>
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">
+            {index ? `${index} — ` : ''}
+            {eyebrow}
+          </p>
+          {title && (
+            <h2 className="mt-5 max-w-3xl font-['Space_Grotesk'] text-4xl font-medium leading-[1.02] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl lg:text-6xl">
+              {title}
+            </h2>
+          )}
+        </div>
+        {copy && <p className="max-w-xl text-base leading-7 text-black/55 lg:justify-self-end lg:text-right">{copy}</p>}
+      </div>
     </div>
+  )
+}
+
+/* Palantir-style arrow link: arrow slides on hover */
+function ArrowLink({
+  href,
+  children,
+  external = false,
+  variant = 'text',
+}: {
+  href: string
+  children: ReactNode
+  external?: boolean
+  variant?: 'text' | 'solid' | 'outline'
+}) {
+  const base = 'group inline-flex items-center gap-2.5 transition-colors'
+  const styles =
+    variant === 'solid'
+      ? 'min-h-12 bg-[#0a0a0a] px-6 py-3.5 text-xs font-bold uppercase tracking-[0.12em] text-white hover:bg-[#f97316]'
+      : variant === 'outline'
+        ? 'min-h-12 border border-black/20 px-6 py-3.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0a0a0a] hover:border-[#0a0a0a]'
+        : 'text-xs font-bold uppercase tracking-[0.12em] text-[#0a0a0a] hover:text-[#f97316]'
+  return (
+    <a
+      href={href}
+      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      className={`${base} ${styles}`}
+    >
+      {children}
+      <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+    </a>
   )
 }
 
@@ -430,103 +481,115 @@ function ModulesSection() {
     .filter((module): module is ModuleItem => Boolean(module))
 
   return (
-    <section id="modulos" className="relative bg-black pt-20 sm:pt-32">
+    <section id="modulos" className="bg-[#f6f5f2] py-20 sm:py-32">
       <SectionHeader
+        index="05"
         eyebrow="Módulos"
         title="Escolha o problema. Veja o módulo que resolve."
-        copy="Cada módulo conectado à mesma base operacional — campo, planejamento, medição e gestão falando a mesma língua, em tempo real."
+        copy="Tudo conversando na mesma base, em tempo real. O dado de campo vira decisão executiva em segundos — e o gestor antecipa o problema antes que ele vire atraso, glosa ou custo oculto."
       />
 
       <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
-        {/* Pain-point tabs */}
-        <div className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-8">
+        {/* Pain-point tabs — underline style */}
+        <div className="flex flex-col gap-0 border-b border-black/10 sm:flex-row sm:flex-wrap sm:gap-8">
           {modulePainTabs.map((pain) => (
             <button
               key={pain.id}
               type="button"
               onClick={() => setActivePain(pain.id)}
-              className={`min-h-11 w-full rounded-none border px-5 py-2.5 text-left text-sm font-semibold transition-all duration-200 sm:w-auto sm:text-center ${
+              className={`group relative min-h-12 border-b-2 py-3 text-left text-sm font-semibold transition-colors sm:border-b-0 sm:pb-5 ${
                 activePain === pain.id
-                  ? 'border-white bg-white text-black'
-                  : 'border-white/[0.12] bg-transparent text-white/55 hover:border-white/35 hover:text-white'
+                  ? 'border-[#f97316] text-[#0a0a0a] sm:border-b-2'
+                  : 'border-transparent text-black/45 hover:text-[#0a0a0a]'
               }`}
             >
               {pain.label}
+              {activePain === pain.id && (
+                <span className="absolute -bottom-[2px] left-0 hidden h-[2px] w-full bg-[#f97316] sm:block" />
+              )}
             </button>
           ))}
         </div>
 
-        {/* 2-col panel: context left, modules right */}
+        {/* Active pain: context (left) + relevant modules (right) */}
         <div
           key={activePain}
-          className="grid animate-[fadeIn_0.35s_ease-out] grid-cols-1 gap-0 border-b border-white/[0.08] lg:grid-cols-[0.42fr_0.58fr]"
+          className="grid animate-[fadeIn_0.4s_ease-out] grid-cols-1 border-b border-black/10 lg:grid-cols-[0.42fr_0.58fr]"
         >
-          {/* Left: challenge context */}
-          <aside className="border-b border-white/[0.08] p-6 sm:p-8 lg:border-b-0 lg:border-r">
-            <div className="flex items-center gap-4 border border-white/[0.08] bg-white/[0.03] p-4 sm:p-5">
-              <span className="flex size-11 shrink-0 items-center justify-center border border-white/[0.12] bg-white/[0.06] text-white">
+          <aside className="border-b border-black/10 bg-white p-7 sm:p-9 lg:border-b-0 lg:border-r">
+            <div className="flex items-center gap-4">
+              <span className="flex size-12 shrink-0 items-center justify-center bg-[#0a0a0a] text-white">
                 <ActiveIcon size={22} />
               </span>
-              <h3 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white sm:text-3xl">
+              <h3 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] sm:text-3xl">
                 {activeDetails.title}
               </h3>
             </div>
-            <p className="mt-7 text-base font-semibold leading-7 text-white sm:text-lg">{activeDetails.challenge}</p>
-            <p className="mt-5 text-base leading-7 text-white/55 sm:text-lg">{activeDetails.solution}</p>
+            <p className="mt-7 text-base font-medium leading-7 text-[#0a0a0a] sm:text-lg">{activeDetails.challenge}</p>
+            <p className="mt-5 text-base leading-7 text-black/55 sm:text-lg">{activeDetails.solution}</p>
             <div className="mt-8 border-l-2 border-[#f97316] pl-5">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">Resultado mensurável</p>
-              <p className="mt-2 leading-7 text-white/55">{activeDetails.outcome}</p>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#f97316]">Resultado mensurável</p>
+              <p className="mt-2 leading-7 text-black/65">{activeDetails.outcome}</p>
             </div>
           </aside>
 
-          {/* Right: module cards */}
-          <div className="divide-y divide-white/[0.07]">
+          <div className="divide-y divide-black/10 bg-white">
             {activeModules.map((module) => {
               const Icon = module.icon
               return (
-                <div
-                  key={module.id}
-                  className="group flex items-start gap-5 p-6 transition-colors duration-200 hover:bg-white/[0.025] sm:p-7"
-                >
-                  <div className="flex size-12 shrink-0 items-center justify-center border border-white/[0.10] bg-white/[0.04] text-[#f97316] transition-colors duration-200 group-hover:border-[#f97316]/40 group-hover:bg-[#f97316]/[0.06]">
+                <div key={module.id} className="group flex items-start gap-5 p-7 transition-colors duration-200 hover:bg-[#f6f5f2] sm:p-9">
+                  <div className="flex size-12 shrink-0 items-center justify-center border border-black/15 bg-white text-[#f97316] transition-colors duration-200 group-hover:border-[#0a0a0a] group-hover:bg-[#0a0a0a] group-hover:text-white">
                     <Icon size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <h4 className="font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-tight text-white sm:text-2xl">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h4 className="font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] sm:text-2xl">
                         {module.title}
                       </h4>
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#f97316]">
-                        {module.kicker}
-                      </span>
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#f97316]">{module.kicker}</span>
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-white/55">{module.copy}</p>
-                    <p className="mt-2 text-sm leading-6 text-white/38">
-                      <strong className="text-white/55">Como faz:</strong> {module.how}
+                    <p className="mt-2 text-sm leading-6 text-black/60">{module.copy}</p>
+                    <p className="mt-2 text-sm leading-6 text-black/45">
+                      <strong className="font-semibold text-black/70">Como faz:</strong> {module.how}
                     </p>
-                    <p className="mt-1.5 text-sm leading-6 text-white/38">
-                      <strong className="text-white/55">Resultado:</strong> {module.efficiency}
+                    <p className="mt-1.5 text-sm leading-6 text-black/45">
+                      <strong className="font-semibold text-black/70">Resultado:</strong> {module.efficiency}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {module.features.map((f) => (
-                        <span
-                          key={f}
-                          className="border border-white/[0.07] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-white/32"
-                        >
-                          {f}
-                        </span>
-                      ))}
-                      {module.connected.map((c) => (
-                        <span
-                          key={c}
-                          className="border border-[#f97316]/20 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#f97316]/50"
-                        >
-                          {c}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                 </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* All modules grid — invert-to-black on hover */}
+        <div className="mt-16">
+          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-black/40">A plataforma completa — 14 módulos conectados</p>
+          <div className="mt-6 grid grid-cols-1 border-t border-l border-black/10 sm:grid-cols-2 lg:grid-cols-3">
+            {modules.map((module, i) => {
+              const Icon = module.icon
+              return (
+                <article
+                  key={module.id}
+                  data-sr
+                  data-sr-delay={String((i % 3) + 1)}
+                  className="group relative flex min-h-[230px] flex-col border-b border-r border-black/10 bg-white p-6 transition-colors duration-300 hover:bg-[#0a0a0a] sm:p-7"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex size-11 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-white/25">
+                      <Icon size={20} />
+                    </div>
+                    <span className="font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-[#f97316]">{module.kicker}</span>
+                  </div>
+                  <h4 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">
+                    {module.title}
+                  </h4>
+                  <p className="mt-3 text-sm leading-6 text-black/55 transition-colors duration-300 group-hover:text-white/65">{module.copy}</p>
+                  <div className="mt-auto flex items-center gap-2 pt-6 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-black/35 transition-colors duration-300 group-hover:text-white/55">
+                    Conecta com {module.connected.slice(0, 2).join(', ')}
+                    <ArrowUpRight size={13} className="text-[#f97316] transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </div>
+                </article>
               )
             })}
           </div>
@@ -551,7 +614,7 @@ function Input({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/42">
+      <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
         {Icon && <Icon size={13} className="text-[#f97316]" />}
         {label}
       </span>
@@ -559,7 +622,7 @@ function Input({
         name={name}
         type={type}
         required={required}
-        className="h-12 w-full rounded-none border border-white/[0.12] bg-white/[0.04] px-3 text-sm text-white outline-none transition placeholder:text-white/22 focus:border-[#f97316] focus:bg-white/[0.06]"
+        className="h-12 w-full rounded-none border border-black/15 bg-white px-3 text-sm text-[#0a0a0a] outline-none transition placeholder:text-black/30 focus:border-[#f97316]"
       />
     </label>
   )
@@ -611,7 +674,10 @@ export function LandingPage() {
   useEffect(() => {
     const html = document.documentElement
     const previousTheme = html.getAttribute('data-theme')
-    html.setAttribute('data-theme', 'dark')
+    // The landing paints every surface with explicit colors. Remove the app
+    // theme attribute so [data-theme] overrides in globals.css don't rewrite
+    // bg-white (dark mode) or text-white (light mode) on our own markup.
+    html.removeAttribute('data-theme')
     return () => {
       if (previousTheme) html.setAttribute('data-theme', previousTheme)
       else html.removeAttribute('data-theme')
@@ -650,19 +716,19 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white antialiased">
+    <div className="min-h-screen bg-white text-[#0a0a0a] antialiased">
       <style>{`
         @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
       `}</style>
 
-      {/* ── Header ── */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-black/88 backdrop-blur-xl">
+      {/* ── Header (light, Palantir-style) ── */}
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-black/[0.08] bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
-            <BrandLockup />
+            <BrandLockup dark />
           </a>
-          <nav className="hidden items-center gap-7 lg:flex">
+          <nav className="hidden items-center gap-8 lg:flex">
             {[
               ['Ontologia', '#ontologia'],
               ['Impacto', '#impacto'],
@@ -673,7 +739,7 @@ export function LandingPage() {
               <a
                 key={href}
                 href={href}
-                className="text-xs font-semibold uppercase tracking-[0.12em] text-white/50 transition hover:text-white"
+                className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/50 transition hover:text-[#0a0a0a]"
               >
                 {label}
               </a>
@@ -682,7 +748,7 @@ export function LandingPage() {
           <div className="flex items-center gap-2">
             <a
               href={LOGIN_URL}
-              className="hidden border border-white/[0.14] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/65 transition hover:border-[#f97316] hover:text-white sm:inline-flex"
+              className="hidden border border-black/15 px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-black/65 transition hover:border-[#0a0a0a] hover:text-[#0a0a0a] sm:inline-flex"
             >
               Acessar
             </a>
@@ -690,16 +756,16 @@ export function LandingPage() {
               href={CALENDLY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-[#f97316] px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#ea580c] sm:px-4 sm:text-xs sm:tracking-[0.1em]"
+              className="group inline-flex items-center gap-2 bg-[#0a0a0a] px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-[#f97316] sm:px-4"
             >
-              Demo <ArrowRight size={14} />
+              Demo <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </a>
           </div>
         </div>
       </header>
 
       <main>
-        {/* ── Hero ── */}
+        {/* ── Hero (kept dark — striking construction imagery) ── */}
         <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0d0d0d] pt-16 lg:min-h-screen">
           <HeroCarousel />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.12)_0%,rgba(10,10,10,0.48)_42%,rgba(10,10,10,0.98)_100%)]" />
@@ -715,17 +781,17 @@ export function LandingPage() {
                 >
                   Plataforma de Planejamento e Gestão da Execução da Obra
                 </Badge>
-                <h1 className="font-['Space_Grotesk'] text-5xl font-medium leading-[0.95] text-white sm:text-7xl lg:text-8xl">
+                <h1 className="font-['Space_Grotesk'] text-5xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-7xl lg:text-8xl">
                   ConstruData
                 </h1>
-                <h2 className="max-w-4xl font-['Space_Grotesk'] text-2xl font-medium leading-tight text-white sm:text-5xl">
+                <h2 className="max-w-4xl font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-[-0.01em] text-white sm:text-5xl">
                   Automação Alimentada por IA para cada Decisão na Construção.
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
                   Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
                 </p>
                 <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
-                  Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
+                  Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade — e flui, sem retrabalho, até a decisão.
                 </p>
                 <div className="h-[2px] w-14 bg-[#f97316]" />
                 <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -733,9 +799,9 @@ export function LandingPage() {
                     href={CALENDLY_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
+                    className="group inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
                   >
-                    Ver como funciona <ArrowRight size={17} />
+                    Ver como funciona <ArrowRight size={17} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </a>
                   <a
                     href={LOGIN_URL}
@@ -774,7 +840,7 @@ export function LandingPage() {
             <div className="relative z-10 grid grid-cols-1 border-t border-white/14 bg-[#0a0a0a]/82 backdrop-blur-md sm:grid-cols-3 sm:divide-x sm:divide-white/14">
               {valueProofCards.map((card) => (
                 <div key={card.metric} className="px-4 py-4 text-left sm:px-5 sm:py-7">
-                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white sm:text-4xl">{card.metric}</div>
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-white sm:text-4xl">{card.metric}</div>
                   <p className="mt-2 text-sm font-semibold leading-6 text-white sm:mt-4 sm:text-base">{card.title}</p>
                   <p className="mt-1 text-xs leading-5 text-white/58 sm:mt-2 sm:text-sm sm:leading-6">{card.copy}</p>
                 </div>
@@ -784,65 +850,70 @@ export function LandingPage() {
         </section>
 
         {/* ── Ontologia ── */}
-        <section id="ontologia" className="bg-black pt-20 sm:pt-32">
-          <SectionHeader eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
+        <section id="ontologia" className="bg-white py-20 sm:py-32">
+          <SectionHeader index="01" eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" copy="Uma camada semântica única faz campo, projeto, custo e prazo falarem a mesma língua — em tempo real." />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
             {ontologyCards.map(({ icon: Icon, title, copy }, i) => (
               <article
                 key={title}
                 data-sr
                 data-sr-delay={String((i % 3) + 1)}
-                className="group border-b border-white/[0.07] bg-[#0a0a0a] p-6 transition-all duration-300 hover:border-white/[0.18] hover:bg-[#111] lg:border-r lg:p-8 xl:[&:nth-child(3n)]:border-r-0"
+                className="group border-b border-black/10 bg-white p-7 transition-colors duration-300 hover:bg-[#0a0a0a] lg:border-r lg:p-9 xl:[&:nth-child(3n)]:border-r-0"
               >
-                <div className="flex size-12 items-center justify-center border border-white/[0.10] bg-white/[0.04] text-[#f97316] transition-colors duration-300 group-hover:border-[#f97316]/35 group-hover:bg-[#f97316]/[0.07]">
+                <div className="flex size-12 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-white/25">
                   <Icon size={24} />
                 </div>
-                <h3 className="mt-10 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">{title}</h3>
-                <p className="mt-4 leading-7 text-white/55">{copy}</p>
+                <h3 className="mt-9 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">
+                  {title}
+                </h3>
+                <p className="mt-4 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">{copy}</p>
               </article>
             ))}
           </div>
         </section>
 
         {/* ── Impacto ── */}
-        <section id="impacto" className="bg-black pt-20 sm:pt-32">
+        <section id="impacto" className="bg-[#f6f5f2] py-20 sm:py-32">
           <SectionHeader
+            index="02"
             eyebrow="Impacto real em escala"
-            title="ConstruData Impulsiona Impacto Real em Escala"
-            copy="Ajudamos empresas de engenharia e construção a dominarem o mercado."
+            title="Impacto Real em Escala"
+            copy="Ajudamos empresas de engenharia e construção a dominarem o mercado com dados conectados."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10">
-            {impactRows.map(([category, impact, how], i) => (
-              <div
-                key={category}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="grid gap-5 border-b border-white/[0.07] px-0 py-8 last:border-b-0 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-4"
-              >
-                <div className="flex items-center gap-3">
-                  <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
-                  <h3 className="font-['Space_Grotesk'] text-lg font-medium tracking-tight text-white">{category}</h3>
+          <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
+            <div className="border-t border-black/10">
+              {impactRows.map(([category, impact, how], i) => (
+                <div
+                  key={category}
+                  data-sr
+                  data-sr-delay={String((i % 3) + 1)}
+                  className="group grid gap-4 border-b border-black/10 py-8 transition-colors duration-200 hover:bg-white lg:grid-cols-[0.8fr_0.85fr_1.1fr] lg:items-center"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xs font-bold text-[#f97316]">{String(i + 1).padStart(2, '0')}</span>
+                    <h3 className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-black/55">{category}</h3>
+                  </div>
+                  <p className="font-['Space_Grotesk'] text-2xl font-medium leading-[1.05] tracking-[-0.01em] text-[#0a0a0a] sm:text-3xl">{impact}</p>
+                  <p className="leading-7 text-black/55">{how}</p>
                 </div>
-                <p className="font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white sm:text-3xl">{impact}</p>
-                <p className="leading-7 text-white/52">{how}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
         {/* ── Empresas ── */}
-        <section id="empresas" className="bg-black pt-20 sm:pt-32">
-          <SectionHeader eyebrow="Empresas que confiam no ConstruData" />
-          <div className="relative mt-12 overflow-hidden border-y border-white/[0.07] py-8">
-            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-gradient-to-r from-black" />
-            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-gradient-to-l from-black" />
+        <section id="empresas" className="bg-white py-20 sm:py-32">
+          <SectionHeader index="03" eyebrow="Empresas que confiam no ConstruData" />
+          <div className="relative mt-12 overflow-hidden border-y border-black/10 py-10">
+            <div className="pointer-events-none absolute left-0 z-20 h-full w-24 bg-gradient-to-r from-white" />
+            <div className="pointer-events-none absolute right-0 z-20 h-full w-24 bg-gradient-to-l from-white" />
             <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
               {logos.map(([src, alt]) => (
                 <div
                   key={src}
-                  className="flex h-28 w-64 shrink-0 items-center justify-center border border-white/[0.07] bg-white/[0.03] p-5 transition-all duration-300 hover:border-white/[0.18] hover:bg-white/[0.06]"
+                  className="flex h-28 w-64 shrink-0 items-center justify-center border border-black/10 bg-white p-5 transition-colors duration-300 hover:border-black/30"
                 >
-                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-60 transition-opacity duration-300 hover:opacity-100" />
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-50 grayscale transition duration-300 hover:opacity-100 hover:grayscale-0" />
                 </div>
               ))}
             </Marquee>
@@ -850,26 +921,34 @@ export function LandingPage() {
         </section>
 
         {/* ── Diferencial ── */}
-        <section id="diferencial" className="bg-black pt-20 sm:pt-32">
-          <SectionHeader
-            eyebrow="Diferencial único"
-            title="Todo mundo tem acesso a código. Nem todo mundo tem metodologia."
-            copy="Dados de campo virando decisão executiva em segundos, não dias."
-          />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
+        <section id="diferencial" className="bg-[#0a0a0a] py-20 text-white sm:py-32">
+          <div className="mx-auto max-w-7xl px-5 md:px-10">
+            <div data-sr className="grid gap-6 border-b border-white/12 pb-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
+              <div>
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">04 — Diferencial único</p>
+                <h2 className="mt-5 max-w-3xl font-['Space_Grotesk'] text-4xl font-medium leading-[1.02] tracking-[-0.02em] text-white sm:text-5xl lg:text-6xl">
+                  Todo mundo tem acesso a código. Nem todo mundo tem metodologia.
+                </h2>
+              </div>
+              <p className="max-w-xl text-base leading-7 text-white/55 lg:justify-self-end lg:text-right">
+                Dados de campo virando decisão executiva em segundos, não dias.
+              </p>
+            </div>
+          </div>
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/12 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
             {differentiators.map(([number, title, copy], i) => (
               <div
                 key={number}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group flex flex-col gap-5 border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] sm:border-r lg:min-h-[320px] lg:px-6 lg:py-10 lg:[&:nth-child(4n)]:border-r-0"
+                className="group flex flex-col border-b border-white/12 p-7 transition-colors duration-300 hover:bg-white/[0.04] sm:border-r lg:min-h-[330px] lg:p-9 lg:[&:nth-child(4n)]:border-r-0"
               >
                 <div className="flex items-center justify-between">
                   <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
-                  <ShieldCheck className="size-5 text-white/20 transition-colors duration-300 group-hover:text-[#f97316]/60" />
+                  <ShieldCheck className="size-5 text-white/25 transition-colors duration-300 group-hover:text-[#f97316]" />
                 </div>
-                <div className="flex flex-col gap-3 pt-6 lg:pt-20">
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-white sm:text-3xl">{title}</h3>
+                <div className="mt-auto flex flex-col gap-3 pt-16">
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-white sm:text-3xl">{title}</h3>
                   <p className="leading-7 text-white/55">{copy}</p>
                 </div>
               </div>
@@ -878,31 +957,33 @@ export function LandingPage() {
         </section>
 
         {/* ── Implementação ── */}
-        <section className="bg-black px-5 pt-20 sm:pt-32 md:px-10">
-          <div className="mx-auto grid max-w-7xl border-y border-white/[0.07] bg-[#0a0a0a] lg:grid-cols-[0.85fr_1.15fr]">
-            <div data-sr className="border-b border-white/[0.07] p-6 sm:p-8 lg:border-b-0 lg:border-r">
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Implantação em obras reais</p>
-              <h2 className="mt-8 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white sm:text-5xl">
-                Comece com os documentos que a obra já usa.
-              </h2>
-            </div>
-            <div className="grid gap-0 sm:grid-cols-3">
-              {[
-                ['Planilhas, medições e RDOs', 'O sistema aproveita controles existentes para criar uma base inicial sem parar a operação.'],
-                ['Fotos, propostas e relatórios', 'Cada evidência entra com contexto, origem e destino recomendado nos módulos corretos.'],
-                ['Evolução sem ruptura', 'O ConstruData organiza os dados por módulo e permite amadurecer o controle sem trocar tudo no primeiro dia.'],
-              ].map(([title, copy], i) => (
-                <article
-                  key={title}
-                  data-sr
-                  data-sr-delay={String(i + 1)}
-                  className="group border-b border-white/[0.07] p-6 transition-all duration-300 hover:bg-white/[0.025] last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 sm:p-7"
-                >
-                  <FileText className="size-7 text-[#f97316]" />
-                  <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white">{title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-white/55">{copy}</p>
-                </article>
-              ))}
+        <section className="bg-white py-20 sm:py-32">
+          <div className="mx-auto max-w-7xl px-5 md:px-10">
+            <div className="grid border border-black/10 lg:grid-cols-[0.85fr_1.15fr]">
+              <div data-sr className="border-b border-black/10 bg-[#f6f5f2] p-7 sm:p-10 lg:border-b-0 lg:border-r">
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">Implantação em obras reais</p>
+                <h2 className="mt-7 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-[1.05] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl">
+                  Comece com os documentos que a obra já usa.
+                </h2>
+              </div>
+              <div className="grid gap-0 sm:grid-cols-3">
+                {[
+                  ['Planilhas, medições e RDOs', 'O sistema aproveita controles existentes para criar uma base inicial sem parar a operação.'],
+                  ['Fotos, propostas e relatórios', 'Cada evidência entra com contexto, origem e destino recomendado nos módulos corretos.'],
+                  ['Evolução sem ruptura', 'O ConstruData organiza os dados por módulo e permite amadurecer o controle sem trocar tudo no primeiro dia.'],
+                ].map(([title, copy], i) => (
+                  <article
+                    key={title}
+                    data-sr
+                    data-sr-delay={String(i + 1)}
+                    className="group border-b border-black/10 p-7 transition-colors duration-300 hover:bg-[#f6f5f2] last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0"
+                  >
+                    <FileText className="size-7 text-[#f97316]" />
+                    <h3 className="mt-7 font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a]">{title}</h3>
+                    <p className="mt-4 text-sm leading-7 text-black/55">{copy}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -911,20 +992,20 @@ export function LandingPage() {
         <ModulesSection />
 
         {/* ── Depoimentos ── */}
-        <section id="depoimentos" className="bg-black pt-20 sm:pt-32">
-          <SectionHeader eyebrow="O que os líderes da construção estão dizendo" />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-3">
+        <section id="depoimentos" className="bg-white py-20 sm:py-32">
+          <SectionHeader index="06" eyebrow="O que os líderes da construção estão dizendo" />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
             {testimonials.map(([name, role, quote], i) => (
               <figure
                 key={name}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] lg:border-r lg:px-8 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
+                className="flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:px-9 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
               >
-                <blockquote className="text-xl leading-9 text-white/72">"{quote}"</blockquote>
-                <figcaption className="mt-10 border-t border-white/[0.07] pt-5">
-                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white">{name}</div>
-                  <div className="mt-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#f97316]">{role}</div>
+                <blockquote className="text-xl leading-9 text-[#0a0a0a]">"{quote}"</blockquote>
+                <figcaption className="mt-auto border-t border-black/10 pt-6">
+                  <div className="font-['Space_Grotesk'] text-xl font-medium text-[#0a0a0a]">{name}</div>
+                  <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">{role}</div>
                 </figcaption>
               </figure>
             ))}
@@ -932,27 +1013,30 @@ export function LandingPage() {
         </section>
 
         {/* ── Perfis ── */}
-        <section id="perfis" className="bg-black pt-20 sm:pt-32">
+        <section id="perfis" className="bg-[#f6f5f2] py-20 sm:py-32">
           <SectionHeader
+            index="07"
             eyebrow="Para quem é o ConstruData?"
             title="O visitante certo se reconhece rápido."
-            copy="Cada perfil entra por uma dor diferente, mas todos precisam do mesmo ponto de chegada: dado de campo confiável virando decisão, medição e planejamento."
+            copy="Cada perfil entra por uma dor diferente, mas todos chegam ao mesmo ponto: dado de campo confiável virando decisão, medição e planejamento."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:grid-cols-2 md:px-10">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-2 md:px-10">
             {audience.map(([title, problem, solution], i) => (
               <article
                 key={title}
                 data-sr
                 data-sr-delay={String((i % 2) + 1)}
-                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
+                className="group border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#0a0a0a] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
               >
                 <Users className="size-9 text-[#f97316]" />
-                <h3 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">{title}</h3>
-                <p className="mt-6 leading-7 text-white/58">
-                  <strong className="text-white/80">Problema:</strong> {problem}
+                <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] transition-colors duration-300 group-hover:text-white sm:text-3xl">
+                  {title}
+                </h3>
+                <p className="mt-6 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">
+                  <strong className="font-semibold text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">Problema:</strong> {problem}
                 </p>
-                <p className="mt-4 leading-7 text-white/58">
-                  <strong className="text-white/80">Como resolve:</strong> {solution}
+                <p className="mt-4 leading-7 text-black/55 transition-colors duration-300 group-hover:text-white/65">
+                  <strong className="font-semibold text-[#0a0a0a] transition-colors duration-300 group-hover:text-white">Como resolve:</strong> {solution}
                 </p>
               </article>
             ))}
@@ -960,111 +1044,107 @@ export function LandingPage() {
         </section>
 
         {/* ── LinkedIn ── */}
-        <section id="linkedin" className="bg-black px-5 py-20 sm:py-32 md:px-10">
-          <div
-            data-sr
-            className="mx-auto grid max-w-6xl gap-8 border border-white/[0.07] bg-[#0a0a0a] p-6 transition-all duration-300 hover:border-white/[0.18] lg:grid-cols-[0.8fr_1.2fr] lg:p-10"
-          >
-            <div>
-              <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Artigo no LinkedIn</p>
-              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight tracking-tight text-white">
-                A visão por trás da ConstruData.
-              </h2>
-            </div>
-            <div>
-              <p className="text-lg leading-8 text-white/58">
-                Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
-              </p>
-              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-white">ConstruData Software</h3>
-              <p className="mt-3 leading-7 text-white/52">Dados conectados, automação e decisões melhores para obras reais.</p>
-              <a
-                href={LINKEDIN_ARTICLE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]"
-              >
-                Ler artigo no LinkedIn <ArrowRight size={16} />
-              </a>
+        <section id="linkedin" className="bg-white py-20 sm:py-32">
+          <div className="mx-auto max-w-7xl px-5 md:px-10">
+            <div data-sr className="grid gap-8 border border-black/10 bg-[#f6f5f2] p-7 lg:grid-cols-[0.8fr_1.2fr] lg:p-12">
+              <div>
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">Artigo no LinkedIn</p>
+                <h2 className="mt-7 font-['Space_Grotesk'] text-4xl font-medium leading-[1.05] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl">
+                  A visão por trás da ConstruData.
+                </h2>
+              </div>
+              <div>
+                <p className="text-lg leading-8 text-black/60">
+                  Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
+                </p>
+                <h3 className="mt-8 font-['Space_Grotesk'] text-2xl font-medium text-[#0a0a0a]">ConstruData Software</h3>
+                <p className="mt-3 leading-7 text-black/55">Dados conectados, automação e decisões melhores para obras reais.</p>
+                <div className="mt-8">
+                  <ArrowLink href={LINKEDIN_ARTICLE_URL} external variant="solid">
+                    Ler artigo no LinkedIn
+                  </ArrowLink>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
         {/* ── Autonomia ── */}
-        <section id="autonomia" className="bg-black pt-20 sm:pt-32">
+        <section id="autonomia" className="bg-white pb-4 pt-20 sm:pt-32">
           <SectionHeader
+            index="08"
             eyebrow="Autonomia para a cadeia inteira"
             title="A obra inteira fica mais inteligente."
-            copy="Não porque tem mais dashboards. Porque tem mais pessoas decidindo bem, no momento certo, com a informação certa. É isso que distribui autonomia de verdade pela cadeia da sua construção."
+            copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, no momento certo, com a informação certa — em tempo real."
           />
-          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white">
+          <p data-sr className="mx-auto mt-12 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] sm:text-4xl">
             Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
           </p>
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-3">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
             {autonomyCards.map(([place, person, copy], i) => (
               <article
                 key={place}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
+                className="group flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
               >
-                <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
-                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium tracking-tight text-white">{person}</h3>
-                <p className="mt-5 leading-7 text-white/55">{copy}</p>
-                <a
-                  href={CALENDLY_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-[#ea580c]"
-                >
-                  Ver como funciona <ArrowRight size={14} />
-                </a>
+                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
+                <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{person}</h3>
+                <p className="mt-5 leading-7 text-black/55">{copy}</p>
+                <div className="mt-7">
+                  <ArrowLink href={CALENDLY_URL} external>
+                    Ver como funciona
+                  </ArrowLink>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
         {/* ── FAQ ── */}
-        <section id="contato" className="bg-black px-5 py-20 sm:py-32 md:px-10">
-          <SectionHeader eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
-          <div className="mx-auto mt-10 grid max-w-5xl gap-2">
-            {faqs.map(([question, answer], i) => (
-              <details
-                key={question}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="group border border-white/[0.07] bg-[#0a0a0a] p-5 transition-colors duration-200 open:bg-[#0f0f0f]"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                  <span className="flex items-center gap-3 font-['Space_Grotesk'] text-base font-medium text-white">
-                    <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
-                    {question}
-                  </span>
-                  <Plus className="size-5 shrink-0 text-[#f97316] transition-transform duration-200 group-open:rotate-45" />
-                </summary>
-                <p className="mt-4 leading-7 text-white/52">{answer}</p>
-              </details>
-            ))}
+        <section id="contato" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader index="09" eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
+          <div className="mx-auto mt-12 max-w-5xl px-5 md:px-10">
+            <div className="border-t border-black/10">
+              {faqs.map(([question, answer], i) => (
+                <details
+                  key={question}
+                  data-sr
+                  data-sr-delay={String((i % 3) + 1)}
+                  className="group border-b border-black/10 bg-transparent transition-colors duration-200 open:bg-white"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5">
+                    <span className="flex items-center gap-3 font-['Space_Grotesk'] text-base font-medium text-[#0a0a0a]">
+                      <span className="font-mono text-xs font-bold text-[#f97316]">{String(i + 1).padStart(2, '0')}</span>
+                      {question}
+                    </span>
+                    <Plus className="size-5 shrink-0 text-[#f97316] transition-transform duration-200 group-open:rotate-45" />
+                  </summary>
+                  <p className="px-0 pb-5 leading-7 text-black/55">{answer}</p>
+                </details>
+              ))}
+            </div>
           </div>
         </section>
 
         {/* ── Qualificação ── */}
-        <section id="qualificacao" className="bg-black px-5 pb-20 sm:pb-32 md:px-10">
-          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-white/[0.07] bg-[#0a0a0a] p-5 sm:p-7">
+        <section id="qualificacao" className="bg-white px-5 pb-20 sm:pb-32 md:px-10">
+          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-black/10 bg-[#f6f5f2] p-6 sm:p-9">
             {sent ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                 <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
-                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Solicitação enviada.</h3>
-                <p className="mt-3 max-w-md leading-7 text-white/52">
+                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#0a0a0a]">Solicitação enviada.</h3>
+                <p className="mt-3 max-w-md leading-7 text-black/55">
                   Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.
                 </p>
               </div>
             ) : (
               <>
-                <div className="mb-7 flex items-center gap-3">
+                <div className="mb-8 flex items-center gap-3">
                   <LockKeyhole className="text-[#f97316]" size={20} />
                   <div>
-                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Formulário de Qualificação</h3>
-                    <p className="mt-1 text-sm leading-6 text-white/38">
+                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium tracking-[-0.01em] text-[#0a0a0a]">Formulário de Qualificação</h3>
+                    <p className="mt-1 text-sm leading-6 text-black/45">
                       Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.
                     </p>
                   </div>
@@ -1076,27 +1156,26 @@ export function LandingPage() {
                   <Input name="empresa" label="Nome da empresa" required icon={Building2} />
                   <Input name="cargo" label="Cargo" required icon={ClipboardCheck} />
                   <label className="block sm:col-span-2">
-                    <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/42">
+                    <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-black/45">
                       <BrainCircuit size={13} className="text-[#f97316]" />
                       Principal dor
                     </span>
                     <textarea
                       name="dor"
                       rows={4}
-                      className="w-full rounded-none border border-white/[0.12] bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition placeholder:text-white/22 focus:border-[#f97316] focus:bg-white/[0.06]"
+                      className="w-full rounded-none border border-black/15 bg-white px-3 py-3 text-sm text-[#0a0a0a] outline-none transition placeholder:text-black/30 focus:border-[#f97316]"
                       placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..."
                     />
                   </label>
                 </div>
-                {error && (
-                  <p className="mt-4 border border-red-500/35 bg-red-500/[0.08] p-3 text-xs text-red-400">{error}</p>
-                )}
+                {error && <p className="mt-4 border border-red-500/40 bg-red-500/[0.06] p-3 text-xs text-red-600">{error}</p>}
                 <button
                   type="submit"
                   disabled={sending}
-                  className="mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60"
+                  className="group mt-6 flex w-full items-center justify-center gap-3 bg-[#0a0a0a] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#f97316] disabled:opacity-60"
                 >
-                  {sending ? 'Enviando...' : 'Solicitar demonstração'} <ArrowRight size={16} />
+                  {sending ? 'Enviando...' : 'Solicitar demonstração'}
+                  <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
               </>
             )}
@@ -1104,10 +1183,10 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/[0.07] bg-black py-8">
+      <footer className="border-t border-black/10 bg-white py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row md:px-10">
-          <span className="text-xs text-white/38">© 2026 ConstruData</span>
-          <span className="text-xs text-white/22">CONSTRUÇÃO - SANEAMENTO - INFRAESTRUTURA</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/45">© 2026 ConstruData</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/30">Construção · Saneamento · Infraestrutura</span>
         </div>
       </footer>
     </div>
