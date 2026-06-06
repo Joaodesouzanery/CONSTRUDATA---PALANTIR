@@ -313,7 +313,7 @@ const differentiators = [
   ['01', 'Ontologia da construção', 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo operacional em todos os módulos.'],
   ['02', 'Loop de feedback rápido', 'O que o campo registra no RDO alimenta medição, qualidade, planejamento, gestão e relatórios sem retrabalho.'],
   ['03', 'LPS / Lean nativo', 'Last Planner System com look-ahead de 6 semanas, PPC semanal, restrições, compromissos e causas de não cumprimento conectados ao cronograma real.'],
-  ['04', 'Decisão antes do relatério', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
+  ['04', 'Decisão antes do relatório', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
 ]
 
 const audience = [
@@ -325,7 +325,7 @@ const audience = [
 
 const autonomyCards = [
   ['No canteiro', 'O engenheiro', 'decide melhor sobre o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.'],
-  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatério manual.'],
+  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.'],
   ['No celular', 'O diretor', 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.'],
 ]
 
@@ -387,12 +387,36 @@ const ontologyCards: Array<{ icon: LucideIcon; title: string; copy: string }> = 
   },
 ]
 
+function useScrollReveal() {
+  useEffect(() => {
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+    const observer = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('sr-visible')
+            observer.unobserve(e.target)
+          }
+        }),
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' },
+    )
+    const els = document.querySelectorAll('[data-sr]')
+    els.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
+}
+
 function SectionHeader({ eyebrow, title, copy }: { eyebrow: string; title?: string; copy?: string }) {
   return (
-    <div className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
+    <div data-sr className="mx-auto flex max-w-5xl flex-col items-center justify-center space-y-4 px-5 text-center md:px-10">
       <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{eyebrow}</p>
-      {title && <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c] sm:text-5xl lg:text-6xl">{title}</h2>}
-      {copy && <p className="max-w-3xl text-base leading-8 text-[#10251c]/70 md:text-lg">{copy}</p>}
+      {title && (
+        <h2 className="max-w-4xl font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
+          {title}
+        </h2>
+      )}
+      {copy && <p className="max-w-3xl text-base leading-8 text-white/58 md:text-lg">{copy}</p>}
     </div>
   )
 }
@@ -404,26 +428,27 @@ function ModulesSection() {
   const activeModules = activeDetails.moduleIds
     .map((moduleId) => modules.find((module) => module.id === moduleId))
     .filter((module): module is ModuleItem => Boolean(module))
-  const featuredModules = activeModules.slice(0, 3)
 
   return (
-    <section id="modulos" className="relative bg-[#f5f0e5] pt-20 sm:pt-32">
+    <section id="modulos" className="relative bg-black pt-20 sm:pt-32">
       <SectionHeader
         eyebrow="Módulos"
-        title="Escolha a dor da operação e veja quais módulos resolvem."
-        copy="O visitante se reconhece no problema antes de avaliar a funcionalidade. Cada módulo continua conectado à mesma base operacional."
+        title="Escolha o problema. Veja o módulo que resolve."
+        copy="Cada módulo conectado à mesma base operacional — campo, planejamento, medição e gestão falando a mesma língua, em tempo real."
       />
+
       <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
-        <div className="flex flex-wrap gap-3 border-b border-[#10251c]/20 pb-10">
+        {/* Pain-point tabs */}
+        <div className="flex flex-wrap gap-2 border-b border-white/[0.08] pb-8">
           {modulePainTabs.map((pain) => (
             <button
               key={pain.id}
               type="button"
               onClick={() => setActivePain(pain.id)}
-              className={`min-h-12 w-full rounded-full border px-5 py-2.5 text-left text-sm font-semibold transition sm:w-auto sm:px-7 sm:text-center sm:text-base ${
+              className={`min-h-11 w-full rounded-none border px-5 py-2.5 text-left text-sm font-semibold transition-all duration-200 sm:w-auto sm:text-center ${
                 activePain === pain.id
-                  ? 'border-[#10251c] bg-[#10251c] text-white shadow-[0_12px_34px_rgba(16,37,28,0.14)]'
-                  : 'border-[#10251c]/28 bg-transparent text-[#10251c] hover:border-[#f97316] hover:text-[#f97316]'
+                  ? 'border-white bg-white text-black'
+                  : 'border-white/[0.12] bg-transparent text-white/55 hover:border-white/35 hover:text-white'
               }`}
             >
               {pain.label}
@@ -431,88 +456,102 @@ function ModulesSection() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-0 border-b border-[#10251c]/18 lg:grid-cols-[0.34fr_0.36fr_0.3fr]">
-          <aside className="border-b border-[#10251c]/18 bg-[#fffaf0]/72 p-5 sm:p-7 lg:border-b-0 lg:border-r">
-            <div className="flex min-h-24 items-center gap-4 border border-[#10251c]/16 bg-[#f5f0e5] p-4 sm:min-h-28 sm:p-5">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#10251c] text-white">
+        {/* 2-col panel: context left, modules right */}
+        <div
+          key={activePain}
+          className="grid animate-[fadeIn_0.35s_ease-out] grid-cols-1 gap-0 border-b border-white/[0.08] lg:grid-cols-[0.42fr_0.58fr]"
+        >
+          {/* Left: challenge context */}
+          <aside className="border-b border-white/[0.08] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+            <div className="flex items-center gap-4 border border-white/[0.08] bg-white/[0.03] p-4 sm:p-5">
+              <span className="flex size-11 shrink-0 items-center justify-center border border-white/[0.12] bg-white/[0.06] text-white">
                 <ActiveIcon size={22} />
               </span>
-              <h3 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] sm:text-4xl">{activeDetails.title}</h3>
+              <h3 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white sm:text-3xl">
+                {activeDetails.title}
+              </h3>
             </div>
-            <div className="mt-7 grid gap-3">
-              {activeModules.map((module) => {
-                const Icon = module.icon
-                return (
-                  <div key={module.id} className="flex items-center gap-3 border border-[#10251c]/12 bg-[#fffaf0] p-3">
-                    <Icon className="size-5 shrink-0 text-[#f97316]" />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-[#10251c]">{module.title}</p>
-                      <p className="truncate text-xs text-[#10251c]/56">{module.kicker}</p>
-                    </div>
-                  </div>
-                )
-              })}
+            <p className="mt-7 text-base font-semibold leading-7 text-white sm:text-lg">{activeDetails.challenge}</p>
+            <p className="mt-5 text-base leading-7 text-white/55 sm:text-lg">{activeDetails.solution}</p>
+            <div className="mt-8 border-l-2 border-[#f97316] pl-5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">Resultado mensurável</p>
+              <p className="mt-2 leading-7 text-white/55">{activeDetails.outcome}</p>
             </div>
           </aside>
 
-          <article className="border-b border-[#10251c]/18 bg-[#fffaf0]/72 p-5 sm:p-7 lg:border-b-0 lg:border-r">
-            <p className="text-base font-semibold leading-7 text-[#10251c] sm:text-lg sm:leading-8">{activeDetails.challenge}</p>
-            <p className="mt-6 text-base leading-7 text-[#10251c]/78 sm:mt-8 sm:text-lg sm:leading-8">{activeDetails.solution}</p>
-            <div className="mt-8 border-l-2 border-[#f97316] pl-5">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">Ganho operacional</p>
-              <p className="mt-2 leading-7 text-[#10251c]/72">{activeDetails.outcome}</p>
-            </div>
-          </article>
-
-          <div className="bg-[#fffaf0]/72 p-5 sm:p-7">
-            <div className="space-y-8">
-              {featuredModules.map((module) => (
-                <div key={module.id}>
-                  <h4 className="font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c] sm:text-3xl">{module.title}</h4>
-                  <p className="mt-3 text-sm leading-7 text-[#10251c]/72">{module.copy}</p>
-                  <p className="mt-3 text-sm leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Eficiência:</strong> {module.efficiency}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 border-b border-[#10251c]/18 md:grid-cols-2 xl:grid-cols-3">
-          {activeModules.map((module) => {
-            const Icon = module.icon
-            return (
-              <article key={module.id} className="flex flex-col border-b border-[#10251c]/14 bg-[#fffaf0]/56 p-5 md:border-r lg:min-h-[360px] lg:p-7 xl:[&:nth-child(3n)]:border-r-0">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex size-12 items-center justify-center border border-[#10251c]/14 bg-[#f5f0e5] text-[#f97316]">
-                    <Icon size={24} />
+          {/* Right: module cards */}
+          <div className="divide-y divide-white/[0.07]">
+            {activeModules.map((module) => {
+              const Icon = module.icon
+              return (
+                <div
+                  key={module.id}
+                  className="group flex items-start gap-5 p-6 transition-colors duration-200 hover:bg-white/[0.025] sm:p-7"
+                >
+                  <div className="flex size-12 shrink-0 items-center justify-center border border-white/[0.10] bg-white/[0.04] text-[#f97316] transition-colors duration-200 group-hover:border-[#f97316]/40 group-hover:bg-[#f97316]/[0.06]">
+                    <Icon size={22} />
                   </div>
-                  <span className="max-w-[9rem] text-right font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#f97316] sm:max-w-[11rem] sm:tracking-[0.16em]">{module.kicker}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <h4 className="font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-tight text-white sm:text-2xl">
+                        {module.title}
+                      </h4>
+                      <span className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#f97316]">
+                        {module.kicker}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-white/55">{module.copy}</p>
+                    <p className="mt-2 text-sm leading-6 text-white/38">
+                      <strong className="text-white/55">Como faz:</strong> {module.how}
+                    </p>
+                    <p className="mt-1.5 text-sm leading-6 text-white/38">
+                      <strong className="text-white/55">Resultado:</strong> {module.efficiency}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {module.features.map((f) => (
+                        <span
+                          key={f}
+                          className="border border-white/[0.07] px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-white/32"
+                        >
+                          {f}
+                        </span>
+                      ))}
+                      {module.connected.map((c) => (
+                        <span
+                          key={c}
+                          className="border border-[#f97316]/20 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#f97316]/50"
+                        >
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <h4 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium text-[#10251c] sm:mt-8 sm:text-3xl">{module.title}</h4>
-                <div className="mt-5 space-y-4 text-sm leading-7 text-[#10251c]/70">
-                  <p><strong className="text-[#10251c]">Como faz:</strong> {module.how}</p>
-                  <p><strong className="text-[#10251c]">Resultado:</strong> {module.efficiency}</p>
-                </div>
-                <div className="mt-auto flex flex-wrap gap-2 pt-7">
-                  {[...module.features, ...module.connected].map((item) => (
-                    <Badge key={item} variant="secondary" className="rounded-none border border-[#10251c]/10 bg-[#f5f0e5] text-[#10251c]/70">
-                      {item}
-                    </Badge>
-                  ))}
-                </div>
-              </article>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-function Input({ label, name, type = 'text', required = false, icon: Icon }: { label: string; name: string; type?: string; required?: boolean; icon?: LucideIcon }) {
+function Input({
+  label,
+  name,
+  type = 'text',
+  required = false,
+  icon: Icon,
+}: {
+  label: string
+  name: string
+  type?: string
+  required?: boolean
+  icon?: LucideIcon
+}) {
   return (
     <label className="block">
-      <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#10251c]/55">
+      <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/42">
         {Icon && <Icon size={13} className="text-[#f97316]" />}
         {label}
       </span>
@@ -520,7 +559,7 @@ function Input({ label, name, type = 'text', required = false, icon: Icon }: { l
         name={name}
         type={type}
         required={required}
-        className="h-12 w-full rounded-none border border-[#10251c]/18 bg-[#fffaf0] px-3 text-sm text-[#10251c] outline-none transition placeholder:text-[#10251c]/30 focus:border-[#f97316]"
+        className="h-12 w-full rounded-none border border-white/[0.12] bg-white/[0.04] px-3 text-sm text-white outline-none transition placeholder:text-white/22 focus:border-[#f97316] focus:bg-white/[0.06]"
       />
     </label>
   )
@@ -564,30 +603,6 @@ function HeroCarousel() {
   )
 }
 
-function LandingSurfaceStyles() {
-  return (
-    <style>{`
-      .landing-light {
-        background: #f5f0e5;
-        color: #10251c;
-      }
-      .landing-light section:not(.landing-hero) {
-        border-color: rgba(16, 37, 28, 0.12);
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .landing-light * {
-          animation-duration: 0.01ms !important;
-          transition-duration: 0.01ms !important;
-        }
-      }
-      @keyframes heroFade {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-    `}</style>
-  )
-}
-
 export function LandingPage() {
   const [sent, setSent] = useState(false)
   const [sending, setSending] = useState(false)
@@ -602,6 +617,8 @@ export function LandingPage() {
       else html.removeAttribute('data-theme')
     }
   }, [])
+
+  useScrollReveal()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -633,10 +650,15 @@ export function LandingPage() {
   }
 
   return (
-    <div className="landing-light min-h-screen bg-[#f5f0e5] text-[#10251c] antialiased">
-      <LandingSurfaceStyles />
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#0d0d0d]/88 text-white backdrop-blur-xl">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
+    <div className="min-h-screen bg-black text-white antialiased">
+      <style>{`
+        @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+      `}</style>
+
+      {/* ── Header ── */}
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-black/88 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
             <BrandLockup />
           </a>
@@ -645,18 +667,31 @@ export function LandingPage() {
               ['Ontologia', '#ontologia'],
               ['Impacto', '#impacto'],
               ['Módulos', '#modulos'],
-              ['Perfis', '#perfis'],              ['Contato', '#contato'],
+              ['Perfis', '#perfis'],
+              ['Contato', '#contato'],
             ].map(([label, href]) => (
-              <a key={href} href={href} className="text-xs font-semibold uppercase tracking-[0.12em] text-white/64 transition hover:text-white">
+              <a
+                key={href}
+                href={href}
+                className="text-xs font-semibold uppercase tracking-[0.12em] text-white/50 transition hover:text-white"
+              >
                 {label}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <a href={LOGIN_URL} className="hidden border border-white/18 px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white sm:inline-flex">
+            <a
+              href={LOGIN_URL}
+              className="hidden border border-white/[0.14] px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/65 transition hover:border-[#f97316] hover:text-white sm:inline-flex"
+            >
               Acessar
             </a>
-            <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#f97316] px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#ea580c] sm:px-4 sm:text-xs sm:tracking-[0.1em]">
+            <a
+              href={CALENDLY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#f97316] px-3 py-2 text-[11px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-[#ea580c] sm:px-4 sm:text-xs sm:tracking-[0.1em]"
+            >
               Demo <ArrowRight size={14} />
             </a>
           </div>
@@ -664,6 +699,7 @@ export function LandingPage() {
       </header>
 
       <main>
+        {/* ── Hero ── */}
         <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0d0d0d] pt-16 lg:min-h-screen">
           <HeroCarousel />
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.12)_0%,rgba(10,10,10,0.48)_42%,rgba(10,10,10,0.98)_100%)]" />
@@ -673,7 +709,10 @@ export function LandingPage() {
           <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-0 pt-6 sm:px-5 md:px-10 lg:pt-24">
             <div className="grid flex-1 items-end gap-10 py-7 sm:py-10 lg:grid-cols-[0.58fr_0.42fr] lg:py-16">
               <div className="flex max-w-3xl animate-[fadeIn_0.7s_ease-out] flex-col items-start justify-end space-y-4 text-left sm:space-y-6">
-                <Badge className="max-w-full rounded-none border-white/18 bg-white/10 px-3 py-1 text-left text-[10px] leading-4 text-[#f97316] backdrop-blur-md sm:px-4 sm:text-xs" variant="outline">
+                <Badge
+                  className="max-w-full rounded-none border-white/18 bg-white/10 px-3 py-1 text-left text-[10px] leading-4 text-[#f97316] backdrop-blur-md sm:px-4 sm:text-xs"
+                  variant="outline"
+                >
                   Plataforma de Planejamento e Gestão da Execução da Obra
                 </Badge>
                 <h1 className="font-['Space_Grotesk'] text-5xl font-medium leading-[0.95] text-white sm:text-7xl lg:text-8xl">
@@ -683,17 +722,25 @@ export function LandingPage() {
                   Automação Alimentada por IA para cada Decisão na Construção.
                 </h2>
                 <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
-                  Traga a Inteligência Operacional para o Mundo Real. Codifique as decisões da sua empresa, impulsione a autonomia nas operações centrais e transforme a alavancagem operacional do seu negócio de construção e saneamento.
+                  Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
                 </p>
                 <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:text-lg md:leading-8">
                   Integre campo, qualidade, medição, planejamento, suprimentos e gestão em uma única base operacional. Do RDO com foto e assinatura aos indicadores executivos, cada dado nasce com origem e rastreabilidade.
                 </p>
                 <div className="h-[2px] w-14 bg-[#f97316]" />
                 <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                  <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]">
+                  <a
+                    href={CALENDLY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
+                  >
                     Ver como funciona <ArrowRight size={17} />
                   </a>
-                  <a href={LOGIN_URL} className="inline-flex min-h-12 items-center justify-center border border-white/24 bg-white/10 px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[#f97316] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]">
+                  <a
+                    href={LOGIN_URL}
+                    className="inline-flex min-h-12 items-center justify-center border border-white/24 bg-white/10 px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[#f97316] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
+                  >
                     Acessar plataforma
                   </a>
                 </div>
@@ -708,7 +755,10 @@ export function LandingPage() {
                     ['Suprimentos', 'Material antes da falta', 'impacto no prazo'],
                     ['Medição', 'Avanço com evidência', 'fechamento defensável'],
                   ].map(([title, copy, meta], index) => (
-                    <div key={title} className={`overflow-hidden border border-white/10 bg-[#1a1a1a]/82 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${index === 4 ? 'ml-12 p-3' : 'p-4'}`}>
+                    <div
+                      key={title}
+                      className={`overflow-hidden border border-white/10 bg-[#1a1a1a]/82 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${index === 4 ? 'ml-12 p-3' : 'p-4'}`}
+                    >
                       <div className="flex items-center justify-between gap-4">
                         <p className="font-mono text-[10px] font-black uppercase text-[#f97316]">{title}</p>
                         <span className="h-2 w-2 rounded-full bg-[#f97316] shadow-[0_0_18px_rgba(249,115,22,0.85)]" />
@@ -733,83 +783,106 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="ontologia" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Ontologia ── */}
+        <section id="ontologia" className="bg-black pt-20 sm:pt-32">
           <SectionHeader eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
-            {ontologyCards.map(({ icon: Icon, title, copy }) => (
-              <article key={title} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 p-6 lg:border-r lg:p-8 xl:[&:nth-child(3n)]:border-r-0">
-                <div className="flex size-12 items-center justify-center border border-[#10251c]/14 bg-[#f5f0e5] text-[#f97316]">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
+            {ontologyCards.map(({ icon: Icon, title, copy }, i) => (
+              <article
+                key={title}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="group border-b border-white/[0.07] bg-[#0a0a0a] p-6 transition-all duration-300 hover:border-white/[0.18] hover:bg-[#111] lg:border-r lg:p-8 xl:[&:nth-child(3n)]:border-r-0"
+              >
+                <div className="flex size-12 items-center justify-center border border-white/[0.10] bg-white/[0.04] text-[#f97316] transition-colors duration-300 group-hover:border-[#f97316]/35 group-hover:bg-[#f97316]/[0.07]">
                   <Icon size={24} />
                 </div>
-                <h3 className="mt-10 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-[#10251c]">{title}</h3>
-                <p className="mt-4 leading-7 text-[#10251c]/72">{copy}</p>
+                <h3 className="mt-10 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">{title}</h3>
+                <p className="mt-4 leading-7 text-white/55">{copy}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="impacto" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Impacto ── */}
+        <section id="impacto" className="bg-black pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Impacto real em escala"
             title="ConstruData Impulsiona Impacto Real em Escala"
             copy="Ajudamos empresas de engenharia e construção a dominarem o mercado."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10">
-            {impactRows.map(([category, impact, how]) => (
-              <div key={category} className="grid gap-5 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-7 last:border-b-0 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-8">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10">
+            {impactRows.map(([category, impact, how], i) => (
+              <div
+                key={category}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="grid gap-5 border-b border-white/[0.07] px-0 py-8 last:border-b-0 lg:grid-cols-[0.8fr_0.75fr_1.2fr] lg:items-center lg:px-4"
+              >
                 <div className="flex items-center gap-3">
                   <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium text-[#10251c]">{category}</h3>
+                  <h3 className="font-['Space_Grotesk'] text-lg font-medium tracking-tight text-white">{category}</h3>
                 </div>
-                <p className="font-semibold leading-7 text-[#10251c]/84">{impact}</p>
-                <p className="leading-7 text-[#10251c]/64">{how}</p>
+                <p className="font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white sm:text-3xl">{impact}</p>
+                <p className="leading-7 text-white/52">{how}</p>
               </div>
             ))}
           </div>
         </section>
 
-        <section id="empresas" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Empresas ── */}
+        <section id="empresas" className="bg-black pt-20 sm:pt-32">
           <SectionHeader eyebrow="Empresas que confiam no ConstruData" />
-          <div className="relative mt-12 overflow-hidden border-y border-[#10251c]/14 py-8">
-            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-gradient-to-r from-[#f5f0e5]" />
-            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-gradient-to-l from-[#f5f0e5]" />
+          <div className="relative mt-12 overflow-hidden border-y border-white/[0.07] py-8">
+            <div className="pointer-events-none absolute left-0 z-20 h-full w-20 bg-gradient-to-r from-black" />
+            <div className="pointer-events-none absolute right-0 z-20 h-full w-20 bg-gradient-to-l from-black" />
             <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
               {logos.map(([src, alt]) => (
-                <div key={src} className="flex h-28 w-64 shrink-0 items-center justify-center border border-[#10251c]/14 bg-[#fffaf0] p-5">
-                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+                <div
+                  key={src}
+                  className="flex h-28 w-64 shrink-0 items-center justify-center border border-white/[0.07] bg-white/[0.03] p-5 transition-all duration-300 hover:border-white/[0.18] hover:bg-white/[0.06]"
+                >
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-60 transition-opacity duration-300 hover:opacity-100" />
                 </div>
               ))}
             </Marquee>
           </div>
         </section>
 
-        <section id="diferencial" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Diferencial ── */}
+        <section id="diferencial" className="bg-black pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Diferencial único"
             title="Todo mundo tem acesso a código. Nem todo mundo tem metodologia."
-            copy="O ConstruData não é apenas um software de gestão. É uma metodologia operacional para obras de construção civil e saneamento, com dados conectados desde o campo até a decisão executiva."
+            copy="Dados de campo virando decisão executiva em segundos, não dias."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
-            {differentiators.map(([number, title, copy]) => (
-              <div key={number} className="flex flex-col gap-5 border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 sm:border-r lg:min-h-[320px] lg:px-6 lg:py-10 lg:[&:nth-child(4n)]:border-r-0">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
+            {differentiators.map(([number, title, copy], i) => (
+              <div
+                key={number}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group flex flex-col gap-5 border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] sm:border-r lg:min-h-[320px] lg:px-6 lg:py-10 lg:[&:nth-child(4n)]:border-r-0"
+              >
                 <div className="flex items-center justify-between">
                   <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
-                  <ShieldCheck className="size-5 text-[#f97316]" />
+                  <ShieldCheck className="size-5 text-white/20 transition-colors duration-300 group-hover:text-[#f97316]/60" />
                 </div>
                 <div className="flex flex-col gap-3 pt-6 lg:pt-20">
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-[#10251c] sm:text-3xl">{title}</h3>
-                  <p className="leading-7 text-[#10251c]/68">{copy}</p>
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-tight text-white sm:text-3xl">{title}</h3>
+                  <p className="leading-7 text-white/55">{copy}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        <section className="bg-[#f5f0e5] px-5 pt-20 sm:pt-32 md:px-10">
-          <div className="mx-auto grid max-w-7xl border-y border-[#10251c]/14 bg-[#fffaf0]/72 lg:grid-cols-[0.85fr_1.15fr]">
-            <div className="border-b border-[#10251c]/14 p-6 sm:p-8 lg:border-b-0 lg:border-r">
+        {/* ── Implementação ── */}
+        <section className="bg-black px-5 pt-20 sm:pt-32 md:px-10">
+          <div className="mx-auto grid max-w-7xl border-y border-white/[0.07] bg-[#0a0a0a] lg:grid-cols-[0.85fr_1.15fr]">
+            <div data-sr className="border-b border-white/[0.07] p-6 sm:p-8 lg:border-b-0 lg:border-r">
               <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Implantação em obras reais</p>
-              <h2 className="mt-8 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c] sm:text-5xl">
+              <h2 className="mt-8 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white sm:text-5xl">
                 Comece com os documentos que a obra já usa.
               </h2>
             </div>
@@ -818,27 +891,39 @@ export function LandingPage() {
                 ['Planilhas, medições e RDOs', 'O sistema aproveita controles existentes para criar uma base inicial sem parar a operação.'],
                 ['Fotos, propostas e relatórios', 'Cada evidência entra com contexto, origem e destino recomendado nos módulos corretos.'],
                 ['Evolução sem ruptura', 'O ConstruData organiza os dados por módulo e permite amadurecer o controle sem trocar tudo no primeiro dia.'],
-              ].map(([title, copy]) => (
-                <article key={title} className="border-b border-[#10251c]/14 p-6 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 sm:p-7">
+              ].map(([title, copy], i) => (
+                <article
+                  key={title}
+                  data-sr
+                  data-sr-delay={String(i + 1)}
+                  className="group border-b border-white/[0.07] p-6 transition-all duration-300 hover:bg-white/[0.025] last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 sm:p-7"
+                >
                   <FileText className="size-7 text-[#f97316]" />
-                  <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight text-[#10251c]">{title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-[#10251c]/68">{copy}</p>
+                  <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium leading-tight tracking-tight text-white">{title}</h3>
+                  <p className="mt-4 text-sm leading-7 text-white/55">{copy}</p>
                 </article>
               ))}
             </div>
           </div>
         </section>
 
+        {/* ── Modules ── */}
         <ModulesSection />
 
-        <section id="depoimentos" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Depoimentos ── */}
+        <section id="depoimentos" className="bg-black pt-20 sm:pt-32">
           <SectionHeader eyebrow="O que os líderes da construção estão dizendo" />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-3">
-            {testimonials.map(([name, role, quote]) => (
-              <figure key={name} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 lg:border-r lg:px-8 lg:py-12 lg:[&:nth-child(3n)]:border-r-0">
-                <blockquote className="text-xl leading-9 text-[#10251c]/80">"{quote}"</blockquote>
-                <figcaption className="mt-10 border-t border-[#10251c]/14 pt-5">
-                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-[#10251c]">{name}</div>
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-3">
+            {testimonials.map(([name, role, quote], i) => (
+              <figure
+                key={name}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] lg:border-r lg:px-8 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
+              >
+                <blockquote className="text-xl leading-9 text-white/72">"{quote}"</blockquote>
+                <figcaption className="mt-10 border-t border-white/[0.07] pt-5">
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium text-white">{name}</div>
                   <div className="mt-1 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#f97316]">{role}</div>
                 </figcaption>
               </figure>
@@ -846,59 +931,91 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="perfis" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Perfis ── */}
+        <section id="perfis" className="bg-black pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Para quem é o ConstruData?"
             title="O visitante certo se reconhece rápido."
             copy="Cada perfil entra por uma dor diferente, mas todos precisam do mesmo ponto de chegada: dado de campo confiável virando decisão, medição e planejamento."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:grid-cols-2 md:px-10">
-            {audience.map(([title, problem, solution]) => (
-              <article key={title} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:grid-cols-2 md:px-10">
+            {audience.map(([title, problem, solution], i) => (
+              <article
+                key={title}
+                data-sr
+                data-sr-delay={String((i % 2) + 1)}
+                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
+              >
                 <Users className="size-9 text-[#f97316]" />
-                <h3 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">{title}</h3>
-                <p className="mt-6 leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Problema:</strong> {problem}</p>
-                <p className="mt-4 leading-7 text-[#10251c]/68"><strong className="text-[#10251c]">Como resolve:</strong> {solution}</p>
+                <h3 className="mt-7 font-['Space_Grotesk'] text-3xl font-medium tracking-tight text-white">{title}</h3>
+                <p className="mt-6 leading-7 text-white/58">
+                  <strong className="text-white/80">Problema:</strong> {problem}
+                </p>
+                <p className="mt-4 leading-7 text-white/58">
+                  <strong className="text-white/80">Como resolve:</strong> {solution}
+                </p>
               </article>
             ))}
           </div>
         </section>
 
-        <section id="linkedin" className="bg-[#f5f0e5] px-5 py-20 sm:py-32 md:px-10">
-          <div className="mx-auto grid max-w-6xl gap-8 border border-[#10251c]/14 bg-[#fffaf0]/72 p-6 lg:grid-cols-[0.8fr_1.2fr] lg:p-10">
+        {/* ── LinkedIn ── */}
+        <section id="linkedin" className="bg-black px-5 py-20 sm:py-32 md:px-10">
+          <div
+            data-sr
+            className="mx-auto grid max-w-6xl gap-8 border border-white/[0.07] bg-[#0a0a0a] p-6 transition-all duration-300 hover:border-white/[0.18] lg:grid-cols-[0.8fr_1.2fr] lg:p-10"
+          >
             <div>
               <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">Artigo no LinkedIn</p>
-              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight text-[#10251c]">A visão por trás da ConstruData.</h2>
+              <h2 className="mt-8 font-['Space_Grotesk'] text-5xl font-medium leading-tight tracking-tight text-white">
+                A visão por trás da ConstruData.
+              </h2>
             </div>
             <div>
-              <p className="text-lg leading-8 text-[#10251c]/72">
+              <p className="text-lg leading-8 text-white/58">
                 Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
               </p>
-              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">ConstruData Software</h3>
-              <p className="mt-3 leading-7 text-[#10251c]/68">Dados conectados, automação e decisões melhores para obras reais.</p>
-              <a href={LINKEDIN_ARTICLE_URL} target="_blank" rel="noopener noreferrer" className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]">
+              <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium text-white">ConstruData Software</h3>
+              <p className="mt-3 leading-7 text-white/52">Dados conectados, automação e decisões melhores para obras reais.</p>
+              <a
+                href={LINKEDIN_ARTICLE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 inline-flex items-center gap-3 bg-[#f97316] px-6 py-3 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c]"
+              >
                 Ler artigo no LinkedIn <ArrowRight size={16} />
               </a>
             </div>
           </div>
         </section>
 
-        <section id="autonomia" className="bg-[#f5f0e5] pt-20 sm:pt-32">
+        {/* ── Autonomia ── */}
+        <section id="autonomia" className="bg-black pt-20 sm:pt-32">
           <SectionHeader
             eyebrow="Autonomia para a cadeia inteira"
             title="A obra inteira fica mais inteligente."
             copy="Não porque tem mais dashboards. Porque tem mais pessoas decidindo bem, no momento certo, com a informação certa. É isso que distribui autonomia de verdade pela cadeia da sua construção."
           />
-          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight text-[#10251c]">
+          <p className="mx-auto mt-10 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-tight text-white">
             Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
           </p>
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-[#10251c]/14 px-5 md:px-10 lg:grid-cols-3">
-            {autonomyCards.map(([place, person, copy]) => (
-              <article key={place} className="border-b border-[#10251c]/14 bg-[#fffaf0]/72 px-5 py-8 lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/[0.07] px-5 md:px-10 lg:grid-cols-3">
+            {autonomyCards.map(([place, person, copy], i) => (
+              <article
+                key={place}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group border-b border-white/[0.07] bg-[#0a0a0a] px-5 py-8 transition-all duration-300 hover:bg-[#111] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
+              >
                 <p className="font-mono text-xs font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
-                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium text-[#10251c]">{person}</h3>
-                <p className="mt-5 leading-7 text-[#10251c]/68">{copy}</p>
-                <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-[#ea580c]">
+                <h3 className="mt-8 font-['Space_Grotesk'] text-4xl font-medium tracking-tight text-white">{person}</h3>
+                <p className="mt-5 leading-7 text-white/55">{copy}</p>
+                <a
+                  href={CALENDLY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-7 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.1em] text-[#f97316] transition hover:text-[#ea580c]"
+                >
                   Ver como funciona <ArrowRight size={14} />
                 </a>
               </article>
@@ -906,39 +1023,50 @@ export function LandingPage() {
           </div>
         </section>
 
-        <section id="contato" className="bg-[#f5f0e5] px-5 py-20 sm:py-32 md:px-10">
+        {/* ── FAQ ── */}
+        <section id="contato" className="bg-black px-5 py-20 sm:py-32 md:px-10">
           <SectionHeader eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
-          <div className="mx-auto mt-10 grid max-w-5xl gap-3">
-            {faqs.map(([question, answer]) => (
-              <details key={question} className="group border border-[#10251c]/14 bg-[#fffaf0]/72 p-5">
+          <div className="mx-auto mt-10 grid max-w-5xl gap-2">
+            {faqs.map(([question, answer], i) => (
+              <details
+                key={question}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="group border border-white/[0.07] bg-[#0a0a0a] p-5 transition-colors duration-200 open:bg-[#0f0f0f]"
+              >
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                  <span className="flex items-center gap-3 font-['Space_Grotesk'] text-base font-medium text-[#10251c]">
+                  <span className="flex items-center gap-3 font-['Space_Grotesk'] text-base font-medium text-white">
                     <DatabaseZap className="size-5 shrink-0 text-[#f97316]" />
                     {question}
                   </span>
-                  <Plus className="size-5 shrink-0 text-[#f97316] transition group-open:rotate-45" />
+                  <Plus className="size-5 shrink-0 text-[#f97316] transition-transform duration-200 group-open:rotate-45" />
                 </summary>
-                <p className="mt-4 leading-7 text-[#10251c]/68">{answer}</p>
+                <p className="mt-4 leading-7 text-white/52">{answer}</p>
               </details>
             ))}
           </div>
         </section>
 
-        <section id="qualificacao" className="bg-[#f5f0e5] px-5 pb-20 sm:pb-32 md:px-10">
-          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-[#10251c]/14 bg-[#fffaf0]/72 p-5 sm:p-7">
+        {/* ── Qualificação ── */}
+        <section id="qualificacao" className="bg-black px-5 pb-20 sm:pb-32 md:px-10">
+          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-white/[0.07] bg-[#0a0a0a] p-5 sm:p-7">
             {sent ? (
               <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
                 <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
-                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">Solicitação enviada.</h3>
-                <p className="mt-3 max-w-md leading-7 text-[#10251c]/68">Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.</p>
+                <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Solicitação enviada.</h3>
+                <p className="mt-3 max-w-md leading-7 text-white/52">
+                  Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.
+                </p>
               </div>
             ) : (
               <>
                 <div className="mb-7 flex items-center gap-3">
                   <LockKeyhole className="text-[#f97316]" size={20} />
                   <div>
-                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#10251c]">Formulário de Qualificação</h3>
-                    <p className="mt-1 text-sm leading-6 text-[#10251c]/48">Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.</p>
+                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-white">Formulário de Qualificação</h3>
+                    <p className="mt-1 text-sm leading-6 text-white/38">
+                      Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.
+                    </p>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -948,15 +1076,26 @@ export function LandingPage() {
                   <Input name="empresa" label="Nome da empresa" required icon={Building2} />
                   <Input name="cargo" label="Cargo" required icon={ClipboardCheck} />
                   <label className="block sm:col-span-2">
-                    <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#10251c]/55">
+                    <span className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-white/42">
                       <BrainCircuit size={13} className="text-[#f97316]" />
                       Principal dor
                     </span>
-                    <textarea name="dor" rows={4} className="w-full rounded-none border border-[#10251c]/18 bg-[#fffaf0] px-3 py-3 text-sm text-[#10251c] outline-none transition placeholder:text-[#10251c]/30 focus:border-[#f97316]" placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..." />
+                    <textarea
+                      name="dor"
+                      rows={4}
+                      className="w-full rounded-none border border-white/[0.12] bg-white/[0.04] px-3 py-3 text-sm text-white outline-none transition placeholder:text-white/22 focus:border-[#f97316] focus:bg-white/[0.06]"
+                      placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..."
+                    />
                   </label>
                 </div>
-                {error && <p className="mt-4 border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">{error}</p>}
-                <button type="submit" disabled={sending} className="mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60">
+                {error && (
+                  <p className="mt-4 border border-red-500/35 bg-red-500/[0.08] p-3 text-xs text-red-400">{error}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60"
+                >
                   {sending ? 'Enviando...' : 'Solicitar demonstração'} <ArrowRight size={16} />
                 </button>
               </>
@@ -965,15 +1104,12 @@ export function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-[#10251c]/14 bg-[#f5f0e5] py-8">
+      <footer className="border-t border-white/[0.07] bg-black py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row md:px-10">
-          <span className="text-xs text-[#10251c]/62">© 2026 ConstruData</span>
-          <span className="text-xs text-[#10251c]/42">CONSTRUÇÃO - SANEAMENTO - INFRAESTRUTURA</span>
+          <span className="text-xs text-white/38">© 2026 ConstruData</span>
+          <span className="text-xs text-white/22">CONSTRUÇÃO - SANEAMENTO - INFRAESTRUTURA</span>
         </div>
       </footer>
     </div>
   )
 }
-
-
-
