@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useAgendaStore, getTasksForResource } from '@/store/agendaStore'
+import { useAgendaData } from '../useAgendaData'
 import { SIDEBAR_W, HEADER_H, ROW_HEIGHT, getTodayOffset, getViewParams } from '../utils'
 import { GanttTimeHeader } from './GanttTimeHeader'
 import { GanttRow } from './GanttRow'
@@ -9,7 +10,8 @@ interface GanttChartProps {
 }
 
 export function GanttChart({ filteredResourceIds }: GanttChartProps) {
-  const { tasks, resources, viewStart, viewMode } = useAgendaStore()
+  const { viewStart, viewMode } = useAgendaStore()
+  const { tasks, resources } = useAgendaData()
 
   const viewParams = useMemo(() => getViewParams(viewMode), [viewMode])
   const viewWeeks = Math.ceil(viewParams.totalDays / 7)

@@ -3,10 +3,12 @@
  * baseline management, activity CRUD, and export (PDF / Excel / PNG).
  */
 import { useRef, useState, useMemo } from 'react'
-import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal, Sparkles, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
+import { NETWORK_TYPE_OPTIONS } from '../networkCategories'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { MasterActivity, MasterActivityStatus } from '@/types'
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
@@ -26,10 +28,13 @@ const STATUS_LABEL: Record<MasterActivityStatus, string> = {
 }
 
 const NETWORK_COLOR: Record<string, string> = {
-  agua:   '#f97316',
-  esgoto: '#22c55e',
-  civil:  '#f59e0b',
-  geral:  '#a78bfa',
+  agua:       '#f97316',
+  esgoto:     '#22c55e',
+  civil:      '#f59e0b',
+  manutencao: '#38bdf8',
+  ambiental:  '#10b981',
+  outro:      '#a3a3a3',
+  geral:      '#a78bfa',
 }
 
 function networkColor(nt: string | undefined): string {
@@ -364,11 +369,9 @@ function NewActivityForm({ onClose }: { onClose: () => void }) {
         <div>
           <label className="text-[#6b6b6b] text-[10px] block mb-1">Tipo de Rede</label>
           <select className={inputCls} value={form.networkType} onChange={(e) => setForm((f) => ({ ...f, networkType: e.target.value }))}>
-            <option value="">— Geral —</option>
-            <option value="agua">Água</option>
-            <option value="esgoto">Esgoto</option>
-            <option value="civil">Civil</option>
-            <option value="geral">Geral</option>
+            {NETWORK_TYPE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
           </select>
         </div>
         <div className="col-span-2">
@@ -496,7 +499,9 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
   const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
+  const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
 
+  const [deleteTarget, setDeleteTarget] = useState<MasterActivity | null>(null)
   const [showNewForm, setShowNewForm]   = useState(false)
   const [blName, setBlName]             = useState('')
   const [showBlSave, setShowBlSave]     = useState(false)
@@ -559,7 +564,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#525252] bg-[#343434] p-3 print:hidden">
           <PlanningKpi label="Contrato" value={contract.contractName} accent />
           <PlanningKpi label="Contratante" value={contract.contractor} />
-          <PlanningKpi label="BAC" value={fmtMoney(contract.bacTotal)} />
+          <PlanningKpi label="Orçamento Total Planejado" value={fmtMoney(contract.bacTotal)} />
           <PlanningKpi label="Nucleos" value={String(nuclei.length || contract.nucleusCount)} />
           <PlanningKpi label="Takt teorico" value={`${contract.theoreticalTaktDays} dias/nucleo`} />
           <PlanningKpi label="Fisico medio" value={`${averagePhysical.toFixed(1)}%`} />
@@ -701,10 +706,9 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                 className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
               >
                 <option value="">Todas</option>
-                <option value="agua">Água</option>
-                <option value="esgoto">Esgoto</option>
-                <option value="civil">Civil</option>
-                <option value="geral">Geral</option>
+                {NETWORK_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
 
@@ -773,6 +777,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                 <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Prev.</th>
                 <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Conc.</th>
                 <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Status</th>
+                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -796,10 +801,9 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                         className="rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[10px] font-semibold uppercase outline-none"
                         style={{ color: nColor }}
                       >
-                        <option value="geral">Geral</option>
-                        <option value="agua">Água</option>
-                        <option value="esgoto">Esgoto</option>
-                        <option value="civil">Civil</option>
+                        {NETWORK_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
                       </select>
                       {false && act.networkType ? (
                         <span
@@ -836,6 +840,16 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
                         {STATUS_LABEL[act.status]}
                       </span>
                     </td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(act)}
+                        title="Excluir atividade"
+                        className="inline-flex items-center justify-center rounded p-1.5 text-[#6b6b6b] transition-colors hover:bg-[#ef4444]/15 hover:text-[#ef4444]"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -843,6 +857,18 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir atividade"
+        message={deleteTarget ? `Tem certeza que deseja excluir "${deleteTarget.name}"? Ela será removida também do Médio Prazo, Curto Prazo e Programação Semanal. Esta ação não pode ser desfeita.` : ''}
+        confirmLabel="Excluir"
+        onConfirm={() => {
+          if (deleteTarget) removeActivity(deleteTarget.id)
+          setDeleteTarget(null)
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {/* Print styles */}
       <style>{`

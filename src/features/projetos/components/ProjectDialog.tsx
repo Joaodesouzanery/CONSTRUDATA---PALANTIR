@@ -7,7 +7,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
-import { projectInfoSchema, type ProjectInfoFormValues } from '../schemas'
+import { projectInfoSchema, type ProjectInfoFormValues, type ProjectInfoFormInput } from '../schemas'
 import type { ProjectStatus } from '@/types'
 
 // Custom orange marker icon
@@ -50,10 +50,10 @@ function MapFlyTo({ pos }: MapFlyToProps) {
   return null
 }
 
-function blankDefaults(): ProjectInfoFormValues {
+function blankDefaults(): ProjectInfoFormInput {
   return {
     code: '', name: '', owner: '', manager: '',
-    description: '', status: 'active',
+    description: '', status: 'planning',
     startDate: '', endDate: '',
     contractNumber: '', clientName: '', projectManager: '',
     riskLevel: undefined, priority: undefined,
@@ -86,7 +86,7 @@ export function ProjectDialog() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ProjectInfoFormValues>({
+  } = useForm<ProjectInfoFormInput, unknown, ProjectInfoFormValues>({
     resolver: zodResolver(projectInfoSchema),
     defaultValues: blankDefaults(),
   })
@@ -176,37 +176,43 @@ export function ProjectDialog() {
   }
 
   function onSubmit(values: ProjectInfoFormValues) {
+    // Todos os campos são opcionais; aplicamos defaults sensatos para um projeto
+    // em branco continuar válido e utilizável.
+    const today = new Date().toISOString().slice(0, 10)
+    const normalized = {
+      ...values,
+      code:           values.code?.trim()    || `PRJ-${Date.now().toString().slice(-6)}`,
+      name:           values.name?.trim()    || 'Projeto sem título',
+      owner:          values.owner?.trim()   || '—',
+      manager:        values.manager?.trim() || '—',
+      status:         values.status          || 'planning',
+      startDate:      values.startDate       || today,
+      endDate:        values.endDate         || values.startDate || today,
+      description:    values.description     ?? '',
+      contractNumber: values.contractNumber  || undefined,
+      clientName:     values.clientName      || undefined,
+      projectManager: values.projectManager  || undefined,
+      address:        values.address         || undefined,
+    }
     if (isNew) {
       addProject({
-        ...values,
-        description:    values.description    ?? '',
-        contractNumber: values.contractNumber || undefined,
-        clientName:     values.clientName     || undefined,
-        projectManager: values.projectManager || undefined,
-        address:        values.address        || undefined,
+        ...normalized,
         planningPhases: [
-          { id: `pp-new-1-${Date.now()}`, name: 'Engenharia e Design', status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
-          { id: `pp-new-2-${Date.now()}`, name: 'Pré-construção',       status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
-          { id: `pp-new-3-${Date.now()}`, name: 'Aquisições',           status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
+          { id: `pp-new-1-${Date.now()}`, name: 'Engenharia e Design', status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
+          { id: `pp-new-2-${Date.now()}`, name: 'Pré-construção',       status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
+          { id: `pp-new-3-${Date.now()}`, name: 'Aquisições',           status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
         ],
         executionPhases: [
-          { id: `ep-new-1-${Date.now()}`, name: 'Construção',         status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
-          { id: `ep-new-2-${Date.now()}`, name: 'Controle do Projeto', status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
-          { id: `ep-new-3-${Date.now()}`, name: 'Encerramento',       status: 'not_started', progress: 0, startDate: values.startDate, endDate: values.endDate },
+          { id: `ep-new-1-${Date.now()}`, name: 'Construção',         status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
+          { id: `ep-new-2-${Date.now()}`, name: 'Controle do Projeto', status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
+          { id: `ep-new-3-${Date.now()}`, name: 'Encerramento',       status: 'not_started', progress: 0, startDate: normalized.startDate, endDate: normalized.endDate },
         ],
         budgetLines: [],
         demands: [],
         documents: [],
       })
     } else if (existing) {
-      updateProject(existing.id, {
-        ...values,
-        description:    values.description    ?? '',
-        contractNumber: values.contractNumber || undefined,
-        clientName:     values.clientName     || undefined,
-        projectManager: values.projectManager || undefined,
-        address:        values.address        || undefined,
-      })
+      updateProject(existing.id, normalized)
     }
     close()
   }
@@ -250,10 +256,10 @@ export function ProjectDialog() {
             {/* Identificação */}
             <Section title="Identificação">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Código *" error={errors.code?.message}>
-                  <input {...register('code')} placeholder="PRJ-001" className={inp(!!errors.code)} />
+                <Field label="Código" error={errors.code?.message}>
+                  <input {...register('code')} placeholder="PRJ-001 (opcional)" className={inp(!!errors.code)} />
                 </Field>
-                <Field label="Status *" error={errors.status?.message}>
+                <Field label="Status" error={errors.status?.message}>
                   <select {...register('status')} className={inp(!!errors.status)}>
                     {STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -261,19 +267,19 @@ export function ProjectDialog() {
                   </select>
                 </Field>
               </div>
-              <Field label="Nome do Projeto *" error={errors.name?.message}>
-                <input {...register('name')} placeholder="Torre Residencial Premium" className={inp(!!errors.name)} />
+              <Field label="Nome do Projeto" error={errors.name?.message}>
+                <input {...register('name')} placeholder="Torre Residencial Premium (opcional)" className={inp(!!errors.name)} />
               </Field>
             </Section>
 
             {/* Responsáveis */}
             <Section title="Responsáveis">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Dono (Owner) *" error={errors.owner?.message}>
-                  <input {...register('owner')} placeholder="Empresa ou pessoa" className={inp(!!errors.owner)} />
+                <Field label="Dono (Owner)" error={errors.owner?.message}>
+                  <input {...register('owner')} placeholder="Empresa ou pessoa (opcional)" className={inp(!!errors.owner)} />
                 </Field>
-                <Field label="Gerente *" error={errors.manager?.message}>
-                  <input {...register('manager')} placeholder="Nome do gerente" className={inp(!!errors.manager)} />
+                <Field label="Gerente" error={errors.manager?.message}>
+                  <input {...register('manager')} placeholder="Nome do gerente (opcional)" className={inp(!!errors.manager)} />
                 </Field>
               </div>
             </Section>
@@ -281,10 +287,10 @@ export function ProjectDialog() {
             {/* Datas */}
             <Section title="Cronograma">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Data de Início *" error={errors.startDate?.message}>
+                <Field label="Data de Início" error={errors.startDate?.message}>
                   <input type="date" {...register('startDate')} className={inp(!!errors.startDate)} />
                 </Field>
-                <Field label="Data de Término *" error={errors.endDate?.message}>
+                <Field label="Data de Término" error={errors.endDate?.message}>
                   <input type="date" {...register('endDate')} className={inp(!!errors.endDate)} />
                 </Field>
               </div>

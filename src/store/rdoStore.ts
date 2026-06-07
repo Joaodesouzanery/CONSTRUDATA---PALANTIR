@@ -52,6 +52,7 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
   // payload contém tudo o que não é campo plano
   const payload = {
     weather:                   rdo.weather,
+    title:                     rdo.title,
     manpower:                  rdo.manpower,
     equipment:                 rdo.equipment,
     services:                  rdo.services.map((service) => ({
@@ -108,6 +109,7 @@ function rowToRdo(row: RdoRow): RDO {
   return {
     id:           row.id,
     number:       row.number,
+    title:        (p.title as string | undefined),
     date:         row.date,
     responsible:  row.responsible ?? '',
     weather:      (p.weather as RDO['weather'])         ?? { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 25 },

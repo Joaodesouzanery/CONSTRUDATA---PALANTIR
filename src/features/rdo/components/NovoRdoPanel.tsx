@@ -17,6 +17,9 @@ import { useRdoStore } from '@/store/rdoStore'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
+import { useEquipamentosStore } from '@/store/equipamentosStore'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { checkPendingFvsForDate, getCompletedFvsForDate } from '@/store/crossModuleSync'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
@@ -183,6 +186,11 @@ export function NovoRdoPanel() {
   const { rdos, addRdo, setActiveTab, loadTrechosFromPlanejamento } = useRdoStore()
   const planningActivities = usePlanejamentoMestreStore((s) => s.activities)
   const logos = useCompanySettingsStore((s) => s.logos)
+  const equipamentosCadastrados = useEquipamentosStore((s) => s.equipamentos)
+  const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
+  const consumirMaterial = useSuprimentosStore((s) => s.consumirMaterial)
+  const trabalhadores = useMaoDeObraStore((s) => s.workers)
+  const addTimecard = useMaoDeObraStore((s) => s.addTimecard)
   const nextNumber = rdos.length + 1
 
   // react-hook-form for core fields (rdoSchema)
@@ -213,6 +221,8 @@ export function NovoRdoPanel() {
   const [loadingTrechos, setLoadingTrechos] = useState(false)
   const [submitError, setSubmitError]     = useState<string | null>(null)
   const [rdoNumber, setRdoNumber]         = useState(nextNumber)
+  const [rdoTitle, setRdoTitle]           = useState('')
+  const [showBaseMaterials, setShowBaseMaterials] = useState(false)
   const [showTextParse, setShowTextParse]   = useState(false)
   const [selectedLogoId, setSelectedLogoId] = useState<string | undefined>(undefined)
 
@@ -241,10 +251,10 @@ export function NovoRdoPanel() {
   ])
   const [activityHours,       setActivityHours]       = useState({ dayStart: '', dayEnd: '', nightStart: '', nightEnd: '' })
   const [workforceRows,       setWorkforceRows]       = useState<Omit<RdoWorkforceRow, 'id'>[]>([
-    { role: 'Encarregado', outsourced: 0, direct: 0 },
-    { role: 'Oficial', outsourced: 0, direct: 0 },
-    { role: 'Ajudante', outsourced: 0, direct: 0 },
-    { role: 'Operador', outsourced: 0, direct: 0 },
+    { role: 'Encarregado', outsourced: 0, direct: 0, hoursWorked: 8 },
+    { role: 'Oficial', outsourced: 0, direct: 0, hoursWorked: 8 },
+    { role: 'Ajudante', outsourced: 0, direct: 0, hoursWorked: 8 },
+    { role: 'Operador', outsourced: 0, direct: 0, hoursWorked: 8 },
   ])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -255,10 +265,25 @@ export function NovoRdoPanel() {
 
   // ── Equipment helpers ──────────────────────────────────────────────────────
   function addEquipmentRow() {
-    setEquipment((prev) => [...prev, { name: '', quantity: 1, hours: 8 }])
+    setEquipment((prev) => [...prev, { name: '', quantity: 1, hours: 8, operator: '', front: rdoLocalTipo || '', notes: '' }])
   }
-  function updateEquipment(i: number, field: keyof Omit<RdoEquipmentEntry, 'id'>, val: string | number) {
-    setEquipment((prev) => prev.map((row, idx) => idx === i ? { ...row, [field]: val } : row))
+  function patchEquipment(i: number, patch: Partial<Omit<RdoEquipmentEntry, 'id'>>) {
+    setEquipment((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
+  }
+  function linkEquipment(i: number, equipmentId: string) {
+    const eq = equipamentosCadastrados.find((item) => item.id === equipmentId)
+    if (!eq) {
+      patchEquipment(i, { equipmentId: undefined, code: undefined, type: undefined })
+      return
+    }
+    patchEquipment(i, {
+      equipmentId: eq.id,
+      code: eq.code,
+      type: eq.type,
+      name: eq.name,
+      operator: eq.operator ?? equipment[i]?.operator ?? '',
+      front: eq.siteName ?? equipment[i]?.front ?? rdoLocalTipo ?? '',
+    })
   }
   function removeEquipment(i: number) {
     setEquipment((prev) => prev.filter((_, idx) => idx !== i))
@@ -342,9 +367,15 @@ export function NovoRdoPanel() {
       activityStage: '',
       front: rdoLocalTipo || '',
       notes: '',
+      isBaseTemplate: false,
     }])
   }
-  function addMaterialTemplate() {
+  function toggleMaterialTemplate() {
+    if (showBaseMaterials) {
+      setMaterials((prev) => prev.filter((row) => !row.isBaseTemplate))
+      setShowBaseMaterials(false)
+      return
+    }
     const materialNames = [...new Set(ACTIVITY_STAGES.flatMap((stage) => stage.materials))]
     setMaterials((prev) => [
       ...prev,
@@ -358,8 +389,10 @@ export function NovoRdoPanel() {
         activityStage: '',
         front: rdoLocalTipo || '',
         notes: '',
+        isBaseTemplate: true,
       })),
     ])
+    setShowBaseMaterials(true)
   }
   function patchMaterial(i: number, patch: Partial<Omit<RdoMaterialConsumptionEntry, 'id'>>) {
     setMaterials((prev) => prev.map((row, idx) => {
@@ -375,16 +408,44 @@ export function NovoRdoPanel() {
     setMaterials((prev) => prev.filter((_, idx) => idx !== i))
   }
 
+  function linkStockItem(i: number, stockItemId: string) {
+    const item = estoqueItens.find((stock) => stock.id === stockItemId)
+    if (!item) {
+      patchMaterial(i, { stockItemId: undefined, depositoId: undefined, availableQtyAtSelection: undefined })
+      return
+    }
+    patchMaterial(i, {
+      stockItemId: item.id,
+      depositoId: item.depositoId,
+      material: item.descricao,
+      unit: item.unidade,
+      unitCostBRL: item.custoUnitario ?? 0,
+      availableQtyAtSelection: item.qtdDisponivel,
+      source: 'almoxarifado',
+    })
+  }
+
   function updateStoppage(i: number, patch: Partial<RdoStoppageEntry>) {
     setStoppages((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
   }
 
   function addWorkforceRow() {
-    setWorkforceRows((prev) => [...prev, { role: '', outsourced: 0, direct: 0 }])
+    setWorkforceRows((prev) => [...prev, { role: '', outsourced: 0, direct: 0, hoursWorked: 8 }])
   }
 
   function updateWorkforceRow(i: number, patch: Partial<Omit<RdoWorkforceRow, 'id'>>) {
     setWorkforceRows((prev) => prev.map((row, idx) => idx === i ? { ...row, ...patch } : row))
+  }
+
+  function toggleWorkerInRow(i: number, workerId: string) {
+    setWorkforceRows((prev) => prev.map((row, idx) => {
+      if (idx !== i) return row
+      const workerIds = row.workerIds ?? []
+      const nextWorkerIds = workerIds.includes(workerId)
+        ? workerIds.filter((id) => id !== workerId)
+        : [...workerIds, workerId]
+      return { ...row, workerIds: nextWorkerIds }
+    }))
   }
 
   function removeWorkforceRow(i: number) {
@@ -422,7 +483,11 @@ export function NovoRdoPanel() {
     try {
       const loaded = await loadTrechosFromPlanejamento()
       if (loaded.length > 0) {
-        setTrechos(loaded.map(({ id: _id, ...rest }) => rest))
+        setTrechos(loaded.map((trecho) => {
+          const { id, ...rest } = trecho
+          void id
+          return rest
+        }))
       }
     } finally {
       setLoadingTrechos(false)
@@ -529,7 +594,11 @@ export function NovoRdoPanel() {
   // ── Submit ────────────────────────────────────────────────────────────────
   function onValid(data: RdoFormData) {
     setSubmitError(null)
+    const savedTitle = rdoTitle.trim()
+    const rdoLabel = savedTitle || `RDO #${rdoNumber}`
+    const primaryActivity = services.find((service) => service.description.trim())?.description || rdoServico || 'Apontamento RDO'
     addRdo({
+      title:       savedTitle || undefined,
       date:        data.date,
       responsible: data.responsible,
       weather:     data.weather,
@@ -569,6 +638,30 @@ export function NovoRdoPanel() {
       activityHours,
       workforceRows:              workforceRows.map((row) => ({ ...row, id: crypto.randomUUID() })),
     })
+    materials.forEach((material) => {
+      const qty = Number(material.quantity) || 0
+      if (!material.stockItemId || qty <= 0) return
+      consumirMaterial(material.stockItemId, qty, {
+        observacoes: `${rdoLabel} - ${data.date}${material.notes ? ` - ${material.notes}` : ''}`,
+      })
+    })
+    workforceRows.forEach((row) => {
+      const hoursWorked = Number(row.hoursWorked) || 0
+      if (hoursWorked <= 0) return
+      ;(row.workerIds ?? []).forEach((workerId) => {
+        addTimecard({
+          workerId,
+          date: data.date,
+          hoursWorked,
+          projectRef: rdoLocal || rdoLocalTipo || '',
+          phaseRef: row.role || 'RDO',
+          activityDescription: row.activityDescription || primaryActivity,
+          reportedQty: 0,
+          unit: 'h',
+          notes: `${rdoLabel}${row.notes ? ` - ${row.notes}` : ''}`,
+        })
+      })
+    })
     setActiveTab('historico')
   }
 
@@ -587,6 +680,8 @@ export function NovoRdoPanel() {
     setPhotoError(null)
     setSubmitError(null)
     setSelectedLogoId(undefined)
+    setRdoTitle('')
+    setShowBaseMaterials(false)
     setRdoLocal(''); setRdoGerenteContrato(''); setRdoTecnicoSeg('')
     setRdoEmpreiteira(''); setRdoServico(''); setRdoOcorrencias('')
     setRdoFuncDiretos(0); setRdoFuncIndiretos(0); setRdoQtdEquip(0)
@@ -602,10 +697,10 @@ export function NovoRdoPanel() {
     ])
     setActivityHours({ dayStart: '', dayEnd: '', nightStart: '', nightEnd: '' })
     setWorkforceRows([
-      { role: 'Encarregado', outsourced: 0, direct: 0 },
-      { role: 'Oficial', outsourced: 0, direct: 0 },
-      { role: 'Ajudante', outsourced: 0, direct: 0 },
-      { role: 'Operador', outsourced: 0, direct: 0 },
+      { role: 'Encarregado', outsourced: 0, direct: 0, hoursWorked: 8 },
+      { role: 'Oficial', outsourced: 0, direct: 0, hoursWorked: 8 },
+      { role: 'Ajudante', outsourced: 0, direct: 0, hoursWorked: 8 },
+      { role: 'Operador', outsourced: 0, direct: 0, hoursWorked: 8 },
     ])
     setRdoNumber(rdos.length + 1)
   }
@@ -616,7 +711,7 @@ export function NovoRdoPanel() {
   return (
     <div className="mx-auto max-w-4xl space-y-4 p-4 sm:p-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-white font-semibold text-lg">Novo RDO</h2>
+        <h2 className="text-white font-semibold text-lg">{rdoTitle.trim() || 'Novo RDO'}</h2>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -637,6 +732,16 @@ export function NovoRdoPanel() {
 
         {/* 1. Informações Gerais */}
         <Section title="Informações Gerais" icon={<ClipboardList size={16} className="text-[#f97316]" />}>
+          <div className="mb-4">
+            <label className="block text-[#a3a3a3] text-xs mb-1">Nome do RDO</label>
+            <input
+              type="text"
+              value={rdoTitle}
+              onChange={(e) => setRdoTitle(e.target.value)}
+              placeholder="Ex: Concretagem Torre A - Pavimento 3"
+              className={inputCls}
+            />
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-[#a3a3a3] text-xs mb-1">Data</label>
@@ -913,33 +1018,95 @@ export function NovoRdoPanel() {
             </div>
             <div className="space-y-2">
               {workforceRows.map((row, i) => (
-                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px_32px] gap-2 items-center">
-                  <input
-                    type="text"
-                    value={row.role}
-                    onChange={(e) => updateWorkforceRow(i, { role: e.target.value })}
-                    placeholder="Cargo"
-                    className={inputCls}
-                  />
-                  <input
-                    type="number"
-                    value={row.outsourced}
-                    onChange={(e) => updateWorkforceRow(i, { outsourced: Number(e.target.value) })}
-                    min={0}
-                    className={inputCls}
-                    title="Terceirizados"
-                  />
-                  <input
-                    type="number"
-                    value={row.direct}
-                    onChange={(e) => updateWorkforceRow(i, { direct: Number(e.target.value) })}
-                    min={0}
-                    className={inputCls}
-                    title="Contratados"
-                  />
-                  <button type="button" onClick={() => removeWorkforceRow(i)} className="text-red-400 hover:text-red-300 p-1">
-                    <Trash2 size={15} />
-                  </button>
+                <div key={i} className="rounded-lg border border-[#525252] bg-[#2c2c2c]/60 p-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_110px_32px] gap-2 items-end">
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Cargo</label>
+                      <input
+                        type="text"
+                        value={row.role}
+                        onChange={(e) => updateWorkforceRow(i, { role: e.target.value })}
+                        placeholder="Cargo"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Terceir.</label>
+                      <input
+                        type="number"
+                        value={row.outsourced}
+                        onChange={(e) => updateWorkforceRow(i, { outsourced: Number(e.target.value) })}
+                        min={0}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Diretos</label>
+                      <input
+                        type="number"
+                        value={row.direct}
+                        onChange={(e) => updateWorkforceRow(i, { direct: Number(e.target.value) })}
+                        min={0}
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Horas</label>
+                      <input
+                        type="number"
+                        value={row.hoursWorked ?? 8}
+                        onChange={(e) => updateWorkforceRow(i, { hoursWorked: Number(e.target.value) })}
+                        min={0}
+                        max={24}
+                        step={0.5}
+                        className={inputCls}
+                      />
+                    </div>
+                    <button type="button" onClick={() => removeWorkforceRow(i)} className="text-red-400 hover:text-red-300 p-2">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Atividade vinculada</label>
+                      <input
+                        type="text"
+                        value={row.activityDescription ?? ''}
+                        onChange={(e) => updateWorkforceRow(i, { activityDescription: e.target.value })}
+                        placeholder="Ex: assentamento, acabamento, apoio"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-1">Observação</label>
+                      <input
+                        type="text"
+                        value={row.notes ?? ''}
+                        onChange={(e) => updateWorkforceRow(i, { notes: e.target.value })}
+                        placeholder="Apontamento, frente ou turno"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                  {trabalhadores.length > 0 && (
+                    <div>
+                      <label className="block text-[#a3a3a3] text-xs mb-2">Trabalhadores do módulo Mão de Obra</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-32 overflow-y-auto pr-1">
+                        {trabalhadores.filter((worker) => worker.status === 'active').map((worker) => (
+                          <label key={worker.id} className="flex items-center gap-2 rounded border border-[#525252] bg-[#1f1f1f]/70 px-2 py-1.5 text-xs text-[#d4d4d4]">
+                            <input
+                              type="checkbox"
+                              checked={(row.workerIds ?? []).includes(worker.id)}
+                              onChange={() => toggleWorkerInRow(i, worker.id)}
+                              className="h-4 w-4 accent-[#f97316]"
+                            />
+                            <span className="truncate">{worker.name}</span>
+                            <span className="ml-auto truncate text-[#6b6b6b]">{worker.role}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1006,34 +1173,74 @@ export function NovoRdoPanel() {
               <p className="text-[#6b6b6b] text-sm italic">Nenhum equipamento adicionado.</p>
             )}
             {equipment.map((row, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={row.name}
-                  onChange={(e) => updateEquipment(i, 'name', e.target.value)}
-                  placeholder="Nome do equipamento"
-                  className={`${inputCls} flex-1`}
-                />
-                <input
-                  type="number"
-                  value={row.quantity}
-                  onChange={(e) => updateEquipment(i, 'quantity', Number(e.target.value))}
-                  min={0} max={99}
-                  className={`${inputCls} w-20`}
-                  title="Quantidade"
-                />
-                <input
-                  type="number"
-                  value={row.hours}
-                  onChange={(e) => updateEquipment(i, 'hours', Number(e.target.value))}
-                  min={0} max={24} step={0.5}
-                  className={`${inputCls} w-20`}
-                  title="Horas"
-                />
-                <span className="text-[#6b6b6b] text-xs">h</span>
-                <button type="button" onClick={() => removeEquipment(i)} className="text-red-400 hover:text-red-300 p-1">
-                  <Trash2 size={15} />
-                </button>
+              <div key={i} className="rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_90px_100px_32px] gap-2 items-end">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Cadastro</label>
+                    <select value={row.equipmentId ?? ''} onChange={(e) => linkEquipment(i, e.target.value)} className={selectCls}>
+                      <option value="">Manual / sem cadastro</option>
+                      {equipamentosCadastrados.map((eq) => (
+                        <option key={eq.id} value={eq.id}>{eq.code} - {eq.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Equipamento utilizado</label>
+                    <input
+                      type="text"
+                      value={row.name}
+                      onChange={(e) => patchEquipment(i, { name: e.target.value })}
+                      placeholder="Ex: Retroescavadeira, compactador"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Qtd.</label>
+                    <input
+                      type="number"
+                      value={row.quantity}
+                      onChange={(e) => patchEquipment(i, { quantity: Number(e.target.value) })}
+                      min={0}
+                      max={99}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Horas usadas</label>
+                    <input
+                      type="number"
+                      value={row.hours}
+                      onChange={(e) => patchEquipment(i, { hours: Number(e.target.value) })}
+                      min={0}
+                      max={24}
+                      step={0.5}
+                      className={inputCls}
+                    />
+                  </div>
+                  <button type="button" onClick={() => removeEquipment(i)} className="text-red-400 hover:text-red-300 p-2">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Tipo / código</label>
+                    <input
+                      type="text"
+                      value={[row.code, row.type].filter(Boolean).join(' - ')}
+                      readOnly
+                      placeholder="Preenchido pelo cadastro"
+                      className={`${inputCls} opacity-80`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Operador</label>
+                    <input type="text" value={row.operator ?? ''} onChange={(e) => patchEquipment(i, { operator: e.target.value })} placeholder="Nome do operador" className={inputCls} />
+                  </div>
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Frente / observação</label>
+                    <input type="text" value={row.notes ?? ''} onChange={(e) => patchEquipment(i, { notes: e.target.value })} placeholder="Local, turno, condição" className={inputCls} />
+                  </div>
+                </div>
               </div>
             ))}
             {equipment.length > 0 && (
@@ -1230,7 +1437,11 @@ export function NovoRdoPanel() {
                 Registre material usado no dia, origem, valor unitário e total. O total é calculado automaticamente por quantidade x valor unitário.
               </p>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={addMaterialTemplate} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 text-xs font-medium">
+                <button type="button" onClick={toggleMaterialTemplate} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium ${
+                  showBaseMaterials
+                    ? 'border-[#f97316]/60 bg-[#f97316]/20 text-[#f97316]'
+                    : 'border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20'
+                }`}>
                   <Package size={14} /> Insumos base
                 </button>
                 <button type="button" onClick={() => addMaterialRow()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#f5f5f5] hover:border-[#f97316]/50 text-xs font-medium">
@@ -1243,7 +1454,18 @@ export function NovoRdoPanel() {
             )}
             {materials.map((row, i) => (
               <div key={i} className="rounded-lg border border-[#525252] bg-[#1f1f1f]/70 p-3 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px_32px] gap-2 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_150px_32px] gap-2 items-end">
+                  <div>
+                    <label className="block text-[#a3a3a3] text-xs mb-1">Insumo do Suprimentos</label>
+                    <select value={row.stockItemId ?? ''} onChange={(e) => linkStockItem(i, e.target.value)} className={selectCls}>
+                      <option value="">Manual / sem estoque</option>
+                      {estoqueItens.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.descricao} ({item.qtdDisponivel} {item.unidade})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-[#a3a3a3] text-xs mb-1">Material</label>
                     <input type="text" value={row.material} onChange={(e) => patchMaterial(i, { material: e.target.value })} placeholder="Ex: disco diamantado, fita crepe, rolo 9cm" className={inputCls} />

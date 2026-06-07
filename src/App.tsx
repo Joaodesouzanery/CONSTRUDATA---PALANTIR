@@ -30,6 +30,7 @@ const ComandoCentralPage    = lazy(() => import('@/features/comando-central/inde
 const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
 const ManutencoesPage       = lazy(() => import('@/features/manutencoes/index').then((m) => ({ default: m.ManutencoesPage })))
 const LevantamentoObraPage  = lazy(() => import('@/features/levantamento-obra/index').then((m) => ({ default: m.LevantamentoObraPage })))
+const EconomiaPage          = lazy(() => import('@/features/economia/index').then((m) => ({ default: m.EconomiaPage })))
 
 // Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
 const AprovacoesPage        = lazy(() => import('@/features/admin/AprovacoesPage').then((m) => ({ default: m.AprovacoesPage })))
@@ -129,6 +130,7 @@ function App() {
           <Route path="projetos"            element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
           <Route path="levantamento-obra"   element={<LazyRoute><LevantamentoObraPage /></LazyRoute>} />
+          <Route path="economia"            element={<LazyRoute><EconomiaPage /></LazyRoute>} />
           <Route path="pre-construcao"      element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />
           <Route path="manutencoes"         element={<LazyRoute><ManutencoesPage /></LazyRoute>} />

@@ -178,7 +178,7 @@ function buildLedger(project: Project, options: { includeUnscoped?: boolean; inc
       category: line.type,
       description: `Orcamento base - ${LINE_META[line.type]?.label ?? line.type}`,
       amountBRL: line.budgeted,
-      basis: 'BAC do projeto/nucleo',
+      basis: 'Orçamento planejado do projeto/nucleo',
     })
   }
 
@@ -474,7 +474,7 @@ export function JobCostingPanel() {
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Orcado (BAC)', value: `R$${(budgeted / 1_000_000).toFixed(2)}M`, color: '#6b6b6b' },
+          { label: 'Orçamento planejado', value: `R$${(budgeted / 1_000_000).toFixed(2)}M`, color: '#6b6b6b' },
           { label: 'Realizado (AC)', value: `R$${(spent / 1_000_000).toFixed(2)}M`, color: '#3b82f6' },
           { label: 'Comprometido', value: `R$${(committedCost / 1_000_000).toFixed(2)}M`, color: '#f97316' },
           {

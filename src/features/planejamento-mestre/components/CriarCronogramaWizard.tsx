@@ -14,11 +14,14 @@ type DraftNucleus = Omit<PlanningNucleus, 'id' | 'budgetBRL'>
 type DraftActivity = Omit<MasterActivity, 'id'>
 
 const SERVICE_OPTIONS: Array<{ value: PlanServiceType; label: string }> = [
+  { value: 'agua', label: 'Água' },
   { value: 'esgoto', label: 'Esgoto' },
-  { value: 'agua', label: 'Agua' },
+  { value: 'civil', label: 'Civil' },
+  { value: 'manutencao', label: 'Manutenção' },
+  { value: 'ambiental', label: 'Ambiental' },
   { value: 'drenagem', label: 'Drenagem' },
   { value: 'infraestrutura', label: 'Infraestrutura' },
-  { value: 'edificacao', label: 'Edificacao' },
+  { value: 'edificacao', label: 'Edificação' },
   { value: 'outro', label: 'Outro' },
 ]
 
@@ -187,7 +190,7 @@ export function CriarCronogramaWizard({ open, onClose }: Props) {
     if (step === 1) {
       if (!contractName.trim()) return setError('Informe o nome do contrato.')
       if (!startDate || !endDate || endDate <= startDate) return setError('Informe datas validas.')
-      if (bacTotal <= 0) return setError('Informe o BAC total.')
+      if (bacTotal <= 0) return setError('Informe o Orçamento Total Planejado.')
     }
     if (step === 2) {
       const total = nuclei.reduce((s, n) => s + n.bacWeightPct, 0)
@@ -240,7 +243,7 @@ export function CriarCronogramaWizard({ open, onClose }: Props) {
               <Field label="Contratante"><input value={contractor} onChange={(e) => setContractor(e.target.value)} className={inputCls} /></Field>
               <Field label="Data de inicio"><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} /></Field>
               <Field label="Data de fim"><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputCls} /></Field>
-              <Field label="BAC total"><input type="number" value={bacTotal} onChange={(e) => setBacTotal(Number(e.target.value))} className={inputCls} /></Field>
+              <Field label="Orçamento Total Planejado"><input type="number" value={bacTotal} onChange={(e) => setBacTotal(Number(e.target.value))} className={inputCls} /></Field>
               <Field label="Quantidade de nucleos"><input type="number" min={1} max={12} value={nucleusCount} onChange={(e) => syncNucleusCount(Math.max(1, Number(e.target.value) || 1))} className={inputCls} /></Field>
               <Summary label="Takt teorico por nucleo" value={`${theoreticalTakt} dias`} />
             </div>
@@ -252,7 +255,7 @@ export function CriarCronogramaWizard({ open, onClose }: Props) {
                   <Field label="Nome"><input value={n.name} onChange={(e) => setNuclei((rows) => rows.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))} className={inputCls} /></Field>
                   <Field label="Localizacao"><input value={n.location} onChange={(e) => setNuclei((rows) => rows.map((r, i) => i === idx ? { ...r, location: e.target.value } : r))} className={inputCls} /></Field>
                   <Field label="Servico"><select value={n.serviceType} onChange={(e) => setNuclei((rows) => rows.map((r, i) => i === idx ? { ...r, serviceType: e.target.value as PlanServiceType } : r))} className={inputCls}>{SERVICE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></Field>
-                  <Field label="% BAC"><input type="number" value={n.bacWeightPct} onChange={(e) => setNuclei((rows) => rows.map((r, i) => i === idx ? { ...r, bacWeightPct: Number(e.target.value) } : r))} className={inputCls} /></Field>
+                  <Field label="% do Orçamento"><input type="number" value={n.bacWeightPct} onChange={(e) => setNuclei((rows) => rows.map((r, i) => i === idx ? { ...r, bacWeightPct: Number(e.target.value) } : r))} className={inputCls} /></Field>
                   <div className="flex flex-col justify-end text-xs text-[#a3a3a3]"><span>Orcamento</span><strong className="text-[#f5f5f5]">{(bacTotal * (n.bacWeightPct / 100)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}</strong></div>
                 </div>
               ))}

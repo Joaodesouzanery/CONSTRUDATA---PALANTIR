@@ -5,9 +5,10 @@
  *          Ação/Restrição, Unidade | Day columns (Mon-Sun) Prev/Real | Summary columns.
  */
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Download, TableProperties } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, TableProperties, Plus, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { MasterActivity, ProgramacaoDiaria } from '@/types'
 
 // ─── ISO week helpers ────────────────────────────────────────────────────────
@@ -109,15 +110,80 @@ function EditableNumber({
   )
 }
 
+// ─── Inline editable text cell ───────────────────────────────────────────────
+
+function EditableText({
+  value, onChange, placeholder = '—', className = '',
+}: { value: string; onChange: (v: string) => void; placeholder?: string; className?: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { onChange(draft.trim()); setEditing(false) }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { onChange(draft.trim()); setEditing(false) }
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        className={`w-full min-w-[70px] bg-[#2c2c2c] border border-[#f97316]/50 rounded px-1.5 py-0.5 text-[10px] text-[#f5f5f5] focus:outline-none ${className}`}
+      />
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(value); setEditing(true) }}
+      className={`block w-full text-left text-[10px] rounded px-1.5 py-0.5 transition-colors hover:bg-[#525252] ${value ? 'text-[#f5f5f5]' : 'text-[#525252]'} ${className}`}
+      title="Clique para editar"
+    >
+      {value || placeholder}
+    </button>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function ProgramacaoSemanalPanel() {
   const activities          = usePlanejamentoMestreStore((s) => s.activities)
   const programacaoSemanal  = usePlanejamentoMestreStore((s) => s.programacaoSemanal)
   const setProgramacaoDiaria = usePlanejamentoMestreStore((s) => s.setProgramacaoDiaria)
+  const updateActivity      = usePlanejamentoMestreStore((s) => s.updateActivity)
+  const addActivity         = usePlanejamentoMestreStore((s) => s.addActivity)
+  const removeActivity      = usePlanejamentoMestreStore((s) => s.removeActivity)
 
   const [week, setWeek]         = useState(currentISOWeek)
   const [filterNucleo, setFilterNucleo] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<MasterActivity | null>(null)
+
+  function nucleoArea(a: MasterActivity): string {
+    return [a.nucleo, a.area].filter(Boolean).join(' / ')
+  }
+
+  function handleAddRow() {
+    const today = new Date().toISOString().slice(0, 10)
+    const leafCount = activities.filter((a) => a.level >= 1).length + 1
+    addActivity({
+      wbsCode: `S.${leafCount}`,
+      name: 'Nova atividade',
+      parentId: null,
+      level: 1,
+      plannedStart: today,
+      plannedEnd: today,
+      trendStart: today,
+      trendEnd: today,
+      durationDays: 1,
+      percentComplete: 0,
+      status: 'not_started',
+      isMilestone: false,
+      networkType: 'geral',
+      unidade: 'm',
+      plannedProgressPct: 0,
+    })
+  }
 
   const weekDates = useMemo(() => getISOWeekDates(week), [week])
   const weekNumber = week.split('-W')[1]
@@ -184,7 +250,7 @@ export function ProgramacaoSemanalPanel() {
 
   function handleExportExcel() {
     const header = [
-      'Item', 'Núcleo', 'Local', 'Atividade', 'Comprimento', 'Qtd. Ligações',
+      'Item', 'Núcleo/Área', 'Local', 'Atividade', 'Comprimento', 'Qtd. Ligações',
       '% Peso', 'Coordenador', 'Ação/Restrição', 'Unidade',
       ...weekDates.flatMap((d, i) => [`${DAY_NAMES[i]} ${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} Prev`, `${DAY_NAMES[i]} Real`]),
       'Prev Total Semana', 'Real Total Semana', 'Acum. Sem. Anterior', 'Acum. Sem. Atual', 'Acum. Total',
@@ -194,7 +260,7 @@ export function ProgramacaoSemanalPanel() {
       const { prevTotal, realTotal } = actTotals(a)
       const ant = acumAnterior(a.id)
       return [
-        a.wbsCode, a.nucleo ?? '', a.local ?? '', a.name,
+        a.wbsCode, nucleoArea(a), a.local ?? '', a.name,
         a.comprimento ?? '', a.quantidadeLigacoes ?? '',
         a.pesoMeta1000 ?? '', a.coordenador ?? a.responsibleTeam ?? '', a.notes ?? '',
         a.unidade ?? '',
@@ -262,6 +328,15 @@ export function ProgramacaoSemanalPanel() {
             </select>
           )}
 
+          {/* Add activity */}
+          <button
+            onClick={handleAddRow}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors"
+          >
+            <Plus size={13} />
+            Adicionar atividade
+          </button>
+
           {/* Export */}
           <button
             onClick={handleExportExcel}
@@ -290,11 +365,12 @@ export function ProgramacaoSemanalPanel() {
                   </th>
                 ))}
                 <th colSpan={5} className={thCls}>Acumulados</th>
+                <th rowSpan={2} className={thCls}>Ações</th>
               </tr>
               {/* Row 2: column headers */}
               <tr>
                 <th className={`${thCls} text-left sticky left-0 z-10 min-w-[48px]`}>Item</th>
-                <th className={`${thCls} text-left min-w-[80px]`}>Núcleo</th>
+                <th className={`${thCls} text-left min-w-[110px]`}>Núcleo/Área</th>
                 <th className={`${thCls} text-left min-w-[100px]`}>Local</th>
                 <th className={`${thCls} text-left min-w-[160px]`}>Atividade</th>
                 <th className={thCls}>Comp. (m)</th>
@@ -320,8 +396,8 @@ export function ProgramacaoSemanalPanel() {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10 + 14 + 5} className="text-center py-8 text-[#6b6b6b] text-xs">
-                    Nenhuma atividade encontrada. Carregue dados demo no módulo Longo Prazo.
+                  <td colSpan={10 + 14 + 5 + 1} className="text-center py-8 text-[#6b6b6b] text-xs">
+                    Nenhuma atividade. Clique em "Adicionar atividade" ou crie no módulo Longo Prazo.
                   </td>
                 </tr>
               )}
@@ -336,25 +412,33 @@ export function ProgramacaoSemanalPanel() {
                 return (
                   <tr key={a.id} className={`${rowBg} hover:bg-[#3d3d3d]/60 transition-colors`}>
                     <td className={`${tdFixedCls} left-0 z-10 font-mono`}>{a.wbsCode}</td>
-                    <td className={tdCls}>{a.nucleo ?? <span className="text-[#525252]">—</span>}</td>
-                    <td className={tdCls}>{a.local ?? <span className="text-[#525252]">—</span>}</td>
-                    <td className={`${tdCls} max-w-[200px]`}>
-                      <span className="block truncate text-[#f5f5f5]" title={a.name}>{a.name}</span>
+                    <td className={tdCls}>
+                      <EditableText value={a.nucleo ?? ''} placeholder="Núcleo/Área" onChange={(v) => updateActivity(a.id, { nucleo: v || undefined })} />
                     </td>
-                    <td className={`${tdCls} text-right font-mono`}>
-                      {a.comprimento != null ? a.comprimento.toFixed(0) : <span className="text-[#525252]">—</span>}
+                    <td className={tdCls}>
+                      <EditableText value={a.local ?? ''} placeholder="Local" onChange={(v) => updateActivity(a.id, { local: v || undefined })} />
                     </td>
-                    <td className={`${tdCls} text-center font-mono`}>
-                      {a.quantidadeLigacoes ?? <span className="text-[#525252]">—</span>}
+                    <td className={`${tdCls} max-w-[220px]`}>
+                      <EditableText value={a.name} placeholder="Atividade" onChange={(v) => updateActivity(a.id, { name: v || 'Sem nome' })} />
                     </td>
-                    <td className={`${tdCls} text-center font-mono`}>
-                      {a.pesoMeta1000 != null ? `${a.pesoMeta1000}%` : <span className="text-[#525252]">—</span>}
+                    <td className={`${tdCls} text-center`}>
+                      <EditableNumber value={a.comprimento ?? 0} onChange={(v) => updateActivity(a.id, { comprimento: v || undefined })} />
                     </td>
-                    <td className={tdCls}>{a.coordenador ?? a.responsibleTeam ?? <span className="text-[#525252]">—</span>}</td>
-                    <td className={`${tdCls} max-w-[120px]`}>
-                      <span className="block truncate" title={a.notes ?? ''}>{a.notes ?? <span className="text-[#525252]">—</span>}</span>
+                    <td className={`${tdCls} text-center`}>
+                      <EditableNumber value={a.quantidadeLigacoes ?? 0} onChange={(v) => updateActivity(a.id, { quantidadeLigacoes: v || undefined })} />
                     </td>
-                    <td className={`${tdCls} text-center`}>{a.unidade ?? 'm'}</td>
+                    <td className={`${tdCls} text-center`}>
+                      <EditableNumber value={a.pesoMeta1000 ?? 0} onChange={(v) => updateActivity(a.id, { pesoMeta1000: v || undefined })} />
+                    </td>
+                    <td className={tdCls}>
+                      <EditableText value={a.coordenador ?? a.responsibleTeam ?? ''} placeholder="Coord." onChange={(v) => updateActivity(a.id, { coordenador: v || undefined })} />
+                    </td>
+                    <td className={`${tdCls} max-w-[140px]`}>
+                      <EditableText value={a.notes ?? ''} placeholder="Ação/Restr." onChange={(v) => updateActivity(a.id, { notes: v || undefined })} />
+                    </td>
+                    <td className={`${tdCls} text-center`}>
+                      <EditableText value={a.unidade ?? ''} placeholder="m" onChange={(v) => updateActivity(a.id, { unidade: v || undefined })} className="text-center" />
+                    </td>
 
                     {weekDates.map((d) => {
                       const dateStr = toDateStr(d)
@@ -382,6 +466,16 @@ export function ProgramacaoSemanalPanel() {
                     <td className={`${tdCls} text-right font-mono`}>{ant > 0 ? ant.toFixed(1) : '—'}</td>
                     <td className={`${tdCls} text-right font-mono text-[#f97316]`}>{acumSem > 0 ? acumSem.toFixed(1) : '—'}</td>
                     <td className={`${tdCls} text-right font-mono`}>{acumTot > 0 ? acumTot.toFixed(1) : '—'}</td>
+                    <td className={`${tdCls} text-center`}>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(a)}
+                        title="Excluir atividade"
+                        className="inline-flex items-center justify-center rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#ef4444]/15 hover:text-[#ef4444]"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -407,7 +501,7 @@ export function ProgramacaoSemanalPanel() {
                       </>
                     )
                   })}
-                  <td colSpan={5} className={tdCls} />
+                  <td colSpan={6} className={tdCls} />
                 </tr>
               </tfoot>
             )}
@@ -416,9 +510,18 @@ export function ProgramacaoSemanalPanel() {
       </div>
 
       <p className="text-[10px] text-[#6b6b6b]">
-        Clique em qualquer célula Prev/Real para editar. Os valores são salvos automaticamente.
-        Use os campos de extensão e ligações em cada atividade via módulo Longo Prazo.
+        Clique em qualquer célula (identificação ou Prev/Real) para editar — salva automaticamente e
+        reflete no Longo/Médio/Curto Prazo. Use "Adicionar atividade" para criar e o ícone de lixeira para excluir.
       </p>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir atividade"
+        message={deleteTarget ? `Tem certeza que deseja excluir "${deleteTarget.name}"? Ela será removida de todos os horizontes de planejamento.` : ''}
+        confirmLabel="Excluir"
+        onConfirm={() => { if (deleteTarget) removeActivity(deleteTarget.id); setDeleteTarget(null) }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

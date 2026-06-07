@@ -1096,7 +1096,7 @@ export interface FleetScheduleEntry {
 export type WorkWeekMode = 'mon_fri' | 'mon_sat'
 export type AbcZone      = 'A' | 'B' | 'C'
 export type PlanSoilType = 'normal' | 'rocky' | 'mixed'
-export type PlanServiceType = 'agua' | 'esgoto' | 'drenagem' | 'edificacao' | 'infraestrutura' | 'outro'
+export type PlanServiceType = 'agua' | 'esgoto' | 'civil' | 'manutencao' | 'ambiental' | 'drenagem' | 'edificacao' | 'infraestrutura' | 'outro'
 
 export interface PlanningContract {
   contractName: string
@@ -1320,7 +1320,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'empreiteiros'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'empreiteiros'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
@@ -1342,6 +1342,12 @@ export interface RdoEquipmentEntry {
   name:     string
   quantity: number
   hours:    number
+  equipmentId?: string
+  code?:        string
+  type?:        string
+  operator?:    string
+  front?:       string
+  notes?:       string
 }
 
 export interface RdoServiceEntry {
@@ -1381,6 +1387,10 @@ export interface RdoMaterialConsumptionEntry {
   activityStage?: string
   front?:       string
   notes?:       string
+  stockItemId?: string
+  depositoId?:  string
+  availableQtyAtSelection?: number
+  isBaseTemplate?: boolean
 }
 
 export interface RdoStoppageEntry {
@@ -1395,6 +1405,10 @@ export interface RdoWorkforceRow {
   role:       string
   outsourced: number
   direct:     number
+  workerIds?: string[]
+  hoursWorked?: number
+  activityDescription?: string
+  notes?: string
 }
 
 export interface RdoTrechoEntry {
@@ -1427,6 +1441,7 @@ export interface RdoFinancialEntry {
 export interface RDO {
   id:           string
   number:       number   // sequential, auto-assigned
+  title?:       string
   date:         string   // yyyy-MM-dd
   responsible:  string
   weather:      RdoWeather
@@ -1468,8 +1483,64 @@ export interface RDO {
   }
   workforceRows?:               RdoWorkforceRow[]
 
+  // ── Template / variantes ─────────────────────────────────────────────────────
+  template?:    'padrao' | 'compizzo'
+  compizzo?:    RdoCompizzoData
+
   createdAt:    string
   updatedAt:    string
+}
+
+// ─── RDO Compizzo (Demarcação e Pintura de Piso Industrial) ──────────────────────
+
+export interface RdoCompizzoProducaoRow {
+  servico:    string
+  quantidade: string
+}
+
+export interface RdoCompizzoMaterialRow {
+  material:   string
+  quantidade: string
+}
+
+export interface RdoCompizzoServicos {
+  limpezaArea:        boolean
+  isolamentoArea:     boolean
+  preparacaoPiso:     boolean
+  tintaVermelha:      boolean
+  tintaAmarela:       boolean
+  faixaBranca:        boolean
+  faixaAmarela:       boolean
+  faixaVermelha:      boolean
+  vagasPCD:           boolean
+  retoques:           boolean
+  limpezaFinal:       boolean
+}
+
+export interface RdoCompizzoOcorrencias {
+  semOcorrencias:           boolean
+  chuva:                    boolean
+  areaNaoLiberada:          boolean
+  interferenciaTerceiros:   boolean
+  faltaEnergia:             boolean
+  equipamentoDefeito:       boolean
+  outros:                   boolean
+}
+
+export interface RdoCompizzoData {
+  obra:                  string
+  diaObra:               string
+  condicaoClimatica:     'sol' | 'nublado' | 'chuva' | 'outros'
+  condicaoClimaticaOutros?: string
+  servicos:              RdoCompizzoServicos
+  descricaoServicos:     string
+  producao:              RdoCompizzoProducaoRow[]
+  materiais:             RdoCompizzoMaterialRow[]
+  ocorrencias:           RdoCompizzoOcorrencias
+  observacoes:           string
+  planejamentoProximoDia: string
+  responsavelNome:       string
+  responsavelData:       string
 }
 
 // ─── Qualidade / FVS (Ficha de Verificação de Serviço) ──────────────────────
@@ -1932,7 +2003,7 @@ export interface MasterActivity {
   predecessors?: string[]
   weight?: number
   notes?: string
-  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'manutencao' | 'ambiental' | 'outro' | 'geral'
   serviceCategory?: 'LA' | 'LE' | 'intra' | 'interligacao' | 'reposicao' | 'na_rede' | 'OS' | 'pavimentacao' | 'recomposicao'
   diameterMm?: number
   // Weekly programming extended fields
@@ -1987,7 +2058,7 @@ export interface LookaheadDerivedActivity {
   linkedRestrictionIds?: string[]
   notes?: string
   percentComplete?: number
-  networkType?: 'agua' | 'esgoto' | 'civil' | 'geral'
+  networkType?: 'agua' | 'esgoto' | 'civil' | 'manutencao' | 'ambiental' | 'outro' | 'geral'
 }
 
 export interface WhatIfAdjustment {

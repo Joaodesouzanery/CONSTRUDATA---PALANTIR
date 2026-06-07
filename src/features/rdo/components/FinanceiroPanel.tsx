@@ -347,9 +347,9 @@ export function FinanceiroPanel() {
     <div className="p-6 max-w-5xl mx-auto space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-white font-semibold text-lg">Análise Financeira (EVM)</h2>
-        {/* BAC Input */}
+        {/* Budget input */}
         <div className="flex items-center gap-2">
-          <label className="text-[#a3a3a3] text-sm">Orçamento Total (BAC):</label>
+          <label className="text-[#a3a3a3] text-sm">Orçamento Total Planejado:</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b] text-sm">R$</span>
             <input
@@ -366,10 +366,10 @@ export function FinanceiroPanel() {
 
       {/* Row 1 EVM KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <KpiCard label="Orçamento Total (BAC)" value={fmtBRL(budgetBRL)} textColor="text-[#f97316]" />
-        <KpiCard label="Valor Agregado (EV)" value={fmtBRL(evm.ev)} textColor="text-emerald-400" sub={`${budgetBRL > 0 ? ((evm.ev / budgetBRL) * 100).toFixed(1) : '0.0'}% do BAC`} />
+        <KpiCard label="Orçamento Total Planejado" value={fmtBRL(budgetBRL)} textColor="text-[#f97316]" />
+        <KpiCard label="Valor Agregado (EV)" value={fmtBRL(evm.ev)} textColor="text-emerald-400" sub={`${budgetBRL > 0 ? ((evm.ev / budgetBRL) * 100).toFixed(1) : '0.0'}% do orçamento`} />
         <KpiCard label="Custo Real (AC)" value={fmtBRL(evm.ac)} textColor="text-rose-400" />
-        <KpiCard label="Valor Planejado (PV)" value={fmtBRL(evm.pv)} textColor="text-blue-400" sub={`${budgetBRL > 0 ? ((evm.pv / budgetBRL) * 100).toFixed(1) : '0.0'}% do BAC`} />
+        <KpiCard label="Valor Planejado (PV)" value={fmtBRL(evm.pv)} textColor="text-blue-400" sub={`${budgetBRL > 0 ? ((evm.pv / budgetBRL) * 100).toFixed(1) : '0.0'}% do orçamento`} />
       </div>
 
       {/* Row 2 EVM Indices */}

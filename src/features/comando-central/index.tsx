@@ -161,7 +161,7 @@ export function ComandoCentralPage() {
         {/* KPIs agregados */}
         {!loading && rows.length > 0 && (
           <div className="px-4 sm:px-6 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiBox label="Soma BAC" value={formatBrl(totalBac)} accent />
+            <KpiBox label="Orçamento planejado" value={formatBrl(totalBac)} accent />
             <KpiBox label="Soma AC" value={formatBrl(totalAc)} />
             <KpiBox label="Health geral" value={`${healthPct}% verde`} accent={healthPct >= 70} />
             <KpiBox label="Projetos" value={`${rows.length}`} sub={`${greenCount}🟢 ${yellowCount}🟡 ${redCount}🔴`} />
@@ -282,7 +282,7 @@ function ProjectHealthCard({
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 gap-2 text-[11px]">
-        <KpiMini label="BAC" value={formatBrl(row.bac_brl)} />
+        <KpiMini label="Orçamento" value={formatBrl(row.bac_brl)} />
         <KpiMini label="AC" value={formatBrl(row.ac_brl)} />
         <KpiMini label="CPI" value={cpi} />
         <KpiMini label="RDOs" value={`${row.rdo_count}`} />
@@ -376,7 +376,7 @@ function ProjectDrillDown({
 
         {/* KPIs detalhados */}
         <div className="space-y-2 mb-6">
-          <DetailRow label="BAC (orçado)" value={formatBrl(row.bac_brl)} />
+          <DetailRow label="Orçamento planejado" value={formatBrl(row.bac_brl)} />
           <DetailRow label="AC (real)" value={formatBrl(row.ac_brl)} />
           <DetailRow
             label="Saldo"

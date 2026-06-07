@@ -437,10 +437,18 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         },
 
         deriveFromMaster: () => {
-          const { activities, lookaheadWeeks } = get()
+          const { activities, lookaheadWeeks, derivedActivities: prev } = get()
           const today = new Date().toISOString().slice(0, 10)
           const derived = deriveLookahead(activities, today, lookaheadWeeks)
-          set({ derivedActivities: derived })
+          // Preserva status/observações já editados no Médio Prazo ao re-derivar
+          // (cascata automática não destrói o trabalho manual). Chave estável:
+          // atividade-mestre + semana ISO.
+          const prevByKey = new Map(prev.map((d) => [`${d.masterActivityId}__${d.weekIso}`, d]))
+          const merged = derived.map((d) => {
+            const old = prevByKey.get(`${d.masterActivityId}__${d.weekIso}`)
+            return old ? { ...d, status: old.status, notes: old.notes, percentComplete: old.percentComplete } : d
+          })
+          set({ derivedActivities: merged })
         },
 
         addWhatIfAdjustment: (adj) =>

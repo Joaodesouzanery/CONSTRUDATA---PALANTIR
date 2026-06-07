@@ -3,6 +3,7 @@ import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Plus, CalendarDays } from 'lucide-react'
 import type { MouseEvent } from 'react'
 import { useAgendaStore } from '@/store/agendaStore'
+import { useAgendaData } from '../useAgendaData'
 import { getTasksForDate, getTaskColor } from '../calendarUtils'
 import { cn } from '@/lib/utils'
 import type { AgendaResource, AgendaTask } from '@/types'
@@ -14,7 +15,8 @@ function resourceName(resources: AgendaResource[], task: AgendaTask) {
 }
 
 export function ThreeDWallCalendar() {
-  const { tasks, resources, viewStart, setViewStart, setEditingTask } = useAgendaStore()
+  const { viewStart, setViewStart, setEditingTask } = useAgendaStore()
+  const { tasks, resources } = useAgendaData()
   const start = startOfWeek(parseISO(viewStart), { weekStartsOn: 1 })
   const days = Array.from({ length: 42 }, (_, i) => addDays(start, i))
   const end = days[days.length - 1]

@@ -3,16 +3,20 @@ import { parseISO } from 'date-fns'
 
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/
 
+// Todos os campos do projeto são opcionais — é possível criar um projeto em branco
+// e preencher depois. Defaults mantêm os tipos de saída como string/enum (não
+// undefined), preservando compatibilidade com o formulário. A única validação
+// remanescente é coerência de datas, aplicada apenas quando ambas estão presentes.
 export const projectInfoSchema = z
   .object({
-    code:           z.string().min(2, 'Código deve ter ao menos 2 caracteres').max(20),
-    name:           z.string().min(2, 'Nome obrigatório').max(100),
-    owner:          z.string().min(1, 'Dono obrigatório').max(100),
-    manager:        z.string().min(1, 'Gerente obrigatório').max(100),
+    code:           z.string().max(20).default(''),
+    name:           z.string().max(100).default(''),
+    owner:          z.string().max(100).default(''),
+    manager:        z.string().max(100).default(''),
     description:    z.string().max(500).optional(),
-    status:         z.enum(['active', 'planning', 'completed', 'on_hold'] as const),
-    startDate:      z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),
-    endDate:        z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),
+    status:         z.enum(['active', 'planning', 'completed', 'on_hold'] as const).default('planning'),
+    startDate:      z.string().default(''),
+    endDate:        z.string().default(''),
     contractNumber: z.string().max(50).optional(),
     clientName:     z.string().max(100).optional(),
     projectManager: z.string().max(100).optional(),
@@ -22,12 +26,13 @@ export const projectInfoSchema = z
     lat:            z.number().optional(),
     lng:            z.number().optional(),
   })
-  .refine((d) => d.endDate >= d.startDate, {
+  .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     message: 'Data de término deve ser após data de início',
     path: ['endDate'],
   })
 
 export type ProjectInfoFormValues = z.infer<typeof projectInfoSchema>
+export type ProjectInfoFormInput = z.input<typeof projectInfoSchema>
 
 export const phaseSchema = z
   .object({

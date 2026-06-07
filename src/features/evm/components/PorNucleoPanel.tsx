@@ -78,7 +78,7 @@ export function PorNucleoPanel() {
     if (nome === null) return
     const codigo = window.prompt('Código do núcleo', nucleo.codigo)
     if (codigo === null) return
-    const bacRaw = window.prompt('BAC alocado (R$)', String(nucleo.bacAlocado))
+    const bacRaw = window.prompt('Orçamento alocado (R$)', String(nucleo.bacAlocado))
     if (bacRaw === null) return
     const bacAlocado = Number(bacRaw.replace(/\./g, '').replace(',', '.'))
     updateNucleoFinanceiro(id, {
@@ -150,7 +150,7 @@ export function PorNucleoPanel() {
       {scopedNucleos.length > 0 ? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi label={isAllView ? 'BAC total' : 'BAC núcleo'} value={formatCurrency(bac)} />
+            <Kpi label={isAllView ? 'Orçamento Total Planejado' : 'Orçamento do núcleo'} value={formatCurrency(bac)} />
             <Kpi label="PV" value={formatCurrency(pv)} />
             <Kpi label="EV" value={formatCurrency(ev)} />
             <Kpi label="CPI" value={cpi.toFixed(2)} tone={ratioColor(cpi)} />
@@ -185,7 +185,7 @@ export function PorNucleoPanel() {
                     <tr>
                       <th className="py-2 text-left">WP</th>
                       {isAllView && <th className="py-2 text-left">Núcleo</th>}
-                      <th className="py-2 text-right">BAC</th>
+                      <th className="py-2 text-right">Orçamento</th>
                       <th className="py-2 text-right">Físico</th>
                       <th className="py-2 text-right">Peso Fin.</th>
                       <th className="py-2 text-right">EV</th>

@@ -127,7 +127,7 @@ export function DashboardPanel() {
           <p className="text-[#f5f5f5] text-lg font-bold">{health.label}</p>
           <p className="text-[#a3a3a3] text-sm mt-1">
             IDC (CPI) = {CPI.toFixed(2)} &nbsp;|&nbsp; IDP (SPI) = {SPI.toFixed(2)}
-            &nbsp;|&nbsp; BAC = {formatCurrency(BAC)}
+            &nbsp;|&nbsp; Orçamento = {formatCurrency(BAC)}
           </p>
         </div>
       </div>
@@ -318,7 +318,7 @@ export function DashboardPanel() {
                 {formatCurrency(eacScenarios.optimistic)}
               </p>
               <p className="text-[#a3a3a3] text-xs mt-2">
-                Cenário onde os desvios são corrigidos e a obra retorna ao orçamento original (BAC).
+                Cenário onde os desvios são corrigidos e a obra retorna ao orçamento original.
               </p>
             </div>
 

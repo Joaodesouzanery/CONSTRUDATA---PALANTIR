@@ -46,10 +46,10 @@ export function ComparativoNucleosPanel() {
     <div className="space-y-4 p-6">
       <div>
         <h2 className="text-sm font-semibold text-[#f5f5f5]">Comparativo por Nucleo</h2>
-        <p className="text-xs text-[#8a8a8a]">Consolidado soma PV, EV, AC e BAC antes de recalcular CPI/SPI.</p>
+        <p className="text-xs text-[#8a8a8a]">Consolidado soma PV, EV, AC e orçamento planejado antes de recalcular CPI/SPI.</p>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <div className="rounded-lg border border-[#525252] bg-[#343434] p-3"><p className="text-xs text-[#8a8a8a]">BAC</p><p className="font-semibold text-[#f5f5f5]">{formatCurrency(totals.bac)}</p></div>
+        <div className="rounded-lg border border-[#525252] bg-[#343434] p-3"><p className="text-xs text-[#8a8a8a]">Orçamento planejado</p><p className="font-semibold text-[#f5f5f5]">{formatCurrency(totals.bac)}</p></div>
         <div className="rounded-lg border border-[#525252] bg-[#343434] p-3"><p className="text-xs text-[#8a8a8a]">PV</p><p className="font-semibold text-[#f5f5f5]">{formatCurrency(totals.pv)}</p></div>
         <div className="rounded-lg border border-[#525252] bg-[#343434] p-3"><p className="text-xs text-[#8a8a8a]">EV</p><p className="font-semibold text-[#f97316]">{formatCurrency(totals.ev)}</p></div>
         <div className="rounded-lg border border-[#525252] bg-[#343434] p-3"><p className="text-xs text-[#8a8a8a]">CPI consolidado</p><p className="font-semibold text-[#f5f5f5]">{consolidatedCpi.toFixed(2)}</p></div>
@@ -61,7 +61,7 @@ export function ComparativoNucleosPanel() {
           <thead className="bg-[#2c2c2c] text-xs text-[#8a8a8a]">
             <tr>
               <th className="px-4 py-3 text-left">Nucleo</th>
-              <th className="px-4 py-3 text-right">BAC</th>
+              <th className="px-4 py-3 text-right">Orçamento</th>
               <th className="px-4 py-3 text-right">PV</th>
               <th className="px-4 py-3 text-right">EV</th>
               <th className="px-4 py-3 text-right">AC</th>

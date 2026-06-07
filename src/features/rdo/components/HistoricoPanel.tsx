@@ -13,6 +13,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useContractorStore } from '@/store/contractorStore'
 import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
+import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespExecutedServices, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
@@ -27,6 +28,10 @@ import {
 function fmtDate(iso: string) {
   const [y, m, d] = iso.split('-')
   return `${d}/${m}/${y}`
+}
+
+function rdoTitle(rdo: RDO) {
+  return rdo.title?.trim() || `RDO #${rdo.number}`
 }
 
 function isLinearMeterUnit(unit: string) {
@@ -78,7 +83,7 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
       {/* Header */}
       <div className="flex items-start justify-between border-b-2 border-gray-900 pb-4 mb-4">
         <div>
-          <h1 className="text-2xl font-bold">RDO #{rdo.number}</h1>
+          <h1 className="text-2xl font-bold">{rdoTitle(rdo)}</h1>
           <p className="text-gray-600 mt-1">Relatório Diário de Obras</p>
         </div>
         <div className="text-right text-sm text-gray-600">
@@ -244,7 +249,8 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
   const totalMeters = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
 
   function handlePrint() {
-    printRdoPDF(rdo)
+    if (rdo.template === 'compizzo' && rdo.compizzo) printCompizzoPdf(rdo)
+    else printRdoPDF(rdo)
   }
 
   return (
@@ -256,7 +262,8 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
       <div className="px-5 py-4 flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-white font-semibold">RDO #{rdo.number}</span>
+            <span className="text-white font-semibold">{rdoTitle(rdo)}</span>
+            <span className="text-[#6b6b6b] text-xs">RDO #{rdo.number}</span>
             <span className="text-[#a3a3a3] text-sm">{fmtDate(rdo.date)}</span>
             <div className="flex items-center gap-1 text-[#a3a3a3] text-xs">
               {weatherIcon(rdo.weather.morning)}
@@ -355,6 +362,17 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
               <span>Operadores: <strong>{rdo.manpower.operatorCount}</strong></span>
               <span className="text-[#f97316]">Total: <strong>{totalWorkers}</strong></span>
             </div>
+            {(rdo.workforceRows?.length ?? 0) > 0 && (
+              <div className="mt-2 space-y-1">
+                {rdo.workforceRows?.map((row) => (
+                  <div key={row.id} className="text-xs text-[#a3a3a3]">
+                    {row.role}: {row.direct} direto(s), {row.outsourced} terceirizado(s)
+                    {(row.workerIds?.length ?? 0) > 0 && ` · ${row.workerIds?.length} trabalhador(es) vinculado(s)`}
+                    {row.hoursWorked ? ` · ${row.hoursWorked}h` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Equipment */}
@@ -366,6 +384,21 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
                   <div key={e.id} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
                     <span className="flex-1">{e.name}</span>
                     <span className="text-[#6b6b6b]">{e.quantity}× · {e.hours}h</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(rdo.materials?.length ?? 0) > 0 && (
+            <div>
+              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Materiais e Insumos</h3>
+              <div className="space-y-1">
+                {rdo.materials?.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
+                    <span className="flex-1">{m.material}</span>
+                    <span className="text-[#6b6b6b]">{m.quantity} {m.unit || ''}</span>
+                    <span className="text-[#f97316]">{(Number(m.totalCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
                   </div>
                 ))}
               </div>
@@ -630,7 +663,7 @@ export function HistoricoPanel() {
     return rdos
       .filter((r) => {
         const q = search.toLowerCase()
-        if (q && !String(r.number).includes(q) && !r.responsible.toLowerCase().includes(q) && !r.date.includes(q)) return false
+        if (q && !String(r.number).includes(q) && !r.responsible.toLowerCase().includes(q) && !(r.title ?? '').toLowerCase().includes(q) && !r.date.includes(q)) return false
         if (dateFrom && r.date < dateFrom) return false
         if (dateTo   && r.date > dateTo)   return false
         return true
@@ -859,12 +892,22 @@ export function HistoricoPanel() {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252] shrink-0">
-              <span className="text-white font-semibold">Editar RDO #{editingRdo.number}</span>
+              <span className="text-white font-semibold">Editar {rdoTitle(editingRdo)}</span>
               <button onClick={() => setEditingRdo(null)} className="text-[#a3a3a3] hover:text-[#f5f5f5]">
                 <X size={18} />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              <div>
+                <label className="block text-[#a3a3a3] text-xs mb-1">Nome do RDO</label>
+                <input
+                  type="text"
+                  value={editForm.title ?? editingRdo.title ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder={`RDO #${editingRdo.number}`}
+                  className="w-full bg-[#484848] border border-[#5e5e5e] rounded px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none"
+                />
+              </div>
               {/* Date + Responsible */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

@@ -339,17 +339,21 @@ function computeSuggestions(
 export const useMaoDeObraStore = create<MaoDeObraState>()(
   persist(
     (set, get) => ({
+  // Listas iniciam vazias — só são populadas por dados reais ou por loadDemoData().
+  // Antes começavam com mock e vazavam dados demo fora do modo demo (Escalonamento →
+  // Sugestões e RH Financeiro mostravam dados fictícios). cltSettings permanece como
+  // configuração padrão real (parâmetros CLT), não é dado fake.
   workers:     [],
   crews:       [],
   timecards:   [],
-  progress:    mockPhysicalProgress,
-  occurrences: mockOccurrences,
-  riskAreas:   mockRiskAreas,
-  suggestions: mockReallocationSuggestions,
+  progress:    [],
+  occurrences: [],
+  riskAreas:   [],
+  suggestions: [],
 
   shifts:         [],
   violations:     [],
-  workPosts:      MOCK_WORK_POSTS,
+  workPosts:      [],
   absences:       [],
   cltSettings:    MOCK_CLT_SETTINGS,
   activeTab:      'dashboard',
@@ -706,6 +710,15 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     }),
     {
       name: 'cdata-mao-de-obra',
+      version: 1,
+      // v1: workPosts deixou de iniciar com MOCK_WORK_POSTS. Limpa o mock que
+      // ficou persistido para quem já abriu o app (loadDemoData repõe no demo).
+      migrate: (persisted, fromVersion) => {
+        if (fromVersion < 1 && persisted && typeof persisted === 'object') {
+          ;(persisted as Partial<MaoDeObraState>).workPosts = []
+        }
+        return persisted as MaoDeObraState
+      },
       partialize: (s) => ({
         workers:        s.workers,
         crews:          s.crews,

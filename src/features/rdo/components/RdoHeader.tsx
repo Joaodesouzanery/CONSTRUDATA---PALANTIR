@@ -10,6 +10,7 @@ const TABS: { key: RdoTab; label: string }[] = [
   { key: 'historico', label: 'Historico de RDOs' },
   { key: 'sabesp', label: 'RDO Sabesp' },
   { key: 'novo', label: 'Novo RDO' },
+  { key: 'compizzo', label: 'RDO Compizzo' },
   { key: 'empreiteiros', label: 'Empreiteiros' },
 ]
 

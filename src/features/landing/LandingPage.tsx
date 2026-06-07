@@ -799,8 +799,8 @@ export function LandingPage() {
         {/* ── Hero (kept dark — striking construction imagery) ── */}
         <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0d0d0d] pt-16 lg:min-h-screen">
           <HeroCarousel />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.12)_0%,rgba(10,10,10,0.48)_42%,rgba(10,10,10,0.98)_100%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,10,0.9)_0%,rgba(10,10,10,0.56)_46%,rgba(10,10,10,0.08)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.04)_0%,rgba(10,10,10,0.34)_44%,rgba(10,10,10,0.82)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,10,0.78)_0%,rgba(10,10,10,0.42)_48%,rgba(10,10,10,0.04)_100%)]" />
           <div className="pointer-events-none absolute right-[4%] top-[14%] hidden h-72 w-72 rounded-full border border-white/18 lg:block" />
           <div className="pointer-events-none absolute right-[10%] top-[20%] hidden h-[28rem] w-[28rem] rounded-full border border-white/10 lg:block" />
           <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-0 pt-6 sm:px-5 md:px-10 lg:pt-24">
@@ -815,13 +815,13 @@ export function LandingPage() {
                 <h1 className="font-['Space_Grotesk'] text-4xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-6xl lg:text-7xl">
                   ConstruData
                 </h1>
-                <p className="max-w-3xl font-['Space_Grotesk'] text-xl font-medium leading-[1.15] tracking-[-0.01em] text-white sm:text-3xl lg:text-[2.5rem]">
-                  Tecnologia boa consegue realizar tarefas que você precisa fazer mais rápido. Mas excelentes tecnologias te permitem realizar coisas que você não conseguia antes.
-                </p>
-                <p className="max-w-2xl text-base font-semibold leading-7 text-[#f97316] sm:text-lg">
+                <p className="max-w-2xl font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-[-0.01em] text-white sm:text-3xl lg:text-4xl">
                   Automação Alimentada por IA para cada Decisão na Construção.
                 </p>
-                <p className="max-w-2xl text-sm leading-7 text-white/75 sm:text-base md:leading-7">
+                <p className="max-w-2xl text-sm leading-7 text-[#f97316] sm:text-base md:text-lg md:leading-8">
+                  Tecnologia boa consegue realizar tarefas que você precisa fazer mais rápido. Mas excelentes tecnologias te permitem realizar coisas que você não conseguia antes.
+                </p>
+                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:leading-7">
                   Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
                 </p>
                 <div className="h-[2px] w-14 bg-[#f97316]" />

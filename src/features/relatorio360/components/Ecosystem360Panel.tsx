@@ -183,7 +183,7 @@ export function Ecosystem360Panel({ date, projectName, compact = false }: Props)
     },
     {
       label: 'Financeiro / EVM',
-      value: evmMetrics.BAC ? formatCurrencyCompact(evmMetrics.VAC) : 'sem BAC',
+      value: evmMetrics.BAC ? formatCurrencyCompact(evmMetrics.VAC) : 'sem orçamento',
       sub: `CPI ${evmMetrics.CPI.toFixed(2)} | SPI ${evmMetrics.SPI.toFixed(2)}`,
       icon: FileText,
       tone: evmMetrics.CPI < 0.9 || evmMetrics.SPI < 0.9 ? 'danger' : evmMetrics.CPI < 1 || evmMetrics.SPI < 1 ? 'warn' : 'ok',

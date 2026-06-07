@@ -5,6 +5,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { RdoHeader }      from './components/RdoHeader'
 import { DashboardPanel } from './components/DashboardPanel'
 import { NovoRdoPanel }   from './components/NovoRdoPanel'
+import { RdoCompizzoPanel } from './components/RdoCompizzoPanel'
 import { HistoricoPanel } from './components/HistoricoPanel'
 import { EmpreiteirosPanel } from './components/EmpreiteirosPanel'
 
@@ -15,6 +16,7 @@ export function RdoPage() {
     switch (activeTab) {
       case 'dashboard':  return <DashboardPanel />
       case 'novo':       return <NovoRdoPanel />
+      case 'compizzo':   return <RdoCompizzoPanel />
       case 'empreiteiros': return <EmpreiteirosPanel />
       case 'historico':  return <HistoricoPanel />
       default:           return <DashboardPanel />

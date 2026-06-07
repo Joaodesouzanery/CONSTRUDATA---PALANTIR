@@ -1,14 +1,16 @@
 /**
  * DerivacaoPanel — Médio Prazo: Look-ahead 6-week grid.
- * Rows = unique activities grouped by networkType (ÁGUA / ESGOTO / SERVIÇOS CIVIS).
- * Columns = 6 ISO weeks. PPC row at section bottom.
- * Click cell → detail modal.
+ * Rows = unique activities grouped by networkType (categoria). Columns = 6 ISO weeks.
+ * Deriva automaticamente do mestre (cascata) e permite adicionar/editar/excluir
+ * atividades, refletindo em Longo/Curto Prazo e Programação Semanal.
  */
-import { useState, useMemo } from 'react'
-import { RefreshCw, X, AlertTriangle } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { RefreshCw, X, AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
-import type { LookaheadDerivedActivity } from '@/types'
+import { NETWORK_TYPE_OPTIONS, networkColor, networkLabel, type NetworkCategory } from '../networkCategories'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import type { LookaheadDerivedActivity, MasterActivity } from '@/types'
 import { cn } from '@/lib/utils'
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -43,13 +45,9 @@ const STATUS_BG: Record<DaStatus, string> = {
   completed: 'bg-[#3b82f6]/8',
 }
 
-type NetworkFilter = 'all' | 'agua' | 'esgoto'
-type NetworkType   = 'agua' | 'esgoto' | 'civil' | 'geral' | undefined
-
-function sectionOf(nt: NetworkType): 'agua' | 'esgoto' | 'civil' {
-  if (nt === 'agua')  return 'agua'
-  if (nt === 'civil') return 'civil'
-  return 'esgoto'
+function categoryOf(nt?: string): NetworkCategory {
+  const found = NETWORK_TYPE_OPTIONS.find((o) => o.value === nt)
+  return found ? found.value : 'geral'
 }
 
 /** Returns "S15/26" */
@@ -71,7 +69,94 @@ function weekDateRange(weekIso: string): string {
   return `${fmt(monday)}–${fmt(friday)}`
 }
 
-// ─── Detail Modal ─────────────────────────────────────────────────────────────
+const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/60'
+
+// ─── New Activity Modal ─────────────────────────────────────────────────────────
+
+function NewActivityModal({ onClose }: { onClose: () => void }) {
+  const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
+  const activities  = usePlanejamentoMestreStore((s) => s.activities)
+  const today = new Date().toISOString().slice(0, 10)
+  const [form, setForm] = useState({
+    name: '', networkType: 'geral' as NetworkCategory, nucleo: '',
+    plannedStart: today, plannedEnd: today,
+  })
+
+  function handleSave() {
+    if (!form.name.trim()) return
+    const start = form.plannedStart || today
+    const end = form.plannedEnd || start
+    const dur = Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 86_400_000))
+    const leafCount = activities.filter((a) => a.level >= 1).length + 1
+    addActivity({
+      wbsCode: `M.${leafCount}`,
+      name: form.name.trim(),
+      parentId: null,
+      level: 1,
+      plannedStart: start,
+      plannedEnd: end,
+      trendStart: start,
+      trendEnd: end,
+      durationDays: dur,
+      percentComplete: 0,
+      status: 'not_started',
+      isMilestone: false,
+      networkType: form.networkType,
+      nucleo: form.nucleo || undefined,
+      plannedProgressPct: 0,
+    })
+    onClose()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.72)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md rounded-2xl border border-[#525252] bg-[#333333] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
+          <h3 className="text-[#f5f5f5] font-bold text-sm">Nova atividade</h3>
+          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#a3a3a3]"><X size={15} /></button>
+        </div>
+        <div className="px-5 py-4 flex flex-col gap-3">
+          <div>
+            <label className="text-[#6b6b6b] text-[10px] block mb-1 uppercase tracking-widest">Nome</label>
+            <input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ex.: Assentamento de tubulação" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[#6b6b6b] text-[10px] block mb-1 uppercase tracking-widest">Categoria</label>
+              <select className={inputCls} value={form.networkType} onChange={(e) => setForm((f) => ({ ...f, networkType: e.target.value as NetworkCategory }))}>
+                {NETWORK_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-[#6b6b6b] text-[10px] block mb-1 uppercase tracking-widest">Núcleo/Área</label>
+              <input className={inputCls} value={form.nucleo} onChange={(e) => setForm((f) => ({ ...f, nucleo: e.target.value }))} placeholder="Opcional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[#6b6b6b] text-[10px] block mb-1 uppercase tracking-widest">Início</label>
+              <input type="date" className={inputCls} value={form.plannedStart} onChange={(e) => setForm((f) => ({ ...f, plannedStart: e.target.value }))} />
+            </div>
+            <div>
+              <label className="text-[#6b6b6b] text-[10px] block mb-1 uppercase tracking-widest">Fim</label>
+              <input type="date" className={inputCls} value={form.plannedEnd} onChange={(e) => setForm((f) => ({ ...f, plannedEnd: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#525252]">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
+          <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">Adicionar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Detail Modal (status/notes + edição/exclusão do mestre) ────────────────────
 
 interface DetailModalProps {
   da: LookaheadDerivedActivity
@@ -80,11 +165,26 @@ interface DetailModalProps {
 
 function DetailModal({ da, onClose }: DetailModalProps) {
   const updateDerivedActivity = usePlanejamentoMestreStore((s) => s.updateDerivedActivity)
+  const updateActivity        = usePlanejamentoMestreStore((s) => s.updateActivity)
+  const removeActivity        = usePlanejamentoMestreStore((s) => s.removeActivity)
+  const master = usePlanejamentoMestreStore((s) => s.activities.find((a) => a.id === da.masterActivityId))
+
   const [status, setStatus]   = useState<DaStatus>(da.status)
   const [notes, setNotes]     = useState(da.notes ?? '')
+  const [name, setName]       = useState(master?.name ?? da.name)
+  const [networkType, setNetworkType] = useState<NetworkCategory>(categoryOf(master?.networkType))
+  const [plannedStart, setPlannedStart] = useState(master?.plannedStart ?? '')
+  const [plannedEnd, setPlannedEnd]     = useState(master?.plannedEnd ?? '')
+  const [confirmDel, setConfirmDel] = useState(false)
 
   function handleSave() {
     updateDerivedActivity(da.id, { status, notes: notes || undefined })
+    if (master) {
+      const patch: Partial<MasterActivity> = { name, networkType }
+      if (plannedStart) patch.plannedStart = plannedStart
+      if (plannedEnd) patch.plannedEnd = plannedEnd
+      updateActivity(master.id, patch)
+    }
     onClose()
   }
 
@@ -94,10 +194,7 @@ function DetailModal({ da, onClose }: DetailModalProps) {
       style={{ background: 'rgba(0,0,0,0.72)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div
-        className="w-full max-w-md rounded-2xl border border-[#525252] bg-[#333333] flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-md rounded-2xl border border-[#525252] bg-[#333333] flex flex-col shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
           <div>
             <h3 className="text-[#f5f5f5] font-bold text-sm">{da.name}</h3>
@@ -126,6 +223,21 @@ function DetailModal({ da, onClose }: DetailModalProps) {
             </div>
           </div>
 
+          {/* Edição da atividade-mestre (reflete em todos os horizontes) */}
+          {master && (
+            <div className="flex flex-col gap-3 rounded-lg border border-[#525252]/60 p-3">
+              <p className="text-[#6b6b6b] text-[10px] uppercase tracking-widest">Editar atividade</p>
+              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" />
+              <select className={inputCls} value={networkType} onChange={(e) => setNetworkType(e.target.value as NetworkCategory)}>
+                {NETWORK_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="date" className={inputCls} value={plannedStart} onChange={(e) => setPlannedStart(e.target.value)} />
+                <input type="date" className={inputCls} value={plannedEnd} onChange={(e) => setPlannedEnd(e.target.value)} />
+              </div>
+            </div>
+          )}
+
           {da.linkedRestrictionIds && da.linkedRestrictionIds.length > 0 && (
             <div>
               <p className="text-[#6b6b6b] text-[10px] mb-1 uppercase tracking-widest">Restrições</p>
@@ -148,11 +260,27 @@ function DetailModal({ da, onClose }: DetailModalProps) {
             />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[#525252]">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
-          <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">Salvar</button>
+        <div className="flex items-center justify-between gap-2 px-5 py-4 border-t border-[#525252]">
+          {master ? (
+            <button onClick={() => setConfirmDel(true)} className="inline-flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#ef4444]">
+              <Trash2 size={13} /> Excluir
+            </button>
+          ) : <span />}
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
+            <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">Salvar</button>
+          </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDel}
+        title="Excluir atividade"
+        message={`Excluir "${master?.name ?? da.name}"? Será removida também do Longo Prazo, Curto Prazo e Programação Semanal.`}
+        confirmLabel="Excluir"
+        onConfirm={() => { if (master) removeActivity(master.id); setConfirmDel(false); onClose() }}
+        onCancel={() => setConfirmDel(false)}
+      />
     </div>
   )
 }
@@ -201,13 +329,7 @@ function Cell({ da, onClick, actName }: CellProps) {
 
 // ─── Section header row ───────────────────────────────────────────────────────
 
-interface SectionHeaderProps {
-  label: string
-  color: string
-  colSpan: number
-}
-
-function SectionHeaderRow({ label, color, colSpan }: SectionHeaderProps) {
+function SectionHeaderRow({ label, color, colSpan }: { label: string; color: string; colSpan: number }) {
   return (
     <tr>
       <td
@@ -221,14 +343,9 @@ function SectionHeaderRow({ label, color, colSpan }: SectionHeaderProps) {
   )
 }
 
-// ─── PPC row for a set of weeks/das ──────────────────────────────────────────
+// ─── PPC row ──────────────────────────────────────────────────────────────────
 
-interface PpcRowProps {
-  weeks: string[]
-  das: LookaheadDerivedActivity[]
-}
-
-function PpcRow({ weeks, das }: PpcRowProps) {
+function PpcRow({ weeks, das }: { weeks: string[]; das: LookaheadDerivedActivity[] }) {
   function ppc(weekIso: string): number | null {
     const week = das.filter((d) => d.weekIso === weekIso)
     if (week.length === 0) return null
@@ -275,50 +392,50 @@ export function DerivacaoPanel() {
   )
   const deriveFromMaster = usePlanejamentoMestreStore((s) => s.deriveFromMaster)
 
-  const [filter,     setFilter]     = useState<NetworkFilter>('all')
+  const [filter,     setFilter]     = useState<'all' | NetworkCategory>('all')
   const [selectedDa, setSelectedDa] = useState<LookaheadDerivedActivity | null>(null)
+  const [showNew,    setShowNew]    = useState(false)
 
-  // Build sorted 6-week list
+  // Cascata automática: re-deriva sempre que o mestre muda (preserva status via merge no store).
+  useEffect(() => {
+    if (activities.length > 0) deriveFromMaster()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activities])
+
   const allWeeks = useMemo(
     () => [...new Set(derivedActivities.map((d) => d.weekIso))].sort().slice(0, 6),
     [derivedActivities]
   )
 
-  // masterActivityId → master activity (for networkType fallback)
   const actMap = useMemo(
     () => new Map<string, typeof activities[number]>(activities.map((a) => [a.id, a])),
     [activities]
   )
 
-  // Build rows
   const rows = useMemo(() => {
     const uniqueIds = [...new Set(derivedActivities.map((d) => d.masterActivityId))]
     return uniqueIds.map((mid) => {
       const das = derivedActivities.filter((d) => d.masterActivityId === mid)
       const first = das[0]
       const masterAct = actMap.get(mid)
-      const networkType: NetworkType = first?.networkType ?? masterAct?.networkType
+      const category = categoryOf(first?.networkType ?? masterAct?.networkType)
       const cellMap = new Map<string, LookaheadDerivedActivity>(das.map((d) => [d.weekIso, d]))
       return {
         masterActivityId: mid,
         name: first?.name ?? masterAct?.name ?? mid,
         responsible: first?.responsible ?? '—',
-        networkType,
-        section: sectionOf(networkType),
+        category,
         cellMap,
       }
     })
   }, [derivedActivities, actMap])
 
-  const filteredRows = rows.filter((r) => {
-    if (filter === 'agua')   return r.section === 'agua'
-    if (filter === 'esgoto') return r.section !== 'agua'
-    return true
-  })
+  const filteredRows = filter === 'all' ? rows : rows.filter((r) => r.category === filter)
 
-  const aguaRows   = filteredRows.filter((r) => r.section === 'agua')
-  const esgotoRows = filteredRows.filter((r) => r.section === 'esgoto')
-  const civilRows  = filteredRows.filter((r) => r.section === 'civil')
+  // Categorias presentes (na ordem canônica), apenas as que têm linhas
+  const presentCategories = NETWORK_TYPE_OPTIONS
+    .map((o) => o.value)
+    .filter((cat) => filteredRows.some((r) => r.category === cat))
 
   const hasData = derivedActivities.length > 0
   const colSpan = allWeeks.length + 1
@@ -328,37 +445,37 @@ export function DerivacaoPanel() {
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap shrink-0">
         <button
-          onClick={deriveFromMaster}
+          onClick={() => setShowNew(true)}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c] transition-colors"
         >
+          <Plus size={13} />
+          Nova atividade
+        </button>
+        <button
+          onClick={deriveFromMaster}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs font-medium hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+        >
           <RefreshCw size={12} />
-          Derivar do Mestre (6 Semanas)
+          Atualizar
         </button>
 
-        <div className="flex items-center gap-1 bg-[#3d3d3d] border border-[#525252] rounded-lg p-0.5 ml-auto">
-          {([['all', 'Todas'], ['agua', 'Água'], ['esgoto', 'Esgoto']] as [NetworkFilter, string][]).map(([key, lbl]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={cn(
-                'px-3 py-1 rounded text-xs font-medium transition-colors',
-                filter === key ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#a3a3a3]'
-              )}
-            >
-              {lbl}
-            </button>
-          ))}
-        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as 'all' | NetworkCategory)}
+          className="ml-auto bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+        >
+          <option value="all">Todas as categorias</option>
+          {NETWORK_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </div>
 
       {!hasData ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center">
-          <p className="text-[#6b6b6b] text-sm">Clique em &ldquo;Derivar do Mestre&rdquo; para gerar o look-ahead de 6 semanas.</p>
+          <p className="text-[#6b6b6b] text-sm">Nenhuma atividade. Adicione no Longo Prazo ou clique em &ldquo;Nova atividade&rdquo;.</p>
         </div>
       ) : (
         <div className="overflow-auto flex-1 rounded-xl border border-[#525252]">
           <table className="border-collapse text-xs min-w-full">
-            {/* Header */}
             <thead className="sticky top-0 z-20">
               <tr className="bg-[#0a1628]">
                 <th className="px-3 py-2.5 text-left text-[#6b6b6b] font-semibold border border-[#525252]/50 min-w-[190px] sticky left-0 bg-[#0a1628] z-30">
@@ -373,95 +490,23 @@ export function DerivacaoPanel() {
               </tr>
             </thead>
             <tbody>
-              {/* ── ÁGUA section ── */}
-              {aguaRows.length > 0 && (
-                <>
-                  <SectionHeaderRow label="Água" color="#f97316" colSpan={colSpan} />
-                  {aguaRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#3d3d3d]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#525252]/30 sticky left-0 bg-[#0d1117] z-10">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
-                        <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
-                      </td>
-                      {allWeeks.map((w) => (
-                        <Cell
-                          key={w}
-                          da={row.cellMap.get(w)}
-                          actName={row.name}
-                          onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
-                        />
-                      ))}
-                    </tr>
-                  ))}
-                  <PpcRow
+              {presentCategories.map((cat) => {
+                const catRows = filteredRows.filter((r) => r.category === cat)
+                if (catRows.length === 0) return null
+                const color = networkColor(cat)
+                return (
+                  <SectionBlock
+                    key={cat}
+                    label={networkLabel(cat)}
+                    color={color}
+                    colSpan={colSpan}
+                    rows={catRows}
                     weeks={allWeeks}
-                    das={derivedActivities.filter((d) => {
-                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
-                      return r?.section === 'agua'
-                    })}
+                    das={derivedActivities.filter((d) => categoryOf(actMap.get(d.masterActivityId)?.networkType) === cat)}
+                    onSelect={setSelectedDa}
                   />
-                </>
-              )}
-
-              {/* ── ESGOTO section ── */}
-              {esgotoRows.length > 0 && (
-                <>
-                  <SectionHeaderRow label="Esgoto" color="#22c55e" colSpan={colSpan} />
-                  {esgotoRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#3d3d3d]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#525252]/30 sticky left-0 bg-[#0d1117] z-10">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
-                        <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
-                      </td>
-                      {allWeeks.map((w) => (
-                        <Cell
-                          key={w}
-                          da={row.cellMap.get(w)}
-                          actName={row.name}
-                          onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
-                        />
-                      ))}
-                    </tr>
-                  ))}
-                  <PpcRow
-                    weeks={allWeeks}
-                    das={derivedActivities.filter((d) => {
-                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
-                      return r?.section === 'esgoto'
-                    })}
-                  />
-                </>
-              )}
-
-              {/* ── SERVIÇOS CIVIS section ── */}
-              {civilRows.length > 0 && (
-                <>
-                  <SectionHeaderRow label="Serviços Civis" color="#f59e0b" colSpan={colSpan} />
-                  {civilRows.map((row) => (
-                    <tr key={row.masterActivityId} className="hover:bg-[#3d3d3d]/40 transition-colors">
-                      <td className="px-3 py-1.5 border border-[#525252]/30 sticky left-0 bg-[#0d1117] z-10">
-                        <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
-                        <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
-                      </td>
-                      {allWeeks.map((w) => (
-                        <Cell
-                          key={w}
-                          da={row.cellMap.get(w)}
-                          actName={row.name}
-                          onClick={() => { const d = row.cellMap.get(w); if (d) setSelectedDa(d) }}
-                        />
-                      ))}
-                    </tr>
-                  ))}
-                  <PpcRow
-                    weeks={allWeeks}
-                    das={derivedActivities.filter((d) => {
-                      const r = rows.find((r) => r.masterActivityId === d.masterActivityId)
-                      return r?.section === 'civil'
-                    })}
-                  />
-                </>
-              )}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -469,7 +514,7 @@ export function DerivacaoPanel() {
 
       {/* Legend */}
       {hasData && (
-        <div className="flex items-center gap-4 shrink-0 text-[10px] text-[#6b6b6b]">
+        <div className="flex items-center gap-4 shrink-0 text-[10px] text-[#6b6b6b] flex-wrap">
           <span className="font-semibold">Legenda:</span>
           {(Object.entries(STATUS_DOT) as [DaStatus, string][]).map(([s, dot]) => (
             <div key={s} className="flex items-center gap-1">
@@ -482,6 +527,44 @@ export function DerivacaoPanel() {
       )}
 
       {selectedDa && <DetailModal da={selectedDa} onClose={() => setSelectedDa(null)} />}
+      {showNew && <NewActivityModal onClose={() => setShowNew(false)} />}
     </div>
+  )
+}
+
+// ─── Section block (header + rows + ppc) ────────────────────────────────────────
+
+interface SectionBlockProps {
+  label: string
+  color: string
+  colSpan: number
+  weeks: string[]
+  das: LookaheadDerivedActivity[]
+  rows: Array<{ masterActivityId: string; name: string; responsible: string; cellMap: Map<string, LookaheadDerivedActivity> }>
+  onSelect: (da: LookaheadDerivedActivity) => void
+}
+
+function SectionBlock({ label, color, colSpan, weeks, das, rows, onSelect }: SectionBlockProps) {
+  return (
+    <>
+      <SectionHeaderRow label={label} color={color} colSpan={colSpan} />
+      {rows.map((row) => (
+        <tr key={row.masterActivityId} className="hover:bg-[#3d3d3d]/40 transition-colors">
+          <td className="px-3 py-1.5 border border-[#525252]/30 sticky left-0 bg-[#0d1117] z-10">
+            <p className="text-[#f5f5f5] font-medium text-[11px] truncate max-w-[170px]">{row.name}</p>
+            <p className="text-[#6b6b6b] text-[9px]">{row.responsible}</p>
+          </td>
+          {weeks.map((w) => (
+            <Cell
+              key={w}
+              da={row.cellMap.get(w)}
+              actName={row.name}
+              onClick={() => { const d = row.cellMap.get(w); if (d) onSelect(d) }}
+            />
+          ))}
+        </tr>
+      ))}
+      <PpcRow weeks={weeks} das={das} />
+    </>
   )
 }

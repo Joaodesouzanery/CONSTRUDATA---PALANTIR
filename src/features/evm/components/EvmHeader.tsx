@@ -105,7 +105,7 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
         <KpiCard label="CPI" value={CPI} isIndex />
         <KpiCard label="SPI" value={SPI} isIndex />
-        <KpiCard label="BAC (R$)" value={BAC} isCurrency />
+        <KpiCard label="Orçamento planejado" value={BAC} isCurrency />
         <KpiCard label="EAC (R$)" value={EAC} isCurrency />
         <KpiCard label="VAC (R$)" value={VAC} isCurrency />
       </div>

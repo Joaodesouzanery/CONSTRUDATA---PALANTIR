@@ -129,6 +129,30 @@ export function TaskEditDialog() {
 
   if (!editingTaskId) return null
 
+  // Tarefas vindas do Planejamento são somente leitura na Agenda.
+  if (editingTaskId.startsWith('plan-')) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.72)' }}
+        onClick={(e) => { if (e.target === e.currentTarget) close() }}
+      >
+        <div className="w-full max-w-sm rounded-2xl border border-[#525252] bg-[#333333] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-[#f5f5f5]">Atividade do Planejamento</h3>
+            <button onClick={close} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-[#a3a3a3]">
+            Esta atividade vem do módulo <strong className="text-[#f5f5f5]">Planejamento</strong> e é exibida aqui apenas para visualização. Para editá-la, use o módulo Planejamento (Longo/Médio Prazo ou Programação Semanal) — as mudanças refletem automaticamente na Agenda.
+          </p>
+          <div className="mt-5 flex justify-end">
+            <button onClick={close} className="min-h-10 rounded-lg bg-[#f97316] px-4 py-2 text-xs font-semibold text-white hover:bg-[#ea580c]">Entendi</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"

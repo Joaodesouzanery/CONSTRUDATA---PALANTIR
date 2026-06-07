@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAgendaStore } from '@/store/agendaStore'
+import { useAgendaData } from './useAgendaData'
 import { AgendaHeader } from './components/AgendaHeader'
 import { AgendaToolbar } from './components/AgendaToolbar'
 import { GanttChart } from './components/GanttChart'
@@ -8,7 +9,8 @@ import { AgendaBottomBar } from './components/AgendaBottomBar'
 import { TaskEditDialog } from './components/TaskEditDialog'
 
 export function AgendaPage() {
-  const { resources, editingTaskId, setEditingTask, displayView } = useAgendaStore()
+  const { editingTaskId, setEditingTask, displayView } = useAgendaStore()
+  const { resources } = useAgendaData()
   const [searchTerm, setSearchTerm] = useState('')
 
   const filteredResourceIds = useMemo(() => {

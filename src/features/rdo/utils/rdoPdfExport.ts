@@ -38,6 +38,10 @@ function fmtDate(d: string) {
   return `${day}/${m}/${y}`
 }
 
+function getRdoTitle(rdo: RDO) {
+  return rdo.title?.trim() || `RDO #${rdo.number}`
+}
+
 export function printRdoPDF(rdo: RDO) {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
@@ -69,10 +73,25 @@ export function printRdoPDF(rdo: RDO) {
     ? rdo.equipment.map((e) => `
         <tr>
           <td>${e.name}</td>
+          <td>${[e.code, e.type].filter(Boolean).join(' / ') || 'â€”'}</td>
           <td style="text-align:center">${e.quantity}</td>
           <td style="text-align:center">${e.hours}h</td>
-        </tr>`).join('')
-    : '<tr><td colspan="3" style="color:#6b7280;font-style:italic">Nenhum equipamento</td></tr>'
+          <td>${e.operator || 'â€”'}</td>
+          <td>${e.notes || e.front || 'â€”'}</td>
+        </tr>`).join('') ?? ''
+    : '<tr><td colspan="6" style="color:#6b7280;font-style:italic">Nenhum equipamento</td></tr>'
+
+  const materialsHtml = (rdo.materials?.length ?? 0) > 0
+    ? rdo.materials?.map((m) => `
+        <tr>
+          <td>${m.material}</td>
+          <td style="text-align:center">${m.quantity}</td>
+          <td style="text-align:center">${m.unit || 'â€”'}</td>
+          <td style="text-align:right">${(Number(m.unitCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+          <td style="text-align:right">${(Number(m.totalCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+          <td>${m.stockItemId ? 'Suprimentos' : (m.source || 'Manual')}</td>
+        </tr>`).join('') ?? ''
+    : '<tr><td colspan="6" style="color:#6b7280;font-style:italic">Nenhum material</td></tr>'
 
   const servicesHtml = rdo.services.length
     ? rdo.services.map((s) => `
@@ -162,7 +181,7 @@ export function printRdoPDF(rdo: RDO) {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <title>RDO #${rdo.number} — ${fmtDate(rdo.date)}</title>
+  <title>${getRdoTitle(rdo)} — ${fmtDate(rdo.date)}</title>
   <style>
     @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -276,7 +295,7 @@ export function printRdoPDF(rdo: RDO) {
       : `<div class="cover-logo">R</div>`
     }
     <div>
-      <div class="cover-title">Relatório Diário de Obra</div>
+      <div class="cover-title">${getRdoTitle(rdo)}</div>
       <div class="cover-sub">${companyName} · Módulo RDO</div>
     </div>
     <div class="cover-badges">
@@ -342,8 +361,17 @@ export function printRdoPDF(rdo: RDO) {
   <div class="section">
     <div class="section-header"><span class="section-icon">🚜</span> Equipamentos</div>
     <table>
-      <thead><tr><th>Equipamento</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Horas</th></tr></thead>
+      <thead><tr><th>Equipamento</th><th>Cadastro</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Horas</th><th>Operador</th><th>Frente / obs.</th></tr></thead>
       <tbody>${equipHtml}</tbody>
+    </table>
+  </div>
+
+  <!-- 3b. Materiais -->
+  <div class="section">
+    <div class="section-header"><span class="section-icon">📦</span> Materiais e Insumos</div>
+    <table>
+      <thead><tr><th>Material</th><th style="text-align:center">Qtd.</th><th style="text-align:center">Un.</th><th style="text-align:right">Unit.</th><th style="text-align:right">Total</th><th>Origem</th></tr></thead>
+      <tbody>${materialsHtml}</tbody>
     </table>
   </div>
 
@@ -469,7 +497,7 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
     <div class="cover">
       <div class="cover-logo">R</div>
       <div>
-        <div class="cover-title">Relatório Diário de Obra</div>
+        <div class="cover-title">${getRdoTitle(rdo)}</div>
         <div class="cover-sub">Construdata · Módulo RDO</div>
       </div>
       <div class="cover-badges">
