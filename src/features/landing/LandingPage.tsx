@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -17,6 +17,7 @@ import {
   PackageCheck,
   Plus,
   Ruler,
+  Search,
   ShieldCheck,
   Sparkles,
   Users,
@@ -26,14 +27,13 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
-import hero1Img from '@/assets/hero1.png'
-import hero2Img from '@/assets/hero2.png'
-import hero3Img from '@/assets/hero3.png'
+import { HeroConstructionScene } from './illustrations/HeroConstructionScene'
+import { ObraOntologyDiagram } from './illustrations/ObraOntologyDiagram'
 
-const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 const LOGIN_URL = '/login'
-const LINKEDIN_ARTICLE_URL =
-  'https://www.linkedin.com/posts/construdatasoftware_activity-7454469394803531776-O9rE?utm_source=share&utm_medium=member_desktop&rcm=ACoAAErBDOwBwdLxQtMem1Gp0OBHExuydnHDjKg'
+const DEMO_ANCHOR = '#solicitar'
+const HOW_ANCHOR = '#como-entramos'
+const MICROCOPY = 'A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil, sem compromisso.'
 
 type ModuleCategory = 'gestao' | 'planejamento' | 'campo' | 'projetos' | 'suprimentos'
 type ModulePain = 'avanco' | 'planilhas' | 'custo' | 'diretoria'
@@ -51,24 +51,39 @@ interface ModuleItem {
   connected: string[]
 }
 
-const heroImages = [hero1Img, hero2Img, hero3Img]
+const heroCards = [
+  {
+    icon: Building2,
+    name: 'Obra Orla Marítima',
+    role: 'Saneamento · 6 frentes ativas',
+    rows: [
+      ['RDO de hoje', 5, '12 frentes'],
+      ['Medição', 4, '87% conferido'],
+      ['Qualidade', 5, 'sem NC'],
+    ] as Array<[string, number, string]>,
+  },
+  {
+    icon: Layers3,
+    name: 'Núcleo Vila Nova',
+    role: 'Infraestrutura · 5 equipes',
+    rows: [
+      ['Planejamento', 5, 'no prazo'],
+      ['Suprimentos', 4, '2 alertas'],
+      ['Avanço físico', 5, '93%'],
+    ] as Array<[string, number, string]>,
+  },
+]
 
-const valueProofCards = [
-  {
-    metric: '20+ Módulos Conectados',
-    title: 'Reduza retrabalho entre campo e escritório',
-    copy: 'O dado nasce no RDO, na medição, no planejamento ou em suprimentos e segue conectado até a gestão executiva.',
-  },
-  {
-    metric: '100% Origem Rastreável',
-    title: 'Conecte RDO, medição, planejamento e suprimentos',
-    copy: 'Serviço, local, equipe, evidência, material e custo usam a mesma base operacional para evitar versões paralelas.',
-  },
-  {
-    metric: 'Dados em Tempo Real',
-    title: 'Tenha rastreabilidade executiva por obra',
-    copy: 'A diretoria acompanha avanço, pendências, custo e risco com contexto de campo, sem esperar consolidação manual.',
-  },
+const consequences: Array<[string, string]> = [
+  ['20+ módulos conectados', 'O dado nasce no RDO, na medição, no planejamento ou em suprimentos e segue conectado até a diretoria.'],
+  ['Origem 100% rastreável', 'Serviço, local, equipe, evidência, material e custo na mesma base, sem versões paralelas.'],
+  ['Tempo real', 'A diretoria acompanha avanço, pendência, custo e risco com contexto de campo, sem esperar consolidação manual.'],
+]
+
+const comoEntramosSteps: Array<{ index: string; title: string; copy: string; icon: LucideIcon }> = [
+  { index: '01', title: 'Diagnóstico', icon: Search, copy: 'Acompanhamos os processos reais, do canteiro ao escritório, e mapeamos onde a informação nasce, circula e se perde hoje.' },
+  { index: '02', title: 'Otimização', icon: Sparkles, copy: 'Identificamos gargalos, retrabalhos e pontos cegos e desenhamos com você os processos de melhoria, ajustados ao seu tipo de obra e contrato.' },
+  { index: '03', title: 'Conexão', icon: DatabaseZap, copy: 'Ligamos suas fontes em uma única base operacional e ativamos as decisões: medição, avanço, custo, qualidade e suprimentos falando a mesma língua.' },
 ]
 
 const modulePainTabs: Array<{
@@ -119,7 +134,7 @@ const modulePainTabs: Array<{
   },
   {
     id: 'diretoria',
-    label: 'Preciso prestar contas para diretoria',
+    label: 'Preciso prestar contas para a diretoria',
     title: 'Prestação de contas executiva',
     challenge:
       'Diretoria, cliente e fiscalização precisam de uma visão confiável, mas os dados chegam fragmentados, sem trilha clara de origem e decisão.',
@@ -138,7 +153,7 @@ const modules: ModuleItem[] = [
     icon: Layers3,
     title: 'Gestão 360',
     kicker: 'Diretoria em tempo real',
-    copy: 'Consolida CPI, SPI, curva S, alertas, custo, prazo e avanço físico-financeiro por obra.',
+    copy: 'Consolida CPI/SPI (índices de custo e prazo), curva S, alertas, custo, prazo e avanço físico-financeiro por obra.',
     how: 'Cruza RDO, medição, planejamento, EVM e pendências para formar uma visão executiva única por contrato, obra e frente.',
     efficiency: 'Reduz apuração manual e antecipa decisões de portfólio, caixa, prazo e prioridade antes do fechamento do mês.',
     features: ['Curva S executiva', 'Indicadores CPI/SPI', 'Alertas por exceção'],
@@ -186,7 +201,7 @@ const modules: ModuleItem[] = [
     icon: BrainCircuit,
     title: 'LPS / Lean',
     kicker: 'Last Planner nativo',
-    copy: 'Look-ahead, restrições, compromissos, PPC e causas de não cumprimento conectados ao cronograma real.',
+    copy: 'Look-ahead, restrições, compromissos, PPC (programação cumprida) e causas de não cumprimento conectados ao cronograma real.',
     how: 'Transforma restrições, compromissos semanais, causas de falha e PPC em sinais conectados ao planejamento mestre.',
     efficiency: 'Antecipa bloqueios antes que virem atraso e melhora o cumprimento dos pacotes de trabalho no canteiro.',
     features: ['Look-ahead 6 semanas', 'PPC semanal', 'Restrições conectadas'],
@@ -270,7 +285,7 @@ const modules: ModuleItem[] = [
     icon: BadgeDollarSign,
     title: 'Quantitativos',
     kicker: 'Orçamento para execução',
-    copy: 'Itens, composições, bases SINAPI/SEINFRA e N. Preço viram referência para planejamento, medição e EVM.',
+    copy: 'Itens, composições, bases SINAPI/SEINFRA e N. Preço viram referência para planejamento, medição e EVM (valor agregado).',
     how: 'Estrutura unidades, composições, memória de cálculo, bases de preço e vínculo com serviços executáveis.',
     efficiency: 'Acelera orçamento, reduz erro de levantamento e cria referência confiável para medir avanço e custo.',
     features: ['SINAPI e SEINFRA', 'BDI e composições', 'Exportação estruturada'],
@@ -302,38 +317,58 @@ const modules: ModuleItem[] = [
   },
 ]
 
-const impactRows = [
-  ['(0.1) Ganhe uma Vantagem Desleal', 'Redução de 3-5% no custo total sobre o faturamento.', 'Otimização de suprimentos e eliminação de perdas por erros de faturamento via Three-Way Match.'],
-  ['(0.2) Entregue com Velocidade', 'Controle total da sua obra em dias, não meses.', 'Integração instantânea de cronogramas, planejamento, financeiro e execução do campo na mesma ontologia de dados.'],
-  ['(0.3) Economize Tempo', 'Redução de 80% no tempo de orçamentação.', 'Automação de processos de alocação e ciclos de relatórios em tempo real, com RDO digital.'],
-  ['(0.4) Fortaleça sua Cadeia', 'Queda de 40% nos riscos de falta de material.', 'Alertas preditivos e monitoramento proativo de interrupções na cadeia de suprimentos.'],
-  ['(0.5) Controle do Avanço Físico-Financeiro', 'Controle todas as decisões financeiras dentro da sua obra.', 'Integração dos módulos e das decisões da obra dentro do sistema, para controle financeiro total de cada setor e núcleo.'],
+const impactRows: Array<[string, string, string]> = [
+  ['Custo sob controle', 'Redução observada de 3–5% no custo total sobre o faturamento', 'Otimização de suprimentos e fim de perdas por erro de faturamento via conferência tripla (pedido × recebimento × nota).'],
+  ['Entrega com velocidade', 'Controle total da obra em dias, não em meses', 'Cronograma, planejamento, financeiro e campo na mesma base operacional, em tempo real.'],
+  ['Tempo economizado', 'Até 80% menos tempo de orçamentação', 'Automação de alocação e ciclos de relatórios em tempo real a partir do RDO digital.'],
+  ['Cadeia mais forte', 'Até 40% menos risco de falta de material', 'Alertas preditivos e monitoramento proativo de interrupções na cadeia de suprimentos.'],
+  ['Avanço físico-financeiro', 'Cada decisão financeira sob controle, por setor e núcleo', 'As decisões da obra acontecem dentro do sistema, com rastreabilidade por frente.'],
 ]
 
-const differentiators = [
-  ['01', 'Ontologia da construção', 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo operacional em todos os módulos.'],
-  ['02', 'Loop de feedback rápido', 'O que o campo registra no RDO alimenta medição, qualidade, planejamento, gestão e relatórios sem retrabalho.'],
-  ['03', 'LPS / Lean nativo', 'Last Planner System com look-ahead de 6 semanas, PPC semanal, restrições, compromissos e causas de não cumprimento conectados ao cronograma real.'],
+const differentiators: Array<[string, string, string]> = [
+  ['01', 'Base operacional única', 'Obra, frente, serviço, equipe, material, prazo, custo e evidência seguem o mesmo modelo em todos os módulos.'],
+  ['02', 'Loop de feedback rápido', 'O que o campo registra no RDO alimenta medição, qualidade, planejamento e relatórios sem retrabalho.'],
+  ['03', 'LPS / Lean nativo', 'Last Planner System com look-ahead de 6 semanas, PPC semanal (percentual de programação cumprida), restrições e causas de não cumprimento ligados ao cronograma real.'],
   ['04', 'Decisão antes do relatório', 'A plataforma cruza dados e aponta a próxima ação antes que o problema vire atraso, glosa ou custo oculto.'],
 ]
 
-const audience = [
-  ['Construtoras de médio porte', 'A diretoria enxerga resultado tarde demais, depois que planilha, RDO e financeiro já divergiram.', 'O ConstruData cria uma base operacional única para acompanhar campo, medição, custo e prazo por obra.'],
+const audience: Array<[string, string, string]> = [
+  ['Construtoras de médio porte', 'A diretoria vê o resultado tarde, depois que planilha, RDO e financeiro já divergiram.', 'Uma base operacional única para acompanhar campo, medição, custo e prazo por obra.'],
   ['Saneamento e infraestrutura', 'Serviços por rua, núcleo, OS e evidência ficam espalhados entre equipes, fiscais e medição.', 'RDO, mapa, cronograma e medição usam os mesmos códigos, locais e evidências para reduzir retrabalho.'],
-  ['EPC e consórcios', 'Várias empresas participam da entrega, mas a governança precisa de rastreabilidade e permissão por perfil.', 'A plataforma organiza empresas, usuários, aprovações, evidências e auditoria em ambiente multiempresa.'],
+  ['Engenharia ambiental', 'Condicionantes, monitoramento e prazos de órgão dependem de evidência rastreável e relatórios de conformidade.', 'Evidências com origem e contexto, ligadas a avanço, qualidade e prazo de cada frente.'],
+  ['EPC e consórcios', 'Várias empresas entregam juntas e a governança precisa de rastreabilidade e permissão por perfil.', 'Empresas, usuários, aprovações, evidências e auditoria organizados em ambiente multiempresa.'],
   ['Empreiteiras', 'A produção executada no campo demora para virar medição defensável com memória e anexos.', 'O RDO finalizado gera rascunho de medição por empreiteiro, núcleo, serviço e evidência para conferência.'],
 ]
 
-const autonomyCards = [
-  ['No canteiro', 'O engenheiro', 'decide melhor sobre o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.'],
-  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido, priorização de obra e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.'],
+const autonomyCards: Array<[string, string, string]> = [
+  ['No canteiro', 'O engenheiro', 'decide melhor o que registrar, o que medir e qual restrição abrir, porque vê o impacto da decisão no cronograma, na medição e na qualidade.'],
+  ['No escritório', 'O gerente', 'decide melhor sobre realocação de equipe, aprovação de pedido e risco de prazo, porque acompanha CPI/SPI sem depender de relatório manual.'],
   ['No celular', 'O diretor', 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.'],
 ]
 
-const testimonials = [
-  ['Felipe Nery', 'Engenheiro Engelfer', 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.'],
-  ['Fabrizzio de Paoli', 'Consórcio Se Liga Na Rede', 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.'],
-  ['Matheus Marques', 'Vila Rica Engenharia', 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.'],
+const testimonials: Array<{ name: string; role: string; segment: string; quote: string; result: string; hasNumber?: boolean }> = [
+  {
+    name: 'Fabrizzio de Paoli',
+    role: 'Consórcio Se Liga Na Rede',
+    segment: 'Saneamento',
+    quote: 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.',
+    result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e adaptando o sistema a cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia — com um único módulo.',
+    hasNumber: true,
+  },
+  {
+    name: 'Felipe Nery',
+    role: 'Engenheiro · Engelfer',
+    segment: 'Edificação',
+    quote: 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.',
+    result: 'Entramos na obra, ouvimos as equipes e adaptamos o sistema a cada frente — do RDO à medição — antes de conectar tudo.',
+  },
+  {
+    name: 'Matheus Marques',
+    role: 'Vila Rica Engenharia',
+    segment: 'Construção civil',
+    quote: 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.',
+    result: 'Entramos na obra, mapeamos os processos e identificamos melhorias, adaptando a plataforma ao contexto de cada equipe.',
+  },
 ]
 
 const logos = [
@@ -343,49 +378,21 @@ const logos = [
   ['/logos/social-proof/engelfer-selo.png', 'Engelfer Engenharia'],
 ]
 
-const faqs = [
-  ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A implantação pode começar absorvendo as planilhas, PDFs, fotos e controles que a empresa já usa. O sistema organiza essas informações, preserva a origem dos dados e transforma o que antes era planilha solta em base rastreável para medição, planejamento, RDO, qualidade e gestão executiva.'],
-  ['O RDO fecha automaticamente a medição?', 'O RDO pode alimentar a medição quando existe vínculo suficiente entre serviço, local, quantidade, período, equipe e evidência. Mesmo assim, o fechamento continua exigindo revisão humana. A lógica é acelerar a conferência e reduzir retrabalho, sem tirar o controle técnico e financeiro de quem aprova.'],
-  ['Funciona para saneamento e infraestrutura?', 'Sim. A estrutura foi pensada para contratos com núcleos, ruas, trechos, frentes de serviço, OS, equipes, materiais, fotos e medições por período. O mapa, o RDO e a medição usam a mesma chave operacional para reduzir divergência entre campo, fiscalização e escritório.'],
-  ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. O ConstruData foi desenhado para conectar bases técnicas, composições, orçamento, modelos BIM, cronogramas e execução real. A ideia não é trocar todos os sistemas de uma vez, mas criar uma camada operacional que faça esses dados conversarem com menos retrabalho.'],
-  ['Como começa uma obra nova?', 'Uma obra normalmente começa com contrato, proposta, orçamento, cronograma, frentes ou núcleos, responsáveis, fornecedores, subempreiteiros, critérios de medição e modelo de RDO. A partir disso, o sistema cria a base para acompanhar avanço, pendências, evidências, equipe, equipamentos, qualidade e suprimentos.'],
+const faqs: Array<[string, string]> = [
+  ['Quanto tempo leva para implantar?', 'Depende da qualidade dos dados e do escopo inicial. Uma implantação enxuta pode começar por uma obra, um fluxo e poucos módulos críticos. Conforme os dados são validados, a empresa amplia para planejamento, qualidade, suprimentos, EVM, BIM e gestão executiva — em semanas, não meses.'],
+  ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A implantação pode começar absorvendo as planilhas, PDFs, fotos e controles que a empresa já usa. Ele organiza essas informações, preserva a origem dos dados e transforma o que antes era planilha solta em base rastreável para medição, planejamento, RDO, qualidade e gestão executiva.'],
   ['Preciso mudar todos os processos antes de usar?', 'Não. A implantação pode ser progressiva. Primeiro entram os dados essenciais e os fluxos mais críticos, como RDO, medição, planejamento ou suprimentos. Depois a empresa amadurece os demais módulos conforme a operação ganha confiança e padronização.'],
+  ['Funciona para saneamento, infraestrutura e engenharia ambiental?', 'Sim. A estrutura foi pensada para contratos com núcleos, ruas, trechos, frentes de serviço, OS, equipes, materiais, fotos e medições por período — incluindo condicionantes e relatórios de conformidade ambiental. O mapa, o RDO e a medição usam a mesma chave operacional para reduzir divergência entre campo, fiscalização e escritório.'],
+  ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. Ele foi desenhado para conectar bases técnicas, composições, orçamento, modelos BIM, cronogramas e execução real. A ideia não é trocar todos os sistemas de uma vez, mas criar uma camada operacional que faça esses dados conversarem com menos retrabalho.'],
+  ['Como começa uma obra nova?', 'Uma obra normalmente começa com contrato, proposta, orçamento, cronograma, frentes ou núcleos, responsáveis, fornecedores, subempreiteiros, critérios de medição e modelo de RDO. A partir disso, o sistema cria a base para acompanhar avanço, pendências, evidências, equipe, equipamentos, qualidade e suprimentos.'],
+  ['O RDO fecha automaticamente a medição?', 'O RDO pode alimentar a medição quando existe vínculo suficiente entre serviço, local, quantidade, período, equipe e evidência. Mesmo assim, o fechamento continua exigindo revisão humana. A lógica é acelerar a conferência e reduzir retrabalho, sem tirar o controle técnico e financeiro de quem aprova.'],
   ['Quem consegue usar no campo pelo celular?', 'Engenheiros, encarregados, técnicos, fiscais e equipes autorizadas podem registrar informações pelo celular, conforme permissões da empresa. A experiência é pensada para o canteiro: poucos cliques, campos objetivos, fotos, ocorrências, equipe, equipamentos e serviços executados.'],
   ['Como o ConstruData evita dados falsos ou sem origem?', 'Cada informação importante precisa manter vínculo com origem, responsável, data, obra, frente, serviço e evidência quando aplicável. O sistema diferencia rascunho, dado importado, dado validado e dado aprovado, criando uma trilha de auditoria para reduzir discussões no fechamento.'],
   ['É possível controlar várias empresas ou obras na mesma conta?', 'Sim. O ambiente é multiempresa e multiobra. Usuários globais ou administradores podem alternar entre empresas autorizadas, enquanto cada equipe comum acessa apenas o que foi liberado por perfil, organização e permissão.'],
   ['O sistema serve para empreiteiros e subcontratados?', 'Sim. Empreiteiros podem ter controles de produção, evidências, medições, pendências e aprovações vinculadas ao contrato. Isso ajuda a tornar o fechamento mais claro, com menos troca de mensagens e menos divergência sobre o que foi executado.'],
   ['O que acontece quando falta informação para criar uma obra completa?', 'O sistema pode trabalhar com checklist de pendências. O que já existe entra como base, e o que falta fica sinalizado: contrato final, endereço, áreas, quantitativos, cronograma, responsáveis, fornecedores, critérios de aceite, fotos iniciais e regras de medição.'],
-  ['Quanto tempo leva para implantar?', 'Depende da qualidade dos dados e do escopo inicial. Uma implantação enxuta pode começar por uma obra, um fluxo e poucos módulos críticos. Conforme os dados são validados, a empresa amplia para planejamento, qualidade, suprimentos, EVM, BIM e gestão executiva.'],
   ['O ConstruData usa IA para tomar decisões sozinho?', 'Não. A IA ajuda a organizar dados, identificar riscos, sugerir pendências, resumir documentos e apontar inconsistências. Decisões críticas, aprovações, medições e alterações contratuais continuam passando por confirmação humana.'],
   ['Como sei se o sistema está gerando eficiência de verdade?', 'A eficiência aparece em indicadores práticos: menos tempo para fechar medição, menos planilhas paralelas, menos RDO incompleto, maior previsibilidade de prazo, menos falta de material, menos retrabalho de conferência e mais decisões tomadas com dado de campo rastreável.'],
-]
-
-const ontologyCards: Array<{ icon: LucideIcon; title: string; copy: string }> = [
-  {
-    icon: Layers3,
-    title: 'Funções centrais conectadas',
-    copy: 'A Ontologia da Construção integra todas as funções centrais, da pré-construção ao suprimento, execução no canteiro e encerramento do projeto, através de uma camada semântica unificada.',
-  },
-  {
-    icon: DatabaseZap,
-    title: 'Objetos de negócio compartilhados',
-    copy: 'Em sua essência, a Ontologia padroniza como os departamentos interagem com objetos de negócio compartilhados, como projetos, atividades, equipamentos e subempreiteiros, garantindo definições consistentes e sincronização em tempo real em toda a empresa.',
-  },
-  {
-    icon: FileText,
-    title: 'Campo-primeiro',
-    copy: 'Construída sob uma perspectiva "campo-primeiro", a Ontologia conecta o que acontece no canteiro de obras aos sistemas que o suportam (ERP, BIM, Cronogramas) em um ambiente low-code acessível a todos os usuários, independentemente do background técnico.',
-  },
-  {
-    icon: BrainCircuit,
-    title: 'IA aplicada à execução',
-    copy: 'O ConstruData faz a ponte entre plataformas fundamentais e casos de uso críticos. Ela permite decisões baseadas em IA que preveem atrasos no cronograma antes que ocorram, aceleram o alinhamento de fornecedores e sintetizam a entrega do projeto com metas de segurança, orçamento e prazo, reduzindo o risco em toda a execução, enquanto preserva seus investimentos tecnológicos existentes.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Na prática',
-    copy: 'Quando o engenheiro atualiza o RDO no campo, o cronograma, o EVM e os suprimentos se ajustam automaticamente - sem retrabalho, sem planilhas paralelas.',
-  },
 ]
 
 function useScrollReveal() {
@@ -408,8 +415,8 @@ function useScrollReveal() {
   }, [])
 }
 
-/* Palantir-style section header: numbered monospace eyebrow, large grotesque
-   headline left-aligned, supporting copy on the right, thin hairline below. */
+/* Section header: numbered monospace eyebrow, large grotesque headline left,
+   supporting copy on the right, thin hairline below. */
 function SectionHeader({
   index,
   eyebrow,
@@ -441,34 +448,23 @@ function SectionHeader({
   )
 }
 
-/* Palantir-style arrow link: arrow slides on hover */
-function ArrowLink({
-  href,
-  children,
-  external = false,
-  variant = 'text',
-}: {
-  href: string
-  children: ReactNode
-  external?: boolean
-  variant?: 'text' | 'solid' | 'outline'
-}) {
-  const base = 'group inline-flex items-center gap-2.5 transition-colors'
-  const styles =
-    variant === 'solid'
-      ? 'min-h-12 bg-[#0a0a0a] px-6 py-3.5 text-xs font-bold uppercase tracking-[0.12em] text-white hover:bg-[#f97316]'
-      : variant === 'outline'
-        ? 'min-h-12 border border-black/20 px-6 py-3.5 text-xs font-bold uppercase tracking-[0.12em] text-[#0a0a0a] hover:border-[#0a0a0a]'
-        : 'text-xs font-bold uppercase tracking-[0.12em] text-[#0a0a0a] hover:text-[#f97316]'
+/* Primary CTA — single label across the page; scrolls to the form. */
+function DemoCTA({ align = 'left', microcopy = true }: { align?: 'left' | 'center'; microcopy?: boolean }) {
   return (
-    <a
-      href={href}
-      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className={`${base} ${styles}`}
-    >
-      {children}
-      <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-    </a>
+    <div data-sr className={`flex flex-col gap-3 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <a
+          href={DEMO_ANCHOR}
+          className="group inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-7 py-4 text-sm font-black uppercase tracking-[0.1em] text-white shadow-[0_0_34px_rgba(249,115,22,0.22)] transition hover:-translate-y-0.5 hover:bg-[#ea580c]"
+        >
+          Solicitar demonstração <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
+        </a>
+        <a href={HOW_ANCHOR} className="group inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#0a0a0a] transition hover:text-[#f97316]">
+          Ver como funciona <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-1" />
+        </a>
+      </div>
+      {microcopy && <p className="max-w-md text-xs leading-5 text-black/45">{MICROCOPY}</p>}
+    </div>
   )
 }
 
@@ -483,10 +479,10 @@ function ModulesSection() {
   return (
     <section id="modulos" className="bg-[#f6f5f2] py-20 sm:py-32">
       <SectionHeader
-        index="05"
+        index="06"
         eyebrow="Módulos"
         title="Escolha o problema. Veja o módulo que resolve."
-        copy="Tudo conversando na mesma base, em tempo real. O dado de campo vira decisão executiva em segundos — e o gestor antecipa o problema antes que ele vire atraso, glosa ou custo oculto."
+        copy="Tudo conversando na mesma base, em tempo real. O dado de campo vira decisão em segundos — e o gestor antecipa o problema antes que ele vire atraso, glosa ou custo oculto."
       />
 
       <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
@@ -562,7 +558,7 @@ function ModulesSection() {
           </div>
         </div>
 
-        {/* All modules grid — invert-to-black on hover */}
+        {/* All modules grid */}
         <div className="mt-16">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-black/40">A plataforma completa — 14 módulos conectados</p>
           <div className="mt-6 grid grid-cols-1 border-t border-l border-black/10 sm:grid-cols-2 lg:grid-cols-3">
@@ -593,6 +589,10 @@ function ModulesSection() {
                 </article>
               )
             })}
+          </div>
+
+          <div className="mt-12">
+            <DemoCTA />
           </div>
         </div>
       </div>
@@ -629,41 +629,47 @@ function Input({
   )
 }
 
-function HeroCarousel() {
-  const [current, setCurrent] = useState(0)
-  const [previous, setPrevious] = useState<number | null>(null)
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setCurrent((index) => {
-        setPrevious(index)
-        return (index + 1) % heroImages.length
-      })
-    }, 5000)
-    return () => window.clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (previous === null) return
-    const timeout = window.setTimeout(() => setPrevious(null), 1100)
-    return () => window.clearTimeout(timeout)
-  }, [previous])
-
+/** Floating insight cards over the hero illustration (light). */
+function HeroInsightCards() {
   return (
-    <div className="absolute inset-0">
-      {previous !== null && previous !== current && (
-        <div
-          key={`previous-${heroImages[previous]}`}
-          className="absolute inset-0 bg-cover bg-[position:56%_center] sm:bg-center"
-          style={{ backgroundImage: `url(${heroImages[previous]})` }}
-        />
-      )}
-      <div
-        key={`current-${heroImages[current]}`}
-        className="absolute inset-0 animate-[heroFade_1s_ease-out] bg-cover bg-[position:56%_center] sm:bg-center"
-        style={{ backgroundImage: `url(${heroImages[current]})` }}
-      />
-    </div>
+    <>
+      {heroCards.map((card, i) => {
+        const CardIcon = card.icon
+        return (
+          <div
+            key={card.name}
+            className={`pointer-events-none absolute hidden w-64 border border-black/10 bg-white/95 p-4 shadow-[0_24px_60px_rgba(16,37,28,0.14)] backdrop-blur-sm lg:block ${
+              i === 0 ? 'left-0 top-6' : 'bottom-2 right-0'
+            }`}
+          >
+            <div className="flex items-center gap-3 border-b border-black/10 pb-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f97316]/12 text-[#f97316]">
+                <CardIcon size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[#0a0a0a]">{card.name}</p>
+                <p className="truncate text-[11px] text-black/45">{card.role}</p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2.5">
+              {card.rows.map(([label, filled, metric]) => (
+                <div key={label} className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-black/70">{label}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex gap-1">
+                      {[0, 1, 2, 3, 4].map((d) => (
+                        <span key={d} className={`size-2 rounded-full ${d < filled ? 'bg-[#22c55e]' : 'bg-black/15'}`} />
+                      ))}
+                    </div>
+                    <span className="w-20 text-right text-[10px] text-black/40">{metric}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </>
   )
 }
 
@@ -674,15 +680,10 @@ export function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
   const topSentinelRef = useRef<HTMLDivElement>(null)
 
-  // The landing may render inside a scroll container (not the window), so a
-  // window scroll listener never fires. An IntersectionObserver on a top
-  // sentinel works regardless of which element actually scrolls.
   useEffect(() => {
     const el = topSentinelRef.current
     if (!el) return
-    const observer = new IntersectionObserver(([entry]) => setScrolled(!entry.isIntersecting), {
-      threshold: 0,
-    })
+    const observer = new IntersectionObserver(([entry]) => setScrolled(!entry.isIntersecting), { threshold: 0 })
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
@@ -690,9 +691,6 @@ export function LandingPage() {
   useEffect(() => {
     const html = document.documentElement
     const previousTheme = html.getAttribute('data-theme')
-    // The landing paints every surface with explicit colors. Remove the app
-    // theme attribute so [data-theme] overrides in globals.css don't rewrite
-    // bg-white (dark mode) or text-white (light mode) on our own markup.
     html.removeAttribute('data-theme')
     return () => {
       if (previousTheme) html.setAttribute('data-theme', previousTheme)
@@ -733,221 +731,180 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white text-[#0a0a0a] antialiased">
-      <style>{`
-        @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-      `}</style>
+      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }`}</style>
 
-      {/* Sentinel: when it scrolls out the top, the header switches to solid white. */}
       <div ref={topSentinelRef} aria-hidden className="pointer-events-none h-px w-full" />
 
-      {/* ── Header (transparent over hero → solid white on scroll) ── */}
+      {/* ── Header (light) ── */}
       <header
         className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
-          scrolled ? 'border-b border-black/[0.08] bg-white/85 backdrop-blur-xl' : 'border-b border-transparent bg-transparent'
+          scrolled ? 'border-b border-black/[0.08] bg-[#f6f5f2]/90 backdrop-blur-xl' : 'border-b border-transparent bg-transparent'
         }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
-            <BrandLockup dark={scrolled} />
+            <BrandLockup dark />
           </a>
           <nav className="hidden items-center gap-8 lg:flex">
             {[
-              ['Ontologia', '#ontologia'],
+              ['Como funciona', HOW_ANCHOR],
+              ['Base operacional', '#ontologia'],
               ['Impacto', '#impacto'],
               ['Módulos', '#modulos'],
               ['Perfis', '#perfis'],
-              ['Contato', '#contato'],
+              ['FAQ', '#faq'],
             ].map(([label, href]) => (
-              <a
-                key={href}
-                href={href}
-                className={`font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition ${
-                  scrolled ? 'text-black/50 hover:text-[#0a0a0a]' : 'text-white/70 hover:text-white'
-                }`}
-              >
+              <a key={href} href={href} className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-black/50 transition hover:text-[#0a0a0a]">
                 {label}
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
-            <a
-              href={LOGIN_URL}
-              className={`hidden border px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.12em] transition sm:inline-flex ${
-                scrolled
-                  ? 'border-black/15 text-black/65 hover:border-[#0a0a0a] hover:text-[#0a0a0a]'
-                  : 'border-white/30 text-white/85 hover:border-white hover:text-white'
-              }`}
-            >
-              Acessar
+          <div className="flex items-center gap-4">
+            <a href={LOGIN_URL} className="hidden text-[11px] font-medium text-black/45 underline-offset-4 transition hover:text-[#0a0a0a] hover:underline sm:inline-flex">
+              Acessar plataforma
             </a>
             <a
-              href={CALENDLY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`group inline-flex items-center gap-2 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] transition sm:px-4 ${
-                scrolled ? 'bg-[#0a0a0a] text-white hover:bg-[#f97316]' : 'bg-white text-[#0a0a0a] hover:bg-white/90'
-              }`}
+              href={DEMO_ANCHOR}
+              className="group inline-flex items-center gap-2 bg-[#0a0a0a] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-[#f97316]"
             >
-              Demo <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
+              Solicitar demonstração <ArrowRight size={14} className="transition-transform duration-200 group-hover:translate-x-0.5" />
             </a>
           </div>
         </div>
       </header>
 
       <main>
-        {/* ── Hero (kept dark — striking construction imagery) ── */}
-        <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden bg-[#0d0d0d] pt-16 lg:min-h-screen">
-          <HeroCarousel />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.04)_0%,rgba(10,10,10,0.34)_44%,rgba(10,10,10,0.82)_100%)]" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,10,0.78)_0%,rgba(10,10,10,0.42)_48%,rgba(10,10,10,0.04)_100%)]" />
-          <div className="pointer-events-none absolute right-[4%] top-[14%] hidden h-72 w-72 rounded-full border border-white/18 lg:block" />
-          <div className="pointer-events-none absolute right-[10%] top-[20%] hidden h-[28rem] w-[28rem] rounded-full border border-white/10 lg:block" />
-          <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-0 pt-6 sm:px-5 md:px-10 lg:pt-24">
-            <div className="grid flex-1 items-end gap-10 py-7 sm:py-10 lg:grid-cols-[0.58fr_0.42fr] lg:py-16">
-              <div className="flex max-w-3xl animate-[fadeIn_0.7s_ease-out] flex-col items-start justify-end space-y-4 text-left sm:space-y-5">
-                <Badge
-                  className="max-w-full rounded-none border-white/18 bg-white/10 px-3 py-1 text-left text-[10px] leading-4 text-[#f97316] backdrop-blur-md sm:px-4 sm:text-xs"
-                  variant="outline"
-                >
-                  Plataforma de Planejamento e Gestão da Execução da Obra
-                </Badge>
-                <h1 className="font-['Space_Grotesk'] text-4xl font-medium leading-[0.95] tracking-[-0.02em] text-white sm:text-6xl lg:text-7xl">
-                  ConstruData
-                </h1>
-                <p className="max-w-2xl font-['Space_Grotesk'] text-xl font-medium leading-tight tracking-[-0.01em] text-white sm:text-3xl lg:text-4xl">
-                  Automação Alimentada por IA para cada Decisão na Construção.
-                </p>
-                <p className="max-w-2xl text-sm leading-7 text-[#f97316] sm:text-base md:text-lg md:leading-8">
-                  Tecnologia boa consegue realizar tarefas que você precisa fazer mais rápido. Mas excelentes tecnologias te permitem realizar coisas que você não conseguia antes.
-                </p>
-                <p className="max-w-2xl text-sm leading-7 text-white/80 sm:text-base md:leading-7">
-                  Todos os dados da sua obra conversando em tempo real — campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional. O tomador de decisões antecipa problemas antes que virem atraso, glosa ou custo oculto.
-                </p>
-                <div className="h-[2px] w-14 bg-[#f97316]" />
-                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                  <a
-                    href={CALENDLY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white shadow-[0_0_34px_rgba(249,115,22,0.28)] transition hover:-translate-y-0.5 hover:bg-[#ea580c] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
-                  >
-                    Ver como funciona <ArrowRight size={17} className="transition-transform duration-200 group-hover:translate-x-1" />
-                  </a>
-                  <a
-                    href={LOGIN_URL}
-                    className="inline-flex min-h-12 items-center justify-center border border-white/24 bg-white/10 px-5 py-3 text-xs font-black uppercase tracking-[0.08em] text-white backdrop-blur-md transition hover:-translate-y-0.5 hover:border-[#f97316] sm:px-7 sm:py-4 sm:text-sm sm:tracking-[0.1em]"
-                  >
-                    Acessar plataforma
-                  </a>
-                </div>
+        {/* ── Hero (light, illustrated) ── */}
+        <section className="relative overflow-hidden bg-[#f6f5f2] pt-28 sm:pt-32">
+          <div className="mx-auto max-w-5xl px-5 text-center md:px-10">
+            <div data-sr className="flex flex-col items-center">
+              <Badge variant="outline" className="rounded-none border-black/15 bg-white px-4 py-1 text-[11px] font-bold text-[#f97316]">
+                Plataforma de planejamento e gestão da execução de obras
+              </Badge>
+              <h1 className="mt-6 max-w-4xl font-['Space_Grotesk'] text-4xl font-medium leading-[1.02] tracking-[-0.02em] text-[#0a0a0a] sm:text-6xl lg:text-7xl">
+                Cada decisão da obra movida a dados conectados — não a planilhas soltas.
+              </h1>
+              <p className="mt-6 max-w-2xl text-base leading-7 text-black/60 sm:text-lg">
+                Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
+              </p>
+              <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border border-[#f97316]/30 bg-[#f97316]/[0.06] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-[#b4540f]">
+                <span>Adaptada à sua obra antes de tudo</span>
+                <span className="text-[#f97316]">·</span>
+                <span>Implantação em semanas, não meses</span>
               </div>
-
-              <div className="hidden lg:block">
-                <div className="ml-auto max-w-sm space-y-6 pb-14">
-                  {[
-                    {
-                      icon: Building2,
-                      name: 'Obra Orla Marítima',
-                      role: 'Saneamento · 6 frentes ativas',
-                      offset: '',
-                      rows: [
-                        ['RDO de hoje', 5, '12 frentes'],
-                        ['Medição', 4, '87% conferido'],
-                        ['Qualidade', 5, 'sem NC'],
-                      ] as Array<[string, number, string]>,
-                    },
-                    {
-                      icon: Layers3,
-                      name: 'Núcleo Vila Nova',
-                      role: 'Infraestrutura · 5 equipes',
-                      offset: 'translate-x-8',
-                      rows: [
-                        ['Planejamento', 5, 'no prazo'],
-                        ['Suprimentos', 4, '2 alertas'],
-                        ['Avanço físico', 5, '93%'],
-                      ] as Array<[string, number, string]>,
-                    },
-                  ].map(({ icon: CardIcon, name, role, offset, rows }) => (
-                    <div
-                      key={name}
-                      className={`border border-white/12 bg-[#161616]/85 p-4 shadow-2xl backdrop-blur-md transition hover:-translate-y-1 hover:border-[#f97316]/40 ${offset}`}
-                    >
-                      <div className="flex items-center gap-3 border-b border-white/10 pb-3">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f97316]/15 text-[#f97316]">
-                          <CardIcon size={18} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">{name}</p>
-                          <p className="truncate text-[11px] text-white/55">{role}</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 space-y-2.5">
-                        {rows.map(([label, filled, metric]) => (
-                          <div key={label} className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-white/80">{label}</span>
-                            <div className="flex items-center gap-2.5">
-                              <div className="flex gap-1">
-                                {[0, 1, 2, 3, 4].map((d) => (
-                                  <span key={d} className={`size-2 rounded-full ${d < filled ? 'bg-[#22c55e]' : 'bg-white/15'}`} />
-                                ))}
-                              </div>
-                              <span className="w-20 text-right text-[10px] text-white/45">{metric}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="mt-8">
+                <DemoCTA align="center" />
               </div>
             </div>
+          </div>
 
-            <div className="relative z-10 grid grid-cols-1 border-t border-white/14 bg-[#0a0a0a]/82 backdrop-blur-md sm:grid-cols-3 sm:divide-x sm:divide-white/14">
-              {valueProofCards.map((card, i) => (
-                <div key={card.metric} className="flex items-start gap-4 px-4 py-5 text-left sm:px-6 sm:py-7">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/25 font-mono text-[11px] font-bold text-white/70">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-[#f97316]">{card.metric}</p>
-                    <p className="mt-1.5 text-sm leading-6 text-white/85">{card.copy}</p>
+          {/* Illustration + floating insight cards */}
+          <div data-sr className="relative mx-auto mt-12 max-w-6xl px-4 sm:px-8">
+            <HeroInsightCards />
+            <HeroConstructionScene className="mx-auto max-w-5xl" />
+          </div>
+        </section>
+
+        {/* ── Faixa de logos ── */}
+        <section id="empresas" className="border-t border-black/[0.06] bg-white py-14 sm:py-16">
+          <p data-sr className="mx-auto max-w-3xl px-5 text-center text-sm leading-6 text-black/50 md:px-10">
+            Construtoras, consórcios e empresas de saneamento e infraestrutura já decidem com dados conectados na ConstruData.
+          </p>
+          <div className="relative mt-8 overflow-hidden">
+            <div className="pointer-events-none absolute left-0 z-20 h-full w-24 bg-gradient-to-r from-white" />
+            <div className="pointer-events-none absolute right-0 z-20 h-full w-24 bg-gradient-to-l from-white" />
+            <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
+              {logos.map(([src, alt]) => (
+                <div key={src} className="flex h-24 w-56 shrink-0 items-center justify-center border border-black/10 bg-white p-5 transition-colors duration-300 hover:border-black/30">
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-50 grayscale transition duration-300 hover:opacity-100 hover:grayscale-0" />
+                </div>
+              ))}
+            </Marquee>
+          </div>
+        </section>
+
+        {/* ── O problema ── */}
+        <section id="problema" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader index="01" eyebrow="O problema" title="O dado da sua obra existe. Espalhado, ele não decide nada." />
+          <div data-sr className="mx-auto mt-10 max-w-4xl px-5 md:px-10">
+            <p className="text-lg leading-8 text-black/65">
+              RDO num lugar, medição em planilha, suprimentos no e-mail, avanço no grupo de mensagens, custo no ERP. Quando alguém consolida tudo, a janela de decisão já passou — o atraso virou multa, a glosa virou prejuízo, a frente parada virou retrabalho. O problema raramente é falta de informação. É informação <strong className="font-semibold text-[#0a0a0a]">fragmentada, atrasada e desconectada da decisão</strong>.
+            </p>
+          </div>
+        </section>
+
+        {/* ── Como entramos na sua obra ── */}
+        <section id="como-entramos" className="bg-white py-20 sm:py-32">
+          <SectionHeader
+            index="02"
+            eyebrow="Como entramos na sua obra"
+            title="Não vendemos um sistema. Adaptamos a sua operação e a conectamos."
+            copy="A ConstruData não é um software que você configura sozinho e torce para dar certo. Nossa equipe entra na obra, entende como ela funciona de verdade e transforma isso em decisão — rápido."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-3 md:px-10">
+            {comoEntramosSteps.map((step, i) => {
+              const StepIcon = step.icon
+              return (
+                <article
+                  key={step.index}
+                  data-sr
+                  data-sr-delay={String(i + 1)}
+                  className="group relative border-b border-black/10 bg-white px-1 py-9 transition-colors duration-300 md:border-b-0 md:border-r md:px-7 md:[&:last-child]:border-r-0"
+                >
+                  <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-[#f97316]">{step.index}</span>
+                    <span className="flex size-10 items-center justify-center border border-black/15 text-[#f97316]"><StepIcon size={20} /></span>
                   </div>
+                  <h3 className="mt-6 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{step.title}</h3>
+                  <p className="mt-3 leading-7 text-black/60">{step.copy}</p>
+                </article>
+              )
+            })}
+          </div>
+          <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-6 px-5 md:flex-row md:items-center md:justify-between md:px-10">
+            <p data-sr className="max-w-xl font-['Space_Grotesk'] text-xl font-medium leading-snug tracking-[-0.01em] text-[#0a0a0a]">
+              Implantação em semanas, não em meses. Você não para a obra para "rodar um projeto de TI" — a ConstruData se adapta ao seu ritmo.
+            </p>
+            <DemoCTA />
+          </div>
+        </section>
+
+        {/* ── A base operacional única (ontologia) ── */}
+        <section id="ontologia" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader
+            index="03"
+            eyebrow="O diferencial técnico"
+            title="Uma base única onde campo, projeto, custo e prazo falam a mesma língua — em tempo real."
+            copy="No núcleo da ConstruData há um modelo operacional único — a ontologia da construção — que padroniza como obra, frente, serviço, equipe, material, prazo, custo e evidência se relacionam, em todos os módulos."
+          />
+          <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
+            <div data-sr className="grid items-center gap-8 border border-black/10 bg-white p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
+              <ObraOntologyDiagram />
+              <div>
+                <p className="text-base leading-7 text-black/65">
+                  Construído numa lógica <strong className="font-semibold text-[#0a0a0a]">campo-primeiro</strong>, ele conecta o que acontece no canteiro aos sistemas que o sustentam (ERP, BIM, cronograma) <strong className="font-semibold text-[#0a0a0a]">sem trocar o que você já usa</strong>. Quando o engenheiro atualiza o RDO, cronograma, medição e suprimentos se ajustam sozinhos — sem retrabalho, sem planilha paralela.
+                </p>
+              </div>
+            </div>
+            <div className="mt-8 grid grid-cols-1 border-t border-l border-black/10 sm:grid-cols-3">
+              {consequences.map(([metric, copy], i) => (
+                <div key={metric} data-sr data-sr-delay={String(i + 1)} className="border-b border-r border-black/10 bg-white p-7">
+                  <div className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{metric}</div>
+                  <p className="mt-3 text-sm leading-6 text-black/55">{copy}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ── Ontologia ── */}
-        <section id="ontologia" className="bg-white py-20 sm:py-32">
-          <SectionHeader index="01" eyebrow="A Ontologia da Construção" title="O Diferencial Técnico" copy="Uma camada semântica única faz campo, projeto, custo e prazo falarem a mesma língua — em tempo real." />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-2 xl:grid-cols-3">
-            {ontologyCards.map(({ icon: Icon, title, copy }, i) => (
-              <article
-                key={title}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="group relative border-b border-black/10 bg-white p-7 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:p-9 xl:[&:nth-child(3n)]:border-r-0"
-              >
-                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-                <div className="flex size-12 items-center justify-center border border-black/15 text-[#f97316] transition-colors duration-300 group-hover:border-[#f97316]">
-                  <Icon size={24} />
-                </div>
-                <h3 className="mt-9 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{title}</h3>
-                <p className="mt-4 leading-7 text-black/55">{copy}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Impacto ── */}
-        <section id="impacto" className="bg-[#f6f5f2] py-20 sm:py-32">
+        {/* ── Impacto real ── */}
+        <section id="impacto" className="bg-white py-20 sm:py-32">
           <SectionHeader
-            index="02"
-            eyebrow="Impacto real em escala"
-            title="Impacto Real em Escala"
-            copy="Ajudamos empresas de engenharia e construção a dominarem o mercado com dados conectados."
+            index="04"
+            eyebrow="Impacto real"
+            title="O que muda quando o dado de campo vira decisão."
+            copy="Ajudamos empresas de engenharia e construção a ganhar vantagem competitiva real com dados conectados. Números rotulados como faixa observada."
           />
           <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
             <div className="border-t border-black/10">
@@ -956,90 +913,68 @@ export function LandingPage() {
                   key={category}
                   data-sr
                   data-sr-delay={String((i % 3) + 1)}
-                  className="group grid gap-4 border-b border-black/10 py-8 transition-colors duration-200 hover:bg-white lg:grid-cols-[0.8fr_0.85fr_1.1fr] lg:items-center"
+                  className="group grid gap-4 border-b border-black/10 py-8 transition-colors duration-200 hover:bg-[#f6f5f2] lg:grid-cols-[0.7fr_1fr_1.1fr] lg:items-center"
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-xs font-bold text-[#f97316]">{String(i + 1).padStart(2, '0')}</span>
                     <h3 className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-black/55">{category}</h3>
                   </div>
-                  <p className="font-['Space_Grotesk'] text-2xl font-medium leading-[1.05] tracking-[-0.01em] text-[#0a0a0a] sm:text-3xl">{impact}</p>
+                  <p className="font-['Space_Grotesk'] text-2xl font-medium leading-[1.08] tracking-[-0.01em] text-[#0a0a0a]">{impact}</p>
                   <p className="leading-7 text-black/55">{how}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* ── Empresas ── */}
-        <section id="empresas" className="bg-white py-20 sm:py-32">
-          <SectionHeader index="03" eyebrow="Empresas que confiam no ConstruData" />
-          <div className="relative mt-12 overflow-hidden border-y border-black/10 py-10">
-            <div className="pointer-events-none absolute left-0 z-20 h-full w-24 bg-gradient-to-r from-white" />
-            <div className="pointer-events-none absolute right-0 z-20 h-full w-24 bg-gradient-to-l from-white" />
-            <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
-              {logos.map(([src, alt]) => (
-                <div
-                  key={src}
-                  className="flex h-28 w-64 shrink-0 items-center justify-center border border-black/10 bg-white p-5 transition-colors duration-300 hover:border-black/30"
-                >
-                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-50 grayscale transition duration-300 hover:opacity-100 hover:grayscale-0" />
-                </div>
-              ))}
-            </Marquee>
-          </div>
-        </section>
-
-        {/* ── Diferencial ── */}
-        <section id="diferencial" className="bg-[#0a0a0a] py-20 text-white sm:py-32">
-          <div className="mx-auto max-w-7xl px-5 md:px-10">
-            <div data-sr className="grid gap-6 border-b border-white/12 pb-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-              <div>
-                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">04 — Diferencial único</p>
-                <h2 className="mt-5 max-w-3xl font-['Space_Grotesk'] text-4xl font-medium leading-[1.02] tracking-[-0.02em] text-white sm:text-5xl lg:text-6xl">
-                  Todo mundo tem acesso a código. Nem todo mundo tem metodologia.
-                </h2>
-              </div>
-              <p className="max-w-xl text-base leading-7 text-white/55 lg:justify-self-end lg:text-right">
-                Dados de campo virando decisão executiva em segundos, não dias.
-              </p>
+            <div className="mt-10">
+              <DemoCTA />
             </div>
           </div>
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-white/12 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
+        </section>
+
+        {/* ── Diferencial único ── */}
+        <section id="diferencial" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader
+            index="05"
+            eyebrow="Diferencial único"
+            title="Todo mundo tem acesso a tecnologia. Nem todo mundo tem método."
+            copy="Dado de campo virando decisão executiva em segundos, não em dias."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4">
             {differentiators.map(([number, title, copy], i) => (
               <div
                 key={number}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group flex flex-col border-b border-white/12 p-7 transition-colors duration-300 hover:bg-white/[0.04] sm:border-r lg:min-h-[330px] lg:p-9 lg:[&:nth-child(4n)]:border-r-0"
+                className="group relative flex flex-col border-b border-black/10 bg-white px-6 py-9 transition-colors duration-300 hover:bg-white sm:border-r lg:min-h-[320px] lg:[&:nth-child(4n)]:border-r-0"
               >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <div className="flex items-center justify-between">
                   <div className="font-mono text-sm font-bold text-[#f97316]">{number}</div>
-                  <ShieldCheck className="size-5 text-white/25 transition-colors duration-300 group-hover:text-[#f97316]" />
+                  <ShieldCheck className="size-5 text-black/20 transition-colors duration-300 group-hover:text-[#f97316]" />
                 </div>
                 <div className="mt-auto flex flex-col gap-3 pt-16">
-                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-white sm:text-3xl">{title}</h3>
-                  <p className="leading-7 text-white/55">{copy}</p>
+                  <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{title}</h3>
+                  <p className="leading-7 text-black/55">{copy}</p>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── Implementação ── */}
+        {/* ── Implantação em obras reais ── */}
         <section className="bg-white py-20 sm:py-32">
           <div className="mx-auto max-w-7xl px-5 md:px-10">
             <div className="grid border border-black/10 lg:grid-cols-[0.85fr_1.15fr]">
               <div data-sr className="border-b border-black/10 bg-[#f6f5f2] p-7 sm:p-10 lg:border-b-0 lg:border-r">
                 <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">Implantação em obras reais</p>
                 <h2 className="mt-7 max-w-xl font-['Space_Grotesk'] text-3xl font-medium leading-[1.05] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl">
-                  Comece com os documentos que a obra já usa.
+                  Comece com o que a obra já usa.
                 </h2>
               </div>
               <div className="grid gap-0 sm:grid-cols-3">
                 {[
-                  ['Planilhas, medições e RDOs', 'O sistema aproveita controles existentes para criar uma base inicial sem parar a operação.'],
-                  ['Fotos, propostas e relatórios', 'Cada evidência entra com contexto, origem e destino recomendado nos módulos corretos.'],
-                  ['Evolução sem ruptura', 'O ConstruData organiza os dados por módulo e permite amadurecer o controle sem trocar tudo no primeiro dia.'],
+                  ['Planilhas, medições e RDOs', 'A plataforma aproveita seus controles atuais para criar uma base inicial sem parar a operação.'],
+                  ['Fotos, propostas e relatórios', 'Cada evidência entra com origem, contexto e o módulo de destino recomendado.'],
+                  ['Evolução sem ruptura', 'Os dados são organizados por módulo e o controle amadurece sem trocar tudo no primeiro dia.'],
                 ].map(([title, copy], i) => (
                   <article
                     key={title}
@@ -1057,100 +992,71 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Modules ── */}
+        {/* ── Módulos ── */}
         <ModulesSection />
 
-        {/* ── Depoimentos ── */}
-        <section id="depoimentos" className="bg-white py-20 sm:py-32">
-          <SectionHeader index="06" eyebrow="O que os líderes da construção estão dizendo" />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
-            {testimonials.map(([name, role, quote], i) => (
-              <figure
-                key={name}
-                data-sr
-                data-sr-delay={String(i + 1)}
-                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:px-9 lg:py-12 lg:[&:nth-child(3n)]:border-r-0"
-              >
-                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-                <blockquote className="text-xl leading-9 text-[#0a0a0a]">"{quote}"</blockquote>
-                <figcaption className="mt-auto border-t border-black/10 pt-6">
-                  <div className="font-['Space_Grotesk'] text-xl font-medium text-[#0a0a0a]">{name}</div>
-                  <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">{role}</div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Perfis ── */}
-        <section id="perfis" className="bg-[#f6f5f2] py-20 sm:py-32">
+        {/* ── Para quem é ── */}
+        <section id="perfis" className="bg-white py-20 sm:py-32">
           <SectionHeader
             index="07"
-            eyebrow="Para quem é o ConstruData?"
+            eyebrow="Para quem é"
             title="O visitante certo se reconhece rápido."
             copy="Cada perfil entra por uma dor diferente, mas todos chegam ao mesmo ponto: dado de campo confiável virando decisão, medição e planejamento."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-2 md:px-10">
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-2 md:px-10 lg:grid-cols-3">
             {audience.map(([title, problem, solution], i) => (
               <article
                 key={title}
                 data-sr
-                data-sr-delay={String((i % 2) + 1)}
-                className="group relative border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] md:border-r lg:p-10 md:[&:nth-child(2n)]:border-r-0"
+                data-sr-delay={String((i % 3) + 1)}
+                className="group relative border-b border-black/10 bg-white px-6 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] md:border-r lg:p-9 lg:[&:nth-child(3n)]:border-r-0 md:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r"
               >
                 <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-                <Users className="size-9 text-[#f97316]" />
-                <h3 className="mt-7 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a] sm:text-3xl">
-                  {title}
-                </h3>
-                <p className="mt-6 leading-7 text-black/55">
+                <Users className="size-8 text-[#f97316]" />
+                <h3 className="mt-6 font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{title}</h3>
+                <p className="mt-5 leading-7 text-black/55">
                   <strong className="font-semibold text-[#0a0a0a]">Problema:</strong> {problem}
                 </p>
-                <p className="mt-4 leading-7 text-black/55">
-                  <strong className="font-semibold text-[#0a0a0a]">Como resolve:</strong> {solution}
+                <p className="mt-3 leading-7 text-black/55">
+                  <strong className="font-semibold text-[#0a0a0a]">Resolve:</strong> {solution}
                 </p>
               </article>
             ))}
           </div>
         </section>
 
-        {/* ── LinkedIn ── */}
-        <section id="linkedin" className="bg-white py-20 sm:py-32">
-          <div className="mx-auto max-w-7xl px-5 md:px-10">
-            <div data-sr className="grid gap-8 border border-black/10 bg-[#f6f5f2] p-7 lg:grid-cols-[0.8fr_1.2fr] lg:p-12">
-              <div>
-                <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#f97316]">Artigo no LinkedIn</p>
-                <h2 className="mt-7 font-['Space_Grotesk'] text-4xl font-medium leading-[1.05] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl">
-                  A visão por trás da ConstruData.
-                </h2>
-              </div>
-              <div>
-                <p className="text-lg leading-8 text-black/60">
-                  Um conteúdo para aprofundar a conversa sobre construção, saneamento, dados conectados e inteligência operacional. A ideia central é simples: a obra ganha velocidade quando campo, escritório e diretoria trabalham na mesma fonte de verdade.
-                </p>
-                <h3 className="mt-8 font-['Space_Grotesk'] text-2xl font-medium text-[#0a0a0a]">ConstruData Software</h3>
-                <p className="mt-3 leading-7 text-black/55">Dados conectados, automação e decisões melhores para obras reais.</p>
-                <div className="mt-8">
-                  <ArrowLink href={LINKEDIN_ARTICLE_URL} external variant="solid">
-                    Ler artigo no LinkedIn
-                  </ArrowLink>
-                </div>
-              </div>
-            </div>
+        {/* ── Prova social ── */}
+        <section id="prova" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader index="08" eyebrow="Prova social" title="O que os líderes da construção estão dizendo." />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
+            {testimonials.map((t, i) => (
+              <figure
+                key={t.name}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:[&:nth-child(3n)]:border-r-0"
+              >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#f97316]">{t.segment}</span>
+                <blockquote className="mt-4 text-lg leading-8 text-[#0a0a0a]">"{t.quote}"</blockquote>
+                <p className={`mt-5 text-sm leading-6 ${t.hasNumber ? 'text-[#0a0a0a]' : 'text-black/55'}`}>{t.result}</p>
+                <figcaption className="mt-auto border-t border-black/10 pt-5">
+                  <div className="font-['Space_Grotesk'] text-lg font-medium text-[#0a0a0a]">{t.name}</div>
+                  <div className="mt-0.5 text-xs text-black/50">{t.role}</div>
+                </figcaption>
+              </figure>
+            ))}
           </div>
         </section>
 
         {/* ── Autonomia ── */}
-        <section id="autonomia" className="bg-white pb-4 pt-20 sm:pt-32">
+        <section id="autonomia" className="bg-white py-20 sm:py-32">
           <SectionHeader
-            index="08"
+            index="09"
             eyebrow="Autonomia para a cadeia inteira"
             title="A obra inteira fica mais inteligente."
-            copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, no momento certo, com a informação certa — em tempo real."
+            copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, na hora certa, com a informação certa. Você não está comprando um software — está dando autonomia para a sua cadeia inteira."
           />
-          <p data-sr className="mx-auto mt-12 max-w-4xl px-5 text-center font-['Space_Grotesk'] text-3xl font-medium leading-tight tracking-[-0.01em] text-[#0a0a0a] sm:text-4xl">
-            Você não está comprando um software. Está comprando autonomia para a sua cadeia inteira.
-          </p>
           <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
             {autonomyCards.map(([place, person, copy], i) => (
               <article
@@ -1163,19 +1069,14 @@ export function LandingPage() {
                 <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#f97316]">{place}</p>
                 <h3 className="mt-8 font-['Space_Grotesk'] text-3xl font-medium tracking-[-0.01em] text-[#0a0a0a]">{person}</h3>
                 <p className="mt-5 leading-7 text-black/55">{copy}</p>
-                <div className="mt-7">
-                  <ArrowLink href={CALENDLY_URL} external>
-                    Ver como funciona
-                  </ArrowLink>
-                </div>
               </article>
             ))}
           </div>
         </section>
 
         {/* ── FAQ ── */}
-        <section id="contato" className="bg-[#f6f5f2] py-20 sm:py-32">
-          <SectionHeader index="09" eyebrow="SAQ" title="Ganhe uma vantagem competitiva com ConstruData." />
+        <section id="faq" className="bg-[#f6f5f2] py-20 sm:py-32">
+          <SectionHeader index="10" eyebrow="FAQ" title="Perguntas frequentes." />
           <div className="mx-auto mt-12 max-w-5xl px-5 md:px-10">
             <div className="border-t border-black/10">
               {faqs.map(([question, answer], i) => (
@@ -1192,22 +1093,31 @@ export function LandingPage() {
                     </span>
                     <Plus className="size-5 shrink-0 text-[#f97316] transition-transform duration-200 group-open:rotate-45" />
                   </summary>
-                  <p className="px-0 pb-5 leading-7 text-black/55">{answer}</p>
+                  <p className="pb-5 leading-7 text-black/55">{answer}</p>
                 </details>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ── Qualificação ── */}
-        <section id="qualificacao" className="bg-white px-5 pb-20 sm:pb-32 md:px-10">
-          <form onSubmit={handleSubmit} className="mx-auto max-w-4xl border border-black/10 bg-[#f6f5f2] p-6 sm:p-9">
+        {/* ── Fechamento + formulário ── */}
+        <section id="solicitar" className="bg-white px-5 py-20 sm:py-32 md:px-10">
+          <div data-sr className="mx-auto max-w-4xl text-center">
+            <h2 className="font-['Space_Grotesk'] text-4xl font-medium leading-[1.05] tracking-[-0.02em] text-[#0a0a0a] sm:text-5xl">
+              Veja a ConstruData na sua obra.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-black/60 sm:text-lg">
+              Comece com um diagnóstico. Entendemos o seu contexto, mostramos a plataforma adaptada à sua realidade e você decide com clareza — sem compromisso de compra e sem implantação de meses.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mx-auto mt-10 max-w-4xl border border-black/10 bg-[#f6f5f2] p-6 sm:p-9">
             {sent ? (
-              <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
+              <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
                 <CheckCircle2 className="mb-5 text-[#f97316]" size={42} />
                 <h3 className="font-['Space_Grotesk'] text-3xl font-medium text-[#0a0a0a]">Solicitação enviada.</h3>
                 <p className="mt-3 max-w-md leading-7 text-black/55">
-                  Nossa equipe entrará em contato para entender o cenário da sua obra e preparar a demonstração.
+                  Nossa equipe entra em contato em até 1 dia útil para entender o cenário da sua obra e preparar a demonstração.
                 </p>
               </div>
             ) : (
@@ -1215,10 +1125,8 @@ export function LandingPage() {
                 <div className="mb-8 flex items-center gap-3">
                   <LockKeyhole className="text-[#f97316]" size={20} />
                   <div>
-                    <h3 className="font-['Space_Grotesk'] text-3xl font-medium tracking-[-0.01em] text-[#0a0a0a]">Formulário de Qualificação</h3>
-                    <p className="mt-1 text-sm leading-6 text-black/45">
-                      Nome, e-mail corporativo, empresa e cargo para preparar a demonstração.
-                    </p>
+                    <h3 className="font-['Space_Grotesk'] text-2xl font-medium tracking-[-0.01em] text-[#0a0a0a]">Formulário de qualificação</h3>
+                    <p className="mt-1 text-sm leading-6 text-black/45">Nome, e-mail corporativo, empresa, cargo e a sua principal dor.</p>
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1240,15 +1148,18 @@ export function LandingPage() {
                     />
                   </label>
                 </div>
-                {error && <p className="mt-4 border border-red-500/40 bg-red-500/[0.06] p-3 text-xs text-red-600">{error}</p>}
+                {error && <p className="mt-4 border border-red-500/35 bg-red-500/[0.06] p-3 text-xs text-red-600">{error}</p>}
                 <button
                   type="submit"
                   disabled={sending}
-                  className="group mt-6 flex w-full items-center justify-center gap-3 bg-[#0a0a0a] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#f97316] disabled:opacity-60"
+                  className="group mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-sm font-black uppercase tracking-[0.1em] text-white transition hover:bg-[#ea580c] disabled:opacity-60"
                 >
                   {sending ? 'Enviando...' : 'Solicitar demonstração'}
                   <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" />
                 </button>
+                <p className="mt-4 text-center text-xs leading-5 text-black/45">
+                  A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil. Você conversa com quem entende de obra, não com um vendedor de software.
+                </p>
               </>
             )}
           </form>
@@ -1258,7 +1169,7 @@ export function LandingPage() {
       <footer className="border-t border-black/10 bg-white py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 text-center sm:flex-row md:px-10">
           <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/45">© 2026 ConstruData</span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/30">Construção · Saneamento · Infraestrutura</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-black/30">Construção · Saneamento · Infraestrutura · Ambiental</span>
         </div>
       </footer>
     </div>
