@@ -6,6 +6,8 @@ import { useState } from 'react'
 import { BrainCircuit, Plus, Save, ChevronDown, Trash2, Upload } from 'lucide-react'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { SyncBadge } from '@/components/shared/SyncBadge'
 import type { PlanejamentoMestreTab } from '@/types'
 
 const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
@@ -113,6 +115,7 @@ export function PlanejamentoMestreHeader({ onNewProject, onImportProject, showTa
 
   const [saveModalOpen,     setSaveModalOpen]     = useState(false)
   const [baselineDropOpen,  setBaselineDropOpen]  = useState(false)
+  const sync = useStoreSync(usePlanejamentoMestreStore)
 
   const totalActivities = activities.filter((a) => a.level >= 1 && !a.isMilestone).length
   const avgComplete     = activities.length > 0
@@ -141,6 +144,7 @@ export function PlanejamentoMestreHeader({ onNewProject, onImportProject, showTa
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
+            <SyncBadge {...sync} />
             {/* KPIs */}
             <div className="flex gap-4 mr-2">
               {[

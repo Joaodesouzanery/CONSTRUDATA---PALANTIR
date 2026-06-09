@@ -27,6 +27,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { getTenantMarker } from '@/lib/tenantCache'
 import { eventBus } from '@/lib/eventBus'
 import { buildOperationalKey } from '@/lib/operationalKey'
 
@@ -167,6 +168,14 @@ interface RdoState {
   // Navigation
   setActiveTab: (tab: RdoTab) => void
 
+  // Edição (qual RDO está aberto para editar no painel; ex.: RDO Compizzo)
+  editingRdoId: string | null
+  setEditingRdoId: (id: string | null) => void
+
+  // Tenant scope (isolamento por organização)
+  activeOrgId: string | null
+  ensureTenantScope: (organizationId: string) => void
+
   // RDO CRUD
   addRdo:    (rdo: Omit<RDO, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => void
   updateRdo: (id: string, updates: Partial<RDO>) => void
@@ -199,6 +208,8 @@ export const useRdoStore = create<RdoState>()(
       rdos:             [],
       financialEntries: [],
       budgetBRL:        0,
+      editingRdoId:     null,
+      activeOrgId:      null,
 
       pendingSync:  [],
       syncStatus:   'idle',
@@ -206,6 +217,21 @@ export const useRdoStore = create<RdoState>()(
       syncError:    null,
 
       setActiveTab: (tab) => set({ activeTab: tab }),
+      setEditingRdoId: (id) => set({ editingRdoId: id }),
+
+      ensureTenantScope: (organizationId) => {
+        if (!organizationId) return
+        const cur = get().activeOrgId
+        if (cur === organizationId) return
+        if (cur == null) {
+          const marker = getTenantMarker()
+          if (marker && marker !== organizationId) get().clearData()
+          set({ activeOrgId: organizationId })
+          return
+        }
+        get().clearData()
+        set({ activeOrgId: organizationId })
+      },
 
       addRdo: (rdo) => {
         const now = new Date().toISOString()
@@ -422,6 +448,8 @@ export const useRdoStore = create<RdoState>()(
           rdos:             [],
           financialEntries: [],
           budgetBRL:        0,
+          editingRdoId:     null,
+          activeOrgId:      null,
           pendingSync:      [],
           syncError:        null,
         }),
@@ -468,6 +496,7 @@ export const useRdoStore = create<RdoState>()(
     {
       name: 'cdata-rdo',
       partialize: (s) => ({
+        activeOrgId:      s.activeOrgId,
         rdos:             s.rdos,
         financialEntries: s.financialEntries,
         budgetBRL:        s.budgetBRL,

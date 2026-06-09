@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Download, FileText, Plus, Settings } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { LogoConfigModal } from './LogoConfigModal'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { SyncBadge } from '@/components/shared/SyncBadge'
 import type { RdoTab } from '@/types'
 
 const TABS: { key: RdoTab; label: string }[] = [
@@ -27,7 +29,9 @@ function escapeCell(value: string | number | null | undefined): string {
 
 export function RdoHeader() {
   const { activeTab, setActiveTab, rdos } = useRdoStore()
+  const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
   const [showLogoModal, setShowLogoModal] = useState(false)
+  const sync = useStoreSync(useRdoStore)
   const location = useLocation()
   const navigate = useNavigate()
   const isSabespRoute = location.pathname === '/app/rdo-sabesp'
@@ -37,6 +41,8 @@ export function RdoHeader() {
       navigate('/app/rdo-sabesp')
       return
     }
+    // Abrir a aba Compizzo pelo menu = criar novo (sai de qualquer edição em curso)
+    if (tab === 'compizzo') setEditingRdoId(null)
     setActiveTab(tab)
     if (location.pathname !== '/app/rdo') navigate('/app/rdo')
   }
@@ -89,6 +95,7 @@ export function RdoHeader() {
           </div>
 
           <div className="flex items-center gap-2">
+            <SyncBadge {...sync} />
             <button
               onClick={() => setShowLogoModal(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#a3a3a3] hover:text-[#f97316] hover:bg-[#484848] transition-colors border border-[#525252] hover:border-[#f97316]/30"

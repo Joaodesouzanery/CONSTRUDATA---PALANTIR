@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { getTenantMarker } from '@/lib/tenantCache'
 import type {
   Worker,
   LaborCrew,
@@ -136,6 +137,10 @@ interface MaoDeObraState {
 
   // Payroll
   generatePayroll: (month: string) => void
+
+  // Tenant scope (isolamento por organização)
+  activeOrgId: string | null
+  ensureTenantScope: (organizationId: string) => void
 
   // Demo / clear
   loadDemoData: () => void
@@ -358,6 +363,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   cltSettings:    MOCK_CLT_SETTINGS,
   activeTab:      'dashboard',
   payrollHistory: [],
+  activeOrgId:    null,
 
   pendingSync:  [],
   syncStatus:   'idle',
@@ -658,6 +664,23 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     })
   },
 
+  // Carimba o store na organização ativa, isolando empresas. Na primeira vez
+  // (activeOrgId nulo, pós-migração) confia no dado local só se o marcador de
+  // tenant bate com a org atual; caso contrário limpa para não misturar dados.
+  ensureTenantScope: (organizationId) => {
+    if (!organizationId) return
+    const cur = get().activeOrgId
+    if (cur === organizationId) return
+    if (cur == null) {
+      const marker = getTenantMarker()
+      if (marker && marker !== organizationId) get().clearData()
+      set({ activeOrgId: organizationId })
+      return
+    }
+    get().clearData()
+    set({ activeOrgId: organizationId })
+  },
+
   clearData: () =>
     set({
       workers:     [],
@@ -672,6 +695,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       workPosts:      [],
       absences:       [],
       payrollHistory: [],
+      activeOrgId:    null,
       pendingSync:    [],
       syncError:      null,
     }),
@@ -720,6 +744,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         return persisted as MaoDeObraState
       },
       partialize: (s) => ({
+        activeOrgId:    s.activeOrgId,
         workers:        s.workers,
         crews:          s.crews,
         timecards:      s.timecards,

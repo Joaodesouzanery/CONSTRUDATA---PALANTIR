@@ -5,6 +5,8 @@ import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { cn } from '@/lib/utils'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { SyncBadge } from '@/components/shared/SyncBadge'
 
 // Re-export so index.tsx can keep using this import path
 export type { MaoDeObraTab } from '@/store/maoDeObraStore'
@@ -41,6 +43,7 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
   )
   const addWorker = useMaoDeObraStore((s) => s.addWorker)
   const [importOpen, setImportOpen] = useState(false)
+  const sync = useStoreSync(useMaoDeObraStore)
 
   const kpis = useMemo(() => {
     const today     = new Date().toISOString().slice(0, 10)
@@ -121,14 +124,17 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
             <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, ausências e folha de pagamento</p>
           </div>
         </div>
-        <button
-          onClick={() => setImportOpen(true)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-          title="Importar funcionários de Excel/CSV"
-        >
-          <Upload size={14} />
-          Importar Funcionários
-        </button>
+        <div className="flex items-center gap-2">
+          <SyncBadge {...sync} />
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            title="Importar funcionários de Excel/CSV"
+          >
+            <Upload size={14} />
+            Importar Funcionários
+          </button>
+        </div>
       </div>
 
       <ImportModal

@@ -227,6 +227,14 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
 
     set({ profile: nextProfile, memberships, error: null })
+
+    // Com a organização ativa conhecida, sincroniza todos os stores tenant-scoped:
+    // flush das ops locais pendentes (recupera dados criados antes do perfil) e
+    // pull do servidor. Isso garante que os dados apareçam após reload/login/troca
+    // de empresa em TODOS os módulos. No-op no modo demo/homologação.
+    if (nextOrgId) {
+      void import('@/store/appModeStore').then((m) => m.syncAllTenantStores())
+    }
   },
 
   switchOrganization: async (organizationId) => {

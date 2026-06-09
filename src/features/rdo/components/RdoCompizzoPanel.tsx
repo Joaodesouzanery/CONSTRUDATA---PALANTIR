@@ -4,18 +4,28 @@
  * reaproveita campos do Novo RDO (mão de obra, equipamentos, fotos). Salva no
  * mesmo store de RDO (template 'compizzo') e exporta PDF idêntico ao documento.
  */
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
-  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2,
+  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useStoreSync } from '@/lib/useStoreSync'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
-  RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoEquipmentEntry, RdoPhoto, RdoWeatherCondition,
+  RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
+  RdoEquipmentEntry, RdoPhoto, RdoWeatherCondition,
 } from '@/types'
+
+function stripEquipId(e: RdoEquipmentEntry): Omit<RdoEquipmentEntry, 'id'> {
+  return {
+    name: e.name, quantity: e.quantity, hours: e.hours, equipmentId: e.equipmentId,
+    code: e.code, type: e.type, operator: e.operator, front: e.front, notes: e.notes,
+  }
+}
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60 placeholder:text-[#525252]'
 const labelCls = 'block text-[#a3a3a3] text-xs mb-1'
@@ -86,38 +96,62 @@ export function CompizzoWordmark({ className = '' }: { className?: string }) {
 
 export function RdoCompizzoPanel() {
   const addRdo = useRdoStore((s) => s.addRdo)
+  const updateRdo = useRdoStore((s) => s.updateRdo)
   const setActiveTab = useRdoStore((s) => s.setActiveTab)
+  const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
   const today = new Date().toISOString().slice(0, 10)
 
-  const [obra, setObra] = useState('')
-  const [data, setData] = useState(today)
-  const [diaObra, setDiaObra] = useState('')
-  const [responsavel, setResponsavel] = useState('')
-  const [condicao, setCondicao] = useState<RdoCompizzoData['condicaoClimatica']>('sol')
-  const [condicaoOutros, setCondicaoOutros] = useState('')
-  const [employeeNames, setEmployeeNames] = useState<string[]>([])
+  // Funcionários cadastrados no módulo Mão de Obra (sincroniza ao abrir).
+  useStoreSync(useMaoDeObraStore)
+  const workers = useMaoDeObraStore((s) => s.workers)
+
+  // RDO em edição (definido pela tela de Histórico). Lido uma vez na montagem.
+  const editing = useMemo(() => {
+    const st = useRdoStore.getState()
+    return st.editingRdoId ? st.rdos.find((r) => r.id === st.editingRdoId) ?? null : null
+  }, [])
+  const c0 = editing?.compizzo
+
+  const [obra, setObra] = useState(c0?.obra ?? '')
+  const [data, setData] = useState(editing?.date ?? today)
+  const [diaObra, setDiaObra] = useState(c0?.diaObra ?? '')
+  const [responsavel, setResponsavel] = useState(editing?.responsible ?? '')
+  const [condicao, setCondicao] = useState<RdoCompizzoData['condicaoClimatica']>(c0?.condicaoClimatica ?? 'sol')
+  const [condicaoOutros, setCondicaoOutros] = useState(c0?.condicaoClimaticaOutros ?? '')
+  const [employeeNames, setEmployeeNames] = useState<string[]>(editing?.manpower.employeeNames ?? [])
   const [employeeInput, setEmployeeInput] = useState('')
-  const [servicos, setServicos] = useState<RdoCompizzoServicos>(emptyServicos)
-  const [descricao, setDescricao] = useState('')
-  const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(DEFAULT_PRODUCAO)
-  const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(DEFAULT_MATERIAIS)
-  const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>([])
-  const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(emptyOcorrencias)
-  const [observacoes, setObservacoes] = useState('')
-  const [planejamento, setPlanejamento] = useState('')
-  const [respNome, setRespNome] = useState('')
-  const [respData, setRespData] = useState(today)
-  const [photos, setPhotos] = useState<RdoPhoto[]>([])
+  const [workerPick, setWorkerPick] = useState('')
+  const [servicos, setServicos] = useState<RdoCompizzoServicos>(c0?.servicos ?? emptyServicos())
+  const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
+  const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
+  const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(c0?.producao ?? DEFAULT_PRODUCAO)
+  const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
+  const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>(editing?.equipment.map(stripEquipId) ?? [])
+  const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(c0?.ocorrencias ?? emptyOcorrencias())
+  const [observacoes, setObservacoes] = useState(c0?.observacoes ?? editing?.observations ?? '')
+  const [planejamento, setPlanejamento] = useState(c0?.planejamentoProximoDia ?? '')
+  const [respNome, setRespNome] = useState(c0?.responsavelNome ?? '')
+  const [respData, setRespData] = useState(c0?.responsavelData ?? today)
+  const [photos, setPhotos] = useState<RdoPhoto[]>(editing?.photos ?? [])
 
   const [showText, setShowText] = useState(false)
   const [textValue, setTextValue] = useState('')
   const [saved, setSaved] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Sai do modo edição ao desmontar (reabrir a aba volta a criar novo).
+  useEffect(() => () => setEditingRdoId(null), [setEditingRdoId])
+
+  function addEmployee(name: string) {
+    const v = name.trim()
+    if (v) setEmployeeNames((p) => (p.includes(v) ? p : [...p, v]))
+  }
+
   function buildCompizzo(): RdoCompizzoData {
     return {
       obra, diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
-      servicos, descricaoServicos: descricao, producao, materiais, ocorrencias,
+      servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
+      descricaoServicos: descricao, producao, materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
     }
@@ -176,7 +210,9 @@ export function RdoCompizzoPanel() {
   }
 
   function handleSave() {
-    addRdo(buildRdoPayload())
+    const payload = buildRdoPayload()
+    if (editing) updateRdo(editing.id, payload)
+    else addRdo(payload)
     setSaved(true)
     setTimeout(() => setActiveTab('historico'), 900)
   }
@@ -200,8 +236,8 @@ export function RdoCompizzoPanel() {
             <ClipboardList size={18} className="text-[#1f6fd1]" />
           </div>
           <div>
-            <h2 className="text-[#f5f5f5] font-semibold text-base flex items-center gap-2">RDO <CompizzoWordmark /></h2>
-            <p className="text-[#6b6b6b] text-xs">Diário de Obra — demarcação e pintura de piso industrial</p>
+            <h2 className="text-[#f5f5f5] font-semibold text-base flex items-center gap-2">{editing ? 'Editar RDO' : 'RDO'} <CompizzoWordmark /></h2>
+            <p className="text-[#6b6b6b] text-xs">Diário de Obra — demarcação e pintura de piso industrial{editing ? ` · Nº ${editing.number}` : ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -212,7 +248,7 @@ export function RdoCompizzoPanel() {
             <Printer size={14} /> Imprimir / PDF
           </button>
           <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors">
-            {saved ? <CheckCircle2 size={14} /> : <Save size={14} />} {saved ? 'Salvo!' : 'Salvar RDO'}
+            {saved ? <CheckCircle2 size={14} /> : <Save size={14} />} {saved ? 'Salvo!' : editing ? 'Salvar alterações' : 'Salvar RDO'}
           </button>
         </div>
       </div>
@@ -247,15 +283,33 @@ export function RdoCompizzoPanel() {
 
         {/* Mão de Obra */}
         <Section title={`Mão de Obra (${totalColab})`} icon={<FileText size={16} className="text-[#1f6fd1]" />}>
+          {/* Selecionar funcionário cadastrado no módulo Mão de Obra */}
+          {workers.length > 0 && (
+            <div className="mb-2">
+              <label className={labelCls}><Users size={11} className="inline mr-1 text-[#1f6fd1]" />Selecionar funcionário cadastrado</label>
+              <select
+                className={inputCls}
+                value={workerPick}
+                onChange={(e) => { addEmployee(e.target.value); setWorkerPick('') }}
+              >
+                <option value="">— Selecione um funcionário —</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.name} disabled={employeeNames.includes(w.name)}>
+                    {w.name}{w.role ? ` — ${w.role}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2">
             <input
               className={inputCls}
               value={employeeInput}
               onChange={(e) => setEmployeeInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const v = employeeInput.trim(); if (v) setEmployeeNames((p) => [...p, v]); setEmployeeInput('') } }}
-              placeholder="Nome do colaborador (Enter para adicionar)"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmployee(employeeInput); setEmployeeInput('') } }}
+              placeholder="Ou digite um nome (Enter para adicionar)"
             />
-            <button type="button" onClick={() => { const v = employeeInput.trim(); if (v) setEmployeeNames((p) => [...p, v]); setEmployeeInput('') }} className="px-3 rounded-lg bg-[#1f6fd1] text-white"><Plus size={15} /></button>
+            <button type="button" onClick={() => { addEmployee(employeeInput); setEmployeeInput('') }} className="px-3 rounded-lg bg-[#1f6fd1] text-white"><Plus size={15} /></button>
           </div>
           {employeeNames.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
@@ -276,6 +330,26 @@ export function RdoCompizzoPanel() {
               <Checkbox key={key} checked={servicos[key]} label={lbl} onChange={(v) => setServicos((s) => ({ ...s, [key]: v }))} />
             ))}
           </div>
+
+          {/* Serviços adicionais (livres) com quantidade/unidade opcional */}
+          <div className="mt-3 rounded-lg border border-[#525252] bg-[#1f1f1f]/60 p-3">
+            <p className="text-[#a3a3a3] text-xs mb-2">Outros serviços (quantidade e unidade são opcionais)</p>
+            <div className="space-y-2">
+              {servicosExtra.map((row, i) => (
+                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px_32px] gap-2">
+                  <input className={inputCls} value={row.nome} placeholder="Serviço executado" onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, nome: e.target.value } : r))} />
+                  <input className={inputCls} value={row.quantidade ?? ''} placeholder="Qtd." onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, quantidade: e.target.value } : r))} />
+                  <input className={inputCls} value={row.unidade ?? ''} placeholder="Unid. (m, m², un…)" list="compizzo-unidades" onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, unidade: e.target.value } : r))} />
+                  <button type="button" onClick={() => setServicosExtra((arr) => arr.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center"><Trash2 size={14} /></button>
+                </div>
+              ))}
+            </div>
+            <datalist id="compizzo-unidades">
+              {['m', 'm²', 'm³', 'un', 'kg', 'L', 'h'].map((u) => <option key={u} value={u} />)}
+            </datalist>
+            <button type="button" onClick={() => setServicosExtra((arr) => [...arr, { nome: '', quantidade: '', unidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm mt-2"><Plus size={14} /> Adicionar serviço</button>
+          </div>
+
           <div className="mt-3">
             <label className={labelCls}>Descrição dos serviços executados</label>
             <textarea rows={2} className={inputCls} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Foi dado início ao serviço com a demarcação do piso." />

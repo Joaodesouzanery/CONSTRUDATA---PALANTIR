@@ -6,10 +6,17 @@
  * so it can be restored when demo mode is turned off — no data loss.
  */
 import { create } from 'zustand'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 interface AppModeState {
   isDemoMode: boolean
   toggleDemoMode: () => void
+}
+
+interface TenantSyncState {
+  pendingSync?: unknown[]
+  flush?: () => Promise<void> | void
+  pull?: () => Promise<void> | void
 }
 
 const STORAGE_KEY = 'cdata-demo'
@@ -100,8 +107,8 @@ async function restoreUserData() {
   }
 }
 
-async function pullRealData() {
-  const stores = await Promise.all([
+async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
+  return Promise.all([
     import('./projetosStore').then(m => m.useProjetosStore),
     import('./agendaStore').then(m => m.useAgendaStore),
     import('./relatorio360Store').then(m => m.useRelatorio360Store),
@@ -127,11 +134,32 @@ async function pullRealData() {
     import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),
     import('./medicaoStore').then(m => m.useMedicaoStore),
     import('./financeiroStore').then(m => m.useFinanceiroStore),
-  ])
+  ]) as Promise<Array<{ getState: () => TenantSyncState }>>
+}
 
-  await Promise.allSettled(stores.map((store) => {
-    const state = store.getState() as { pull?: () => Promise<void> | void }
-    return state.pull?.()
+async function pullRealData() {
+  const stores = await getAllTenantStores()
+  await Promise.allSettled(stores.map((store) => store.getState().pull?.()))
+  const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
+  await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+}
+
+/**
+ * Sincroniza TODOS os stores tenant-scoped quando a organização ativa carrega
+ * (login/troca de empresa): primeiro faz flush das ops locais ainda não
+ * sincronizadas (recuperando dados criados offline ou antes do perfil), depois
+ * faz pull do servidor APENAS onde a fila esvaziou — assim nunca sobrescreve
+ * dado local que ainda não subiu. No modo demo/homologação, não sincroniza.
+ */
+export async function syncAllTenantStores(): Promise<void> {
+  if (isNonProductionDataMode()) return
+  const stores = await getAllTenantStores()
+  // 1) flush primeiro (sobe o local-only, re-carimbando a organização ativa)
+  await Promise.allSettled(stores.map((s) => s.getState().flush?.()))
+  // 2) pull só onde não restou pendência
+  await Promise.allSettled(stores.map(async (s) => {
+    const st = s.getState()
+    if ((st.pendingSync?.length ?? 0) === 0) await st.pull?.()
   }))
   const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
   await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)

@@ -611,7 +611,7 @@ function SabespRdoCard({ rdo, onOpen }: { rdo: SabespHistoryRecord; onOpen: () =
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function HistoricoPanel() {
-  const { rdos, removeRdo, updateRdo } = useRdoStore()
+  const { rdos, removeRdo, updateRdo, setActiveTab, setEditingRdoId } = useRdoStore()
   const loadContractors = useContractorStore((state) => state.load)
   const navigate = useNavigate()
   const [sabespRdos, setSabespRdos] = useState<SabespHistoryRecord[]>(() => readLocalRdoSabesp() as SabespHistoryRecord[])
@@ -875,7 +875,16 @@ export function HistoricoPanel() {
               key={`regular-${item.id}`}
               rdo={item.rdo}
               onDelete={() => handleDelete(item.rdo.id)}
-              onEdit={() => { setEditingRdo(item.rdo); setEditForm({ ...item.rdo }) }}
+              onEdit={() => {
+                // RDO Compizzo edita no próprio painel Compizzo (todos os campos + fotos)
+                if (item.rdo.template === 'compizzo') {
+                  setEditingRdoId(item.rdo.id)
+                  setActiveTab('compizzo')
+                } else {
+                  setEditingRdo(item.rdo)
+                  setEditForm({ ...item.rdo })
+                }
+              }}
             />
           ) : (
             <SabespRdoCard

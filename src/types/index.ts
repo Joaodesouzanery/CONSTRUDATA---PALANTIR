@@ -1498,6 +1498,13 @@ export interface RdoCompizzoProducaoRow {
   quantidade: string
 }
 
+/** Serviço adicional (livre) marcado em "Serviços Executados no Dia". */
+export interface RdoCompizzoServicoExtra {
+  nome:        string
+  quantidade?: string   // opcional
+  unidade?:    string   // opcional: m, m², un, kg, L, h...
+}
+
 export interface RdoCompizzoMaterialRow {
   material:   string
   quantidade: string
@@ -1533,6 +1540,7 @@ export interface RdoCompizzoData {
   condicaoClimatica:     'sol' | 'nublado' | 'chuva' | 'outros'
   condicaoClimaticaOutros?: string
   servicos:              RdoCompizzoServicos
+  servicosExtra?:        RdoCompizzoServicoExtra[]
   descricaoServicos:     string
   producao:              RdoCompizzoProducaoRow[]
   materiais:             RdoCompizzoMaterialRow[]

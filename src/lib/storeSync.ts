@@ -86,12 +86,21 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
     return result
   }
 
+  const activeOrgId = profile.organization_id
+
   for (const op of queue) {
     try {
       if (op.type === 'insert' && op.row) {
+        // Recupera ops enfileiradas antes do perfil carregar: o row pode ter sido
+        // carimbado com organization_id 'pending'. Reescreve para a organização
+        // ativa no momento do flush (que já é conhecida aqui).
+        const row =
+          op.row.organization_id === 'pending' || op.row.organization_id == null
+            ? { ...op.row, organization_id: activeOrgId }
+            : op.row
         const { data, error } = await supabase
           .from(op.table)
-          .upsert(op.row as never, { onConflict: 'id' })
+          .upsert(row as never, { onConflict: 'id' })
           .select('id')
         if (error) throw error
         assertAffectedRows(op.table, op, data)

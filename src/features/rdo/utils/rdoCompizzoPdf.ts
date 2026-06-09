@@ -46,6 +46,13 @@ export function printCompizzoPdf(rdo: RDO) {
   const names = rdo.manpower.employeeNames ?? []
 
   const servicosHtml = SERVICO_ITEMS.map(([k, lbl]) => `<div class="chk">${box(c.servicos[k])} ${esc(lbl)}</div>`).join('')
+  const servicosExtraHtml = (c.servicosExtra ?? [])
+    .filter((s) => s.nome.trim())
+    .map((s) => {
+      const qty = [s.quantidade, s.unidade].filter(Boolean).join(' ').trim()
+      return `<div class="chk">${box(true)} ${esc(s.nome)}${qty ? ` — <b>${esc(qty)}</b>` : ''}</div>`
+    })
+    .join('')
   const ocorrenciasHtml = OCORRENCIA_ITEMS.map(([k, lbl]) => `<div class="chk">${box(c.ocorrencias[k])} ${esc(lbl)}</div>`).join('')
   const producaoRows = c.producao.map((r) => `<tr><td>${esc(r.servico)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
   const materiaisRows = c.materiais.map((r) => `<tr><td>${esc(r.material)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
@@ -108,6 +115,7 @@ export function printCompizzoPdf(rdo: RDO) {
 
   <h2>2. SERVIÇOS EXECUTADOS NO DIA</h2>
   ${servicosHtml}
+  ${servicosExtraHtml}
   <div class="kv" style="margin-top:8px"><b>Descrição dos serviços executados:</b></div>
   <div class="desc">${esc(c.descricaoServicos)}</div>
   <hr />

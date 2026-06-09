@@ -9,6 +9,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { getTenantMarker } from '@/lib/tenantCache'
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
   LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
@@ -124,6 +125,10 @@ interface PlanejamentoMestreState {
 
   setProgramacaoDiaria: (activityId: string, date: string, data: ProgramacaoDiaria) => void
 
+  // Tenant scope (isolamento por organização)
+  activeOrgId: string | null
+  ensureTenantScope: (organizationId: string) => void
+
   loadDemoData: () => void
   clearData: () => void
 
@@ -158,6 +163,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         originalSCurve: [],
         simulatedSCurve: [],
         programacaoSemanal: {},
+        activeOrgId: null,
 
         pendingSync:  [],
         syncStatus:   'idle',
@@ -165,6 +171,20 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         syncError:    null,
 
         setActiveTab: (tab) => set({ activeTab: tab }),
+
+        ensureTenantScope: (organizationId) => {
+          if (!organizationId) return
+          const cur = get().activeOrgId
+          if (cur === organizationId) return
+          if (cur == null) {
+            const marker = getTenantMarker()
+            if (marker && marker !== organizationId) get().clearData()
+            set({ activeOrgId: organizationId })
+            return
+          }
+          get().clearData()
+          set({ activeOrgId: organizationId })
+        },
 
         addActivity: (activity) => {
           const id = crypto.randomUUID()
@@ -507,7 +527,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             contract: null, nuclei: [], auditLog: [],
             derivedActivities: [], whatIfAdjustments: [],
             originalSCurve: [], simulatedSCurve: [], programacaoSemanal: {},
-            pendingSync: [], syncError: null,
+            activeOrgId: null, pendingSync: [], syncError: null,
           }),
 
         flush: async () => {
@@ -542,6 +562,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
     {
       name: 'cdata-planejamento-mestre',
       partialize: (s) => ({
+        activeOrgId:       s.activeOrgId,
         activities:        s.activities,
         baselines:         s.baselines,
         activeBaselineId:  s.activeBaselineId,

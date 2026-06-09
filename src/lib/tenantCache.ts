@@ -74,6 +74,12 @@ export function clearTenantScopedCaches(nextOrganizationId?: string): void {
   }
 }
 
+/** Organização cujo cache local está atualmente marcado (ou null). */
+export function getTenantMarker(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.localStorage.getItem(TENANT_MARKER_KEY)
+}
+
 export function ensureTenantScopedCaches(organizationId: string): boolean {
   if (typeof window === 'undefined' || !organizationId) return false
 
