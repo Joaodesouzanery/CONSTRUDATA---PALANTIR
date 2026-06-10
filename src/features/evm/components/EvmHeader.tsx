@@ -3,6 +3,9 @@
  */
 import { DollarSign, Download, RefreshCw } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { SyncBadge } from '@/components/shared/SyncBadge'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import type { FinanceiroEvmTab } from '@/types'
@@ -11,11 +14,12 @@ export type CombinedTab = FinanceiroEvmTab
 
 const EVM_TABS: { key: CombinedTab; label: string }[] = [
   { key: 'dashboard',     label: 'Dashboard' },
-  { key: 'por-nucleo',    label: 'Por Nucleo' },
+  { key: 'por-obra',      label: 'Por Obra' },
   { key: 'medicao',       label: 'Medição Ponderada' },
   { key: 'plano-contas',  label: 'Plano de Contas' },
   { key: 'work-packages', label: 'Work Packages' },
   { key: 'indices',       label: 'Índices' },
+  { key: 'distribuicao',  label: 'Distribuição' },
 ]
 
 const FIN_TABS: { key: CombinedTab; label: string }[] = [
@@ -66,6 +70,7 @@ interface EvmHeaderProps {
 export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
   const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
+  const sync = useStoreSync(useFinanceiroStore)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
@@ -84,6 +89,7 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <SyncBadge {...sync} />
           <button
             onClick={loadDemoData}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] transition-colors hover:bg-[#ea580c]"

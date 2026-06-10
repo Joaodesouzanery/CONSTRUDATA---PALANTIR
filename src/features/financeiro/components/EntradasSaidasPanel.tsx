@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -109,13 +110,16 @@ function AddModal({ tipo, cats, onClose, onAdd }: { tipo: 'entrada' | 'saida'; c
   const [data, setData] = useState(new Date().toISOString().slice(0, 10))
   const [categoria, setCategoria] = useState(cats[0].key)
   const [referencia, setReferencia] = useState('')
+  const [obraId, setObraId] = useState('')
+  const sites = useTorreStore((s) => s.sites)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!descricao || !valor) return
     onAdd({
       id: crypto.randomUUID(), tipo, descricao, valor: parseFloat(valor.replace(',', '.')) || 0,
-      data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined, createdAt: new Date().toISOString(),
+      data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined,
+      obraId: obraId || undefined, createdAt: new Date().toISOString(),
     })
     onClose()
   }
@@ -158,6 +162,14 @@ function AddModal({ tipo, cats, onClose, onAdd }: { tipo: 'entrada' | 'saida'; c
               <input value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="NF-001, Med-03"
                 className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500" />
             </div>
+          </div>
+          <div>
+            <label className="block text-[10px] text-[#6b6b6b] uppercase mb-1">Obra</label>
+            <select value={obraId} onChange={(e) => setObraId(e.target.value)}
+              className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+              <option value="">— Sem obra —</option>
+              {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
+            </select>
           </div>
         </div>
         <button type="submit" className="w-full py-2.5 rounded-lg text-xs font-semibold text-white" style={{ background: '#f97316' }}>

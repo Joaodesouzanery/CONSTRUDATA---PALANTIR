@@ -10,7 +10,8 @@ import { MedicaoPonderadaPanel } from './components/MedicaoPonderadaPanel'
 import { PlanoContasPanel } from './components/PlanoContasPanel'
 import { WorkPackagesPanel } from './components/WorkPackagesPanel'
 import { IndicesPanel } from './components/IndicesPanel'
-import { PorNucleoPanel } from './components/PorNucleoPanel'
+import { PorObraPanel } from './components/PorObraPanel'
+import { DistribuicaoPanel } from './components/DistribuicaoPanel'
 import { ComparativoNucleosPanel } from './components/ComparativoNucleosPanel'
 import { FluxoMensalPanel } from './components/FluxoMensalPanel'
 import { VisaoGeralPanel } from '@/features/financeiro/components/VisaoGeralPanel'
@@ -20,11 +21,12 @@ import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPane
 function renderPanel(tab: CombinedTab): React.ReactNode {
   switch (tab) {
     case 'dashboard':     return <DashboardPanel />
-    case 'por-nucleo':    return <PorNucleoPanel />
+    case 'por-obra':      return <PorObraPanel />
     case 'medicao':       return <MedicaoPonderadaPanel />
     case 'plano-contas':  return <PlanoContasPanel />
     case 'work-packages': return <WorkPackagesPanel />
     case 'indices':       return <IndicesPanel />
+    case 'distribuicao':  return <DistribuicaoPanel />
     case 'visao-geral':   return <VisaoGeralPanel />
     case 'entradas':      return <EntradasPanel />
     case 'saidas':        return <SaidasPanel />

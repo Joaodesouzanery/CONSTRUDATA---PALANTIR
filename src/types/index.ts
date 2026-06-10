@@ -2164,6 +2164,8 @@ export type FinanceiroEvmTab =
   | EvmTab
   | FinanceiroTab
   | 'por-nucleo'
+  | 'por-obra'
+  | 'distribuicao'
   | 'comparativo'
   | 'fluxo-mensal'
 
@@ -2442,8 +2444,29 @@ export interface FinanceiroEntry {
   data:        string   // yyyy-MM-dd
   categoria:   EntradaCategoria | SaidaCategoria
   referencia?: string   // nº NF, nº medição, etc.
+  obraId?:     string   // vínculo com a obra (ConstructionSite) do Torre de Controle
   notas?:      string
   createdAt:   string
+}
+
+// ─── Distribuição de orçamento (por obra) ────────────────────────────────────
+export interface DistribuicaoLinha {
+  id:               string
+  beneficiarioTipo: 'funcionario' | 'terceiro'
+  beneficiarioId?:  string
+  beneficiarioNome: string
+  tarefa?:          string
+  valor:            number
+}
+
+export interface Distribuicao {
+  id:         string
+  obraId?:    string
+  titulo:     string
+  orcamento:  number
+  linhas:     DistribuicaoLinha[]
+  createdAt:  string
+  updatedAt:  string
 }
 
 // Economia / ROI
