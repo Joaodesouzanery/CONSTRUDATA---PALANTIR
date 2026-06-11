@@ -53,23 +53,6 @@
     transform: translateY(calc(-100% - var(--gap)));
   }
 }
-
-/* Landing hero: zoom lento contínuo (efeito Ken Burns) nos slides de fundo. */
-@keyframes kenburns {
-  from {
-    transform: scale(1.05) translate(0, 0);
-  }
-  to {
-    transform: scale(1.18) translate(-1.5%, -1%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-slide {
-    animation: none !important;
-  }
-}
-
 *, *::before, *::after {
   box-sizing: border-box;
 }
