@@ -1,14 +1,30 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, QrCode, ShieldCheck, User } from 'lucide-react'
-import hero1Img from '@/assets/hero1.png'
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
+const HERO_BG = '/hero/hero1.webp'
+
+/* Mesmos tokens visuais da landing (tema técnico escuro). */
+const H_FONT = "font-['Inter_Tight']"
+const M_FONT = "font-['IBM_Plex_Mono']"
 
 type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup'
+
+/** Cantoneiras de 8px nos 4 cantos de um card (motivo de frame técnico). */
+function Corners() {
+  return (
+    <>
+      <span aria-hidden className="pointer-events-none absolute left-0 top-0 size-2 border-l border-t border-white/30" />
+      <span aria-hidden className="pointer-events-none absolute right-0 top-0 size-2 border-r border-t border-white/30" />
+      <span aria-hidden className="pointer-events-none absolute bottom-0 left-0 size-2 border-b border-l border-white/30" />
+      <span aria-hidden className="pointer-events-none absolute bottom-0 right-0 size-2 border-b border-r border-white/30" />
+    </>
+  )
+}
 
 export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
   const title = mode === 'invite'
@@ -27,44 +43,51 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
         : 'Use seu e-mail e senha cadastrados.'
 
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white">
+    <div className={`${H_FONT} min-h-screen bg-[#0b0d10] text-white antialiased`}>
       <div className="fixed inset-0">
-        <img src={hero1Img} alt="" className="size-full object-cover opacity-42" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(10,10,10,0.96)_0%,rgba(10,10,10,0.72)_48%,rgba(10,10,10,0.38)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(10,10,10,0.18)_0%,rgba(10,10,10,0.92)_100%)]" />
+        <img src={HERO_BG} alt="" width={1408} height={768} className="size-full object-cover opacity-40" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,13,16,0.96)_0%,rgba(11,13,16,0.74)_48%,rgba(11,13,16,0.42)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(11,13,16,0.2)_0%,rgba(11,13,16,0.92)_100%)]" />
       </div>
-      <header className="relative z-10 border-b border-white/10 bg-[#0d0d0d]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-10">
+      <header className="relative z-10 border-b border-white/10 bg-black/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-10">
           <Link to="/" className="flex items-center gap-3">
             <BrandLockup />
           </Link>
-          <Link to="/" className="border border-white/18 px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] text-white/76 transition hover:border-[#f97316] hover:text-white">
+          <Link to="/" className={`${M_FONT} border border-white/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 transition hover:border-[#f97316] hover:text-white`}>
             Voltar
           </Link>
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-10 md:px-10 lg:grid-cols-[0.95fr_0.8fr]">
+      <main className="relative z-10 mx-auto grid min-h-[calc(100vh-3.5rem)] max-w-7xl items-center gap-10 px-4 py-10 md:px-10 lg:grid-cols-[0.95fr_0.8fr]">
         <section className="hidden max-w-2xl lg:block">
-          <p className="font-mono text-xs font-black uppercase tracking-[0.18em] text-[#f97316]">Acesso privado por empresa</p>
-          <h1 className="mt-5 font-['Space_Grotesk'] text-6xl font-medium leading-[0.95] text-white">
+          <p className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.2em] text-white/55`}>
+            <span className="mr-3 text-[#fb923c]">[ 01 ]</span>
+            Acesso privado por empresa
+          </p>
+          <h1 className={`${H_FONT} mt-5 text-6xl font-medium leading-[0.98] tracking-[-0.03em] text-white`}>
             Entre na operacao com seguranca.
           </h1>
-          <p className="mt-6 max-w-xl text-base leading-8 text-white/76">
+          <p className="mt-6 max-w-xl text-base leading-8 text-white/70">
             A mesma base da landing agora protege login, convite e MFA em uma unica experiencia. Cada usuario entra apenas nas empresas e modulos liberados.
           </p>
-          <div className="mt-8 grid grid-cols-3 gap-3 text-xs font-black uppercase text-white/70">
+          <div className={`${M_FONT} mt-8 grid grid-cols-3 gap-px text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70`}>
             {['RLS', 'Audit Log', 'MFA'].map((item) => (
-              <span key={item} className="border border-white/12 bg-white/8 p-4 backdrop-blur-md">{item}</span>
+              <span key={item} className="relative border border-white/10 bg-white/[0.03] p-4 backdrop-blur-md">
+                <Corners />
+                {item}
+              </span>
             ))}
           </div>
         </section>
 
-        <section className="border border-white/12 bg-[#111111]/86 p-5 shadow-[0_28px_90px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:p-8">
+        <section className="relative border border-white/10 bg-black/70 p-5 backdrop-blur-xl sm:p-8">
+          <Corners />
           <div className="mb-8">
-            <p className="font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#f97316]">{mode === 'login' ? 'ConstruData' : 'Seguranca'}</p>
-            <h2 className="mt-3 font-['Space_Grotesk'] text-3xl font-medium text-white">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-white/62">{subtitle}</p>
+            <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.18em] text-[#fb923c]`}>{mode === 'login' ? 'ConstruData' : 'Seguranca'}</p>
+            <h2 className={`${H_FONT} mt-3 text-3xl font-medium tracking-[-0.02em] text-white`}>{title}</h2>
+            <p className="mt-2 text-sm leading-6 text-white/60">{subtitle}</p>
           </div>
           {mode === 'invite' ? <InviteForm /> : mode === 'mfa-challenge' ? <MfaChallengeForm /> : mode === 'mfa-setup' ? <MfaSetupForm /> : <LoginForm />}
         </section>
@@ -179,10 +202,10 @@ function LoginForm() {
         <ErrorMessage error={error} />
         <SubmitButton loading={loading}>Entrar <ArrowRight size={16} /></SubmitButton>
       </form>
-      <div className="mt-6 border border-white/12 bg-white/8 p-5 text-center">
-        <p className="text-sm font-black uppercase text-white">Ainda nao tem conta?</p>
-        <p className="mt-2 text-xs leading-5 text-white/58">O acesso e liberado por convite da empresa. Para iniciar uma nova conta, agende uma demonstracao.</p>
-        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 border border-[#f97316] px-5 py-2 text-xs font-black uppercase text-[#f97316]">
+      <div className="mt-6 border border-white/10 bg-white/[0.03] p-5 text-center">
+        <p className={`${M_FONT} text-xs font-semibold uppercase tracking-[0.14em] text-white`}>Ainda nao tem conta?</p>
+        <p className="mt-2 text-xs leading-5 text-white/55">O acesso e liberado por convite da empresa. Para iniciar uma nova conta, agende uma demonstracao.</p>
+        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} mt-4 inline-flex items-center gap-2 border border-[#f97316] px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#fb923c] transition hover:bg-[#f97316] hover:text-white`}>
           Agendar demo <ArrowRight size={13} />
         </a>
       </div>
@@ -247,7 +270,7 @@ function InviteForm() {
           ['signup', 'Criar acesso'],
           ['login', 'Ja tenho senha'],
         ].map(([value, label]) => (
-          <button key={value} type="button" onClick={() => setInviteMode(value as 'signup' | 'login')} className={`h-11 border text-xs font-black uppercase transition ${inviteMode === value ? 'border-[#f97316] bg-[#f97316] text-white' : 'border-white/12 bg-white/8 text-white/62'}`}>
+          <button key={value} type="button" onClick={() => setInviteMode(value as 'signup' | 'login')} className={`${M_FONT} h-11 border text-[10px] font-semibold uppercase tracking-[0.12em] transition ${inviteMode === value ? 'border-[#f97316] bg-[#f97316] text-white' : 'border-white/10 bg-white/[0.04] text-white/60'}`}>
             {label}
           </button>
         ))}
@@ -301,7 +324,7 @@ function MfaChallengeForm() {
     return (
       <div className="space-y-4">
         <ErrorMessage error="Sessao MFA nao encontrada. Entre novamente." />
-        <Link to="/login" className="flex h-12 w-full items-center justify-center bg-[#f97316] text-sm font-black uppercase text-white">Voltar ao login</Link>
+        <Link to="/login" className={`${M_FONT} flex h-12 w-full items-center justify-center bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white`}>Voltar ao login</Link>
       </div>
     )
   }
@@ -370,7 +393,7 @@ function MfaSetupForm() {
     <div className="space-y-5">
       {loading && !qrSvg && <p className="text-center text-sm text-white/62">Carregando autenticador...</p>}
       {qrSvg && (
-        <div className="border border-white/12 bg-white/8 p-4 text-center">
+        <div className="border border-white/10 bg-white/[0.03] p-4 text-center">
           <div className="mx-auto w-fit bg-white p-3" dangerouslySetInnerHTML={{ __html: qrSvg }} />
           {secret && <p className="mt-3 break-all font-mono text-[10px] text-white/44">Ou digite manualmente: {secret}</p>}
         </div>
@@ -386,14 +409,14 @@ function MfaSetupForm() {
   )
 }
 
-const inputClass = 'h-12 w-full border border-white/14 bg-white/8 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-white/34 focus:border-[#f97316] disabled:opacity-50'
+const inputClass = 'h-12 w-full rounded-none border border-white/15 bg-white/5 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#f97316] disabled:opacity-50'
 
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-2 block font-mono text-[10px] font-black uppercase tracking-wider text-white/54">{label}</label>
+      <label className={`${M_FONT} mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/50`}>{label}</label>
       <div className="relative">
-        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#f97316]">{icon}</div>
+        <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#fb923c]">{icon}</div>
         {children}
       </div>
     </div>
@@ -407,7 +430,7 @@ function ErrorMessage({ error }: { error: string | null }) {
 
 function SubmitButton({ children, loading }: { children: ReactNode; loading: boolean }) {
   return (
-    <button type="submit" disabled={loading} className="flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-sm font-black uppercase text-white transition hover:bg-[#ea580c] disabled:opacity-50">
+    <button type="submit" disabled={loading} className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c] disabled:opacity-50`}>
       {loading ? 'Processando...' : children}
     </button>
   )
