@@ -27,8 +27,7 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Badge } from '@/components/ui/badge'
 import { Marquee } from '@/components/ui/marquee'
-import { HeroConstructionScene } from './illustrations/HeroConstructionScene'
-import { ObraOntologyDiagram } from './illustrations/ObraOntologyDiagram'
+import { ObraFoundryScene } from './illustrations/ObraFoundryScene'
 
 const LOGIN_URL = '/login'
 const DEMO_ANCHOR = '#solicitar'
@@ -346,25 +345,22 @@ const autonomyCards: Array<[string, string, string]> = [
   ['No celular', 'O diretor', 'decide melhor sobre portfólio, novas obras e conversas com clientes, porque abre a plataforma e entende em segundos o que está de pé e o que está caindo.'],
 ]
 
-const testimonials: Array<{ name: string; role: string; segment: string; quote: string; result: string; hasNumber?: boolean }> = [
+const testimonials: Array<{ company: string; segment: string; quote: string; result: string; hasNumber?: boolean }> = [
   {
-    name: 'Fabrizzio de Paoli',
-    role: 'Consórcio Se Liga Na Rede',
+    company: 'Consórcio Se Liga Na Rede',
     segment: 'Saneamento',
     quote: 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.',
     result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e adaptando o sistema a cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia — com um único módulo.',
     hasNumber: true,
   },
   {
-    name: 'Felipe Nery',
-    role: 'Engenheiro · Engelfer',
+    company: 'Engelfer Engenharia',
     segment: 'Edificação',
     quote: 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.',
     result: 'Entramos na obra, ouvimos as equipes e adaptamos o sistema a cada frente — do RDO à medição — antes de conectar tudo.',
   },
   {
-    name: 'Matheus Marques',
-    role: 'Vila Rica Engenharia',
+    company: 'Vila Rica Engenharia',
     segment: 'Construção civil',
     quote: 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.',
     result: 'Entramos na obra, mapeamos os processos e identificamos melhorias, adaptando a plataforma ao contexto de cada equipe.',
@@ -375,6 +371,7 @@ const logos = [
   ['/logos/social-proof/engelfer-horizontal.png', 'Engelfer Engenharia'],
   ['/logos/social-proof/cslnr.jpg', 'Consórcio Se Liga na Rede'],
   ['/logos/social-proof/vr.jfif', 'Vila Rica Engenharia'],
+  ['/logos/social-proof/atlantico.jpg', 'Atlântico Engenharia'],
   ['/logos/social-proof/engelfer-selo.png', 'Engelfer Engenharia'],
 ]
 
@@ -801,7 +798,7 @@ export function LandingPage() {
           {/* Illustration + floating insight cards */}
           <div data-sr className="relative mx-auto mt-12 max-w-6xl px-4 sm:px-8">
             <HeroInsightCards />
-            <HeroConstructionScene className="mx-auto max-w-5xl" />
+            <ObraFoundryScene variant="status" className="mx-auto max-w-5xl" />
           </div>
         </section>
 
@@ -816,7 +813,7 @@ export function LandingPage() {
             <Marquee className="[--duration:34s] [--gap:1.5rem]" repeat={4}>
               {logos.map(([src, alt]) => (
                 <div key={src} className="flex h-24 w-56 shrink-0 items-center justify-center border border-black/10 bg-white p-5 transition-colors duration-300 hover:border-black/30">
-                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain opacity-50 grayscale transition duration-300 hover:opacity-100 hover:grayscale-0" />
+                  <img src={src} alt={alt} className="max-h-full max-w-full object-contain" loading="lazy" />
                 </div>
               ))}
             </Marquee>
@@ -879,10 +876,13 @@ export function LandingPage() {
             copy="No núcleo da ConstruData há um modelo operacional único — a ontologia da construção — que padroniza como obra, frente, serviço, equipe, material, prazo, custo e evidência se relacionam, em todos os módulos."
           />
           <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
-            <div data-sr className="grid items-center gap-8 border border-black/10 bg-white p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
-              <ObraOntologyDiagram />
-              <div>
-                <p className="text-base leading-7 text-black/65">
+            <div data-sr className="border border-black/10 bg-white p-6 lg:p-10">
+              <ObraFoundryScene variant="modules" className="mx-auto max-w-5xl" />
+              <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-black/10 pt-6 lg:flex-row lg:items-center">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-black/35">
+                  Ontologia da construção · Base operacional
+                </p>
+                <p className="max-w-3xl text-base leading-7 text-black/65">
                   Construído numa lógica <strong className="font-semibold text-[#0a0a0a]">campo-primeiro</strong>, ele conecta o que acontece no canteiro aos sistemas que o sustentam (ERP, BIM, cronograma) <strong className="font-semibold text-[#0a0a0a]">sem trocar o que você já usa</strong>. Quando o engenheiro atualiza o RDO, cronograma, medição e suprimentos se ajustam sozinhos — sem retrabalho, sem planilha paralela.
                 </p>
               </div>
@@ -1031,7 +1031,7 @@ export function LandingPage() {
           <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
             {testimonials.map((t, i) => (
               <figure
-                key={t.name}
+                key={t.company}
                 data-sr
                 data-sr-delay={String(i + 1)}
                 className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#f6f5f2] lg:border-r lg:[&:nth-child(3n)]:border-r-0"
@@ -1041,8 +1041,8 @@ export function LandingPage() {
                 <blockquote className="mt-4 text-lg leading-8 text-[#0a0a0a]">"{t.quote}"</blockquote>
                 <p className={`mt-5 text-sm leading-6 ${t.hasNumber ? 'text-[#0a0a0a]' : 'text-black/55'}`}>{t.result}</p>
                 <figcaption className="mt-auto border-t border-black/10 pt-5">
-                  <div className="font-['Space_Grotesk'] text-lg font-medium text-[#0a0a0a]">{t.name}</div>
-                  <div className="mt-0.5 text-xs text-black/50">{t.role}</div>
+                  <div className="font-['Space_Grotesk'] text-lg font-medium text-[#0a0a0a]">{t.company}</div>
+                  <div className="mt-0.5 text-xs text-black/50">{t.segment}</div>
                 </figcaption>
               </figure>
             ))}
