@@ -244,9 +244,23 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
 
 function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  // Colaboradores nominais (RDO Compizzo) também contam como trabalhadores.
   const totalWorkers = rdo.manpower.foremanCount + rdo.manpower.officialCount
     + rdo.manpower.helperCount + rdo.manpower.operatorCount
+    + (rdo.manpower.employeeNames?.length ?? 0)
   const totalMeters = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
+  // O Compizzo guarda os dados em campos próprios (serviços/produção/materiais),
+  // não em trechos — o resumo do card precisa ler de lá.
+  const isCompizzo = rdo.template === 'compizzo' && !!rdo.compizzo
+  const compizzoServicos = isCompizzo
+    ? Object.values(rdo.compizzo!.servicos ?? {}).filter(Boolean).length + (rdo.compizzo!.servicosExtra?.length ?? 0)
+    : 0
+  const compizzoProducao = isCompizzo
+    ? (rdo.compizzo!.producao ?? []).filter((p) => (p.quantidade ?? '').trim() !== '').length
+    : 0
+  const compizzoMateriais = isCompizzo
+    ? (rdo.compizzo!.materiais ?? []).filter((m) => (m.quantidade ?? '').trim() !== '').length
+    : 0
 
   function handlePrint() {
     if (rdo.template === 'compizzo' && rdo.compizzo) printCompizzoPdf(rdo)
@@ -263,6 +277,9 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-white font-semibold">{rdoTitle(rdo)}</span>
+            {rdo.status === 'rascunho' && (
+              <span className="rounded border border-amber-400/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">Rascunho</span>
+            )}
             <span className="text-[#6b6b6b] text-xs">RDO #{rdo.number}</span>
             <span className="text-[#a3a3a3] text-sm">{fmtDate(rdo.date)}</span>
             <div className="flex items-center gap-1 text-[#a3a3a3] text-xs">
@@ -275,9 +292,21 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
           <div className="flex items-center gap-4 mt-1 text-[#a3a3a3] text-sm flex-wrap">
             <span>{rdo.responsible}</span>
             <span className="text-gray-600">·</span>
-            <span>{rdo.trechos.length} trecho{rdo.trechos.length !== 1 ? 's' : ''}</span>
-            <span className="text-gray-600">·</span>
-            <span>{totalMeters.toFixed(1)} m executados</span>
+            {isCompizzo ? (
+              <>
+                <span>{compizzoServicos} serviço{compizzoServicos !== 1 ? 's' : ''}</span>
+                <span className="text-gray-600">·</span>
+                <span>{compizzoProducao} item{compizzoProducao !== 1 ? 'ns' : ''} de produção</span>
+                <span className="text-gray-600">·</span>
+                <span>{compizzoMateriais} materia{compizzoMateriais !== 1 ? 'is' : 'l'}</span>
+              </>
+            ) : (
+              <>
+                <span>{rdo.trechos.length} trecho{rdo.trechos.length !== 1 ? 's' : ''}</span>
+                <span className="text-gray-600">·</span>
+                <span>{totalMeters.toFixed(1)} m executados</span>
+              </>
+            )}
             <span className="text-gray-600">·</span>
             <span>{totalWorkers} trabalhadores</span>
             {rdo.photos.length > 0 && (

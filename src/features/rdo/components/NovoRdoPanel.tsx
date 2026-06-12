@@ -190,6 +190,7 @@ export function NovoRdoPanel() {
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
   const consumirMaterial = useSuprimentosStore((s) => s.consumirMaterial)
   const trabalhadores = useMaoDeObraStore((s) => s.workers)
+  const equipes = useMaoDeObraStore((s) => s.crews)
   const addTimecard = useMaoDeObraStore((s) => s.addTimecard)
   const nextNumber = rdos.length + 1
 
@@ -1114,6 +1115,28 @@ export function NovoRdoPanel() {
           {/* Employee name chips */}
           <div>
             <label className="block text-[#a3a3a3] text-xs mb-1">Funcionários Presentes</label>
+            {equipes.length > 0 && (
+              <select
+                className="w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316] mb-2"
+                value=""
+                onChange={(e) => {
+                  const crew = equipes.find((c) => c.id === e.target.value)
+                  if (!crew) return
+                  const names = crew.workerIds
+                    .map((id) => trabalhadores.find((w) => w.id === id)?.name)
+                    .filter((n): n is string => Boolean(n))
+                  if (crew.foreman) names.unshift(crew.foreman)
+                  setEmployeeNames((prev) => [...new Set([...prev, ...names])])
+                }}
+              >
+                <option value="">— Adicionar equipe completa (módulo Mão de Obra) —</option>
+                {equipes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.projectRef ? ` — ${c.projectRef}` : ''} ({c.workerIds.length} membro{c.workerIds.length !== 1 ? 's' : ''})
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
               {employeeNames.map((name, i) => (
                 <span key={i} className="flex items-center gap-1 bg-sky-900/30 border border-sky-700/40 text-[#ea580c] text-xs px-2 py-0.5 rounded-full">

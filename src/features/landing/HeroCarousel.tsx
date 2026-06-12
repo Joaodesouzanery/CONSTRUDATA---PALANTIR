@@ -67,17 +67,20 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
         touchX.current = null
       }}
     >
-      {/* trilho: altura mínima fixa evita CLS na troca de slide */}
-      <div className="relative min-h-[660px] sm:min-h-[640px] lg:min-h-[680px]">
+      {/* trilho: o slide 1 fica no fluxo normal e define a altura do
+          carrossel (nunca corta conteúdo); os slides de foto sobrepõem. */}
+      <div className="relative">
         {/* Slide 1 — hero principal (texto + cena animada) */}
         <div
           role="group"
           aria-roledescription="slide"
           aria-label="1 de 3"
           aria-hidden={idx !== 0}
-          className={`absolute inset-0 transition-opacity duration-700 ${idx === 0 ? 'z-10 opacity-100' : 'pointer-events-none z-0 opacity-0'}`}
+          className={`transition-opacity duration-700 ${idx === 0 ? 'z-10 opacity-100' : 'pointer-events-none z-0 opacity-0'}`}
         >
           {children}
+          {/* respiro inferior para os controles do carrossel */}
+          <div aria-hidden className="h-16" />
         </div>
 
         {/* Slides 2 e 3 — foto full-bleed + headline */}
