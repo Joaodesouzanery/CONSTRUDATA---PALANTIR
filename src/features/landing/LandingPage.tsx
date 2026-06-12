@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Marquee } from '@/components/ui/marquee'
+import { HeroCarousel } from './HeroCarousel'
 import { ObraHubScene } from './ObraHubScene'
 
 const LOGIN_URL = '/login'
@@ -365,6 +366,20 @@ const logos = [
   ['/logos/social-proof/vr.jfif', 'Vila Rica Engenharia'],
   ['/logos/social-proof/atlantico.jpg', 'Atlântico Engenharia'],
   ['/logos/social-proof/engelfer-selo.png', 'Engelfer Engenharia'],
+]
+
+/* Realizações — obras por empresa. Fotos em public/obras/ (trocar o arquivo
+   substitui a imagem do card, sem mexer em código). */
+const realizacoes: Array<{ obra: string; empresa: string; img: string }> = [
+  { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/sao-manoel.webp' },
+  { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/pantanal-baixo.webp' },
+  { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/joao-carlos.webp' },
+  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp' },
+  { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-dos-criadores.webp' },
+  { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-israel.webp' },
+  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp' },
+  { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', img: '/obras/compizzo.webp' },
+  { obra: 'Obras de engenharia', empresa: 'Engelfer', img: '/obras/engelfer.webp' },
 ]
 
 const faqs: Array<[string, string]> = [
@@ -780,6 +795,7 @@ export function LandingPage() {
               ['Impacto', '#impacto'],
               ['Módulos', '#modulos'],
               ['Perfis', '#perfis'],
+              ['Realizações', '#realizacoes'],
               ['FAQ', '#faq'],
             ].map(([label, href]) => (
               <a key={href} href={href} className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.16em] text-black/55 transition hover:text-[#0a0a0a]`}>
@@ -802,34 +818,36 @@ export function LandingPage() {
       </header>
 
       <main>
-        {/* ── Hero (claro, texto à esquerda + cena animada da obra conectada) ── */}
-        <section className="relative overflow-hidden bg-white pt-24 sm:pt-28">
-          <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-14 md:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8 lg:pb-20">
-            <div data-sr>
-              <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-black/50 sm:text-[11px]`}>
-                [ Plataforma de planejamento e gestão da execução de obras ]
-              </p>
-              <h1 className={`${H_FONT} mt-6 max-w-2xl text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-6xl`}>
-                Cada decisão da obra movida a <span className="text-[#ea580c]">dados conectados</span>, não a planilhas soltas.
-              </h1>
-              <p className="mt-6 max-w-xl text-base leading-7 text-black/60 sm:text-lg">
-                Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
-              </p>
-              <div className={`${M_FONT} mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] sm:text-[11px]`}>
-                <span>Adaptada à sua obra antes de tudo</span>
-                <span className="text-black/30">/</span>
-                <span>Implantação em semanas, não meses</span>
+        {/* ── Hero em carrossel: slide principal + 2 slides com foto de obra ── */}
+        <HeroCarousel>
+          <div className="relative h-full overflow-hidden bg-white pt-24 sm:pt-28">
+            <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-14 md:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8 lg:pb-20">
+              <div data-sr>
+                <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-black/50 sm:text-[11px]`}>
+                  [ Plataforma de planejamento e gestão da execução de obras ]
+                </p>
+                <h1 className={`${H_FONT} mt-6 max-w-2xl text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-6xl`}>
+                  Cada decisão da obra movida a <span className="text-[#ea580c]">dados conectados</span>, não a planilhas soltas.
+                </h1>
+                <p className="mt-6 max-w-xl text-base leading-7 text-black/60 sm:text-lg">
+                  Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
+                </p>
+                <div className={`${M_FONT} mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] sm:text-[11px]`}>
+                  <span>Adaptada à sua obra antes de tudo</span>
+                  <span className="text-black/30">/</span>
+                  <span>Implantação em semanas, não meses</span>
+                </div>
+                <div className="mt-9">
+                  <DemoCTA />
+                </div>
               </div>
-              <div className="mt-9">
-                <DemoCTA />
+              <div data-sr data-sr-delay="2" className="relative hidden bg-[#f4f4f2] p-4 sm:p-8 lg:block">
+                <Corners />
+                <ObraHubScene />
               </div>
-            </div>
-            <div data-sr data-sr-delay="2" className="relative bg-[#f4f4f2] p-4 sm:p-8">
-              <Corners />
-              <ObraHubScene />
             </div>
           </div>
-        </section>
+        </HeroCarousel>
 
         {/* ── Faixa de logos ── */}
         <section id="empresas" className="border-t border-black/10 bg-white py-14 sm:py-16">
@@ -1064,8 +1082,47 @@ export function LandingPage() {
         </section>
 
         {/* ── Prova social ── */}
-        <section id="prova" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
-          <SectionHeader index="08" eyebrow="Prova social" title="O que os líderes da construção estão dizendo." />
+        {/* ── Realizações ── */}
+        <section id="realizacoes" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
+          <SectionHeader
+            index="08"
+            eyebrow="Realizações"
+            title="Realizações"
+            copy="Conheça nossos trabalhos realizados. Grandes obras que transformam a sociedade à sua volta são fruto de uma visão técnica completa. De orçamentos até os gerenciamentos mais complexos, garantimos minúcia no conhecimento e máxima confiabilidade em cada decisão."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-t border-l border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-3">
+            {realizacoes.map((item, i) => (
+              <figure
+                key={`${item.empresa}-${item.obra}`}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="group relative border-b border-r border-black/10 bg-white"
+              >
+                <div className="overflow-hidden">
+                  <img
+                    src={item.img}
+                    alt={`Obra ${item.obra} — ${item.empresa}`}
+                    width={704}
+                    height={528}
+                    loading="lazy"
+                    decoding="async"
+                    className="aspect-[4/3] w-full object-cover grayscale transition duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+                  />
+                </div>
+                <figcaption className="p-5">
+                  <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]`}>
+                    [ {item.empresa} ]
+                  </p>
+                  <h3 className={`${H_FONT} mt-2 text-xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Prova social ── */}
+        <section id="prova" className="border-t border-black/10 bg-white py-20 sm:py-32">
+          <SectionHeader index="09" eyebrow="Prova social" title="O que os líderes da construção estão dizendo." />
           <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 px-5 md:px-10 lg:grid-cols-3 lg:gap-px">
             {testimonials.map((t, i) => (
               <figure
@@ -1088,9 +1145,9 @@ export function LandingPage() {
         </section>
 
         {/* ── Autonomia ── */}
-        <section id="autonomia" className="border-t border-black/10 bg-white py-20 sm:py-32">
+        <section id="autonomia" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
           <SectionHeader
-            index="09"
+            index="10"
             eyebrow="Autonomia para a cadeia inteira"
             title="A obra inteira fica mais inteligente."
             copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, na hora certa, com a informação certa. Você não está comprando um software — está dando autonomia para a sua cadeia inteira."
@@ -1101,7 +1158,7 @@ export function LandingPage() {
                 key={place}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group relative flex flex-col border-b border-black/10 px-7 py-9 transition-colors duration-300 hover:bg-[#f4f4f2] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
+                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#ececea] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
               >
                 <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c2410c]`}>{place}</p>
@@ -1113,8 +1170,8 @@ export function LandingPage() {
         </section>
 
         {/* ── FAQ ── */}
-        <section id="faq" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
-          <SectionHeader index="10" eyebrow="FAQ" title="Perguntas frequentes." />
+        <section id="faq" className="border-t border-black/10 bg-white py-20 sm:py-32">
+          <SectionHeader index="11" eyebrow="FAQ" title="Perguntas frequentes." />
           <div className="mx-auto mt-12 max-w-5xl px-5 md:px-10">
             <div className="border-t border-black/10">
               {faqs.map(([question, answer], i) => (
@@ -1122,7 +1179,7 @@ export function LandingPage() {
                   key={question}
                   data-sr
                   data-sr-delay={String((i % 3) + 1)}
-                  className="group border-b border-black/10 bg-transparent transition-colors duration-200 open:bg-white"
+                  className="group border-b border-black/10 bg-transparent transition-colors duration-200 open:bg-[#f4f4f2]"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-1 py-5">
                     <span className={`${H_FONT} flex items-center gap-3 text-base font-medium text-[#0a0a0a]`}>
@@ -1139,7 +1196,7 @@ export function LandingPage() {
         </section>
 
         {/* ── Fechamento + formulário ── */}
-        <section id="solicitar" className="border-t border-black/10 bg-white px-5 py-20 sm:py-32 md:px-10">
+        <section id="solicitar" className="border-t border-black/10 bg-[#f4f4f2] px-5 py-20 sm:py-32 md:px-10">
           <div data-sr className="mx-auto max-w-4xl text-center">
             <h2 className={`${H_FONT} text-4xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
               Veja a ConstruData na sua obra.
@@ -1149,7 +1206,7 @@ export function LandingPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-[#f4f4f2] p-6 sm:p-9">
+          <form onSubmit={handleSubmit} className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-white p-6 sm:p-9">
             <Corners />
             {sent ? (
               <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
@@ -1220,6 +1277,7 @@ export function LandingPage() {
                 ['Impacto', '#impacto'],
                 ['Módulos', '#modulos'],
                 ['Perfis', '#perfis'],
+                ['Realizações', '#realizacoes'],
                 ['FAQ', '#faq'],
               ].map(([label, href]) => (
                 <a key={href} href={href} className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.16em] text-black/50 transition hover:text-[#0a0a0a]`}>

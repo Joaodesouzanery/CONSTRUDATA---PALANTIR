@@ -2167,7 +2167,8 @@ export type FinanceiroEvmTab =
   | 'por-obra'
   | 'distribuicao'
   | 'comparativo'
-  | 'fluxo-mensal'
+  | 'manejo-financeiro'
+  | 'manejo-orcamento'
 
 export type CostPillar = 'material' | 'equipamento' | 'mao_de_obra' | 'impostos_indiretos'
 
@@ -2432,6 +2433,50 @@ export interface NucleoSummary {
 // ─── Financeiro ─────────────────────────────────────────────────────────────
 
 export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa'
+
+/** Imposto/retenção de nota fiscal (Plano de Contas, pré-configurado e editável). */
+export interface ImpostoNF {
+  id:         string
+  nome:       string
+  aliquota:   string   // texto livre — ISS é faixa ("2% a 5%")
+  observacao: string
+  createdAt:  string
+}
+
+// ── Manejo Financeiro (inbox de contratos/obrigações) ──
+
+export type ManejoContratoStatus = 'ativo' | 'encerrado' | 'desobrigado'
+export type ManejoMotivoSinalizacao = 'periodo-encerrado' | 'sem-movimentacao' | 'saldo-residual'
+
+export interface ManejoContrato {
+  id:                   string
+  titulo:               string
+  inicioContrato:       string        // yyyy-MM-dd
+  fimPeriodoExecucao:   string | null // yyyy-MM-dd
+  valorTotalObrigado:   number
+  valorRestante:        number
+  status:               ManejoContratoStatus
+  sinalizadoPeloModelo: boolean
+  motivoSinalizacao:    ManejoMotivoSinalizacao | null
+  anexos:               { id: string; nome: string }[]
+  desobrigadoEm:        string | null
+  createdAt:            string
+}
+
+// ── Manejo Orçamento (autorizações por categoria) ──
+
+export type OrcamentoCategoria = 'fundo' | 'interesse-especial' | 'elemento-orcamento' | 'autorizacao-custo'
+
+export interface ManejoOrcamentoItem {
+  id:           string
+  categoria:    OrcamentoCategoria
+  codigo:       string
+  descricao:    string
+  valorTotal:   number
+  valorAlocado: number
+  vinculos:     string[]  // ids de itens de outras categorias
+  createdAt:    string
+}
 
 export type EntradaCategoria = 'medicao' | 'adiantamento' | 'reajuste' | 'outro'
 export type SaidaCategoria   = 'materiais' | 'mao_de_obra' | 'equipamentos' | 'subempreiteiros' | 'administrativo' | 'outro'
