@@ -18,12 +18,10 @@ const Gestao360Page         = lazy(() => import('@/features/gestao-360/index').t
 const PlanejamentoMestrePage = lazy(() => import('@/features/planejamento-mestre/index').then((m) => ({ default: m.PlanejamentoMestrePage })))
 const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index').then((m) => ({ default: m.PlanejamentoPage })))
 const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
-const MapaInterativoPage    = lazy(() => import('@/features/mapa-interativo/index').then((m) => ({ default: m.MapaInterativoPage })))
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
 const RdoSabespPage         = lazy(() => import('@/features/rdo-sabesp/index').then((m) => ({ default: m.RdoSabespPage })))
 const QualidadePage         = lazy(() => import('@/features/qualidade/index').then((m) => ({ default: m.QualidadePage })))
 const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index').then((m) => ({ default: m.QuantitativosPage })))
-const BimPage               = lazy(() => import('@/features/bim/index').then((m) => ({ default: m.BimPage })))
 const EvmPage               = lazy(() => import('@/features/evm/index').then((m) => ({ default: m.EvmPage })))
 const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index').then((m) => ({ default: m.MinhaRotinaPage })))
 const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
@@ -140,12 +138,12 @@ function App() {
           <Route path="planejamento-mestre"  element={<LazyRoute><PlanejamentoMestrePage /></LazyRoute>} />
           <Route path="planejamento"        element={<LazyRoute><PlanejamentoPage /></LazyRoute>} />
           <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
-          <Route path="mapa-interativo"     element={<LazyRoute><MapaInterativoPage /></LazyRoute>} />
+          <Route path="mapa-interativo"     element={<Navigate to="/app/torre-de-controle?aba=mapa-interativo" replace />} />
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
           <Route path="rdo-sabesp"          element={<LazyRoute><RdoSabespPage /></LazyRoute>} />
           <Route path="qualidade"           element={<LazyRoute><QualidadePage /></LazyRoute>} />
           <Route path="quantitativos"       element={<LazyRoute><QuantitativosPage /></LazyRoute>} />
-          <Route path="bim"                 element={<LazyRoute><BimPage /></LazyRoute>} />
+          <Route path="bim"                 element={<Navigate to="/app/torre-de-controle?aba=bim" replace />} />
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
           <Route path="medicao"             element={<LazyRoute><MedicaoPage /></LazyRoute>} />
           <Route path="financeiro"          element={<Navigate to="/app/evm" replace />} />

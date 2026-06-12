@@ -4,7 +4,7 @@ import {
   ClipboardList, Calendar, Radio,
   Wrench, PackageSearch, Users, FlaskConical,
   ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Map, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
+  Calculator, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, Settings2, ArrowUp, ArrowDown,
   BadgeDollarSign,
 } from 'lucide-react'
@@ -66,8 +66,6 @@ const NAV_GROUPS = [
     items: [
       { label: 'Levantamento', icon: Ruler,            to: '/app/levantamento-obra'  },
       { label: 'Economia',      icon: BadgeDollarSign,  to: '/app/economia'            },
-      { label: 'BIM 3D/4D/5D',   icon: Layers,           to: '/app/bim'                 },
-      { label: 'Mapa Interativo', icon: Map,              to: '/app/mapa-interativo'     },
     ],
   },
   {

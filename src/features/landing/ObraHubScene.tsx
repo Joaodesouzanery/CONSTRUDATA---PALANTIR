@@ -82,45 +82,64 @@ function DataChip({ x, y, dot }: { x: number; y: number; dot: string }) {
 function Vignette({ glyph, dot }: { glyph: Glyph; dot: string }) {
   switch (glyph) {
     case 'canteiro': {
-      // estrutura em execução: laje, pilares, laje superior e ferragem
-      const cols: P[] = [[0.1, 0.1], [1.75, 0.1], [0.1, 1.75], [1.75, 1.75]]
+      // estrutura em execução: 2 pavimentos de lajes, malha de pilares,
+      // ferragem de espera e escoramento na fachada
+      const cols: P[] = [[0.08, 0.08], [0.95, 0.08], [1.78, 0.08], [0.08, 0.95], [1.78, 0.95], [0.08, 1.78], [0.95, 1.78], [1.78, 1.78]]
       return (
-        <g transform="translate(2 12)">
-          <SoftBox x={-1.1} y={-1.1} z={0} w={2.2} d={2.2} h={0.18} />
+        <g transform="translate(2 14)">
+          <SoftBox x={-1.1} y={-1.1} z={0} w={2.2} d={2.2} h={0.16} />
           {cols.map(([px, py], i) => (
-            <SoftBox key={i} x={px - 1.1} y={py - 1.1} z={0.18} w={0.22} d={0.22} h={1.15} sw={0.9} />
+            <SoftBox key={`c1-${i}`} x={px - 1.1} y={py - 1.1} z={0.16} w={0.18} d={0.18} h={0.85} sw={0.8} />
           ))}
-          <SoftBox x={-1.1} y={-1.1} z={1.33} w={2.2} d={1.5} h={0.16} />
-          <g stroke={STROKE} strokeWidth={0.9} strokeLinecap="round">
-            {[[-0.9, -0.9], [0, -0.95], [0.9, -0.9]].map(([rx, ry], i) => {
-              const a = iso(rx, ry, 1.49)
-              const b = iso(rx, ry, 2.05)
+          <SoftBox x={-1.1} y={-1.1} z={1.01} w={2.2} d={2.2} h={0.14} />
+          {cols.slice(0, 5).map(([px, py], i) => (
+            <SoftBox key={`c2-${i}`} x={px - 1.1} y={py - 1.1} z={1.15} w={0.18} d={0.18} h={0.8} sw={0.8} />
+          ))}
+          <SoftBox x={-1.1} y={-1.1} z={1.95} w={2.2} d={1.4} h={0.13} />
+          {/* ferragem de espera */}
+          <g stroke={STROKE} strokeWidth={0.8} strokeLinecap="round">
+            {[[-0.95, -0.95], [-0.2, -1], [0.55, -0.95], [0.95, -0.6], [-0.95, -0.2]].map(([rx, ry], i) => {
+              const a = iso(rx, ry, 2.08)
+              const b = iso(rx, ry, 2.6)
               return <line key={i} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
             })}
           </g>
-          <DataChip x={34} y={-46} dot={dot} />
+          {/* escoramento entre lajes na fachada direita */}
+          <g stroke={STROKE} strokeWidth={0.7} opacity={0.6}>
+            {[-0.6, 0.1, 0.8].map((yy) => {
+              const a = iso(1.1, yy, 0.16)
+              const b = iso(1.1, yy, 1.01)
+              return <line key={yy} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} />
+            })}
+          </g>
+          <DataChip x={36} y={-52} dot={dot} />
         </g>
       )
     }
     case 'office': {
-      // escritório de obra com janelas e antena de dados
+      // escritório de obra: janelas, porta, ar-condicionado e antena de dados
       const ant = iso(-0.7, 0.8, 1.7)
+      const door: P[] = [iso(0.9, 0.55, 0), iso(0.9, 0.82, 0), iso(0.9, 0.82, 0.85), iso(0.9, 0.55, 0.85)]
       return (
         <g transform="translate(0 12)">
           <SoftBox x={-1} y={-0.9} z={0} w={1.9} d={1.7} h={1.7} />
           <g stroke={STROKE} strokeWidth={0.8} opacity={0.8}>
             {[0.35, 1.05].map((zz) => {
               const a = iso(0.9, -0.7, zz + 0.35)
-              const b = iso(0.9, 0.5, zz + 0.35)
-              const c = iso(0.9, 0.5, zz)
+              const b = iso(0.9, 0.35, zz + 0.35)
+              const c = iso(0.9, 0.35, zz)
               const d = iso(0.9, -0.7, zz)
               return <polygon key={zz} points={pts([a, b, c, d])} fill="#f7f8f5" />
             })}
+            <polygon points={pts(door)} fill={TILE_SIDE} />
           </g>
+          {/* ar-condicionado no telhado */}
+          <SoftBox x={-0.7} y={-0.6} z={1.7} w={0.5} d={0.5} h={0.28} sw={0.8} />
           <g transform={`translate(${ant[0]} ${ant[1]})`} stroke={STROKE} strokeWidth={1.1} fill="none" strokeLinecap="round">
             <line x1={0} y1={0} x2={0} y2={-16} />
             <circle cx={0} cy={-18} r={2.2} fill={ACCENT} stroke="none" />
             <path d="M 5 -23 a 7 7 0 0 1 0 10" opacity={0.7} />
+            <path d="M 9 -27 a 12 12 0 0 1 0 18" opacity={0.45} />
           </g>
           <DataChip x={36} y={-34} dot={dot} />
         </g>
@@ -199,16 +218,23 @@ function Vignette({ glyph, dot }: { glyph: Glyph; dot: string }) {
       )
     }
     case 'truck': {
-      // caminhão basculante + caixas de material
+      // caminhão basculante com chassi, janela na cabine e carga de material
+      const win: P[] = [iso(0.96, -0.42, 0.85), iso(0.96, 0.32, 0.85), iso(0.96, 0.32, 1.1), iso(0.96, -0.42, 1.1)]
       return (
         <g transform="translate(-2 10)">
-          <SoftBox x={-1.5} y={-0.5} z={0.34} w={1.7} d={1} h={0.62} top={ACCENT_SOFT} />
-          <SoftBox x={0.3} y={-0.5} z={0.34} w={0.66} d={1} h={0.85} />
-          {[[-1.05, 0.6], [-0.15, 0.62], [0.7, 0.64]].map(([wx, wy], i) => {
+          {/* chassi */}
+          <SoftBox x={-1.55} y={-0.45} z={0.22} w={2.55} d={0.9} h={0.14} top={TILE_SIDE} sw={0.8} />
+          {/* caçamba com carga */}
+          <SoftBox x={-1.5} y={-0.5} z={0.36} w={1.7} d={1} h={0.6} top={ACCENT_SOFT} />
+          <path d={`M ${iso(-1.2, 0, 0.96)[0]} ${iso(-1.2, 0, 0.96)[1]} q 8 -7 16 -1 q 7 5 -2 7 q -12 3 -14 -6`} fill={BOX_LEFT} stroke={STROKE} strokeWidth={0.8} transform="translate(0 -2)" />
+          {/* cabine com janela */}
+          <SoftBox x={0.3} y={-0.5} z={0.36} w={0.66} d={1} h={0.85} />
+          <polygon points={pts(win)} fill="#f7f8f5" stroke={STROKE} strokeWidth={0.7} />
+          {[[-1.05, 0.6], [-0.45, 0.62], [0.18, 0.63], [0.7, 0.64]].map(([wx, wy], i) => {
             const p = iso(wx, wy, 0.18)
             return <circle key={i} cx={p[0]} cy={p[1]} r={3.6} fill="#4a4f47" stroke="#3a3f38" strokeWidth={0.8} />
           })}
-          <g transform="translate(26 4)">
+          <g transform="translate(28 2)">
             <SoftBox x={0} y={0} z={0} w={0.62} d={0.62} h={0.55} sw={0.9} />
             <SoftBox x={0.7} y={0.25} z={0} w={0.55} d={0.55} h={0.45} sw={0.9} top={ACCENT_SOFT} />
           </g>

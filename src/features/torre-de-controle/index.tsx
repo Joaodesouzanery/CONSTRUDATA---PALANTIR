@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { FolderKanban, ListChecks, Map, type LucideIcon } from 'lucide-react'
+import { FolderKanban, Globe, Layers, ListChecks, Map, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
@@ -13,16 +13,33 @@ import { ObraDetailPanel }  from './components/ObraDetailPanel'
 import { ObraDialog }       from './components/ObraDialog'
 import { RiskDialog }       from './components/RiskDialog'
 
-type TorreTab = 'mapa' | 'projetos' | 'detalhes'
+/* BIM e Mapa Interativo vivem como abas da Torre, mas continuam em chunks
+   separados (Three.js/Forge e Leaflet só baixam quando a aba é aberta). */
+const BimPageLazy = lazy(() => import('@/features/bim').then((m) => ({ default: m.BimPage })))
+const MapaInterativoPageLazy = lazy(() => import('@/features/mapa-interativo').then((m) => ({ default: m.MapaInterativoPage })))
+
+type TorreTab = 'mapa' | 'projetos' | 'detalhes' | 'bim' | 'mapa-interativo'
 
 const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
   { key: 'mapa',     label: 'Mapa Geral',       icon: Map },
   { key: 'projetos', label: 'Projetos',         icon: FolderKanban },
   { key: 'detalhes', label: 'Detalhes da Obra', icon: ListChecks },
+  { key: 'bim',      label: 'BIM 3D/4D/5D',     icon: Layers },
+  { key: 'mapa-interativo', label: 'Mapa Interativo', icon: Globe },
 ]
 
 function parseTorreTab(value: string | null): TorreTab | null {
-  return value === 'mapa' || value === 'projetos' || value === 'detalhes' ? value : null
+  return value === 'mapa' || value === 'projetos' || value === 'detalhes' || value === 'bim' || value === 'mapa-interativo'
+    ? value
+    : null
+}
+
+function TabLoading() {
+  return (
+    <div className="flex h-full items-center justify-center bg-[#2c2c2c] text-sm text-[#a3a3a3]">
+      Carregando módulo...
+    </div>
+  )
 }
 
 export function TorreDeControlePage() {
@@ -125,6 +142,22 @@ export function TorreDeControlePage() {
         {activeTab === 'detalhes' && (
           <div className="flex h-full flex-col overflow-y-auto">
             <ObraDetailPanel />
+          </div>
+        )}
+
+        {activeTab === 'bim' && (
+          <div className="h-full min-h-0 overflow-auto">
+            <Suspense fallback={<TabLoading />}>
+              <BimPageLazy />
+            </Suspense>
+          </div>
+        )}
+
+        {activeTab === 'mapa-interativo' && (
+          <div className="h-full min-h-0 overflow-hidden">
+            <Suspense fallback={<TabLoading />}>
+              <MapaInterativoPageLazy />
+            </Suspense>
           </div>
         )}
       </div>

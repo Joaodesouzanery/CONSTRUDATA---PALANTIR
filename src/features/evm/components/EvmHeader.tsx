@@ -23,7 +23,8 @@ const FIN_TABS: { key: CombinedTab; label: string }[] = [
   { key: 'entradas',     label: 'Entradas' },
   { key: 'saidas',       label: 'Saídas' },
   { key: 'fluxo-caixa', label: 'Fluxo de Caixa' },
-  { key: 'fluxo-mensal', label: 'Fluxo Mensal' },
+  { key: 'manejo-financeiro', label: 'Manejo Financeiro' },
+  { key: 'manejo-orcamento', label: 'Manejo Orçamento' },
   { key: 'comparativo', label: 'Comparativo' },
 ]
 

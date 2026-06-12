@@ -1,4 +1,6 @@
 import { AlertTriangle, Layers3, Pencil, Plus, Search, Trash2, Wand2 } from 'lucide-react'
+import { useState } from 'react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { useEvmStore } from '@/store/evmStore'
 import { cn, formatCurrency } from '@/lib/utils'
 
@@ -49,6 +51,7 @@ export function PorNucleoPanel() {
     diagnoseSpi,
     diagnosticNotes,
   } = useEvmStore()
+  const [deletingNucleoId, setDeletingNucleoId] = useState<string | null>(null)
   const activeNucleos = nucleos.filter((n) => n.ativo !== false)
   const selected = selectedNucleoId ? activeNucleos.find((n) => n.id === selectedNucleoId) : null
   const scopedNucleos = selected ? [selected] : activeNucleos
@@ -89,9 +92,7 @@ export function PorNucleoPanel() {
   }
 
   function handleRemoveNucleo(id: string) {
-    const nucleo = nucleos.find((n) => n.id === id)
-    if (!nucleo) return
-    if (window.confirm(`Excluir o núcleo "${nucleo.nome}"?`)) removeNucleoFinanceiro(id)
+    setDeletingNucleoId(id)
   }
 
   return (
@@ -234,6 +235,15 @@ export function PorNucleoPanel() {
           Nenhum núcleo financeiro cadastrado.
         </div>
       )}
+
+      <ConfirmDialog
+        open={deletingNucleoId !== null}
+        title="Excluir núcleo"
+        message={`O núcleo "${nucleos.find((n) => n.id === deletingNucleoId)?.nome ?? ''}" será removido com seus dados financeiros.`}
+        confirmLabel="Excluir"
+        onConfirm={() => { if (deletingNucleoId) removeNucleoFinanceiro(deletingNucleoId); setDeletingNucleoId(null) }}
+        onCancel={() => setDeletingNucleoId(null)}
+      />
     </div>
   )
 }

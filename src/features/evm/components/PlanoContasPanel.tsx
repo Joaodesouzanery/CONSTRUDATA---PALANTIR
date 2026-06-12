@@ -1,12 +1,14 @@
 /**
  * PlanoContasPanel — Industrial Cost Plan with 4 pillars for the EVM module.
- * Sections: Material, Equipamentos, Mão de Obra, Impostos/Indiretos.
+ * Sections: Material, Equipamentos, Mão de Obra, Impostos/Indiretos,
+ * plus the pre-configured (and fully editable) "Impostos Notas Fiscais" table.
  */
-import { useState } from 'react'
-import { Plus, Trash2, Package, Wrench, Users, FileText } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { formatCurrency } from '@/lib/utils'
-import type { CostPillar } from '@/types'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import type { CostPillar, ImpostoNF } from '@/types'
 
 interface PillarConfig {
   key: CostPillar
@@ -39,9 +41,28 @@ const EMPTY_FORM: NewEntryForm = {
 }
 
 export function PlanoContasPanel() {
-  const { costAccounts, addCostAccount, removeCostAccount } = useEvmStore()
+  const { costAccounts, addCostAccount, updateCostAccount, removeCostAccount } = useEvmStore()
   const [addingPillar, setAddingPillar] = useState<CostPillar | null>(null)
   const [form, setForm] = useState<NewEntryForm>({ ...EMPTY_FORM })
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<{ description: string; unitCostBRL: string; quantity: string }>({ description: '', unitCostBRL: '', quantity: '' })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  function startEdit(id: string) {
+    const ca = costAccounts.find((c) => c.id === id)
+    if (!ca) return
+    setEditingId(id)
+    setEditForm({ description: ca.description, unitCostBRL: String(ca.unitCostBRL), quantity: String(ca.quantity) })
+  }
+
+  function confirmEdit() {
+    if (!editingId) return
+    const unitCost = parseFloat(editForm.unitCostBRL)
+    const qty = parseFloat(editForm.quantity)
+    if (!editForm.description.trim() || isNaN(unitCost) || isNaN(qty)) return
+    updateCostAccount(editingId, { description: editForm.description, unitCostBRL: unitCost, quantity: qty })
+    setEditingId(null)
+  }
 
   function entriesForPillar(pillar: CostPillar) {
     return costAccounts.filter((ca) => ca.pillar === pillar)
@@ -192,31 +213,73 @@ export function PlanoContasPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((ca) => (
-                    <tr key={ca.id} className="border-b border-[#525252]/30 hover:bg-[#484848]/30 transition-colors">
-                      <td className="px-4 py-2.5">
-                        <span className="text-[#f5f5f5] text-sm">{ca.description}</span>
-                        <span className="text-[#6b6b6b] text-[10px] font-mono ml-2">{ca.activityId}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
-                        {formatCurrency(ca.unitCostBRL)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
-                        {ca.quantity.toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[#f5f5f5] text-sm font-semibold">
-                        {formatCurrency(ca.totalCostBRL)}
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <button
-                          onClick={() => removeCostAccount(ca.id)}
-                          className="text-[#6b6b6b] hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {entries.map((ca) => {
+                    const isEditing = editingId === ca.id
+                    return (
+                      <tr key={ca.id} className="border-b border-[#525252]/30 hover:bg-[#484848]/30 transition-colors">
+                        <td className="px-4 py-2.5">
+                          {isEditing ? (
+                            <input
+                              value={editForm.description}
+                              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                              className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]"
+                            />
+                          ) : (
+                            <>
+                              <span className="text-[#f5f5f5] text-sm">{ca.description}</span>
+                              <span className="text-[#6b6b6b] text-[10px] font-mono ml-2">{ca.activityId}</span>
+                            </>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
+                          {isEditing ? (
+                            <input
+                              type="number" min={0} step={0.01}
+                              value={editForm.unitCostBRL}
+                              onChange={(e) => setEditForm({ ...editForm, unitCostBRL: e.target.value })}
+                              className="w-24 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
+                            />
+                          ) : formatCurrency(ca.unitCostBRL)}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
+                          {isEditing ? (
+                            <input
+                              type="number" min={0}
+                              value={editForm.quantity}
+                              onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                              className="w-16 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
+                            />
+                          ) : ca.quantity.toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#f5f5f5] text-sm font-semibold">
+                          {formatCurrency(ca.totalCostBRL)}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            {isEditing ? (
+                              <>
+                                <button onClick={confirmEdit} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Salvar edição">
+                                  <Check size={14} />
+                                </button>
+                                <button onClick={() => setEditingId(null)} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors" aria-label="Cancelar edição">
+                                  <X size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button onClick={() => startEdit(ca.id)} className="text-[#6b6b6b] hover:text-[#f97316] transition-colors" aria-label="Editar item">
+                                  <Pencil size={14} />
+                                </button>
+                                <button onClick={() => setDeletingId(ca.id)} className="text-[#6b6b6b] hover:text-red-400 transition-colors" aria-label="Excluir item">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#2c2c2c]/50">
@@ -234,6 +297,168 @@ export function PlanoContasPanel() {
           </div>
         )
       })}
+
+      <ImpostosNFSection />
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Excluir item do plano de contas"
+        message="O item será removido do plano de contas. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        onConfirm={() => { if (deletingId) removeCostAccount(deletingId); setDeletingId(null) }}
+        onCancel={() => setDeletingId(null)}
+      />
+    </div>
+  )
+}
+
+/* ── Impostos Notas Fiscais — tabela pré-configurada e 100% editável ──── */
+
+const IMPOSTOS_COLOR = '#fbbf24'
+
+function ImpostosNFSection() {
+  const { impostosNF, seedImpostosNF, addImpostoNF, updateImpostoNF, removeImpostoNF } = useEvmStore()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Omit<ImpostoNF, 'id' | 'createdAt'>>({ nome: '', aliquota: '', observacao: '' })
+  const [adding, setAdding] = useState(false)
+  const [addForm, setAddForm] = useState<Omit<ImpostoNF, 'id' | 'createdAt'>>({ nome: '', aliquota: '', observacao: '' })
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Pré-configura as 7 linhas padrão na primeira visita.
+  useEffect(() => { seedImpostosNF() }, [seedImpostosNF])
+
+  function startEdit(imp: ImpostoNF) {
+    setEditingId(imp.id)
+    setEditForm({ nome: imp.nome, aliquota: imp.aliquota, observacao: imp.observacao })
+  }
+
+  function confirmEdit() {
+    if (!editingId || !editForm.nome.trim()) return
+    updateImpostoNF(editingId, { ...editForm })
+    setEditingId(null)
+  }
+
+  function confirmAdd() {
+    if (!addForm.nome.trim()) return
+    addImpostoNF({ ...addForm })
+    setAdding(false)
+    setAddForm({ nome: '', aliquota: '', observacao: '' })
+  }
+
+  const deleting = impostosNF.find((i) => i.id === deletingId)
+
+  const cellInput = 'w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]'
+
+  return (
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b border-[#525252]"
+        style={{ borderLeftWidth: 4, borderLeftColor: IMPOSTOS_COLOR }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${IMPOSTOS_COLOR}20` }}>
+            <Receipt size={15} style={{ color: IMPOSTOS_COLOR }} />
+          </div>
+          <span className="text-[#f5f5f5] text-sm font-semibold">Impostos Notas Fiscais</span>
+          <span className="text-[#6b6b6b] text-xs">({impostosNF.length} itens)</span>
+        </div>
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+        >
+          <Plus size={13} />
+          Adicionar
+        </button>
+      </div>
+
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-[#525252]/50">
+            <th className="text-left text-[#a3a3a3] text-xs font-medium px-4 py-2 w-44">Imposto / Retenção</th>
+            <th className="text-left text-[#a3a3a3] text-xs font-medium px-4 py-2 w-28">Alíquota</th>
+            <th className="text-left text-[#a3a3a3] text-xs font-medium px-4 py-2">Observação</th>
+            <th className="text-center text-[#a3a3a3] text-xs font-medium px-4 py-2 w-20" />
+          </tr>
+        </thead>
+        <tbody>
+          {adding && (
+            <tr className="border-b border-[#525252]/30 bg-[#2c2c2c]/60">
+              <td className="px-4 py-2.5">
+                <input value={addForm.nome} onChange={(e) => setAddForm({ ...addForm, nome: e.target.value })} placeholder="Nome" className={cellInput} autoFocus />
+              </td>
+              <td className="px-4 py-2.5">
+                <input value={addForm.aliquota} onChange={(e) => setAddForm({ ...addForm, aliquota: e.target.value })} placeholder="Ex.: 1,00%" className={`${cellInput} font-mono`} />
+              </td>
+              <td className="px-4 py-2.5">
+                <input value={addForm.observacao} onChange={(e) => setAddForm({ ...addForm, observacao: e.target.value })} placeholder="Observação" className={cellInput} />
+              </td>
+              <td className="px-4 py-2.5 text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <button onClick={confirmAdd} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Confirmar adição"><Check size={14} /></button>
+                  <button onClick={() => setAdding(false)} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors" aria-label="Cancelar adição"><X size={14} /></button>
+                </div>
+              </td>
+            </tr>
+          )}
+          {impostosNF.length === 0 && !adding && (
+            <tr>
+              <td colSpan={4} className="px-4 py-4 text-center text-[#6b6b6b] text-xs">Nenhum imposto cadastrado.</td>
+            </tr>
+          )}
+          {impostosNF.map((imp) => {
+            const isEditing = editingId === imp.id
+            return (
+              <tr key={imp.id} className="border-b border-[#525252]/30 hover:bg-[#484848]/30 transition-colors align-top">
+                <td className="px-4 py-2.5">
+                  {isEditing ? (
+                    <input value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} className={cellInput} />
+                  ) : (
+                    <span className="text-[#f5f5f5] text-sm font-medium">{imp.nome}</span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5">
+                  {isEditing ? (
+                    <input value={editForm.aliquota} onChange={(e) => setEditForm({ ...editForm, aliquota: e.target.value })} className={`${cellInput} font-mono`} />
+                  ) : (
+                    <span className="font-mono text-sm" style={{ color: IMPOSTOS_COLOR }}>{imp.aliquota}</span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5">
+                  {isEditing ? (
+                    <input value={editForm.observacao} onChange={(e) => setEditForm({ ...editForm, observacao: e.target.value })} className={cellInput} />
+                  ) : (
+                    <span className="text-[#a3a3a3] text-sm leading-relaxed">{imp.observacao}</span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    {isEditing ? (
+                      <>
+                        <button onClick={confirmEdit} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Salvar edição"><Check size={14} /></button>
+                        <button onClick={() => setEditingId(null)} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors" aria-label="Cancelar edição"><X size={14} /></button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(imp)} className="text-[#6b6b6b] hover:text-[#f97316] transition-colors" aria-label="Editar imposto"><Pencil size={14} /></button>
+                        <button onClick={() => setDeletingId(imp.id)} className="text-[#6b6b6b] hover:text-red-400 transition-colors" aria-label="Excluir imposto"><Trash2 size={14} /></button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Excluir imposto/retenção"
+        message={`"${deleting?.nome ?? ''}" será removido da tabela de impostos de notas fiscais.`}
+        confirmLabel="Excluir"
+        onConfirm={() => { if (deletingId) removeImpostoNF(deletingId); setDeletingId(null) }}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   )
 }

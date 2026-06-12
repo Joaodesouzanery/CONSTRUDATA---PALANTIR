@@ -10,7 +10,7 @@ import type {
   EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
   EacScenarios, PillarDeviation, StockAlert,
   ContratoFinanceiro, NucleoFinanceiro, FinanceiroWorkPackage,
-  MeasurementTemplate,
+  MeasurementTemplate, ImpostoNF,
 } from '@/types'
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
@@ -50,6 +50,14 @@ function measurementToRow(m: WeightedMeasurement, orgId: string, userId: string)
     created_by:      userId,
   }
 }
+function impostoNFToRow(imp: ImpostoNF, orgId: string, userId: string) {
+  return {
+    id:              imp.id,
+    organization_id: orgId,
+    payload:         imp as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
 function ctxAuth() {
   const { profile, user } = useAuth.getState()
   return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
@@ -85,6 +93,14 @@ interface EvmState {
   addCostAccount: (entry: Omit<CostAccountEntry, 'id' | 'totalCostBRL'>) => void
   updateCostAccount: (id: string, patch: Partial<CostAccountEntry>) => void
   removeCostAccount: (id: string) => void
+
+  // Impostos de Notas Fiscais (Plano de Contas)
+  impostosNF: ImpostoNF[]
+  impostosNFSeeded: boolean
+  addImpostoNF: (imp: Omit<ImpostoNF, 'id' | 'createdAt'>) => void
+  updateImpostoNF: (id: string, patch: Partial<ImpostoNF>) => void
+  removeImpostoNF: (id: string) => void
+  seedImpostosNF: () => void
 
   // Measurement CRUD
   addMeasurement: (m: Omit<WeightedMeasurement, 'id' | 'compositeScore'>) => void
@@ -399,6 +415,8 @@ export const useEvmStore = create<EvmState>()(
   activeTab: 'dashboard',
   workPackages: [],
   costAccounts: [],
+  impostosNF: [],
+  impostosNFSeeded: false,
   measurements: [],
   evmMetrics: { ...EMPTY_METRICS },
   sCurveData: [],
@@ -583,6 +601,53 @@ export const useEvmStore = create<EvmState>()(
       pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'delete', recordId: id, table: 'evm_cost_accounts', approvalActionType: 'delete_evm_cost_account' })],
     }))
     void get().flush()
+  },
+
+  // ── Impostos de Notas Fiscais CRUD ─────────────────────────────────
+
+  addImpostoNF: (imp) => {
+    const id = crypto.randomUUID()
+    const novo: ImpostoNF = { ...imp, id, createdAt: new Date().toISOString() }
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      impostosNF: [...s.impostosNF, novo],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'imposto_nf', type: 'insert', recordId: id, row: impostoNFToRow(novo, orgId, userId), table: 'financeiro_impostos_nf' })],
+    }))
+    void get().flush()
+  },
+
+  updateImpostoNF: (id, patch) => {
+    set((s) => ({ impostosNF: s.impostosNF.map((imp) => (imp.id === id ? { ...imp, ...patch } : imp)) }))
+    const target = get().impostosNF.find((imp) => imp.id === id)
+    if (target) {
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'imposto_nf', type: 'update', recordId: id, patch: { payload: target as unknown as Record<string, unknown> }, table: 'financeiro_impostos_nf' })] }))
+      void get().flush()
+    }
+  },
+
+  removeImpostoNF: (id) => {
+    set((s) => ({
+      impostosNF: s.impostosNF.filter((imp) => imp.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'imposto_nf', type: 'delete', recordId: id, table: 'financeiro_impostos_nf', approvalActionType: 'delete_financeiro_imposto_nf' })],
+    }))
+    void get().flush()
+  },
+
+  /* Pré-configura a tabela de impostos de NF na primeira visita ao Plano de
+     Contas. Usa addImpostoNF para que os defaults também sincronizem. */
+  seedImpostosNF: () => {
+    if (get().impostosNFSeeded || get().impostosNF.length > 0) return
+    set({ impostosNFSeeded: true })
+    const defaults: Array<Omit<ImpostoNF, 'id' | 'createdAt'>> = [
+      { nome: 'ISS', aliquota: '2% a 5%', observacao: 'Varia conforme o município onde o serviço é executado.' },
+      { nome: 'PIS', aliquota: '0,65%', observacao: 'Incide sobre o faturamento da nota fiscal.' },
+      { nome: 'COFINS', aliquota: '3,00%', observacao: 'Incide sobre o faturamento da nota fiscal.' },
+      { nome: 'INSS Retido', aliquota: '11,00%', observacao: 'Retenção previdenciária aplicável conforme a legislação e o tipo de serviço prestado.' },
+      { nome: 'CSLL', aliquota: '1,00%', observacao: 'Retenção tributária na fonte.' },
+      { nome: 'IRRF', aliquota: '1,00%', observacao: 'Imposto de Renda Retido na Fonte.' },
+      { nome: 'Retenção Técnica', aliquota: '5,00%', observacao: 'Aplicada em alguns contratos como garantia da execução do serviço. O valor fica retido pelo cliente e pode ser recuperado após a conclusão da obra ou o término do prazo de garantia, normalmente em até 180 dias.' },
+    ]
+    for (const item of defaults) get().addImpostoNF(item)
   },
 
   // ── Measurement CRUD ───────────────────────────────────────────────
@@ -814,9 +879,11 @@ export const useEvmStore = create<EvmState>()(
     const wps  = await pullTable<{ payload: WorkPackage }>('evm_work_packages')
     const cas  = await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
     const ms   = await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
+    const imps = await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
     if (wps) set({ workPackages: wps.map((r) => r.payload) })
     if (cas) set({ costAccounts: cas.map((r) => r.payload) })
     if (ms)  set({ measurements: ms.map((r) => r.payload) })
+    if (imps && imps.length > 0) set({ impostosNF: imps.map((r) => r.payload), impostosNFSeeded: true })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
     // Recomputa metrics localmente após pull
     get().recalculateMetrics()
@@ -827,6 +894,8 @@ export const useEvmStore = create<EvmState>()(
       partialize: (s) => ({
         workPackages: s.workPackages,
         costAccounts: s.costAccounts,
+        impostosNF: s.impostosNF,
+        impostosNFSeeded: s.impostosNFSeeded,
         measurements: s.measurements,
         sCurveData:   s.sCurveData,
         contrato:     s.contrato,

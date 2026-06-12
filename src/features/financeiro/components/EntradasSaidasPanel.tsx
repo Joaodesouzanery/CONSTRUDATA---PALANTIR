@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -19,8 +20,10 @@ export function EntradasPanel() { return <LancamentosPanel tipo="entrada" /> }
 export function SaidasPanel() { return <LancamentosPanel tipo="saida" /> }
 
 function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
-  const { entries, addEntry, removeEntry } = useFinanceiroStore()
+  const { entries, addEntry, updateEntry, removeEntry } = useFinanceiroStore()
   const [showAdd, setShowAdd] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<FinanceiroEntry | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState('')
 
   const cats = tipo === 'entrada' ? ENTRADA_CATS : SAIDA_CATS
@@ -86,10 +89,16 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
                   <td className="px-3 py-2 text-[#6b6b6b]">{e.referencia || '—'}</td>
                   <td className={`px-3 py-2 text-right font-bold tabular-nums ${tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}`}>{fmtBRL(e.valor)}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => { if (window.confirm('Remover?')) removeEntry(e.id) }}
-                      className="p-1 rounded text-red-400 hover:bg-red-500/20 opacity-0 group-hover:opacity-100 transition-all">
-                      <Trash2 size={12} />
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button onClick={() => setEditingEntry(e)} aria-label="Editar lançamento"
+                        className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-[#f97316]">
+                        <Pencil size={12} />
+                      </button>
+                      <button onClick={() => setDeletingId(e.id)} aria-label="Excluir lançamento"
+                        className="p-1 rounded text-red-400 hover:bg-red-500/20">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -98,24 +107,42 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
         </div>
       )}
 
-      {showAdd && <AddModal tipo={tipo} cats={cats} onClose={() => setShowAdd(false)} onAdd={addEntry} />}
+      {showAdd && <EntryModal tipo={tipo} cats={cats} onClose={() => setShowAdd(false)} onSave={addEntry} />}
+      {editingEntry && (
+        <EntryModal
+          tipo={tipo}
+          cats={cats}
+          initial={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSave={(entry) => updateEntry(editingEntry.id, entry)}
+        />
+      )}
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Excluir lançamento"
+        message="O lançamento será removido. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        onConfirm={() => { if (deletingId) removeEntry(deletingId); setDeletingId(null) }}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   )
 }
 
-function AddModal({ tipo, cats, onClose, onAdd }: { tipo: 'entrada' | 'saida'; cats: { key: string; label: string }[]; onClose: () => void; onAdd: (e: FinanceiroEntry) => void }) {
-  const [descricao, setDescricao] = useState('')
-  const [valor, setValor] = useState('')
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10))
-  const [categoria, setCategoria] = useState(cats[0].key)
-  const [referencia, setReferencia] = useState('')
+function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' | 'saida'; cats: { key: string; label: string }[]; initial?: FinanceiroEntry; onClose: () => void; onSave: (e: FinanceiroEntry) => void }) {
+  const [descricao, setDescricao] = useState(initial?.descricao ?? '')
+  const [valor, setValor] = useState(initial ? String(initial.valor) : '')
+  const [data, setData] = useState(initial?.data ?? new Date().toISOString().slice(0, 10))
+  const [categoria, setCategoria] = useState(initial?.categoria ?? cats[0].key)
+  const [referencia, setReferencia] = useState(initial?.referencia ?? '')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!descricao || !valor) return
-    onAdd({
-      id: crypto.randomUUID(), tipo, descricao, valor: parseFloat(valor.replace(',', '.')) || 0,
-      data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined, createdAt: new Date().toISOString(),
+    onSave({
+      id: initial?.id ?? crypto.randomUUID(), tipo, descricao, valor: parseFloat(valor.replace(',', '.')) || 0,
+      data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined,
+      createdAt: initial?.createdAt ?? new Date().toISOString(),
     })
     onClose()
   }
@@ -124,7 +151,7 @@ function AddModal({ tipo, cats, onClose, onAdd }: { tipo: 'entrada' | 'saida'; c
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <form onSubmit={handleSubmit} className="w-full max-w-md rounded-xl p-5 space-y-4 bg-[#2c2c2c] border border-[#525252]">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">{tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}</h2>
+          <h2 className="text-sm font-semibold text-white">{initial ? 'Editar Lançamento' : tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}</h2>
           <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-white"><X size={16} /></button>
         </div>
         <div className="space-y-3">
@@ -161,7 +188,7 @@ function AddModal({ tipo, cats, onClose, onAdd }: { tipo: 'entrada' | 'saida'; c
           </div>
         </div>
         <button type="submit" className="w-full py-2.5 rounded-lg text-xs font-semibold text-white" style={{ background: '#f97316' }}>
-          {tipo === 'entrada' ? 'Adicionar Entrada' : 'Adicionar Saída'}
+          {initial ? 'Salvar Alterações' : tipo === 'entrada' ? 'Adicionar Entrada' : 'Adicionar Saída'}
         </button>
       </form>
     </div>
