@@ -90,6 +90,7 @@ interface MaoDeObraState {
   // Crew CRUD
   addCrew:    (crew: Omit<LaborCrew, 'id'>) => void
   updateCrew: (id: string, updates: Partial<Omit<LaborCrew, 'id'>>) => void
+  removeCrew: (id: string) => void
 
   // Timecard actions
   addTimecard:     (entry: Omit<TimecardEntry, 'id'>) => void
@@ -424,6 +425,14 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     }
   },
 
+  removeCrew: (id) => {
+    set((s) => ({
+      crews: s.crews.filter((c) => c.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'delete', recordId: id, table: 'labor_crews', approvalActionType: 'delete_labor_crew' })],
+    }))
+    void get().flush()
+  },
+
   // ── Timecards ───────────────────────────────────────────────────────────────
 
   addTimecard: (entry) => {
@@ -688,7 +697,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       timecards:   [],
       progress:    [],
       occurrences: [],
-      riskAreas:   mockRiskAreas,
+      riskAreas:   [],
       suggestions: [],
       shifts:         [],
       violations:     [],
@@ -719,11 +728,14 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   pull: async () => {
-    const ws = await pullTable<{ payload: Worker }>('workers')
-    const cs = await pullTable<{ payload: LaborCrew }>('labor_crews')
-    const ts = await pullTable<{ payload: TimecardEntry }>('timecards')
-    const ss = await pullTable<{ payload: Shift }>('shifts')
-    const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
+    // Se ainda há operações pendentes para uma tabela (flush falhou/offline),
+    // não sobrescreve a lista local — senão registros não sincronizados somem.
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const ws = pendingTables.has('workers') ? null : await pullTable<{ payload: Worker }>('workers')
+    const cs = pendingTables.has('labor_crews') ? null : await pullTable<{ payload: LaborCrew }>('labor_crews')
+    const ts = pendingTables.has('timecards') ? null : await pullTable<{ payload: TimecardEntry }>('timecards')
+    const ss = pendingTables.has('shifts') ? null : await pullTable<{ payload: Shift }>('shifts')
+    const as_ = pendingTables.has('worker_absences') ? null : await pullTable<{ payload: WorkerAbsence }>('worker_absences')
     if (ws)  set({ workers:   ws.map((r) => normalizeWorker(r.payload)) })
     if (cs)  set({ crews:     cs.map((r) => normalizeCrew(r.payload)) })
     if (ts)  set({ timecards: ts.map((r) => r.payload) })
@@ -734,14 +746,32 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     }),
     {
       name: 'cdata-mao-de-obra',
-      version: 1,
-      // v1: workPosts deixou de iniciar com MOCK_WORK_POSTS. Limpa o mock que
-      // ficou persistido para quem já abriu o app (loadDemoData repõe no demo).
+      version: 2,
+      // v1: workPosts deixou de iniciar com MOCK_WORK_POSTS.
+      // v2: remove TODO resquício de dado demo persistido fora do modo demo
+      //     (mocks usam ids curtos tipo 'w-1'; dados reais usam UUID). Listas
+      //     derivadas (sugestões/violações) são recomputáveis e zeram.
       migrate: (persisted, fromVersion) => {
-        if (fromVersion < 1 && persisted && typeof persisted === 'object') {
-          ;(persisted as Partial<MaoDeObraState>).workPosts = []
+        const state = (persisted ?? {}) as Partial<MaoDeObraState>
+        if (fromVersion < 1) state.workPosts = []
+        if (fromVersion < 2) {
+          const isUuid = (id: unknown) =>
+            typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+          const keepReal = <T extends { id?: unknown }>(arr: T[] | undefined) =>
+            Array.isArray(arr) ? arr.filter((item) => isUuid(item?.id)) : []
+          state.workers     = keepReal(state.workers)
+          state.crews       = keepReal(state.crews)
+          state.timecards   = keepReal(state.timecards)
+          state.progress    = keepReal(state.progress)
+          state.occurrences = keepReal(state.occurrences)
+          state.riskAreas   = keepReal(state.riskAreas)
+          state.shifts      = keepReal(state.shifts)
+          state.workPosts   = keepReal(state.workPosts)
+          state.absences    = keepReal(state.absences)
+          state.suggestions = []
+          state.violations  = []
         }
-        return persisted as MaoDeObraState
+        return state as MaoDeObraState
       },
       partialize: (s) => ({
         activeOrgId:    s.activeOrgId,

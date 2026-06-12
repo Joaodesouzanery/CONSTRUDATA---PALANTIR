@@ -1,4 +1,7 @@
-import { Component, useState, type ReactNode } from 'react'
+import { Component, useEffect, useState, type ReactNode } from 'react'
+import { useAuth } from '@/lib/auth'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { MaoDeObraHeader }       from './components/MaoDeObraHeader'
 import type { MaoDeObraTab }     from './components/MaoDeObraHeader'
 import { DashboardPanel }        from './components/DashboardPanel'
@@ -51,6 +54,22 @@ class MaoDeObraPanelBoundary extends Component<{ children: ReactNode; activeTab:
 
 export function MaoDeObraPage() {
   const [activeTab, setActiveTab] = useState<MaoDeObraTab>('dashboard')
+  const profileOrgId = useAuth((s) => s.profile?.organization_id)
+  const ensureTenantScope = useMaoDeObraStore((s) => s.ensureTenantScope)
+  const flush = useMaoDeObraStore((s) => s.flush)
+  const pull = useMaoDeObraStore((s) => s.pull)
+
+  // Carimba a empresa ativa e sincroniza com o Supabase ao abrir o módulo:
+  // primeiro empurra o que está pendente, depois puxa o estado do servidor.
+  useEffect(() => {
+    if (!profileOrgId) return
+    ensureTenantScope(profileOrgId)
+    if (isDemoModeEnabled()) return
+    void (async () => {
+      await flush()
+      await pull()
+    })()
+  }, [ensureTenantScope, flush, profileOrgId, pull])
 
   function renderPanel() {
     switch (activeTab) {

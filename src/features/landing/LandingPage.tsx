@@ -27,7 +27,7 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Marquee } from '@/components/ui/marquee'
 import { HeroCarousel } from './HeroCarousel'
-import { ObraHubScene } from './ObraHubScene'
+import { ObraFoundryScene } from './ObraFoundryScene'
 
 const LOGIN_URL = '/login'
 const DEMO_ANCHOR = '#solicitar'
@@ -821,7 +821,7 @@ export function LandingPage() {
         {/* ── Hero em carrossel: slide principal + 2 slides com foto de obra ── */}
         <HeroCarousel>
           <div className="relative h-full overflow-hidden bg-white pt-24 sm:pt-28">
-            <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-14 md:px-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-8 lg:pb-20">
+            <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-10 md:px-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-6 lg:pb-12">
               <div data-sr>
                 <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-black/50 sm:text-[11px]`}>
                   [ Plataforma de planejamento e gestão da execução de obras ]
@@ -841,9 +841,9 @@ export function LandingPage() {
                   <DemoCTA />
                 </div>
               </div>
-              <div data-sr data-sr-delay="2" className="relative hidden bg-[#f4f4f2] p-4 sm:p-8 lg:block">
+              <div data-sr data-sr-delay="2" className="relative hidden border border-black/10 bg-[#fdfdfc] p-3 lg:block">
                 <Corners />
-                <ObraHubScene />
+                <ObraFoundryScene variant="modules" />
               </div>
             </div>
           </div>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
@@ -101,9 +102,14 @@ export function RdoCompizzoPanel() {
   const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
   const today = new Date().toISOString().slice(0, 10)
 
-  // Funcionários cadastrados no módulo Mão de Obra (sincroniza ao abrir).
+  // Funcionários e equipes cadastrados no módulo Mão de Obra (sincroniza ao abrir).
   useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
+  const crews = useMaoDeObraStore((s) => s.crews)
+  // Itens de estoque do módulo Suprimentos (para puxar materiais sem digitar).
+  const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
+  const [crewPick, setCrewPick] = useState('')
+  const [materialPick, setMaterialPick] = useState('')
 
   // RDO em edição (definido pela tela de Histórico). Lido uma vez na montagem.
   const editing = useMemo(() => {
@@ -209,12 +215,15 @@ export function RdoCompizzoPanel() {
     }
   }
 
-  function handleSave() {
-    const payload = buildRdoPayload()
+  function handleSave(status: 'rascunho' | 'finalizado' = 'finalizado') {
+    const payload = { ...buildRdoPayload(), status }
     if (editing) updateRdo(editing.id, payload)
     else addRdo(payload)
     setSaved(true)
-    setTimeout(() => setActiveTab('historico'), 900)
+    // Rascunho mantém o usuário na tela para continuar preenchendo depois;
+    // o salvamento definitivo volta ao histórico.
+    if (status === 'finalizado') setTimeout(() => setActiveTab('historico'), 900)
+    else setTimeout(() => setSaved(false), 1600)
   }
 
   function handlePrint() {
@@ -247,7 +256,10 @@ export function RdoCompizzoPanel() {
           <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors">
             <Printer size={14} /> Imprimir / PDF
           </button>
-          <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors">
+          <button onClick={() => handleSave('rascunho')} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#f97316]/50 text-[#f97316] hover:bg-[#f97316]/10 transition-colors">
+            <Save size={14} /> Salvar Rascunho
+          </button>
+          <button onClick={() => handleSave('finalizado')} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-[#f97316] text-white hover:bg-[#ea580c] transition-colors">
             {saved ? <CheckCircle2 size={14} /> : <Save size={14} />} {saved ? 'Salvo!' : editing ? 'Salvar alterações' : 'Salvar RDO'}
           </button>
         </div>
@@ -283,6 +295,34 @@ export function RdoCompizzoPanel() {
 
         {/* Mão de Obra */}
         <Section title={`Mão de Obra (${totalColab})`} icon={<FileText size={16} className="text-[#1f6fd1]" />}>
+          {/* Selecionar uma equipe inteira configurada no módulo Mão de Obra */}
+          {crews.length > 0 && (
+            <div className="mb-2">
+              <label className={labelCls}><Users size={11} className="inline mr-1 text-[#1f6fd1]" />Adicionar equipe completa</label>
+              <select
+                className={inputCls}
+                value={crewPick}
+                onChange={(e) => {
+                  const crew = crews.find((c) => c.id === e.target.value)
+                  if (crew) {
+                    const names = crew.workerIds
+                      .map((id) => workers.find((w) => w.id === id)?.name)
+                      .filter((n): n is string => Boolean(n))
+                    if (crew.foreman) names.unshift(crew.foreman)
+                    setEmployeeNames((prev) => [...new Set([...prev, ...names])])
+                  }
+                  setCrewPick('')
+                }}
+              >
+                <option value="">— Selecione uma equipe (adiciona todos os membros) —</option>
+                {crews.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.projectRef ? ` — ${c.projectRef}` : ''} ({c.workerIds.length} membro{c.workerIds.length !== 1 ? 's' : ''})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* Selecionar funcionário cadastrado no módulo Mão de Obra */}
           {workers.length > 0 && (
             <div className="mb-2">
@@ -368,6 +408,36 @@ export function RdoCompizzoPanel() {
 
         {/* Materiais */}
         <Section title="Materiais Utilizados" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
+          {/* Puxar item do módulo Suprimentos (ou preencher manualmente abaixo) */}
+          {estoqueItens.length > 0 && (
+            <div className="mb-2">
+              <label className={labelCls}>Puxar do módulo Suprimentos</label>
+              <select
+                className={inputCls}
+                value={materialPick}
+                onChange={(e) => {
+                  const item = estoqueItens.find((it) => it.id === e.target.value)
+                  if (item) {
+                    setMateriais((rows) => {
+                      // Preenche a primeira linha vazia; senão acrescenta nova.
+                      const emptyIdx = rows.findIndex((r) => !r.material.trim() && !r.quantidade.trim())
+                      const novo = { material: `${item.descricao} (${item.unidade})`, quantidade: '' }
+                      if (emptyIdx >= 0) return rows.map((r, i) => (i === emptyIdx ? novo : r))
+                      return [...rows, novo]
+                    })
+                  }
+                  setMaterialPick('')
+                }}
+              >
+                <option value="">— Selecione um material do estoque —</option>
+                {estoqueItens.map((it) => (
+                  <option key={it.id} value={it.id}>
+                    {it.descricao} — {it.qtdDisponivel} {it.unidade} disponível
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <EditableRows
             rows={materiais}
             cols={[['material', 'Material'], ['quantidade', 'Quantidade']]}

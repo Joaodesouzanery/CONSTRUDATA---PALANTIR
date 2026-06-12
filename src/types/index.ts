@@ -1442,6 +1442,8 @@ export interface RDO {
   id:           string
   number:       number   // sequential, auto-assigned
   title?:       string
+  /** Rascunho permite salvar o avanço e continuar depois; ausente = finalizado. */
+  status?:      'rascunho' | 'finalizado'
   date:         string   // yyyy-MM-dd
   responsible:  string
   weather:      RdoWeather
