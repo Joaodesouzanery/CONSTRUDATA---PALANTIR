@@ -56,12 +56,12 @@ const OCORRENCIA_ITEMS: Array<[keyof RdoCompizzoOcorrencias, string]> = [
 ]
 
 const DEFAULT_PRODUCAO: RdoCompizzoProducaoRow[] = [
-  { servico: 'Pintura Vermelha (m²)', quantidade: '' },
-  { servico: 'Pintura Amarela (m²)', quantidade: '' },
-  { servico: 'Faixa Branca (m)', quantidade: '' },
-  { servico: 'Faixa Amarela (m)', quantidade: '' },
-  { servico: 'Faixa Vermelha (m)', quantidade: '' },
-  { servico: 'Vagas PCD (un)', quantidade: '' },
+  { servico: 'Pintura Vermelha', quantidade: '', unidade: 'm²' },
+  { servico: 'Pintura Amarela',  quantidade: '', unidade: 'm²' },
+  { servico: 'Faixa Branca',     quantidade: '', unidade: 'm'  },
+  { servico: 'Faixa Amarela',    quantidade: '', unidade: 'm'  },
+  { servico: 'Faixa Vermelha',   quantidade: '', unidade: 'm'  },
+  { servico: 'Vagas PCD',        quantidade: '', unidade: 'un' },
 ]
 
 const DEFAULT_MATERIAIS: RdoCompizzoMaterialRow[] = [

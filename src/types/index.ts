@@ -1498,7 +1498,7 @@ export interface RDO {
 export interface RdoCompizzoProducaoRow {
   servico:    string
   quantidade: string
-  unidade?:   string
+  unidade:    string
 }
 
 /** Serviço adicional (livre) marcado em "Serviços Executados no Dia". */
