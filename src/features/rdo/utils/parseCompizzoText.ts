@@ -164,8 +164,8 @@ export function parseCompizzoText(text: string): ParsedCompizzo {
         // "Pintura Vermelha (m²)   120"  → separa rótulo e (opcional) quantidade
         if (/^servico\s+quantidade/.test(n)) break
         const qm = line.trim().match(/^(.*?)[\s.]+([\d.,]+)\s*$/)
-        if (qm && /\d/.test(qm[2])) result.producao.push({ servico: qm[1].trim(), quantidade: qm[2].trim() })
-        else result.producao.push({ servico: line.trim(), quantidade: '' })
+        if (qm && /\d/.test(qm[2])) result.producao.push({ servico: qm[1].trim(), quantidade: qm[2].trim(), unidade: '' })
+        else result.producao.push({ servico: line.trim(), quantidade: '', unidade: '' })
         break
       }
       case 'materiais': {
