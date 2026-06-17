@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { workerSchema, type WorkerFormData } from '../../schemas'
 import type { WorkerCertification } from '@/types'
 
@@ -38,6 +39,7 @@ function blankCert(): WorkerCertification {
 
 export function WorkerDialog({ onClose }: Props) {
   const { crews, addWorker } = useMaoDeObraStore((s) => ({ crews: s.crews, addWorker: s.addWorker }))
+  const sites = useTorreStore((s) => s.sites)
   const [form, setForm]     = useState<WorkerFormData>(emptyForm)
   const [errors, setErrors] = useState<Partial<Record<keyof WorkerFormData, string>>>({})
 
@@ -203,6 +205,36 @@ export function WorkerDialog({ onClose }: Props) {
                 </button>
               </div>
             ))}
+          </div>
+
+          {/* Obra + Cidade */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b] text-xs font-medium">Obra (opcional)</span>
+              <select
+                value={form.obraId ?? ''}
+                onChange={(e) => {
+                  const site = sites.find((s) => s.id === e.target.value)
+                  handleField('obraId', e.target.value || undefined)
+                  if (site) handleField('cidade', site.city)
+                }}
+                className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+              >
+                <option value="">— Nenhuma obra —</option>
+                {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[#6b6b6b] text-xs font-medium">Cidade (opcional)</span>
+              <input
+                type="text"
+                maxLength={100}
+                value={form.cidade ?? ''}
+                onChange={(e) => handleField('cidade', e.target.value || undefined)}
+                className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+                placeholder="Ex: Brasília, Goiânia..."
+              />
+            </label>
           </div>
 
           {/* Actions */}

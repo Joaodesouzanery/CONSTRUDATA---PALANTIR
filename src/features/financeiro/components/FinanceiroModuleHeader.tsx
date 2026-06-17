@@ -8,6 +8,7 @@ const TABS: { key: FinanceiroTab; label: string }[] = [
   { key: 'saidas',       label: 'Saídas'         },
   { key: 'fluxo-caixa',  label: 'Fluxo de Caixa' },
   { key: 'distribuicao', label: 'Distribuição'   },
+  { key: 'por-obra',     label: 'Por Obra'       },
 ]
 
 export function FinanceiroModuleHeader() {

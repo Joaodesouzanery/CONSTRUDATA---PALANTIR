@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  MapContainer, TileLayer, Marker, Popup, Tooltip,
+  MapContainer, TileLayer, Marker, Tooltip,
   Circle, Polyline, LayersControl, ScaleControl,
   useMap, useMapEvents,
 } from 'react-leaflet'
@@ -12,7 +12,25 @@ import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { haversineKm } from '@/store/otimizacaoFrotaStore'
 import { useThemeStore } from '@/store/themeStore'
+import { MapSidePanel } from '@/components/shared/MapSidePanel'
 import type { ConstructionSite, ObraStatus } from '@/types'
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, borderBottom: '1px solid #2c2c2c', padding: '4px 0' }}>
+      <span style={{ color: '#6b6b6b', flexShrink: 0 }}>{label}</span>
+      <span style={{ color: '#f5f5f5', textAlign: 'right' }}>{children}</span>
+    </div>
+  )
+}
+
+function Badge({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: color + '25', color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      {children}
+    </span>
+  )
+}
 
 // ─── Tile URLs ────────────────────────────────────────────────────────────────
 
@@ -271,6 +289,7 @@ export function ObrasMap() {
   const selectSite    = useTorreStore((s) => s.selectSite)
   const setEditing    = useTorreStore((s) => s.setEditing)
   const updateLocation = useTorreStore((s) => s.updateLocation)
+  const updateRisk    = useTorreStore((s) => s.updateRisk)
   const equipamentos  = useEquipamentosStore((s) => s.equipamentos)
   const routingRecs   = useOtimizacaoFrotaStore((s) => s.routingRecs)
   const isDark        = useThemeStore((s) => s.theme === 'dark')
@@ -278,6 +297,7 @@ export function ObrasMap() {
   const [isFullscreen,   setIsFullscreen]   = useState(false)
   const [measureActive,  setMeasureActive]  = useState(false)
   const [measurePoints,  setMeasurePoints]  = useState<MeasurePoint[]>([])
+  const [panelOpen,      setPanelOpen]      = useState(false)
 
   // ── Memoized derivations ─────────────────────────────────────────────────────
   const mapCSS     = useMemo(() => getMapCSS(isDark), [isDark])
@@ -329,7 +349,7 @@ export function ObrasMap() {
     createHelmetIcon(site, selected), [])
 
   // ── Stable event handler factories ───────────────────────────────────────────
-  const makeClickHandler  = useCallback((id: string) => () => selectSite(id), [selectSite])
+  const makeClickHandler  = useCallback((id: string) => () => { selectSite(id); setPanelOpen(true) }, [selectSite])
   const makeDragHandler   = useCallback((id: string) => (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
     const { lat, lng } = e.target.getLatLng()
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -445,75 +465,6 @@ export function ObrasMap() {
             <Tooltip direction="top" offset={[0, -10]}>
               {site.code} — {site.name}
             </Tooltip>
-
-            <Popup className="torre-popup">
-              <div style={{ padding: '12px 14px', minWidth: 210, fontFamily: 'Inter, system-ui, sans-serif' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: STATUS_COLOR[site.status], fontWeight: 700 }}>
-                    {site.code}
-                  </span>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: STATUS_COLOR[site.status] + '20', color: STATUS_COLOR[site.status],
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                  }}>
-                    {STATUS_LABEL[site.status]}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f5f5f5', marginBottom: 6, lineHeight: 1.3 }}>
-                  {site.name}
-                </div>
-                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 2 }}>📍 {site.street}, {site.number}</div>
-                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 8 }}>{site.district} — {site.city}/{site.state}</div>
-                <div style={{ fontSize: 12, color: '#e5e5e5', marginBottom: 4 }}>👷 Gerente: {site.manager}</div>
-
-                {/* Equipment count */}
-                {(() => {
-                  const cnt = equipCountBySiteName.get(site.name) ?? 0
-                  return cnt > 0 ? (
-                    <div style={{ fontSize: 12, color: '#e5e5e5', marginBottom: 8 }}>
-                      🚜 {cnt} equipamento{cnt !== 1 ? 's' : ''} no canteiro
-                    </div>
-                  ) : null
-                })()}
-
-                <div style={{ fontSize: 12, color: '#d4d4d4', marginBottom: 8 }}>
-                  📐 {site.totalArea.toLocaleString('pt-BR')} m² · {site.floors} {site.floors === 1 ? 'piso' : 'pisos'}
-                </div>
-
-                {site.risks.filter((r) => r.status === 'active').length > 0 && (
-                  <div style={{ background: 'rgba(239,68,68,0.1)', borderRadius: 6, padding: '4px 8px', marginBottom: 8 }}>
-                    <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>
-                      ⚠ {site.risks.filter((r) => r.status === 'active').length} risco(s) ativo(s)
-                    </span>
-                  </div>
-                )}
-                <button
-                  onClick={() => { selectSite(site.id); setEditing(site.id) }}
-                  style={{
-                    width: '100%', background: 'transparent', border: '1px solid #525252',
-                    borderRadius: 6, color: '#f97316', fontSize: 11, fontWeight: 600,
-                    padding: '5px 8px', cursor: 'pointer',
-                  }}
-                >
-                  Editar Obra
-                </button>
-                <a
-                  href={`https://www.google.com/maps?q=${site.lat},${site.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'block', textAlign: 'center', marginTop: 8,
-                    color: '#f97316', fontSize: 11, fontWeight: 700, textDecoration: 'none',
-                  }}
-                >
-                  Conferir no Google Maps
-                </a>
-                <div style={{ textAlign: 'center', fontSize: 9, color: '#3f3f3f', marginTop: 6 }}>
-                  Arraste para reposicionar
-                </div>
-              </div>
-            </Popup>
           </Marker>
         ))}
       </MapContainer>
@@ -589,6 +540,82 @@ export function ObrasMap() {
           </div>
         </div>
       )}
+
+      {/* Side panel */}
+      {(() => {
+        const site = selectedId ? sites.find((s) => s.id === selectedId) : null
+        if (!site) return null
+        const equipCnt = equipCountBySiteName.get(site.name) ?? 0
+        const activeRisks = site.risks.filter((r) => r.status === 'active').sort((a, b) => {
+          const ord = { critical: 0, high: 1, medium: 2, low: 3 }
+          return (ord[a.level as keyof typeof ord] ?? 9) - (ord[b.level as keyof typeof ord] ?? 9)
+        })
+        const riskColor: Record<string, string> = { critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' }
+        return (
+          <MapSidePanel
+            isOpen={panelOpen}
+            onClose={() => setPanelOpen(false)}
+            title={site.name}
+            subtitle={site.code ? `${site.code} · ${STATUS_LABEL[site.status]}` : STATUS_LABEL[site.status]}
+            tabs={[
+              {
+                key: 'resumo', label: 'Resumo', content: (
+                  <div style={{ fontSize: 12, color: '#a3a3a3', lineHeight: 1.8 }}>
+                    <Row label="Status"><Badge color={STATUS_COLOR[site.status]}>{STATUS_LABEL[site.status]}</Badge></Row>
+                    <Row label="Área">{site.totalArea.toLocaleString('pt-BR')} m²</Row>
+                    <Row label="Pisos">{site.floors}</Row>
+                    {equipCnt > 0 && <Row label="Equipamentos">{equipCnt} no canteiro</Row>}
+                    <Row label="Riscos ativos">{activeRisks.length}</Row>
+                    <div style={{ marginTop: 12 }}>
+                      <button onClick={() => { setEditing(site.id); setPanelOpen(false) }}
+                        style={{ width: '100%', padding: '7px', borderRadius: 8, border: '1px solid #525252', background: 'transparent', color: '#f97316', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 6 }}>
+                        Editar Obra
+                      </button>
+                      <a href={`https://www.google.com/maps?q=${site.lat},${site.lng}`} target="_blank" rel="noreferrer"
+                        style={{ display: 'block', textAlign: 'center', color: '#3b82f6', fontSize: 11, textDecoration: 'none' }}>
+                        Ver no Google Maps
+                      </a>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: 'alertas', label: `Alertas (${activeRisks.length})`, content: activeRisks.length === 0
+                  ? <p style={{ fontSize: 12, color: '#6b6b6b' }}>Nenhum risco ativo.</p>
+                  : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {activeRisks.map((r) => (
+                        <div key={r.id} style={{ background: '#2c2c2c', borderRadius: 8, padding: '10px 12px', borderLeft: `3px solid ${riskColor[r.level] ?? '#6b6b6b'}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <Badge color={riskColor[r.level] ?? '#6b6b6b'}>{r.level.toUpperCase()}</Badge>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: '#f5f5f5' }}>{r.title}</span>
+                          </div>
+                          <p style={{ margin: '0 0 8px', fontSize: 11, color: '#a3a3a3' }}>{r.description}</p>
+                          <button onClick={() => updateRisk(site.id, r.id, { status: 'mitigated' })}
+                            style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #525252', background: 'transparent', color: '#22c55e', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                            Dispensar
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ),
+              },
+              {
+                key: 'propriedades', label: 'Propriedades', content: (
+                  <div style={{ fontSize: 12, color: '#a3a3a3', lineHeight: 1.8 }}>
+                    <Row label="Endereço">{site.street}, {site.number}</Row>
+                    <Row label="Bairro">{site.district}</Row>
+                    <Row label="Cidade">{site.city}/{site.state}</Row>
+                    <Row label="Gerente">{site.manager}</Row>
+                    {site.startDate && <Row label="Início">{site.startDate}</Row>}
+                    {site.expectedEnd && <Row label="Conclusão prevista">{site.expectedEnd}</Row>}
+                  </div>
+                ),
+              },
+            ]}
+          />
+        )
+      })()}
     </div>
   )
 }

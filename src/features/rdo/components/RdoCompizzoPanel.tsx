@@ -4,7 +4,7 @@
  * reaproveita campos do Novo RDO (mão de obra, equipamentos, fotos). Salva no
  * mesmo store de RDO (template 'compizzo') e exporta PDF idêntico ao documento.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
   CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users,
@@ -35,6 +35,17 @@ const SERVICO_ITEMS: Array<[keyof RdoCompizzoServicos, string]> = [
   ['limpezaArea', 'Limpeza da área'],
   ['isolamentoArea', 'Isolamento da área'],
   ['preparacaoPiso', 'Preparação do piso'],
+  ['demarcacao', 'Demarcação'],
+  ['pintura', 'Pintura'],
+  ['raspadinha', 'Raspadinha com tinta epoxi'],
+  ['aspiracao', 'Aspiração'],
+  ['lixamentoResinado', 'Lixamento resinado'],
+  ['prime1Mao', 'Prime 1ª Mão'],
+  ['prime2Mao', 'Prime 2ª Mão'],
+  ['tratamento', 'Tratamento'],
+  ['lixamento', 'Lixamento'],
+  ['corteTrincas', 'Corte de Trincas'],
+  ['polimento', 'Polimento'],
   ['tintaVermelha', 'Aplicação de tinta vermelha'],
   ['tintaAmarela', 'Aplicação de tinta amarela'],
   ['faixaBranca', 'Demarcação faixa branca'],
@@ -76,6 +87,9 @@ const emptyServicos = (): RdoCompizzoServicos => ({
   tintaVermelha: false, tintaAmarela: false, faixaBranca: false,
   faixaAmarela: false, faixaVermelha: false, vagasPCD: false,
   retoques: false, limpezaFinal: false,
+  demarcacao: false, pintura: false, raspadinha: false, aspiracao: false,
+  lixamentoResinado: false, prime1Mao: false, prime2Mao: false,
+  tratamento: false, lixamento: false, corteTrincas: false, polimento: false,
 })
 
 const emptyOcorrencias = (): RdoCompizzoOcorrencias => ({
@@ -111,11 +125,10 @@ export function RdoCompizzoPanel() {
   const [crewPick, setCrewPick] = useState('')
   const [materialPick, setMaterialPick] = useState('')
 
-  // RDO em edição (definido pela tela de Histórico). Lido uma vez na montagem.
-  const editing = useMemo(() => {
-    const st = useRdoStore.getState()
-    return st.editingRdoId ? st.rdos.find((r) => r.id === st.editingRdoId) ?? null : null
-  }, [])
+  // RDO em edição (definido pela tela de Histórico). Selector reativo.
+  const editing = useRdoStore((s) =>
+    s.editingRdoId ? s.rdos.find((r) => r.id === s.editingRdoId) ?? null : null
+  )
   const c0 = editing?.compizzo
 
   const [obra, setObra] = useState(c0?.obra ?? '')
@@ -127,7 +140,9 @@ export function RdoCompizzoPanel() {
   const [employeeNames, setEmployeeNames] = useState<string[]>(editing?.manpower.employeeNames ?? [])
   const [employeeInput, setEmployeeInput] = useState('')
   const [workerPick, setWorkerPick] = useState('')
-  const [servicos, setServicos] = useState<RdoCompizzoServicos>(c0?.servicos ?? emptyServicos())
+  const [servicos, setServicos] = useState<RdoCompizzoServicos>(() => ({ ...emptyServicos(), ...(c0?.servicos ?? {}) }))
+  const [etapasServicos, setEtapasServicos] = useState<Record<string, string[]>>(c0?.etapasServicos ?? {})
+  const [etapaInput, setEtapaInput] = useState<Record<string, string>>({})
   const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
   const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(c0?.producao ?? DEFAULT_PRODUCAO)
@@ -139,6 +154,34 @@ export function RdoCompizzoPanel() {
   const [respNome, setRespNome] = useState(c0?.responsavelNome ?? '')
   const [respData, setRespData] = useState(c0?.responsavelData ?? today)
   const [photos, setPhotos] = useState<RdoPhoto[]>(editing?.photos ?? [])
+
+  // Re-inicializa todos os campos quando o RDO em edição muda.
+  useEffect(() => {
+    if (!editing) return
+    const c = editing.compizzo
+    setObra(c?.obra ?? '')
+    setData(editing.date ?? today)
+    setDiaObra(c?.diaObra ?? '')
+    setResponsavel(editing.responsible ?? '')
+    setCondicao(c?.condicaoClimatica ?? 'sol')
+    setCondicaoOutros(c?.condicaoClimaticaOutros ?? '')
+    setEmployeeNames(editing.manpower.employeeNames ?? [])
+    setServicos({ ...emptyServicos(), ...(c?.servicos ?? {}) })
+    setEtapasServicos(c?.etapasServicos ?? {})
+    setEtapaInput({})
+    setServicosExtra(c?.servicosExtra ?? [])
+    setDescricao(c?.descricaoServicos ?? '')
+    setProducao(c?.producao ?? DEFAULT_PRODUCAO)
+    setMateriais(c?.materiais ?? DEFAULT_MATERIAIS)
+    setEquipment(editing.equipment.map(stripEquipId))
+    setOcorrencias(c?.ocorrencias ?? emptyOcorrencias())
+    setObservacoes(c?.observacoes ?? editing.observations ?? '')
+    setPlanejamento(c?.planejamentoProximoDia ?? '')
+    setRespNome(c?.responsavelNome ?? '')
+    setRespData(c?.responsavelData ?? today)
+    setPhotos(editing.photos ?? [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id])
 
   const [showText, setShowText] = useState(false)
   const [textValue, setTextValue] = useState('')
@@ -157,6 +200,7 @@ export function RdoCompizzoPanel() {
     return {
       obra, diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
+      etapasServicos: Object.keys(etapasServicos).length ? etapasServicos : undefined,
       descricaoServicos: descricao, producao, materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
@@ -367,7 +411,39 @@ export function RdoCompizzoPanel() {
         <Section title="Serviços Executados no Dia" icon={<CheckCircle2 size={16} className="text-[#1f6fd1]" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {SERVICO_ITEMS.map(([key, lbl]) => (
-              <Checkbox key={key} checked={servicos[key]} label={lbl} onChange={(v) => setServicos((s) => ({ ...s, [key]: v }))} />
+              <div key={key}>
+                <Checkbox checked={!!servicos[key]} label={lbl} onChange={(v) => setServicos((s) => ({ ...s, [key]: v }))} />
+                {servicos[key] && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {(etapasServicos[key] ?? []).map((etapa, ei) => (
+                      <div key={ei} className="flex items-center gap-1.5 text-xs text-[#a3a3a3]">
+                        <span className="text-[#6b6b6b]">·</span>
+                        <span className="flex-1">{etapa}</span>
+                        <button type="button" onClick={() => setEtapasServicos((prev) => ({ ...prev, [key]: (prev[key] ?? []).filter((_, i) => i !== ei) }))} className="text-[#6b6b6b] hover:text-red-400"><X size={11} /></button>
+                      </div>
+                    ))}
+                    <div className="flex gap-1">
+                      <input
+                        className="flex-1 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-0.5 text-xs text-[#f5f5f5] outline-none focus:border-[#1f6fd1]/60 placeholder:text-[#525252]"
+                        placeholder="Adicionar etapa..."
+                        value={etapaInput[key] ?? ''}
+                        onChange={(e) => setEtapaInput((p) => ({ ...p, [key]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const v = (etapaInput[key] ?? '').trim()
+                            if (v) { setEtapasServicos((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), v] })); setEtapaInput((p) => ({ ...p, [key]: '' })) }
+                          }
+                        }}
+                      />
+                      <button type="button" onClick={() => {
+                        const v = (etapaInput[key] ?? '').trim()
+                        if (v) { setEtapasServicos((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), v] })); setEtapaInput((p) => ({ ...p, [key]: '' })) }
+                      }} className="px-1.5 rounded bg-[#1f6fd1]/20 text-[#1f6fd1] hover:bg-[#1f6fd1]/40"><Plus size={11} /></button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 

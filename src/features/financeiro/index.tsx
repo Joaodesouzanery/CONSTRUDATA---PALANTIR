@@ -4,6 +4,7 @@ import { VisaoGeralPanel }        from './components/VisaoGeralPanel'
 import { EntradasPanel, SaidasPanel } from './components/EntradasSaidasPanel'
 import { FluxoCaixaPanel }        from './components/FluxoCaixaPanel'
 import { DistribuicaoPanel }      from './components/DistribuicaoPanel'
+import { PorObraPanel }           from './components/PorObraPanel'
 
 export function FinanceiroPage() {
   const activeTab = useFinanceiroStore((s) => s.activeTab)
@@ -15,6 +16,7 @@ export function FinanceiroPage() {
       case 'saidas':       return <SaidasPanel />
       case 'fluxo-caixa':  return <FluxoCaixaPanel />
       case 'distribuicao': return <DistribuicaoPanel />
+      case 'por-obra':     return <PorObraPanel />
       default:             return <VisaoGeralPanel />
     }
   }

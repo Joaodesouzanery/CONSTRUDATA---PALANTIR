@@ -21,6 +21,8 @@ export const workerSchema = z.object({
   hourlyRate:     z.number().min(0).max(9999.99).optional().default(0),
   certifications: z.array(workerCertificationSchema).max(20),
   biometricToken: z.string().max(128).optional(),
+  obraId:         z.string().optional(),
+  cidade:         z.string().max(100).optional(),
 })
 
 export type WorkerFormData = z.infer<typeof workerSchema>

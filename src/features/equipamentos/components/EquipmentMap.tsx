@@ -1,7 +1,7 @@
 import 'leaflet/dist/leaflet.css'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  MapContainer, TileLayer, Marker, Popup, Tooltip,
+  MapContainer, TileLayer, Marker, Tooltip,
   Circle, Polyline, LayersControl, ScaleControl, useMap,
 } from 'react-leaflet'
 import L from 'leaflet'
@@ -10,6 +10,7 @@ import type { EquipmentStatus } from '@/types'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useThemeStore } from '@/store/themeStore'
+import { MapSidePanel } from '@/components/shared/MapSidePanel'
 import { STATUS_CONFIG } from '../constants'
 
 // ─── Tile layer URLs ───────────────────────────────────────────────────────────
@@ -155,6 +156,7 @@ export function EquipmentMap() {
   const selectEquipamento = useEquipamentosStore((s) => s.selectEquipamento)
   const updateLocation    = useEquipamentosStore((s) => s.updateLocation)
   const setEditing        = useEquipamentosStore((s) => s.setEditing)
+  const acknowledgeAlert  = useEquipamentosStore((s) => s.acknowledgeAlert)
   const routingRecs       = useOtimizacaoFrotaStore((s) => s.routingRecs)
 
   const theme = useThemeStore((s) => s.theme)
@@ -162,6 +164,7 @@ export function EquipmentMap() {
 
   const [filterStatus, setFilterStatus] = useState<EquipmentStatus | null>(null)
   const [isFullscreen,  setIsFullscreen] = useState(false)
+  const [panelOpen,     setPanelOpen]    = useState(false)
 
   // ── Memoized derivations ─────────────────────────────────────────────────────
   const mapCSS      = useMemo(() => getMapCSS(isDark), [isDark])
@@ -185,7 +188,7 @@ export function EquipmentMap() {
     createPinIcon(status, selected, label), [])
 
   // ── Stable event handler factories ───────────────────────────────────────────
-  const makeClickHandler  = useCallback((id: string) => () => selectEquipamento(selectedId === id ? null : id), [selectEquipamento, selectedId])
+  const makeClickHandler  = useCallback((id: string) => () => { selectEquipamento(id); setPanelOpen(true) }, [selectEquipamento])
   const makeDragHandler   = useCallback((id: string) => (e: { target: { getLatLng: () => { lat: number; lng: number } } }) => {
     const { lat, lng } = e.target.getLatLng()
     updateLocation(id, lat, lng)
@@ -305,55 +308,6 @@ export function EquipmentMap() {
                 <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{eq.code}</span>
                 {' — '}{eq.name}
               </Tooltip>
-
-              <Popup className="equip-popup" minWidth={220}>
-                <div style={{ padding: '14px 16px', fontFamily: 'Inter, system-ui, sans-serif' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#f97316', fontWeight: 700 }}>
-                      {eq.code}
-                    </span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
-                      background: STATUS_CONFIG[eq.status].colorMuted,
-                      color: STATUS_CONFIG[eq.status].color,
-                    }}>
-                      {STATUS_CONFIG[eq.status].label}
-                    </span>
-                  </div>
-                  <p style={{ margin: '0 0 2px', fontWeight: 700, fontSize: 13, color: '#f5f5f5' }}>{eq.name}</p>
-                  <p style={{ margin: '0 0 8px', fontSize: 11, color: '#6b6b6b' }}>{eq.brand} {eq.model} · {eq.year}</p>
-                  {eq.siteName && (
-                    <p style={{ margin: '0 0 6px', fontSize: 11, color: '#a3a3a3' }}>📍 {eq.siteName}</p>
-                  )}
-                  {eq.operator && (
-                    <p style={{ margin: '0 0 10px', fontSize: 11, color: '#6b6b6b' }}>👷 {eq.operator}</p>
-                  )}
-                  <p style={{ margin: '0 0 12px', fontSize: 11, color: '#6b6b6b' }}>
-                    ⏱ {eq.engineHours.toLocaleString('pt-BR')}h de motor
-                  </p>
-                  {eq.alerts.filter(a => !a.acknowledged).length > 0 && (
-                    <div style={{
-                      background: 'rgba(239,68,68,0.1)', borderRadius: 8, padding: '6px 10px', marginBottom: 10,
-                    }}>
-                      <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: '#ef4444' }}>
-                        ⚠ {eq.alerts.filter(a => !a.acknowledged).length} alerta(s) ativo(s)
-                      </p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => setEditing(eq.id)}
-                    style={{
-                      width: '100%', padding: '6px', borderRadius: 8, border: '1px solid #525252',
-                      background: 'transparent', color: '#f97316', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    Editar Equipamento
-                  </button>
-                  <p style={{ margin: '8px 0 0', fontSize: 9, color: '#3f3f3f', textAlign: 'center' }}>
-                    Arraste o marcador para reposicionar
-                  </p>
-                </div>
-              </Popup>
             </Marker>
           ))}
         </MapContainer>
@@ -403,7 +357,82 @@ export function EquipmentMap() {
             </div>
           </div>
         )}
+
+        {/* Side panel */}
+        {(() => {
+          const eq = selectedId ? equipamentos.find((e) => e.id === selectedId) : null
+          if (!eq) return null
+          const activeAlerts = eq.alerts.filter((a) => !a.acknowledged)
+          return (
+            <MapSidePanel
+              isOpen={panelOpen}
+              onClose={() => setPanelOpen(false)}
+              title={eq.name}
+              subtitle={`${eq.code} · ${STATUS_CONFIG[eq.status].label}`}
+              tabs={[
+                {
+                  key: 'resumo', label: 'Resumo', content: (
+                    <div style={{ fontSize: 12, color: '#a3a3a3', lineHeight: 1.8 }}>
+                      <ERow label="Status"><span style={{ color: STATUS_CONFIG[eq.status].color, fontWeight: 700 }}>{STATUS_CONFIG[eq.status].label}</span></ERow>
+                      <ERow label="Tipo">{eq.type}</ERow>
+                      {eq.brand && <ERow label="Marca">{eq.brand} {eq.model} {eq.year}</ERow>}
+                      <ERow label="Horas motor">{eq.engineHours.toLocaleString('pt-BR')}h</ERow>
+                      {eq.siteName && <ERow label="Canteiro">{eq.siteName}</ERow>}
+                      {eq.operator && <ERow label="Operador">{eq.operator}</ERow>}
+                      <ERow label="Alertas ativos">{activeAlerts.length}</ERow>
+                      <div style={{ marginTop: 12 }}>
+                        <button onClick={() => { setEditing(eq.id); setPanelOpen(false) }}
+                          style={{ width: '100%', padding: '7px', borderRadius: 8, border: '1px solid #525252', background: 'transparent', color: '#f97316', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          Editar Equipamento
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'alertas', label: `Alertas (${activeAlerts.length})`, content: activeAlerts.length === 0
+                    ? <p style={{ fontSize: 12, color: '#6b6b6b' }}>Nenhum alerta ativo.</p>
+                    : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {activeAlerts.map((a) => (
+                          <div key={a.id} style={{ background: '#2c2c2c', borderRadius: 8, padding: '10px 12px', borderLeft: '3px solid #ef4444' }}>
+                            <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: '#f5f5f5' }}>{a.type}</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#a3a3a3' }}>{a.message}</p>
+                            <button onClick={() => acknowledgeAlert(eq.id, a.id)}
+                              style={{ padding: '3px 10px', borderRadius: 6, border: '1px solid #525252', background: 'transparent', color: '#22c55e', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                              Reconhecer
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ),
+                },
+                {
+                  key: 'propriedades', label: 'Propriedades', content: (
+                    <div style={{ fontSize: 12, color: '#a3a3a3', lineHeight: 1.8 }}>
+                      <ERow label="Código">{eq.code}</ERow>
+                      <ERow label="Carga máx.">{eq.maxLoad || '—'}</ERow>
+                      <ERow label="Última manutenção">{eq.lastMaintenance || '—'}</ERow>
+                      <ERow label="Próx. manutenção">{eq.nextMaintenance || '—'}</ERow>
+                      <ERow label="Lat">{eq.lat?.toFixed(5) ?? '—'}</ERow>
+                      <ERow label="Lng">{eq.lng?.toFixed(5) ?? '—'}</ERow>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          )
+        })()}
       </div>
+    </div>
+  )
+}
+
+function ERow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, borderBottom: '1px solid #2c2c2c', padding: '4px 0' }}>
+      <span style={{ color: '#6b6b6b', flexShrink: 0 }}>{label}</span>
+      <span style={{ color: '#f5f5f5', textAlign: 'right' }}>{children}</span>
     </div>
   )
 }

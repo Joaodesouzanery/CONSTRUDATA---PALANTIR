@@ -659,6 +659,8 @@ export interface Worker {
   contractType?: ContractType
   scheduleType?: ScheduleType
   workFront?: string            // frente de trabalho
+  obraId?:   string            // vínculo opcional com ConstructionSite
+  cidade?:   string            // cidade (pode ser herdada da obra ou digitada livremente)
 }
 
 export interface TimecardEntry {
@@ -1525,6 +1527,18 @@ export interface RdoCompizzoServicos {
   vagasPCD:           boolean
   retoques:           boolean
   limpezaFinal:       boolean
+  // Novos serviços
+  demarcacao:         boolean
+  pintura:            boolean
+  raspadinha:         boolean
+  aspiracao:          boolean
+  lixamentoResinado:  boolean
+  prime1Mao:          boolean
+  prime2Mao:          boolean
+  tratamento:         boolean
+  lixamento:          boolean
+  corteTrincas:       boolean
+  polimento:          boolean
 }
 
 export interface RdoCompizzoOcorrencias {
@@ -1552,6 +1566,7 @@ export interface RdoCompizzoData {
   planejamentoProximoDia: string
   responsavelNome:       string
   responsavelData:       string
+  etapasServicos?:       Record<string, string[]>
 }
 
 // ─── Qualidade / FVS (Ficha de Verificação de Serviço) ──────────────────────
@@ -2435,7 +2450,7 @@ export interface NucleoSummary {
 
 // ─── Financeiro ─────────────────────────────────────────────────────────────
 
-export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa' | 'distribuicao'
+export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa' | 'distribuicao' | 'por-obra'
 
 /** Imposto/retenção de nota fiscal (Plano de Contas, pré-configurado e editável). */
 export interface ImpostoNF {

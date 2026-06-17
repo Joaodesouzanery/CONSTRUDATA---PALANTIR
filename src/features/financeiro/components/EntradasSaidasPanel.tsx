@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Download, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { exportCSV, exportPDF } from '@/lib/financeiroExport'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -22,16 +23,19 @@ export function SaidasPanel() { return <LancamentosPanel tipo="saida" /> }
 
 function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
   const { entries, addEntry, updateEntry, removeEntry } = useFinanceiroStore()
+  const sites = useTorreStore((s) => s.sites)
   const [showAdd, setShowAdd] = useState(false)
   const [editingEntry, setEditingEntry] = useState<FinanceiroEntry | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState('')
+  const [showExport, setShowExport] = useState(false)
 
   const cats = tipo === 'entrada' ? ENTRADA_CATS : SAIDA_CATS
   let items = entries.filter((e) => e.tipo === tipo)
   if (filterCat) items = items.filter((e) => e.categoria === filterCat)
   items = [...items].sort((a, b) => b.data.localeCompare(a.data))
   const total = items.reduce((s, e) => s + e.valor, 0)
+  const obraNames = Object.fromEntries(sites.map((s) => [s.id, s.name]))
 
   // Group by category for summary
   const byCat = new Map<string, number>()
@@ -44,10 +48,26 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
           <h2 className="text-sm font-bold text-white">{tipo === 'entrada' ? 'Entradas (Receitas)' : 'Saídas (Despesas)'}</h2>
           <p className="text-[10px] text-[#6b6b6b]">{items.length} lançamentos — Total: <strong className={tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}>{fmtBRL(total)}</strong></p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white transition-colors hover:bg-[#ea580c]" style={{ backgroundColor: '#f97316' }}>
-          <Plus size={14} /> {tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button onClick={() => setShowExport((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-white hover:border-[#a3a3a3] transition-colors">
+              <Download size={13} /> Exportar
+            </button>
+            {showExport && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-[#2c2c2c] border border-[#525252] rounded-lg shadow-xl overflow-hidden">
+                <button onClick={() => { exportCSV(items, tipo === 'entrada' ? 'entradas' : 'saidas'); setShowExport(false) }}
+                  className="block w-full px-4 py-2 text-left text-xs text-[#f5f5f5] hover:bg-[#3d3d3d]">CSV</button>
+                <button onClick={() => { exportPDF(items, tipo === 'entrada' ? 'Entradas' : 'Saídas', filterCat ? `Categoria: ${filterCat}` : '', obraNames); setShowExport(false) }}
+                  className="block w-full px-4 py-2 text-left text-xs text-[#f5f5f5] hover:bg-[#3d3d3d]">PDF</button>
+              </div>
+            )}
+          </div>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white transition-colors hover:bg-[#ea580c]" style={{ backgroundColor: '#f97316' }}>
+            <Plus size={14} /> {tipo === 'entrada' ? 'Nova Entrada' : 'Nova Saída'}
+          </button>
+        </div>
       </div>
 
       {/* Category summary */}

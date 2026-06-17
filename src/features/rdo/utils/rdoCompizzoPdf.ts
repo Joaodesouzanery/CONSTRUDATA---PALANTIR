@@ -18,6 +18,17 @@ const SERVICO_ITEMS: Array<[keyof RdoCompizzoServicos, string]> = [
   ['limpezaArea', 'Limpeza da área'],
   ['isolamentoArea', 'Isolamento da área'],
   ['preparacaoPiso', 'Preparação do piso'],
+  ['demarcacao', 'Demarcação'],
+  ['pintura', 'Pintura'],
+  ['raspadinha', 'Raspadinha com tinta epoxi'],
+  ['aspiracao', 'Aspiração'],
+  ['lixamentoResinado', 'Lixamento resinado'],
+  ['prime1Mao', 'Prime 1ª Mão'],
+  ['prime2Mao', 'Prime 2ª Mão'],
+  ['tratamento', 'Tratamento'],
+  ['lixamento', 'Lixamento'],
+  ['corteTrincas', 'Corte de Trincas'],
+  ['polimento', 'Polimento'],
   ['tintaVermelha', 'Aplicação de tinta vermelha'],
   ['tintaAmarela', 'Aplicação de tinta amarela'],
   ['faixaBranca', 'Demarcação faixa branca'],
@@ -45,9 +56,13 @@ export function printCompizzoPdf(rdo: RDO) {
   const clima = (k: string) => (c.condicaoClimatica === k ? '(x)' : '( )')
   const names = rdo.manpower.employeeNames ?? []
 
+  const etapas = c.etapasServicos ?? {}
   const servicosHtml = SERVICO_ITEMS
     .filter(([k]) => c.servicos[k])
-    .map(([, lbl]) => `<div class="chk">☑ ${esc(lbl)}</div>`)
+    .map(([k, lbl]) => {
+      const subs = (etapas[k] ?? []).map((e) => `<div class="etapa">· ${esc(e)}</div>`).join('')
+      return `<div class="chk">☑ ${esc(lbl)}</div>${subs}`
+    })
     .join('') || '<div class="chk">—</div>'
   const servicosExtraHtml = (c.servicosExtra ?? [])
     .filter((s) => s.nome.trim())
@@ -82,6 +97,7 @@ export function printCompizzoPdf(rdo: RDO) {
   hr { border: none; border-top: 1px solid #ccc; margin: 14px 0; }
   h2 { font-size: 13px; margin: 16px 0 8px; }
   .chk { padding: 3px 0; }
+  .etapa { padding: 1px 0 1px 16px; color: #555; font-size: 11px; }
   .mao { padding: 3px 0; }
   table { width: 100%; border-collapse: collapse; margin-top: 4px; }
   th, td { text-align: left; padding: 5px 4px; border-bottom: 1px solid #e5e5e5; font-size: 12px; }
