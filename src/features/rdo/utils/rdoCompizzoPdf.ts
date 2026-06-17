@@ -57,11 +57,14 @@ export function printCompizzoPdf(rdo: RDO) {
   const names = rdo.manpower.employeeNames ?? []
 
   const etapas = c.etapasServicos ?? {}
+  const qtds = c.servicosQtd ?? {}
   const servicosHtml = SERVICO_ITEMS
     .filter(([k]) => c.servicos[k])
     .map(([k, lbl]) => {
+      const q = qtds[k]
+      const qtyStr = q ? [q.quantidade, q.unidade].filter(Boolean).join(' ').trim() : ''
       const subs = (etapas[k] ?? []).map((e) => `<div class="etapa">· ${esc(e)}</div>`).join('')
-      return `<div class="chk">☑ ${esc(lbl)}</div>${subs}`
+      return `<div class="chk">☑ ${esc(lbl)}${qtyStr ? ` — <b>${esc(qtyStr)}</b>` : ''}</div>${subs}`
     })
     .join('') || '<div class="chk">—</div>'
   const servicosExtraHtml = (c.servicosExtra ?? [])

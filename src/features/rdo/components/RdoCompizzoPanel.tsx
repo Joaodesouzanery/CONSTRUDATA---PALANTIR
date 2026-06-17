@@ -142,6 +142,7 @@ export function RdoCompizzoPanel() {
   const [workerPick, setWorkerPick] = useState('')
   const [servicos, setServicos] = useState<RdoCompizzoServicos>(() => ({ ...emptyServicos(), ...(c0?.servicos ?? {}) }))
   const [etapasServicos, setEtapasServicos] = useState<Record<string, string[]>>(c0?.etapasServicos ?? {})
+  const [servicosQtd, setServicosQtd] = useState<Record<string, { quantidade?: string; unidade?: string }>>(c0?.servicosQtd ?? {})
   const [etapaInput, setEtapaInput] = useState<Record<string, string>>({})
   const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
@@ -168,6 +169,7 @@ export function RdoCompizzoPanel() {
     setEmployeeNames(editing.manpower.employeeNames ?? [])
     setServicos({ ...emptyServicos(), ...(c?.servicos ?? {}) })
     setEtapasServicos(c?.etapasServicos ?? {})
+    setServicosQtd(c?.servicosQtd ?? {})
     setEtapaInput({})
     setServicosExtra(c?.servicosExtra ?? [])
     setDescricao(c?.descricaoServicos ?? '')
@@ -201,6 +203,7 @@ export function RdoCompizzoPanel() {
       obra, diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
       etapasServicos: Object.keys(etapasServicos).length ? etapasServicos : undefined,
+      servicosQtd: Object.keys(servicosQtd).length ? servicosQtd : undefined,
       descricaoServicos: descricao, producao, materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
@@ -415,6 +418,22 @@ export function RdoCompizzoPanel() {
                 <Checkbox checked={!!servicos[key]} label={lbl} onChange={(v) => setServicos((s) => ({ ...s, [key]: v }))} />
                 {servicos[key] && (
                   <div className="ml-6 mt-1 space-y-1">
+                    {/* Quantidade / Unidade do serviço */}
+                    <div className="flex gap-1.5 mb-1.5">
+                      <input
+                        className="w-20 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-0.5 text-xs text-[#f5f5f5] outline-none focus:border-[#1f6fd1]/60 placeholder:text-[#525252]"
+                        placeholder="Qtd"
+                        value={servicosQtd[key]?.quantidade ?? ''}
+                        onChange={(e) => setServicosQtd((p) => ({ ...p, [key]: { ...p[key], quantidade: e.target.value } }))}
+                      />
+                      <input
+                        className="w-16 bg-[#1f1f1f] border border-[#525252] rounded px-2 py-0.5 text-xs text-[#f5f5f5] outline-none focus:border-[#1f6fd1]/60 placeholder:text-[#525252]"
+                        placeholder="Un."
+                        value={servicosQtd[key]?.unidade ?? ''}
+                        onChange={(e) => setServicosQtd((p) => ({ ...p, [key]: { ...p[key], unidade: e.target.value } }))}
+                      />
+                    </div>
+                    {/* Etapas do serviço */}
                     {(etapasServicos[key] ?? []).map((etapa, ei) => (
                       <div key={ei} className="flex items-center gap-1.5 text-xs text-[#a3a3a3]">
                         <span className="text-[#6b6b6b]">·</span>

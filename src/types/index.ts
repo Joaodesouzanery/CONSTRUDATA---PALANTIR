@@ -1567,6 +1567,7 @@ export interface RdoCompizzoData {
   responsavelNome:       string
   responsavelData:       string
   etapasServicos?:       Record<string, string[]>
+  servicosQtd?:          Record<string, { quantidade?: string; unidade?: string }>
 }
 
 // ─── Qualidade / FVS (Ficha de Verificação de Serviço) ──────────────────────

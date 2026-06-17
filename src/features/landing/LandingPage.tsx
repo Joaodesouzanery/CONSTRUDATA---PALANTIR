@@ -27,7 +27,6 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { Marquee } from '@/components/ui/marquee'
 import { HeroCarousel } from './HeroCarousel'
-import { ObraFoundryScene } from './ObraFoundryScene'
 
 const LOGIN_URL = '/login'
 const DEMO_ANCHOR = '#solicitar'
@@ -818,36 +817,8 @@ export function LandingPage() {
       </header>
 
       <main>
-        {/* ── Hero em carrossel: slide principal + 2 slides com foto de obra ── */}
-        <HeroCarousel>
-          <div className="relative h-full overflow-hidden bg-white pt-24 sm:pt-28">
-            <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-10 md:px-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-6 lg:pb-12">
-              <div data-sr>
-                <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-black/50 sm:text-[11px]`}>
-                  [ Plataforma de planejamento e gestão da execução de obras ]
-                </p>
-                <h1 className={`${H_FONT} mt-6 max-w-2xl text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-6xl`}>
-                  Cada decisão da obra movida a <span className="text-[#ea580c]">dados conectados</span>, não a planilhas soltas.
-                </h1>
-                <p className="mt-6 max-w-xl text-base leading-7 text-black/60 sm:text-lg">
-                  Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
-                </p>
-                <div className={`${M_FONT} mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] sm:text-[11px]`}>
-                  <span>Adaptada à sua obra antes de tudo</span>
-                  <span className="text-black/30">/</span>
-                  <span>Implantação em semanas, não meses</span>
-                </div>
-                <div className="mt-9">
-                  <DemoCTA />
-                </div>
-              </div>
-              <div data-sr data-sr-delay="2" className="relative hidden border border-black/10 bg-[#fdfdfc] p-3 lg:block">
-                <Corners />
-                <ObraFoundryScene variant="modules" />
-              </div>
-            </div>
-          </div>
-        </HeroCarousel>
+        {/* ── Hero em carrossel: 3 slides com foto de obra full-bleed ── */}
+        <HeroCarousel />
 
         {/* ── Faixa de logos ── */}
         <section id="empresas" className="border-t border-black/10 bg-white py-14 sm:py-16">
