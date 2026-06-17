@@ -37,6 +37,7 @@ const AuditoriaPage         = lazy(() => import('@/features/admin/AuditoriaPage'
 const MatrizAprovacaoPage   = lazy(() => import('@/features/admin/MatrizAprovacaoPage').then((m) => ({ default: m.MatrizAprovacaoPage })))
 const HomologacaoPage       = lazy(() => import('@/features/admin/HomologacaoPage').then((m) => ({ default: m.HomologacaoPage })))
 const AdaptacaoRapidaPage   = lazy(() => import('@/features/admin/AdaptacaoRapidaPage').then((m) => ({ default: m.AdaptacaoRapidaPage })))
+const ProcessMiningPage     = lazy(() => import('@/features/process-mining/index').then((m) => ({ default: m.ProcessMiningPage })))
 
 // Route loading fallback
 
@@ -147,6 +148,7 @@ function App() {
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
           <Route path="medicao"             element={<LazyRoute><MedicaoPage /></LazyRoute>} />
           <Route path="financeiro"          element={<Navigate to="/app/evm" replace />} />
+          <Route path="process-mining"      element={<LazyRoute><ProcessMiningPage /></LazyRoute>} />
           <Route path="*"                   element={<Navigate to="/app/minha-rotina" replace />} />
         </Route>
 
