@@ -45,16 +45,24 @@ export function printCompizzoPdf(rdo: RDO) {
   const clima = (k: string) => (c.condicaoClimatica === k ? '(x)' : '( )')
   const names = rdo.manpower.employeeNames ?? []
 
-  const servicosHtml = SERVICO_ITEMS.map(([k, lbl]) => `<div class="chk">${box(c.servicos[k])} ${esc(lbl)}</div>`).join('')
+  const servicosHtml = SERVICO_ITEMS
+    .filter(([k]) => c.servicos[k])
+    .map(([, lbl]) => `<div class="chk">☑ ${esc(lbl)}</div>`)
+    .join('') || '<div class="chk">—</div>'
   const servicosExtraHtml = (c.servicosExtra ?? [])
     .filter((s) => s.nome.trim())
     .map((s) => {
       const qty = [s.quantidade, s.unidade].filter(Boolean).join(' ').trim()
-      return `<div class="chk">${box(true)} ${esc(s.nome)}${qty ? ` — <b>${esc(qty)}</b>` : ''}</div>`
+      return `<div class="chk">☑ ${esc(s.nome)}${qty ? ` — <b>${esc(qty)}</b>` : ''}</div>`
     })
     .join('')
   const ocorrenciasHtml = OCORRENCIA_ITEMS.map(([k, lbl]) => `<div class="chk">${box(c.ocorrencias[k])} ${esc(lbl)}</div>`).join('')
-  const producaoRows = c.producao.map((r) => `<tr><td>${esc(r.servico)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
+  const producaoRows = c.producao
+    .filter((r) => r.servico.trim() || r.quantidade.trim())
+    .map((r) => {
+      const qtdUn = [r.quantidade, r.unidade].filter(Boolean).join(' ')
+      return `<tr><td>${esc(r.servico)}</td><td class="qty">${esc(qtdUn)}</td></tr>`
+    }).join('')
   const materiaisRows = c.materiais.map((r) => `<tr><td>${esc(r.material)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
   const namesHtml = names.map((n) => `<div class="mao">${esc(n)}</div>`).join('')
   const photosHtml = rdo.photos.length

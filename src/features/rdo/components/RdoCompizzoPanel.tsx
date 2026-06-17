@@ -400,9 +400,9 @@ export function RdoCompizzoPanel() {
         <Section title="Produção do Dia" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
           <EditableRows
             rows={producao}
-            cols={[['servico', 'Serviço'], ['quantidade', 'Quantidade']]}
+            cols={[['servico', 'Serviço'], ['quantidade', 'Quantidade'], ['unidade', 'Unidade (m, m², un…)']]}
             onChange={setProducao}
-            makeEmpty={() => ({ servico: '', quantidade: '' })}
+            makeEmpty={() => ({ servico: '', quantidade: '', unidade: '' })}
           />
         </Section>
 

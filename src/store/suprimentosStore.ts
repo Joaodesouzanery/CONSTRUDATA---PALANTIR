@@ -1376,6 +1376,13 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       return
     }
     get().ensureTenantScope(orgId)
+    // Capture locally pending depositos before wiping, so they survive the pull reset
+    const pendingDepositoInsertIds = new Set(
+      get().pendingSync
+        .filter((op) => op.table === 'suprimentos_depositos' && op.type === 'insert')
+        .map((op) => op.recordId)
+    )
+    const localPendingDepositos = get().depositos.filter((d) => pendingDepositoInsertIds.has(d.id))
     if (!isDemoModeEnabled()) {
       set({
         purchaseOrders:     [],
@@ -1469,13 +1476,21 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       })
     }
     if (depositos) {
+      const fetchedIds = new Set(depositos.map((r) => r.id as string))
+      // Re-add locally created depositos not yet synced to Supabase
+      const stillPendingDepositos = localPendingDepositos.filter(
+        (d) => !fetchedIds.has(d.id) && !pendingDeletedDepositos.has(d.id)
+      )
       set({
-        depositos: depositos.filter((r) => !pendingDeletedDepositos.has(r.id as string)).map((r) => ({
-          id:        r.id as string,
-          frente:    r.frente as string,
-          descricao: (r.descricao as string | null) ?? undefined,
-          ativo:     Boolean(r.ativo ?? true),
-        })),
+        depositos: [
+          ...depositos.filter((r) => !pendingDeletedDepositos.has(r.id as string)).map((r) => ({
+            id:        r.id as string,
+            frente:    r.frente as string,
+            descricao: (r.descricao as string | null) ?? undefined,
+            ativo:     Boolean(r.ativo ?? true),
+          })),
+          ...stillPendingDepositos,
+        ],
       })
     }
     if (estoqueItens) {

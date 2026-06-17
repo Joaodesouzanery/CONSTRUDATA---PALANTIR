@@ -1498,6 +1498,7 @@ export interface RDO {
 export interface RdoCompizzoProducaoRow {
   servico:    string
   quantidade: string
+  unidade?:   string
 }
 
 /** Serviço adicional (livre) marcado em "Serviços Executados no Dia". */
@@ -2434,7 +2435,7 @@ export interface NucleoSummary {
 
 // ─── Financeiro ─────────────────────────────────────────────────────────────
 
-export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa'
+export type FinanceiroTab = 'visao-geral' | 'entradas' | 'saidas' | 'fluxo-caixa' | 'distribuicao'
 
 /** Imposto/retenção de nota fiscal (Plano de Contas, pré-configurado e editável). */
 export interface ImpostoNF {

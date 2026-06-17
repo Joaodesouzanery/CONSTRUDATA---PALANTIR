@@ -3,10 +3,11 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import type { FinanceiroTab } from '@/types'
 
 const TABS: { key: FinanceiroTab; label: string }[] = [
-  { key: 'visao-geral', label: 'Visão Geral'   },
-  { key: 'entradas',    label: 'Entradas'       },
-  { key: 'saidas',      label: 'Saídas'         },
-  { key: 'fluxo-caixa', label: 'Fluxo de Caixa' },
+  { key: 'visao-geral',  label: 'Visão Geral'   },
+  { key: 'entradas',     label: 'Entradas'       },
+  { key: 'saidas',       label: 'Saídas'         },
+  { key: 'fluxo-caixa',  label: 'Fluxo de Caixa' },
+  { key: 'distribuicao', label: 'Distribuição'   },
 ]
 
 export function FinanceiroModuleHeader() {
