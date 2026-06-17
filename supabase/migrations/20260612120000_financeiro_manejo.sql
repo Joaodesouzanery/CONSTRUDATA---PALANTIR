@@ -10,7 +10,7 @@
 
 CREATE TABLE IF NOT EXISTS public.financeiro_contratos (
   id              uuid PRIMARY KEY,
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL,
   payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by      uuid NOT NULL REFERENCES auth.users(id),
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -23,7 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_contratos_org_active  ON public.financeiro_co
 
 CREATE TABLE IF NOT EXISTS public.financeiro_orcamentos (
   id              uuid PRIMARY KEY,
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL,
   payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by      uuid NOT NULL REFERENCES auth.users(id),
   created_at      timestamptz NOT NULL DEFAULT now(),
@@ -36,7 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_orcamentos_org_active  ON public.financeiro_o
 
 CREATE TABLE IF NOT EXISTS public.financeiro_impostos_nf (
   id              uuid PRIMARY KEY,
-  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL,
   payload         jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_by      uuid NOT NULL REFERENCES auth.users(id),
   created_at      timestamptz NOT NULL DEFAULT now(),
