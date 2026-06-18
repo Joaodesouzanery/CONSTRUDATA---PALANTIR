@@ -1,4 +1,4 @@
-import { ProcessEvent } from './buildEventLog'
+import type { ProcessEvent } from './buildEventLog'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 export interface Anomalia {

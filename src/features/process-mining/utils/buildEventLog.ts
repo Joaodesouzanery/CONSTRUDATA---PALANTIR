@@ -4,7 +4,7 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 
-export interface ProcessEvent {
+export type ProcessEvent = {
   id: string
   timestamp: string
   tipo: 'rdo' | 'timecard' | 'entrada_financeira' | 'saida_financeira' | 'movimentacao_estoque'
