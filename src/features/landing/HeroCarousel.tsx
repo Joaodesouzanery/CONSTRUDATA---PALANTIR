@@ -1,11 +1,13 @@
 /**
- * HeroCarousel — carrossel da hero com 3 slides: o slide principal (texto +
- * cena animada da obra conectada) e dois slides com foto de obra full-bleed,
- * overlay escuro e headline. Autoplay de 7s pausado em hover/foco/toque,
- * em aba oculta e em prefers-reduced-motion; setas, dots e swipe no mobile.
+ * HeroCarousel — carrossel da hero com 3 slides: o slide principal (foto de
+ * obra de fundo + texto + cena animada da obra conectada) e dois slides com
+ * foto de obra full-bleed, overlay escuro e headline. Autoplay de 7s pausado
+ * em hover/foco/toque, em aba oculta e em prefers-reduced-motion; setas, dots
+ * e swipe no mobile.
  *
  * Para trocar as fotos: substitua os arquivos em public/obras/
- * (hero-slide-2.webp e hero-slide-3.webp) — sem tocar em código.
+ * (hero-slide-1.webp — fundo do slide principal, em LandingPage.tsx —, e
+ * hero-slide-2.webp / hero-slide-3.webp) — sem tocar em código.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -133,7 +135,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
           type="button"
           onClick={prev}
           aria-label="Slide anterior"
-          className={`pointer-events-auto flex size-9 items-center justify-center border transition ${idx === 0 ? 'border-black/15 text-black/55 hover:border-black/40 hover:text-black' : 'border-white/30 text-white/80 hover:border-white hover:text-white'}`}
+          className="pointer-events-auto flex size-9 items-center justify-center border border-white/30 text-white/80 transition hover:border-white hover:text-white"
         >
           <ChevronLeft size={16} />
         </button>
@@ -146,9 +148,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
               aria-label={`Ir para o slide ${i + 1}`}
               aria-current={idx === i}
               className={`h-1.5 transition-all duration-300 ${
-                idx === i
-                  ? 'w-7 bg-[#f97316]'
-                  : `w-3 ${idx === 0 ? 'bg-black/20 hover:bg-black/40' : 'bg-white/30 hover:bg-white/60'}`
+                idx === i ? 'w-7 bg-[#f97316]' : 'w-3 bg-white/30 hover:bg-white/60'
               }`}
             />
           ))}
@@ -157,7 +157,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
           type="button"
           onClick={next}
           aria-label="Próximo slide"
-          className={`pointer-events-auto flex size-9 items-center justify-center border transition ${idx === 0 ? 'border-black/15 text-black/55 hover:border-black/40 hover:text-black' : 'border-white/30 text-white/80 hover:border-white hover:text-white'}`}
+          className="pointer-events-auto flex size-9 items-center justify-center border border-white/30 text-white/80 transition hover:border-white hover:text-white"
         >
           <ChevronRight size={16} />
         </button>

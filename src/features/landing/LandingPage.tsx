@@ -509,7 +509,12 @@ function SectionHeader({
 }
 
 /* Primary CTA — single label across the page; scrolls to the form. */
-function DemoCTA({ align = 'left', microcopy = true }: { align?: 'left' | 'center'; microcopy?: boolean }) {
+function DemoCTA({
+  align = 'left',
+  microcopy = true,
+  tone = 'dark',
+}: { align?: 'left' | 'center'; microcopy?: boolean; tone?: 'light' | 'dark' }) {
+  const isLight = tone === 'light'
   return (
     <div data-sr className={`flex flex-col gap-3 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -521,12 +526,14 @@ function DemoCTA({ align = 'left', microcopy = true }: { align?: 'left' | 'cente
         </a>
         <a
           href={HOW_ANCHOR}
-          className={`${M_FONT} group inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0a0a0a] transition hover:text-[#ea580c]`}
+          className={`${M_FONT} group inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
+            isLight ? 'text-white/85 hover:text-[#fb923c]' : 'text-[#0a0a0a] hover:text-[#ea580c]'
+          }`}
         >
           Ver como funciona <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
         </a>
       </div>
-      {microcopy && <p className="max-w-md text-xs leading-5 text-black/45">{MICROCOPY}</p>}
+      {microcopy && <p className={`max-w-md text-xs leading-5 ${isLight ? 'text-white/65' : 'text-black/45'}`}>{MICROCOPY}</p>}
     </div>
   )
 }
@@ -786,7 +793,7 @@ export function LandingPage() {
       >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:px-10">
           <a href="/" className="flex items-center gap-3">
-            <BrandLockup dark />
+            <BrandLockup dark={scrolled} />
           </a>
           <nav className="hidden items-center gap-7 lg:flex">
             {[
@@ -798,18 +805,33 @@ export function LandingPage() {
               ['Realizações', '#realizacoes'],
               ['FAQ', '#faq'],
             ].map(([label, href]) => (
-              <a key={href} href={href} className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.16em] text-black/55 transition hover:text-[#0a0a0a]`}>
+              <a
+                key={href}
+                href={href}
+                className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.16em] transition ${
+                  scrolled ? 'text-black/55 hover:text-[#0a0a0a]' : 'text-white/75 hover:text-white'
+                }`}
+              >
                 {label}
               </a>
             ))}
           </nav>
           <div className="flex items-center gap-4">
-            <a href={LOGIN_URL} className="hidden text-[11px] font-medium text-black/50 underline-offset-4 transition hover:text-[#0a0a0a] hover:underline sm:inline-flex">
+            <a
+              href={LOGIN_URL}
+              className={`hidden text-[11px] font-medium underline-offset-4 transition hover:underline sm:inline-flex ${
+                scrolled ? 'text-black/50 hover:text-[#0a0a0a]' : 'text-white/70 hover:text-white'
+              }`}
+            >
               Acessar plataforma
             </a>
             <a
               href={DEMO_ANCHOR}
-              className={`${M_FONT} group inline-flex items-center gap-2 border border-[#f97316] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] transition hover:bg-[#f97316] hover:text-white sm:px-4`}
+              className={`${M_FONT} group inline-flex items-center gap-2 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition sm:px-4 ${
+                scrolled
+                  ? 'border-[#f97316] text-[#c2410c] hover:bg-[#f97316] hover:text-white'
+                  : 'border-white/40 text-white hover:border-[#f97316] hover:bg-[#f97316]'
+              }`}
             >
               Solicitar demonstração <ArrowRight size={13} className="hidden transition-transform duration-200 group-hover:translate-x-0.5 sm:inline" />
             </a>
@@ -820,28 +842,40 @@ export function LandingPage() {
       <main>
         {/* ── Hero em carrossel: slide principal + 2 slides com foto de obra ── */}
         <HeroCarousel>
-          <div className="relative h-full overflow-hidden bg-white pt-24 sm:pt-28">
-            <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-10 md:px-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-6 lg:pb-12">
+          <div className="relative h-full overflow-hidden bg-[#0d0d0d] pt-24 sm:pt-28">
+            {/* Foto de fundo da slide 1 — trocar o arquivo em public/obras/hero-slide-1.webp (sem mexer no código) */}
+            <img
+              src="/obras/hero-slide-1.webp"
+              alt=""
+              width={1408}
+              height={768}
+              fetchPriority="high"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/45" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+            <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-10 px-5 pb-10 md:px-10 lg:grid-cols-[0.88fr_1.12fr] lg:gap-6 lg:pb-12">
               <div data-sr>
-                <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-black/50 sm:text-[11px]`}>
+                <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 sm:text-[11px]`}>
                   [ Plataforma de planejamento e gestão da execução de obras ]
                 </p>
-                <h1 className={`${H_FONT} mt-6 max-w-2xl text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-6xl`}>
-                  Cada decisão da obra movida a <span className="text-[#ea580c]">dados conectados</span>, não a planilhas soltas.
+                <h1 className={`${H_FONT} mt-6 max-w-2xl text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-white sm:text-5xl lg:text-6xl`}>
+                  Cada decisão da obra movida a <span className="text-[#fb923c]">dados conectados</span>, não a planilhas soltas.
                 </h1>
-                <p className="mt-6 max-w-xl text-base leading-7 text-black/60 sm:text-lg">
+                <p className="mt-6 max-w-xl text-base leading-7 text-white/80 sm:text-lg">
                   Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
                 </p>
-                <div className={`${M_FONT} mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] sm:text-[11px]`}>
+                <div className={`${M_FONT} mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#fdba74] sm:text-[11px]`}>
                   <span>Adaptada à sua obra antes de tudo</span>
-                  <span className="text-black/30">/</span>
+                  <span className="text-white/40">/</span>
                   <span>Implantação em semanas, não meses</span>
                 </div>
                 <div className="mt-9">
-                  <DemoCTA />
+                  <DemoCTA tone="light" />
                 </div>
               </div>
-              <div data-sr data-sr-delay="2" className="relative hidden border border-black/10 bg-[#fdfdfc] p-3 lg:block">
+              <div data-sr data-sr-delay="2" className="relative hidden border border-white/15 bg-[#fdfdfc] p-3 shadow-2xl shadow-black/40 lg:block">
                 <Corners />
                 <ObraFoundryScene variant="modules" />
               </div>
