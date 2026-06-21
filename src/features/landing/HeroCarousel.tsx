@@ -54,7 +54,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
       role="region"
       aria-roledescription="carousel"
       aria-label="Destaques da ConstruData"
-      className="relative overflow-hidden bg-white"
+      className="relative overflow-hidden bg-[#0d0d0d]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
