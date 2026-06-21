@@ -1,23 +1,32 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import {
+  ArrowRight,
+  ArrowUpRight,
   BadgeDollarSign,
-  BarChart3,
   CalendarDays,
   CheckCircle2,
+  Clock,
   Download,
   FileText,
   Gauge,
   RefreshCw,
+  ShieldCheck,
   SlidersHorizontal,
   TrendingUp,
   XCircle,
 } from 'lucide-react'
 import { useEconomiaStore } from '@/store/economiaStore'
+import { useLpsStore } from '@/store/lpsStore'
 import type { EconomyBaseline, EconomyEvent, EconomyEventStatus, EconomyReport, EconomySourceModule } from '@/types'
 import {
   brl,
   ECONOMY_CATEGORY_LABELS,
   ECONOMY_SOURCE_LABELS,
+  ECONOMY_SOURCE_ROUTE,
+  latestPpc,
+  methodologyFor,
+  monthlySeries,
   monthPeriod,
   summarizeEconomy,
 } from './utils/economiaEngine'
@@ -26,7 +35,7 @@ import { printEconomyReport } from './utils/economiaReportExport'
 type EconomiaTab = 'overview' | 'events' | 'baseline' | 'report' | 'qbr'
 
 const TABS: { id: EconomiaTab; label: string; icon: typeof Gauge }[] = [
-  { id: 'overview', label: 'Visao geral', icon: Gauge },
+  { id: 'overview', label: 'Prova de valor', icon: ShieldCheck },
   { id: 'events', label: 'Eventos', icon: BadgeDollarSign },
   { id: 'baseline', label: 'Baseline', icon: SlidersHorizontal },
   { id: 'report', label: 'Relatorio mensal', icon: FileText },
@@ -42,7 +51,9 @@ const STATUS_LABELS: Record<EconomyEventStatus, string> = {
 
 export function EconomiaPage() {
   const store = useEconomiaStore()
+  const lpsActivities = useLpsStore((state) => state.activities)
   const [activeTab, setActiveTab] = useState<EconomiaTab>('overview')
+  const [obra, setObra] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<EconomySourceModule | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<EconomyEventStatus | 'all'>('all')
 
@@ -53,10 +64,25 @@ export function EconomiaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const summary = useMemo(
-    () => summarizeEconomy(store.events, store.baselines, store.selectedPeriod, store.selectedProjectId ?? undefined),
-    [store.baselines, store.events, store.selectedPeriod, store.selectedProjectId],
+  // Obra = filtro por nome de obra presente nos eventos (exato, sem heurística).
+  // Cliente já é isolado por organização via RLS no store.
+  const obraOptions = useMemo(
+    () => Array.from(new Set(store.events.map((event) => event.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [store.events],
   )
+
+  const eventsForObra = useMemo(
+    () => (obra === 'all' ? store.events : store.events.filter((event) => event.projectName === obra)),
+    [obra, store.events],
+  )
+
+  const summary = useMemo(
+    () => summarizeEconomy(eventsForObra, store.baselines, store.selectedPeriod, undefined),
+    [eventsForObra, store.baselines, store.selectedPeriod],
+  )
+
+  const series = useMemo(() => monthlySeries(eventsForObra, 6), [eventsForObra])
+  const currentPpc = useMemo(() => latestPpc(lpsActivities), [lpsActivities])
 
   const filteredEvents = useMemo(() => {
     return summary.events.filter((event) => {
@@ -74,7 +100,7 @@ export function EconomiaPage() {
   const renderPanel = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewPanel events={summary.events} summary={summary} />
+        return <ProvaDeValorPanel summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt} />
       case 'events':
         return (
           <EventsPanel
@@ -103,7 +129,7 @@ export function EconomiaPage() {
       case 'qbr':
         return <QbrPanel events={store.events} baseline={summary.baseline} />
       default:
-        return <OverviewPanel events={summary.events} summary={summary} />
+        return <ProvaDeValorPanel summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt} />
     }
   }
 
@@ -119,12 +145,24 @@ export function EconomiaPage() {
             <h1 className="mt-1 text-xl font-semibold text-white">ROI e valor entregue</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={obra}
+              onChange={(event) => setObra(event.target.value)}
+              className="h-9 max-w-[14rem] rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 text-sm text-white outline-none focus:border-[#f97316]"
+              title="Obra / carteira"
+            >
+              <option value="all">Carteira (todas as obras)</option>
+              {obraOptions.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
             <input
               type="month"
               value={store.selectedPeriod}
               onChange={(event) => store.setSelectedPeriod(event.target.value || monthPeriod())}
               className="h-9 rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 text-sm text-white outline-none focus:border-[#f97316]"
             />
+            <FreshnessBadge lastScanAt={store.lastScanAt} />
             <button
               type="button"
               onClick={store.scanEvents}
@@ -176,43 +214,247 @@ export function EconomiaPage() {
   )
 }
 
-function OverviewPanel({ events, summary }: { events: EconomyEvent[]; summary: ReturnType<typeof summarizeEconomy> }) {
-  const bySource = groupValue(events, (event) => ECONOMY_SOURCE_LABELS[event.sourceModule])
-  const byProject = groupValue(events, (event) => event.projectName || 'Carteira')
-  const topEvents = [...events].sort((a, b) => b.impactBRL - a.impactBRL).slice(0, 5)
+function ProvaDeValorPanel({
+  summary,
+  series,
+  currentPpc,
+  lastScanAt,
+}: {
+  summary: ReturnType<typeof summarizeEconomy>
+  series: Array<{ period: string; validatedBRL: number }>
+  currentPpc: number
+  lastScanAt: string | null
+}) {
+  const events = summary.events
+  const baseline = summary.baseline
+  const valued = events.filter((event) => event.impactBRL > 0)
+  const bySource = groupValue(valued, (event) => ECONOMY_SOURCE_LABELS[event.sourceModule])
+  const byCategory = groupValue(valued, (event) => ECONOMY_CATEGORY_LABELS[event.category])
+  const topEvents = [...valued]
+    .sort((a, b) => proofRank(b) - proofRank(a) || b.impactBRL - a.impactBRL)
+    .slice(0, 6)
+
+  if (events.length === 0) return <ProofEmptyState />
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-3 md:grid-cols-4">
-        <KpiCard label="Economia validada no mes" value={brl(summary.avoidedLossBRL)} tone="green" icon={BadgeDollarSign} />
-        <KpiCard label="Eventos detectados" value={String(summary.detectedEvents)} icon={BarChart3} />
-        <KpiCard label="ROI do mes" value={`${Math.round(summary.roiPercent)}%`} tone={summary.roiPercent >= 0 ? 'green' : 'red'} icon={TrendingUp} />
-        <KpiCard label="Pipeline estimado" value={brl(summary.estimatedPipelineBRL)} icon={Gauge} />
-      </div>
+    <div className="space-y-6">
+      <HeroProof summary={summary} />
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_.9fr]">
-        <Panel title="Valor por modulo">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Panel title="De onde vem a economia (por módulo)">
           <div className="space-y-3">
             {bySource.map((row) => <HorizontalBar key={row.label} label={row.label} value={row.value} max={bySource[0]?.value || 1} />)}
-            {bySource.length === 0 && <EmptyText text="Sem eventos para o periodo selecionado." />}
+            {bySource.length === 0 && <EmptyText text="Sem valor financeiro consolidado no período." />}
           </div>
         </Panel>
-        <Panel title="Ranking por obra">
+        <Panel title="Por tipo de ganho">
           <div className="space-y-3">
-            {byProject.map((row) => <HorizontalBar key={row.label} label={row.label} value={row.value} max={byProject[0]?.value || 1} />)}
-            {byProject.length === 0 && <EmptyText text="Sem obras com valor registrado." />}
+            {byCategory.map((row) => <HorizontalBar key={row.label} label={row.label} value={row.value} max={byCategory[0]?.value || 1} />)}
+            {byCategory.length === 0 && <EmptyText text="Sem valor financeiro consolidado no período." />}
           </div>
         </Panel>
       </div>
 
-      <Panel title="Eventos de maior impacto">
-        <div className="grid gap-3 lg:grid-cols-2">
-          {topEvents.map((event) => <EventCard key={event.id} event={event} compact />)}
-          {topEvents.length === 0 && <EmptyText text="Atualize os eventos ou valide dados nos modulos operacionais." />}
+      <Panel title="Antes e depois (baseline → atual)">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <BeforeAfterRow
+            label="PPC (cumprimento do plano)"
+            before={`${Math.round(baseline?.ppcPercent ?? 0)}%`}
+            after={currentPpc > 0 ? `${currentPpc}%` : '—'}
+            good={currentPpc >= (baseline?.ppcPercent ?? 0)}
+          />
+          <BeforeAfterRow
+            label="Desvio de material"
+            before={`${baseline?.materialDeviationPercent ?? 0}%`}
+            after={`${baseline?.targetMaterialDeviationPercent ?? 0}% (meta)`}
+            good
+          />
+          <BeforeAfterRow
+            label="Horas em relatório manual"
+            before={`${baseline?.manualReportHoursPerWeek ?? 0}h/sem`}
+            after="automatizado"
+            good
+          />
         </div>
       </Panel>
+
+      <Panel title="Economia validada por mês">
+        <TrendBars series={series} />
+      </Panel>
+
+      <Panel title="Evidências de maior impacto">
+        <div className="grid gap-3 lg:grid-cols-2">
+          {topEvents.map((event) => <EvidenceCard key={event.id} event={event} />)}
+          {topEvents.length === 0 && <EmptyText text="Ainda sem eventos com valor financeiro. Os indicadores sem R$ aparecem na aba Eventos." />}
+        </div>
+      </Panel>
+
+      <DisclosureNote summary={summary} lastScanAt={lastScanAt} />
     </div>
   )
+}
+
+function proofRank(event: EconomyEvent) {
+  return event.status === 'validated' || event.status === 'reported' ? 1 : 0
+}
+
+function HeroProof({ summary }: { summary: ReturnType<typeof summarizeEconomy> }) {
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-[#525252] bg-gradient-to-br from-[#1d2a23] via-[#242424] to-[#1f1f1f] p-6 sm:p-8">
+      <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="relative">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300/80">
+          <BadgeDollarSign size={15} /> Economia comprovada no período
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
+          <p className="text-4xl font-bold tabular-nums text-emerald-300 sm:text-5xl lg:text-6xl">{brl(summary.avoidedLossBRL)}</p>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2 pb-1">
+            <Stat icon={TrendingUp} label="ROI do mês" value={`${Math.round(summary.roiPercent)}%`} positive={summary.roiPercent >= 0} />
+            <Stat label="Retorno por R$ investido" value={`${summary.paybackRatio.toFixed(1)}x`} positive={summary.paybackRatio >= 1} />
+          </div>
+        </div>
+        <p className="mt-4 max-w-2xl text-xs leading-5 text-[#a3a3a3]">
+          {summary.validatedEvents} de {summary.detectedEvents} eventos validados · investimento na plataforma {brl(summary.platformFeeBRL)}/mês
+          {summary.estimatedPipelineBRL > 0 && <> · {brl(summary.estimatedPipelineBRL)} em potencial ainda em análise (não somado)</>}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function Stat({ label, value, positive = true, icon: Icon }: { label: string; value: string; positive?: boolean; icon?: typeof TrendingUp }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wide text-[#a3a3a3]">{label}</p>
+      <p className={`mt-0.5 flex items-center gap-1.5 text-xl font-semibold tabular-nums ${positive ? 'text-emerald-300' : 'text-red-300'}`}>
+        {Icon && <Icon size={16} />}{value}
+      </p>
+    </div>
+  )
+}
+
+function BeforeAfterRow({ label, before, after, good = true }: { label: string; before: string; after: string; good?: boolean }) {
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#1f1f1f] p-3">
+      <p className="text-xs text-[#a3a3a3]">{label}</p>
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        <span className="text-[#9a9a9a] line-through decoration-[#5a5a5a]">{before}</span>
+        <ArrowRight size={13} className="shrink-0 text-[#737373]" />
+        <span className={`font-semibold ${good ? 'text-emerald-300' : 'text-amber-300'}`}>{after}</span>
+      </div>
+    </div>
+  )
+}
+
+function TrendBars({ series }: { series: Array<{ period: string; validatedBRL: number }> }) {
+  const max = Math.max(1, ...series.map((row) => row.validatedBRL))
+  if (!series.some((row) => row.validatedBRL > 0)) {
+    return <EmptyText text="Sem histórico de economia validada nos últimos meses." />
+  }
+  return (
+    <div className="flex h-44 items-end gap-3">
+      {series.map((row) => (
+        <div key={row.period} className="flex h-full flex-1 flex-col items-center">
+          <span className="mb-1 text-[10px] font-semibold tabular-nums text-emerald-300/80">{row.validatedBRL > 0 ? brlShort(row.validatedBRL) : ''}</span>
+          <div className="flex w-full flex-1 items-end">
+            <div className="w-full rounded-t bg-gradient-to-t from-emerald-500/40 to-emerald-400/80" style={{ height: `${Math.max(2, (row.validatedBRL / max) * 100)}%` }} />
+          </div>
+          <span className="mt-2 text-[10px] text-[#a3a3a3]">{monthShort(row.period)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function EvidenceCard({ event }: { event: EconomyEvent }) {
+  const route = ECONOMY_SOURCE_ROUTE[event.sourceModule]
+  return (
+    <article className="rounded-lg border border-[#525252] bg-[#242424] p-4 transition hover:border-emerald-500/40">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-[#f97316]/10 px-2 py-0.5 text-[11px] font-semibold text-[#f97316]">{ECONOMY_SOURCE_LABELS[event.sourceModule]}</span>
+            <ConfidencePill confidence={event.confidence} />
+          </div>
+          <h3 className="mt-2 text-sm font-semibold text-white">{event.title}</h3>
+        </div>
+        <span className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">{event.impactBRL > 0 ? brl(event.impactBRL) : 'indicador'}</span>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-[#a3a3a3]">{methodologyFor(event.category)}</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="truncate text-[11px] text-[#a3a3a3]">{event.projectName}</span>
+        {route && (
+          <Link to={route} className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-cyan-300 transition hover:text-cyan-200">
+            Ver evidência <ArrowUpRight size={12} />
+          </Link>
+        )}
+      </div>
+      <details className="mt-2">
+        <summary className="cursor-pointer text-[11px] text-[#737373] transition hover:text-[#a3a3a3]">Como calculamos</summary>
+        <div className="mt-2 rounded-md bg-[#1f1f1f] p-2 text-[11px] text-[#a3a3a3]">
+          <p className="font-mono text-[#d4d4d4]">{event.formula}</p>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+            {Object.entries(event.assumptions).map(([key, value]) => (
+              <span key={key}>{key}: <span className="text-[#d4d4d4]">{typeof value === 'number' ? value.toLocaleString('pt-BR') : String(value)}</span></span>
+            ))}
+          </div>
+        </div>
+      </details>
+    </article>
+  )
+}
+
+function ConfidencePill({ confidence }: { confidence: EconomyEvent['confidence'] }) {
+  const map: Record<EconomyEvent['confidence'], [string, string]> = {
+    high: ['Alta', 'bg-emerald-500/10 text-emerald-300'],
+    medium: ['Média', 'bg-amber-500/10 text-amber-300'],
+    low: ['Baixa', 'bg-[#333333] text-[#a3a3a3]'],
+  }
+  const [label, cls] = map[confidence] ?? map.low
+  return <span className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${cls}`}>Confiança {label}</span>
+}
+
+function DisclosureNote({ summary, lastScanAt }: { summary: ReturnType<typeof summarizeEconomy>; lastScanAt: string | null }) {
+  return (
+    <p className="text-[11px] leading-5 text-[#737373]">
+      Valores conservadores, calculados a partir de dados reais dos módulos operacionais. O ROI considera apenas eventos validados ({summary.validatedEvents} de {summary.detectedEvents});
+      indicadores sem R$ direto não entram na conta, para evitar dupla contagem.
+      {lastScanAt && <> Última atualização: {new Date(lastScanAt).toLocaleString('pt-BR')}.</>}
+    </p>
+  )
+}
+
+function ProofEmptyState() {
+  return (
+    <div className="rounded-2xl border border-dashed border-[#525252] bg-[#242424] p-10 text-center">
+      <ShieldCheck className="mx-auto text-[#525252]" size={40} />
+      <h2 className="mt-4 text-lg font-semibold text-white">Ainda não há economia comprovada neste período</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#a3a3a3]">
+        Alimente RDO, Suprimentos, LPS, Medição e EVM e clique em <span className="text-[#e5e5e5]">"Atualizar eventos"</span>. A comprovação é gerada a partir de dados reais — nunca de números fictícios.
+      </p>
+    </div>
+  )
+}
+
+function FreshnessBadge({ lastScanAt }: { lastScanAt: string | null }) {
+  if (!lastScanAt) return null
+  return (
+    <span className="hidden h-9 items-center gap-1.5 rounded-lg border border-[#525252] px-3 text-[11px] text-[#a3a3a3] sm:inline-flex">
+      <Clock size={13} /> {new Date(lastScanAt).toLocaleDateString('pt-BR')}
+    </span>
+  )
+}
+
+function brlShort(value: number): string {
+  if (value >= 1000000) return `R$ ${(value / 1000000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
+  if (value >= 1000) return `R$ ${Math.round(value / 1000)}k`
+  return brl(value)
+}
+
+function monthShort(period: string): string {
+  const [year, month] = period.split('-')
+  const names = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+  return `${names[Number(month) - 1] ?? month}/${(year ?? '').slice(2)}`
 }
 
 function EventsPanel({
@@ -408,25 +650,6 @@ function QbrPanel({ events, baseline }: { events: EconomyEvent[]; baseline?: Eco
           <QbrItem label="Eventos validados" before="0" after={String(quarterEvents.filter((event) => event.status === 'validated' || event.status === 'reported').length)} />
         </div>
       </Panel>
-    </div>
-  )
-}
-
-function EventCard({ event, compact = false }: { event: EconomyEvent; compact?: boolean }) {
-  return (
-    <div className="rounded-lg border border-[#525252] bg-[#242424] p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-white">{event.title}</p>
-          <p className={`mt-1 text-xs text-[#a3a3a3] ${compact ? 'line-clamp-2' : ''}`}>{event.description}</p>
-        </div>
-        <span className="shrink-0 text-sm font-bold text-emerald-300">{brl(event.impactBRL)}</span>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[#a3a3a3]">
-        <span>{ECONOMY_SOURCE_LABELS[event.sourceModule]}</span>
-        <span>·</span>
-        <span>{event.projectName}</span>
-      </div>
     </div>
   )
 }

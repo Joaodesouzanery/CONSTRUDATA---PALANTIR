@@ -76,6 +76,61 @@ export const ECONOMY_SOURCE_LABELS: Record<EconomySourceModule, string> = {
   manual: 'Manual',
 }
 
+/** Deeplink (rota interna) do módulo de origem de cada evento, para rastreabilidade. */
+export const ECONOMY_SOURCE_ROUTE: Record<EconomySourceModule, string> = {
+  suprimentos: '/app/suprimentos',
+  lps: '/app/lps-lean',
+  planejamento: '/app/planejamento',
+  rdo: '/app/rdo',
+  relatorio360: '/app/relatorio-360',
+  equipamentos: '/app/gestao-equipamentos',
+  medicao: '/app/medicao',
+  evm: '/app/evm',
+  manual: '',
+}
+
+/** Explicação em linguagem de negócio de como cada categoria é valorada (transparência/conservadorismo). */
+export function methodologyFor(category: EconomyEventCategory): string {
+  switch (category) {
+    case 'material_waste':
+      return 'Valorado pela diferença confirmada de quantidade/preço no three-way match, ou pelo prêmio de compra emergencial evitado. Usa apenas o delta confirmado.'
+    case 'production_stoppage':
+      return 'Custo de equipe parada (trabalhadores × custo/dia × dias evitados). Registros de RDO ficam zerados até validação humana, para não superestimar.'
+    case 'restriction_removed':
+      return 'Probabilidade de virar atraso × custo de um dia de parada × dias antecipados, com probabilidade conservadora.'
+    case 'equipment_idle':
+      return 'Custo diário do equipamento × dias de ociosidade evitados, a partir do uso registrado no RDO/manutenção.'
+    case 'management_hours':
+      return 'Horas de consolidação manual substituídas por automação × custo-hora do gestor (baseline vs. tempo atual).'
+    case 'measurement_discrepancy':
+      return 'Valor afetado × fator conservador de erro de medição, identificado antes do fechamento/NF para evitar glosa.'
+    case 'schedule_alert':
+      return 'Indicador operacional (PPC). Sem valor financeiro direto, para evitar dupla contagem.'
+    case 'cost_deviation':
+      return 'Desvio financeiro (CPI/SPI) × fator conservador, sinalizado em tempo real para ação preventiva.'
+    default:
+      return 'Cálculo conservador a partir de dados operacionais auditáveis.'
+  }
+}
+
+/** Série mensal de economia validada (últimos N meses), para a tendência do painel. */
+export function monthlySeries(
+  events: EconomyEvent[],
+  months = 6,
+  reference = new Date(),
+): Array<{ period: string; validatedBRL: number }> {
+  const out: Array<{ period: string; validatedBRL: number }> = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(reference.getFullYear(), reference.getMonth() - i, 1)
+    const period = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const validatedBRL = events
+      .filter((event) => event.period === period && (event.status === 'validated' || event.status === 'reported'))
+      .reduce((sum, event) => sum + Math.max(0, event.impactBRL), 0)
+    out.push({ period, validatedBRL })
+  }
+  return out
+}
+
 export function defaultEconomyBaseline(projectName = 'Carteira de obras'): EconomyBaseline {
   const now = new Date().toISOString()
   return {
@@ -620,7 +675,14 @@ function daysBetween(start: string, end: string): number {
   return Math.round((b - a) / 86400000)
 }
 
-function computeWeeklyPpc(activities: LpsActivity[]) {
+/** PPC (%) da semana mais recente com plano — usado como "depois" no antes/depois. */
+export function latestPpc(activities: LpsActivity[]): number {
+  const weeks = computeWeeklyPpc(activities)
+  const latest = [...weeks].sort((a, b) => b.week.localeCompare(a.week))[0]
+  return latest ? latest.ppc : 0
+}
+
+export function computeWeeklyPpc(activities: LpsActivity[]) {
   const map = new Map<string, { planned: number; completed: number }>()
   for (const activity of activities) {
     if (!activity.planned) continue
