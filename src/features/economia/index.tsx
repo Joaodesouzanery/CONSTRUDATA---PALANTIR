@@ -30,7 +30,7 @@ import {
   monthPeriod,
   summarizeEconomy,
 } from './utils/economiaEngine'
-import { printEconomyReport } from './utils/economiaReportExport'
+import { printEconomyDossier, printEconomyReport } from './utils/economiaReportExport'
 
 type EconomiaTab = 'overview' | 'events' | 'baseline' | 'report' | 'qbr'
 
@@ -96,6 +96,32 @@ export function EconomiaPage() {
     report.period === store.selectedPeriod &&
     report.projectId === (store.selectedProjectId ?? null)
   )
+
+  // Exporta o dossiê com exatamente o que está na tela (obra + período selecionados),
+  // sem precisar gerar/persistir um relatório antes.
+  const exportDossier = () => {
+    const baseline = summary.baseline
+    const liveReport: EconomyReport = {
+      id: 'live',
+      period: store.selectedPeriod,
+      projectId: null,
+      projectName: obra === 'all' ? (baseline?.projectName ?? 'Carteira de obras') : obra,
+      baselineId: baseline?.id ?? null,
+      eventIds: summary.events.map((event) => event.id),
+      detectedEvents: summary.detectedEvents,
+      avoidedLossBRL: summary.avoidedLossBRL,
+      platformFeeBRL: summary.platformFeeBRL,
+      roiPercent: summary.roiPercent,
+      ppcBefore: baseline?.ppcPercent ?? 0,
+      ppcAfter: currentPpc || (baseline?.ppcPercent ?? 0),
+      materialDeviationBefore: baseline?.materialDeviationPercent ?? 0,
+      materialDeviationAfter: baseline?.targetMaterialDeviationPercent ?? 0,
+      materialSavingsBRL: Math.max(0, ((baseline?.materialDeviationPercent ?? 0) - (baseline?.targetMaterialDeviationPercent ?? 0)) / 100) * (baseline?.materialMonthlyBudgetBRL ?? 0),
+      status: 'draft',
+      generatedAt: new Date().toISOString(),
+    }
+    printEconomyDossier(liveReport, eventsForObra, baseline)
+  }
 
   const renderPanel = () => {
     switch (activeTab) {
@@ -171,16 +197,14 @@ export function EconomiaPage() {
               <RefreshCw size={15} />
               Atualizar eventos
             </button>
-            {currentReport && (
-              <button
-                type="button"
-                onClick={() => printEconomyReport(currentReport, store.events, summary.baseline)}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#f97316] px-3 text-sm font-semibold text-white hover:bg-[#ea580c]"
-              >
-                <Download size={15} />
-                PDF
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={exportDossier}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#f97316] px-3 text-sm font-semibold text-white hover:bg-[#ea580c]"
+            >
+              <Download size={15} />
+              Dossiê PDF
+            </button>
           </div>
         </div>
 
