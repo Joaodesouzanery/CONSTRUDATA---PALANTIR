@@ -103,7 +103,8 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                 alt=""
                 width={1408}
                 height={768}
-                loading="lazy"
+                loading="eager"
+                fetchPriority="low"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
               />

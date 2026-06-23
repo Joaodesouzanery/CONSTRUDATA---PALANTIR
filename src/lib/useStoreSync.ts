@@ -17,10 +17,15 @@ import { useAuth } from './auth'
 import { isDemoModeEnabled } from './runtimeMode'
 import { getTenantMarker } from './tenantCache'
 
+// Após este nº de tentativas falhas, uma op é considerada "presa" e deixa de
+// bloquear o pull do módulo (evita que 1 erro congele a sincronização inteira).
+const STUCK_RETRIES = 5
+
 export interface SyncableState {
   activeOrgId?: string | null
   pendingSync?: unknown[]
   syncStatus?: 'idle' | 'syncing' | 'offline' | 'unauth' | 'error' | string
+  syncError?: string | null
   lastSyncedAt?: string | null
   ensureTenantScope?: (organizationId: string) => void
   clearData?: () => void
@@ -31,6 +36,7 @@ export interface SyncableState {
 export interface StoreSyncInfo {
   orgId: string | null
   syncStatus: SyncableState['syncStatus']
+  syncError: string | null
   pending: number
   lastSyncedAt: string | null
   demo: boolean
@@ -39,6 +45,7 @@ export interface StoreSyncInfo {
 export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<StoreApi<T>>): StoreSyncInfo {
   const orgId = useAuth((s) => s.profile?.organization_id ?? null)
   const syncStatus = useStore((s) => s.syncStatus)
+  const syncError = useStore((s) => s.syncError ?? null)
   const pending = useStore((s) => s.pendingSync?.length ?? 0)
   const lastSyncedAt = useStore((s) => s.lastSyncedAt ?? null)
 
@@ -59,15 +66,21 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
       // flush primeiro: sobe o que é local-only (re-carimbando org pendente)
       try { await st.flush?.() } catch { /* mantém na fila; será re-tentado */ }
       if (cancelled) return
-      // pull só quando não há nada pendente — assim nunca sobrescrevemos dado
-      // local que ainda não chegou ao servidor.
+      // pull normalmente só quando a fila esvaziou — assim nunca sobrescrevemos
+      // dado local que ainda não chegou ao servidor.
+      // Resiliência: se TODAS as ops pendentes já estão "presas" (muitas
+      // tentativas falhas — ex.: erro de RLS/permissão, tabela ausente), libera
+      // o pull mesmo assim, para 1 op envenenada não congelar o módulo inteiro.
+      // O pull por-tabela do store preserva as tabelas que ainda têm op pendente.
       const after = useStore.getState()
-      if ((after.pendingSync?.length ?? 0) === 0) {
+      const pend = after.pendingSync ?? []
+      const allStuck = pend.length > 0 && pend.every((op) => (((op as { retries?: number }).retries) ?? 0) >= STUCK_RETRIES)
+      if (pend.length === 0 || allStuck) {
         try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
       }
     })()
     return () => { cancelled = true }
   }, [orgId, useStore])
 
-  return { orgId, syncStatus, pending, lastSyncedAt: lastSyncedAt ?? null, demo: isDemoModeEnabled() }
+  return { orgId, syncStatus, syncError, pending, lastSyncedAt: lastSyncedAt ?? null, demo: isDemoModeEnabled() }
 }

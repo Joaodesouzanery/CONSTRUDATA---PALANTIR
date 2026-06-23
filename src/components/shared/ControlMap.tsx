@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -370,7 +370,10 @@ function MapResizeHandler() {
       })
     }
     invalidate()
-    const timers = [120, 350, 700].map((ms) => window.setTimeout(invalidate, ms))
+    // Um único reflow tardio cobre o "settle" do layout (flex/abas); o
+    // ResizeObserver abaixo cuida de mudanças reais de tamanho. Antes eram 3
+    // invalidateSize seguidos, que amplificavam o flicker.
+    const timers = [300].map((ms) => window.setTimeout(invalidate, ms))
     const container = map.getContainer().parentElement ?? map.getContainer()
     const observer = typeof ResizeObserver !== 'undefined' && container
       ? new ResizeObserver(invalidate)
@@ -409,24 +412,36 @@ export function ControlMap({
   const [showSites, setShowSites] = useState(sites.length > 0)
   const [tileError, setTileError] = useState(false)
 
-  const projectsWithCoords = projects.filter((p) => p.lat != null && p.lng != null)
-  const sitesWithCoords = sites.filter((s) => s.lat != null && s.lng != null)
-  const filteredProjects = filter === 'all' ? projectsWithCoords : projectsWithCoords.filter((p) => calcSeverity(p) === filter)
+  // Derivações memoizadas: props/deps estáveis evitam o re-render em cascata que
+  // fazia o mapa "piscar" (MarkerLayer re-sincronizava markers a cada render).
+  const projectsWithCoords = useMemo(() => projects.filter((p) => p.lat != null && p.lng != null), [projects])
+  const sitesWithCoords = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  const filteredProjects = useMemo(
+    () => (filter === 'all' ? projectsWithCoords : projectsWithCoords.filter((p) => calcSeverity(p) === filter)),
+    [filter, projectsWithCoords],
+  )
   const selectedProject = projectsWithCoords.find((p) => p.id === selectedProjectId) ?? null
   const selectedSite = sitesWithCoords.find((s) => s.id === selectedSiteId) ?? null
-  const counts = {
+  const counts = useMemo(() => ({
     critical: projectsWithCoords.filter((p) => calcSeverity(p) === 'critical').length,
     high: projectsWithCoords.filter((p) => calcSeverity(p) === 'high').length,
     medium: projectsWithCoords.filter((p) => calcSeverity(p) === 'medium').length,
     ok: projectsWithCoords.filter((p) => calcSeverity(p) === 'ok').length,
-  }
-  const filters: Array<{ id: Filter; label: string }> = [
+  }), [projectsWithCoords])
+  const filters: Array<{ id: Filter; label: string }> = useMemo(() => [
     { id: 'all', label: `Todos (${projectsWithCoords.length})` },
     { id: 'critical', label: `Crítico (${counts.critical})` },
     { id: 'high', label: `Alto (${counts.high})` },
     { id: 'medium', label: `Médio (${counts.medium})` },
     { id: 'ok', label: `OK (${counts.ok})` },
-  ]
+  ], [projectsWithCoords, counts])
+
+  const tileEventHandlers = useMemo(() => ({
+    loading: () => setTileError(false),
+    tileerror: () => setTileError(true),
+  }), [])
+  const handleProjectSelect = useCallback((id: string) => setSelectedProjectId((prev) => (prev === id ? null : id)), [])
+  const handleSiteSelect = useCallback((id: string | null) => onSiteSelect?.(id), [onSiteSelect])
 
   return (
     <div className="flex h-full min-h-[480px] flex-1 flex-col overflow-hidden bg-[#2c2c2c]">
@@ -454,10 +469,7 @@ export function ControlMap({
             attribution={TILE_CONFIG[basemap].attribution}
             subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'}
             maxZoom={19}
-            eventHandlers={{
-              loading: () => setTileError(false),
-              tileerror: () => setTileError(true),
-            }}
+            eventHandlers={tileEventHandlers}
           />
           <MarkerLayer
             projects={filteredProjects}
@@ -466,8 +478,8 @@ export function ControlMap({
             selectedSiteId={selectedSiteId}
             showProjects={showProjects}
             showSites={showSites}
-            onProjectSelect={(id) => setSelectedProjectId((prev) => (prev === id ? null : id))}
-            onSiteSelect={(id) => onSiteSelect?.(id)}
+            onProjectSelect={handleProjectSelect}
+            onSiteSelect={handleSiteSelect}
           />
         </MapContainer>
         {tileError && (

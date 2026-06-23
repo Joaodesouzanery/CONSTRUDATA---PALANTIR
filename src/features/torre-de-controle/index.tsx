@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams } from 'react-router-dom'
 import { FolderKanban, Globe, Layers, ListChecks, Map, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -44,8 +45,8 @@ function TabLoading() {
 
 export function TorreDeControlePage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const projects = useProjetosStore((s) => s.projects)
-  const sites = useTorreStore((s) => s.sites)
+  const projects = useProjetosStore(useShallow((s) => s.projects))
+  const sites = useTorreStore(useShallow((s) => s.sites))
   const selectedId = useTorreStore((s) => s.selectedId)
   const selectSite = useTorreStore((s) => s.selectSite)
   const setEditing = useTorreStore((s) => s.setEditing)

@@ -186,6 +186,8 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
 
 function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; name: string }[] }) {
   const crewName = crews.find((c) => c.id === worker.crewId)?.name ?? '—'
+  const projects = useProjetosStore((s) => s.projects)
+  const obraName = worker.siteId ? (projects.find((p) => p.id === worker.siteId)?.name ?? '—') : '—'
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 bg-[#333333] border-t border-[#525252] text-xs">
       <div>
@@ -221,6 +223,18 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
       <div>
         <p className="text-[#6b6b6b] mb-0.5">Taxa Horária</p>
         <p className="text-[#f5f5f5]">R${worker.hourlyRate.toFixed(2)}/h</p>
+      </div>
+      <div>
+        <p className="text-[#6b6b6b] mb-0.5">Salário Bruto</p>
+        <p className="text-[#f5f5f5]">{typeof worker.grossSalary === 'number' && worker.grossSalary > 0 ? `R$${worker.grossSalary.toFixed(2)}` : '—'}</p>
+      </div>
+      <div>
+        <p className="text-[#6b6b6b] mb-0.5">Obra</p>
+        <p className="text-[#f5f5f5]">{obraName}</p>
+      </div>
+      <div>
+        <p className="text-[#6b6b6b] mb-0.5">Local</p>
+        <p className="text-[#f5f5f5]">{worker.locationNote || '—'}</p>
       </div>
       {worker.certifications.length > 0 && (
         <div className="col-span-2 md:col-span-4">

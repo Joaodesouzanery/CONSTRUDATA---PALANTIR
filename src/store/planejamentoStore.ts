@@ -204,6 +204,7 @@ function trechoToRow(t: PlanTrecho, orgId: string, userId: string) {
       nucleusId: t.nucleusId ?? null,
       activityType: t.activityType ?? null,
       financialWeightPct: t.financialWeightPct ?? null,
+      plannedProgressPct: t.plannedProgressPct ?? null,
       physicalProgressPct: t.physicalProgressPct ?? null,
       financialProgressPct: t.financialProgressPct ?? null,
       estimatedHH: t.estimatedHH ?? null,
@@ -228,7 +229,10 @@ function teamToRow(t: PlanTeam, orgId: string, userId: string) {
     labor_hourly_rate_brl:    t.laborHourlyRateBRL,
     equipment_daily_rate_brl: t.equipmentDailyRateBRL,
     max_manual_excav_depth_m: t.maxManualExcavDepthM,
-    payload:                  {},
+    payload:                  {
+      nucleusId: t.nucleusId ?? null,
+      capacity:  t.capacity ?? null,
+    },
     created_by:               userId,
   }
 }
@@ -987,6 +991,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           nucleusId:         (r.payload as { nucleusId?: string } | undefined)?.nucleusId,
           activityType:      (r.payload as { activityType?: string } | undefined)?.activityType,
           financialWeightPct: (r.payload as { financialWeightPct?: number } | undefined)?.financialWeightPct,
+          plannedProgressPct: (r.payload as { plannedProgressPct?: number } | undefined)?.plannedProgressPct,
           physicalProgressPct: (r.payload as { physicalProgressPct?: number } | undefined)?.physicalProgressPct,
           financialProgressPct: (r.payload as { financialProgressPct?: number } | undefined)?.financialProgressPct,
           estimatedHH:       (r.payload as { estimatedHH?: number } | undefined)?.estimatedHH,
@@ -1009,6 +1014,8 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           laborHourlyRateBRL:    Number(r.labor_hourly_rate_brl ?? 0),
           equipmentDailyRateBRL: Number(r.equipment_daily_rate_brl ?? 0),
           maxManualExcavDepthM:  Number(r.max_manual_excav_depth_m ?? 1.5),
+          nucleusId:             (r.payload as { nucleusId?: string } | undefined)?.nucleusId,
+          capacity:              (r.payload as { capacity?: PlanTeam['capacity'] } | undefined)?.capacity,
         })),
       })
     }
