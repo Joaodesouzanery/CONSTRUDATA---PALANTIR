@@ -659,6 +659,9 @@ export interface Worker {
   contractType?: ContractType
   scheduleType?: ScheduleType
   workFront?: string            // frente de trabalho
+  grossSalary?: number          // salário bruto mensal (R$)
+  siteId?: string               // obra cadastrada vinculada (Project.id)
+  locationNote?: string         // local — texto livre complementar ao select de obra
 }
 
 export interface TimecardEntry {
@@ -862,6 +865,38 @@ export interface WorkerAbsence {
   substituteWorkerId?: string
   status: 'open' | 'covered' | 'uncovered'
   registeredAt: string
+}
+
+// ─── Mão de Obra — Ficha de Avaliação de Funcionário ──────────────────────────
+
+export type AssessmentRating = 'excelente' | 'muito_bom' | 'bom' | 'regular' | 'atencao'
+
+/** 8 critérios subjetivos, nota 0–10 cada. */
+export interface AssessmentCriteria {
+  qualidade:       number
+  retrabalho:      number
+  organizacao:     number
+  produtividade:   number
+  comprometimento: number
+  orientacoes:     number
+  confiabilidade:  number
+  lideranca:       number
+}
+
+export interface WorkerAssessment {
+  id: string
+  workerId: string
+  siteId?: string            // obra (Project.id) — pode herdar do worker
+  periodStart: string        // yyyy-MM-dd
+  periodEnd: string          // yyyy-MM-dd
+  absencesCount: number      // puxado automaticamente de absences[]
+  lateCount: number          // manual (não há fonte de atrasos no sistema)
+  criteria: AssessmentCriteria
+  notaFinal: number          // 0–10, média penalizada (1 casa decimal)
+  classificacao: AssessmentRating
+  notes?: string             // observações / orientações livres
+  createdAt: string          // ISO datetime
+  createdBy?: string
 }
 
 export interface CLTSettings {

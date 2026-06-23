@@ -15,6 +15,7 @@ import type {
   CLTViolation,
   WorkPost,
   WorkerAbsence,
+  WorkerAssessment,
   CLTSettings,
   PayrollMonth,
 } from '@/types'
@@ -56,6 +57,7 @@ export type MaoDeObraTab =
   | 'postos'
   | 'cmo'
   | 'faltas'
+  | 'avaliacoes'
   | 'folha'
   | 'rh-financeiro'
   | 'ausencias'
@@ -79,6 +81,7 @@ interface MaoDeObraState {
   violations:     CLTViolation[]
   workPosts:      WorkPost[]
   absences:       WorkerAbsence[]
+  assessments:    WorkerAssessment[]
   cltSettings:    CLTSettings
   activeTab:      MaoDeObraTab
   payrollHistory: PayrollMonth[]
@@ -132,6 +135,11 @@ interface MaoDeObraState {
   registerAbsence:   (absence: Omit<WorkerAbsence, 'id' | 'registeredAt'>) => string
   assignSubstitute:  (absenceId: string, substituteWorkerId: string) => void
   resolveAbsence:    (absenceId: string) => void
+
+  // Assessments (ficha de avaliação)
+  addAssessment:    (assessment: Omit<WorkerAssessment, 'id' | 'createdAt'>) => string
+  updateAssessment: (id: string, updates: Partial<Omit<WorkerAssessment, 'id'>>) => void
+  removeAssessment: (id: string) => void
 
   // CLT settings
   updateCLTSettings: (settings: Partial<CLTSettings>) => void
@@ -213,6 +221,15 @@ function absenceToRow(a: WorkerAbsence, orgId: string, userId: string) {
     created_by:      userId,
   }
 }
+function assessmentToRow(a: WorkerAssessment, orgId: string, userId: string) {
+  return {
+    id:              a.id,
+    organization_id: orgId,
+    worker_id:       a.workerId ?? null,
+    payload:         a as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
 
 function ctxAuth() {
   const { profile, user } = useAuth.getState()
@@ -264,6 +281,7 @@ function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObr
     violations:     list(persisted.violations),
     workPosts:      list(persisted.workPosts).length ? list(persisted.workPosts) : current.workPosts,
     absences:       list(persisted.absences),
+    assessments:    list(persisted.assessments),
     cltSettings:    persisted.cltSettings ?? current.cltSettings,
     payrollHistory: list(persisted.payrollHistory),
     pendingSync:    list(persisted.pendingSync),
@@ -361,6 +379,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   violations:     [],
   workPosts:      [],
   absences:       [],
+  assessments:    [],
   cltSettings:    MOCK_CLT_SETTINGS,
   activeTab:      'dashboard',
   payrollHistory: [],
@@ -635,6 +654,39 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       ),
     })),
 
+  // ── Assessments (ficha de avaliação) ─────────────────────────────────────────
+
+  addAssessment: (assessment) => {
+    const id = crypto.randomUUID()
+    const newAssessment: WorkerAssessment = { ...assessment, id, createdAt: new Date().toISOString() }
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      assessments: [...s.assessments, newAssessment],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_assessment', type: 'insert', recordId: id, row: assessmentToRow(newAssessment, orgId, userId), table: 'worker_assessments' })],
+    }))
+    void get().flush()
+    return id
+  },
+
+  updateAssessment: (id, updates) => {
+    set((s) => ({ assessments: s.assessments.map((a) => (a.id === id ? { ...a, ...updates } : a)) }))
+    const target = get().assessments.find((a) => a.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = assessmentToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_assessment', type: 'update', recordId: id, patch, table: 'worker_assessments' })] }))
+      void get().flush()
+    }
+  },
+
+  // Exclusão é soft delete via UPDATE de deleted_at (DELETE é bloqueado por RLS).
+  removeAssessment: (id) => {
+    set((s) => ({ assessments: s.assessments.filter((a) => a.id !== id) }))
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_assessment', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'worker_assessments' })] }))
+    void get().flush()
+  },
+
   // ── CLT Settings ─────────────────────────────────────────────────────────────
 
   updateCLTSettings: (settings) =>
@@ -703,6 +755,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       violations:     [],
       workPosts:      [],
       absences:       [],
+      assessments:    [],
       payrollHistory: [],
       activeOrgId:    null,
       pendingSync:    [],
@@ -736,21 +789,24 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const ts = pendingTables.has('timecards') ? null : await pullTable<{ payload: TimecardEntry }>('timecards')
     const ss = pendingTables.has('shifts') ? null : await pullTable<{ payload: Shift }>('shifts')
     const as_ = pendingTables.has('worker_absences') ? null : await pullTable<{ payload: WorkerAbsence }>('worker_absences')
+    const asmt = pendingTables.has('worker_assessments') ? null : await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
     if (ws)  set({ workers:   ws.map((r) => normalizeWorker(r.payload)) })
     if (cs)  set({ crews:     cs.map((r) => normalizeCrew(r.payload)) })
     if (ts)  set({ timecards: ts.map((r) => r.payload) })
     if (ss)  set({ shifts:    ss.map((r) => r.payload) })
     if (as_) set({ absences:  as_.map((r) => r.payload) })
+    if (asmt) set({ assessments: asmt.map((r) => r.payload) })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),
     {
       name: 'cdata-mao-de-obra',
-      version: 2,
+      version: 3,
       // v1: workPosts deixou de iniciar com MOCK_WORK_POSTS.
       // v2: remove TODO resquício de dado demo persistido fora do modo demo
       //     (mocks usam ids curtos tipo 'w-1'; dados reais usam UUID). Listas
       //     derivadas (sugestões/violações) são recomputáveis e zeram.
+      // v3: adiciona assessments (ficha de avaliação) — default lista vazia.
       migrate: (persisted, fromVersion) => {
         const state = (persisted ?? {}) as Partial<MaoDeObraState>
         if (fromVersion < 1) state.workPosts = []
@@ -771,6 +827,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
           state.suggestions = []
           state.violations  = []
         }
+        if (fromVersion < 3) state.assessments = list(state.assessments)
         return state as MaoDeObraState
       },
       partialize: (s) => ({
@@ -780,6 +837,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         timecards:      s.timecards,
         shifts:         s.shifts,
         absences:       s.absences,
+        assessments:    s.assessments,
         workPosts:      s.workPosts,
         cltSettings:    s.cltSettings,
         payrollHistory: s.payrollHistory,

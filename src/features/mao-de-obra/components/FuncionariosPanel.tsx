@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
 import { Plus, Download, Search, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useProjetosStore } from '@/store/projetosStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
+
+type ObraOption = { id: string; code: string; name: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,11 +29,12 @@ const SCHEDULE_LABEL: Record<ScheduleType, string> = {
 interface WorkerFormProps {
   initial?: Worker
   crews: { id: string; name: string }[]
+  projects: ObraOption[]
   onSave: (data: Omit<Worker, 'id'>) => void
   onClose: () => void
 }
 
-function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
+function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFormProps) {
   const [form, setForm] = useState<Partial<Omit<Worker, 'id'>>>({
     name:               initial?.name ?? '',
     role:               initial?.role ?? '',
@@ -48,6 +52,9 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
     contractType:       initial?.contractType ?? 'clt',
     scheduleType:       initial?.scheduleType ?? 'standard',
     workFront:          initial?.workFront ?? '',
+    grossSalary:        initial?.grossSalary ?? 0,
+    siteId:             initial?.siteId ?? '',
+    locationNote:       initial?.locationNote ?? '',
   })
   const [error, setError] = useState('')
 
@@ -97,6 +104,17 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
             <input className={fieldClass} value={form.workFront ?? ''} onChange={(e) => set('workFront', e.target.value)} />
           </div>
           <div>
+            <label className={labelClass}>Local — Obra</label>
+            <select className={fieldClass} value={form.siteId ?? ''} onChange={(e) => set('siteId', e.target.value)}>
+              <option value="">— Selecione a obra —</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Local — complemento (opcional)</label>
+            <input className={fieldClass} value={form.locationNote ?? ''} onChange={(e) => set('locationNote', e.target.value)} placeholder="Ex.: Bloco B, 3º pavimento" />
+          </div>
+          <div>
             <label className={labelClass}>E-mail</label>
             <input type="email" className={fieldClass} value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} />
           </div>
@@ -138,6 +156,10 @@ function WorkerFormModal({ initial, crews, onSave, onClose }: WorkerFormProps) {
           <div>
             <label className={labelClass}>Taxa Horária (R$)</label>
             <input type="number" step="0.01" min="0" className={fieldClass} value={form.hourlyRate ?? 0} onChange={(e) => set('hourlyRate', parseFloat(e.target.value) || 0)} />
+          </div>
+          <div>
+            <label className={labelClass}>Salário Bruto (R$)</label>
+            <input type="number" step="0.01" min="0" className={fieldClass} value={form.grossSalary ?? 0} onChange={(e) => set('grossSalary', parseFloat(e.target.value) || 0)} />
           </div>
           <div>
             <label className={labelClass}>CPF (mascarado)</label>
@@ -281,6 +303,7 @@ export function FuncionariosPanel() {
   const { workers, crews, addWorker, updateWorker } = useMaoDeObraStore(
     useShallow((s) => ({ workers: s.workers, crews: s.crews, addWorker: s.addWorker, updateWorker: s.updateWorker }))
   )
+  const projects = useProjetosStore((s) => s.projects)
 
   const [search,      setSearch]      = useState('')
   const [filterRole,  setFilterRole]  = useState('')
@@ -461,6 +484,7 @@ export function FuncionariosPanel() {
         <WorkerFormModal
           initial={editingWorker ?? undefined}
           crews={crews}
+          projects={projects}
           onSave={handleSave}
           onClose={() => { setShowForm(false); setEditingWorker(null) }}
         />

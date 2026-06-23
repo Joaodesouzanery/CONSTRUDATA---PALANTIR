@@ -90,6 +90,8 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     stoppages:                 rdo.stoppages,
     activityHours:             rdo.activityHours,
     workforceRows:             rdo.workforceRows,
+    template:                  rdo.template,
+    compizzo:                  rdo.compizzo,
   }
   return {
     id:               rdo.id,
@@ -149,6 +151,8 @@ function rowToRdo(row: RdoRow): RDO {
     stoppages:                   p.stoppages                   as RDO['stoppages'],
     activityHours:               p.activityHours               as RDO['activityHours'],
     workforceRows:               p.workforceRows               as RDO['workforceRows'],
+    template:                    p.template                    as RDO['template'],
+    compizzo:                    p.compizzo                    as RDO['compizzo'],
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,
   }

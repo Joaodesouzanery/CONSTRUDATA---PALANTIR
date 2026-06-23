@@ -13,6 +13,7 @@ import { EscalaInteligentePanel } from './components/EscalaInteligentePanel'
 import { PostosPanel }           from './components/PostosPanel'
 import { CMOPanel }              from './components/CMOPanel'
 import { FaltasSubsPanel }       from './components/FaltasSubsPanel'
+import { AvaliacoesPanel }       from './components/AvaliacoesPanel'
 import { FolhaPagamentoPanel }   from './components/FolhaPagamentoPanel'
 import { RHFinanceiroPanel }     from './components/RHFinanceiroPanel'
 import { AusenciasCalendarioPanel } from './components/AusenciasCalendarioPanel'
@@ -79,6 +80,7 @@ export function MaoDeObraPage() {
       case 'postos':        return <PostosPanel />
       case 'cmo':           return <CMOPanel />
       case 'faltas':        return <FaltasSubsPanel />
+      case 'avaliacoes':    return <AvaliacoesPanel />
       case 'folha':         return <FolhaPagamentoPanel />
       case 'rh-financeiro': return <RHFinanceiroPanel />
       case 'ausencias':     return <AusenciasCalendarioPanel />

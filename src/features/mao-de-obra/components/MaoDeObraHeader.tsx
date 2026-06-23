@@ -18,6 +18,7 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'postos',        label: 'Postos'                 },
   { id: 'cmo',           label: 'Custo Mensal'           },
   { id: 'faltas',        label: 'Faltas / Subs'          },
+  { id: 'avaliacoes',    label: 'Avaliações'             },
   { id: 'folha',         label: 'Folha de Pagamento'     },
   { id: 'rh-financeiro', label: 'RH Financeiro'          },
   { id: 'ausencias',     label: 'Calendário de Ausências'},
