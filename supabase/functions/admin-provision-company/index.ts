@@ -105,7 +105,10 @@ serve(async (req) => {
     .select('id, name, slug')
     .single()
 
-  if (orgError || !org) return json({ error: orgError?.message ?? 'organization_insert_failed' }, 400)
+  if (orgError || !org) {
+    console.error('[admin-provision] organization insert failed', orgError)
+    return json({ error: 'organization_insert_failed' }, 400)
+  }
 
   const token = randomHex(24)
   const tokenHash = await sha256Hex(token)
@@ -125,7 +128,8 @@ serve(async (req) => {
 
   if (invitationError || !invitation) {
     await supabase.from('organizations').update({ deleted_at: new Date().toISOString() }).eq('id', org.id)
-    return json({ error: invitationError?.message ?? 'invitation_insert_failed' }, 400)
+    console.error('[admin-provision] invitation insert failed', invitationError)
+    return json({ error: 'invitation_insert_failed' }, 400)
   }
 
   await supabase.from('audit_log').insert({

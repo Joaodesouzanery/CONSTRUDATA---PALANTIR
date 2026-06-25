@@ -188,8 +188,15 @@ function normUnit(v: unknown): string {
     .replace(/^UNIDADE$/, 'UN')
 }
 
+/** Limite defensivo para parse de planilha (mitiga DoS/ReDoS via arquivo grande;
+ *  o `xlsx` tem vulnerabilidades sem fix — ver nota de segurança). */
+export const MAX_XLSX_BYTES = 15 * 1024 * 1024 // 15 MB
+
 /** Read a WorkBook from a File object. */
 export async function readWorkbook(file: File): Promise<XLSX.WorkBook> {
+  if (file.size > MAX_XLSX_BYTES) {
+    throw new Error(`Planilha muito grande (máx. ${Math.round(MAX_XLSX_BYTES / 1024 / 1024)} MB).`)
+  }
   const buf = await file.arrayBuffer()
   return XLSX.read(buf, { type: 'array' })
 }

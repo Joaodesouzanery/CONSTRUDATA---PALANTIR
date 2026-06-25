@@ -181,6 +181,15 @@ function dedupeByUrl(items) {
 }
 
 export default async function handler(req, res) {
+  // Protege o endpoint contra chamadas externas (cada hit dispara ~30 fetches).
+  // O Vercel anexa `Authorization: Bearer <CRON_SECRET>` às execuções de cron
+  // quando a env CRON_SECRET está configurada. Sem CRON_SECRET, mantém o
+  // comportamento atual (não quebra antes de você configurar o segredo).
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && (req.headers?.authorization || '') !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+
   res.setHeader('Cache-Control', 's-maxage=900, stale-while-revalidate=3600')
   try {
     const settled = await Promise.allSettled(NEWS_SOURCES.map(fetchSource))

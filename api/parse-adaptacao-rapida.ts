@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAuthenticated } from './_supabaseAuth'
 
 const SCHEMA_DESCRIPTION = `
 Você é um assistente de implantação de obras no ConstruData.
@@ -166,6 +167,10 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' })
+
+  if (!(await isAuthenticated(req.headers?.authorization))) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
 
   try {
     const { mode, image_base64, text, filename, kind } = req.body || {}

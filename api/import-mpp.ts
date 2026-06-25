@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as XLSX from 'xlsx'
+import { isAuthenticated } from './_supabaseAuth'
 
 type VercelRequestLike = {
   method?: string
@@ -364,6 +365,10 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Metodo nao permitido' })
+  }
+
+  if (!(await isAuthenticated((req as any).headers?.authorization))) {
+    return res.status(401).json({ error: 'unauthorized' })
   }
 
   try {

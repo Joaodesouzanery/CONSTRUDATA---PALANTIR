@@ -70,9 +70,9 @@ async function fetchApsToken(clientId: string, clientSecret: string): Promise<{ 
 // ─── Setup modal ──────────────────────────────────────────────────────────────
 
 function SetupModal({ onClose }: { onClose: () => void }) {
-  const { setForgeCredentials, setForgeUrn, forgeUrn } = useBimStore()
-  const [clientId,     setClientId]     = useState(() => localStorage.getItem('aps-client-id')     ?? '')
-  const [clientSecret, setClientSecret] = useState(() => localStorage.getItem('aps-client-secret') ?? '')
+  const { setForgeCredentials, setForgeUrn, forgeUrn, forgeClientSecret } = useBimStore()
+  const [clientId,     setClientId]     = useState(() => localStorage.getItem('aps-client-id') ?? '')
+  const [clientSecret, setClientSecret] = useState(() => forgeClientSecret ?? '')
   const [urn,          setUrn]          = useState(forgeUrn ?? '')
   const [saving, setSaving] = useState(false)
   const [err,    setErr]    = useState('')
@@ -102,7 +102,7 @@ function SetupModal({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <h3 className="text-[#f5f5f5] font-semibold text-sm">Configurar Autodesk APS</h3>
-            <p className="text-[#6b6b6b] text-xs">Credenciais salvas apenas no localStorage do browser</p>
+            <p className="text-[#6b6b6b] text-xs">Client ID fica no browser; o Client Secret fica só nesta sessão (em memória)</p>
           </div>
         </div>
 
@@ -344,15 +344,17 @@ function ViewerContainer({ token, urn, onSettings }: ViewerContainerProps) {
 // ─── Main BimForgeViewer ──────────────────────────────────────────────────────
 
 export function BimForgeViewer() {
-  const { forgeToken, forgeTokenExpiry, forgeUrn, forgeClientId, setForgeToken, setForgeUrn } = useBimStore()
+  const { forgeToken, forgeTokenExpiry, forgeUrn, forgeClientId, forgeClientSecret, setForgeToken, setForgeUrn } = useBimStore()
   const [showSetup, setShowSetup] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connErr, setConnErr] = useState('')
 
-  // Auto-connect if credentials exist but token is missing/expired
+  // Auto-connect if credentials exist but token is missing/expired.
+  // O Client Secret vive só em memória (não persistido) — após recarregar a aba
+  // ele é null e o usuário precisa reconfigurar (ver ForgeSetupPrompt).
   useEffect(() => {
-    const id     = localStorage.getItem('aps-client-id')
-    const secret = localStorage.getItem('aps-client-secret')
+    const id     = forgeClientId ?? localStorage.getItem('aps-client-id')
+    const secret = forgeClientSecret
     if (!id || !secret) return
     if (forgeToken && forgeTokenExpiry && Date.now() < forgeTokenExpiry) return
 
@@ -366,11 +368,11 @@ export function BimForgeViewer() {
         setConnErr(String(e))
         setConnecting(false)
       })
-  }, [forgeToken, forgeTokenExpiry, setForgeToken])
+  }, [forgeToken, forgeTokenExpiry, forgeClientId, forgeClientSecret, setForgeToken])
 
   const isConnected = !!forgeToken && !!forgeTokenExpiry && Date.now() < forgeTokenExpiry
   const hasUrn      = !!forgeUrn
-  const hasCredentials = !!forgeClientId || !!localStorage.getItem('aps-client-id')
+  const hasCredentials = !!forgeClientId && !!forgeClientSecret
 
   if (!hasCredentials) {
     return (

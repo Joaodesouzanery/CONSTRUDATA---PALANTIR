@@ -24,7 +24,7 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
+import { supabase, authHeader } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { isNonProductionDataMode } from "@/lib/runtimeMode";
 import {
@@ -255,7 +255,7 @@ const invokeRdoSabespParser = async (body: Record<string, unknown>) => {
     const apiResponse = await withTimeout(
       fetch("/api/parse-rdo-sabesp", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify(body),
       }),
       75_000,

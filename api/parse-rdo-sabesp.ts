@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isAuthenticated } from './_supabaseAuth'
 
 const SCHEMA_DESCRIPTION = `
 Extraia os dados de um Relatorio Diario de Obra (RDO) da SABESP - Consorcio Se Liga Na Rede.
@@ -205,6 +206,10 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo nao permitido' })
+
+  if (!(await isAuthenticated(req.headers?.authorization))) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
 
   if (!process.env.GEMINI_API_KEY && !process.env.LOVABLE_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
     return res.status(500).json({ error: 'Configure GEMINI_API_KEY, LOVABLE_API_KEY ou AI_GATEWAY_API_KEY no Vercel' })

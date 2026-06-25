@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, CheckCircle2, Sparkles, FlaskConical, FileSpreadsheet, Download, BrainCircuit, Target, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { authHeader } from '@/lib/supabase'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
 import { PlanejamentoMacroPanel } from './components/PlanejamentoMacroPanel'
 import { DerivacaoPanel } from './components/DerivacaoPanel'
@@ -161,7 +162,7 @@ export function PlanejamentoMestrePage() {
   async function importMppPreview(file: File, buf: ArrayBuffer) {
     const response = await fetch('/api/import-mpp', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(await authHeader()) },
       body: JSON.stringify({ fileName: file.name, dataBase64: arrayBufferToBase64(buf) }),
     })
     const payload = await response.json().catch(() => null)

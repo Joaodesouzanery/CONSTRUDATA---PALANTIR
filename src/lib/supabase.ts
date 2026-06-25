@@ -55,3 +55,13 @@ export const supabase: SupabaseClient = createClient(url, anonKey, {
 export function getSessionUser() {
   return supabase.auth.getUser().then(({ data }) => data.user)
 }
+
+/**
+ * Helper: cabeçalho Authorization (Bearer) com o access token da sessão atual.
+ * Use ao chamar rotas serverless protegidas (`/api/*`) para que o servidor
+ * possa validar o JWT. Retorna {} se não houver sessão.
+ */
+export async function authHeader(): Promise<Record<string, string>> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}

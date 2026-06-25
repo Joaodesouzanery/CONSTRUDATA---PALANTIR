@@ -138,6 +138,7 @@ interface BimState {
   forgeTokenExpiry: number | null
   forgeUrn:         string | null
   forgeClientId:    string | null
+  forgeClientSecret: string | null   // só em memória — NUNCA persistido (não vai no partialize)
 
   setActiveTab(tab: BimTab): void
   addProject(p: BimProject): void
@@ -228,6 +229,7 @@ export const useBimStore = create<BimState>()(
   forgeTokenExpiry: null,
   forgeUrn:         null,
   forgeClientId:    null,
+  forgeClientSecret: null,
 
   pendingSync:  [],
   syncStatus:   'idle',
@@ -536,12 +538,14 @@ export const useBimStore = create<BimState>()(
   setForgeToken(token, expiry) { set({ forgeToken: token, forgeTokenExpiry: expiry }) },
   setForgeUrn(urn)    { set({ forgeUrn: urn }) },
   setForgeCredentials(clientId, clientSecret) {
+    // Client ID não é segredo → pode persistir para conveniência.
+    // Client Secret é credencial de servidor → mantém SÓ em memória (estado),
+    // nunca em localStorage (não vai no partialize). Some ao recarregar a aba.
     try {
-      localStorage.setItem('aps-client-id',     clientId)
-      localStorage.setItem('aps-client-secret', clientSecret)
+      localStorage.setItem('aps-client-id', clientId)
+      localStorage.removeItem('aps-client-secret') // limpa secret legado salvo em versões anteriores
     } catch { /* noop */ }
-    set({ forgeClientId: clientId })
-    void clientSecret  // stored in localStorage only, not in state
+    set({ forgeClientId: clientId, forgeClientSecret: clientSecret })
   },
 
   flush: async () => {
