@@ -375,11 +375,13 @@ export const useEconomiaStore = create<EconomiaState>()(
         },
 
         pull: async () => {
+          // Não sobrescreve tabela com op pendente (evita sumiço de dado local).
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
           const [baselines, events, reports, rules] = await Promise.all([
-            pullTable<{ payload: EconomyBaseline }>('economy_baselines'),
-            pullTable<{ payload: EconomyEvent }>('economy_events', { column: 'event_date', ascending: false }),
-            pullTable<{ payload: EconomyReport }>('economy_reports', { column: 'created_at', ascending: false }),
-            pullTable<{ payload: EconomyValuationRule }>('economy_valuation_rules'),
+            pendingTables.has('economy_baselines') ? null : pullTable<{ payload: EconomyBaseline }>('economy_baselines'),
+            pendingTables.has('economy_events') ? null : pullTable<{ payload: EconomyEvent }>('economy_events', { column: 'event_date', ascending: false }),
+            pendingTables.has('economy_reports') ? null : pullTable<{ payload: EconomyReport }>('economy_reports', { column: 'created_at', ascending: false }),
+            pendingTables.has('economy_valuation_rules') ? null : pullTable<{ payload: EconomyValuationRule }>('economy_valuation_rules'),
           ])
           if (baselines) set({ baselines: baselines.map((row) => row.payload) })
           if (events) set({ events: events.map((row) => row.payload) })

@@ -965,9 +965,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   },
 
   pull: async () => {
-    const trechos = await pullTable<Record<string, unknown>>('plan_trechos')
-    const teams   = await pullTable<Record<string, unknown>>('plan_teams')
-    const hols    = await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
+    // Não sobrescreve tabela com op pendente (evita sumiço de dado local).
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const trechos = pendingTables.has('plan_trechos') ? null : await pullTable<Record<string, unknown>>('plan_trechos')
+    const teams   = pendingTables.has('plan_teams') ? null : await pullTable<Record<string, unknown>>('plan_teams')
+    const hols    = pendingTables.has('plan_holidays') ? null : await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
     if (trechos) {
       set({
         trechos: trechos.map((r) => ({

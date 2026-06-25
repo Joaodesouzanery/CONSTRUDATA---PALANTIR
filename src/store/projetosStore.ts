@@ -369,11 +369,16 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
             return
           }
           get().ensureTenantScope(profile.organization_id)
-          set({ projects: [], selectedProjectId: null })
-          const rows = await pullTable<{ payload: Project }>('projects')
-          if (rows) {
-            const projects = rows.map((r) => r.payload)
-            set({ projects, selectedProjectId: projects[0]?.id ?? null })
+          // Proteção: se há op pendente para 'projects' (flush falhou/offline),
+          // NÃO sobrescreve a lista local — senão um projeto ainda não
+          // sincronizado some. (Não zera mais a lista antes do pull.)
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          if (!pendingTables.has('projects')) {
+            const rows = await pullTable<{ payload: Project }>('projects')
+            if (rows) {
+              const projects = rows.map((r) => r.payload)
+              set({ projects, selectedProjectId: projects[0]?.id ?? null })
+            }
           }
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

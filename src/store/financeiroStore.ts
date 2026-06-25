@@ -211,8 +211,11 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         },
 
         pull: async () => {
-          const es = await pullTable<{ payload: FinanceiroEntry }>('financeiro_entries')
-          const ds = await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
+          // Não sobrescreve uma tabela que ainda tem op pendente (evita sumiço de
+          // registro local não sincronizado).
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const es = pendingTables.has('financeiro_entries') ? null : await pullTable<{ payload: FinanceiroEntry }>('financeiro_entries')
+          const ds = pendingTables.has('financeiro_distribuicoes') ? null : await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
           if (es) set({ entries: es.map((r) => r.payload) })
           if (ds) set({ distribuicoes: ds.map((r) => r.payload) })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

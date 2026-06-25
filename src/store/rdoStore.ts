@@ -489,6 +489,10 @@ export const useRdoStore = create<RdoState>()(
       },
 
       pull: async () => {
+        // Não sobrescreve os RDOs locais se há op de 'rdo' pendente (evita
+        // sumiço de RDO não sincronizado).
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+        if (pendingTables.has('rdo')) return
         const rows = await pullTable<RdoRow>('rdo', { column: 'number', ascending: false })
         if (!rows) return
         set({

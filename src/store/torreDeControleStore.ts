@@ -208,11 +208,15 @@ export const useTorreStore = create<TorreState & TorreActions>()(
             return
           }
           get().ensureTenantScope(profile.organization_id)
-          set({ sites: [], selectedId: null })
-          const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
-          if (rows) {
-            const sites = rows.map((r) => r.payload)
-            set({ sites, selectedId: sites[0]?.id ?? null })
+          // Proteção: se há op pendente para 'construction_sites', NÃO sobrescreve
+          // a lista local — senão uma obra ainda não sincronizada some.
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          if (!pendingTables.has('construction_sites')) {
+            const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
+            if (rows) {
+              const sites = rows.map((r) => r.payload)
+              set({ sites, selectedId: sites[0]?.id ?? null })
+            }
           }
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

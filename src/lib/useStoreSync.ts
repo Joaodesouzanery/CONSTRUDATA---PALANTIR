@@ -17,10 +17,6 @@ import { useAuth } from './auth'
 import { isDemoModeEnabled } from './runtimeMode'
 import { getTenantMarker } from './tenantCache'
 
-// Após este nº de tentativas falhas, uma op é considerada "presa" e deixa de
-// bloquear o pull do módulo (evita que 1 erro congele a sincronização inteira).
-const STUCK_RETRIES = 5
-
 export interface SyncableState {
   activeOrgId?: string | null
   pendingSync?: unknown[]
@@ -66,16 +62,11 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
       // flush primeiro: sobe o que é local-only (re-carimbando org pendente)
       try { await st.flush?.() } catch { /* mantém na fila; será re-tentado */ }
       if (cancelled) return
-      // pull normalmente só quando a fila esvaziou — assim nunca sobrescrevemos
-      // dado local que ainda não chegou ao servidor.
-      // Resiliência: se TODAS as ops pendentes já estão "presas" (muitas
-      // tentativas falhas — ex.: erro de RLS/permissão, tabela ausente), libera
-      // o pull mesmo assim, para 1 op envenenada não congelar o módulo inteiro.
-      // O pull por-tabela do store preserva as tabelas que ainda têm op pendente.
+      // pull SÓ quando a fila esvaziou — assim nunca sobrescrevemos dado local
+      // que ainda não chegou ao servidor (senão registros não sincronizados
+      // somem). Cada store também protege o pull por-tabela como defesa extra.
       const after = useStore.getState()
-      const pend = after.pendingSync ?? []
-      const allStuck = pend.length > 0 && pend.every((op) => (((op as { retries?: number }).retries) ?? 0) >= STUCK_RETRIES)
-      if (pend.length === 0 || allStuck) {
+      if ((after.pendingSync?.length ?? 0) === 0) {
         try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
       }
     })()
