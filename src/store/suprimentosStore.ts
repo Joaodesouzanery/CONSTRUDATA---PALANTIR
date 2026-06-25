@@ -1568,3 +1568,9 @@ if (typeof window !== 'undefined') {
     void useSuprimentosStore.getState().flush()
   })
 }
+
+// Quando um RDO é finalizado, o trigger server-side (trg_rdo_to_estoque) baixa o
+// estoque. Recarrega para refletir os novos saldos/movimentações na UI.
+eventBus.on('rdo.finalized', () => {
+  void useSuprimentosStore.getState().pull()
+})

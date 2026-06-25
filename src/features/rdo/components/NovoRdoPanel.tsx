@@ -188,7 +188,6 @@ export function NovoRdoPanel() {
   const logos = useCompanySettingsStore((s) => s.logos)
   const equipamentosCadastrados = useEquipamentosStore((s) => s.equipamentos)
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
-  const consumirMaterial = useSuprimentosStore((s) => s.consumirMaterial)
   const trabalhadores = useMaoDeObraStore((s) => s.workers)
   const equipes = useMaoDeObraStore((s) => s.crews)
   const addTimecard = useMaoDeObraStore((s) => s.addTimecard)
@@ -639,13 +638,9 @@ export function NovoRdoPanel() {
       activityHours,
       workforceRows:              workforceRows.map((row) => ({ ...row, id: crypto.randomUUID() })),
     })
-    materials.forEach((material) => {
-      const qty = Number(material.quantity) || 0
-      if (!material.stockItemId || qty <= 0) return
-      consumirMaterial(material.stockItemId, qty, {
-        observacoes: `${rdoLabel} - ${data.date}${material.notes ? ` - ${material.notes}` : ''}`,
-      })
-    })
+    // A baixa de estoque agora é feita no SERVIDOR (trigger trg_rdo_to_estoque),
+    // de forma idempotente por rdo_id — não consumir no cliente para não duplicar.
+    // (Requer a migration 20260625120000_rdo_estoque_integration.sql aplicada.)
     workforceRows.forEach((row) => {
       const hoursWorked = Number(row.hoursWorked) || 0
       if (hoursWorked <= 0) return
