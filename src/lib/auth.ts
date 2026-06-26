@@ -63,6 +63,7 @@ interface AuthState {
 
 async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<void> {
   const stores = await Promise.allSettled([
+    import('@/store/activeObraStore').then((m) => m.useActiveObraStore),
     import('@/store/agendaStore').then((m) => m.useAgendaStore),
     import('@/store/bimStore').then((m) => m.useBimStore),
     import('@/store/companySettingsStore').then((m) => m.useCompanySettingsStore),

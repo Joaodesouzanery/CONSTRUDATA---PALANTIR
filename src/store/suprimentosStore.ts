@@ -1376,30 +1376,19 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       return
     }
     get().ensureTenantScope(orgId)
-    if (!isDemoModeEnabled()) {
-      set({
-        purchaseOrders:     [],
-        receipts:           [],
-        invoices:           [],
-        suppliers:          [],
-        depositos:          [],
-        estoqueItens:       [],
-        movimentacoes:      [],
-        reservas:           [],
-        leadTimeRecords:    [],
-        selectedDepositoId: null,
-        supplyChainNodes:   [],
-        supplyChainAlerts:  [],
-        supplyChainPlans:   [],
-      })
-    }
-    const pos          = await pullTable<Record<string, unknown>>('purchase_orders')
-    const receipts     = await pullTable<Record<string, unknown>>('goods_receipts')
-    const invoices     = await pullTable<Record<string, unknown>>('invoices')
-    const suppliers    = await pullTable<Record<string, unknown>>('suppliers')
-    const depositos    = await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
-    const estoqueItens = await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
-    const movimentos   = await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
+    // Não zera as listas antes de puxar (evita sumiço de dado local se o pull
+    // falhar/voltar vazio) e não sobrescreve tabela com op pendente — defesa
+    // por-tabela, igual aos demais stores. Cada `if (x) set(...)` abaixo só
+    // atualiza a lista quando o pull daquela tabela retornou dados.
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const skip = (t: string) => pendingTables.has(t)
+    const pos          = skip('purchase_orders') ? null : await pullTable<Record<string, unknown>>('purchase_orders')
+    const receipts     = skip('goods_receipts') ? null : await pullTable<Record<string, unknown>>('goods_receipts')
+    const invoices     = skip('invoices') ? null : await pullTable<Record<string, unknown>>('invoices')
+    const suppliers    = skip('suppliers') ? null : await pullTable<Record<string, unknown>>('suppliers')
+    const depositos    = skip('suprimentos_depositos') ? null : await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
+    const estoqueItens = skip('suprimentos_estoque_itens') ? null : await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
+    const movimentos   = skip('suprimentos_estoque_movimentacoes') ? null : await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
     const pendingDeleteIds = (table: string) => new Set(
       get().pendingSync
         .filter((op) =>

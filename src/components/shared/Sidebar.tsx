@@ -17,6 +17,7 @@ import { isGlobalAdminUser } from '@/lib/globalAdmin'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
 import { OrganizationSwitcher } from './OrganizationSwitcher'
+import { ObraSwitcher } from './ObraSwitcher'
 import { GlobalSyncIndicator } from './GlobalSyncIndicator'
 import { WaterDropLogo } from './BrandLogo'
 
@@ -176,6 +177,7 @@ export function Sidebar({ onClose }: SidebarProps) {
       {/* Nav */}
       <nav className="flex flex-col flex-1 gap-0 py-2 overflow-y-auto overflow-x-hidden sidebar-scroll">
         <OrganizationSwitcher expanded={isOpen} />
+        <ObraSwitcher expanded={isOpen} />
         <GlobalSyncIndicator expanded={isOpen} />
 
         {/* ── FAVORITOS (pinned) ──────────────────────────────────────── */}

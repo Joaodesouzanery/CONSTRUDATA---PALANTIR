@@ -203,6 +203,7 @@ export interface ConstructionRisk {
 
 export interface ConstructionSite {
   id: string
+  projectId?: string | null  // vínculo opcional a um Project (bridge p/ EVM/Change Orders/Agenda)
   code: string          // e.g. 'OBR-001'
   name: string          // nome da obra
   company: string       // empresa responsável
