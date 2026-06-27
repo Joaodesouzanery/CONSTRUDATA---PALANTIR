@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Download, Search, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useProjetosStore } from '@/store/projetosStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
 
@@ -332,7 +333,9 @@ export function FuncionariosPanel() {
   const roles = useMemo(() => [...new Set(workers.map((w) => w.role))].sort(), [workers])
   const depts = useMemo(() => [...new Set(workers.map((w) => w.department).filter(Boolean))].sort() as string[], [workers])
 
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const filtered = useMemo(() => workers.filter((w) => {
+    if (activeObraId && (w.siteId ?? null) !== activeObraId) return false
     if (search && !w.name.toLowerCase().includes(search.toLowerCase()) && !w.registrationNumber?.toLowerCase().includes(search.toLowerCase())) return false
     if (filterRole   && w.role !== filterRole)       return false
     if (filterDept   && w.department !== filterDept) return false
@@ -340,7 +343,7 @@ export function FuncionariosPanel() {
     if (filterCrew === '__none__' && w.crewId)       return false
     if (filterCrew && filterCrew !== '__none__' && w.crewId !== filterCrew) return false
     return true
-  }), [workers, search, filterRole, filterDept, filterStatus, filterCrew])
+  }), [workers, search, filterRole, filterDept, filterStatus, filterCrew, activeObraId])
 
   const groupedByCrew = useMemo(() => {
     if (!groupByCrew) return null

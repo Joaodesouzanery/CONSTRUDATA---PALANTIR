@@ -10,6 +10,7 @@ import {
   Droplets, FileDown, ImageIcon, ImageOff, Pencil,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useContractorStore } from '@/store/contractorStore'
 import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
@@ -688,9 +689,11 @@ export function HistoricoPanel() {
     return () => window.clearTimeout(timeoutId)
   }, [loadSabespHistory, loadContractors])
 
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const filtered = useMemo(() => {
     return rdos
       .filter((r) => {
+        if (activeObraId && (r.siteId ?? null) !== activeObraId) return false
         const q = search.toLowerCase()
         if (q && !String(r.number).includes(q) && !r.responsible.toLowerCase().includes(q) && !(r.title ?? '').toLowerCase().includes(q) && !r.date.includes(q)) return false
         if (dateFrom && r.date < dateFrom) return false
@@ -699,7 +702,7 @@ export function HistoricoPanel() {
       })
       .slice()
       .sort((a, b) => b.number - a.number)
-  }, [rdos, search, dateFrom, dateTo])
+  }, [rdos, search, dateFrom, dateTo, activeObraId])
 
   const filteredSabesp = useMemo(() => {
     return sabespRdos

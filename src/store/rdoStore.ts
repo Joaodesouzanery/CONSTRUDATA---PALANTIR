@@ -29,6 +29,7 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { eventBus } from '@/lib/eventBus'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { buildOperationalKey } from '@/lib/operationalKey'
 
 // ─── Mapeamento RDO ↔ Row ────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ interface RdoRow {
   date:             string
   responsible:      string | null
   project_id:       string | null
+  site_id:          string | null
   contract_no:      string | null
   service_order_no: string | null
   payload:          Record<string, unknown>
@@ -92,6 +94,7 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     workforceRows:             rdo.workforceRows,
     template:                  rdo.template,
     compizzo:                  rdo.compizzo,
+    siteId:                    rdo.siteId,
   }
   return {
     id:               rdo.id,
@@ -100,6 +103,7 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     date:             rdo.date,
     responsible:      rdo.responsible || null,
     project_id:       (rdo as { projectId?: string | null }).projectId ?? null,
+    site_id:          rdo.siteId ?? null,
     contract_no:      rdo.numeroContrato ?? null,
     service_order_no: rdo.numeroOS ?? null,
     payload,
@@ -153,6 +157,7 @@ function rowToRdo(row: RdoRow): RDO {
     workforceRows:               p.workforceRows               as RDO['workforceRows'],
     template:                    p.template                    as RDO['template'],
     compizzo:                    p.compizzo                    as RDO['compizzo'],
+    siteId:                      row.site_id ?? (p.siteId as string | null) ?? null,
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,
   }
@@ -248,6 +253,7 @@ export const useRdoStore = create<RdoState>()(
           ...rdo,
           id:        crypto.randomUUID(),
           number:    nextNumber,
+          siteId:    rdo.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }

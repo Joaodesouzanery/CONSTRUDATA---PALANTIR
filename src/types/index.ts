@@ -1525,6 +1525,8 @@ export interface RDO {
   template?:    'padrao' | 'compizzo'
   compizzo?:    RdoCompizzoData
 
+  siteId?:      string | null  // obra (construction_sites.id) — separação por obra
+
   createdAt:    string
   updatedAt:    string
 }

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
   Worker,
   LaborCrew,
@@ -398,7 +399,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   addWorker: (worker) => {
     const id = crypto.randomUUID()
-    const newWorker: Worker = { ...worker, id }
+    const newWorker: Worker = { ...worker, id, siteId: worker.siteId ?? useActiveObraStore.getState().activeObraId ?? undefined }
     const { orgId, userId } = ctxAuth()
     set((s) => ({
       workers: [...s.workers, newWorker],
