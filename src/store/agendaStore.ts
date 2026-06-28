@@ -244,8 +244,9 @@ export const useAgendaStore = create<AgendaState>()(
         },
 
         pull: async () => {
-          const ts = await pullTable<{ payload: AgendaTask }>('agenda_tasks')
-          const rs = await pullTable<{ payload: AgendaResource }>('agenda_resources')
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const ts = pendingTables.has('agenda_tasks') ? null : await pullTable<{ payload: AgendaTask }>('agenda_tasks')
+          const rs = pendingTables.has('agenda_resources') ? null : await pullTable<{ payload: AgendaResource }>('agenda_resources')
           if (ts) set({ tasks:     ts.map((r) => safeTask(r.payload)).filter((t): t is AgendaTask => Boolean(t)) })
           if (rs) set({ resources: rs.map((r) => safeResource(r.payload)).filter((r): r is AgendaResource => Boolean(r)) })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

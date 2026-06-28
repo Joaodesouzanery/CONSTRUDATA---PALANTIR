@@ -190,8 +190,9 @@ export const useCompanySettingsStore = create<CompanySettingsState>()(
       },
 
       pull: async () => {
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
         // Pull logos
-        const rows = await pullTable<{ id: string; name: string; storage_path: string; payload: { createdAt?: string } }>('company_logos')
+        const rows = pendingTables.has('company_logos') ? null : await pullTable<{ id: string; name: string; storage_path: string; payload: { createdAt?: string } }>('company_logos')
         if (rows) {
           set({
             logos: rows.map((r) => ({

@@ -228,8 +228,9 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       },
 
       pull: async () => {
-        const cs = await pullTable<{ payload: ManejoContrato }>('financeiro_contratos')
-        const os = await pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos')
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+        const cs = pendingTables.has('financeiro_contratos') ? null : await pullTable<{ payload: ManejoContrato }>('financeiro_contratos')
+        const os = pendingTables.has('financeiro_orcamentos') ? null : await pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos')
         if (cs) set({ contratos: cs.map((r) => r.payload) })
         if (os) set({ orcamentos: os.map((r) => r.payload) })
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

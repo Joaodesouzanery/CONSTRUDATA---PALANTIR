@@ -166,7 +166,8 @@ export const useEquipamentosStore = create<EquipamentosState>()(
         },
 
         pull: async () => {
-          const rows = await pullTable<{ payload: EquipmentProfile }>('equipamentos')
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const rows = pendingTables.has('equipamentos') ? null : await pullTable<{ payload: EquipmentProfile }>('equipamentos')
           if (rows) set({ equipamentos: rows.map((r) => r.payload) })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

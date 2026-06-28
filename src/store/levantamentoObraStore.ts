@@ -271,17 +271,24 @@ export const useLevantamentoObraStore = create<LevantamentoState>()(
       pull: async () => {
         const orgId = useAuth.getState().profile?.organization_id
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
         get().ensureTenantScope(orgId)
-        set({ syncStatus: 'syncing', levantamentos: [], activeId: null })
-        const rows = await pullTable<{ payload: LevantamentoObra }>('obra_levantamentos', { column: 'updated_at', ascending: false })
-        const levantamentos = rows?.map((row) => emptyLevantamento(row.payload)) ?? []
-        set({
-          levantamentos,
-          activeId: levantamentos[0]?.id ?? null,
-          syncStatus: 'idle',
-          syncError: null,
-          lastSyncedAt: new Date().toISOString(),
-        })
+        set({ syncStatus: 'syncing' })
+        const rows = pendingTables.has('obra_levantamentos') ? null : await pullTable<{ payload: LevantamentoObra }>('obra_levantamentos', { column: 'updated_at', ascending: false })
+        if (rows) {
+          // só sobrescreve a lista local quando realmente puxou do servidor;
+          // se a tabela tem op pendente (rows=null), preserva o estado local não-sincronizado.
+          const levantamentos = rows.map((row) => emptyLevantamento(row.payload))
+          set({
+            levantamentos,
+            activeId: levantamentos[0]?.id ?? null,
+            syncStatus: 'idle',
+            syncError: null,
+            lastSyncedAt: new Date().toISOString(),
+          })
+        } else {
+          set({ syncStatus: 'idle', syncError: null, lastSyncedAt: new Date().toISOString() })
+        }
       },
     }),
     {

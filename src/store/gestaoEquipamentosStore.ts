@@ -111,7 +111,8 @@ export const useGestaoEquipamentosStore = create<GestaoState>()(
       },
 
       pull: async () => {
-        const rows = await pullTable<{ payload: MaintenanceOrder }>('equipamentos_manutencoes')
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+        const rows = pendingTables.has('equipamentos_manutencoes') ? null : await pullTable<{ payload: MaintenanceOrder }>('equipamentos_manutencoes')
         if (rows) set({ orders: rows.map((r) => r.payload) })
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
       },

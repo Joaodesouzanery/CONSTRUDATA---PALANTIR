@@ -876,10 +876,11 @@ export const useEvmStore = create<EvmState>()(
   },
 
   pull: async () => {
-    const wps  = await pullTable<{ payload: WorkPackage }>('evm_work_packages')
-    const cas  = await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
-    const ms   = await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
-    const imps = await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const wps  = pendingTables.has('evm_work_packages') ? null : await pullTable<{ payload: WorkPackage }>('evm_work_packages')
+    const cas  = pendingTables.has('evm_cost_accounts') ? null : await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
+    const ms   = pendingTables.has('evm_measurements') ? null : await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
+    const imps = pendingTables.has('financeiro_impostos_nf') ? null : await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
     if (wps) set({ workPackages: wps.map((r) => r.payload) })
     if (cas) set({ costAccounts: cas.map((r) => r.payload) })
     if (ms)  set({ measurements: ms.map((r) => r.payload) })

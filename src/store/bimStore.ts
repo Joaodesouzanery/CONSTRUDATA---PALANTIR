@@ -567,8 +567,9 @@ export const useBimStore = create<BimState>()(
   },
 
   pull: async () => {
-    const projRows = await pullTable<{ id: string; name: string; type: string; payload: { layers: BimLayer[]; uploadedAt: string; shapefileSourceName?: string } }>('bim_projects')
-    const segRows  = await pullTable<{ id: string; bim_project_id: string; payload: BimSegment }>('bim_segments')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const projRows = pendingTables.has('bim_projects') ? null : await pullTable<{ id: string; name: string; type: string; payload: { layers: BimLayer[]; uploadedAt: string; shapefileSourceName?: string } }>('bim_projects')
+    const segRows  = pendingTables.has('bim_segments') ? null : await pullTable<{ id: string; bim_project_id: string; payload: BimSegment }>('bim_segments')
     if (projRows) {
       const segByProject = new Map<string, BimSegment[]>()
       for (const r of segRows ?? []) {

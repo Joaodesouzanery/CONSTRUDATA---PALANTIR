@@ -348,13 +348,14 @@ export const useRelatorio360Store = create<Relatorio360State>()(
   },
 
   pull: async () => {
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
     // Sprint 3: pull genérico das 4 tabelas. Os dados retornam separadamente
     // por entidade — a hidratação completa do `reports` aninhado fica para
     // uma futura iteração. Por enquanto, marca timestamp para diagnóstico.
-    await pullTable<{ payload: ReportPhoto }>('daily_report_photos')
-    await pullTable<{ payload: Activity }>('daily_report_activities')
-    await pullTable<{ payload: EquipmentLog }>('daily_report_equipment_logs')
-    await pullTable<{ payload: MaterialLog }>('daily_report_material_logs')
+    if (!pendingTables.has('daily_report_photos')) await pullTable<{ payload: ReportPhoto }>('daily_report_photos')
+    if (!pendingTables.has('daily_report_activities')) await pullTable<{ payload: Activity }>('daily_report_activities')
+    if (!pendingTables.has('daily_report_equipment_logs')) await pullTable<{ payload: EquipmentLog }>('daily_report_equipment_logs')
+    if (!pendingTables.has('daily_report_material_logs')) await pullTable<{ payload: MaterialLog }>('daily_report_material_logs')
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),

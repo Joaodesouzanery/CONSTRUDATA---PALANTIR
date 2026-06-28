@@ -241,7 +241,8 @@ export const useMapaInterativoStore = create<MapaInterativoState>()(
   },
 
   pull: async () => {
-    const rows = await pullTable<{ id: string; payload: { nodes: MapNode[]; segments: MapSegment[]; layers?: MapLayer[] } }>('mapas_interativos')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const rows = pendingTables.has('mapas_interativos') ? null : await pullTable<{ id: string; payload: { nodes: MapNode[]; segments: MapSegment[]; layers?: MapLayer[] } }>('mapas_interativos')
     if (rows && rows.length > 0) {
       const first = rows[0]
       set({

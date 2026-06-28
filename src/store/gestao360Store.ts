@@ -257,9 +257,11 @@ export const useGestao360Store = create<Gestao360State>()(
             set({ syncStatus: 'unauth' })
             return
           }
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
           get().ensureTenantScope(profile.organization_id)
-          set({ changeOrders: [], selectedProjectId: null })
-          const rows = await pullTable<{ payload: ChangeOrder }>('change_orders')
+          // sem blanking pré-emptivo: se 'change_orders' tem op pendente (rows=null),
+          // preserva o estado local não-sincronizado em vez de zerar a lista.
+          const rows = pendingTables.has('change_orders') ? null : await pullTable<{ payload: ChangeOrder }>('change_orders')
           if (rows) set({ changeOrders: rows.map((r) => r.payload) })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

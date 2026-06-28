@@ -549,9 +549,10 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         },
 
         pull: async () => {
-          const acts = await pullTable<{ payload: MasterActivity }>('master_activities')
-          const bls  = await pullTable<{ payload: MasterBaseline }>('master_baselines')
-          const lds  = await pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities')
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const acts = pendingTables.has('master_activities') ? null : await pullTable<{ payload: MasterActivity }>('master_activities')
+          const bls  = pendingTables.has('master_baselines') ? null : await pullTable<{ payload: MasterBaseline }>('master_baselines')
+          const lds  = pendingTables.has('lookahead_derived_activities') ? null : await pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities')
           if (acts) set({ activities: acts.map((r) => r.payload) })
           if (bls)  set({ baselines: bls.map((r) => r.payload) })
           if (lds)  set({ derivedActivities: lds.map((r) => r.payload) })

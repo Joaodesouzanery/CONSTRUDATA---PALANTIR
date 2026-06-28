@@ -487,9 +487,10 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
   },
 
   pull: async () => {
-    const rr = await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
-    const hs = await pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores')
-    const bl = await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const rr = pendingTables.has('otimizacao_routing_recommendations') ? null : await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
+    const hs = pendingTables.has('otimizacao_health_scores') ? null : await pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores')
+    const bl = pendingTables.has('otimizacao_buy_lease_analyses') ? null : await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
     if (rr) set({ routingRecs:      rr.map((r) => r.payload) })
     if (hs) set({ healthScores:     hs.map((r) => r.payload) })
     if (bl) set({ buyLeaseAnalyses: bl.map((r) => r.payload) })

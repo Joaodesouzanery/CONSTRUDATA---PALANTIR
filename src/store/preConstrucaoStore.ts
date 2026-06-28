@@ -322,7 +322,8 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>()(
   },
 
   pull: async () => {
-    const rows = await pullTable<{ payload: AnalysisSession }>('preconstrucao_sessions')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const rows = pendingTables.has('preconstrucao_sessions') ? null : await pullTable<{ payload: AnalysisSession }>('preconstrucao_sessions')
     if (rows) set({ sessions: rows.map((r) => r.payload) })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },

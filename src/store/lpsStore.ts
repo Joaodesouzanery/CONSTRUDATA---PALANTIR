@@ -545,9 +545,10 @@ export const useLpsStore = create<LpsState>()(
         },
 
         pull: async () => {
-          const acts = await pullTable<{ payload: LpsActivity }>('lps_activities')
-          const restrs = await pullTable<{ payload: LpsRestriction }>('lps_restrictions')
-          const zones = await pullTable<{ payload: TaktZone }>('lps_takt_zones')
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const acts = pendingTables.has('lps_activities') ? null : await pullTable<{ payload: LpsActivity }>('lps_activities')
+          const restrs = pendingTables.has('lps_restrictions') ? null : await pullTable<{ payload: LpsRestriction }>('lps_restrictions')
+          const zones = pendingTables.has('lps_takt_zones') ? null : await pullTable<{ payload: TaktZone }>('lps_takt_zones')
           if (acts) set({ activities: acts.map((r) => r.payload) })
           if (restrs) set({ restrictions: restrs.map((r) => r.payload) })
           if (zones) set({ taktZones: zones.map((r) => r.payload) })

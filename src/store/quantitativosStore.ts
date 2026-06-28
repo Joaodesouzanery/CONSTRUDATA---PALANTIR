@@ -435,8 +435,9 @@ export const useQuantitativosStore = create<QuantitativosState>()(
   },
 
   pull: async () => {
-    const budgets = await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
-    const cb      = await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
+    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+    const budgets = pendingTables.has('quantitativos_budgets') ? null : await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
+    const cb      = pendingTables.has('quantitativos_custom_base') ? null : await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
     if (budgets) set({ savedBudgets: budgets.map((r) => r.payload) })
     if (cb)      set({ customBase:   cb.map((r) => r.payload) })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

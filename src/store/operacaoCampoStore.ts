@@ -156,8 +156,9 @@ export const useOperacaoCampoStore = create<OperacaoCampoState>()(
       },
 
       pull: async () => {
-        const acts = await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
-        const days = await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
+        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+        const acts = pendingTables.has('operacao_campo_activities') ? null : await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
+        const days = pendingTables.has('operacao_campo_days') ? null : await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
         if (acts) set({ activities: acts.map((r) => r.payload) })
         if (days) set({ calendarDays: days.map((r) => r.payload) })
         get().recompute()

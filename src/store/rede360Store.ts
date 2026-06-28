@@ -233,8 +233,9 @@ export const useRede360Store = create<Rede360State>()(
         },
 
         pull: async () => {
-          const ativos = await pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos')
-          const sos    = await pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders')
+          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          const ativos = pendingTables.has('rede_ativos') ? null : await pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos')
+          const sos    = pendingTables.has('rede_service_orders') ? null : await pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders')
           if (ativos) {
             // Por enquanto remapeia só os de asset_type='network' para o array assets[].
             const networkOnes = ativos.filter((r) => r.asset_type === 'network').map((r) => r.payload)
