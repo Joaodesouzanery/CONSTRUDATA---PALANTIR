@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { useActiveObraStore } from '@/store/activeObraStore'
 
 export type MaintenanceStatus = 'pendente' | 'em_processo' | 'em_verificacao' | 'concluida' | 'cancelada'
 export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
@@ -463,7 +464,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           location: payload.location ?? '',
           qrCode: payload.qrCode ?? '',
           projectId: payload.projectId ?? null,
-          constructionSiteId: payload.constructionSiteId ?? null,
+          constructionSiteId: payload.constructionSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }
@@ -545,7 +546,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           active: payload.active ?? true,
           assetIds: payload.assetIds ?? [],
           projectId: payload.projectId ?? null,
-          constructionSiteId: payload.constructionSiteId ?? null,
+          constructionSiteId: payload.constructionSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }
@@ -661,7 +662,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           assetIds: payload.assetIds ?? [],
           planId: payload.planId ?? null,
           projectId: payload.projectId ?? null,
-          constructionSiteId: payload.constructionSiteId ?? null,
+          constructionSiteId: payload.constructionSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }
@@ -776,7 +777,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           notes: payload.notes ?? '',
           assetId: payload.assetId ?? null,
           projectId: payload.projectId ?? null,
-          constructionSiteId: payload.constructionSiteId ?? null,
+          constructionSiteId: payload.constructionSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }

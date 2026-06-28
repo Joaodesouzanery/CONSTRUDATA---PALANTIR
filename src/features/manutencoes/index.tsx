@@ -38,6 +38,7 @@ import {
   type MaintenanceWorkOrder,
   useManutencoesStore,
 } from '@/store/manutencoesStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { ConstructionSite, Project } from '@/types'
 
 type MaintenanceTab = 'painel' | 'ativos' | 'monitoramento' | 'tarefas' | 'ordens' | 'kanban' | 'calendario'
@@ -752,11 +753,19 @@ export function ManutencoesPage() {
   const sites = useTorreStore((state) => state.sites)
   const pullProjetos = useProjetosStore((state) => state.pull)
   const pullTorre = useTorreStore((state) => state.pull)
-  const assets = useManutencoesStore((state) => state.assets)
-  const plans = useManutencoesStore((state) => state.plans)
-  const workOrders = useManutencoesStore((state) => state.workOrders)
-  const monitoringPoints = useManutencoesStore((state) => state.monitoringPoints)
+  const allAssets = useManutencoesStore((state) => state.assets)
+  const allPlans = useManutencoesStore((state) => state.plans)
+  const allWorkOrders = useManutencoesStore((state) => state.workOrders)
+  const allMonitoringPoints = useManutencoesStore((state) => state.monitoringPoints)
   const activeOrgId = useManutencoesStore((state) => state.activeOrgId)
+  const activeObraId = useActiveObraStore((state) => state.activeObraId)
+  // Escopo por obra ativa (null = todas; legado sem obra aparece só em "Todas as obras")
+  const inObra = <T extends { constructionSiteId?: string | null }>(list: T[]) =>
+    activeObraId ? list.filter((x) => (x.constructionSiteId ?? null) === activeObraId) : list
+  const assets = inObra(allAssets)
+  const plans = inObra(allPlans)
+  const workOrders = inObra(allWorkOrders)
+  const monitoringPoints = inObra(allMonitoringPoints)
   const syncStatus = useManutencoesStore((state) => state.syncStatus)
   const syncError = useManutencoesStore((state) => state.syncError)
   const lastSyncedAt = useManutencoesStore((state) => state.lastSyncedAt)

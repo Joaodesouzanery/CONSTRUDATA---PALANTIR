@@ -103,6 +103,7 @@ export interface EquipmentProfile {
   lat: number | null
   lng: number | null
   siteName: string | null
+  siteId?: string | null   // obra vinculada (construction_sites.id); null = todas as obras
   description: string
   maxLoad: string
   lastMaintenance: string  // yyyy-MM-dd

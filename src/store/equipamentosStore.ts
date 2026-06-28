@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { EquipmentAlert, EquipmentProfile } from '@/types'
 import { mockEquipamentos } from '@/data/mockEquipamentos'
 
@@ -23,6 +24,7 @@ function equipToRow(e: EquipmentProfile, orgId: string, userId: string) {
     lat:             (e as { lat?: number | null }).lat ?? null,
     lng:             (e as { lng?: number | null }).lng ?? null,
     site_name:       (e as { siteName?: string }).siteName ?? null,
+    construction_site_id: (e as { siteId?: string | null }).siteId ?? null,
     payload:         e as unknown as Record<string, unknown>,
     created_by:      userId,
   }
@@ -81,7 +83,12 @@ export const useEquipamentosStore = create<EquipamentosState>()(
 
         addEquipamento: (eq) => {
           const id = crypto.randomUUID()
-          const newEq: EquipmentProfile = { ...eq, id, alerts: [] }
+          const newEq: EquipmentProfile = {
+            ...eq,
+            id,
+            alerts: [],
+            siteId: eq.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+          }
           const { orgId, userId } = ctxAuth()
           set((s) => ({
             equipamentos: [...s.equipamentos, newEq],

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { EquipmentStatus } from '@/types'
 import { STATUS_CONFIG } from '../constants'
 import { EquipmentCard } from './EquipmentCard'
@@ -16,10 +17,16 @@ const FILTERS: { label: string; value: EquipmentStatus | 'all' }[] = [
 ]
 
 export function EquipmentList() {
-  const equipamentos    = useEquipamentosStore((s) => s.equipamentos)
+  const allEquipamentos = useEquipamentosStore((s) => s.equipamentos)
   const selectedId      = useEquipamentosStore((s) => s.selectedId)
   const selectEquipamento = useEquipamentosStore((s) => s.selectEquipamento)
   const setEditing      = useEquipamentosStore((s) => s.setEditing)
+  const activeObraId    = useActiveObraStore((s) => s.activeObraId)
+
+  // Filtra pela obra ativa (null = todas; legado sem obra aparece só em "Todas as obras")
+  const equipamentos = activeObraId
+    ? allEquipamentos.filter((eq) => (eq.siteId ?? null) === activeObraId)
+    : allEquipamentos
 
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | 'all'>('all')

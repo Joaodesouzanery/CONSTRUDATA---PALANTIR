@@ -8,6 +8,7 @@ import L from 'leaflet'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import type { EquipmentStatus } from '@/types'
 import { useEquipamentosStore } from '@/store/equipamentosStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useThemeStore } from '@/store/themeStore'
 import { STATUS_CONFIG } from '../constants'
@@ -150,12 +151,16 @@ const FILTER_OPTIONS: Array<{ value: EquipmentStatus | null; label: string }> = 
 // ─── Main map component ────────────────────────────────────────────────────────
 
 export function EquipmentMap() {
-  const equipamentos      = useEquipamentosStore((s) => s.equipamentos)
+  const allEquipamentos   = useEquipamentosStore((s) => s.equipamentos)
   const selectedId        = useEquipamentosStore((s) => s.selectedId)
   const selectEquipamento = useEquipamentosStore((s) => s.selectEquipamento)
   const updateLocation    = useEquipamentosStore((s) => s.updateLocation)
   const setEditing        = useEquipamentosStore((s) => s.setEditing)
   const routingRecs       = useOtimizacaoFrotaStore((s) => s.routingRecs)
+  const activeObraId      = useActiveObraStore((s) => s.activeObraId)
+  const equipamentos = activeObraId
+    ? allEquipamentos.filter((eq) => (eq.siteId ?? null) === activeObraId)
+    : allEquipamentos
 
   const theme = useThemeStore((s) => s.theme)
   const isDark = theme === 'dark'
