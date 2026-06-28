@@ -9,7 +9,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { changedColumns, flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { uploadFile, removeFile, getSignedUrl, type UploadResult } from '@/lib/storage'
 import { MOCK_PROJETOS } from '@/data/mockProjetos'
 import type {
@@ -146,14 +146,17 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
         },
 
         updateProject: (id, patch) => {
+          const prev = get().projects.find((p) => p.id === id)
           set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) }))
           const target = get().projects.find((p) => p.id === id)
-          if (target) {
+          if (target && prev) {
             const { orgId, userId } = ctxAuth()
-            const row = projectToRow(target, orgId, userId)
-            const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
-            enqueue(makeOp({ entity: 'project', type: 'update', recordId: id, patch: updatePatch, table: 'projects' }))
-            void get().flush()
+            // patch de campo: só as colunas que mudaram (anti-clobber concorrente)
+            const updatePatch = changedColumns(projectToRow(prev, orgId, userId), projectToRow(target, orgId, userId))
+            if (Object.keys(updatePatch).length > 0) {
+              enqueue(makeOp({ entity: 'project', type: 'update', recordId: id, patch: updatePatch, table: 'projects' }))
+              void get().flush()
+            }
           }
         },
 

@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { changedColumns, flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { MOCK_OBRAS } from '@/data/mockTorreDeControle'
 import type { ConstructionSite, ConstructionRisk } from '@/types'
 
@@ -121,8 +121,18 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         updateSite: (id, patch) => {
+          const prev = get().sites.find((s) => s.id === id)
           set((s) => ({ sites: s.sites.map((site) => (site.id === id ? { ...site, ...patch } : site)) }))
-          enqueueUpdateOf(id)
+          const target = get().sites.find((s) => s.id === id)
+          if (target && prev) {
+            const { orgId, userId } = ctxAuth()
+            // patch de campo: só as colunas que mudaram (anti-clobber concorrente)
+            const changed = changedColumns(siteToRow(prev, orgId, userId), siteToRow(target, orgId, userId))
+            if (Object.keys(changed).length > 0) {
+              enqueue(makeOp({ entity: 'site', type: 'update', recordId: id, patch: changed, table: 'construction_sites' }))
+              void get().flush()
+            }
+          }
         },
 
         deleteSite: (id) => {

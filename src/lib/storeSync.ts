@@ -191,6 +191,26 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
 }
 
 /**
+ * Patch de campo (anti-clobber, Tier 1c): retorna só as colunas que mudaram
+ * entre o row anterior e o novo (ambos mapeados pelo mesmo *ToRow do store).
+ * Assim um update toca apenas o que o usuário mexeu — duas pessoas editando
+ * campos diferentes do mesmo registro não sobrescrevem uma à outra.
+ * Ignora id/organization_id/created_by; compara via JSON (cobre colunas jsonb).
+ */
+export function changedColumns(
+  prevRow: Record<string, unknown>,
+  nextRow: Record<string, unknown>,
+): Record<string, unknown> {
+  const skip = new Set(['id', 'organization_id', 'created_by'])
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(nextRow)) {
+    if (skip.has(k)) continue
+    if (JSON.stringify(prevRow[k]) !== JSON.stringify(v)) out[k] = v
+  }
+  return out
+}
+
+/**
  * Helper para construir uma PendingOp consistente.
  */
 export function makeOp(opts: Omit<PendingOp, 'id' | 'retries' | 'createdAt'>): PendingOp {
