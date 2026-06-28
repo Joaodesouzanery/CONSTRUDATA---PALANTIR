@@ -5,6 +5,7 @@
 import { useState, useRef } from 'react'
 import { Plus, Trash2, GripVertical, Download } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { PlanTrecho, PlanSoilType } from '@/types'
 
 const SOIL_LABELS: Record<PlanSoilType, string> = {
@@ -80,9 +81,15 @@ function EditableCell({ value, onChange, type = 'text', min, max, step, classNam
 
 export function TrechosPanel() {
   const {
-    trechos, addTrecho, updateTrecho, removeTrecho,
+    trechos: allTrechos, addTrecho, updateTrecho, removeTrecho,
     reorderTrechos, importTrechosFromPlatform,
   } = usePlanejamentoStore()
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  // Lista exibida = trechos da obra ativa (null = todas). Edições/remoções são por id;
+  // só o reorder precisa remontar o array completo preservando as outras obras.
+  const trechos = activeObraId
+    ? allTrechos.filter((t) => ((t.siteId ?? null) === activeObraId))
+    : allTrechos
 
   // Drag-and-drop state
   const dragIdx = useRef<number | null>(null)
@@ -95,7 +102,13 @@ export function TrechosPanel() {
     const next = [...trechos]
     const [moved] = next.splice(from, 1)
     next.splice(targetIdx, 0, moved)
-    reorderTrechos(next)
+    if (activeObraId) {
+      // preserva trechos de outras obras; reordena só dentro da obra ativa
+      const others = allTrechos.filter((t) => (t.siteId ?? null) !== activeObraId)
+      reorderTrechos([...others, ...next])
+    } else {
+      reorderTrechos(next)
+    }
     dragIdx.current = null
   }
 

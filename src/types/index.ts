@@ -1207,6 +1207,7 @@ export interface PlanningAuditEntry {
 }
 
 export interface PlanTrecho {
+  siteId?: string | null   // obra vinculada (construction_sites.id); null = todas as obras
   id: string
   code: string              // 'T01', 'T02' — user-editable
   description: string

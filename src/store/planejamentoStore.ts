@@ -31,6 +31,7 @@ import type {
 } from '@/types'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import {
   MOCK_TRECHOS,
   MOCK_TEAMS,
@@ -200,6 +201,7 @@ function trechoToRow(t: PlanTrecho, orgId: string, userId: string) {
     executed_meters:     t.executedMeters ?? 0,
     execution_status:    t.executionStatus ?? 'not_started',
     last_rdo_date:       t.lastRdoDate ?? null,
+    site_id:             (t as { siteId?: string | null }).siteId ?? null,
     payload:             {
       nucleusId: t.nucleusId ?? null,
       activityType: t.activityType ?? null,
@@ -528,7 +530,11 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   // ── Trechos ───────────────────────────────────────────────────────────────────
 
   addTrecho: (t) => {
-    const newT: PlanTrecho = { ...t, id: crypto.randomUUID() }
+    const newT: PlanTrecho = {
+      ...t,
+      id: crypto.randomUUID(),
+      siteId: t.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+    }
     const { profile, user } = useAuth.getState()
     const orgId  = profile?.organization_id ?? 'pending'
     const userId = user?.id ?? 'pending'
@@ -595,8 +601,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         const mlItems = items.filter((item) => item.unit === 'ml' || item.unit === 'm')
         if (mlItems.length === 0) return
 
+        const obraId = useActiveObraStore.getState().activeObraId ?? null
         const newTrechos: PlanTrecho[] = mlItems.map((item, idx) => ({
           id: crypto.randomUUID(),
+          siteId: obraId,
           code: `T${String(idx + 1).padStart(2, '0')}`,
           description: item.description,
           lengthM: Math.max(1, item.quantity),
@@ -713,7 +721,13 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   // ── Schedule Execution ────────────────────────────────────────────────────────
 
   runSchedule: () => {
-    const { trechos, teams, productivityTable, scheduleConfig, holidays } = get()
+    const { trechos: allTrechos, teams, productivityTable, scheduleConfig, holidays } = get()
+    // Agenda apenas os trechos da obra ativa (null = todas). Os demais ficam preservados
+    // no estado, mas fora do Gantt/ABC/curva — evita misturar cronogramas de obras diferentes.
+    const activeObraId = useActiveObraStore.getState().activeObraId
+    const trechos = activeObraId
+      ? allTrechos.filter((t) => ((t as { siteId?: string | null }).siteId ?? null) === activeObraId)
+      : allTrechos
     const result = generateSchedule(trechos, teams, productivityTable, scheduleConfig, holidays)
 
     const abcItems = computeAbcCurve(result.ganttRows)
@@ -730,8 +744,9 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
       scheduleConfig,
     )
 
-    // Update trecho-level derived fields
-    const updatedTrechos = trechos.map((t) => {
+    // Update trecho-level derived fields. Itera sobre TODOS os trechos: os de outras obras
+    // não estão em result.ganttRows, então `if (!row) return t` os mantém intactos no estado.
+    const updatedTrechos = allTrechos.map((t) => {
       const row = result.ganttRows.find((r) => r.trecho.id === t.id)
       const abcItem = abcItems.find((a) => a.trecho.id === t.id)
       if (!row) return t
@@ -990,6 +1005,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           executedMeters:    r.executed_meters != null ? Number(r.executed_meters) : 0,
           executionStatus:   (r.execution_status as PlanTrecho['executionStatus']) ?? 'not_started',
           lastRdoDate:       (r.last_rdo_date as string | null) ?? undefined,
+          siteId:            (r.site_id as string | null) ?? null,
           nucleusId:         (r.payload as { nucleusId?: string } | undefined)?.nucleusId,
           activityType:      (r.payload as { activityType?: string } | undefined)?.activityType,
           financialWeightPct: (r.payload as { financialWeightPct?: number } | undefined)?.financialWeightPct,

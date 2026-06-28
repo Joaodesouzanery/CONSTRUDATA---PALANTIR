@@ -2,7 +2,9 @@
  * PlanejamentoPage — root of the Planejamento de Trechos module.
  * Routes between 9 tabs via the store's activeTab state.
  */
+import { useEffect } from 'react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { PlanejamentoHeader } from './components/PlanejamentoHeader'
 import { ConfigPanel }      from './components/ConfigPanel'
 import { TrechosPanel }     from './components/TrechosPanel'
@@ -17,6 +19,13 @@ import { IntegracaoPanel as RdoPlanejamentoPanel } from '@/features/rdo/componen
 
 export function PlanejamentoPage() {
   const { activeTab } = usePlanejamentoStore()
+  const runSchedule = usePlanejamentoStore((s) => s.runSchedule)
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
+
+  // Reagenda ao trocar de obra: Gantt/ABC/curva passam a refletir só a obra ativa.
+  useEffect(() => {
+    runSchedule()
+  }, [activeObraId, runSchedule])
 
   function renderPanel() {
     switch (activeTab) {
