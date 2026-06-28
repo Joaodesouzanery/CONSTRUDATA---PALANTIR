@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Trash2, AlertTriangle, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useProjetosStore } from '@/store/projetosStore'
 import { siteSchema, type SiteFormValues } from '../schemas'
 import type { ObraStatus } from '@/types'
 
@@ -17,7 +18,7 @@ const STATUS_OPTIONS: Array<{ value: ObraStatus; label: string }> = [
 function blankDefaults(): SiteFormValues {
   return {
     code: '', name: '', company: '', owner: '', manager: '',
-    description: '', status: 'active',
+    description: '', status: 'active', projectId: '',
     street: '', number: '', district: '', city: '', state: '', cep: '',
     buildingType: '', totalArea: 0, floors: 0,
     startDate: '', expectedEnd: '',
@@ -32,6 +33,7 @@ export function ObraDialog() {
   const addSite    = useTorreStore((s) => s.addSite)
   const updateSite = useTorreStore((s) => s.updateSite)
   const deleteSite = useTorreStore((s) => s.deleteSite)
+  const projects   = useProjetosStore((s) => s.projects)
 
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -58,6 +60,7 @@ export function ObraDialog() {
         manager:      existing.manager,
         description:  existing.description ?? '',
         status:       existing.status,
+        projectId:    existing.projectId ?? '',
         street:       existing.street,
         number:       existing.number,
         district:     existing.district,
@@ -108,6 +111,7 @@ export function ObraDialog() {
       buildingType: values.buildingType ?? '',
       description: values.description ?? '',
       serviceScope: values.buildingType ?? '',
+      projectId: values.projectId || null,
       lat,
       lng,
       risks: existing?.risks ?? [],
@@ -167,6 +171,13 @@ export function ObraDialog() {
               </div>
               <Field label="Nome da Obra *" error={errors.name?.message}>
                 <input {...register('name')} placeholder="Setor de Saneamento Norte" className={inp(!!errors.name)} />
+              </Field>
+              <Field label="Projeto vinculado" error={errors.projectId?.message}>
+                <select {...register('projectId')} className={inp(!!errors.projectId)}>
+                  <option value="">— Nenhum (sem vínculo) —</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <p className="text-[10px] text-[#6b6b6b] mt-1">Liga a obra a um Projeto — ao selecioná-la no topo, EVM/Aditivos passam a focar nesse projeto.</p>
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Tipo / Escopo da Obra" error={errors.buildingType?.message}>

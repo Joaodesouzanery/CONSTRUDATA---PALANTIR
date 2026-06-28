@@ -1,6 +1,7 @@
 import { MapPin, ChevronDown } from 'lucide-react'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useProjetosStore } from '@/store/projetosStore'
 import { cn } from '@/lib/utils'
 
 interface ObraSwitcherProps {
@@ -13,6 +14,15 @@ export function ObraSwitcher({ expanded = true }: ObraSwitcherProps) {
   const sites = useTorreStore((s) => s.sites)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const setActiveObra = useActiveObraStore((s) => s.setActiveObra)
+  const selectProject = useProjetosStore((s) => s.selectProject)
+
+  /** Troca a obra ativa e, se ela tiver projeto vinculado, foca esse projeto nos
+   *  módulos baseados em projeto (EVM/Aditivos). "Todas as obras" não mexe no projeto. */
+  function handleChange(siteId: string | null) {
+    setActiveObra(siteId)
+    const projectId = siteId ? (sites.find((s) => s.id === siteId)?.projectId ?? null) : null
+    if (projectId) selectProject(projectId)
+  }
 
   if (sites.length === 0) return null // sem obras cadastradas → não exibe
 
@@ -40,7 +50,7 @@ export function ObraSwitcher({ expanded = true }: ObraSwitcherProps) {
       <div className="relative">
         <select
           value={activeObraId ?? ''}
-          onChange={(event) => setActiveObra(event.target.value || null)}
+          onChange={(event) => handleChange(event.target.value || null)}
           className={cn(
             'h-9 w-full appearance-none rounded-md border border-[#3f3f46] bg-[#1f1f1f] px-3 pr-8 text-left text-xs font-semibold text-[#f5f5f5]',
             'outline-none transition focus:border-[#3b82f6]/70',

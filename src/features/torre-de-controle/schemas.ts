@@ -11,6 +11,7 @@ export const siteSchema = z.object({
   manager:     z.string().max(100).optional(),
   description: z.string().max(1000).optional(),
   status:      z.enum(['active', 'planning', 'paused', 'completed'] as const),
+  projectId:   z.string().optional(),   // vínculo opcional a um Project (bridge EVM/Change Orders)
   street:      z.string().max(200).optional(),
   number:      z.string().max(20).optional(),
   district:    z.string().max(100).optional(),
