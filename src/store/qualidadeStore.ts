@@ -17,6 +17,7 @@ import { MOCK_FVSS } from '@/data/mockQualidade'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { eventBus } from '@/lib/eventBus'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
 import { buildOperationalKey } from '@/lib/operationalKey'
 
@@ -68,6 +69,7 @@ interface FvsRow {
   welder_signature:    string | null
   quality_signature:   string | null
   logo_id:             string | null
+  site_id:             string | null
   payload:             { items: FvsItem[]; problems: FvsProblemAction[]; fotos?: string[] }
   closed:              boolean
   created_by:          string
@@ -84,6 +86,7 @@ interface QualityNcRow {
   date:            string
   location:        string | null
   status:          QualityNonConformity['status']
+  site_id:         string | null
   payload:         Omit<QualityNonConformity, 'id' | 'number' | 'createdAt' | 'updatedAt'>
   created_by:      string
   created_at:      string
@@ -110,6 +113,7 @@ function rowToFvs(row: FvsRow): FVS {
     welderSignature:   row.welder_signature  ?? '',
     qualitySignature:  row.quality_signature ?? '',
     logoId:            row.logo_id ?? undefined,
+    siteId:            row.site_id ?? null,
     createdAt:         row.created_at,
     updatedAt:         row.updated_at,
   }
@@ -136,6 +140,7 @@ function fvsToRow(
     welder_signature:   fvs.welderSignature || null,
     quality_signature:  fvs.qualitySignature || null,
     logo_id:            fvs.logoId ?? null,
+    site_id:            fvs.siteId ?? null,
     payload:            { items: fvs.items, problems: fvs.problems, fotos: fvs.fotos ?? [] },
     closed:             false,
     created_by:         userId,
@@ -176,6 +181,7 @@ function qualityNcToRow(
     date:            nc.date,
     location:        nc.location || null,
     status:          nc.status,
+    site_id:         nc.siteId ?? null,
     payload:         payload as QualityNcRow['payload'],
     created_by:      userId,
   }
@@ -242,6 +248,7 @@ export const useQualidadeStore = create<QualidadeState>()(
           ...fvs,
           id:        crypto.randomUUID(),
           number:    nextNumber,
+          siteId:    fvs.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }
@@ -296,6 +303,7 @@ export const useQualidadeStore = create<QualidadeState>()(
           ...nc,
           id:        crypto.randomUUID(),
           number:    nextNumber,
+          siteId:    nc.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
           createdAt: now,
           updatedAt: now,
         }

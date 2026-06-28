@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { FinanceiroTab, FinanceiroEntry, Distribuicao } from '@/types'
 
 function moneyValue(value: unknown): number {
@@ -87,7 +88,9 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         setActiveTab: (tab) => set({ activeTab: tab }),
 
         entries: [],
-        addEntry: (e) => {
+        addEntry: (e0) => {
+          // Default: vincula o lançamento à obra ativa, se o form não informou.
+          const e = { ...e0, obraId: e0.obraId ?? useActiveObraStore.getState().activeObraId ?? undefined }
           set((s) => ({ entries: [...s.entries, e] }))
           const { orgId, userId } = ctx()
           enqueue(makeOp({ entity: 'financeiro_entry', type: 'insert', recordId: e.id, row: entryToRow(e, orgId, userId), table: 'financeiro_entries' }))

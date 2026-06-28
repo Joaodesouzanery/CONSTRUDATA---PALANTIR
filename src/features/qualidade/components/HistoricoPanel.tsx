@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import { useQualidadeStore } from '@/store/qualidadeStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { printFvsPDF } from '../utils/fvsPdfExport'
 import { printQualityNonConformityPDF } from '../utils/nonConformityPdfExport'
 import type { FVS, FvsConformity, QualityNonConformity } from '@/types'
@@ -59,6 +60,7 @@ function summary(f: FVS) {
 
 export function HistoricoPanel() {
   const { fvss, nonConformities, removeFvs, removeNonConformity, updateNonConformity } = useQualidadeStore()
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -68,9 +70,11 @@ export function HistoricoPanel() {
 
   const items = useMemo<HistoryItem[]>(() => {
     const term = searchTerm.toLowerCase()
+    const fvsScoped = activeObraId ? fvss.filter((f) => (f.siteId ?? null) === activeObraId) : fvss
+    const ncScoped  = activeObraId ? nonConformities.filter((n) => (n.siteId ?? null) === activeObraId) : nonConformities
     const all: HistoryItem[] = [
-      ...fvss.map((fvs) => ({ type: 'fvs' as const, id: `fvs-${fvs.id}`, date: fvs.date, fvs })),
-      ...nonConformities.map((nc) => ({ type: 'nc' as const, id: `nc-${nc.id}`, date: nc.date, nc })),
+      ...fvsScoped.map((fvs) => ({ type: 'fvs' as const, id: `fvs-${fvs.id}`, date: fvs.date, fvs })),
+      ...ncScoped.map((nc) => ({ type: 'nc' as const, id: `nc-${nc.id}`, date: nc.date, nc })),
     ]
 
     return all
@@ -101,7 +105,7 @@ export function HistoricoPanel() {
         ].some((value) => value.toLowerCase().includes(term))
       })
       .sort((a, b) => b.date.localeCompare(a.date))
-  }, [fvss, nonConformities, searchTerm, dateFilter])
+  }, [fvss, nonConformities, searchTerm, dateFilter, activeObraId])
 
   const total = fvss.length + nonConformities.length
 

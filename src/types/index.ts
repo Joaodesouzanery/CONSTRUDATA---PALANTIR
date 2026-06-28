@@ -1637,6 +1637,7 @@ export interface FVS {
   qualitySignature:  string    // Assinatura Resp. Qualidade (nome)
   logoId?:           string    // ID da SavedLogo do companySettingsStore (PDF export)
   fotos?:            string[]  // base64 das fotos anexadas (TODO: migrar para Supabase Storage)
+  siteId?:           string | null  // obra — separação por obra
   // Metadados
   createdAt: string
   updatedAt: string
@@ -1668,6 +1669,7 @@ export interface QualityNonConformity {
   effectivenessResponsible: string
   status: QualityNonConformityStatus
   effectivenessDate: string
+  siteId?: string | null  // obra — separação por obra
   createdAt: string
   updatedAt: string
 }

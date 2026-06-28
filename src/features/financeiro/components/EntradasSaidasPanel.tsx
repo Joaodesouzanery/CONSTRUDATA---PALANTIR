@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
@@ -27,8 +28,10 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [filterCat, setFilterCat] = useState('')
 
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const cats = tipo === 'entrada' ? ENTRADA_CATS : SAIDA_CATS
   let items = entries.filter((e) => e.tipo === tipo)
+  if (activeObraId) items = items.filter((e) => (e.obraId ?? null) === activeObraId)
   if (filterCat) items = items.filter((e) => e.categoria === filterCat)
   items = [...items].sort((a, b) => b.data.localeCompare(a.data))
   const total = items.reduce((s, e) => s + e.valor, 0)
