@@ -5,21 +5,27 @@ import {
   BadgeDollarSign,
   BrainCircuit,
   Building2,
+  Calendar,
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
+  ClipboardList,
+  Coins,
   DatabaseZap,
   FileText,
   Layers3,
   LineChart,
   LockKeyhole,
   Map,
+  Milestone,
   PackageCheck,
   Plus,
   Ruler,
   Search,
+  Settings2,
   ShieldCheck,
   Sparkles,
+  TrendingUp,
   Users,
   Wrench,
   type LucideIcon,
@@ -58,7 +64,7 @@ interface ModuleItem {
 }
 
 const consequences: Array<[string, string]> = [
-  ['20+ módulos conectados', 'O dado nasce no RDO, na medição, no planejamento ou em suprimentos e segue conectado até a diretoria.'],
+  ['20 módulos conectados', 'O dado nasce no RDO, na medição, no planejamento ou em suprimentos e segue conectado até a diretoria.'],
   ['Origem 100% rastreável', 'Serviço, local, equipe, evidência, material e custo na mesma base, sem versões paralelas.'],
   ['Tempo real', 'A diretoria acompanha avanço, pendência, custo e risco com contexto de campo, sem esperar consolidação manual.'],
 ]
@@ -175,6 +181,18 @@ const modules: ModuleItem[] = [
     connected: ['RDO', 'Suprimentos', 'Qualidade', 'Planejamento'],
   },
   {
+    id: 'relatorio-360',
+    category: 'gestao',
+    icon: ClipboardList,
+    title: 'Relatório 360',
+    kicker: 'Relato executivo conectado',
+    copy: 'Consolida fotos, atividades, equipamentos e materiais do dia em um relatório executivo rastreável por obra.',
+    how: 'Reúne evidências, produção, equipe e ocorrências do campo em um relato único, ligado ao RDO e à medição.',
+    efficiency: 'Reduz o tempo de montar relatório gerencial e mantém cada número com origem no campo.',
+    features: ['Fotos com contexto', 'Atividades do dia', 'Exportação executiva'],
+    connected: ['RDO', 'Medição', 'Gestão 360', 'Torre'],
+  },
+  {
     id: 'planejamento',
     category: 'planejamento',
     icon: CalendarClock,
@@ -197,6 +215,42 @@ const modules: ModuleItem[] = [
     efficiency: 'Antecipa bloqueios antes que virem atraso e melhora o cumprimento dos pacotes de trabalho no canteiro.',
     features: ['Look-ahead 6 semanas', 'PPC semanal', 'Restrições conectadas'],
     connected: ['Planejamento', 'Suprimentos', 'Mão de Obra', 'Qualidade'],
+  },
+  {
+    id: 'planejamento-mestre',
+    category: 'planejamento',
+    icon: Milestone,
+    title: 'Planejamento Mestre',
+    kicker: 'Linha de base e marcos',
+    copy: 'Estrutura o plano mestre, marcos contratuais e baselines que orientam trechos, EVM e look-ahead.',
+    how: 'Organiza fases, marcos, restrições macro e metas por contrato, servindo de referência para o planejamento de execução.',
+    efficiency: 'Dá uma régua única de prazo para toda a obra e reduz divergência entre plano contratual e execução.',
+    features: ['Marcos contratuais', 'Baseline auditável', 'Metas por fase'],
+    connected: ['Trechos', 'EVM', 'LPS', 'Gestão 360'],
+  },
+  {
+    id: 'agenda',
+    category: 'planejamento',
+    icon: Calendar,
+    title: 'Agenda',
+    kicker: 'Cronograma visual da semana',
+    copy: 'Transforma atividades planejadas em uma agenda operacional por equipe, frente e período.',
+    how: 'Cruza cronograma, equipes e recursos para mostrar o que cada frente executa em cada dia, sem planilha à parte.',
+    efficiency: 'Reduz furo de programação e ajuda a equilibrar equipe e recurso ao longo da semana.',
+    features: ['Linha do tempo por equipe', 'Recursos alocados', 'Visão semanal'],
+    connected: ['Trechos', 'LPS', 'Mão de Obra', 'Planejamento Mestre'],
+  },
+  {
+    id: 'financeiro',
+    category: 'gestao',
+    icon: TrendingUp,
+    title: 'Financeiro / EVM',
+    kicker: 'Valor agregado e impostos',
+    copy: 'Acompanha custo previsto e realizado, valor agregado (EVM) e impostos de NF por obra, frente e serviço.',
+    how: 'Conecta orçamento, medição, suprimentos e avanço físico para calcular CPI/SPI e o resultado financeiro real.',
+    efficiency: 'Mostra o desvio de custo e prazo antes do fechamento e dá base para decisão de caixa e contrato.',
+    features: ['Valor agregado (EVM)', 'CPI e SPI', 'Impostos de NF'],
+    connected: ['Quantitativos', 'Medição', 'Suprimentos', 'Gestão 360'],
   },
   {
     id: 'rdo',
@@ -247,6 +301,18 @@ const modules: ModuleItem[] = [
     connected: ['RDO', 'LPS', 'Suprimentos', 'EVM'],
   },
   {
+    id: 'manutencoes',
+    category: 'campo',
+    icon: Settings2,
+    title: 'Manutenções',
+    kicker: 'Ativos e ordens de serviço',
+    copy: 'Controla ativos, planos preventivos, ordens de serviço e pontos de monitoramento por obra.',
+    how: 'Liga ativo, plano de manutenção, ordem de serviço e evidência ao custo e à disponibilidade no campo.',
+    efficiency: 'Antecipa parada por manutenção e reduz custo de corretiva com plano preventivo conectado.',
+    features: ['Plano preventivo', 'Ordens de serviço', 'Monitoramento de ativos'],
+    connected: ['Equipamentos', 'RDO', 'Suprimentos', 'EVM'],
+  },
+  {
     id: 'bim',
     category: 'projetos',
     icon: Building2,
@@ -295,6 +361,18 @@ const modules: ModuleItem[] = [
     connected: ['Quantitativos', 'Medição', 'Planejamento', 'Gestão 360'],
   },
   {
+    id: 'economia',
+    category: 'gestao',
+    icon: Coins,
+    title: 'Economia',
+    kicker: 'Eficiência medida em R$',
+    copy: 'Mede a economia e a eficiência geradas pela operação conectada, por obra e por iniciativa.',
+    how: 'Compara baseline e realizado em tempo, retrabalho, compras e produtividade para quantificar o ganho.',
+    efficiency: 'Transforma o ganho operacional em número defensável para diretoria e cliente.',
+    features: ['Baseline x realizado', 'Ganho por iniciativa', 'Indicadores de eficiência'],
+    connected: ['Gestão 360', 'EVM', 'Suprimentos', 'Mão de Obra'],
+  },
+  {
     id: 'suprimentos',
     category: 'suprimentos',
     icon: PackageCheck,
@@ -309,7 +387,7 @@ const modules: ModuleItem[] = [
 ]
 
 const impactRows: Array<[string, string, string]> = [
-  ['Custo sob controle', 'Redução observada de 3–5% no custo total sobre o faturamento', 'Otimização de suprimentos e fim de perdas por erro de faturamento via conferência tripla (pedido × recebimento × nota).'],
+  ['Custo sob controle', 'Redução observada de 3 a 5% no custo total sobre o faturamento', 'Otimização de suprimentos e fim de perdas por erro de faturamento via conferência tripla (pedido × recebimento × nota).'],
   ['Entrega com velocidade', 'Controle total da obra em dias, não em meses', 'Cronograma, planejamento, financeiro e campo na mesma base operacional, em tempo real.'],
   ['Tempo economizado', 'Até 80% menos tempo de orçamentação', 'Automação de alocação e ciclos de relatórios em tempo real a partir do RDO digital.'],
   ['Cadeia mais forte', 'Até 40% menos risco de falta de material', 'Alertas preditivos e monitoramento proativo de interrupções na cadeia de suprimentos.'],
@@ -342,14 +420,14 @@ const testimonials: Array<{ company: string; segment: string; quote: string; res
     company: 'Consórcio Se Liga Na Rede',
     segment: 'Saneamento',
     quote: 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.',
-    result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e adaptando o sistema a cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia — com um único módulo.',
+    result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e adaptando o sistema a cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia, com um único módulo.',
     hasNumber: true,
   },
   {
     company: 'Engelfer Engenharia',
     segment: 'Edificação',
     quote: 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.',
-    result: 'Entramos na obra, ouvimos as equipes e adaptamos o sistema a cada frente — do RDO à medição — antes de conectar tudo.',
+    result: 'Entramos na obra, ouvimos as equipes e adaptamos o sistema a cada frente, do RDO à medição, antes de conectar tudo.',
   },
   {
     company: 'Vila Rica Engenharia',
@@ -369,23 +447,23 @@ const logos = [
 
 /* Realizações — obras por empresa. Fotos em public/obras/ (trocar o arquivo
    substitui a imagem do card, sem mexer em código). */
-const realizacoes: Array<{ obra: string; empresa: string; img: string }> = [
-  { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/sao-manoel.webp' },
-  { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/pantanal-baixo.webp' },
-  { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/joao-carlos.webp' },
-  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp' },
-  { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-dos-criadores.webp' },
-  { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-israel.webp' },
-  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp' },
-  { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', img: '/obras/compizzo.webp' },
-  { obra: 'Obras de engenharia', empresa: 'Engelfer', img: '/obras/engelfer.webp' },
+const realizacoes: Array<{ obra: string; empresa: string; img: string; result: string }> = [
+  { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/sao-manoel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
+  { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/pantanal-baixo.webp', result: 'Saneamento · RDO, medição e avanço por trecho conectados' },
+  { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/joao-carlos.webp', result: 'Saneamento · medição defensável por período e frente' },
+  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp', result: 'Saneamento · RDO digital adaptado a cada equipe' },
+  { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-dos-criadores.webp', result: 'Saneamento · planejamento e campo na mesma base' },
+  { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-israel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
+  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp', result: 'Edificação · processos mapeados e plataforma adaptada por frente' },
+  { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', img: '/obras/compizzo.webp', result: 'Pisos industriais · economia e eficiência medidas por obra' },
+  { obra: 'Obras de engenharia', empresa: 'Engelfer', img: '/obras/engelfer.webp', result: 'Engenharia · do RDO à medição numa base única' },
 ]
 
 const faqs: Array<[string, string]> = [
-  ['Quanto tempo leva para implantar?', 'Depende da qualidade dos dados e do escopo inicial. Uma implantação enxuta pode começar por uma obra, um fluxo e poucos módulos críticos. Conforme os dados são validados, a empresa amplia para planejamento, qualidade, suprimentos, EVM, BIM e gestão executiva — em semanas, não meses.'],
+  ['Quanto tempo leva para implantar?', 'Depende da qualidade dos dados e do escopo inicial. Uma implantação enxuta pode começar por uma obra, um fluxo e poucos módulos críticos. Conforme os dados são validados, a empresa amplia para planejamento, qualidade, suprimentos, EVM, BIM e gestão executiva, em semanas, não meses.'],
   ['O ConstruData substitui minhas planilhas no primeiro dia?', 'Não precisa. A implantação pode começar absorvendo as planilhas, PDFs, fotos e controles que a empresa já usa. Ele organiza essas informações, preserva a origem dos dados e transforma o que antes era planilha solta em base rastreável para medição, planejamento, RDO, qualidade e gestão executiva.'],
   ['Preciso mudar todos os processos antes de usar?', 'Não. A implantação pode ser progressiva. Primeiro entram os dados essenciais e os fluxos mais críticos, como RDO, medição, planejamento ou suprimentos. Depois a empresa amadurece os demais módulos conforme a operação ganha confiança e padronização.'],
-  ['Funciona para saneamento, infraestrutura e engenharia ambiental?', 'Sim. A estrutura foi pensada para contratos com núcleos, ruas, trechos, frentes de serviço, OS, equipes, materiais, fotos e medições por período — incluindo condicionantes e relatórios de conformidade ambiental. O mapa, o RDO e a medição usam a mesma chave operacional para reduzir divergência entre campo, fiscalização e escritório.'],
+  ['Funciona para saneamento, infraestrutura e engenharia ambiental?', 'Sim. A estrutura foi pensada para contratos com núcleos, ruas, trechos, frentes de serviço, OS, equipes, materiais, fotos e medições por período, incluindo condicionantes e relatórios de conformidade ambiental. O mapa, o RDO e a medição usam a mesma chave operacional para reduzir divergência entre campo, fiscalização e escritório.'],
   ['A plataforma conversa com SINAPI, SEINFRA, BIM e cronogramas?', 'Sim. Ele foi desenhado para conectar bases técnicas, composições, orçamento, modelos BIM, cronogramas e execução real. A ideia não é trocar todos os sistemas de uma vez, mas criar uma camada operacional que faça esses dados conversarem com menos retrabalho.'],
   ['Como começa uma obra nova?', 'Uma obra normalmente começa com contrato, proposta, orçamento, cronograma, frentes ou núcleos, responsáveis, fornecedores, subempreiteiros, critérios de medição e modelo de RDO. A partir disso, o sistema cria a base para acompanhar avanço, pendências, evidências, equipe, equipamentos, qualidade e suprimentos.'],
   ['O RDO fecha automaticamente a medição?', 'O RDO pode alimentar a medição quando existe vínculo suficiente entre serviço, local, quantidade, período, equipe e evidência. Mesmo assim, o fechamento continua exigindo revisão humana. A lógica é acelerar a conferência e reduzir retrabalho, sem tirar o controle técnico e financeiro de quem aprova.'],
@@ -569,10 +647,10 @@ function ModulesSection() {
   return (
     <section id="modulos" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
       <SectionHeader
-        index="06"
+        index="07"
         eyebrow="Módulos"
         title="Escolha o problema. Veja o módulo que resolve."
-        copy="Tudo conversando na mesma base, em tempo real. O dado de campo vira decisão em segundos — e o gestor antecipa o problema antes que ele vire atraso, glosa ou custo oculto."
+        copy="Tudo conversando na mesma base, em tempo real. O dado de campo vira decisão em segundos, e o gestor antecipa o problema antes que ele vire atraso, glosa ou custo oculto."
       />
 
       <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
@@ -653,7 +731,7 @@ function ModulesSection() {
 
         {/* All modules grid */}
         <div className="mt-16">
-          <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.22em] text-black/40`}>A plataforma completa — 14 módulos conectados</p>
+          <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.22em] text-black/40`}>A plataforma completa, 20 módulos conectados</p>
           <div className="mt-6 grid grid-cols-1 border-t border-l border-black/10 sm:grid-cols-2 lg:grid-cols-3">
             {modules.map((module, i) => {
               const Icon = module.icon
@@ -859,29 +937,35 @@ export function LandingPage() {
                 <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.2em] text-white/70 sm:text-[11px]`}>
                   [ Plataforma de planejamento e gestão da execução de obras ]
                 </p>
-                <h1 className={`${H_FONT} mt-7 text-4xl font-medium leading-[1.04] tracking-[-0.03em] text-white sm:text-5xl lg:text-6xl`}>
-                  Cada decisão da obra movida a <span className="text-[#fb923c]">dados conectados</span>, não a planilhas soltas.
+                <h1 className={`${H_FONT} mt-7 text-5xl font-medium leading-[1.02] tracking-[-0.03em] text-white sm:text-6xl lg:text-7xl`}>
+                  <span className="text-[#fb923c]">Dados conectados</span> para cada decisão da obra.
                 </h1>
-                <p className="mt-7 max-w-2xl text-base leading-7 text-white/80 sm:text-lg sm:leading-8">
-                  Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
-                </p>
-                <div className={`${M_FONT} mt-7 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#fdba74] sm:text-[11px]`}>
-                  <span>Adaptada à sua obra antes de tudo</span>
-                  <span className="text-white/40">/</span>
-                  <span>Implantação em semanas, não meses</span>
-                </div>
-                <div className="mt-10">
-                  <DemoCTA tone="light" />
-                </div>
               </div>
             </div>
           </div>
         </HeroCarousel>
 
+        {/* ── Faixa de introdução (subtexto + tríade + CTA, vindos do hero) ── */}
+        <section className="border-t border-black/10 bg-white py-16 sm:py-20">
+          <div data-sr className="mx-auto max-w-7xl px-5 md:px-10">
+            <p className={`${H_FONT} max-w-4xl text-2xl font-medium leading-snug tracking-[-0.02em] text-[#0a0a0a] sm:text-3xl`}>
+              Campo, medição, suprimentos, planejamento e gestão executiva na mesma base operacional, em tempo real. Antes de qualquer sistema, nossa equipe entra na sua obra, entende cada processo e adapta a plataforma ao seu contexto. Você antecipa o problema antes que ele vire atraso, glosa ou custo oculto.
+            </p>
+            <div className={`${M_FONT} mt-7 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c2410c] sm:text-[11px]`}>
+              <span>Adaptada à sua obra antes de tudo</span>
+              <span className="text-black/30">/</span>
+              <span>Implantação em semanas, não meses</span>
+            </div>
+            <div className="mt-9">
+              <DemoCTA />
+            </div>
+          </div>
+        </section>
+
         {/* ── Faixa de logos ── */}
         <section id="empresas" className="border-t border-black/10 bg-white py-14 sm:py-16">
           <p data-sr className="mx-auto max-w-3xl px-5 text-center text-sm leading-6 text-black/55 md:px-10">
-            Construtoras, consórcios e empresas de saneamento e infraestrutura já decidem com dados conectados na ConstruData.
+            Construtoras, consórcios e empresas de saneamento e infraestrutura já decidem com dados conectados no ConstruData.
           </p>
           <div className="relative mt-8 overflow-hidden">
             <div className="pointer-events-none absolute left-0 z-20 h-full w-24 bg-gradient-to-r from-white" />
@@ -907,7 +991,7 @@ export function LandingPage() {
           <SectionHeader index="01" eyebrow="O problema" title="O dado da sua obra existe. Espalhado, ele não decide nada." />
           <div data-sr className="mx-auto mt-10 max-w-4xl px-5 md:px-10">
             <p className="text-lg leading-8 text-black/65">
-              RDO num lugar, medição em planilha, suprimentos no e-mail, avanço no grupo de mensagens, custo no ERP. Quando alguém consolida tudo, a janela de decisão já passou — o atraso virou multa, a glosa virou prejuízo, a frente parada virou retrabalho. O problema raramente é falta de informação. É informação <strong className="font-semibold text-[#0a0a0a]">fragmentada, atrasada e desconectada da decisão</strong>.
+              RDO num lugar, medição em planilha, suprimentos no e-mail, avanço no grupo de mensagens, custo no ERP. Quando alguém consolida tudo, a janela de decisão já passou: o atraso virou multa, a glosa virou prejuízo, a frente parada virou retrabalho. O problema raramente é falta de informação. É informação <strong className="font-semibold text-[#0a0a0a]">fragmentada, atrasada e desconectada da decisão</strong>.
             </p>
           </div>
         </section>
@@ -918,7 +1002,7 @@ export function LandingPage() {
             index="02"
             eyebrow="Como entramos na sua obra"
             title="Não vendemos um sistema. Adaptamos a sua operação e a conectamos."
-            copy="A ConstruData não é um software que você configura sozinho e torce para dar certo. Nossa equipe entra na obra, entende como ela funciona de verdade e transforma isso em decisão — rápido."
+            copy="O ConstruData não é um software que você configura sozinho e torce para dar certo. Nossa equipe entra na obra, entende como ela funciona de verdade e transforma isso em decisão, rápido."
           />
           <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-3 md:px-10">
             {comoEntramosSteps.map((step, i) => {
@@ -943,7 +1027,7 @@ export function LandingPage() {
           </div>
           <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-6 px-5 md:flex-row md:items-center md:justify-between md:px-10">
             <p data-sr className={`${H_FONT} max-w-xl text-xl font-medium leading-snug tracking-[-0.02em] text-[#0a0a0a]`}>
-              Implantação em semanas, não em meses. Você não para a obra para "rodar um projeto de TI" — a ConstruData se adapta ao seu ritmo.
+              Implantação em semanas, não em meses. Você não para a obra para "rodar um projeto de TI": o ConstruData se adapta ao seu ritmo.
             </p>
             <DemoCTA />
           </div>
@@ -954,8 +1038,8 @@ export function LandingPage() {
           <SectionHeader
             index="03"
             eyebrow="O diferencial técnico"
-            title="Uma base única onde campo, projeto, custo e prazo falam a mesma língua — em tempo real."
-            copy="No núcleo da ConstruData há um modelo operacional único — a ontologia da construção — que padroniza como obra, frente, serviço, equipe, material, prazo, custo e evidência se relacionam, em todos os módulos."
+            title="Uma base única onde campo, projeto, custo e prazo falam a mesma língua, em tempo real."
+            copy="No núcleo do ConstruData há um modelo operacional único (a ontologia da construção) que padroniza como obra, frente, serviço, equipe, material, prazo, custo e evidência se relacionam, em todos os módulos."
           />
           <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
             <div data-sr className="relative grid items-center gap-8 border border-black/10 bg-white p-6 lg:grid-cols-[0.55fr_0.45fr] lg:p-10">
@@ -966,7 +1050,7 @@ export function LandingPage() {
                   Ontologia da construção · Base operacional
                 </p>
                 <p className="mt-4 text-base leading-7 text-black/65">
-                  Construído numa lógica <strong className="font-semibold text-[#0a0a0a]">campo-primeiro</strong>, ele conecta o que acontece no canteiro aos sistemas que o sustentam (ERP, BIM, cronograma) <strong className="font-semibold text-[#0a0a0a]">sem trocar o que você já usa</strong>. Quando o engenheiro atualiza o RDO, cronograma, medição e suprimentos se ajustam sozinhos — sem retrabalho, sem planilha paralela.
+                  Construído numa lógica <strong className="font-semibold text-[#0a0a0a]">campo-primeiro</strong>, ele conecta o que acontece no canteiro aos sistemas que o sustentam (ERP, BIM, cronograma) <strong className="font-semibold text-[#0a0a0a]">sem trocar o que você já usa</strong>. Quando o engenheiro atualiza o RDO, cronograma, medição e suprimentos se ajustam sozinhos, sem retrabalho, sem planilha paralela.
                 </p>
               </div>
             </div>
@@ -981,10 +1065,40 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* ── Diferencial único ── */}
+        <section id="diferencial" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
+          <SectionHeader
+            index="04"
+            eyebrow="Diferencial único"
+            title="Todo mundo tem acesso a tecnologia. Nem todo mundo tem método."
+            copy="Dado de campo virando decisão executiva em segundos, não em dias."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4 lg:gap-px">
+            {differentiators.map(([number, title, copy], i) => (
+              <div
+                key={number}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group relative flex flex-col border border-black/10 bg-white px-6 py-9 transition-colors duration-300 hover:border-black/30 lg:min-h-[320px]"
+              >
+                <Corners />
+                <div className="flex items-center justify-between">
+                  <div className={`${M_FONT} text-sm font-semibold text-[#c2410c]`}>[ {number} ]</div>
+                  <ShieldCheck className="size-5 text-black/20 transition-colors duration-300 group-hover:text-[#ea580c]" />
+                </div>
+                <div className="mt-auto flex flex-col gap-3 pt-16">
+                  <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
+                  <p className="leading-7 text-black/60">{copy}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* ── Impacto real ── */}
         <section id="impacto" className="border-t border-black/10 bg-white py-20 sm:py-32">
           <SectionHeader
-            index="04"
+            index="05"
             eyebrow="Impacto real"
             title="O que muda quando o dado de campo vira decisão."
             copy="Ajudamos empresas de engenharia e construção a ganhar vantagem competitiva real com dados conectados. Números rotulados como faixa observada."
@@ -1015,32 +1129,124 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Diferencial único ── */}
-        <section id="diferencial" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
+        {/* ── Autonomia ── */}
+        <section id="autonomia" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
           <SectionHeader
-            index="05"
-            eyebrow="Diferencial único"
-            title="Todo mundo tem acesso a tecnologia. Nem todo mundo tem método."
-            copy="Dado de campo virando decisão executiva em segundos, não em dias."
+            index="06"
+            eyebrow="Autonomia para a cadeia inteira"
+            title="A obra inteira fica mais inteligente."
+            copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, na hora certa, com a informação certa. Você não está comprando um software, está dando autonomia para a sua cadeia inteira."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-4 lg:gap-px">
-            {differentiators.map(([number, title, copy], i) => (
-              <div
-                key={number}
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
+            {autonomyCards.map(([place, person, copy], i) => (
+              <article
+                key={place}
                 data-sr
                 data-sr-delay={String(i + 1)}
-                className="group relative flex flex-col border border-black/10 bg-white px-6 py-9 transition-colors duration-300 hover:border-black/30 lg:min-h-[320px]"
+                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#ececea] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
+              >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
+                <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c2410c]`}>{place}</p>
+                <h3 className={`${H_FONT} mt-8 text-3xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{person}</h3>
+                <p className="mt-5 leading-7 text-black/60">{copy}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Módulos ── */}
+        <ModulesSection />
+
+        {/* ── Para quem é ── */}
+        <section id="perfis" className="border-t border-black/10 bg-white py-20 sm:py-32">
+          <SectionHeader
+            index="08"
+            eyebrow="Para quem é"
+            title="O visitante certo se reconhece rápido."
+            copy="Cada perfil entra por uma dor diferente, mas todos chegam ao mesmo ponto: dado de campo confiável virando decisão, medição e planejamento."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-2 md:px-10 lg:grid-cols-3">
+            {audience.map(([title, problem, solution], i) => (
+              <article
+                key={title}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="group relative border-b border-black/10 px-6 py-9 transition-colors duration-300 hover:bg-[#f4f4f2] md:border-r lg:p-9 lg:[&:nth-child(3n)]:border-r-0 md:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r"
+              >
+                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
+                <Users className="size-8 text-[#ea580c]" />
+                <h3 className={`${H_FONT} mt-6 text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
+                <p className="mt-5 leading-7 text-black/60">
+                  <strong className="font-semibold text-[#0a0a0a]">Problema:</strong> {problem}
+                </p>
+                <p className="mt-3 leading-7 text-black/60">
+                  <strong className="font-semibold text-[#0a0a0a]">Resolve:</strong> {solution}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Prova social ── */}
+        {/* ── Realizações ── */}
+        <section id="realizacoes" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
+          <SectionHeader
+            index="09"
+            eyebrow="Realizações"
+            title="Realizações"
+            copy="Conheça nossos trabalhos realizados. Grandes obras que transformam a sociedade à sua volta são fruto de uma visão técnica completa. De orçamentos até os gerenciamentos mais complexos, garantimos minúcia no conhecimento e máxima confiabilidade em cada decisão."
+          />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-t border-l border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-3">
+            {realizacoes.map((item, i) => (
+              <figure
+                key={`${item.empresa}-${item.obra}`}
+                data-sr
+                data-sr-delay={String((i % 3) + 1)}
+                className="group relative border-b border-r border-black/10 bg-white"
+              >
+                <div className="overflow-hidden">
+                  <img
+                    src={item.img}
+                    alt={`Obra ${item.obra}, ${item.empresa}`}
+                    width={704}
+                    height={528}
+                    loading="lazy"
+                    decoding="async"
+                    className="aspect-[4/3] w-full object-cover grayscale transition duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+                  />
+                </div>
+                <figcaption className="p-5">
+                  <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]`}>
+                    [ {item.empresa} ]
+                  </p>
+                  <h3 className={`${H_FONT} mt-2 text-xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
+                  <p className="mt-2 text-sm leading-6 text-black/55">{item.result}</p>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Prova social ── */}
+        <section id="prova" className="border-t border-black/10 bg-white py-20 sm:py-32">
+          <SectionHeader index="10" eyebrow="Prova social" title="O que os líderes da construção estão dizendo." />
+          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 px-5 md:px-10 lg:grid-cols-3 lg:gap-px">
+            {testimonials.map((t, i) => (
+              <figure
+                key={t.company}
+                data-sr
+                data-sr-delay={String(i + 1)}
+                className="group relative flex flex-col border border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:border-black/30"
               >
                 <Corners />
-                <div className="flex items-center justify-between">
-                  <div className={`${M_FONT} text-sm font-semibold text-[#c2410c]`}>[ {number} ]</div>
-                  <ShieldCheck className="size-5 text-black/20 transition-colors duration-300 group-hover:text-[#ea580c]" />
-                </div>
-                <div className="mt-auto flex flex-col gap-3 pt-16">
-                  <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
-                  <p className="leading-7 text-black/60">{copy}</p>
-                </div>
-              </div>
+                <span className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]`}>{t.segment}</span>
+                <blockquote className="mt-4 text-lg leading-8 text-[#0a0a0a]">"{t.quote}"</blockquote>
+                <p className={`mt-5 text-sm leading-6 ${t.hasNumber ? 'text-[#0a0a0a]' : 'text-black/60'}`}>{t.result}</p>
+                <figcaption className="mt-auto border-t border-black/10 pt-5">
+                  <div className={`${H_FONT} text-lg font-medium text-[#0a0a0a]`}>{t.company}</div>
+                  <div className="mt-0.5 text-xs text-black/50">{t.segment}</div>
+                </figcaption>
+              </figure>
             ))}
           </div>
         </section>
@@ -1077,127 +1283,6 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Módulos ── */}
-        <ModulesSection />
-
-        {/* ── Para quem é ── */}
-        <section id="perfis" className="border-t border-black/10 bg-white py-20 sm:py-32">
-          <SectionHeader
-            index="07"
-            eyebrow="Para quem é"
-            title="O visitante certo se reconhece rápido."
-            copy="Cada perfil entra por uma dor diferente, mas todos chegam ao mesmo ponto: dado de campo confiável virando decisão, medição e planejamento."
-          />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:grid-cols-2 md:px-10 lg:grid-cols-3">
-            {audience.map(([title, problem, solution], i) => (
-              <article
-                key={title}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="group relative border-b border-black/10 px-6 py-9 transition-colors duration-300 hover:bg-[#f4f4f2] md:border-r lg:p-9 lg:[&:nth-child(3n)]:border-r-0 md:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r"
-              >
-                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-                <Users className="size-8 text-[#ea580c]" />
-                <h3 className={`${H_FONT} mt-6 text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
-                <p className="mt-5 leading-7 text-black/60">
-                  <strong className="font-semibold text-[#0a0a0a]">Problema:</strong> {problem}
-                </p>
-                <p className="mt-3 leading-7 text-black/60">
-                  <strong className="font-semibold text-[#0a0a0a]">Resolve:</strong> {solution}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Prova social ── */}
-        {/* ── Realizações ── */}
-        <section id="realizacoes" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
-          <SectionHeader
-            index="08"
-            eyebrow="Realizações"
-            title="Realizações"
-            copy="Conheça nossos trabalhos realizados. Grandes obras que transformam a sociedade à sua volta são fruto de uma visão técnica completa. De orçamentos até os gerenciamentos mais complexos, garantimos minúcia no conhecimento e máxima confiabilidade em cada decisão."
-          />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-t border-l border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-3">
-            {realizacoes.map((item, i) => (
-              <figure
-                key={`${item.empresa}-${item.obra}`}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="group relative border-b border-r border-black/10 bg-white"
-              >
-                <div className="overflow-hidden">
-                  <img
-                    src={item.img}
-                    alt={`Obra ${item.obra} — ${item.empresa}`}
-                    width={704}
-                    height={528}
-                    loading="lazy"
-                    decoding="async"
-                    className="aspect-[4/3] w-full object-cover grayscale transition duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
-                  />
-                </div>
-                <figcaption className="p-5">
-                  <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]`}>
-                    [ {item.empresa} ]
-                  </p>
-                  <h3 className={`${H_FONT} mt-2 text-xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Prova social ── */}
-        <section id="prova" className="border-t border-black/10 bg-white py-20 sm:py-32">
-          <SectionHeader index="09" eyebrow="Prova social" title="O que os líderes da construção estão dizendo." />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 gap-4 px-5 md:px-10 lg:grid-cols-3 lg:gap-px">
-            {testimonials.map((t, i) => (
-              <figure
-                key={t.company}
-                data-sr
-                data-sr-delay={String(i + 1)}
-                className="group relative flex flex-col border border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:border-black/30"
-              >
-                <Corners />
-                <span className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#c2410c]`}>{t.segment}</span>
-                <blockquote className="mt-4 text-lg leading-8 text-[#0a0a0a]">"{t.quote}"</blockquote>
-                <p className={`mt-5 text-sm leading-6 ${t.hasNumber ? 'text-[#0a0a0a]' : 'text-black/60'}`}>{t.result}</p>
-                <figcaption className="mt-auto border-t border-black/10 pt-5">
-                  <div className={`${H_FONT} text-lg font-medium text-[#0a0a0a]`}>{t.company}</div>
-                  <div className="mt-0.5 text-xs text-black/50">{t.segment}</div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Autonomia ── */}
-        <section id="autonomia" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
-          <SectionHeader
-            index="10"
-            eyebrow="Autonomia para a cadeia inteira"
-            title="A obra inteira fica mais inteligente."
-            copy="Não porque tem mais dashboards. Porque mais pessoas decidem bem, na hora certa, com a informação certa. Você não está comprando um software — está dando autonomia para a sua cadeia inteira."
-          />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-y border-black/10 px-5 md:px-10 lg:grid-cols-3">
-            {autonomyCards.map(([place, person, copy], i) => (
-              <article
-                key={place}
-                data-sr
-                data-sr-delay={String(i + 1)}
-                className="group relative flex flex-col border-b border-black/10 bg-white px-7 py-9 transition-colors duration-300 hover:bg-[#ececea] lg:border-r lg:p-10 lg:[&:nth-child(3n)]:border-r-0"
-              >
-                <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#f97316] transition-transform duration-300 ease-out group-hover:scale-x-100" />
-                <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c2410c]`}>{place}</p>
-                <h3 className={`${H_FONT} mt-8 text-3xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{person}</h3>
-                <p className="mt-5 leading-7 text-black/60">{copy}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
         {/* ── FAQ ── */}
         <section id="faq" className="border-t border-black/10 bg-white py-20 sm:py-32">
           <SectionHeader index="11" eyebrow="FAQ" title="Perguntas frequentes." />
@@ -1228,10 +1313,10 @@ export function LandingPage() {
         <section id="solicitar" className="border-t border-black/10 bg-[#f4f4f2] px-5 py-20 sm:py-32 md:px-10">
           <div data-sr className="mx-auto max-w-4xl text-center">
             <h2 className={`${H_FONT} text-4xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
-              Veja a ConstruData na sua obra.
+              Veja o ConstruData na sua obra.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-black/60 sm:text-lg">
-              Comece com um diagnóstico. Entendemos o seu contexto, mostramos a plataforma adaptada à sua realidade e você decide com clareza — sem compromisso de compra e sem implantação de meses.
+              Comece com um diagnóstico. Entendemos o seu contexto, mostramos a plataforma adaptada à sua realidade e você decide com clareza, sem compromisso de compra e sem implantação de meses.
             </p>
           </div>
 
