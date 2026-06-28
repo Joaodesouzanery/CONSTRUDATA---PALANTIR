@@ -58,6 +58,36 @@ const WATCHED_TABLES = [
 let activeChannel: RealtimeChannel | null = null
 let activeOrgId: string | null = null
 
+/* ── Coalescer de eventos (2b) ───────────────────────────────────────────────
+   Sem isto, uma operação em lote (ex.: importar 500 linhas) emite 500 eventos
+   `realtime.row_changed` e cada store inscrito re-puxa a tabela inteira 500×.
+   Aqui juntamos as tabelas alteradas numa janela curta e emitimos UMA vez por
+   tabela — os subscribers re-puxam no máximo 1× por tabela por janela.
+   O atraso (~350ms) é imperceptível para sincronização entre clientes. */
+const COALESCE_MS = 350
+let coalesceBuffer = new Map<string, string | undefined>() // tabela -> último rowId
+let coalesceTimer: ReturnType<typeof setTimeout> | null = null
+
+function resetCoalesce() {
+  if (coalesceTimer) {
+    clearTimeout(coalesceTimer)
+    coalesceTimer = null
+  }
+  coalesceBuffer = new Map()
+}
+
+function scheduleCoalescedEmit(organizationId: string) {
+  if (coalesceTimer) return
+  coalesceTimer = setTimeout(() => {
+    coalesceTimer = null
+    const buffered = coalesceBuffer
+    coalesceBuffer = new Map()
+    for (const [table, rowId] of buffered) {
+      eventBus.emit({ type: 'realtime.row_changed', table, rowId, organizationId })
+    }
+  }, COALESCE_MS)
+}
+
 /**
  * Inscreve um channel global para a organização. Idempotente: se já existe
  * um channel para essa org, retorna o mesmo. Se a org muda, fecha o anterior.
@@ -75,6 +105,7 @@ export function subscribeOrgRealtime(organizationId: string): RealtimeChannel | 
     void activeChannel.unsubscribe()
     activeChannel = null
     activeOrgId = null
+    resetCoalesce()
   }
 
   // Cria channel novo
@@ -92,13 +123,9 @@ export function subscribeOrgRealtime(organizationId: string): RealtimeChannel | 
       } as never,
       ((payload: { eventType: string; new?: { id?: string }; old?: { id?: string }; table: string }) => {
         const rowId = (payload.new?.id ?? payload.old?.id) as string | undefined
-        eventBus.emit({
-          type: 'realtime.row_changed',
-          table: payload.table,
-          rowId,
-          organizationId,
-          payload: payload as unknown as Record<string, unknown>,
-        })
+        // Coalesce: registra a tabela alterada e agenda uma única emissão por janela.
+        coalesceBuffer.set(payload.table, rowId)
+        scheduleCoalescedEmit(organizationId)
       }) as never,
     )
   }
@@ -122,6 +149,7 @@ export function unsubscribeOrgRealtime(): void {
     void activeChannel.unsubscribe()
     activeChannel = null
     activeOrgId = null
+    resetCoalesce()
     console.info('[realtime] unsubscribed')
   }
 }
