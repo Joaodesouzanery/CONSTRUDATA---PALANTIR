@@ -88,60 +88,102 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
 
   const activeOrgId = profile.organization_id
 
-  for (const op of queue) {
-    try {
-      if (op.type === 'insert' && op.row) {
-        // Recupera ops enfileiradas antes do perfil carregar: o row pode ter sido
-        // carimbado com organization_id 'pending'. Reescreve para a organização
-        // ativa no momento do flush (que já é conhecida aqui).
-        const row =
-          op.row.organization_id === 'pending' || op.row.organization_id == null
-            ? { ...op.row, organization_id: activeOrgId }
-            : op.row
+  // Recupera ops enfileiradas antes do perfil carregar: o row pode ter sido
+  // carimbado com organization_id 'pending'. Reescreve para a org ativa no flush.
+  const fixOrg = (row: Record<string, unknown>) =>
+    row.organization_id === 'pending' || row.organization_id == null
+      ? { ...row, organization_id: activeOrgId }
+      : row
+
+  const markOk = (op: PendingOp) => result.completed.push(op.id)
+  const markErr = (op: PendingOp, err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[sync:${op.table}] op ${op.type} failed`, op, msg)
+    result.lastError = msg
+    result.errored.push(op.id)
+  }
+
+  // Executa UMA op (insert/update/delete) — lança em falha. Comportamento idêntico
+  // ao anterior; é o caminho per-op usado tanto direto quanto no fallback do lote.
+  async function applyOp(op: PendingOp) {
+    if (op.type === 'insert' && op.row) {
+      const { data, error } = await supabase
+        .from(op.table)
+        .upsert(fixOrg(op.row) as never, { onConflict: 'id' })
+        .select('id')
+      if (error) throw error
+      assertAffectedRows(op.table, op, data)
+    } else if (op.type === 'update' && op.patch) {
+      const softDeleteRpc = softDeleteRpcFor(op)
+      const { data, error } = softDeleteRpc
+        ? await supabase.rpc(softDeleteRpc, { p_id: op.recordId })
+        : await supabase
+          .from(op.table)
+          .update(op.patch as never)
+          .eq('id', op.recordId)
+          .eq('organization_id', activeOrgId)
+          .select('id')
+      if (error) throw error
+      assertAffectedRows(op.table, op, data)
+    } else if (op.type === 'delete') {
+      if (op.approvalActionType) {
+        const { error } = await supabase.rpc('request_action', {
+          p_action_type:  op.approvalActionType,
+          p_target_table: op.table,
+          p_target_id:    op.recordId,
+          p_payload:      {},
+        } as never)
+        if (error) throw error
+      } else {
         const { data, error } = await supabase
           .from(op.table)
-          .upsert(row as never, { onConflict: 'id' })
+          .delete()
+          .eq('id', op.recordId)
+          .eq('organization_id', activeOrgId)
           .select('id')
         if (error) throw error
         assertAffectedRows(op.table, op, data)
-      } else if (op.type === 'update' && op.patch) {
-        const softDeleteRpc = softDeleteRpcFor(op)
-        const { data, error } = softDeleteRpc
-          ? await supabase.rpc(softDeleteRpc, { p_id: op.recordId })
-          : await supabase
-            .from(op.table)
-            .update(op.patch as never)
-            .eq('id', op.recordId)
-            .eq('organization_id', profile.organization_id)
-            .select('id')
-        if (error) throw error
-        assertAffectedRows(op.table, op, data)
-      } else if (op.type === 'delete') {
-        if (op.approvalActionType) {
-          const { error } = await supabase.rpc('request_action', {
-            p_action_type:  op.approvalActionType,
-            p_target_table: op.table,
-            p_target_id:    op.recordId,
-            p_payload:      {},
-          } as never)
-          if (error) throw error
-        } else {
+      }
+    }
+  }
+
+  // Despacha a fila preservando a ordem. Inserts CONSECUTIVOS na mesma tabela
+  // viram UM upsert em lote (menos round-trips); se o lote falhar, cai pro
+  // per-op para isolar a linha ruim e preservar o rastreio completed/errored.
+  let i = 0
+  while (i < queue.length) {
+    const op = queue[i]
+    if (op.type === 'insert' && op.row) {
+      const group: PendingOp[] = []
+      let j = i
+      while (j < queue.length && queue[j].type === 'insert' && queue[j].row && queue[j].table === op.table) {
+        group.push(queue[j])
+        j++
+      }
+      if (group.length === 1) {
+        try { await applyOp(group[0]); markOk(group[0]) } catch (e) { markErr(group[0], e) }
+      } else {
+        try {
+          const rows = group.map((g) => fixOrg(g.row as Record<string, unknown>))
           const { data, error } = await supabase
             .from(op.table)
-            .delete()
-            .eq('id', op.recordId)
-            .eq('organization_id', profile.organization_id)
+            .upsert(rows as never, { onConflict: 'id' })
             .select('id')
           if (error) throw error
-          assertAffectedRows(op.table, op, data)
+          if (rowCount(data) < rows.length) {
+            throw new Error(`Lote em ${op.table}: ${rowCount(data)}/${rows.length} confirmadas.`)
+          }
+          group.forEach(markOk)
+        } catch {
+          for (const g of group) {
+            try { await applyOp(g); markOk(g) } catch (e) { markErr(g, e) }
+          }
         }
       }
-      result.completed.push(op.id)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.warn(`[sync:${op.table}] op ${op.type} failed`, op, msg)
-      result.lastError = msg
-      result.errored.push(op.id)
+      i = j
+    } else {
+      try { await applyOp(op); markOk(op) } catch (e) { markErr(op, e) }
+      i++
     }
   }
 
