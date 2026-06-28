@@ -708,6 +708,28 @@ export async function createSuprimentosOrdem(itemIds: string[]) {
   return loadSuprimentosPlanilhas()
 }
 
+/**
+ * Baixa de estoque atômica no servidor (RPC). Subtrai p_qtd de qtd_disponivel de forma
+ * atômica (evita last-write-wins entre usuários concorrentes) e grava a movimentação.
+ * Retorna o saldo autoritativo após a baixa.
+ */
+export async function baixarEstoqueItem(
+  itemId: string,
+  qty: number,
+  opts?: { lpsActivityId?: string; observacoes?: string; siteId?: string | null }
+): Promise<number> {
+  const { data, error } = await supabase.rpc('baixar_estoque_item', {
+    p_item_id: itemId,
+    p_qtd: qty,
+    p_lps_activity_id: opts?.lpsActivityId ?? null,
+    p_observacoes: opts?.observacoes ?? null,
+    p_site_id: opts?.siteId ?? null,
+  } as never)
+  if (error) throw error
+  const result = data as { qtd_disponivel: number; deposito_id: string | null } | null
+  return result?.qtd_disponivel ?? 0
+}
+
 export type GerarRequisicoesResult = { created: number; updated: number; skipped: number }
 
 /**

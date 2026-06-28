@@ -42,6 +42,7 @@ import type { ResumoNucleo, ConsolidadoTrecho, MaterialNucleo } from '@/data/moc
 import {
   createManualItem,
   createManualNucleo,
+  baixarEstoqueItem,
   createManualRua,
   createSuprimentosOrdem,
   gerarRequisicoesSuprimentos,
@@ -980,34 +981,52 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     const item = estoqueItens.find((i) => i.id === itemId)
     if (!item) return
 
-    const newQtd = Math.max(0, item.qtdDisponivel - qty)
+    const siteId = item.siteId ?? useActiveObraStore.getState().activeObraId ?? null
+    const prevQtd = item.qtdDisponivel
     const mov: MovimentacaoEstoque = {
       id: crypto.randomUUID(),
       itemId,
       depositoId: item.depositoId,
-      siteId: item.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+      siteId,
       tipo: 'saida',
       quantidade: qty,
       dataMovimento: new Date().toISOString().slice(0, 10),
       lpsActivityId: opts?.lpsActivityId,
       observacoes: opts?.observacoes,
     }
-    const { orgId, userId } = currentSyncContext()
+    // Update otimista (UI instantânea). Sem clamp em 0 — saldo negativo é alerta de inventário.
     set((s) => ({
       estoqueItens: s.estoqueItens.map((i) =>
-        i.id === itemId ? { ...i, qtdDisponivel: newQtd } : i
+        i.id === itemId ? { ...i, qtdDisponivel: prevQtd - qty } : i
       ),
-      movimentacoes: [
-        ...s.movimentacoes,
-        mov,
-      ],
-      pendingSync: [
-        ...s.pendingSync,
-        makeOp({ entity: 'estoque_item', type: 'update', recordId: itemId, patch: { qtd_disponivel: newQtd }, table: 'suprimentos_estoque_itens' }),
-        makeOp({ entity: 'estoque_movimentacao', type: 'insert', recordId: mov.id, row: movimentacaoToRow(mov, orgId, userId), table: 'suprimentos_estoque_movimentacoes' }),
-      ],
+      movimentacoes: [...s.movimentacoes, mov],
     }))
-    void get().flush()
+    // Baixa ATÔMICA no servidor (qtd_disponivel = qtd_disponivel - qty), evita last-write-wins
+    // entre usuários concorrentes. Reconcilia com o saldo autoritativo; reverte se falhar.
+    void (async () => {
+      try {
+        const novoQtd = await baixarEstoqueItem(itemId, qty, {
+          lpsActivityId: opts?.lpsActivityId,
+          observacoes: opts?.observacoes,
+          siteId,
+        })
+        set((s) => ({
+          estoqueItens: s.estoqueItens.map((i) =>
+            i.id === itemId ? { ...i, qtdDisponivel: novoQtd } : i
+          ),
+          syncError: null,
+        }))
+      } catch (e) {
+        // Reverte o otimista: o servidor não confirmou a baixa.
+        set((s) => ({
+          estoqueItens: s.estoqueItens.map((i) =>
+            i.id === itemId ? { ...i, qtdDisponivel: prevQtd } : i
+          ),
+          movimentacoes: s.movimentacoes.filter((m) => m.id !== mov.id),
+          syncError: e instanceof Error ? e.message : 'Falha ao baixar estoque',
+        }))
+      }
+    })()
   },
 
   calcSemaforo: (depositoId, lpsActivityId, semana) => {
