@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatDecimalInput, formatMoneyInput, parseLocaleNumber } from '@/lib/numberFormat'
@@ -121,10 +122,12 @@ export function AlmoxarifadoPanel() {
     [estoqueItens],
   )
 
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return estoqueItens.filter((item) => {
       const deposito = depositos.find((dep) => dep.id === item.depositoId)
+      if (activeObraId && (item.siteId ?? deposito?.siteId ?? null) !== activeObraId) return false
       const low = item.qtdDisponivel < item.estoqueMinimo
       const text = [
         item.id,
@@ -141,7 +144,7 @@ export function AlmoxarifadoPanel() {
       if (depositoId !== 'todos' && item.depositoId !== depositoId) return false
       return true
     })
-  }, [category, depositoId, depositos, estoqueItens, lowOnly, search])
+  }, [category, depositoId, depositos, estoqueItens, lowOnly, search, activeObraId])
 
   const totalValue = estoqueItens.reduce((sum, item) => sum + item.qtdDisponivel * (item.custoUnitario ?? 0), 0)
   const formQuantity = parseLocaleNumber(form.qtdDisponivel)

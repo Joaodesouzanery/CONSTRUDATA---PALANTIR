@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { buildOperationalKey } from '@/lib/operationalKey'
 import type {
   PurchaseOrder,
@@ -433,6 +434,7 @@ function depositoToRow(deposito: DepositoVirtual, orgId: string, userId: string)
     frente:          deposito.frente,
     descricao:       deposito.descricao ?? null,
     ativo:           deposito.ativo,
+    site_id:         deposito.siteId ?? null,
     created_by:      userId,
   }
 }
@@ -452,6 +454,7 @@ function estoqueItemToRow(item: ItemEstoque, orgId: string, userId: string) {
     lps_activity_id:      item.lpsActivityId ?? null,
     categoria:            item.categoria ?? null,
     fornecedor_principal: item.fornecedorPrincipal ?? null,
+    site_id:              item.siteId ?? null,
     created_by:           userId,
   }
 }
@@ -470,6 +473,7 @@ function movimentacaoToRow(mov: MovimentacaoEstoque, orgId: string, userId: stri
     nf:              mov.nf ?? null,
     lead_time_dias:  mov.leadTimeDias ?? null,
     lps_activity_id: mov.lpsActivityId ?? null,
+    site_id:         mov.siteId ?? null,
     observacoes:     mov.observacoes ?? null,
     created_by:      userId,
   }
@@ -832,7 +836,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addDeposito: (deposito) => {
     const id = crypto.randomUUID()
-    const row = { ...deposito, id, ativo: deposito.ativo ?? true }
+    const row = { ...deposito, id, ativo: deposito.ativo ?? true, siteId: deposito.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     const { orgId, userId } = currentSyncContext()
     set((s) => ({
       depositos: [...s.depositos, row],
@@ -897,9 +901,9 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     let depositoRow: DepositoVirtual | null = null
     if (!depositoId || depositoId === 'dep-default') {
       depositoId = crypto.randomUUID()
-      depositoRow = { id: depositoId, frente: 'Almoxarifado Central', descricao: 'Depósito padrão criado automaticamente', ativo: true }
+      depositoRow = { id: depositoId, frente: 'Almoxarifado Central', descricao: 'Depósito padrão criado automaticamente', ativo: true, siteId: useActiveObraStore.getState().activeObraId ?? null }
     }
-    const row: ItemEstoque = { ...item, id, depositoId, unidade: item.unidade ?? '' }
+    const row: ItemEstoque = { ...item, id, depositoId, unidade: item.unidade ?? '', siteId: item.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     set((s) => ({
       depositos: depositoRow ? [...s.depositos, depositoRow] : s.depositos,
       selectedDepositoId: s.selectedDepositoId ?? depositoId,
@@ -946,7 +950,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addMovimentacao: (mov) => {
     const id = crypto.randomUUID()
-    const row = { ...mov, id }
+    const row = { ...mov, id, siteId: mov.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     const { orgId, userId } = currentSyncContext()
     set((s) => ({
       movimentacoes: [...s.movimentacoes, row],
@@ -978,6 +982,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       id: crypto.randomUUID(),
       itemId,
       depositoId: item.depositoId,
+      siteId: item.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
       tipo: 'saida',
       quantidade: qty,
       dataMovimento: new Date().toISOString().slice(0, 10),
@@ -1464,6 +1469,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           frente:    r.frente as string,
           descricao: (r.descricao as string | null) ?? undefined,
           ativo:     Boolean(r.ativo ?? true),
+          siteId:    (r.site_id as string | null) ?? null,
         })),
       })
     }
@@ -1485,6 +1491,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           lpsActivityId:       (r.lps_activity_id as string | null) ?? undefined,
           categoria:           (r.categoria as string | null) ?? undefined,
           fornecedorPrincipal: (r.fornecedor_principal as string | null) ?? undefined,
+          siteId:              (r.site_id as string | null) ?? null,
         })),
       })
     }
@@ -1506,6 +1513,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           leadTimeDias:   r.lead_time_dias == null ? undefined : Number(r.lead_time_dias),
           lpsActivityId:  (r.lps_activity_id as string | null) ?? undefined,
           observacoes:    (r.observacoes as string | null) ?? undefined,
+          siteId:         (r.site_id as string | null) ?? null,
         })),
       })
     }

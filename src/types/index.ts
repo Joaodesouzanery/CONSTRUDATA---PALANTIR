@@ -567,11 +567,13 @@ export interface DepositoVirtual {
   frente: string           // "Morro do Tetéu", "São Manoel", "Vila dos Criadores", "Escritório"
   descricao?: string
   ativo: boolean
+  siteId?: string | null   // obra (construction_sites.id) — separação por obra
 }
 
 export interface ItemEstoque {
   id: string
   depositoId: string
+  siteId?: string | null   // obra (herda do depósito) — separação por obra
   descricao: string
   unidade: string
   qtdDisponivel: number
@@ -588,6 +590,7 @@ export interface MovimentacaoEstoque {
   id: string
   itemId: string
   depositoId: string
+  siteId?: string | null   // obra — separação por obra
   tipo: 'entrada' | 'saida' | 'transferencia' | 'ajuste'
   quantidade: number
   dataMovimento: string
