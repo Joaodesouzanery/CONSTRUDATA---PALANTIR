@@ -707,3 +707,17 @@ export async function createSuprimentosOrdem(itemIds: string[]) {
   if (error) throw error
   return loadSuprimentosPlanilhas()
 }
+
+export type GerarRequisicoesResult = { created: number; updated: number; skipped: number }
+
+/**
+ * Gera/atualiza requisições (suprimentos_itens status='pend') a partir de um orçamento
+ * (quantitativos_budgets) via RPC idempotente. Re-rodar atualiza, não duplica.
+ */
+export async function gerarRequisicoesSuprimentos(budgetId: string) {
+  const { data, error } = await supabase.rpc('gerar_requisicoes_suprimentos', { p_budget_id: budgetId } as never)
+  if (error) throw error
+  const result = (data ?? { created: 0, updated: 0, skipped: 0 }) as GerarRequisicoesResult
+  const snapshot = await loadSuprimentosPlanilhas()
+  return { result, snapshot }
+}

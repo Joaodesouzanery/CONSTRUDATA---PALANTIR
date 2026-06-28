@@ -2,10 +2,11 @@
  * BomPendentePanel — Bill of Materials derived from pending segments in Medição.
  * Shows aggregated material needs, compares with stock, and allows generating requisitions.
  */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useMedicaoStore } from '@/store/medicaoStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
-import { AlertTriangle, CheckCircle2, Package } from 'lucide-react'
+import { useQuantitativosStore } from '@/store/quantitativosStore'
+import { AlertTriangle, CheckCircle2, Package, Send } from 'lucide-react'
 import type { ConsolidatedSegment } from '@/types'
 
 function fmt(n: number) { return n.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) }
@@ -84,6 +85,60 @@ function calcGlobalBom(segs: ConsolidatedSegment[]): BomLine[] {
 export function BomPendentePanel() {
   const segments = useMedicaoStore((s) => s.segments)
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
+  const savedBudgets = useQuantitativosStore((s) => s.savedBudgets)
+  const gerarRequisicoes = useSuprimentosStore((s) => s.gerarRequisicoesDoPlanejado)
+
+  const [selectedBudget, setSelectedBudget] = useState('')
+  const [reqBusy, setReqBusy] = useState(false)
+  const [reqFeedback, setReqFeedback] = useState<string | null>(null)
+
+  async function handleGerarRequisicoes() {
+    if (!selectedBudget) return
+    setReqBusy(true)
+    setReqFeedback(null)
+    try {
+      const r = await gerarRequisicoes(selectedBudget)
+      setReqFeedback(`✓ ${r.created} criadas · ${r.updated} atualizadas · ${r.skipped} ignoradas — veja em "Pendentes/Requisições".`)
+    } catch (e) {
+      setReqFeedback(`Erro: ${e instanceof Error ? e.message : 'falha ao gerar requisições'}`)
+    } finally {
+      setReqBusy(false)
+    }
+  }
+
+  const requisicoesCard = (
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p className="text-xs font-bold text-[#f5f5f5] uppercase tracking-wider">Requisições do planejado</p>
+          <p className="text-[11px] text-[#6b6b6b] max-w-md">Gera itens pendentes em Suprimentos a partir de um orçamento (Quantitativos). Re-rodar atualiza, não duplica.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedBudget}
+            onChange={(e) => setSelectedBudget(e.target.value)}
+            className="bg-[#2d2d2d] border border-[#525252] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] max-w-[220px]"
+          >
+            <option value="">Selecione um orçamento…</option>
+            {savedBudgets.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleGerarRequisicoes}
+            disabled={!selectedBudget || reqBusy}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+          >
+            <Send size={14} /> {reqBusy ? 'Gerando…' : 'Gerar requisições'}
+          </button>
+        </div>
+      </div>
+      {reqFeedback && <p className="mt-2 text-[11px] text-[#a3a3a3]">{reqFeedback}</p>}
+      {savedBudgets.length === 0 && (
+        <p className="mt-2 text-[11px] text-[#6b6b6b]">Nenhum orçamento salvo ainda — crie um no módulo <strong>Quantitativos</strong>.</p>
+      )}
+    </div>
+  )
 
   const pendentes = useMemo(() => segments.filter((s) => s.status === 'PENDENTE'), [segments])
   const bom = useMemo(() => calcGlobalBom(pendentes), [pendentes])
@@ -109,24 +164,31 @@ export function BomPendentePanel() {
 
   if (segments.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-gray-500 text-sm p-8 gap-3">
-        <Package size={40} className="text-gray-600" />
-        <p>Nenhum dado de medição encontrado.</p>
-        <p className="text-[11px]">Importe o consolidado no módulo <strong>Medição</strong> primeiro — a lista de compras será gerada automaticamente a partir dos trechos pendentes.</p>
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {requisicoesCard}
+        <div className="flex flex-col items-center justify-center text-gray-500 text-sm p-8 gap-3">
+          <Package size={40} className="text-gray-600" />
+          <p>Nenhum dado de medição encontrado.</p>
+          <p className="text-[11px]">Importe o consolidado no módulo <strong>Medição</strong> primeiro — a lista de compras será gerada automaticamente a partir dos trechos pendentes.</p>
+        </div>
       </div>
     )
   }
 
   if (pendentes.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-emerald-400 text-sm p-6">
-        <CheckCircle2 size={18} className="mr-2" /> Todos os trechos estão executados. Nenhuma compra pendente.
+      <div className="flex-1 overflow-auto p-4 space-y-4">
+        {requisicoesCard}
+        <div className="flex items-center justify-center text-emerald-400 text-sm p-6">
+          <CheckCircle2 size={18} className="mr-2" /> Todos os trechos estão executados. Nenhuma compra pendente.
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex-1 overflow-auto p-4 space-y-4">
+      {requisicoesCard}
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-3">

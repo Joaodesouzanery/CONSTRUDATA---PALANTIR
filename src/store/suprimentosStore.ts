@@ -44,6 +44,8 @@ import {
   createManualNucleo,
   createManualRua,
   createSuprimentosOrdem,
+  gerarRequisicoesSuprimentos,
+  type GerarRequisicoesResult,
   importSuprimentosPlanilhas,
   loadSuprimentosPlanilhas,
   removeManualItem,
@@ -345,6 +347,7 @@ interface SuprimentosState {
   updateManualItem:        (input: ManualItemUpdateInput) => Promise<void>
   removeManualItem:        (id: string) => Promise<void>
   createOrdemSuprimentos:  (itemIds: string[]) => Promise<void>
+  gerarRequisicoesDoPlanejado: (budgetId: string) => Promise<GerarRequisicoesResult>
   setPlanilhaMetadata:     (meta: { dataRef: string; contrato: string }) => void
   clearPlanilhas:          () => void
 
@@ -1195,6 +1198,18 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       planilhaOrdens: loaded.ordens,
       lastSyncedAt: new Date().toISOString(),
     })
+  },
+  gerarRequisicoesDoPlanejado: async (budgetId) => {
+    const { result, snapshot } = await gerarRequisicoesSuprimentos(budgetId)
+    set({
+      planilhaResumo: snapshot.resumo,
+      planilhaTrechos: snapshot.trechos,
+      planilhaMateriais: snapshot.materiais,
+      planilhaItensOperacionais: snapshot.operacional,
+      planilhaOrdens: snapshot.ordens,
+      lastSyncedAt: new Date().toISOString(),
+    })
+    return result
   },
   setPlanilhaMetadata:     (meta) => set({ planilhaMetadata: meta }),
   clearPlanilhas: () => set({
