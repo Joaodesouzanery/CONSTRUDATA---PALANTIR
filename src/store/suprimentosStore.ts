@@ -1017,10 +1017,11 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           syncError: null,
         }))
       } catch (e) {
-        // Reverte o otimista: o servidor não confirmou a baixa.
+        // Reverte por DELTA (soma a qty de volta), não por snapshot: assim, se houver
+        // outra baixa concorrente do mesmo item, o revert desfaz só esta sem clobrar a outra.
         set((s) => ({
           estoqueItens: s.estoqueItens.map((i) =>
-            i.id === itemId ? { ...i, qtdDisponivel: prevQtd } : i
+            i.id === itemId ? { ...i, qtdDisponivel: i.qtdDisponivel + qty } : i
           ),
           movimentacoes: s.movimentacoes.filter((m) => m.id !== mov.id),
           syncError: e instanceof Error ? e.message : 'Falha ao baixar estoque',

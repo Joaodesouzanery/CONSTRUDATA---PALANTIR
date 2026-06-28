@@ -1187,13 +1187,12 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Prova social ── */}
         {/* ── Realizações ── */}
         <section id="realizacoes" className="border-t border-black/10 bg-[#f4f4f2] py-20 sm:py-32">
           <SectionHeader
             index="09"
             eyebrow="Realizações"
-            title="Realizações"
+            title="Obras que já decidem com dados conectados."
             copy="Conheça nossos trabalhos realizados. Grandes obras que transformam a sociedade à sua volta são fruto de uma visão técnica completa. De orçamentos até os gerenciamentos mais complexos, garantimos minúcia no conhecimento e máxima confiabilidade em cada decisão."
           />
           <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-t border-l border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-3">

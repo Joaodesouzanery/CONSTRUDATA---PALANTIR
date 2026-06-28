@@ -335,7 +335,7 @@ export function FuncionariosPanel() {
 
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const filtered = useMemo(() => workers.filter((w) => {
-    if (activeObraId && (w.siteId ?? null) !== activeObraId) return false
+    if (activeObraId && (w.siteId || null) !== activeObraId) return false
     if (search && !w.name.toLowerCase().includes(search.toLowerCase()) && !w.registrationNumber?.toLowerCase().includes(search.toLowerCase())) return false
     if (filterRole   && w.role !== filterRole)       return false
     if (filterDept   && w.department !== filterDept) return false

@@ -399,7 +399,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   addWorker: (worker) => {
     const id = crypto.randomUUID()
-    const newWorker: Worker = { ...worker, id, siteId: worker.siteId ?? useActiveObraStore.getState().activeObraId ?? undefined }
+    // `||` (não `??`): o form manda siteId '' quando não escolhem obra — string vazia
+    // não é nullish, então com `??` o fallback p/ obra ativa não rodava e o funcionário
+    // ficava com siteId '' (some do filtro por obra). UUID nunca é falsy, então `||` é seguro.
+    const newWorker: Worker = { ...worker, id, siteId: worker.siteId || useActiveObraStore.getState().activeObraId || undefined }
     const { orgId, userId } = ctxAuth()
     set((s) => ({
       workers: [...s.workers, newWorker],
