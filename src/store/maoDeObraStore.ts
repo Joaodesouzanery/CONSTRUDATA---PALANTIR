@@ -90,6 +90,7 @@ interface MaoDeObraState {
   // Worker CRUD
   addWorker:    (worker: Omit<Worker, 'id'>) => void
   updateWorker: (id: string, updates: Partial<Omit<Worker, 'id'>>) => void
+  removeWorker: (id: string) => void
 
   // Crew CRUD
   addCrew:    (crew: Omit<LaborCrew, 'id'>) => void
@@ -173,7 +174,7 @@ function workerToRow(w: Worker, orgId: string, userId: string) {
     name:            w.name,
     role:            w.role ?? null,
     status:          w.status ?? 'active',
-    crew_id:         w.crewId ?? null,
+    crew_id:         w.crewId || null,
     payload:         w as unknown as Record<string, unknown>,
     created_by:      userId,
   }
@@ -191,7 +192,7 @@ function timecardToRow(t: TimecardEntry, orgId: string, userId: string) {
   return {
     id:              t.id,
     organization_id: orgId,
-    worker_id:       t.workerId ?? null,
+    worker_id:       t.workerId || null,
     date:            t.date,
     hours_worked:    t.hoursWorked ?? null,
     payload:         t as unknown as Record<string, unknown>,
@@ -202,7 +203,7 @@ function shiftToRow(sh: Shift, orgId: string, userId: string) {
   return {
     id:              sh.id,
     organization_id: orgId,
-    worker_id:       sh.workerId ?? null,
+    worker_id:       sh.workerId || null,
     date:            sh.date,
     type:            sh.type ?? null,
     status:          sh.status ?? 'scheduled',
@@ -214,7 +215,7 @@ function absenceToRow(a: WorkerAbsence, orgId: string, userId: string) {
   return {
     id:              a.id,
     organization_id: orgId,
-    worker_id:       a.workerId ?? null,
+    worker_id:       a.workerId || null,
     date:            a.date,
     type:            a.type ?? null,
     status:          a.status ?? 'open',
@@ -226,7 +227,7 @@ function assessmentToRow(a: WorkerAssessment, orgId: string, userId: string) {
   return {
     id:              a.id,
     organization_id: orgId,
-    worker_id:       a.workerId ?? null,
+    worker_id:       a.workerId || null,
     payload:         a as unknown as Record<string, unknown>,
     created_by:      userId,
   }
@@ -421,6 +422,13 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'update', recordId: id, patch, table: 'workers' })] }))
       void get().flush()
     }
+  },
+
+  removeWorker: (id) => {
+    // Soft-delete (DELETE bloqueado por RLS): marca deleted_at; o pull filtra deleted_at IS NULL.
+    set((s) => ({ workers: s.workers.filter((w) => w.id !== id) }))
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'workers' })] }))
+    void get().flush()
   },
 
   // ── Crew CRUD ───────────────────────────────────────────────────────────────

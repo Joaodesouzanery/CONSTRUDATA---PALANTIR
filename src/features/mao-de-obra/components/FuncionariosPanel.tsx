@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Plus, Download, Search, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
-import { useProjetosStore } from '@/store/projetosStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
@@ -105,15 +105,15 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
             <input className={fieldClass} value={form.workFront ?? ''} onChange={(e) => set('workFront', e.target.value)} />
           </div>
           <div>
-            <label className={labelClass}>Local — Obra</label>
+            <label className={labelClass}>Local / Obra (da Torre de Controle)</label>
             <select className={fieldClass} value={form.siteId ?? ''} onChange={(e) => set('siteId', e.target.value)}>
               <option value="">— Selecione a obra —</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.code ? `${p.code} — ` : ''}{p.name}</option>)}
             </select>
           </div>
           <div>
-            <label className={labelClass}>Local — complemento (opcional)</label>
-            <input className={fieldClass} value={form.locationNote ?? ''} onChange={(e) => set('locationNote', e.target.value)} placeholder="Ex.: Bloco B, 3º pavimento" />
+            <label className={labelClass}>Local (texto livre)</label>
+            <input className={fieldClass} value={form.locationNote ?? ''} onChange={(e) => set('locationNote', e.target.value)} placeholder="Se não for uma obra cadastrada, escreva o local aqui" />
           </div>
           <div>
             <label className={labelClass}>E-mail</label>
@@ -187,8 +187,8 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
 
 function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; name: string }[] }) {
   const crewName = crews.find((c) => c.id === worker.crewId)?.name ?? '—'
-  const projects = useProjetosStore((s) => s.projects)
-  const obraName = worker.siteId ? (projects.find((p) => p.id === worker.siteId)?.name ?? '—') : '—'
+  const sites = useTorreStore((s) => s.sites)
+  const obraName = worker.siteId ? (sites.find((s) => s.id === worker.siteId)?.name ?? '—') : '—'
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 bg-[#333333] border-t border-[#525252] text-xs">
       <div>
@@ -258,12 +258,13 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
 
 // ─── Worker table row ─────────────────────────────────────────────────────────
 
-function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit }: {
+function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }: {
   worker: Worker
   crews: { id: string; name: string }[]
   expandedId: string | null
   onToggle: (id: string | null) => void
   onEdit: (w: Worker) => void
+  onDelete: (w: Worker) => void
 }) {
   const isExpanded = expandedId === w.id
   const sc = STATUS_COLOR[w.status]
@@ -297,6 +298,12 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit }: {
             >
               Editar
             </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(w) }}
+              className="text-[#6b6b6b] hover:text-[#ef4444] text-[10px] font-semibold"
+            >
+              Excluir
+            </button>
             {isExpanded ? <ChevronUp size={12} className="text-[#6b6b6b]" /> : <ChevronDown size={12} className="text-[#6b6b6b]" />}
           </div>
         </td>
@@ -315,10 +322,10 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit }: {
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function FuncionariosPanel() {
-  const { workers, crews, addWorker, updateWorker } = useMaoDeObraStore(
-    useShallow((s) => ({ workers: s.workers, crews: s.crews, addWorker: s.addWorker, updateWorker: s.updateWorker }))
+  const { workers, crews, addWorker, updateWorker, removeWorker } = useMaoDeObraStore(
+    useShallow((s) => ({ workers: s.workers, crews: s.crews, addWorker: s.addWorker, updateWorker: s.updateWorker, removeWorker: s.removeWorker }))
   )
-  const projects = useProjetosStore((s) => s.projects)
+  const sites = useTorreStore((s) => s.sites)
 
   const [search,      setSearch]      = useState('')
   const [filterRole,  setFilterRole]  = useState('')
@@ -377,6 +384,13 @@ export function FuncionariosPanel() {
   function handleEdit(worker: Worker) {
     setEditingWorker(worker)
     setShowForm(true)
+  }
+
+  function handleDelete(worker: Worker) {
+    if (window.confirm(`Excluir o funcionário ${worker.name}? Esta ação não pode ser desfeita.`)) {
+      removeWorker(worker.id)
+      if (expandedId === worker.id) setExpandedId(null)
+    }
   }
 
   function exportCSV() {
@@ -478,13 +492,13 @@ export function FuncionariosPanel() {
                       </td>
                     </tr>
                     {group.workers.map((w) => (
-                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} />
+                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} />
                     ))}
                   </>
                 ))
               ) : (
                 filtered.map((w) => (
-                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} />
+                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} />
                 ))
               )}
               {filtered.length === 0 && (
@@ -501,7 +515,7 @@ export function FuncionariosPanel() {
         <WorkerFormModal
           initial={editingWorker ?? undefined}
           crews={crews}
-          projects={projects}
+          projects={sites}
           onSave={handleSave}
           onClose={() => { setShowForm(false); setEditingWorker(null) }}
         />

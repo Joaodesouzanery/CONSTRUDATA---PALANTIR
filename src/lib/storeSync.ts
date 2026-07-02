@@ -88,12 +88,29 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
 
   const activeOrgId = profile.organization_id
 
-  // Recupera ops enfileiradas antes do perfil carregar: o row pode ter sido
-  // carimbado com organization_id 'pending'. Reescreve para a org ativa no flush.
-  const fixOrg = (row: Record<string, unknown>) =>
-    row.organization_id === 'pending' || row.organization_id == null
-      ? { ...row, organization_id: activeOrgId }
-      : row
+  // Coage colunas terminadas em `_id` com string vazia para null: '' nunca é um uuid
+  // válido e o Postgres rejeitaria o insert/update ("invalid input syntax for type uuid"),
+  // deixando a op presa em pendingSync. Defesa geral (ex.: funcionário sem equipe → crew_id '').
+  const sanitizeIds = (obj: Record<string, unknown>) => {
+    let out = obj
+    for (const k of Object.keys(obj)) {
+      if (k.endsWith('_id') && obj[k] === '') {
+        if (out === obj) out = { ...obj }
+        out[k] = null
+      }
+    }
+    return out
+  }
+
+  // Recupera ops enfileiradas antes do perfil carregar (organization_id 'pending')
+  // e sanitiza colunas *_id vazias.
+  const fixOrg = (row: Record<string, unknown>) => {
+    const orgFixed =
+      row.organization_id === 'pending' || row.organization_id == null
+        ? { ...row, organization_id: activeOrgId }
+        : row
+    return sanitizeIds(orgFixed)
+  }
 
   const markOk = (op: PendingOp) => result.completed.push(op.id)
   const markErr = (op: PendingOp, err: unknown) => {
@@ -119,7 +136,7 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
         ? await supabase.rpc(softDeleteRpc, { p_id: op.recordId })
         : await supabase
           .from(op.table)
-          .update(op.patch as never)
+          .update(sanitizeIds(op.patch) as never)
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
           .select('id')
