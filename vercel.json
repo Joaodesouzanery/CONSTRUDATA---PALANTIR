@@ -10,7 +10,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|api/).*)",
+      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|favicon).*)",
       "destination": "/"
     }
   ],
@@ -29,15 +29,20 @@
       ]
     },
     {
-      "source": "/((?!assets/|api/).*)",
+      "source": "/(obras|logos|screenshots)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800, stale-while-revalidate=86400"
+        }
+      ]
+    },
+    {
+      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|favicon).*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-store, max-age=0, must-revalidate"
-        },
-        {
-          "key": "Clear-Site-Data",
-          "value": "\"cache\""
         }
       ]
     },

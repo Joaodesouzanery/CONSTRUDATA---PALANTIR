@@ -13,6 +13,9 @@
     <meta property="og:type" content="website" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Preload da imagem do hero: baixa durante o parse do HTML (antes do bundle JS),
+         eliminando o flash preto na abertura da landing. -->
+    <link rel="preload" as="image" href="/obras/hero-slide-1.webp" fetchpriority="high" />
     <title>ConstruData</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

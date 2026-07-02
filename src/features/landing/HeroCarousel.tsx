@@ -9,7 +9,7 @@
  * (hero-slide-1.webp — fundo do slide principal, em LandingPage.tsx —, e
  * hero-slide-2.webp / hero-slide-3.webp) — sem tocar em código.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const M_FONT = "font-['IBM_Plex_Mono']"
@@ -30,38 +30,23 @@ const PHOTO_SLIDES: Array<{ src: string; eyebrow: string; title: string }> = [
 ]
 
 const SLIDE_COUNT = 3
-const AUTOPLAY_MS = 7000
 
 export function HeroCarousel({ children }: { children: ReactNode }) {
+  // Hero estático: sem auto-avanço. Navegação só manual (setas, bolinhas, swipe).
   const [idx, setIdx] = useState(0)
-  const [paused, setPaused] = useState(false)
   const touchX = useRef<number | null>(null)
 
   const next = useCallback(() => setIdx((i) => (i + 1) % SLIDE_COUNT), [])
   const prev = useCallback(() => setIdx((i) => (i - 1 + SLIDE_COUNT) % SLIDE_COUNT), [])
-
-  useEffect(() => {
-    if (paused) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const t = setInterval(() => {
-      if (!document.hidden) next()
-    }, AUTOPLAY_MS)
-    return () => clearInterval(t)
-  }, [paused, next])
 
   return (
     <section
       role="region"
       aria-roledescription="carousel"
       aria-label="Destaques do ConstruData"
-      className="relative overflow-hidden bg-[#0d0d0d]"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-      onTouchStart={(e) => { setPaused(true); touchX.current = e.touches[0].clientX }}
+      className="relative overflow-hidden bg-[linear-gradient(135deg,#1a1512,#0d0d0d)]"
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX }}
       onTouchEnd={(e) => {
-        setPaused(false)
         if (touchX.current === null) return
         const delta = e.changedTouches[0].clientX - touchX.current
         if (delta < -50) next()
@@ -104,7 +89,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                 width={1408}
                 height={768}
                 loading="eager"
-                fetchPriority="low"
+                fetchPriority="high"
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
               />

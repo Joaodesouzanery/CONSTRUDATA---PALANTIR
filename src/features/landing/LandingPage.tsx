@@ -919,7 +919,7 @@ export function LandingPage() {
       <main>
         {/* ── Hero em carrossel: slide principal + 2 slides com foto de obra ── */}
         <HeroCarousel>
-          <div className="relative flex min-h-[78vh] flex-col overflow-hidden bg-[#0d0d0d] pt-24 sm:pt-28">
+          <div className="relative flex min-h-[78vh] flex-col overflow-hidden bg-[linear-gradient(135deg,#1a1512,#0d0d0d)] pt-24 sm:pt-28">
             {/* Foto de fundo da slide 1 — trocar o arquivo em public/obras/hero-slide-1.webp (sem mexer no código) */}
             <img
               src="/obras/hero-slide-1.webp"
