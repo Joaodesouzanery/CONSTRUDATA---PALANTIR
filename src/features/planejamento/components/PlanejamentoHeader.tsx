@@ -11,6 +11,7 @@ import { TRECHO_IMPORT_CONFIG } from '@/lib/importConfigs'
 
 const TABS: { key: PlanejamentoTab; label: string }[] = [
   { key: 'config',     label: 'Configuração'       },
+  { key: 'execucao',   label: 'Execução'            },
   { key: 'trechos',    label: 'Trechos'             },
   { key: 'gantt',      label: 'Cronograma'          },
   { key: 'scurve',     label: 'Curva S'             },

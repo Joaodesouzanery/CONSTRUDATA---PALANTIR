@@ -1206,6 +1206,45 @@ export interface PlanningAuditEntry {
   payload?: Record<string, unknown>
 }
 
+// ─── Planejamento de Execução (modo Compizzo: plano por obra/período) ──────────
+export interface PlanoExecucaoDia {
+  data: string            // yyyy-MM-dd
+  atividade: string
+}
+export interface PlanoExecucaoMembro {
+  id: string
+  workerId?: string | null   // vínculo opcional a Mão de Obra (Fase 2)
+  nome: string
+  funcao: string
+}
+export interface PlanoExecucaoBonificacao {
+  id: string
+  workerId?: string | null
+  nome: string
+  rPorM2: number             // R$/m² (valor = rPorM2 × areaM2, calculado nos utils)
+}
+export type PlanoExecucaoStatus = 'rascunho' | 'ativo' | 'concluido'
+export interface PlanoExecucao {
+  id: string
+  siteId?: string | null     // obra (construction_sites.id); null = todas as obras
+  obraNome: string
+  periodoInicio: string      // yyyy-MM-dd (META início)
+  periodoFim: string         // yyyy-MM-dd (META fim)
+  areaM2: number
+  servico: string
+  precoM2: number
+  precoConfirmado: boolean
+  faturamentoOverride?: number | null   // null = usa areaM2 × precoM2
+  status: PlanoExecucaoStatus
+  cronograma: PlanoExecucaoDia[]
+  equipe: PlanoExecucaoMembro[]
+  bonificacao: PlanoExecucaoBonificacao[]
+  condicoes: string          // texto editável (defaults do PDF)
+  observacoes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PlanTrecho {
   siteId?: string | null   // obra vinculada (construction_sites.id); null = todas as obras
   id: string

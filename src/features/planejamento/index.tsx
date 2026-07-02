@@ -7,6 +7,7 @@ import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { PlanejamentoHeader } from './components/PlanejamentoHeader'
 import { ConfigPanel }      from './components/ConfigPanel'
+import { ExecucaoPanel }    from './components/ExecucaoPanel'
 import { TrechosPanel }     from './components/TrechosPanel'
 import { GanttPanel }       from './components/GanttPanel'
 import { SCurvePanel }      from './components/SCurvePanel'
@@ -30,6 +31,7 @@ export function PlanejamentoPage() {
   function renderPanel() {
     switch (activeTab) {
       case 'config':    return <ConfigPanel />
+      case 'execucao':  return <ExecucaoPanel />
       case 'trechos':   return <TrechosPanel />
       case 'gantt':     return <GanttPanel />
       case 'scurve':    return <SCurvePanel />

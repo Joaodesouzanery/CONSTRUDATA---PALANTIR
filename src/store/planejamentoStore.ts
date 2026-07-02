@@ -52,6 +52,7 @@ import {
 
 export type PlanejamentoTab =
   | 'config'
+  | 'execucao'
   | 'trechos'
   | 'gantt'
   | 'scurve'
