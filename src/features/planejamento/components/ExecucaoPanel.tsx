@@ -5,17 +5,21 @@
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
 import { useMemo } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useRdoStore } from '@/store/rdoStore'
+import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { PlanoExecucao } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
+  alertasDoPlano, faltasNoPeriodo,
 } from '../utils/planoExecucao'
 import { printPlanoExecucaoPdf } from '../utils/planoExecucaoPdf'
 
@@ -110,6 +114,46 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const total = bonificacaoTotal(plano)
   const dias = diasCorridos(plano)
 
+  // ── Fase 2/3: integrações ──
+  const workers = useMaoDeObraStore((s) => s.workers)
+  const absences = useMaoDeObraStore((s) => s.absences)
+  const rdos = useRdoStore((s) => s.rdos)
+  const addEntry = useFinanceiroStore((s) => s.addEntry)
+  const hoje = new Date().toISOString().slice(0, 10)
+  const alertas = alertasDoPlano(plano, absences, hoje)
+  const faltas = faltasNoPeriodo(plano, absences)
+  const obraWorkers = useMemo(
+    () => workers.filter((w) => (w.siteId || null) === (plano.siteId || null) && w.status === 'active'),
+    [workers, plano.siteId],
+  )
+  const temRdo = (data: string) =>
+    rdos.some((r) => (r as { template?: string }).template === 'compizzo'
+      && (((r as { siteId?: string | null }).siteId) || null) === (plano.siteId || null)
+      && (r as { date?: string }).date === data)
+
+  function enviarFinanceiro() {
+    if (plano.financeiroEnviadoEm && !confirm('Este plano já foi enviado ao Financeiro. Enviar novamente pode duplicar os lançamentos. Continuar?')) return
+    const now = new Date().toISOString()
+    const ref = `Plano Execução ${id.slice(0, 8)}`
+    const dataRef = plano.periodoFim || hoje
+    addEntry({ id: crypto.randomUUID(), tipo: 'entrada', descricao: `Faturamento — ${plano.servico} (${plano.areaM2} m²)`, valor: fat, data: dataRef, categoria: 'medicao', referencia: ref, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: now })
+    if (total > 0) addEntry({ id: crypto.randomUUID(), tipo: 'saida', descricao: `Bonificação — ${plano.servico}`, valor: total, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Bônus distribuído entre ${plano.bonificacao.length} colaborador(es)`, createdAt: now })
+    set({ financeiroEnviadoEm: now })
+    alert('Lançado no Financeiro: faturamento (entrada) e bonificação (saída) desta obra.')
+  }
+
+  const addFromWorker = (kind: 'equipe' | 'bonif', workerId: string) => {
+    const w = obraWorkers.find((x) => x.id === workerId)
+    if (!w) return
+    if (kind === 'equipe') {
+      if (plano.equipe.some((m) => m.workerId === w.id)) return
+      set({ equipe: [...plano.equipe, { id: crypto.randomUUID(), workerId: w.id, nome: w.name, funcao: w.role || 'Execução' }] })
+    } else {
+      if (plano.bonificacao.some((b) => b.workerId === w.id)) return
+      set({ bonificacao: [...plano.bonificacao, { id: crypto.randomUUID(), workerId: w.id, nome: w.name, rPorM2: 0 }] })
+    }
+  }
+
   function gerarDias() {
     const cronograma = eachDay(plano.periodoInicio, plano.periodoFim).map((data) => {
       const ex = plano.cronograma.find((c) => c.data === data)
@@ -135,6 +179,9 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
               <button onClick={() => duplicate(id)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
                 <Copy size={14} /> Duplicar
               </button>
+              <button onClick={enviarFinanceiro} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                {plano.financeiroEnviadoEm ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Send size={14} />} {plano.financeiroEnviadoEm ? 'Financeiro enviado' : 'Enviar p/ Financeiro'}
+              </button>
               <button onClick={() => { if (confirm('Excluir este plano de execução?')) { remove(id); onBack() } }}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-red-900/40 hover:bg-red-900/70 text-red-300">
                 <Trash2 size={14} /> Excluir
@@ -145,6 +192,16 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
       </div>
 
       {ro && <div className="mb-4 text-xs text-[#9a9a9a] bg-[#3d3d3d] border border-[#525252] rounded px-3 py-2">Modo visualização — seu perfil não pode editar planos.</div>}
+
+      {alertas.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {alertas.map((a, i) => (
+            <span key={i} className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded ${a.severidade === 'vermelho' ? 'bg-red-900/40 text-red-300' : 'bg-amber-900/40 text-amber-300'}`}>
+              <AlertTriangle size={12} /> {a.msg}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 1. Cabeçalho */}
       <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
@@ -212,7 +269,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                           ? <input type="date" className="bg-[#2d2d2d] border border-[#525252] rounded px-1.5 py-1 text-xs text-[#f5f5f5] outline-none" defaultValue={d.data} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], data: e.target.value }; set({ cronograma: cr }) }} />
                           : fmtDataCurta(d.data)}
                       </td>
-                      <td className="text-xs font-semibold">{dayOfWeekLabel(d.data)}</td>
+                      <td className="text-xs font-semibold">{dayOfWeekLabel(d.data)}{temRdo(d.data) && <span title="Há RDO Compizzo neste dia (executado)" className="ml-1 text-emerald-400 text-[9px]">•RDO</span>}</td>
                       <td>
                         {canEdit
                           ? <input className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] w-full" defaultValue={d.atividade} key={`${id}-atv-${i}`} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], atividade: e.target.value }; set({ cronograma: cr }) }} placeholder={wknd ? (dayOfWeekLabel(d.data) === 'DOM' ? 'DOMINGO' : 'SÁBADO') : 'Atividade do dia'} />
@@ -233,10 +290,19 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
         <div className={bar}>Equipe executora</div>
         <div className="p-4">
           {canEdit && (
-            <button onClick={() => set({ equipe: [...plano.equipe, { id: crypto.randomUUID(), nome: '', funcao: 'Execução' }] })}
-              className="flex items-center gap-2 px-3 py-1.5 mb-3 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
-              <Plus size={14} /> Adicionar funcionário
-            </button>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button onClick={() => set({ equipe: [...plano.equipe, { id: crypto.randomUUID(), nome: '', funcao: 'Execução' }] })}
+                className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                <Plus size={14} /> Adicionar funcionário
+              </button>
+              {obraWorkers.length > 0 && (
+                <select value="" onChange={(e) => { if (e.target.value) addFromWorker('equipe', e.target.value) }}
+                  className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1.5 text-xs text-[#f5f5f5] outline-none">
+                  <option value="">+ da Mão de Obra…</option>
+                  {obraWorkers.map((w) => <option key={w.id} value={w.id}>{w.name}{w.role ? ` — ${w.role}` : ''}</option>)}
+                </select>
+              )}
+            </div>
           )}
           {plano.equipe.length === 0 ? <p className="text-xs text-[#9a9a9a]">Sem funcionários.</p> : (
             <table className="w-full text-sm">
@@ -261,10 +327,19 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
         <div className="p-4">
           <p className="text-xs text-[#9a9a9a] mb-3">Área base: <strong className="text-[#e5e5e5]">{plano.areaM2.toLocaleString('pt-BR')} m²</strong></p>
           {canEdit && (
-            <button onClick={() => set({ bonificacao: [...plano.bonificacao, { id: crypto.randomUUID(), nome: '', rPorM2: 0 }] })}
-              className="flex items-center gap-2 px-3 py-1.5 mb-3 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
-              <Plus size={14} /> Adicionar colaborador
-            </button>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button onClick={() => set({ bonificacao: [...plano.bonificacao, { id: crypto.randomUUID(), nome: '', rPorM2: 0 }] })}
+                className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                <Plus size={14} /> Adicionar colaborador
+              </button>
+              {obraWorkers.length > 0 && (
+                <select value="" onChange={(e) => { if (e.target.value) addFromWorker('bonif', e.target.value) }}
+                  className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1.5 text-xs text-[#f5f5f5] outline-none">
+                  <option value="">+ da Mão de Obra…</option>
+                  {obraWorkers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              )}
+            </div>
           )}
           {plano.bonificacao.length === 0 ? <p className="text-xs text-[#9a9a9a]">Sem colaboradores na bonificação.</p> : (
             <table className="w-full text-sm">
@@ -285,6 +360,9 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             </table>
           )}
           <div className="mt-3 text-sm text-[#9a9a9a]">Bônus diário = {fmtBRL(total)} ÷ {dias} dias corridos = <strong className="text-[#e5e5e5]">{fmtBRL(bonusDiario(plano))}</strong> / dia</div>
+          {faltas.length > 0 && (
+            <div className="mt-2 text-xs text-amber-300 flex items-center gap-1.5"><AlertTriangle size={12} /> {faltas.length} falta(s) da equipe no período — nos dias com falta, o bônus diário é redistribuído entre os presentes.</div>
+          )}
         </div>
       </section>
 

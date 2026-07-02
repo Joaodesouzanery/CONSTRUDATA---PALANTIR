@@ -3,7 +3,7 @@
  * Regras espelham os PDFs do cliente: faturamento = área × preço/m²;
  * bonificação por colaborador = R$/m² × área; bônus diário = total ÷ dias corridos.
  */
-import type { PlanoExecucao } from '@/types'
+import type { PlanoExecucao, WorkerAbsence } from '@/types'
 
 export const WEEKDAY_SHORT = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -73,4 +73,54 @@ export function fmtDataCurta(iso: string): string {
 export function fmtDataLonga(iso: string): string {
   const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/)
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
+// ── Fase 2: faltas → redistribuição do bônus ──────────────────────────────────
+/** Faltas (não cobertas) da equipe do plano dentro do período. */
+export function faltasNoPeriodo(
+  p: Pick<PlanoExecucao, 'periodoInicio' | 'periodoFim' | 'equipe'>,
+  absences: WorkerAbsence[],
+): WorkerAbsence[] {
+  const ids = new Set(p.equipe.map((m) => m.workerId).filter(Boolean) as string[])
+  return absences.filter(
+    (a) =>
+      a.status !== 'covered' &&
+      a.date >= p.periodoInicio &&
+      a.date <= p.periodoFim &&
+      (ids.size === 0 || ids.has(a.workerId)),
+  )
+}
+
+/** Bônus diário redistribuído entre os presentes num dia (total do dia ÷ presentes). */
+export function bonusDiarioPorPresente(
+  p: Pick<PlanoExecucao, 'bonificacao' | 'areaM2' | 'periodoInicio' | 'periodoFim' | 'equipe'>,
+  presentes: number,
+): number {
+  const base = p.equipe.length > 0 ? p.equipe.length : Math.max(1, p.bonificacao.length)
+  const pres = presentes > 0 ? presentes : base
+  return bonusDiario(p) / pres
+}
+
+// ── Fase 3: alertas do plano ──────────────────────────────────────────────────
+export type PlanoAlertaSeveridade = 'vermelho' | 'amarelo'
+export interface PlanoAlerta { severidade: PlanoAlertaSeveridade; msg: string }
+
+export function alertasDoPlano(
+  p: PlanoExecucao,
+  absences: WorkerAbsence[],
+  hojeIso: string,
+): PlanoAlerta[] {
+  const out: PlanoAlerta[] = []
+  if (!p.precoConfirmado) out.push({ severidade: 'amarelo', msg: 'Preço do m² não confirmado' })
+  if (p.status !== 'concluido' && p.periodoFim && hojeIso > p.periodoFim) {
+    out.push({ severidade: 'vermelho', msg: 'Período de execução vencido' })
+  }
+  const faltas = faltasNoPeriodo(p, absences)
+  if (faltas.length > 0) {
+    out.push({ severidade: 'amarelo', msg: `${faltas.length} falta(s) no período — bônus redistribuído aos presentes` })
+  }
+  if (p.status === 'ativo' && p.bonificacao.length === 0) {
+    out.push({ severidade: 'amarelo', msg: 'Plano ativo sem bonificação configurada' })
+  }
+  return out
 }

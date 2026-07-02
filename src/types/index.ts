@@ -1241,6 +1241,7 @@ export interface PlanoExecucao {
   bonificacao: PlanoExecucaoBonificacao[]
   condicoes: string          // texto editável (defaults do PDF)
   observacoes?: string
+  financeiroEnviadoEm?: string | null   // Fase 2: quando lançado no Financeiro (anti-duplicação)
   createdAt: string
   updatedAt: string
 }
