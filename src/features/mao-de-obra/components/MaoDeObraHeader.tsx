@@ -13,6 +13,7 @@ export type { MaoDeObraTab } from '@/store/maoDeObraStore'
 
 const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'dashboard',     label: 'Dashboard'             },
+  { id: 'produtividade', label: 'Produtividade'          },
   { id: 'funcionarios',  label: 'Funcionários'           },
   { id: 'escala',        label: 'Escala'                 },
   { id: 'postos',        label: 'Postos'                 },

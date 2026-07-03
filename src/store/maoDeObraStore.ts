@@ -53,6 +53,7 @@ export interface AccessCheckResult {
 
 export type MaoDeObraTab =
   | 'dashboard'
+  | 'produtividade'
   | 'funcionarios'
   | 'escala'
   | 'postos'

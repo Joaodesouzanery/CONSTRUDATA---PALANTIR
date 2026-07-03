@@ -5,6 +5,7 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { MaoDeObraHeader }       from './components/MaoDeObraHeader'
 import type { MaoDeObraTab }     from './components/MaoDeObraHeader'
 import { DashboardPanel }        from './components/DashboardPanel'
+import { ProdutividadePanel }    from './components/ProdutividadePanel'
 import { ApontamentosPanel }     from './components/ApontamentosPanel'
 import { EscalamentoPanel }      from './components/EscalamentoPanel'
 import { SegurancaPanel }        from './components/SegurancaPanel'
@@ -75,6 +76,7 @@ export function MaoDeObraPage() {
   function renderPanel() {
     switch (activeTab) {
       case 'dashboard':     return <DashboardPanel />
+      case 'produtividade': return <ProdutividadePanel onNavigate={setActiveTab} />
       case 'funcionarios':  return <FuncionariosPanel />
       case 'escala':        return <EscalaInteligentePanel />
       case 'postos':        return <PostosPanel />
