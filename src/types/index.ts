@@ -913,6 +913,7 @@ export interface CLTSettings {
   nightEnd: number           // hour, default 5
   nightDifferential: number  // %, default 20
   overtimeRate: number       // %, default 50
+  rupTargetM2PerHH?: number  // meta TCPO de RUP (homem-hora/m²), default 0.45
 }
 
 export interface CMORoleItem {
@@ -1223,6 +1224,23 @@ export interface PlanoExecucaoBonificacao {
   nome: string
   rPorM2: number             // R$/m² (valor = rPorM2 × areaM2, calculado nos utils)
 }
+/** Base do rendimento de uma atividade: "por pessoa/dia" ou "total da equipe/dia". */
+export type PlanoRendimentoBase = 'pessoa' | 'equipe'
+/**
+ * Atividade produtiva do plano (ex.: Lixamento, Primer, Polimento, Pintura, Demarcação).
+ * Custo por "diária por pessoa": custoEstimado = pessoa-dias × custoDiaPessoa.
+ * pessoa-dias derivado de rendimento + pessoas (ver utils/planoExecucao.ts).
+ */
+export interface PlanoAtividade {
+  id: string
+  nome: string
+  areaM2: number             // default = plano.areaM2 (por atividade pode diferir)
+  rendimento: number         // m²/dia (interpretado conforme rendimentoBase)
+  rendimentoBase: PlanoRendimentoBase   // 'pessoa' = m²/pessoa/dia | 'equipe' = m²/equipe/dia
+  pessoas: number            // headcount alocado nesta atividade
+  custoDiaPessoa: number     // R$/dia por pessoa (diária)
+  ordem?: number
+}
 export type PlanoExecucaoStatus = 'rascunho' | 'ativo' | 'concluido'
 export interface PlanoExecucao {
   id: string
@@ -1242,6 +1260,10 @@ export interface PlanoExecucao {
   condicoes: string          // texto editável (defaults do PDF)
   observacoes?: string
   financeiroEnviadoEm?: string | null   // Fase 2: quando lançado no Financeiro (anti-duplicação)
+  // ── Fase 4: Produtividade & Custo (tudo em payload jsonb — sem migração) ──
+  atividades?: PlanoAtividade[]          // undefined em planos legados
+  horasDia?: number                      // jornada diária (default 8) — base do RUP
+  custoDiaPessoaPadrao?: number          // diária padrão herdada por novas atividades
   createdAt: string
   updatedAt: string
 }
@@ -1628,6 +1650,7 @@ export interface RdoCompizzoData {
   servicosExtra?:        RdoCompizzoServicoExtra[]
   descricaoServicos:     string
   producao:              RdoCompizzoProducaoRow[]
+  horasTrabalhadas?:     number   // HH total do dia (nº colab × jornada) p/ RUP real = HH ÷ m²
   materiais:             RdoCompizzoMaterialRow[]
   ocorrencias:           RdoCompizzoOcorrencias
   observacoes:           string

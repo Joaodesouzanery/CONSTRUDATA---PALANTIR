@@ -13,6 +13,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useStoreSync } from '@/lib/useStoreSync'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type {
@@ -131,6 +132,7 @@ export function RdoCompizzoPanel() {
   const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
   const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(c0?.producao ?? DEFAULT_PRODUCAO)
+  const [horasTrabalhadas, setHorasTrabalhadas] = useState<string>(c0?.horasTrabalhadas != null ? String(c0.horasTrabalhadas) : '')
   const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
   const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>(editing?.equipment.map(stripEquipId) ?? [])
   const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(c0?.ocorrencias ?? emptyOcorrencias())
@@ -157,7 +159,9 @@ export function RdoCompizzoPanel() {
     return {
       obra, diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
-      descricaoServicos: descricao, producao, materiais, ocorrencias,
+      descricaoServicos: descricao, producao,
+      horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
+      materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
     }
@@ -404,6 +408,27 @@ export function RdoCompizzoPanel() {
             onChange={setProducao}
             makeEmpty={() => ({ servico: '', quantidade: '' })}
           />
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+            <div>
+              <label className={labelCls}>Horas trabalhadas (HH do dia) — usado na produtividade (RUP = HH ÷ m²)</label>
+              <input
+                className={inputCls}
+                value={horasTrabalhadas}
+                onChange={(e) => setHorasTrabalhadas(e.target.value)}
+                placeholder={totalColab > 0 ? `${totalColab} colab × 8h = ${totalColab * 8}` : 'ex.: 40'}
+                inputMode="decimal"
+              />
+            </div>
+            {totalColab > 0 && (
+              <button
+                type="button"
+                onClick={() => setHorasTrabalhadas(String(totalColab * 8))}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#1f6fd1]/50 transition-colors"
+              >
+                <Users size={13} /> {totalColab} colab × 8h
+              </button>
+            )}
+          </div>
         </Section>
 
         {/* Materiais */}

@@ -7,6 +7,9 @@ import type { PlanoExecucao } from '@/types'
 import {
   bonificacaoTotal, bonificacaoValor, bonusDiario, diasCorridos, dayOfWeekLabel,
   faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
+  ritmoDiarioMeta, producaoDiariaAtividade, diasNecessariosAtividade,
+  pessoaDiasAtividade, custoEstimadoAtividade, rupPlanejadoAtividade,
+  custoTotalEstimado, TCPO_RUP_PADRAO,
 } from './planoExecucao'
 
 const esc = (s: unknown) =>
@@ -40,6 +43,21 @@ export function printPlanoExecucaoPdf(p: PlanoExecucao) {
 
   const condicoesHtml = (p.condicoes || '').split('\n').filter((l) => l.trim())
     .map((l) => `<p>${esc(l)}</p>`).join('')
+
+  const horasDia = p.horasDia ?? 8
+  const atvs = p.atividades ?? []
+  const atvRows = atvs.map((a) => {
+    const rup = rupPlanejadoAtividade(a, horasDia)
+    return `<tr><td>${esc(a.nome)}</td><td class="r">${esc(a.areaM2.toLocaleString('pt-BR'))}</td><td class="r">${esc(a.rendimento)} ${a.rendimentoBase === 'pessoa' ? '/pes' : '/eq'}</td><td class="r">${esc(a.pessoas)}</td><td class="r">${esc(producaoDiariaAtividade(a).toFixed(1))}</td><td class="r">${esc(diasNecessariosAtividade(a))}</td><td class="r">${esc(pessoaDiasAtividade(a))}</td><td class="r">${esc(fmtBRL(custoEstimadoAtividade(a)))}</td><td class="r">${rup > 0 ? esc(rup.toFixed(3)) : '—'}</td></tr>`
+  }).join('')
+  const custoTot = custoTotalEstimado(p)
+  const atividadesHtml = atvs.length ? `
+  <div class="bar">ATIVIDADES — PRODUTIVIDADE &amp; CUSTO</div>
+  <div class="subline">Ritmo/dia meta: <b>${esc(p.areaM2.toLocaleString('pt-BR'))} m² ÷ ${dias} dias = ${esc(ritmoDiarioMeta(p).toFixed(1))} m²/dia</b> | Custo total estimado: <b>${esc(fmtBRL(custoTot))}</b> | RUP meta ≤ ${TCPO_RUP_PADRAO} HH/m²</div>
+  <table class="data"><thead><tr><th>ATIVIDADE</th><th>ÁREA m²</th><th>REND.</th><th>PES.</th><th>PROD/DIA</th><th>DIAS</th><th>PES-DIAS</th><th>CUSTO</th><th>RUP</th></tr></thead>
+  <tbody>${atvRows}
+    <tr class="totrow"><td>TOTAL</td><td class="r"></td><td class="r"></td><td class="r"></td><td class="r"></td><td class="r"></td><td class="r"></td><td class="r">${esc(fmtBRL(custoTot))}</td><td class="r"></td></tr>
+  </tbody></table>` : ''
 
   const faltante = p.bonificacao[0]?.nome || 'um colaborador'
   const bonusFaltanteDia = p.bonificacao[0] ? bonificacaoValor(p.bonificacao[0].rPorM2, p.areaM2) : 0
@@ -103,6 +121,7 @@ export function printPlanoExecucaoPdf(p: PlanoExecucao) {
   <div class="bar">CRONOGRAMA DE EXECUÇÃO</div>
   <table class="data"><thead><tr><th style="width:14%">DATA</th><th style="width:12%">DIA</th><th>ATIVIDADE</th></tr></thead>
   <tbody>${cronoRows || '<tr><td colspan="3">Sem dias no cronograma.</td></tr>'}</tbody></table>
+  ${atividadesHtml}
 
   <div class="bar">EQUIPE EXECUTORA</div>
   <table class="data"><thead><tr><th>FUNCIONÁRIO</th><th style="width:40%">FUNÇÃO</th></tr></thead>

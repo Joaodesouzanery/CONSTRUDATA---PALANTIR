@@ -5,7 +5,7 @@
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
 import { useMemo } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -15,17 +15,21 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import type { PlanoExecucao } from '@/types'
+import type { PlanoAtividade, PlanoExecucao } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
   alertasDoPlano, faltasNoPeriodo,
+  ritmoDiarioMeta, producaoDiariaAtividade, diasNecessariosAtividade,
+  custoEstimadoAtividade, rupPlanejadoAtividade, custoTotalEstimado,
+  novaAtividade, planejadoVsExecutado, TCPO_RUP_PADRAO,
 } from '../utils/planoExecucao'
 import { printPlanoExecucaoPdf } from '../utils/planoExecucaoPdf'
 
 const EDIT_ROLES = ['owner', 'diretor', 'gerente', 'engenheiro', 'planejador']
 
 const inp = 'bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1.5 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] w-full'
+const cellInp = 'bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]'
 const lbl = 'text-[10px] font-semibold uppercase tracking-wider text-[#9a9a9a] mb-1 block'
 const bar = 'flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white bg-[#2b2c6b] px-3 py-2 rounded-t'
 
@@ -120,12 +124,22 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const rdos = useRdoStore((s) => s.rdos)
   const addEntry = useFinanceiroStore((s) => s.addEntry)
   const hoje = new Date().toISOString().slice(0, 10)
-  const alertas = alertasDoPlano(plano, absences, hoje)
+  const alertas = alertasDoPlano(plano, absences, hoje, rdos)
   const faltas = faltasNoPeriodo(plano, absences)
   const obraWorkers = useMemo(
     () => workers.filter((w) => (w.siteId || null) === (plano.siteId || null) && w.status === 'active'),
     [workers, plano.siteId],
   )
+
+  // ── Fase 4: atividades (produtividade & custo) + planejado × executado ──
+  const atividades = plano.atividades ?? []
+  const horasDia = plano.horasDia ?? 8
+  const setAtvs = (a: PlanoAtividade[]) => set({ atividades: a })
+  const patchAtv = (i: number, patch: Partial<PlanoAtividade>) =>
+    setAtvs(atividades.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  const custoTotal = custoTotalEstimado(plano)
+  const ritmoMeta = ritmoDiarioMeta(plano)
+  const pxe = useMemo(() => planejadoVsExecutado(plano, rdos), [plano, rdos])
   const temRdo = (data: string) =>
     rdos.some((r) => (r as { template?: string }).template === 'compizzo'
       && (((r as { siteId?: string | null }).siteId) || null) === (plano.siteId || null)
@@ -138,8 +152,10 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
     const dataRef = plano.periodoFim || hoje
     addEntry({ id: crypto.randomUUID(), tipo: 'entrada', descricao: `Faturamento — ${plano.servico} (${plano.areaM2} m²)`, valor: fat, data: dataRef, categoria: 'medicao', referencia: ref, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: now })
     if (total > 0) addEntry({ id: crypto.randomUUID(), tipo: 'saida', descricao: `Bonificação — ${plano.servico}`, valor: total, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Bônus distribuído entre ${plano.bonificacao.length} colaborador(es)`, createdAt: now })
+    const custoMO = custoTotalEstimado(plano)
+    if (custoMO > 0) addEntry({ id: crypto.randomUUID(), tipo: 'saida', descricao: `Mão de obra estimada — ${plano.servico}`, valor: custoMO, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Custo estimado por diária (${(plano.atividades ?? []).length} atividade(s))`, createdAt: now })
     set({ financeiroEnviadoEm: now })
-    alert('Lançado no Financeiro: faturamento (entrada) e bonificação (saída) desta obra.')
+    alert('Lançado no Financeiro: faturamento (entrada) e custos (saída) desta obra.')
   }
 
   const addFromWorker = (kind: 'equipe' | 'bonif', workerId: string) => {
@@ -272,7 +288,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                       <td className="text-xs font-semibold">{dayOfWeekLabel(d.data)}{temRdo(d.data) && <span title="Há RDO Compizzo neste dia (executado)" className="ml-1 text-emerald-400 text-[9px]">•RDO</span>}</td>
                       <td>
                         {canEdit
-                          ? <input className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] w-full" defaultValue={d.atividade} key={`${id}-atv-${i}`} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], atividade: e.target.value }; set({ cronograma: cr }) }} placeholder={wknd ? (dayOfWeekLabel(d.data) === 'DOM' ? 'DOMINGO' : 'SÁBADO') : 'Atividade do dia'} />
+                          ? <input className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] w-full" defaultValue={d.atividade} key={`${id}-atv-${i}`} list={`atvs-${id}`} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], atividade: e.target.value }; set({ cronograma: cr }) }} placeholder={wknd ? (dayOfWeekLabel(d.data) === 'DOM' ? 'DOMINGO' : 'SÁBADO') : 'Atividade do dia'} />
                           : (d.atividade || (wknd ? '—' : ''))}
                       </td>
                       <td>{canEdit && <button onClick={() => set({ cronograma: plano.cronograma.filter((_, j) => j !== i) })} className="text-[#8a8a8a] hover:text-red-400"><Trash2 size={13} /></button>}</td>
@@ -284,6 +300,100 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
           )}
         </div>
       </section>
+
+      {/* 2.5 Atividades — Produtividade & Custo */}
+      <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
+        <div className={bar}>
+          <Activity size={13} /> Atividades — produtividade &amp; custo
+          <span className="ml-auto font-normal normal-case text-[10px] text-white/70">custo por diária/pessoa</span>
+        </div>
+        <div className="p-4">
+          <datalist id={`atvs-${id}`}>
+            {atividades.filter((a) => a.nome.trim()).map((a) => <option key={a.id} value={a.nome} />)}
+          </datalist>
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-3 mb-4 text-sm">
+            <span className="text-[#9a9a9a]">Ritmo/dia meta: <strong className="text-[#f59e0b]">{plano.areaM2.toLocaleString('pt-BR')} m² ÷ {dias} dias = {ritmoMeta.toFixed(1)} m²/dia</strong></span>
+            <span className="text-[#9a9a9a]">Custo total estimado: <strong className="text-[#f59e0b]">{fmtBRL(custoTotal)}</strong></span>
+            <div><label className={lbl}>Jornada (h/dia)</label><input className={`${inp} w-24`} defaultValue={horasDia || 8} disabled={ro} key={`hd-${id}`} onBlur={(e) => set({ horasDia: parseLocaleNumber(e.target.value) || 8 })} /></div>
+            <div><label className={lbl}>Diária padrão (R$/dia)</label><input className={`${inp} w-32`} defaultValue={plano.custoDiaPessoaPadrao || ''} disabled={ro} key={`dp-${id}`} onBlur={(e) => set({ custoDiaPessoaPadrao: parseLocaleNumber(e.target.value) })} placeholder="0,00" /></div>
+          </div>
+          {canEdit && (
+            <button onClick={() => setAtvs([...atividades, novaAtividade(plano)])} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] mb-3">
+              <Plus size={14} /> Adicionar atividade
+            </button>
+          )}
+          {atividades.length === 0 ? (
+            <p className="text-xs text-[#9a9a9a]">Sem atividades. {canEdit && 'Clique em "Adicionar atividade" para modelar rendimento (m²/dia), pessoas, diária e ver dias, custo e RUP.'}</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[840px]">
+                <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
+                  <th className="text-left py-1.5">Atividade</th><th className="text-right w-20">Área m²</th><th className="text-right w-32">Rendimento</th>
+                  <th className="text-right w-16">Pessoas</th><th className="text-right w-24">Diária R$</th><th className="text-right w-20">Prod/dia</th>
+                  <th className="text-right w-12">Dias</th><th className="text-right w-24">Custo</th><th className="text-right w-16">RUP</th><th className="w-8" />
+                </tr></thead>
+                <tbody>
+                  {atividades.map((a, i) => {
+                    const prod = producaoDiariaAtividade(a)
+                    const rup = rupPlanejadoAtividade(a, horasDia)
+                    return (
+                      <tr key={a.id} className="border-b border-[#484848] text-[#e5e5e5]">
+                        <td className="py-1.5 pr-2">{canEdit ? <input className={`${cellInp} w-full`} defaultValue={a.nome} onBlur={(e) => patchAtv(i, { nome: e.target.value })} placeholder="Ex.: Lixamento" /> : a.nome}</td>
+                        <td className="text-right pr-2">{canEdit ? <input className={`${cellInp} w-full text-right`} defaultValue={a.areaM2 || ''} onBlur={(e) => patchAtv(i, { areaM2: parseLocaleNumber(e.target.value) })} /> : a.areaM2.toLocaleString('pt-BR')}</td>
+                        <td className="text-right pr-2">
+                          <div className="flex items-center justify-end gap-1">
+                            {canEdit ? <input className={`${cellInp} w-14 text-right`} defaultValue={a.rendimento || ''} onBlur={(e) => patchAtv(i, { rendimento: parseLocaleNumber(e.target.value) })} /> : <span>{a.rendimento}</span>}
+                            <button type="button" disabled={ro} onClick={() => patchAtv(i, { rendimentoBase: a.rendimentoBase === 'pessoa' ? 'equipe' : 'pessoa' })} title="Alternar: por pessoa/dia ↔ total da equipe/dia" className="text-[9px] px-1.5 py-0.5 rounded bg-[#484848] text-[#c9c9c9] hover:bg-[#525252] disabled:opacity-60">{a.rendimentoBase === 'pessoa' ? '/pessoa' : '/equipe'}</button>
+                          </div>
+                        </td>
+                        <td className="text-right pr-2">{canEdit ? <input className={`${cellInp} w-full text-right`} defaultValue={a.pessoas || ''} onBlur={(e) => patchAtv(i, { pessoas: parseLocaleNumber(e.target.value) })} /> : a.pessoas}</td>
+                        <td className="text-right pr-2">{canEdit ? <input className={`${cellInp} w-full text-right`} defaultValue={a.custoDiaPessoa || ''} onBlur={(e) => patchAtv(i, { custoDiaPessoa: parseLocaleNumber(e.target.value) })} placeholder="0,00" /> : fmtBRL(a.custoDiaPessoa)}</td>
+                        <td className="text-right pr-2 text-[#c9c9c9]">{prod.toFixed(1)}</td>
+                        <td className="text-right pr-2 text-[#c9c9c9]">{diasNecessariosAtividade(a)}</td>
+                        <td className="text-right pr-2 font-semibold text-[#f5f5f5]">{fmtBRL(custoEstimadoAtividade(a))}</td>
+                        <td className="text-right pr-2"><span className={rup > TCPO_RUP_PADRAO ? 'text-red-400' : 'text-emerald-400'}>{rup > 0 ? rup.toFixed(3) : '—'}</span></td>
+                        <td>{canEdit && <button onClick={() => setAtvs(atividades.filter((_, j) => j !== i))} className="text-[#8a8a8a] hover:text-red-400"><Trash2 size={13} /></button>}</td>
+                      </tr>
+                    )
+                  })}
+                  <tr className="text-[#f59e0b] font-bold border-t-2 border-[#2b2c6b]">
+                    <td className="py-2">TOTAL</td><td /><td /><td /><td /><td /><td /><td className="text-right pr-2">{fmtBRL(custoTotal)}</td><td /><td />
+                  </tr>
+                </tbody>
+              </table>
+              <p className="mt-2 text-[10px] text-[#7a7a7a]">RUP = jornada ÷ rendimento por pessoa (homem-hora/m², menor é melhor). Meta TCPO ≤ {TCPO_RUP_PADRAO}. Custo = pessoa-dias × diária.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 2.6 Planejado × Executado */}
+      {plano.periodoInicio && plano.periodoFim && (
+        <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
+          <div className={bar}>
+            <Target size={13} /> Planejado × Executado
+            <span className="ml-auto font-normal normal-case text-[10px] text-white/70">via RDO Compizzo</span>
+          </div>
+          <div className="p-4">
+            <div className="mb-4">
+              <div className="flex justify-between text-xs text-[#9a9a9a] mb-1">
+                <span>{Math.round(pxe.m2Executado).toLocaleString('pt-BR')} m² executados de {pxe.m2Planejado.toLocaleString('pt-BR')} m²</span>
+                <span>{pxe.progressoPct.toFixed(0)}%</span>
+              </div>
+              <div className="h-2.5 rounded-full bg-[#2d2d2d] overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, pxe.progressoPct)}%`, background: pxe.progressoPct >= 100 ? '#10b981' : '#f97316' }} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Tile label="Ritmo meta" value={`${pxe.ritmoMeta.toFixed(1)} m²/dia`} />
+              <Tile label="Ritmo real" value={pxe.diasComRdo > 0 ? `${pxe.ritmoReal.toFixed(1)} m²/dia` : '—'} sub={`${pxe.diasComRdo} dia(s) com RDO`} />
+              <Tile label="Projeção p/ concluir" value={pxe.projecaoConclusaoDias > 0 ? `${pxe.projecaoConclusaoDias} dia(s)` : '—'} />
+              <Tile label="RUP real" value={pxe.rupReal > 0 ? `${pxe.rupReal.toFixed(2)} HH/m²` : '—'} valueClass={pxe.rupReal > 0 ? (pxe.rupReal > TCPO_RUP_PADRAO ? 'text-red-400' : 'text-emerald-400') : ''} sub={`meta ≤ ${TCPO_RUP_PADRAO}`} />
+            </div>
+            {pxe.m2Executado === 0 && <p className="mt-3 text-xs text-[#9a9a9a]">Nenhum RDO Compizzo lançado nesta obra dentro do período. Registre a produção diária (com m² e horas) no módulo RDO para acompanhar o executado.</p>}
+          </div>
+        </section>
+      )}
 
       {/* 3. Equipe */}
       <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
@@ -366,7 +476,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
         </div>
       </section>
 
-      {/* 5. Condições */}
+      {/* 6. Condições */}
       <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
         <div className={bar}>Condições da tarefa</div>
         <div className="p-4">
@@ -375,6 +485,16 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             : <div className="text-sm text-[#c9c9c9] whitespace-pre-wrap">{plano.condicoes || '—'}</div>}
         </div>
       </section>
+    </div>
+  )
+}
+
+function Tile({ label, value, sub, valueClass = 'text-[#f5f5f5]' }: { label: string; value: string; sub?: string; valueClass?: string }) {
+  return (
+    <div className="bg-[#2d2d2d] border border-[#484848] rounded-lg p-3">
+      <div className="text-[10px] uppercase tracking-wider text-[#9a9a9a]">{label}</div>
+      <div className={`text-base font-bold mt-0.5 ${valueClass}`}>{value}</div>
+      {sub && <div className="text-[10px] text-[#7a7a7a] mt-0.5">{sub}</div>}
     </div>
   )
 }
