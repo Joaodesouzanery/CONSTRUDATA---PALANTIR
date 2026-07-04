@@ -23,6 +23,7 @@ import {
   ritmoDiarioMeta, producaoDiariaAtividade, diasNecessariosAtividade,
   custoEstimadoAtividade, rupPlanejadoAtividade, custoTotalEstimado,
   novaAtividade, planejadoVsExecutado, TCPO_RUP_PADRAO,
+  m2ExecutadoEmData, metaDiaM2,
 } from '../utils/planoExecucao'
 import { printPlanoExecucaoPdf } from '../utils/planoExecucaoPdf'
 
@@ -273,7 +274,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
           ) : (
             <table className="w-full text-sm">
               <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
-                <th className="text-left py-1.5 w-24">Data</th><th className="text-left w-14">Dia</th><th className="text-left">Atividade</th><th className="w-8" />
+                <th className="text-left py-1.5 w-24">Data</th><th className="text-left w-14">Dia</th><th className="text-left">Atividade</th><th className="text-right w-24">m² real/meta</th><th className="w-8" />
               </tr></thead>
               <tbody>
                 {plano.cronograma.map((d, i) => {
@@ -290,6 +291,15 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                         {canEdit
                           ? <input className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316] w-full" defaultValue={d.atividade} key={`${id}-atv-${i}`} list={`atvs-${id}`} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], atividade: e.target.value }; set({ cronograma: cr }) }} placeholder={wknd ? (dayOfWeekLabel(d.data) === 'DOM' ? 'DOMINGO' : 'SÁBADO') : 'Atividade do dia'} />
                           : (d.atividade || (wknd ? '—' : ''))}
+                      </td>
+                      <td className="text-right pr-2 text-xs">
+                        {(() => {
+                          const real = m2ExecutadoEmData(d.data, plano, rdos)
+                          const meta = metaDiaM2(d, atividades)
+                          if (real === 0 && meta == null) return <span className="text-[#6b6b6b]">—</span>
+                          const color = real === 0 ? '#8a8a8a' : meta != null ? (real >= meta ? '#22c55e' : '#f59e0b') : '#c9c9c9'
+                          return <span style={{ color }}>{real > 0 ? Math.round(real) : '·'}{meta != null ? ` / ${Math.round(meta)}` : ''}</span>
+                        })()}
                       </td>
                       <td>{canEdit && <button onClick={() => set({ cronograma: plano.cronograma.filter((_, j) => j !== i) })} className="text-[#8a8a8a] hover:text-red-400"><Trash2 size={13} /></button>}</td>
                     </tr>

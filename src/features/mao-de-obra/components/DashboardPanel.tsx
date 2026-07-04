@@ -1,6 +1,39 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore, getCertExpiringSoon } from '@/store/maoDeObraStore'
+import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
+import { computeRup, resolveRupTarget } from '../utils/produtividade'
+
+const RUP_SEM_COLOR = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' } as const
+
+function RupMiniCard({ period }: { period: 'última semana' | 'último mês' | 'este mês' }) {
+  const { timecards, rdoExecInPeriod } = useObraScopedLabor()
+  const settings = useMaoDeObraStore((s) => s.cltSettings)
+  const target = resolveRupTarget(settings)
+  const { start, end } = useMemo(() => {
+    const e = new Date().toISOString().slice(0, 10)
+    const d = new Date()
+    if (period === 'última semana') d.setDate(d.getDate() - 6)
+    else if (period === 'este mês') d.setDate(1)
+    else d.setDate(d.getDate() - 29)
+    return { start: d.toISOString().slice(0, 10), end: e }
+  }, [period])
+  const rdo = useMemo(() => rdoExecInPeriod(start, end), [rdoExecInPeriod, start, end])
+  const rup = useMemo(() => computeRup(timecards.filter((t) => t.date >= start && t.date <= end), { extraHH: rdo.hh, extraM2: rdo.m2 }, target), [timecards, start, end, rdo, target])
+  const color = rup.semaforo ? RUP_SEM_COLOR[rup.semaforo] : '#9a9a9a'
+  return (
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+      <div>
+        <p className="text-[#6b6b6b] text-xs">Produtividade RUP (homem-hora/m²) · meta TCPO ≤ {target}</p>
+        <p className="text-xl font-bold leading-tight" style={{ color }}>{rup.rup != null ? `${rup.rup.toFixed(2)} HH/m²` : '— sem apontamentos/RDO em m²'}</p>
+      </div>
+      <div className="text-right text-[11px] text-[#9a9a9a]">
+        <div>{rup.totalHH.toFixed(0)} HH · {Math.round(rup.totalM2).toLocaleString('pt-BR')} m²</div>
+        {rup.rup != null && <div style={{ color }}>{rup.rup <= target ? 'No alvo' : rup.rup <= target * 1.15 ? 'Atenção' : 'Fora do alvo'}</div>}
+      </div>
+    </div>
+  )
+}
 
 // ─── Bar Chart — Planned HH vs Actual HH per day (last 7 days) ───────────────
 
@@ -316,6 +349,7 @@ export function DashboardPanel() {
       </div>
 
       <HRKpiCards />
+      <RupMiniCard period={period} />
       <HHBarChart timecards={timecards} period={period} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PhysicalProgressSummary progress={progress} />

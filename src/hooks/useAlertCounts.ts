@@ -10,6 +10,9 @@ import { useGestaoEquipamentosStore } from '@/store/gestaoEquipamentosStore'
 import { useMaoDeObraStore }       from '@/store/maoDeObraStore'
 import { useFrotaVeicularStore }   from '@/store/frotaVeicularStore'
 import { useEconomiaStore }        from '@/store/economiaStore'
+import { usePlanoExecucaoStore }   from '@/store/planoExecucaoStore'
+import { useRdoStore }             from '@/store/rdoStore'
+import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
 
 export interface AlertCounts {
   [route: string]: number
@@ -43,6 +46,14 @@ export function useAlertCounts(): AlertCounts {
   const economyEvents = useEconomiaStore((s) =>
     s.events.filter((event) => event.status === 'detected' && event.impactBRL > 0).length
   )
+  // Planejamento de Execução: planos ativos com alerta (atraso, RUP > TCPO, preço não confirmado).
+  const planos = usePlanoExecucaoStore((s) => s.planos)
+  const planoAbsences = useMaoDeObraStore((s) => s.absences)
+  const planoRdos = useRdoStore((s) => s.rdos)
+  const hoje = new Date().toISOString().slice(0, 10)
+  const planoAlerts = planos.filter(
+    (p) => p.status === 'ativo' && alertasDoPlano(p, planoAbsences, hoje, planoRdos).length > 0,
+  ).length
 
   return {
     '/app/otimizacao-frota':    healthAlerts,
@@ -51,5 +62,6 @@ export function useAlertCounts(): AlertCounts {
     '/app/gestao-equipamentos': maintOrders,
     '/app/mao-de-obra':         occurrences + fleetAlerts,
     '/app/economia':            economyEvents,
+    '/app/planejamento':        planoAlerts,
   }
 }

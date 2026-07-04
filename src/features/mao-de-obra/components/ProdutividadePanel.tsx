@@ -27,7 +27,7 @@ const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', 
 
 export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObraTab) => void }) {
   const { activeSite, isAllObras } = useActiveObra()
-  const { workers, timecards, shifts, planos, rdoM2InPeriod, unassignedWorkerCount } = useObraScopedLabor()
+  const { workers, timecards, shifts, planos, rdoExecInPeriod, unassignedWorkerCount } = useObraScopedLabor()
   const settings = useMaoDeObraStore((s) => s.cltSettings)
   const updateCLTSettings = useMaoDeObraStore((s) => s.updateCLTSettings)
   const target = resolveRupTarget(settings)
@@ -43,12 +43,15 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
   }, [period])
 
   const periodTc = useMemo(() => timecards.filter((tc) => tc.date >= periodStart && tc.date <= periodEnd), [timecards, periodStart, periodEnd])
-  const rup = useMemo(() => computeRup(periodTc, target), [periodTc, target])
-  const rdoM2 = useMemo(() => rdoM2InPeriod(periodStart, periodEnd), [rdoM2InPeriod, periodStart, periodEnd])
-  const executedM2 = Math.max(rup.totalM2, rdoM2)
+  const rdoExec = useMemo(() => rdoExecInPeriod(periodStart, periodEnd), [rdoExecInPeriod, periodStart, periodEnd])
+  const rup = useMemo(() => computeRup(periodTc, { extraHH: rdoExec.hh, extraM2: rdoExec.m2 }, target), [periodTc, rdoExec, target])
+  const tcM2 = useMemo(() => periodTc.filter((tc) => tc.unit === 'm²').reduce((s, tc) => s + (tc.reportedQty || 0), 0), [periodTc])
+  const executedM2 = rup.totalM2
+  // Tendência: janela própria (6 semanas), com RDO por data de todo o histórico da obra.
+  const trendRdo = useMemo(() => rdoExecInPeriod('0000-01-01', '9999-12-31').byDate, [rdoExecInPeriod])
   const metragem = useMemo(() => computeMetragemBalance(planos, executedM2, periodStart, periodEnd), [planos, executedM2, periodStart, periodEnd])
-  const trend = useMemo(() => computeRupTrend(timecards, 'week', 6, target), [timecards, target])
-  const weekend = useMemo(() => analyzeWeekend({ shifts, workers, timecards, settings, periodStart, periodEnd, rupTarget: target }), [shifts, workers, timecards, settings, periodStart, periodEnd, target])
+  const trend = useMemo(() => computeRupTrend(timecards, 'week', 6, target, trendRdo), [timecards, target, trendRdo])
+  const weekend = useMemo(() => analyzeWeekend({ shifts, workers, timecards, settings, periodStart, periodEnd, rupTarget: target, rdoByDate: rdoExec.byDate }), [shifts, workers, timecards, settings, periodStart, periodEnd, target, rdoExec])
   const escala = useMemo(() => summarizeEscala(shifts, periodStart, periodEnd), [shifts, periodStart, periodEnd])
 
   const sem = rup.semaforo
@@ -112,7 +115,7 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
         <div className={card}>
           <div className="flex items-center gap-2 text-[#9a9a9a] text-xs"><Ruler size={13} /> Metragem</div>
           <div className="mt-1 text-2xl font-bold text-[#f5f5f5]">{Math.round(executedM2).toLocaleString('pt-BR')}<span className="text-sm font-normal text-[#9a9a9a]"> m²</span></div>
-          <div className="text-[10px] text-[#7a7a7a]">Apontam.: {Math.round(rup.totalM2).toLocaleString('pt-BR')} · RDO: {Math.round(rdoM2).toLocaleString('pt-BR')}</div>
+          <div className="text-[10px] text-[#7a7a7a]">Apontam.: {Math.round(tcM2).toLocaleString('pt-BR')} · RDO: {Math.round(rdoExec.m2).toLocaleString('pt-BR')}</div>
         </div>
       </div>
 

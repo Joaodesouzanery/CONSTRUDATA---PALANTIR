@@ -231,6 +231,27 @@ export function m2ExecutadoNoPeriodo(
   }, 0)
 }
 
+/** m² executados (linhas em m²) dos RDOs Compizzo da obra numa data específica. */
+export function m2ExecutadoEmData(
+  date: string,
+  p: Pick<PlanoExecucao, 'siteId' | 'periodoInicio' | 'periodoFim'>,
+  rdos: RDO[],
+): number {
+  return rdosDoPlano(p, rdos)
+    .filter((r) => (r as { date?: string }).date === date)
+    .reduce((sum, r) => sum + (r.compizzo?.producao ?? [])
+      .filter((row) => /m²|m2/i.test(row.servico))
+      .reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0), 0)
+}
+
+/** Meta de m² do dia = produção diária da atividade cujo nome casa com o texto do dia. */
+export function metaDiaM2(dia: { atividade: string }, atividades: PlanoAtividade[] = []): number | null {
+  const alvo = (dia.atividade || '').trim().toLowerCase()
+  if (!alvo) return null
+  const a = atividades.find((x) => x.nome.trim().toLowerCase() === alvo)
+  return a ? producaoDiariaAtividade(a) : null
+}
+
 /** HH executadas: soma de horasTrabalhadas dos RDOs Compizzo no período (fallback 0). */
 export function hhExecutadoNoPeriodo(
   p: Pick<PlanoExecucao, 'siteId' | 'periodoInicio' | 'periodoFim'>,

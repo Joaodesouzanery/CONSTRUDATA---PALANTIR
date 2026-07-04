@@ -20,6 +20,8 @@ export interface ObraScopedLabor {
   planos: PlanoExecucao[]
   /** m² executados (linhas em m²) de RDOs Compizzo da obra ativa no período. */
   rdoM2InPeriod: (start: string, end: string) => number
+  /** m² + HH executados via RDO Compizzo no período, com quebra por data. */
+  rdoExecInPeriod: (start: string, end: string) => { m2: number; hh: number; byDate: Map<string, { m2: number; hh: number }> }
   /** funcionários sem obra vinculada (sinal de dado incompleto). */
   unassignedWorkerCount: number
 }
@@ -40,17 +42,35 @@ export function useObraScopedLabor(): ObraScopedLabor {
     const planos = byActiveObra(allPlanos, activeObraId)
     const unassignedWorkerCount = allWorkers.filter((w) => !w.siteId).length
 
-    const rdoM2InPeriod = (start: string, end: string) =>
-      rdos
-        .filter((r) =>
-          (r as { template?: string }).template === 'compizzo'
-          && (!activeObraId || ((r as { siteId?: string | null }).siteId ?? null) === activeObraId)
-          && (r as { date?: string }).date! >= start
-          && (r as { date?: string }).date! <= end)
-        .reduce((sum, r) => sum + (r.compizzo?.producao ?? [])
-          .filter((row) => /m²|m2/i.test(row.servico))
-          .reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0), 0)
+    const compizzoRdosInPeriod = (start: string, end: string) =>
+      rdos.filter((r) =>
+        (r as { template?: string }).template === 'compizzo'
+        && (!activeObraId || ((r as { siteId?: string | null }).siteId ?? null) === activeObraId)
+        && (r as { date?: string }).date! >= start
+        && (r as { date?: string }).date! <= end)
 
-    return { activeObraId, workers, timecards, shifts, planos, rdoM2InPeriod, unassignedWorkerCount }
+    const rdoRowM2 = (r: { compizzo?: { producao?: Array<{ servico: string; quantidade: string }> } }) =>
+      (r.compizzo?.producao ?? []).filter((row) => /m²|m2/i.test(row.servico))
+        .reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0)
+
+    const rdoM2InPeriod = (start: string, end: string) =>
+      compizzoRdosInPeriod(start, end).reduce((sum, r) => sum + rdoRowM2(r), 0)
+
+    const rdoExecInPeriod = (start: string, end: string) => {
+      const byDate = new Map<string, { m2: number; hh: number }>()
+      let m2 = 0, hh = 0
+      for (const r of compizzoRdosInPeriod(start, end)) {
+        const rm2 = rdoRowM2(r)
+        const rhh = r.compizzo?.horasTrabalhadas ?? 0
+        m2 += rm2; hh += rhh
+        const d = (r as { date?: string }).date!
+        const cur = byDate.get(d) ?? { m2: 0, hh: 0 }
+        cur.m2 += rm2; cur.hh += rhh
+        byDate.set(d, cur)
+      }
+      return { m2, hh, byDate }
+    }
+
+    return { activeObraId, workers, timecards, shifts, planos, rdoM2InPeriod, rdoExecInPeriod, unassignedWorkerCount }
   }, [activeObraId, allWorkers, allTimecards, allShifts, allPlanos, rdos])
 }

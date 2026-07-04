@@ -50,11 +50,19 @@ export interface RupResult {
   sampleSize: number   // nº de apontamentos em m² (sinal de qualidade do dado)
 }
 
-/** RUP = ΣHH ÷ Σm² dos apontamentos (unit === 'm²'). */
-export function computeRup(timecards: TimecardEntry[], target = TCPO_RUP_TARGET_DEFAULT): RupResult {
+/**
+ * RUP = ΣHH ÷ Σm². Fonte = apontamentos (unit === 'm²') + extras do RDO Compizzo
+ * (horas + m²), passados via `opts`. Aditivo — na prática os fluxos são exclusivos
+ * por cliente (Compizzo mede por RDO; demais por apontamento), sem dupla contagem.
+ */
+export function computeRup(
+  timecards: TimecardEntry[],
+  opts: { extraHH?: number; extraM2?: number } = {},
+  target = TCPO_RUP_TARGET_DEFAULT,
+): RupResult {
   const relevant = timecards.filter((tc) => tc.unit === 'm²' && tc.reportedQty > 0)
-  const totalHH = relevant.reduce((s, tc) => s + (tc.hoursWorked || 0), 0)
-  const totalM2 = relevant.reduce((s, tc) => s + (tc.reportedQty || 0), 0)
+  const totalHH = relevant.reduce((s, tc) => s + (tc.hoursWorked || 0), 0) + (opts.extraHH || 0)
+  const totalM2 = relevant.reduce((s, tc) => s + (tc.reportedQty || 0), 0) + (opts.extraM2 || 0)
   const rup = totalM2 > 0 ? totalHH / totalM2 : null
   return { totalHH, totalM2, rup, semaforo: rupSemaforo(rup, target), sampleSize: relevant.length }
 }
@@ -64,6 +72,7 @@ export interface RupTrendPoint { label: string; startISO: string; rup: number | 
 /** Tendência do RUP nos últimos `buckets` períodos (dia ou semana), terminando hoje. */
 export function computeRupTrend(
   timecards: TimecardEntry[], bucket: 'day' | 'week', buckets: number, target = TCPO_RUP_TARGET_DEFAULT,
+  rdoByDate?: Map<string, { m2: number; hh: number }>,
 ): RupTrendPoint[] {
   const out: RupTrendPoint[] = []
   const today = new Date()
@@ -79,7 +88,8 @@ export function computeRupTrend(
     }
     const sISO = ymd(start), eISO = ymd(end)
     const inRange = timecards.filter((tc) => tc.date >= sISO && tc.date <= eISO)
-    const r = computeRup(inRange, target)
+    const extra = rdoByDate ? [...rdoByDate.entries()].filter(([d]) => d >= sISO && d <= eISO).reduce((a, [, v]) => ({ hh: a.hh + v.hh, m2: a.m2 + v.m2 }), { hh: 0, m2: 0 }) : { hh: 0, m2: 0 }
+    const r = computeRup(inRange, { extraHH: extra.hh, extraM2: extra.m2 }, target)
     out.push({ label, startISO: sISO, rup: r.rup, hh: r.totalHH, m2: r.totalM2 })
   }
   return out
@@ -126,8 +136,9 @@ export interface WeekendAnalysis {
 export function analyzeWeekend(args: {
   shifts: Shift[]; workers: Worker[]; timecards: TimecardEntry[]; settings: CLTSettings;
   periodStart: string; periodEnd: string; rupTarget?: number;
+  rdoByDate?: Map<string, { m2: number; hh: number }>;
 }): WeekendAnalysis {
-  const { shifts, workers, timecards, settings, periodStart, periodEnd } = args
+  const { shifts, workers, timecards, settings, periodStart, periodEnd, rdoByDate } = args
   const rupTarget = args.rupTarget ?? resolveRupTarget(settings)
   const rateOf = new Map(workers.map((w) => [w.id, w.hourlyRate || 0]))
   const inPeriod = (d: string) => d >= periodStart && d <= periodEnd
@@ -148,38 +159,56 @@ export function analyzeWeekend(args: {
   }
 
   const weekendTc = timecards.filter((tc) => inPeriod(tc.date) && tc.unit === 'm²' && isWeekendIso(tc.date))
-  const weekendM2 = weekendTc.reduce((s, tc) => s + (tc.reportedQty || 0), 0)
+  let weekendM2 = weekendTc.reduce((s, tc) => s + (tc.reportedQty || 0), 0)
+  // RDO Compizzo: soma m² + HH dos dias de fim de semana no período.
+  if (rdoByDate) {
+    for (const [d, v] of rdoByDate) {
+      if (inPeriod(d) && isWeekendIso(d)) { weekendM2 += v.m2; weekendHH += v.hh }
+    }
+  }
 
   const weekdayTc = timecards.filter((tc) => inPeriod(tc.date) && tc.unit === 'm²' && !isWeekendIso(tc.date))
-  const weekdayM2 = weekdayTc.reduce((s, tc) => s + (tc.reportedQty || 0), 0)
-  const weekdayDays = new Set(weekdayTc.map((tc) => tc.date)).size
-  const weekdayM2PerDay = weekdayDays > 0 ? weekdayM2 / weekdayDays : 0
+  let weekdayM2 = weekdayTc.reduce((s, tc) => s + (tc.reportedQty || 0), 0)
+  const weekdayDates = new Set(weekdayTc.map((tc) => tc.date))
+  if (rdoByDate) {
+    for (const [d, v] of rdoByDate) {
+      if (inPeriod(d) && !isWeekendIso(d)) { weekdayM2 += v.m2; if (v.m2 > 0) weekdayDates.add(d) }
+    }
+  }
+  const weekdayM2PerDay = weekdayDates.size > 0 ? weekdayM2 / weekdayDates.size : 0
   const weekdayCost = weekdayTc.reduce((s, tc) => s + (rateOf.get(tc.workerId) ?? 0) * (tc.hoursWorked || 0), 0)
 
-  const weekendRup = weekendM2 > 0 ? weekendHH / weekendM2 : null
-  const costPerM2Weekend = weekendM2 > 0 ? weekendCost / weekendM2 : null
-  const costPerM2Weekday = weekdayM2 > 0 ? weekdayCost / weekdayM2 : null
+  const weekendRup = weekendM2 > 0 && weekendHH > 0 ? weekendHH / weekendM2 : null
+  // Custo só é conhecido quando há turnos (shifts) com R$/hora. Sem turnos → null (não R$0).
+  const costPerM2Weekend = weekendM2 > 0 && weekendCost > 0 ? weekendCost / weekendM2 : null
+  const costPerM2Weekday = weekdayM2 > 0 && weekdayCost > 0 ? weekdayCost / weekdayM2 : null
   const scheduleDaysSaved = weekdayM2PerDay > 0 ? weekendM2 / weekdayM2PerDay : 0
+  const hasCost = costPerM2Weekend != null && costPerM2Weekday != null
 
   let verdict: WeekendAnalysis['verdict'] = 'neutro'
   let reason = ''
-  if (weekendHH === 0) {
+  if (weekendHH === 0 && weekendM2 === 0) {
     reason = 'Nenhum trabalho em fim de semana no período.'
   } else if (weekendM2 === 0) {
     verdict = 'nao_vale'
-    reason = `Pagou ~R$ ${brl(weekendCost)} em fim de semana sem produção de m² registrada.`
+    reason = weekendCost > 0
+      ? `Pagou ~R$ ${brl(weekendCost)} em fim de semana sem produção de m² registrada.`
+      : 'Houve horas em fim de semana sem produção de m² registrada.'
   } else {
-    const custoOk = costPerM2Weekday == null || (costPerM2Weekend != null && costPerM2Weekend <= costPerM2Weekday * 1.6)
+    const custoOk = !hasCost || costPerM2Weekend! <= costPerM2Weekday! * 1.6
     const rupOk = weekendRup != null && weekendRup <= rupTarget * 1.5
+    const ganho = scheduleDaysSaved > 0 ? `ganho de ~${scheduleDaysSaved.toFixed(1)} dia(s) no prazo` : 'sem base de dia útil p/ estimar prazo'
     if (custoOk && rupOk) {
       verdict = 'vale'
-      reason = `R$ ${brl(costPerM2Weekend ?? 0)}/m² no fim de semana${costPerM2Weekday != null ? ` vs R$ ${brl(costPerM2Weekday)}/m² em dia útil` : ''}; ganho de ~${scheduleDaysSaved.toFixed(1)} dia(s) no prazo.`
-    } else if (!rupOk || (costPerM2Weekend != null && costPerM2Weekday != null && costPerM2Weekend > costPerM2Weekday * 2)) {
+      reason = hasCost
+        ? `R$ ${brl(costPerM2Weekend!)}/m² no fim de semana vs R$ ${brl(costPerM2Weekday!)}/m² em dia útil; ${ganho}.`
+        : `Produtividade do fim de semana ok (${weekendRup != null ? `${weekendRup.toFixed(2)} HH/m²` : '—'}); ${ganho}. Custo indisponível (sem turnos lançados).`
+    } else if (!rupOk || (hasCost && costPerM2Weekend! > costPerM2Weekday! * 2)) {
       verdict = 'nao_vale'
-      reason = `Custo/produtividade do fim de semana elevado${costPerM2Weekend != null ? ` (R$ ${brl(costPerM2Weekend)}/m²)` : ''} — melhor concentrar em dias úteis.`
+      reason = `Custo/produtividade do fim de semana elevado${costPerM2Weekend != null ? ` (R$ ${brl(costPerM2Weekend)}/m²)` : weekendRup != null ? ` (${weekendRup.toFixed(2)} HH/m²)` : ''} — melhor concentrar em dias úteis.`
     } else {
       verdict = 'neutro'
-      reason = `Custo aceitável, mas ganho de prazo modesto (~${scheduleDaysSaved.toFixed(1)} dia).`
+      reason = `Custo aceitável, mas ${ganho}.`
     }
   }
   return { weekendHH, weekendHeadcountDays, weekendLaborCost: weekendCost, weekendM2, weekdayM2PerDay, weekendRup, costPerM2Weekend, costPerM2Weekday, scheduleDaysSaved, verdict, reason }

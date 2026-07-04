@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Calendar, LayoutGrid, List, Settings, Zap, X, Plus } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useRdoStore } from '@/store/rdoStore'
 import { useShallow } from 'zustand/react/shallow'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { Shift, CLTViolationLevel, CLTSettings } from '@/types'
 import { calcShiftHours } from '../utils/cltEngine'
 
@@ -189,7 +191,7 @@ function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings
 
 // ─── Monthly View ─────────────────────────────────────────────────────────────
 
-function MonthlyView({ shifts, year, month, onDayClick }: { shifts: Shift[]; year: number; month: number; onDayClick: (date: string) => void }) {
+function MonthlyView({ shifts, year, month, onDayClick, m2ByDate }: { shifts: Shift[]; year: number; month: number; onDayClick: (date: string) => void; m2ByDate?: Map<string, number> }) {
   const dates = monthDates(year, month)
   const firstDow = dates[0].getDay() // 0=Sun
 
@@ -236,6 +238,9 @@ function MonthlyView({ shifts, year, month, onDayClick }: { shifts: Shift[]; yea
                 <span className="text-[9px] mt-0.5" style={{ color }}>
                   {info.dayOff > 0 ? 'DSR' : `${info.total}↑${info.absent > 0 ? ` ${info.absent}✗` : ''}`}
                 </span>
+              )}
+              {!!m2ByDate?.get(ymd) && (
+                <span className="text-[8px] leading-none mt-0.5 text-[#22c55e]" title="m² produzidos (apontamentos + RDO)">{Math.round(m2ByDate.get(ymd)!)}m²</span>
               )}
             </button>
           )
@@ -377,10 +382,10 @@ function DailyView({ shifts, workers, selectedDate, onAddShift, onEditShift }: {
 
 export function EscalaInteligentePanel() {
   const {
-    workers, shifts, violations, cltSettings,
+    workers, shifts, timecards, violations, cltSettings,
     addShift, updateShift, removeShift, generateSchedule, revalidateCLT, updateCLTSettings,
   } = useMaoDeObraStore(useShallow((s) => ({
-    workers: s.workers, shifts: s.shifts, violations: s.violations,
+    workers: s.workers, shifts: s.shifts, timecards: s.timecards, violations: s.violations,
     cltSettings: s.cltSettings,
     addShift: s.addShift, updateShift: s.updateShift, removeShift: s.removeShift,
     generateSchedule: s.generateSchedule, revalidateCLT: s.revalidateCLT,
@@ -390,6 +395,21 @@ export function EscalaInteligentePanel() {
   const addCrew = useMaoDeObraStore((s) => s.addCrew)
   const updateCrew = useMaoDeObraStore((s) => s.updateCrew)
   const removeCrew = useMaoDeObraStore((s) => s.removeCrew)
+  const rdos = useRdoStore((s) => s.rdos)
+
+  // m² produzidos por dia (apontamentos em m² + produção do RDO Compizzo) — overlay do calendário.
+  const m2ByDate = useMemo(() => {
+    const m = new Map<string, number>()
+    timecards.forEach((tc) => { if (tc.unit === 'm²' && tc.reportedQty > 0) m.set(tc.date, (m.get(tc.date) ?? 0) + tc.reportedQty) })
+    rdos.forEach((r) => {
+      if ((r as { template?: string }).template !== 'compizzo') return
+      const d = (r as { date?: string }).date
+      if (!d) return
+      const q = (r.compizzo?.producao ?? []).filter((row) => /m²|m2/i.test(row.servico)).reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0)
+      if (q > 0) m.set(d, (m.get(d) ?? 0) + q)
+    })
+    return m
+  }, [timecards, rdos])
 
   const now = new Date()
   const [viewMode,     setViewMode]     = useState<'month' | 'week' | 'day'>('month')
@@ -501,7 +521,7 @@ export function EscalaInteligentePanel() {
         {/* Main calendar/grid */}
         <div className="lg:col-span-2 bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
           {viewMode === 'month' && (
-            <MonthlyView shifts={shifts} year={year} month={month} onDayClick={handleDayClick} />
+            <MonthlyView shifts={shifts} year={year} month={month} onDayClick={handleDayClick} m2ByDate={m2ByDate} />
           )}
           {viewMode === 'week' && (
             <WeeklyView shifts={shifts} workers={activeWorkers} dates={weekDates} onCellClick={handleCellClick} />
