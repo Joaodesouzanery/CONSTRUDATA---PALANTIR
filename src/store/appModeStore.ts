@@ -34,7 +34,7 @@ const STORE_KEYS = [
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
-  'cdata-manutencoes', 'cdata-user-routine',
+  'cdata-manutencoes', 'cdata-user-routine', 'cdata-plano-execucao',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -97,6 +97,7 @@ async function restoreUserData() {
       import('./medicaoStore').then(m => m.useMedicaoStore),
       import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore),
       import('./financeiroStore').then(m => m.useFinanceiroStore),
+      import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
     ])
     for (const store of stores) {
       store.persist?.rehydrate?.()
@@ -134,6 +135,7 @@ async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncS
     import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),
     import('./medicaoStore').then(m => m.useMedicaoStore),
     import('./financeiroStore').then(m => m.useFinanceiroStore),
+    import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
   ]) as Promise<Array<{ getState: () => TenantSyncState }>>
 }
 

@@ -9,6 +9,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { getTenantMarker } from '@/lib/tenantCache'
 import type { PlanoExecucao } from '@/types'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 
@@ -43,6 +44,7 @@ function ctxAuth() {
 interface PlanoExecucaoState {
   planos: PlanoExecucao[]
   editingId: string | null
+  activeOrgId: string | null
 
   pendingSync:  PendingOp[]
   syncStatus:   SyncStatus
@@ -55,6 +57,7 @@ interface PlanoExecucaoState {
   duplicatePlano: (id: string) => string | null
   removePlano: (id: string) => void
 
+  ensureTenantScope: (organizationId: string) => void
   clearData: () => void
   flush: () => Promise<void>
   pull:  () => Promise<void>
@@ -76,6 +79,7 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
       return {
         planos: [],
         editingId: null,
+        activeOrgId: null,
         pendingSync:  [],
         syncStatus:   'idle',
         lastSyncedAt: null,
@@ -156,6 +160,21 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
           void get().flush()
         },
 
+        // Isolamento multi-tenant: troca de organização limpa o local antes de re-pull.
+        ensureTenantScope: (organizationId) => {
+          if (!organizationId) return
+          const cur = get().activeOrgId
+          if (cur === organizationId) return
+          if (cur == null) {
+            const marker = getTenantMarker()
+            if (marker && marker !== organizationId) get().clearData()
+            set({ activeOrgId: organizationId })
+            return
+          }
+          get().clearData()
+          set({ activeOrgId: organizationId })
+        },
+
         clearData: () => set({ planos: [], editingId: null, pendingSync: [], syncError: null }),
 
         flush: async () => {
@@ -189,6 +208,7 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
       name: 'cdata-plano-execucao',
       partialize: (s) => ({
         planos:       s.planos,
+        activeOrgId:  s.activeOrgId,
         pendingSync:  s.pendingSync,
         lastSyncedAt: s.lastSyncedAt,
       }),

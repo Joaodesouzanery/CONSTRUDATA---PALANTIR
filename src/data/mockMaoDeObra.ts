@@ -387,6 +387,7 @@ export const MOCK_CLT_SETTINGS: CLTSettings = {
   nightEnd:         5,
   nightDifferential: 20, // %
   overtimeRate:     50,  // %
+  rupTargetM2PerHH: 0.45, // meta TCPO (homem-hora/m²)
 }
 
 // ─── Work Posts ───────────────────────────────────────────────────────────────

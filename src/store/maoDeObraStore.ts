@@ -233,6 +233,15 @@ function assessmentToRow(a: WorkerAssessment, orgId: string, userId: string) {
     created_by:      userId,
   }
 }
+// clt_settings: 1 linha por organização (id = organization_id), upsert idempotente.
+function cltSettingsToRow(settings: CLTSettings, orgId: string, userId: string) {
+  return {
+    id:              orgId,
+    organization_id: orgId,
+    payload:         settings as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
 
 function ctxAuth() {
   const { profile, user } = useAuth.getState()
@@ -653,19 +662,37 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     return id
   },
 
-  assignSubstitute: (absenceId, substituteWorkerId) =>
+  assignSubstitute: (absenceId, substituteWorkerId) => {
     set((s) => ({
       absences: s.absences.map((a) =>
         a.id === absenceId ? { ...a, substituteWorkerId, status: 'covered' as const } : a
       ),
-    })),
+    }))
+    const target = get().absences.find((a) => a.id === absenceId)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = absenceToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id', 'organization_id', 'created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'update', recordId: absenceId, patch, table: 'worker_absences' })] }))
+      void get().flush()
+    }
+  },
 
-  resolveAbsence: (absenceId) =>
+  resolveAbsence: (absenceId) => {
     set((s) => ({
       absences: s.absences.map((a) =>
         a.id === absenceId ? { ...a, status: 'covered' as const } : a
       ),
-    })),
+    }))
+    const target = get().absences.find((a) => a.id === absenceId)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = absenceToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id', 'organization_id', 'created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'update', recordId: absenceId, patch, table: 'worker_absences' })] }))
+      void get().flush()
+    }
+  },
 
   // ── Assessments (ficha de avaliação) ─────────────────────────────────────────
 
@@ -702,8 +729,13 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   // ── CLT Settings ─────────────────────────────────────────────────────────────
 
-  updateCLTSettings: (settings) =>
-    set((s) => ({ cltSettings: { ...s.cltSettings, ...settings } })),
+  updateCLTSettings: (settings) => {
+    set((s) => ({ cltSettings: { ...s.cltSettings, ...settings } }))
+    const { orgId, userId } = ctxAuth()
+    if (orgId === 'pending') return   // sem org real ainda: fica local; sincroniza na próxima edição logada
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'clt_settings', type: 'insert', recordId: orgId, row: cltSettingsToRow(get().cltSettings, orgId, userId), table: 'clt_settings' })] }))
+    void get().flush()
+  },
 
   // ── Payroll ──────────────────────────────────────────────────────────────────
 
@@ -770,6 +802,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       absences:       [],
       assessments:    [],
       payrollHistory: [],
+      cltSettings:    MOCK_CLT_SETTINGS,
       activeOrgId:    null,
       pendingSync:    [],
       syncError:      null,
@@ -803,12 +836,14 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const ss = pendingTables.has('shifts') ? null : await pullTable<{ payload: Shift }>('shifts')
     const as_ = pendingTables.has('worker_absences') ? null : await pullTable<{ payload: WorkerAbsence }>('worker_absences')
     const asmt = pendingTables.has('worker_assessments') ? null : await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
+    const clt = pendingTables.has('clt_settings') ? null : await pullTable<{ payload: CLTSettings }>('clt_settings')
     if (ws)  set({ workers:   ws.map((r) => normalizeWorker(r.payload)) })
     if (cs)  set({ crews:     cs.map((r) => normalizeCrew(r.payload)) })
     if (ts)  set({ timecards: ts.map((r) => r.payload) })
     if (ss)  set({ shifts:    ss.map((r) => r.payload) })
     if (as_) set({ absences:  as_.map((r) => r.payload) })
     if (asmt) set({ assessments: asmt.map((r) => r.payload) })
+    if (clt?.[0]) set({ cltSettings: { ...get().cltSettings, ...clt[0].payload } })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),
