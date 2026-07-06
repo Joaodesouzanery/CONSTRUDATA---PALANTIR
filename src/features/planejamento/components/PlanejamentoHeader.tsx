@@ -52,9 +52,9 @@ export function PlanejamentoHeader() {
           </div>
           <div>
             <h1 className="text-white font-semibold text-lg leading-tight">
-              {planName || 'Trechos'}
+              {planName || 'Planejamento de Execução'}
             </h1>
-            <p className="text-[#a3a3a3] text-xs">Cronograma e análise de trechos</p>
+            <p className="text-[#a3a3a3] text-xs">Atividades, produtividade, cronograma e trechos</p>
           </div>
         </div>
 

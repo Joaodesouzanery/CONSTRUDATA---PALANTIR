@@ -324,7 +324,7 @@ function defaultTeamForNucleus(nucleus: PlanningNucleus): Omit<PlanTeam, 'id'> {
 export const usePlanejamentoStore = create<PlanejamentoState>()(
   persist(
     (set, get) => ({
-  activeTab: 'config',
+  activeTab: 'execucao',
   planName: '',
 
   trechos:           [],
@@ -382,7 +382,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
     histogramPoints: [],
     abcItems:        [],
     notes:           [],
-    activeTab:       'trechos',
+    activeTab:       'execucao',
     productivityTable: MOCK_PRODUCTIVITY,
     scheduleConfig:    MOCK_SCHEDULE_CONFIG,
     holidays:          [],

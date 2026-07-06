@@ -45,8 +45,8 @@ const NAV_GROUPS = [
   {
     label: 'PLANEJAMENTO',
     items: [
-      { label: 'Planejamento',    icon: BrainCircuit,     to: '/app/planejamento-mestre' },
-      { label: 'Trechos',         icon: CalendarClock,    to: '/app/planejamento'        },
+      { label: 'Planejamento Mestre',      icon: BrainCircuit,     to: '/app/planejamento-mestre' },
+      { label: 'Planejamento de Execução', icon: CalendarClock,    to: '/app/planejamento'        },
       { label: 'Agenda',          icon: Calendar,         to: '/app/agenda'              },
       { label: 'Financeiro',       icon: TrendingUp,       to: '/app/evm'                 },
       { label: 'Quantitativos',   icon: Calculator,       to: '/app/quantitativos'       },
