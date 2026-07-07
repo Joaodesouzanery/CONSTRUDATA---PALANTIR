@@ -4,18 +4,19 @@
  * bonificação, condições). Cálculos automáticos + export PDF branded.
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
-import { useMemo } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
+import { useServicosStore } from '@/store/servicosStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import type { PlanoAtividade, PlanoExecucao } from '@/types'
+import type { PlanoAtividade, PlanoExecucao, Servico } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
@@ -40,6 +41,7 @@ const STATUS_LABEL: Record<PlanoExecucao['status'], string> = {
 
 export function ExecucaoPanel() {
   useStoreSync(usePlanoExecucaoStore)
+  useStoreSync(useServicosStore)
   const role = useAuth((s) => s.profile?.role)
   const canEdit = !!role && EDIT_ROLES.includes(role)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
@@ -138,6 +140,22 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const setAtvs = (a: PlanoAtividade[]) => set({ atividades: a })
   const patchAtv = (i: number, patch: Partial<PlanoAtividade>) =>
     setAtvs(atividades.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+
+  // ── Catálogo de Serviços ──
+  const servicos = useServicosStore((s) => s.servicos)
+  const [servModal, setServModal] = useState(false)
+  const addFromServico = (servicoId: string) => {
+    const sv = servicos.find((x) => x.id === servicoId)
+    if (!sv) return
+    setAtvs([...atividades, {
+      ...novaAtividade(plano),
+      nome: sv.nome,
+      rendimento: sv.rendimento,
+      rendimentoBase: sv.rendimentoBase,
+      custoDiaPessoa: sv.custoDiaPessoa || (plano.custoDiaPessoaPadrao || 0),
+      servicoId: sv.id,
+    }])
+  }
   const custoTotal = custoTotalEstimado(plano)
   const ritmoMeta = ritmoDiarioMeta(plano)
   const pxe = useMemo(() => planejadoVsExecutado(plano, rdos), [plano, rdos])
@@ -328,10 +346,23 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             <div><label className={lbl}>Diária padrão (R$/dia)</label><input className={`${inp} w-32`} defaultValue={plano.custoDiaPessoaPadrao || ''} disabled={ro} key={`dp-${id}`} onBlur={(e) => set({ custoDiaPessoaPadrao: parseLocaleNumber(e.target.value) })} placeholder="0,00" /></div>
           </div>
           {canEdit && (
-            <button onClick={() => setAtvs([...atividades, novaAtividade(plano)])} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] mb-3">
-              <Plus size={14} /> Adicionar atividade
-            </button>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <button onClick={() => setAtvs([...atividades, novaAtividade(plano)])} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                <Plus size={14} /> Adicionar atividade
+              </button>
+              {servicos.length > 0 && (
+                <select value="" onChange={(e) => { if (e.target.value) addFromServico(e.target.value) }}
+                  className="bg-[#2d2d2d] border border-[#525252] rounded px-2 py-1.5 text-xs text-[#f5f5f5] outline-none">
+                  <option value="">+ do catálogo de Serviços…</option>
+                  {servicos.map((sv) => <option key={sv.id} value={sv.id}>{sv.nome}{sv.unidade ? ` (${sv.unidade})` : ''}</option>)}
+                </select>
+              )}
+              <button onClick={() => setServModal(true)} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#3d3d3d] border border-[#525252] hover:bg-[#484848] text-[#c9c9c9]">
+                <Settings size={13} /> Gerenciar serviços
+              </button>
+            </div>
           )}
+          {servModal && <ServicosModal onClose={() => setServModal(false)} />}
           {atividades.length === 0 ? (
             <p className="text-xs text-[#9a9a9a]">Sem atividades. {canEdit && 'Clique em "Adicionar atividade" para modelar rendimento (m²/dia), pessoas, diária e ver dias, custo e RUP.'}</p>
           ) : (
@@ -505,6 +536,55 @@ function Tile({ label, value, sub, valueClass = 'text-[#f5f5f5]' }: { label: str
       <div className="text-[10px] uppercase tracking-wider text-[#9a9a9a]">{label}</div>
       <div className={`text-base font-bold mt-0.5 ${valueClass}`}>{value}</div>
       {sub && <div className="text-[10px] text-[#7a7a7a] mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
+// ─── Catálogo de Serviços (cadastrar / editar / excluir) ─────────────────────
+function ServicosModal({ onClose }: { onClose: () => void }) {
+  const servicos = useServicosStore((s) => s.servicos)
+  const addServico = useServicosStore((s) => s.addServico)
+  const updateServico = useServicosStore((s) => s.updateServico)
+  const removeServico = useServicosStore((s) => s.removeServico)
+  const handleRemove = (sv: Servico) => { if (confirm(`Excluir o serviço "${sv.nome || 'sem nome'}"? Esta ação não pode ser desfeita.`)) removeServico(sv.id) }
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.72)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="w-full max-w-3xl rounded-2xl border border-[#525252] bg-[#333] shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
+          <h3 className="text-[#f5f5f5] font-bold text-sm flex items-center gap-2"><Settings size={16} className="text-[#f97316]" /> Catálogo de Serviços</h3>
+          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
+        </div>
+        <div className="p-5 overflow-y-auto">
+          <p className="text-xs text-[#9a9a9a] mb-3">Cadastre serviços com unidade, rendimento (por dia) e diária. No plano, escolha o serviço ao adicionar uma atividade para preencher tudo automaticamente. Sincronizado por empresa.</p>
+          <button onClick={() => addServico()} className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] mb-3"><Plus size={14} /> Novo serviço</button>
+          {servicos.length === 0 ? <p className="text-xs text-[#9a9a9a]">Nenhum serviço cadastrado.</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
+                  <th className="text-left py-1.5">Serviço</th><th className="text-left w-24">Unidade</th><th className="text-right w-36">Rendimento</th><th className="text-right w-28">Diária R$</th><th className="w-8" />
+                </tr></thead>
+                <tbody>
+                  {servicos.map((sv) => (
+                    <tr key={sv.id} className="border-b border-[#484848] text-[#e5e5e5]">
+                      <td className="py-1.5 pr-2"><input className={`${cellInp} w-full`} defaultValue={sv.nome} onBlur={(e) => updateServico(sv.id, { nome: e.target.value })} placeholder="Ex.: Lixamento" /></td>
+                      <td className="pr-2"><input className={`${cellInp} w-full`} defaultValue={sv.unidade} onBlur={(e) => updateServico(sv.id, { unidade: e.target.value })} list="serv-unidades" placeholder="m²" /></td>
+                      <td className="text-right pr-2">
+                        <div className="flex items-center justify-end gap-1">
+                          <input className={`${cellInp} w-16 text-right`} defaultValue={sv.rendimento || ''} onBlur={(e) => updateServico(sv.id, { rendimento: parseLocaleNumber(e.target.value) })} />
+                          <button type="button" onClick={() => updateServico(sv.id, { rendimentoBase: sv.rendimentoBase === 'pessoa' ? 'equipe' : 'pessoa' })} title="Alternar: por pessoa/dia ↔ total da equipe/dia" className="text-[9px] px-1.5 py-0.5 rounded bg-[#484848] text-[#c9c9c9] hover:bg-[#525252]">{sv.rendimentoBase === 'pessoa' ? '/pessoa' : '/equipe'}</button>
+                        </div>
+                      </td>
+                      <td className="text-right pr-2"><input className={`${cellInp} w-full text-right`} defaultValue={sv.custoDiaPessoa || ''} onBlur={(e) => updateServico(sv.id, { custoDiaPessoa: parseLocaleNumber(e.target.value) })} placeholder="0,00" /></td>
+                      <td><button onClick={() => handleRemove(sv)} className="text-[#8a8a8a] hover:text-red-400"><Trash2 size={13} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <datalist id="serv-unidades">{['m²', 'm', 'm³', 'un', 'kg', 'L', 'h'].map((u) => <option key={u} value={u} />)}</datalist>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

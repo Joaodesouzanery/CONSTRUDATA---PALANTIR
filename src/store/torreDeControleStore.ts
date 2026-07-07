@@ -57,6 +57,7 @@ interface TorreActions {
   addSite: (payload: Omit<ConstructionSite, 'id'>) => void
   updateSite: (id: string, patch: Partial<Omit<ConstructionSite, 'id'>>) => void
   deleteSite: (id: string) => void
+  resyncSites: () => void
   updateLocation: (id: string, lat: number, lng: number) => void
   selectSite: (id: string | null) => void
   setEditing: (id: string | null) => void
@@ -96,13 +97,14 @@ export const useTorreStore = create<TorreState & TorreActions>()(
 
         ensureTenantScope: (organizationId) => {
           if (!organizationId || get().activeOrgId === organizationId) return
+          // Preserva pendingSync: obras criadas e ainda não sincronizadas não podem
+          // ser descartadas na troca de empresa (o flush do login sobe antes do pull).
           set({
             activeOrgId: organizationId,
             sites: [],
             selectedId: null,
             editingId: null,
             editingRisk: null,
-            pendingSync: [],
             syncStatus: 'idle',
             syncError: null,
           })
@@ -188,6 +190,18 @@ export const useTorreStore = create<TorreState & TorreActions>()(
             ),
           }))
           enqueueUpdateOf(siteId)
+        },
+
+        // Reempurra TODAS as obras locais como upsert (onConflict id) carimbando a org
+        // ativa atual — cura obras que nunca subiram ao Supabase ou foram carimbadas
+        // com a org errada. Basta rodar logado na empresa correta.
+        resyncSites: () => {
+          const { orgId, userId } = ctxAuth()
+          if (orgId === 'pending') return
+          const ops = get().sites.map((site) => makeOp({ entity: 'site', type: 'insert', recordId: site.id, row: siteToRow(site, orgId, userId), table: 'construction_sites' }))
+          if (ops.length === 0) return
+          set((s) => ({ pendingSync: [...s.pendingSync, ...ops] }))
+          void get().flush()
         },
 
         loadDemoData: () => set({ sites: MOCK_OBRAS, selectedId: MOCK_OBRAS[0]?.id ?? null }),

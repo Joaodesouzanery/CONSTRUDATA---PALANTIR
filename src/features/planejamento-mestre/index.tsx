@@ -19,6 +19,7 @@ import { CriarCronogramaWizard } from './components/CriarCronogramaWizard'
 import { PlanejamentoRestricoesPanel } from './components/PlanejamentoRestricoesPanel'
 import { MedicaoPlanejamentoTestePanel } from './components/MedicaoPlanejamentoTestePanel'
 import { PlanejamentoOperacionalPanel } from './components/PlanejamentoOperacionalPanel'
+import { ExecucaoPanel } from '@/features/planejamento/components/ExecucaoPanel'
 import { LpsHeader } from '@/features/lps-lean/components/LpsHeader'
 import { SemaforoPanel } from '@/features/lps-lean/components/SemaforoPanel'
 import { LookAheadPanel } from '@/features/lps-lean/components/LookAheadPanel'
@@ -404,7 +405,7 @@ export function PlanejamentoMestrePage() {
   }
 
   // Empty state — cliente novo, sem cronograma
-  if (workspace === 'planejamento' && activities.length === 0 && activeTab !== 'medicao-planejamento' && activeTab !== 'operacional') {
+  if (workspace === 'planejamento' && activities.length === 0 && activeTab !== 'medicao-planejamento' && activeTab !== 'operacional' && activeTab !== 'execucao') {
     return (
       <div className="planning-lps-readable flex flex-col h-full overflow-hidden bg-[#1f1f1f]">
         <PlanejamentoMestreHeader showTabs={workspace === 'planejamento'} onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
@@ -479,7 +480,8 @@ export function PlanejamentoMestrePage() {
             {importError}
           </p>
         )}
-        {workspace === 'planejamento' && <RdoPlanningBridgePanel activities={activities} />}
+        {workspace === 'planejamento' && activeTab !== 'execucao' && <RdoPlanningBridgePanel activities={activities} />}
+        {workspace === 'planejamento' && activeTab === 'execucao'  && <ExecucaoPanel />}
         {workspace === 'planejamento' && activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
         {workspace === 'planejamento' && activeTab === 'derivacao' && <DerivacaoPanel />}
         {workspace === 'planejamento' && activeTab === 'whatif'    && <CurtoPrazoPanel />}

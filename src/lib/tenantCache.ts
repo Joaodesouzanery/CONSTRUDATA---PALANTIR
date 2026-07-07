@@ -39,6 +39,7 @@ const TENANT_CACHE_KEYS = [
   'cdata-user-routine',
   'cdata-user-snapshot',
   'cdata-plano-execucao',
+  'cdata-servicos',
 ] as const
 
 const TENANT_MARKER_KEY = 'cdata-active-organization-id'

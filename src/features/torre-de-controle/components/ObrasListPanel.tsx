@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Plus, Upload } from 'lucide-react'
+import { Plus, Upload, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { SyncBadge } from '@/components/shared/SyncBadge'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { OBRA_IMPORT_CONFIG } from '@/lib/importConfigs'
 import type { ConstructionSite, ObraStatus } from '@/types'
@@ -38,7 +40,14 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
   const selectSite = useTorreStore((s) => s.selectSite)
   const setEditing = useTorreStore((s) => s.setEditing)
   const addSite    = useTorreStore((s) => s.addSite)
+  const resyncSites = useTorreStore((s) => s.resyncSites)
+  const sync = useStoreSync(useTorreStore)
   const [importOpen, setImportOpen] = useState(false)
+
+  function handleResync() {
+    resyncSites()
+    alert('Ressincronizando as obras com o servidor. Elas passam a aparecer para todos os usuários da empresa. Confira o status de sincronização ao lado.')
+  }
 
   // Modal único de import — usado tanto no modo horizontal quanto vertical
   const importModal = (
@@ -71,6 +80,15 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
           </div>
           <div className="flex items-center gap-2">
+            <SyncBadge {...sync} />
+            <button
+              onClick={handleResync}
+              className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
+              title="Reenviar todas as obras ao servidor (para que todos da empresa vejam)"
+            >
+              <RefreshCw size={11} />
+              Ressincronizar obras
+            </button>
             <button
               onClick={() => setImportOpen(true)}
               className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
@@ -129,6 +147,14 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
           <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="flex items-center gap-1">
+          <SyncBadge {...sync} />
+          <button
+            onClick={handleResync}
+            className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            title="Reenviar todas as obras ao servidor (para que todos da empresa vejam)"
+          >
+            <RefreshCw size={11} />
+          </button>
           <button
             onClick={() => setImportOpen(true)}
             className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"

@@ -11,7 +11,6 @@ import { TRECHO_IMPORT_CONFIG } from '@/lib/importConfigs'
 
 const TABS: { key: PlanejamentoTab; label: string }[] = [
   { key: 'config',     label: 'Configuração'       },
-  { key: 'execucao',   label: 'Execução'            },
   { key: 'trechos',    label: 'Trechos'             },
   { key: 'gantt',      label: 'Cronograma'          },
   { key: 'scurve',     label: 'Curva S'             },
@@ -52,9 +51,9 @@ export function PlanejamentoHeader() {
           </div>
           <div>
             <h1 className="text-white font-semibold text-lg leading-tight">
-              {planName || 'Planejamento de Execução'}
+              {planName || 'Trechos'}
             </h1>
-            <p className="text-[#a3a3a3] text-xs">Atividades, produtividade, cronograma e trechos</p>
+            <p className="text-[#a3a3a3] text-xs">Cronograma e análise de trechos</p>
           </div>
         </div>
 

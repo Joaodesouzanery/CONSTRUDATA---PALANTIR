@@ -1239,6 +1239,21 @@ export interface PlanoAtividade {
   rendimentoBase: PlanoRendimentoBase   // 'pessoa' = m²/pessoa/dia | 'equipe' = m²/equipe/dia
   pessoas: number            // headcount alocado nesta atividade
   custoDiaPessoa: number     // R$/dia por pessoa (diária)
+  servicoId?: string         // vínculo ao catálogo de Serviços (preenche rendimento/custo/unidade)
+  ordem?: number
+}
+/**
+ * Catálogo de Serviços por organização (ex.: Lixamento, Primer, Pintura, Piso Epóxi).
+ * Reutilizável no Planejamento de Execução: ao escolher um serviço, a atividade herda
+ * unidade/rendimento/custo. Espelha os campos de PlanoAtividade.
+ */
+export interface Servico {
+  id: string
+  nome: string
+  unidade: string            // m², m, un, kg, L, h...
+  rendimento: number         // rendimento padrão (por unidade/dia)
+  rendimentoBase: PlanoRendimentoBase   // 'pessoa' | 'equipe'
+  custoDiaPessoa: number     // diária padrão (R$/dia por pessoa)
   ordem?: number
 }
 export type PlanoExecucaoStatus = 'rascunho' | 'ativo' | 'concluido'
@@ -2094,7 +2109,7 @@ export interface HardeningPoint {
 
 // ── Planejamento Mestre ──────────────────────────────────────────────────────
 
-export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal' | 'restricoes' | 'operacional' | 'medicao-planejamento'
+export type PlanejamentoMestreTab = 'macro' | 'derivacao' | 'whatif' | 'integrada' | 'semanal' | 'restricoes' | 'operacional' | 'medicao-planejamento' | 'execucao'
 
 export interface ProgramacaoDiaria {
   previsto:  number

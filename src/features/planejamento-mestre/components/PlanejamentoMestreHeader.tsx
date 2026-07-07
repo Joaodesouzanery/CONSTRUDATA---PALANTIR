@@ -14,6 +14,7 @@ const TABS: { key: PlanejamentoMestreTab; label: string }[] = [
   { key: 'macro',     label: 'Longo Prazo'     },
   { key: 'derivacao', label: 'Médio Prazo'     },
   { key: 'whatif',    label: 'Curto Prazo'     },
+  { key: 'execucao',  label: 'Execução'        },
   { key: 'integrada', label: 'Visão Integrada' },
   { key: 'semanal',   label: 'Prog. Semanal'   },
   { key: 'restricoes', label: 'Planejamento por Restrições' },
@@ -210,7 +211,7 @@ export function PlanejamentoMestreHeader({ onNewProject, onImportProject, showTa
         {/* Tabs */}
         {showTabs && (
           <div className="px-6 flex gap-1 overflow-x-auto">
-            {TABS.filter((tab) => ['macro', 'derivacao', 'whatif', 'semanal'].includes(tab.key)).map((tab) => (
+            {TABS.filter((tab) => ['macro', 'derivacao', 'whatif', 'semanal', 'execucao'].includes(tab.key)).map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setTab(tab.key)}
