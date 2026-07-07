@@ -20,7 +20,7 @@ function siteToRow(s: ConstructionSite, orgId: string, userId: string) {
   return {
     id:              s.id,
     organization_id: orgId,
-    project_id:      (s as { projectId?: string }).projectId ?? null,
+    project_id:      (s as { projectId?: string }).projectId || null,
     code:            (s as { code?: string }).code ?? null,
     name:            s.name ?? null,
     status:          (s as { status?: string }).status ?? null,
@@ -28,8 +28,9 @@ function siteToRow(s: ConstructionSite, orgId: string, userId: string) {
     state:           (s as { state?: string }).state ?? null,
     lat:             (s as { lat?: number }).lat ?? null,
     lng:             (s as { lng?: number }).lng ?? null,
-    start_date:      (s as { startDate?: string }).startDate ?? null,
-    expected_end:    (s as { expectedEnd?: string }).expectedEnd ?? null,
+    // '' → null: colunas date/uuid rejeitam string vazia no Postgres.
+    start_date:      (s as { startDate?: string }).startDate || null,
+    expected_end:    (s as { expectedEnd?: string }).expectedEnd || null,
     payload:         s as unknown as Record<string, unknown>,  // inclui risks[]
     created_by:      userId,
   }
@@ -200,7 +201,9 @@ export const useTorreStore = create<TorreState & TorreActions>()(
           if (orgId === 'pending') return
           const ops = get().sites.map((site) => makeOp({ entity: 'site', type: 'insert', recordId: site.id, row: siteToRow(site, orgId, userId), table: 'construction_sites' }))
           if (ops.length === 0) return
-          set((s) => ({ pendingSync: [...s.pendingSync, ...ops] }))
+          // Descarta ops antigas de construction_sites (possivelmente malformadas/travadas)
+          // e reenfileira upserts limpos das obras atuais.
+          set((s) => ({ pendingSync: [...s.pendingSync.filter((op) => op.table !== 'construction_sites'), ...ops] }))
           void get().flush()
         },
 
