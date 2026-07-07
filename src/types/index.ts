@@ -1892,6 +1892,7 @@ export interface LpsActivity {
   responsibleTeam?: string
   plannedMeters?: number
   executedMeters?: number
+  sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
 }
 
 export interface LpsWeeklyPPC {
@@ -2172,6 +2173,7 @@ export interface MasterActivity {
   executedQuantity?: number
   lastRdoDate?: string
   operationalKey?: string
+  sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
 }
 
 export interface MasterBaseline {

@@ -591,6 +591,27 @@ if (typeof window !== 'undefined') {
     eventBus.on('lps.commitment_updated', () => {
       void useLpsStore.getState().pull()
     })
+    // Integração: um plano de Execução alimenta o lookahead do LPS (uma LpsActivity por atividade).
+    eventBus.on('planning.activity_imported', (e) => {
+      void import('@/store/planoExecucaoStore').then(({ usePlanoExecucaoStore }) => {
+        const plano = usePlanoExecucaoStore.getState().planos.find((p) => p.id === e.activityId)
+        if (!plano || !plano.atividades?.length || !plano.periodoInicio) return
+        const week = isoWeek(new Date(`${plano.periodoInicio}T00:00:00`))
+        const store = useLpsStore.getState()
+        for (const a of plano.atividades) {
+          const key = `${plano.id}:${a.id}`
+          const match = useLpsStore.getState().activities.find((x) => x.sourceExecucaoId === key)
+          const fields = {
+            week, trechoCode: (a.nome || 'EXE').slice(0, 24), description: a.nome || plano.servico || 'Serviço',
+            planned: true, completed: false, readyStatus: 'yellow' as const,
+            plannedMeters: a.areaM2 || 0, sourceExecucaoId: key,
+          }
+          if (match) {
+            if (match.description !== fields.description || match.week !== fields.week || match.plannedMeters !== fields.plannedMeters) store.updateActivity(match.id, fields)
+          } else store.addActivity(fields)
+        }
+      })
+    })
     eventBus.on('realtime.row_changed', (e) => {
       if (
         e.table === 'lps_restrictions'

@@ -19,6 +19,15 @@ import {
   computeMasterSCurve, applyWhatIfAdjustments, deriveLookahead,
   getProjectDateRange, type MasterSCurvePoint,
 } from '@/features/planejamento-mestre/utils/masterEngine'
+import { eventBus } from '@/lib/eventBus'
+
+// Guarda anti-eco: quando o Mestre aplica mudanças vindas de um evento (Execução),
+// não reemite master_activity.delayed, evitando loop de integração.
+let suppressMasterEmit = false
+function applyMasterFromEvent(fn: () => void) {
+  suppressMasterEmit = true
+  try { fn() } finally { suppressMasterEmit = false }
+}
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function masterActivityToRow(a: MasterActivity, orgId: string, userId: string) {
@@ -196,6 +205,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         },
 
         updateActivity: (id, patch) => {
+          const prev = get().activities.find((a) => a.id === id)
           set((s) => ({ activities: s.activities.map((a) => (a.id === id ? { ...a, ...patch } : a)) }))
           const target = get().activities.find((a) => a.id === id)
           if (target) {
@@ -204,6 +214,12 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
             enqueue(makeOp({ entity: 'master_activity', type: 'update', recordId: id, patch: updatePatch, table: 'master_activities' }))
             void get().flush()
+            // Integração 2b: mover uma atividade ligada à Execução reflete no plano de origem.
+            if (!suppressMasterEmit && target.sourceExecucaoId && prev
+              && (prev.plannedStart !== target.plannedStart || prev.plannedEnd !== target.plannedEnd)) {
+              const delayDays = Math.round((new Date(`${target.plannedStart}T00:00:00`).getTime() - new Date(`${prev.plannedStart}T00:00:00`).getTime()) / 86400000)
+              eventBus.emit({ type: 'master_activity.delayed', activityId: id, projectId: null, delayDays })
+            }
           }
         },
 
@@ -583,5 +599,35 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void usePlanejamentoMestreStore.getState().flush()
+  })
+
+  // Integração: um plano de Execução vira atividades no cronograma Mestre (uma por atividade).
+  void import('@/lib/eventBus').then(({ eventBus }) => {
+    eventBus.on('planning.activity_imported', (e) => {
+      void import('@/store/planoExecucaoStore').then(({ usePlanoExecucaoStore }) => {
+        const plano = usePlanoExecucaoStore.getState().planos.find((p) => p.id === e.activityId)
+        if (!plano || !plano.atividades?.length || !plano.periodoInicio || !plano.periodoFim) return
+        const dur = Math.max(1, Math.round((new Date(`${plano.periodoFim}T00:00:00`).getTime() - new Date(`${plano.periodoInicio}T00:00:00`).getTime()) / 86400000) + 1)
+        const store = usePlanejamentoMestreStore.getState()
+        let added = false
+        applyMasterFromEvent(() => {
+          for (const a of plano.atividades!) {
+            const key = `${plano.id}:${a.id}`
+            const match = usePlanejamentoMestreStore.getState().activities.find((m) => m.sourceExecucaoId === key)
+            const fields = {
+              wbsCode: 'EXE', name: a.nome || plano.servico || 'Serviço', parentId: null, level: 0,
+              plannedStart: plano.periodoInicio, plannedEnd: plano.periodoFim,
+              trendStart: plano.periodoInicio, trendEnd: plano.periodoFim,
+              durationDays: dur, percentComplete: 0, status: 'not_started' as const, isMilestone: false,
+              networkType: 'civil' as const, sourceExecucaoId: key,
+            }
+            if (match) {
+              if (match.name !== fields.name || match.plannedStart !== fields.plannedStart || match.plannedEnd !== fields.plannedEnd) store.updateActivity(match.id, fields)
+            } else { store.addActivity(fields); added = true }
+          }
+        })
+        if (added) usePlanejamentoMestreStore.getState().deriveFromMaster()
+      })
+    })
   })
 }

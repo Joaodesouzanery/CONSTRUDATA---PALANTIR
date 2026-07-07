@@ -10,8 +10,25 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { eventBus } from '@/lib/eventBus'
 import type { PlanoExecucao } from '@/types'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
+
+// Guarda anti-eco: quando a Execução aplica uma mudança vinda de um evento
+// (Mestre/LPS), não reemite planning.activity_imported para evitar loop.
+let suppressExecucaoEmit = false
+/** Aplica `fn` sem reemitir o evento de integração (usado pelos consumidores em 2b). */
+export function applyExecucaoFromEvent(fn: () => void) {
+  suppressExecucaoEmit = true
+  try { fn() } finally { suppressExecucaoEmit = false }
+}
+function emitPlanoChanged(id: string) {
+  if (suppressExecucaoEmit) return
+  const plano = usePlanoExecucaoStore.getState().planos.find((p) => p.id === id)
+  if (!plano) return
+  eventBus.emit({ type: 'planning.activity_imported', activityId: id, projectId: plano.siteId ?? null })
+}
+const PLANO_SYNC_KEYS = ['cronograma', 'atividades', 'periodoInicio', 'periodoFim', 'servico', 'areaM2', 'obraNome']
 
 export const CONDICOES_PADRAO = [
   '• Horas Extras: Caso exista a necessidade de executar horas extras, o valor diário será descontado do valor total da bonificação, e o valor do VA + VT será pago no mês seguinte, no pagamento mensal no último dia útil do mês.',
@@ -125,6 +142,8 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
             planos: s.planos.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p)),
           }))
           enqueueUpdate(id)
+          // Integração: só reflete no Mestre/LPS quando muda o que compõe o cronograma.
+          if (PLANO_SYNC_KEYS.some((k) => k in patch)) emitPlanoChanged(id)
         },
 
         duplicatePlano: (id) => {
@@ -147,6 +166,7 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
             pendingSync: [...s.pendingSync, makeOp({ entity: 'plano_execucao', type: 'insert', recordId: newId, row: planoToRow(copy, orgId, userId), table: 'plano_execucao' })],
           }))
           void get().flush()
+          emitPlanoChanged(newId)
           return newId
         },
 
@@ -219,5 +239,31 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void usePlanoExecucaoStore.getState().flush()
+  })
+  // Integração 2b: mover a atividade ligada no Mestre desloca o plano de Execução.
+  // Suprime a reemissão (applyExecucaoFromEvent) para não criar loop de eventos.
+  eventBus.on('master_activity.delayed', (e) => {
+    void import('@/store/planejamentoMestreStore').then(({ usePlanejamentoMestreStore }) => {
+      const act = usePlanejamentoMestreStore.getState().activities.find((a) => a.id === e.activityId)
+      if (!act?.sourceExecucaoId || !act.plannedStart) return
+      const planoId = act.sourceExecucaoId.split(':')[0]
+      const plano = usePlanoExecucaoStore.getState().planos.find((p) => p.id === planoId)
+      if (!plano || !plano.periodoInicio) return
+      const delta = Math.round((new Date(`${act.plannedStart}T00:00:00`).getTime() - new Date(`${plano.periodoInicio}T00:00:00`).getTime()) / 86400000)
+      if (delta === 0) return
+      const shift = (iso: string) => {
+        if (!iso) return iso
+        const d = new Date(`${iso}T00:00:00`)
+        d.setDate(d.getDate() + delta)
+        return d.toISOString().slice(0, 10)
+      }
+      applyExecucaoFromEvent(() => {
+        usePlanoExecucaoStore.getState().updatePlano(planoId, {
+          periodoInicio: shift(plano.periodoInicio),
+          periodoFim: shift(plano.periodoFim),
+          cronograma: plano.cronograma.map((c) => ({ ...c, data: shift(c.data) })),
+        })
+      })
+    })
   })
 }
