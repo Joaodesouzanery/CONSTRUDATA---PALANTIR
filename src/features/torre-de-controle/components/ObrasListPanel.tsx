@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Upload, RefreshCw } from 'lucide-react'
+import { Plus, Upload, RefreshCw, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useStoreSync } from '@/lib/useStoreSync'
@@ -48,6 +48,18 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
     resyncSites()
     alert('Ressincronizando as obras com o servidor. Elas passam a aparecer para todos os usuários da empresa. Confira o status de sincronização ao lado.')
   }
+
+  // Banner visível com o erro real do servidor quando o sync falha (diagnóstico).
+  const errorBanner = sync.syncStatus === 'error' ? (
+    <div className="mx-4 my-2 flex items-start gap-2 rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-3 py-2 text-[11px] text-[#fca5a5]">
+      <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+      <span>
+        <strong>Falha ao sincronizar as obras com o servidor.</strong>{' '}
+        {sync.syncError || 'Verifique conexão, empresa ativa e se não está em modo demo.'}{' '}
+        Ajuste e clique em “Ressincronizar obras”.
+      </span>
+    </div>
+  ) : null
 
   // Modal único de import — usado tanto no modo horizontal quanto vertical
   const importModal = (
@@ -106,6 +118,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             </button>
           </div>
         </div>
+        {errorBanner}
         {importModal}
 
         {/* Horizontal scroll strip */}
@@ -171,6 +184,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
           </button>
         </div>
       </div>
+      {errorBanner}
       {importModal}
 
       {/* List */}

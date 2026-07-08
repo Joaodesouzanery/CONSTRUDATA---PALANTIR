@@ -20,7 +20,10 @@ function siteToRow(s: ConstructionSite, orgId: string, userId: string) {
   return {
     id:              s.id,
     organization_id: orgId,
-    project_id:      (s as { projectId?: string }).projectId || null,
+    // Coluna FK sempre null: o trigger enforce_projects_torre_gestao_tenant rejeita a obra
+    // quando project_id aponta para um projeto ausente/de outra org. O projectId real
+    // fica preservado no payload (que é o que o app lê no pull), então nada se perde.
+    project_id:      null,
     code:            (s as { code?: string }).code ?? null,
     name:            s.name ?? null,
     status:          (s as { status?: string }).status ?? null,
