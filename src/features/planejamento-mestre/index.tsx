@@ -14,7 +14,7 @@ import { authHeader } from '@/lib/supabase'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
 import { PlanejamentoMacroPanel } from './components/PlanejamentoMacroPanel'
 import { DerivacaoPanel } from './components/DerivacaoPanel'
-import { CurtoPrazoPanel } from './components/CurtoPrazoPanel'
+import { WhatIfPanel } from './components/WhatIfPanel'
 import { VisaoIntegradaPanel } from './components/VisaoIntegradaPanel'
 import { ProgramacaoSemanalPanel } from './components/ProgramacaoSemanalPanel'
 import { CriarCronogramaWizard } from './components/CriarCronogramaWizard'
@@ -492,7 +492,7 @@ export function PlanejamentoMestrePage() {
         {workspace === 'planejamento' && activeTab === 'execucao'  && <ExecucaoPanel />}
         {workspace === 'planejamento' && activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
         {workspace === 'planejamento' && activeTab === 'derivacao' && <DerivacaoPanel />}
-        {workspace === 'planejamento' && activeTab === 'whatif'    && <CurtoPrazoPanel />}
+        {workspace === 'planejamento' && activeTab === 'whatif'    && <WhatIfPanel />}
         {workspace === 'planejamento' && activeTab === 'integrada' && <VisaoIntegradaPanel />}
         {workspace === 'planejamento' && activeTab === 'semanal'   && <ProgramacaoSemanalPanel />}
         {workspace === 'planejamento' && activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
