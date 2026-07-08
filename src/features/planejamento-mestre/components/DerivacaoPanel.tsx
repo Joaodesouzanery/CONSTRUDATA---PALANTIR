@@ -9,6 +9,7 @@ import { RefreshCw, X, AlertTriangle, Plus, Trash2, Target } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useLpsStore } from '@/store/lpsStore'
+import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { NETWORK_TYPE_OPTIONS, networkColor, networkLabel, type NetworkCategory } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { LookaheadDerivedActivity, MasterActivity } from '@/types'
@@ -170,6 +171,17 @@ function DetailModal({ da, onClose }: DetailModalProps) {
   const removeActivity        = usePlanejamentoMestreStore((s) => s.removeActivity)
   const master = usePlanejamentoMestreStore((s) => s.activities.find((a) => a.id === da.masterActivityId))
 
+  function criarPlanoExecucao() {
+    usePlanoExecucaoStore.getState().addPlano({
+      obraNome: da.name || 'Plano',
+      servico: da.name || '',
+      periodoInicio: master?.plannedStart ?? '',
+      periodoFim: master?.plannedEnd ?? '',
+    })
+    onClose()
+    alert('Plano de Execução criado a partir desta atividade. Abra a aba "Execução" para preencher rendimento, custo e cronograma.')
+  }
+
   const [status, setStatus]   = useState<DaStatus>(da.status)
   const [notes, setNotes]     = useState(da.notes ?? '')
   const [name, setName]       = useState(master?.name ?? da.name)
@@ -268,6 +280,9 @@ function DetailModal({ da, onClose }: DetailModalProps) {
             </button>
           ) : <span />}
           <div className="flex gap-2">
+            <button onClick={criarPlanoExecucao} title="Criar um Plano de Execução a partir desta atividade" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40">
+              <Plus size={13} /> Criar Plano de Execução
+            </button>
             <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
             <button onClick={handleSave} className="px-4 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea580c]">Salvar</button>
           </div>

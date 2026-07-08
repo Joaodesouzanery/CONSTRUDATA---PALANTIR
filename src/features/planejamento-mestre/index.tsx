@@ -8,6 +8,8 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, CheckCircle2, Sparkles, FlaskConical, FileSpreadsheet, Download, BrainCircuit, Target, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
+import type { PlanejamentoMestreTab } from '@/types'
 import { authHeader } from '@/lib/supabase'
 import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
 import { PlanejamentoMacroPanel } from './components/PlanejamentoMacroPanel'
@@ -60,6 +62,9 @@ export function PlanejamentoMestrePage() {
   const pull = usePlanejamentoMestreStore((s) => s.pull)
   const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
   const setActiveTab = usePlanejamentoMestreStore((s) => s.setActiveTab)
+  const derivedCount = usePlanejamentoMestreStore((s) => s.derivedActivities.length)
+  const progCount = usePlanejamentoMestreStore((s) => Object.keys(s.programacaoSemanal).length)
+  const planosCount = usePlanoExecucaoStore((s) => s.planos.length)
   const lpsActiveTab = useLpsStore((s) => s.activeTab)
   const lpsRestrictions = useLpsStore((s) => s.restrictions)
 
@@ -474,6 +479,9 @@ export function PlanejamentoMestrePage() {
     <div className="planning-lps-readable flex flex-col h-full overflow-hidden">
       <PlanejamentoMestreHeader showTabs={workspace === 'planejamento'} onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
       <WorkspaceSwitch workspace={workspace} onChange={setWorkspace} />
+      {workspace === 'planejamento' && (
+        <PipelineStepper active={activeTab} onGo={setActiveTab} flags={{ macro: activities.length > 0, derivacao: derivedCount > 0, execucao: planosCount > 0, semanal: progCount > 0 }} />
+      )}
       <div className="flex-1 overflow-y-auto p-6">
         {importError && (
           <p className="mb-4 rounded-lg border border-red-700/30 bg-red-900/20 px-4 py-2 text-xs text-red-400">
@@ -734,6 +742,39 @@ function MiniBridgeKpi({ label, value, tone = 'text-white' }: { label: string; v
     <div>
       <p className="text-[10px] uppercase tracking-wide text-[#d4d4d4]">{label}</p>
       <p className={`mt-1 text-xl font-bold tabular-nums ${tone}`}>{value}</p>
+    </div>
+  )
+}
+
+interface PipelineFlags { macro: boolean; derivacao: boolean; execucao: boolean; semanal: boolean }
+const PIPELINE_STEPS: { key: PlanejamentoMestreTab; label: string; flag?: keyof PipelineFlags }[] = [
+  { key: 'macro',     label: 'Longo Prazo',   flag: 'macro' },
+  { key: 'derivacao', label: 'Médio Prazo',   flag: 'derivacao' },
+  { key: 'whatif',    label: 'Curto Prazo' },
+  { key: 'execucao',  label: 'Execução',      flag: 'execucao' },
+  { key: 'semanal',   label: 'Prog. Semanal', flag: 'semanal' },
+]
+function PipelineStepper({ active, onGo, flags }: { active: PlanejamentoMestreTab; onGo: (t: PlanejamentoMestreTab) => void; flags: PipelineFlags }) {
+  return (
+    <div className="flex items-center gap-0.5 px-6 py-2 bg-[#1a1a1a] border-b border-[#525252] overflow-x-auto scrollbar-hide">
+      <span className="text-[9px] uppercase tracking-widest text-[#6b6b6b] mr-2 shrink-0">Fluxo</span>
+      {PIPELINE_STEPS.map((step, i) => {
+        const isActive = active === step.key
+        const hasData = step.flag ? flags[step.flag] : false
+        return (
+          <div key={step.key} className="flex items-center shrink-0">
+            <button
+              onClick={() => onGo(step.key)}
+              title={step.flag ? (hasData ? 'Com dados' : 'Vazio') : undefined}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${isActive ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#3d3d3d]'}`}
+            >
+              {step.flag && <span className={`w-1.5 h-1.5 rounded-full ${hasData ? 'bg-[#22c55e]' : 'bg-[#525252]'}`} />}
+              {step.label}
+            </button>
+            {i < PIPELINE_STEPS.length - 1 && <span className="text-[#525252] mx-0.5 select-none">→</span>}
+          </div>
+        )
+      })}
     </div>
   )
 }

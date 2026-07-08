@@ -149,6 +149,7 @@ function EditableText({
 
 export function ProgramacaoSemanalPanel() {
   const activities          = usePlanejamentoMestreStore((s) => s.activities)
+  const derivedActivities   = usePlanejamentoMestreStore((s) => s.derivedActivities)
   const programacaoSemanal  = usePlanejamentoMestreStore((s) => s.programacaoSemanal)
   const setProgramacaoDiaria = usePlanejamentoMestreStore((s) => s.setProgramacaoDiaria)
   const updateActivity      = usePlanejamentoMestreStore((s) => s.updateActivity)
@@ -187,6 +188,29 @@ export function ProgramacaoSemanalPanel() {
 
   const weekDates = useMemo(() => getISOWeekDates(week), [week])
   const weekNumber = week.split('-W')[1]
+
+  // Prog. Semanal ← Médio Prazo: distribui a quantidade das atividades derivadas nesta
+  // semana entre os dias úteis (Seg–Sex), preenchendo Previsto onde ainda está zerado.
+  function gerarDaDerivacao() {
+    const dias = weekDates.slice(0, 5)
+    const daSemana = derivedActivities.filter((d) => d.weekIso === week)
+    if (daSemana.length === 0) {
+      alert('Nenhuma atividade do Médio Prazo cai nesta semana. Gere/atualize o Médio Prazo primeiro (aba "Médio Prazo" → Atualizar) e navegue até a semana certa.')
+      return
+    }
+    for (const d of daSemana) {
+      const act = activities.find((a) => a.id === d.masterActivityId)
+      if (!act) continue
+      const qtd = act.plannedQuantity ?? act.comprimento ?? 0
+      const porDia = qtd > 0 ? qtd / dias.length : 0
+      for (const dia of dias) {
+        const dateStr = toDateStr(dia)
+        const cur = programacaoSemanal[act.id]?.[dateStr]
+        if (!cur || cur.previsto === 0) setProgramacaoDiaria(act.id, dateStr, { previsto: porDia, realizado: cur?.realizado ?? 0 })
+      }
+    }
+    alert(`Programação da semana ${week} gerada a partir do Médio Prazo: ${daSemana.length} atividade(s).`)
+  }
 
   // Only leaf activities (level >= 2, not milestones)
   const leafActivities = useMemo(
@@ -335,6 +359,16 @@ export function ProgramacaoSemanalPanel() {
           >
             <Plus size={13} />
             Adicionar atividade
+          </button>
+
+          {/* Seed from Médio Prazo */}
+          <button
+            onClick={gerarDaDerivacao}
+            title="Preencher o Previsto da semana a partir das atividades do Médio Prazo"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+          >
+            <TableProperties size={13} />
+            Gerar da derivação
           </button>
 
           {/* Export */}
