@@ -5,9 +5,10 @@
  * atividades, refletindo em Longo/Curto Prazo e Programação Semanal.
  */
 import { useState, useMemo, useEffect } from 'react'
-import { RefreshCw, X, AlertTriangle, Plus, Trash2 } from 'lucide-react'
+import { RefreshCw, X, AlertTriangle, Plus, Trash2, Target } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { useLpsStore } from '@/store/lpsStore'
 import { NETWORK_TYPE_OPTIONS, networkColor, networkLabel, type NetworkCategory } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { LookaheadDerivedActivity, MasterActivity } from '@/types'
@@ -440,6 +441,31 @@ export function DerivacaoPanel() {
   const hasData = derivedActivities.length > 0
   const colSpan = allWeeks.length + 1
 
+  // Médio Prazo → LPS: envia as atividades derivadas para o lookahead do LPS (idempotente por sourceMasterId).
+  const addLps = useLpsStore((s) => s.addActivity)
+  const updateLps = useLpsStore((s) => s.updateActivity)
+  function enviarParaLps() {
+    let novas = 0
+    for (const d of derivedActivities) {
+      const key = `${d.masterActivityId}:${d.weekIso}`
+      const existing = useLpsStore.getState().activities.find((a) => a.sourceMasterId === key)
+      const fields = {
+        week: d.weekIso,
+        trechoCode: (d.name || 'MP').slice(0, 24),
+        description: d.name || 'Atividade',
+        planned: true,
+        completed: d.status === 'completed',
+        readyStatus: (d.status === 'ready' ? 'green' : d.status === 'blocked' ? 'red' : 'yellow') as 'green' | 'yellow' | 'red',
+        plannedMeters: 0,
+        sourceMasterId: key,
+      }
+      if (existing) {
+        if (existing.description !== fields.description || existing.week !== fields.week || existing.readyStatus !== fields.readyStatus || existing.completed !== fields.completed) updateLps(existing.id, fields)
+      } else { addLps(fields); novas++ }
+    }
+    alert(`Enviado ao LPS: ${derivedActivities.length} atividade(s) do Médio Prazo (${novas} nova(s)). Abra o workspace "LPS / Lean" para ver o lookahead.`)
+  }
+
   return (
     <div className="flex flex-col gap-4 overflow-hidden h-full">
       {/* Toolbar */}
@@ -457,6 +483,15 @@ export function DerivacaoPanel() {
         >
           <RefreshCw size={12} />
           Atualizar
+        </button>
+        <button
+          onClick={enviarParaLps}
+          disabled={!hasData}
+          title="Enviar as atividades do Médio Prazo para o lookahead do LPS / Lean"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs font-medium hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors disabled:opacity-40"
+        >
+          <Target size={12} />
+          Enviar para LPS
         </button>
 
         <select

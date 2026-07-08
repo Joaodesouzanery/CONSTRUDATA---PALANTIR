@@ -5,7 +5,7 @@
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X, Share2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -113,6 +113,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const update = usePlanoExecucaoStore((s) => s.updatePlano)
   const duplicate = usePlanoExecucaoStore((s) => s.duplicatePlano)
   const remove = usePlanoExecucaoStore((s) => s.removePlano)
+  const republish = usePlanoExecucaoStore((s) => s.republish)
   const id = plano.id
   const ro = !canEdit
 
@@ -213,6 +214,11 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             <>
               <button onClick={() => duplicate(id)} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
                 <Copy size={14} /> Duplicar
+              </button>
+              <button onClick={() => { republish(id); alert('Publicado: as atividades deste plano foram enviadas ao cronograma do Longo/Médio Prazo e ao lookahead do LPS.') }}
+                title="Enviar as atividades deste plano para o cronograma Mestre e o LPS"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                <Share2 size={14} /> Publicar no cronograma
               </button>
               <button onClick={enviarFinanceiro} className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
                 {plano.financeiroEnviadoEm ? <CheckCircle2 size={14} className="text-emerald-400" /> : <Send size={14} />} {plano.financeiroEnviadoEm ? 'Financeiro enviado' : 'Enviar p/ Financeiro'}

@@ -1893,6 +1893,7 @@ export interface LpsActivity {
   plannedMeters?: number
   executedMeters?: number
   sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
+  sourceMasterId?: string     // vínculo com uma atividade derivada do Planejamento Mestre (Médio Prazo → LPS)
 }
 
 export interface LpsWeeklyPPC {

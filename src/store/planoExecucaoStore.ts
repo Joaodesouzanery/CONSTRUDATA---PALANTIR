@@ -73,6 +73,7 @@ interface PlanoExecucaoState {
   updatePlano: (id: string, patch: Partial<Omit<PlanoExecucao, 'id'>>) => void
   duplicatePlano: (id: string) => string | null
   removePlano: (id: string) => void
+  republish: (id: string) => void
 
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
@@ -179,6 +180,9 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
           }))
           void get().flush()
         },
+
+        // Publicação explícita: dispara o sync do plano com Mestre/LPS sob demanda.
+        republish: (id) => emitPlanoChanged(id),
 
         // Isolamento multi-tenant: troca de organização limpa o local antes de re-pull.
         ensureTenantScope: (organizationId) => {
