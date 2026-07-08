@@ -22,7 +22,7 @@ import {
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
   alertasDoPlano, faltasNoPeriodo,
   ritmoDiarioMeta, producaoDiariaAtividade, diasNecessariosAtividade,
-  custoEstimadoAtividade, rupPlanejadoAtividade, custoTotalEstimado,
+  pessoaDiasAtividade, custoEstimadoAtividade, rupPlanejadoAtividade, custoTotalEstimado,
   novaAtividade, planejadoVsExecutado, TCPO_RUP_PADRAO,
   m2ExecutadoEmData, metaDiaM2,
 } from '../utils/planoExecucao'
@@ -265,6 +265,14 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
         </div>
         <div className="px-4 pb-4 flex items-center gap-6 flex-wrap text-sm">
           <span className="text-[#9a9a9a]">Faturamento previsto: <strong className="text-[#f59e0b] text-base">{fmtBRL(fat)}</strong></span>
+          {canEdit && (
+            <label className="flex items-center gap-2 text-xs text-[#c9c9c9]">
+              <input type="checkbox" checked={plano.faturamentoOverride != null} onChange={(e) => set({ faturamentoOverride: e.target.checked ? fat : null })} /> Faturamento manual
+            </label>
+          )}
+          {canEdit && plano.faturamentoOverride != null && (
+            <input className={`${inp} w-40`} defaultValue={plano.faturamentoOverride || ''} key={`fatov-${id}-${plano.faturamentoOverride}`} onBlur={(e) => set({ faturamentoOverride: parseLocaleNumber(e.target.value) })} placeholder="R$ manual" />
+          )}
           {!plano.precoConfirmado && <span className="flex items-center gap-1 text-amber-400 text-xs"><AlertTriangle size={13} /> confirmar preço fechado</span>}
         </div>
       </section>
@@ -371,7 +379,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                 <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
                   <th className="text-left py-1.5">Atividade</th><th className="text-right w-20">Área m²</th><th className="text-right w-32">Rendimento</th>
                   <th className="text-right w-16">Pessoas</th><th className="text-right w-24">Diária R$</th><th className="text-right w-20">Prod/dia</th>
-                  <th className="text-right w-12">Dias</th><th className="text-right w-24">Custo</th><th className="text-right w-16">RUP</th><th className="w-8" />
+                  <th className="text-right w-12">Dias</th><th className="text-right w-16">Pes-dias</th><th className="text-right w-24">Custo</th><th className="text-right w-16">RUP</th><th className="w-8" />
                 </tr></thead>
                 <tbody>
                   {atividades.map((a, i) => {
@@ -391,6 +399,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                         <td className="text-right pr-2">{canEdit ? <input className={`${cellInp} w-full text-right`} defaultValue={a.custoDiaPessoa || ''} onBlur={(e) => patchAtv(i, { custoDiaPessoa: parseLocaleNumber(e.target.value) })} placeholder="0,00" /> : fmtBRL(a.custoDiaPessoa)}</td>
                         <td className="text-right pr-2 text-[#c9c9c9]">{prod.toFixed(1)}</td>
                         <td className="text-right pr-2 text-[#c9c9c9]">{diasNecessariosAtividade(a)}</td>
+                        <td className="text-right pr-2 text-[#c9c9c9]">{pessoaDiasAtividade(a)}</td>
                         <td className="text-right pr-2 font-semibold text-[#f5f5f5]">{fmtBRL(custoEstimadoAtividade(a))}</td>
                         <td className="text-right pr-2"><span className={rup > TCPO_RUP_PADRAO ? 'text-red-400' : 'text-emerald-400'}>{rup > 0 ? rup.toFixed(3) : '—'}</span></td>
                         <td>{canEdit && <button onClick={() => setAtvs(atividades.filter((_, j) => j !== i))} className="text-[#8a8a8a] hover:text-red-400"><Trash2 size={13} /></button>}</td>
@@ -398,7 +407,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
                     )
                   })}
                   <tr className="text-[#f59e0b] font-bold border-t-2 border-[#2b2c6b]">
-                    <td className="py-2">TOTAL</td><td /><td /><td /><td /><td /><td /><td className="text-right pr-2">{fmtBRL(custoTotal)}</td><td /><td />
+                    <td className="py-2">TOTAL</td><td /><td /><td /><td /><td /><td /><td /><td className="text-right pr-2">{fmtBRL(custoTotal)}</td><td /><td />
                   </tr>
                 </tbody>
               </table>
@@ -524,6 +533,16 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
           {canEdit
             ? <textarea className={`${inp} resize-y`} rows={6} defaultValue={plano.condicoes} key={`cond-${id}`} onBlur={(e) => set({ condicoes: e.target.value })} />
             : <div className="text-sm text-[#c9c9c9] whitespace-pre-wrap">{plano.condicoes || '—'}</div>}
+        </div>
+      </section>
+
+      {/* 7. Observações */}
+      <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
+        <div className={bar}>Observações</div>
+        <div className="p-4">
+          {canEdit
+            ? <textarea className={`${inp} resize-y`} rows={3} defaultValue={plano.observacoes ?? ''} key={`obs-${id}`} onBlur={(e) => set({ observacoes: e.target.value })} placeholder="Notas internas do plano (não saem no PDF)" />
+            : <div className="text-sm text-[#c9c9c9] whitespace-pre-wrap">{plano.observacoes || '—'}</div>}
         </div>
       </section>
     </div>
