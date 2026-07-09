@@ -121,6 +121,7 @@ interface PlanejamentoMestreState {
     activities: Array<Omit<MasterActivity, 'id'>>
   }) => void
   addNucleus: (nucleus: Omit<PlanningNucleus, 'id' | 'budgetBRL'>) => void
+  updateNucleus: (id: string, patch: Partial<PlanningNucleus>) => void
 
   saveBaseline: (name: string) => void
   loadBaseline: (id: string) => void
@@ -404,9 +405,10 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
               }
             }),
           ]
-          // Carimba a obra ativa em todas as atividades do plano guiado.
+          // Carimba a obra ativa em todas as atividades e frentes (núcleos) do plano guiado.
           const obraIdGuided = useActiveObraStore.getState().activeObraId ?? null
           activities.forEach((a) => { a.obraId = obraIdGuided })
+          nuclei.forEach((n) => { n.obraId = obraIdGuided })
           const baseline: MasterBaseline = {
             id: crypto.randomUUID(),
             name: 'Rev.0',
@@ -443,6 +445,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             ...nucleus,
             id: crypto.randomUUID(),
             budgetBRL: Math.round(bac * (nucleus.bacWeightPct / 100)),
+            obraId: nucleus.obraId ?? useActiveObraStore.getState().activeObraId ?? null,
           }
           set((s) => ({
             nuclei: [...s.nuclei, newNucleus],
@@ -453,6 +456,10 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             } : s.contract,
             auditLog: [...s.auditLog, makeAudit('nucleus_added', `Núcleo ${newNucleus.name} adicionado.`, { nucleusId: newNucleus.id })],
           }))
+        },
+
+        updateNucleus: (id, patch) => {
+          set((s) => ({ nuclei: s.nuclei.map((n) => (n.id === id ? { ...n, ...patch } : n)) }))
         },
 
         saveBaseline: (name) => {

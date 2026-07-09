@@ -1,8 +1,60 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock } from 'lucide-react'
+import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock, Save, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { obraBacFromSite, withTotalBudgetLine } from '@/features/torre-de-controle/utils/obraBudget'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
+
+const fmtBRL = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+// ─── Orçamento do contrato (editável) ─────────────────────────────────────────
+// Fonte do BAC por obra que o Planejamento consome. Grava/atualiza a linha 'Total'.
+function OrcamentoEditor({ site }: { site: ConstructionSite }) {
+  const updateSite = useTorreStore((s) => s.updateSite)
+  const atual = obraBacFromSite(site)
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState('')
+
+  function open() { setVal(atual ? String(atual) : ''); setEditing(true) }
+  function save() {
+    const amount = parseLocaleNumber(val) || 0
+    updateSite(site.id, { budgetLines: withTotalBudgetLine(site.budgetLines, amount) })
+    setEditing(false)
+  }
+
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-[#525252] bg-[#333333] px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-wider text-[#6b6b6b]">Orçamento do contrato</p>
+        {editing ? (
+          <input
+            autoFocus
+            type="text"
+            inputMode="decimal"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
+            placeholder="Valor total do contrato (R$)"
+            className="mt-1 w-full rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+          />
+        ) : (
+          <p className="mt-0.5 text-sm font-bold text-[#f59e0b]">{atual > 0 ? fmtBRL(atual) : 'Não definido'}</p>
+        )}
+      </div>
+      {editing ? (
+        <div className="flex shrink-0 items-center gap-1">
+          <button onClick={save} className="rounded-lg bg-[#f97316] px-2 py-1.5 text-white hover:bg-[#ea580c]" title="Salvar"><Save size={13} /></button>
+          <button onClick={() => setEditing(false)} className="rounded-lg px-2 py-1.5 text-[#a3a3a3] hover:bg-[#3d3d3d]" title="Cancelar"><X size={13} /></button>
+        </div>
+      ) : (
+        <button onClick={open} className="shrink-0 flex items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1.5 text-[10px] text-[#6b6b6b] hover:border-[#f97316]/30 hover:text-[#f97316]" title="Editar orçamento">
+          <Pencil size={11} /> Editar
+        </button>
+      )}
+    </div>
+  )
+}
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
@@ -298,12 +350,13 @@ export function ObraDetailPanel() {
             </Section>
           )}
 
-          {/* Orçamento */}
-          {site.budgetLines && site.budgetLines.length > 0 && (
-            <Section icon={<DollarSign size={12} />} title="Orçamento">
+          {/* Orçamento — editável; fonte do BAC por obra no Planejamento */}
+          <Section icon={<DollarSign size={12} />} title="Orçamento">
+            <OrcamentoEditor site={site} />
+            {site.budgetLines && site.budgetLines.length > 0 && (
               <BudgetTable lines={site.budgetLines} />
-            </Section>
-          )}
+            )}
+          </Section>
 
           {/* Marcos */}
           {(site.planningMilestones?.length || site.executionMilestones?.length) ? (

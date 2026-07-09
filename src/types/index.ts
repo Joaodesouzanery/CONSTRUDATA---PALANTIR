@@ -1158,7 +1158,8 @@ export interface PlanningNucleus {
   location: string
   serviceType: PlanServiceType
   bacWeightPct: number
-  budgetBRL: number
+  budgetBRL: number          // orçamento da frente (split manual do total da obra)
+  obraId?: string | null     // obra (construction_sites.id) — frentes por obra
   equipmentInventory?: Partial<Record<'retroescavadeira' | 'compactador' | 'caminhaoBasculante', number>>
 }
 

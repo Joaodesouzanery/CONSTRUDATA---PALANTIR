@@ -9,6 +9,7 @@ import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { byActiveObra } from '@/hooks/useActiveObra'
+import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import { NETWORK_TYPE_OPTIONS } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -617,14 +618,24 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const activeSiteName = activeObraId ? sites.find((s) => s.id === activeObraId)?.name : undefined
 
   const activeFilterCount = [search, filterStatus, filterNetwork, filterService, filterNucleo].filter(Boolean).length
-  const averagePhysical = activities.length > 0
-    ? activities.reduce((sum, a) => sum + (a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / activities.length
+  // Médias escopadas pela obra selecionada (usa a lista filtrada, não todas as atividades).
+  const scopedActs = byActiveObra(activities, activeObraId)
+  const averagePhysical = scopedActs.length > 0
+    ? scopedActs.reduce((sum, a) => sum + (a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / scopedActs.length
     : 0
-  const averageFinancial = activities.length > 0
-    ? activities.reduce((sum, a) => sum + (a.financialProgressPct ?? a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / activities.length
+  const averageFinancial = scopedActs.length > 0
+    ? scopedActs.reduce((sum, a) => sum + (a.financialProgressPct ?? a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / scopedActs.length
     : 0
+  // BAC por obra vindo da Torre: obra selecionada → seu orçamento; "Todas" → soma das obras (fallback: contrato).
+  const bacScoped = useMemo(() => {
+    if (activeObraId) return obraBacFromSite(sites.find((s) => s.id === activeObraId)) || (contract?.bacTotal ?? 0)
+    const obraIds = new Set(activities.map((a) => a.obraId).filter(Boolean) as string[])
+    let sum = 0
+    for (const id of obraIds) sum += obraBacFromSite(sites.find((s) => s.id === id))
+    return sum > 0 ? sum : (contract?.bacTotal ?? 0)
+  }, [activeObraId, sites, activities, contract])
   const ppcBasedIdc = Math.max(0.35, averagePhysical / 100)
-  const eacByPpc = contract ? contract.bacTotal / ppcBasedIdc : 0
+  const eacByPpc = bacScoped > 0 ? bacScoped / ppcBasedIdc : 0
 
   function clearFilters() {
     setSearch('')
@@ -666,7 +677,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#525252] bg-[#343434] p-3 print:hidden">
           <PlanningKpi label="Contrato" value={contract.contractName} accent />
           <PlanningKpi label="Contratante" value={contract.contractor} />
-          <PlanningKpi label="Orçamento Total Planejado" value={fmtMoney(contract.bacTotal)} />
+          <PlanningKpi label={activeObraId ? 'Orçamento da obra (Torre)' : 'Orçamento (Torre, todas)'} value={fmtMoney(bacScoped)} />
           <PlanningKpi label="Nucleos" value={String(nuclei.length || contract.nucleusCount)} />
           <PlanningKpi label="Takt teorico" value={`${contract.theoreticalTaktDays} dias/nucleo`} />
           <PlanningKpi label="Fisico medio" value={`${averagePhysical.toFixed(1)}%`} />
