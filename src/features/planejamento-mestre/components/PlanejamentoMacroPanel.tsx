@@ -2,10 +2,13 @@
  * PlanejamentoMacroPanel — WBS Gantt with Previsto vs Tendência bars,
  * baseline management, activity CRUD, and export (PDF / Excel / PNG).
  */
-import { useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo, useEffect } from 'react'
 import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal, Sparkles, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { byActiveObra } from '@/hooks/useActiveObra'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import { NETWORK_TYPE_OPTIONS } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -87,9 +90,21 @@ interface GanttChartProps {
   collapsed: Set<string>
   onToggle: (id: string) => void
   svgRef: React.RefObject<SVGSVGElement | null>
+  updateActivity: (id: string, patch: Partial<MasterActivity>) => void
 }
 
-function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps) {
+function addDaysIso(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+interface DragState { id: string; mode: 'move' | 'resize'; x0: number; start0: string; end0: string; deltaDays: number }
+
+function GanttChart({ activities, collapsed, onToggle, svgRef, updateActivity }: GanttChartProps) {
+  const [drag, setDrag] = useState<DragState | null>(null)
+
   // Determine which activities to show (hide children of collapsed parents)
   function isVisible(act: MasterActivity): boolean {
     if (!act.parentId) return true
@@ -114,6 +129,35 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
 
   function xOf(date: string) { return Math.round((daysBetween(projStart, date) / totalDays) * W) }
   function wOf(s: string, e: string) { return Math.max(3, Math.round((daysBetween(s, e) / totalDays) * W)) }
+  const pxPerDay = W / totalDays
+
+  // Arrastar a barra "Previsto" move (corpo) ou redimensiona (borda direita) as datas.
+  function commitDrag() {
+    setDrag((d) => {
+      if (d && d.deltaDays !== 0) {
+        if (d.mode === 'move') {
+          updateActivity(d.id, { plannedStart: addDaysIso(d.start0, d.deltaDays), plannedEnd: addDaysIso(d.end0, d.deltaDays) })
+        } else {
+          let newEnd = addDaysIso(d.end0, d.deltaDays)
+          if (newEnd < d.start0) newEnd = d.start0
+          updateActivity(d.id, { plannedEnd: newEnd, durationDays: Math.max(1, daysBetween(d.start0, newEnd) + 1) })
+        }
+      }
+      return null
+    })
+  }
+  useEffect(() => {
+    if (!drag) return
+    const onMove = (e: MouseEvent) => {
+      const deltaDays = Math.round((e.clientX - drag.x0) / pxPerDay)
+      setDrag((d) => (d && d.deltaDays !== deltaDays ? { ...d, deltaDays } : d))
+    }
+    const onUp = () => commitDrag()
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag?.id, drag?.mode, drag?.x0, pxPerDay])
 
   // Month markers
   const months: { date: string; label: string }[] = []
@@ -242,8 +286,33 @@ function GanttChart({ activities, collapsed, onToggle, svgRef }: GanttChartProps
                 </>
               ) : (
                 <>
-                  {/* Previsto bar */}
-                  <rect x={LABEL_W + bPx} y={y + 7} width={bW} height={10} rx={3} fill="#64748b" opacity={0.45} />
+                  {/* Previsto bar (arrastável nas folhas: corpo = mover, borda direita = redimensionar) */}
+                  {(() => {
+                    const editable = !hasKids
+                    const isDragging = drag?.id === act.id
+                    const dMove = isDragging && drag?.mode === 'move' ? drag.deltaDays * pxPerDay : 0
+                    const dResize = isDragging && drag?.mode === 'resize' ? drag.deltaDays * pxPerDay : 0
+                    const x = LABEL_W + bPx + dMove
+                    const w = Math.max(3, bW + dResize)
+                    return (
+                      <>
+                        <rect
+                          x={x} y={y + 7} width={w} height={10} rx={3}
+                          fill={isDragging ? '#f97316' : '#64748b'} opacity={isDragging ? 0.7 : 0.45}
+                          style={{ cursor: editable ? 'grab' : 'default' }}
+                          onMouseDown={editable ? (e) => { e.preventDefault(); setDrag({ id: act.id, mode: 'move', x0: e.clientX, start0: act.plannedStart, end0: act.plannedEnd, deltaDays: 0 }) } : undefined}
+                        />
+                        {editable && (
+                          <rect
+                            x={x + w - 5} y={y + 5} width={8} height={14} rx={2}
+                            fill="#f97316" opacity={isDragging && drag?.mode === 'resize' ? 0.9 : 0.35}
+                            style={{ cursor: 'ew-resize' }}
+                            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDrag({ id: act.id, mode: 'resize', x0: e.clientX, start0: act.plannedStart, end0: act.plannedEnd, deltaDays: 0 }) }}
+                          />
+                        )}
+                      </>
+                    )
+                  })()}
                   {/* Tendência bar (network-colored) */}
                   <rect x={LABEL_W + tPx} y={y + 22} width={tW} height={isL0 ? 10 : 9} rx={3} fill={nColor} opacity={0.78} />
                   {/* Progress fill */}
@@ -501,6 +570,10 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
   const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
+  const backfillObraId = usePlanejamentoMestreStore((s) => s.backfillObraId)
+
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  const sites = useTorreStore((s) => s.sites)
 
   const [deleteTarget, setDeleteTarget] = useState<MasterActivity | null>(null)
   const [showNewForm, setShowNewForm]   = useState(false)
@@ -511,21 +584,39 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const [filterStatus, setFilterStatus] = useState<MasterActivityStatus | ''>('')
   const [filterNetwork, setFilterNetwork] = useState<string>('')
   const [filterService, setFilterService] = useState<string>('')
+  const [filterNucleo, setFilterNucleo] = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
   const [view, setView] = useState<'gantt' | 'tabela360'>('gantt')
   const svgRef = useRef<SVGSVGElement | null>(null)
 
+  // Núcleos presentes nas atividades (para o filtro), casando nucleusId → nome do cadastro.
+  const nucleoOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const a of activities) {
+      const key = a.nucleusId || a.nucleo
+      if (!key) continue
+      const nome = (a.nucleusId ? nuclei.find((n) => n.id === a.nucleusId)?.name : undefined) || a.nucleo || key
+      if (!map.has(key)) map.set(key, nome)
+    }
+    return [...map.entries()].map(([value, label]) => ({ value, label })).sort((x, y) => x.label.localeCompare(y.label))
+  }, [activities, nuclei])
+
   const filtered = useMemo(() =>
-    activities.filter((a) =>
+    byActiveObra(activities, activeObraId).filter((a) =>
       (!search || a.name.toLowerCase().includes(search.toLowerCase()) || a.wbsCode.toLowerCase().includes(search.toLowerCase())) &&
       (!filterStatus  || a.status          === filterStatus) &&
       (!filterNetwork || a.networkType     === filterNetwork) &&
-      (!filterService || a.serviceCategory === filterService)
+      (!filterService || a.serviceCategory === filterService) &&
+      (!filterNucleo  || a.nucleusId === filterNucleo || a.nucleo === filterNucleo)
     ),
-    [activities, search, filterStatus, filterNetwork, filterService],
+    [activities, activeObraId, search, filterStatus, filterNetwork, filterService, filterNucleo],
   )
 
-  const activeFilterCount = [search, filterStatus, filterNetwork, filterService].filter(Boolean).length
+  // Atividades sem obra (legadas) — oferecemos backfill para a obra selecionada.
+  const semObraCount = useMemo(() => activities.filter((a) => !a.obraId).length, [activities])
+  const activeSiteName = activeObraId ? sites.find((s) => s.id === activeObraId)?.name : undefined
+
+  const activeFilterCount = [search, filterStatus, filterNetwork, filterService, filterNucleo].filter(Boolean).length
   const averagePhysical = activities.length > 0
     ? activities.reduce((sum, a) => sum + (a.physicalProgressPct ?? a.percentComplete ?? 0), 0) / activities.length
     : 0
@@ -540,6 +631,15 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
     setFilterStatus('')
     setFilterNetwork('')
     setFilterService('')
+    setFilterNucleo('')
+  }
+
+  function handleBackfill() {
+    if (!activeObraId) return
+    const n = backfillObraId(activeObraId)
+    window.alert(n > 0
+      ? `${n} atividade(s) sem obra foram vinculadas a "${activeSiteName ?? 'obra selecionada'}".`
+      : 'Nenhuma atividade sem obra para vincular.')
   }
 
   function toggleCollapse(id: string) {
@@ -735,6 +835,23 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
               </select>
             </div>
 
+            {/* Núcleo filter */}
+            {nucleoOptions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[#6b6b6b] text-xs shrink-0">Núcleo:</span>
+                <select
+                  value={filterNucleo}
+                  onChange={(e) => setFilterNucleo(e.target.value)}
+                  className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                >
+                  <option value="">Todos</option>
+                  {nucleoOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <span className="text-[#6b6b6b] text-xs ml-auto">
               {filtered.length} de {activities.length} atividade{activities.length !== 1 ? 's' : ''}
             </span>
@@ -742,8 +859,21 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         )}
       </div>
 
+      {/* Backfill: atividades legadas sem obra → vincular à obra selecionada */}
+      {semObraCount > 0 && activeObraId && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 px-3 py-2 text-xs print:hidden">
+          <span className="text-[#fed7aa]">
+            {semObraCount} atividade(s) ainda sem obra vinculada — elas só aparecem em "Todas as obras".
+          </span>
+          <button onClick={handleBackfill} className="rounded-lg bg-[#f97316] px-3 py-1.5 font-semibold text-white hover:bg-[#ea580c]">
+            Vincular a "{activeSiteName ?? 'obra selecionada'}"
+          </button>
+        </div>
+      )}
+
       {/* View toggle: Cronograma (Gantt) × Tabela 360 (Núcleo/Obra) */}
-      <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1 print:hidden">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
         {([['gantt', 'Cronograma (Gantt)'], ['tabela360', 'Tabela 360']] as const).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setView(k)}
             className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === k ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}>
@@ -751,8 +881,12 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
           </button>
         ))}
       </div>
+        <span className="rounded-full border border-[#525252] bg-[#2c2c2c] px-3 py-1 text-xs text-[#a3a3a3]">
+          {activeObraId ? <>Obra: <strong className="text-[#f5f5f5]">{activeSiteName ?? 'selecionada'}</strong></> : <>Vendo <strong className="text-[#f5f5f5]">todas as obras</strong></>}
+        </span>
+      </div>
 
-      {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} />}
+      {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
 
       {view === 'gantt' && (<>
       {/* ── Gantt Chart ── */}
@@ -773,6 +907,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
             collapsed={collapsed}
             onToggle={toggleCollapse}
             svgRef={svgRef}
+            updateActivity={updateActivity}
           />
         </div>
       </div>

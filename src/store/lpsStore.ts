@@ -604,7 +604,7 @@ if (typeof window !== 'undefined') {
           const fields = {
             week, trechoCode: (a.nome || 'EXE').slice(0, 24), description: a.nome || plano.servico || 'Serviço',
             planned: true, completed: false, readyStatus: 'yellow' as const,
-            plannedMeters: a.areaM2 || 0, sourceExecucaoId: key,
+            plannedMeters: a.areaM2 || 0, sourceExecucaoId: key, obraId: plano.siteId ?? null,
           }
           if (match) {
             if (match.description !== fields.description || match.week !== fields.week || match.plannedMeters !== fields.plannedMeters) store.updateActivity(match.id, fields)

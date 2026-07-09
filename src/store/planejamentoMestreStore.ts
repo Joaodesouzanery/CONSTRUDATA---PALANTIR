@@ -10,6 +10,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
   LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
@@ -103,6 +104,8 @@ interface PlanejamentoMestreState {
   addActivity: (activity: Omit<MasterActivity, 'id'>) => void
   updateActivity: (id: string, patch: Partial<MasterActivity>) => void
   removeActivity: (id: string) => void
+  /** Carimba obraId nas atividades sem obra (legadas) — retorna quantas foram atualizadas. */
+  backfillObraId: (obraId: string) => number
 
   createBlankProject: (input: {
     projectName: string
@@ -197,7 +200,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
 
         addActivity: (activity) => {
           const id = crypto.randomUUID()
-          const newActivity: MasterActivity = { ...activity, id }
+          // Carimba a obra ativa quando não veio no payload (Planejamento ↔ Torre).
+          const obraId = activity.obraId ?? useActiveObraStore.getState().activeObraId ?? null
+          const newActivity: MasterActivity = { ...activity, id, obraId }
           set((s) => ({ activities: [...s.activities, newActivity] }))
           const { orgId, userId } = ctx()
           enqueue(makeOp({ entity: 'master_activity', type: 'insert', recordId: id, row: masterActivityToRow(newActivity, orgId, userId), table: 'master_activities' }))
@@ -227,6 +232,20 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
           set((s) => ({ activities: s.activities.filter((a) => a.id !== id) }))
           enqueue(makeOp({ entity: 'master_activity', type: 'delete', recordId: id, table: 'master_activities', approvalActionType: 'delete_master_activity' }))
           void get().flush()
+        },
+
+        backfillObraId: (obraId) => {
+          const semObra = get().activities.filter((a) => !a.obraId)
+          if (semObra.length === 0) return 0
+          set((s) => ({ activities: s.activities.map((a) => (a.obraId ? a : { ...a, obraId })) }))
+          const { orgId, userId } = ctx()
+          for (const a of semObra) {
+            const row = masterActivityToRow({ ...a, obraId }, orgId, userId)
+            const updatePatch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+            enqueue(makeOp({ entity: 'master_activity', type: 'update', recordId: a.id, patch: updatePatch, table: 'master_activities' }))
+          }
+          void get().flush()
+          return semObra.length
         },
 
         createBlankProject: ({ projectName, networkType, startDate, endDate, fronts, includeServices }) => {
@@ -272,6 +291,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
               })
             }
           })
+          // Carimba a obra ativa em todas as atividades criadas pelo wizard.
+          const obraIdBlank = useActiveObraStore.getState().activeObraId ?? null
+          newActivities.forEach((a) => { a.obraId = obraIdBlank })
           set({
             activities: newActivities, baselines: [], activeBaselineId: null,
             derivedActivities: [], whatIfAdjustments: [],
@@ -382,6 +404,9 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
               }
             }),
           ]
+          // Carimba a obra ativa em todas as atividades do plano guiado.
+          const obraIdGuided = useActiveObraStore.getState().activeObraId ?? null
+          activities.forEach((a) => { a.obraId = obraIdGuided })
           const baseline: MasterBaseline = {
             id: crypto.randomUUID(),
             name: 'Rev.0',
@@ -619,7 +644,7 @@ if (typeof window !== 'undefined') {
               plannedStart: plano.periodoInicio, plannedEnd: plano.periodoFim,
               trendStart: plano.periodoInicio, trendEnd: plano.periodoFim,
               durationDays: dur, percentComplete: 0, status: 'not_started' as const, isMilestone: false,
-              networkType: 'civil' as const, sourceExecucaoId: key,
+              networkType: 'civil' as const, sourceExecucaoId: key, obraId: plano.siteId ?? null,
             }
             if (match) {
               if (match.name !== fields.name || match.plannedStart !== fields.plannedStart || match.plannedEnd !== fields.plannedEnd) store.updateActivity(match.id, fields)

@@ -388,8 +388,20 @@ export const useRdoStore = create<RdoState>()(
 
       syncExecutionToPlanejamento: () => {
         const { rdos } = get()
+        type ExecData = { quantity: number; date: string; progressPct: number; status: string }
         const execMap = new Map<string, { executedMeters: number; date: string }>()
-        const masterExecMap = new Map<string, { quantity: number; date: string; progressPct: number; status: string }>()
+        // Global (comportamento legado) + por obra (evita contaminação entre obras que compartilham operationalKey).
+        const globalMap = new Map<string, ExecData>()
+        const perObra = new Map<string, Map<string, ExecData>>()
+        const accumulate = (map: Map<string, ExecData>, key: string, service: RDO['services'][number], date: string) => {
+          const prev = map.get(key)
+          const quantity = (prev?.quantity ?? 0) + (Number(service.quantity) || 0)
+          const progressPct = Math.max(prev?.progressPct ?? 0, Number(service.accumulatedProgressPct) || Number(service.dailyProgressPct) || 0)
+          const status = service.qualityStatus === 'approved'
+            ? 'completed'
+            : quantity > 0 || progressPct > 0 ? 'in_progress' : 'not_started'
+          map.set(key, { quantity, date, progressPct, status })
+        }
         const sortedRdos = [...rdos].sort((a, b) => a.date.localeCompare(b.date))
         for (const rdo of sortedRdos) {
           for (const t of rdo.trechos) {
@@ -402,15 +414,13 @@ export const useRdoStore = create<RdoState>()(
           for (const service of rdo.services ?? []) {
             const key = service.planningActivityId || service.operationalKey
             if (!key) continue
-            const prev = masterExecMap.get(key)
-            const quantity = (prev?.quantity ?? 0) + (Number(service.quantity) || 0)
-            const progressPct = Math.max(prev?.progressPct ?? 0, Number(service.accumulatedProgressPct) || Number(service.dailyProgressPct) || 0)
-            const status = service.qualityStatus === 'approved'
-              ? 'completed'
-              : quantity > 0 || progressPct > 0
-                ? 'in_progress'
-                : 'not_started'
-            masterExecMap.set(key, { quantity, date: rdo.date, progressPct, status })
+            accumulate(globalMap, key, service, rdo.date)
+            const siteId = rdo.siteId ?? null
+            if (siteId) {
+              let m = perObra.get(siteId)
+              if (!m) { m = new Map(); perObra.set(siteId, m) }
+              accumulate(m, key, service, rdo.date)
+            }
           }
         }
         const entries = Array.from(execMap.entries()).map(([code, data]) => ({
@@ -425,12 +435,15 @@ export const useRdoStore = create<RdoState>()(
             })
             .catch(() => {})
         }
-        if (masterExecMap.size > 0) {
+        if (globalMap.size > 0) {
           import('./planejamentoMestreStore')
             .then(({ usePlanejamentoMestreStore }) => {
               const store = usePlanejamentoMestreStore.getState()
               for (const activity of store.activities) {
-                const data = masterExecMap.get(activity.id) ?? (activity.operationalKey ? masterExecMap.get(activity.operationalKey) : undefined)
+                // Atividade com obra: só recebe RDO da MESMA obra. Sem obra (legada): comportamento global.
+                const obraTag = activity.obraId ?? null
+                const src = obraTag ? perObra.get(obraTag) : globalMap
+                const data = src?.get(activity.id) ?? (activity.operationalKey ? src?.get(activity.operationalKey) : undefined)
                 if (!data) continue
                 const planned = Number(activity.plannedQuantity) || 0
                 const percentComplete = planned > 0

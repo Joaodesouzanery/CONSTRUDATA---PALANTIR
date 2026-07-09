@@ -1901,6 +1901,7 @@ export interface LpsActivity {
   executedMeters?: number
   sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
   sourceMasterId?: string     // vínculo com uma atividade derivada do Planejamento Mestre (Médio Prazo → LPS)
+  obraId?: string | null      // obra (construction_sites.id) — PPC por obra
 }
 
 export interface LpsWeeklyPPC {
@@ -2182,6 +2183,7 @@ export interface MasterActivity {
   lastRdoDate?: string
   operationalKey?: string
   sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
+  obraId?: string | null      // obra (construction_sites.id) — Planejamento ↔ Torre. null/undefined = sem obra (aparece em "Todas")
 }
 
 export interface MasterBaseline {
