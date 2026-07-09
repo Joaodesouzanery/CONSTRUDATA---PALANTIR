@@ -188,6 +188,15 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
       && plano.equipe.some((m) => m.workerId && m.workerId === a.workerId))
     .reduce((s, a) => { const w = workers.find((x) => x.id === a.workerId); return s + (w ? custoDiaWorker(w) : 0) }, 0)
   const margem = fat - custoMaoObraReal - total
+
+  // Medição: lança o valor do executado (m² × preço) como entrada no Financeiro da obra.
+  function registrarMedicao() {
+    const valor = pxe.m2Executado * (plano.precoM2 || 0)
+    if (valor <= 0) return
+    if (!confirm(`Registrar medição de ${Math.round(pxe.m2Executado)} m² executados = ${fmtBRL(valor)} como entrada no Financeiro desta obra?`)) return
+    addEntry({ id: crypto.randomUUID(), tipo: 'entrada', descricao: `Medição — ${plano.servico} (${Math.round(pxe.m2Executado)} m² executados)`, valor, data: hoje, categoria: 'medicao', referencia: `Medição Plano ${id.slice(0, 8)}`, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: new Date().toISOString() })
+    alert('Medição registrada no Financeiro (entrada, categoria "medição") desta obra.')
+  }
   const temRdo = (data: string) =>
     rdos.some((r) => (r as { template?: string }).template === 'compizzo'
       && (((r as { siteId?: string | null }).siteId) || null) === (plano.siteId || null)
@@ -473,6 +482,15 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
               <Tile label="Ritmo real" value={pxe.diasComRdo > 0 ? `${pxe.ritmoReal.toFixed(1)} m²/dia` : '—'} sub={`${pxe.diasComRdo} dia(s) com RDO`} />
               <Tile label="Projeção p/ concluir" value={pxe.projecaoConclusaoDias > 0 ? `${pxe.projecaoConclusaoDias} dia(s)` : '—'} />
               <Tile label="RUP real" value={pxe.rupReal > 0 ? `${pxe.rupReal.toFixed(2)} HH/m²` : '—'} valueClass={pxe.rupReal > 0 ? (pxe.rupReal > TCPO_RUP_PADRAO ? 'text-red-400' : 'text-emerald-400') : ''} sub={`meta ≤ ${TCPO_RUP_PADRAO}`} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-sm text-[#9a9a9a]">Valor medido (executado): <strong className="text-emerald-400">{fmtBRL(pxe.m2Executado * (plano.precoM2 || 0))}</strong> <span className="text-[10px] text-[#6b6b6b]">({Math.round(pxe.m2Executado)} m² × {fmtBRL(plano.precoM2)})</span></span>
+              {canEdit && pxe.m2Executado * (plano.precoM2 || 0) > 0 && (
+                <button onClick={registrarMedicao} title="Lançar a medição do executado como entrada no Financeiro desta obra"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded text-xs bg-[#484848] hover:bg-[#525252] text-[#f5f5f5]">
+                  <Send size={13} /> Registrar medição no Financeiro
+                </button>
+              )}
             </div>
             {pxe.m2Executado === 0 && <p className="mt-3 text-xs text-[#9a9a9a]">Nenhum RDO Compizzo lançado nesta obra dentro do período. Registre a produção diária (com m² e horas) no módulo RDO para acompanhar o executado.</p>}
           </div>
