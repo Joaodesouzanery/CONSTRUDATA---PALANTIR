@@ -1,0 +1,32 @@
+/**
+ * custoMaoObra — custo de mão de obra a partir do SALÁRIO BRUTO + encargos.
+ * Até então o app só usava hourlyRate; o grossSalary era guardado e ignorado.
+ * Aproximação de custo-empregador: bruto + FGTS (8%) + INSS patronal (20%).
+ * Não substitui a folha real (CLT), mas dá custo/dia e custo/mês para o planejamento.
+ */
+import type { Worker } from '@/types'
+import { calcFGTS, calcEmployerINSS } from './payrollEngine'
+
+/** Dias úteis médios no mês (base do custo/dia). Configurável por chamada. */
+export const DIAS_UTEIS_MES_PADRAO = 22
+
+/** Custo mensal do empregador (bruto + FGTS + INSS patronal). 0 se não houver salário. */
+export function custoMesWorker(w: Pick<Worker, 'grossSalary'>): number {
+  const gross = w.grossSalary || 0
+  return gross > 0 ? gross + calcFGTS(gross) + calcEmployerINSS(gross) : 0
+}
+
+/**
+ * Custo/dia por funcionário. Usa o salário bruto + encargos ÷ dias úteis do mês.
+ * Sem salário bruto, cai para o valor/hora × jornada (fallback).
+ */
+export function custoDiaWorker(
+  w: Pick<Worker, 'grossSalary' | 'hourlyRate'>,
+  opts: { diasMes?: number; jornada?: number } = {},
+): number {
+  const diasMes = opts.diasMes && opts.diasMes > 0 ? opts.diasMes : DIAS_UTEIS_MES_PADRAO
+  const mensal = custoMesWorker(w)
+  if (mensal > 0) return mensal / diasMes
+  const jornada = opts.jornada && opts.jornada > 0 ? opts.jornada : 8
+  return (w.hourlyRate || 0) * jornada
+}

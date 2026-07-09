@@ -16,7 +16,8 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import type { PlanoAtividade, PlanoExecucao, Servico } from '@/types'
+import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
+import type { PlanoAtividade, PlanoExecucao, PlanoExecucaoMembro, Servico } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
@@ -160,6 +161,33 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const custoTotal = custoTotalEstimado(plano)
   const ritmoMeta = ritmoDiarioMeta(plano)
   const pxe = useMemo(() => planejadoVsExecutado(plano, rdos), [plano, rdos])
+
+  // ── Presença & custo real por funcionário (dias trabalhados × custo/dia do salário) ──
+  const setEquipe = (eq: PlanoExecucaoMembro[]) => set({ equipe: eq })
+  const custoDiaDoMembro = (m: PlanoExecucaoMembro) => {
+    const w = m.workerId ? workers.find((x) => x.id === m.workerId) : undefined
+    return w ? custoDiaWorker(w) : 0
+  }
+  const custoMaoObraReal = plano.equipe.reduce((s, m) => s + (m.diasTrabalhados?.length ?? 0) * custoDiaDoMembro(m), 0)
+  const toggleDiaMembro = (mi: number, data: string) => {
+    setEquipe(plano.equipe.map((m, j) => {
+      if (j !== mi) return m
+      const dias = new Set(m.diasTrabalhados ?? [])
+      if (dias.has(data)) dias.delete(data); else dias.add(data)
+      return { ...m, diasTrabalhados: [...dias].sort() }
+    }))
+  }
+  const marcarDiasUteis = (mi: number) => {
+    const uteis = plano.cronograma.filter((d) => d.data && !isWeekend(d.data)).map((d) => d.data)
+    setEquipe(plano.equipe.map((m, j) => (j === mi ? { ...m, diasTrabalhados: uteis } : m)))
+  }
+  // Desconto por faltas não justificadas de membros da equipe, dentro do período.
+  const faltasDesconto = absences
+    .filter((a) => a.type === 'unjustified' && plano.periodoInicio && plano.periodoFim
+      && a.date >= plano.periodoInicio && a.date <= plano.periodoFim
+      && plano.equipe.some((m) => m.workerId && m.workerId === a.workerId))
+    .reduce((s, a) => { const w = workers.find((x) => x.id === a.workerId); return s + (w ? custoDiaWorker(w) : 0) }, 0)
+  const margem = fat - custoMaoObraReal - total
   const temRdo = (data: string) =>
     rdos.some((r) => (r as { template?: string }).template === 'compizzo'
       && (((r as { siteId?: string | null }).siteId) || null) === (plano.siteId || null)
@@ -484,6 +512,66 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
               </tbody>
             </table>
           )}
+        </div>
+      </section>
+
+      {/* 3.5 Presença & custo por funcionário */}
+      <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
+        <div className={bar}>
+          <Activity size={13} /> Presença &amp; custo por funcionário
+          <span className="ml-auto font-normal normal-case text-[10px] text-white/70">custo/dia do salário bruto + encargos</span>
+        </div>
+        <div className="p-4">
+          {plano.equipe.length === 0 || plano.cronograma.length === 0 ? (
+            <p className="text-xs text-[#9a9a9a]">Adicione funcionários na Equipe e gere o cronograma para marcar os dias trabalhados e ver o custo real.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm" style={{ minWidth: 480 + plano.cronograma.length * 34 }}>
+                <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
+                  <th className="text-left py-1.5 sticky left-0 bg-[#333]">Funcionário</th>
+                  {plano.cronograma.map((d, di) => (
+                    <th key={`h-${di}`} className={`w-8 text-center ${isWeekend(d.data) ? 'text-[#6b6b6b]' : ''}`} title={fmtDataLonga(d.data)}>{fmtDataCurta(d.data).slice(0, 2)}</th>
+                  ))}
+                  <th className="text-right w-12 pl-2">Dias</th><th className="text-right w-20">Custo/dia</th><th className="text-right w-24">Custo</th>
+                </tr></thead>
+                <tbody>
+                  {plano.equipe.map((m, mi) => {
+                    const dias = new Set(m.diasTrabalhados ?? [])
+                    const cd = custoDiaDoMembro(m)
+                    return (
+                      <tr key={m.id} className="border-b border-[#484848] text-[#e5e5e5]">
+                        <td className="py-1.5 pr-2 sticky left-0 bg-[#333] whitespace-nowrap">
+                          {m.nome || '—'}
+                          {canEdit && <button onClick={() => marcarDiasUteis(mi)} title="Marcar todos os dias úteis" className="ml-2 text-[9px] px-1 py-0.5 rounded bg-[#484848] text-[#c9c9c9] hover:bg-[#525252]">úteis</button>}
+                        </td>
+                        {plano.cronograma.map((d, di) => (
+                          <td key={`c-${mi}-${di}`} className="text-center">
+                            <input type="checkbox" disabled={ro || !d.data} checked={dias.has(d.data)} onChange={() => toggleDiaMembro(mi, d.data)} />
+                          </td>
+                        ))}
+                        <td className="text-right pr-2 pl-2 font-semibold">{dias.size}</td>
+                        <td className="text-right pr-2 text-[#c9c9c9]">{cd > 0 ? fmtBRL(cd) : '—'}</td>
+                        <td className="text-right pr-2 font-semibold text-[#f5f5f5]">{fmtBRL(dias.size * cd)}</td>
+                      </tr>
+                    )
+                  })}
+                  <tr className="text-[#f59e0b] font-bold border-t-2 border-[#2b2c6b]">
+                    <td className="py-2 sticky left-0 bg-[#333]" colSpan={plano.cronograma.length + 3}>CUSTO DE MÃO DE OBRA (realizado)</td>
+                    <td className="text-right pr-2">{fmtBRL(custoMaoObraReal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="mt-2 text-[10px] text-[#7a7a7a]">Custo/dia = salário bruto + encargos (FGTS + INSS patronal) ÷ 22 dias úteis. Funcionários sem vínculo (workerId) ou sem salário aparecem "—".</p>
+            </div>
+          )}
+
+          {/* Custo & margem */}
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Tile label="Faturamento previsto" value={fmtBRL(fat)} valueClass="text-[#f59e0b]" />
+            <Tile label="Custo M.O. realizado" value={fmtBRL(custoMaoObraReal)} sub={`estimado: ${fmtBRL(custoTotal)}`} />
+            <Tile label="Desconto por faltas" value={fmtBRL(faltasDesconto)} sub="não justificadas no período" valueClass={faltasDesconto > 0 ? 'text-red-400' : 'text-[#f5f5f5]'} />
+            <Tile label="Margem (fat − custo − bônus)" value={fmtBRL(margem)} valueClass={margem >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+          </div>
         </div>
       </section>
 

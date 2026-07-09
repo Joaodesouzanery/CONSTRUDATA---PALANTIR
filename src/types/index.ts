@@ -1217,6 +1217,7 @@ export interface PlanoExecucaoMembro {
   workerId?: string | null   // vínculo opcional a Mão de Obra (Fase 2)
   nome: string
   funcao: string
+  diasTrabalhados?: string[]  // datas (yyyy-MM-dd) em que o funcionário trabalhou (custo real)
 }
 export interface PlanoExecucaoBonificacao {
   id: string
