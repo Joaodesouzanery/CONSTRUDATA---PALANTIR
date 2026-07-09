@@ -17,6 +17,7 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatDecimalInput, formatMoneyInput, parseLocaleNumber } from '@/lib/numberFormat'
@@ -123,11 +124,44 @@ export function AlmoxarifadoPanel() {
   )
 
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  const sites = useTorreStore((s) => s.sites)
+
+  // Opções de frente/depósito = frentes já criadas + obras da Torre de Controle.
+  // Obras da Torre sem depósito próprio entram como `site:<id>` (criam o depósito no primeiro uso).
+  const frenteOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = []
+    const depoSiteIds = new Set(depositos.map((d) => d.siteId).filter(Boolean))
+    for (const dep of depositos) {
+      const site = dep.siteId ? sites.find((s) => s.id === dep.siteId) : undefined
+      opts.push({ value: dep.id, label: site ? `${dep.frente} · ${site.name}` : dep.frente })
+    }
+    for (const site of sites) {
+      if (depoSiteIds.has(site.id)) continue
+      opts.push({ value: `site:${site.id}`, label: `${site.name} (obra)` })
+    }
+    return opts
+  }, [depositos, sites])
+
+  // Resolve o valor do seletor para um depositoId real (find-or-create por obra da Torre).
+  function resolveDeposito(raw: string): { id: string; siteId: string | null } {
+    if (raw.startsWith('site:')) {
+      const siteId = raw.slice(5)
+      const existing = depositos.find((d) => d.siteId === siteId)
+      if (existing) return { id: existing.id, siteId: existing.siteId ?? siteId }
+      const site = sites.find((s) => s.id === siteId)
+      const id = addDeposito({ frente: site?.name ?? 'Obra', descricao: 'Frente sincronizada da Torre de Controle', ativo: true, siteId })
+      return { id, siteId }
+    }
+    const dep = depositos.find((d) => d.id === raw)
+    return { id: raw, siteId: dep?.siteId ?? null }
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return estoqueItens.filter((item) => {
       const deposito = depositos.find((dep) => dep.id === item.depositoId)
-      if (activeObraId && (item.siteId ?? deposito?.siteId ?? null) !== activeObraId) return false
+      const itemSite = item.siteId ?? deposito?.siteId ?? null
+      if (activeObraId && itemSite !== activeObraId) return false
       const low = item.qtdDisponivel < item.estoqueMinimo
       const text = [
         item.id,
@@ -141,7 +175,11 @@ export function AlmoxarifadoPanel() {
       if (q && !text.includes(q)) return false
       if (lowOnly && !low) return false
       if (category !== 'Todas' && (item.categoria || 'Sem categoria') !== category) return false
-      if (depositoId !== 'todos' && item.depositoId !== depositoId) return false
+      if (depositoId !== 'todos') {
+        if (depositoId.startsWith('site:')) {
+          if (itemSite !== depositoId.slice(5)) return false
+        } else if (item.depositoId !== depositoId) return false
+      }
       return true
     })
   }, [category, depositoId, depositos, estoqueItens, lowOnly, search, activeObraId])
@@ -197,12 +235,14 @@ export function AlmoxarifadoPanel() {
   }
 
   function handleSaveItem() {
-    const depId = form.depositoId || depositos[0]?.id || 'dep-default'
     if (!form.descricao.trim()) return
+    const resolved = form.depositoId ? resolveDeposito(form.depositoId) : { id: '', siteId: null }
+    const depId = resolved.id || depositos[0]?.id || 'dep-default'
     const existingItem = editingItemId ? estoqueItens.find((item) => item.id === editingItemId) : null
 
     const payload = {
       depositoId: depId,
+      siteId: resolved.siteId ?? existingItem?.siteId ?? null,
       descricao: form.descricao.trim(),
       unidade: form.unidade.trim(),
       qtdDisponivel: parseLocaleNumber(form.qtdDisponivel),
@@ -474,8 +514,8 @@ export function AlmoxarifadoPanel() {
               {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
             </select>
             <select value={depositoId} onChange={(event) => setDepositoId(event.target.value)} className={inputClass}>
-              <option value="todos">Todos os projetos</option>
-              {depositos.map((dep) => <option key={dep.id} value={dep.id}>{dep.frente}</option>)}
+              <option value="todos">Todas as frentes / obras</option>
+              {frenteOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <button
               type="button"
@@ -502,7 +542,7 @@ export function AlmoxarifadoPanel() {
           <div className="grid gap-3 md:grid-cols-4">
             <select value={form.depositoId} onChange={(event) => setForm((item) => ({ ...item, depositoId: event.target.value }))} className={inputClass}>
               <option value="">Projeto / depósito padrão</option>
-              {depositos.map((dep) => <option key={dep.id} value={dep.id}>{dep.frente}</option>)}
+              {frenteOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             <input value={form.descricao} onChange={(event) => setForm((item) => ({ ...item, descricao: event.target.value }))} placeholder="Material" className={inputClass} />
             <input value={form.categoria} onChange={(event) => setForm((item) => ({ ...item, categoria: event.target.value }))} placeholder="Categoria" className={inputClass} />

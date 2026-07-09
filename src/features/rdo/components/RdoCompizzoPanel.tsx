@@ -20,7 +20,7 @@ import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
-  RdoEquipmentEntry, RdoPhoto, RdoWeatherCondition,
+  RdoEquipmentEntry, RdoPhoto, RdoWeatherCondition, RdoMaterialConsumptionEntry,
 } from '@/types'
 
 function stripEquipId(e: RdoEquipmentEntry): Omit<RdoEquipmentEntry, 'id'> {
@@ -168,6 +168,27 @@ export function RdoCompizzoPanel() {
     }
   }
 
+  // Materiais puxados do Almoxarifado (com stockItemId + qtd) viram entradas de consumo
+  // no topo do payload → o trigger `sync_rdo_to_estoque` dá baixa idempotente por rdo_id.
+  function buildMaterials(): RdoMaterialConsumptionEntry[] {
+    return materiais
+      .filter((m) => m.stockItemId && parseLocaleNumber(m.quantidade) > 0)
+      .map((m) => {
+        const qty = parseLocaleNumber(m.quantidade)
+        const unit = m.custoUnitario ?? 0
+        return {
+          id: crypto.randomUUID(),
+          material: m.material,
+          quantity: qty,
+          source: 'almoxarifado' as const,
+          stockItemId: m.stockItemId,
+          depositoId: m.depositoId,
+          unitCostBRL: unit,
+          totalCostBRL: unit * qty,
+        }
+      })
+  }
+
   function handleApplyText() {
     const p = parseCompizzoText(textValue)
     if (p.obra) setObra(p.obra)
@@ -210,6 +231,7 @@ export function RdoCompizzoPanel() {
       manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0, employeeNames },
       equipment: equipment.map((e) => ({ ...e, id: crypto.randomUUID() })),
       services: [],
+      materials: buildMaterials(),
       trechos: [],
       geolocation: null,
       observations: observacoes,
@@ -245,6 +267,12 @@ export function RdoCompizzoPanel() {
   const custoMaoObraDia = useMemo(
     () => employeeNames.reduce((s, name) => { const w = workers.find((x) => x.name === name); return s + (w ? custoDiaWorker(w) : 0) }, 0),
     [employeeNames, workers],
+  )
+  // Materiais puxados do estoque (com custo) — mostram custo do dia e dão baixa ao finalizar.
+  const materiaisVinculados = useMemo(() => materiais.filter((m) => m.stockItemId && parseLocaleNumber(m.quantidade) > 0), [materiais])
+  const custoMateriaisDia = useMemo(
+    () => materiaisVinculados.reduce((s, m) => s + (m.custoUnitario ?? 0) * parseLocaleNumber(m.quantidade), 0),
+    [materiaisVinculados],
   )
 
   return (
@@ -460,7 +488,13 @@ export function RdoCompizzoPanel() {
                     setMateriais((rows) => {
                       // Preenche a primeira linha vazia; senão acrescenta nova.
                       const emptyIdx = rows.findIndex((r) => !r.material.trim() && !r.quantidade.trim())
-                      const novo = { material: `${item.descricao} (${item.unidade})`, quantidade: '' }
+                      const novo: RdoCompizzoMaterialRow = {
+                        material: `${item.descricao}${item.unidade ? ` (${item.unidade})` : ''}`,
+                        quantidade: '',
+                        stockItemId: item.id,
+                        depositoId: item.depositoId,
+                        custoUnitario: item.custoUnitario ?? 0,
+                      }
                       if (emptyIdx >= 0) return rows.map((r, i) => (i === emptyIdx ? novo : r))
                       return [...rows, novo]
                     })
@@ -483,6 +517,25 @@ export function RdoCompizzoPanel() {
             onChange={setMateriais}
             makeEmpty={() => ({ material: '', quantidade: '' })}
           />
+          {materiaisVinculados.length > 0 && (
+            <div className="mt-3 rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#a3a3a3]">Materiais do Almoxarifado (dão baixa no estoque ao finalizar)</span>
+                <span className="font-semibold text-[#f5f5f5]">Custo do dia: {brl(custoMateriaisDia)}</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {materiaisVinculados.map((m, i) => {
+                  const qty = parseLocaleNumber(m.quantidade)
+                  return (
+                    <div key={i} className="flex items-center justify-between text-[11px] text-[#c9c9c9]">
+                      <span className="truncate">{m.material} · {qty || 0} × {brl(m.custoUnitario ?? 0)}</span>
+                      <span className="tabular-nums text-[#e5e5e5]">{brl((m.custoUnitario ?? 0) * qty)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </Section>
 
         {/* Equipamentos */}
@@ -589,7 +642,7 @@ function Checkbox({ checked, label, onChange }: { checked: boolean; label: strin
   )
 }
 
-function EditableRows<T extends Record<string, string>>({
+function EditableRows<T extends Record<string, unknown>>({
   rows, cols, onChange, makeEmpty,
 }: { rows: T[]; cols: Array<[keyof T, string]>; onChange: (rows: T[]) => void; makeEmpty: () => T }) {
   return (
@@ -604,9 +657,9 @@ function EditableRows<T extends Record<string, string>>({
             <input
               key={String(field)}
               className={inputCls}
-              value={row[field]}
+              value={String(row[field] ?? '')}
               placeholder={lbl}
-              onChange={(e) => onChange(rows.map((r, idx) => idx === i ? { ...r, [field]: e.target.value } : r))}
+              onChange={(e) => onChange(rows.map((r, idx) => idx === i ? ({ ...r, [field]: e.target.value } as T) : r))}
             />
           ))}
           <button type="button" onClick={() => onChange(rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center"><Trash2 size={14} /></button>

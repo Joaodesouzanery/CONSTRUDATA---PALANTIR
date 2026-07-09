@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Plus, ArrowDownCircle, ArrowUpCircle, AlertTriangle, Package } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
 import { parseLocaleNumber } from '@/lib/numberFormat'
@@ -72,6 +73,17 @@ export function MapaEstoquePanel() {
     dataCompra: new Date().toISOString().slice(0, 10),
     dataMovimento: new Date().toISOString().slice(0, 10),
   })
+
+  const sites = useTorreStore((s) => s.sites)
+  // Obras da Torre ainda sem depósito próprio — viram chips que criam a frente ao clicar.
+  const obrasSemDeposito = sites.filter((site) => !depositos.some((d) => d.siteId === site.id))
+
+  function handleSelectObra(siteId: string, name: string) {
+    const existing = depositos.find((d) => d.siteId === siteId)
+    if (existing) { setSelectedDeposito(existing.id); return }
+    const id = addDeposito({ frente: name, descricao: 'Frente sincronizada da Torre de Controle', ativo: true, siteId })
+    setSelectedDeposito(id)
+  }
 
   const depId    = selectedDepositoId ?? depositos[0]?.id ?? ''
   const deposito = depositos.find((d) => d.id === depId)
@@ -154,6 +166,16 @@ export function MapaEstoquePanel() {
             )}
           >
             {d.frente}
+          </button>
+        ))}
+        {obrasSemDeposito.map((site) => (
+          <button
+            key={site.id}
+            onClick={() => handleSelectObra(site.id, site.name)}
+            title="Obra da Torre de Controle — clique para criar a frente de estoque"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#6b6b6b] hover:text-[#f97316] hover:border-[#f97316]/40 transition-colors"
+          >
+            + {site.name}
           </button>
         ))}
         <button

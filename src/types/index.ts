@@ -1629,8 +1629,11 @@ export interface RdoCompizzoServicoExtra {
 }
 
 export interface RdoCompizzoMaterialRow {
-  material:   string
-  quantidade: string
+  material:      string
+  quantidade:    string
+  stockItemId?:  string        // item do Almoxarifado (dá baixa no estoque ao finalizar)
+  depositoId?:   string        // frente/obra de onde saiu
+  custoUnitario?: number       // R$/un no momento da seleção (para custo do dia)
 }
 
 export interface RdoCompizzoServicos {
