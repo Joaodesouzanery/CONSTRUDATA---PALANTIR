@@ -15,6 +15,7 @@ import { PlanejamentoMestreHeader } from './components/PlanejamentoMestreHeader'
 import { PlanejamentoMacroPanel } from './components/PlanejamentoMacroPanel'
 import { DerivacaoPanel } from './components/DerivacaoPanel'
 import { WhatIfPanel } from './components/WhatIfPanel'
+import { CurtoPrazoPanel } from './components/CurtoPrazoPanel'
 import { VisaoIntegradaPanel } from './components/VisaoIntegradaPanel'
 import { ProgramacaoSemanalPanel } from './components/ProgramacaoSemanalPanel'
 import { CriarCronogramaWizard } from './components/CriarCronogramaWizard'
@@ -492,7 +493,7 @@ export function PlanejamentoMestrePage() {
         {workspace === 'planejamento' && activeTab === 'execucao'  && <ExecucaoPanel />}
         {workspace === 'planejamento' && activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
         {workspace === 'planejamento' && activeTab === 'derivacao' && <DerivacaoPanel />}
-        {workspace === 'planejamento' && activeTab === 'whatif'    && <WhatIfPanel />}
+        {workspace === 'planejamento' && activeTab === 'whatif'    && <CurtoPrazoTab />}
         {workspace === 'planejamento' && activeTab === 'integrada' && <VisaoIntegradaPanel />}
         {workspace === 'planejamento' && activeTab === 'semanal'   && <ProgramacaoSemanalPanel />}
         {workspace === 'planejamento' && activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
@@ -775,6 +776,33 @@ function PipelineStepper({ active, onGo, flags }: { active: PlanejamentoMestreTa
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// Curto Prazo = quadro de produção 15 dias (Operação e Campo) + simulador what-if do Mestre,
+// lado a lado via sub-seletor (o quadro é o default — restaurado sem perder o what-if).
+function CurtoPrazoTab() {
+  const [view, setView] = useState<'board' | 'whatif'>('board')
+  const opts = [
+    { key: 'board' as const,  label: 'Produção 15 dias' },
+    { key: 'whatif' as const, label: 'Simulador What-if' },
+  ]
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
+        {opts.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => setView(o.key)}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === o.key ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {view === 'board' ? <CurtoPrazoPanel /> : <WhatIfPanel />}
     </div>
   )
 }

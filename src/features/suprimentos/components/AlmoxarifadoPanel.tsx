@@ -380,12 +380,17 @@ export function AlmoxarifadoPanel() {
           <button
             type="button"
             onClick={handleSaveDeposito}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
+            disabled={!depositoForm.frente.trim()}
+            title={!depositoForm.frente.trim() ? 'Digite o nome da frente para adicionar' : undefined}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Save size={15} />
             {editingDepositoId ? 'Salvar frente' : 'Adicionar frente'}
           </button>
         </div>
+        {!depositoForm.frente.trim() && (
+          <p className="mt-1.5 text-xs text-[#6b6b6b]">Digite o nome da frente (ex.: Área A, Área B) e clique em "Adicionar frente".</p>
+        )}
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {depositoStats.map(({ dep, items, low, value }) => (
             <div key={dep.id} className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">

@@ -186,7 +186,7 @@ export function MapaEstoquePanel() {
           </div>
           <div className="flex items-end gap-2">
             <button onClick={() => setShowNovoNucleo(false)} className="px-3 py-1.5 text-xs text-[#6b6b6b] hover:text-[#a3a3a3]">Cancelar</button>
-            <button onClick={handleSaveNovoNucleo} className="px-4 py-1.5 text-xs font-medium bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/80">Salvar</button>
+            <button onClick={handleSaveNovoNucleo} disabled={!novoNucleo.frente.trim()} title={!novoNucleo.frente.trim() ? 'Digite o nome do núcleo' : undefined} className="px-4 py-1.5 text-xs font-medium bg-[#f97316] text-white rounded-lg hover:bg-[#f97316]/80 disabled:cursor-not-allowed disabled:opacity-40">Salvar</button>
           </div>
         </div>
       )}
