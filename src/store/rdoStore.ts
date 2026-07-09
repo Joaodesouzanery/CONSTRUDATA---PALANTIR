@@ -188,7 +188,7 @@ interface RdoState {
   ensureTenantScope: (organizationId: string) => void
 
   // RDO CRUD
-  addRdo:    (rdo: Omit<RDO, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => void
+  addRdo:    (rdo: Omit<RDO, 'id' | 'number' | 'createdAt' | 'updatedAt'>) => string
   updateRdo: (id: string, updates: Partial<RDO>) => void
   removeRdo: (id: string) => void
 
@@ -295,6 +295,7 @@ export const useRdoStore = create<RdoState>()(
         })
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         void get().flush()
+        return newRdo.id
       },
 
       updateRdo: (id, updates) => {

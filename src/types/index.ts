@@ -680,6 +680,9 @@ export interface TimecardEntry {
   reportedQty: number
   unit: string           // 'm²', 'ml', 'un', etc.
   notes?: string
+  sourceRdoId?: string   // origem: RDO que gerou este apontamento (idempotência da ponte RDO→timecards)
+  siteId?: string | null // obra (herda do worker/RDO) — separação por obra
+  laborCostBRL?: number  // custo do dia deste funcionário (salário+encargos ÷ dias/mês)
 }
 
 export interface PhysicalProgress {

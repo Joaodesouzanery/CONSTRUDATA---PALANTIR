@@ -38,6 +38,18 @@ import {
   autoGenerateSchedule,
 } from '@/features/mao-de-obra/utils/cltEngine'
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
+import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
+
+/** Dados mínimos que a ponte RDO → timecards precisa (evita acoplar rdoStore). */
+export interface RdoLaborBridgeInput {
+  id: string
+  date: string
+  siteId?: string | null
+  employeeNames: string[]
+  totalHoras: number
+  activityLabel?: string
+  diasMes?: number
+}
 
 // ─── Access Check Result ───────────────────────────────────────────────────────
 
@@ -101,6 +113,7 @@ interface MaoDeObraState {
   // Timecard actions
   addTimecard:     (entry: Omit<TimecardEntry, 'id'>) => void
   importTimecards: (entries: Array<Omit<TimecardEntry, 'id'>>) => void
+  syncRdoToTimecards: (rdo: RdoLaborBridgeInput) => void
 
   // Progress & occurrences
   addProgress:   (entry: Omit<PhysicalProgress, 'id'>) => void
@@ -497,6 +510,49 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         ...withIds.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: timecardToRow(t, orgId, userId), table: 'timecards' })),
       ],
     }))
+    void get().flush()
+  },
+
+  // Ponte RDO → apontamentos: gera 1 timecard por funcionário presente (casado por nome),
+  // com horas rateadas por cabeça e custo/dia. Idempotente por sourceRdoId (re-finalizar
+  // um RDO substitui os apontamentos daquele RDO, sem duplicar). unit:'h'/reportedQty:0
+  // para NÃO dobrar o m² que a RUP já lê direto do Compizzo.
+  syncRdoToTimecards: (rdo) => {
+    const { orgId, userId } = ctxAuth()
+    const workers = get().workers
+    const present = rdo.employeeNames
+      .map((name) => matchWorkerByName(name, workers))
+      .filter((w): w is Worker => Boolean(w))
+    const headcount = rdo.employeeNames.length || present.length || 1
+    const horasPorCabeca = rdo.totalHoras > 0 ? rdo.totalHoras / headcount : 0
+    const deletedAt = new Date().toISOString()
+
+    set((s) => {
+      const stale = s.timecards.filter((t) => t.sourceRdoId === rdo.id)
+      const kept = s.timecards.filter((t) => t.sourceRdoId !== rdo.id)
+      const novos: TimecardEntry[] = present.map((w) => ({
+        id: crypto.randomUUID(),
+        workerId: w.id,
+        date: rdo.date,
+        hoursWorked: horasPorCabeca,
+        projectRef: rdo.activityLabel ?? '',
+        phaseRef: '',
+        activityDescription: rdo.activityLabel ?? 'RDO',
+        reportedQty: 0,
+        unit: 'h',
+        sourceRdoId: rdo.id,
+        siteId: w.siteId ?? rdo.siteId ?? null,
+        laborCostBRL: custoDiaWorker(w, { diasMes: rdo.diasMes }),
+      }))
+      return {
+        timecards: [...kept, ...novos],
+        pendingSync: [
+          ...s.pendingSync,
+          ...stale.map((t) => makeOp({ entity: 'timecard', type: 'update', recordId: t.id, patch: { deleted_at: deletedAt }, table: 'timecards' })),
+          ...novos.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: timecardToRow(t, orgId, userId), table: 'timecards' })),
+        ],
+      }
+    })
     void get().flush()
   },
 

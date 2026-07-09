@@ -7,6 +7,23 @@
 import type { Worker } from '@/types'
 import { calcFGTS, calcEmployerINSS } from './payrollEngine'
 
+/** Normaliza um nome para casar cadastro × texto livre (trim, minúsculas, sem acento). */
+export function normalizeName(name: string): string {
+  return String(name ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+/** Casa um nome (texto livre do RDO) com um Worker cadastrado. */
+export function matchWorkerByName<T extends Pick<Worker, 'name'>>(name: string, workers: T[]): T | undefined {
+  const target = normalizeName(name)
+  if (!target) return undefined
+  return workers.find((w) => normalizeName(w.name) === target)
+}
+
 /** Dias úteis médios no mês (base do custo/dia). Configurável por chamada. */
 export const DIAS_UTEIS_MES_PADRAO = 22
 

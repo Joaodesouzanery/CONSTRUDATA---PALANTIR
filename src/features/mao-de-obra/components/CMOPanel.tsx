@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { projectMonthlyCost } from '@/features/mao-de-obra/utils/cltEngine'
+import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
+import { countAbsencesInPeriod } from '@/features/mao-de-obra/utils/assessmentEngine'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -85,12 +88,22 @@ function RoleBarChart({ items }: { items: BarItem[] }) {
   )
 }
 
+function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="flex flex-col rounded-xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)] px-3 py-2.5">
+      <span className={`text-base font-bold ${tone}`}>{value}</span>
+      <span className="text-[11px] text-[var(--color-text-muted)] mt-0.5 leading-tight">{label}</span>
+    </div>
+  )
+}
+
 // ─── CMOPanel ─────────────────────────────────────────────────────────────────
 
 export function CMOPanel() {
-  const { workers, shifts, cltSettings } = useMaoDeObraStore(
-    useShallow(s => ({ workers: s.workers, shifts: s.shifts, cltSettings: s.cltSettings }))
+  const { workers, shifts, cltSettings, timecards, absences } = useMaoDeObraStore(
+    useShallow(s => ({ workers: s.workers, shifts: s.shifts, cltSettings: s.cltSettings, timecards: s.timecards, absences: s.absences }))
   )
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
 
   const now = new Date()
   const [yearMonth, setYearMonth] = useState(
@@ -159,6 +172,30 @@ export function CMOPanel() {
     ot:    r.overtimeCost,
     night: r.nightCost,
   }))
+
+  // Custo de M.O. realizado via RDO (ponte RDO→apontamentos) no mês, escopado por obra ativa.
+  const rdoLabor = useMemo(() => {
+    const inMonth = timecards.filter((t) => t.date.startsWith(yearMonth) && t.sourceRdoId)
+    const scoped = activeObraId ? inMonth.filter((t) => (t.siteId ?? null) === activeObraId) : inMonth
+    return {
+      custoRealizado: scoped.reduce((s, t) => s + (t.laborCostBRL ?? 0), 0),
+      totalHH:        scoped.reduce((s, t) => s + (t.hoursWorked ?? 0), 0),
+      dias:           new Set(scoped.map((t) => t.date)).size,
+      funcionarios:   new Set(scoped.map((t) => t.workerId)).size,
+    }
+  }, [timecards, yearMonth, activeObraId])
+
+  // Desconto de falta: falta injustificada × custo/dia do funcionário (o funcionário custa X e faltou → tira X).
+  const descontoFaltas = useMemo(() => {
+    const start = `${yearMonth}-01`, end = `${yearMonth}-31`
+    const scopedWorkers = activeObraId ? workers.filter((w) => (w.siteId ?? null) === activeObraId) : workers
+    return scopedWorkers.reduce((s, w) => {
+      const { unjustified } = countAbsencesInPeriod(absences, w.id, start, end)
+      return s + unjustified * custoDiaWorker(w)
+    }, 0)
+  }, [workers, absences, yearMonth, activeObraId])
+
+  const custoLiquidoRdo = Math.max(0, rdoLabor.custoRealizado - descontoFaltas)
 
   return (
     <div className="space-y-6">
@@ -248,6 +285,30 @@ export function CMOPanel() {
             <span className="text-xs text-[var(--color-text-muted)] text-center mt-0.5 leading-tight">{card.label}</span>
           </div>
         ))}
+      </div>
+
+      {/* Custo de M.O. realizado via RDO (alimentado pelo RDO Compizzo) */}
+      <div className="rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/5 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Custo de M.O. realizado (via RDO)</h3>
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Alimentado pelos RDOs finalizados no mês{activeObraId ? ' · obra selecionada' : ' · todas as obras'}. Custo/dia = salário bruto + encargos ÷ dias úteis.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Kpi label="Custo realizado" value={fmt(rdoLabor.custoRealizado)} tone="text-[var(--color-accent)]" />
+          <Kpi label="Desconto de faltas" value={`- ${fmt(descontoFaltas)}`} tone={descontoFaltas > 0 ? 'text-[#ef4444]' : 'text-[var(--color-text-muted)]'} />
+          <Kpi label="Custo líquido" value={fmt(custoLiquidoRdo)} tone="text-[var(--color-text-primary)]" />
+          <Kpi label="Dias com RDO" value={String(rdoLabor.dias)} tone="text-[var(--color-text-primary)]" />
+          <Kpi label="Funcionários" value={String(rdoLabor.funcionarios)} tone="text-[var(--color-text-primary)]" />
+        </div>
+        {rdoLabor.dias === 0 && (
+          <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+            Nenhum RDO finalizado alimentou este mês ainda. Finalize um RDO Compizzo com os funcionários presentes para ver o custo aqui.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

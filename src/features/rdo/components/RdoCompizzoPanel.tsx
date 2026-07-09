@@ -13,6 +13,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -108,6 +109,7 @@ export function RdoCompizzoPanel() {
   useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
   const crews = useMaoDeObraStore((s) => s.crews)
+  const syncRdoToTimecards = useMaoDeObraStore((s) => s.syncRdoToTimecards)
   // Itens de estoque do módulo Suprimentos (para puxar materiais sem digitar).
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
   const [crewPick, setCrewPick] = useState('')
@@ -244,8 +246,18 @@ export function RdoCompizzoPanel() {
 
   function handleSave(status: 'rascunho' | 'finalizado' = 'finalizado') {
     const payload = { ...buildRdoPayload(), status }
-    if (editing) updateRdo(editing.id, payload)
-    else addRdo(payload)
+    const rdoId = editing ? (updateRdo(editing.id, payload), editing.id) : addRdo(payload)
+    // Ponte RDO → Mão de Obra: só ao finalizar, para não gerar apontamento de rascunho.
+    if (status === 'finalizado') {
+      syncRdoToTimecards({
+        id: rdoId,
+        date: data || today,
+        siteId: editing?.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+        employeeNames,
+        totalHoras: parseLocaleNumber(horasTrabalhadas) || 0,
+        activityLabel: obra || 'RDO Compizzo',
+      })
+    }
     setSaved(true)
     // Rascunho mantém o usuário na tela para continuar preenchendo depois;
     // o salvamento definitivo volta ao histórico.
