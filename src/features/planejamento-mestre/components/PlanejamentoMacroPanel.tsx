@@ -9,6 +9,7 @@ import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
 import { NETWORK_TYPE_OPTIONS } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Tabela360Panel } from './Tabela360Panel'
 import type { MasterActivity, MasterActivityStatus } from '@/types'
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
@@ -511,6 +512,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const [filterNetwork, setFilterNetwork] = useState<string>('')
   const [filterService, setFilterService] = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
+  const [view, setView] = useState<'gantt' | 'tabela360'>('gantt')
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   const filtered = useMemo(() =>
@@ -740,6 +742,19 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         )}
       </div>
 
+      {/* View toggle: Cronograma (Gantt) × Tabela 360 (Núcleo/Obra) */}
+      <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1 print:hidden">
+        {([['gantt', 'Cronograma (Gantt)'], ['tabela360', 'Tabela 360']] as const).map(([k, label]) => (
+          <button key={k} type="button" onClick={() => setView(k)}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === k ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} />}
+
+      {view === 'gantt' && (<>
       {/* ── Gantt Chart ── */}
       <div className="bg-[#111827] border border-[#525252] rounded-lg overflow-hidden print:border-0">
         <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between print:hidden bg-[#2c2c2c]">
@@ -857,6 +872,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
           </table>
         </div>
       </div>
+      </>)}
 
       <ConfirmDialog
         open={deleteTarget !== null}
