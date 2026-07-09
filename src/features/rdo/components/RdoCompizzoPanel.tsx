@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
@@ -239,6 +240,12 @@ export function RdoCompizzoPanel() {
   }
 
   const totalColab = employeeNames.length
+  const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  // Custo de mão de obra do dia = Σ custo/dia dos presentes (casa nome do RDO com o cadastro).
+  const custoMaoObraDia = useMemo(
+    () => employeeNames.reduce((s, name) => { const w = workers.find((x) => x.name === name); return s + (w ? custoDiaWorker(w) : 0) }, 0),
+    [employeeNames, workers],
+  )
 
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-6">
@@ -363,6 +370,13 @@ export function RdoCompizzoPanel() {
                   <button onClick={() => setEmployeeNames((p) => p.filter((_, idx) => idx !== i))} className="text-[#6b6b6b] hover:text-[#ef4444]"><X size={12} /></button>
                 </span>
               ))}
+            </div>
+          )}
+          {custoMaoObraDia > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-xs">
+              <span className="text-[#a3a3a3]">Custo de mão de obra do dia (presentes):</span>
+              <strong className="text-[#f5f5f5]">{brl(custoMaoObraDia)}</strong>
+              <span className="text-[#6b6b6b]">· salário bruto + encargos ÷ 22 dias úteis</span>
             </div>
           )}
         </Section>
