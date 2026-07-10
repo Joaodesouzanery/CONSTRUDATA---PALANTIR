@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { Fragment, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -37,6 +37,9 @@ interface ItemForm {
   descricao: string
   categoria: string
   unidade: string
+  unidadeEmbalagem: string   // ex.: "caixa" (vazio = sem embalagem)
+  qtdPorEmbalagem: string    // un por embalagem (ex.: 96)
+  numEmbalagens: string      // nº de embalagens (ex.: 10)
   qtdDisponivel: string
   estoqueMinimo: string
   custoUnitario: string
@@ -56,6 +59,9 @@ const emptyForm: ItemForm = {
   descricao: '',
   categoria: '',
   unidade: '',
+  unidadeEmbalagem: '',
+  qtdPorEmbalagem: '',
+  numEmbalagens: '',
   qtdDisponivel: '',
   estoqueMinimo: '',
   custoUnitario: '',
@@ -108,6 +114,7 @@ export function AlmoxarifadoPanel() {
   const [search, setSearch] = useState('')
   const [lowOnly, setLowOnly] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [groupBySupplier, setGroupBySupplier] = useState(false)
   const [category, setCategory] = useState('Todas')
   const [depositoId, setDepositoId] = useState('todos')
   const [showItemForm, setShowItemForm] = useState(false)
@@ -213,11 +220,15 @@ export function AlmoxarifadoPanel() {
 
   function openEditItemForm(item: ItemEstoque) {
     setEditingItemId(item.id)
+    const porEmb = item.qtdPorEmbalagem ?? 0
     setForm({
       depositoId: item.depositoId,
       descricao: item.descricao,
       categoria: item.categoria ?? '',
       unidade: item.unidade,
+      unidadeEmbalagem: item.unidadeEmbalagem ?? '',
+      qtdPorEmbalagem: porEmb > 0 ? String(porEmb) : '',
+      numEmbalagens: porEmb > 0 ? String(item.qtdDisponivel / porEmb) : '',
       qtdDisponivel: String(item.qtdDisponivel),
       estoqueMinimo: String(item.estoqueMinimo),
       custoUnitario: formatDecimalInput(item.custoUnitario ?? 0, 4),
@@ -240,6 +251,7 @@ export function AlmoxarifadoPanel() {
     const depId = resolved.id || depositos[0]?.id || 'dep-default'
     const existingItem = editingItemId ? estoqueItens.find((item) => item.id === editingItemId) : null
 
+    const porEmb = parseLocaleNumber(form.qtdPorEmbalagem)
     const payload = {
       depositoId: depId,
       siteId: resolved.siteId ?? existingItem?.siteId ?? null,
@@ -252,6 +264,8 @@ export function AlmoxarifadoPanel() {
       custoUnitario: parseLocaleNumber(form.custoUnitario),
       categoria: form.categoria.trim() || undefined,
       fornecedorPrincipal: form.fornecedorPrincipal.trim() || undefined,
+      qtdPorEmbalagem: porEmb > 0 ? porEmb : undefined,
+      unidadeEmbalagem: form.unidadeEmbalagem.trim() || undefined,
     }
 
     if (editingItemId) {
@@ -282,6 +296,21 @@ export function AlmoxarifadoPanel() {
       valorTotal: value,
       custoUnitario: qty > 0 ? formatDecimalInput(total / qty, 4) : '',
     }))
+  }
+
+  // Embalagem (facilitador): nº de embalagens × un/embalagem → quantidade total em unidades.
+  function recalcEmbalagem(next: Partial<ItemForm>) {
+    setForm((item) => {
+      const merged = { ...item, ...next }
+      const num = parseLocaleNumber(merged.numEmbalagens)
+      const porEmb = parseLocaleNumber(merged.qtdPorEmbalagem)
+      if (num > 0 && porEmb > 0) {
+        const totalUn = num * porEmb
+        const unit = parseLocaleNumber(merged.custoUnitario)
+        return { ...merged, qtdDisponivel: String(totalUn), valorTotal: formatMoneyInput(totalUn * unit) }
+      }
+      return merged
+    })
   }
 
   function handleDeleteItem(item: ItemEstoque) {
@@ -349,6 +378,69 @@ export function AlmoxarifadoPanel() {
     }
 
     setMovement(null)
+  }
+
+  // Agrupamento por fornecedor (view) — subtotais + total geral, sem mexer no schema.
+  const supplierGroups = useMemo(() => {
+    const map = new Map<string, ItemEstoque[]>()
+    for (const it of filtered) {
+      const key = it.fornecedorPrincipal?.trim() || 'Sem fornecedor'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(it)
+    }
+    return [...map.entries()]
+      .map(([fornecedor, items]) => ({ fornecedor, items, subtotal: items.reduce((s, i) => s + i.qtdDisponivel * (i.custoUnitario ?? 0), 0) }))
+      .sort((a, b) => a.fornecedor.localeCompare(b.fornecedor))
+  }, [filtered])
+  const grandTotalFiltered = filtered.reduce((s, i) => s + i.qtdDisponivel * (i.custoUnitario ?? 0), 0)
+
+  function itemRow(item: ItemEstoque) {
+    const missing = Math.max(0, item.estoqueMinimo - item.qtdDisponivel)
+    const low = missing > 0
+    return (
+      <tr key={item.id} className="hover:bg-[#3d3d3d]">
+        <td className="px-2 py-4 font-mono text-[11px] text-[#a3a3a3]">{item.id.slice(0, 8)}</td>
+        <td className="truncate px-2 py-4 font-semibold text-[#f5f5f5]" title={item.descricao}>{item.descricao}</td>
+        <td className="px-2 py-4">
+          <span className="block truncate rounded-full border border-[#525252] px-2 py-1 text-[11px] font-medium text-[#e5e5e5]" title={item.categoria || 'Sem categoria'}>
+            {item.categoria || 'Sem categoria'}
+          </span>
+        </td>
+        <td className="truncate px-2 py-4 text-[#e5e5e5]" title={depositoLabel(item, 'frente')}>{depositoLabel(item, 'frente')}</td>
+        <td className={cn('px-2 py-4 tabular-nums', low ? 'font-semibold text-[#f87171]' : 'text-[#f5f5f5]')}>
+          {item.qtdDisponivel}
+          {item.qtdPorEmbalagem && item.qtdPorEmbalagem > 0 && (
+            <span className="mt-0.5 block text-[10px] font-normal text-[#8a8a8a]">
+              {Math.round((item.qtdDisponivel / item.qtdPorEmbalagem) * 100) / 100} {item.unidadeEmbalagem || 'emb.'} × {item.qtdPorEmbalagem}
+            </span>
+          )}
+        </td>
+        <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{item.estoqueMinimo}</td>
+        <td className={cn('px-2 py-4 tabular-nums', missing > 0 ? 'font-semibold text-[#f87171]' : 'text-[#6b6b6b]')}>{missing || '-'}</td>
+        <td className="truncate px-2 py-4 text-[#e5e5e5]">{item.unidade || '-'}</td>
+        <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
+        <td className="px-2 py-4 font-semibold tabular-nums text-[#f5f5f5]">{brl(item.qtdDisponivel * (item.custoUnitario ?? 0))}</td>
+        <td className="px-2 py-4">
+          <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold', low ? 'bg-[#dc2626]/20 text-[#f87171]' : 'bg-[#16a34a]/15 text-[#4ade80]')}>
+            {low && <AlertTriangle size={12} />}
+            {low ? 'Baixo' : 'Normal'}
+          </span>
+        </td>
+        <td className="px-2 py-4">
+          <div className="flex flex-wrap items-center justify-end gap-1">
+            <button type="button" onClick={() => setMovement({ item, tipo: 'entrada', quantidade: '', fornecedor: item.fornecedorPrincipal || '', nf: '' })} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5]" title="Registrar entrada ou saída">
+              <ArrowUpDown size={16} /><span className="hidden text-[11px] font-semibold 2xl:inline">Mov.</span>
+            </button>
+            <button type="button" onClick={() => openEditItemForm(item)} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5]" title="Editar item">
+              <Edit2 size={16} /><span className="hidden text-[11px] font-semibold 2xl:inline">Editar</span>
+            </button>
+            <button type="button" onClick={() => handleDeleteItem(item)} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#dc2626]/20 hover:text-[#f87171]" title="Excluir item">
+              <Trash2 size={16} /><span className="hidden text-[11px] font-semibold 2xl:inline">Excluir</span>
+            </button>
+          </div>
+        </td>
+      </tr>
+    )
   }
 
   return (
@@ -506,6 +598,18 @@ export function AlmoxarifadoPanel() {
             <Filter size={16} />
             Filtros
           </button>
+          <button
+            type="button"
+            onClick={() => setGroupBySupplier((v) => !v)}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors',
+              groupBySupplier ? 'border-[#f97316]/40 bg-[#f97316]/10 text-[#f97316]' : 'border-[#525252] bg-[#3d3d3d] text-[#e5e5e5] hover:bg-[#484848]',
+            )}
+            title="Agrupar por fornecedor com subtotais e total geral"
+          >
+            <Package size={16} />
+            Por fornecedor
+          </button>
         </div>
 
         {showFilters && (
@@ -553,6 +657,22 @@ export function AlmoxarifadoPanel() {
             <input type="text" inputMode="decimal" value={form.valorTotal} onChange={(event) => updateTotalValue(event.target.value)} placeholder="Valor total" className={inputClass} />
             <input value={form.fornecedorPrincipal} onChange={(event) => setForm((item) => ({ ...item, fornecedorPrincipal: event.target.value }))} placeholder="Fornecedor" className={inputClass} />
           </div>
+
+          {/* Embalagem (facilitador) — nº de embalagens × un/embalagem = quantidade em unidades */}
+          <div className="mt-3 rounded-lg border border-[#525252] bg-[#2f2f2f] p-3">
+            <p className="mb-2 text-xs font-semibold text-[#e5e5e5]">Embalagem <span className="font-normal text-[#a3a3a3]">(opcional — ex.: 10 caixas × 96 un = 960 un.)</span></p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <input value={form.unidadeEmbalagem} onChange={(event) => setForm((item) => ({ ...item, unidadeEmbalagem: event.target.value }))} placeholder="Embalagem (ex.: caixa)" className={inputClass} />
+              <input type="text" inputMode="decimal" value={form.qtdPorEmbalagem} onChange={(event) => recalcEmbalagem({ qtdPorEmbalagem: event.target.value })} placeholder="Un por embalagem (ex.: 96)" className={inputClass} />
+              <input type="text" inputMode="decimal" value={form.numEmbalagens} onChange={(event) => recalcEmbalagem({ numEmbalagens: event.target.value })} placeholder="Nº de embalagens (ex.: 10)" className={inputClass} />
+            </div>
+            {parseLocaleNumber(form.numEmbalagens) > 0 && parseLocaleNumber(form.qtdPorEmbalagem) > 0 && (
+              <p className="mt-2 text-xs text-[#a3a3a3]">
+                = <strong className="text-[#f5f5f5]">{parseLocaleNumber(form.numEmbalagens)} {form.unidadeEmbalagem.trim() || 'emb.'} ({parseLocaleNumber(form.qtdDisponivel)} un.)</strong> — a quantidade em unidades foi preenchida automaticamente.
+              </p>
+            )}
+          </div>
+
           <p className="mt-2 text-xs text-[#a3a3a3]">
             Valor calculado: <strong className="text-[#f5f5f5]">{brl(formTotalValue)}</strong>. Ao editar o valor total, o sistema recalcula o valor unitário pela quantidade.
           </p>
@@ -592,72 +712,32 @@ export function AlmoxarifadoPanel() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#525252]/50">
-              {filtered.map((item) => {
-                const missing = Math.max(0, item.estoqueMinimo - item.qtdDisponivel)
-                const low = missing > 0
-                return (
-                  <tr key={item.id} className="hover:bg-[#3d3d3d]">
-                    <td className="px-2 py-4 font-mono text-[11px] text-[#a3a3a3]">{item.id.slice(0, 8)}</td>
-                    <td className="truncate px-2 py-4 font-semibold text-[#f5f5f5]" title={item.descricao}>{item.descricao}</td>
-                    <td className="px-2 py-4">
-                      <span className="block truncate rounded-full border border-[#525252] px-2 py-1 text-[11px] font-medium text-[#e5e5e5]" title={item.categoria || 'Sem categoria'}>
-                        {item.categoria || 'Sem categoria'}
-                      </span>
-                    </td>
-                    <td className="truncate px-2 py-4 text-[#e5e5e5]" title={depositoLabel(item, 'frente')}>{depositoLabel(item, 'frente')}</td>
-                    <td className={cn('px-2 py-4 tabular-nums', low ? 'font-semibold text-[#f87171]' : 'text-[#f5f5f5]')}>{item.qtdDisponivel}</td>
-                    <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{item.estoqueMinimo}</td>
-                    <td className={cn('px-2 py-4 tabular-nums', missing > 0 ? 'font-semibold text-[#f87171]' : 'text-[#6b6b6b]')}>{missing || '-'}</td>
-                    <td className="truncate px-2 py-4 text-[#e5e5e5]">{item.unidade || '-'}</td>
-                    <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
-                    <td className="px-2 py-4 font-semibold tabular-nums text-[#f5f5f5]">{brl(item.qtdDisponivel * (item.custoUnitario ?? 0))}</td>
-                    <td className="px-2 py-4">
-                      <span className={cn(
-                        'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold',
-                        low ? 'bg-[#dc2626]/20 text-[#f87171]' : 'bg-[#16a34a]/15 text-[#4ade80]',
-                      )}>
-                        {low && <AlertTriangle size={12} />}
-                        {low ? 'Baixo' : 'Normal'}
-                      </span>
-                    </td>
-                    <td className="px-2 py-4">
-                      <div className="flex flex-wrap items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setMovement({ item, tipo: 'entrada', quantidade: '', fornecedor: item.fornecedorPrincipal || '', nf: '' })}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5]"
-                          title="Registrar entrada ou saída"
-                        >
-                          <ArrowUpDown size={16} />
-                          <span className="hidden text-[11px] font-semibold 2xl:inline">Mov.</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditItemForm(item)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5]"
-                          title="Editar item"
-                        >
-                          <Edit2 size={16} />
-                          <span className="hidden text-[11px] font-semibold 2xl:inline">Editar</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item)}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#dc2626]/20 hover:text-[#f87171]"
-                          title="Excluir item"
-                        >
-                          <Trash2 size={16} />
-                          <span className="hidden text-[11px] font-semibold 2xl:inline">Excluir</span>
-                        </button>
-                      </div>
-                    </td>
+              {groupBySupplier ? (
+                <>
+                  {supplierGroups.map((g) => (
+                    <Fragment key={g.fornecedor}>
+                      <tr className="bg-[#2b2c6b]/30 border-b border-[#525252]">
+                        <td colSpan={9} className="px-2 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
+                        <td colSpan={3} className="px-2 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
+                      </tr>
+                      {g.items.map(itemRow)}
+                    </Fragment>
+                  ))}
+                  <tr className="border-t-2 border-[#f97316] bg-[#2c2c2c]">
+                    <td colSpan={9} className="px-2 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
+                    <td colSpan={3} className="px-2 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
                   </tr>
-                )
-              })}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td>
-                </tr>
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={12} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                  )}
+                </>
+              ) : (
+                <>
+                  {filtered.map(itemRow)}
+                  {filtered.length === 0 && (
+                    <tr><td colSpan={12} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>

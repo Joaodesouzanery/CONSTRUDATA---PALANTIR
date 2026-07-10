@@ -585,6 +585,8 @@ export interface ItemEstoque {
   lpsActivityId?: string
   categoria?: string
   fornecedorPrincipal?: string
+  qtdPorEmbalagem?: number  // un por embalagem (ex.: 96 un/caixa) — facilitador; estoque é sempre em unidades
+  unidadeEmbalagem?: string // rótulo da embalagem (ex.: "caixa")
 }
 
 export interface MovimentacaoEstoque {

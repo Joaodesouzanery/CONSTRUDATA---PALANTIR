@@ -459,6 +459,8 @@ function estoqueItemToRow(item: ItemEstoque, orgId: string, userId: string) {
     categoria:            item.categoria ?? null,
     fornecedor_principal: item.fornecedorPrincipal ?? null,
     site_id:              item.siteId ?? null,
+    qtd_por_embalagem:    item.qtdPorEmbalagem ?? null,
+    unidade_embalagem:    item.unidadeEmbalagem ?? null,
     created_by:           userId,
   }
 }
@@ -1527,6 +1529,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           categoria:           (r.categoria as string | null) ?? undefined,
           fornecedorPrincipal: (r.fornecedor_principal as string | null) ?? undefined,
           siteId:              (r.site_id as string | null) ?? null,
+          qtdPorEmbalagem:     r.qtd_por_embalagem == null ? undefined : Number(r.qtd_por_embalagem),
+          unidadeEmbalagem:    (r.unidade_embalagem as string | null) ?? undefined,
         })),
       })
     }
