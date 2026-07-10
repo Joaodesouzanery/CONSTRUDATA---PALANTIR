@@ -10,7 +10,11 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { attachBlobSync } from '@/lib/blobSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
+
+// Sincroniza o slice local-only (contrato/núcleos/programação) via app_state.
+let pullMestreBlob: (() => Promise<void>) | null = null
 import type {
   PlanejamentoMestreTab, MasterActivity, MasterBaseline,
   LookaheadDerivedActivity, WhatIfAdjustment, ProgramacaoDiaria,
@@ -604,6 +608,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
           if (acts) set({ activities: acts.map((r) => r.payload) })
           if (bls)  set({ baselines: bls.map((r) => r.payload) })
           if (lds)  set({ derivedActivities: lds.map((r) => r.payload) })
+          if (pullMestreBlob) await pullMestreBlob()   // contrato/núcleos/programação (app_state)
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }
@@ -627,6 +632,13 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
     },
   ),
 )
+
+// Liga contrato/núcleos/programação (local-only) ao app_state (sincroniza por empresa).
+pullMestreBlob = attachBlobSync(usePlanejamentoMestreStore, {
+  key: 'planejamento-mestre-meta',
+  getSlice: (s) => ({ contract: s.contract, nuclei: s.nuclei, programacaoSemanal: s.programacaoSemanal, auditLog: s.auditLog }),
+  applySlice: (b) => usePlanejamentoMestreStore.setState(b as Partial<ReturnType<typeof usePlanejamentoMestreStore.getState>>),
+}).pullInto
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {

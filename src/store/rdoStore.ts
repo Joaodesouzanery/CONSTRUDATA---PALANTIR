@@ -27,6 +27,10 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { attachBlobSync } from '@/lib/blobSync'
+
+// Sincroniza as entradas financeiras do RDO (local-only) via app_state.
+let pullRdoFinBlob: (() => Promise<void>) | null = null
 import { getTenantMarker } from '@/lib/tenantCache'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -509,6 +513,7 @@ export const useRdoStore = create<RdoState>()(
       },
 
       pull: async () => {
+        if (pullRdoFinBlob) await pullRdoFinBlob()   // entradas financeiras do RDO (app_state)
         // Não sobrescreve os RDOs locais se há op de 'rdo' pendente (evita
         // sumiço de RDO não sincronizado).
         const pendingTables = new Set(get().pendingSync.map((op) => op.table))
@@ -536,6 +541,13 @@ export const useRdoStore = create<RdoState>()(
     },
   ),
 )
+
+// Liga as entradas financeiras do RDO (local-only) ao app_state.
+pullRdoFinBlob = attachBlobSync(useRdoStore, {
+  key: 'rdo-financial',
+  getSlice: (s) => ({ financialEntries: s.financialEntries, budgetBRL: s.budgetBRL }),
+  applySlice: (b) => useRdoStore.setState(b as Partial<ReturnType<typeof useRdoStore.getState>>),
+}).pullInto
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {

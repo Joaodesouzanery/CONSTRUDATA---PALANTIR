@@ -15,8 +15,23 @@ interface AppModeState {
 
 interface TenantSyncState {
   pendingSync?: unknown[]
+  syncStatus?: string
   flush?: () => Promise<void> | void
   pull?: () => Promise<void> | void
+}
+
+/** Resumo global de sincronização (para o indicador de "não salvo" em produção). */
+export async function getPendingSummary(): Promise<{ pending: number; error: boolean; syncing: boolean }> {
+  if (isNonProductionDataMode()) return { pending: 0, error: false, syncing: false }
+  const stores = await getAllTenantStores()
+  let pending = 0, error = false, syncing = false
+  for (const s of stores) {
+    const st = s.getState()
+    pending += st.pendingSync?.length ?? 0
+    if (st.syncStatus === 'error') error = true
+    if (st.syncStatus === 'syncing') syncing = true
+  }
+  return { pending, error, syncing }
 }
 
 const STORAGE_KEY = 'cdata-demo'
@@ -131,6 +146,7 @@ async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncS
     import('./evmStore').then(m => m.useEvmStore),
     import('./qualidadeStore').then(m => m.useQualidadeStore),
     import('./planejamentoMestreStore').then(m => m.usePlanejamentoMestreStore),
+    import('./planejamentoRestricoesStore').then(m => m.usePlanejamentoRestricoesStore),
     import('./operacaoCampoStore').then(m => m.useOperacaoCampoStore),
     import('./rede360Store').then(m => m.useRede360Store),
     import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),

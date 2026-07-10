@@ -72,6 +72,7 @@ const NAV_GROUPS = [
   {
     label: 'ADMIN',
     items: [
+      { label: 'Membros',          icon: Users,          to: '/app/membros', adminOnly: true },
       { label: 'Homologação',      icon: FlaskConical,   to: '/app/homologacao', adminOnly: true },
       { label: 'Adaptação Rápida', icon: ClipboardList,  to: '/app/adaptacao-rapida', adminOnly: true },
     ],

@@ -1,5 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { attachBlobSync } from '@/lib/blobSync'
+
+// Sincroniza as restrições (local-only) via app_state.
+let pullRestricoesBlob: (() => Promise<void>) | null = null
 
 export type PlanejamentoRestricaoHorizonte = 'longo' | 'medio' | 'curto' | 'semanal'
 export type PlanejamentoRestricaoCategoria = 'materiais' | 'projeto_engenharia' | 'mao_de_obra' | 'equipamentos' | 'qualidade' | 'externo' | 'outros'
@@ -35,6 +39,7 @@ interface PlanejamentoRestricoesState {
   removeRestricao: (id: string) => void
   loadDemoData: () => void
   clearData: () => void
+  pull: () => Promise<void>
   importFromLps: (input: {
     titulo: string
     descricao: string
@@ -130,6 +135,8 @@ export const usePlanejamentoRestricoesStore = create<PlanejamentoRestricoesState
 
       clearData: () => set({ restricoes: [] }),
 
+      pull: async () => { if (pullRestricoesBlob) await pullRestricoesBlob() },
+
       importFromLps: (input) => {
         const exists = get().restricoes.some((restricao) => restricao.lpsRestrictionId === input.lpsRestrictionId)
         if (exists) return
@@ -163,3 +170,10 @@ export const usePlanejamentoRestricoesStore = create<PlanejamentoRestricoesState
     { name: 'cdata-planejamento-restricoes' },
   ),
 )
+
+// Liga as restrições (local-only) ao app_state (sincroniza por empresa).
+pullRestricoesBlob = attachBlobSync(usePlanejamentoRestricoesStore, {
+  key: 'planejamento-restricoes',
+  getSlice: (s) => ({ restricoes: s.restricoes }),
+  applySlice: (b) => usePlanejamentoRestricoesStore.setState(b as Partial<PlanejamentoRestricoesState>),
+}).pullInto

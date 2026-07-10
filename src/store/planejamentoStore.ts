@@ -31,7 +31,11 @@ import type {
 } from '@/types'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { attachBlobSync } from '@/lib/blobSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
+
+// Sincroniza o slice local-only (contrato/núcleos/cenários/orçamento) via app_state.
+let pullPlanejamentoBlob: (() => Promise<void>) | null = null
 import {
   MOCK_TRECHOS,
   MOCK_TEAMS,
@@ -1046,6 +1050,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         })),
       })
     }
+    if (pullPlanejamentoBlob) await pullPlanejamentoBlob()   // contrato/núcleos/cenários (app_state)
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),
@@ -1069,6 +1074,13 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
     },
   ),
 )
+
+// Liga contrato/núcleos/cenários/orçamento (local-only) ao app_state.
+pullPlanejamentoBlob = attachBlobSync(usePlanejamentoStore, {
+  key: 'planejamento-meta',
+  getSlice: (s) => ({ contract: s.contract, nuclei: s.nuclei, projectBudget: s.projectBudget, scenarios: s.scenarios, baselines: s.baselines, notes: s.notes, technicalRules: s.technicalRules, auditLog: s.auditLog }),
+  applySlice: (b) => usePlanejamentoStore.setState(b as Partial<ReturnType<typeof usePlanejamentoStore.getState>>),
+}).pullInto
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
