@@ -353,13 +353,19 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           safeSelect<UnifiedMeasurementFinancialEntry>('measurement_financial_entries', state.financialEntries),
         ])
         const syncError = [periods.error, sources.error, memoryLines.error, contractItems.error, financialEntries.error].filter(Boolean).join(' | ') || null
-        const nextPeriods = periods.data
+        // Não derruba registros locais que ainda não subiram (falha de upsert marcada com _syncError):
+        // mescla de volta os pendentes que não vieram do servidor.
+        const keepUnsynced = <T extends { id: string; _syncError?: string | null }>(fetched: T[], local: T[]): T[] => {
+          const ids = new Set(fetched.map((i) => i.id))
+          return [...fetched, ...local.filter((i) => i._syncError && !ids.has(i.id))]
+        }
+        const nextPeriods = keepUnsynced(periods.data, state.periods)
         set({
           periods: nextPeriods,
-          sources: sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })),
-          memoryLines: memoryLines.data,
-          contractItems: contractItems.data,
-          financialEntries: financialEntries.data,
+          sources: keepUnsynced(sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })), state.sources),
+          memoryLines: keepUnsynced(memoryLines.data, state.memoryLines),
+          contractItems: keepUnsynced(contractItems.data, state.contractItems),
+          financialEntries: keepUnsynced(financialEntries.data, state.financialEntries),
           activePeriodId: state.activePeriodId && nextPeriods.some((period) => period.id === state.activePeriodId)
             ? state.activePeriodId
             : nextPeriods[0]?.id ?? state.activePeriodId,

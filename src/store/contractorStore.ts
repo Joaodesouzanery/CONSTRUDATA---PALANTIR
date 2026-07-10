@@ -260,13 +260,19 @@ export const useContractorStore = create<ContractorState>()(
           const firstError = contractors.error || foremen.error || rdoLinks.error || measurementSources.error || adjustments.error || invoices.error || invoiceEvents.error
           if (firstError) throw firstError
 
+          // Preserva registros locais que não subiram (upsert falhou, marcado com _syncError).
+          const prev = get()
+          const keepUnsynced = <T extends { id: string; _syncError?: string | null }>(fetched: T[], local: T[]): T[] => {
+            const ids = new Set(fetched.map((i) => i.id))
+            return [...fetched, ...local.filter((i) => i._syncError && !ids.has(i.id))]
+          }
           set({
-            contractors: contractors.data ?? [],
-            foremen: foremen.data ?? [],
+            contractors: keepUnsynced((contractors.data ?? []) as typeof prev.contractors, prev.contractors),
+            foremen: keepUnsynced((foremen.data ?? []) as typeof prev.foremen, prev.foremen),
             rdoLinks: rdoLinks.data ?? [],
-            measurementSources: measurementSources.data ?? [],
-            adjustments: adjustments.data ?? [],
-            invoices: invoices.data ?? [],
+            measurementSources: keepUnsynced((measurementSources.data ?? []) as typeof prev.measurementSources, prev.measurementSources),
+            adjustments: keepUnsynced((adjustments.data ?? []) as typeof prev.adjustments, prev.adjustments),
+            invoices: keepUnsynced((invoices.data ?? []) as typeof prev.invoices, prev.invoices),
             invoiceEvents: invoiceEvents.data ?? [],
             loading: false,
             syncError: null,

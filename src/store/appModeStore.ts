@@ -155,6 +155,17 @@ async function pullRealData() {
  * faz pull do servidor APENAS onde a fila esvaziou — assim nunca sobrescreve
  * dado local que ainda não subiu. No modo demo/homologação, não sincroniza.
  */
+/**
+ * Sobe (flush) as ops pendentes de TODOS os stores tenant-scoped ANTES de qualquer
+ * limpeza de cache (troca de empresa / logout). Evita perder dados criados e ainda
+ * não sincronizados quando os caches locais são apagados. No-op no modo demo/homolog.
+ */
+export async function flushAllTenantStores(): Promise<void> {
+  if (isNonProductionDataMode()) return
+  const stores = await getAllTenantStores()
+  await Promise.allSettled(stores.map((s) => s.getState().flush?.()))
+}
+
 export async function syncAllTenantStores(): Promise<void> {
   if (isNonProductionDataMode()) return
   const stores = await getAllTenantStores()

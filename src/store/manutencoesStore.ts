@@ -410,7 +410,9 @@ export const useManutencoesStore = create<ManutencoesState>()(
         get().ensureTenantScope(orgId)
         if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
 
-        set({ syncStatus: 'syncing', syncError: null, assets: [], plans: [], workOrders: [], monitoringPoints: [], selectedAssetId: null })
+        // Não zera o estado antes de buscar: se a busca falhar, mantém o local (evita perda).
+        // Os arrays são substituídos só no caminho de sucesso, mais abaixo.
+        set({ syncStatus: 'syncing', syncError: null })
         const [assetsResult, plansResult, planAssetsResult, ordersResult, orderAssetsResult, monitoringResult] = await Promise.all([
           supabase.from('equipamentos').select('*').eq('organization_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }),
           supabase.from('maintenance_plans').select('*').eq('organization_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }),

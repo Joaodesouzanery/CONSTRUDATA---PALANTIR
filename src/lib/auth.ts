@@ -249,6 +249,9 @@ export const useAuth = create<AuthState>((set, get) => ({
       throw new Error('Voce nao tem acesso ativo a esta empresa.')
     }
 
+    // Sobe as pendências da empresa ATUAL antes de trocar (evita perda ao limpar caches).
+    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
+
     const { error } = await supabase.rpc('set_default_organization', { p_org_id: organizationId })
     if (error) {
       set({ error: error.message })
@@ -261,6 +264,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    // Sobe as pendências antes de sair (não perder trabalho não sincronizado).
+    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
     await supabase.auth.signOut()
     clearTenantScopedCaches()
     await resetTenantScopedRuntimeStores()
