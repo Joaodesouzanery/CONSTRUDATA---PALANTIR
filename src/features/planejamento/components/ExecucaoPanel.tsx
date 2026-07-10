@@ -4,9 +4,10 @@
  * bonificação, condições). Cálculos automáticos + export PDF branded.
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
-import { useMemo, useState } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X, Share2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X, Share2, Paperclip, FileText, Upload, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { uploadFile, getSignedUrl, removeFile } from '@/lib/storage'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -17,7 +18,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
-import type { PlanoAtividade, PlanoExecucao, PlanoExecucaoMembro, Servico } from '@/types'
+import type { PlanoAnexo, PlanoAtividade, PlanoExecucao, PlanoExecucaoMembro, Servico } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
   eachDay, faturamento, fmtBRL, fmtDataCurta, fmtDataLonga, isWeekend,
@@ -59,11 +60,20 @@ export function ExecucaoPanel() {
   )
   const editing = editingId ? allPlanos.find((p) => p.id === editingId) ?? null : null
 
+  // O plano é por obra da Torre de Controle. Só cria quando há uma obra da Torre selecionada.
+  const activeSite = activeObraId ? sites.find((s) => s.id === activeObraId) ?? null : null
+  const canCreate = canEdit && !!activeSite
+  const torreAviso: string | null =
+    sites.length === 0 ? 'Nenhuma obra cadastrada na Torre de Controle. Cadastre a obra lá primeiro para criar o plano de execução dela.'
+    : !activeObraId ? 'Selecione uma obra no seletor de obras (topo) para criar/ver o plano de execução dela.'
+    : !activeSite ? 'Esta obra não está cadastrada na Torre de Controle. Cadastre-a lá primeiro para vincular o plano de execução.'
+    : null
+
   if (editing) return <PlanoEditor plano={editing} canEdit={canEdit} onBack={() => setEditing(null)} />
 
   function novoPlano() {
-    const site = activeObraId ? sites.find((s) => s.id === activeObraId) : null
-    addPlano({ obraNome: site?.name ?? '' })
+    if (!activeSite) return
+    addPlano({ obraNome: activeSite.name, siteId: activeSite.id })
   }
 
   return (
@@ -74,11 +84,20 @@ export function ExecucaoPanel() {
           <p className="text-xs text-[#9a9a9a]">Plano por obra e período, com cronograma, equipe e bonificação por m².</p>
         </div>
         {canEdit && (
-          <button onClick={novoPlano} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors">
+          <button onClick={novoPlano} disabled={!canCreate}
+            title={!canCreate ? 'Selecione uma obra cadastrada na Torre de Controle' : undefined}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#f97316] hover:bg-[#ea580c] text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40">
             <Plus size={15} /> Novo plano de execução
           </button>
         )}
       </div>
+
+      {torreAviso && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-dashed border-[#f97316]/40 bg-[#f97316]/10 px-4 py-3 text-sm text-[#fed7aa]">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-[#f97316]" />
+          <span>{torreAviso}</span>
+        </div>
+      )}
 
       {planos.length === 0 ? (
         <div className="border border-dashed border-[#525252] rounded-xl p-10 text-center text-sm text-[#9a9a9a]">
@@ -341,15 +360,15 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
           {plano.cronograma.length === 0 ? (
             <p className="text-xs text-[#9a9a9a]">Sem dias. {canEdit && 'Defina o período e clique em "Gerar dias do período".'}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]">
-                <th className="text-left py-1.5 w-24">Data</th><th className="text-left w-14">Dia</th><th className="text-left">Atividade</th><th className="text-right w-24">m² real/meta</th><th className="w-8" />
+            <table className="w-full text-sm overflow-hidden rounded">
+              <thead><tr className="text-[10px] uppercase tracking-wider text-white bg-[#2b2c6b]">
+                <th className="text-left px-2 py-2 w-24">Data</th><th className="text-left px-2 w-14">Dia</th><th className="text-left px-2">Atividade</th><th className="text-right px-2 w-24">m² real/meta</th><th className="w-8" />
               </tr></thead>
               <tbody>
                 {plano.cronograma.map((d, i) => {
                   const wknd = isWeekend(d.data)
                   return (
-                    <tr key={`${id}-cr-${i}`} className={`border-b border-[#484848] ${wknd ? 'text-[#8a8a8a] italic' : 'text-[#e5e5e5]'}`}>
+                    <tr key={`${id}-cr-${i}`} className={`border-b border-[#484848] ${wknd ? 'bg-[#f97316]/10 text-[#fdba74] font-semibold' : i % 2 === 1 ? 'bg-[#2f2f2f] text-[#e5e5e5]' : 'text-[#e5e5e5]'}`}>
                       <td className="py-1.5">
                         {canEdit
                           ? <input type="date" className="bg-[#2d2d2d] border border-[#525252] rounded px-1.5 py-1 text-xs text-[#f5f5f5] outline-none" defaultValue={d.data} onBlur={(e) => { const cr = [...plano.cronograma]; cr[i] = { ...cr[i], data: e.target.value }; set({ cronograma: cr }) }} />
@@ -517,8 +536,8 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             </div>
           )}
           {plano.equipe.length === 0 ? <p className="text-xs text-[#9a9a9a]">Sem funcionários.</p> : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]"><th className="text-left py-1.5">Funcionário</th><th className="text-left w-40">Função</th><th className="w-8" /></tr></thead>
+            <table className="w-full text-sm overflow-hidden rounded">
+              <thead><tr className="text-[10px] uppercase tracking-wider text-white bg-[#2b2c6b]"><th className="text-left px-2 py-2">Funcionário</th><th className="text-left px-2 w-40">Função</th><th className="w-8" /></tr></thead>
               <tbody>
                 {plano.equipe.map((m, i) => (
                   <tr key={m.id} className="border-b border-[#484848] text-[#e5e5e5]">
@@ -614,8 +633,8 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             </div>
           )}
           {plano.bonificacao.length === 0 ? <p className="text-xs text-[#9a9a9a]">Sem colaboradores na bonificação.</p> : (
-            <table className="w-full text-sm">
-              <thead><tr className="text-[10px] uppercase text-[#9a9a9a] border-b border-[#525252]"><th className="text-left py-1.5">Colaborador</th><th className="text-right w-32">R$/m²</th><th className="text-right w-36">Valor total</th><th className="w-8" /></tr></thead>
+            <table className="w-full text-sm overflow-hidden rounded">
+              <thead><tr className="text-[10px] uppercase tracking-wider text-white bg-[#2b2c6b]"><th className="text-left px-2 py-2">Colaborador</th><th className="text-right px-2 w-32">R$/m²</th><th className="text-right px-2 w-36">Valor total</th><th className="w-8" /></tr></thead>
               <tbody>
                 {plano.bonificacao.map((b, i) => (
                   <tr key={b.id} className="border-b border-[#484848] text-[#e5e5e5]">
@@ -657,7 +676,88 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
             : <div className="text-sm text-[#c9c9c9] whitespace-pre-wrap">{plano.observacoes || '—'}</div>}
         </div>
       </section>
+
+      {/* 8. Anexos (PDF do planejamento) */}
+      <AnexosSection plano={plano} canEdit={canEdit} onChange={(a) => set({ anexos: a })} />
     </div>
+  )
+}
+
+// ─── Anexos (PDF do planejamento) — binário no Storage, metadata no payload ──
+function AnexosSection({ plano, canEdit, onChange }: { plano: PlanoExecucao; canEdit: boolean; onChange: (anexos: PlanoAnexo[]) => void }) {
+  const anexos = plano.anexos ?? []
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !files.length) return
+    setBusy(true); setErr(null)
+    const novos: PlanoAnexo[] = []
+    for (const file of Array.from(files)) {
+      if (file.size > 15 * 1024 * 1024) { setErr(`"${file.name}" excede 15 MB.`); continue }
+      const res = await uploadFile('project-documents', file, `plano-execucao/${plano.id}`)
+      if (!res) { setErr(`Falha ao enviar "${file.name}". Verifique a conexão/o bucket de armazenamento.`); continue }
+      novos.push({ id: crypto.randomUUID(), name: file.name, mimeType: res.mimeType, sizeBytes: res.size, storagePath: res.path, uploadedAt: new Date().toISOString() })
+    }
+    if (novos.length) onChange([...anexos, ...novos])
+    setBusy(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function abrir(a: PlanoAnexo) {
+    const url = await getSignedUrl('project-documents', a.storagePath, 3600)
+    if (url) window.open(url, '_blank'); else setErr('Não foi possível abrir o anexo.')
+  }
+
+  async function excluir(a: PlanoAnexo) {
+    if (!confirm(`Remover o anexo "${a.name}"?`)) return
+    await removeFile('project-documents', a.storagePath).catch(() => {})
+    onChange(anexos.filter((x) => x.id !== a.id))
+  }
+
+  const fmtSize = (b: number) => (b >= 1_048_576 ? `${(b / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
+
+  return (
+    <section className="mb-5 bg-[#333] border border-[#525252] rounded-lg overflow-hidden">
+      <div className={bar}><Paperclip size={13} /> Anexos — PDF do planejamento</div>
+      <div className="p-4">
+        {canEdit && (
+          <div className="mb-3">
+            <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+            <button onClick={() => fileRef.current?.click()} disabled={busy}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] disabled:opacity-50">
+              <Upload size={14} /> {busy ? 'Enviando…' : 'Anexar PDF do planejamento'}
+            </button>
+            <p className="mt-1 text-[10px] text-[#7a7a7a]">PDF ou imagem, até 15 MB. Guardado com segurança na nuvem (link expira ao abrir).</p>
+          </div>
+        )}
+        {err && <p className="mb-2 text-xs text-[#f87171]">{err}</p>}
+        {anexos.length === 0 ? (
+          <p className="text-xs text-[#9a9a9a]">Nenhum anexo. {canEdit ? 'Anexe o PDF do planejamento desta obra.' : ''}</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {anexos.map((a) => (
+              <li key={a.id} className="flex items-center gap-3 rounded-lg border border-[#484848] bg-[#2d2d2d] px-3 py-2">
+                <FileText size={16} className="shrink-0 text-[#f97316]" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm text-[#f5f5f5]">{a.name}</div>
+                  <div className="text-[10px] text-[#7a7a7a]">{fmtSize(a.sizeBytes)} · {fmtDataCurta(a.uploadedAt.slice(0, 10))}</div>
+                </div>
+                <button onClick={() => abrir(a)} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[#c9c9c9] hover:bg-[#3d3d3d] hover:text-white" title="Abrir">
+                  <ExternalLink size={13} /> Abrir
+                </button>
+                {canEdit && (
+                  <button onClick={() => excluir(a)} className="rounded p-1.5 text-[#a3a3a3] hover:bg-[#dc2626]/20 hover:text-[#f87171]" title="Remover">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   )
 }
 

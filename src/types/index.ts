@@ -1284,8 +1284,19 @@ export interface PlanoExecucao {
   atividades?: PlanoAtividade[]          // undefined em planos legados
   horasDia?: number                      // jornada diária (default 8) — base do RUP
   custoDiaPessoaPadrao?: number          // diária padrão herdada por novas atividades
+  anexos?: PlanoAnexo[]                  // PDFs do planejamento (Storage; só metadata no payload)
   createdAt: string
   updatedAt: string
+}
+
+/** Anexo (PDF do planejamento) — binário no Storage, só metadata no payload jsonb. */
+export interface PlanoAnexo {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes: number
+  storagePath: string       // caminho no bucket 'project-documents'
+  uploadedAt: string        // ISO
 }
 
 export interface PlanTrecho {
