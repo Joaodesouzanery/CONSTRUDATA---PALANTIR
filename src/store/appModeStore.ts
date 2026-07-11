@@ -16,6 +16,7 @@ interface AppModeState {
 interface TenantSyncState {
   pendingSync?: unknown[]
   syncStatus?: string
+  syncError?: string | null
   flush?: () => Promise<void> | void
   pull?: () => Promise<void> | void
 }
@@ -124,37 +125,74 @@ async function restoreUserData() {
   }
 }
 
+interface TenantStoreApi {
+  getState: () => TenantSyncState
+  setState: (partial: Partial<TenantSyncState>) => void
+}
+
+// Lista rotulada dos stores tenant-scoped (label amigável p/ o painel de sincronização).
+const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise<TenantStoreApi> }> = [
+  { key: 'projetos', label: 'Projetos', load: () => import('./projetosStore').then(m => m.useProjetosStore as unknown as TenantStoreApi) },
+  { key: 'agenda', label: 'Agenda', load: () => import('./agendaStore').then(m => m.useAgendaStore as unknown as TenantStoreApi) },
+  { key: 'relatorio360', label: 'Relatório 360', load: () => import('./relatorio360Store').then(m => m.useRelatorio360Store as unknown as TenantStoreApi) },
+  { key: 'equipamentos', label: 'Equipamentos', load: () => import('./equipamentosStore').then(m => m.useEquipamentosStore as unknown as TenantStoreApi) },
+  { key: 'gestao-equipamentos', label: 'Gestão de Equipamentos', load: () => import('./gestaoEquipamentosStore').then(m => m.useGestaoEquipamentosStore as unknown as TenantStoreApi) },
+  { key: 'torre', label: 'Torre de Controle (Obras)', load: () => import('./torreDeControleStore').then(m => m.useTorreStore as unknown as TenantStoreApi) },
+  { key: 'suprimentos', label: 'Suprimentos / Estoque', load: () => import('./suprimentosStore').then(m => m.useSuprimentosStore as unknown as TenantStoreApi) },
+  { key: 'preconstrucao', label: 'Pré-Construção', load: () => import('./preConstrucaoStore').then(m => m.usePreConstrucaoStore as unknown as TenantStoreApi) },
+  { key: 'mao-de-obra', label: 'Mão de Obra', load: () => import('./maoDeObraStore').then(m => m.useMaoDeObraStore as unknown as TenantStoreApi) },
+  { key: 'otimizacao-frota', label: 'Otimização de Frota', load: () => import('./otimizacaoFrotaStore').then(m => m.useOtimizacaoFrotaStore as unknown as TenantStoreApi) },
+  { key: 'gestao360', label: 'Gestão 360', load: () => import('./gestao360Store').then(m => m.useGestao360Store as unknown as TenantStoreApi) },
+  { key: 'planejamento', label: 'Planejamento (Trechos)', load: () => import('./planejamentoStore').then(m => m.usePlanejamentoStore as unknown as TenantStoreApi) },
+  { key: 'rdo', label: 'RDO', load: () => import('./rdoStore').then(m => m.useRdoStore as unknown as TenantStoreApi) },
+  { key: 'quantitativos', label: 'Quantitativos', load: () => import('./quantitativosStore').then(m => m.useQuantitativosStore as unknown as TenantStoreApi) },
+  { key: 'bim', label: 'BIM', load: () => import('./bimStore').then(m => m.useBimStore as unknown as TenantStoreApi) },
+  { key: 'lps', label: 'LPS / Lean', load: () => import('./lpsStore').then(m => m.useLpsStore as unknown as TenantStoreApi) },
+  { key: 'mapa', label: 'Mapa Interativo', load: () => import('./mapaInterativoStore').then(m => m.useMapaInterativoStore as unknown as TenantStoreApi) },
+  { key: 'evm', label: 'Financeiro (EVM)', load: () => import('./evmStore').then(m => m.useEvmStore as unknown as TenantStoreApi) },
+  { key: 'qualidade', label: 'Qualidade (FVS)', load: () => import('./qualidadeStore').then(m => m.useQualidadeStore as unknown as TenantStoreApi) },
+  { key: 'planejamento-mestre', label: 'Planejamento', load: () => import('./planejamentoMestreStore').then(m => m.usePlanejamentoMestreStore as unknown as TenantStoreApi) },
+  { key: 'planejamento-restricoes', label: 'Restrições', load: () => import('./planejamentoRestricoesStore').then(m => m.usePlanejamentoRestricoesStore as unknown as TenantStoreApi) },
+  { key: 'operacao-campo', label: 'Operação de Campo', load: () => import('./operacaoCampoStore').then(m => m.useOperacaoCampoStore as unknown as TenantStoreApi) },
+  { key: 'rede360', label: 'Rede 360', load: () => import('./rede360Store').then(m => m.useRede360Store as unknown as TenantStoreApi) },
+  { key: 'frota-veicular', label: 'Frota Veicular', load: () => import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore as unknown as TenantStoreApi) },
+  { key: 'medicao', label: 'Medição', load: () => import('./medicaoStore').then(m => m.useMedicaoStore as unknown as TenantStoreApi) },
+  { key: 'financeiro', label: 'Financeiro', load: () => import('./financeiroStore').then(m => m.useFinanceiroStore as unknown as TenantStoreApi) },
+  { key: 'plano-execucao', label: 'Planejamento de Execução', load: () => import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore as unknown as TenantStoreApi) },
+  { key: 'servicos', label: 'Catálogo de Serviços', load: () => import('./servicosStore').then(m => m.useServicosStore as unknown as TenantStoreApi) },
+]
+
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
-  return Promise.all([
-    import('./projetosStore').then(m => m.useProjetosStore),
-    import('./agendaStore').then(m => m.useAgendaStore),
-    import('./relatorio360Store').then(m => m.useRelatorio360Store),
-    import('./equipamentosStore').then(m => m.useEquipamentosStore),
-    import('./gestaoEquipamentosStore').then(m => m.useGestaoEquipamentosStore),
-    import('./torreDeControleStore').then(m => m.useTorreStore),
-    import('./suprimentosStore').then(m => m.useSuprimentosStore),
-    import('./preConstrucaoStore').then(m => m.usePreConstrucaoStore),
-    import('./maoDeObraStore').then(m => m.useMaoDeObraStore),
-    import('./otimizacaoFrotaStore').then(m => m.useOtimizacaoFrotaStore),
-    import('./gestao360Store').then(m => m.useGestao360Store),
-    import('./planejamentoStore').then(m => m.usePlanejamentoStore),
-    import('./rdoStore').then(m => m.useRdoStore),
-    import('./quantitativosStore').then(m => m.useQuantitativosStore),
-    import('./bimStore').then(m => m.useBimStore),
-    import('./lpsStore').then(m => m.useLpsStore),
-    import('./mapaInterativoStore').then(m => m.useMapaInterativoStore),
-    import('./evmStore').then(m => m.useEvmStore),
-    import('./qualidadeStore').then(m => m.useQualidadeStore),
-    import('./planejamentoMestreStore').then(m => m.usePlanejamentoMestreStore),
-    import('./planejamentoRestricoesStore').then(m => m.usePlanejamentoRestricoesStore),
-    import('./operacaoCampoStore').then(m => m.useOperacaoCampoStore),
-    import('./rede360Store').then(m => m.useRede360Store),
-    import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore),
-    import('./medicaoStore').then(m => m.useMedicaoStore),
-    import('./financeiroStore').then(m => m.useFinanceiroStore),
-    import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
-    import('./servicosStore').then(m => m.useServicosStore),
-  ]) as Promise<Array<{ getState: () => TenantSyncState }>>
+  return Promise.all(TENANT_STORE_DEFS.map((d) => d.load()))
+}
+
+/** Diagnóstico por módulo: só os que têm pendências ou erro, com a mensagem real. */
+export async function getSyncDiagnostics(): Promise<Array<{ key: string; label: string; pending: number; error: boolean; syncError: string | null }>> {
+  if (isNonProductionDataMode()) return []
+  const out: Array<{ key: string; label: string; pending: number; error: boolean; syncError: string | null }> = []
+  await Promise.all(TENANT_STORE_DEFS.map(async (d) => {
+    try {
+      const store = await d.load()
+      const st = store.getState() as TenantSyncState & { syncError?: string | null }
+      const pending = st.pendingSync?.length ?? 0
+      const error = st.syncStatus === 'error'
+      if (pending > 0 || error) out.push({ key: d.key, label: d.label, pending, error, syncError: st.syncError ?? null })
+    } catch { /* store não carregou — ignora */ }
+  }))
+  return out.sort((a, b) => Number(b.error) - Number(a.error) || b.pending - a.pending)
+}
+
+/** Re-tenta subir as ops paradas de todos os módulos (mesma coisa que flush em todos). */
+export async function retryAllTenantStores(): Promise<void> {
+  await flushAllTenantStores()
+}
+
+/** Escotilha de escape: descarta as ops não salvas de um módulo (perda de dados — confirmar antes). */
+export async function discardErroredOps(storeKey: string): Promise<void> {
+  const def = TENANT_STORE_DEFS.find((d) => d.key === storeKey)
+  if (!def) return
+  const store = await def.load()
+  store.setState({ pendingSync: [], syncStatus: 'idle', syncError: null } as Partial<TenantSyncState>)
 }
 
 async function pullRealData() {
