@@ -531,13 +531,15 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
       {view === 'matriz' && <MatrizMensalPanel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
       {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
 
-      {/* Plano de Execução (layout do documento) — por obra, abaixo da matriz */}
+      {/* Plano de Execução (layout do documento) — só com uma obra selecionada (evita o "selecione uma obra" contraditório) */}
       <div className="mt-2 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">
         <div className="px-4 py-2.5 border-b border-[#525252] bg-[#2c2c2c]">
           <h3 className="text-sm font-bold text-[#f5f5f5]">Planejamento de Execução (por obra)</h3>
           <p className="text-[11px] text-[#a3a3a3]">Cronograma, equipe, distribuição e condições no layout do documento — a mesma fonte da aba Execução.</p>
         </div>
-        <ExecucaoPanel />
+        {activeObraId
+          ? <ExecucaoPanel />
+          : <p className="px-4 py-4 text-xs text-[#a3a3a3]">Selecione uma obra no seletor do topo para ver e editar o Plano de Execução dela aqui.</p>}
       </div>
 
 

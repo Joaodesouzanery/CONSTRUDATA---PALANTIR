@@ -647,7 +647,7 @@ if (typeof window !== 'undefined') {
 
   // Tempo real cross-usuário: mudança do Mestre em outro navegador → re-pull.
   eventBus.on('realtime.row_changed', (e) => {
-    if (e.table === 'master_activities' || e.table === 'lookahead_derived_activities' || e.table === 'programacao_diaria') {
+    if (e.table === 'master_activities' || e.table === 'lookahead_derived_activities') {
       void usePlanejamentoMestreStore.getState().pull()
     }
   })

@@ -34,7 +34,6 @@ const WATCHED_TABLES = [
   'master_activities',
   'plano_execucao',
   'lookahead_derived_activities',
-  'programacao_diaria',
   'purchase_orders',
   'goods_receipts',
   'invoices',
