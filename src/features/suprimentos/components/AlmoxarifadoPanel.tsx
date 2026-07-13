@@ -40,6 +40,7 @@ interface ItemForm {
   unidadeEmbalagem: string   // ex.: "caixa" (vazio = sem embalagem)
   qtdPorEmbalagem: string    // un por embalagem (ex.: 96)
   numEmbalagens: string      // nº de embalagens (ex.: 10)
+  valorPorEmbalagem: string  // R$ por embalagem (ex.: 346,56)
   qtdDisponivel: string
   estoqueMinimo: string
   custoUnitario: string
@@ -62,6 +63,7 @@ const emptyForm: ItemForm = {
   unidadeEmbalagem: '',
   qtdPorEmbalagem: '',
   numEmbalagens: '',
+  valorPorEmbalagem: '',
   qtdDisponivel: '',
   estoqueMinimo: '',
   custoUnitario: '',
@@ -229,6 +231,7 @@ export function AlmoxarifadoPanel() {
       unidadeEmbalagem: item.unidadeEmbalagem ?? '',
       qtdPorEmbalagem: porEmb > 0 ? String(porEmb) : '',
       numEmbalagens: porEmb > 0 ? String(item.qtdDisponivel / porEmb) : '',
+      valorPorEmbalagem: porEmb > 0 ? formatMoneyInput((item.custoUnitario ?? 0) * porEmb) : '',
       qtdDisponivel: String(item.qtdDisponivel),
       estoqueMinimo: String(item.estoqueMinimo),
       custoUnitario: formatDecimalInput(item.custoUnitario ?? 0, 4),
@@ -257,7 +260,7 @@ export function AlmoxarifadoPanel() {
       siteId: resolved.siteId ?? existingItem?.siteId ?? null,
       descricao: form.descricao.trim(),
       unidade: form.unidade.trim(),
-      qtdDisponivel: parseLocaleNumber(form.qtdDisponivel),
+      qtdDisponivel: totalUnOf(form),   // sempre a quantidade em unidades-base (com ou sem embalagem)
       qtdReservada: existingItem?.qtdReservada ?? 0,
       qtdTransito: existingItem?.qtdTransito ?? 0,
       estoqueMinimo: parseLocaleNumber(form.estoqueMinimo),
@@ -276,40 +279,94 @@ export function AlmoxarifadoPanel() {
     closeItemForm()
   }
 
+  // Total em unidades-base: com embalagem = nº × un/embalagem; senão a quantidade direta.
+  function totalUnOf(f: ItemForm): number {
+    const porEmb = parseLocaleNumber(f.qtdPorEmbalagem)
+    const num = parseLocaleNumber(f.numEmbalagens)
+    return porEmb > 0 && num > 0 ? num * porEmb : parseLocaleNumber(f.qtdDisponivel)
+  }
+
+  // Quantidade (un). Com embalagem, back-solve nº de embalagens; recalcula valor total.
   function updateQuantity(value: string) {
-    const qty = parseLocaleNumber(value)
-    const unit = parseLocaleNumber(form.custoUnitario)
-    setForm((item) => ({ ...item, qtdDisponivel: value, valorTotal: formatMoneyInput(qty * unit) }))
+    setForm((item) => {
+      const porEmb = parseLocaleNumber(item.qtdPorEmbalagem)
+      const qty = parseLocaleNumber(value)
+      const unit = parseLocaleNumber(item.custoUnitario)
+      return {
+        ...item,
+        qtdDisponivel: value,
+        numEmbalagens: porEmb > 0 ? (qty > 0 ? String(Math.round((qty / porEmb) * 1e6) / 1e6) : '') : item.numEmbalagens,
+        valorTotal: unit > 0 && qty > 0 ? formatMoneyInput(qty * unit) : item.valorTotal,
+      }
+    })
   }
 
+  // Valor unitário (R$/un) = preço canônico → deriva total e valor por embalagem.
   function updateUnitValue(value: string) {
-    const qty = parseLocaleNumber(form.qtdDisponivel)
-    const unit = parseLocaleNumber(value)
-    setForm((item) => ({ ...item, custoUnitario: value, valorTotal: formatMoneyInput(qty * unit) }))
+    setForm((item) => {
+      const unit = parseLocaleNumber(value)
+      const totalUn = totalUnOf(item)
+      const porEmb = parseLocaleNumber(item.qtdPorEmbalagem)
+      return {
+        ...item,
+        custoUnitario: value,
+        valorTotal: unit > 0 && totalUn > 0 ? formatMoneyInput(totalUn * unit) : item.valorTotal,
+        valorPorEmbalagem: porEmb > 0 && unit > 0 ? formatMoneyInput(unit * porEmb) : item.valorPorEmbalagem,
+      }
+    })
   }
 
+  // Valor por embalagem (R$/caixa) → deriva unitário e total.
+  function updatePackageValue(value: string) {
+    setForm((item) => {
+      const porEmb = parseLocaleNumber(item.qtdPorEmbalagem)
+      const totalUn = totalUnOf(item)
+      const unit = porEmb > 0 ? parseLocaleNumber(value) / porEmb : parseLocaleNumber(item.custoUnitario)
+      return {
+        ...item,
+        valorPorEmbalagem: value,
+        custoUnitario: unit > 0 ? formatDecimalInput(unit, 4) : item.custoUnitario,
+        valorTotal: unit > 0 && totalUn > 0 ? formatMoneyInput(totalUn * unit) : item.valorTotal,
+      }
+    })
+  }
+
+  // Valor total → deriva unitário e valor por embalagem.
   function updateTotalValue(value: string) {
-    const qty = parseLocaleNumber(form.qtdDisponivel)
-    const total = parseLocaleNumber(value)
-    setForm((item) => ({
-      ...item,
-      valorTotal: value,
-      custoUnitario: qty > 0 ? formatDecimalInput(total / qty, 4) : '',
-    }))
+    setForm((item) => {
+      const totalUn = totalUnOf(item)
+      const total = parseLocaleNumber(value)
+      const unit = totalUn > 0 ? total / totalUn : 0
+      const porEmb = parseLocaleNumber(item.qtdPorEmbalagem)
+      return {
+        ...item,
+        valorTotal: value,
+        custoUnitario: totalUn > 0 ? formatDecimalInput(unit, 4) : item.custoUnitario,
+        valorPorEmbalagem: porEmb > 0 && unit > 0 ? formatMoneyInput(unit * porEmb) : item.valorPorEmbalagem,
+      }
+    })
   }
 
-  // Embalagem (facilitador): nº de embalagens × un/embalagem → quantidade total em unidades.
+  // nº de embalagens / un por embalagem / rótulo → recomputa quantidade (un) + valores.
   function recalcEmbalagem(next: Partial<ItemForm>) {
     setForm((item) => {
       const merged = { ...item, ...next }
-      const num = parseLocaleNumber(merged.numEmbalagens)
       const porEmb = parseLocaleNumber(merged.qtdPorEmbalagem)
-      if (num > 0 && porEmb > 0) {
-        const totalUn = num * porEmb
-        const unit = parseLocaleNumber(merged.custoUnitario)
-        return { ...merged, qtdDisponivel: String(totalUn), valorTotal: formatMoneyInput(totalUn * unit) }
+      const num = parseLocaleNumber(merged.numEmbalagens)
+      const packaging = porEmb > 0 && num > 0
+      const totalUn = packaging ? num * porEmb : parseLocaleNumber(merged.qtdDisponivel)
+      let unit = parseLocaleNumber(merged.custoUnitario)
+      // Sem unitário mas com valor total → deriva o unitário a partir do total.
+      if (!(unit > 0) && parseLocaleNumber(merged.valorTotal) > 0 && totalUn > 0) {
+        unit = parseLocaleNumber(merged.valorTotal) / totalUn
+        merged.custoUnitario = formatDecimalInput(unit, 4)
       }
-      return merged
+      return {
+        ...merged,
+        qtdDisponivel: packaging ? String(totalUn) : merged.qtdDisponivel,
+        valorTotal: unit > 0 && totalUn > 0 ? formatMoneyInput(totalUn * unit) : merged.valorTotal,
+        valorPorEmbalagem: porEmb > 0 && unit > 0 ? formatMoneyInput(unit * porEmb) : merged.valorPorEmbalagem,
+      }
     })
   }
 
@@ -661,14 +718,17 @@ export function AlmoxarifadoPanel() {
           {/* Embalagem (facilitador) — nº de embalagens × un/embalagem = quantidade em unidades */}
           <div className="mt-3 rounded-lg border border-[#525252] bg-[#2f2f2f] p-3">
             <p className="mb-2 text-xs font-semibold text-[#e5e5e5]">Embalagem <span className="font-normal text-[#a3a3a3]">(opcional — ex.: 10 caixas × 96 un = 960 un.)</span></p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <input value={form.unidadeEmbalagem} onChange={(event) => setForm((item) => ({ ...item, unidadeEmbalagem: event.target.value }))} placeholder="Embalagem (ex.: caixa)" className={inputClass} />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <input value={form.unidadeEmbalagem} onChange={(event) => recalcEmbalagem({ unidadeEmbalagem: event.target.value })} placeholder="Embalagem (ex.: caixa)" className={inputClass} />
               <input type="text" inputMode="decimal" value={form.qtdPorEmbalagem} onChange={(event) => recalcEmbalagem({ qtdPorEmbalagem: event.target.value })} placeholder="Un por embalagem (ex.: 96)" className={inputClass} />
               <input type="text" inputMode="decimal" value={form.numEmbalagens} onChange={(event) => recalcEmbalagem({ numEmbalagens: event.target.value })} placeholder="Nº de embalagens (ex.: 10)" className={inputClass} />
+              <input type="text" inputMode="decimal" value={form.valorPorEmbalagem} onChange={(event) => updatePackageValue(event.target.value)} placeholder="Valor por embalagem (R$)" className={inputClass} />
             </div>
             {parseLocaleNumber(form.numEmbalagens) > 0 && parseLocaleNumber(form.qtdPorEmbalagem) > 0 && (
               <p className="mt-2 text-xs text-[#a3a3a3]">
-                = <strong className="text-[#f5f5f5]">{parseLocaleNumber(form.numEmbalagens)} {form.unidadeEmbalagem.trim() || 'emb.'} ({parseLocaleNumber(form.qtdDisponivel)} un.)</strong> — a quantidade em unidades foi preenchida automaticamente.
+                = <strong className="text-[#f5f5f5]">{parseLocaleNumber(form.numEmbalagens)} {form.unidadeEmbalagem.trim() || 'emb.'} ({parseLocaleNumber(form.numEmbalagens) * parseLocaleNumber(form.qtdPorEmbalagem)} un.)</strong>
+                {parseLocaleNumber(form.custoUnitario) > 0 && <> · unitário <strong className="text-[#f5f5f5]">{brl(parseLocaleNumber(form.custoUnitario))}</strong></>}
+                {' '}— a quantidade em unidades é preenchida automaticamente.
               </p>
             )}
           </div>
