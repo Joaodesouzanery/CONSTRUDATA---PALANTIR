@@ -8,6 +8,8 @@ import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight, Download, TableProperties, Plus, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
+import { byActiveObra } from '@/hooks/useActiveObra'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { MasterActivity, ProgramacaoDiaria } from '@/types'
 
@@ -155,6 +157,7 @@ export function ProgramacaoSemanalPanel() {
   const updateActivity      = usePlanejamentoMestreStore((s) => s.updateActivity)
   const addActivity         = usePlanejamentoMestreStore((s) => s.addActivity)
   const removeActivity      = usePlanejamentoMestreStore((s) => s.removeActivity)
+  const activeObraId        = useActiveObraStore((s) => s.activeObraId)
 
   const [week, setWeek]         = useState(currentISOWeek)
   const [filterNucleo, setFilterNucleo] = useState('')
@@ -212,10 +215,10 @@ export function ProgramacaoSemanalPanel() {
     alert(`Programação da semana ${week} gerada a partir do Médio Prazo: ${daSemana.length} atividade(s).`)
   }
 
-  // Only leaf activities (level >= 2, not milestones)
+  // Only leaf activities (level >= 1, not milestones), escopadas pela obra ativa.
   const leafActivities = useMemo(
-    () => activities.filter((a) => a.level >= 1 && !a.isMilestone),
-    [activities],
+    () => byActiveObra(activities.filter((a) => a.level >= 1 && !a.isMilestone), activeObraId),
+    [activities, activeObraId],
   )
 
   const nucleos = useMemo(() => {

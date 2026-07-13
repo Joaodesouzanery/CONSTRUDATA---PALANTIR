@@ -8,6 +8,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { RefreshCw, X, AlertTriangle, Plus, Trash2, Target } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { useLpsStore } from '@/store/lpsStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { NETWORK_TYPE_OPTIONS, networkColor, networkLabel, type NetworkCategory } from '../networkCategories'
@@ -407,6 +408,7 @@ export function DerivacaoPanel() {
     }))
   )
   const deriveFromMaster = usePlanejamentoMestreStore((s) => s.deriveFromMaster)
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
 
   const [filter,     setFilter]     = useState<'all' | NetworkCategory>('all')
   const [selectedDa, setSelectedDa] = useState<LookaheadDerivedActivity | null>(null)
@@ -446,7 +448,9 @@ export function DerivacaoPanel() {
     })
   }, [derivedActivities, actMap])
 
-  const filteredRows = filter === 'all' ? rows : rows.filter((r) => r.category === filter)
+  const filteredRows = rows
+    .filter((r) => !activeObraId || (actMap.get(r.masterActivityId)?.obraId ?? null) === activeObraId)
+    .filter((r) => filter === 'all' || r.category === filter)
 
   // Categorias presentes (na ordem canônica), apenas as que têm linhas
   const presentCategories = NETWORK_TYPE_OPTIONS

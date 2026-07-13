@@ -66,7 +66,7 @@ function LpsHorizonStrip({ horizon, showLookahead }: { horizon: string; showLook
   return (
     <div className="mt-4 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">
       <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 bg-[#2b2c6b]/40 hover:bg-[#2b2c6b]/60">
-        <span className="text-sm font-bold text-[#f5f5f5] inline-flex items-center gap-2"><Target size={14} className="text-[#f97316]" /> LPS / Lean — {horizon}: PPC, restrições{showLookahead ? ' e lookahead' : ''}</span>
+        <span className="text-sm font-bold text-[#f5f5f5] inline-flex items-center gap-2"><Target size={14} className="text-[#f97316]" /> LPS / Lean — restrições & PPC{showLookahead ? ' + lookahead' : ''} <span className="font-normal text-[10px] text-[#a3a3a3]">(visão geral — comanda o {horizon})</span></span>
         <span className="text-xs text-[#a3a3a3]">{open ? 'ocultar ▲' : 'mostrar ▼'}</span>
       </button>
       {open && (
