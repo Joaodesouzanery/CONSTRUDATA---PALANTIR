@@ -56,6 +56,30 @@ type MppImportPreview = {
   }
 }
 
+/**
+ * LpsHorizonStrip — traz o LPS/Lean (PPC, restrições, lookahead) para DENTRO das abas
+ * de Médio/Curto/Semanal do Planejamento (metodologia junto do planejamento, menos telas).
+ * Colapsável para não sobrecarregar; os dados já conversam via eventos (planning↔lps).
+ */
+function LpsHorizonStrip({ horizon, showLookahead }: { horizon: string; showLookahead?: boolean }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="mt-4 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 bg-[#2b2c6b]/40 hover:bg-[#2b2c6b]/60">
+        <span className="text-sm font-bold text-[#f5f5f5] inline-flex items-center gap-2"><Target size={14} className="text-[#f97316]" /> LPS / Lean — {horizon}: PPC, restrições{showLookahead ? ' e lookahead' : ''}</span>
+        <span className="text-xs text-[#a3a3a3]">{open ? 'ocultar ▲' : 'mostrar ▼'}</span>
+      </button>
+      {open && (
+        <div className="p-2 space-y-3 border-t border-[#525252]">
+          <PpcDashboard />
+          {showLookahead && <LookAheadPanel />}
+          <RestricoesPanel />
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
   const activities = usePlanejamentoMestreStore((s) => s.activities)
@@ -492,10 +516,10 @@ export function PlanejamentoMestrePage() {
         {workspace === 'planejamento' && activeTab !== 'execucao' && <RdoPlanningBridgePanel activities={activities} />}
         {workspace === 'planejamento' && activeTab === 'execucao'  && <ExecucaoPanel />}
         {workspace === 'planejamento' && activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
-        {workspace === 'planejamento' && activeTab === 'derivacao' && <DerivacaoPanel />}
-        {workspace === 'planejamento' && activeTab === 'whatif'    && <CurtoPrazoTab />}
+        {workspace === 'planejamento' && activeTab === 'derivacao' && <><DerivacaoPanel /><LpsHorizonStrip horizon="Médio Prazo" showLookahead /></>}
+        {workspace === 'planejamento' && activeTab === 'whatif'    && <><CurtoPrazoTab /><LpsHorizonStrip horizon="Curto Prazo" /></>}
         {workspace === 'planejamento' && activeTab === 'integrada' && <VisaoIntegradaPanel />}
-        {workspace === 'planejamento' && activeTab === 'semanal'   && <ProgramacaoSemanalPanel />}
+        {workspace === 'planejamento' && activeTab === 'semanal'   && <><ProgramacaoSemanalPanel /><LpsHorizonStrip horizon="Programação Semanal" /></>}
         {workspace === 'planejamento' && activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
         {workspace === 'planejamento' && activeTab === 'operacional' && <PlanejamentoOperacionalPanel />}
         {workspace === 'planejamento' && activeTab === 'medicao-planejamento' && <MedicaoPlanejamentoTestePanel />}
