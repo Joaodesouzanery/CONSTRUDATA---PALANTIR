@@ -20,11 +20,15 @@ export function parseLocaleNumber(value: string | number | null | undefined): nu
     const thousandsSeparator = decimalSeparator === ',' ? '.' : ','
     normalized = clean.split(thousandsSeparator).join('').replace(decimalSeparator, '.')
   } else if (lastComma >= 0) {
-    const decimals = clean.length - lastComma - 1
-    normalized = decimals === 3 ? clean.replace(/,/g, '') : clean.replace(',', '.')
+    // Em pt-BR a vírgula é SEMPRE decimal (milhar é ponto). Nunca tratar como milhar,
+    // senão "0,125" viraria 125 e "3,615" viraria 3615 (corrompe valores derivados).
+    normalized = clean.replace(/\./g, '').replace(',', '.')
   } else if (lastDot >= 0) {
+    // Ponto único com 3 casas: milhar ("1.000"=1000) só quando a parte inteira não é "0";
+    // "0.125" (inteiro 0) é decimal → 0.125, não 125.
     const decimals = clean.length - lastDot - 1
-    normalized = decimals === 3 ? clean.replace(/\./g, '') : clean
+    const intPart = clean.slice(0, lastDot)
+    normalized = decimals === 3 && intPart !== '' && intPart !== '0' ? clean.replace(/\./g, '') : clean
   }
 
   const parsed = Number(normalized.replace(/[^0-9.-]/g, ''))

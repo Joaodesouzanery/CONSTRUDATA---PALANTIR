@@ -230,7 +230,7 @@ export function AlmoxarifadoPanel() {
       unidade: item.unidade,
       unidadeEmbalagem: item.unidadeEmbalagem ?? '',
       qtdPorEmbalagem: porEmb > 0 ? String(porEmb) : '',
-      numEmbalagens: porEmb > 0 ? String(item.qtdDisponivel / porEmb) : '',
+      numEmbalagens: porEmb > 0 ? formatDecimalInput(item.qtdDisponivel / porEmb, 6) : '',
       valorPorEmbalagem: porEmb > 0 ? formatMoneyInput((item.custoUnitario ?? 0) * porEmb) : '',
       qtdDisponivel: String(item.qtdDisponivel),
       estoqueMinimo: String(item.estoqueMinimo),
@@ -295,7 +295,7 @@ export function AlmoxarifadoPanel() {
       return {
         ...item,
         qtdDisponivel: value,
-        numEmbalagens: porEmb > 0 ? (qty > 0 ? String(Math.round((qty / porEmb) * 1e6) / 1e6) : '') : item.numEmbalagens,
+        numEmbalagens: porEmb > 0 ? (qty > 0 ? formatDecimalInput(qty / porEmb, 6) : '') : item.numEmbalagens,
         valorTotal: unit > 0 && qty > 0 ? formatMoneyInput(qty * unit) : item.valorTotal,
       }
     })

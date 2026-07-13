@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { attachBlobSync } from '@/lib/blobSync'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 // Sincroniza as entradas financeiras do RDO (local-only) via app_state.
 let pullRdoFinBlob: (() => Promise<void>) | null = null
@@ -426,6 +427,21 @@ export const useRdoStore = create<RdoState>()(
               accumulate(m, key, service, rdo.date)
             }
           }
+          // RDO Compizzo: a produção do dia (m²) avança a atividade vinculada (planningActivityId).
+          const cz = rdo.compizzo
+          if (cz?.planningActivityId) {
+            const m2 = (cz.producao ?? []).reduce((s, r) => (/m²|m2/i.test(r.servico) ? s + parseLocaleNumber(r.quantidade) : s), 0)
+            if (m2 > 0) {
+              const svc = { quantity: m2 } as RDO['services'][number]
+              accumulate(globalMap, cz.planningActivityId, svc, rdo.date)
+              const siteId = rdo.siteId ?? null
+              if (siteId) {
+                let m = perObra.get(siteId)
+                if (!m) { m = new Map(); perObra.set(siteId, m) }
+                accumulate(m, cz.planningActivityId, svc, rdo.date)
+              }
+            }
+          }
         }
         const entries = Array.from(execMap.entries()).map(([code, data]) => ({
           trechoCode: code,
@@ -440,9 +456,14 @@ export const useRdoStore = create<RdoState>()(
             .catch(() => {})
         }
         if (globalMap.size > 0) {
-          import('./planejamentoMestreStore')
-            .then(({ usePlanejamentoMestreStore }) => {
+          Promise.all([import('./planejamentoMestreStore'), import('./planoExecucaoStore')])
+            .then(([{ usePlanejamentoMestreStore }, { usePlanoExecucaoStore }]) => {
               const store = usePlanejamentoMestreStore.getState()
+              // Meta por obra (m²) do Plano de Execução — usada p/ % quando a atividade não tem plannedQuantity (caso Compizzo).
+              const metaByObra = new Map<string, number>()
+              for (const p of usePlanoExecucaoStore.getState().planos) {
+                if (p.siteId && (p.areaM2 ?? 0) > 0) metaByObra.set(p.siteId, Math.max(metaByObra.get(p.siteId) ?? 0, p.areaM2))
+              }
               for (const activity of store.activities) {
                 // Atividade com obra: só recebe RDO da MESMA obra. Sem obra (legada): comportamento global.
                 const obraTag = activity.obraId ?? null
@@ -450,9 +471,12 @@ export const useRdoStore = create<RdoState>()(
                 const data = src?.get(activity.id) ?? (activity.operationalKey ? src?.get(activity.operationalKey) : undefined)
                 if (!data) continue
                 const planned = Number(activity.plannedQuantity) || 0
+                const meta = obraTag ? (metaByObra.get(obraTag) ?? 0) : 0
                 const percentComplete = planned > 0
                   ? Math.min(100, Math.round((data.quantity / planned) * 10000) / 100)
-                  : Math.min(100, Math.round(data.progressPct * 100) / 100)
+                  : meta > 0
+                    ? Math.min(100, Math.round((data.quantity / meta) * 10000) / 100)   // Compizzo: m² executado ÷ meta da obra
+                    : Math.min(100, Math.round(data.progressPct * 100) / 100)
                 store.updateActivity(activity.id, {
                   executedQuantity: data.quantity,
                   lastRdoDate: data.date,

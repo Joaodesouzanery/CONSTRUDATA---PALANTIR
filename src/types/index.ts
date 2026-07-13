@@ -1687,6 +1687,7 @@ export interface RdoCompizzoData {
   descricaoServicos:     string
   producao:              RdoCompizzoProducaoRow[]
   horasTrabalhadas?:     number   // HH total do dia (nº colab × jornada) p/ RUP real = HH ÷ m²
+  planningActivityId?:   string   // vínculo com uma atividade do Planejamento (avança o % dela pelo m² do dia)
   materiais:             RdoCompizzoMaterialRow[]
   ocorrencias:           RdoCompizzoOcorrencias
   observacoes:           string

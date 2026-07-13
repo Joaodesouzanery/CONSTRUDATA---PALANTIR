@@ -14,6 +14,7 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -112,6 +113,12 @@ export function RdoCompizzoPanel() {
   const syncRdoToTimecards = useMaoDeObraStore((s) => s.syncRdoToTimecards)
   // Itens de estoque do módulo Suprimentos (para puxar materiais sem digitar).
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
+  // Atividades do Planejamento da obra ativa (para vincular a produção do dia e avançar o %).
+  const masterActivities = usePlanejamentoMestreStore((s) => s.activities)
+  const obraAtividades = useMemo(() => {
+    const obraId = useActiveObraStore.getState().activeObraId
+    return masterActivities.filter((a) => a.level >= 1 && !a.isMilestone && (!obraId || (a.obraId ?? null) === obraId))
+  }, [masterActivities])
   const [crewPick, setCrewPick] = useState('')
   const [materialPick, setMaterialPick] = useState('')
 
@@ -136,6 +143,7 @@ export function RdoCompizzoPanel() {
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
   const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(c0?.producao ?? DEFAULT_PRODUCAO)
   const [horasTrabalhadas, setHorasTrabalhadas] = useState<string>(c0?.horasTrabalhadas != null ? String(c0.horasTrabalhadas) : '')
+  const [planningActivityId, setPlanningActivityId] = useState<string>(c0?.planningActivityId ?? '')
   const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
   const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>(editing?.equipment.map(stripEquipId) ?? [])
   const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(c0?.ocorrencias ?? emptyOcorrencias())
@@ -164,6 +172,7 @@ export function RdoCompizzoPanel() {
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
       descricaoServicos: descricao, producao,
       horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
+      planningActivityId: planningActivityId || undefined,
       materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
@@ -481,6 +490,20 @@ export function RdoCompizzoPanel() {
               >
                 <Users size={13} /> {totalColab} colab × 8h
               </button>
+            )}
+          </div>
+          {/* Vínculo com o Planejamento: a produção do dia (m²) avança o % da atividade escolhida */}
+          <div className="mt-3">
+            <label className={labelCls}>Atividade do Planejamento (opcional — o m² do dia avança o % dela no cronograma)</label>
+            {obraAtividades.length > 0 ? (
+              <select className={inputCls} value={planningActivityId} onChange={(e) => setPlanningActivityId(e.target.value)}>
+                <option value="">— Sem vínculo (soma no executado da obra) —</option>
+                {obraAtividades.map((a) => (
+                  <option key={a.id} value={a.id}>{a.wbsCode} · {a.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-[#6b6b6b]">Nenhuma atividade cadastrada no Planejamento desta obra. Cadastre no módulo Planejamento para vincular.</p>
             )}
           </div>
         </Section>
