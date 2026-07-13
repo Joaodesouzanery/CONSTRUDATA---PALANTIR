@@ -255,6 +255,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void usePlanoExecucaoStore.getState().flush()
   })
+  // Tempo real cross-usuário: plano alterado em outro navegador → re-pull.
+  eventBus.on('realtime.row_changed', (e) => {
+    if (e.table === 'plano_execucao') void usePlanoExecucaoStore.getState().pull()
+  })
   // Integração 2b: mover a atividade ligada no Mestre desloca o plano de Execução.
   // Suprime a reemissão (applyExecucaoFromEvent) para não criar loop de eventos.
   eventBus.on('master_activity.delayed', (e) => {

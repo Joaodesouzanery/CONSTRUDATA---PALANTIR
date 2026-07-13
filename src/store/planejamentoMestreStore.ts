@@ -645,6 +645,13 @@ if (typeof window !== 'undefined') {
     void usePlanejamentoMestreStore.getState().flush()
   })
 
+  // Tempo real cross-usuário: mudança do Mestre em outro navegador → re-pull.
+  eventBus.on('realtime.row_changed', (e) => {
+    if (e.table === 'master_activities' || e.table === 'lookahead_derived_activities' || e.table === 'programacao_diaria') {
+      void usePlanejamentoMestreStore.getState().pull()
+    }
+  })
+
   // Integração: um plano de Execução vira atividades no cronograma Mestre (uma por atividade).
   void import('@/lib/eventBus').then(({ eventBus }) => {
     eventBus.on('planning.activity_imported', (e) => {
