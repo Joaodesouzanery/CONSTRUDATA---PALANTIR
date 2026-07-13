@@ -13,7 +13,8 @@ import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 const clampPct = (n: number) => Math.max(0, Math.min(100, n))
 const fisico = (a: MasterActivity) => a.physicalProgressPct ?? a.percentComplete ?? 0
 
-/** Lista de meses 'YYYY-MM' entre a menor data de início e a maior de fim (máx. 24). */
+const MAX_MESES = 60
+/** Lista de meses 'YYYY-MM' entre a menor data de início e a maior de fim (teto: 60 meses). */
 function monthsRange(acts: MasterActivity[]): string[] {
   const starts = acts.map((a) => a.plannedStart).filter(Boolean).sort()
   const ends = acts.map((a) => a.plannedEnd).filter(Boolean).sort()
@@ -24,7 +25,7 @@ function monthsRange(acts: MasterActivity[]): string[] {
   let [y, m] = start.split('-').map(Number)
   const [ey, em] = end.split('-').map(Number)
   let guard = 0
-  while ((y < ey || (y === ey && m <= em)) && guard++ < 24) {
+  while ((y < ey || (y === ey && m <= em)) && guard++ < MAX_MESES) {
     out.push(`${y}-${String(m).padStart(2, '0')}`)
     m++; if (m > 12) { m = 1; y++ }
   }
@@ -123,20 +124,28 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
   function novaAtividade(obraId: string | null, nucleusId?: string, nucleo?: string) {
     const hoje = new Date().toISOString().slice(0, 10)
     addActivity({
-      wbsCode: 'NEW', name: 'Nova atividade', parentId: null, level: 1,
+      wbsCode: '', name: 'Nova atividade', parentId: null, level: 1,
       plannedStart: hoje, plannedEnd: hoje, trendStart: hoje, trendEnd: hoje,
       durationDays: 1, percentComplete: 0, status: 'not_started', isMilestone: false,
       obraId: obraId ?? undefined, nucleusId, nucleo,
     })
   }
+  function distribuirTodas() { leaf.forEach((a) => autoDistribuir(a)) }
 
+  const truncado = months.length >= MAX_MESES
   const colSpanLabel = 2 // Atividade + %Concl ocupam 2 colunas nas bandas
   return (
     <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#525252] bg-[#2c2c2c]">
         <span className="text-xs font-bold text-[#f5f5f5]">Gestão à Vista — avanço físico por mês</span>
-        <span className="text-[10px] text-[#6b6b6b]">{months.length} mês(es) · edite as % por mês; "Total" = soma da linha</span>
+        <div className="flex items-center gap-3">
+          <button onClick={distribuirTodas} className="inline-flex items-center gap-1 rounded border border-[#525252] px-2 py-1 text-[10px] font-semibold text-[#a3a3a3] hover:border-[#f97316]/40 hover:text-[#f97316]" title="Distribuir 100% pelos meses de cada atividade (ponto de partida)"><Wand2 size={11} /> Distribuir todas</button>
+          <span className="text-[10px] text-[#6b6b6b]">{months.length} mês(es) · "Total" = soma da linha</span>
+        </div>
       </div>
+      {truncado && (
+        <p className="px-3 py-1.5 text-[10px] text-[#fdba74] bg-[#f97316]/10 border-b border-[#f97316]/20">Período muito longo — mostrando os primeiros {MAX_MESES} meses. Verifique se alguma atividade tem data de início/fim errada.</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-xs" style={{ minWidth: 640 + months.length * 64 }}>
           <thead>
@@ -165,7 +174,7 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
                           <span className="text-[10px] font-normal text-[#a3a3a3]">({obra.acts.length})</span>
                         </span>
                       </td>
-                      {months.map((ym) => <td key={ym} className="px-2 py-2 text-right text-[#c9c9c9]">{obra.acts.reduce((s, a) => s + (a.monthlyPhysicalPct?.[ym] ?? 0), 0).toFixed(0) || ''}</td>)}
+                      {months.map((ym) => { const v = obra.acts.reduce((s, a) => s + (a.monthlyPhysicalPct?.[ym] ?? 0), 0); return <td key={ym} className="px-2 py-2 text-right text-[#c9c9c9]">{v ? v.toFixed(0) : ''}</td> })}
                       <td className="px-2 py-2" colSpan={allObras ? 2 : 1} />
                     </tr>
                   )}
@@ -181,7 +190,7 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
                               <span className="text-[10px] font-normal text-[#a3a3a3]">({g.acts.length})</span>
                             </span>
                           </td>
-                          {months.map((ym) => <td key={ym} className="px-2 py-1.5 text-right font-semibold text-[#e5e5e5]">{g.acts.reduce((s, a) => s + (a.monthlyPhysicalPct?.[ym] ?? 0), 0).toFixed(0) || ''}</td>)}
+                          {months.map((ym) => { const v = g.acts.reduce((s, a) => s + (a.monthlyPhysicalPct?.[ym] ?? 0), 0); return <td key={ym} className="px-2 py-1.5 text-right font-semibold text-[#e5e5e5]">{v ? v.toFixed(0) : ''}</td> })}
                           <td className="px-2 py-1.5 text-right">
                             <button onClick={() => novaAtividade(obra.obraKey === '__none__' ? null : obra.obraKey, g.acts[0]?.nucleusId, g.acts[0]?.nucleo)} className="text-[#a3a3a3] hover:text-[#f97316]" title="Adicionar atividade nesta frente"><Plus size={13} /></button>
                           </td>
