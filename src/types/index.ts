@@ -2198,6 +2198,7 @@ export interface MasterActivity {
   operationalKey?: string
   sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
   obraId?: string | null      // obra (construction_sites.id) — Planejamento ↔ Torre. null/undefined = sem obra (aparece em "Todas")
+  monthlyPhysicalPct?: Record<string, number>  // distribuição de % físico por mês 'YYYY-MM' (matriz Gestão à Vista, payload jsonb)
 }
 
 export interface MasterBaseline {

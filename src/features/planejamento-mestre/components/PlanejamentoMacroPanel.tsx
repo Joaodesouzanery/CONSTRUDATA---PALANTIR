@@ -1,55 +1,23 @@
 /**
- * PlanejamentoMacroPanel — WBS Gantt with Previsto vs Tendência bars,
- * baseline management, activity CRUD, and export (PDF / Excel / PNG).
+ * PlanejamentoMacroPanel — Longo Prazo: Matriz mensal "Gestão à Vista" (atividade × mês,
+ * % físico) como visão principal, com Tabela 360 (orçamento) alternativa e o Plano de
+ * Execução (layout do documento) embutido por obra. Baseline + CRUD + export (PDF/Excel).
  */
-import { useRef, useState, useMemo, useEffect } from 'react'
-import { Plus, Save, Download, X, Check, FileDown, Image, FileSpreadsheet, Search, SlidersHorizontal, Sparkles, Trash2 } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { Plus, Save, Download, X, Check, FileDown, FileSpreadsheet, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { byActiveObra } from '@/hooks/useActiveObra'
 import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
-import { getProjectDateRange, daysBetween } from '../utils/masterEngine'
+import { daysBetween } from '../utils/masterEngine'
 import { NETWORK_TYPE_OPTIONS } from '../networkCategories'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Tabela360Panel } from './Tabela360Panel'
+import { MatrizMensalPanel } from './MatrizMensalPanel'
+import { ExecucaoPanel } from '@/features/planejamento/components/ExecucaoPanel'
 import type { MasterActivity, MasterActivityStatus } from '@/types'
-
-// ─── Colors ───────────────────────────────────────────────────────────────────
-
-const STATUS_COLOR: Record<MasterActivityStatus, string> = {
-  not_started: '#6b6b6b',
-  in_progress: '#f97316',
-  completed:   '#22c55e',
-  delayed:     '#ef4444',
-}
-
-const STATUS_LABEL: Record<MasterActivityStatus, string> = {
-  not_started: 'Não iniciada',
-  in_progress: 'Em andamento',
-  completed:   'Concluída',
-  delayed:     'Atrasada',
-}
-
-const NETWORK_COLOR: Record<string, string> = {
-  agua:       '#f97316',
-  esgoto:     '#22c55e',
-  civil:      '#f59e0b',
-  manutencao: '#38bdf8',
-  ambiental:  '#10b981',
-  outro:      '#a3a3a3',
-  geral:      '#a78bfa',
-}
-
-function networkColor(nt: string | undefined): string {
-  return nt ? (NETWORK_COLOR[nt] ?? '#6b7280') : '#6b7280'
-}
-
-function fmtDate(iso: string) {
-  const [, m, d] = iso.split('-')
-  return `${d}/${m}`
-}
 
 function fmtMoney(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -62,303 +30,6 @@ function PlanningKpi({ label, value, accent = false }: { label: string; value: s
       <p className={accent ? 'text-sm font-semibold text-[#f97316]' : 'text-sm font-semibold text-[#f5f5f5]'}>
         {value}
       </p>
-    </div>
-  )
-}
-
-// ─── Gantt SVG ───────────────────────────────────────────────────────────────
-
-function PercentCell({ value, onChange, color = '#f5f5f5' }: { value: number; onChange: (value: number) => void; color?: string }) {
-  return (
-    <div className="inline-flex items-center gap-1">
-      <input
-        type="number"
-        min={0}
-        max={100}
-        step="0.01"
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(event) => onChange(Math.min(100, Math.max(0, Number(event.target.value) || 0)))}
-        className="w-16 rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-right font-mono text-xs outline-none focus:border-[#f97316]/60"
-        style={{ color }}
-      />
-      <span className="text-[#6b6b6b]">%</span>
-    </div>
-  )
-}
-
-interface GanttChartProps {
-  activities: MasterActivity[]
-  collapsed: Set<string>
-  onToggle: (id: string) => void
-  svgRef: React.RefObject<SVGSVGElement | null>
-  updateActivity: (id: string, patch: Partial<MasterActivity>) => void
-}
-
-function addDaysIso(iso: string, n: number): string {
-  const d = new Date(`${iso}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-
-interface DragState { id: string; mode: 'move' | 'resize'; x0: number; start0: string; end0: string; deltaDays: number }
-
-function GanttChart({ activities, collapsed, onToggle, svgRef, updateActivity }: GanttChartProps) {
-  const [drag, setDrag] = useState<DragState | null>(null)
-
-  // Determine which activities to show (hide children of collapsed parents)
-  function isVisible(act: MasterActivity): boolean {
-    if (!act.parentId) return true
-    if (collapsed.has(act.parentId)) return false
-    const parent = activities.find((a) => a.id === act.parentId)
-    return parent ? isVisible(parent) : true
-  }
-
-  const visible = activities.filter((a) => a.level >= 0 && isVisible(a))
-  if (visible.length === 0) return (
-    <p className="text-[#6b6b6b] text-xs text-center py-8">Nenhuma atividade cadastrada</p>
-  )
-
-  const { start: projStart, end: projEnd } = getProjectDateRange(activities)
-  const totalDays = Math.max(1, daysBetween(projStart, projEnd))
-
-  const LABEL_W = 360
-  const W       = 1120
-  const ROW_H   = 42
-  const PAD_TOP = 48
-  const svgH    = PAD_TOP + visible.length * ROW_H + 20
-
-  function xOf(date: string) { return Math.round((daysBetween(projStart, date) / totalDays) * W) }
-  function wOf(s: string, e: string) { return Math.max(3, Math.round((daysBetween(s, e) / totalDays) * W)) }
-  const pxPerDay = W / totalDays
-
-  // Arrastar a barra "Previsto" move (corpo) ou redimensiona (borda direita) as datas.
-  function commitDrag() {
-    setDrag((d) => {
-      if (d && d.deltaDays !== 0) {
-        if (d.mode === 'move') {
-          updateActivity(d.id, { plannedStart: addDaysIso(d.start0, d.deltaDays), plannedEnd: addDaysIso(d.end0, d.deltaDays) })
-        } else {
-          let newEnd = addDaysIso(d.end0, d.deltaDays)
-          if (newEnd < d.start0) newEnd = d.start0
-          updateActivity(d.id, { plannedEnd: newEnd, durationDays: Math.max(1, daysBetween(d.start0, newEnd) + 1) })
-        }
-      }
-      return null
-    })
-  }
-  useEffect(() => {
-    if (!drag) return
-    const onMove = (e: MouseEvent) => {
-      const deltaDays = Math.round((e.clientX - drag.x0) / pxPerDay)
-      setDrag((d) => (d && d.deltaDays !== deltaDays ? { ...d, deltaDays } : d))
-    }
-    const onUp = () => commitDrag()
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drag?.id, drag?.mode, drag?.x0, pxPerDay])
-
-  // Month markers
-  const months: { date: string; label: string }[] = []
-  const dIter = new Date(projStart + 'T00:00:00')
-  dIter.setDate(1)
-  if (dIter.toISOString().slice(0, 10) < projStart) dIter.setMonth(dIter.getMonth() + 1)
-  while (dIter.toISOString().slice(0, 10) <= projEnd) {
-    const iso = dIter.toISOString().slice(0, 10)
-    months.push({ date: iso, label: dIter.toLocaleDateString('pt-BR', { month: 'short' }) })
-    dIter.setMonth(dIter.getMonth() + 1)
-  }
-
-  const today = new Date().toISOString().slice(0, 10)
-
-  // Determine which activities have children
-  const parentIds = new Set(activities.map((a) => a.parentId).filter(Boolean) as string[])
-
-  return (
-    <div className="overflow-x-auto">
-      <svg ref={svgRef} width={LABEL_W + W + 20} height={svgH} className="font-mono text-[12px]" style={{ background: '#111827' }}>
-        <rect x={0} y={0} width={LABEL_W + W + 20} height={svgH} fill="#111827" />
-        <rect x={0} y={0} width={LABEL_W} height={svgH} fill="#1f1f1f" />
-        <line x1={LABEL_W} y1={0} x2={LABEL_W} y2={svgH} stroke="#525252" strokeWidth={1} />
-        {/* Month headers */}
-        {months.map((m) => {
-          const x = LABEL_W + xOf(m.date)
-          return (
-            <g key={m.date}>
-              <line x1={x} y1={0} x2={x} y2={svgH - 16} stroke="#2f4663" strokeWidth={0.7} />
-              <text x={x + 6} y={18} fontSize={11} fill="#60a5fa" fontWeight={700}>{m.label}</text>
-            </g>
-          )
-        })}
-
-        {/* Today line */}
-        {today >= projStart && today <= projEnd && (() => {
-          const tx = LABEL_W + xOf(today)
-          return (
-            <>
-              <line x1={tx} y1={0} x2={tx} y2={svgH - 16} stroke="#f97316" strokeWidth={1.2} strokeDasharray="3,2" opacity={0.8} />
-              <text x={tx + 4} y={32} fontSize={10} fill="#f97316" fontWeight={700}>hoje</text>
-            </>
-          )
-        })()}
-
-        {/* Activity rows */}
-        {visible.map((act, i) => {
-          const y       = PAD_TOP + i * ROW_H
-          const indent  = act.level * 14
-          const color   = STATUS_COLOR[act.status]
-          const nColor  = networkColor(act.networkType)
-          const hasKids = parentIds.has(act.id)
-          const isCollapsed = collapsed.has(act.id)
-          const isL0  = act.level === 0
-          const isL1  = act.level === 1
-
-          const bPx   = xOf(act.plannedStart)
-          const bW    = wOf(act.plannedStart, act.plannedEnd)
-          const tPx   = xOf(act.trendStart)
-          const tW    = wOf(act.trendStart, act.trendEnd)
-
-          const maxLabelChars = Math.floor((LABEL_W - indent - 38) / 6.3)
-          const labelName = act.name.length > maxLabelChars
-            ? act.name.slice(0, maxLabelChars - 1) + '…'
-            : act.name
-          const label = `${act.wbsCode} ${labelName}`
-
-          const tooltip = `${act.wbsCode} ${act.name}\nInício: ${act.plannedStart} → ${act.trendStart}\nFim: ${act.plannedEnd} → ${act.trendEnd}\nAndamento: ${act.percentComplete}%\nStatus: ${STATUS_LABEL[act.status]}`
-
-          return (
-            <g key={act.id}>
-              <title>{tooltip}</title>
-
-              {/* Row background */}
-              {isL0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#2c2c2c" />}
-              {!isL0 && i % 2 === 0 && <rect x={0} y={y - 1} width={LABEL_W + W} height={ROW_H} fill="#182235" opacity={0.36} />}
-              <line x1={0} y1={y + ROW_H - 1} x2={LABEL_W + W} y2={y + ROW_H - 1} stroke="#2f2f2f" strokeWidth={0.6} />
-
-              {/* Network type accent line (left) */}
-              {act.networkType && (
-                <rect x={0} y={y} width={3} height={ROW_H - 2} fill={nColor} opacity={0.7} rx={1} />
-              )}
-
-              {/* Toggle triangle for parents */}
-              {hasKids && (
-                <text
-                  x={indent + 5}
-                  y={y + ROW_H / 2 + 4}
-                  fontSize={12}
-                  fill="#60a5fa"
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => onToggle(act.id)}
-                >
-                  {isCollapsed ? '▶' : '▼'}
-                </text>
-              )}
-
-              {/* WBS label */}
-              <text
-                x={indent + (hasKids ? 18 : 8)}
-                y={y + ROW_H / 2 + 4}
-                fontSize={isL0 ? 13 : isL1 ? 12 : 11}
-                fontWeight={isL0 || isL1 ? 'bold' : 'normal'}
-                fill={isL0 ? '#f5f5f5' : isL1 ? '#d4d4d4' : '#b8b8b8'}
-                style={{ cursor: hasKids ? 'pointer' : 'default' }}
-                onClick={hasKids ? () => onToggle(act.id) : undefined}
-              >
-                {label}
-              </text>
-
-              {/* % complete */}
-              <text x={LABEL_W - 24} y={y + ROW_H / 2 + 4} textAnchor="end" fontSize={10} fontWeight={700} fill={color}>
-                {act.isMilestone ? '◆' : `${act.percentComplete}%`}
-              </text>
-
-              {act.isMilestone ? (
-                <>
-                  <polygon
-                    points={`${LABEL_W + bPx},${y + 4} ${LABEL_W + bPx + 6},${y + 10} ${LABEL_W + bPx},${y + 16} ${LABEL_W + bPx - 6},${y + 10}`}
-                    fill="#6b728030" stroke="#6b7280" strokeWidth={0.8}
-                  />
-                  <polygon
-                    points={`${LABEL_W + tPx},${y + 8} ${LABEL_W + tPx + 4},${y + 12} ${LABEL_W + tPx},${y + 16} ${LABEL_W + tPx - 4},${y + 12}`}
-                    fill={color} opacity={0.9}
-                  />
-                </>
-              ) : (
-                <>
-                  {/* Previsto bar (arrastável nas folhas: corpo = mover, borda direita = redimensionar) */}
-                  {(() => {
-                    const editable = !hasKids
-                    const isDragging = drag?.id === act.id
-                    const dMove = isDragging && drag?.mode === 'move' ? drag.deltaDays * pxPerDay : 0
-                    const dResize = isDragging && drag?.mode === 'resize' ? drag.deltaDays * pxPerDay : 0
-                    const x = LABEL_W + bPx + dMove
-                    const w = Math.max(3, bW + dResize)
-                    return (
-                      <>
-                        <rect
-                          x={x} y={y + 7} width={w} height={10} rx={3}
-                          fill={isDragging ? '#f97316' : '#64748b'} opacity={isDragging ? 0.7 : 0.45}
-                          style={{ cursor: editable ? 'grab' : 'default' }}
-                          onMouseDown={editable ? (e) => { e.preventDefault(); setDrag({ id: act.id, mode: 'move', x0: e.clientX, start0: act.plannedStart, end0: act.plannedEnd, deltaDays: 0 }) } : undefined}
-                        />
-                        {editable && (
-                          <rect
-                            x={x + w - 5} y={y + 5} width={8} height={14} rx={2}
-                            fill="#f97316" opacity={isDragging && drag?.mode === 'resize' ? 0.9 : 0.35}
-                            style={{ cursor: 'ew-resize' }}
-                            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDrag({ id: act.id, mode: 'resize', x0: e.clientX, start0: act.plannedStart, end0: act.plannedEnd, deltaDays: 0 }) }}
-                          />
-                        )}
-                      </>
-                    )
-                  })()}
-                  {/* Tendência bar (network-colored) */}
-                  <rect x={LABEL_W + tPx} y={y + 22} width={tW} height={isL0 ? 10 : 9} rx={3} fill={nColor} opacity={0.78} />
-                  {/* Progress fill */}
-                  {act.percentComplete > 0 && (
-                    <rect
-                      x={LABEL_W + tPx}
-                      y={y + 22}
-                      width={Math.round(tW * act.percentComplete / 100)}
-                      height={isL0 ? 10 : 9}
-                      rx={3}
-                      fill={nColor}
-                    />
-                  )}
-                  {act.financialProgressPct != null && (
-                    <rect
-                      x={LABEL_W + tPx}
-                      y={y + 35}
-                      width={Math.round(tW * Math.min(100, Math.max(0, act.financialProgressPct)) / 100)}
-                      height={4}
-                      rx={1}
-                      fill="#f97316"
-                      opacity={0.95}
-                    />
-                  )}
-                </>
-              )}
-            </g>
-          )
-        })}
-
-        {/* Legend */}
-        <g transform={`translate(${LABEL_W + 4}, ${svgH - 16})`}>
-          <rect x={0} y={0} width={10} height={6} rx={1} fill="#64748b" opacity={0.5} />
-          <text x={14} y={6} fontSize={10} fill="#a3a3a3">Previsto</text>
-          <rect x={70} y={0} width={10} height={6} rx={1} fill="#f97316" opacity={0.8} />
-          <text x={84} y={6} fontSize={10} fill="#a3a3a3">Tendencia</text>
-          {/* Network legend */}
-          {Object.entries(NETWORK_COLOR).map(([nt, c], i) => (
-            <g key={nt} transform={`translate(${165 + i * 68}, 0)`}>
-              <rect x={0} y={0} width={10} height={6} rx={1} fill={c} opacity={0.8} />
-              <text x={14} y={6} fontSize={10} fill="#a3a3a3">{nt.charAt(0).toUpperCase() + nt.slice(1)}</text>
-            </g>
-          ))}
-        </g>
-      </svg>
     </div>
   )
 }
@@ -525,31 +196,6 @@ function exportExcel(activities: MasterActivity[]) {
   XLSX.writeFile(wb, 'planejamento-mestre-longo-prazo.xlsx')
 }
 
-function exportPng(svgEl: SVGSVGElement | null) {
-  if (!svgEl) return
-  const serializer = new XMLSerializer()
-  const svgStr = serializer.serializeToString(svgEl)
-  const blob = new Blob([svgStr], { type: 'image/svg+xml' })
-  const url  = URL.createObjectURL(blob)
-  const img  = new window.Image()
-  img.onload = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width  = svgEl.width.baseVal.value * 2
-    canvas.height = svgEl.height.baseVal.value * 2
-    const ctx = canvas.getContext('2d')!
-    ctx.scale(2, 2)
-    ctx.fillStyle = '#111827'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(img, 0, 0)
-    URL.revokeObjectURL(url)
-    const link = document.createElement('a')
-    link.download = 'gantt-longo-prazo.png'
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-  }
-  img.src = url
-}
-
 function exportPdf() {
   window.print()
 }
@@ -569,7 +215,6 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const nuclei        = usePlanejamentoMestreStore((s) => s.nuclei)
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
-  const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
   const backfillObraId = usePlanejamentoMestreStore((s) => s.backfillObraId)
 
@@ -580,15 +225,13 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const [showNewForm, setShowNewForm]   = useState(false)
   const [blName, setBlName]             = useState('')
   const [showBlSave, setShowBlSave]     = useState(false)
-  const [collapsed, setCollapsed]       = useState<Set<string>>(new Set())
   const [search, setSearch]             = useState('')
   const [filterStatus, setFilterStatus] = useState<MasterActivityStatus | ''>('')
   const [filterNetwork, setFilterNetwork] = useState<string>('')
   const [filterService, setFilterService] = useState<string>('')
   const [filterNucleo, setFilterNucleo] = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
-  const [view, setView] = useState<'gantt' | 'tabela360'>('gantt')
-  const svgRef = useRef<SVGSVGElement | null>(null)
+  const [view, setView] = useState<'matriz' | 'tabela360'>('matriz')
 
   // Núcleos presentes nas atividades (para o filtro), casando nucleusId → nome do cadastro.
   const nucleoOptions = useMemo(() => {
@@ -651,15 +294,6 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
     window.alert(n > 0
       ? `${n} atividade(s) sem obra foram vinculadas a "${activeSiteName ?? 'obra selecionada'}".`
       : 'Nenhuma atividade sem obra para vincular.')
-  }
-
-  function toggleCollapse(id: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
   }
 
   function handleSaveBaseline() {
@@ -729,9 +363,6 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
           </button>
           <button onClick={() => exportExcel(filtered)} className={btnCls} title="Exportar Excel">
             <FileSpreadsheet size={12} />Excel
-          </button>
-          <button onClick={() => exportPng(svgRef.current)} className={btnCls} title="Exportar PNG">
-            <Image size={12} />PNG
           </button>
         </div>
 
@@ -882,10 +513,10 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         </div>
       )}
 
-      {/* View toggle: Cronograma (Gantt) × Tabela 360 (Núcleo/Obra) */}
+      {/* View toggle: Matriz mensal (Gestão à Vista) × Tabela 360 (orçamento) */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
       <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
-        {([['gantt', 'Cronograma (Gantt)'], ['tabela360', 'Tabela 360']] as const).map(([k, label]) => (
+        {([['matriz', 'Matriz mensal'], ['tabela360', 'Tabela 360']] as const).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setView(k)}
             className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === k ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}>
             {label}
@@ -897,128 +528,18 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         </span>
       </div>
 
+      {view === 'matriz' && <MatrizMensalPanel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
       {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
 
-      {view === 'gantt' && (<>
-      {/* ── Gantt Chart ── */}
-      <div className="bg-[#111827] border border-[#525252] rounded-lg overflow-hidden print:border-0">
-        <div className="px-4 py-3 border-b border-[#525252] flex items-center justify-between print:hidden bg-[#2c2c2c]">
-          <div>
-            <h3 className="text-[#f5f5f5] text-base font-semibold">Cronograma Macro - Previsto vs Tendencia</h3>
-            <p className="text-[#a3a3a3] text-sm mt-0.5">
-              {filtered.length} atividade{filtered.length !== 1 ? 's' : ''}
-              {activeFilterCount > 0 ? ` (filtrado de ${activities.length})` : ''}
-              {' '}· Clique em ▶/▼ para expandir/recolher
-            </p>
-          </div>
+      {/* Plano de Execução (layout do documento) — por obra, abaixo da matriz */}
+      <div className="mt-2 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-[#525252] bg-[#2c2c2c]">
+          <h3 className="text-sm font-bold text-[#f5f5f5]">Planejamento de Execução (por obra)</h3>
+          <p className="text-[11px] text-[#a3a3a3]">Cronograma, equipe, distribuição e condições no layout do documento — a mesma fonte da aba Execução.</p>
         </div>
-        <div className="p-2">
-          <GanttChart
-            activities={filtered}
-            collapsed={collapsed}
-            onToggle={toggleCollapse}
-            svgRef={svgRef}
-            updateActivity={updateActivity}
-          />
-        </div>
+        <ExecucaoPanel />
       </div>
 
-      {/* ── Activity list table ── */}
-      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-[#525252] bg-[#2c2c2c]">
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">WBS</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Atividade</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Tipo</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Início</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Fim</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Tendência</th>
-                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Prev.</th>
-                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">% Conc.</th>
-                <th className="px-3 py-2 text-left text-[#6b6b6b] font-medium">Status</th>
-                <th className="px-3 py-2 text-center text-[#6b6b6b] font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.filter((a) => a.level >= 1).map((act) => {
-                const color  = STATUS_COLOR[act.status]
-                const nColor = networkColor(act.networkType)
-                const delta  = daysBetween(act.plannedEnd, act.trendEnd)
-                return (
-                  <tr key={act.id} className="border-b border-[#525252]/50 hover:bg-[#484848]">
-                    <td
-                      className="px-3 py-2 font-mono text-[#6b6b6b]"
-                      style={{ paddingLeft: `${10 + act.level * 14}px` }}
-                    >
-                      {act.isMilestone ? '◆ ' : ''}{act.wbsCode}
-                    </td>
-                    <td className="px-3 py-2 text-[#f5f5f5]">{act.name}</td>
-                    <td className="px-3 py-2">
-                      <select
-                        value={act.networkType ?? 'geral'}
-                        onChange={(event) => updateActivity(act.id, { networkType: event.target.value as MasterActivity['networkType'] })}
-                        className="rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[10px] font-semibold uppercase outline-none"
-                        style={{ color: nColor }}
-                      >
-                        {NETWORK_TYPE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                      {false && act.networkType ? (
-                        <span
-                          className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase"
-                          style={{ backgroundColor: nColor + '20', color: nColor }}
-                        >
-                          {act.networkType}
-                        </span>
-                      ) : <span className="text-[#525252]">—</span>}
-                    </td>
-                    <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedStart)}</td>
-                    <td className="px-3 py-2 text-[#a3a3a3] font-mono">{fmtDate(act.plannedEnd)}</td>
-                    <td className="px-3 py-2 font-mono">
-                      <span className={delta > 0 ? 'text-[#ef4444]' : delta < 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]'}>
-                        {fmtDate(act.trendEnd)}{delta > 0 ? ` (+${delta}d)` : delta < 0 ? ` (${delta}d)` : ''}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <PercentCell value={act.plannedProgressPct ?? 0} onChange={(value) => updateActivity(act.id, { plannedProgressPct: value })} />
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <PercentCell
-                        value={act.percentComplete}
-                        color={color}
-                        onChange={(value) => updateActivity(act.id, {
-                          percentComplete: value,
-                          physicalProgressPct: value,
-                          status: value >= 100 ? 'completed' : value > 0 ? 'in_progress' : 'not_started',
-                        })}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: color + '18', color }}>
-                        {STATUS_LABEL[act.status]}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(act)}
-                        title="Excluir atividade"
-                        className="inline-flex items-center justify-center rounded p-1.5 text-[#6b6b6b] transition-colors hover:bg-[#ef4444]/15 hover:text-[#ef4444]"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      </>)}
 
       <ConfirmDialog
         open={deleteTarget !== null}
