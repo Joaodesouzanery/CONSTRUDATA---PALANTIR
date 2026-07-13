@@ -6,9 +6,12 @@
  * pela duração. Tudo via updateActivity/addActivity/removeActivity (payload jsonb).
  */
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, Layers, Building2, Plus, Trash2, Wand2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Layers, Building2, Plus, Trash2, Wand2, Activity } from 'lucide-react'
 import type { MasterActivity, PlanningNucleus, PlanningContract, ConstructionSite } from '@/types'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
+import { useRdoStore } from '@/store/rdoStore'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 
 const clampPct = (n: number) => Math.max(0, Math.min(100, n))
 const fisico = (a: MasterActivity) => a.physicalProgressPct ?? a.percentComplete ?? 0
@@ -71,11 +74,51 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
   const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
   const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
+  const rdos = useRdoStore((s) => s.rdos)
+  const planos = usePlanoExecucaoStore((s) => s.planos)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [showReal, setShowReal] = useState(false)
   const toggle = (k: string) => setCollapsed((prev) => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
 
   const leaf = useMemo(() => activities.filter((a) => a.level >= 1 && !a.isMilestone), [activities])
   const months = useMemo(() => monthsRange(leaf), [leaf])
+
+  // Executado real por mês (overlay planejado × real): m² dos RDOs Compizzo vinculados
+  // (planningActivityId), agrupado por mês, ÷ meta da atividade (plannedQuantity ou
+  // area da obra no Plano de Execução) → % físico executado naquele mês. Mesma
+  // fórmula do rdoStore.syncExecutionToPlanejamento, para os números baterem.
+  const metaByObra = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of planos) {
+      if (p.siteId && (p.areaM2 ?? 0) > 0) m.set(p.siteId, Math.max(m.get(p.siteId) ?? 0, p.areaM2))
+    }
+    return m
+  }, [planos])
+  const realByActMonth = useMemo(() => {
+    const m = new Map<string, Map<string, number>>() // activityId -> 'YYYY-MM' -> m²
+    for (const rdo of rdos) {
+      const cz = rdo.compizzo
+      if (!cz?.planningActivityId) continue
+      const m2 = (cz.producao ?? []).reduce((s, r) => (/m²|m2/i.test(r.servico) ? s + parseLocaleNumber(r.quantidade) : s), 0)
+      if (m2 <= 0) continue
+      const ym = rdo.date.slice(0, 7)
+      let byMonth = m.get(cz.planningActivityId)
+      if (!byMonth) { byMonth = new Map(); m.set(cz.planningActivityId, byMonth) }
+      byMonth.set(ym, (byMonth.get(ym) ?? 0) + m2)
+    }
+    return m
+  }, [rdos])
+  function metaOf(a: MasterActivity): number {
+    const planned = Number(a.plannedQuantity) || 0
+    if (planned > 0) return planned
+    return a.obraId ? (metaByObra.get(a.obraId) ?? 0) : 0
+  }
+  function realPctMonth(a: MasterActivity, ym: string): number {
+    const m2 = realByActMonth.get(a.id)?.get(ym) ?? 0
+    if (m2 <= 0) return 0
+    const meta = metaOf(a)
+    return meta > 0 ? Math.min(100, (m2 / meta) * 100) : 0
+  }
 
   // Agrupa por OBRA → NÚCLEO (mesma lógica da Tabela 360).
   const obraGroups = useMemo(() => {
@@ -139,6 +182,7 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#525252] bg-[#2c2c2c]">
         <span className="text-xs font-bold text-[#f5f5f5]">Gestão à Vista — avanço físico por mês</span>
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowReal((v) => !v)} className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-[10px] font-semibold ${showReal ? 'border-[#22c55e]/50 text-[#22c55e]' : 'border-[#525252] text-[#a3a3a3] hover:border-[#22c55e]/40 hover:text-[#22c55e]'}`} title="Mostrar o executado real por mês (dos RDOs) abaixo do planejado"><Activity size={11} /> Real (RDO)</button>
           <button onClick={distribuirTodas} className="inline-flex items-center gap-1 rounded border border-[#525252] px-2 py-1 text-[10px] font-semibold text-[#a3a3a3] hover:border-[#f97316]/40 hover:text-[#f97316]" title="Distribuir 100% pelos meses de cada atividade (ponto de partida)"><Wand2 size={11} /> Distribuir todas</button>
           <span className="text-[10px] text-[#6b6b6b]">{months.length} mês(es) · "Total" = soma da linha</span>
         </div>
@@ -209,11 +253,17 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
                                 </div>
                               </td>
                               <td className={cell}><EditCell type="number" align="right" value={String(fisico(a))} onCommit={(v) => { const n = clampPct(Number(v) || 0); updateActivity(a.id, { physicalProgressPct: n, percentComplete: n }) }} /></td>
-                              {months.map((ym) => (
-                                <td key={ym} className={cell}>
-                                  <EditCell type="number" align="right" placeholder="·" value={a.monthlyPhysicalPct?.[ym] ? String(a.monthlyPhysicalPct[ym]) : ''} onCommit={(v) => setMonth(a, ym, v)} />
-                                </td>
-                              ))}
+                              {months.map((ym) => {
+                                const real = showReal ? realPctMonth(a, ym) : 0
+                                return (
+                                  <td key={ym} className={cell}>
+                                    <EditCell type="number" align="right" placeholder="·" value={a.monthlyPhysicalPct?.[ym] ? String(a.monthlyPhysicalPct[ym]) : ''} onCommit={(v) => setMonth(a, ym, v)} />
+                                    {showReal && real > 0 && (
+                                      <div className="px-1 text-right text-[9px] font-semibold text-[#22c55e]/85" title="Executado real (RDO) neste mês">{real.toFixed(0)}%</div>
+                                    )}
+                                  </td>
+                                )
+                              })}
                               <td className={`${cell} text-right font-semibold ${totalOk ? 'text-[#e5e5e5]' : 'text-[#f59e0b]'}`} title={totalOk ? undefined : 'A soma dos meses ≠ 100%'}>{total ? total.toFixed(0) + '%' : '—'}</td>
                               {allObras && (
                                 <td className={cell}>
@@ -235,7 +285,7 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
           </tbody>
         </table>
       </div>
-      <p className="px-3 py-2 text-[10px] text-[#6b6b6b]">Cada célula = % de avanço físico planejado naquele mês. "% Concl." = executado até hoje. Use a varinha para distribuir 100% pelos meses da atividade. Edite/adicione/exclua por aqui; filtra por obra (seletor no topo) e mostra todas juntas.</p>
+      <p className="px-3 py-2 text-[10px] text-[#6b6b6b]">Cada célula = % de avanço físico planejado naquele mês. "% Concl." = executado até hoje. Ligue <span className="text-[#22c55e]">Real (RDO)</span> para ver, em <span className="text-[#22c55e]">verde</span> abaixo do planejado, o executado real do mês (m² dos RDOs vinculados ÷ meta). Use a varinha para distribuir 100% pelos meses da atividade. Edite/adicione/exclua por aqui; filtra por obra (seletor no topo) e mostra todas juntas.</p>
     </div>
   )
 }

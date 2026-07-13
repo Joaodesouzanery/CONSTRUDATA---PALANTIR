@@ -1,7 +1,7 @@
 /**
  * RestricoesPanel — CRUD table + modal for LPS Restrictions (Análise de Restrições).
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Plus, Trash2, AlertTriangle, X, ShieldAlert, Download } from 'lucide-react'
 import { useLpsStore } from '@/store/lpsStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
@@ -67,7 +67,7 @@ function blankForm(): Omit<LpsRestriction, 'id' | 'createdAt'> {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function RestricoesPanel() {
+export function RestricoesPanel({ obraName }: { obraName?: string } = {}) {
   const restrictions     = useLpsStore((s) => s.restrictions)
   const addRestriction   = useLpsStore((s) => s.addRestriction)
   const updateRestriction = useLpsStore((s) => s.updateRestriction)
@@ -89,6 +89,22 @@ export function RestricoesPanel() {
   const nucleoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.nucleo).filter(Boolean))).sort(), [restrictions])
   const obraProjetoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.obraProjeto).filter(Boolean))).sort(), [restrictions])
   const tipoServicoOptions = useMemo(() => Array.from(new Set(restrictions.map((r) => r.tipoServico).filter(Boolean))).sort(), [restrictions])
+
+  // Escopo suave por obra: quando o painel é embutido no Planejamento com uma obra
+  // ativa, usa o nome da obra como default do filtro de obra (aplicado uma vez por
+  // obra, o usuário pode trocar). Não esconde dado silenciosamente — o dropdown fica
+  // visível com o valor aplicado; se o nome não casa com nenhuma restrição, cai em "Todas".
+  const appliedObraRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (appliedObraRef.current === obraName) return
+    if (obraName) {
+      if (obraProjetoOptions.length === 0) return // aguarda as opções carregarem
+      setObraProjetoFilter(obraProjetoOptions.includes(obraName) ? obraName : 'all')
+    } else {
+      setObraProjetoFilter('all')
+    }
+    appliedObraRef.current = obraName
+  }, [obraName, obraProjetoOptions])
 
   const visible = restrictions.filter((r) => {
     if (filter !== 'all' && r.status !== filter) return false

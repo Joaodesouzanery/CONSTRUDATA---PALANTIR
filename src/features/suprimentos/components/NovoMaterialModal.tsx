@@ -41,6 +41,11 @@ export function NovoMaterialModal({ onClose }: Props) {
     custoUnitario: '',
     categoria: '',
     fornecedorPrincipal: '',
+    // Embalagem (facilitador) — estoque é sempre em UNIDADES; a caixa só facilita o lançamento.
+    unidadeEmbalagem: '',
+    qtdPorEmbalagem: '',
+    numEmbalagens: '',
+    valorPorEmbalagem: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -48,6 +53,16 @@ export function NovoMaterialModal({ onClose }: Props) {
     setForm((f) => ({ ...f, [k]: v }))
     setErrors((e) => ({ ...e, [k]: '' }))
   }
+
+  // Facilitador de embalagem: quando preenchido, deriva as unidades e o custo unitário.
+  const porEmb = parseLocaleNumber(form.qtdPorEmbalagem)
+  const numEmb = parseLocaleNumber(form.numEmbalagens)
+  const valorEmb = parseLocaleNumber(form.valorPorEmbalagem)
+  const qtdUnDerivada = porEmb > 0 && numEmb > 0 ? porEmb * numEmb : parseLocaleNumber(form.qtdDisponivel)
+  const custoUnDerivado = valorEmb > 0 && porEmb > 0
+    ? valorEmb / porEmb
+    : (form.custoUnitario ? parseLocaleNumber(form.custoUnitario) : undefined)
+  const usaEmbalagem = porEmb > 0 && (numEmb > 0 || valorEmb > 0)
 
   function validate() {
     const errs: Record<string, string> = {}
@@ -64,13 +79,15 @@ export function NovoMaterialModal({ onClose }: Props) {
       depositoId:           form.depositoId,
       descricao:            form.descricao.trim(),
       unidade:              form.unidade.trim(),
-      qtdDisponivel:        parseLocaleNumber(form.qtdDisponivel),
+      qtdDisponivel:        qtdUnDerivada,
       qtdReservada:         0,
       qtdTransito:          0,
       estoqueMinimo:        parseLocaleNumber(form.estoqueMinimo),
-      custoUnitario:        form.custoUnitario ? parseLocaleNumber(form.custoUnitario) : undefined,
+      custoUnitario:        custoUnDerivado,
       categoria:            form.categoria || undefined,
       fornecedorPrincipal:  form.fornecedorPrincipal || undefined,
+      qtdPorEmbalagem:      porEmb > 0 ? porEmb : undefined,
+      unidadeEmbalagem:     form.unidadeEmbalagem.trim() || undefined,
     })
     onClose()
   }
@@ -220,6 +237,64 @@ export function NovoMaterialModal({ onClose }: Props) {
                 className={inp()}
               />
             </div>
+          </div>
+
+          {/* Embalagem (facilitador) — comprou por caixa/fardo? Converte para unidades. */}
+          <div className="rounded-lg border border-[#525252] bg-[#2c2c2c]/60 p-3 flex flex-col gap-2">
+            <p className="text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider">
+              Embalagem <span className="normal-case font-normal text-[#6b6b6b]">(facilitador — o estoque é sempre em unidades)</span>
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label className="block text-[9px] text-[#6b6b6b] mb-0.5">Rótulo</label>
+                <input
+                  value={form.unidadeEmbalagem}
+                  onChange={(e) => set('unidadeEmbalagem', e.target.value)}
+                  placeholder="caixa"
+                  className={inp()}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#6b6b6b] mb-0.5">Un/embalagem</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.qtdPorEmbalagem}
+                  onChange={(e) => set('qtdPorEmbalagem', e.target.value)}
+                  placeholder="96"
+                  className={inp()}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#6b6b6b] mb-0.5">Nº embalagens</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.numEmbalagens}
+                  onChange={(e) => set('numEmbalagens', e.target.value)}
+                  placeholder="10"
+                  className={inp()}
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] text-[#6b6b6b] mb-0.5">R$/embalagem</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.valorPorEmbalagem}
+                  onChange={(e) => set('valorPorEmbalagem', e.target.value)}
+                  placeholder="346,56"
+                  className={inp()}
+                />
+              </div>
+            </div>
+            {usaEmbalagem && (
+              <p className="text-[10px] text-[#22c55e]">
+                = {qtdUnDerivada.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} un
+                {custoUnDerivado !== undefined && ` · custo unit. R$ ${custoUnDerivado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}
+                {' '}<span className="text-[#6b6b6b]">(preenche a Qtd. Disponível e o Custo Unit.)</span>
+              </p>
+            )}
           </div>
         </div>
 

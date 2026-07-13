@@ -24,6 +24,10 @@ const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'valorTotal',        label: 'Valor Total (R$)'      },
   { value: 'categoria',         label: 'Categoria'             },
   { value: 'fornecedorPrincipal', label: 'Fornecedor Principal' },
+  { value: 'unidadeEmbalagem',  label: 'Embalagem (rótulo)'    },
+  { value: 'qtdPorEmbalagem',   label: 'Un. por embalagem'     },
+  { value: 'numEmbalagens',     label: 'Nº de embalagens'      },
+  { value: 'valorPorEmbalagem', label: 'Valor por embalagem'   },
 ]
 
 interface Props {

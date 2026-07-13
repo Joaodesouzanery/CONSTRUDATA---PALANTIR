@@ -33,8 +33,14 @@ const CNC_COLORS: Record<LpsCncCategory, string> = {
 
 const META_PPC = 80  // % target line
 
-export function PpcDashboard() {
-  const activities = useLpsStore((s) => s.activities)
+export function PpcDashboard({ obraId }: { obraId?: string | null } = {}) {
+  const allActivities = useLpsStore((s) => s.activities)
+  // Escopo por obra: quando uma obra específica está selecionada, mostra só o PPC dela.
+  // `obraId` undefined/null (módulo LPS avulso ou "Todas as obras") → todas as atividades.
+  const activities = useMemo(
+    () => (obraId ? allActivities.filter((a) => (a.obraId ?? null) === obraId) : allActivities),
+    [allActivities, obraId],
+  )
 
   const weekly = useMemo(() => computeWeeklyPPC(activities), [activities])
 

@@ -21,6 +21,11 @@ const FIELD_HINTS: Record<string, string[]> = {
   valorTotal:          ['valor total', 'total', 'custo total', 'preco total', 'preço total'],
   categoria:           ['categoria', 'category', 'grupo', 'tipo', 'class'],
   fornecedorPrincipal: ['fornecedor', 'supplier', 'vendor', 'fornecedorprincipal', 'fornec'],
+  // Embalagem (facilitador) — a caixa/fardo é só para lançar; o estoque fica em unidades.
+  unidadeEmbalagem:    ['embalagem', 'tipo embalagem', 'rotulo embalagem', 'unidade embalagem'],
+  qtdPorEmbalagem:     ['un por embalagem', 'unidades por embalagem', 'un por caixa', 'un/caixa', 'qtd por embalagem', 'itens por caixa', 'por caixa', 'conteudo'],
+  numEmbalagens:       ['num embalagens', 'numero de embalagens', 'qtd embalagens', 'qtde caixas', 'numero de caixas', 'caixas', 'fardos'],
+  valorPorEmbalagem:   ['valor embalagem', 'valor por embalagem', 'valor caixa', 'valor por caixa', 'preco caixa', 'preco embalagem', 'preco por caixa'],
 }
 
 function normalize(s: string): string {
@@ -87,9 +92,16 @@ export function applyColumnMapping(
     .map((row) => {
       const str  = (field: string) => (inv[field] ? row[inv[field]]?.trim() ?? '' : '')
       const num  = (field: string) => parseLocaleNumber(str(field))
-      const quantidade = num('qtdDisponivel')
       const valorTotal = num('valorTotal')
-      const custoUnitario = num('custoUnitario') || (quantidade > 0 && valorTotal > 0 ? valorTotal / quantidade : 0)
+      // Embalagem (facilitador): nº de caixas × un/caixa → unidades; R$/caixa ÷ un/caixa → custo unit.
+      const porEmb = num('qtdPorEmbalagem')
+      const numEmb = num('numEmbalagens')
+      const valorEmb = num('valorPorEmbalagem')
+      const quantidade = porEmb > 0 && numEmb > 0 ? porEmb * numEmb : num('qtdDisponivel')
+      const custoUnitario =
+        num('custoUnitario') ||
+        (valorEmb > 0 && porEmb > 0 ? valorEmb / porEmb : 0) ||
+        (quantidade > 0 && valorTotal > 0 ? valorTotal / quantidade : 0)
       return {
         descricao:           str('descricao')           || '—',
         unidade:             str('unidade')             || '',
@@ -98,6 +110,8 @@ export function applyColumnMapping(
         custoUnitario:       custoUnitario || undefined,
         categoria:           str('categoria')           || undefined,
         fornecedorPrincipal: str('fornecedorPrincipal') || undefined,
+        qtdPorEmbalagem:     porEmb > 0 ? porEmb : undefined,
+        unidadeEmbalagem:    str('unidadeEmbalagem')    || undefined,
       }
     })
 }

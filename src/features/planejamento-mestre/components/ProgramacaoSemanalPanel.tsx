@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { byActiveObra } from '@/hooks/useActiveObra'
+import { useRdoStore } from '@/store/rdoStore'
+import { parseLocaleNumber } from '@/lib/numberFormat'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { MasterActivity, ProgramacaoDiaria } from '@/types'
 
@@ -215,6 +217,42 @@ export function ProgramacaoSemanalPanel() {
     alert(`Programação da semana ${week} gerada a partir do Médio Prazo: ${daSemana.length} atividade(s).`)
   }
 
+  // Realizado ← RDO Compizzo: puxa a produção do dia (m²) dos RDOs desta semana que
+  // têm uma atividade do Planejamento vinculada (planningActivityId) e preenche o
+  // Realizado da célula (atividade × data). Mesma fórmula de m² do rdoStore.
+  // Sobrescreve só as células que têm RDO (fonte medida) — o resto do manual fica.
+  function puxarRealizadoDoRdo() {
+    const dateStrs = new Set(weekDates.map(toDateStr))
+    const rdos = useRdoStore.getState().rdos
+    const agg = new Map<string, Map<string, number>>() // activityId -> data -> m²
+    let rdoCount = 0
+    for (const rdo of rdos) {
+      const cz = rdo.compizzo
+      if (!cz?.planningActivityId) continue
+      if (!dateStrs.has(rdo.date)) continue
+      if (activeObraId && (rdo.siteId ?? null) !== activeObraId) continue
+      const m2 = (cz.producao ?? []).reduce((s, r) => (/m²|m2/i.test(r.servico) ? s + parseLocaleNumber(r.quantidade) : s), 0)
+      if (m2 <= 0) continue
+      let byDate = agg.get(cz.planningActivityId)
+      if (!byDate) { byDate = new Map(); agg.set(cz.planningActivityId, byDate) }
+      byDate.set(rdo.date, (byDate.get(rdo.date) ?? 0) + m2)
+      rdoCount++
+    }
+    if (rdoCount === 0) {
+      alert('Nenhum RDO Compizzo com atividade vinculada e produção (m²) nesta semana. No RDO Compizzo, selecione a "Atividade do Planejamento" e informe a produção do dia.')
+      return
+    }
+    let cells = 0
+    for (const [activityId, byDate] of agg) {
+      for (const [date, m2] of byDate) {
+        const cur = getDay(activityId, date)
+        setProgramacaoDiaria(activityId, date, { previsto: cur.previsto, realizado: Math.round(m2 * 100) / 100 })
+        cells++
+      }
+    }
+    alert(`Realizado puxado de ${rdoCount} RDO(s) → ${cells} célula(s) da semana ${week}.`)
+  }
+
   // Only leaf activities (level >= 1, not milestones), escopadas pela obra ativa.
   const leafActivities = useMemo(
     () => byActiveObra(activities.filter((a) => a.level >= 1 && !a.isMilestone), activeObraId),
@@ -372,6 +410,16 @@ export function ProgramacaoSemanalPanel() {
           >
             <TableProperties size={13} />
             Gerar da derivação
+          </button>
+
+          {/* Pull Realizado from RDO Compizzo */}
+          <button
+            onClick={puxarRealizadoDoRdo}
+            title="Preencher o Realizado da semana com a produção (m²) dos RDOs Compizzo que têm atividade vinculada"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#525252] text-[#a3a3a3] hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors"
+          >
+            <Download size={13} />
+            Puxar realizado (RDO)
           </button>
 
           {/* Export */}
