@@ -9,6 +9,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { eventBus } from '@/lib/eventBus'
 import type { PlanoExecucao } from '@/types'
@@ -37,11 +38,21 @@ export const CONDICOES_PADRAO = [
 ].join('\n')
 
 // ─── Mapper ─────────────────────────────────────────────────────────────────
+// A coluna site_id é FK p/ construction_sites. Só gravamos quando a obra já existe
+// confirmada no banco (não está pendente de insert na Torre); senão null — evita o
+// FK 23503 travar o save. O siteId real continua no payload (a tela filtra por ele).
+function confirmedSiteId(siteId?: string | null): string | null {
+  if (!siteId) return null
+  const torre = useTorreStore.getState()
+  if (!torre.sites.some((s) => s.id === siteId)) return null
+  const pendingInsert = torre.pendingSync?.some((op) => op.table === 'construction_sites' && op.recordId === siteId && op.type === 'insert')
+  return pendingInsert ? null : siteId
+}
 function planoToRow(p: PlanoExecucao, orgId: string, userId: string) {
   return {
     id:                   p.id,
     organization_id:      orgId,
-    site_id:              p.siteId ?? null,
+    site_id:              confirmedSiteId(p.siteId),
     periodo_inicio:       p.periodoInicio || null,
     periodo_fim:          p.periodoFim || null,
     area_m2:              p.areaM2 ?? 0,

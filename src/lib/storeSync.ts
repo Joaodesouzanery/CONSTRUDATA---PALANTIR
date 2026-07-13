@@ -87,6 +87,7 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   }
 
   const activeOrgId = profile.organization_id
+  const activeUserId = user.id
 
   // Coage colunas terminadas em `_id` com string vazia para null: '' nunca é um uuid
   // válido e o Postgres rejeitaria o insert/update ("invalid input syntax for type uuid"),
@@ -102,19 +103,32 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
     return out
   }
 
-  // Recupera ops enfileiradas antes do perfil carregar (organization_id 'pending')
-  // e sanitiza colunas *_id vazias.
+  // Recupera ops enfileiradas antes do perfil/usuário carregar (organization_id/created_by
+  // 'pending') e sanitiza colunas *_id vazias. Sem reparar created_by, a RLS
+  // `created_by = auth.uid()` rejeita o insert e a op fica presa para sempre.
   const fixOrg = (row: Record<string, unknown>) => {
-    const orgFixed =
-      row.organization_id === 'pending' || row.organization_id == null
-        ? { ...row, organization_id: activeOrgId }
-        : row
-    return sanitizeIds(orgFixed)
+    const patch: Record<string, unknown> = {}
+    if (row.organization_id === 'pending' || row.organization_id == null) patch.organization_id = activeOrgId
+    if (row.created_by === 'pending' || row.created_by == null) patch.created_by = activeUserId
+    const out = Object.keys(patch).length ? { ...row, ...patch } : row
+    return sanitizeIds(out)
   }
 
   const markOk = (op: PendingOp) => result.completed.push(op.id)
+  // Erros do Supabase são objetos simples ({message,details,hint,code}), não Error —
+  // String() neles daria "[object Object]". Extrai sempre uma mensagem legível.
+  const errMessage = (e: unknown): string => {
+    if (e instanceof Error) return e.message
+    if (e && typeof e === 'object') {
+      const o = e as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+      const parts = [o.message, o.details, o.hint].filter(Boolean).map(String)
+      if (parts.length) return parts.join(' — ')
+      if (o.code) return `Erro ${String(o.code)}`
+    }
+    return String(e)
+  }
   const markErr = (op: PendingOp, err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
+    const msg = errMessage(err)
     console.warn(`[sync:${op.table}] op ${op.type} failed`, op, msg)
     result.lastError = msg
     result.errored.push(op.id)
