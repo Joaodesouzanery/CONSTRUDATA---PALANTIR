@@ -591,6 +591,10 @@ if (typeof window !== 'undefined') {
     eventBus.on('lps.commitment_updated', () => {
       void useLpsStore.getState().pull()
     })
+    // RDO finalizado/editado → o LPS puxa a execução automaticamente (antes só no botão manual).
+    eventBus.on('rdo.finalized', () => {
+      void useLpsStore.getState().syncPlatformFlow?.()
+    })
     // Integração: um plano de Execução alimenta o lookahead do LPS (uma LpsActivity por atividade).
     eventBus.on('planning.activity_imported', (e) => {
       void import('@/store/planoExecucaoStore').then(({ usePlanoExecucaoStore }) => {

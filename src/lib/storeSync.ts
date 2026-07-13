@@ -119,11 +119,14 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   // String() neles daria "[object Object]". Extrai sempre uma mensagem legível.
   const errMessage = (e: unknown): string => {
     if (e instanceof Error) return e.message
+    if (Array.isArray(e)) return e.map(errMessage).filter(Boolean).join(' | ') || 'Erro'
     if (e && typeof e === 'object') {
-      const o = e as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+      const o = e as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown; error?: unknown }
       const parts = [o.message, o.details, o.hint].filter(Boolean).map(String)
       if (parts.length) return parts.join(' — ')
+      if (o.error != null) return errMessage(o.error)   // wrappers { error: {...} }
       if (o.code) return `Erro ${String(o.code)}`
+      try { return JSON.stringify(e) } catch { return 'Erro desconhecido' }
     }
     return String(e)
   }

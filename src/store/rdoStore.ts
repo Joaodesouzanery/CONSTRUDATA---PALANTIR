@@ -333,6 +333,13 @@ export const useRdoStore = create<RdoState>()(
             ],
           }
         })
+        // Editar um RDO finalizado também precisa avisar os outros módulos (suprimentos,
+        // medição, planejamento, LPS) — antes só o addRdo emitia estes eventos.
+        const upd = get().rdos.find((r) => r.id === id)
+        if (upd) {
+          eventBus.emit({ type: 'rdo.closed', rdoId: id, projectId: upd.siteId ?? null, date: upd.date })
+          eventBus.emit({ type: 'rdo.finalized', rdoId: id, projectId: upd.siteId ?? null, date: upd.date })
+        }
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         void get().flush()
       },

@@ -1610,3 +1610,10 @@ if (typeof window !== 'undefined') {
 eventBus.on('rdo.finalized', () => {
   void useSuprimentosStore.getState().pull()
 })
+
+// Tempo real cross-usuário: item/movimentação/depósito alterado em outro navegador → re-pull.
+eventBus.on('realtime.row_changed', (e) => {
+  if (e.table === 'suprimentos_estoque_itens' || e.table === 'suprimentos_estoque_movimentacoes' || e.table === 'suprimentos_depositos') {
+    void useSuprimentosStore.getState().pull()
+  }
+})

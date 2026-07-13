@@ -43,9 +43,12 @@ export const CONDICOES_PADRAO = [
 // FK 23503 travar o save. O siteId real continua no payload (a tela filtra por ele).
 function confirmedSiteId(siteId?: string | null): string | null {
   if (!siteId) return null
-  const torre = useTorreStore.getState()
-  if (!torre.sites.some((s) => s.id === siteId)) return null
-  const pendingInsert = torre.pendingSync?.some((op) => op.table === 'construction_sites' && op.recordId === siteId && op.type === 'insert')
+  // Só nula quando a obra AINDA tem insert pendente na Torre (não confirmada no banco).
+  // "Não está no estado local" (Torre ainda não carregou) NÃO é motivo para nular — o
+  // FK do banco arbitra; nular obra válida degradava a coluna sem necessidade.
+  const pendingInsert = useTorreStore.getState().pendingSync?.some(
+    (op) => op.table === 'construction_sites' && op.recordId === siteId && op.type === 'insert',
+  )
   return pendingInsert ? null : siteId
 }
 function planoToRow(p: PlanoExecucao, orgId: string, userId: string) {
