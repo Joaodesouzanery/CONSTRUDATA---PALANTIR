@@ -802,7 +802,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addForecast: (forecast) =>
     set((s) => ({
-      forecasts: [...s.forecasts, { ...forecast, id: crypto.randomUUID() }],
+      forecasts: [...s.forecasts, { ...forecast, id: crypto.randomUUID(), siteId: forecast.siteId ?? useActiveObraStore.getState().activeObraId ?? null }],
     })),
 
   updateForecast: (id, status) =>
@@ -811,7 +811,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     })),
 
   addRequisition: (req) =>
-    set((s) => ({ requisitions: [...s.requisitions, req] })),
+    set((s) => ({ requisitions: [...s.requisitions, { ...req, siteId: req.siteId ?? useActiveObraStore.getState().activeObraId ?? null }] })),
 
   advanceRequisitionStatus: (id) =>
     set((s) => ({
@@ -970,7 +970,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addReserva: (r) =>
     set((s) => ({
-      reservas: [...s.reservas, { ...r, id: crypto.randomUUID(), criadoEm: new Date().toISOString() }],
+      reservas: [...s.reservas, { ...r, id: crypto.randomUUID(), criadoEm: new Date().toISOString(), siteId: r.siteId ?? useActiveObraStore.getState().activeObraId ?? null }],
     })),
 
   updateReserva: (id, patch) =>

@@ -51,6 +51,8 @@ interface Props {
   contract: PlanningContract | null
   allObras?: boolean
   sites?: ConstructionSite[]
+  /** Obra ativa (null = "Todas as obras"). Usado para semear a obra selecionada mesmo sem atividade. */
+  activeObraId?: string | null
 }
 
 /** Célula editável (commit no blur / Enter). */
@@ -70,7 +72,7 @@ function EditCell({ value, onCommit, align = 'left', type = 'text', className = 
   )
 }
 
-export function MatrizMensalPanel({ activities, nuclei, contract, allObras, sites = [] }: Props) {
+export function MatrizMensalPanel({ activities, nuclei, contract, allObras, sites = [], activeObraId = null }: Props) {
   const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const addActivity = usePlanejamentoMestreStore((s) => s.addActivity)
   const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
@@ -120,9 +122,13 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
     return meta > 0 ? Math.min(100, (m2 / meta) * 100) : 0
   }
 
-  // Agrupa por OBRA → NÚCLEO (mesma lógica da Tabela 360).
+  // Agrupa por OBRA → NÚCLEO (mesma lógica da Tabela 360). Semeia com as obras da
+  // Torre em escopo ANTES de distribuir as atividades → toda obra cadastrada
+  // aparece, mesmo sem nenhuma atividade de planejamento ainda.
   const obraGroups = useMemo(() => {
     const byObra = new Map<string, MasterActivity[]>()
+    const seedIds = allObras ? sites.map((s) => s.id) : (activeObraId ? [activeObraId] : [])
+    for (const id of seedIds) byObra.set(id, [])
     for (const a of leaf) {
       const key = a.obraId || '__none__'
       if (!byObra.has(key)) byObra.set(key, [])
@@ -141,7 +147,7 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
       }
       return { obraKey, obraName, acts, grupos: [...byNuc.values()].sort((x, y) => x.nome.localeCompare(y.nome)) }
     }).sort((x, y) => x.obraName.localeCompare(y.obraName))
-  }, [leaf, nuclei, sites, contract, allObras])
+  }, [leaf, nuclei, sites, contract, allObras, activeObraId])
 
   const multiObra = allObras && obraGroups.length > 1
   const cell = 'px-2 py-1 whitespace-nowrap'
@@ -220,6 +226,14 @@ export function MatrizMensalPanel({ activities, nuclei, contract, allObras, site
                       </td>
                       {months.map((ym) => { const v = obra.acts.reduce((s, a) => s + (a.monthlyPhysicalPct?.[ym] ?? 0), 0); return <td key={ym} className="px-2 py-2 text-right text-[#c9c9c9]">{v ? v.toFixed(0) : ''}</td> })}
                       <td className="px-2 py-2" colSpan={allObras ? 2 : 1} />
+                    </tr>
+                  )}
+                  {obraOpen && obra.grupos.length === 0 && (
+                    <tr className="border-b border-[#484848]">
+                      <td colSpan={colTotal} className="px-3 py-2.5 text-center text-[11px] text-[#9a9a9a]">
+                        {!multiObra && <><Building2 size={11} className="inline text-[#f97316]" /> <span className="text-[#c9c9c9]">{obra.obraName}</span> — </>}sem atividades ainda.
+                        <button onClick={() => novaAtividade(obra.obraKey === '__none__' ? null : obra.obraKey)} className="ml-1.5 font-semibold text-[#f97316] hover:underline">Adicionar atividade</button>
+                      </td>
                     </tr>
                   )}
                   {obraOpen && obra.grupos.map((g) => {

@@ -196,7 +196,18 @@ export function AlmoxarifadoPanel() {
   const totalValue = estoqueItens.reduce((sum, item) => sum + item.qtdDisponivel * (item.custoUnitario ?? 0), 0)
   const formQuantity = parseLocaleNumber(form.qtdDisponivel)
   const formUnitValue = parseLocaleNumber(form.custoUnitario)
-  const formTotalValue = parseLocaleNumber(form.valorTotal) || formQuantity * formUnitValue
+  // Resultado RECONCILIADO — uma conta só: embalagem → unidades; e Valor total ÷ unidades → unitário.
+  // (o unitário digitado tem prioridade; senão deriva do total). Tudo derivado dos mesmos números.
+  const formPorEmb  = parseLocaleNumber(form.qtdPorEmbalagem)
+  const formNumEmb  = parseLocaleNumber(form.numEmbalagens)
+  const formUsaEmb  = formPorEmb > 0 && formNumEmb > 0
+  const formQtdUn   = formUsaEmb ? formNumEmb * formPorEmb : formQuantity
+  const formUnitCalc = formUnitValue > 0
+    ? formUnitValue
+    : (formQtdUn > 0 && parseLocaleNumber(form.valorTotal) > 0 ? parseLocaleNumber(form.valorTotal) / formQtdUn : 0)
+  const formTotalCalc = parseLocaleNumber(form.valorTotal) || formQtdUn * formUnitCalc
+  const formRPorEmb   = formPorEmb > 0 ? formUnitCalc * formPorEmb : 0
+  const formTemResumo = formQtdUn > 0 || formTotalCalc > 0
   const estoquePendingSync = pendingSync.filter((op) => op.table.startsWith('suprimentos_'))
   const lowItems = estoqueItens.filter((item) => item.qtdDisponivel < item.estoqueMinimo)
   const activeCategories = new Set(estoqueItens.map((item) => item.categoria || 'Sem categoria')).size
@@ -711,7 +722,7 @@ export function AlmoxarifadoPanel() {
             <input type="text" inputMode="decimal" value={form.qtdDisponivel} onChange={(event) => updateQuantity(event.target.value)} placeholder="Quantidade" className={inputClass} />
             <input type="text" inputMode="decimal" value={form.estoqueMinimo} onChange={(event) => setForm((item) => ({ ...item, estoqueMinimo: event.target.value }))} placeholder="Estoque mínimo" className={inputClass} />
             <input type="text" inputMode="decimal" value={form.custoUnitario} onChange={(event) => updateUnitValue(event.target.value)} placeholder="Valor unitário" className={inputClass} />
-            <input type="text" inputMode="decimal" value={form.valorTotal} onChange={(event) => updateTotalValue(event.target.value)} placeholder="Valor total" className={inputClass} />
+            <input type="text" inputMode="decimal" value={form.valorTotal} onChange={(event) => updateTotalValue(event.target.value)} placeholder="Valor total (R$ da nota)" className={inputClass} />
             <input value={form.fornecedorPrincipal} onChange={(event) => setForm((item) => ({ ...item, fornecedorPrincipal: event.target.value }))} placeholder="Fornecedor" className={inputClass} />
           </div>
 
@@ -724,18 +735,30 @@ export function AlmoxarifadoPanel() {
               <input type="text" inputMode="decimal" value={form.numEmbalagens} onChange={(event) => recalcEmbalagem({ numEmbalagens: event.target.value })} placeholder="Nº de embalagens (ex.: 10)" className={inputClass} />
               <input type="text" inputMode="decimal" value={form.valorPorEmbalagem} onChange={(event) => updatePackageValue(event.target.value)} placeholder="Valor por embalagem (R$)" className={inputClass} />
             </div>
-            {parseLocaleNumber(form.numEmbalagens) > 0 && parseLocaleNumber(form.qtdPorEmbalagem) > 0 && (
-              <p className="mt-2 text-xs text-[#a3a3a3]">
-                = <strong className="text-[#f5f5f5]">{parseLocaleNumber(form.numEmbalagens)} {form.unidadeEmbalagem.trim() || 'emb.'} ({parseLocaleNumber(form.numEmbalagens) * parseLocaleNumber(form.qtdPorEmbalagem)} un.)</strong>
-                {parseLocaleNumber(form.custoUnitario) > 0 && <> · unitário <strong className="text-[#f5f5f5]">{brl(parseLocaleNumber(form.custoUnitario))}</strong></>}
-                {' '}— a quantidade em unidades é preenchida automaticamente.
-              </p>
-            )}
           </div>
 
-          <p className="mt-2 text-xs text-[#a3a3a3]">
-            Valor calculado: <strong className="text-[#f5f5f5]">{brl(formTotalValue)}</strong>. Ao editar o valor total, o sistema recalcula o valor unitário pela quantidade.
-          </p>
+          {/* Resultado RECONCILIADO — uma conta só, o que o fornecedor manda vira estoque + custo. */}
+          <div className="mt-3 rounded-lg border border-[#f97316]/30 bg-[#f97316]/10 px-3 py-2.5">
+            {formTemResumo ? (
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
+                <span className="text-[#a3a3a3]">Resultado:</span>
+                <span><strong className="text-sm text-[#f5f5f5]">{formQtdUn.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}</strong> <span className="text-[#a3a3a3]">un em estoque</span></span>
+                <span><strong className="text-sm text-[#f5f5f5]">{brl(formUnitCalc)}</strong> <span className="text-[#a3a3a3]">/ un</span></span>
+                <span><span className="text-[#a3a3a3]">Total</span> <strong className="text-sm text-[#22c55e]">{brl(formTotalCalc)}</strong></span>
+                {formUsaEmb && (
+                  <span className="text-[#a3a3a3]">
+                    ({formNumEmb.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {form.unidadeEmbalagem.trim() || 'emb.'} × {formPorEmb.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} un · {brl(formRPorEmb)}/{form.unidadeEmbalagem.trim() || 'emb.'})
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-[#a3a3a3]">Preencha a <strong className="text-[#e5e5e5]">quantidade</strong> (ou a embalagem) e o <strong className="text-[#e5e5e5]">Valor total</strong> da nota — o valor unitário e o R$/embalagem saem sozinhos.</p>
+            )}
+            <p className="mt-1.5 text-[11px] leading-relaxed text-[#6b6b6b]">
+              Igual o fornecedor manda: <span className="text-[#a3a3a3]">“10 caixas (960 un.) = R$&nbsp;3.465,60”</span> → Embalagem <strong className="text-[#a3a3a3]">caixa · 96 · 10</strong> + Valor total <strong className="text-[#a3a3a3]">3.465,60</strong>.
+              Item simples <span className="text-[#a3a3a3]">“8 galochas = R$&nbsp;317,84”</span> → Quantidade <strong className="text-[#a3a3a3]">8</strong> + Valor total <strong className="text-[#a3a3a3]">317,84</strong>.
+            </p>
+          </div>
           <div className="mt-4 flex justify-end gap-2">
             <button type="button" onClick={closeItemForm} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#a3a3a3] hover:bg-[#3d3d3d]">Cancelar</button>
             <button type="button" onClick={handleSaveItem} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]">

@@ -12,6 +12,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useLpsStore } from '@/store/lpsStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { NETWORK_TYPE_OPTIONS, networkColor, networkLabel, type NetworkCategory } from '../networkCategories'
+import { isoWeekStrip } from '../utils/masterEngine'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import type { LookaheadDerivedActivity, MasterActivity } from '@/types'
 import { cn } from '@/lib/utils'
@@ -420,10 +421,17 @@ export function DerivacaoPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activities])
 
-  const allWeeks = useMemo(
-    () => [...new Set(derivedActivities.map((d) => d.weekIso))].sort().slice(0, 6),
-    [derivedActivities]
-  )
+  // Strip base FIXO de 6 semanas ISO a partir de hoje (garante as 6 colunas mesmo sem atividade),
+  // UNIDO às semanas que realmente têm atividade derivada. A janela do deriveLookahead são 42 dias
+  // a partir de hoje, que num dia não-segunda alcança uma 7ª semana ISO — incluí-la evita que as
+  // atividades da cauda do horizonte fiquem invisíveis (linha em branco).
+  const allWeeks = useMemo(() => {
+    const strip = isoWeekStrip(new Date().toISOString().slice(0, 10), 6)
+    const min = strip[0]
+    const union = new Set(strip)
+    for (const d of derivedActivities) if (d.weekIso >= min) union.add(d.weekIso)
+    return [...union].sort()
+  }, [derivedActivities])
 
   const actMap = useMemo(
     () => new Map<string, typeof activities[number]>(activities.map((a) => [a.id, a])),
@@ -482,7 +490,7 @@ export function DerivacaoPanel() {
         if (existing.description !== fields.description || existing.week !== fields.week || existing.readyStatus !== fields.readyStatus || existing.completed !== fields.completed) updateLps(existing.id, fields)
       } else { addLps(fields); novas++ }
     }
-    alert(`Enviado ao LPS: ${derivedActivities.length} atividade(s) do Médio Prazo (${novas} nova(s)). Abra o workspace "LPS / Lean" para ver o lookahead.`)
+    alert(`Enviado ao Look-ahead (LPS): ${derivedActivities.length} atividade(s) do Médio Prazo (${novas} nova(s)). Veja na sub-aba "Look-ahead (LPS)" do Médio Prazo.`)
   }
 
   return (
@@ -506,11 +514,11 @@ export function DerivacaoPanel() {
         <button
           onClick={enviarParaLps}
           disabled={!hasData}
-          title="Enviar as atividades do Médio Prazo para o lookahead do LPS / Lean"
+          title="Enviar as atividades do Médio Prazo para o Look-ahead (LPS) — sub-aba do Médio Prazo"
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#525252] text-[#a3a3a3] text-xs font-medium hover:text-[#f5f5f5] hover:border-[#f97316]/40 transition-colors disabled:opacity-40"
         >
           <Target size={12} />
-          Enviar para LPS
+          Enviar ao Look-ahead
         </button>
 
         <select

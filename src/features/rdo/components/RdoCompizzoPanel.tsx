@@ -7,14 +7,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
-  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users,
+  CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
+import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
+import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -111,14 +114,17 @@ export function RdoCompizzoPanel() {
   const workers = useMaoDeObraStore((s) => s.workers)
   const crews = useMaoDeObraStore((s) => s.crews)
   const syncRdoToTimecards = useMaoDeObraStore((s) => s.syncRdoToTimecards)
-  // Itens de estoque do módulo Suprimentos (para puxar materiais sem digitar).
+  // Suprimentos: estoque + reservas/requisições/previsão (filtrados pela obra do RDO).
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
-  // Atividades do Planejamento da obra ativa (para vincular a produção do dia e avançar o %).
+  const reservas = useSuprimentosStore((s) => s.reservas)
+  const requisitions = useSuprimentosStore((s) => s.requisitions)
+  const forecasts = useSuprimentosStore((s) => s.forecasts)
+  // Atividades do Planejamento (para vincular a produção do dia e avançar o %).
   const masterActivities = usePlanejamentoMestreStore((s) => s.activities)
-  const obraAtividades = useMemo(() => {
-    const obraId = useActiveObraStore.getState().activeObraId
-    return masterActivities.filter((a) => a.level >= 1 && !a.isMilestone && (!obraId || (a.obraId ?? null) === obraId))
-  }, [masterActivities])
+  // Obras da Torre (fonte da obra do RDO) + plano de execução (contrato/meta).
+  const sites = useTorreStore((s) => s.sites)
+  const setActiveObra = useActiveObraStore((s) => s.setActiveObra)
+  const planos = usePlanoExecucaoStore((s) => s.planos)
   const [crewPick, setCrewPick] = useState('')
   const [materialPick, setMaterialPick] = useState('')
 
@@ -129,7 +135,58 @@ export function RdoCompizzoPanel() {
   }, [])
   const c0 = editing?.compizzo
 
+  // Obra do RDO (Torre). Prefill: siteId do RDO editado → obra ativa global → match por nome (legado).
+  const [obraSiteId, setObraSiteId] = useState<string | null>(() =>
+    editing?.siteId ?? c0?.siteId
+      ?? useActiveObraStore.getState().activeObraId
+      ?? (c0?.obra ? (useTorreStore.getState().sites.find((s) => s.name === c0.obra)?.id ?? null) : null),
+  )
+  const selectedSite = useMemo(() => (obraSiteId ? sites.find((s) => s.id === obraSiteId) ?? null : null), [sites, obraSiteId])
+  // Plano de execução da obra (ativo, senão o mais recente) → serviço/preço/período/BAC.
+  const activePlano = useMemo(() => {
+    const list = planos.filter((p) => (p.siteId ?? null) === obraSiteId)
+    return list.find((p) => p.status === 'ativo')
+      ?? [...list].sort((a, b) => (b.periodoInicio || '').localeCompare(a.periodoInicio || ''))[0]
+      ?? null
+  }, [planos, obraSiteId])
+  const numeroContrato    = selectedSite?.numeroContrato ?? ''
+  const servicoContratado = activePlano?.servico ?? ''
+  const precoM2           = activePlano?.precoM2 ?? 0
+  const periodoInicio     = activePlano?.periodoInicio ?? ''
+  const periodoFim        = activePlano?.periodoFim ?? ''
+  const bacObra           = activePlano ? faturamento(activePlano) : (selectedSite?.orcamentoBRL ?? 0)
+  const hasContratoMeta   = Boolean(numeroContrato || servicoContratado || precoM2 || bacObra || periodoInicio)
+
+  const obraAtividades = useMemo(
+    () => masterActivities.filter((a) => a.level >= 1 && !a.isMilestone && (!obraSiteId || (a.obraId ?? null) === obraSiteId)),
+    [masterActivities, obraSiteId],
+  )
+  const estoqueDaObra = useMemo(
+    () => (obraSiteId ? estoqueItens.filter((it) => (it.siteId ?? null) === obraSiteId) : estoqueItens),
+    [estoqueItens, obraSiteId],
+  )
+  const reservasDaObra = useMemo(
+    () => (obraSiteId ? reservas.filter((r) => (r.siteId ?? estoqueItens.find((i) => i.id === r.itemId)?.siteId ?? null) === obraSiteId) : []),
+    [reservas, estoqueItens, obraSiteId],
+  )
+  const requisicoesDaObra = useMemo(
+    () => (obraSiteId ? requisitions.filter((r) => (r.siteId ?? null) === obraSiteId || (selectedSite != null && (r.projectRef === selectedSite.code || r.projectRef === selectedSite.name))) : []),
+    [requisitions, obraSiteId, selectedSite],
+  )
+  const previsoesDaObra = useMemo(
+    () => (obraSiteId ? forecasts.filter((f) => (f.siteId ?? null) === obraSiteId) : []),
+    [forecasts, obraSiteId],
+  )
+
   const [obra, setObra] = useState(c0?.obra ?? '')
+
+  function handleObraChange(id: string) {
+    const next = id || null
+    setObraSiteId(next)
+    setActiveObra(next)                       // alinha o seletor global (Planejamento/Suprimentos seguem a mesma obra)
+    const site = next ? sites.find((s) => s.id === next) : null
+    if (site) setObra(site.name)
+  }
   const [data, setData] = useState(editing?.date ?? today)
   const [diaObra, setDiaObra] = useState(c0?.diaObra ?? '')
   const [responsavel, setResponsavel] = useState(editing?.responsible ?? '')
@@ -141,9 +198,21 @@ export function RdoCompizzoPanel() {
   const [servicos, setServicos] = useState<RdoCompizzoServicos>(c0?.servicos ?? emptyServicos())
   const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
-  const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(c0?.producao ?? DEFAULT_PRODUCAO)
+  const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(() => {
+    const base = c0?.producao ?? DEFAULT_PRODUCAO
+    // Retrocompat: o vínculo único legado (cz.planningActivityId) somava TODAS as linhas em m²
+    // naquela atividade. Migramos vinculando a atividade a TODAS as linhas em m² (preserva a soma);
+    // se não houver linha em m², vincula a 1ª linha.
+    if (c0?.planningActivityId && !base.some((r) => r.planningActivityId)) {
+      const temM2 = base.some((r) => /m²|m2/i.test(r.servico))
+      if (temM2) return base.map((r) => (/m²|m2/i.test(r.servico) ? { ...r, planningActivityId: c0.planningActivityId } : r))
+      return base.map((r, i) => (i === 0 ? { ...r, planningActivityId: c0.planningActivityId } : r))
+    }
+    return base
+  })
   const [horasTrabalhadas, setHorasTrabalhadas] = useState<string>(c0?.horasTrabalhadas != null ? String(c0.horasTrabalhadas) : '')
-  const [planningActivityId, setPlanningActivityId] = useState<string>(c0?.planningActivityId ?? '')
+  const updateProducao = (i: number, patch: Partial<RdoCompizzoProducaoRow>) =>
+    setProducao((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
   const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>(editing?.equipment.map(stripEquipId) ?? [])
   const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(c0?.ocorrencias ?? emptyOcorrencias())
@@ -168,11 +237,18 @@ export function RdoCompizzoPanel() {
 
   function buildCompizzo(): RdoCompizzoData {
     return {
-      obra, diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
+      obra: selectedSite?.name ?? obra,
+      siteId: obraSiteId,
+      numeroContrato: numeroContrato || undefined,
+      bacOrcamentoBRL: bacObra || undefined,
+      servicoContratado: servicoContratado || undefined,
+      precoM2: precoM2 || undefined,
+      periodoInicio: periodoInicio || undefined,
+      periodoFim: periodoFim || undefined,
+      diaObra, condicaoClimatica: condicao, condicaoClimaticaOutros: condicaoOutros || undefined,
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
       descricaoServicos: descricao, producao,
       horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
-      planningActivityId: planningActivityId || undefined,
       materiais, ocorrencias,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
@@ -234,8 +310,9 @@ export function RdoCompizzoPanel() {
 
   function buildRdoPayload() {
     const w = climaToWeather(condicao)
+    const nomeObra = selectedSite?.name ?? obra
     return {
-      title: `RDO Compizzo${obra ? ' — ' + obra : ''}`,
+      title: `RDO Compizzo${nomeObra ? ' — ' + nomeObra : ''}`,
       date: data || today,
       responsible: respNome || responsavel || '',
       weather: { morning: w, afternoon: w, night: w, temperatureC: 0 },
@@ -248,6 +325,8 @@ export function RdoCompizzoPanel() {
       observations: observacoes,
       incidents: '',
       photos,
+      siteId: obraSiteId,
+      numeroContrato: numeroContrato || undefined,
       template: 'compizzo' as const,
       compizzo: buildCompizzo(),
     }
@@ -261,10 +340,10 @@ export function RdoCompizzoPanel() {
       syncRdoToTimecards({
         id: rdoId,
         date: data || today,
-        siteId: editing?.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+        siteId: obraSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
         employeeNames,
         totalHoras: parseLocaleNumber(horasTrabalhadas) || 0,
-        activityLabel: obra || 'RDO Compizzo',
+        activityLabel: selectedSite?.name || obra || 'RDO Compizzo',
       })
     }
     setSaved(true)
@@ -330,8 +409,28 @@ export function RdoCompizzoPanel() {
         <Section title="Informações Gerais" icon={<FileText size={16} className="text-[#1f6fd1]" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className={labelCls}>Obra</label>
-              <input className={inputCls} value={obra} onChange={(e) => setObra(e.target.value)} placeholder="Demarcação e Pintura de Piso Industrial – Ambev Sousa/PB" />
+              <label className={labelCls}><Building2 size={11} className="inline mr-1 text-[#1f6fd1]" />Obra (Torre de Controle)</label>
+              {sites.length > 0 ? (
+                <select className={inputCls} value={obraSiteId ?? ''} onChange={(e) => handleObraChange(e.target.value)}>
+                  <option value="">— Selecione a obra —</option>
+                  {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ) : (
+                <input className={inputCls} value={obra} onChange={(e) => setObra(e.target.value)} placeholder="Cadastre a obra na Torre de Controle" />
+              )}
+              {!obraSiteId && obra && (
+                <p className="mt-1 text-[10px] text-[#fdba74]">Obra do RDO (texto legado): “{obra}”. Selecione a obra da Torre para vincular contrato, planejamento e estoque.</p>
+              )}
+              {hasContratoMeta && (
+                <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+                  {numeroContrato && <Meta label="Contrato" value={numeroContrato} />}
+                  {servicoContratado && <Meta label="Serviço" value={servicoContratado} />}
+                  {precoM2 > 0 && <Meta label="Preço/m²" value={brl(precoM2)} />}
+                  {bacObra > 0 && <Meta label="BAC (faturamento previsto)" value={brl(bacObra)} />}
+                  {(periodoInicio || periodoFim) && <Meta label="Período" value={`${periodoInicio || '—'} a ${periodoFim || '—'}`} />}
+                  {activePlano && (activePlano.areaM2 ?? 0) > 0 && <Meta label="Meta (m²)" value={String(activePlano.areaM2)} />}
+                </div>
+              )}
             </div>
             <div><label className={labelCls}>Data</label><input type="date" className={inputCls} value={data} onChange={(e) => setData(e.target.value)} /></div>
             <div><label className={labelCls}>Dia da Obra</label><input className={inputCls} value={diaObra} onChange={(e) => setDiaObra(e.target.value)} placeholder="03" /></div>
@@ -463,14 +562,51 @@ export function RdoCompizzoPanel() {
           </div>
         </Section>
 
-        {/* Produção do Dia */}
+        {/* Produção do Dia — cada linha pode avançar uma atividade do Planejamento */}
         <Section title="Produção do Dia" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
-          <EditableRows
-            rows={producao}
-            cols={[['servico', 'Serviço'], ['quantidade', 'Quantidade']]}
-            onChange={setProducao}
-            makeEmpty={() => ({ servico: '', quantidade: '' })}
-          />
+          <div className="space-y-2">
+            <div className="hidden sm:grid gap-2 px-1" style={{ gridTemplateColumns: '1.3fr 90px 1.4fr 32px' }}>
+              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Serviço</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Qtd.</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Atividade do Planejamento (avança o %)</span>
+              <span />
+            </div>
+            {producao.map((row, i) => {
+              const act = row.planningActivityId ? obraAtividades.find((a) => a.id === row.planningActivityId) : undefined
+              return (
+                <div key={i} className="grid gap-2 items-start" style={{ gridTemplateColumns: '1.3fr 90px 1.4fr 32px' }}>
+                  <input className={inputCls} value={row.servico} placeholder="Serviço" onChange={(e) => updateProducao(i, { servico: e.target.value })} />
+                  <input className={inputCls} value={row.quantidade} placeholder="Qtd" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidade: e.target.value })} />
+                  <div>
+                    {obraAtividades.length > 0 ? (
+                      <select
+                        className={inputCls}
+                        value={row.planningActivityId ?? ''}
+                        onChange={(e) => {
+                          const id = e.target.value || undefined
+                          const a = id ? obraAtividades.find((x) => x.id === id) : undefined
+                          updateProducao(i, { planningActivityId: id, quantidadePrevista: a?.plannedQuantity })
+                        }}
+                      >
+                        <option value="">— Sem vínculo —</option>
+                        {obraAtividades.map((a) => <option key={a.id} value={a.id}>{a.wbsCode} · {a.name}</option>)}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] text-[#6b6b6b]">Sem atividades no Planejamento desta obra.</span>
+                    )}
+                    {act && (
+                      <p className="mt-0.5 text-[10px] text-[#6b6b6b]">
+                        Previsto {act.plannedQuantity ?? '—'} · realizado {act.executedQuantity ?? 0} ({Math.round(act.percentComplete ?? 0)}%)
+                      </p>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => setProducao((rows) => rows.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center pt-2"><Trash2 size={14} /></button>
+                </div>
+              )
+            })}
+            <button type="button" onClick={() => setProducao((rows) => [...rows, { servico: '', quantidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar linha</button>
+          </div>
+          <p className="mt-2 text-[10px] text-[#6b6b6b]">Vincule cada linha a uma atividade do cronograma: a quantidade do dia soma no executado dela e avança o % no Planejamento (Previsto × Realizado). Linhas em m² sem vínculo entram no total de m² da obra.</p>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
             <div>
               <label className={labelCls}>Horas trabalhadas (HH do dia) — usado na produtividade (RUP = HH ÷ m²)</label>
@@ -492,33 +628,19 @@ export function RdoCompizzoPanel() {
               </button>
             )}
           </div>
-          {/* Vínculo com o Planejamento: a produção do dia (m²) avança o % da atividade escolhida */}
-          <div className="mt-3">
-            <label className={labelCls}>Atividade do Planejamento (opcional — o m² do dia avança o % dela no cronograma)</label>
-            {obraAtividades.length > 0 ? (
-              <select className={inputCls} value={planningActivityId} onChange={(e) => setPlanningActivityId(e.target.value)}>
-                <option value="">— Sem vínculo (soma no executado da obra) —</option>
-                {obraAtividades.map((a) => (
-                  <option key={a.id} value={a.id}>{a.wbsCode} · {a.name}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-xs text-[#6b6b6b]">Nenhuma atividade cadastrada no Planejamento desta obra. Cadastre no módulo Planejamento para vincular.</p>
-            )}
-          </div>
         </Section>
 
         {/* Materiais */}
         <Section title="Materiais Utilizados" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
-          {/* Puxar item do módulo Suprimentos (ou preencher manualmente abaixo) */}
-          {estoqueItens.length > 0 && (
+          {/* Puxar item do módulo Suprimentos (estoque filtrado pela obra do RDO) */}
+          {estoqueDaObra.length > 0 && (
             <div className="mb-2">
-              <label className={labelCls}>Puxar do módulo Suprimentos</label>
+              <label className={labelCls}>Puxar do módulo Suprimentos{obraSiteId ? ' (estoque da obra)' : ''}</label>
               <select
                 className={inputCls}
                 value={materialPick}
                 onChange={(e) => {
-                  const item = estoqueItens.find((it) => it.id === e.target.value)
+                  const item = estoqueDaObra.find((it) => it.id === e.target.value)
                   if (item) {
                     setMateriais((rows) => {
                       // Preenche a primeira linha vazia; senão acrescenta nova.
@@ -538,7 +660,7 @@ export function RdoCompizzoPanel() {
                 }}
               >
                 <option value="">— Selecione um material do estoque —</option>
-                {estoqueItens.map((it) => (
+                {estoqueDaObra.map((it) => (
                   <option key={it.id} value={it.id}>
                     {it.descricao} — {it.qtdDisponivel} {it.unidade} disponível
                   </option>
@@ -569,6 +691,38 @@ export function RdoCompizzoPanel() {
                   )
                 })}
               </div>
+            </div>
+          )}
+        </Section>
+
+        {/* Suprimentos da obra (leitura) — estoque, reservas, requisições e previsão de demanda */}
+        <Section title="Suprimentos da obra" icon={<PackageSearch size={16} className="text-[#1f6fd1]" />}>
+          {!obraSiteId ? (
+            <p className="text-[#6b6b6b] text-sm">Selecione a obra (acima) para ver estoque, reservas, requisições e previsão de demanda dela.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <SupplyBlock title={`Estoque disponível (${estoqueDaObra.length})`}>
+                {estoqueDaObra.length === 0 ? <Empty>Sem itens no estoque desta obra.</Empty> : estoqueDaObra.slice(0, 6).map((it) => (
+                  <Row key={it.id} left={it.descricao} right={`${it.qtdDisponivel} ${it.unidade}`} />
+                ))}
+              </SupplyBlock>
+              <SupplyBlock title={`Reservas (${reservasDaObra.length})`}>
+                {reservasDaObra.length === 0 ? <Empty>Nenhuma reserva para esta obra.</Empty> : reservasDaObra.slice(0, 6).map((r) => {
+                  const it = estoqueItens.find((i) => i.id === r.itemId)
+                  const tone = r.status === 'vermelho' ? 'text-[#ef4444]' : r.status === 'amarelo' ? 'text-[#fdba74]' : 'text-[#22c55e]'
+                  return <Row key={r.id} left={`${it?.descricao ?? r.itemId} · sem ${r.semana}`} right={`${r.qtdNecessaria} · ${r.status}`} tone={tone} />
+                })}
+              </SupplyBlock>
+              <SupplyBlock title={`Requisições em aberto (${requisicoesDaObra.length})`}>
+                {requisicoesDaObra.length === 0 ? <Empty>Nenhuma requisição para esta obra.</Empty> : requisicoesDaObra.slice(0, 6).map((r) => (
+                  <Row key={r.id} left={`${r.code} · ${r.material}`} right={`${r.quantity} ${r.unit} · ${r.status}`} />
+                ))}
+              </SupplyBlock>
+              <SupplyBlock title={`Previsão de demanda (${previsoesDaObra.length})`}>
+                {previsoesDaObra.length === 0 ? <Empty>Sem previsão de demanda para esta obra.</Empty> : previsoesDaObra.slice(0, 6).map((f) => (
+                  <Row key={f.id} left={`${f.materialCategory} · ${f.weekLabel}`} right={`${f.estimatedQty} ${f.unit}`} />
+                ))}
+              </SupplyBlock>
             </div>
           )}
         </Section>
@@ -664,6 +818,37 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
       {children}
     </section>
   )
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] uppercase tracking-wider text-[#6b6b6b]">{label}</p>
+      <p className="text-[11px] font-semibold text-[#e5e5e5] truncate" title={value}>{value}</p>
+    </div>
+  )
+}
+
+function SupplyBlock({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+      <p className="text-[11px] font-semibold text-[#a3a3a3] mb-1.5">{title}</p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function Row({ left, right, tone = 'text-[#c9c9c9]' }: { left: string; right: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-[11px]">
+      <span className="truncate text-[#c9c9c9]" title={left}>{left}</span>
+      <span className={`tabular-nums shrink-0 ${tone}`}>{right}</span>
+    </div>
+  )
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] text-[#6b6b6b] italic">{children}</p>
 }
 
 function Checkbox({ checked, label, onChange }: { checked: boolean; label: string; onChange: (v: boolean) => void }) {

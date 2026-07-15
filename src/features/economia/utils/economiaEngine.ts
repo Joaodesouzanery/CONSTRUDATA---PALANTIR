@@ -79,7 +79,7 @@ export const ECONOMY_SOURCE_LABELS: Record<EconomySourceModule, string> = {
 /** Deeplink (rota interna) do módulo de origem de cada evento, para rastreabilidade. */
 export const ECONOMY_SOURCE_ROUTE: Record<EconomySourceModule, string> = {
   suprimentos: '/app/suprimentos',
-  lps: '/app/lps-lean',
+  lps: '/app/planejamento-mestre',
   planejamento: '/app/planejamento',
   rdo: '/app/rdo',
   relatorio360: '/app/relatorio-360',

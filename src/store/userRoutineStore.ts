@@ -37,7 +37,7 @@ export const PERSONA_PRESETS: PersonaPreset[] = [
     label: 'Engenheiro de Obra',
     emoji: '👷',
     desc: 'Quem fica no canteiro, registra RDOs e FVS, cuida da execução.',
-    daily:   ['/app/rdo', '/app/qualidade', '/app/lps-lean'],
+    daily:   ['/app/rdo', '/app/qualidade', '/app/planejamento-mestre'],
     weekly:  ['/app/mao-de-obra', '/app/suprimentos', '/app/planejamento'],
     monthly: ['/app/bim', '/app/quantitativos'],
   },
@@ -47,7 +47,7 @@ export const PERSONA_PRESETS: PersonaPreset[] = [
     emoji: '👔',
     desc: 'Acompanha CPI/SPI, prazos e custo de várias frentes.',
     daily:   ['/app/gestao-360', '/app/torre-de-controle', '/app/rdo'],
-    weekly:  ['/app/planejamento', '/app/lps-lean', '/app/evm'],
+    weekly:  ['/app/planejamento', '/app/planejamento-mestre', '/app/evm'],
     monthly: ['/app/quantitativos', '/app/bim'],
   },
   {
@@ -65,7 +65,7 @@ export const PERSONA_PRESETS: PersonaPreset[] = [
     emoji: '📐',
     desc: 'Constrói cronogramas, simula cenários, faz EVM.',
     daily:   ['/app/planejamento-mestre', '/app/planejamento'],
-    weekly:  ['/app/lps-lean', '/app/agenda', '/app/evm'],
+    weekly:  ['/app/agenda', '/app/evm'],
     monthly: ['/app/mapa-interativo', '/app/quantitativos'],
   },
   {

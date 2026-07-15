@@ -30,6 +30,8 @@ interface Props {
   contract: PlanningContract | null
   allObras?: boolean
   sites?: ConstructionSite[]
+  /** Obra ativa (null = "Todas as obras"). Usado para semear a obra selecionada mesmo sem atividade. */
+  activeObraId?: string | null
 }
 
 /** Orçamento de uma atividade = fatia do orçamento da frente proporcional ao peso;
@@ -57,7 +59,7 @@ function EditCell({ value, onCommit, type = 'text', align = 'left', className = 
   )
 }
 
-export function Tabela360Panel({ activities, nuclei, contract, allObras, sites = [] }: Props) {
+export function Tabela360Panel({ activities, nuclei, contract, allObras, sites = [], activeObraId = null }: Props) {
   const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const updateNucleus = usePlanejamentoMestreStore((s) => s.updateNucleus)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -66,9 +68,13 @@ export function Tabela360Panel({ activities, nuclei, contract, allObras, sites =
   const fallbackBac = contract?.bacTotal ?? 0
 
   // Agrupa atividades-folha por OBRA → NÚCLEO. BAC de cada obra vem da Torre (fallback: contrato).
+  // Semeia com as obras da Torre em escopo ANTES das atividades → toda obra cadastrada
+  // aparece, mesmo sem nenhuma atividade de planejamento ainda.
   const obraGroups = useMemo(() => {
     const leaf = activities.filter((a) => a.level >= 1 && !a.isMilestone)
     const byObra = new Map<string, MasterActivity[]>()
+    const seedIds = allObras ? sites.map((s) => s.id) : (activeObraId ? [activeObraId] : [])
+    for (const id of seedIds) byObra.set(id, [])
     for (const a of leaf) {
       const key = a.obraId || '__none__'
       if (!byObra.has(key)) byObra.set(key, [])
@@ -77,7 +83,10 @@ export function Tabela360Panel({ activities, nuclei, contract, allObras, sites =
     return [...byObra.entries()].map(([obraKey, acts]) => {
       const site = obraKey !== '__none__' ? sites.find((s) => s.id === obraKey) : undefined
       const obraName = site?.name || (obraKey === '__none__' ? (contract?.contractName || 'Sem obra') : (contract?.contractName || 'Obra'))
-      const bacObra = obraBacFromSite(site) || fallbackBac
+      // Fallback p/ o BAC do contrato só na visão de obra ÚNICA (a obra = o contrato). Em "Todas
+      // as obras", cada obra usa o próprio orçamento da Torre; senão o BAC do contrato seria
+      // contado em cada obra e inflaria o TOTAL GERAL.
+      const bacObra = obraBacFromSite(site) || (allObras ? 0 : fallbackBac)
       const byNuc = new Map<string, { key: string; nome: string; nucleus?: PlanningNucleus; acts: MasterActivity[] }>()
       for (const a of acts) {
         const nucleus = a.nucleusId ? nuclei.find((n) => n.id === a.nucleusId) : undefined
@@ -90,7 +99,7 @@ export function Tabela360Panel({ activities, nuclei, contract, allObras, sites =
       const distribuido = grupos.reduce((s, g) => s + (g.nucleus?.budgetBRL ?? 0), 0)
       return { obraKey, obraName, bacObra, distribuido, aDistribuir: bacObra - distribuido, acts, grupos }
     }).sort((x, y) => x.obraName.localeCompare(y.obraName))
-  }, [activities, nuclei, sites, contract, fallbackBac])
+  }, [activities, nuclei, sites, contract, fallbackBac, allObras, activeObraId])
 
   const obraFisico = avg(activities.map(fisico))
   const obraFinanceiro = avg(activities.map(financeiro))
@@ -174,6 +183,13 @@ export function Tabela360Panel({ activities, nuclei, contract, allObras, sites =
                         <td className="px-2 py-2 text-right text-[#c9c9c9]">{obra.acts.reduce((s, a) => s + (a.estimatedHH ?? 0), 0) || ''}</td>
                         <td className="px-2 py-2 text-right font-semibold text-[#f59e0b]">{fmtBRL(obra.bacObra)}</td>
                         <td className="px-2 py-2" colSpan={allObras ? 2 : 1} />
+                      </tr>
+                    )}
+                    {obraOpen && obra.grupos.length === 0 && (
+                      <tr className="border-b border-[#484848]">
+                        <td colSpan={colCount} className="px-3 py-2.5 text-center text-[11px] text-[#9a9a9a]">
+                          {!multiObra && <><Building2 size={11} className="inline text-[#f97316]" /> <span className="text-[#c9c9c9]">{obra.obraName}</span> — </>}sem atividades ainda. Adicione na aba <span className="text-[#c9c9c9]">Matriz mensal</span> ou no cronograma.
+                        </td>
                       </tr>
                     )}
                     {obraOpen && obra.grupos.map((g) => {

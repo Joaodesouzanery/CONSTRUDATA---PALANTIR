@@ -1,12 +1,13 @@
 /**
  * MembrosPage — lista (somente leitura) os membros/e-mails cadastrados na
- * organização, para o owner conferir quem tem acesso. Usa a RPC
- * export_organization_data (owner-only, mesma usada em Exportar dados).
+ * organização. Exclusiva da conta global (mesmo gate de Homologação/Adaptação
+ * Rápida). Usa a RPC export_organization_data (owner-only no servidor).
  */
 import { useEffect, useState } from 'react'
 import { Users, ShieldAlert, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { GLOBAL_ADMIN_EMAIL, isGlobalAdminUser } from '@/lib/globalAdmin'
 
 interface MemberRow {
   id?: string
@@ -20,7 +21,8 @@ interface MemberRow {
 
 export function MembrosPage() {
   const profile = useAuth((s) => s.profile)
-  const isOwner = profile?.role === 'owner'
+  const user = useAuth((s) => s.user)
+  const canUse = isGlobalAdminUser(profile, user)
   const [members, setMembers] = useState<MemberRow[]>([])
   const [invites, setInvites] = useState<MemberRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -42,14 +44,14 @@ export function MembrosPage() {
     }
   }
 
-  useEffect(() => { if (isOwner) void load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [profile?.organization_id])
+  useEffect(() => { if (canUse) void load() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [profile?.organization_id])
 
-  if (!isOwner) {
+  if (!canUse) {
     return (
       <div className="p-8 max-w-3xl mx-auto">
         <div className="p-6 bg-amber-50 border border-amber-200 rounded text-amber-800 flex gap-3">
           <ShieldAlert className="shrink-0" />
-          <p className="text-sm">Apenas o <strong>owner</strong> da organização pode ver a lista de membros. Seu cargo atual é <strong>{profile?.role}</strong>.</p>
+          <p className="text-sm">Este módulo é exclusivo da conta global <strong>{GLOBAL_ADMIN_EMAIL}</strong>.</p>
         </div>
       </div>
     )

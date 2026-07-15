@@ -152,6 +152,21 @@ function getIsoWeek(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`
 }
 
+/**
+ * Strip fixo de N semanas ISO a partir de uma data (por padrão, "hoje").
+ * Garante que o Médio Prazo sempre mostre as N colunas (semanas sem atividade
+ * ficam vazias), espelhando o strip fixo de 15 dias do Curto Prazo. Alinha com
+ * a janela de `deriveLookahead` (from = data base, weeks = N).
+ */
+export function isoWeekStrip(fromDate: string, weeks: number): string[] {
+  const base = new Date(fromDate + 'T00:00:00')
+  return Array.from({ length: weeks }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i * 7)
+    return getIsoWeek(d)
+  })
+}
+
 // ─── Date range helpers ──────────────────────────────────────────────────────
 
 export function getProjectDateRange(activities: MasterActivity[]): { start: string; end: string } {

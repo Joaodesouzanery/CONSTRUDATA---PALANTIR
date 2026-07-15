@@ -4,8 +4,8 @@
  * Empty state quando não há atividades — usuário pode criar do zero (wizard)
  * ou carregar dados de exemplo (loadDemoData).
  */
-import { useState, useEffect, useRef } from 'react'
-import { AlertCircle, CheckCircle2, Sparkles, FlaskConical, FileSpreadsheet, Download, BrainCircuit, Target, X } from 'lucide-react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { AlertCircle, CheckCircle2, Sparkles, FlaskConical, FileSpreadsheet, Download, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
@@ -23,7 +23,6 @@ import { PlanejamentoRestricoesPanel } from './components/PlanejamentoRestricoes
 import { MedicaoPlanejamentoTestePanel } from './components/MedicaoPlanejamentoTestePanel'
 import { PlanejamentoOperacionalPanel } from './components/PlanejamentoOperacionalPanel'
 import { ExecucaoPanel } from '@/features/planejamento/components/ExecucaoPanel'
-import { LpsHeader } from '@/features/lps-lean/components/LpsHeader'
 import { SemaforoPanel } from '@/features/lps-lean/components/SemaforoPanel'
 import { LookAheadPanel } from '@/features/lps-lean/components/LookAheadPanel'
 import { PpcDashboard } from '@/features/lps-lean/components/PpcDashboard'
@@ -35,9 +34,8 @@ import { AlertasPanel } from '@/features/lps-lean/components/AlertasPanel'
 import { MaoDeObraLpsPanel } from '@/features/lps-lean/components/MaoDeObraLpsPanel'
 import { IntegracoesPanel } from '@/features/lps-lean/components/IntegracoesPanel'
 import { ReuniaoSemanalPanel } from '@/features/lps-lean/components/ReuniaoSemanalPanel'
-import { useLpsStore } from '@/store/lpsStore'
 import { useActiveObra } from '@/hooks/useActiveObra'
-import type { LpsRestriction, MasterActivity } from '@/types'
+import type { MasterActivity } from '@/types'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { getCriadouroLabel, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 
@@ -57,31 +55,6 @@ type MppImportPreview = {
   }
 }
 
-/**
- * LpsHorizonStrip — traz o LPS/Lean (PPC, restrições, lookahead) para DENTRO das abas
- * de Médio/Curto/Semanal do Planejamento (metodologia junto do planejamento, menos telas).
- * Colapsável para não sobrecarregar; os dados já conversam via eventos (planning↔lps).
- */
-function LpsHorizonStrip({ horizon, showLookahead }: { horizon: string; showLookahead?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const { activeObraId, activeSite } = useActiveObra()
-  return (
-    <div className="mt-4 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 bg-[#2b2c6b]/40 hover:bg-[#2b2c6b]/60">
-        <span className="text-sm font-bold text-[#f5f5f5] inline-flex items-center gap-2"><Target size={14} className="text-[#f97316]" /> LPS / Lean — restrições & PPC{showLookahead ? ' + lookahead' : ''} <span className="font-normal text-[10px] text-[#a3a3a3]">(visão geral — comanda o {horizon}{activeSite ? ` · ${activeSite.name}` : ''})</span></span>
-        <span className="text-xs text-[#a3a3a3]">{open ? 'ocultar ▲' : 'mostrar ▼'}</span>
-      </button>
-      {open && (
-        <div className="p-2 space-y-3 border-t border-[#525252]">
-          <PpcDashboard obraId={activeObraId} />
-          {showLookahead && <LookAheadPanel />}
-          <RestricoesPanel obraName={activeSite?.name} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 export function PlanejamentoMestrePage() {
   const activeTab = usePlanejamentoMestreStore((s) => s.activeTab)
   const activities = usePlanejamentoMestreStore((s) => s.activities)
@@ -92,13 +65,10 @@ export function PlanejamentoMestrePage() {
   const derivedCount = usePlanejamentoMestreStore((s) => s.derivedActivities.length)
   const progCount = usePlanejamentoMestreStore((s) => Object.keys(s.programacaoSemanal).length)
   const planosCount = usePlanoExecucaoStore((s) => s.planos.length)
-  const lpsActiveTab = useLpsStore((s) => s.activeTab)
-  const lpsRestrictions = useLpsStore((s) => s.restrictions)
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [mppPreview, setMppPreview] = useState<MppImportPreview | null>(null)
-  const [workspace, setWorkspace] = useState<'planejamento' | 'lps'>('planejamento')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { void pull() }, [pull])
@@ -217,7 +187,6 @@ export function PlanejamentoMestrePage() {
     setActiveTab('derivacao')
     setMppPreview(null)
     setImportError(null)
-    setWorkspace('planejamento')
   }
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -437,11 +406,10 @@ export function PlanejamentoMestrePage() {
   }
 
   // Empty state — cliente novo, sem cronograma
-  if (workspace === 'planejamento' && activities.length === 0 && activeTab !== 'medicao-planejamento' && activeTab !== 'operacional' && activeTab !== 'execucao') {
+  if (activities.length === 0 && activeTab !== 'medicao-planejamento' && activeTab !== 'operacional' && activeTab !== 'execucao') {
     return (
       <div className="planning-lps-readable flex flex-col h-full overflow-hidden bg-[#1f1f1f]">
-        <PlanejamentoMestreHeader showTabs={workspace === 'planejamento'} onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
-        <WorkspaceSwitch workspace={workspace} onChange={setWorkspace} />
+        <PlanejamentoMestreHeader showTabs onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-xl w-full text-center">
             <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-[#f97316]/15 flex items-center justify-center">
@@ -504,46 +472,24 @@ export function PlanejamentoMestrePage() {
 
   return (
     <div className="planning-lps-readable flex flex-col h-full overflow-hidden">
-      <PlanejamentoMestreHeader showTabs={workspace === 'planejamento'} onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
-      <WorkspaceSwitch workspace={workspace} onChange={setWorkspace} />
-      {workspace === 'planejamento' && (
-        <PipelineStepper active={activeTab} onGo={setActiveTab} flags={{ macro: activities.length > 0, derivacao: derivedCount > 0, execucao: planosCount > 0, semanal: progCount > 0 }} />
-      )}
+      <PlanejamentoMestreHeader showTabs onNewProject={() => setWizardOpen(true)} onImportProject={() => fileRef.current?.click()} />
+      <PipelineStepper active={activeTab} onGo={setActiveTab} flags={{ macro: activities.length > 0, derivacao: derivedCount > 0, execucao: planosCount > 0, semanal: progCount > 0 }} />
       <div className="flex-1 overflow-y-auto p-6">
         {importError && (
           <p className="mb-4 rounded-lg border border-red-700/30 bg-red-900/20 px-4 py-2 text-xs text-red-400">
             {importError}
           </p>
         )}
-        {workspace === 'planejamento' && activeTab !== 'execucao' && <RdoPlanningBridgePanel activities={activities} />}
-        {workspace === 'planejamento' && activeTab === 'execucao'  && <ExecucaoPanel />}
-        {workspace === 'planejamento' && activeTab === 'macro'     && <PlanejamentoMacroPanel onCreateProject={() => setWizardOpen(true)} />}
-        {workspace === 'planejamento' && activeTab === 'derivacao' && <><DerivacaoPanel /><LpsHorizonStrip horizon="Médio Prazo" showLookahead /></>}
-        {workspace === 'planejamento' && activeTab === 'whatif'    && <><CurtoPrazoTab /><LpsHorizonStrip horizon="Curto Prazo" /></>}
-        {workspace === 'planejamento' && activeTab === 'integrada' && <VisaoIntegradaPanel />}
-        {workspace === 'planejamento' && activeTab === 'semanal'   && <><ProgramacaoSemanalPanel /><LpsHorizonStrip horizon="Programação Semanal" /></>}
-        {workspace === 'planejamento' && activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
-        {workspace === 'planejamento' && activeTab === 'operacional' && <PlanejamentoOperacionalPanel />}
-        {workspace === 'planejamento' && activeTab === 'medicao-planejamento' && <MedicaoPlanejamentoTestePanel />}
-        {workspace === 'lps' && (
-          <div className="-m-6 flex min-h-full flex-col bg-[#1f1f1f]">
-            <LpsHeader />
-            <div className="flex-1 overflow-y-auto">
-              <PlanningLpsBridge activities={activities} restrictions={lpsRestrictions} />
-              {lpsActiveTab === 'reuniao'             && <ReuniaoSemanalPanel />}
-              {lpsActiveTab === 'semaforo'            && <SemaforoPanel />}
-              {lpsActiveTab === 'lookahead'           && <LookAheadPanel />}
-              {lpsActiveTab === 'ppc'                 && <PpcDashboard />}
-              {lpsActiveTab === 'takt'                && <TaktTimePanel />}
-              {lpsActiveTab === 'restricoes'          && <RestricoesPanel />}
-              {lpsActiveTab === 'analytics'           && <LpsAnalyticsPanel />}
-              {lpsActiveTab === 'timeline-restricoes' && <div className="p-6"><TimelineRestricoesPanel /></div>}
-              {lpsActiveTab === 'alertas'             && <div className="p-6"><AlertasPanel /></div>}
-              {lpsActiveTab === 'mao-de-obra'         && <div className="p-6"><MaoDeObraLpsPanel /></div>}
-              {lpsActiveTab === 'integracoes'         && <div className="p-6"><IntegracoesPanel /></div>}
-            </div>
-          </div>
-        )}
+        {activeTab !== 'execucao' && <RdoPlanningBridgePanel activities={activities} />}
+        {activeTab === 'macro'     && <LongoPrazoTab onCreateProject={() => setWizardOpen(true)} />}
+        {activeTab === 'derivacao' && <MedioPrazoTab />}
+        {activeTab === 'whatif'    && <CurtoPrazoTab />}
+        {activeTab === 'execucao'  && <ExecucaoTab />}
+        {activeTab === 'semanal'   && <SemanalTab />}
+        {activeTab === 'integrada' && <VisaoIntegradaPanel />}
+        {activeTab === 'restricoes' && <PlanejamentoRestricoesPanel />}
+        {activeTab === 'operacional' && <PlanejamentoOperacionalPanel />}
+        {activeTab === 'medicao-planejamento' && <MedicaoPlanejamentoTestePanel />}
       </div>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.xml,.mpp" className="hidden" onChange={handleImportFile} />
       <MppImportPreviewModal preview={mppPreview} onCancel={() => setMppPreview(null)} onConfirm={confirmMppImport} />
@@ -726,44 +672,6 @@ function RdoPlanningBridgePanel({ activities }: { activities: MasterActivity[] }
   )
 }
 
-function PlanningLpsBridge({ activities, restrictions }: { activities: MasterActivity[]; restrictions: LpsRestriction[] }) {
-  const mediumActivities = activities.filter((activity) => !activity.isMilestone && activity.level >= 1)
-  const critical = mediumActivities.filter((activity) => /caminho critico|caminho crítico/i.test(activity.notes ?? ''))
-  const openRestrictions = restrictions.filter((restriction) => restriction.status !== 'resolvida')
-  const byNucleo = Array.from(mediumActivities.reduce((map, activity) => {
-    const key = activity.nucleo || 'Sem núcleo'
-    map.set(key, (map.get(key) ?? 0) + 1)
-    return map
-  }, new Map<string, number>()).entries()).sort((a, b) => b[1] - a[1]).slice(0, 6)
-
-  return (
-    <div className="border-b border-[#525252] bg-[#252525] px-6 py-4">
-      <div className="grid gap-3 lg:grid-cols-[1.3fr,1fr,1fr]">
-        <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#f97316]">Planejamento conectado ao LPS</p>
-          <h2 className="mt-1 text-sm font-bold text-white">Médio prazo alimenta Lookahead, Semanal, Restrições e Pareto</h2>
-          <p className="mt-2 text-xs leading-relaxed text-[#d4d4d4]">
-            Cronogramas importados por MPP, XML ou Excel entram no Médio Prazo como Cronograma-base com WBS, núcleo, área, predecessoras e caminho crítico. O LPS usa estes mesmos campos para filtrar compromissos por núcleo, obra/projeto e tipo de serviço.
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
-          <MiniBridgeKpi label="Médio prazo" value={mediumActivities.length} />
-          <MiniBridgeKpi label="Críticas" value={critical.length} tone="text-amber-300" />
-          <MiniBridgeKpi label="Restrições" value={openRestrictions.length} tone={openRestrictions.length ? 'text-red-300' : 'text-emerald-300'} />
-        </div>
-        <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[#d4d4d4]">Núcleos mais carregados</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {byNucleo.length > 0 ? byNucleo.map(([nucleo, total]) => (
-              <span key={nucleo} className="rounded-full border border-[#525252] bg-[#1f1f1f] px-2 py-1 text-xs text-[#f5f5f5]">{nucleo}: {total}</span>
-            )) : <span className="text-xs text-[#d4d4d4]">Importe um MPP, XML ou Excel do MS Project para iniciar.</span>}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function MiniBridgeKpi({ label, value, tone = 'text-white' }: { label: string; value: number; tone?: string }) {
   return (
     <div>
@@ -806,59 +714,90 @@ function PipelineStepper({ active, onGo, flags }: { active: PlanejamentoMestreTa
   )
 }
 
-// Curto Prazo = quadro de produção 15 dias (Operação e Campo) + simulador what-if do Mestre,
-// lado a lado via sub-seletor (o quadro é o default — restaurado sem perder o what-if).
-function CurtoPrazoTab() {
-  const [view, setView] = useState<'board' | 'whatif'>('board')
-  const opts = [
-    { key: 'board' as const,  label: 'Produção 15 dias' },
-    { key: 'whatif' as const, label: 'Simulador What-if' },
-  ]
+// ─── Sub-abas do pipeline ─────────────────────────────────────────────────────
+// O LPS/Lean (metodologia) vive DENTRO das abas do Planejamento como sub-abas —
+// não há mais uma aba/módulo "LPS" separado. Os dados continuam no lpsStore; só a
+// navegação foi unificada. Cada aba do pipeline abre com sua visão nativa (default)
+// e oferece as camadas LPS correspondentes ao horizonte.
+type SubTab = { key: string; label: string; render: () => ReactNode }
+function SubTabHost({ tabs }: { tabs: SubTab[] }) {
+  const [active, setActive] = useState(tabs[0]?.key)
+  const current = tabs.find((t) => t.key === active) ?? tabs[0]
   return (
     <div className="flex flex-col gap-4">
-      <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
-        {opts.map((o) => (
+      <div className="inline-flex self-start flex-wrap gap-1 rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
+        {tabs.map((t) => (
           <button
-            key={o.key}
+            key={t.key}
             type="button"
-            onClick={() => setView(o.key)}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === o.key ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}
+            onClick={() => setActive(t.key)}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${active === t.key ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}
           >
-            {o.label}
+            {t.label}
           </button>
         ))}
       </div>
-      {view === 'board' ? <CurtoPrazoPanel /> : <WhatIfPanel />}
+      {current?.render()}
     </div>
   )
 }
 
-function WorkspaceSwitch({ workspace, onChange }: { workspace: 'planejamento' | 'lps'; onChange: (workspace: 'planejamento' | 'lps') => void }) {
-  const options = [
-    { key: 'planejamento' as const, label: 'Planejamento', icon: BrainCircuit },
-    { key: 'lps' as const, label: 'LPS / Lean', icon: Target },
-  ]
-
+// Longo Prazo = estrutura macro (Matriz/Tabela 360) + Takt Time (ritmo do projeto, LPS).
+function LongoPrazoTab({ onCreateProject }: { onCreateProject: () => void }) {
   return (
-    <div className="border-b border-[#525252] bg-[#252525] px-6 py-2">
-      <div className="inline-flex rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
-        {options.map((option) => {
-          const Icon = option.icon
-          return (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => onChange(option.key)}
-              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-semibold transition-colors ${
-                workspace === option.key ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'
-              }`}
-            >
-              <Icon size={14} />
-              {option.label}
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <SubTabHost tabs={[
+      { key: 'macro', label: 'Estrutura macro', render: () => <PlanejamentoMacroPanel onCreateProject={onCreateProject} /> },
+      { key: 'takt',  label: 'Takt Time (LPS)', render: () => <TaktTimePanel /> },
+    ]} />
+  )
+}
+
+// Médio Prazo = derivação (look-ahead 6 semanas) + look-ahead, restrições e timeline do LPS (make-ready).
+function MedioPrazoTab() {
+  const { activeSite } = useActiveObra()
+  return (
+    <SubTabHost tabs={[
+      { key: 'derivacao',  label: 'Derivação (6 semanas)',   render: () => <DerivacaoPanel /> },
+      { key: 'lookahead',  label: 'Look-ahead (LPS)',        render: () => <LookAheadPanel /> },
+      { key: 'restricoes', label: 'Restrições (LPS)',        render: () => <RestricoesPanel obraName={activeSite?.name} /> },
+      { key: 'timeline',   label: 'Timeline de restrições',  render: () => <TimelineRestricoesPanel /> },
+    ]} />
+  )
+}
+
+// Curto Prazo = quadro de produção 15 dias + what-if + camadas de prontidão do LPS (CAN):
+// semáforo, mão de obra e alertas.
+function CurtoPrazoTab() {
+  return (
+    <SubTabHost tabs={[
+      { key: 'board',       label: 'Produção 15 dias',   render: () => <CurtoPrazoPanel /> },
+      { key: 'whatif',      label: 'Simulador What-if',  render: () => <WhatIfPanel /> },
+      { key: 'semaforo',    label: 'Semáforo (LPS)',     render: () => <SemaforoPanel /> },
+      { key: 'mao-de-obra', label: 'Mão de obra (LPS)',  render: () => <MaoDeObraLpsPanel /> },
+      { key: 'alertas',     label: 'Alertas (LPS)',      render: () => <AlertasPanel /> },
+    ]} />
+  )
+}
+
+// Execução = plano de execução por obra + status dos feeds cross-módulo do LPS (Integrações).
+function ExecucaoTab() {
+  return (
+    <SubTabHost tabs={[
+      { key: 'execucao',    label: 'Execução',          render: () => <ExecucaoPanel /> },
+      { key: 'integracoes', label: 'Integrações (LPS)', render: () => <IntegracoesPanel /> },
+    ]} />
+  )
+}
+
+// Prog. Semanal = programação da semana + reunião semanal, PPC e Pareto de CNC do LPS (WILL/DID).
+function SemanalTab() {
+  const { activeObraId } = useActiveObra()
+  return (
+    <SubTabHost tabs={[
+      { key: 'semanal', label: 'Programação',        render: () => <ProgramacaoSemanalPanel /> },
+      { key: 'reuniao', label: 'Modo reunião (LPS)', render: () => <ReuniaoSemanalPanel /> },
+      { key: 'ppc',     label: 'PPC (LPS)',          render: () => <PpcDashboard obraId={activeObraId} /> },
+      { key: 'pareto',  label: 'Pareto CNC (LPS)',   render: () => <LpsAnalyticsPanel /> },
+    ]} />
   )
 }

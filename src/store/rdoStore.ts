@@ -358,6 +358,8 @@ export const useRdoStore = create<RdoState>()(
             }),
           ],
         }))
+        // Excluir um RDO precisa reverter o executado que ele havia lançado no Planejamento.
+        setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         void get().flush()
       },
 
@@ -434,19 +436,29 @@ export const useRdoStore = create<RdoState>()(
               accumulate(m, key, service, rdo.date)
             }
           }
-          // RDO Compizzo: a produção do dia (m²) avança a atividade vinculada (planningActivityId).
+          // RDO Compizzo → Planejamento. Duas modalidades:
+          //  (1) Várias atividades: cada linha de produção com planningActivityId avança
+          //      a SUA atividade-mestre pela quantidade da linha.
+          //  (2) Legada (vínculo único): sem linhas vinculadas, soma o m² no cz.planningActivityId.
           const cz = rdo.compizzo
-          if (cz?.planningActivityId) {
-            const m2 = (cz.producao ?? []).reduce((s, r) => (/m²|m2/i.test(r.servico) ? s + parseLocaleNumber(r.quantidade) : s), 0)
-            if (m2 > 0) {
-              const svc = { quantity: m2 } as RDO['services'][number]
-              accumulate(globalMap, cz.planningActivityId, svc, rdo.date)
-              const siteId = rdo.siteId ?? null
+          if (cz) {
+            const siteId = rdo.siteId ?? null
+            const bump = (activityId: string, qty: number) => {
+              if (!activityId || qty <= 0) return
+              const svc = { quantity: qty } as RDO['services'][number]
+              accumulate(globalMap, activityId, svc, rdo.date)
               if (siteId) {
                 let m = perObra.get(siteId)
                 if (!m) { m = new Map(); perObra.set(siteId, m) }
-                accumulate(m, cz.planningActivityId, svc, rdo.date)
+                accumulate(m, activityId, svc, rdo.date)
               }
+            }
+            const linhasVinculadas = (cz.producao ?? []).filter((r) => r.planningActivityId)
+            if (linhasVinculadas.length > 0) {
+              for (const r of linhasVinculadas) bump(r.planningActivityId!, parseLocaleNumber(r.quantidade))
+            } else if (cz.planningActivityId) {
+              const m2 = (cz.producao ?? []).reduce((s, r) => (/m²|m2/i.test(r.servico) ? s + parseLocaleNumber(r.quantidade) : s), 0)
+              bump(cz.planningActivityId, m2)
             }
           }
         }
@@ -462,39 +474,53 @@ export const useRdoStore = create<RdoState>()(
             })
             .catch(() => {})
         }
-        if (globalMap.size > 0) {
-          Promise.all([import('./planejamentoMestreStore'), import('./planoExecucaoStore')])
-            .then(([{ usePlanejamentoMestreStore }, { usePlanoExecucaoStore }]) => {
-              const store = usePlanejamentoMestreStore.getState()
-              // Meta por obra (m²) do Plano de Execução — usada p/ % quando a atividade não tem plannedQuantity (caso Compizzo).
-              const metaByObra = new Map<string, number>()
-              for (const p of usePlanoExecucaoStore.getState().planos) {
-                if (p.siteId && (p.areaM2 ?? 0) > 0) metaByObra.set(p.siteId, Math.max(metaByObra.get(p.siteId) ?? 0, p.areaM2))
+        // Reconcilia SEMPRE (mesmo com globalMap vazio) — assim atividades que perderam o
+        // vínculo com RDO (re-link de linha, ou exclusão do RDO) são zeradas em vez de
+        // ficarem com executedQuantity/percentComplete obsoletos (dupla contagem).
+        Promise.all([import('./planejamentoMestreStore'), import('./planoExecucaoStore')])
+          .then(([{ usePlanejamentoMestreStore }, { usePlanoExecucaoStore }]) => {
+            const store = usePlanejamentoMestreStore.getState()
+            // Meta por obra (m²) do Plano de Execução — usada p/ % quando a atividade não tem plannedQuantity (caso Compizzo).
+            const metaByObra = new Map<string, number>()
+            for (const p of usePlanoExecucaoStore.getState().planos) {
+              if (p.siteId && (p.areaM2 ?? 0) > 0) metaByObra.set(p.siteId, Math.max(metaByObra.get(p.siteId) ?? 0, p.areaM2))
+            }
+            for (const activity of store.activities) {
+              // Atividade com obra: só recebe RDO da MESMA obra. Sem obra (legada): comportamento global.
+              const obraTag = activity.obraId ?? null
+              const src = obraTag ? perObra.get(obraTag) : globalMap
+              let data = src?.get(activity.id) ?? (activity.operationalKey ? src?.get(activity.operationalKey) : undefined)
+              // Fallback por ID (UUID único → sem contaminação cross-obra): RDO sem obra (siteId
+              // null) que vinculou explicitamente esta atividade cai só no globalMap.
+              if (!data && obraTag) data = globalMap.get(activity.id)
+              if (!data) {
+                // Perdeu o vínculo com RDO → zera o que veio de RDO. `lastRdoDate` marca a atividade
+                // como movida por RDO; progresso manual (sem lastRdoDate) fica intacto.
+                if (activity.lastRdoDate) {
+                  store.updateActivity(activity.id, {
+                    executedQuantity: 0, percentComplete: 0, physicalProgressPct: 0,
+                    status: 'not_started', lastRdoDate: undefined,
+                  })
+                }
+                continue
               }
-              for (const activity of store.activities) {
-                // Atividade com obra: só recebe RDO da MESMA obra. Sem obra (legada): comportamento global.
-                const obraTag = activity.obraId ?? null
-                const src = obraTag ? perObra.get(obraTag) : globalMap
-                const data = src?.get(activity.id) ?? (activity.operationalKey ? src?.get(activity.operationalKey) : undefined)
-                if (!data) continue
-                const planned = Number(activity.plannedQuantity) || 0
-                const meta = obraTag ? (metaByObra.get(obraTag) ?? 0) : 0
-                const percentComplete = planned > 0
-                  ? Math.min(100, Math.round((data.quantity / planned) * 10000) / 100)
-                  : meta > 0
-                    ? Math.min(100, Math.round((data.quantity / meta) * 10000) / 100)   // Compizzo: m² executado ÷ meta da obra
-                    : Math.min(100, Math.round(data.progressPct * 100) / 100)
-                store.updateActivity(activity.id, {
-                  executedQuantity: data.quantity,
-                  lastRdoDate: data.date,
-                  percentComplete,
-                  physicalProgressPct: percentComplete,
-                  status: percentComplete >= 100 ? 'completed' : data.status as typeof activity.status,
-                })
-              }
-            })
-            .catch(() => {})
-        }
+              const planned = Number(activity.plannedQuantity) || 0
+              const meta = obraTag ? (metaByObra.get(obraTag) ?? 0) : 0
+              const percentComplete = planned > 0
+                ? Math.min(100, Math.round((data.quantity / planned) * 10000) / 100)
+                : meta > 0
+                  ? Math.min(100, Math.round((data.quantity / meta) * 10000) / 100)   // Compizzo: m² executado ÷ meta da obra
+                  : Math.min(100, Math.round(data.progressPct * 100) / 100)
+              store.updateActivity(activity.id, {
+                executedQuantity: data.quantity,
+                lastRdoDate: data.date,
+                percentComplete,
+                physicalProgressPct: percentComplete,
+                status: percentComplete >= 100 ? 'completed' : data.status as typeof activity.status,
+              })
+            }
+          })
+          .catch(() => {})
       },
 
       loadDemoData: () =>

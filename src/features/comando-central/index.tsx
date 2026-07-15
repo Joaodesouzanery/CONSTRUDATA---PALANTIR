@@ -405,7 +405,7 @@ function ProjectDrillDown({
             { label: 'Ver no RDO', path: '/app/rdo' },
             { label: 'Ver no EVM', path: '/app/evm' },
             { label: 'Ver na Qualidade', path: '/app/qualidade' },
-            { label: 'Ver no LPS', path: '/app/lps-lean' },
+            { label: 'Ver no Planejamento (LPS)', path: '/app/planejamento-mestre' },
           ].map((m) => (
             <button
               key={m.path}

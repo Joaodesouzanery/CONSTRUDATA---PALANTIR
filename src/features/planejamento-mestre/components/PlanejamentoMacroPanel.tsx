@@ -528,8 +528,8 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         </span>
       </div>
 
-      {view === 'matriz' && <MatrizMensalPanel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
-      {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} />}
+      {view === 'matriz' && <MatrizMensalPanel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} activeObraId={activeObraId} />}
+      {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} activeObraId={activeObraId} />}
 
       {/* Plano de Execução (layout do documento) — só com uma obra selecionada (evita o "selecione uma obra" contraditório) */}
       <div className="mt-2 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">

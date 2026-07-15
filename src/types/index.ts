@@ -222,6 +222,8 @@ export interface ConstructionSite {
   totalArea: number     // m²
   floors: number        // andares / pavimentos
   serviceScope?: string  // escopo genérico: saneamento, água, esgoto, drenagem, edificação etc.
+  numeroContrato?: string // nº do contrato da obra (origem oficial p/ RDO/medição)
+  orcamentoBRL?: number   // orçamento/BAC contratado da obra (R$) — fallback do BAC no RDO/planejamento
   startDate: string     // yyyy-MM-dd
   expectedEnd: string   // yyyy-MM-dd
   lat: number | null
@@ -467,6 +469,7 @@ export interface MatchException {
 
 export interface DemandForecast {
   id: string
+  siteId?: string | null   // obra (construction_sites.id) — separação por obra
   weekLabel: string
   materialCategory: string
   estimatedQty: number
@@ -529,6 +532,7 @@ export interface Requisition {
   unit: string
   requestedBy: string
   projectRef: string
+  siteId?: string | null    // obra (construction_sites.id) — separação por obra
   requestedAt: string       // ISO date
   status: RequisitionStatus
   ontologyMatch?: string    // matched ontology category code
@@ -609,6 +613,7 @@ export interface ReservaMaterial {
   id: string
   itemId: string
   depositoId: string
+  siteId?: string | null   // obra (herda do item/depósito) — separação por obra
   lpsActivityId: string
   semana: number
   qtdNecessaria: number
@@ -1456,7 +1461,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'empreiteiros'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'empreiteiros' | 'previsto-realizado'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
@@ -1636,6 +1641,9 @@ export interface RDO {
 export interface RdoCompizzoProducaoRow {
   servico:    string
   quantidade: string
+  planningActivityId?:  string   // atividade-mestre que ESTA linha avança (várias atividades por RDO)
+  quantidadePrevista?:  number   // meta da atividade (plannedQuantity), exibida inline (previsto × realizado por linha)
+  unidade?:             string   // 'm²' | 'm' | 'un'… (opcional; não depende do texto do serviço)
 }
 
 /** Serviço adicional (livre) marcado em "Serviços Executados no Dia". */
@@ -1679,6 +1687,13 @@ export interface RdoCompizzoOcorrencias {
 
 export interface RdoCompizzoData {
   obra:                  string
+  siteId?:               string | null  // obra da Torre (construction_sites.id) escolhida no dropdown
+  numeroContrato?:       string         // snapshot do contrato (PDF/histórico estáveis mesmo se o plano mudar)
+  bacOrcamentoBRL?:      number         // faturamento previsto / BAC da obra (snapshot)
+  servicoContratado?:    string         // serviço do Plano de Execução (snapshot)
+  precoM2?:              number         // preço/m² do Plano (snapshot)
+  periodoInicio?:        string         // yyyy-MM-dd (snapshot do período do plano)
+  periodoFim?:           string         // yyyy-MM-dd
   diaObra:               string
   condicaoClimatica:     'sol' | 'nublado' | 'chuva' | 'outros'
   condicaoClimaticaOutros?: string

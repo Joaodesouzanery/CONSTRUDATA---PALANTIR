@@ -8,7 +8,7 @@
 import {
   ClipboardList, Calendar, Radio, Wrench,
   PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
-  Calculator, Layers, Target, Map, Network, BrainCircuit, TrendingUp,
+  Calculator, Layers, Map, Network, BrainCircuit, TrendingUp,
   ShieldCheck, Ruler, BadgeDollarSign, type LucideIcon,
 } from 'lucide-react'
 
@@ -72,13 +72,6 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     icon: Calendar,
     group: 'planejamento',
     description: 'Calendário operacional com detecção de conflitos.',
-  },
-  {
-    path: '/app/lps-lean',
-    label: 'LPS / Lean',
-    icon: Target,
-    group: 'planejamento',
-    description: 'Last Planner: look-ahead, PPC, Constraint Register.',
   },
   {
     path: '/app/evm',

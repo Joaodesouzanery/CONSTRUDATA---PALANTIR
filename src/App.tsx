@@ -17,7 +17,6 @@ const OtimizacaoFrotaPage   = lazy(() => import('@/features/otimizacao-frota/ind
 const Gestao360Page         = lazy(() => import('@/features/gestao-360/index').then((m) => ({ default: m.Gestao360Page })))
 const PlanejamentoMestrePage = lazy(() => import('@/features/planejamento-mestre/index').then((m) => ({ default: m.PlanejamentoMestrePage })))
 const PlanejamentoPage      = lazy(() => import('@/features/planejamento/index').then((m) => ({ default: m.PlanejamentoPage })))
-const LpsPage               = lazy(() => import('@/features/lps-lean/index').then((m) => ({ default: m.LpsPage })))
 const RdoPage               = lazy(() => import('@/features/rdo/index').then((m) => ({ default: m.RdoPage })))
 const RdoSabespPage         = lazy(() => import('@/features/rdo-sabesp/index').then((m) => ({ default: m.RdoSabespPage })))
 const QualidadePage         = lazy(() => import('@/features/qualidade/index').then((m) => ({ default: m.QualidadePage })))
@@ -139,7 +138,8 @@ function App() {
           <Route path="gestao-360"          element={<LazyRoute><Gestao360Page /></LazyRoute>} />
           <Route path="planejamento-mestre"  element={<LazyRoute><PlanejamentoMestrePage /></LazyRoute>} />
           <Route path="planejamento"        element={<LazyRoute><PlanejamentoPage /></LazyRoute>} />
-          <Route path="lps-lean"            element={<LazyRoute><LpsPage /></LazyRoute>} />
+          {/* LPS/Lean foi absorvido pelo Planejamento (sub-abas). Redireciona links antigos. */}
+          <Route path="lps-lean"            element={<Navigate to="/app/planejamento-mestre" replace />} />
           <Route path="mapa-interativo"     element={<Navigate to="/app/torre-de-controle?aba=mapa-interativo" replace />} />
           <Route path="rdo"                 element={<LazyRoute><RdoPage /></LazyRoute>} />
           <Route path="rdo-sabesp"          element={<LazyRoute><RdoSabespPage /></LazyRoute>} />
