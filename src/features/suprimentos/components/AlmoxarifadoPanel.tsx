@@ -170,7 +170,8 @@ export function AlmoxarifadoPanel() {
     return estoqueItens.filter((item) => {
       const deposito = depositos.find((dep) => dep.id === item.depositoId)
       const itemSite = item.siteId ?? deposito?.siteId ?? null
-      if (activeObraId && itemSite !== activeObraId) return false
+      // Estoque sem obra = geral (aparece em todas). Só esconde item de OUTRA obra.
+      if (activeObraId && itemSite && itemSite !== activeObraId) return false
       const low = item.qtdDisponivel < item.estoqueMinimo
       const text = [
         item.id,
@@ -279,7 +280,8 @@ export function AlmoxarifadoPanel() {
       categoria: form.categoria.trim() || undefined,
       fornecedorPrincipal: form.fornecedorPrincipal.trim() || undefined,
       qtdPorEmbalagem: porEmb > 0 ? porEmb : undefined,
-      unidadeEmbalagem: form.unidadeEmbalagem.trim() || undefined,
+      // Rótulo só com o substantivo (ex.: "caixa") — a contagem é calculada, não parte do rótulo.
+      unidadeEmbalagem: form.unidadeEmbalagem.trim().replace(/^\s*[\d.,]+\s*/, '') || undefined,
     }
 
     if (editingItemId) {
@@ -465,36 +467,42 @@ export function AlmoxarifadoPanel() {
   function itemRow(item: ItemEstoque) {
     const missing = Math.max(0, item.estoqueMinimo - item.qtdDisponivel)
     const low = missing > 0
+    const emb = (item.qtdPorEmbalagem ?? 0) > 0
+    // Rótulo da embalagem sem o número (o campo às vezes guarda "10 caixas"); a contagem já é calculada.
+    const embLabel = (item.unidadeEmbalagem || 'emb.').replace(/^\s*[\d.,]+\s*/, '') || 'emb.'
     return (
-      <tr key={item.id} className="hover:bg-[#3d3d3d]">
-        <td className="px-2 py-4 font-mono text-[11px] text-[#a3a3a3]">{item.id.slice(0, 8)}</td>
-        <td className="truncate px-2 py-4 font-semibold text-[#f5f5f5]" title={item.descricao}>{item.descricao}</td>
-        <td className="px-2 py-4">
-          <span className="block truncate rounded-full border border-[#525252] px-2 py-1 text-[11px] font-medium text-[#e5e5e5]" title={item.categoria || 'Sem categoria'}>
-            {item.categoria || 'Sem categoria'}
-          </span>
+      <tr key={item.id} className="hover:bg-[#3d3d3d] align-top">
+        {/* Material — nome em destaque + código e categoria como subtexto */}
+        <td className="px-3 py-3 min-w-[220px]">
+          <div className="font-semibold text-[#f5f5f5] leading-snug">{item.descricao}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[#8a8a8a]">
+            <span className="font-mono">{item.id.slice(0, 8)}</span>
+            <span className="rounded-full border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3]">{item.categoria || 'Sem categoria'}</span>
+          </div>
         </td>
-        <td className="truncate px-2 py-4 text-[#e5e5e5]" title={depositoLabel(item, 'frente')}>{depositoLabel(item, 'frente')}</td>
-        <td className={cn('px-2 py-4 tabular-nums', low ? 'font-semibold text-[#f87171]' : 'text-[#f5f5f5]')}>
-          {item.qtdDisponivel}
-          {item.qtdPorEmbalagem && item.qtdPorEmbalagem > 0 && (
+        {/* Frente */}
+        <td className="px-3 py-3 whitespace-nowrap text-[#e5e5e5]">{depositoLabel(item, 'frente')}</td>
+        {/* Qtd. — com unidade e equivalência em embalagem */}
+        <td className={cn('px-3 py-3 text-right whitespace-nowrap tabular-nums', low ? 'font-semibold text-[#f87171]' : 'text-[#f5f5f5]')}>
+          {item.qtdDisponivel}{item.unidade ? ` ${item.unidade}` : ''}
+          {emb && (
             <span className="mt-0.5 block text-[10px] font-normal text-[#8a8a8a]">
-              {Math.round((item.qtdDisponivel / item.qtdPorEmbalagem) * 100) / 100} {item.unidadeEmbalagem || 'emb.'} × {item.qtdPorEmbalagem}
+              {Math.round((item.qtdDisponivel / item.qtdPorEmbalagem!) * 100) / 100} {embLabel} × {item.qtdPorEmbalagem}
             </span>
           )}
         </td>
-        <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{item.estoqueMinimo}</td>
-        <td className={cn('px-2 py-4 tabular-nums', missing > 0 ? 'font-semibold text-[#f87171]' : 'text-[#6b6b6b]')}>{missing || '-'}</td>
-        <td className="truncate px-2 py-4 text-[#e5e5e5]">{item.unidade || '-'}</td>
-        <td className="px-2 py-4 tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
-        <td className="px-2 py-4 font-semibold tabular-nums text-[#f5f5f5]">{brl(item.qtdDisponivel * (item.custoUnitario ?? 0))}</td>
-        <td className="px-2 py-4">
+        {/* Unitário */}
+        <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
+        {/* Total */}
+        <td className="px-3 py-3 text-right whitespace-nowrap font-semibold tabular-nums text-[#f5f5f5]">{brl(item.qtdDisponivel * (item.custoUnitario ?? 0))}</td>
+        {/* Status (+ quanto comprar) */}
+        <td className="px-3 py-3 whitespace-nowrap">
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold', low ? 'bg-[#dc2626]/20 text-[#f87171]' : 'bg-[#16a34a]/15 text-[#4ade80]')}>
             {low && <AlertTriangle size={12} />}
-            {low ? 'Baixo' : 'Normal'}
+            {low ? `Comprar ${missing}` : 'Normal'}
           </span>
         </td>
-        <td className="px-2 py-4">
+        <td className="px-3 py-3">
           <div className="flex flex-wrap items-center justify-end gap-1">
             <button type="button" onClick={() => setMovement({ item, tipo: 'entrada', quantidade: '', fornecedor: item.fornecedorPrincipal || '', nf: '' })} className="inline-flex items-center gap-1 rounded-lg px-2 py-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-[#f5f5f5]" title="Registrar entrada ou saída">
               <ArrowUpDown size={16} /><span className="hidden text-[11px] font-semibold 2xl:inline">Mov.</span>
@@ -785,12 +793,12 @@ export function AlmoxarifadoPanel() {
           </button>
         </div>
 
-        <div className="overflow-hidden">
-          <table className="w-full table-fixed text-xs xl:text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs xl:text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
-                {['Código', 'Material', 'Categoria', 'Frente', 'Qtd.', 'Mínimo', 'Comprar', 'Un.', 'Unitário', 'Total', 'Status', 'Ações'].map((head) => (
-                  <th key={head} className="px-2 py-3 font-semibold">{head}</th>
+                {[['Material', 'w-auto'], ['Frente', ''], ['Qtd.', 'text-right'], ['Unitário', 'text-right'], ['Total', 'text-right'], ['Status', ''], ['Ações', 'text-right']].map(([head, cls]) => (
+                  <th key={head} className={cn('px-3 py-3 font-semibold whitespace-nowrap', cls)}>{head}</th>
                 ))}
               </tr>
             </thead>
@@ -800,25 +808,25 @@ export function AlmoxarifadoPanel() {
                   {supplierGroups.map((g) => (
                     <Fragment key={g.fornecedor}>
                       <tr className="bg-[#2b2c6b]/30 border-b border-[#525252]">
-                        <td colSpan={9} className="px-2 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
-                        <td colSpan={3} className="px-2 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
+                        <td colSpan={4} className="px-3 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
+                        <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
                       </tr>
                       {g.items.map(itemRow)}
                     </Fragment>
                   ))}
                   <tr className="border-t-2 border-[#f97316] bg-[#2c2c2c]">
-                    <td colSpan={9} className="px-2 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
-                    <td colSpan={3} className="px-2 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
+                    <td colSpan={4} className="px-3 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
+                    <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
                   </tr>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={12} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               ) : (
                 <>
                   {filtered.map(itemRow)}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={12} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               )}

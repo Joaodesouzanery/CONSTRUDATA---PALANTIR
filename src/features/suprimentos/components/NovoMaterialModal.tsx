@@ -87,7 +87,7 @@ export function NovoMaterialModal({ onClose }: Props) {
       categoria:            form.categoria || undefined,
       fornecedorPrincipal:  form.fornecedorPrincipal || undefined,
       qtdPorEmbalagem:      porEmb > 0 ? porEmb : undefined,
-      unidadeEmbalagem:     form.unidadeEmbalagem.trim() || undefined,
+      unidadeEmbalagem:     form.unidadeEmbalagem.trim().replace(/^\s*[\d.,]+\s*/, '') || undefined,
     })
     onClose()
   }

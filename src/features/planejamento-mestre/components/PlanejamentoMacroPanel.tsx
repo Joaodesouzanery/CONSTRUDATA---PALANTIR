@@ -4,7 +4,7 @@
  * Execução (layout do documento) embutido por obra. Baseline + CRUD + export (PDF/Excel).
  */
 import { useState, useMemo } from 'react'
-import { Plus, Save, Download, X, Check, FileDown, FileSpreadsheet, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { Plus, Save, Download, X, Check, FileDown, FileSpreadsheet, Search, SlidersHorizontal, Sparkles, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -17,6 +17,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Tabela360Panel } from './Tabela360Panel'
 import { MatrizMensalPanel } from './MatrizMensalPanel'
 import { ExecucaoPanel } from '@/features/planejamento/components/ExecucaoPanel'
+import { TaktTimePanel } from '@/features/lps-lean/components/TaktTimePanel'
 import type { MasterActivity, MasterActivityStatus } from '@/types'
 
 function fmtMoney(value: number) {
@@ -216,6 +217,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const saveBaseline  = usePlanejamentoMestreStore((s) => s.saveBaseline)
   const loadBaseline  = usePlanejamentoMestreStore((s) => s.loadBaseline)
   const removeActivity = usePlanejamentoMestreStore((s) => s.removeActivity)
+  const updateActivity = usePlanejamentoMestreStore((s) => s.updateActivity)
   const backfillObraId = usePlanejamentoMestreStore((s) => s.backfillObraId)
 
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
@@ -231,7 +233,8 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
   const [filterService, setFilterService] = useState<string>('')
   const [filterNucleo, setFilterNucleo] = useState<string>('')
   const [showFilters, setShowFilters]   = useState(false)
-  const [view, setView] = useState<'matriz' | 'tabela360'>('matriz')
+  const [view, setView] = useState<'matriz' | 'tabela360' | 'takt'>('matriz')
+  const [showSemObra, setShowSemObra]   = useState(false)
 
   // Núcleos presentes nas atividades (para o filtro), casando nucleusId → nome do cadastro.
   const nucleoOptions = useMemo(() => {
@@ -501,22 +504,41 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
         )}
       </div>
 
-      {/* Backfill: atividades legadas sem obra → vincular à obra selecionada */}
+      {/* Atividades sem obra: ver dentro da obra atual e vincular UMA A UMA (ou excluir / em lote) */}
       {semObraCount > 0 && activeObraId && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 px-3 py-2 text-xs print:hidden">
-          <span className="text-[#fed7aa]">
-            {semObraCount} atividade(s) ainda sem obra vinculada — elas só aparecem em "Todas as obras".
-          </span>
-          <button onClick={handleBackfill} className="rounded-lg bg-[#f97316] px-3 py-1.5 font-semibold text-white hover:bg-[#ea580c]">
-            Vincular a "{activeSiteName ?? 'obra selecionada'}"
-          </button>
+        <div className="rounded-lg border border-[#f97316]/40 bg-[#f97316]/10 px-3 py-2 text-xs print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={() => setShowSemObra((v) => !v)} className="inline-flex items-center gap-1.5 font-semibold text-[#fed7aa]">
+              {showSemObra ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              {semObraCount} atividade(s) sem obra vinculada
+            </button>
+            <button onClick={handleBackfill} className="rounded-lg bg-[#f97316] px-3 py-1.5 font-semibold text-white hover:bg-[#ea580c]">
+              Vincular todas a "{activeSiteName ?? 'obra selecionada'}"
+            </button>
+          </div>
+          {showSemObra && (
+            <div className="mt-2 max-h-64 divide-y divide-[#484848] overflow-y-auto rounded-lg border border-[#525252] bg-[#2c2c2c]">
+              {activities.filter((a) => !a.obraId).map((a) => (
+                <div key={a.id} className="flex items-center gap-2 px-2 py-1.5">
+                  <span className="flex-1 truncate text-[#e5e5e5]" title={a.name}>{a.wbsCode ? `${a.wbsCode} · ` : ''}{a.name}</span>
+                  <select value="" onChange={(e) => { if (e.target.value) updateActivity(a.id, { obraId: e.target.value }) }}
+                    className="rounded border border-[#525252] bg-[#3d3d3d] px-1.5 py-1 text-[11px] text-[#c9c9c9] outline-none focus:border-[#f97316]/60">
+                    <option value="">Vincular à obra…</option>
+                    {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button type="button" onClick={() => removeActivity(a.id)} className="text-[#6b6b6b] hover:text-[#f87171]" title="Excluir atividade"><Trash2 size={13} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-1 text-[10px] text-[#fdba74]/80">Vincule cada uma à obra certa, exclua as que não são desta empresa, ou use "Vincular todas" para jogar todas na obra atual.</p>
         </div>
       )}
 
       {/* View toggle: Matriz mensal (Gestão à Vista) × Tabela 360 (orçamento) */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
       <div className="inline-flex self-start rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
-        {([['matriz', 'Matriz mensal'], ['tabela360', 'Tabela 360']] as const).map(([k, label]) => (
+        {([['matriz', 'Matriz mensal'], ['tabela360', 'Tabela 360'], ['takt', 'Takt Time']] as const).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setView(k)}
             className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${view === k ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a] hover:text-white'}`}>
             {label}
@@ -530,6 +552,7 @@ export function PlanejamentoMacroPanel({ onCreateProject }: PlanejamentoMacroPan
 
       {view === 'matriz' && <MatrizMensalPanel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} activeObraId={activeObraId} />}
       {view === 'tabela360' && <Tabela360Panel activities={filtered} nuclei={nuclei} contract={contract} allObras={!activeObraId} sites={sites} activeObraId={activeObraId} />}
+      {view === 'takt' && <div className="rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden"><TaktTimePanel /></div>}
 
       {/* Plano de Execução (layout do documento) — só com uma obra selecionada (evita o "selecione uma obra" contraditório) */}
       <div className="mt-2 rounded-xl border border-[#525252] bg-[#2f2f2f] overflow-hidden">

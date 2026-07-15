@@ -19,6 +19,7 @@ export const workerSchema = z.object({
   crewId:         z.string().optional().default(''),
   status:         z.enum(['active', 'inactive', 'suspended', 'pending_approval']).optional().default('active'),
   hourlyRate:     z.number().min(0).max(9999.99).optional().default(0),
+  siteId:         z.string().optional(),   // obra (Torre) — '' = geral (aparece em todas as obras)
   certifications: z.array(workerCertificationSchema).max(20),
   biometricToken: z.string().max(128).optional(),
 })

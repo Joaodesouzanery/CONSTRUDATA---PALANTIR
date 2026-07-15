@@ -26,7 +26,6 @@ import { ExecucaoPanel } from '@/features/planejamento/components/ExecucaoPanel'
 import { SemaforoPanel } from '@/features/lps-lean/components/SemaforoPanel'
 import { LookAheadPanel } from '@/features/lps-lean/components/LookAheadPanel'
 import { PpcDashboard } from '@/features/lps-lean/components/PpcDashboard'
-import { TaktTimePanel } from '@/features/lps-lean/components/TaktTimePanel'
 import { RestricoesPanel } from '@/features/lps-lean/components/RestricoesPanel'
 import { LpsAnalyticsPanel } from '@/features/lps-lean/components/LpsAnalyticsPanel'
 import { TimelineRestricoesPanel } from '@/features/lps-lean/components/TimelineRestricoesPanel'
@@ -742,14 +741,9 @@ function SubTabHost({ tabs }: { tabs: SubTab[] }) {
   )
 }
 
-// Longo Prazo = estrutura macro (Matriz/Tabela 360) + Takt Time (ritmo do projeto, LPS).
+// Longo Prazo = Estrutura macro (Matriz/Tabela 360 + Takt Time embutido no toggle interno do painel).
 function LongoPrazoTab({ onCreateProject }: { onCreateProject: () => void }) {
-  return (
-    <SubTabHost tabs={[
-      { key: 'macro', label: 'Estrutura macro', render: () => <PlanejamentoMacroPanel onCreateProject={onCreateProject} /> },
-      { key: 'takt',  label: 'Takt Time (LPS)', render: () => <TaktTimePanel /> },
-    ]} />
-  )
+  return <PlanejamentoMacroPanel onCreateProject={onCreateProject} />
 }
 
 // Médio Prazo = derivação (look-ahead 6 semanas) + look-ahead, restrições e timeline do LPS (make-ready).

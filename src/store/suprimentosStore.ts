@@ -319,7 +319,7 @@ interface SuprimentosState {
   updateDeposito:      (id: string, patch: Partial<Omit<DepositoVirtual, 'id'>>) => void
   removeDeposito:      (id: string) => void
   setSelectedDeposito:  (id: string | null) => void
-  addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => void
+  addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => string
   updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
   removeItemEstoque:    (id: string) => void
   addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => void
@@ -921,6 +921,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       ],
     }))
     void get().flush()
+    return id
   },
 
   updateItemEstoque: (id, patch) => {

@@ -35,9 +35,14 @@ export function useObraScopedLabor(): ObraScopedLabor {
   const rdos = useRdoStore((s) => s.rdos)
 
   return useMemo(() => {
-    const workers = activeObraId ? allWorkers.filter((w) => (w.siteId || null) === activeObraId) : allWorkers
+    // Worker sem obra = geral (entra em todas). Só fica de fora quem é de OUTRA obra.
+    const workers = activeObraId ? allWorkers.filter((w) => !w.siteId || w.siteId === activeObraId) : allWorkers
     const idsInObra = new Set(workers.map((w) => w.id))
-    const timecards = activeObraId ? allTimecards.filter((tc) => idsInObra.has(tc.workerId)) : allTimecards
+    // Apontamentos: por worker OU pelo siteId do próprio timecard (RDO carimba a obra no timecard),
+    // para os apontamentos vindos do RDO aparecerem no Dashboard/Produtividade da obra.
+    const timecards = activeObraId
+      ? allTimecards.filter((tc) => idsInObra.has(tc.workerId) || (tc.siteId ?? null) === activeObraId)
+      : allTimecards
     const shifts = activeObraId ? allShifts.filter((s) => idsInObra.has(s.workerId)) : allShifts
     const planos = byActiveObra(allPlanos, activeObraId)
     const unassignedWorkerCount = allWorkers.filter((w) => !w.siteId).length

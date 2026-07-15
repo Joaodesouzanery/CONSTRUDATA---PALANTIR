@@ -105,7 +105,7 @@ interface PlanejamentoMestreState {
 
   setActiveTab: (tab: PlanejamentoMestreTab) => void
 
-  addActivity: (activity: Omit<MasterActivity, 'id'>) => void
+  addActivity: (activity: Omit<MasterActivity, 'id'>) => string
   updateActivity: (id: string, patch: Partial<MasterActivity>) => void
   removeActivity: (id: string) => void
   /** Carimba obraId nas atividades sem obra (legadas) — retorna quantas foram atualizadas. */
@@ -212,6 +212,7 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
           const { orgId, userId } = ctx()
           enqueue(makeOp({ entity: 'master_activity', type: 'insert', recordId: id, row: masterActivityToRow(newActivity, orgId, userId), table: 'master_activities' }))
           void get().flush()
+          return id
         },
 
         updateActivity: (id, patch) => {

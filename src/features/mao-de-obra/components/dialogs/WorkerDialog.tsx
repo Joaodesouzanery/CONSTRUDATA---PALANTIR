@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import { workerSchema, type WorkerFormData } from '../../schemas'
 import type { WorkerCertification } from '@/types'
 
@@ -23,6 +25,7 @@ const emptyForm: WorkerFormData = {
   crewId:         '',
   status:         'active',
   hourlyRate:     0,
+  siteId:         '',
   certifications: [],
 }
 
@@ -38,7 +41,9 @@ function blankCert(): WorkerCertification {
 
 export function WorkerDialog({ onClose }: Props) {
   const { crews, addWorker } = useMaoDeObraStore((s) => ({ crews: s.crews, addWorker: s.addWorker }))
-  const [form, setForm]     = useState<WorkerFormData>(emptyForm)
+  const sites = useTorreStore((s) => s.sites)
+  // Default: obra ativa (cadastro rápido para a obra atual); o usuário pode trocar p/ "geral" ou outra.
+  const [form, setForm]     = useState<WorkerFormData>(() => ({ ...emptyForm, siteId: useActiveObraStore.getState().activeObraId ?? '' }))
   const [errors, setErrors] = useState<Partial<Record<keyof WorkerFormData, string>>>({})
 
   function handleField<K extends keyof WorkerFormData>(key: K, val: WorkerFormData[K]) {
@@ -144,6 +149,19 @@ export function WorkerDialog({ onClose }: Props) {
               </select>
             </label>
           </div>
+
+          {/* Obra (Torre) — vínculo de obra do funcionário */}
+          <label className="flex flex-col gap-1">
+            <span className="text-[#6b6b6b] text-xs font-medium">Obra (Torre de Controle)</span>
+            <select
+              value={form.siteId ?? ''}
+              onChange={(e) => handleField('siteId', e.target.value)}
+              className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
+            >
+              <option value="">— Sem obra (geral — aparece em todas) —</option>
+              {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
 
           {/* Hourly rate */}
           <label className="flex flex-col gap-1">
