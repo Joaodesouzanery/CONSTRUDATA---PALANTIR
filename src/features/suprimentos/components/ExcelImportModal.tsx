@@ -24,6 +24,8 @@ const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'valorTotal',        label: 'Valor Total (R$)'      },
   { value: 'categoria',         label: 'Categoria'             },
   { value: 'fornecedorPrincipal', label: 'Fornecedor Principal' },
+  { value: 'codigoReferencia',  label: 'Código de Referência'  },
+  { value: 'dataUltimoPedido',  label: 'Data do Último Pedido' },
   { value: 'unidadeEmbalagem',  label: 'Embalagem (rótulo)'    },
   { value: 'qtdPorEmbalagem',   label: 'Un. por embalagem'     },
   { value: 'numEmbalagens',     label: 'Nº de embalagens'      },

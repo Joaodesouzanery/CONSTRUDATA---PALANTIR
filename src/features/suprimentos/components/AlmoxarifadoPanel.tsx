@@ -21,6 +21,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatDecimalInput, formatMoneyInput, parseLocaleNumber } from '@/lib/numberFormat'
+import { buildFrenteOptions, resolveFrenteDeposito } from '../utils/frentes'
 
 type MovementType = 'entrada' | 'saida'
 
@@ -46,6 +47,8 @@ interface ItemForm {
   custoUnitario: string
   valorTotal: string
   fornecedorPrincipal: string
+  codigoReferencia: string
+  dataUltimoPedido: string   // yyyy-MM-dd (input date)
 }
 
 interface DepositoForm {
@@ -69,6 +72,8 @@ const emptyForm: ItemForm = {
   custoUnitario: '',
   valorTotal: '',
   fornecedorPrincipal: '',
+  codigoReferencia: '',
+  dataUltimoPedido: '',
 }
 
 const emptyDepositoForm: DepositoForm = {
@@ -135,35 +140,9 @@ export function AlmoxarifadoPanel() {
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const sites = useTorreStore((s) => s.sites)
 
-  // Opções de frente/depósito = frentes já criadas + obras da Torre de Controle.
-  // Obras da Torre sem depósito próprio entram como `site:<id>` (criam o depósito no primeiro uso).
-  const frenteOptions = useMemo(() => {
-    const opts: { value: string; label: string }[] = []
-    const depoSiteIds = new Set(depositos.map((d) => d.siteId).filter(Boolean))
-    for (const dep of depositos) {
-      const site = dep.siteId ? sites.find((s) => s.id === dep.siteId) : undefined
-      opts.push({ value: dep.id, label: site ? `${dep.frente} · ${site.name}` : dep.frente })
-    }
-    for (const site of sites) {
-      if (depoSiteIds.has(site.id)) continue
-      opts.push({ value: `site:${site.id}`, label: `${site.name} (obra)` })
-    }
-    return opts
-  }, [depositos, sites])
-
-  // Resolve o valor do seletor para um depositoId real (find-or-create por obra da Torre).
-  function resolveDeposito(raw: string): { id: string; siteId: string | null } {
-    if (raw.startsWith('site:')) {
-      const siteId = raw.slice(5)
-      const existing = depositos.find((d) => d.siteId === siteId)
-      if (existing) return { id: existing.id, siteId: existing.siteId ?? siteId }
-      const site = sites.find((s) => s.id === siteId)
-      const id = addDeposito({ frente: site?.name ?? 'Obra', descricao: 'Frente sincronizada da Torre de Controle', ativo: true, siteId })
-      return { id, siteId }
-    }
-    const dep = depositos.find((d) => d.id === raw)
-    return { id: raw, siteId: dep?.siteId ?? null }
-  }
+  // Opções de frente/depósito (frentes criadas + obras da Torre) — util compartilhado.
+  const frenteOptions = useMemo(() => buildFrenteOptions(depositos, sites), [depositos, sites])
+  const resolveDeposito = (raw: string) => resolveFrenteDeposito(raw, depositos, sites, addDeposito)
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -175,6 +154,7 @@ export function AlmoxarifadoPanel() {
       const low = item.qtdDisponivel < item.estoqueMinimo
       const text = [
         item.id,
+        item.codigoReferencia,
         item.descricao,
         item.categoria,
         item.fornecedorPrincipal,
@@ -249,6 +229,8 @@ export function AlmoxarifadoPanel() {
       custoUnitario: formatDecimalInput(item.custoUnitario ?? 0, 4),
       valorTotal: formatMoneyInput(item.qtdDisponivel * (item.custoUnitario ?? 0)),
       fornecedorPrincipal: item.fornecedorPrincipal ?? '',
+      codigoReferencia: item.codigoReferencia ?? '',
+      dataUltimoPedido: item.dataUltimoPedido ?? '',
     })
     setShowItemForm(true)
     window.setTimeout(() => itemFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
@@ -282,6 +264,8 @@ export function AlmoxarifadoPanel() {
       qtdPorEmbalagem: porEmb > 0 ? porEmb : undefined,
       // Rótulo só com o substantivo (ex.: "caixa") — a contagem é calculada, não parte do rótulo.
       unidadeEmbalagem: form.unidadeEmbalagem.trim().replace(/^\s*[\d.,]+\s*/, '') || undefined,
+      codigoReferencia: form.codigoReferencia.trim() || undefined,
+      dataUltimoPedido: form.dataUltimoPedido || undefined,
     }
 
     if (editingItemId) {
@@ -476,8 +460,9 @@ export function AlmoxarifadoPanel() {
         <td className="px-3 py-3 min-w-[220px]">
           <div className="font-semibold text-[#f5f5f5] leading-snug">{item.descricao}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[#8a8a8a]">
-            <span className="font-mono">{item.id.slice(0, 8)}</span>
+            <span className="font-mono">{item.codigoReferencia || item.id.slice(0, 8)}</span>
             <span className="rounded-full border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3]">{item.categoria || 'Sem categoria'}</span>
+            {item.dataUltimoPedido && <span title="Data do último pedido">· últ. pedido {item.dataUltimoPedido.split('-').reverse().join('/')}</span>}
           </div>
         </td>
         {/* Frente */}
@@ -719,11 +704,15 @@ export function AlmoxarifadoPanel() {
               <X size={16} />
             </button>
           </div>
-          <div className="grid gap-3 md:grid-cols-4">
+          {/* Frente / Depósito — onde o material fica (inclui as obras da Torre de Controle) */}
+          <label className="mb-3 flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#9a9a9a]">Frente / Depósito</span>
             <select value={form.depositoId} onChange={(event) => setForm((item) => ({ ...item, depositoId: event.target.value }))} className={inputClass}>
-              <option value="">Projeto / depósito padrão</option>
+              <option value="">Estoque geral (sem frente específica)</option>
               {frenteOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+          </label>
+          <div className="grid gap-3 md:grid-cols-4">
             <input value={form.descricao} onChange={(event) => setForm((item) => ({ ...item, descricao: event.target.value }))} placeholder="Material" className={inputClass} />
             <input value={form.categoria} onChange={(event) => setForm((item) => ({ ...item, categoria: event.target.value }))} placeholder="Categoria" className={inputClass} />
             <input value={form.unidade} onChange={(event) => setForm((item) => ({ ...item, unidade: event.target.value }))} placeholder="Unidade (opcional)" className={inputClass} />
@@ -732,6 +721,11 @@ export function AlmoxarifadoPanel() {
             <input type="text" inputMode="decimal" value={form.custoUnitario} onChange={(event) => updateUnitValue(event.target.value)} placeholder="Valor unitário" className={inputClass} />
             <input type="text" inputMode="decimal" value={form.valorTotal} onChange={(event) => updateTotalValue(event.target.value)} placeholder="Valor total (R$ da nota)" className={inputClass} />
             <input value={form.fornecedorPrincipal} onChange={(event) => setForm((item) => ({ ...item, fornecedorPrincipal: event.target.value }))} placeholder="Fornecedor" className={inputClass} />
+            <input value={form.codigoReferencia} onChange={(event) => setForm((item) => ({ ...item, codigoReferencia: event.target.value }))} placeholder="Código (referência)" className={inputClass} />
+            <label className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 text-xs text-[#6b6b6b]">
+              <span className="whitespace-nowrap">Últ. pedido</span>
+              <input type="date" value={form.dataUltimoPedido} onChange={(event) => setForm((item) => ({ ...item, dataUltimoPedido: event.target.value }))} className="flex-1 bg-transparent py-2 text-sm text-[#f5f5f5] outline-none" />
+            </label>
           </div>
 
           {/* Embalagem (facilitador) — nº de embalagens × un/embalagem = quantidade em unidades */}

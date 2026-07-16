@@ -16,7 +16,9 @@ const FIELD_HINTS: Record<string, string[]> = {
   descricao:           ['descrição', 'descricao', 'description', 'material', 'item', 'nome', 'produto'],
   unidade:             ['unidade', 'un', 'unit', 'und', 'medida'],
   qtdDisponivel:       ['qtd disponivel', 'quantidade disponivel', 'disponivel', 'estoque', 'saldo', 'quantidade', 'qtd', 'qty', 'qtdatual'],
-  estoqueMinimo:       ['estoque minimo', 'minimo', 'min', 'estoque_min', 'qtd_minima', 'qtd min'],
+  estoqueMinimo:       ['estoque minimo', 'minimo', 'min', 'estoque_min', 'qtd_minima', 'qtd min', 'quantidade critica', 'qtd critica', 'critica', 'realizar pedido'],
+  codigoReferencia:    ['codigo de referencia', 'codigo referencia', 'codigo', 'cod ref', 'ref', 'sku', 'referencia'],
+  dataUltimoPedido:    ['data ultimo pedido', 'ultimo pedido', 'data pedido', 'data do ultimo pedido'],
   custoUnitario:       ['custo unitario', 'valor unitario', 'unitario', 'custo', 'preco unitario', 'preço unitário', 'price', 'unit cost', 'custounit'],
   valorTotal:          ['valor total', 'total', 'custo total', 'preco total', 'preço total'],
   categoria:           ['categoria', 'category', 'grupo', 'tipo', 'class'],
@@ -30,6 +32,37 @@ const FIELD_HINTS: Record<string, string[]> = {
 
 function normalize(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Quebra a quantidade quando a embalagem vem embutida numa c\u00e9lula s\u00f3.
+ * "9 cx (24un)" \u2192 { num:9, unidadeExterna:'cx', porEmb:24, unidadeInterna:'un' }
+ * "14 rolos"    \u2192 { num:14, unidadeExterna:'rolos' }
+ * "1 un" / "216" \u2192 { num:1|216 }
+ */
+function parseQuantidadeEmbalagem(raw: string): { num: number; unidadeExterna?: string; porEmb?: number; unidadeInterna?: string } {
+  const s = (raw ?? '').trim()
+  if (!s) return { num: 0 }
+  const emb = s.match(/^([\d.,]+)\s*([a-z\u00e7]+)?\s*\(\s*([\d.,]+)\s*([a-z\u00e7\u00b2]+)?\s*\)/i)
+  if (emb) {
+    return { num: parseLocaleNumber(emb[1]), unidadeExterna: emb[2]?.toLowerCase() || undefined, porEmb: parseLocaleNumber(emb[3]), unidadeInterna: emb[4]?.toLowerCase() || undefined }
+  }
+  const simp = s.match(/^([\d.,]+)\s*([a-z\u00e7\u00b2]+)?/i)
+  if (simp) return { num: parseLocaleNumber(simp[1]), unidadeExterna: simp[2]?.toLowerCase() || undefined }
+  return { num: parseLocaleNumber(s) }
+}
+
+/** "dd/mm/yyyy" \u2192 "yyyy-MM-dd". Placeholder ("dd/mm/yyyy") e vazio \u2192 undefined. */
+function parseDataBR(raw: string): string | undefined {
+  const s = (raw ?? '').trim()
+  if (!s || /[a-z]/i.test(s.replace(/\//g, ''))) return undefined   // "dd/mm/yyyy" e afins
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/)
+  if (m) {
+    const year = m[3].length === 2 ? `20${m[3]}` : m[3]
+    return `${year}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  return undefined
 }
 
 /** Auto-suggest a field mapping for a detected Excel header. */
@@ -93,25 +126,34 @@ export function applyColumnMapping(
       const str  = (field: string) => (inv[field] ? row[inv[field]]?.trim() ?? '' : '')
       const num  = (field: string) => parseLocaleNumber(str(field))
       const valorTotal = num('valorTotal')
-      // Embalagem (facilitador): nº de caixas × un/caixa → unidades; R$/caixa ÷ un/caixa → custo unit.
-      const porEmb = num('qtdPorEmbalagem')
-      const numEmb = num('numEmbalagens')
+      // Embalagem: colunas dedicadas têm prioridade; senão parseia a string "9 cx (24un)" da Quantidade.
+      const embStr = parseQuantidadeEmbalagem(str('qtdDisponivel'))
+      const colPorEmb = num('qtdPorEmbalagem')
+      const porEmb = colPorEmb > 0 ? colPorEmb : (embStr.porEmb ?? 0)
+      const numEmb = colPorEmb > 0 ? num('numEmbalagens') : (embStr.porEmb ? embStr.num : 0)
       const valorEmb = num('valorPorEmbalagem')
-      const quantidade = porEmb > 0 && numEmb > 0 ? porEmb * numEmb : num('qtdDisponivel')
+      const quantidade = porEmb > 0 && numEmb > 0 ? porEmb * numEmb : (embStr.num || num('qtdDisponivel'))
       const custoUnitario =
         num('custoUnitario') ||
         (valorEmb > 0 && porEmb > 0 ? valorEmb / porEmb : 0) ||
         (quantidade > 0 && valorTotal > 0 ? valorTotal / quantidade : 0)
+      // Unidade base: só sobrescreve com a de dentro dos parênteses quando a embalagem veio da STRING
+      // ("9 cx (24un)"). Se veio de colunas dedicadas, respeita a coluna "Unidade" mapeada.
+      const embFromString = colPorEmb === 0 && (embStr.porEmb ?? 0) > 0
+      const unidadeBase = embFromString ? (embStr.unidadeInterna || 'un') : (str('unidade') || embStr.unidadeExterna || '')
+      const unidadeEmb = str('unidadeEmbalagem') || (embFromString ? embStr.unidadeExterna : undefined) || undefined
       return {
         descricao:           str('descricao')           || '—',
-        unidade:             str('unidade')             || '',
+        unidade:             unidadeBase,
         qtdDisponivel:       quantidade,
         estoqueMinimo:       num('estoqueMinimo'),
         custoUnitario:       custoUnitario || undefined,
         categoria:           str('categoria')           || undefined,
         fornecedorPrincipal: str('fornecedorPrincipal') || undefined,
         qtdPorEmbalagem:     porEmb > 0 ? porEmb : undefined,
-        unidadeEmbalagem:    str('unidadeEmbalagem')    || undefined,
+        unidadeEmbalagem:    unidadeEmb,
+        codigoReferencia:    str('codigoReferencia')    || undefined,
+        dataUltimoPedido:    parseDataBR(str('dataUltimoPedido')),
       }
     })
 }

@@ -461,6 +461,11 @@ function estoqueItemToRow(item: ItemEstoque, orgId: string, userId: string) {
     site_id:              item.siteId ?? null,
     qtd_por_embalagem:    item.qtdPorEmbalagem ?? null,
     unidade_embalagem:    item.unidadeEmbalagem ?? null,
+    // Campos flexíveis (código próprio, data do último pedido…) — coluna jsonb, sem migração por campo.
+    metadata: {
+      ...(item.codigoReferencia ? { codigoReferencia: item.codigoReferencia } : {}),
+      ...(item.dataUltimoPedido ? { dataUltimoPedido: item.dataUltimoPedido } : {}),
+    },
     created_by:           userId,
   }
 }
@@ -1532,6 +1537,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           siteId:              (r.site_id as string | null) ?? null,
           qtdPorEmbalagem:     r.qtd_por_embalagem == null ? undefined : Number(r.qtd_por_embalagem),
           unidadeEmbalagem:    (r.unidade_embalagem as string | null) ?? undefined,
+          codigoReferencia:    ((r.metadata as Record<string, unknown> | null)?.codigoReferencia as string | undefined) || undefined,
+          dataUltimoPedido:    ((r.metadata as Record<string, unknown> | null)?.dataUltimoPedido as string | undefined) || undefined,
         })),
       })
     }

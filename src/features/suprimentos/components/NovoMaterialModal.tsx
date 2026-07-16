@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { X, Package } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { buildFrenteOptions, resolveFrenteDeposito } from '../utils/frentes'
 
 interface Props {
   onClose: () => void
@@ -28,9 +30,11 @@ const inp = (err?: boolean) =>
   )
 
 export function NovoMaterialModal({ onClose }: Props) {
-  const { depositos, addItemEstoque } = useSuprimentosStore(
-    useShallow((s) => ({ depositos: s.depositos, addItemEstoque: s.addItemEstoque })),
+  const { depositos, addItemEstoque, addDeposito } = useSuprimentosStore(
+    useShallow((s) => ({ depositos: s.depositos, addItemEstoque: s.addItemEstoque, addDeposito: s.addDeposito })),
   )
+  const sites = useTorreStore((s) => s.sites)
+  const frenteOptions = buildFrenteOptions(depositos, sites)
 
   const [form, setForm] = useState({
     descricao: '',
@@ -41,6 +45,8 @@ export function NovoMaterialModal({ onClose }: Props) {
     custoUnitario: '',
     categoria: '',
     fornecedorPrincipal: '',
+    codigoReferencia: '',
+    dataUltimoPedido: '',
     // Embalagem (facilitador) — estoque é sempre em UNIDADES; a caixa só facilita o lançamento.
     unidadeEmbalagem: '',
     qtdPorEmbalagem: '',
@@ -67,7 +73,6 @@ export function NovoMaterialModal({ onClose }: Props) {
   function validate() {
     const errs: Record<string, string> = {}
     if (!form.descricao.trim()) errs.descricao = 'Obrigatório'
-    if (!form.depositoId)       errs.depositoId = 'Selecione um depósito'
     return errs
   }
 
@@ -75,8 +80,11 @@ export function NovoMaterialModal({ onClose }: Props) {
     const errs = validate()
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
 
+    const resolved = form.depositoId ? resolveFrenteDeposito(form.depositoId, depositos, sites, addDeposito) : { id: '', siteId: null }
     addItemEstoque({
-      depositoId:           form.depositoId,
+      // Reusa um depósito existente para "Estoque geral" (evita criar "Almoxarifado Central" duplicado).
+      depositoId:           resolved.id || depositos[0]?.id || '',
+      siteId:               resolved.siteId,
       descricao:            form.descricao.trim(),
       unidade:              form.unidade.trim(),
       qtdDisponivel:        qtdUnDerivada,
@@ -88,6 +96,8 @@ export function NovoMaterialModal({ onClose }: Props) {
       fornecedorPrincipal:  form.fornecedorPrincipal || undefined,
       qtdPorEmbalagem:      porEmb > 0 ? porEmb : undefined,
       unidadeEmbalagem:     form.unidadeEmbalagem.trim().replace(/^\s*[\d.,]+\s*/, '') || undefined,
+      codigoReferencia:     form.codigoReferencia.trim() || undefined,
+      dataUltimoPedido:     form.dataUltimoPedido || undefined,
     })
     onClose()
   }
@@ -119,22 +129,21 @@ export function NovoMaterialModal({ onClose }: Props) {
 
         {/* Body */}
         <div className="overflow-y-auto px-5 py-4 flex flex-col gap-3">
-          {/* Depósito */}
+          {/* Frente / Depósito (inclui obras da Torre de Controle) */}
           <div>
             <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
-              Frente / Depósito *
+              Frente / Depósito
             </label>
             <select
               value={form.depositoId}
               onChange={(e) => set('depositoId', e.target.value)}
-              className={inp(!!errors.depositoId)}
+              className={inp()}
             >
-              <option value="">— Selecione —</option>
-              {depositos.map((d) => (
-                <option key={d.id} value={d.id}>{d.frente}</option>
+              <option value="">Estoque geral (sem frente específica)</option>
+              {frenteOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            {errors.depositoId && <p className="text-[10px] text-[#ef4444] mt-0.5">{errors.depositoId}</p>}
           </div>
 
           {/* Descrição */}
@@ -234,6 +243,32 @@ export function NovoMaterialModal({ onClose }: Props) {
                 value={form.fornecedorPrincipal}
                 onChange={(e) => set('fornecedorPrincipal', e.target.value)}
                 placeholder="Ex: TIGRE"
+                className={inp()}
+              />
+            </div>
+          </div>
+
+          {/* Código de Referência + Data do último pedido */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
+                Código (referência)
+              </label>
+              <input
+                value={form.codigoReferencia}
+                onChange={(e) => set('codigoReferencia', e.target.value)}
+                placeholder="Ex: FT48X24"
+                className={inp()}
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-[#a3a3a3] uppercase tracking-wider mb-1">
+                Data do último pedido
+              </label>
+              <input
+                type="date"
+                value={form.dataUltimoPedido}
+                onChange={(e) => set('dataUltimoPedido', e.target.value)}
                 className={inp()}
               />
             </div>

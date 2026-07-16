@@ -589,6 +589,8 @@ export interface ItemEstoque {
   lpsActivityId?: string
   categoria?: string
   fornecedorPrincipal?: string
+  codigoReferencia?: string   // código de referência próprio do usuário (metadata jsonb)
+  dataUltimoPedido?: string   // yyyy-MM-dd — data do último pedido (metadata jsonb)
   qtdPorEmbalagem?: number  // un por embalagem (ex.: 96 un/caixa) — facilitador; estoque é sempre em unidades
   unidadeEmbalagem?: string // rótulo da embalagem (ex.: "caixa")
 }
