@@ -29,10 +29,13 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { uploadRdoPhoto } from '@/features/rdo/utils/rdoPhotoStorage'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
 // Sincroniza as entradas financeiras do RDO (local-only) via app_state.
 let pullRdoFinBlob: (() => Promise<void>) | null = null
+let retryingPhotos = false   // reentrância do retryPhotoUploads
 import { getTenantMarker } from '@/lib/tenantCache'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -215,6 +218,8 @@ interface RdoState {
   // Sync
   flush: () => Promise<void>
   pull:  () => Promise<void>
+  /** Reenvia fotos capturadas offline (base64 sem storagePath) para o Storage. */
+  retryPhotoUploads: () => Promise<void>
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -320,6 +325,7 @@ export const useRdoStore = create<RdoState>()(
             ? {
                 date:             row.date,
                 responsible:      row.responsible,
+                site_id:          row.site_id,   // trocar/limpar a obra no edit tem que persistir
                 contract_no:      row.contract_no,
                 service_order_no: row.service_order_no,
                 payload:          row.payload,
@@ -568,6 +574,8 @@ export const useRdoStore = create<RdoState>()(
           lastSyncedAt: new Date().toISOString(),
           syncError:    result.lastError ?? null,
         }))
+        // Foto capturada offline pode subir agora que há conexão.
+        void get().retryPhotoUploads()
       },
 
       pull: async () => {
@@ -584,6 +592,68 @@ export const useRdoStore = create<RdoState>()(
           lastSyncedAt: new Date().toISOString(),
           syncError: null,
         })
+        void get().retryPhotoUploads()
+      },
+
+      // Reenvia fotos que ficaram só em base64 (capturadas offline / upload falhou):
+      // sobe pro Storage e enfileira um update do RDO com o payload já sem o base64.
+      // Idempotente (só toca base64-sem-storagePath), guardado contra reentrância.
+      retryPhotoUploads: async () => {
+        if (retryingPhotos) return
+        if (isNonProductionDataMode()) return
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return
+        const { profile, user } = useAuth.getState()
+        if (!profile) return
+        const targets = get().rdos.filter((r) => r.photos.some((p) => p.base64 && !p.storagePath))
+        if (targets.length === 0) return
+
+        retryingPhotos = true
+        let enqueuedAny = false
+        try {
+          for (const rdo of targets) {
+            // Sobe cada foto pendente e coleta id → storagePath. NÃO trata a lista
+            // do snapshot como verdade: no set() aplica os caminhos por id sobre as
+            // fotos ATUAIS do RDO, preservando fotos adicionadas durante o upload.
+            const snapshot = get().rdos.find((r) => r.id === rdo.id)?.photos ?? []
+            const uploaded = new Map<string, string>()
+            await Promise.all(
+              snapshot.map(async (p) => {
+                if (!p.base64 || p.storagePath) return
+                try {
+                  const blob = await fetch(p.base64).then((r) => r.blob())
+                  uploaded.set(p.id, await uploadRdoPhoto(blob))
+                } catch { /* ainda offline / falhou — mantém o base64 */ }
+              }),
+            )
+            if (uploaded.size === 0) continue
+            enqueuedAny = true
+            set((s) => {
+              const updatedRdos = s.rdos.map((r) => {
+                if (r.id !== rdo.id) return r
+                const photos = r.photos.map((p) =>
+                  uploaded.has(p.id)
+                    ? { id: p.id, label: p.label, uploadedAt: p.uploadedAt, storagePath: uploaded.get(p.id)! }
+                    : p,
+                )
+                return { ...r, photos, updatedAt: new Date().toISOString() }
+              })
+              const updated = updatedRdos.find((r) => r.id === rdo.id)
+              const orgId  = profile.organization_id ?? 'pending'
+              const userId = user?.id ?? 'pending'
+              const row    = updated ? rdoToRow(updated, orgId, userId) : undefined
+              const patch  = row ? { payload: row.payload } : undefined
+              return {
+                rdos: updatedRdos,
+                pendingSync: patch
+                  ? [...s.pendingSync, makeOp({ entity: 'rdo', type: 'update', recordId: rdo.id, patch, table: 'rdo' })]
+                  : s.pendingSync,
+              }
+            })
+          }
+        } finally {
+          retryingPhotos = false
+        }
+        if (enqueuedAny) void get().flush()
       },
     }),
     {
@@ -613,6 +683,7 @@ pullRdoFinBlob = attachBlobSync(useRdoStore, {
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void useRdoStore.getState().flush()
+    void useRdoStore.getState().retryPhotoUploads()   // reenvia fotos capturadas offline
   })
 }
 

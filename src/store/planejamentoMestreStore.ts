@@ -522,6 +522,18 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             return old ? { ...d, status: old.status, notes: old.notes, percentComplete: old.percentComplete } : d
           })
           set({ derivedActivities: merged })
+          // Persistir o lookahead derivado (antes só ficava no localStorage). Id estável
+          // `derived-<masterId>` → upsert idempotente; enfileira só o delta (novo/alterado).
+          const prevById = new Map(prev.map((d) => [d.id, d]))
+          const { orgId, userId } = ctx()
+          let any = false
+          for (const d of merged) {
+            const old = prevById.get(d.id)
+            if (old && JSON.stringify(old) === JSON.stringify(d)) continue
+            any = true
+            enqueue(makeOp({ entity: 'lookahead', type: 'insert', recordId: d.id, row: lookaheadToRow(d, orgId, userId), table: 'lookahead_derived_activities' }))
+          }
+          if (any) void get().flush()
         },
 
         addWhatIfAdjustment: (adj) =>

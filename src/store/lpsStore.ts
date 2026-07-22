@@ -267,7 +267,19 @@ export const useLpsStore = create<LpsState>()(
           const { taktZones, taktTotalDays } = get()
           const numZones = taktZones.length || 1
           const taktPerZone = Math.round(taktTotalDays / numZones)
-          set({ taktZones: taktZones.map((z) => ({ ...z, taktDays: taktPerZone })) })
+          const updated = taktZones.map((z) => ({ ...z, taktDays: taktPerZone }))
+          set({ taktZones: updated })
+          // Persistir as zonas recalculadas (antes só ficava no localStorage).
+          const changed = updated.filter((z, i) => z.taktDays !== taktZones[i]?.taktDays)
+          if (changed.length) {
+            const { orgId, userId } = ctx()
+            for (const z of changed) {
+              const row = taktZoneToRow(z, orgId, userId)
+              const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+              enqueue(makeOp({ entity: 'lps_takt_zone', type: 'update', recordId: z.id, patch, table: 'lps_takt_zones' }))
+            }
+            void get().flush()
+          }
         },
 
         addRestriction: (r) => {
@@ -497,18 +509,44 @@ export const useLpsStore = create<LpsState>()(
 
           set({ activities: nextActivities, restrictions: nextRestrictions })
           get().refreshIntegrationStatus()
+
+          // Persistir o que a integração gerou/alterou. Idempotente: o dedup por
+          // tags+tema já evita recriar restrição, e enfileiramos só o DELTA
+          // (restrição nova / atividade que mudou) — sem op-storm a cada RDO finalizado.
+          const { orgId, userId } = ctx()
+          const prevActById = new Map(current.activities.map((a) => [a.id, a]))
+          for (const act of nextActivities) {
+            const prev = prevActById.get(act.id)
+            if (prev && JSON.stringify(prev) === JSON.stringify(act)) continue
+            const row = activityToRow(act, orgId, userId)
+            const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+            enqueue(makeOp({ entity: 'lps_activity', type: 'update', recordId: act.id, patch, table: 'lps_activities' }))
+          }
+          const prevRestrIds = new Set(current.restrictions.map((r) => r.id))
+          for (const r of nextRestrictions) {
+            if (prevRestrIds.has(r.id)) continue
+            enqueue(makeOp({ entity: 'lps_restriction', type: 'insert', recordId: r.id, row: restrictionToRow(r, orgId, userId), table: 'lps_restrictions' }))
+          }
+          void get().flush()
         },
 
         autoClearRestrictions: () => {
           const { restrictions } = get()
+          const resolvedIds: string[] = []
           const updated = restrictions.map((r) => {
             if (r.status === 'resolvida') return r
             if (r.categoria === 'materiais' && r.status === 'em_resolucao') {
+              resolvedIds.push(r.id)
               return { ...r, status: 'resolvida' as const, resolvedAt: new Date().toISOString().slice(0, 10) }
             }
             return r
           })
           set({ restrictions: updated })
+          // Mesma op de "resolver" do caminho manual (updateRestriction status='resolvida').
+          for (const id of resolvedIds) {
+            enqueue(makeOp({ entity: 'lps_restriction', type: 'delete', recordId: id, table: 'lps_restrictions', approvalActionType: 'mark_restriction_resolved' }))
+          }
+          if (resolvedIds.length) void get().flush()
         },
 
         loadDemoData: () => set({

@@ -51,6 +51,7 @@ const STORE_KEYS = [
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
+  'cdata-manejo-financeiro', 'cdata-levantamento-obra',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -115,6 +116,10 @@ async function restoreUserData() {
       import('./financeiroStore').then(m => m.useFinanceiroStore),
       import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
       import('./servicosStore').then(m => m.useServicosStore),
+      import('./companySettingsStore').then(m => m.useCompanySettingsStore),
+      import('./economiaStore').then(m => m.useEconomiaStore),
+      import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore),
+      import('./levantamentoObraStore').then(m => m.useLevantamentoObraStore),
     ])
     for (const store of stores) {
       store.persist?.rehydrate?.()
@@ -160,6 +165,10 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'financeiro', label: 'Financeiro', load: () => import('./financeiroStore').then(m => m.useFinanceiroStore as unknown as TenantStoreApi) },
   { key: 'plano-execucao', label: 'Planejamento de Execução', load: () => import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore as unknown as TenantStoreApi) },
   { key: 'servicos', label: 'Catálogo de Serviços', load: () => import('./servicosStore').then(m => m.useServicosStore as unknown as TenantStoreApi) },
+  { key: 'company-settings', label: 'Configurações da Empresa', load: () => import('./companySettingsStore').then(m => m.useCompanySettingsStore as unknown as TenantStoreApi) },
+  { key: 'economia', label: 'Economia', load: () => import('./economiaStore').then(m => m.useEconomiaStore as unknown as TenantStoreApi) },
+  { key: 'manejo-financeiro', label: 'Manejo Financeiro', load: () => import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore as unknown as TenantStoreApi) },
+  { key: 'levantamento-obra', label: 'Levantamento de Obra', load: () => import('./levantamentoObraStore').then(m => m.useLevantamentoObraStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {

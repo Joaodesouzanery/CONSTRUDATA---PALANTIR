@@ -455,6 +455,10 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         makeBaseline(0, scheduled.trechos, scheduled.teams, scheduled.scheduleConfig, 'Criacao guiada do planejamento'),
       ],
     })
+    // NOTA: persistir trechos/teams aqui como INSERT colide com UNIQUE(org, code)
+    // ao re-rodar o wizard (códigos T001… determinísticos, ids novos → 23505 trava
+    // a fila). Precisa de design dedicado (ids determinísticos por código ou
+    // replace-com-delete). Fica local até lá.
   },
 
   addNucleus: (nucleus) => {
@@ -525,6 +529,9 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
         notes: row.predecessors ? `Predecessores: ${row.predecessors}` : undefined,
       }
     })
+    // NOTA: não enfileirar INSERT aqui — códigos importados (IMP-001…) reiniciam
+    // do 1 e colidem com UNIQUE(org, code) num 2º import (23505 trava a fila).
+    // Persistência precisa de códigos únicos por import ou upsert por código.
     set((s) => ({
       trechos: [...s.trechos, ...imported],
       auditLog: [...s.auditLog, makeAudit('schedule_imported', `${imported.length} atividade(s) importada(s).`, { count: imported.length })],
@@ -625,6 +632,8 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           equipmentDemand: { headcount: 6, retroescavadeira: 1, compactador: 1, caminhaoBasculante: 1 },
         }))
 
+        // NOTA: não enfileirar INSERT aqui — códigos T01… reiniciam do 1 e colidem
+        // com UNIQUE(org, code) num 2º import (23505 trava a fila). Fica local.
         set((s) => ({
           trechos: [...s.trechos, ...newTrechos],
           isScheduleDirty: true,

@@ -232,6 +232,9 @@ export function RdoCompizzoPanel() {
   const [showText, setShowText] = useState(false)
   const [textValue, setTextValue] = useState('')
   const [saved, setSaved] = useState(false)
+  // Id do RDO já criado nesta sessão de edição — evita que re-salvar (rascunho)
+  // crie um RDO novo a cada clique. Começa com o RDO em edição, se houver.
+  const [savedId, setSavedId] = useState<string | null>(editing?.id ?? null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Sai do modo edição ao desmontar (reabrir a aba volta a criar novo).
@@ -390,7 +393,9 @@ export function RdoCompizzoPanel() {
     const producaoFinal = buildProducaoFinal()   // cria atividades no Planejamento p/ linhas novas
     if (producaoFinal !== producao) setProducao(producaoFinal)
     const payload = { ...buildRdoPayload(producaoFinal), status }
-    const rdoId = editing ? (updateRdo(editing.id, payload), editing.id) : addRdo(payload)
+    // Já salvo nesta sessão? Atualiza. Senão cria e guarda o id (rascunho não duplica).
+    const rdoId = savedId ? (updateRdo(savedId, payload), savedId) : addRdo(payload)
+    if (!savedId) setSavedId(rdoId)
     // Ponte RDO → Mão de Obra: só ao finalizar, para não gerar apontamento de rascunho.
     if (status === 'finalizado') {
       syncRdoToTimecards({
