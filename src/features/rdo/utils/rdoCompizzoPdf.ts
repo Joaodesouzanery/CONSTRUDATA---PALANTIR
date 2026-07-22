@@ -3,6 +3,7 @@
  * replicando o documento original (logo, seções 1–7, rodapé). Usa window.print().
  */
 import type { RDO, RdoCompizzoServicos, RdoCompizzoOcorrencias } from '@/types'
+import { resolvePhotosForPdf } from './rdoPhotoStorage'
 
 const esc = (s: unknown) =>
   String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -38,9 +39,15 @@ const OCORRENCIA_ITEMS: Array<[keyof RdoCompizzoOcorrencias, string]> = [
   ['outros', 'Outros'],
 ]
 
-export function printCompizzoPdf(rdo: RDO) {
+export async function printCompizzoPdf(rdo: RDO) {
   const c = rdo.compizzo
   if (!c) return
+
+  // Abre a janela ANTES de qualquer await (senão o navegador bloqueia o pop-up).
+  const win = window.open('', '_blank')
+  if (!win) return
+  // Resolve as fotos para base64 (as que estão no Storage viram signed URL → base64).
+  const photos = await resolvePhotosForPdf(rdo.photos)
 
   const clima = (k: string) => (c.condicaoClimatica === k ? '(x)' : '( )')
   const names = rdo.manpower.employeeNames ?? []
@@ -57,8 +64,10 @@ export function printCompizzoPdf(rdo: RDO) {
   const producaoRows = c.producao.map((r) => `<tr><td>${esc(r.servico)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
   const materiaisRows = c.materiais.map((r) => `<tr><td>${esc(r.material)}</td><td class="qty">${esc(r.quantidade)}</td></tr>`).join('')
   const namesHtml = names.map((n) => `<div class="mao">${esc(n)}</div>`).join('')
+  // Fotos não baixadas (offline) não somem em silêncio: mostra aviso.
+  const missingPhotos = rdo.photos.length - photos.length
   const photosHtml = rdo.photos.length
-    ? `<div class="photos">${rdo.photos.map((p) => `<img src="${p.base64}" />`).join('')}</div>`
+    ? `<div class="photos">${photos.map((p) => `<img src="${p.base64}" />`).join('')}${missingPhotos > 0 ? `<div style="color:#b45309;font-size:11px">${missingPhotos} foto(s) indisponível(is) offline</div>` : ''}</div>`
     : ''
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8" />
@@ -152,8 +161,6 @@ export function printCompizzoPdf(rdo: RDO) {
   <div class="footer">grupocompizzo.com.br<small>Somos referência em pisos monolíticos.</small></div>
 </body></html>`
 
-  const win = window.open('', '_blank')
-  if (!win) return
   win.document.write(html)
   win.document.close()
 }

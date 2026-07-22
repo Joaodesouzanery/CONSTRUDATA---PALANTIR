@@ -5,6 +5,7 @@
  */
 import type { RDO } from '@/types'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
+import { resolvePhotosForPdf } from './rdoPhotoStorage'
 
 const WEATHER_ICON: Record<string, string> = {
   good:   '☀️',
@@ -42,9 +43,12 @@ function getRdoTitle(rdo: RDO) {
   return rdo.title?.trim() || `RDO #${rdo.number}`
 }
 
-export function printRdoPDF(rdo: RDO) {
+export async function printRdoPDF(rdo: RDO) {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
+
+  // Resolve fotos do Storage para base64 (o PDF precisa dos bytes embutidos).
+  const photos = await resolvePhotosForPdf(rdo.photos)
 
   const { logos, companyName } = useCompanySettingsStore.getState()
   const selectedLogo = rdo.logoId
@@ -117,13 +121,17 @@ export function printRdoPDF(rdo: RDO) {
         </tr>`).join('')
     : '<tr><td colspan="5" style="color:#6b7280;font-style:italic">Nenhum trecho</td></tr>'
 
+  // Fotos que não puderam ser baixadas (offline/rede) não somem em silêncio: mostra
+  // um aviso e o cabeçalho mantém a contagem real (rdo.photos.length).
+  const missingPhotos = rdo.photos.length - photos.length
   const photosHtml = rdo.photos.length
     ? `<div class="photo-grid">
-        ${rdo.photos.map((p) => `
+        ${photos.map((p) => `
           <figure class="photo-item">
             <img src="${p.base64}" alt="${p.label}" />
             <figcaption>${p.label}</figcaption>
           </figure>`).join('')}
+        ${missingPhotos > 0 ? `<figure class="photo-item"><figcaption style="color:#b45309">${missingPhotos} foto(s) indisponível(is) — sem conexão para baixar do servidor.</figcaption></figure>` : ''}
        </div>`
     : '<p style="color:#6b7280;font-style:italic">Sem registros fotográficos</p>'
 

@@ -1566,10 +1566,13 @@ export interface RdoTrechoEntry {
 }
 
 export interface RdoPhoto {
-  id:         string
-  base64:     string    // data:image/...;base64,...
-  label:      string
-  uploadedAt: string
+  id:          string
+  /** data:image/...;base64 — presente enquanto pendente de upload (offline) ou legado. */
+  base64?:     string
+  /** Caminho no bucket `rdo-photos` (`<orgId>/<uuid>.jpg`) após upload. Render via signed URL. */
+  storagePath?: string
+  label:       string
+  uploadedAt:  string
 }
 
 export interface RdoFinancialEntry {

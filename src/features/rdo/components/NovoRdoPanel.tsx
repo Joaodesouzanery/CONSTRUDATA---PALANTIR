@@ -21,7 +21,10 @@ import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { checkPendingFvsForDate, getCompletedFvsForDate } from '@/store/crossModuleSync'
-import { compressImage } from '@/lib/imageCompression'
+import { compressImageToBlob } from '@/lib/imageCompression'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
+import { RdoPhotoImg } from './RdoPhotoImg'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
 import type { RdoEquipmentEntry, RdoMaterialConsumptionEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus, RdoStoppageEntry, RdoWorkforceRow } from '@/types'
@@ -572,14 +575,21 @@ export function NovoRdoPanel() {
         setPhotoError(`"${file.name}" excede ${MAX_SIZE_MB} MB.`)
         return
       }
-      // Comprime (canvas → JPEG) antes de guardar: evita estourar o localStorage
-      // (RDO some ao atualizar) e travar o upload com base64 cru.
+      // Comprime, mostra o thumbnail JÁ (base64) e sobe pro Storage EM BACKGROUND —
+      // não trava a tela em rede ruim. Ao terminar, anexa o storagePath (casa pelo
+      // base64, único). Offline/demo/erro fica só o base64 (fallback).
       try {
-        const base64 = await compressImage(file)
+        const blob = await compressImageToBlob(file)
+        const base64 = await blobToDataUrl(blob)
         setPhotos((prev) => [
           ...prev,
           { base64, label: file.name, uploadedAt: new Date().toISOString() },
         ])
+        if (!isNonProductionDataMode()) {
+          void uploadRdoPhoto(blob)
+            .then((storagePath) => setPhotos((prev) => prev.map((p) => (p.base64 === base64 ? { ...p, storagePath } : p))))
+            .catch(() => { /* offline/sem org: mantém o base64 como fallback */ })
+        }
       } catch {
         setPhotoError(`Não foi possível processar "${file.name}".`)
       }
@@ -589,6 +599,8 @@ export function NovoRdoPanel() {
   }
 
   function removePhoto(i: number) {
+    const p = photos[i]
+    if (p?.storagePath) void removeRdoPhoto(p.storagePath)
     setPhotos((prev) => prev.filter((_, idx) => idx !== i))
   }
   function updatePhotoLabel(i: number, label: string) {
@@ -617,7 +629,7 @@ export function NovoRdoPanel() {
         totalCostBRL: m.totalCostBRL ?? ((Number(m.quantity) || 0) * (Number(m.unitCostBRL) || 0)),
       })),
       trechos:     trechos.map((t) => ({ ...t, id: crypto.randomUUID() })),
-      photos:      photos.map((p) => ({ ...p, id: crypto.randomUUID() })),
+      photos:      leanPhotosForPersist(photos.map((p) => ({ ...p, id: crypto.randomUUID() }))),
       geolocation,
       logoId:      selectedLogoId,
       // Identification fields
@@ -1759,8 +1771,8 @@ export function NovoRdoPanel() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {photos.map((photo, i) => (
                 <div key={i} className="relative group">
-                  <img
-                    src={photo.base64}
+                  <RdoPhotoImg
+                    photo={photo}
                     alt={photo.label}
                     className="w-full h-28 object-cover rounded-lg border border-[#525252]"
                   />

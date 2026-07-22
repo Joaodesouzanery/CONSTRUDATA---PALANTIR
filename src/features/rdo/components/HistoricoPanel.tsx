@@ -15,6 +15,8 @@ import { useContractorStore } from '@/store/contractorStore'
 import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
+import { RdoPhotoImg } from './RdoPhotoImg'
+import { removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespExecutedServices, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
@@ -225,7 +227,7 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {rdo.photos.map((p) => (
               <div key={p.id}>
-                <img src={p.base64} alt={p.label} className="w-full h-32 object-cover border border-gray-300 rounded" />
+                <RdoPhotoImg photo={p} className="w-full h-32 object-cover border border-gray-300 rounded" />
                 {p.label && <p className="text-xs text-gray-600 mt-0.5 text-center">{p.label}</p>}
               </div>
             ))}
@@ -264,8 +266,8 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
     : 0
 
   function handlePrint() {
-    if (rdo.template === 'compizzo' && rdo.compizzo) printCompizzoPdf(rdo)
-    else printRdoPDF(rdo)
+    if (rdo.template === 'compizzo' && rdo.compizzo) void printCompizzoPdf(rdo)
+    else void printRdoPDF(rdo)
   }
 
   return (
@@ -509,7 +511,7 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {rdo.photos.map((p) => (
                   <div key={p.id}>
-                    <img src={p.base64} alt={p.label} className="w-full h-28 object-cover rounded-lg border border-[#525252]" />
+                    <RdoPhotoImg photo={p} className="w-full h-28 object-cover rounded-lg border border-[#525252]" />
                     {p.label && (
                       <p className="text-xs text-[#6b6b6b] mt-1 text-center truncate">{p.label}</p>
                     )}
@@ -757,6 +759,8 @@ export function HistoricoPanel() {
 
   function handleDelete(id: string) {
     if (!confirm('Excluir este RDO? Esta ação não pode ser desfeita.')) return
+    // Remove também as fotos do bucket (best-effort) para não deixar órfãos.
+    rdos.find((r) => r.id === id)?.photos.forEach((p) => { if (p.storagePath) void removeRdoPhoto(p.storagePath) })
     removeRdo(id)
   }
 

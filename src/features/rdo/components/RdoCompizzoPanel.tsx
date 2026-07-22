@@ -20,7 +20,10 @@ import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import { compressImage } from '@/lib/imageCompression'
+import { compressImageToBlob } from '@/lib/imageCompression'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
+import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type {
@@ -303,15 +306,21 @@ export function RdoCompizzoPanel() {
 
   async function handlePhotos(files: FileList | null) {
     if (!files) return
-    // Comprime cada foto (canvas → JPEG) antes de guardar: uma foto de celular de
-    // ~4 MB vira ~200 KB. Sem isso, o base64 cru estoura o localStorage (RDO some
-    // ao atualizar) e trava o upload ("rodando azul"). Guarda só contra arquivo
-    // absurdo — a compressão cuida do tamanho.
+    // Comprime (canvas → JPEG, ~4 MB → ~200 KB), mostra o thumbnail JÁ (base64) e sobe
+    // pro Supabase Storage EM BACKGROUND — não trava a tela em rede de canteiro ruim.
+    // Ao terminar o upload, anexa o storagePath; offline/demo/erro fica só o base64.
     for (const file of Array.from(files).slice(0, 20)) {
       if (file.size > 30 * 1024 * 1024) continue
       try {
-        const base64 = await compressImage(file)
-        setPhotos((prev) => [...prev, { id: crypto.randomUUID(), base64, label: file.name, uploadedAt: new Date().toISOString() }])
+        const blob = await compressImageToBlob(file)
+        const base64 = await blobToDataUrl(blob)
+        const id = crypto.randomUUID()
+        setPhotos((prev) => [...prev, { id, base64, label: file.name, uploadedAt: new Date().toISOString() }])
+        if (!isNonProductionDataMode()) {
+          void uploadRdoPhoto(blob)
+            .then((storagePath) => setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, storagePath } : p))))
+            .catch(() => { /* offline/sem org: mantém o base64 como fallback */ })
+        }
       } catch {
         // ignora imagem inválida/corrompida
       }
@@ -334,7 +343,7 @@ export function RdoCompizzoPanel() {
       geolocation: null,
       observations: observacoes,
       incidents: '',
-      photos,
+      photos: leanPhotosForPersist(photos),
       siteId: obraSiteId,
       numeroContrato: numeroContrato || undefined,
       template: 'compizzo' as const,
@@ -402,9 +411,11 @@ export function RdoCompizzoPanel() {
 
   function handlePrint() {
     const now = new Date().toISOString()
-    printCompizzoPdf({
+    // `photos` (state da tela) tem base64 → preview imprime sem ir à rede; o gerador
+    // resolve pra base64 quando a foto só tiver storagePath (ex.: RDO em edição).
+    void printCompizzoPdf({
       id: 'preview', number: 0, createdAt: now, updatedAt: now,
-      ...buildRdoPayload(),
+      ...buildRdoPayload(), photos,
     })
   }
 
@@ -842,8 +853,8 @@ export function RdoCompizzoPanel() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
               {photos.map((p, i) => (
                 <div key={p.id} className="relative group">
-                  <img src={p.base64} alt={p.label} className="w-full h-24 object-cover rounded-lg border border-[#525252]" />
-                  <button onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))} className="absolute top-1 right-1 bg-black/60 rounded p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
+                  <RdoPhotoImg photo={p} className="w-full h-24 object-cover rounded-lg border border-[#525252]" />
+                  <button onClick={() => { if (p.storagePath) void removeRdoPhoto(p.storagePath); setPhotos((prev) => prev.filter((_, idx) => idx !== i)) }} className="absolute top-1 right-1 bg-black/60 rounded p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"><X size={12} /></button>
                 </div>
               ))}
             </div>

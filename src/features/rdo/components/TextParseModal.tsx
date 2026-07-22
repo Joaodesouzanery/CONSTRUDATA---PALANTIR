@@ -125,7 +125,7 @@ export function TextParseModal({ onClose, onApply }: Props) {
       createdAt:    new Date().toISOString(),
       updatedAt:    new Date().toISOString(),
     }
-    printRdoPDF(draft)
+    void printRdoPDF(draft)
   }
 
   function handleApply() {
