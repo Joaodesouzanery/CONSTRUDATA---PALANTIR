@@ -5,7 +5,7 @@
  *
  * Use junto com useStoreSync: const sync = useStoreSync(useXStore); <SyncBadge {...sync} />
  */
-import { Cloud, CloudOff, Loader2, AlertTriangle, FlaskConical } from 'lucide-react'
+import { Cloud, CloudOff, Loader2, FlaskConical } from 'lucide-react'
 import type { StoreSyncInfo } from '@/lib/useStoreSync'
 
 export function SyncBadge({ syncStatus, syncError, pending, demo }: StoreSyncInfo & { className?: string }) {
@@ -21,17 +21,18 @@ export function SyncBadge({ syncStatus, syncError, pending, demo }: StoreSyncInf
     title = 'Ambiente demo/homologação — alterações não são salvas no servidor.'
   } else if (syncStatus === 'syncing') {
     icon = <Loader2 size={12} className="animate-spin" />
-    label = 'Salvando…'
+    label = 'Salvo no aparelho · enviando…'
     cls = 'text-[#38bdf8] border-[#38bdf8]/30 bg-[#38bdf8]/10'
-    title = label
+    title = 'Salvo no aparelho — enviando para a nuvem. Pode continuar; não precisa atualizar a página.'
   } else if (syncStatus === 'error') {
-    icon = <AlertTriangle size={12} />
-    label = pending > 0 ? `Não sincronizado (${pending})` : 'Não sincronizado'
-    cls = 'text-[#ef4444] border-[#ef4444]/30 bg-[#ef4444]/10'
-    // Surface the real cause so the failure is diagnosable (RLS, tabela ausente, etc.)
+    // Dado seguro no aparelho: enquadra como "vamos reenviar", não como perda.
+    // O motivo real fica no tooltip para diagnóstico (RLS, coluna ausente, etc.).
+    icon = <CloudOff size={12} />
+    label = pending > 0 ? `Salvo no aparelho · reenviar (${pending})` : 'Salvo no aparelho'
+    cls = 'text-[#eab308] border-[#eab308]/30 bg-[#eab308]/10'
     title = syncError
-      ? `Falha ao salvar na nuvem: ${syncError}`
-      : 'Falha ao salvar na nuvem. Verifique permissões (papel/RLS), organização ativa e conexão.'
+      ? `Salvo no aparelho. Ainda não subiu para a nuvem (${syncError}). Vamos tentar de novo automaticamente — não atualize a página.`
+      : 'Salvo no aparelho. Ainda não subiu para a nuvem — vamos tentar de novo automaticamente. Não atualize a página.'
   } else if (syncStatus === 'unauth') {
     icon = <CloudOff size={12} />
     label = 'Sessão pendente'

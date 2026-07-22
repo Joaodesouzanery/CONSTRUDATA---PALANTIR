@@ -13,6 +13,33 @@
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { isNonProductionDataMode } from './runtimeMode'
+import { withTimeout } from './withTimeout'
+
+/**
+ * Teto de tempo por requisição de sync. Numa rede de canteiro ruim, uma
+ * requisição pode travar indefinidamente — sem isto o status ficava preso em
+ * "sincronizando" para sempre (o "rodando azul"). No estouro, aborta o fetch,
+ * a op volta pra fila (retry) e o status vira 'error' (dado seguro no aparelho).
+ */
+const SYNC_TIMEOUT_MS = 20_000
+
+/** Roda uma query do Supabase com AbortController + timeout de segurança. */
+async function withAbort<T>(fn: (signal: AbortSignal) => PromiseLike<T>): Promise<T> {
+  const controller = new AbortController()
+  const timer = (typeof window !== 'undefined' ? window.setTimeout : setTimeout)(
+    () => controller.abort(),
+    SYNC_TIMEOUT_MS,
+  ) as unknown as number
+  try {
+    return await withTimeout(
+      fn(controller.signal),
+      SYNC_TIMEOUT_MS + 2_000,
+      'Tempo esgotado ao sincronizar. Salvo no aparelho — vamos reenviar.',
+    )
+  } finally {
+    ;(typeof window !== 'undefined' ? window.clearTimeout : clearTimeout)(timer)
+  }
+}
 
 export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'unauth' | 'error'
 
@@ -141,40 +168,43 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   // ao anterior; é o caminho per-op usado tanto direto quanto no fallback do lote.
   async function applyOp(op: PendingOp) {
     if (op.type === 'insert' && op.row) {
-      const { data, error } = await supabase
+      const { data, error } = await withAbort((signal) => supabase
         .from(op.table)
-        .upsert(fixOrg(op.row) as never, { onConflict: 'id' })
+        .upsert(fixOrg(op.row as Record<string, unknown>) as never, { onConflict: 'id' })
         .select('id')
+        .abortSignal(signal))
       if (error) throw error
       assertAffectedRows(op.table, op, data)
     } else if (op.type === 'update' && op.patch) {
       const softDeleteRpc = softDeleteRpcFor(op)
       const { data, error } = softDeleteRpc
-        ? await supabase.rpc(softDeleteRpc, { p_id: op.recordId })
-        : await supabase
+        ? await withAbort((signal) => supabase.rpc(softDeleteRpc, { p_id: op.recordId }).abortSignal(signal))
+        : await withAbort((signal) => supabase
           .from(op.table)
-          .update(sanitizeIds(op.patch) as never)
+          .update(sanitizeIds(op.patch as Record<string, unknown>) as never)
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
           .select('id')
+          .abortSignal(signal))
       if (error) throw error
       assertAffectedRows(op.table, op, data)
     } else if (op.type === 'delete') {
       if (op.approvalActionType) {
-        const { error } = await supabase.rpc('request_action', {
+        const { error } = await withAbort((signal) => supabase.rpc('request_action', {
           p_action_type:  op.approvalActionType,
           p_target_table: op.table,
           p_target_id:    op.recordId,
           p_payload:      {},
-        } as never)
+        } as never).abortSignal(signal))
         if (error) throw error
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await withAbort((signal) => supabase
           .from(op.table)
           .delete()
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
           .select('id')
+          .abortSignal(signal))
         if (error) throw error
         assertAffectedRows(op.table, op, data)
       }
@@ -199,10 +229,11 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
       } else {
         try {
           const rows = group.map((g) => fixOrg(g.row as Record<string, unknown>))
-          const { data, error } = await supabase
+          const { data, error } = await withAbort((signal) => supabase
             .from(op.table)
             .upsert(rows as never, { onConflict: 'id' })
             .select('id')
+            .abortSignal(signal))
           if (error) throw error
           if (rowCount(data) < rows.length) {
             throw new Error(`Lote em ${op.table}: ${rowCount(data)}/${rows.length} confirmadas.`)

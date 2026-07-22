@@ -20,6 +20,7 @@ import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { compressImage } from '@/lib/imageCompression'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import type {
@@ -300,16 +301,21 @@ export function RdoCompizzoPanel() {
     setTextValue('')
   }
 
-  function handlePhotos(files: FileList | null) {
+  async function handlePhotos(files: FileList | null) {
     if (!files) return
-    Array.from(files).slice(0, 20).forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) return
-      const reader = new FileReader()
-      reader.onload = () => {
-        setPhotos((prev) => [...prev, { id: crypto.randomUUID(), base64: String(reader.result), label: file.name, uploadedAt: new Date().toISOString() }])
+    // Comprime cada foto (canvas → JPEG) antes de guardar: uma foto de celular de
+    // ~4 MB vira ~200 KB. Sem isso, o base64 cru estoura o localStorage (RDO some
+    // ao atualizar) e trava o upload ("rodando azul"). Guarda só contra arquivo
+    // absurdo — a compressão cuida do tamanho.
+    for (const file of Array.from(files).slice(0, 20)) {
+      if (file.size > 30 * 1024 * 1024) continue
+      try {
+        const base64 = await compressImage(file)
+        setPhotos((prev) => [...prev, { id: crypto.randomUUID(), base64, label: file.name, uploadedAt: new Date().toISOString() }])
+      } catch {
+        // ignora imagem inválida/corrompida
       }
-      reader.readAsDataURL(file)
-    })
+    }
   }
 
   function buildRdoPayload(prod: RdoCompizzoProducaoRow[] = producao) {

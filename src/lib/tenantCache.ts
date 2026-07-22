@@ -88,6 +88,18 @@ export function ensureTenantScopedCaches(organizationId: string): boolean {
   const cachedOrganizationId = window.localStorage.getItem(TENANT_MARKER_KEY)
   if (cachedOrganizationId === organizationId) return false
 
+  // Marcador AUSENTE (1º login neste aparelho, ou logo após signOut) → NÃO limpar,
+  // só marcar a org. O único caminho que remove o marcador (`clearTenantScopedCaches()`
+  // no signOut) também limpa todos os caches e sobe as pendências antes — então
+  // "marcador ausente" implica "caches já vazios". Limpar aqui só apagaria dados
+  // deste mesmo usuário criados antes do perfil carregar (ex.: RDO offline) → perda.
+  if (!cachedOrganizationId) {
+    window.localStorage.setItem(TENANT_MARKER_KEY, organizationId)
+    return false
+  }
+
+  // Marcador PRESENTE e DIFERENTE → troca real de organização: limpa o cache do
+  // tenant anterior e marca o novo.
   clearTenantScopedCaches(organizationId)
   return true
 }

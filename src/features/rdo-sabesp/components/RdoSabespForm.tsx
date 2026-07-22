@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { supabase, authHeader } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { isNonProductionDataMode } from "@/lib/runtimeMode";
+import { withTimeout } from "@/lib/withTimeout";
 import {
   SERVICOS_ESGOTO,
   SERVICOS_AGUA,
@@ -107,18 +108,6 @@ const toDataUrl = (blob: Blob) =>
     reader.readAsDataURL(blob);
   });
 
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, message: string) => {
-  let timeoutId: number | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
-  }
-};
 
 const loadImage = (src: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {

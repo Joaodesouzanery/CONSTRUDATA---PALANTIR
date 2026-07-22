@@ -17,36 +17,11 @@ import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { FVS_ITEMS_TEMPLATE } from '../schemas'
 import { printFvsPDF } from '../utils/fvsPdfExport'
+import { compressImage } from '@/lib/imageCompression'
 import type { FVS, FvsItem, FvsConformity, FvsProblemAction } from '@/types'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function compressImage(file: File, maxSize = 1400, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('Erro ao ler imagem.'))
-    reader.onload = () => {
-      const img = new Image()
-      img.onerror = () => reject(new Error('Erro ao carregar imagem.'))
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.max(1, Math.round(img.width * scale))
-        canvas.height = Math.max(1, Math.round(img.height * scale))
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('Canvas indisponível para comprimir imagem.'))
-          return
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        resolve(canvas.toDataURL('image/jpeg', quality))
-      }
-      img.src = String(reader.result)
-    }
-    reader.readAsDataURL(file)
-  })
 }
 
 function makeBlankItems(): FvsItem[] {

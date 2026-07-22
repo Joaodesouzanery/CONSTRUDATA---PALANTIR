@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { isNonProductionDataMode } from "@/lib/runtimeMode";
+import { withTimeout } from "@/lib/withTimeout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,19 +52,6 @@ const periodLabels: Record<PeriodFilter, string> = {
 };
 
 const getTodayDateString = () => new Date().toISOString().slice(0, 10);
-
-const withTimeout = async <T,>(promise: PromiseLike<T>, timeoutMs: number, message: string) => {
-  let timeoutId: number | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
-  }
-};
 
 const getDateRangeForPeriod = (period: PeriodFilter, customStart: string, customEnd: string) => {
   if (period === "custom") {

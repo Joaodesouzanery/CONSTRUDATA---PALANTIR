@@ -5,7 +5,7 @@
  *   com o módulo culpado + a mensagem de erro real + "Tentar novamente" / descartar.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { FlaskConical, Cloud, CloudOff, RefreshCw, AlertTriangle, X, CheckCircle2 } from 'lucide-react'
+import { FlaskConical, Cloud, CloudOff, RefreshCw, X, CheckCircle2 } from 'lucide-react'
 import { useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps } from '@/store/appModeStore'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
@@ -47,10 +47,14 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   // ── Produção ──
   const { pending, error, syncing } = summary
   const dirty = pending > 0 || error
-  const tone = error ? '#f87171' : dirty ? '#eab308' : syncing ? '#60a5fa' : '#4ade80'
-  const Icon = error ? AlertTriangle : dirty ? CloudOff : syncing ? RefreshCw : Cloud
-  const label = error ? `${pending} não salvo(s) — erro` : dirty ? `${pending} não salvo(s)` : syncing ? 'Sincronizando…' : 'Tudo salvo na nuvem'
-  const title = dirty ? 'Clique para ver o que não foi salvo e tentar novamente.' : label
+  const tone = error ? '#eab308' : dirty ? '#eab308' : syncing ? '#60a5fa' : '#4ade80'
+  const Icon = error ? CloudOff : dirty ? CloudOff : syncing ? RefreshCw : Cloud
+  const label = error
+    ? `${pending} salvo(s) no aparelho · reenviar`
+    : dirty ? `${pending} salvo(s) no aparelho` : syncing ? 'Enviando para a nuvem…' : 'Tudo salvo na nuvem'
+  const title = dirty
+    ? 'Salvo no aparelho — ainda não subiu para a nuvem. Clique para ver detalhes e reenviar. Não atualize a página.'
+    : label
 
   return (
     <>

@@ -27,6 +27,7 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
@@ -587,6 +588,9 @@ export const useRdoStore = create<RdoState>()(
     }),
     {
       name: 'cdata-rdo',
+      // Storage à prova de estouro de cota: se o blob (RDO + fotos) não couber no
+      // localStorage, regrava sem as fotos em vez de perder tudo em silêncio.
+      storage: createSafeJSONStorage(),
       partialize: (s) => ({
         activeOrgId:      s.activeOrgId,
         rdos:             s.rdos,

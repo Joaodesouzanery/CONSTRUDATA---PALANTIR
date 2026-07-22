@@ -21,6 +21,7 @@ import { useEquipamentosStore } from '@/store/equipamentosStore'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { checkPendingFvsForDate, getCompletedFvsForDate } from '@/store/crossModuleSync'
+import { compressImage } from '@/lib/imageCompression'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
 import type { RdoEquipmentEntry, RdoMaterialConsumptionEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus, RdoStoppageEntry, RdoWorkforceRow } from '@/types'
@@ -562,7 +563,7 @@ export function NovoRdoPanel() {
       return
     }
 
-    files.forEach((file) => {
+    files.forEach(async (file) => {
       if (!ALLOWED_MIME.includes(file.type)) {
         setPhotoError('Tipo de arquivo não permitido. Use JPEG, PNG, WebP ou GIF.')
         return
@@ -571,14 +572,17 @@ export function NovoRdoPanel() {
         setPhotoError(`"${file.name}" excede ${MAX_SIZE_MB} MB.`)
         return
       }
-      const reader = new FileReader()
-      reader.onload = () => {
+      // Comprime (canvas → JPEG) antes de guardar: evita estourar o localStorage
+      // (RDO some ao atualizar) e travar o upload com base64 cru.
+      try {
+        const base64 = await compressImage(file)
         setPhotos((prev) => [
           ...prev,
-          { base64: reader.result as string, label: file.name, uploadedAt: new Date().toISOString() },
+          { base64, label: file.name, uploadedAt: new Date().toISOString() },
         ])
+      } catch {
+        setPhotoError(`Não foi possível processar "${file.name}".`)
       }
-      reader.readAsDataURL(file)
     })
     // Reset input so same file can be re-selected
     e.target.value = ''
