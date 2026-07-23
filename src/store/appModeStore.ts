@@ -167,6 +167,8 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'company-settings', label: 'Configurações da Empresa', load: () => import('./companySettingsStore').then(m => m.useCompanySettingsStore as unknown as TenantStoreApi) },
   { key: 'economia', label: 'Economia', load: () => import('./economiaStore').then(m => m.useEconomiaStore as unknown as TenantStoreApi) },
   { key: 'manejo-financeiro', label: 'Manejo Financeiro', load: () => import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore as unknown as TenantStoreApi) },
+  { key: 'medicao-unificada', label: 'Medição Unificada', load: () => import('./medicaoUnificadaStore').then(m => m.useMedicaoUnificadaStore as unknown as TenantStoreApi) },
+  { key: 'contractors', label: 'Empreiteiros / Faturas', load: () => import('./contractorStore').then(m => m.useContractorStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {

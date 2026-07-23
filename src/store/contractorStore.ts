@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { flushQueue, makeOp, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 
 export type ContractorStatus = 'active' | 'inactive'
 export type RdoContractorLinkType = 'regular' | 'sabesp'
@@ -153,8 +154,12 @@ interface ContractorState {
   invoiceEvents: ContractorInvoiceEvent[]
   loading: boolean
   syncError: string | null
+  pendingSync: PendingOp[]
+  syncStatus: SyncStatus
 
   load: () => Promise<void>
+  pull: () => Promise<void>
+  flush: () => Promise<void>
   clearData: () => void
   addContractor: (input: Pick<Contractor, 'name'> & Partial<Contractor>) => Promise<string>
   updateContractor: (id: string, patch: Partial<Omit<Contractor, 'id'>>) => Promise<void>
@@ -187,38 +192,28 @@ export function normalizeForemanName(value?: string | null) {
     .toLowerCase()
 }
 
-function authFields() {
-  const { profile, user } = useAuth.getState()
-  return {
-    organization_id: profile?.organization_id,
-    created_by: user?.id,
-  }
-}
-
 function stripPrivate<T extends Record<string, unknown>>(row: T) {
   const clean = { ...row }
   delete clean._syncError
+  // Reinjetados pelo flushQueue.fixOrg com o usuário/org ATUAL — senão o upsert de
+  // uma linha puxada (created_by = autor original) bate na RLS INSERT WITH CHECK.
+  delete clean.created_by
+  delete clean.organization_id
   return clean
 }
 
+// Local-first: enfileira a escrita/soft-delete e sobe via flush() (não grava
+// direto), pra não perder o que foi feito offline e contar no indicador de sync.
+let enqueueContractorWrite: ((table: string, row: Record<string, unknown>) => void) | null = null
+let enqueueContractorDelete: ((table: string, id: string) => void) | null = null
+
 async function tryUpsert(table: string, row: object) {
-  const fields = authFields()
-  if (!fields.organization_id || !fields.created_by) return null
-  const payload = stripPrivate({ ...row, ...fields })
-  const { data, error } = await supabase.from(table).upsert(payload).select('*').single()
-  if (error) throw error
-  return data
+  enqueueContractorWrite?.(table, stripPrivate(row as Record<string, unknown>))
+  return row   // otimista — o flush confirma no servidor e retenta se falhar
 }
 
 async function trySoftDelete(table: string, idValue: string) {
-  const { profile } = useAuth.getState()
-  if (!profile) return
-  const { error } = await supabase
-    .from(table)
-    .update({ deleted_at: nowIso() })
-    .eq('id', idValue)
-    .eq('organization_id', profile.organization_id)
-  if (error) throw error
+  enqueueContractorDelete?.(table, idValue)
 }
 
 export const useContractorStore = create<ContractorState>()(
@@ -233,6 +228,27 @@ export const useContractorStore = create<ContractorState>()(
       invoiceEvents: [],
       loading: false,
       syncError: null,
+      pendingSync: [],
+      syncStatus: 'idle',
+
+      flush: async () => {
+        const queue = get().pendingSync
+        if (queue.length === 0) return
+        if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+        const { profile } = useAuth.getState()
+        if (!profile) { set({ syncStatus: 'unauth' }); return }
+        set({ syncStatus: 'syncing', syncError: null })
+        const result = await flushQueue(queue)
+        set((s) => ({
+          pendingSync: s.pendingSync
+            .filter((p) => !result.completed.includes(p.id))
+            .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+          syncStatus:   result.lastError ? 'error' : 'idle',
+          syncError:    result.lastError ?? null,
+        }))
+      },
+
+      pull: async () => { await get().load() },
 
       load: async () => {
         const { profile } = useAuth.getState()
@@ -266,14 +282,18 @@ export const useContractorStore = create<ContractorState>()(
             const ids = new Set(fetched.map((i) => i.id))
             return [...fetched, ...local.filter((i) => i._syncError && !ids.has(i.id))]
           }
+          // Não sobrescreve tabela com escrita local ainda não sincronizada (fila).
+          const pend = new Set(prev.pendingSync.map((op) => op.table))
+          const guard = <T extends { id: string; _syncError?: string | null }>(table: string, fetched: T[], local: T[]): T[] =>
+            pend.has(table) ? local : keepUnsynced(fetched, local)
           set({
-            contractors: keepUnsynced((contractors.data ?? []) as typeof prev.contractors, prev.contractors),
-            foremen: keepUnsynced((foremen.data ?? []) as typeof prev.foremen, prev.foremen),
-            rdoLinks: rdoLinks.data ?? [],
-            measurementSources: keepUnsynced((measurementSources.data ?? []) as typeof prev.measurementSources, prev.measurementSources),
-            adjustments: keepUnsynced((adjustments.data ?? []) as typeof prev.adjustments, prev.adjustments),
-            invoices: keepUnsynced((invoices.data ?? []) as typeof prev.invoices, prev.invoices),
-            invoiceEvents: invoiceEvents.data ?? [],
+            contractors: guard('contractors', (contractors.data ?? []) as typeof prev.contractors, prev.contractors),
+            foremen: guard('contractor_foremen', (foremen.data ?? []) as typeof prev.foremen, prev.foremen),
+            rdoLinks: pend.has('rdo_contractor_links') ? prev.rdoLinks : (rdoLinks.data ?? []),
+            measurementSources: guard('measurement_sources', (measurementSources.data ?? []) as typeof prev.measurementSources, prev.measurementSources),
+            adjustments: guard('measurement_adjustments', (adjustments.data ?? []) as typeof prev.adjustments, prev.adjustments),
+            invoices: guard('contractor_invoices', (invoices.data ?? []) as typeof prev.invoices, prev.invoices),
+            invoiceEvents: pend.has('contractor_invoice_events') ? prev.invoiceEvents : (invoiceEvents.data ?? []),
             loading: false,
             syncError: null,
           })
@@ -294,6 +314,8 @@ export const useContractorStore = create<ContractorState>()(
         invoiceEvents: [],
         loading: false,
         syncError: null,
+        pendingSync: [],
+        syncStatus: 'idle',
       }),
 
       addContractor: async (input) => {
@@ -332,16 +354,16 @@ export const useContractorStore = create<ContractorState>()(
 
       removeContractor: async (idValue) => {
         const deleted_at = nowIso()
+        // Cascata: soft-delete dos foremen também precisa subir (senão voltam ativos no pull).
+        const foremanIds = get().foremen.filter((f) => f.contractor_id === idValue && !f.deleted_at).map((f) => f.id)
         set((state) => ({
           contractors: state.contractors.map((item) => item.id === idValue ? { ...item, deleted_at } : item),
           foremen: state.foremen.map((item) => item.contractor_id === idValue ? { ...item, deleted_at } : item),
         }))
-        try {
-          await trySoftDelete('contractors', idValue)
-        } catch (error) {
-          set({ syncError: String((error as Error).message) })
-        }
+        await trySoftDelete('contractors', idValue)
+        for (const fid of foremanIds) await trySoftDelete('contractor_foremen', fid)
       },
+
 
       addForeman: async (input) => {
         const row: ContractorForeman = {
@@ -534,7 +556,32 @@ export const useContractorStore = create<ContractorState>()(
         adjustments: state.adjustments,
         invoices: state.invoices,
         invoiceEvents: state.invoiceEvents,
+        pendingSync: state.pendingSync,
       }),
     },
   ),
 )
+
+// Liga a fila do store aos helpers de escrita/soft-delete (local-first).
+enqueueContractorWrite = (table, row) => {
+  useContractorStore.setState((s) => ({
+    pendingSync: [...s.pendingSync, makeOp({ entity: table, type: 'insert', recordId: String(row.id ?? ''), row, table })],
+  }))
+  void useContractorStore.getState().flush()
+}
+enqueueContractorDelete = (table, id) => {
+  useContractorStore.setState((s) => ({
+    pendingSync: [...s.pendingSync, makeOp({ entity: table, type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table })],
+  }))
+  void useContractorStore.getState().flush()
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    // Sequencial: flush antes do load (senão o load descarta a op recém-enviada).
+    void (async () => {
+      await useContractorStore.getState().flush()
+      await useContractorStore.getState().load()
+    })()
+  })
+}

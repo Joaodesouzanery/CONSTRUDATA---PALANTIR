@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { eventBus } from '@/lib/eventBus'
 import { buildOperationalKey, validateOperationalKey } from '@/lib/operationalKey'
+import { flushQueue, makeOp, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 
 export type UnifiedSourceKind =
   | 'rdo'
@@ -204,8 +205,12 @@ interface UnifiedMeasurementState {
   financialEntries: UnifiedMeasurementFinancialEntry[]
   loading: boolean
   syncError: string | null
+  pendingSync: PendingOp[]
+  syncStatus: SyncStatus
 
   load: () => Promise<void>
+  pull: () => Promise<void>
+  flush: () => Promise<void>
   clearData: () => void
   setActivePeriod: (periodId: string | null) => void
   createPeriod: (input: Partial<UnifiedMeasurementPeriod> & Pick<UnifiedMeasurementPeriod, 'period_label'>) => Promise<string>
@@ -228,17 +233,14 @@ const today = () => new Date().toISOString().slice(0, 10)
 const id = () => crypto.randomUUID()
 const num = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0
 
-function authFields() {
-  const { profile, user } = useAuth.getState()
-  return {
-    organization_id: profile?.organization_id,
-    created_by: user?.id,
-  }
-}
-
 function cleanRow<T extends Record<string, unknown>>(row: T) {
   const copy = { ...row }
   delete copy._syncError
+  // created_by/organization_id são reinjetados pelo flushQueue.fixOrg com o
+  // usuário/org ATUAL. Deixá-los aqui (com o autor original de uma linha puxada)
+  // faria o upsert bater na RLS INSERT WITH CHECK (created_by = auth.uid()).
+  delete copy.created_by
+  delete copy.organization_id
   return copy
 }
 
@@ -255,13 +257,13 @@ async function safeSelect<T>(table: string, fallback: T[]): Promise<{ data: T[];
   return { data: (data ?? []) as T[], error: null }
 }
 
+// Local-first: em vez de gravar direto no Supabase (o que perdia escrita offline
+// e ficava invisível no indicador de sync), enfileira a linha e sobe via flush().
+let enqueueMedicaoWrite: ((table: string, row: Record<string, unknown>) => void) | null = null
+
 async function tryUpsert<T>(table: string, row: T): Promise<T | null> {
-  const fields = authFields()
-  if (!fields.organization_id || !fields.created_by) return null
-  const payload = cleanRow({ ...(row as Record<string, unknown>), ...fields })
-  const { data, error } = await supabase.from(table).upsert(payload).select('*').single()
-  if (error) throw error
-  return data as unknown as T
+  enqueueMedicaoWrite?.(table, cleanRow(row as Record<string, unknown>))
+  return row   // otimista — o flush confirma no servidor e retenta se falhar
 }
 
 function sourcePayloadText(payload: Record<string, unknown> | null | undefined, keys: string[]) {
@@ -341,6 +343,27 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
       financialEntries: [],
       loading: false,
       syncError: null,
+      pendingSync: [],
+      syncStatus: 'idle',
+
+      flush: async () => {
+        const queue = get().pendingSync
+        if (queue.length === 0) return
+        if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+        const { profile } = useAuth.getState()
+        if (!profile) { set({ syncStatus: 'unauth' }); return }
+        set({ syncStatus: 'syncing', syncError: null })
+        const result = await flushQueue(queue)
+        set((s) => ({
+          pendingSync: s.pendingSync
+            .filter((p) => !result.completed.includes(p.id))
+            .map((p) => result.errored.includes(p.id) ? { ...p, retries: p.retries + 1 } : p),
+          syncStatus:   result.lastError ? 'error' : 'idle',
+          syncError:    result.lastError ?? null,
+        }))
+      },
+
+      pull: async () => { await get().load() },
 
       load: async () => {
         set({ loading: true, syncError: null })
@@ -359,16 +382,20 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           const ids = new Set(fetched.map((i) => i.id))
           return [...fetched, ...local.filter((i) => i._syncError && !ids.has(i.id))]
         }
-        const nextPeriods = keepUnsynced(periods.data, state.periods)
+        // Relê o estado APÓS o fetch: uma escrita enfileirada durante a rede não
+        // pode ser descartada (guarda + base de merge têm que ser o estado fresco).
+        const fresh = get()
+        const pendingTables = new Set(fresh.pendingSync.map((op) => op.table))
+        const nextPeriods = pendingTables.has('measurement_periods') ? fresh.periods : keepUnsynced(periods.data, fresh.periods)
         set({
           periods: nextPeriods,
-          sources: keepUnsynced(sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })), state.sources),
-          memoryLines: keepUnsynced(memoryLines.data, state.memoryLines),
-          contractItems: keepUnsynced(contractItems.data, state.contractItems),
-          financialEntries: keepUnsynced(financialEntries.data, state.financialEntries),
-          activePeriodId: state.activePeriodId && nextPeriods.some((period) => period.id === state.activePeriodId)
-            ? state.activePeriodId
-            : nextPeriods[0]?.id ?? state.activePeriodId,
+          sources: pendingTables.has('measurement_sources') ? fresh.sources : keepUnsynced(sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })), fresh.sources),
+          memoryLines: pendingTables.has('measurement_memory_lines') ? fresh.memoryLines : keepUnsynced(memoryLines.data, fresh.memoryLines),
+          contractItems: pendingTables.has('measurement_contract_items') ? fresh.contractItems : keepUnsynced(contractItems.data, fresh.contractItems),
+          financialEntries: pendingTables.has('measurement_financial_entries') ? fresh.financialEntries : keepUnsynced(financialEntries.data, fresh.financialEntries),
+          activePeriodId: fresh.activePeriodId && nextPeriods.some((period) => period.id === fresh.activePeriodId)
+            ? fresh.activePeriodId
+            : nextPeriods[0]?.id ?? fresh.activePeriodId,
           loading: false,
           syncError,
         })
@@ -383,6 +410,8 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
         financialEntries: [],
         loading: false,
         syncError: null,
+        pendingSync: [],
+        syncStatus: 'idle',
       }),
 
       setActivePeriod: (periodId) => set({ activePeriodId: periodId }),
@@ -671,14 +700,28 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
         memoryLines: state.memoryLines,
         contractItems: state.contractItems,
         financialEntries: state.financialEntries,
+        pendingSync: state.pendingSync,
       }),
     },
   ),
 )
 
+// Liga a fila do store ao tryUpsert (local-first): cada escrita vira uma op.
+enqueueMedicaoWrite = (table, row) => {
+  useMedicaoUnificadaStore.setState((s) => ({
+    pendingSync: [...s.pendingSync, makeOp({ entity: table, type: 'insert', recordId: String(row.id ?? ''), row, table })],
+  }))
+  void useMedicaoUnificadaStore.getState().flush()
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    void useMedicaoUnificadaStore.getState().load()
+    // Sequencial: sobe a fila ANTES de recarregar, senão o load lê um snapshot
+    // sem a op recém-enviada e a descarta (o flush já limpou a op).
+    void (async () => {
+      await useMedicaoUnificadaStore.getState().flush()
+      await useMedicaoUnificadaStore.getState().load()
+    })()
   })
 
   void import('@/lib/eventBus').then(({ eventBus }) => {
