@@ -33,7 +33,6 @@ const TENANT_CACHE_KEYS = [
   'cdata-company-settings',
   'cdata-contractors',
   'cdata-economia',
-  'cdata-levantamento-obra',
   'cdata-rdo-sabesp',
   'cdata-manutencoes',
   'cdata-user-routine',

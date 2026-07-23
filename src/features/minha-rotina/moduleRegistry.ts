@@ -6,7 +6,7 @@
  * para o picker de "+ Adicionar". Mantém ícones e descrições curtas.
  */
 import {
-  ClipboardList, Calendar, Radio, Wrench,
+  Calendar, Radio, Wrench,
   PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Map, Network, BrainCircuit, TrendingUp,
   ShieldCheck, Ruler, BadgeDollarSign, type LucideIcon,
@@ -28,13 +28,6 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     icon: LayoutDashboard,
     group: 'gestao',
     description: 'Visão financeira (CPI/SPI), curva S e alertas integrados.',
-  },
-  {
-    path: '/app/relatorio360',
-    label: 'Relatório 360',
-    icon: ClipboardList,
-    group: 'gestao',
-    description: 'KPIs operacionais, S-curve e matriz RAG por projeto.',
   },
   {
     path: '/app/torre-de-controle',
@@ -111,13 +104,6 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     description: 'Frota fixa, manutenção preventiva e utilização.',
   },
   // ── PROJETOS ────────────────────────────────────────────────────────────
-  {
-    path: '/app/levantamento-obra',
-    label: 'Levantamento',
-    icon: Ruler,
-    group: 'projetos',
-    description: 'Levantamento tecnico, custos, orcamento e fotos da obra.',
-  },
   {
     path: '/app/economia',
     label: 'Economia',

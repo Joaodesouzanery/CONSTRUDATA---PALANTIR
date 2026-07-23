@@ -51,7 +51,7 @@ const STORE_KEYS = [
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
-  'cdata-manejo-financeiro', 'cdata-levantamento-obra',
+  'cdata-manejo-financeiro',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -119,7 +119,6 @@ async function restoreUserData() {
       import('./companySettingsStore').then(m => m.useCompanySettingsStore),
       import('./economiaStore').then(m => m.useEconomiaStore),
       import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore),
-      import('./levantamentoObraStore').then(m => m.useLevantamentoObraStore),
     ])
     for (const store of stores) {
       store.persist?.rehydrate?.()
@@ -168,7 +167,6 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'company-settings', label: 'Configurações da Empresa', load: () => import('./companySettingsStore').then(m => m.useCompanySettingsStore as unknown as TenantStoreApi) },
   { key: 'economia', label: 'Economia', load: () => import('./economiaStore').then(m => m.useEconomiaStore as unknown as TenantStoreApi) },
   { key: 'manejo-financeiro', label: 'Manejo Financeiro', load: () => import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore as unknown as TenantStoreApi) },
-  { key: 'levantamento-obra', label: 'Levantamento de Obra', load: () => import('./levantamentoObraStore').then(m => m.useLevantamentoObraStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
@@ -303,7 +301,6 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./maoDeObraStore').then(({ useMaoDeObraStore }) => useMaoDeObraStore.getState().clearData())
             import('./otimizacaoFrotaStore').then(({ useOtimizacaoFrotaStore }) => useOtimizacaoFrotaStore.getState().clearData())
             import('./gestao360Store').then(({ useGestao360Store }) => useGestao360Store.getState().clearData())
-            import('./levantamentoObraStore').then(({ useLevantamentoObraStore }) => useLevantamentoObraStore.getState().clearData())
             import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().clearData())
             import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().clearData())
             import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().clearData())

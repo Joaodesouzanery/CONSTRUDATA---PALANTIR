@@ -7,7 +7,6 @@ import { Component, lazy, Suspense, type ReactNode } from 'react'
 
 // Lazy-loaded modules (code-split per route)
 
-const Relatorio360Page      = lazy(() => import('@/features/relatorio360/index').then((m) => ({ default: m.Relatorio360Page })))
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
@@ -26,7 +25,6 @@ const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index')
 const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
 const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
 const ManutencoesPage       = lazy(() => import('@/features/manutencoes/index').then((m) => ({ default: m.ManutencoesPage })))
-const LevantamentoObraPage  = lazy(() => import('@/features/levantamento-obra/index').then((m) => ({ default: m.LevantamentoObraPage })))
 const EconomiaPage          = lazy(() => import('@/features/economia/index').then((m) => ({ default: m.EconomiaPage })))
 
 // Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
@@ -122,13 +120,15 @@ function App() {
           <Route path="adaptacao-rapida" element={<LazyRoute><AdaptacaoRapidaPage /></LazyRoute>} />
           <Route path="minha-rotina"        element={<LazyRoute><MinhaRotinaPage /></LazyRoute>} />
           <Route path="comando-central"     element={<LazyRoute><ComandoCentralPage /></LazyRoute>} />
-          <Route path="relatorio360"        element={<LazyRoute><Relatorio360Page /></LazyRoute>} />
+          {/* Relatório 360 virou aba do Gestão 360. Redireciona links antigos. */}
+          <Route path="relatorio360"        element={<Navigate to="/app/gestao-360" replace />} />
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
           <Route path="gestao-equipamentos" element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
           <Route path="projetos"            element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
-          <Route path="levantamento-obra"   element={<LazyRoute><LevantamentoObraPage /></LazyRoute>} />
+          {/* Módulo "Levantamento" removido. Redireciona links antigos. */}
+          <Route path="levantamento-obra"   element={<Navigate to="/app/minha-rotina" replace />} />
           <Route path="economia"            element={<LazyRoute><EconomiaPage /></LazyRoute>} />
           <Route path="pre-construcao"      element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />

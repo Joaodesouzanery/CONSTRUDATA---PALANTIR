@@ -12,6 +12,12 @@ import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 type Diag = { key: string; label: string; pending: number; error: boolean; syncError: string | null }
 
+/** Erro de schema faltando (PGRST205 tabela / PGRST204 coluna) → dica de rodar as migrações. */
+function isSchemaError(msg: string): boolean {
+  const m = msg.toLowerCase()
+  return m.includes('schema cache') || m.includes('could not find the table') || (m.includes('could not find') && m.includes('column'))
+}
+
 export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   useAppModeStore((s) => s.isDemoMode)
   const orgId = useAuth((s) => s.profile?.organization_id)
@@ -138,6 +144,11 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
                   </div>
                   {d.error && d.syncError && (
                     <p className="mt-1.5 text-[11px] text-[#fca5a5] break-words">{d.syncError}</p>
+                  )}
+                  {d.error && d.syncError && isSchemaError(d.syncError) && (
+                    <p className="mt-1 text-[11px] text-[#fbbf24] break-words">
+                      Falta uma tabela/coluna no banco. Rode o <b>APPLY_PENDENTE.sql</b> no Supabase (SQL Editor) e clique em "Tentar novamente".
+                    </p>
                   )}
                   <div className="mt-2 flex flex-wrap gap-2">
                     {d.key === 'torre' && (

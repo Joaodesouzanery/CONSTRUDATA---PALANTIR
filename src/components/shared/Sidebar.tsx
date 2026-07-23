@@ -36,7 +36,6 @@ const NAV_GROUPS = [
     label: 'GESTÃO',
     items: [
       { label: 'Gestão 360',      icon: LayoutDashboard,  to: '/app/gestao-360'          },
-      { label: 'Relatório 360',   icon: ClipboardList,    to: '/app/relatorio360'        },
       { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
       { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
       { label: 'Medição',          icon: Ruler,            to: '/app/medicao'             },
@@ -65,7 +64,6 @@ const NAV_GROUPS = [
   {
     label: 'PROJETOS',
     items: [
-      { label: 'Levantamento', icon: Ruler,            to: '/app/levantamento-obra'  },
       { label: 'Economia',      icon: BadgeDollarSign,  to: '/app/economia'            },
     ],
   },

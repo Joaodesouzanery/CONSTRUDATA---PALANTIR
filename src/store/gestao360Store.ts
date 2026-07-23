@@ -13,7 +13,7 @@ import { uploadFile, removeFile } from '@/lib/storage'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
 
-export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'command'
+export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'relatorio360'
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function changeOrderToRow(co: ChangeOrder, orgId: string, userId: string) {
