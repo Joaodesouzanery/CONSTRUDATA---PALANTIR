@@ -2492,6 +2492,7 @@ export interface CostAccountEntry {
   unitCostBRL: number
   quantity: number
   totalCostBRL: number
+  obraId?: string   // vínculo opcional com a obra (para orçado×real por obra)
 }
 
 export interface WorkPackage {

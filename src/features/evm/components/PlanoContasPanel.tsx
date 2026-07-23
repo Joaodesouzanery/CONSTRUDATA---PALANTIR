@@ -1,27 +1,34 @@
 /**
- * PlanoContasPanel — Industrial Cost Plan with 4 pillars for the EVM module.
- * Sections: Material, Equipamentos, Mão de Obra, Impostos/Indiretos,
- * plus the pre-configured (and fully editable) "Impostos Notas Fiscais" table.
+ * PlanoContasPanel — Plano de Contas orçado × real do módulo Financeiro.
+ * Custos em 4 pilares (orçado dos costAccounts × real dos lançamentos), seção
+ * de Receitas (orçado = valor de contrato da obra × real das entradas), vínculo
+ * de cada seção com a linha da DRE, e filtro/subtotais por obra.
+ * Real e orçado são derivados (não altera lançamentos nem métricas do EVM).
  */
-import { useEffect, useState } from 'react'
-import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X, TrendingUp, ArrowRight } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import type { CostPillar, ImpostoNF } from '@/types'
+import { filterEntries, catLabel, DRE_LINE_LABELS, num } from '@/features/financeiro/lib/financeiroCalc'
+import type { CostPillar, ImpostoNF, DreLineKey, SaidaCategoria, EntradaCategoria } from '@/types'
 
 interface PillarConfig {
   key: CostPillar
   label: string
   color: string
   icon: typeof Package
+  cats: SaidaCategoria[]     // categorias de saída somadas como "real" deste pilar
+  dreLine: DreLineKey
 }
 
 const PILLARS: PillarConfig[] = [
-  { key: 'material', label: 'Material', color: '#38bdf8', icon: Package },
-  { key: 'equipamento', label: 'Equipamentos', color: '#f97316', icon: Wrench },
-  { key: 'mao_de_obra', label: 'Mão de Obra', color: '#22c55e', icon: Users },
-  { key: 'impostos_indiretos', label: 'Impostos / Indiretos', color: '#a78bfa', icon: FileText },
+  { key: 'material', label: 'Material', color: '#38bdf8', icon: Package, cats: ['materiais'], dreLine: 'custo' },
+  { key: 'equipamento', label: 'Equipamentos', color: '#f97316', icon: Wrench, cats: ['equipamentos'], dreLine: 'custo' },
+  { key: 'mao_de_obra', label: 'Mão de Obra', color: '#22c55e', icon: Users, cats: ['mao_de_obra', 'subempreiteiros'], dreLine: 'custo' },
+  { key: 'impostos_indiretos', label: 'Impostos / Indiretos', color: '#a78bfa', icon: FileText, cats: ['administrativo', 'outro'], dreLine: 'despesa_adm' },
 ]
 
 interface NewEntryForm {
@@ -30,55 +37,113 @@ interface NewEntryForm {
   unitCostBRL: string
   quantity: string
   activityId: string
+  obraId: string
+}
+const EMPTY_FORM: NewEntryForm = { pillar: 'material', description: '', unitCostBRL: '', quantity: '', activityId: '', obraId: '' }
+
+function VarianceStrip({ orcado, real, mode, color }: { orcado: number; real: number; mode: 'custo' | 'receita'; color: string }) {
+  const variancia = orcado - real
+  const pct = orcado > 0 ? (real / orcado) * 100 : 0
+  // Custo: consumir acima do orçado é ruim (vermelho). Receita: faturar mais é bom.
+  const over = mode === 'custo' ? real > orcado : false
+  const barColor = over ? '#ef4444' : color
+  return (
+    <div className="flex flex-col gap-1 min-w-[220px]">
+      <div className="flex items-center justify-between gap-4 text-[11px]">
+        <span className="text-[#a3a3a3]">Orçado <strong className="text-[#f5f5f5] font-mono">{formatCurrency(orcado)}</strong></span>
+        <span className="text-[#a3a3a3]">Real <strong className="font-mono" style={{ color: barColor }}>{formatCurrency(real)}</strong></span>
+      </div>
+      <div className="h-2 bg-[#2c2c2c] rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }} />
+      </div>
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="text-[#6b6b6b]">{pct.toFixed(0)}% {mode === 'custo' ? 'consumido' : 'realizado'}</span>
+        <span style={{ color: variancia >= 0 ? '#22c55e' : '#ef4444' }} className="font-mono">
+          {mode === 'custo' ? 'Saldo ' : 'Falta '}{formatCurrency(Math.abs(variancia))}
+        </span>
+      </div>
+    </div>
+  )
 }
 
-const EMPTY_FORM: NewEntryForm = {
-  pillar: 'material',
-  description: '',
-  unitCostBRL: '',
-  quantity: '',
-  activityId: '',
+function DreBadge({ line }: { line: DreLineKey }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold bg-[#2c2c2c] text-[#a3a3a3] border border-[#525252]">
+      DRE <ArrowRight size={9} /> {DRE_LINE_LABELS[line]}
+    </span>
+  )
 }
 
 export function PlanoContasPanel() {
   const { costAccounts, addCostAccount, updateCostAccount, removeCostAccount } = useEvmStore()
+  const entries = useFinanceiroStore((s) => s.entries)
+  const sites = useTorreStore((s) => s.sites)
+
+  const [obraFilter, setObraFilter] = useState('')
   const [addingPillar, setAddingPillar] = useState<CostPillar | null>(null)
   const [form, setForm] = useState<NewEntryForm>({ ...EMPTY_FORM })
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<{ description: string; unitCostBRL: string; quantity: string }>({ description: '', unitCostBRL: '', quantity: '' })
+  const [editForm, setEditForm] = useState<{ description: string; unitCostBRL: string; quantity: string; obraId: string }>({ description: '', unitCostBRL: '', quantity: '', obraId: '' })
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const siteName = useMemo(() => {
+    const m = new Map(sites.map((s) => [s.id, s.code ? `${s.code} — ${s.name}` : s.name]))
+    return (id?: string) => (id ? (m.get(id) ?? '—') : '—')
+  }, [sites])
+
+  // Escopo por obra
+  const scopedCAs = useMemo(
+    () => (obraFilter ? costAccounts.filter((ca) => (ca.obraId ?? '') === obraFilter) : costAccounts),
+    [costAccounts, obraFilter],
+  )
+  const scopedEntries = useMemo(() => filterEntries(entries, { obraId: obraFilter || undefined }), [entries, obraFilter])
+  const saidas = useMemo(() => scopedEntries.filter((e) => e.tipo === 'saida'), [scopedEntries])
+  const entradas = useMemo(() => scopedEntries.filter((e) => e.tipo === 'entrada'), [scopedEntries])
+
+  const realByCat = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of saidas) m.set(e.categoria, (m.get(e.categoria) ?? 0) + num(e.valor))
+    return m
+  }, [saidas])
+
+  function orcadoPillar(p: PillarConfig) { return scopedCAs.filter((ca) => ca.pillar === p.key).reduce((s, ca) => s + ca.totalCostBRL, 0) }
+  function realPillar(p: PillarConfig) { return p.cats.reduce((s, c) => s + (realByCat.get(c) ?? 0), 0) }
+
+  // Receitas
+  const orcadoReceita = obraFilter
+    ? (sites.find((s) => s.id === obraFilter)?.orcamentoBRL ?? 0)
+    : sites.reduce((s, o) => s + (o.orcamentoBRL ?? 0), 0)
+  const realReceita = entradas.reduce((s, e) => s + num(e.valor), 0)
+  const realReceitaByCat = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of entradas) m.set(e.categoria, (m.get(e.categoria) ?? 0) + num(e.valor))
+    return m
+  }, [entradas])
+
+  // Totais
+  const orcadoCustoTotal = PILLARS.reduce((s, p) => s + orcadoPillar(p), 0)
+  const realCustoTotal = saidas.reduce((s, e) => s + num(e.valor), 0)
+  const margemOrcada = orcadoReceita - orcadoCustoTotal
+  const resultadoReal = realReceita - realCustoTotal
 
   function startEdit(id: string) {
     const ca = costAccounts.find((c) => c.id === id)
     if (!ca) return
     setEditingId(id)
-    setEditForm({ description: ca.description, unitCostBRL: String(ca.unitCostBRL), quantity: String(ca.quantity) })
+    setEditForm({ description: ca.description, unitCostBRL: String(ca.unitCostBRL), quantity: String(ca.quantity), obraId: ca.obraId ?? '' })
   }
-
   function confirmEdit() {
     if (!editingId) return
     const unitCost = parseFloat(editForm.unitCostBRL)
     const qty = parseFloat(editForm.quantity)
     if (!editForm.description.trim() || isNaN(unitCost) || isNaN(qty)) return
-    updateCostAccount(editingId, { description: editForm.description, unitCostBRL: unitCost, quantity: qty })
+    updateCostAccount(editingId, { description: editForm.description, unitCostBRL: unitCost, quantity: qty, obraId: editForm.obraId || undefined })
     setEditingId(null)
   }
-
-  function entriesForPillar(pillar: CostPillar) {
-    return costAccounts.filter((ca) => ca.pillar === pillar)
-  }
-
-  function pillarTotal(pillar: CostPillar) {
-    return entriesForPillar(pillar).reduce((sum, ca) => sum + ca.totalCostBRL, 0)
-  }
-
-  const grandTotal = costAccounts.reduce((sum, ca) => sum + ca.totalCostBRL, 0)
-
   function openAddForm(pillar: CostPillar) {
     setAddingPillar(pillar)
-    setForm({ ...EMPTY_FORM, pillar })
+    setForm({ ...EMPTY_FORM, pillar, obraId: obraFilter })
   }
-
   function handleAdd() {
     const unitCost = parseFloat(form.unitCostBRL)
     const qty = parseFloat(form.quantity)
@@ -89,6 +154,7 @@ export function PlanoContasPanel() {
       description: form.description,
       unitCostBRL: unitCost,
       quantity: qty,
+      obraId: form.obraId || undefined,
     })
     setAddingPillar(null)
     setForm({ ...EMPTY_FORM })
@@ -96,116 +162,131 @@ export function PlanoContasPanel() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-[#f5f5f5] text-sm font-semibold">Plano de Contas Industrial — 4 Pilares</h2>
-        <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-2">
-          <span className="text-[#a3a3a3] text-xs mr-2">Total Geral</span>
-          <span className="font-mono text-[#f97316] text-sm font-semibold">{formatCurrency(grandTotal)}</span>
+      {/* Header + filtro de obra */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-[#f5f5f5] text-sm font-semibold">Plano de Contas — Orçado × Real</h2>
+        <select
+          value={obraFilter}
+          onChange={(e) => setObraFilter(e.target.value)}
+          className="bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]"
+        >
+          <option value="">Todas as obras</option>
+          {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
+        </select>
+      </div>
+
+      {/* Resumo geral */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <ResumoCard label="Receita orçada" value={formatCurrency(orcadoReceita)} sub={`Real ${formatCurrency(realReceita)}`} tone="#22c55e" />
+        <ResumoCard label="Custo orçado" value={formatCurrency(orcadoCustoTotal)} sub={`Real ${formatCurrency(realCustoTotal)}`} tone="#ef4444" />
+        <ResumoCard label="Margem orçada" value={formatCurrency(margemOrcada)} sub={`% ${orcadoReceita > 0 ? ((margemOrcada / orcadoReceita) * 100).toFixed(1) : '0'}`} tone={margemOrcada >= 0 ? '#22c55e' : '#ef4444'} />
+        <ResumoCard label="Resultado real" value={formatCurrency(resultadoReal)} sub={`% ${realReceita > 0 ? ((resultadoReal / realReceita) * 100).toFixed(1) : '0'}`} tone={resultadoReal >= 0 ? '#22c55e' : '#ef4444'} />
+      </div>
+
+      {/* Receitas */}
+      <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] flex-wrap gap-3" style={{ borderLeftWidth: 4, borderLeftColor: '#22c55e' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#22c55e20' }}>
+              <TrendingUp size={15} style={{ color: '#22c55e' }} />
+            </div>
+            <span className="text-[#f5f5f5] text-sm font-semibold">Receitas</span>
+            <DreBadge line="receita_bruta" />
+          </div>
+          <VarianceStrip orcado={orcadoReceita} real={realReceita} mode="receita" color="#22c55e" />
+        </div>
+        <div className="px-4 py-3">
+          {realReceitaByCat.size === 0 ? (
+            <p className="text-[#6b6b6b] text-xs">
+              Sem entradas no escopo. Orçado de receita vem do valor de contrato da obra{obraFilter ? '' : ' (soma das obras)'}.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {(['medicao', 'adiantamento', 'reajuste', 'outro'] as EntradaCategoria[]).map((c) => {
+                const v = realReceitaByCat.get(c) ?? 0
+                if (!v) return null
+                return (
+                  <div key={c} className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2">
+                    <p className="text-[10px] text-[#6b6b6b]">{catLabel(c)}</p>
+                    <p className="text-sm font-mono text-emerald-400">{formatCurrency(v)}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Custos por pilar */}
       {PILLARS.map((pillar) => {
-        const entries = entriesForPillar(pillar.key)
-        const total = pillarTotal(pillar.key)
+        const pillarCAs = scopedCAs.filter((ca) => ca.pillar === pillar.key)
+        const orcado = orcadoPillar(pillar)
+        const real = realPillar(pillar)
         const Icon = pillar.icon
         const isAdding = addingPillar === pillar.key
 
         return (
           <div key={pillar.key} className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
-            {/* Section header */}
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b border-[#525252]"
-              style={{ borderLeftWidth: 4, borderLeftColor: pillar.color }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${pillar.color}20` }}
-                >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] flex-wrap gap-3" style={{ borderLeftWidth: 4, borderLeftColor: pillar.color }}>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${pillar.color}20` }}>
                   <Icon size={15} style={{ color: pillar.color }} />
                 </div>
                 <span className="text-[#f5f5f5] text-sm font-semibold">{pillar.label}</span>
-                <span className="text-[#6b6b6b] text-xs">({entries.length} itens)</span>
+                <span className="text-[#6b6b6b] text-xs">({pillarCAs.length} itens)</span>
+                <DreBadge line={pillar.dreLine} />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-semibold" style={{ color: pillar.color }}>
-                  {formatCurrency(total)}
-                </span>
+              <div className="flex items-center gap-4 flex-wrap">
+                <VarianceStrip orcado={orcado} real={real} mode="custo" color={pillar.color} />
                 <button
                   onClick={() => openAddForm(pillar.key)}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
                 >
-                  <Plus size={13} />
-                  Adicionar
+                  <Plus size={13} /> Adicionar
                 </button>
               </div>
             </div>
 
-            {/* Add form */}
             {isAdding && (
               <div className="px-4 py-3 bg-[#2c2c2c] border-b border-[#525252] space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   <div className="md:col-span-2">
                     <label className="text-[#a3a3a3] text-xs block mb-1">Descrição</label>
-                    <input
-                      type="text"
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]"
-                      placeholder="Descrição do item"
-                    />
+                    <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]" placeholder="Descrição do item" />
                   </div>
                   <div>
                     <label className="text-[#a3a3a3] text-xs block mb-1">Custo Unit. (R$)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={form.unitCostBRL}
-                      onChange={(e) => setForm({ ...form, unitCostBRL: e.target.value })}
-                      className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
-                      placeholder="0,00"
-                    />
+                    <input type="number" min={0} step={0.01} value={form.unitCostBRL} onChange={(e) => setForm({ ...form, unitCostBRL: e.target.value })} className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]" placeholder="0,00" />
                   </div>
                   <div>
                     <label className="text-[#a3a3a3] text-xs block mb-1">Quantidade</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.quantity}
-                      onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                      className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
-                      placeholder="0"
-                    />
+                    <input type="number" min={0} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]" placeholder="0" />
+                  </div>
+                  <div>
+                    <label className="text-[#a3a3a3] text-xs block mb-1">Obra</label>
+                    <select value={form.obraId} onChange={(e) => setForm({ ...form, obraId: e.target.value })} className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]">
+                      <option value="">— Geral —</option>
+                      {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => { setAddingPillar(null); setForm({ ...EMPTY_FORM }) }}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleAdd}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors"
-                  >
-                    Confirmar
-                  </button>
+                  <button onClick={() => { setAddingPillar(null); setForm({ ...EMPTY_FORM }) }} className="px-4 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">Cancelar</button>
+                  <button onClick={handleAdd} className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors">Confirmar</button>
                 </div>
               </div>
             )}
 
-            {/* Table */}
-            {entries.length === 0 ? (
+            {pillarCAs.length === 0 ? (
               <div className="flex items-center justify-center h-[60px] text-[#6b6b6b] text-xs">
-                Nenhum item nesta categoria.
+                Nenhum item orçado{obraFilter ? ' nesta obra' : ''}. Real (lançamentos): <span className="font-mono ml-1" style={{ color: pillar.color }}>{formatCurrency(real)}</span>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#525252]/50">
                     <th className="text-left text-[#a3a3a3] text-xs font-medium px-4 py-2">Descrição</th>
+                    <th className="text-left text-[#a3a3a3] text-xs font-medium px-4 py-2 w-40">Obra</th>
                     <th className="text-right text-[#a3a3a3] text-xs font-medium px-4 py-2 w-32">Custo Unit.</th>
                     <th className="text-right text-[#a3a3a3] text-xs font-medium px-4 py-2 w-20">Qtd.</th>
                     <th className="text-right text-[#a3a3a3] text-xs font-medium px-4 py-2 w-36">Total</th>
@@ -213,17 +294,13 @@ export function PlanoContasPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((ca) => {
+                  {pillarCAs.map((ca) => {
                     const isEditing = editingId === ca.id
                     return (
                       <tr key={ca.id} className="border-b border-[#525252]/30 hover:bg-[#484848]/30 transition-colors">
                         <td className="px-4 py-2.5">
                           {isEditing ? (
-                            <input
-                              value={editForm.description}
-                              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                              className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]"
-                            />
+                            <input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]" />
                           ) : (
                             <>
                               <span className="text-[#f5f5f5] text-sm">{ca.description}</span>
@@ -231,48 +308,38 @@ export function PlanoContasPanel() {
                             </>
                           )}
                         </td>
+                        <td className="px-4 py-2.5">
+                          {isEditing ? (
+                            <select value={editForm.obraId} onChange={(e) => setEditForm({ ...editForm, obraId: e.target.value })} className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]">
+                              <option value="">— Geral —</option>
+                              {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
+                            </select>
+                          ) : (
+                            <span className="text-[#a3a3a3] text-xs">{ca.obraId ? siteName(ca.obraId) : 'Geral'}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
                           {isEditing ? (
-                            <input
-                              type="number" min={0} step={0.01}
-                              value={editForm.unitCostBRL}
-                              onChange={(e) => setEditForm({ ...editForm, unitCostBRL: e.target.value })}
-                              className="w-24 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
-                            />
+                            <input type="number" min={0} step={0.01} value={editForm.unitCostBRL} onChange={(e) => setEditForm({ ...editForm, unitCostBRL: e.target.value })} className="w-24 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]" />
                           ) : formatCurrency(ca.unitCostBRL)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-[#a3a3a3] text-sm">
                           {isEditing ? (
-                            <input
-                              type="number" min={0}
-                              value={editForm.quantity}
-                              onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
-                              className="w-16 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]"
-                            />
+                            <input type="number" min={0} value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })} className="w-16 bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-right text-[#f5f5f5] font-mono outline-none focus:border-[#f97316]" />
                           ) : ca.quantity.toLocaleString('pt-BR')}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-mono text-[#f5f5f5] text-sm font-semibold">
-                          {formatCurrency(ca.totalCostBRL)}
-                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono text-[#f5f5f5] text-sm font-semibold">{formatCurrency(ca.totalCostBRL)}</td>
                         <td className="px-4 py-2.5 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {isEditing ? (
                               <>
-                                <button onClick={confirmEdit} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Salvar edição">
-                                  <Check size={14} />
-                                </button>
-                                <button onClick={() => setEditingId(null)} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors" aria-label="Cancelar edição">
-                                  <X size={14} />
-                                </button>
+                                <button onClick={confirmEdit} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Salvar edição"><Check size={14} /></button>
+                                <button onClick={() => setEditingId(null)} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors" aria-label="Cancelar edição"><X size={14} /></button>
                               </>
                             ) : (
                               <>
-                                <button onClick={() => startEdit(ca.id)} className="text-[#6b6b6b] hover:text-[#f97316] transition-colors" aria-label="Editar item">
-                                  <Pencil size={14} />
-                                </button>
-                                <button onClick={() => setDeletingId(ca.id)} className="text-[#6b6b6b] hover:text-red-400 transition-colors" aria-label="Excluir item">
-                                  <Trash2 size={14} />
-                                </button>
+                                <button onClick={() => startEdit(ca.id)} className="text-[#6b6b6b] hover:text-[#f97316] transition-colors" aria-label="Editar item"><Pencil size={14} /></button>
+                                <button onClick={() => setDeletingId(ca.id)} className="text-[#6b6b6b] hover:text-red-400 transition-colors" aria-label="Excluir item"><Trash2 size={14} /></button>
                               </>
                             )}
                           </div>
@@ -283,12 +350,8 @@ export function PlanoContasPanel() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-[#2c2c2c]/50">
-                    <td colSpan={3} className="px-4 py-2.5 text-right text-[#a3a3a3] text-xs font-medium">
-                      Subtotal {pillar.label}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold" style={{ color: pillar.color }}>
-                      {formatCurrency(total)}
-                    </td>
+                    <td colSpan={4} className="px-4 py-2.5 text-right text-[#a3a3a3] text-xs font-medium">Subtotal orçado {pillar.label}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-sm font-semibold" style={{ color: pillar.color }}>{formatCurrency(orcado)}</td>
                     <td />
                   </tr>
                 </tfoot>
@@ -312,6 +375,16 @@ export function PlanoContasPanel() {
   )
 }
 
+function ResumoCard({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: string }) {
+  return (
+    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
+      <p className="text-[10px] uppercase tracking-widest text-[#6b6b6b] mb-1">{label}</p>
+      <p className="text-lg font-bold font-mono" style={{ color: tone }}>{value}</p>
+      <p className="text-[10px] text-[#a3a3a3] mt-0.5">{sub}</p>
+    </div>
+  )
+}
+
 /* ── Impostos Notas Fiscais — tabela pré-configurada e 100% editável ──── */
 
 const IMPOSTOS_COLOR = '#fbbf24'
@@ -324,20 +397,17 @@ function ImpostosNFSection() {
   const [addForm, setAddForm] = useState<Omit<ImpostoNF, 'id' | 'createdAt'>>({ nome: '', aliquota: '', observacao: '' })
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  // Pré-configura as 7 linhas padrão na primeira visita.
   useEffect(() => { seedImpostosNF() }, [seedImpostosNF])
 
   function startEdit(imp: ImpostoNF) {
     setEditingId(imp.id)
     setEditForm({ nome: imp.nome, aliquota: imp.aliquota, observacao: imp.observacao })
   }
-
   function confirmEdit() {
     if (!editingId || !editForm.nome.trim()) return
     updateImpostoNF(editingId, { ...editForm })
     setEditingId(null)
   }
-
   function confirmAdd() {
     if (!addForm.nome.trim()) return
     addImpostoNF({ ...addForm })
@@ -346,15 +416,11 @@ function ImpostosNFSection() {
   }
 
   const deleting = impostosNF.find((i) => i.id === deletingId)
-
   const cellInput = 'w-full bg-[#2c2c2c] border border-[#525252] rounded px-2 py-1 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]'
 
   return (
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl overflow-hidden">
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b border-[#525252]"
-        style={{ borderLeftWidth: 4, borderLeftColor: IMPOSTOS_COLOR }}
-      >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252]" style={{ borderLeftWidth: 4, borderLeftColor: IMPOSTOS_COLOR }}>
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${IMPOSTOS_COLOR}20` }}>
             <Receipt size={15} style={{ color: IMPOSTOS_COLOR }} />
@@ -362,12 +428,8 @@ function ImpostosNFSection() {
           <span className="text-[#f5f5f5] text-sm font-semibold">Impostos Notas Fiscais</span>
           <span className="text-[#6b6b6b] text-xs">({impostosNF.length} itens)</span>
         </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
-        >
-          <Plus size={13} />
-          Adicionar
+        <button onClick={() => setAdding(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors">
+          <Plus size={13} /> Adicionar
         </button>
       </div>
 
@@ -383,15 +445,9 @@ function ImpostosNFSection() {
         <tbody>
           {adding && (
             <tr className="border-b border-[#525252]/30 bg-[#2c2c2c]/60">
-              <td className="px-4 py-2.5">
-                <input value={addForm.nome} onChange={(e) => setAddForm({ ...addForm, nome: e.target.value })} placeholder="Nome" className={cellInput} autoFocus />
-              </td>
-              <td className="px-4 py-2.5">
-                <input value={addForm.aliquota} onChange={(e) => setAddForm({ ...addForm, aliquota: e.target.value })} placeholder="Ex.: 1,00%" className={`${cellInput} font-mono`} />
-              </td>
-              <td className="px-4 py-2.5">
-                <input value={addForm.observacao} onChange={(e) => setAddForm({ ...addForm, observacao: e.target.value })} placeholder="Observação" className={cellInput} />
-              </td>
+              <td className="px-4 py-2.5"><input value={addForm.nome} onChange={(e) => setAddForm({ ...addForm, nome: e.target.value })} placeholder="Nome" className={cellInput} autoFocus /></td>
+              <td className="px-4 py-2.5"><input value={addForm.aliquota} onChange={(e) => setAddForm({ ...addForm, aliquota: e.target.value })} placeholder="Ex.: 1,00%" className={`${cellInput} font-mono`} /></td>
+              <td className="px-4 py-2.5"><input value={addForm.observacao} onChange={(e) => setAddForm({ ...addForm, observacao: e.target.value })} placeholder="Observação" className={cellInput} /></td>
               <td className="px-4 py-2.5 text-center">
                 <div className="flex items-center justify-center gap-2">
                   <button onClick={confirmAdd} className="text-[#22c55e] hover:text-[#16a34a] transition-colors" aria-label="Confirmar adição"><Check size={14} /></button>
@@ -401,9 +457,7 @@ function ImpostosNFSection() {
             </tr>
           )}
           {impostosNF.length === 0 && !adding && (
-            <tr>
-              <td colSpan={4} className="px-4 py-4 text-center text-[#6b6b6b] text-xs">Nenhum imposto cadastrado.</td>
-            </tr>
+            <tr><td colSpan={4} className="px-4 py-4 text-center text-[#6b6b6b] text-xs">Nenhum imposto cadastrado.</td></tr>
           )}
           {impostosNF.map((imp) => {
             const isEditing = editingId === imp.id
@@ -412,23 +466,17 @@ function ImpostosNFSection() {
                 <td className="px-4 py-2.5">
                   {isEditing ? (
                     <input value={editForm.nome} onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })} className={cellInput} />
-                  ) : (
-                    <span className="text-[#f5f5f5] text-sm font-medium">{imp.nome}</span>
-                  )}
+                  ) : <span className="text-[#f5f5f5] text-sm font-medium">{imp.nome}</span>}
                 </td>
                 <td className="px-4 py-2.5">
                   {isEditing ? (
                     <input value={editForm.aliquota} onChange={(e) => setEditForm({ ...editForm, aliquota: e.target.value })} className={`${cellInput} font-mono`} />
-                  ) : (
-                    <span className="font-mono text-sm" style={{ color: IMPOSTOS_COLOR }}>{imp.aliquota}</span>
-                  )}
+                  ) : <span className="font-mono text-sm" style={{ color: IMPOSTOS_COLOR }}>{imp.aliquota}</span>}
                 </td>
                 <td className="px-4 py-2.5">
                   {isEditing ? (
                     <input value={editForm.observacao} onChange={(e) => setEditForm({ ...editForm, observacao: e.target.value })} className={cellInput} />
-                  ) : (
-                    <span className="text-[#a3a3a3] text-sm leading-relaxed">{imp.observacao}</span>
-                  )}
+                  ) : <span className="text-[#a3a3a3] text-sm leading-relaxed">{imp.observacao}</span>}
                 </td>
                 <td className="px-4 py-2.5 text-center">
                   <div className="flex items-center justify-center gap-2">
