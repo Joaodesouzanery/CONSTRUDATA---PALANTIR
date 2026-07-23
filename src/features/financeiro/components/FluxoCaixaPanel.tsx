@@ -1,58 +1,171 @@
+/**
+ * FluxoCaixaPanel — Fluxo de Caixa mensal enriquecido: realizado (dos
+ * lançamentos) × previsto (obrigações em aberto do Manejo Financeiro) ×
+ * saldo projetado. Filtro de período/obra. Não altera nenhum dado.
+ *
+ * Fase C ligará também os títulos a pagar/receber (financeiroTitulosStore) na
+ * coluna "previsto" — a estrutura já soma entradaPrevista/saidaPrevista.
+ */
+import { useMemo, useState } from 'react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useManejoFinanceiroStore } from '@/store/manejoFinanceiroStore'
+import { FinanceiroFilterBar } from './FinanceiroFilterBar'
+import {
+  filterEntries, monthlySeries, monthLabel, monthsRange, spreadValue, addMonthsYM, fmtBRL, num,
+} from '../lib/financeiroCalc'
+import type { FinanceiroFilter } from '../lib/financeiroCalc'
 
-function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+interface FluxoRow {
+  month: string
+  entradasReal: number
+  saidasReal: number
+  resultadoReal: number
+  saldoReal: number       // acumulado só do realizado
+  entradaPrev: number
+  saidaPrev: number
+  saldoProjetado: number  // acumulado realizado + previsto líquido
+  isFuture: boolean
+}
+
+function currentYM(): string {
+  // Fuso local (toISOString usaria UTC e poderia virar o mês na última noite).
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 export function FluxoCaixaPanel() {
-  const { getMonthlyData, entries } = useFinanceiroStore()
-  const monthly = getMonthlyData()
+  const entries = useFinanceiroStore((s) => s.entries)
+  const contratos = useManejoFinanceiroStore((s) => s.contratos)
+  const [filter, setFilter] = useState<FinanceiroFilter>({})
 
-  if (entries.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-[#6b6b6b] text-sm p-6">Adicione lançamentos para ver o fluxo de caixa.</div>
+  // Realizado respeita período + obra (não filtra por categoria/tipo).
+  const filtered = useMemo(
+    () => filterEntries(entries, { from: filter.from, to: filter.to, obraId: filter.obraId }),
+    [entries, filter.from, filter.to, filter.obraId],
+  )
+  const realized = useMemo(() => monthlySeries(filtered), [filtered])
+
+  // A previsão vem das obrigações do Manejo Financeiro, que NÃO têm obra —
+  // são da empresa toda. Por isso só faz sentido quando nenhuma obra está
+  // filtrada; com obra selecionada, mostramos apenas o realizado daquela obra.
+  const showForecast = !filter.obraId
+
+  // Previsto: obrigações ativas com saldo restante, distribuídas do mês atual até
+  // o fim do período de execução. Obrigação vencida (fim no passado) cai no mês
+  // atual; obrigação sem fim definido é distribuída em 12 meses (evita pico).
+  const nowYM = currentYM()
+  const forecast = useMemo(() => {
+    const saidaByMonth = new Map<string, number>()
+    if (!showForecast) return saidaByMonth
+    for (const c of contratos) {
+      if (c.status !== 'ativo') continue
+      const restante = num(c.valorRestante)
+      if (restante <= 0) continue
+      const startYM = c.inicioContrato.slice(0, 7)
+      const fimYM = c.fimPeriodoExecucao ? c.fimPeriodoExecucao.slice(0, 7) : addMonthsYM(nowYM, 11)
+      const from = startYM > nowYM ? startYM : nowYM       // não distribui no passado
+      const to = fimYM >= from ? fimYM : from              // vencido → tudo no mês atual
+      for (const { month, valor } of spreadValue(restante, from, to)) {
+        saidaByMonth.set(month, (saidaByMonth.get(month) ?? 0) + valor)
+      }
+    }
+    return saidaByMonth
+  }, [contratos, nowYM, showForecast])
+
+  const rows: FluxoRow[] = useMemo(() => {
+    const realMonths = realized.map((r) => r.month)
+    const fcMonths = [...forecast.keys()]
+    const all = [...new Set([...realMonths, ...fcMonths])].sort()
+    if (all.length === 0) return []
+    // eixo contínuo do primeiro ao último mês
+    const axis = monthsRange(all[0], all[all.length - 1])
+    const realMap = new Map(realized.map((r) => [r.month, r]))
+    let saldoReal = 0
+    let saldoProj = 0
+    return axis.map((month) => {
+      const r = realMap.get(month)
+      const entradasReal = r?.entradas ?? 0
+      const saidasReal = r?.saidas ?? 0
+      const resultadoReal = entradasReal - saidasReal
+      saldoReal += resultadoReal
+      const saidaPrev = forecast.get(month) ?? 0
+      const entradaPrev = 0 // Fase C: títulos a receber
+      saldoProj += resultadoReal + (entradaPrev - saidaPrev)
+      return {
+        month, entradasReal, saidasReal, resultadoReal, saldoReal,
+        entradaPrev, saidaPrev, saldoProjetado: saldoProj,
+        isFuture: month > nowYM,
+      }
+    })
+  }, [realized, forecast, nowYM])
+
+  const totalPrev = [...forecast.values()].reduce((s, v) => s + v, 0)
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-6">
+        <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} />
+        <div className="mt-5 text-center py-16 text-[#6b6b6b] text-sm rounded-xl border border-dashed border-[#525252]">
+          {entries.length === 0 && contratos.length === 0
+            ? 'Adicione lançamentos (ou contratos no Manejo Financeiro) para ver o fluxo de caixa.'
+            : 'Nenhum lançamento no filtro selecionado.'}
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="p-6 space-y-5 overflow-auto">
-      <p className="text-xs text-[#a3a3a3] uppercase tracking-wider font-semibold">Fluxo de Caixa Mensal</p>
+      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} />
 
-      <div className="overflow-auto rounded-xl border border-[#525252]">
-        <table className="w-full text-xs">
+      <div className="flex items-center gap-3 flex-wrap text-[11px]">
+        <span className="text-[#a3a3a3] uppercase tracking-wider font-semibold">Fluxo de Caixa</span>
+        <span className="text-[#6b6b6b]">{showForecast ? 'Realizado × Previsto × Saldo projetado' : 'Realizado (obra selecionada)'}</span>
+        {showForecast && totalPrev > 0 && <span className="text-amber-400">Previsto (contratos em aberto): {fmtBRL(totalPrev)}</span>}
+        {!showForecast && <span className="text-amber-400/80">Previsão de obrigações é da empresa toda — selecione “Todas as obras” para o saldo projetado.</span>}
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-[#525252]">
+        <table className="w-full text-xs min-w-max">
           <thead>
             <tr className="bg-[#1f1f1f] text-[#a3a3a3] uppercase tracking-wider text-[10px]">
               <th className="px-4 py-2 text-left">Mês</th>
               <th className="px-4 py-2 text-right">Entradas</th>
               <th className="px-4 py-2 text-right">Saídas</th>
-              <th className="px-4 py-2 text-right">Resultado Mês</th>
-              <th className="px-4 py-2 text-right">Saldo Acumulado</th>
-              <th className="px-4 py-2 text-left w-[200px]">Gráfico</th>
+              <th className="px-4 py-2 text-right">Resultado</th>
+              <th className="px-4 py-2 text-right">Saldo {showForecast ? 'realizado' : 'acumulado'}</th>
+              {showForecast && <th className="px-4 py-2 text-right text-amber-400/80">Saída prevista</th>}
+              {showForecast && <th className="px-4 py-2 text-right">Saldo projetado</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1f2937]">
-            {monthly.map((m) => {
-              const resultado = m.entradas - m.saidas
-              const maxVal = Math.max(...monthly.map((x) => Math.max(x.entradas, x.saidas)), 1)
-              return (
-                <tr key={m.month} className="hover:bg-white/[0.02]">
-                  <td className="px-4 py-2.5 text-white font-medium">{m.month}</td>
-                  <td className="px-4 py-2.5 text-right text-emerald-400 tabular-nums font-medium">{fmtBRL(m.entradas)}</td>
-                  <td className="px-4 py-2.5 text-right text-red-400 tabular-nums font-medium">{fmtBRL(m.saidas)}</td>
-                  <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${resultado >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {resultado >= 0 ? '+' : ''}{fmtBRL(resultado)}
-                  </td>
-                  <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${m.saldo >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>
-                    {fmtBRL(m.saldo)}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex gap-0.5 h-4">
-                      <div className="bg-emerald-500/40 rounded" style={{ width: `${(m.entradas / maxVal) * 100}px` }} />
-                      <div className="bg-red-500/40 rounded" style={{ width: `${(m.saidas / maxVal) * 100}px` }} />
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
+            {rows.map((m) => (
+              <tr key={m.month} className={`hover:bg-white/[0.02] ${m.isFuture ? 'opacity-90' : ''}`}>
+                <td className="px-4 py-2.5 text-white font-medium whitespace-nowrap">
+                  {monthLabel(m.month)}
+                  {showForecast && m.isFuture && <span className="ml-1.5 text-[9px] text-amber-400/80 uppercase">prev</span>}
+                </td>
+                <td className="px-4 py-2.5 text-right text-emerald-400 tabular-nums">{m.entradasReal ? fmtBRL(m.entradasReal) : '—'}</td>
+                <td className="px-4 py-2.5 text-right text-red-400 tabular-nums">{m.saidasReal ? fmtBRL(m.saidasReal) : '—'}</td>
+                <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${m.resultadoReal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {m.entradasReal || m.saidasReal ? fmtBRL(m.resultadoReal) : '—'}
+                </td>
+                <td className={`px-4 py-2.5 text-right tabular-nums ${m.saldoReal >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>{fmtBRL(m.saldoReal)}</td>
+                {showForecast && <td className="px-4 py-2.5 text-right tabular-nums text-amber-400/90">{m.saidaPrev ? fmtBRL(m.saidaPrev) : '—'}</td>}
+                {showForecast && <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${m.saldoProjetado >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>{fmtBRL(m.saldoProjetado)}</td>}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
+      {showForecast && (
+        <p className="text-[10px] text-[#6b6b6b]">
+          Saldo projetado = saldo realizado acumulado − saídas previstas das obrigações em aberto (Manejo Financeiro),
+          distribuídas do mês atual até o fim do período de execução (obrigações sem fim definido são espalhadas em 12 meses).
+          Títulos a pagar/receber entram nesta projeção na aba <strong>Pagamentos e Cobranças</strong>.
+        </p>
+      )}
     </div>
   )
 }

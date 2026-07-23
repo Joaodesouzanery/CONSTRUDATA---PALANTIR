@@ -4,7 +4,9 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
-import type { FinanceiroTab, FinanceiroEntry, Distribuicao } from '@/types'
+import type { FinanceiroTab, FinanceiroEntry, Distribuicao, DreConfig } from '@/types'
+
+export const DEFAULT_DRE_CONFIG: DreConfig = { deducaoPct: 0, mapping: {} }
 
 function moneyValue(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
@@ -58,6 +60,10 @@ interface FinanceiroState {
   distribuicoes: Distribuicao[]
   upsertDistribuicao: (d: Distribuicao) => void
   removeDistribuicao: (id: string) => void
+
+  // Config da DRE simplificada (persistida localmente, sem migração)
+  dreConfig: DreConfig
+  setDreConfig: (patch: Partial<DreConfig>) => void
 
   getEntradas: () => FinanceiroEntry[]
   getSaidas: () => FinanceiroEntry[]
@@ -131,6 +137,9 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           void get().flush()
         },
 
+        dreConfig: DEFAULT_DRE_CONFIG,
+        setDreConfig: (patch) => set((s) => ({ dreConfig: { ...s.dreConfig, ...patch } })),
+
         getEntradas: () => get().entries.filter((e) => e.tipo === 'entrada'),
         getSaidas: () => get().entries.filter((e) => e.tipo === 'saida'),
         getTotalEntradas: () => get().entries.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + moneyValue(e.valor), 0),
@@ -155,7 +164,7 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           ],
         }),
 
-        clearData: () => set({ entries: [], distribuicoes: [], activeOrgId: null, pendingSync: [], syncError: null }),
+        clearData: () => set({ entries: [], distribuicoes: [], dreConfig: DEFAULT_DRE_CONFIG, activeOrgId: null, pendingSync: [], syncError: null }),
 
         getMonthlyData: () => {
           const entries = get().entries
@@ -232,6 +241,7 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         activeOrgId:   s.activeOrgId,
         entries:       s.entries,
         distribuicoes: s.distribuicoes,
+        dreConfig:     s.dreConfig,
         pendingSync:   s.pendingSync,
         lastSyncedAt:  s.lastSyncedAt,
       }),

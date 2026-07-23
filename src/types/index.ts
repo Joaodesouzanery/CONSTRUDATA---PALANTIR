@@ -2671,6 +2671,33 @@ export interface FinanceiroEntry {
   createdAt:   string
 }
 
+// ─── DRE simplificada (auto-calculada a partir das entradas/saídas) ───────────
+/** Linhas da DRE nas quais cada categoria de lançamento é somada. */
+export type DreLineKey =
+  | 'receita_bruta'   // entradas (medição, adiantamento, reajuste…)
+  | 'deducao'         // impostos/retenções (entradas classificadas como dedução)
+  | 'custo'           // custos diretos da obra (materiais, MO, equipamentos, subempreiteiros)
+  | 'despesa_adm'     // despesas administrativas
+  | 'despesa_outra'   // outras despesas operacionais
+
+export type FinanceiroCategoria = EntradaCategoria | SaidaCategoria
+
+/**
+ * Chave de mapeamento da DRE. Desambigua 'outro' (que existe em entrada E saída)
+ * em `entrada_outro`/`saida_outro` — as demais categorias são únicas por tipo.
+ */
+export type DreMappableKey =
+  | 'medicao' | 'adiantamento' | 'reajuste' | 'entrada_outro'
+  | 'materiais' | 'mao_de_obra' | 'equipamentos' | 'subempreiteiros' | 'administrativo' | 'saida_outro'
+
+/** Config da DRE: alíquota de impostos sobre a receita + overrides de mapeamento. */
+export interface DreConfig {
+  /** % de impostos/deduções aplicado sobre a Receita Bruta quando não há dedução lançada. */
+  deducaoPct: number
+  /** Overrides chave→linha (só o que difere do default). */
+  mapping: Partial<Record<DreMappableKey, DreLineKey>>
+}
+
 // ─── Distribuição de orçamento (por obra) ────────────────────────────────────
 export interface DistribuicaoLinha {
   id:               string
@@ -2689,6 +2716,31 @@ export interface Distribuicao {
   linhas:     DistribuicaoLinha[]
   createdAt:  string
   updatedAt:  string
+}
+
+// ─── Pagamentos e Cobranças (contas a pagar / a receber) ─────────────────────
+export type TituloTipo   = 'pagar' | 'receber'
+/** Status persistido. "vencido" NÃO é persistido — é derivado (pendente + vencimento < hoje). */
+export type TituloStatus = 'pendente' | 'pago' | 'cancelado'
+
+export interface FinanceiroTitulo {
+  id:            string
+  tipo:          TituloTipo
+  descricao:     string
+  parceiro:      string          // fornecedor (pagar) ou cliente (receber)
+  valor:         number
+  vencimento:    string          // yyyy-MM-dd
+  emissao?:      string          // yyyy-MM-dd
+  obraId?:       string          // vínculo com a obra (ConstructionSite)
+  numeroDoc?:    string          // nº NF / boleto / medição
+  categoria?:    EntradaCategoria | SaidaCategoria  // categoria do lançamento gerado na baixa
+  parcelaNum?:   number          // parcela x
+  parcelaDe?:    number          // de n
+  status:        TituloStatus
+  dataPagamento?: string         // yyyy-MM-dd (preenchido na baixa)
+  entryId?:      string          // FinanceiroEntry gerado na baixa (para estorno/rastreio)
+  notas?:        string
+  createdAt:     string
 }
 
 // Economia / ROI

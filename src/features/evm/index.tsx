@@ -18,6 +18,7 @@ import { DistribuicaoPanel } from './components/DistribuicaoPanel'
 import { ComparativoNucleosPanel } from './components/ComparativoNucleosPanel'
 import { VisaoGeralPanel } from '@/features/financeiro/components/VisaoGeralPanel'
 import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/EntradasSaidasPanel'
+import { DrePanel } from '@/features/financeiro/components/DrePanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
@@ -28,9 +29,9 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
     case 'visao-geral':
       return (
         <SubTabHost tabs={[
-          { key: 'resumo',      label: 'Resumo',      render: () => <VisaoGeralPanel /> },
-          { key: 'dashboard',   label: 'Dashboard',   render: () => <DashboardPanel /> },
-          { key: 'comparativo', label: 'Comparativo', render: () => <ComparativoNucleosPanel /> },
+          { key: 'analise',     label: 'Análise',      render: () => <VisaoGeralPanel /> },
+          { key: 'dashboard',   label: 'Dashboard EVM', render: () => <DashboardPanel /> },
+          { key: 'comparativo', label: 'Comparativo',  render: () => <ComparativoNucleosPanel /> },
         ]} />
       )
     case 'por-obra':
@@ -38,6 +39,7 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
     case 'resultados':
       return (
         <SubTabHost tabs={[
+          { key: 'dre',      label: 'DRE',            render: () => <DrePanel /> },
           { key: 'entradas', label: 'Entradas',       render: () => <EntradasPanel /> },
           { key: 'saidas',   label: 'Saídas',         render: () => <SaidasPanel /> },
           { key: 'fluxo',    label: 'Fluxo de Caixa', render: () => <FluxoCaixaPanel /> },
