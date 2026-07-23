@@ -12,7 +12,11 @@ import { useFrotaVeicularStore }   from '@/store/frotaVeicularStore'
 import { useEconomiaStore }        from '@/store/economiaStore'
 import { usePlanoExecucaoStore }   from '@/store/planoExecucaoStore'
 import { useRdoStore }             from '@/store/rdoStore'
+import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
+
+/** Dias de antecedência para um título "a vencer" virar lembrete. */
+const TITULO_ALERTA_DIAS = 7
 
 export interface AlertCounts {
   [route: string]: number
@@ -55,6 +59,14 @@ export function useAlertCounts(): AlertCounts {
     (p) => p.status === 'ativo' && alertasDoPlano(p, planoAbsences, hoje, planoRdos).length > 0,
   ).length
 
+  // Pagamentos e Cobranças: títulos pendentes vencidos ou a vencer em ≤7 dias.
+  // Ancora em UTC ('...Z') p/ casar com `hoje` (também UTC) — janela de exatos 7 dias.
+  const limiteVenc = new Date(new Date(hoje + 'T00:00:00Z').getTime() + TITULO_ALERTA_DIAS * 86_400_000)
+    .toISOString().slice(0, 10)
+  const titulosAlerta = useFinanceiroTitulosStore((s) =>
+    s.titulos.filter((t) => t.status === 'pendente' && t.vencimento <= limiteVenc).length
+  )
+
   return {
     '/app/otimizacao-frota':    healthAlerts,
     '/app/torre-de-controle':   siteRisks,
@@ -63,5 +75,6 @@ export function useAlertCounts(): AlertCounts {
     '/app/mao-de-obra':         occurrences + fleetAlerts,
     '/app/economia':            economyEvents,
     '/app/planejamento':        planoAlerts,
+    '/app/evm':                 titulosAlerta,
   }
 }
