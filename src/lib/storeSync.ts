@@ -177,17 +177,33 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
       assertAffectedRows(op.table, op, data)
     } else if (op.type === 'update' && op.patch) {
       const softDeleteRpc = softDeleteRpcFor(op)
-      const { data, error } = softDeleteRpc
-        ? await withAbort((signal) => supabase.rpc(softDeleteRpc, { p_id: op.recordId }).abortSignal(signal))
-        : await withAbort((signal) => supabase
+      // Soft-delete via UPDATE deleted_at: o RETURNING é filtrado pela RLS de SELECT
+      // (deleted_at IS NULL) e volta 0 linhas MESMO no sucesso → não dá pra usar
+      // .select()/assertAffectedRows (a op ficaria presa "para sempre", e o retry
+      // após já-deletado casaria 0 linhas de novo). Confia só no erro; idempotente.
+      const isSoftDelete = !softDeleteRpc && op.patch.deleted_at != null
+      if (softDeleteRpc) {
+        const { error } = await withAbort((signal) => supabase.rpc(softDeleteRpc, { p_id: op.recordId }).abortSignal(signal))
+        if (error) throw error
+      } else if (isSoftDelete) {
+        const { error } = await withAbort((signal) => supabase
+          .from(op.table)
+          .update(sanitizeIds(op.patch as Record<string, unknown>) as never)
+          .eq('id', op.recordId)
+          .eq('organization_id', activeOrgId)
+          .abortSignal(signal))
+        if (error) throw error
+      } else {
+        const { data, error } = await withAbort((signal) => supabase
           .from(op.table)
           .update(sanitizeIds(op.patch as Record<string, unknown>) as never)
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
           .select('id')
           .abortSignal(signal))
-      if (error) throw error
-      assertAffectedRows(op.table, op, data)
+        if (error) throw error
+        assertAffectedRows(op.table, op, data)
+      }
     } else if (op.type === 'delete') {
       if (op.approvalActionType) {
         const { error } = await withAbort((signal) => supabase.rpc('request_action', {
