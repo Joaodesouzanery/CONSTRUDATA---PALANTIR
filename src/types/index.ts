@@ -2333,15 +2333,19 @@ export interface TrendPoint {
 // ── EVM (Earned Value Management) ──────────────────────────────────────────
 
 export type EvmTab = 'dashboard' | 'medicao' | 'plano-contas' | 'work-packages' | 'indices'
+/**
+ * Abas do módulo Financeiro (página EVM). Estrutura reorganizada (7 abas):
+ * cada painel legado virou sub-aba dentro de uma dessas (ver evm/index.tsx).
+ * `EvmTab`/`FinanceiroTab` seguem existindo para o `activeTab` interno dos stores.
+ */
 export type FinanceiroEvmTab =
-  | EvmTab
-  | FinanceiroTab
-  | 'por-nucleo'
+  | 'visao-geral'
   | 'por-obra'
+  | 'resultados'
+  | 'pagamentos'
+  | 'medicao'
+  | 'plano-contas'
   | 'distribuicao'
-  | 'comparativo'
-  | 'manejo-financeiro'
-  | 'manejo-orcamento'
 
 export type CostPillar = 'material' | 'equipamento' | 'mao_de_obra' | 'impostos_indiretos'
 

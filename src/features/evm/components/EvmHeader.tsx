@@ -12,24 +12,14 @@ import type { FinanceiroEvmTab } from '@/types'
 
 export type CombinedTab = FinanceiroEvmTab
 
-const EVM_TABS: { key: CombinedTab; label: string }[] = [
-  { key: 'dashboard',     label: 'Dashboard' },
-  { key: 'por-obra',      label: 'Por Obra' },
-  { key: 'medicao',       label: 'Medição Ponderada' },
-  { key: 'plano-contas',  label: 'Plano de Contas' },
-  { key: 'work-packages', label: 'Work Packages' },
-  { key: 'indices',       label: 'Índices' },
-  { key: 'distribuicao',  label: 'Distribuição' },
-]
-
-const FIN_TABS: { key: CombinedTab; label: string }[] = [
+const TABS: { key: CombinedTab; label: string }[] = [
   { key: 'visao-geral',  label: 'Visão Geral' },
-  { key: 'entradas',     label: 'Entradas' },
-  { key: 'saidas',       label: 'Saídas' },
-  { key: 'fluxo-caixa', label: 'Fluxo de Caixa' },
-  { key: 'manejo-financeiro', label: 'Manejo Financeiro' },
-  { key: 'manejo-orcamento', label: 'Manejo Orçamento' },
-  { key: 'comparativo', label: 'Comparativo' },
+  { key: 'por-obra',     label: 'Por Obra' },
+  { key: 'resultados',   label: 'Resultados' },
+  { key: 'pagamentos',   label: 'Pagamentos e Cobranças' },
+  { key: 'medicao',      label: 'Medição Ponderada' },
+  { key: 'plano-contas', label: 'Plano de Contas' },
+  { key: 'distribuicao', label: 'Distribuição' },
 ]
 
 function KpiCard({
@@ -117,33 +107,10 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
         <KpiCard label="VAC (R$)" value={VAC} isCurrency />
       </div>
 
-      {/* Tab bar — EVM + Financeiro */}
+      {/* Tab bar */}
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex px-6 gap-1 min-w-max pb-0">
-          {/* EVM tabs */}
-          {EVM_TABS.map((tab) => {
-            const isActive = activeTab === tab.key
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  'px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap border-b-2',
-                  isActive
-                    ? 'text-white border-orange-500 bg-[#3d3d3d]'
-                    : 'text-[#a3a3a3] border-transparent hover:text-[#f5f5f5] hover:bg-[#3d3d3d]/50',
-                )}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
-
-          {/* Divider */}
-          <div className="w-px bg-[#525252] mx-2 self-stretch my-1" />
-
-          {/* Financeiro tabs */}
-          {FIN_TABS.map((tab) => {
+          {TABS.map((tab) => {
             const isActive = activeTab === tab.key
             return (
               <button
