@@ -214,30 +214,55 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
         } as never).abortSignal(signal))
         if (error) throw error
       } else {
-        const { data, error } = await withAbort((signal) => supabase
+        // DELETE é idempotente: 0 linhas afetadas significa que o registro já não
+        // existe (ex.: apagado em outro dispositivo) — isso é SUCESSO, não erro.
+        // Não usa assertAffectedRows porque prenderia a op para sempre (todo retry
+        // voltaria a casar 0 linhas) e, pior, bloquearia o pull da tabela (o guard
+        // de pendingTables), deixando os dados obsoletos. Erros reais (RLS que
+        // levanta exceção, rede) ainda vêm em `error` e disparam retry. Um delete
+        // barrado por RLS que filtra silenciosamente (0 linhas) é reconciliado no
+        // próximo pull, que traz a linha de volta — sem op presa.
+        const { error } = await withAbort((signal) => supabase
           .from(op.table)
           .delete()
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
-          .select('id')
           .abortSignal(signal))
         if (error) throw error
-        assertAffectedRows(op.table, op, data)
       }
     }
+  }
+
+  // Coalescing create+delete: se a fila tem um INSERT (ainda não sincronizado) e
+  // uma exclusão do MESMO registro, o insert/updates comuns são anulados (não vão
+  // ao servidor) — mas a exclusão é MANTIDA e roda idempotente. Assim o estado
+  // final é sempre "removido" (mesmo se o insert já tiver vazado pro servidor numa
+  // tentativa anterior), sem ressuscitar a linha quando o insert seria retentado.
+  // Cobre exclusão hard (type 'delete') e soft (update com deleted_at).
+  const opKey = (o: PendingOp) => `${o.table}::${o.recordId}`
+  const isDeleteIntent = (o: PendingOp) => o.type === 'delete' || (o.type === 'update' && o.patch?.deleted_at != null)
+  const deleteKeys = new Set(queue.filter(isDeleteIntent).map(opKey))
+  const canceledKeys = new Set(queue.filter((o) => !isDeleteIntent(o) && deleteKeys.has(opKey(o))).map(opKey))
+  const active: PendingOp[] = []
+  for (const op of queue) {
+    if (!isDeleteIntent(op) && canceledKeys.has(opKey(op))) {
+      result.completed.push(op.id)   // anulada localmente — remove da fila sem chamar o servidor
+      continue
+    }
+    active.push(op)
   }
 
   // Despacha a fila preservando a ordem. Inserts CONSECUTIVOS na mesma tabela
   // viram UM upsert em lote (menos round-trips); se o lote falhar, cai pro
   // per-op para isolar a linha ruim e preservar o rastreio completed/errored.
   let i = 0
-  while (i < queue.length) {
-    const op = queue[i]
+  while (i < active.length) {
+    const op = active[i]
     if (op.type === 'insert' && op.row) {
       const group: PendingOp[] = []
       let j = i
-      while (j < queue.length && queue[j].type === 'insert' && queue[j].row && queue[j].table === op.table) {
-        group.push(queue[j])
+      while (j < active.length && active[j].type === 'insert' && active[j].row && active[j].table === op.table) {
+        group.push(active[j])
         j++
       }
       if (group.length === 1) {

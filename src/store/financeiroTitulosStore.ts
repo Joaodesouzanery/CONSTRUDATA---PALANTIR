@@ -160,7 +160,9 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
             obraId: t.obraId,
             createdAt: new Date().toISOString(),
           }
-          useFinanceiroStore.getState().addEntry(entry)
+          // respectObra: a baixa reflete a obra do TÍTULO (inclusive "sem obra") —
+          // não deve herdar a obra ativa do contexto.
+          useFinanceiroStore.getState().addEntry(entry, { respectObra: true })
           get().updateTitulo(id, { status: 'pago', dataPagamento, entryId })
         },
 

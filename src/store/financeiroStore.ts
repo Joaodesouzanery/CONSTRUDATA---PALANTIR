@@ -52,7 +52,13 @@ interface FinanceiroState {
   setActiveTab: (tab: FinanceiroTab) => void
 
   entries: FinanceiroEntry[]
-  addEntry: (e: FinanceiroEntry) => void
+  /**
+   * Adiciona um lançamento. Por padrão, se `obraId` não vier, herda a obra ativa
+   * (conveniência do formulário manual). Passe `{ respectObra: true }` para usar
+   * exatamente o `obraId` informado — inclusive `undefined` (ex.: baixa de título
+   * explicitamente "sem obra" não deve ser carimbada com a obra ativa).
+   */
+  addEntry: (e: FinanceiroEntry, opts?: { respectObra?: boolean }) => void
   updateEntry: (id: string, patch: Partial<FinanceiroEntry>) => void
   removeEntry: (id: string) => void
 
@@ -94,9 +100,13 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         setActiveTab: (tab) => set({ activeTab: tab }),
 
         entries: [],
-        addEntry: (e0) => {
+        addEntry: (e0, opts) => {
           // Default: vincula o lançamento à obra ativa, se o form não informou.
-          const e = { ...e0, obraId: e0.obraId ?? useActiveObraStore.getState().activeObraId ?? undefined }
+          // Com respectObra, usa o obraId como veio (inclusive undefined).
+          const e = {
+            ...e0,
+            obraId: opts?.respectObra ? e0.obraId : (e0.obraId ?? useActiveObraStore.getState().activeObraId ?? undefined),
+          }
           set((s) => ({ entries: [...s.entries, e] }))
           const { orgId, userId } = ctx()
           enqueue(makeOp({ entity: 'financeiro_entry', type: 'insert', recordId: e.id, row: entryToRow(e, orgId, userId), table: 'financeiro_entries' }))
