@@ -29,7 +29,10 @@ export interface MaintenanceAsset {
   qrCode: string
   projectId: string | null
   constructionSiteId: string | null
-  manuais?: MaintenanceManual[]   // repositório de manuais (payload jsonb, sem migração)
+  manuais?: MaintenanceManual[]      // repositório de manuais (payload jsonb, sem migração)
+  replacementCostBRL?: number        // custo de reposição p/ análise de CapEx (payload jsonb)
+  modelo?: string                    // metadados opcionais p/ CapEx/Workbench
+  serial?: string
   createdAt: string
   updatedAt: string
 }
