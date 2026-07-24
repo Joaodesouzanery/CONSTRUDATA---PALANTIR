@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   ClipboardList, Calendar, Radio,
-  Wrench, PackageSearch, Users, FlaskConical,
+  PackageSearch, Users, FlaskConical,
   ChevronRight, ChevronLeft, LayoutDashboard, CalendarClock, FileText,
   Calculator, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
-  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, Settings2, ArrowUp, ArrowDown,
-  BadgeDollarSign,
+  LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, ArrowUp, ArrowDown,
+  BadgeDollarSign, Building2,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -57,8 +57,12 @@ const NAV_GROUPS = [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
-      { label: 'Manutenções',     icon: Settings2,        to: '/app/manutencoes'         },
-      { label: 'Equipamentos',    icon: Wrench,           to: '/app/gestao-equipamentos' },
+    ],
+  },
+  {
+    label: 'PREDIAL',
+    items: [
+      { label: 'Predial',         icon: Building2,        to: '/app/predial'             },
     ],
   },
   {

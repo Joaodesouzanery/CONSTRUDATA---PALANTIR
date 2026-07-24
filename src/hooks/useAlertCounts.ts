@@ -13,6 +13,7 @@ import { useEconomiaStore }        from '@/store/economiaStore'
 import { usePlanoExecucaoStore }   from '@/store/planoExecucaoStore'
 import { useRdoStore }             from '@/store/rdoStore'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
+import { useManutencoesStore }     from '@/store/manutencoesStore'
 import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
 
 /** Dias de antecedência para um título "a vencer" virar lembrete. */
@@ -39,6 +40,11 @@ export function useAlertCounts(): AlertCounts {
       return new Date(o.scheduledDate + 'T00:00:00') < new Date()
     }).length
   )
+  // Manutenções (OS abertas vencidas) — o módulo Predial agrega isso + equipamentos + saúde.
+  const manutVencidas = useManutencoesStore((s) => {
+    const hoje = new Date().toISOString().slice(0, 10)
+    return s.workOrders.filter((w) => w.status !== 'concluida' && w.status !== 'cancelada' && !!w.dueDate && w.dueDate < hoje).length
+  })
   const occurrences = useMaoDeObraStore((s) =>
     s.occurrences.filter((o) => o.type === 'accident').length
   )
@@ -71,10 +77,10 @@ export function useAlertCounts(): AlertCounts {
   const rdoRascunhos = planoRdos.filter((r) => r.status === 'rascunho').length
 
   return {
-    '/app/otimizacao-frota':    healthAlerts,
     '/app/torre-de-controle':   siteRisks,
     '/app/gestao-360':          changeOrders,
-    '/app/gestao-equipamentos': maintOrders,
+    // Predial agrega: equipamentos vencidos + OS de manutenção vencidas + saúde crítica.
+    '/app/predial':             maintOrders + manutVencidas + healthAlerts,
     '/app/mao-de-obra':         occurrences + fleetAlerts,
     '/app/economia':            economyEvents,
     '/app/planejamento':        planoAlerts,

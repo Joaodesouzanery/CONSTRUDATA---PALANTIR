@@ -9,7 +9,7 @@ import { Component, lazy, Suspense, type ReactNode } from 'react'
 
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
-const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
+const PredialPage           = lazy(() => import('@/features/predial/index').then((m) => ({ default: m.PredialPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
 const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
 const OtimizacaoFrotaPage   = lazy(() => import('@/features/otimizacao-frota/index').then((m) => ({ default: m.default })))
@@ -24,7 +24,6 @@ const EvmPage               = lazy(() => import('@/features/evm/index').then((m)
 const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index').then((m) => ({ default: m.MinhaRotinaPage })))
 const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
 const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
-const ManutencoesPage       = lazy(() => import('@/features/manutencoes/index').then((m) => ({ default: m.ManutencoesPage })))
 const EconomiaPage          = lazy(() => import('@/features/economia/index').then((m) => ({ default: m.EconomiaPage })))
 
 // Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
@@ -123,8 +122,10 @@ function App() {
           {/* Relatório 360 virou aba do Gestão 360. Redireciona links antigos. */}
           <Route path="relatorio360"        element={<Navigate to="/app/gestao-360" replace />} />
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
-          <Route path="equipamentos"        element={<Navigate to="/app/gestao-equipamentos" replace />} />
-          <Route path="gestao-equipamentos" element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
+          {/* Manutenções e Gestão de Equipamentos viraram abas do módulo Predial. */}
+          <Route path="predial"             element={<LazyRoute><PredialPage /></LazyRoute>} />
+          <Route path="equipamentos"        element={<Navigate to="/app/predial?tab=equipamentos" replace />} />
+          <Route path="gestao-equipamentos" element={<Navigate to="/app/predial?tab=equipamentos" replace />} />
           <Route path="projetos"            element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
           {/* Módulo "Levantamento" removido. Redireciona links antigos. */}
@@ -132,7 +133,7 @@ function App() {
           <Route path="economia"            element={<LazyRoute><EconomiaPage /></LazyRoute>} />
           <Route path="pre-construcao"      element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />
-          <Route path="manutencoes"         element={<LazyRoute><ManutencoesPage /></LazyRoute>} />
+          <Route path="manutencoes"         element={<Navigate to="/app/predial?tab=manutencoes" replace />} />
           <Route path="mao-de-obra"         element={<LazyRoute><MaoDeObraPage /></LazyRoute>} />
           <Route path="otimizacao-frota"    element={<LazyRoute><OtimizacaoFrotaPage /></LazyRoute>} />
           <Route path="gestao-360"          element={<LazyRoute><Gestao360Page /></LazyRoute>} />
