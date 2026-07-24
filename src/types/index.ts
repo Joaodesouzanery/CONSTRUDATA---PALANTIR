@@ -2745,6 +2745,34 @@ export interface FinanceiroTitulo {
   createdAt:     string
 }
 
+// ─── Rateio de Consumo (adaptação do submeter-billback: água/energia por unidade) ──
+export type RateioTipo   = 'agua' | 'energia'
+/** Base do rateio: leitura/consumo, área (m²) ou proporção (%). O cálculo é o mesmo:
+ *  valorRateado_i = valorTotalFatura × base_i / Σ base. */
+export type RateioBase   = 'leitura' | 'area' | 'proporcao'
+export type RateioStatus = 'processando' | 'revisar' | 'aprovado'
+
+export interface RateioItem {
+  id:       string
+  unidade:  string       // nome da unidade/consumidor (ex.: bloco, obra, inquilino)
+  obraId?:  string       // vínculo opcional com a obra (ConstructionSite)
+  base:     number       // valor da base (leitura/consumo, m², ou %)
+}
+
+export interface RateioConsumo {
+  id:               string
+  periodo:          string   // yyyy-MM
+  tipo:             RateioTipo
+  descricao?:       string
+  fornecedor?:      string   // concessionária / medidor de origem
+  valorTotalFatura: number
+  base:             RateioBase
+  itens:            RateioItem[]
+  status:           RateioStatus
+  cobrancaTituloIds?: string[]   // títulos a receber gerados no Financeiro (idempotência/undo)
+  createdAt:        string
+}
+
 // Economia / ROI
 
 export type EconomySourceModule =

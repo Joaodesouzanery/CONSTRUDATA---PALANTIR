@@ -91,6 +91,7 @@ async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<
     import('@/store/projetosStore').then((m) => m.useProjetosStore),
     import('@/store/qualidadeStore').then((m) => m.useQualidadeStore),
     import('@/store/quantitativosStore').then((m) => m.useQuantitativosStore),
+    import('@/store/rateioConsumoStore').then((m) => m.useRateioConsumoStore),
     import('@/store/rdoStore').then((m) => m.useRdoStore),
     import('@/store/rede360Store').then((m) => m.useRede360Store),
     import('@/store/relatorio360Store').then((m) => m.useRelatorio360Store),

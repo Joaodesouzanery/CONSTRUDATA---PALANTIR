@@ -43,6 +43,10 @@ interface FinanceiroTitulosState {
   addTitulos: (list: Array<Omit<FinanceiroTitulo, 'id' | 'createdAt' | 'status'> & { status?: FinanceiroTitulo['status'] }>) => void
   updateTitulo: (id: string, patch: Partial<FinanceiroTitulo>) => void
   removeTitulo: (id: string) => void
+  /** Insere/atualiza títulos com id próprio (idempotente por id) — ex.: cobranças de rateio. */
+  upsertTitulos: (titulos: FinanceiroTitulo[]) => void
+  /** Soft-delete em lote por id (só remove os que existem). */
+  removeTitulos: (ids: string[]) => void
   /** Marca como pago e gera o lançamento correspondente no Financeiro. */
   baixarTitulo: (id: string, opts?: { dataPagamento?: string }) => void
   /** Desfaz a baixa: remove o lançamento gerado e volta a pendente. */
@@ -140,6 +144,35 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
           set((s) => ({
             titulos: s.titulos.filter((t) => t.id !== id),
             pendingSync: [...s.pendingSync, makeOp({ entity: 'financeiro_titulo', type: 'update', recordId: id, patch: { deleted_at: nowIso, updated_at: nowIso }, table: TABLE })],
+          }))
+          void get().flush()
+        },
+
+        // Upsert idempotente por id — local replace-or-add + insert op (que é upsert
+        // onConflict id no servidor). Usado p/ cobranças de rateio (ids aleatórios novos).
+        upsertTitulos: (titulos) => {
+          if (titulos.length === 0) return
+          const ids = new Set(titulos.map((t) => t.id))
+          set((s) => ({
+            titulos: [...titulos, ...s.titulos.filter((t) => !ids.has(t.id))],
+            pendingSync: [...s.pendingSync, ...titulos.map(enqueueInsert)],
+          }))
+          void get().flush()
+        },
+
+        removeTitulos: (ids) => {
+          if (ids.length === 0) return
+          const idset = new Set(ids)
+          const present = get().titulos.filter((t) => idset.has(t.id))
+          const nowIso = new Date().toISOString()
+          // Remove também lançamentos de baixa vinculados (se houver, entre os presentes).
+          for (const t of present) if (t.entryId) useFinanceiroStore.getState().removeEntry(t.entryId)
+          set((s) => ({
+            titulos: s.titulos.filter((t) => !idset.has(t.id)),
+            // Enfileira soft-delete para TODOS os ids pedidos (0 linhas no servidor é
+            // idempotente/inócuo) — garante apagar as cobranças mesmo que o título ainda
+            // não tenha sido puxado neste dispositivo (senão ficaria órfão no servidor).
+            pendingSync: [...s.pendingSync, ...ids.map((id) => makeOp({ entity: 'financeiro_titulo', type: 'update', recordId: id, patch: { deleted_at: nowIso, updated_at: nowIso }, table: TABLE }))],
           }))
           void get().flush()
         },

@@ -14,6 +14,7 @@ import { GestaoEquipamentosPage } from '@/features/gestao-equipamentos/index'
 import { ManutencaoPreditivaPanel } from '@/features/otimizacao-frota/components/ManutencaoPreditivaPanel'
 import { CapexRoiPanel } from './components/CapexRoiPanel'
 import { PredialWorkbenchPanel } from './components/PredialWorkbenchPanel'
+import { RateioConsumoPanel } from './components/RateioConsumoPanel'
 
 function isPredialTab(v: string | null): v is PredialTab {
   return !!v && PREDIAL_TABS.some((t) => t.key === v)
@@ -39,6 +40,7 @@ export function PredialPage() {
         {tab === 'saude' && <div className="p-6"><ManutencaoPreditivaPanel /></div>}
         {tab === 'capex' && <CapexRoiPanel />}
         {tab === 'workbench' && <PredialWorkbenchPanel />}
+        {tab === 'rateio' && <RateioConsumoPanel />}
       </div>
     </div>
   )
