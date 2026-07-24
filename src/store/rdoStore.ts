@@ -319,6 +319,8 @@ export const useRdoStore = create<RdoState>()(
         }
         // Sempre reconcilia o planejamento (a função já filtra finalizados).
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
+        // Ponte RDO → Financeiro (custos): posta se finalizado, reconcilia se rascunho.
+        setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().syncRdoToFinanceiro(newRdo)) }, 0)
         void get().flush()
         return newRdo.id
       },
@@ -363,6 +365,8 @@ export const useRdoStore = create<RdoState>()(
           eventBus.emit({ type: 'rdo.finalized', rdoId: id, projectId: upd.siteId ?? null, date: upd.date })
         }
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
+        // Ponte RDO → Financeiro: re-posta se finalizado, remove se virou rascunho.
+        if (upd) setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().syncRdoToFinanceiro(upd)) }, 0)
         void get().flush()
       },
 
@@ -382,6 +386,8 @@ export const useRdoStore = create<RdoState>()(
         }))
         // Excluir um RDO precisa reverter o executado que ele havia lançado no Planejamento.
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
+        // E remover os lançamentos de custo que ele gerou no Financeiro.
+        setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().removeRdoEntries(id)) }, 0)
         void get().flush()
       },
 

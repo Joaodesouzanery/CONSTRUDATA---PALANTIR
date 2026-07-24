@@ -233,23 +233,41 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
     }
   }
 
-  // Coalescing create+delete: se a fila tem um INSERT (ainda não sincronizado) e
-  // uma exclusão do MESMO registro, o insert/updates comuns são anulados (não vão
-  // ao servidor) — mas a exclusão é MANTIDA e roda idempotente. Assim o estado
-  // final é sempre "removido" (mesmo se o insert já tiver vazado pro servidor numa
-  // tentativa anterior), sem ressuscitar a linha quando o insert seria retentado.
+  // Coalescing create+delete SENSÍVEL À ORDEM: quando um registro tem insert/update
+  // E exclusão acumulados na fila, a ÚLTIMA op decide o estado final:
+  //  - termina em EXCLUSÃO (create→delete) → cancela os inserts/updates e roda só a
+  //    exclusão (idempotente) → evita ressuscitar a linha.
+  //  - termina em INSERT/UPDATE (delete→recria; ex.: rascunho→finaliza de novo com id
+  //    determinístico) → cancela as exclusões e roda o insert/update final → evita
+  //    perder um lançamento válido.
   // Cobre exclusão hard (type 'delete') e soft (update com deleted_at).
   const opKey = (o: PendingOp) => `${o.table}::${o.recordId}`
   const isDeleteIntent = (o: PendingOp) => o.type === 'delete' || (o.type === 'update' && o.patch?.deleted_at != null)
-  const deleteKeys = new Set(queue.filter(isDeleteIntent).map(opKey))
-  const canceledKeys = new Set(queue.filter((o) => !isDeleteIntent(o) && deleteKeys.has(opKey(o))).map(opKey))
+  const lastOp = new Map<string, PendingOp>()
+  const hasDelete = new Set<string>()
+  const hasNonDelete = new Set<string>()
+  for (const op of queue) {
+    const k = opKey(op)
+    lastOp.set(k, op)   // sobrescreve → sobra a última op do registro (ordem da fila)
+    if (isDeleteIntent(op)) hasDelete.add(k); else hasNonDelete.add(k)
+  }
+  const mixedKeys = new Set([...hasDelete].filter((k) => hasNonDelete.has(k)))
   const active: PendingOp[] = []
   for (const op of queue) {
-    if (!isDeleteIntent(op) && canceledKeys.has(opKey(op))) {
-      result.completed.push(op.id)   // anulada localmente — remove da fila sem chamar o servidor
-      continue
+    const k = opKey(op)
+    if (!mixedKeys.has(k)) { active.push(op); continue }
+    const last = lastOp.get(k)!
+    // Termina em INSERT (upsert = linha completa) ou EXCLUSÃO → basta a ÚLTIMA op
+    // (evita mandar duas linhas com o mesmo id no mesmo upsert). Se terminar em
+    // UPDATE parcial (raro), preserva os inserts/updates na ordem e cancela só as
+    // exclusões, para o update não rodar sobre linha inexistente.
+    if (last.type === 'insert' || isDeleteIntent(last)) {
+      if (op === last) active.push(op)
+      else result.completed.push(op.id)
+    } else {
+      if (!isDeleteIntent(op)) active.push(op)
+      else result.completed.push(op.id)
     }
-    active.push(op)
   }
 
   // Despacha a fila preservando a ordem. Inserts CONSECUTIVOS na mesma tabela

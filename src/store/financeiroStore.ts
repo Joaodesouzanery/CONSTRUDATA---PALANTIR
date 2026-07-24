@@ -4,9 +4,34 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
-import type { FinanceiroTab, FinanceiroEntry, Distribuicao, DreConfig } from '@/types'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
+import { parseLocaleNumber } from '@/lib/numberFormat'
+import type { FinanceiroTab, FinanceiroEntry, Distribuicao, DreConfig, RDO } from '@/types'
 
 export const DEFAULT_DRE_CONFIG: DreConfig = { deducaoPct: 0, mapping: {} }
+
+/**
+ * UUID determinístico a partir de uma semente (hash cyrb128 → formato uuid válido,
+ * não é UUIDv4 "real", mas o tipo `uuid` do Postgres aceita). Serve para o feed
+ * RDO→Financeiro: o mesmo (rdoId, categoria) gera SEMPRE o mesmo id → o upsert
+ * substitui em vez de duplicar (idempotente inclusive entre dispositivos, sem
+ * depender de ter puxado os lançamentos antes).
+ */
+function seededUuid(seed: string): string {
+  let h1 = 0x9e3779b9, h2 = 0x243f6a88, h3 = 0xb7e15162, h4 = 0xdeadbeef
+  for (let i = 0; i < seed.length; i++) {
+    const c = seed.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 2654435761)
+    h2 = Math.imul(h2 ^ c, 1597334677)
+    h3 = Math.imul(h3 ^ c, 3812015801)
+    h4 = Math.imul(h4 ^ c, 2246822519)
+  }
+  const hx = (n: number) => (n >>> 0).toString(16).padStart(8, '0')
+  const r = hx(h1) + hx(h2) + hx(h3) + hx(h4)
+  return `${r.slice(0, 8)}-${r.slice(8, 12)}-${r.slice(12, 16)}-${r.slice(16, 20)}-${r.slice(20, 32)}`
+}
+const rdoEntryId = (rdoId: string, cat: 'materiais' | 'mao_de_obra') => seededUuid(`rdo-fin:${rdoId}:${cat}`)
 
 function moneyValue(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
@@ -62,6 +87,10 @@ interface FinanceiroState {
   updateEntry: (id: string, patch: Partial<FinanceiroEntry>) => void
   removeEntry: (id: string) => void
 
+  // Ponte RDO → Financeiro (custos realizados), idempotente por sourceRdoId.
+  syncRdoToFinanceiro: (rdo: RDO) => void
+  removeRdoEntries: (rdoId: string) => void
+
   // Distribuição de orçamento (por obra)
   distribuicoes: Distribuicao[]
   upsertDistribuicao: (d: Distribuicao) => void
@@ -107,7 +136,9 @@ export const useFinanceiroStore = create<FinanceiroState>()(
             ...e0,
             obraId: opts?.respectObra ? e0.obraId : (e0.obraId ?? useActiveObraStore.getState().activeObraId ?? undefined),
           }
-          set((s) => ({ entries: [...s.entries, e] }))
+          // Upsert por id local: ids aleatórios nunca colidem (comportamento idêntico);
+          // ids determinísticos (feed do RDO) substituem em vez de duplicar.
+          set((s) => ({ entries: [...s.entries.filter((x) => x.id !== e.id), e] }))
           const { orgId, userId } = ctx()
           enqueue(makeOp({ entity: 'financeiro_entry', type: 'insert', recordId: e.id, row: entryToRow(e, orgId, userId), table: 'financeiro_entries' }))
           void get().flush()
@@ -127,6 +158,54 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           set((s) => ({ entries: s.entries.filter((e) => e.id !== id) }))
           enqueue(makeOp({ entity: 'financeiro_entry', type: 'delete', recordId: id, table: 'financeiro_entries' }))
           void get().flush()
+        },
+
+        // Remove os lançamentos (materiais + mão de obra) gerados por um RDO.
+        // Só apaga o que existe localmente (evita enfileirar delete-fantasma para
+        // registros que nunca foram lançados — ex.: rascunho ou RDO sem custo).
+        removeRdoEntries: (rdoId) => {
+          const has = (id: string) => get().entries.some((e) => e.id === id)
+          const matId = rdoEntryId(rdoId, 'materiais')
+          const moId = rdoEntryId(rdoId, 'mao_de_obra')
+          if (has(matId)) get().removeEntry(matId)
+          if (has(moId)) get().removeEntry(moId)
+        },
+
+        // Ponte RDO → Financeiro: ao finalizar um RDO, lança os CUSTOS realizados
+        // (materiais + mão de obra). Idempotente por id determinístico (re-finalizar/
+        // editar SUBSTITUI via upsert; rascunho/exclusão REMOVE). Receita fica na
+        // Medição/Execução (não duplica aqui). Por categoria é add XOR remove — nunca
+        // delete+insert do mesmo id no mesmo tick (não colide com o coalescing).
+        syncRdoToFinanceiro: (rdo) => {
+          const finalizado = rdo.status !== 'rascunho'
+          const nowIso = new Date().toISOString()
+          const base = { data: rdo.date, obraId: rdo.siteId ?? undefined, referencia: `RDO #${rdo.number}`, sourceRdoId: rdo.id }
+
+          // Materiais. ATENÇÃO: o RDO Compizzo grava a MESMA lista de materiais em
+          // `rdo.materials` E `rdo.compizzo.materiais` — usar só uma fonte (senão dobra).
+          // Compizzo → compizzo.materiais (qtd×custoUnitário); regular → rdo.materials.
+          const materiais = rdo.compizzo
+            ? (rdo.compizzo.materiais ?? []).reduce((s, m) => s + (parseLocaleNumber(m.quantidade) * (m.custoUnitario ?? 0)), 0)
+            : (rdo.materials ?? []).reduce((s, m) => s + (m.totalCostBRL ?? ((Number(m.quantity) || 0) * (m.unitCostBRL ?? 0))), 0)
+          const matId = rdoEntryId(rdo.id, 'materiais')
+          if (finalizado && materiais > 0) {
+            get().addEntry({ id: matId, tipo: 'saida', descricao: `Materiais — RDO #${rdo.number}`, valor: materiais, categoria: 'materiais', createdAt: nowIso, ...base }, { respectObra: true })
+          } else if (get().entries.some((e) => e.id === matId)) {
+            get().removeEntry(matId)
+          }
+
+          // Mão de obra: custo/dia por funcionário presente (mesma base dos apontamentos).
+          const workers = useMaoDeObraStore.getState().workers
+          const mo = (rdo.manpower?.employeeNames ?? []).reduce((s, name) => {
+            const w = matchWorkerByName(name, workers)
+            return s + (w ? custoDiaWorker(w) : 0)
+          }, 0)
+          const moId = rdoEntryId(rdo.id, 'mao_de_obra')
+          if (finalizado && mo > 0) {
+            get().addEntry({ id: moId, tipo: 'saida', descricao: `Mão de obra — RDO #${rdo.number}`, valor: mo, categoria: 'mao_de_obra', createdAt: nowIso, ...base }, { respectObra: true })
+          } else if (get().entries.some((e) => e.id === moId)) {
+            get().removeEntry(moId)
+          }
         },
 
         distribuicoes: [],

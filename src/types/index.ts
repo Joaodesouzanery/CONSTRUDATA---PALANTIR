@@ -2669,6 +2669,7 @@ export interface FinanceiroEntry {
   referencia?: string   // nº NF, nº medição, etc.
   obraId?:     string   // vínculo com a obra (ConstructionSite) do Torre de Controle
   notas?:      string
+  sourceRdoId?: string  // origem: RDO que gerou este lançamento (idempotência RDO→Financeiro)
   createdAt:   string
 }
 
