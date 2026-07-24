@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Printer, Trash2, ChevronDown, ChevronRight,
   Cloud, CloudRain, Sun, Zap, Camera, MapPin, Edit3, X,
-  Droplets, FileDown, ImageIcon, ImageOff, Pencil,
+  Droplets, FileDown, ImageIcon, ImageOff, Pencil, CheckCircle2,
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -245,7 +245,20 @@ function PrintLayout({ rdo }: { rdo: RDO }) {
 
 // ─── RDO Card ─────────────────────────────────────────────────────────────────
 
-function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; onEdit: () => void }) {
+/** Validação leve para finalizar um RDO — retorna os campos faltantes (labels). */
+function rdoMissingForFinalize(rdo: RDO): string[] {
+  const missing: string[] = []
+  if (!rdo.date) missing.push('Data')
+  if (!rdo.responsible?.trim()) missing.push('Responsável')
+  if (!rdo.siteId) missing.push('Obra')
+  const temServico = (rdo.services ?? []).some((s) => (Number(s.quantity) || 0) > 0)
+  const temTrecho = (rdo.trechos ?? []).some((t) => (Number(t.executedMeters) || 0) > 0)
+  const temProducao = (rdo.compizzo?.producao ?? []).some((p) => (p.quantidade ?? '').trim() !== '')
+  if (!temServico && !temTrecho && !temProducao) missing.push('Pelo menos um serviço/trecho/produção com quantidade')
+  return missing
+}
+
+function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: () => void; onEdit: () => void; onFinalize?: () => void }) {
   const [expanded, setExpanded] = useState(false)
   // Colaboradores nominais (RDO Compizzo) também contam como trabalhadores.
   const totalWorkers = rdo.manpower.foremanCount + rdo.manpower.officialCount
@@ -330,6 +343,16 @@ function RdoCard({ rdo, onDelete, onEdit }: { rdo: RDO; onDelete: () => void; on
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {rdo.status === 'rascunho' && onFinalize && (
+            <button
+              onClick={onFinalize}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
+              title="Finalizar RDO — passa a alimentar planejamento, financeiro e estoque"
+            >
+              <CheckCircle2 size={13} />
+              Finalizar
+            </button>
+          )}
           <button
             onClick={onEdit}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] text-xs transition-colors"
@@ -764,6 +787,16 @@ export function HistoricoPanel() {
     removeRdo(id)
   }
 
+  function handleFinalize(rdo: RDO) {
+    const missing = rdoMissingForFinalize(rdo)
+    if (missing.length > 0) {
+      alert(`Não é possível finalizar o RDO #${rdo.number} — faltam:\n\n• ${missing.join('\n• ')}`)
+      return
+    }
+    if (!confirm(`Finalizar o RDO #${rdo.number}? Ele passará a alimentar planejamento, financeiro e estoque.`)) return
+    updateRdo(rdo.id, { status: 'finalizado' })
+  }
+
   function handleSaveEdit() {
     if (!editingRdo) return
     updateRdo(editingRdo.id, editForm)
@@ -911,6 +944,7 @@ export function HistoricoPanel() {
               key={`regular-${item.id}`}
               rdo={item.rdo}
               onDelete={() => handleDelete(item.rdo.id)}
+              onFinalize={() => handleFinalize(item.rdo)}
               onEdit={() => {
                 // RDO Compizzo edita no próprio painel Compizzo (todos os campos + fotos)
                 if (item.rdo.template === 'compizzo') {

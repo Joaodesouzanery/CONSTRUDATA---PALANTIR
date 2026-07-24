@@ -67,6 +67,9 @@ export function useAlertCounts(): AlertCounts {
     s.titulos.filter((t) => t.status === 'pendente' && t.vencimento <= limiteVenc).length
   )
 
+  // RDOs em rascunho (ainda não alimentam planejamento/financeiro/estoque).
+  const rdoRascunhos = planoRdos.filter((r) => r.status === 'rascunho').length
+
   return {
     '/app/otimizacao-frota':    healthAlerts,
     '/app/torre-de-controle':   siteRisks,
@@ -76,5 +79,6 @@ export function useAlertCounts(): AlertCounts {
     '/app/economia':            economyEvents,
     '/app/planejamento':        planoAlerts,
     '/app/evm':                 titulosAlerta,
+    '/app/rdo':                 rdoRascunhos,
   }
 }

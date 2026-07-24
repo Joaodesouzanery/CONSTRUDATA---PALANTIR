@@ -41,6 +41,15 @@ import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { buildOperationalKey } from '@/lib/operationalKey'
 
+/**
+ * RDO finalizado alimenta os módulos (planejamento, financeiro, medição, LPS,
+ * estoque). Rascunho NÃO alimenta — permite salvar o avanço e continuar depois.
+ * Ausência de `status` = finalizado (RDOs regulares antigos).
+ */
+export function isRdoFinalized(rdo: Pick<RDO, 'status'>): boolean {
+  return rdo.status !== 'rascunho'
+}
+
 // ─── Mapeamento RDO ↔ Row ────────────────────────────────────────────────────
 interface RdoRow {
   id:               string
@@ -282,28 +291,33 @@ export const useRdoStore = create<RdoState>()(
             makeOp({ entity: 'rdo', type: 'insert', recordId: newRdo.id, row, table: 'rdo' }),
           ],
         }))
-        // Domain event: outros stores podem reagir (planejamentoStore re-pulls trechos)
-        eventBus.emit({
-          type: 'rdo.closed',
-          rdoId: newRdo.id,
-          projectId: row.project_id,
-          date: newRdo.date,
-        })
-        eventBus.emit({
-          type: 'rdo.finalized',
-          rdoId: newRdo.id,
-          projectId: row.project_id,
-          date: newRdo.date,
-          operationalKey: buildOperationalKey({
-            contractNo: newRdo.numeroContrato ?? row.contract_no,
+        // Domain events só p/ RDO FINALIZADO — rascunho não avisa outros módulos
+        // (medição/LPS/suprimentos reagem a `rdo.finalized`). O estoque (trigger
+        // de servidor) já é gated em payload.status='finalizado'.
+        if (isRdoFinalized(newRdo)) {
+          eventBus.emit({
+            type: 'rdo.closed',
+            rdoId: newRdo.id,
             projectId: row.project_id,
-            nucleo: newRdo.localTipo,
-            local: newRdo.local,
-            serviceCode: newRdo.servicoExecutar ?? newRdo.services?.[0]?.contractItemCode,
-            nPreco: newRdo.services?.[0]?.contractItemCode,
-            period: newRdo.date.slice(0, 7),
-          }),
-        })
+            date: newRdo.date,
+          })
+          eventBus.emit({
+            type: 'rdo.finalized',
+            rdoId: newRdo.id,
+            projectId: row.project_id,
+            date: newRdo.date,
+            operationalKey: buildOperationalKey({
+              contractNo: newRdo.numeroContrato ?? row.contract_no,
+              projectId: row.project_id,
+              nucleo: newRdo.localTipo,
+              local: newRdo.local,
+              serviceCode: newRdo.servicoExecutar ?? newRdo.services?.[0]?.contractItemCode,
+              nPreco: newRdo.services?.[0]?.contractItemCode,
+              period: newRdo.date.slice(0, 7),
+            }),
+          })
+        }
+        // Sempre reconcilia o planejamento (a função já filtra finalizados).
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         void get().flush()
         return newRdo.id
@@ -340,10 +354,11 @@ export const useRdoStore = create<RdoState>()(
             ],
           }
         })
-        // Editar um RDO finalizado também precisa avisar os outros módulos (suprimentos,
-        // medição, planejamento, LPS) — antes só o addRdo emitia estes eventos.
+        // Editar um RDO FINALIZADO avisa os outros módulos (suprimentos, medição,
+        // planejamento, LPS). Se virou/está rascunho, NÃO avisa — e o reconcile do
+        // planejamento abaixo remove o que esse RDO havia lançado.
         const upd = get().rdos.find((r) => r.id === id)
-        if (upd) {
+        if (upd && isRdoFinalized(upd)) {
           eventBus.emit({ type: 'rdo.closed', rdoId: id, projectId: upd.siteId ?? null, date: upd.date })
           eventBus.emit({ type: 'rdo.finalized', rdoId: id, projectId: upd.siteId ?? null, date: upd.date })
         }
@@ -408,7 +423,10 @@ export const useRdoStore = create<RdoState>()(
           .catch(() => [] as RdoTrechoEntry[]),
 
       syncExecutionToPlanejamento: () => {
-        const { rdos } = get()
+        // Só RDOs FINALIZADOS contribuem. Rascunho conta zero → e a lógica de
+        // "reconcilia sempre" abaixo zera contribuições que sumiram (rascunho,
+        // re-link ou exclusão), sem dupla contagem.
+        const rdos = get().rdos.filter(isRdoFinalized)
         type ExecData = { quantity: number; date: string; progressPct: number; status: string }
         const execMap = new Map<string, { executedMeters: number; date: string }>()
         // Global (comportamento legado) + por obra (evita contaminação entre obras que compartilham operationalKey).
