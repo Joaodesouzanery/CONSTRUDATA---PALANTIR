@@ -1,52 +1,55 @@
 /**
- * CapexRoiPanel — análise de CapEx dos ativos (substituir × reparar), inspirada na
- * tela "Capital Expenditures Analysis" (sem IA / sem ontologia). Deriva o histórico
- * de custo de reparo das ordens de serviço (manutenções) por ativo e mês; a
- * recomendação compara o custo de reparo anualizado com o custo de reposição
- * amortizado. O custo de reposição é um input "what-if" (sessão) com estimativa
- * default — não persiste (pode virar campo do ativo numa próxima entrega).
+ * CapexRoiPanel — análise de CapEx dos ativos (substituir × reparar), inspirada na tela
+ * "Capital Expenditures Analysis" (sem IA/ontologia). Deriva o histórico de custo de
+ * reparo das ordens de serviço por ativo e mês; a recomendação compara o reparo anual
+ * com a reposição amortizada. Colunas ROI / Capex proposto / Custo anual como a imagem.
+ * O custo de reposição e os metadados (modelo/serial) PERSISTEM no payload jsonb do ativo
+ * (updateAsset) — sem migração. Chamados similares por heurística (lib/similarity).
  */
 import { useMemo, useState } from 'react'
-import { DollarSign, Wrench, TrendingUp, Repeat, AlertTriangle } from 'lucide-react'
+import { DollarSign, Wrench, TrendingUp, Repeat, AlertTriangle, Copy } from 'lucide-react'
 import { useManutencoesStore } from '@/store/manutencoesStore'
 import type { MaintenanceAsset, MaintenanceWorkOrder } from '@/store/manutencoesStore'
+import { rankBySimilarity } from '../lib/similarity'
 
-const VIDA_UTIL_ANOS = 5   // horizonte de amortização da reposição
+const VIDA_UTIL_ANOS = 5
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) }
 function monthKey(w: MaintenanceWorkOrder) { return (w.completedAt || w.scheduledDate || w.dueDate || w.createdAt || '').slice(0, 7) }
 function orderCost(w: MaintenanceWorkOrder) { return w.actualCost || w.estimatedCost || 0 }
+const defaultReplacement = (repair12m: number) => Math.round((repair12m * 3) / 100) * 100   // estimativa: 3× o reparo anual
 
 interface AssetCapex {
   asset: MaintenanceAsset
   orders: MaintenanceWorkOrder[]
-  total: number
   repair12m: number
   monthly: { month: string; valor: number }[]
+  replacement: number
+  roi: number          // economia Ano 1 (reparo anual − reposição amortizada)
+  substituir: boolean
 }
 
 export function CapexRoiPanel() {
   const assets = useManutencoesStore((s) => s.assets)
   const workOrders = useManutencoesStore((s) => s.workOrders)
+  const updateAsset = useManutencoesStore((s) => s.updateAsset)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [replacementOverride, setReplacementOverride] = useState<Record<string, number>>({})
 
   const hoje = new Date()
   const limite12m = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1).toISOString().slice(0, 7)
+  const assetTypeById = useMemo(() => new Map(assets.map((a) => [a.id, a.type])), [assets])
 
   const rows = useMemo<AssetCapex[]>(() => {
     return assets
       .map((asset) => {
         const orders = workOrders.filter((w) => w.assetIds?.includes(asset.id))
-        const total = orders.reduce((s, w) => s + orderCost(w), 0)
         const repair12m = orders.filter((w) => monthKey(w) >= limite12m).reduce((s, w) => s + orderCost(w), 0)
         const mMap = new Map<string, number>()
-        for (const w of orders) {
-          const k = monthKey(w)
-          if (k) mMap.set(k, (mMap.get(k) ?? 0) + orderCost(w))
-        }
+        for (const w of orders) { const k = monthKey(w); if (k) mMap.set(k, (mMap.get(k) ?? 0) + orderCost(w)) }
         const monthly = [...mMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([month, valor]) => ({ month, valor }))
-        return { asset, orders, total, repair12m, monthly }
+        const replacement = asset.replacementCostBRL ?? defaultReplacement(repair12m)
+        const roi = repair12m - replacement / VIDA_UTIL_ANOS
+        return { asset, orders, repair12m, monthly, replacement, roi, substituir: roi > 0 }
       })
       .filter((r) => r.orders.length > 0)
       .sort((a, b) => b.repair12m - a.repair12m)
@@ -54,13 +57,10 @@ export function CapexRoiPanel() {
 
   const selected = rows.find((r) => r.asset.id === selectedId) ?? rows[0] ?? null
 
-  const defaultReplacement = (r: AssetCapex) => Math.round((r.repair12m * 3) / 100) * 100   // estimativa: 3× o reparo anual
-  const replacementCost = (r: AssetCapex) => replacementOverride[r.asset.id] ?? defaultReplacement(r)
-
   return (
     <div className="p-6 flex flex-col lg:flex-row gap-6 overflow-auto">
       {/* Lista de ativos */}
-      <div className="lg:w-[340px] shrink-0 space-y-2">
+      <div className="lg:w-[360px] shrink-0 space-y-2">
         <p className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-wider mb-2">Ativos por custo de reparo (12m)</p>
         {rows.length === 0 ? (
           <div className="text-[#6b6b6b] text-xs py-8 text-center rounded-xl border border-dashed border-[#525252]">
@@ -68,8 +68,6 @@ export function CapexRoiPanel() {
           </div>
         ) : rows.map((r) => {
           const isSel = selected?.asset.id === r.asset.id
-          const rep = replacementCost(r)
-          const substituir = r.repair12m > rep / VIDA_UTIL_ANOS
           return (
             <button
               key={r.asset.id}
@@ -78,13 +76,14 @@ export function CapexRoiPanel() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-white text-sm truncate">{r.asset.name || r.asset.code}</span>
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${substituir ? 'bg-red-500/15 text-red-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
-                  {substituir ? 'Substituir' : 'Reparar'}
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${r.substituir ? 'bg-red-500/15 text-red-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                  {r.substituir ? 'Substituir' : 'Reparar'}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-[10px] text-[#6b6b6b] mt-1">
-                <span>{r.orders.length} OS · reparo 12m</span>
-                <span className="text-[#f97316] font-mono">{fmtBRL(r.repair12m)}</span>
+              <div className="grid grid-cols-3 gap-1 mt-2">
+                <MiniCol label="Custo anual" value={fmtBRL(r.repair12m)} tone="#ef4444" />
+                <MiniCol label="Capex prop." value={fmtBRL(r.replacement)} tone="#38bdf8" />
+                <MiniCol label="ROI" value={fmtBRL(r.roi)} tone={r.roi >= 0 ? '#22c55e' : '#ef4444'} />
               </div>
             </button>
           )
@@ -98,8 +97,10 @@ export function CapexRoiPanel() {
         ) : (
           <CapexDetail
             row={selected}
-            replacement={replacementCost(selected)}
-            onReplacement={(v) => setReplacementOverride((prev) => ({ ...prev, [selected.asset.id]: v }))}
+            workOrders={workOrders}
+            assetTypeById={assetTypeById}
+            onSelectOrderAsset={(assetId) => setSelectedId(assetId)}
+            onPatch={(patch) => void updateAsset(selected.asset.id, patch)}
           />
         )}
       </div>
@@ -107,47 +108,60 @@ export function CapexRoiPanel() {
   )
 }
 
-function CapexDetail({ row, replacement, onReplacement }: { row: AssetCapex; replacement: number; onReplacement: (v: number) => void }) {
-  const repairAnual = row.repair12m
-  const amortReposicao = replacement / VIDA_UTIL_ANOS
-  const economiaAno1 = repairAnual - amortReposicao   // >0 → substituir compensa
-  const substituir = economiaAno1 > 0
+function CapexDetail({ row, workOrders, assetTypeById, onSelectOrderAsset, onPatch }: {
+  row: AssetCapex
+  workOrders: MaintenanceWorkOrder[]
+  assetTypeById: Map<string, string>
+  onSelectOrderAsset: (assetId: string) => void
+  onPatch: (patch: { replacementCostBRL?: number; modelo?: string; serial?: string }) => void
+}) {
+  const { asset } = row
+  const amortReposicao = row.replacement / VIDA_UTIL_ANOS
+  const substituir = row.substituir
+
+  // Chamados similares (heurística) — OS de OUTROS ativos parecidas com as deste.
+  const baseText = row.orders.map((w) => `${w.title} ${w.description}`).join(' ') + ' ' + asset.type
+  const similares = useMemo(
+    () => rankBySimilarity(
+      baseText,
+      workOrders.filter((w) => !w.assetIds?.includes(asset.id)),
+      (w) => `${w.title} ${w.description} ${(w.assetIds ?? []).map((id) => assetTypeById.get(id) ?? '').join(' ')}`,
+      { topN: 5 },
+    ),
+    [baseText, workOrders, asset.id, assetTypeById],
+  )
 
   return (
     <>
-      {/* Recomendação */}
+      {/* Recomendação + cards */}
       <div className="rounded-2xl border border-[#525252] bg-[#333333] p-5">
         <div className="flex items-center gap-2 mb-3">
           <TrendingUp size={16} className="text-[#f97316]" />
-          <h2 className="text-white font-semibold text-sm">Recomendação — {row.asset.name || row.asset.code}</h2>
+          <h2 className="text-white font-semibold text-sm">Recomendação — {asset.name || asset.code}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <RecCard label="Custo de reposição" value={fmtBRL(replacement)} tone="#38bdf8" />
-          <RecCard label="Reparo (12m)" value={fmtBRL(repairAnual)} tone="#ef4444" />
-          <RecCard label="Economia Ano 1" value={fmtBRL(economiaAno1)} tone={substituir ? '#22c55e' : '#ef4444'} />
+          <RecCard label="Capex proposto (reposição)" value={fmtBRL(row.replacement)} tone="#38bdf8" />
+          <RecCard label="Custo anual (reparo 12m)" value={fmtBRL(row.repair12m)} tone="#ef4444" />
+          <RecCard label="ROI (economia Ano 1)" value={fmtBRL(row.roi)} tone={substituir ? '#22c55e' : '#ef4444'} />
         </div>
         <div className={`mt-4 flex items-start gap-2 rounded-lg p-3 text-sm ${substituir ? 'bg-red-500/10 text-red-200' : 'bg-emerald-500/10 text-emerald-200'}`}>
           {substituir ? <AlertTriangle size={16} className="mt-0.5 shrink-0" /> : <Repeat size={16} className="mt-0.5 shrink-0" />}
           <div>
             <strong>{substituir ? 'Substituir o ativo' : 'Manter e reparar'}.</strong>{' '}
             {substituir
-              ? `O reparo anual (${fmtBRL(repairAnual)}) supera a reposição amortizada em ${VIDA_UTIL_ANOS} anos (${fmtBRL(amortReposicao)}/ano) — troca economiza ~${fmtBRL(economiaAno1)}/ano.`
-              : `O reparo anual (${fmtBRL(repairAnual)}) ainda é menor que a reposição amortizada (${fmtBRL(amortReposicao)}/ano) — reparar compensa.`}
+              ? `O reparo anual (${fmtBRL(row.repair12m)}) supera a reposição amortizada em ${VIDA_UTIL_ANOS} anos (${fmtBRL(amortReposicao)}/ano) — troca economiza ~${fmtBRL(row.roi)}/ano.`
+              : `O reparo anual (${fmtBRL(row.repair12m)}) ainda é menor que a reposição amortizada (${fmtBRL(amortReposicao)}/ano) — reparar compensa.`}
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-2 flex-wrap">
-          <label className="text-[11px] text-[#a3a3a3]">Custo de reposição (ajuste o cenário):</label>
-          <div className="flex items-center gap-1">
-            <span className="text-[#6b6b6b] text-xs">R$</span>
-            <input
-              type="number" min={0} step={500}
-              value={replacement}
-              onChange={(e) => onReplacement(Math.max(0, Number(e.target.value) || 0))}
-              className="w-32 bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#f97316]/60"
-            />
-          </div>
-          <span className="text-[10px] text-[#6b6b6b]">Estimativa inicial = 3× o reparo anual · amortização em {VIDA_UTIL_ANOS} anos.</span>
-        </div>
+      </div>
+
+      {/* Metadados do ativo (persistidos) */}
+      <div className="rounded-2xl border border-[#525252] bg-[#333333] p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <MetaField key={asset.id + '-repl'} label="Custo de reposição (R$)" type="number" value={asset.replacementCostBRL ?? ''} placeholder={String(defaultReplacement(row.repair12m))}
+          onSave={(v) => onPatch({ replacementCostBRL: v === '' ? undefined : Math.max(0, Number(v) || 0) })} help={`Padrão = 3× o reparo anual · amortização em ${VIDA_UTIL_ANOS} anos`} />
+        <MetaReadonly label="Localização" value={asset.location || '—'} />
+        <MetaField key={asset.id + '-modelo'} label="Modelo" value={asset.modelo ?? ''} onSave={(v) => onPatch({ modelo: v || undefined })} />
+        <MetaField key={asset.id + '-serial'} label="Nº de série" value={asset.serial ?? ''} onSave={(v) => onPatch({ serial: v || undefined })} />
       </div>
 
       {/* Custo de reparo mensal */}
@@ -158,7 +172,67 @@ function CapexDetail({ row, replacement, onReplacement }: { row: AssetCapex; rep
         </div>
         <MonthlyBars data={row.monthly} />
       </div>
+
+      {/* Chamados similares */}
+      <div className="rounded-2xl border border-[#525252] bg-[#333333] p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Copy size={14} className="text-[#a3a3a3]" />
+          <p className="text-xs font-semibold text-[#a3a3a3] uppercase tracking-wider">Chamados de manutenção similares</p>
+        </div>
+        {similares.length === 0 ? (
+          <p className="text-[#6b6b6b] text-xs py-4 text-center">Nenhum chamado similar em outros ativos.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {similares.map(({ item: w, score }) => {
+              const outroAsset = (w.assetIds ?? [])[0]
+              return (
+                <button key={w.id} onClick={() => outroAsset && onSelectOrderAsset(outroAsset)}
+                  className="w-full text-left rounded-lg border border-[#525252] bg-[#2c2c2c] p-2.5 hover:border-[#f97316]/50 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-white text-xs truncate">{w.title || w.code}</p>
+                    <span className="text-[10px] text-[#f97316] font-mono shrink-0">{Math.round(score * 100)}%</span>
+                  </div>
+                  <p className="text-[10px] text-[#6b6b6b] truncate">{w.status} · {w.scheduledDate || '—'} · reparo {fmtBRL(orderCost(w))}</p>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </>
+  )
+}
+
+function MiniCol({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="text-center">
+      <p className="text-[8px] uppercase tracking-wider text-[#6b6b6b]">{label}</p>
+      <p className="text-[11px] font-mono font-semibold" style={{ color: tone }}>{value}</p>
+    </div>
+  )
+}
+
+// Recebe `key={asset.id + label}` do pai → remonta (e re-inicializa) ao trocar de ativo.
+function MetaField({ label, value, onSave, type = 'text', placeholder, help }: { label: string; value: string | number; onSave: (v: string) => void; type?: string; placeholder?: string; help?: string }) {
+  const [v, setV] = useState(String(value ?? ''))
+  return (
+    <div>
+      <label className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</label>
+      <input type={type} value={v} placeholder={placeholder}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => onSave(v)}
+        className="w-full mt-1 bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#f97316]/60" />
+      {help && <p className="text-[9px] text-[#6b6b6b] mt-0.5">{help}</p>}
+    </div>
+  )
+}
+
+function MetaReadonly({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <label className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</label>
+      <p className="mt-1 text-xs text-[#d4d4d4] px-2.5 py-1.5">{value}</p>
+    </div>
   )
 }
 
