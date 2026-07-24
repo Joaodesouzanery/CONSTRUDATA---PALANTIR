@@ -12,6 +12,7 @@ import { PredialVisaoGeralPanel } from './components/PredialVisaoGeralPanel'
 import { ManutencoesPage } from '@/features/manutencoes/index'
 import { GestaoEquipamentosPage } from '@/features/gestao-equipamentos/index'
 import { ManutencaoPreditivaPanel } from '@/features/otimizacao-frota/components/ManutencaoPreditivaPanel'
+import { CapexRoiPanel } from './components/CapexRoiPanel'
 
 function isPredialTab(v: string | null): v is PredialTab {
   return !!v && PREDIAL_TABS.some((t) => t.key === v)
@@ -35,7 +36,7 @@ export function PredialPage() {
         {tab === 'manutencoes' && <ManutencoesPage />}
         {tab === 'equipamentos' && <GestaoEquipamentosPage />}
         {tab === 'saude' && <div className="p-6"><ManutencaoPreditivaPanel /></div>}
-        {tab === 'capex' && <EmBreve titulo="CapEx / ROI de ativos" descricao="Análise substituir × reparar (custo de reparo mensal, ROI e recomendação). Chega na próxima entrega." />}
+        {tab === 'capex' && <CapexRoiPanel />}
         {tab === 'workbench' && <EmBreve titulo="Workbench de chamados" descricao="Chamado + tickets similares + manuais/troubleshooting (heurística, sem IA externa). Chega na próxima entrega." />}
       </div>
     </div>
