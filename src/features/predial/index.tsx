@@ -13,6 +13,7 @@ import { ManutencoesPage } from '@/features/manutencoes/index'
 import { GestaoEquipamentosPage } from '@/features/gestao-equipamentos/index'
 import { ManutencaoPreditivaPanel } from '@/features/otimizacao-frota/components/ManutencaoPreditivaPanel'
 import { CapexRoiPanel } from './components/CapexRoiPanel'
+import { PredialWorkbenchPanel } from './components/PredialWorkbenchPanel'
 
 function isPredialTab(v: string | null): v is PredialTab {
   return !!v && PREDIAL_TABS.some((t) => t.key === v)
@@ -37,19 +38,7 @@ export function PredialPage() {
         {tab === 'equipamentos' && <GestaoEquipamentosPage />}
         {tab === 'saude' && <div className="p-6"><ManutencaoPreditivaPanel /></div>}
         {tab === 'capex' && <CapexRoiPanel />}
-        {tab === 'workbench' && <EmBreve titulo="Workbench de chamados" descricao="Chamado + tickets similares + manuais/troubleshooting (heurística, sem IA externa). Chega na próxima entrega." />}
-      </div>
-    </div>
-  )
-}
-
-function EmBreve({ titulo, descricao }: { titulo: string; descricao: string }) {
-  return (
-    <div className="p-6">
-      <div className="flex flex-col items-center justify-center text-center gap-3 rounded-2xl border border-dashed border-[#525252] bg-[#333333] py-16 px-6">
-        <h2 className="text-white font-semibold text-lg">{titulo}</h2>
-        <p className="text-[#a3a3a3] text-sm max-w-md">{descricao}</p>
-        <span className="mt-1 text-xs font-medium text-[#f97316] bg-[#f97316]/10 rounded-full px-3 py-1">Em breve</span>
+        {tab === 'workbench' && <PredialWorkbenchPanel />}
       </div>
     </div>
   )

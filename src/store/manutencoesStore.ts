@@ -9,6 +9,14 @@ export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
 export type MaintenanceFrequency = 'unica' | 'diaria' | 'semanal' | 'quinzenal' | 'mensal' | 'bimestral' | 'trimestral' | 'semestral' | 'anual'
 export type MaintenanceAssetStatus = 'active' | 'idle' | 'maintenance' | 'alert' | 'offline'
 
+/** Manual/documento técnico anexado a um ativo (repositório do Workbench Predial). */
+export interface MaintenanceManual {
+  id: string
+  nome: string
+  url?: string
+  tags?: string[]
+}
+
 export interface MaintenanceAsset {
   id: string
   code: string
@@ -21,6 +29,7 @@ export interface MaintenanceAsset {
   qrCode: string
   projectId: string | null
   constructionSiteId: string | null
+  manuais?: MaintenanceManual[]   // repositório de manuais (payload jsonb, sem migração)
   createdAt: string
   updatedAt: string
 }
