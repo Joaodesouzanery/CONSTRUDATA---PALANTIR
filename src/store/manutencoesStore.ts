@@ -9,12 +9,20 @@ export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
 export type MaintenanceFrequency = 'unica' | 'diaria' | 'semanal' | 'quinzenal' | 'mensal' | 'bimestral' | 'trimestral' | 'semestral' | 'anual'
 export type MaintenanceAssetStatus = 'active' | 'idle' | 'maintenance' | 'alert' | 'offline'
 
+/** Seção/nota navegável dentro de um manual (troubleshooting, código de peça, etc.). */
+export interface MaintenanceManualSection {
+  id: string
+  titulo: string
+  texto: string
+}
+
 /** Manual/documento técnico anexado a um ativo (repositório do Workbench Predial). */
 export interface MaintenanceManual {
   id: string
   nome: string
   url?: string
   tags?: string[]
+  secoes?: MaintenanceManualSection[]
 }
 
 export interface MaintenanceAsset {
