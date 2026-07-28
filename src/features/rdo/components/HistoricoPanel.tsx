@@ -16,6 +16,8 @@ import { supabase } from '@/lib/supabase'
 import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { RdoPhotoImg } from './RdoPhotoImg'
+import { RdoDetalhe } from './RdoDetalhe'
+import { RdoIntegracaoStatus } from './RdoIntegracaoStatus'
 import { removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
@@ -60,12 +62,6 @@ function weatherLabel(cond: RdoWeatherCondition) {
     good: 'Bom', cloudy: 'Nublado', rain: 'Chuva', storm: 'Tempestade',
   }
   return map[cond]
-}
-
-function statusBadge(status: string) {
-  if (status === 'completed')   return <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-900/50 text-emerald-300">Concluído</span>
-  if (status === 'in_progress') return <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-900/50 text-yellow-300">Em Execução</span>
-  return <span className="px-2 py-0.5 rounded-full text-xs bg-[#484848] text-[#a3a3a3]">Não Iniciado</span>
 }
 
 type SabespHistoryRecord = RdoSabespData & {
@@ -288,8 +284,8 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
       {/* Print layout injected at page level but scoped to this RDO — shows only when printing */}
       <PrintLayout rdo={rdo} />
 
-      {/* Card header */}
-      <div className="px-5 py-4 flex items-start justify-between gap-3">
+      {/* Card header — clicar em qualquer ponto (fora dos botões) expande */}
+      <div className="px-5 py-4 flex items-start justify-between gap-3 cursor-pointer" onClick={() => setExpanded((v) => !v)}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-white font-semibold">{rdoTitle(rdo)}</span>
@@ -342,7 +338,7 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           {rdo.status === 'rascunho' && onFinalize && (
             <button
               onClick={onFinalize}
@@ -385,164 +381,11 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
         </div>
       </div>
 
-      {/* Expanded detail */}
+      {/* Expanded detail — visão completa read-only + status de integração */}
       {expanded && (
-        <div className="px-5 pb-5 border-t border-[#525252] space-y-5 pt-4">
-
-          {/* Climate row */}
-          <div>
-            <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Condições Climáticas</h3>
-            <div className="flex gap-5 text-sm text-[#f5f5f5] flex-wrap">
-              {(['morning', 'afternoon', 'night'] as const).map((p) => {
-                const labels = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' }
-                return (
-                  <div key={p} className="flex items-center gap-1.5">
-                    {weatherIcon(rdo.weather[p])}
-                    <span className="text-[#6b6b6b]">{labels[p]}:</span>
-                    <span>{weatherLabel(rdo.weather[p])}</span>
-                  </div>
-                )
-              })}
-              <span className="text-[#a3a3a3]">{rdo.weather.temperatureC}°C</span>
-            </div>
-          </div>
-
-          {/* Manpower */}
-          <div>
-            <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Mão de Obra</h3>
-            <div className="flex gap-5 text-sm text-[#f5f5f5] flex-wrap">
-              <span>Encarregados: <strong>{rdo.manpower.foremanCount}</strong></span>
-              <span>Oficiais: <strong>{rdo.manpower.officialCount}</strong></span>
-              <span>Ajudantes: <strong>{rdo.manpower.helperCount}</strong></span>
-              <span>Operadores: <strong>{rdo.manpower.operatorCount}</strong></span>
-              <span className="text-[#f97316]">Total: <strong>{totalWorkers}</strong></span>
-            </div>
-            {(rdo.workforceRows?.length ?? 0) > 0 && (
-              <div className="mt-2 space-y-1">
-                {rdo.workforceRows?.map((row) => (
-                  <div key={row.id} className="text-xs text-[#a3a3a3]">
-                    {row.role}: {row.direct} direto(s), {row.outsourced} terceirizado(s)
-                    {(row.workerIds?.length ?? 0) > 0 && ` · ${row.workerIds?.length} trabalhador(es) vinculado(s)`}
-                    {row.hoursWorked ? ` · ${row.hoursWorked}h` : ''}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Equipment */}
-          {rdo.equipment.length > 0 && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Equipamentos</h3>
-              <div className="space-y-1">
-                {rdo.equipment.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
-                    <span className="flex-1">{e.name}</span>
-                    <span className="text-[#6b6b6b]">{e.quantity}× · {e.hours}h</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {(rdo.materials?.length ?? 0) > 0 && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Materiais e Insumos</h3>
-              <div className="space-y-1">
-                {rdo.materials?.map((m) => (
-                  <div key={m.id} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
-                    <span className="flex-1">{m.material}</span>
-                    <span className="text-[#6b6b6b]">{m.quantity} {m.unit || ''}</span>
-                    <span className="text-[#f97316]">{(Number(m.totalCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Services */}
-          {rdo.services.length > 0 && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Serviços Executados</h3>
-              <div className="space-y-1">
-                {rdo.services.map((s) => (
-                  <div key={s.id} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
-                    <span className="flex-1">{s.description}</span>
-                    <span className="text-[#6b6b6b]">{s.quantity} {s.unit}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Trechos */}
-          {rdo.trechos.length > 0 && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Avanço por Trecho</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[#6b6b6b] text-xs">
-                      <th className="text-left pb-2 font-medium">Código</th>
-                      <th className="text-left pb-2 font-medium">Descrição</th>
-                      <th className="text-right pb-2 font-medium">Planejado</th>
-                      <th className="text-right pb-2 font-medium">Executado</th>
-                      <th className="text-right pb-2 font-medium">%</th>
-                      <th className="text-center pb-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rdo.trechos.map((t) => {
-                      const pct = t.plannedMeters > 0 ? (t.executedMeters / t.plannedMeters) * 100 : 0
-                      return (
-                        <tr key={t.id} className="border-t border-[#525252]">
-                          <td className="py-1.5 pr-3 text-[#f5f5f5] font-mono text-xs">{t.trechoCode}</td>
-                          <td className="py-1.5 pr-3 text-[#a3a3a3]">{t.trechoDescription}</td>
-                          <td className="py-1.5 pr-3 text-right text-[#f5f5f5]">{t.plannedMeters.toFixed(1)} m</td>
-                          <td className="py-1.5 pr-3 text-right text-[#f5f5f5]">{t.executedMeters.toFixed(1)} m</td>
-                          <td className="py-1.5 pr-3 text-right text-[#f5f5f5]">{pct.toFixed(1)}%</td>
-                          <td className="py-1.5 text-center">{statusBadge(t.status)}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Observations */}
-          {rdo.observations && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Observações</h3>
-              <p className="text-[#a3a3a3] text-sm whitespace-pre-wrap">{rdo.observations}</p>
-            </div>
-          )}
-          {rdo.incidents && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">Ocorrências</h3>
-              <p className="text-[#a3a3a3] text-sm whitespace-pre-wrap">{rdo.incidents}</p>
-            </div>
-          )}
-
-          {/* Photos */}
-          {rdo.photos.length > 0 && (
-            <div>
-              <h3 className="text-[#f5f5f5] text-xs font-semibold uppercase tracking-wide mb-2">
-                Registro Fotográfico ({rdo.photos.length})
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {rdo.photos.map((p) => (
-                  <div key={p.id}>
-                    <RdoPhotoImg photo={p} className="w-full h-28 object-cover rounded-lg border border-[#525252]" />
-                    {p.label && (
-                      <p className="text-xs text-[#6b6b6b] mt-1 text-center truncate">{p.label}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="px-5 pb-5 border-t border-[#525252] space-y-4 pt-4">
+          <RdoIntegracaoStatus rdo={rdo} />
+          <RdoDetalhe rdo={rdo} />
         </div>
       )}
     </div>
