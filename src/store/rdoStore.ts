@@ -598,6 +598,13 @@ export const useRdoStore = create<RdoState>()(
           lastSyncedAt: new Date().toISOString(),
           syncError:    result.lastError ?? null,
         }))
+        // Assim que as ops de 'rdo' saem da fila, reconcilia os números provisórios
+        // com os que o servidor atribuiu (a trigger assign_rdo_number pode ter trocado
+        // um número que colidia). O pull fica bloqueado enquanto houver op de 'rdo'
+        // pendente, então só roda depois que a fila esvazia.
+        const hadPendingRdo   = queue.some((p) => p.table === 'rdo')
+        const stillPendingRdo = get().pendingSync.some((p) => p.table === 'rdo')
+        if (hadPendingRdo && !stillPendingRdo) void get().pull()
         // Foto capturada offline pode subir agora que há conexão.
         void get().retryPhotoUploads()
       },
