@@ -137,9 +137,13 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
         },
 
         addProject: (payload) => {
-          const id = crypto.randomUUID()
+          // code é único por org (projects_unique_code_per_org). Se já há projeto local com o
+          // mesmo code, reusa o id (upsert atualiza) em vez de inserir outro → evita 23505 preso.
+          const codeKey = (payload as { code?: string }).code?.trim()
+          const dup = codeKey ? get().projects.find((p) => (p as { code?: string }).code?.trim() === codeKey) : undefined
+          const id = dup?.id ?? crypto.randomUUID()
           const newProject: Project = { ...payload, id }
-          set((s) => ({ projects: [...s.projects, newProject], selectedProjectId: id }))
+          set((s) => ({ projects: dup ? s.projects.map((p) => (p.id === id ? newProject : p)) : [...s.projects, newProject], selectedProjectId: id }))
           const { orgId, userId } = ctxAuth()
           enqueue(makeOp({ entity: 'project', type: 'insert', recordId: id, row: projectToRow(newProject, orgId, userId), table: 'projects' }))
           void get().flush()

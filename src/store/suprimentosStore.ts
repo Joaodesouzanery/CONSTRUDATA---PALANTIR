@@ -662,14 +662,19 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addPO: (po) => {
     if (!canWrite()) return   // visualizador é somente-leitura
+    // code é único por org (po_unique_code_per_org). POs diferentes com o mesmo code (ex.:
+    // requisições cujo código trunca igual) colidiriam (23505, trava a fila) — sufixa para
+    // manter único (NÃO mescla — são pedidos distintos).
+    const codeTaken = !!po.code && get().purchaseOrders.some((x) => x.id !== po.id && x.code === po.code)
+    const poFixed = codeTaken ? { ...po, code: `${po.code}-${po.id.slice(0, 4)}` } : po
     const { profile, user } = useAuth.getState()
     const orgId  = profile?.organization_id ?? 'pending'
     const userId = user?.id ?? 'pending'
     set((s) => ({
-      purchaseOrders: [...s.purchaseOrders, po],
+      purchaseOrders: [...s.purchaseOrders, poFixed],
       pendingSync: [
         ...s.pendingSync,
-        makeOp({ entity: 'po', type: 'insert', recordId: po.id, row: poToRow(po, orgId, userId), table: 'purchase_orders' }),
+        makeOp({ entity: 'po', type: 'insert', recordId: poFixed.id, row: poToRow(poFixed, orgId, userId), table: 'purchase_orders' }),
       ],
     }))
     void get().flush()

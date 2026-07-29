@@ -309,23 +309,39 @@ export const useQuantitativosStore = create<QuantitativosState>()(
 
   importCustomBase: (entries) => {
     const { orgId, userId } = ctxAuth()
-    const withIds: CustomBaseEntry[] = entries.map((e) => ({ ...e, id: crypto.randomUUID() }))
-    set((s) => ({
-      customBase:  [...s.customBase, ...withIds],
-      pendingSync: [
-        ...s.pendingSync,
-        ...withIds.map((e) => makeOp({ entity: 'custom_base', type: 'insert', recordId: e.id, row: customBaseToRow(e, orgId, userId), table: 'quantitativos_custom_base' })),
-      ],
-    }))
+    // Reusa o id do item local com o mesmo code (e dedup dentro do lote) → dois imports com os
+    // mesmos códigos não colidem em quantitativos_custom_base_unique_code (23505, trava a fila).
+    const idByCode = new Map(get().customBase.map((x) => [(x.code || '').trim(), x.id]))
+    const withIds: CustomBaseEntry[] = entries.map((e) => {
+      const codeKey = (e.code || '').trim()
+      let id = codeKey ? idByCode.get(codeKey) : undefined
+      if (!id) { id = crypto.randomUUID(); if (codeKey) idByCode.set(codeKey, id) }
+      return { ...e, id }
+    })
+    set((s) => {
+      const byId = new Map(s.customBase.map((x) => [x.id, x]))
+      for (const e of withIds) byId.set(e.id, e)   // substitui existentes / adiciona novos
+      return {
+        customBase:  Array.from(byId.values()),
+        pendingSync: [
+          ...s.pendingSync,
+          ...withIds.map((e) => makeOp({ entity: 'custom_base', type: 'insert', recordId: e.id, row: customBaseToRow(e, orgId, userId), table: 'quantitativos_custom_base' })),
+        ],
+      }
+    })
     void get().flush()
   },
 
   addCustomEntry: (entry) => {
-    const id = crypto.randomUUID()
+    // code é único por org (quantitativos_custom_base_unique_code). Reusa o id do item local
+    // com o mesmo code (upsert atualiza) em vez de inserir outro → evita 23505 preso.
+    const codeKey = (entry.code || '').trim()
+    const dup = codeKey ? get().customBase.find((x) => (x.code || '').trim() === codeKey) : undefined
+    const id = dup?.id ?? crypto.randomUUID()
     const newEntry: CustomBaseEntry = { ...entry, id }
     const { orgId, userId } = ctxAuth()
     set((s) => ({
-      customBase:  [...s.customBase, newEntry],
+      customBase:  dup ? s.customBase.map((x) => (x.id === id ? newEntry : x)) : [...s.customBase, newEntry],
       pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'insert', recordId: id, row: customBaseToRow(newEntry, orgId, userId), table: 'quantitativos_custom_base' })],
     }))
     void get().flush()
