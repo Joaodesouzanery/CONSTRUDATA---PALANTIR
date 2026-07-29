@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import type { EquipmentAlert, EquipmentProfile } from '@/types'
 import { mockEquipamentos } from '@/data/mockEquipamentos'
@@ -166,9 +166,8 @@ export const useEquipamentosStore = create<EquipamentosState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const rows = pendingTables.has('equipamentos') ? null : await pullTable<{ payload: EquipmentProfile }>('equipamentos')
-          if (rows) set({ equipamentos: rows.map((r) => r.payload) })
+          const rows = await pullTable<{ payload: EquipmentProfile }>('equipamentos')
+          set((s) => ({ equipamentos: mergePull(rows?.map((r) => r.payload) ?? null, s.equipamentos, s.pendingSync, 'equipamentos') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

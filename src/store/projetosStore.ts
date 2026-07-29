@@ -9,7 +9,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { changedColumns, flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { changedColumns, flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { uploadFile, removeFile, getSignedUrl, type UploadResult } from '@/lib/storage'
 import { MOCK_PROJETOS } from '@/data/mockProjetos'
 import type {
@@ -376,16 +376,14 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
             return
           }
           get().ensureTenantScope(profile.organization_id)
-          // Proteção: se há op pendente para 'projects' (flush falhou/offline),
-          // NÃO sobrescreve a lista local — senão um projeto ainda não
-          // sincronizado some. (Não zera mais a lista antes do pull.)
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          if (!pendingTables.has('projects')) {
-            const rows = await pullTable<{ payload: Project }>('projects')
-            if (rows) {
-              const projects = rows.map((r) => r.payload)
-              set({ projects, selectedProjectId: projects[0]?.id ?? null })
-            }
+          // Sempre puxa: mergePull mescla o servidor com os registros que ainda têm op
+          // pendente (não-sincronizados), preservando-os em vez de congelar a tabela toda.
+          const rows = await pullTable<{ payload: Project }>('projects')
+          if (rows) {
+            set((s) => {
+              const projects = mergePull(rows.map((r) => r.payload), s.projects, s.pendingSync, 'projects')
+              return { projects, selectedProjectId: projects[0]?.id ?? null }
+            })
           }
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

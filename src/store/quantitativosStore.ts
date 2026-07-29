@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   QuantTab, CostBaseSource,
   OrcamentoItem, OrcamentoBudget, CustomBaseEntry,
@@ -451,11 +451,10 @@ export const useQuantitativosStore = create<QuantitativosState>()(
   },
 
   pull: async () => {
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const budgets = pendingTables.has('quantitativos_budgets') ? null : await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
-    const cb      = pendingTables.has('quantitativos_custom_base') ? null : await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
-    if (budgets) set({ savedBudgets: budgets.map((r) => r.payload) })
-    if (cb)      set({ customBase:   cb.map((r) => r.payload) })
+    const budgets = await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
+    const cb      = await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
+    set((s) => ({ savedBudgets: mergePull(budgets?.map((r) => r.payload) ?? null, s.savedBudgets, s.pendingSync, 'quantitativos_budgets') }))
+    set((s) => ({ customBase:   mergePull(cb?.map((r) => r.payload) ?? null, s.customBase, s.pendingSync, 'quantitativos_custom_base') }))
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),

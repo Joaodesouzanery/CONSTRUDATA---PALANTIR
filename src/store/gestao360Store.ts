@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { uploadFile, removeFile } from '@/lib/storage'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
@@ -257,12 +257,11 @@ export const useGestao360Store = create<Gestao360State>()(
             set({ syncStatus: 'unauth' })
             return
           }
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
           get().ensureTenantScope(profile.organization_id)
-          // sem blanking pré-emptivo: se 'change_orders' tem op pendente (rows=null),
-          // preserva o estado local não-sincronizado em vez de zerar a lista.
-          const rows = pendingTables.has('change_orders') ? null : await pullTable<{ payload: ChangeOrder }>('change_orders')
-          if (rows) set({ changeOrders: rows.map((r) => r.payload) })
+          // mergePull: puxa sempre e MESCLA — atualiza os change_orders sem op pendente
+          // com o servidor e preserva os COM op pendente (local não-sincronizado).
+          const rows = await pullTable<{ payload: ChangeOrder }>('change_orders')
+          set((s) => ({ changeOrders: mergePull(rows?.map((r) => r.payload) ?? null, s.changeOrders, s.pendingSync, 'change_orders') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

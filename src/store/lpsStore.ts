@@ -9,7 +9,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { LpsActivity, LpsWeeklyPPC, LpsTab, TaktZone, LpsRestriction, LpsAlert, StaffingDimension, IntegrationStatus } from '@/types'
 
 // ─── ISO week helpers ─────────────────────────────────────────────────────────
@@ -583,13 +583,12 @@ export const useLpsStore = create<LpsState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const acts = pendingTables.has('lps_activities') ? null : await pullTable<{ payload: LpsActivity }>('lps_activities')
-          const restrs = pendingTables.has('lps_restrictions') ? null : await pullTable<{ payload: LpsRestriction }>('lps_restrictions')
-          const zones = pendingTables.has('lps_takt_zones') ? null : await pullTable<{ payload: TaktZone }>('lps_takt_zones')
-          if (acts) set({ activities: acts.map((r) => r.payload) })
-          if (restrs) set({ restrictions: restrs.map((r) => r.payload) })
-          if (zones) set({ taktZones: zones.map((r) => r.payload) })
+          const acts = await pullTable<{ payload: LpsActivity }>('lps_activities')
+          const restrs = await pullTable<{ payload: LpsRestriction }>('lps_restrictions')
+          const zones = await pullTable<{ payload: TaktZone }>('lps_takt_zones')
+          set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'lps_activities') }))
+          set((s) => ({ restrictions: mergePull(restrs?.map((r) => r.payload) ?? null, s.restrictions, s.pendingSync, 'lps_restrictions') }))
+          set((s) => ({ taktZones: mergePull(zones?.map((r) => r.payload) ?? null, s.taktZones, s.pendingSync, 'lps_takt_zones') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

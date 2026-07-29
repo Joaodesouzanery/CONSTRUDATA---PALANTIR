@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { nanoid } from 'nanoid'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   PipelineStep, TakeoffItem, CostMatch, ContractClause,
   BDIConfig, AnalysisSession, SinapiEntry,
@@ -322,9 +322,8 @@ export const usePreConstrucaoStore = create<PreConstrucaoState>()(
   },
 
   pull: async () => {
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const rows = pendingTables.has('preconstrucao_sessions') ? null : await pullTable<{ payload: AnalysisSession }>('preconstrucao_sessions')
-    if (rows) set({ sessions: rows.map((r) => r.payload) })
+    const rows = await pullTable<{ payload: AnalysisSession }>('preconstrucao_sessions')
+    set((s) => ({ sessions: mergePull(rows?.map((r) => r.payload) ?? null, s.sessions, s.pendingSync, 'preconstrucao_sessions') }))
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),

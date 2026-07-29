@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth, canWrite } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { buildOperationalKey } from '@/lib/operationalKey'
@@ -1439,15 +1439,16 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     // falhar/voltar vazio) e não sobrescreve tabela com op pendente — defesa
     // por-tabela, igual aos demais stores. Cada `if (x) set(...)` abaixo só
     // atualiza a lista quando o pull daquela tabela retornou dados.
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const skip = (t: string) => pendingTables.has(t)
-    const pos          = skip('purchase_orders') ? null : await pullTable<Record<string, unknown>>('purchase_orders')
-    const receipts     = skip('goods_receipts') ? null : await pullTable<Record<string, unknown>>('goods_receipts')
-    const invoices     = skip('invoices') ? null : await pullTable<Record<string, unknown>>('invoices')
-    const suppliers    = skip('suppliers') ? null : await pullTable<Record<string, unknown>>('suppliers')
-    const depositos    = skip('suprimentos_depositos') ? null : await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
-    const estoqueItens = skip('suprimentos_estoque_itens') ? null : await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
-    const movimentos   = skip('suprimentos_estoque_movimentacoes') ? null : await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
+    // Fase 5 (mergePull): sempre puxa; o merge preserva os registros com op pendente e
+    // atualiza o resto com o servidor. Os filtros pendingDeleted* abaixo continuam para o
+    // caso CROSS-tabela (excluir um depósito esconde seus itens/movimentações).
+    const pos          = await pullTable<Record<string, unknown>>('purchase_orders')
+    const receipts     = await pullTable<Record<string, unknown>>('goods_receipts')
+    const invoices     = await pullTable<Record<string, unknown>>('invoices')
+    const suppliers    = await pullTable<Record<string, unknown>>('suppliers')
+    const depositos    = await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
+    const estoqueItens = await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
+    const movimentos   = await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
     const pendingDeleteIds = (table: string) => new Set(
       get().pendingSync
         .filter((op) =>
@@ -1460,8 +1461,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     const pendingDeletedItens = pendingDeleteIds('suprimentos_estoque_itens')
 
     if (pos) {
-      set({
-        purchaseOrders: pos.map((r) => ({
+      set((s) => ({
+        purchaseOrders: mergePull(pos.map((r) => ({
           id:               r.id as string,
           code:             r.code as string,
           supplier:         r.supplier as string,
@@ -1471,24 +1472,24 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           items:            ((r.payload as { items?: PurchaseOrder['items'] })?.items) ?? [],
           status:           r.status as PurchaseOrder['status'],
           projectRef:       (r.project_ref as string | null) ?? undefined,
-        })),
-      })
+        })), s.purchaseOrders, s.pendingSync, 'purchase_orders'),
+      }))
     }
     if (receipts) {
-      set({
-        receipts: receipts.map((r) => ({
+      set((s) => ({
+        receipts: mergePull(receipts.map((r) => ({
           id:           r.id as string,
           poId:         (r.po_id as string | null) ?? '',
           code:         r.code as string,
           receivedDate: r.received_date as string,
           receivedBy:   (r.received_by as string | null) ?? '',
           items:        ((r.payload as { items?: GoodsReceipt['items'] })?.items) ?? [],
-        })),
-      })
+        })), s.receipts, s.pendingSync, 'goods_receipts'),
+      }))
     }
     if (invoices) {
-      set({
-        invoices: invoices.map((r) => ({
+      set((s) => ({
+        invoices: mergePull(invoices.map((r) => ({
           id:          r.id as string,
           poId:        (r.po_id as string | null) ?? '',
           number:      r.number as string,
@@ -1498,12 +1499,12 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           totalAmount: Number(r.total_amount ?? 0),
           status:      r.status as Invoice['status'],
           items:       ((r.payload as { items?: Invoice['items'] })?.items) ?? [],
-        })),
-      })
+        })), s.invoices, s.pendingSync, 'invoices'),
+      }))
     }
     if (suppliers) {
-      set({
-        suppliers: suppliers.map((r) => ({
+      set((s) => ({
+        suppliers: mergePull(suppliers.map((r) => ({
           id:           r.id as string,
           cnpj:         (r.cnpj as string | null) ?? '',
           name:         r.name as string,
@@ -1513,23 +1514,23 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           email:        (r.email as string | null) ?? '',
           paymentTerms: (r.payment_terms as string | null) ?? '',
           createdAt:    r.created_at as string,
-        })),
-      })
+        })), s.suppliers, s.pendingSync, 'suppliers'),
+      }))
     }
     if (depositos) {
-      set({
-        depositos: depositos.filter((r) => !pendingDeletedDepositos.has(r.id as string)).map((r) => ({
+      set((s) => ({
+        depositos: mergePull(depositos.filter((r) => !pendingDeletedDepositos.has(r.id as string)).map((r) => ({
           id:        r.id as string,
           frente:    r.frente as string,
           descricao: (r.descricao as string | null) ?? undefined,
           ativo:     Boolean(r.ativo ?? true),
           siteId:    (r.site_id as string | null) ?? null,
-        })),
-      })
+        })), s.depositos, s.pendingSync, 'suprimentos_depositos'),
+      }))
     }
     if (estoqueItens) {
-      set({
-        estoqueItens: estoqueItens
+      set((s) => ({
+        estoqueItens: mergePull(estoqueItens
           .filter((r) => !pendingDeletedItens.has(r.id as string))
           .filter((r) => !pendingDeletedDepositos.has((r.deposito_id as string | null) ?? ''))
           .map((r) => ({
@@ -1550,12 +1551,12 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           unidadeEmbalagem:    (r.unidade_embalagem as string | null) ?? undefined,
           codigoReferencia:    ((r.metadata as Record<string, unknown> | null)?.codigoReferencia as string | undefined) || undefined,
           dataUltimoPedido:    ((r.metadata as Record<string, unknown> | null)?.dataUltimoPedido as string | undefined) || undefined,
-        })),
-      })
+        })), s.estoqueItens, s.pendingSync, 'suprimentos_estoque_itens'),
+      }))
     }
     if (movimentos) {
-      set({
-        movimentacoes: movimentos
+      set((s) => ({
+        movimentacoes: mergePull(movimentos
           .filter((r) => !pendingDeletedItens.has(r.item_id as string))
           .filter((r) => !pendingDeletedDepositos.has((r.deposito_id as string | null) ?? ''))
           .map((r) => ({
@@ -1572,8 +1573,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           lpsActivityId:  (r.lps_activity_id as string | null) ?? undefined,
           observacoes:    (r.observacoes as string | null) ?? undefined,
           siteId:         (r.site_id as string | null) ?? null,
-        })),
-      })
+        })), s.movimentacoes, s.pendingSync, 'suprimentos_estoque_movimentacoes'),
+      }))
     }
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },

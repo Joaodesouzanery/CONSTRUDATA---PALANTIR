@@ -30,7 +30,7 @@ import type {
   PlanServiceType,
 } from '@/types'
 import { useAuth, canWrite } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { attachBlobSync } from '@/lib/blobSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 
@@ -1008,14 +1008,14 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   },
 
   pull: async () => {
-    // Não sobrescreve tabela com op pendente (evita sumiço de dado local).
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const trechos = pendingTables.has('plan_trechos') ? null : await pullTable<Record<string, unknown>>('plan_trechos')
-    const teams   = pendingTables.has('plan_teams') ? null : await pullTable<Record<string, unknown>>('plan_teams')
-    const hols    = pendingTables.has('plan_holidays') ? null : await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
+    // Fase 5 (mergePull): sempre puxa; o merge preserva os registros com op pendente e
+    // atualiza o resto com o servidor (uma op presa não congela mais a tabela nem apaga local).
+    const trechos = await pullTable<Record<string, unknown>>('plan_trechos')
+    const teams   = await pullTable<Record<string, unknown>>('plan_teams')
+    const hols    = await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
     if (trechos) {
-      set({
-        trechos: trechos.map((r) => ({
+      set((s) => ({
+        trechos: mergePull(trechos.map((r) => ({
           id:                r.id as string,
           code:              r.code as string,
           description:       r.description as string,
@@ -1042,12 +1042,12 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           financialProgressPct: (r.payload as { financialProgressPct?: number } | undefined)?.financialProgressPct,
           estimatedHH:       (r.payload as { estimatedHH?: number } | undefined)?.estimatedHH,
           equipmentDemand:   (r.payload as { equipmentDemand?: PlanTrecho['equipmentDemand'] } | undefined)?.equipmentDemand,
-        })),
-      })
+        })), s.trechos, s.pendingSync, 'plan_trechos'),
+      }))
     }
     if (teams) {
-      set({
-        teams: teams.map((r) => ({
+      set((s) => ({
+        teams: mergePull(teams.map((r) => ({
           id:                    r.id as string,
           name:                  r.name as string,
           foremanCount:          Number(r.foreman_count ?? 0),
@@ -1062,17 +1062,17 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
           maxManualExcavDepthM:  Number(r.max_manual_excav_depth_m ?? 1.5),
           nucleusId:             (r.payload as { nucleusId?: string } | undefined)?.nucleusId,
           capacity:              (r.payload as { capacity?: PlanTeam['capacity'] } | undefined)?.capacity,
-        })),
-      })
+        })), s.teams, s.pendingSync, 'plan_teams'),
+      }))
     }
     if (hols) {
-      set({
-        holidays: hols.map((r) => ({
+      set((s) => ({
+        holidays: mergePull(hols.map((r) => ({
           id: r.id as string,
           date: r.date as string,
           description: r.description as string,
-        })),
-      })
+        })), s.holidays, s.pendingSync, 'plan_holidays'),
+      }))
     }
     if (pullPlanejamentoBlob) await pullPlanejamentoBlob()   // contrato/núcleos/cenários (app_state)
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

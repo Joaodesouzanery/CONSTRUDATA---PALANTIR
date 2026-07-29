@@ -4,7 +4,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   EvmTab, WorkPackage, CostAccountEntry, WeightedMeasurement,
   EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
@@ -876,15 +876,19 @@ export const useEvmStore = create<EvmState>()(
   },
 
   pull: async () => {
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const wps  = pendingTables.has('evm_work_packages') ? null : await pullTable<{ payload: WorkPackage }>('evm_work_packages')
-    const cas  = pendingTables.has('evm_cost_accounts') ? null : await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
-    const ms   = pendingTables.has('evm_measurements') ? null : await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
-    const imps = pendingTables.has('financeiro_impostos_nf') ? null : await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
-    if (wps) set({ workPackages: wps.map((r) => r.payload) })
-    if (cas) set({ costAccounts: cas.map((r) => r.payload) })
-    if (ms)  set({ measurements: ms.map((r) => r.payload) })
-    if (imps && imps.length > 0) set({ impostosNF: imps.map((r) => r.payload), impostosNFSeeded: true })
+    // Fase 5: puxa SEMPRE cada tabela e mescla com mergePull (preserva registros com op
+    // pendente, atualiza o resto com o servidor). Nada mais congela a tabela inteira.
+    const wps  = await pullTable<{ payload: WorkPackage }>('evm_work_packages')
+    const cas  = await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
+    const ms   = await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
+    const imps = await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
+    set((s) => ({
+      workPackages: mergePull(wps?.map((r) => r.payload) ?? null, s.workPackages, s.pendingSync, 'evm_work_packages'),
+      costAccounts: mergePull(cas?.map((r) => r.payload) ?? null, s.costAccounts, s.pendingSync, 'evm_cost_accounts'),
+      measurements: mergePull(ms?.map((r) => r.payload) ?? null, s.measurements, s.pendingSync, 'evm_measurements'),
+    }))
+    // Server vazio nunca zera os impostos default locais (mantém o guard `length > 0`).
+    if (imps && imps.length > 0) set((s) => ({ impostosNF: mergePull(imps.map((r) => r.payload), s.impostosNF, s.pendingSync, 'financeiro_impostos_nf'), impostosNFSeeded: true }))
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
     // Recomputa metrics localmente após pull
     get().recalculateMetrics()

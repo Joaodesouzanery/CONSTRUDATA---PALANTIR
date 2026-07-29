@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { addDays, format, parseISO } from 'date-fns'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { AgendaTask, AgendaResource, AgendaViewMode, AgendaDisplayView } from '@/types'
 import { mockTasks, mockResources, INITIAL_VIEW_START, INITIAL_VISIBLE_WEEKS } from '@/data/mockAgenda'
 
@@ -244,11 +244,10 @@ export const useAgendaStore = create<AgendaState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const ts = pendingTables.has('agenda_tasks') ? null : await pullTable<{ payload: AgendaTask }>('agenda_tasks')
-          const rs = pendingTables.has('agenda_resources') ? null : await pullTable<{ payload: AgendaResource }>('agenda_resources')
-          if (ts) set({ tasks:     ts.map((r) => safeTask(r.payload)).filter((t): t is AgendaTask => Boolean(t)) })
-          if (rs) set({ resources: rs.map((r) => safeResource(r.payload)).filter((r): r is AgendaResource => Boolean(r)) })
+          const ts = await pullTable<{ payload: AgendaTask }>('agenda_tasks')
+          const rs = await pullTable<{ payload: AgendaResource }>('agenda_resources')
+          set((s) => ({ tasks: mergePull(ts?.map((r) => safeTask(r.payload)).filter((t): t is AgendaTask => Boolean(t)) ?? null, s.tasks, s.pendingSync, 'agenda_tasks') }))
+          set((s) => ({ resources: mergePull(rs?.map((r) => safeResource(r.payload)).filter((r): r is AgendaResource => Boolean(r)) ?? null, s.resources, s.pendingSync, 'agenda_resources') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

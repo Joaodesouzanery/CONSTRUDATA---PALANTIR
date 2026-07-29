@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -312,13 +312,13 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         },
 
         pull: async () => {
-          // Não sobrescreve uma tabela que ainda tem op pendente (evita sumiço de
-          // registro local não sincronizado).
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const es = pendingTables.has('financeiro_entries') ? null : await pullTable<{ payload: FinanceiroEntry }>('financeiro_entries')
-          const ds = pendingTables.has('financeiro_distribuicoes') ? null : await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
-          if (es) set({ entries: es.map((r) => r.payload) })
-          if (ds) set({ distribuicoes: ds.map((r) => r.payload) })
+          // Puxa cada tabela e MESCLA com o local via mergePull: registros com op
+          // pendente ficam com a versão local (não-sincronizada) e o resto vem do
+          // servidor — evita "congelar" a tabela inteira quando UMA op fica presa.
+          const es = await pullTable<{ payload: FinanceiroEntry }>('financeiro_entries')
+          const ds = await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
+          set((s) => ({ entries: mergePull(es?.map((r) => r.payload) ?? null, s.entries, s.pendingSync, 'financeiro_entries') }))
+          set((s) => ({ distribuicoes: mergePull(ds?.map((r) => r.payload) ?? null, s.distribuicoes, s.pendingSync, 'financeiro_distribuicoes') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

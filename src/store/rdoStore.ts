@@ -26,7 +26,7 @@ import {
 } from '@/data/mockRdo'
 import { supabase } from '@/lib/supabase'
 import { useAuth, canWrite } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
@@ -612,18 +612,17 @@ export const useRdoStore = create<RdoState>()(
 
       pull: async () => {
         if (pullRdoFinBlob) await pullRdoFinBlob()   // entradas financeiras do RDO (app_state)
-        // Não sobrescreve os RDOs locais se há op de 'rdo' pendente (evita
-        // sumiço de RDO não sincronizado).
-        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-        if (pendingTables.has('rdo')) return
+        // Fase 5 (mergePull): em vez de pular a tabela inteira quando há op de 'rdo' pendente,
+        // atualiza os RDOs SEM op pendente com o servidor e PRESERVA os não-sincronizados —
+        // assim uma op presa não congela mais o resto da lista nem apaga dado local.
         const rows = await pullTable<RdoRow>('rdo', { column: 'number', ascending: false })
         if (!rows) return
-        set({
-          rdos: rows.map(rowToRdo),
+        set((s) => ({
+          rdos: mergePull(rows.map(rowToRdo), s.rdos, s.pendingSync, 'rdo'),
           syncStatus: 'idle',
           lastSyncedAt: new Date().toISOString(),
           syncError: null,
-        })
+        }))
         void get().retryPhotoUploads()
       },
 

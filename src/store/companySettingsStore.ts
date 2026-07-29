@@ -12,7 +12,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { uploadFile, removeFile, type UploadResult } from '@/lib/storage'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 
 export interface SavedLogo {
   id:           string
@@ -190,20 +190,22 @@ export const useCompanySettingsStore = create<CompanySettingsState>()(
       },
 
       pull: async () => {
-        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
         // Pull logos
-        const rows = pendingTables.has('company_logos') ? null : await pullTable<{ id: string; name: string; storage_path: string; payload: { createdAt?: string } }>('company_logos')
-        if (rows) {
-          set({
-            logos: rows.map((r) => ({
+        const rows = await pullTable<{ id: string; name: string; storage_path: string; payload: { createdAt?: string } }>('company_logos')
+        set((s) => ({
+          logos: mergePull(
+            rows?.map((r) => ({
               id:          r.id,
               name:        r.name,
               base64:      '',
               storagePath: r.storage_path,
               createdAt:   r.payload?.createdAt ?? new Date().toISOString(),
-            })),
-          })
-        }
+            })) ?? null,
+            s.logos,
+            s.pendingSync,
+            'company_logos',
+          ),
+        }))
         // Pull company_name from org settings
         const { profile } = useAuth.getState()
         if (profile) {

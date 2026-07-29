@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   RoutingRecommendation,
   PredictiveHealth,
@@ -487,13 +487,17 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
   },
 
   pull: async () => {
+    // health_scores fica de fora do mergePull: o payload (PredictiveHealth) não tem `id`
+    // no topo (identidade é equipmentId), então mantém o guard anti-sobrescrita por tabela pendente.
     const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const rr = pendingTables.has('otimizacao_routing_recommendations') ? null : await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
+    const rr = await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
     const hs = pendingTables.has('otimizacao_health_scores') ? null : await pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores')
-    const bl = pendingTables.has('otimizacao_buy_lease_analyses') ? null : await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
-    if (rr) set({ routingRecs:      rr.map((r) => r.payload) })
-    if (hs) set({ healthScores:     hs.map((r) => r.payload) })
-    if (bl) set({ buyLeaseAnalyses: bl.map((r) => r.payload) })
+    const bl = await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
+    set((s) => ({
+      routingRecs:      mergePull(rr?.map((r) => r.payload) ?? null, s.routingRecs, s.pendingSync, 'otimizacao_routing_recommendations'),
+      buyLeaseAnalyses: mergePull(bl?.map((r) => r.payload) ?? null, s.buyLeaseAnalyses, s.pendingSync, 'otimizacao_buy_lease_analyses'),
+    }))
+    if (hs) set({ healthScores: hs.map((r) => r.payload) })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },
     }),

@@ -9,7 +9,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   Rede360Tab, GridAssetTab, NetworkAsset, Rede360ServiceOrder, Outage,
   CircuitAsset, DeviceAsset, NWSWeatherStation, CustomerRecord,
@@ -233,15 +233,11 @@ export const useRede360Store = create<Rede360State>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const ativos = pendingTables.has('rede_ativos') ? null : await pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos')
-          const sos    = pendingTables.has('rede_service_orders') ? null : await pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders')
-          if (ativos) {
-            // Por enquanto remapeia só os de asset_type='network' para o array assets[].
-            const networkOnes = ativos.filter((r) => r.asset_type === 'network').map((r) => r.payload)
-            set({ assets: networkOnes })
-          }
-          if (sos) set({ serviceOrders: sos.map((r) => r.payload) })
+          const ativos = await pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos')
+          const sos    = await pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders')
+          // Por enquanto remapeia só os de asset_type='network' para o array assets[].
+          set((s) => ({ assets: mergePull(ativos?.filter((r) => r.asset_type === 'network').map((r) => r.payload) ?? null, s.assets, s.pendingSync, 'rede_ativos') }))
+          set((s) => ({ serviceOrders: mergePull(sos?.map((r) => r.payload) ?? null, s.serviceOrders, s.pendingSync, 'rede_service_orders') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

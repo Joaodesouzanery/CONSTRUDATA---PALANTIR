@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { BimProject, BimSegment, BimLayer, BimColorMode, BimTab } from '@/types'
 import { MOCK_BIM_PROJECT, MOCK_BIM_SANEAMENTO, MOCK_BIM_BUILDING } from '@/data/mockBim'
 
@@ -567,31 +567,39 @@ export const useBimStore = create<BimState>()(
   },
 
   pull: async () => {
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const projRows = pendingTables.has('bim_projects') ? null : await pullTable<{ id: string; name: string; type: string; payload: { layers: BimLayer[]; uploadedAt: string; shapefileSourceName?: string } }>('bim_projects')
-    const segRows  = pendingTables.has('bim_segments') ? null : await pullTable<{ id: string; bim_project_id: string; payload: BimSegment }>('bim_segments')
+    const projRows = await pullTable<{ id: string; name: string; type: string; payload: { layers: BimLayer[]; uploadedAt: string; shapefileSourceName?: string } }>('bim_projects')
+    const segRows  = await pullTable<{ id: string; bim_project_id: string; payload: BimSegment }>('bim_segments')
     if (projRows) {
-      const segByProject = new Map<string, BimSegment[]>()
-      for (const r of segRows ?? []) {
-        const arr = segByProject.get(r.bim_project_id) ?? []
-        arr.push(r.payload)
-        segByProject.set(r.bim_project_id, arr)
-      }
-      const projects: BimProject[] = projRows.map((r) => ({
-        id:                  r.id,
-        name:                r.name,
-        type:                (r.type as BimProject['type']) ?? 'generic',
-        segments:            segByProject.get(r.id) ?? [],
-        layers:              r.payload?.layers ?? [],
-        uploadedAt:          r.payload?.uploadedAt ?? new Date().toISOString(),
-        shapefileSourceName: r.payload?.shapefileSourceName ?? '',
-      }))
-      const first = projects[0]
-      set({
-        projects,
-        activeProjectId: first?.id ?? null,
-        project:         first ?? null,
-        layers:          first?.layers ?? [],
+      set((s) => {
+        // Segmentos: mescla por linha (preserva os com op pendente em bim_segments)
+        // e reagrupa por projeto. Cada linha carrega `id` no topo → mergePull-safe.
+        const localSegRows = s.projects.flatMap((p) =>
+          p.segments.map((seg) => ({ id: seg.id, bim_project_id: p.id, payload: seg })),
+        )
+        const mergedSegRows = mergePull(segRows, localSegRows, s.pendingSync, 'bim_segments')
+        const segByProject = new Map<string, BimSegment[]>()
+        for (const r of mergedSegRows) {
+          const arr = segByProject.get(r.bim_project_id) ?? []
+          arr.push(r.payload)
+          segByProject.set(r.bim_project_id, arr)
+        }
+        const serverProjects: BimProject[] = projRows.map((r) => ({
+          id:                  r.id,
+          name:                r.name,
+          type:                (r.type as BimProject['type']) ?? 'generic',
+          segments:            segByProject.get(r.id) ?? [],
+          layers:              r.payload?.layers ?? [],
+          uploadedAt:          r.payload?.uploadedAt ?? new Date().toISOString(),
+          shapefileSourceName: r.payload?.shapefileSourceName ?? '',
+        }))
+        const projects = mergePull(serverProjects, s.projects, s.pendingSync, 'bim_projects')
+        const first = projects[0]
+        return {
+          projects,
+          activeProjectId: first?.id ?? null,
+          project:         first ?? null,
+          layers:          first?.layers ?? [],
+        }
       })
     }
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

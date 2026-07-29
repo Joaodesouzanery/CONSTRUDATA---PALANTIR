@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { eventBus } from '@/lib/eventBus'
 import { buildOperationalKey, validateOperationalKey } from '@/lib/operationalKey'
-import { flushQueue, makeOp, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 
 export type UnifiedSourceKind =
   | 'rdo'
@@ -376,23 +376,20 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           safeSelect<UnifiedMeasurementFinancialEntry>('measurement_financial_entries', state.financialEntries),
         ])
         const syncError = [periods.error, sources.error, memoryLines.error, contractItems.error, financialEntries.error].filter(Boolean).join(' | ') || null
-        // Não derruba registros locais que ainda não subiram (falha de upsert marcada com _syncError):
-        // mescla de volta os pendentes que não vieram do servidor.
-        const keepUnsynced = <T extends { id: string; _syncError?: string | null }>(fetched: T[], local: T[]): T[] => {
-          const ids = new Set(fetched.map((i) => i.id))
-          return [...fetched, ...local.filter((i) => i._syncError && !ids.has(i.id))]
-        }
+        // Fase 5 (anti "congelamento"): em vez de pular a tabela inteira quando há
+        // QUALQUER op pendente, mescla com mergePull — server para os registros já
+        // sincronizados, local para os que ainda têm op pendente. Assim uma op presa
+        // nunca mais congela o resto da tabela nem apaga dado local não-sincronizado.
         // Relê o estado APÓS o fetch: uma escrita enfileirada durante a rede não
-        // pode ser descartada (guarda + base de merge têm que ser o estado fresco).
+        // pode ser descartada (base de merge tem que ser o estado fresco).
         const fresh = get()
-        const pendingTables = new Set(fresh.pendingSync.map((op) => op.table))
-        const nextPeriods = pendingTables.has('measurement_periods') ? fresh.periods : keepUnsynced(periods.data, fresh.periods)
+        const nextPeriods = mergePull(periods.data, fresh.periods, fresh.pendingSync, 'measurement_periods')
         set({
           periods: nextPeriods,
-          sources: pendingTables.has('measurement_sources') ? fresh.sources : keepUnsynced(sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })), fresh.sources),
-          memoryLines: pendingTables.has('measurement_memory_lines') ? fresh.memoryLines : keepUnsynced(memoryLines.data, fresh.memoryLines),
-          contractItems: pendingTables.has('measurement_contract_items') ? fresh.contractItems : keepUnsynced(contractItems.data, fresh.contractItems),
-          financialEntries: pendingTables.has('measurement_financial_entries') ? fresh.financialEntries : keepUnsynced(financialEntries.data, fresh.financialEntries),
+          sources: mergePull(sources.data.map((source) => ({ ...source, status: source.status ?? 'pending_review' })), fresh.sources, fresh.pendingSync, 'measurement_sources'),
+          memoryLines: mergePull(memoryLines.data, fresh.memoryLines, fresh.pendingSync, 'measurement_memory_lines'),
+          contractItems: mergePull(contractItems.data, fresh.contractItems, fresh.pendingSync, 'measurement_contract_items'),
+          financialEntries: mergePull(financialEntries.data, fresh.financialEntries, fresh.pendingSync, 'measurement_financial_entries'),
           activePeriodId: fresh.activePeriodId && nextPeriods.some((period) => period.id === fresh.activePeriodId)
             ? fresh.activePeriodId
             : nextPeriods[0]?.id ?? fresh.activePeriodId,

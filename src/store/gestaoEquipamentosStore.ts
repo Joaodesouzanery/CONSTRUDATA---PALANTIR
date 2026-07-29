@@ -5,7 +5,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { MaintenanceOrder, WorkOrderStatus } from '@/types'
 import { mockMaintenanceOrders } from '@/data/mockGestaoEquipamentos'
 
@@ -111,9 +111,8 @@ export const useGestaoEquipamentosStore = create<GestaoState>()(
       },
 
       pull: async () => {
-        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-        const rows = pendingTables.has('equipamentos_manutencoes') ? null : await pullTable<{ payload: MaintenanceOrder }>('equipamentos_manutencoes')
-        if (rows) set({ orders: rows.map((r) => r.payload) })
+        const rows = await pullTable<{ payload: MaintenanceOrder }>('equipamentos_manutencoes')
+        set((s) => ({ orders: mergePull(rows?.map((r) => r.payload) ?? null, s.orders, s.pendingSync, 'equipamentos_manutencoes') }))
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
       },
     }),

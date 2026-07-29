@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
@@ -885,22 +885,27 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   pull: async () => {
-    // Se ainda há operações pendentes para uma tabela (flush falhou/offline),
-    // não sobrescreve a lista local — senão registros não sincronizados somem.
-    const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-    const ws = pendingTables.has('workers') ? null : await pullTable<{ payload: Worker }>('workers')
-    const cs = pendingTables.has('labor_crews') ? null : await pullTable<{ payload: LaborCrew }>('labor_crews')
-    const ts = pendingTables.has('timecards') ? null : await pullTable<{ payload: TimecardEntry }>('timecards')
-    const ss = pendingTables.has('shifts') ? null : await pullTable<{ payload: Shift }>('shifts')
-    const as_ = pendingTables.has('worker_absences') ? null : await pullTable<{ payload: WorkerAbsence }>('worker_absences')
-    const asmt = pendingTables.has('worker_assessments') ? null : await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
-    const clt = pendingTables.has('clt_settings') ? null : await pullTable<{ payload: CLTSettings }>('clt_settings')
-    if (ws)  set({ workers:   ws.map((r) => normalizeWorker(r.payload)) })
-    if (cs)  set({ crews:     cs.map((r) => normalizeCrew(r.payload)) })
-    if (ts)  set({ timecards: ts.map((r) => r.payload) })
-    if (ss)  set({ shifts:    ss.map((r) => r.payload) })
-    if (as_) set({ absences:  as_.map((r) => r.payload) })
-    if (asmt) set({ assessments: asmt.map((r) => r.payload) })
+    // Sempre puxa cada tabela e MESCLA com mergePull: preserva os registros com op
+    // pendente (local não-sincronizado) e atualiza o resto com o servidor — assim uma
+    // op presa nunca mais congela a tabela inteira e o local não diverge em silêncio.
+    const ws = await pullTable<{ payload: Worker }>('workers')
+    const cs = await pullTable<{ payload: LaborCrew }>('labor_crews')
+    const ts = await pullTable<{ payload: TimecardEntry }>('timecards')
+    const ss = await pullTable<{ payload: Shift }>('shifts')
+    const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
+    const asmt = await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
+    const clt = await pullTable<{ payload: CLTSettings }>('clt_settings')
+    set((s) => ({
+      workers:     mergePull(ws?.map((r) => normalizeWorker(r.payload)) ?? null, s.workers, s.pendingSync, 'workers'),
+      crews:       mergePull(cs?.map((r) => normalizeCrew(r.payload)) ?? null, s.crews, s.pendingSync, 'labor_crews'),
+      timecards:   mergePull(ts?.map((r) => r.payload) ?? null, s.timecards, s.pendingSync, 'timecards'),
+      shifts:      mergePull(ss?.map((r) => r.payload) ?? null, s.shifts, s.pendingSync, 'shifts'),
+      absences:    mergePull(as_?.map((r) => r.payload) ?? null, s.absences, s.pendingSync, 'worker_absences'),
+      assessments: mergePull(asmt?.map((r) => r.payload) ?? null, s.assessments, s.pendingSync, 'worker_assessments'),
+    }))
+    // clt_settings é singleton (1 linha por org, id = organization_id) e o estado local
+    // cltSettings é um único objeto sem `id` de topo — não é array de { id }, então
+    // mergePull não se aplica; preserva o merge existente.
     if (clt?.[0]) set({ cltSettings: { ...get().cltSettings, ...clt[0].payload } })
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
   },

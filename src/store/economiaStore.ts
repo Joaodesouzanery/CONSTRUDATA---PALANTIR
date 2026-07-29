@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   EconomyBaseline,
   EconomyEvent,
@@ -382,18 +382,21 @@ export const useEconomiaStore = create<EconomiaState>()(
         },
 
         pull: async () => {
-          // Não sobrescreve tabela com op pendente (evita sumiço de dado local).
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+          // Fase 5: puxa SEMPRE cada tabela e mescla com mergePull (preserva registros
+          // com op pendente, atualiza o resto com o servidor). Nada mais congela a tabela.
           const [baselines, events, reports, rules] = await Promise.all([
-            pendingTables.has('economy_baselines') ? null : pullTable<{ payload: EconomyBaseline }>('economy_baselines'),
-            pendingTables.has('economy_events') ? null : pullTable<{ payload: EconomyEvent }>('economy_events', { column: 'event_date', ascending: false }),
-            pendingTables.has('economy_reports') ? null : pullTable<{ payload: EconomyReport }>('economy_reports', { column: 'created_at', ascending: false }),
-            pendingTables.has('economy_valuation_rules') ? null : pullTable<{ payload: EconomyValuationRule }>('economy_valuation_rules'),
+            pullTable<{ payload: EconomyBaseline }>('economy_baselines'),
+            pullTable<{ payload: EconomyEvent }>('economy_events', { column: 'event_date', ascending: false }),
+            pullTable<{ payload: EconomyReport }>('economy_reports', { column: 'created_at', ascending: false }),
+            pullTable<{ payload: EconomyValuationRule }>('economy_valuation_rules'),
           ])
-          if (baselines) set({ baselines: baselines.map((row) => row.payload) })
-          if (events) set({ events: events.map((row) => row.payload) })
-          if (reports) set({ reports: reports.map((row) => row.payload) })
-          if (rules?.length) set({ rules: rules.map((row) => row.payload) })
+          set((s) => ({
+            baselines: mergePull(baselines?.map((row) => row.payload) ?? null, s.baselines, s.pendingSync, 'economy_baselines'),
+            events: mergePull(events?.map((row) => row.payload) ?? null, s.events, s.pendingSync, 'economy_events'),
+            reports: mergePull(reports?.map((row) => row.payload) ?? null, s.reports, s.pendingSync, 'economy_reports'),
+            // Server vazio nunca apaga as regras default locais (mantém o guard `?.length`).
+            rules: mergePull(rules?.length ? rules.map((row) => row.payload) : null, s.rules, s.pendingSync, 'economy_valuation_rules'),
+          }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

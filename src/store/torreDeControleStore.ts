@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { changedColumns, flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { changedColumns, flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { MOCK_OBRAS } from '@/data/mockTorreDeControle'
 import type { ConstructionSite, ConstructionRisk } from '@/types'
 
@@ -238,16 +238,13 @@ export const useTorreStore = create<TorreState & TorreActions>()(
             return
           }
           get().ensureTenantScope(profile.organization_id)
-          // Proteção: se há op pendente para 'construction_sites', NÃO sobrescreve
-          // a lista local — senão uma obra ainda não sincronizada some.
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          if (!pendingTables.has('construction_sites')) {
-            const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
-            if (rows) {
-              const sites = rows.map((r) => r.payload)
-              set({ sites, selectedId: sites[0]?.id ?? null })
-            }
-          }
+          // Mescla com o servidor preservando as obras com op pendente (ainda não
+          // sincronizadas) — em vez de congelar a tabela inteira quando há QUALQUER op.
+          const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
+          set((s) => {
+            const sites = mergePull(rows?.map((r) => r.payload) ?? null, s.sites, s.pendingSync, 'construction_sites')
+            return rows ? { sites, selectedId: sites[0]?.id ?? null } : { sites }
+          })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

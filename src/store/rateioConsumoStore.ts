@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import type { RateioConsumo, RateioStatus, FinanceiroTitulo } from '@/types'
 
@@ -197,10 +197,10 @@ export const useRateioConsumoStore = create<RateioConsumoState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          if (pendingTables.has(TABLE)) { set({ syncStatus: 'idle' }); return }
+          // Sempre puxa e MESCLA: preserva os rateios com op pendente (ainda não
+          // sincronizados) e atualiza o resto com o servidor — nunca congela a tabela.
           const rows = await pullTable<{ payload: RateioConsumo }>(TABLE)
-          if (rows) set({ rateios: rows.map((r) => r.payload) })
+          set((s) => ({ rateios: mergePull(rows?.map((r) => r.payload) ?? null, s.rateios, s.pendingSync, TABLE) }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { attachBlobSync } from '@/lib/blobSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -614,13 +614,12 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const acts = pendingTables.has('master_activities') ? null : await pullTable<{ payload: MasterActivity }>('master_activities')
-          const bls  = pendingTables.has('master_baselines') ? null : await pullTable<{ payload: MasterBaseline }>('master_baselines')
-          const lds  = pendingTables.has('lookahead_derived_activities') ? null : await pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities')
-          if (acts) set({ activities: acts.map((r) => r.payload) })
-          if (bls)  set({ baselines: bls.map((r) => r.payload) })
-          if (lds)  set({ derivedActivities: lds.map((r) => r.payload) })
+          const acts = await pullTable<{ payload: MasterActivity }>('master_activities')
+          const bls  = await pullTable<{ payload: MasterBaseline }>('master_baselines')
+          const lds  = await pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities')
+          set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'master_activities') }))
+          set((s) => ({ baselines: mergePull(bls?.map((r) => r.payload) ?? null, s.baselines, s.pendingSync, 'master_baselines') }))
+          set((s) => ({ derivedActivities: mergePull(lds?.map((r) => r.payload) ?? null, s.derivedActivities, s.pendingSync, 'lookahead_derived_activities') }))
           if (pullMestreBlob) await pullMestreBlob()   // contrato/núcleos/programação (app_state)
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

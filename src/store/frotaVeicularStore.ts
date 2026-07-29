@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   Vehicle,
   FuelRecord,
@@ -461,25 +461,26 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const v   = pendingTables.has('veiculos') ? null : await pullTable<{ payload: Vehicle }>('veiculos')
-          const fr  = pendingTables.has('fleet_fuel_records') ? null : await pullTable<{ payload: FuelRecord }>('fleet_fuel_records')
-          const m   = pendingTables.has('fleet_vehicle_maintenance') ? null : await pullTable<{ payload: VehicleMaintenanceRecord }>('fleet_vehicle_maintenance')
-          const dr  = pendingTables.has('fleet_drivers') ? null : await pullTable<{ payload: VehicleDriver }>('fleet_drivers')
-          const ro  = pendingTables.has('fleet_routes') ? null : await pullTable<{ payload: VehicleRoute }>('fleet_routes')
-          const so  = pendingTables.has('fleet_service_orders') ? null : await pullTable<{ payload: VehicleServiceOrder }>('fleet_service_orders')
-          const fi  = pendingTables.has('fleet_fines') ? null : await pullTable<{ payload: VehicleFine }>('fleet_fines')
-          const al  = pendingTables.has('fleet_alerts') ? null : await pullTable<{ payload: FleetMaintenanceAlert }>('fleet_alerts')
-          const sc  = pendingTables.has('fleet_schedules') ? null : await pullTable<{ payload: FleetScheduleEntry }>('fleet_schedules')
-          if (v)  set({ vehicles:    v.map((r) => r.payload) })
-          if (fr) set({ fuelRecords: fr.map((r) => r.payload) })
-          if (m)  set({ maintenance: m.map((r) => r.payload) })
-          if (dr) set({ drivers:     dr.map((r) => r.payload) })
-          if (ro) set({ routes:      ro.map((r) => r.payload) })
-          if (so) set({ orders:      so.map((r) => r.payload) })
-          if (fi) set({ fines:       fi.map((r) => r.payload) })
-          if (al) set({ alerts:      al.map((r) => r.payload) })
-          if (sc) set({ schedules:   sc.map((r) => r.payload) })
+          const v   = await pullTable<{ payload: Vehicle }>('veiculos')
+          const fr  = await pullTable<{ payload: FuelRecord }>('fleet_fuel_records')
+          const m   = await pullTable<{ payload: VehicleMaintenanceRecord }>('fleet_vehicle_maintenance')
+          const dr  = await pullTable<{ payload: VehicleDriver }>('fleet_drivers')
+          const ro  = await pullTable<{ payload: VehicleRoute }>('fleet_routes')
+          const so  = await pullTable<{ payload: VehicleServiceOrder }>('fleet_service_orders')
+          const fi  = await pullTable<{ payload: VehicleFine }>('fleet_fines')
+          const al  = await pullTable<{ payload: FleetMaintenanceAlert }>('fleet_alerts')
+          const sc  = await pullTable<{ payload: FleetScheduleEntry }>('fleet_schedules')
+          set((s) => ({
+            vehicles:    mergePull(v?.map((r) => r.payload) ?? null,  s.vehicles,    s.pendingSync, 'veiculos'),
+            fuelRecords: mergePull(fr?.map((r) => r.payload) ?? null, s.fuelRecords, s.pendingSync, 'fleet_fuel_records'),
+            maintenance: mergePull(m?.map((r) => r.payload) ?? null,  s.maintenance, s.pendingSync, 'fleet_vehicle_maintenance'),
+            drivers:     mergePull(dr?.map((r) => r.payload) ?? null, s.drivers,     s.pendingSync, 'fleet_drivers'),
+            routes:      mergePull(ro?.map((r) => r.payload) ?? null, s.routes,      s.pendingSync, 'fleet_routes'),
+            orders:      mergePull(so?.map((r) => r.payload) ?? null, s.orders,      s.pendingSync, 'fleet_service_orders'),
+            fines:       mergePull(fi?.map((r) => r.payload) ?? null, s.fines,       s.pendingSync, 'fleet_fines'),
+            alerts:      mergePull(al?.map((r) => r.payload) ?? null, s.alerts,      s.pendingSync, 'fleet_alerts'),
+            schedules:   mergePull(sc?.map((r) => r.payload) ?? null, s.schedules,   s.pendingSync, 'fleet_schedules'),
+          }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

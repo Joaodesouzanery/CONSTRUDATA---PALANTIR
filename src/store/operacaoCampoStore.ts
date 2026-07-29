@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   OperacaoCampoTab, FieldCalendarActivity, FieldCalendarDay,
   WeeklyPpcResult, NotableServiceCurve, TrendPoint,
@@ -156,10 +156,12 @@ export const useOperacaoCampoStore = create<OperacaoCampoState>()(
       },
 
       pull: async () => {
+        // operacao_campo_days não tem `id` no topo do payload (chave composta
+        // date_activityId) → mergePull não se aplica; mantém a proteção antiga.
         const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-        const acts = pendingTables.has('operacao_campo_activities') ? null : await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
+        const acts = await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
         const days = pendingTables.has('operacao_campo_days') ? null : await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
-        if (acts) set({ activities: acts.map((r) => r.payload) })
+        set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'operacao_campo_activities') }))
         if (days) set({ calendarDays: days.map((r) => r.payload) })
         get().recompute()
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

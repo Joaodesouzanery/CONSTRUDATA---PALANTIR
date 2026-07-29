@@ -347,6 +347,32 @@ export function makeOp(opts: Omit<PendingOp, 'id' | 'retries' | 'createdAt'>): P
 }
 
 /**
+ * Merge do pull que PRESERVA os registros com op pendente (Fase 5 — anti "congelamento").
+ * O padrão antigo (`pendingTables.has(T) ? null : pull`) pulava a tabela INTEIRA quando havia
+ * QUALQUER op pendente — então uma op presa congelava o pull daquela tabela para sempre e o
+ * estado local divergia em silêncio. Aqui, em vez de pular tudo, atualizamos com o servidor
+ * os registros SEM op pendente e MANTEMOS os COM op pendente (não-sincronizados) do local.
+ *  - serverItems null/undefined (offline/erro/non-prod) → mantém o local inteiro.
+ *  - nada pendente na tabela → server é a verdade.
+ * Assim, uma op presa nunca mais congela o resto da tabela, e nenhum dado local não-sincronizado
+ * é apagado por um pull.
+ */
+export function mergePull<T extends { id?: string }>(
+  serverItems: T[] | null | undefined,
+  localItems: T[],
+  pendingSync: PendingOp[],
+  table: string,
+): T[] {
+  if (!serverItems) return localItems
+  const pendingIds = new Set(pendingSync.filter((o) => o.table === table).map((o) => o.recordId))
+  if (pendingIds.size === 0) return serverItems
+  return [
+    ...serverItems.filter((x) => x.id == null || !pendingIds.has(x.id)),
+    ...localItems.filter((x) => x.id != null && pendingIds.has(x.id)),
+  ]
+}
+
+/**
  * Pull genérico — busca todas as linhas da tabela (filtradas por RLS) e
  * devolve o array. O store decide como mapear pra suas entidades em memória.
  */

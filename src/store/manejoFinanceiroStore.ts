@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type { ManejoContrato, ManejoOrcamentoItem } from '@/types'
 
 function ctxAuth() {
@@ -228,11 +228,10 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       },
 
       pull: async () => {
-        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-        const cs = pendingTables.has('financeiro_contratos') ? null : await pullTable<{ payload: ManejoContrato }>('financeiro_contratos')
-        const os = pendingTables.has('financeiro_orcamentos') ? null : await pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos')
-        if (cs) set({ contratos: cs.map((r) => r.payload) })
-        if (os) set({ orcamentos: os.map((r) => r.payload) })
+        const cs = await pullTable<{ payload: ManejoContrato }>('financeiro_contratos')
+        const os = await pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos')
+        set((s) => ({ contratos: mergePull(cs?.map((r) => r.payload) ?? null, s.contratos, s.pendingSync, 'financeiro_contratos') }))
+        set((s) => ({ orcamentos: mergePull(os?.map((r) => r.payload) ?? null, s.orcamentos, s.pendingSync, 'financeiro_orcamentos') }))
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
       },
     }),

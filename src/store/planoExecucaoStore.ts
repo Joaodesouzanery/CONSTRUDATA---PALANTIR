@@ -7,7 +7,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { getTenantMarker } from '@/lib/tenantCache'
@@ -234,10 +234,8 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          // guarda anti-perda: se há op pendente para 'plano_execucao', não sobrescreve o local
-          const rows = pendingTables.has('plano_execucao') ? null : await pullTable<{ payload: PlanoExecucao }>('plano_execucao')
-          if (rows) set({ planos: rows.map((r) => r.payload) })
+          const rows = await pullTable<{ payload: PlanoExecucao }>('plano_execucao')
+          set((s) => ({ planos: mergePull(rows?.map((r) => r.payload) ?? null, s.planos, s.pendingSync, 'plano_execucao') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }

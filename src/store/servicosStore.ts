@@ -6,7 +6,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import type { Servico } from '@/types'
 
@@ -132,9 +132,8 @@ export const useServicosStore = create<ServicosState>()(
         },
 
         pull: async () => {
-          const pendingTables = new Set(get().pendingSync.map((op) => op.table))
-          const rows = pendingTables.has('servicos') ? null : await pullTable<{ payload: Servico }>('servicos')
-          if (rows) set({ servicos: rows.map((r) => r.payload) })
+          const rows = await pullTable<{ payload: Servico }>('servicos')
+          set((s) => ({ servicos: mergePull(rows?.map((r) => r.payload) ?? null, s.servicos, s.pendingSync, 'servicos') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },
       }
