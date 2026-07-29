@@ -606,16 +606,20 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 
   addSupplier: (s) => {
     if (!canWrite()) return   // visualizador é somente-leitura
+    // CNPJ é único por org (suppliers_unique_cnpj_per_org). Se já há um fornecedor local com o
+    // mesmo CNPJ, reusa o id (upsert atualiza) em vez de inserir outro → evita 23505 preso.
+    const cnpjKey = (s.cnpj || '').trim()
+    const dup = cnpjKey ? get().suppliers.find((x) => (x.cnpj || '').trim() === cnpjKey) : undefined
     const newS: Supplier = {
       ...s,
-      id: 's-' + crypto.randomUUID().slice(0, 8),
-      createdAt: new Date().toISOString(),
+      id: dup?.id ?? ('s-' + crypto.randomUUID().slice(0, 8)),
+      createdAt: dup?.createdAt ?? new Date().toISOString(),
     }
     const { profile, user } = useAuth.getState()
     const orgId  = profile?.organization_id ?? 'pending'
     const userId = user?.id ?? 'pending'
     set((state) => ({
-      suppliers: [...state.suppliers, newS],
+      suppliers: dup ? state.suppliers.map((x) => (x.id === newS.id ? newS : x)) : [...state.suppliers, newS],
       pendingSync: [
         ...state.pendingSync,
         makeOp({ entity: 'supplier', type: 'insert', recordId: newS.id, row: supplierToRow(newS, orgId, userId), table: 'suppliers' }),
