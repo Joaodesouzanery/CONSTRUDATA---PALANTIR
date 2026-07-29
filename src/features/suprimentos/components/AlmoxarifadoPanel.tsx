@@ -89,6 +89,7 @@ export function AlmoxarifadoPanel() {
   const {
     depositos,
     estoqueItens,
+    movimentacoes,
     addDeposito,
     updateDeposito,
     removeDeposito,
@@ -104,6 +105,7 @@ export function AlmoxarifadoPanel() {
     useShallow((s) => ({
       depositos: s.depositos,
       estoqueItens: s.estoqueItens,
+      movimentacoes: s.movimentacoes,
       addDeposito: s.addDeposito,
       updateDeposito: s.updateDeposito,
       removeDeposito: s.removeDeposito,
@@ -448,6 +450,14 @@ export function AlmoxarifadoPanel() {
   }, [filtered])
   const grandTotalFiltered = filtered.reduce((s, i) => s + i.qtdDisponivel * (i.custoUnitario ?? 0), 0)
 
+  // "Usado" por item = Σ saídas (inclui baixas de RDO, que chegam como tipo='saida').
+  // Chaveado por itemId (id único) → 0 quando não há saída.
+  const consumidoPorItem = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const mov of movimentacoes) if (mov.tipo === 'saida') m.set(mov.itemId, (m.get(mov.itemId) ?? 0) + mov.quantidade)
+    return m
+  }, [movimentacoes])
+
   function itemRow(item: ItemEstoque) {
     const missing = Math.max(0, item.estoqueMinimo - item.qtdDisponivel)
     const low = missing > 0
@@ -475,6 +485,10 @@ export function AlmoxarifadoPanel() {
               {Math.round((item.qtdDisponivel / item.qtdPorEmbalagem!) * 100) / 100} {embLabel} × {item.qtdPorEmbalagem}
             </span>
           )}
+        </td>
+        {/* Usado — Σ saídas (inclui baixas de RDO), 0 quando não houver */}
+        <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#a3a3a3]" title="Total consumido (saídas, inclui baixas de RDO)">
+          {consumidoPorItem.get(item.id) ?? 0}{item.unidade ? ` ${item.unidade}` : ''}
         </td>
         {/* Unitário */}
         <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
@@ -791,7 +805,7 @@ export function AlmoxarifadoPanel() {
           <table className="w-full text-xs xl:text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
-                {[['Material', 'w-auto'], ['Frente', ''], ['Qtd.', 'text-right'], ['Unitário', 'text-right'], ['Total', 'text-right'], ['Status', ''], ['Ações', 'text-right']].map(([head, cls]) => (
+                {[['Material', 'w-auto'], ['Frente', ''], ['Qtd.', 'text-right'], ['Usado', 'text-right'], ['Unitário', 'text-right'], ['Total', 'text-right'], ['Status', ''], ['Ações', 'text-right']].map(([head, cls]) => (
                   <th key={head} className={cn('px-3 py-3 font-semibold whitespace-nowrap', cls)}>{head}</th>
                 ))}
               </tr>
@@ -802,25 +816,25 @@ export function AlmoxarifadoPanel() {
                   {supplierGroups.map((g) => (
                     <Fragment key={g.fornecedor}>
                       <tr className="bg-[#2b2c6b]/30 border-b border-[#525252]">
-                        <td colSpan={4} className="px-3 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
+                        <td colSpan={5} className="px-3 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
                         <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
                       </tr>
                       {g.items.map(itemRow)}
                     </Fragment>
                   ))}
                   <tr className="border-t-2 border-[#f97316] bg-[#2c2c2c]">
-                    <td colSpan={4} className="px-3 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
+                    <td colSpan={5} className="px-3 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
                     <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
                   </tr>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               ) : (
                 <>
                   {filtered.map(itemRow)}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               )}

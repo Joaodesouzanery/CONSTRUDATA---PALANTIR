@@ -2,7 +2,7 @@
  * MapaEstoquePanel — Inventory map per frente de obra (virtual warehouse).
  * Shows stock status, movement registration, and purchase alerts.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Plus, ArrowDownCircle, ArrowUpCircle, AlertTriangle, Package } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -89,6 +89,14 @@ export function MapaEstoquePanel() {
   const deposito = depositos.find((d) => d.id === depId)
   const itens    = estoqueItens.filter((i) => i.depositoId === depId)
   const movs     = movimentacoes.filter((m) => m.depositoId === depId).slice(-8).reverse()
+
+  // "Usado" por item = Σ saídas (inclui as baixas de RDO, que chegam como tipo='saida').
+  // Chaveado por itemId (id único por depósito) → naturalmente escopado. 0 quando não há.
+  const consumidoPorItem = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const mov of movimentacoes) if (mov.tipo === 'saida') m.set(mov.itemId, (m.get(mov.itemId) ?? 0) + mov.quantidade)
+    return m
+  }, [movimentacoes])
 
   const totalItens  = itens.length
   const emRuptura   = itens.filter((i) => i.qtdDisponivel === 0).length
@@ -358,7 +366,7 @@ export function MapaEstoquePanel() {
           <table className="w-full text-[11px]">
             <thead>
               <tr className="bg-[#2c2c2c]">
-                {['Descrição', 'Un.', 'Disponível', 'Reservado', 'Trânsito', 'Mínimo', 'Status'].map((h) => (
+                {['Descrição', 'Un.', 'Disponível', 'Usado', 'Reservado', 'Trânsito', 'Mínimo', 'Status'].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -369,6 +377,7 @@ export function MapaEstoquePanel() {
                   <td className="px-3 py-2 text-[#f5f5f5] font-medium max-w-[200px] truncate" title={item.descricao}>{item.descricao}</td>
                   <td className="px-3 py-2 text-[#6b6b6b]">{item.unidade}</td>
                   <td className="px-3 py-2 text-[#f5f5f5] font-mono">{item.qtdDisponivel}</td>
+                  <td className="px-3 py-2 text-[#a3a3a3] font-mono" title="Total consumido (saídas, inclui baixas de RDO)">{consumidoPorItem.get(item.id) ?? 0}</td>
                   <td className="px-3 py-2 text-[#fbbf24] font-mono">{item.qtdReservada}</td>
                   <td className="px-3 py-2 font-mono">
                     {item.qtdTransito > 0
@@ -380,7 +389,7 @@ export function MapaEstoquePanel() {
                 </tr>
               ))}
               {itens.length === 0 && (
-                <tr><td colSpan={7} className="px-3 py-6 text-center text-[#6b6b6b] text-xs">Nenhum item cadastrado nesta frente.</td></tr>
+                <tr><td colSpan={8} className="px-3 py-6 text-center text-[#6b6b6b] text-xs">Nenhum item cadastrado nesta frente.</td></tr>
               )}
             </tbody>
           </table>
