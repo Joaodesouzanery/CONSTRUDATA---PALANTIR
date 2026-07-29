@@ -1382,6 +1382,7 @@ export interface TechnicalRule {
 }
 
 export interface PlanHoliday {
+  id?: string              // id da linha no servidor (para atualizar/deletar a mesma data)
   date: string             // yyyy-MM-dd
   description: string
 }

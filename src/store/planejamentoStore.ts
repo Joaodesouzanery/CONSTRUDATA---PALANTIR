@@ -707,12 +707,18 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   // ── Holidays ──────────────────────────────────────────────────────────────────
 
   addHoliday: (h) => {
+    // Reusa o id do feriado já existente na MESMA data → o upsert(onConflict:'id')
+    // ATUALIZA a linha em vez de inserir outra. Sem isso, re-adicionar um feriado numa
+    // data que já tem linha no servidor colide em plan_holidays_unique_date_per_org
+    // (23505) e trava a fila para sempre.
+    const existing = get().holidays.find((x) => x.date === h.date)
+    const holiday  = { ...h, id: existing?.id ?? crypto.randomUUID() }
     const { profile, user } = useAuth.getState()
     const orgId  = profile?.organization_id ?? 'pending'
     const userId = user?.id ?? 'pending'
-    const row    = holidayToRow(h, orgId, userId)
+    const row    = holidayToRow(holiday, orgId, userId)
     set((s) => ({
-      holidays: [...s.holidays.filter((x) => x.date !== h.date), h]
+      holidays: [...s.holidays.filter((x) => x.date !== holiday.date), holiday]
         .sort((a, b) => a.date.localeCompare(b.date)),
       isScheduleDirty: true,
       pendingSync: [
@@ -724,11 +730,17 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   },
 
   removeHoliday: (date) => {
+    // Antes só removia localmente — a linha continuava no servidor (voltava no próximo
+    // pull) e, se a data fosse re-adicionada com id novo, colidia (23505). Agora
+    // enfileira o DELETE (hard, idempotente: 0 linhas = sucesso) para remover de fato.
+    const target = get().holidays.find((h) => h.date === date)
     set((s) => ({
       holidays: s.holidays.filter((h) => h.date !== date),
       isScheduleDirty: true,
+      pendingSync: target?.id
+        ? [...s.pendingSync, makeOp({ entity: 'holiday', type: 'delete', recordId: target.id, table: 'plan_holidays' })]
+        : s.pendingSync,
     }))
-    // Para holidays usamos DELETE direto (não crítico)
     void get().flush()
   },
 
@@ -1054,6 +1066,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
     if (hols) {
       set({
         holidays: hols.map((r) => ({
+          id: r.id as string,
           date: r.date as string,
           description: r.description as string,
         })),
