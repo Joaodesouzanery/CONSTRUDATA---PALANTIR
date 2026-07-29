@@ -377,7 +377,9 @@ export const useQualidadeStore = create<QualidadeState>()(
             if (entity === 'quality_nc') {
               if (op.type === 'insert' && op.payload) {
                 const row = qualityNcToRow(op.payload as QualityNonConformity, profile.organization_id, user.id)
-                const { error } = await supabase.from('quality_non_conformities').insert(row as never)
+                // upsert(onConflict:'id') = idempotente: um retry após sucesso ATUALIZA em
+                // vez de estourar 23505 no id (necessário agora que não descartamos ops).
+                const { error } = await supabase.from('quality_non_conformities').upsert(row as never, { onConflict: 'id' })
                 if (error) throw error
               }
 
@@ -416,7 +418,8 @@ export const useQualidadeStore = create<QualidadeState>()(
 
             if (op.type === 'insert' && op.payload) {
               const row = fvsToRow(op.payload as FVS, profile.organization_id, user.id)
-              const { error } = await supabase.from('fvs').insert(row as never)
+              // upsert(onConflict:'id') = idempotente (ver comentário no insert de NC acima).
+              const { error } = await supabase.from('fvs').upsert(row as never, { onConflict: 'id' })
               if (error) throw error
             }
 
@@ -464,15 +467,13 @@ export const useQualidadeStore = create<QualidadeState>()(
             completed.push(op.id)
           } catch (err) {
             console.warn('[qualidade:sync] op failed', op, err)
-            const updated = { ...op, retries: op.retries + 1 }
-            if (updated.retries >= 5) {
-              completed.push(op.id)
-              set({ syncError: err instanceof Error ? err.message : String(err) })
-            } else {
-              set((s) => ({
-                pendingSync: s.pendingSync.map((p) => (p.id === op.id ? updated : p)),
-              }))
-            }
+            // NUNCA descartar: mantém a op na fila (retry incrementado), como o resto do
+            // app. Antes, após 5 tentativas a op ia para `completed` e era REMOVIDA da fila
+            // = perda silenciosa de FVS/NC. Agora só sai da fila quando sincroniza de fato.
+            set((s) => ({
+              pendingSync: s.pendingSync.map((p) => (p.id === op.id ? { ...p, retries: p.retries + 1 } : p)),
+              syncError:   err instanceof Error ? err.message : String(err),
+            }))
           }
         }
 
