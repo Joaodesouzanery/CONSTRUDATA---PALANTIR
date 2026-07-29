@@ -224,6 +224,8 @@ export const useEconomiaStore = create<EconomiaState>()(
             contractItems: periodContractItems,
             financialEntries: periodFinancialEntries,
           })
+          // Reusa o id do evento já existente com a MESMA stableKey (ver .map abaixo).
+          const eventIdByStableKey = new Map(current.map((event) => [event.stableKey, event.id]))
           const generated = generateEconomyEvents({
             baselines: baseline,
             existingEvents: current,
@@ -238,7 +240,12 @@ export const useEconomiaStore = create<EconomiaState>()(
             maintenanceOrders: eq.orders,
             generatedMeasurements,
             evmMetrics: evm.evmMetrics,
-          })
+          }).map((event) => ({
+            // Re-scan não gera id novo p/ stableKey existente → evita 23505 em
+            // economy_events_stable_key_unique (que travava a fila). stableKey nova → id novo.
+            ...event,
+            id: eventIdByStableKey.get(event.stableKey) ?? event.id,
+          }))
           const generatedKeys = new Set(generated.map((event) => event.stableKey))
           const manualEvents = current.filter((event) => event.sourceModule === 'manual' && !generatedKeys.has(event.stableKey))
           const newEvents = generated.filter((event) => !current.some((existing) => existing.id === event.id))

@@ -799,7 +799,13 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           activeBoletimId: id,
           activeStep:      1,
         }))
-        void upsertBoletimRemote(boletim).catch(() => undefined)
+        void upsertBoletimRemote(boletim).catch((e) => {
+          // Não engolir a falha em silêncio (perda invisível): registra o erro no
+          // próprio boletim (_syncError, que a UI mostra e é limpo em novo sucesso).
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('[medicaoBilling] falha ao salvar boletim', msg)
+          set((s) => ({ boletins: s.boletins.map((b) => (b.id === boletim.id ? { ...b, _syncError: msg } : b)) }))
+        })
         return id
       },
 
@@ -850,7 +856,13 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
           activeBoletimId: id,
           activeStep: 1,
         }))
-        void upsertBoletimRemote(boletim).catch(() => undefined)
+        void upsertBoletimRemote(boletim).catch((e) => {
+          // Não engolir a falha em silêncio (perda invisível): registra o erro no
+          // próprio boletim (_syncError, que a UI mostra e é limpo em novo sucesso).
+          const msg = e instanceof Error ? e.message : String(e)
+          console.error('[medicaoBilling] falha ao salvar boletim', msg)
+          set((s) => ({ boletins: s.boletins.map((b) => (b.id === boletim.id ? { ...b, _syncError: msg } : b)) }))
+        })
         return id
       },
 
