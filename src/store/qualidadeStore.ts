@@ -15,7 +15,7 @@ import { persist } from 'zustand/middleware'
 import type { FVS, FvsTab, FvsItem, FvsProblemAction, QualityNonConformity } from '@/types'
 import { MOCK_FVSS } from '@/data/mockQualidade'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth'
+import { useAuth, canWrite } from '@/lib/auth'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
@@ -240,6 +240,7 @@ export const useQualidadeStore = create<QualidadeState>()(
       setActiveTab: (tab) => set({ activeTab: tab }),
 
       addFvs: (fvs) => {
+        if (!canWrite()) return   // visualizador é somente-leitura
         const now = new Date().toISOString()
         const nextNumber = get().fvss.length > 0
           ? Math.max(...get().fvss.map((f) => f.number)) + 1
@@ -295,6 +296,7 @@ export const useQualidadeStore = create<QualidadeState>()(
       },
 
       addNonConformity: (nc) => {
+        if (!canWrite()) return   // visualizador é somente-leitura
         const now = new Date().toISOString()
         const nextNumber = get().nonConformities.length > 0
           ? Math.max(...get().nonConformities.map((item) => item.number)) + 1

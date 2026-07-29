@@ -29,7 +29,7 @@ import type {
   PlanningAuditEntry,
   PlanServiceType,
 } from '@/types'
-import { useAuth } from '@/lib/auth'
+import { useAuth, canWrite } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { attachBlobSync } from '@/lib/blobSync'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -542,6 +542,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   // ── Trechos ───────────────────────────────────────────────────────────────────
 
   addTrecho: (t) => {
+    if (!canWrite()) return   // visualizador é somente-leitura
     const newT: PlanTrecho = {
       ...t,
       id: crypto.randomUUID(),
@@ -707,6 +708,7 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   // ── Holidays ──────────────────────────────────────────────────────────────────
 
   addHoliday: (h) => {
+    if (!canWrite()) return   // visualizador é somente-leitura
     // Reusa o id do feriado já existente na MESMA data → o upsert(onConflict:'id')
     // ATUALIZA a linha em vez de inserir outra. Sem isso, re-adicionar um feriado numa
     // data que já tem linha no servidor colide em plan_holidays_unique_date_per_org

@@ -290,3 +290,13 @@ export function hasRole(...allowed: UserRole[]): boolean {
   const profile = useAuth.getState().profile
   return !!profile && allowed.includes(profile.role)
 }
+
+/**
+ * `visualizador` é somente-leitura: não passa nas policies de INSERT/UPDATE (has_role),
+ * então uma criação vira op presa para sempre no pendingSync. Use para esconder/guardar
+ * ações de criação e edição (evita a armadilha de onboarding). Sem perfil = não escreve.
+ */
+export function canWrite(): boolean {
+  const profile = useAuth.getState().profile
+  return !!profile && profile.role !== 'visualizador'
+}

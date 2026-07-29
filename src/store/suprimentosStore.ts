@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useAuth } from '@/lib/auth'
+import { useAuth, canWrite } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -605,6 +605,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     set((s) => ({ supplyChainPlans: s.supplyChainPlans.filter((plan) => plan.id !== id) })),
 
   addSupplier: (s) => {
+    if (!canWrite()) return   // visualizador é somente-leitura
     const newS: Supplier = {
       ...s,
       id: 's-' + crypto.randomUUID().slice(0, 8),
@@ -656,6 +657,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   },
 
   addPO: (po) => {
+    if (!canWrite()) return   // visualizador é somente-leitura
     const { profile, user } = useAuth.getState()
     const orgId  = profile?.organization_id ?? 'pending'
     const userId = user?.id ?? 'pending'

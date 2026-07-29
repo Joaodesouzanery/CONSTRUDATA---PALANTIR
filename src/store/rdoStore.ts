@@ -25,7 +25,7 @@ import {
   MOCK_RDO_BUDGET_BRL,
 } from '@/data/mockRdo'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/lib/auth'
+import { useAuth, canWrite } from '@/lib/auth'
 import { flushQueue, makeOp, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
@@ -265,6 +265,7 @@ export const useRdoStore = create<RdoState>()(
       },
 
       addRdo: (rdo) => {
+        if (!canWrite()) return ''   // visualizador é somente-leitura (não passa no RLS de INSERT)
         const now = new Date().toISOString()
         const nextNumber = get().rdos.length > 0
           ? Math.max(...get().rdos.map((r) => r.number)) + 1
