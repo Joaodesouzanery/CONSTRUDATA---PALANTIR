@@ -18,7 +18,7 @@ import { fmtDate, weatherIcon, weatherLabel, trechoStatusBadge } from './detailF
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
-import { medidoAutoPorServico, calcServico } from '@/features/torre-de-controle/utils/obraMedicao'
+import { medidoAutoPorServico, calcServico, totaisContrato } from '@/features/torre-de-controle/utils/obraMedicao'
 import type { RDO } from '@/types'
 
 // Controle de Medição (read-only) do contrato da obra deste RDO — medido auto dos RDOs finalizados.
@@ -30,7 +30,7 @@ function CompizzoMedicaoSection({ rdo }: { rdo: RDO }) {
   if (!services.length) return null
   const n = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
   const money = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const totMedido = services.reduce((a, s) => a + calcServico(s, medidoAuto).valorBruto, 0)
+  const tot = totaisContrato(services, medidoAuto, site?.contrato?.descontoNfPct)
   return (
     <Section title="Controle de Medição" icon={<FileSpreadsheet size={15} className="text-[#f97316]" />}>
       <div className="overflow-x-auto">
@@ -58,9 +58,21 @@ function CompizzoMedicaoSection({ rdo }: { rdo: RDO }) {
               )
             })}
             <tr className="border-t-2 border-[#525252] font-semibold">
-              <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL medido (R$)</td>
-              <td className="py-1 text-right font-mono text-[#f97316]">{money(totMedido)}</td>
+              <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL medido bruto (R$)</td>
+              <td className="py-1 text-right font-mono text-[#f97316]">{money(tot.medidoBruto)}</td>
             </tr>
+            {tot.descontoNfPct > 0 && (
+              <>
+                <tr className="text-[#6b6b6b]">
+                  <td className="py-0.5 text-right" colSpan={4}>− NF materiais ({n(tot.descontoNfPct)}%)</td>
+                  <td className="py-0.5 text-right font-mono text-[#ef4444]">{money(-tot.descontoNf)}</td>
+                </tr>
+                <tr className="font-semibold">
+                  <td className="py-0.5 text-right text-[#f5f5f5]" colSpan={4}>MEDIDO LÍQUIDO (R$)</td>
+                  <td className="py-0.5 text-right font-mono text-[#22c55e]">{money(tot.medidoLiquido)}</td>
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
       </div>

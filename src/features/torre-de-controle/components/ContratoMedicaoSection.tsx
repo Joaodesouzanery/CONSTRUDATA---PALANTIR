@@ -6,11 +6,12 @@
  * produções dos RDOs Compizzo finalizados (por contractServiceId), com override manual.
  */
 import { useState } from 'react'
-import { FileSpreadsheet, Pencil, Plus, Trash2, Save, X } from 'lucide-react'
+import { FileSpreadsheet, Pencil, Plus, Trash2, Save, X, Download } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import { medidoAutoPorServico, calcServico } from '@/features/torre-de-controle/utils/obraMedicao'
+import { medidoAutoPorServico, calcServico, totaisContrato } from '@/features/torre-de-controle/utils/obraMedicao'
+import { exportSolicitacaoMedicao } from '@/features/torre-de-controle/utils/solicitacaoMedicaoXlsx'
 import type { ConstructionSite, ObraContrato, ObraContratoServico } from '@/types'
 
 const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -55,6 +56,7 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
           <Field label="Local" v={draft.local} on={(x) => setHeader({ local: x })} />
           <Field label="Medição nº" v={draft.numeroMedicao} on={(x) => setHeader({ numeroMedicao: x })} />
           <Field label="Período" v={draft.periodoReferencia} on={(x) => setHeader({ periodoReferencia: x })} />
+          <Field label="Desconto NF materiais (%)" v={draft.descontoNfPct != null ? String(draft.descontoNfPct) : ''} on={(x) => setHeader({ descontoNfPct: optNum(x) })} num />
         </div>
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold">Serviços do contrato</span>
@@ -96,16 +98,18 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
 
   // ── Modo leitura (Controle de Medição) ───────────────────────────────────────
   const services = contrato?.services ?? []
-  const tot = services.reduce((a, s) => {
-    const c = calcServico(s, medidoAuto)
-    return { contrato: a.contrato + c.valorContrato, medido: a.medido + c.valorBruto, saldo: a.saldo + c.valorSaldo }
-  }, { contrato: 0, medido: 0, saldo: 0 })
+  const tot = totaisContrato(services, medidoAuto, contrato?.descontoNfPct)
 
   return (
     <div className="px-4 py-3 border-b border-[#525252] flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[#6b6b6b]"><FileSpreadsheet size={12} /><span className="text-[10px] uppercase tracking-widest font-semibold">Contrato & Medição</span></div>
-        <button onClick={open} className="flex items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1 text-[10px] text-[#6b6b6b] hover:border-[#f97316]/30 hover:text-[#f97316]"><Pencil size={11} /> {services.length ? 'Editar' : 'Cadastrar'}</button>
+        <div className="flex items-center gap-1">
+          {services.length > 0 && (
+            <button onClick={() => exportSolicitacaoMedicao(site, medidoAuto)} className="flex items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1 text-[10px] text-[#6b6b6b] hover:border-[#22c55e]/30 hover:text-[#22c55e]" title="Exportar a Solicitação de Medição (.xlsx)"><Download size={11} /> Exportar planilha</button>
+          )}
+          <button onClick={open} className="flex items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1 text-[10px] text-[#6b6b6b] hover:border-[#f97316]/30 hover:text-[#f97316]"><Pencil size={11} /> {services.length ? 'Editar' : 'Cadastrar'}</button>
+        </div>
       </div>
       {services.length === 0 ? (
         <p className="text-[10px] text-[#3f3f3f] py-1">Nenhum contrato cadastrado. Clique em "Cadastrar" para lançar os serviços (qtd contratada, preço, medição).</p>
@@ -144,10 +148,22 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
                   )
                 })}
                 <tr className="border-t-2 border-[#525252] font-bold">
-                  <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL (R$) · contrato {brl(tot.contrato)}</td>
+                  <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL (R$) · contrato {brl(tot.valorContrato)}</td>
                   <td className="py-1 text-right text-[#22c55e] font-mono" title="saldo (R$)">{brl(tot.saldo)}</td>
-                  <td className="py-1 text-right text-[#f59e0b] font-mono" title="medido (R$)">{brl(tot.medido)}</td>
+                  <td className="py-1 text-right text-[#f59e0b] font-mono" title="medido bruto (R$)">{brl(tot.medidoBruto)}</td>
                 </tr>
+                {tot.descontoNfPct > 0 && (
+                  <>
+                    <tr className="text-[#6b6b6b]">
+                      <td className="py-0.5 text-right" colSpan={5}>− NF materiais ({num(tot.descontoNfPct)}%)</td>
+                      <td className="py-0.5 text-right font-mono text-[#ef4444]">{brl(-tot.descontoNf)}</td>
+                    </tr>
+                    <tr className="font-bold">
+                      <td className="py-0.5 text-right text-[#f5f5f5]" colSpan={5}>MEDIDO LÍQUIDO (R$)</td>
+                      <td className="py-0.5 text-right font-mono text-[#22c55e]">{brl(tot.medidoLiquido)}</td>
+                    </tr>
+                  </>
+                )}
               </tbody>
             </table>
           </div>

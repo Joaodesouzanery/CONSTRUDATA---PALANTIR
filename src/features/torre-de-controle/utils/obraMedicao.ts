@@ -64,3 +64,33 @@ export function calcServico(svc: ObraContratoServico, medidoAuto: Map<string, nu
     valorContrato: (svc.qtdContrato || 0) * pe,
   }
 }
+
+export interface TotaisContrato {
+  valorContrato:  number   // Σ qtdContrato × preço efetivo
+  medidoBruto:    number   // Σ medido × preço efetivo
+  saldo:          number   // Σ saldo × preço efetivo (em R$)
+  descontoNfPct:  number   // % de desconto de NF de materiais aplicado
+  descontoNf:     number   // medidoBruto × (descontoNfPct/100)
+  medidoLiquido:  number   // medidoBruto − descontoNf
+}
+
+/**
+ * Totais do Controle de Medição da obra. O desconto de NF de materiais (%) abate do medido
+ * bruto → medido líquido (valor efetivamente faturado). Ausente/0 = líquido == bruto.
+ */
+export function totaisContrato(
+  services: ObraContratoServico[],
+  medidoAuto: Map<string, number>,
+  descontoNfPctRaw?: number,
+): TotaisContrato {
+  const acc = services.reduce(
+    (a, s) => {
+      const c = calcServico(s, medidoAuto)
+      return { valorContrato: a.valorContrato + c.valorContrato, medidoBruto: a.medidoBruto + c.valorBruto, saldo: a.saldo + c.valorSaldo }
+    },
+    { valorContrato: 0, medidoBruto: 0, saldo: 0 },
+  )
+  const pct = Number.isFinite(descontoNfPctRaw) ? Math.max(0, descontoNfPctRaw as number) : 0
+  const descontoNf = acc.medidoBruto * (pct / 100)
+  return { ...acc, descontoNfPct: pct, descontoNf, medidoLiquido: acc.medidoBruto - descontoNf }
+}
