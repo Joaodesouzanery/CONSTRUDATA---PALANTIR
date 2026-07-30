@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { obraBacFromSite, withTotalBudgetLine } from '@/features/torre-de-controle/utils/obraBudget'
+import { ContratoMedicaoSection } from './ContratoMedicaoSection'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
 
@@ -357,6 +358,9 @@ export function ObraDetailPanel() {
               <BudgetTable lines={site.budgetLines} />
             )}
           </Section>
+
+          {/* Contrato & Medição por obra (serviços + controle de medição) */}
+          <ContratoMedicaoSection site={site} />
 
           {/* Marcos */}
           {(site.planningMilestones?.length || site.executionMilestones?.length) ? (

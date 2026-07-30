@@ -232,6 +232,40 @@ export interface ConstructionSite {
   budgetLines?: ConstructionBudgetLine[]
   planningMilestones?: ConstructionMilestone[]
   executionMilestones?: ConstructionMilestone[]
+  contrato?: ObraContrato   // contrato & medição por obra (payload jsonb) — "Solicitação de Medição"
+}
+
+export interface ObraContratoServico {
+  id: string
+  descricao: string
+  unidade: string             // 'm²' | 'm' | 'un'…
+  qtdContrato: number         // quantidade contratada
+  valorUnitario: number       // preço cheio (R$/unidade)
+  pctAplicado?: number        // % aplicado (ex.: fase 01) — ausente = 100%
+  qtdAnterior?: number        // medido em períodos anteriores (manual)
+  qtdMedidaOverride?: number  // sobrepõe a qtd medida AUTO (dos RDOs) quando preenchido
+  nPreco?: string
+  // COMPUTADOS: precoEfetivo = valorUnitario × (pctAplicado/100); medido = Σ produção dos RDOs
+  // finalizados dessa obra (por contractServiceId) OU qtdMedidaOverride; saldo = contrato − anterior − medido.
+}
+
+/** Contrato & medição por obra (payload da obra) — espelha a planilha "Solicitação de Medição". */
+export interface ObraContrato {
+  contratanteRazao?: string
+  contratanteCnpj?:  string
+  contratadoRazao?:  string
+  contratadoCnpj?:   string
+  contratadoContato?: string
+  numeroContrato?:   string
+  numeroAditivo?:    string
+  objetoAditivo?:    string
+  valorTotal?:       number
+  local?:            string
+  numeroMedicao?:    string
+  periodoReferencia?: string
+  dataSolicitacao?:  string
+  descontoNfPct?:    number   // desconto sobre NFs de materiais (%)
+  services:          ObraContratoServico[]
 }
 
 export interface ConstructionBudgetLine {
@@ -1650,6 +1684,7 @@ export interface RdoCompizzoProducaoRow {
   planningActivityId?:  string   // atividade-mestre que ESTA linha avança (várias atividades por RDO)
   quantidadePrevista?:  number   // meta da atividade (plannedQuantity), exibida inline (previsto × realizado por linha)
   unidade?:             string   // 'm²' | 'm' | 'un'… (opcional; não depende do texto do serviço)
+  contractServiceId?:   string   // vínculo com um serviço do contrato da obra (ObraContratoServico.id) → alimenta a medição
 }
 
 /** Serviço adicional (livre) marcado em "Serviços Executados no Dia". */
