@@ -10,6 +10,7 @@ import { Component, lazy, Suspense, type ReactNode } from 'react'
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const PredialPage           = lazy(() => import('@/features/predial/index').then((m) => ({ default: m.PredialPage })))
+const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
 const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
 const OtimizacaoFrotaPage   = lazy(() => import('@/features/otimizacao-frota/index').then((m) => ({ default: m.default })))
@@ -124,8 +125,9 @@ function App() {
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           {/* Manutenções e Gestão de Equipamentos viraram abas do módulo Predial. */}
           <Route path="predial"             element={<LazyRoute><PredialPage /></LazyRoute>} />
-          <Route path="equipamentos"        element={<Navigate to="/app/predial?tab=equipamentos" replace />} />
-          <Route path="gestao-equipamentos" element={<Navigate to="/app/predial?tab=equipamentos" replace />} />
+          {/* Equipamentos voltou a ser módulo standalone; o Predial mantém a aba (mesmo store, dados compartilhados). */}
+          <Route path="equipamentos"        element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
+          <Route path="gestao-equipamentos" element={<Navigate to="/app/equipamentos" replace />} />
           <Route path="projetos"            element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="torre-de-controle"   element={<LazyRoute><TorreDeControlePage /></LazyRoute>} />
           {/* Módulo "Levantamento" removido. Redireciona links antigos. */}
