@@ -9,14 +9,65 @@
 import { useState } from 'react'
 import {
   Users, Wrench, Package, ListChecks, Ruler, MapPin, FileText,
-  AlertTriangle, Clock, ClipboardCheck, HardHat, CloudSun, Factory, Image as ImageIcon,
+  AlertTriangle, Clock, ClipboardCheck, HardHat, CloudSun, Factory, FileSpreadsheet, Image as ImageIcon,
 } from 'lucide-react'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { PhotoLightbox } from './PhotoLightbox'
 import { Section, Meta, Field, Chip, Empty } from './detailPrimitives'
 import { fmtDate, weatherIcon, weatherLabel, trechoStatusBadge } from './detailFormatters'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { useRdoStore } from '@/store/rdoStore'
+import { medidoAutoPorServico, calcServico } from '@/features/torre-de-controle/utils/obraMedicao'
 import type { RDO } from '@/types'
+
+// Controle de Medição (read-only) do contrato da obra deste RDO — medido auto dos RDOs finalizados.
+function CompizzoMedicaoSection({ rdo }: { rdo: RDO }) {
+  const site = useTorreStore((s) => s.sites).find((s) => s.id === rdo.siteId)
+  const rdos = useRdoStore((s) => s.rdos)
+  const services = site?.contrato?.services ?? []
+  const medidoAuto = medidoAutoPorServico(rdos, rdo.siteId ?? null)
+  if (!services.length) return null
+  const n = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+  const money = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const totMedido = services.reduce((a, s) => a + calcServico(s, medidoAuto).valorBruto, 0)
+  return (
+    <Section title="Controle de Medição" icon={<FileSpreadsheet size={15} className="text-[#f97316]" />}>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[360px] text-xs">
+          <thead>
+            <tr className="text-[#6b6b6b] text-[10px] uppercase tracking-wider">
+              <th className="text-left pb-1 font-medium">Serviço</th>
+              <th className="text-right pb-1 font-medium">Contratada</th>
+              <th className="text-right pb-1 font-medium">Medido</th>
+              <th className="text-right pb-1 font-medium">Saldo</th>
+              <th className="text-right pb-1 font-medium">V. bruto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {services.map((s) => {
+              const c = calcServico(s, medidoAuto)
+              return (
+                <tr key={s.id} className="border-t border-[#525252]">
+                  <td className="py-1 pr-2 text-[#e5e5e5]">{s.descricao || '—'}</td>
+                  <td className="py-1 text-right font-mono text-[#a3a3a3]">{n(s.qtdContrato)} {s.unidade}</td>
+                  <td className="py-1 text-right font-mono text-[#f5f5f5]">{n(c.medido)}{s.qtdMedidaOverride != null ? ' *' : ''}</td>
+                  <td className={`py-1 text-right font-mono font-semibold ${c.saldo < 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>{n(c.saldo)}</td>
+                  <td className="py-1 text-right font-mono text-[#f97316]">{money(c.valorBruto)}</td>
+                </tr>
+              )
+            })}
+            <tr className="border-t-2 border-[#525252] font-semibold">
+              <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL medido (R$)</td>
+              <td className="py-1 text-right font-mono text-[#f97316]">{money(totMedido)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-[#6b6b6b] mt-1">Medido = Σ produções dos RDOs finalizados desta obra por serviço. "*" = ajuste manual (Torre).</p>
+    </Section>
+  )
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 const brl = (n?: number) => (Number(n) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -208,6 +259,8 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
               </Section>
             )
           })()}
+
+          <CompizzoMedicaoSection rdo={rdo} />
 
           {/* Materiais Compizzo */}
           <Section title="Materiais Utilizados" icon={<Package size={15} className="text-[#f97316]" />}>

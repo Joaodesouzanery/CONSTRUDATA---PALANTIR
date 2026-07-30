@@ -251,6 +251,24 @@ export function RdoCompizzoPanel() {
     if (!diaObraTouched && diaObraSugerido != null) setDiaObra(String(diaObraSugerido))
   }, [diaObraSugerido, diaObraTouched])
 
+  // Contrato da obra (Torre): auto-carrega os serviços do contrato como linhas de Produção do Dia
+  // (ADITIVO — somadas às existentes, nunca substitui), com vínculo contractServiceId → o que for
+  // produzido aqui alimenta o Controle de Medição da obra.
+  useEffect(() => {
+    const services = selectedSite?.contrato?.services ?? []
+    if (services.length === 0) return
+    setProducao((rows) => {
+      const have = new Set(rows.map((r) => r.contractServiceId).filter(Boolean))
+      const add = services
+        .filter((svc) => !have.has(svc.id))
+        .map((svc) => ({
+          servico: svc.descricao, quantidade: '', unidade: svc.unidade,
+          quantidadePrevista: svc.qtdContrato || undefined, contractServiceId: svc.id,
+        }))
+      return add.length ? [...rows, ...add] : rows
+    })
+  }, [selectedSite?.contrato])
+
   const [showText, setShowText] = useState(false)
   const [textValue, setTextValue] = useState('')
   const [saved, setSaved] = useState(false)
