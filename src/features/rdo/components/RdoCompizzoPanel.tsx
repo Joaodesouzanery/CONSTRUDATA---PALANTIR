@@ -167,6 +167,14 @@ export function RdoCompizzoPanel() {
     () => masterActivities.filter((a) => a.level >= 1 && !a.isMilestone && (!obraSiteId || (a.obraId ?? null) === obraSiteId)),
     [masterActivities, obraSiteId],
   )
+  // Sugestões de "Responsável": funcionários cadastrados (nome) + gestor/dono da obra (Torre).
+  const responsavelOptions = useMemo(
+    () => [...new Set(
+      [...workers.map((w) => w.name), selectedSite?.manager, selectedSite?.owner]
+        .filter((x): x is string => Boolean(x && x.trim())),
+    )],
+    [workers, selectedSite],
+  )
   // Estoque geral (siteId null) + estoque da obra selecionada. Só oculta itens de OUTRA obra.
   const estoqueDaObra = useMemo(
     () => (obraSiteId ? estoqueItens.filter((it) => (it.siteId ?? null) === null || it.siteId === obraSiteId) : estoqueItens),
@@ -196,6 +204,7 @@ export function RdoCompizzoPanel() {
   }
   const [data, setData] = useState(editing?.date ?? today)
   const [diaObra, setDiaObra] = useState(c0?.diaObra ?? '')
+  const [diaObraTouched, setDiaObraTouched] = useState(Boolean(c0?.diaObra))
   const [responsavel, setResponsavel] = useState(editing?.responsible ?? '')
   const [condicao, setCondicao] = useState<RdoCompizzoData['condicaoClimatica']>(c0?.condicaoClimatica ?? 'sol')
   const [condicaoOutros, setCondicaoOutros] = useState(c0?.condicaoClimaticaOutros ?? '')
@@ -228,6 +237,19 @@ export function RdoCompizzoPanel() {
   const [respNome, setRespNome] = useState(c0?.responsavelNome ?? '')
   const [respData, setRespData] = useState(c0?.responsavelData ?? today)
   const [photos, setPhotos] = useState<RdoPhoto[]>(editing?.photos ?? [])
+
+  // "Dia da Obra" automático = dias corridos desde o início da obra (Torre) até a data do RDO
+  // (início = dia 1). Preenche sozinho até o usuário editar (diaObraTouched).
+  const diaObraSugerido = useMemo(() => {
+    if (!selectedSite?.startDate || !data) return null
+    const start = new Date(selectedSite.startDate + 'T00:00:00').getTime()
+    const cur = new Date(data + 'T00:00:00').getTime()
+    if (Number.isNaN(start) || Number.isNaN(cur)) return null
+    return Math.max(1, Math.floor((cur - start) / 86400000) + 1)
+  }, [selectedSite?.startDate, data])
+  useEffect(() => {
+    if (!diaObraTouched && diaObraSugerido != null) setDiaObra(String(diaObraSugerido))
+  }, [diaObraSugerido, diaObraTouched])
 
   const [showText, setShowText] = useState(false)
   const [textValue, setTextValue] = useState('')
@@ -511,8 +533,8 @@ export function RdoCompizzoPanel() {
               )}
             </div>
             <div><label className={labelCls}>Data</label><input type="date" className={inputCls} value={data} onChange={(e) => setData(e.target.value)} /></div>
-            <div><label className={labelCls}>Dia da Obra</label><input className={inputCls} value={diaObra} onChange={(e) => setDiaObra(e.target.value)} placeholder="03" /></div>
-            <div className="sm:col-span-2"><label className={labelCls}>Responsável</label><input className={inputCls} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Pedro Augusto - Arquiteto" /></div>
+            <div><label className={labelCls}>Dia da Obra{diaObraSugerido != null && <span className="text-[9px] text-[#6b6b6b]"> · auto {diaObraSugerido}</span>}</label><input className={inputCls} value={diaObra} onChange={(e) => { setDiaObra(e.target.value); setDiaObraTouched(true) }} placeholder="03" /></div>
+            <div className="sm:col-span-2"><label className={labelCls}>Responsável</label><input className={inputCls} list="compizzo-responsaveis" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Selecione ou digite (funcionário / gestor da obra)" /><datalist id="compizzo-responsaveis">{responsavelOptions.map((n) => <option key={n} value={n} />)}</datalist></div>
           </div>
           <div className="mt-3">
             <label className={labelCls}>Condições Climáticas</label>
@@ -590,12 +612,19 @@ export function RdoCompizzoPanel() {
           </div>
           {employeeNames.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {employeeNames.map((nme, i) => (
-                <span key={`${nme}-${i}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3d3d3d] text-[#f5f5f5] text-xs">
-                  {nme}
-                  <button onClick={() => setEmployeeNames((p) => p.filter((_, idx) => idx !== i))} className="text-[#6b6b6b] hover:text-[#ef4444]"><X size={12} /></button>
-                </span>
-              ))}
+              {employeeNames.map((nme, i) => {
+                const w = matchWorkerByName(nme, workers)
+                const custo = w ? custoDiaWorker(w) : 0
+                return (
+                  <span key={`${nme}-${i}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3d3d3d] text-[#f5f5f5] text-xs">
+                    <span>{nme}
+                      {w?.role && <span className="text-[#a3a3a3]"> · {w.role}</span>}
+                      {custo > 0 && <span className="text-[#6b6b6b]"> · {brl(custo)}/dia</span>}
+                    </span>
+                    <button onClick={() => setEmployeeNames((p) => p.filter((_, idx) => idx !== i))} className="text-[#6b6b6b] hover:text-[#ef4444]"><X size={12} /></button>
+                  </span>
+                )
+              })}
             </div>
           )}
           {custoMaoObraDia > 0 && (
@@ -874,7 +903,7 @@ export function RdoCompizzoPanel() {
         {/* Responsável pela Obra */}
         <Section title="Responsável pela Obra" icon={<FileText size={16} className="text-[#1f6fd1]" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><label className={labelCls}>Nome</label><input className={inputCls} value={respNome} onChange={(e) => setRespNome(e.target.value)} placeholder="Pedro Augusto Marques Pereira" /></div>
+            <div><label className={labelCls}>Nome</label><input className={inputCls} list="compizzo-responsaveis" value={respNome} onChange={(e) => setRespNome(e.target.value)} placeholder="Selecione ou digite" /></div>
             <div><label className={labelCls}>Data</label><input type="date" className={inputCls} value={respData} onChange={(e) => setRespData(e.target.value)} /></div>
           </div>
         </Section>
