@@ -201,6 +201,10 @@ export function RdoCompizzoPanel() {
     setActiveObra(next)                       // alinha o seletor global (Planejamento/Suprimentos seguem a mesma obra)
     const site = next ? sites.find((s) => s.id === next) : null
     if (site) setObra(site.name)
+    // Remove as linhas de contrato auto-carregadas VAZIAS da obra anterior (evita órfãs que
+    // poluiriam a nova obra/Planejamento); mantém as preenchidas e as não-contratuais. O
+    // efeito abaixo recarrega os serviços da nova obra.
+    setProducao((rows) => rows.filter((r) => !r.contractServiceId || (r.quantidade ?? '').trim() !== ''))
   }
   const [data, setData] = useState(editing?.date ?? today)
   const [diaObra, setDiaObra] = useState(c0?.diaObra ?? '')
@@ -262,8 +266,11 @@ export function RdoCompizzoPanel() {
       const add = services
         .filter((svc) => !have.has(svc.id))
         .map((svc) => ({
+          // meta undefined de propósito: buildProducaoFinal só cria/vincula atividade de
+          // Planejamento quando há qtd do dia (>0) — evita poluir o Planejamento com um
+          // serviço do contrato que não foi trabalhado neste RDO.
           servico: svc.descricao, quantidade: '', unidade: svc.unidade,
-          quantidadePrevista: svc.qtdContrato || undefined, contractServiceId: svc.id,
+          quantidadePrevista: undefined, contractServiceId: svc.id,
         }))
       return add.length ? [...rows, ...add] : rows
     })

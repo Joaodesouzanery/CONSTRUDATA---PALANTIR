@@ -144,11 +144,9 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
                   )
                 })}
                 <tr className="border-t-2 border-[#525252] font-bold">
-                  <td className="py-1 text-[#f5f5f5]">TOTAIS</td>
-                  <td /><td className="py-1 text-right text-[#a3a3a3] font-mono text-[9px]">contrato {brl(tot.contrato)}</td>
-                  <td className="py-1 text-right text-[#f59e0b] font-mono">{brl(tot.medido)}</td>
-                  <td className="py-1 text-right text-[#22c55e] font-mono">{brl(tot.saldo)}</td>
-                  <td className="py-1 text-right text-[#f59e0b] font-mono">{brl(tot.medido)}</td>
+                  <td className="py-1 text-[#f5f5f5]" colSpan={4}>TOTAL (R$) · contrato {brl(tot.contrato)}</td>
+                  <td className="py-1 text-right text-[#22c55e] font-mono" title="saldo (R$)">{brl(tot.saldo)}</td>
+                  <td className="py-1 text-right text-[#f59e0b] font-mono" title="medido (R$)">{brl(tot.medido)}</td>
                 </tr>
               </tbody>
             </table>
