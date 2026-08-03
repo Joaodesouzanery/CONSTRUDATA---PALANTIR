@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
@@ -6,29 +6,38 @@ import {
   CheckCircle2,
   Clock3,
   Edit2,
+  ExternalLink,
   Eye,
+  FileText,
   Filter,
   Gauge,
+  Image as ImageIcon,
   LayoutDashboard,
   Link2,
   ListChecks,
+  Paperclip,
   Plus,
   RefreshCcw,
   Search,
   Settings2,
   SlidersHorizontal,
   Trash2,
+  Upload,
   Wrench,
   X,
 } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
+import { compressImageToBlob } from '@/lib/imageCompression'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import {
   type MaintenanceAsset,
+  type MaintenanceAssetAnexo,
+  type MaintenanceAssetSistema,
   type MaintenanceAssetStatus,
   type MaintenanceFrequency,
   type MaintenanceMonitoringPoint,
@@ -36,9 +45,16 @@ import {
   type MaintenancePriority,
   type MaintenanceStatus,
   type MaintenanceWorkOrder,
+  SISTEMAS_ATIVO,
   useManutencoesStore,
 } from '@/store/manutencoesStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import {
+  removePredialAtivoFile,
+  signedPredialAtivoUrl,
+  uploadPredialAtivoFile,
+  uploadPredialAtivoImage,
+} from './utils/predialAtivoStorage'
 import type { ConstructionSite, Project } from '@/types'
 
 type MaintenanceTab = 'painel' | 'ativos' | 'monitoramento' | 'tarefas' | 'ordens' | 'kanban' | 'calendario'
@@ -316,6 +332,137 @@ function ModalActions({ onCancel, saving }: { onCancel: () => void; saving: bool
   )
 }
 
+const ANEXO_TIPOS: { value: NonNullable<MaintenanceAssetAnexo['tipo']>; label: string }[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'art', label: 'ART' },
+  { value: 'nota', label: 'Nota' },
+  { value: 'outro', label: 'Outro' },
+]
+
+function fmtDateBR(iso: string) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR')
+}
+
+// Helper nomeado (não inline no render) — mesmo idioma do GestaoFrotasPanel.
+function daysUntil(iso: string) {
+  return Math.floor((new Date(iso + 'T12:00:00').getTime() - Date.now()) / 86_400_000)
+}
+
+/** Semáforo da garantia: vermelho vencida / amarelo ≤30 dias / verde ok. */
+function GarantiaBadge({ date }: { date?: string }) {
+  if (!date) return <span className="text-[#737373]">—</span>
+  const days = daysUntil(date)
+  const cls = days < 0 ? 'text-[#f87171]' : days <= 30 ? 'text-[#fbbf24]' : 'text-[#4ade80]'
+  return <span className={cn('font-semibold tabular-nums', cls)}>{fmtDateBR(date)}{days < 0 ? ' · vencida' : ` · ${days}d`}</span>
+}
+
+/** Resolve um caminho do bucket `predial-ativos` para uma URL assinada (1h). */
+function useSignedPreview(path?: string) {
+  const [state, setState] = useState<{ path?: string; url: string | null }>({ url: null })
+  useEffect(() => {
+    if (!path) return
+    let alive = true
+    void signedPredialAtivoUrl(path).then((u) => { if (alive) setState({ path, url: u }) })
+    return () => { alive = false }
+  }, [path])
+  return state.path === path ? state.url : null
+}
+
+/** Miniatura da plaqueta (signed URL lazy) para a lista de ativos. */
+function PlaquetaThumb({ path }: { path?: string }) {
+  const url = useSignedPreview(path)
+  if (!path) return <div className="grid h-9 w-9 shrink-0 place-items-center rounded border border-[#525252] bg-[#333]"><ImageIcon size={14} className="text-[#555]" /></div>
+  return url
+    ? <img src={url} alt="plaqueta" className="h-9 w-9 shrink-0 rounded border border-[#525252] object-cover" />
+    : <div className="h-9 w-9 shrink-0 animate-pulse rounded border border-[#525252] bg-[#3a3a3a]" />
+}
+
+/** Upload/troca da foto da plaqueta (comprime → sobe → guarda o caminho).
+ * onTrash: caminho antigo a remover do bucket SÓ se o modal for salvo (evita apagar
+ * um arquivo ainda referenciado caso o usuário cancele). */
+function PlaquetaUploader({ path, onChange, onTrash }: { path?: string; onChange: (next?: string) => void; onTrash: (p?: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  const url = useSignedPreview(path)
+  async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      const blob = await compressImageToBlob(file)
+      const newPath = await uploadPredialAtivoImage(blob)
+      onTrash(path)   // remove a antiga ao salvar
+      onChange(newPath)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao enviar a plaqueta.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex items-center gap-3">
+      {path && url
+        ? <img src={url} alt="plaqueta" className="h-16 w-16 rounded-lg border border-[#525252] object-cover" />
+        : <div className="grid h-16 w-16 place-items-center rounded-lg border border-dashed border-[#525252] bg-[#333]"><ImageIcon size={20} className="text-[#666]" /></div>}
+      <div className="flex flex-col gap-1.5">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-1.5 text-xs font-semibold text-[#e5e5e5] hover:bg-[#464646]">
+          <Upload size={14} /> {busy ? 'Enviando...' : path ? 'Trocar foto' : 'Enviar foto'}
+          <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
+        </label>
+        {path && <button type="button" onClick={() => { onTrash(path); onChange(undefined) }} className="text-left text-xs text-[#a3a3a3] hover:text-[#f87171]">Remover</button>}
+      </div>
+    </div>
+  )
+}
+
+/** Lista de documentos anexos (manual/ART/nota) com upload, tipo, abrir e remover.
+ * onTrash: exclusão adiada até o save (ver PlaquetaUploader). */
+function AnexosManager({ anexos, onChange, onTrash }: { anexos: MaintenanceAssetAnexo[]; onChange: (next: MaintenanceAssetAnexo[]) => void; onTrash: (p?: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  async function onFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setBusy(true)
+    try {
+      const path = await uploadPredialAtivoFile(file)
+      onChange([...anexos, { path, nome: file.name, tipo: 'outro', uploadedAt: new Date().toISOString() }])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Falha ao enviar o anexo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function openAnexo(path: string) {
+    const u = await signedPredialAtivoUrl(path)
+    if (u) window.open(u, '_blank', 'noopener')
+    else toast.error('Não foi possível abrir o anexo.')
+  }
+  return (
+    <div className="space-y-2">
+      {anexos.length > 0 && (
+        <ul className="space-y-1.5">
+          {anexos.map((a, i) => (
+            <li key={a.path} className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#333] px-2.5 py-1.5 text-sm">
+              <FileText size={15} className="shrink-0 text-[#a3a3a3]" />
+              <button type="button" onClick={() => void openAnexo(a.path)} className="flex-1 truncate text-left text-[#e5e5e5] hover:text-[#fb923c]" title={a.nome}>{a.nome}</button>
+              <select value={a.tipo ?? 'outro'} onChange={(e) => onChange(anexos.map((x, idx) => idx === i ? { ...x, tipo: e.target.value as MaintenanceAssetAnexo['tipo'] } : x))} className="rounded border border-[#525252] bg-[#3a3a3a] px-1.5 py-1 text-xs text-[#e5e5e5]">
+                {ANEXO_TIPOS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              <button type="button" onClick={() => void openAnexo(a.path)} className="rounded p-1 text-[#a3a3a3] hover:text-white" title="Abrir"><ExternalLink size={14} /></button>
+              <button type="button" onClick={() => { onTrash(a.path); onChange(anexos.filter((_, idx) => idx !== i)) }} className="rounded p-1 text-[#a3a3a3] hover:text-[#f87171]" title="Remover"><Trash2 size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-1.5 text-xs font-semibold text-[#e5e5e5] hover:bg-[#464646]">
+        <Paperclip size={14} /> {busy ? 'Enviando...' : 'Adicionar anexo'}
+        <input type="file" className="hidden" onChange={onFile} disabled={busy} />
+      </label>
+    </div>
+  )
+}
+
 function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsset; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
   const addAsset = useManutencoesStore((state) => state.addAsset)
   const updateAsset = useManutencoesStore((state) => state.updateAsset)
@@ -331,7 +478,26 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
     qrCode: item?.qrCode ?? '',
     projectId: item?.projectId ?? '',
     constructionSiteId: item?.constructionSiteId ?? '',
+    sistema: (item?.sistema ?? '') as MaintenanceAssetSistema | '',
+    fabricante: item?.fabricante ?? '',
+    modelo: item?.modelo ?? '',
+    serial: item?.serial ?? '',
+    areaAtendida: item?.areaAtendida ?? '',
+    dataInstalacao: item?.dataInstalacao ?? '',
+    garantiaAte: item?.garantiaAte ?? '',
+    vidaUtilAnosNBR: item?.vidaUtilAnosNBR != null ? String(item.vidaUtilAnosNBR) : '',
+    replacementCostBRL: item?.replacementCostBRL != null ? String(item.replacementCostBRL) : '',
   })
+  const [fotoPlaquetaPath, setFotoPlaquetaPath] = useState<string | undefined>(item?.fotoPlaquetaPath)
+  const [anexos, setAnexos] = useState<MaintenanceAssetAnexo[]>(item?.anexos ?? [])
+  // Caminhos removidos/substituídos: só apagados do bucket se o modal for salvo (cancelar não apaga).
+  const trashRef = useRef<string[]>([])
+  const trash = (p?: string) => { if (p) trashRef.current.push(p) }
+
+  const toNum = (v: string): number | undefined => {
+    const n = Number(v.replace(',', '.'))
+    return v.trim() && Number.isFinite(n) ? n : undefined
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -339,11 +505,25 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
     setSaving(true)
     const payload = {
       ...form,
+      sistema: form.sistema || undefined,
+      fabricante: form.fabricante.trim() || undefined,
+      modelo: form.modelo.trim() || undefined,
+      serial: form.serial.trim() || undefined,
+      areaAtendida: form.areaAtendida.trim() || undefined,
+      dataInstalacao: form.dataInstalacao || undefined,
+      garantiaAte: form.garantiaAte || undefined,
+      vidaUtilAnosNBR: toNum(form.vidaUtilAnosNBR),
+      replacementCostBRL: toNum(form.replacementCostBRL),
+      fotoPlaquetaPath: fotoPlaquetaPath || undefined,
+      anexos: anexos.length ? anexos : undefined,
       projectId: form.projectId.trim() || null,
       constructionSiteId: form.constructionSiteId.trim() || null,
     }
     if (item) await updateAsset(item.id, payload)
     else await addAsset(payload)
+    // Salvo com sucesso: agora sim remove do bucket os arquivos trocados/removidos (best-effort).
+    trashRef.current.forEach((p) => void removePredialAtivoFile(p))
+    trashRef.current = []
     setSaving(false)
     onClose()
   }
@@ -374,6 +554,38 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
           <Field label="QR / Identificador"><input value={form.qrCode} onChange={(e) => setForm((s) => ({ ...s, qrCode: e.target.value }))} className={inputClass} /></Field>
           <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
+
+        <div className="mt-5 mb-2 flex items-center gap-2 border-t border-[#525252] pt-4 text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]">
+          <Wrench size={14} /> Ficha técnica (DNA do ativo)
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Sistema">
+            <select value={form.sistema} onChange={(e) => setForm((s) => ({ ...s, sistema: e.target.value as MaintenanceAssetSistema | '' }))} className={inputClass}>
+              <option value="">—</option>
+              {SISTEMAS_ATIVO.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <Field label="Fabricante"><input value={form.fabricante} onChange={(e) => setForm((s) => ({ ...s, fabricante: e.target.value }))} className={inputClass} /></Field>
+          <Field label="Modelo"><input value={form.modelo} onChange={(e) => setForm((s) => ({ ...s, modelo: e.target.value }))} className={inputClass} /></Field>
+          <Field label="Nº de série"><input value={form.serial} onChange={(e) => setForm((s) => ({ ...s, serial: e.target.value }))} className={inputClass} /></Field>
+          <Field label="Área atendida"><input value={form.areaAtendida} onChange={(e) => setForm((s) => ({ ...s, areaAtendida: e.target.value }))} className={inputClass} placeholder="2º andar sul, hall..." /></Field>
+          <Field label="Data de instalação"><input type="date" value={form.dataInstalacao} onChange={(e) => setForm((s) => ({ ...s, dataInstalacao: e.target.value }))} className={inputClass} /></Field>
+          <Field label="Garantia até"><input type="date" value={form.garantiaAte} onChange={(e) => setForm((s) => ({ ...s, garantiaAte: e.target.value }))} className={inputClass} /></Field>
+          <Field label="Vida útil NBR (anos)"><input type="number" min={0} value={form.vidaUtilAnosNBR} onChange={(e) => setForm((s) => ({ ...s, vidaUtilAnosNBR: e.target.value }))} className={inputClass} placeholder="ex.: 15" /></Field>
+          <Field label="Custo de reposição (R$)"><input type="number" min={0} value={form.replacementCostBRL} onChange={(e) => setForm((s) => ({ ...s, replacementCostBRL: e.target.value }))} className={inputClass} /></Field>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <span className={labelClass}>Foto da plaqueta</span>
+            <PlaquetaUploader path={fotoPlaquetaPath} onChange={setFotoPlaquetaPath} onTrash={trash} />
+          </div>
+          <div className="space-y-1.5">
+            <span className={labelClass}>Documentos (manual, ART, nota)</span>
+            <AnexosManager anexos={anexos} onChange={setAnexos} onTrash={trash} />
+          </div>
+        </div>
+
         <ModalActions onCancel={onClose} saving={saving} />
       </form>
     </ModalShell>
@@ -783,6 +995,7 @@ export function ManutencoesPage() {
   const [tab, setTab] = useState<MaintenanceTab>('painel')
   const [query, setQuery] = useState('')
   const [scopeFilter, setScopeFilter] = useState<'todos' | 'geral' | 'vinculados'>('todos')
+  const [sistemaFilter, setSistemaFilter] = useState<'todos' | MaintenanceAssetSistema>('todos')
   const [monitoringMode, setMonitoringMode] = useState<'lista' | 'avancado'>('lista')
   const [modal, setModal] = useState<ModalState>(null)
 
@@ -800,9 +1013,10 @@ export function ManutencoesPage() {
   const filteredAssets = useMemo(() => assets.filter((asset) => {
     if (scopeFilter === 'geral' && (asset.projectId || asset.constructionSiteId)) return false
     if (scopeFilter === 'vinculados' && !asset.projectId && !asset.constructionSiteId) return false
+    if (sistemaFilter !== 'todos' && (asset.sistema ?? 'Outros') !== sistemaFilter) return false
     if (!q) return true
-    return [asset.code, asset.name, asset.type, asset.location, asset.responsible].join(' ').toLowerCase().includes(q)
-  }), [assets, q, scopeFilter])
+    return [asset.code, asset.name, asset.type, asset.location, asset.responsible, asset.fabricante, asset.sistema].filter(Boolean).join(' ').toLowerCase().includes(q)
+  }), [assets, q, scopeFilter, sistemaFilter])
 
   const filteredPlans = useMemo(() => plans.filter((plan) => !q || [plan.code, plan.title, plan.description, plan.frequency].join(' ').toLowerCase().includes(q)), [plans, q])
   const filteredMonitoringPoints = useMemo(() => monitoringPoints.filter((point) => {
@@ -922,7 +1136,7 @@ export function ManutencoesPage() {
           <option value="geral">Corporativo/Geral</option>
           <option value="vinculados">Com obra/projeto</option>
         </select>
-        <button type="button" onClick={() => { setQuery(''); setScopeFilter('todos'); setSelectedAssetId(null) }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
+        <button type="button" onClick={() => { setQuery(''); setScopeFilter('todos'); setSistemaFilter('todos'); setSelectedAssetId(null) }} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
           <Filter size={15} />
           Limpar
         </button>
@@ -972,22 +1186,37 @@ export function ManutencoesPage() {
 
           {tab === 'ativos' && (
             <div className="space-y-3">
-              <div className="flex justify-end"><button type="button" onClick={() => setModal({ type: 'asset' })} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white"><Plus size={15} />Novo Ativo</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {(['todos', ...SISTEMAS_ATIVO] as const).map((s) => (
+                    <button key={s} type="button" onClick={() => setSistemaFilter(s)} className={cn('rounded-full border px-3 py-1 text-xs font-semibold', sistemaFilter === s ? 'border-[#f97316]/60 bg-[#f97316]/15 text-[#fb923c]' : 'border-[#525252] bg-[#3a3a3a] text-[#a3a3a3] hover:bg-[#464646]')}>
+                      {s === 'todos' ? 'Todos os sistemas' : s}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => setModal({ type: 'asset' })} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white"><Plus size={15} />Novo Ativo</button>
+              </div>
               <div className="overflow-x-auto rounded-lg border border-[#525252] bg-[#333333]">
-                <table className="w-full min-w-[980px] text-sm">
+                <table className="w-full min-w-[1080px] text-sm">
                   <thead className="border-b border-[#525252] text-left text-[#a3a3a3]">
-                    <tr>{['Código', 'Ativo', 'Tipo', 'Escopo', 'Localização', 'Responsável', 'Criticidade', 'Ações'].map((head) => <th key={head} className="px-4 py-3 font-semibold">{head}</th>)}</tr>
+                    <tr>{['Código', 'Ativo', 'Sistema', 'Tipo', 'Localização', 'Responsável', 'Criticidade', 'Garantia', 'Ações'].map((head) => <th key={head} className="px-4 py-3 font-semibold">{head}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-[#525252]/60">
                     {filteredAssets.map((asset) => (
                       <tr key={asset.id} className={cn('hover:bg-[#3c3c3c]', selectedAssetId === asset.id && 'bg-[#f97316]/10')}>
                         <td className="px-4 py-3 font-semibold text-[#f5f5f5]">{asset.code || '-'}</td>
-                        <td className="px-4 py-3"><button type="button" onClick={() => setSelectedAssetId(asset.id)} className="text-left font-semibold text-[#f5f5f5] hover:text-[#fb923c]">{asset.name}</button></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <PlaquetaThumb path={asset.fotoPlaquetaPath} />
+                            <button type="button" onClick={() => setSelectedAssetId(asset.id)} className="text-left font-semibold text-[#f5f5f5] hover:text-[#fb923c]">{asset.name}</button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">{asset.sistema ? <Badge className="border-[#525252] bg-[#2f2f2f] text-[#d4d4d4]">{asset.sistema}</Badge> : <span className="text-[#737373]">-</span>}</td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{asset.type}</td>
-                        <td className="px-4 py-3"><Badge className="border-[#525252] bg-[#2f2f2f] text-[#d4d4d4]">{assetScope(asset)}</Badge></td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{asset.location || '-'}</td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{asset.responsible || '-'}</td>
                         <td className="px-4 py-3"><Badge className={priorityTone(asset.criticality)}>{priorityLabels[asset.criticality]}</Badge></td>
+                        <td className="px-4 py-3 text-xs"><GarantiaBadge date={asset.garantiaAte} /></td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-1">
                             <button type="button" onClick={() => setModal({ type: 'asset', item: asset })} className="rounded p-2 text-[#a3a3a3] hover:bg-[#484848] hover:text-white"><Edit2 size={15} /></button>

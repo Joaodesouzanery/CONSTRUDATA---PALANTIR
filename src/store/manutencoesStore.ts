@@ -25,6 +25,18 @@ export interface MaintenanceManual {
   secoes?: MaintenanceManualSection[]
 }
 
+/** Sistema predial do ativo (Inventário / DNA do prédio). */
+export type MaintenanceAssetSistema = 'HVAC' | 'Elétrico' | 'Hidráulico' | 'Incêndio' | 'Elevadores' | 'Outros'
+export const SISTEMAS_ATIVO: MaintenanceAssetSistema[] = ['HVAC', 'Elétrico', 'Hidráulico', 'Incêndio', 'Elevadores', 'Outros']
+
+/** Documento anexo do ativo (manual, ART, nota) — arquivo no bucket `predial-ativos`. */
+export interface MaintenanceAssetAnexo {
+  path: string
+  nome: string
+  tipo?: 'manual' | 'art' | 'nota' | 'outro'
+  uploadedAt: string
+}
+
 export interface MaintenanceAsset {
   id: string
   code: string
@@ -41,6 +53,15 @@ export interface MaintenanceAsset {
   replacementCostBRL?: number        // custo de reposição p/ análise de CapEx (payload jsonb)
   modelo?: string                    // metadados opcionais p/ CapEx/Workbench
   serial?: string
+  // ─── Inventário de Ativos (DNA do prédio) — todos no payload jsonb, sem migração ───
+  fabricante?: string
+  sistema?: MaintenanceAssetSistema
+  areaAtendida?: string              // ambiente/área que o ativo atende
+  dataInstalacao?: string            // yyyy-MM-dd
+  garantiaAte?: string               // yyyy-MM-dd (vencimento da garantia)
+  vidaUtilAnosNBR?: number           // vida útil de referência (NBR) — alimenta o CapEx
+  fotoPlaquetaPath?: string          // foto da plaqueta no bucket `predial-ativos`
+  anexos?: MaintenanceAssetAnexo[]   // manuais/ART/notas anexados (bucket `predial-ativos`)
   createdAt: string
   updatedAt: string
 }
@@ -259,8 +280,14 @@ function asPriority(value: unknown): MaintenancePriority {
   return value === 'baixa' || value === 'alta' || value === 'critica' ? value : 'media'
 }
 
+function asSistema(v: unknown): MaintenanceAssetSistema | undefined {
+  return typeof v === 'string' && (SISTEMAS_ATIVO as string[]).includes(v) ? (v as MaintenanceAssetSistema) : undefined
+}
+
 function asAsset(row: EquipmentRow): MaintenanceAsset {
   const payload = row.payload ?? {}
+  const pstr = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v : undefined)
+  const pnum = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
   return {
     id: row.id,
     code: row.code ?? String(payload.code ?? ''),
@@ -273,6 +300,20 @@ function asAsset(row: EquipmentRow): MaintenanceAsset {
     qrCode: row.qr_code ?? String(payload.qrCode ?? ''),
     projectId: row.project_id,
     constructionSiteId: row.construction_site_id ?? null,
+    // Metadados que vivem SÓ no payload jsonb (sem colunas dedicadas): restaurar no pull,
+    // senão se perdem ao recarregar/trocar de device (valia p/ manuais/CapEx e agora p/ o DNA).
+    manuais: Array.isArray(payload.manuais) ? (payload.manuais as MaintenanceManual[]) : undefined,
+    replacementCostBRL: pnum(payload.replacementCostBRL),
+    modelo: pstr(payload.modelo),
+    serial: pstr(payload.serial),
+    fabricante: pstr(payload.fabricante),
+    sistema: asSistema(payload.sistema),
+    areaAtendida: pstr(payload.areaAtendida),
+    dataInstalacao: pstr(payload.dataInstalacao),
+    garantiaAte: pstr(payload.garantiaAte),
+    vidaUtilAnosNBR: pnum(payload.vidaUtilAnosNBR),
+    fotoPlaquetaPath: pstr(payload.fotoPlaquetaPath),
+    anexos: Array.isArray(payload.anexos) ? (payload.anexos as MaintenanceAssetAnexo[]) : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -487,6 +528,20 @@ export const useManutencoesStore = create<ManutencoesState>()(
           qrCode: payload.qrCode ?? '',
           projectId: payload.projectId ?? null,
           constructionSiteId: payload.constructionSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
+          // Metadados do payload jsonb (Workbench/CapEx + Inventário/DNA): sem isto, CRIAR um ativo
+          // descartava esses campos (só o UPDATE preservava via {...current}). compactPayload dropa os undefined.
+          manuais: payload.manuais,
+          replacementCostBRL: payload.replacementCostBRL,
+          modelo: payload.modelo,
+          serial: payload.serial,
+          fabricante: payload.fabricante,
+          sistema: payload.sistema,
+          areaAtendida: payload.areaAtendida,
+          dataInstalacao: payload.dataInstalacao,
+          garantiaAte: payload.garantiaAte,
+          vidaUtilAnosNBR: payload.vidaUtilAnosNBR,
+          fotoPlaquetaPath: payload.fotoPlaquetaPath,
+          anexos: payload.anexos,
           createdAt: now,
           updatedAt: now,
         }
