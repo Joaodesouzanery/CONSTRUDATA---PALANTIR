@@ -14,6 +14,8 @@ import { usePlanoExecucaoStore }   from '@/store/planoExecucaoStore'
 import { useRdoStore }             from '@/store/rdoStore'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useManutencoesStore }     from '@/store/manutencoesStore'
+import { useLaudosStore }          from '@/store/laudosStore'
+import { laudoDiasRestantes }      from '@/features/predial/utils/laudos'
 import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
 
 /** Dias de antecedência para um título "a vencer" virar lembrete. */
@@ -45,6 +47,10 @@ export function useAlertCounts(): AlertCounts {
     const hoje = new Date().toISOString().slice(0, 10)
     return s.workOrders.filter((w) => w.status !== 'concluida' && w.status !== 'cancelada' && !!w.dueDate && w.dueDate < hoje).length
   })
+  // Compliance de Laudos: obrigações vencidas ou vencendo em ≤30 dias (crítico p/ o síndico).
+  const laudosCriticos = useLaudosStore((s) =>
+    s.laudos.filter((l) => { const d = laudoDiasRestantes(l.validade); return d != null && d <= 30 }).length
+  )
   const occurrences = useMaoDeObraStore((s) =>
     s.occurrences.filter((o) => o.type === 'accident').length
   )
@@ -79,8 +85,8 @@ export function useAlertCounts(): AlertCounts {
   return {
     '/app/torre-de-controle':   siteRisks,
     '/app/gestao-360':          changeOrders,
-    // Predial agrega: equipamentos vencidos + OS de manutenção vencidas + saúde crítica.
-    '/app/predial':             maintOrders + manutVencidas + healthAlerts,
+    // Predial agrega: equipamentos vencidos + OS de manutenção vencidas + saúde crítica + laudos críticos.
+    '/app/predial':             maintOrders + manutVencidas + healthAlerts + laudosCriticos,
     '/app/mao-de-obra':         occurrences + fleetAlerts,
     '/app/economia':            economyEvents,
     '/app/planejamento':        planoAlerts,
