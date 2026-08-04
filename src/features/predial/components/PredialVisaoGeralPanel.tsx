@@ -76,15 +76,18 @@ export function PredialVisaoGeralPanel({ onNavigate }: { onNavigate: (tab: Predi
     let custoAno = 0, capexEmAnalise = 0, economia = 0
     for (const a of assets) {
       const os = workOrders.filter((w) => w.assetIds?.includes(a.id))
-      const repair12m = os.filter((w) => woMonth(w) >= limite12m).reduce((s, w) => s + woCost(w), 0)
+      // Reparo 12m realizado (não conta OS futuras) e vida útil por ativo (NBR, Tela 1) —
+      // mantém a "economia estimada" coerente com o CapEx advisor.
+      const repair12m = os.filter((w) => { const k = woMonth(w); return k >= limite12m && k <= mesAtual }).reduce((s, w) => s + woCost(w), 0)
       const replacement = a.replacementCostBRL ?? Math.round((repair12m * 3) / 100) * 100
-      const econ = repair12m - replacement / VIDA_UTIL_ANOS
+      const vidaUtil = a.vidaUtilAnosNBR && a.vidaUtilAnosNBR > 0 ? a.vidaUtilAnosNBR : VIDA_UTIL_ANOS
+      const econ = repair12m - replacement / vidaUtil
       if (econ > 0) { capexEmAnalise += replacement; economia += econ }
     }
     custoAno = workOrders.filter((w) => woMonth(w) >= limite12m).reduce((s, w) => s + woCost(w), 0)
       + orders.filter((o) => (o.scheduledDate ?? '').slice(0, 7) >= limite12m).reduce((s, o) => s + (o.actualCost || 0), 0)
     return { custoAno, capexEmAnalise, economia }
-  }, [assets, workOrders, orders, limite12m])
+  }, [assets, workOrders, orders, limite12m, mesAtual])
 
   const proximasOS = useMemo(
     () => [...m.abertas].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999')).slice(0, 6),

@@ -120,7 +120,7 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
       .map((a) => {
         const repair12m = wo.filter((w) => w.status === 'concluida' && w.assetIds?.includes(a.id) && (w.completedAt || '').slice(0, 7) >= limite12m).reduce((s, w) => s + (w.actualCost || 0), 0)
         const replacement = a.replacementCostBRL ?? Math.round((repair12m * 3) / 100) * 100
-        const vidaUtil = a.vidaUtilAnosNBR ?? 5
+        const vidaUtil = a.vidaUtilAnosNBR && a.vidaUtilAnosNBR > 0 ? a.vidaUtilAnosNBR : 5
         const inst = a.dataInstalacao ? new Date(a.dataInstalacao + 'T12:00:00').getTime() : NaN
         const idadeAnos = Number.isFinite(inst) ? Math.max(0, Math.floor((now.getTime() - inst) / (365.25 * 86_400_000))) : null
         return { a, repair12m, replacement, vidaUtil, idadeAnos, economiaAno: repair12m - replacement / Math.max(1, vidaUtil) }

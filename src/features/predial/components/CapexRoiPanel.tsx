@@ -12,7 +12,7 @@ import { useManutencoesStore } from '@/store/manutencoesStore'
 import type { MaintenanceAsset, MaintenanceWorkOrder } from '@/store/manutencoesStore'
 import { rankBySimilarity } from '../lib/similarity'
 
-const VIDA_UTIL_ANOS = 5
+const VIDA_UTIL_PADRAO = 5   // fallback quando o ativo não tem vida útil NBR cadastrada (Tela 1)
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) }
 function monthKey(w: MaintenanceWorkOrder) { return (w.completedAt || w.scheduledDate || w.dueDate || w.createdAt || '').slice(0, 7) }
@@ -25,8 +25,13 @@ interface AssetCapex {
   repair12m: number
   monthly: { month: string; valor: number }[]
   replacement: number
-  roi: number          // economia Ano 1 (reparo anual − reposição amortizada)
+  roi: number          // economia Ano 1 (reparo anual − reposição amortizada pela vida útil)
   substituir: boolean
+  vidaUtil: number     // anos — vida útil NBR do ativo (Tela 1) ou padrão
+  idadeAnos: number | null      // idade a partir da data de instalação (Tela 1)
+  vidaRestante: number | null   // anos restantes de vida útil
+  mesesComCusto: number         // meses distintos com OS custeada nos últimos 12m
+  maturo: boolean               // ≥12 meses de dados → base automática (não mais "de papel")
 }
 
 export function CapexRoiPanel() {
@@ -35,25 +40,34 @@ export function CapexRoiPanel() {
   const updateAsset = useManutencoesStore((s) => s.updateAsset)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const hoje = new Date()
-  const limite12m = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1).toISOString().slice(0, 7)
   const assetTypeById = useMemo(() => new Map(assets.map((a) => [a.id, a.type])), [assets])
 
   const rows = useMemo<AssetCapex[]>(() => {
+    const now = new Date()
+    const limite12m = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().slice(0, 7)
+    const nowKey = now.toISOString().slice(0, 7)
     return assets
       .map((asset) => {
         const orders = workOrders.filter((w) => w.assetIds?.includes(asset.id))
-        const repair12m = orders.filter((w) => monthKey(w) >= limite12m).reduce((s, w) => s + orderCost(w), 0)
+        // Janela de 12m REALIZADOS (não conta OS agendadas no futuro): custo anual e "meses
+        // de dados" honestos para o badge de maturidade.
+        const orders12m = orders.filter((w) => { const kk = monthKey(w); return kk >= limite12m && kk <= nowKey })
+        const repair12m = orders12m.reduce((s, w) => s + orderCost(w), 0)
         const mMap = new Map<string, number>()
         for (const w of orders) { const k = monthKey(w); if (k) mMap.set(k, (mMap.get(k) ?? 0) + orderCost(w)) }
         const monthly = [...mMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([month, valor]) => ({ month, valor }))
+        const mesesComCusto = new Set(orders12m.filter((w) => orderCost(w) > 0).map(monthKey)).size
+        const vidaUtil = asset.vidaUtilAnosNBR && asset.vidaUtilAnosNBR > 0 ? asset.vidaUtilAnosNBR : VIDA_UTIL_PADRAO
+        const inst = asset.dataInstalacao ? new Date(asset.dataInstalacao + 'T12:00:00').getTime() : NaN
+        const idadeAnos = Number.isFinite(inst) ? Math.max(0, Math.floor((now.getTime() - inst) / (365.25 * 86_400_000))) : null
+        const vidaRestante = idadeAnos != null ? Math.max(0, vidaUtil - idadeAnos) : null
         const replacement = asset.replacementCostBRL ?? defaultReplacement(repair12m)
-        const roi = repair12m - replacement / VIDA_UTIL_ANOS
-        return { asset, orders, repair12m, monthly, replacement, roi, substituir: roi > 0 }
+        const roi = repair12m - replacement / vidaUtil
+        return { asset, orders, repair12m, monthly, replacement, roi, substituir: roi > 0, vidaUtil, idadeAnos, vidaRestante, mesesComCusto, maturo: mesesComCusto >= 12 }
       })
       .filter((r) => r.orders.length > 0)
       .sort((a, b) => b.repair12m - a.repair12m)
-  }, [assets, workOrders, limite12m])
+  }, [assets, workOrders])
 
   const selected = rows.find((r) => r.asset.id === selectedId) ?? rows[0] ?? null
 
@@ -116,7 +130,7 @@ function CapexDetail({ row, workOrders, assetTypeById, onSelectOrderAsset, onPat
   onPatch: (patch: { replacementCostBRL?: number; modelo?: string; serial?: string }) => void
 }) {
   const { asset } = row
-  const amortReposicao = row.replacement / VIDA_UTIL_ANOS
+  const amortReposicao = row.replacement / row.vidaUtil
   const substituir = row.substituir
 
   // Chamados similares (heurística) — OS de OUTROS ativos parecidas com as deste.
@@ -135,9 +149,14 @@ function CapexDetail({ row, workOrders, assetTypeById, onSelectOrderAsset, onPat
     <>
       {/* Recomendação + cards */}
       <div className="rounded-2xl border border-[#525252] bg-[#333333] p-5">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <TrendingUp size={16} className="text-[#f97316]" />
           <h2 className="text-white font-semibold text-sm">Recomendação — {asset.name || asset.code}</h2>
+          <span
+            className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] font-semibold ${row.maturo ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-amber-400/30 bg-amber-500/10 text-amber-300'}`}
+            title={row.maturo ? '12+ meses de OS custeadas: base sólida (automática).' : 'Menos de 12 meses de dados: projeção "de papel"; refina conforme o histórico cresce.'}>
+            {row.maturo ? 'base automática' : `projeção · ${row.mesesComCusto}/12 meses`}
+          </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <RecCard label="Capex proposto (reposição)" value={fmtBRL(row.replacement)} tone="#38bdf8" />
@@ -149,8 +168,10 @@ function CapexDetail({ row, workOrders, assetTypeById, onSelectOrderAsset, onPat
           <div>
             <strong>{substituir ? 'Substituir o ativo' : 'Manter e reparar'}.</strong>{' '}
             {substituir
-              ? `O reparo anual (${fmtBRL(row.repair12m)}) supera a reposição amortizada em ${VIDA_UTIL_ANOS} anos (${fmtBRL(amortReposicao)}/ano) — troca economiza ~${fmtBRL(row.roi)}/ano.`
+              ? `O reparo anual (${fmtBRL(row.repair12m)}) supera a reposição amortizada pela vida útil de ${row.vidaUtil} anos (${fmtBRL(amortReposicao)}/ano) — troca economiza ~${fmtBRL(row.roi)}/ano.`
               : `O reparo anual (${fmtBRL(row.repair12m)}) ainda é menor que a reposição amortizada (${fmtBRL(amortReposicao)}/ano) — reparar compensa.`}
+            {row.vidaRestante != null && ` Vida útil restante: ~${row.vidaRestante} de ${row.vidaUtil} anos${row.idadeAnos != null ? ` (instalado há ${row.idadeAnos} anos)` : ''}.`}
+            {substituir && ` Sugerimos provisionar ${fmtBRL(row.replacement)}${row.vidaRestante != null && row.vidaRestante <= 2 ? ' com prioridade (fim de vida útil)' : ''}.`}
           </div>
         </div>
       </div>
@@ -158,7 +179,9 @@ function CapexDetail({ row, workOrders, assetTypeById, onSelectOrderAsset, onPat
       {/* Metadados do ativo (persistidos) */}
       <div className="rounded-2xl border border-[#525252] bg-[#333333] p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <MetaField key={asset.id + '-repl'} label="Custo de reposição (R$)" type="number" value={asset.replacementCostBRL ?? ''} placeholder={String(defaultReplacement(row.repair12m))}
-          onSave={(v) => onPatch({ replacementCostBRL: v === '' ? undefined : Math.max(0, Number(v) || 0) })} help={`Padrão = 3× o reparo anual · amortização em ${VIDA_UTIL_ANOS} anos`} />
+          onSave={(v) => onPatch({ replacementCostBRL: v === '' ? undefined : Math.max(0, Number(v) || 0) })} help={`Padrão = 3× o reparo anual · amortização em ${row.vidaUtil} anos`} />
+        <MetaReadonly label="Vida útil (NBR)" value={`${row.vidaUtil} anos${asset.vidaUtilAnosNBR ? '' : ' (padrão — cadastre na Tela de Ativos)'}`} />
+        <MetaReadonly label="Idade / restante" value={row.idadeAnos != null ? `${row.idadeAnos} anos${row.vidaRestante != null ? ` · resta ~${row.vidaRestante}` : ''}` : 'sem data de instalação'} />
         <MetaReadonly label="Localização" value={asset.location || '—'} />
         <MetaField key={asset.id + '-modelo'} label="Modelo" value={asset.modelo ?? ''} onSave={(v) => onPatch({ modelo: v || undefined })} />
         <MetaField key={asset.id + '-serial'} label="Nº de série" value={asset.serial ?? ''} onSave={(v) => onPatch({ serial: v || undefined })} />
