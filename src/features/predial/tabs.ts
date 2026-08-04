@@ -1,7 +1,8 @@
 /** Abas do módulo Predial (definição compartilhada entre o header e o container). */
-export type PredialTab = 'visao-geral' | 'manutencoes' | 'laudos' | 'equipamentos' | 'saude' | 'capex' | 'workbench' | 'rateio'
+export type PredialTab = 'sindico' | 'visao-geral' | 'manutencoes' | 'laudos' | 'equipamentos' | 'saude' | 'capex' | 'workbench' | 'rateio'
 
 export const PREDIAL_TABS: { key: PredialTab; label: string }[] = [
+  { key: 'sindico',      label: 'Painel do Síndico' },
   { key: 'visao-geral',  label: 'Visão Geral' },
   { key: 'manutencoes',  label: 'Manutenções' },
   { key: 'laudos',       label: 'Laudos & Compliance' },

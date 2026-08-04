@@ -16,6 +16,7 @@ import { CapexRoiPanel } from './components/CapexRoiPanel'
 import { PredialWorkbenchPanel } from './components/PredialWorkbenchPanel'
 import { RateioConsumoPanel } from './components/RateioConsumoPanel'
 import { ComplianceLaudosPanel } from './components/ComplianceLaudosPanel'
+import { PainelSindicoPanel } from './components/PainelSindicoPanel'
 
 function isPredialTab(v: string | null): v is PredialTab {
   return !!v && PREDIAL_TABS.some((t) => t.key === v)
@@ -35,6 +36,7 @@ export function PredialPage() {
     <div className="flex flex-col h-full bg-[#2c2c2c]">
       <PredialHeader activeTab={tab} onTabChange={goTo} />
       <div className="flex-1 overflow-auto">
+        {tab === 'sindico' && <PainelSindicoPanel onNavigate={goTo} />}
         {tab === 'visao-geral' && <PredialVisaoGeralPanel onNavigate={goTo} />}
         {tab === 'manutencoes' && <ManutencoesPage />}
         {tab === 'laudos' && <ComplianceLaudosPanel />}
