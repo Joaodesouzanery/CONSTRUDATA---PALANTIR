@@ -16,6 +16,8 @@ function fmtCurrency(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 }
 
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+
 const LEGACY_PROJECT_NAMES = new Set([
   'Chain Reaction | Construção Fase 2',
   'Chain Reaction | ConstruÃ§Ã£o Fase 2',
@@ -86,11 +88,11 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
         const crew = report.crews.find((c) => c.id === a.crewId)
         const pct  = a.plannedQty > 0 ? Math.round((a.actualQty / a.plannedQty) * 100) : 0
         return `<tr>
-          <td>${a.name}</td>
-          <td style="text-align:right">${a.plannedQty.toLocaleString('pt-BR')} ${a.unit}</td>
-          <td style="text-align:right">${a.actualQty.toLocaleString('pt-BR')} ${a.unit}</td>
-          <td style="text-align:center">${a.unit}</td>
-          <td>${crew ? crew.foremanName : '—'}</td>
+          <td>${esc(a.name)}</td>
+          <td style="text-align:right">${a.plannedQty.toLocaleString('pt-BR')} ${esc(a.unit)}</td>
+          <td style="text-align:right">${a.actualQty.toLocaleString('pt-BR')} ${esc(a.unit)}</td>
+          <td style="text-align:center">${esc(a.unit)}</td>
+          <td>${crew ? esc(crew.foremanName) : '—'}</td>
           <td style="text-align:center;color:${STATUS_COLOR[a.status] ?? '#6b7280'};font-weight:600">
             ${STATUS_LABEL[a.status] ?? a.status} (${pct}%)
           </td>
@@ -102,8 +104,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
   const crewsHtml = report.crews.map((crew) => {
     const crewCost = crew.timecards.reduce((s, t) => s + t.hoursWorked * t.hourlyRate, 0)
     const rows = crew.timecards.map((tc) => `<tr>
-      <td>${tc.workerName}</td>
-      <td>${tc.role}</td>
+      <td>${esc(tc.workerName)}</td>
+      <td>${esc(tc.role)}</td>
       <td style="text-align:right">${tc.hoursWorked.toFixed(1)}h</td>
       <td style="text-align:right">${fmtCurrency(tc.hourlyRate)}/h</td>
       <td style="text-align:right;font-weight:600">${fmtCurrency(tc.hoursWorked * tc.hourlyRate)}</td>
@@ -111,8 +113,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
 
     return `<div class="crew-section">
       <div class="crew-header">
-        <strong>${crew.foremanName}</strong>
-        <span class="badge">${crew.crewType}</span>
+        <strong>${esc(crew.foremanName)}</strong>
+        <span class="badge">${esc(crew.crewType)}</span>
         <span style="margin-left:auto;color:#f97316;font-weight:700">${fmtCurrency(crewCost)}</span>
       </div>
       <table>
@@ -132,8 +134,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
     ? report.equipmentLogs.map((l) => {
         const act = report.activities.find((a) => a.id === l.activityId)
         return `<tr>
-          <td><code>${l.equipmentId}</code><br/><small>${l.type}</small></td>
-          <td>${act?.name ?? '—'}</td>
+          <td><code>${esc(l.equipmentId)}</code><br/><small>${esc(l.type)}</small></td>
+          <td>${esc(act?.name ?? '—')}</td>
           <td style="text-align:right">${l.utilizationHours.toFixed(1)}h</td>
           <td style="text-align:right;font-weight:600">${fmtCurrency(l.utilizationHours * l.hourlyRate)}</td>
         </tr>`
@@ -145,10 +147,10 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
     ? report.materialLogs.map((l) => {
         const act = report.activities.find((a) => a.id === l.activityId)
         return `<tr>
-          <td><code>${l.materialId}</code></td>
-          <td>${act?.name ?? '—'}</td>
+          <td><code>${esc(l.materialId)}</code></td>
+          <td>${esc(act?.name ?? '—')}</td>
           <td style="text-align:right">${l.quantity.toLocaleString('pt-BR')}</td>
-          <td style="text-align:center">${l.unit}</td>
+          <td style="text-align:center">${esc(l.unit)}</td>
         </tr>`
       }).join('')
     : '<tr><td colspan="4" style="color:#6b7280;font-style:italic">Sem registros</td></tr>'
@@ -158,8 +160,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
     ? `<div class="photo-grid">
         ${report.photos.map((p) => `
           <figure class="photo-item">
-            <img src="${p.base64}" alt="${p.label}" />
-            <figcaption>${p.label}</figcaption>
+            <img src="${p.base64}" alt="${esc(p.label)}" />
+            <figcaption>${esc(p.label)}</figcaption>
           </figure>`).join('')}
        </div>`
     : '<p style="color:#6b7280;font-style:italic">Sem registros fotográficos</p>'
@@ -168,7 +170,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <title>${title}</title>
+  <title>${esc(title)}</title>
   <style>
     @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -239,7 +241,7 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
     <div class="cover-logo">R360</div>
     <div>
       <div class="cover-title">Relatório 360</div>
-      <div class="cover-sub">${projectName} · ${subtitle}</div>
+      <div class="cover-sub">${esc(projectName)} · ${esc(subtitle)}</div>
     </div>
     <div class="cover-badges">
       <span class="badge">${fmtDate(report.date)}</span>
@@ -317,8 +319,8 @@ function buildHtml(report: DailyReport, title: string, subtitle: string, section
 
   <!-- Footer -->
   <div class="footer">
-    <span>${projectName}</span>
-    <span>${subtitle}</span>
+    <span>${esc(projectName)}</span>
+    <span>${esc(subtitle)}</span>
     <span>Gerado em ${new Date().toLocaleString('pt-BR')}</span>
   </div>
 </body>

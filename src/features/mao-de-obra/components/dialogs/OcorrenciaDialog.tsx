@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useShallow } from 'zustand/react/shallow'
 import { occurrenceSchema, type OccurrenceFormData } from '../../schemas'
 
 interface Props {
@@ -25,7 +26,7 @@ const emptyForm: OccurrenceFormData = {
 }
 
 export function OcorrenciaDialog({ onClose }: Props) {
-  const { crews, addOccurrence } = useMaoDeObraStore((s) => ({ crews: s.crews, addOccurrence: s.addOccurrence }))
+  const { crews, addOccurrence } = useMaoDeObraStore(useShallow((s) => ({ crews: s.crews, addOccurrence: s.addOccurrence })))
   const [form, setForm]     = useState<OccurrenceFormData>(emptyForm)
   const [errors, setErrors] = useState<Partial<Record<keyof OccurrenceFormData, string>>>({})
 

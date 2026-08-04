@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Play, Pause, RotateCcw, CalendarDays, DollarSign, Clock } from 'lucide-react'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useShallow } from 'zustand/react/shallow'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 function fmtBRL(n: number) {
@@ -22,7 +23,7 @@ function fmtDate(iso: string | null) {
 
 export function ModelViewPanel({ onClose }: { onClose: () => void }) {
   const { ganttRows, projectEndDate, totalCostBRL, trechos, teams, loadDemoData, runSchedule, isScheduleDirty } =
-    usePlanejamentoStore((s) => ({
+    usePlanejamentoStore(useShallow((s) => ({
       ganttRows:      s.ganttRows,
       projectEndDate: s.projectEndDate,
       totalCostBRL:   s.totalCostBRL,
@@ -31,7 +32,7 @@ export function ModelViewPanel({ onClose }: { onClose: () => void }) {
       loadDemoData:   s.loadDemoData,
       runSchedule:    s.runSchedule,
       isScheduleDirty: s.isScheduleDirty,
-    }))
+    })))
 
   // Animation state: simStep = 0–100 (represents % of project timeline elapsed)
   const [simStep, setSimStep]   = useState(0)

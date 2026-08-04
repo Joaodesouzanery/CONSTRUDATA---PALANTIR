@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { workerSchema, type WorkerFormData } from '../../schemas'
@@ -40,7 +41,7 @@ function blankCert(): WorkerCertification {
 }
 
 export function WorkerDialog({ onClose }: Props) {
-  const { crews, addWorker } = useMaoDeObraStore((s) => ({ crews: s.crews, addWorker: s.addWorker }))
+  const { crews, addWorker } = useMaoDeObraStore(useShallow((s) => ({ crews: s.crews, addWorker: s.addWorker })))
   const sites = useTorreStore((s) => s.sites)
   // Default: obra ativa (cadastro rápido para a obra atual); o usuário pode trocar p/ "geral" ou outra.
   const [form, setForm]     = useState<WorkerFormData>(() => ({ ...emptyForm, siteId: useActiveObraStore.getState().activeObraId ?? '' }))

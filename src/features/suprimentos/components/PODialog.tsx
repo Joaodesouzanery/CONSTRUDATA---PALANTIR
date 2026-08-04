@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
+import { useShallow } from 'zustand/react/shallow'
 import type { PurchaseOrder, POItem } from '@/types'
 
 interface Props {
@@ -27,10 +28,10 @@ function emptyItem(): POItem {
 }
 
 export function PODialog({ po, onClose }: Props) {
-  const { addPO, updatePO } = useSuprimentosStore((s) => ({
+  const { addPO, updatePO } = useSuprimentosStore(useShallow((s) => ({
     addPO:    s.addPO,
     updatePO: s.updatePO,
-  }))
+  })))
 
   const [form, setForm] = useState(() => {
     const today = new Date().toISOString().slice(0, 10)

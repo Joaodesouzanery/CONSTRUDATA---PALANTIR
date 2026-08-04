@@ -43,6 +43,8 @@ function getRdoTitle(rdo: RDO) {
   return rdo.title?.trim() || `RDO #${rdo.number}`
 }
 
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+
 export async function printRdoPDF(rdo: RDO) {
   const win = window.open('', '_blank')
   if (!win) { alert('Permita pop-ups para exportar o PDF.'); return }
@@ -70,47 +72,47 @@ export async function printRdoPDF(rdo: RDO) {
   ].filter(([, v]) => (v as number) > 0)
 
   const employeeNamesHtml = rdo.manpower.employeeNames?.length
-    ? rdo.manpower.employeeNames.map((n) => `<span class="chip">${n}</span>`).join(' ')
+    ? rdo.manpower.employeeNames.map((n) => `<span class="chip">${esc(n)}</span>`).join(' ')
     : '<span style="color:#6b7280;font-style:italic">Não informados</span>'
 
   const equipHtml = rdo.equipment.length
     ? rdo.equipment.map((e) => `
         <tr>
-          <td>${e.name}</td>
-          <td>${[e.code, e.type].filter(Boolean).join(' / ') || 'â€”'}</td>
+          <td>${esc(e.name)}</td>
+          <td>${esc([e.code, e.type].filter(Boolean).join(' / ') || 'â€”')}</td>
           <td style="text-align:center">${e.quantity}</td>
           <td style="text-align:center">${e.hours}h</td>
-          <td>${e.operator || 'â€”'}</td>
-          <td>${e.notes || e.front || 'â€”'}</td>
+          <td>${esc(e.operator || 'â€”')}</td>
+          <td>${esc(e.notes || e.front || 'â€”')}</td>
         </tr>`).join('') ?? ''
     : '<tr><td colspan="6" style="color:#6b7280;font-style:italic">Nenhum equipamento</td></tr>'
 
   const materialsHtml = (rdo.materials?.length ?? 0) > 0
     ? rdo.materials?.map((m) => `
         <tr>
-          <td>${m.material}</td>
+          <td>${esc(m.material)}</td>
           <td style="text-align:center">${m.quantity}</td>
-          <td style="text-align:center">${m.unit || 'â€”'}</td>
+          <td style="text-align:center">${esc(m.unit || 'â€”')}</td>
           <td style="text-align:right">${(Number(m.unitCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
           <td style="text-align:right">${(Number(m.totalCostBRL) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-          <td>${m.stockItemId ? 'Suprimentos' : (m.source || 'Manual')}</td>
+          <td>${m.stockItemId ? 'Suprimentos' : esc(m.source || 'Manual')}</td>
         </tr>`).join('') ?? ''
     : '<tr><td colspan="6" style="color:#6b7280;font-style:italic">Nenhum material</td></tr>'
 
   const servicesHtml = rdo.services.length
     ? rdo.services.map((s) => `
         <tr>
-          <td>${s.description}</td>
+          <td>${esc(s.description)}</td>
           <td style="text-align:center">${s.quantity}</td>
-          <td style="text-align:center">${s.unit}</td>
+          <td style="text-align:center">${esc(s.unit)}</td>
         </tr>`).join('')
     : '<tr><td colspan="3" style="color:#6b7280;font-style:italic">Nenhum serviço</td></tr>'
 
   const trechosHtml = rdo.trechos.length
     ? rdo.trechos.map((t) => `
         <tr>
-          <td><code>${t.trechoCode}</code></td>
-          <td>${t.trechoDescription}</td>
+          <td><code>${esc(t.trechoCode)}</code></td>
+          <td>${esc(t.trechoDescription)}</td>
           <td style="text-align:center">${t.plannedMeters}m</td>
           <td style="text-align:center">${t.executedMeters}m</td>
           <td style="text-align:center">
@@ -128,8 +130,8 @@ export async function printRdoPDF(rdo: RDO) {
     ? `<div class="photo-grid">
         ${photos.map((p) => `
           <figure class="photo-item">
-            <img src="${p.base64}" alt="${p.label}" />
-            <figcaption>${p.label}</figcaption>
+            <img src="${p.base64}" alt="${esc(p.label)}" />
+            <figcaption>${esc(p.label)}</figcaption>
           </figure>`).join('')}
         ${missingPhotos > 0 ? `<figure class="photo-item"><figcaption style="color:#b45309">${missingPhotos} foto(s) indisponível(is) — sem conexão para baixar do servidor.</figcaption></figure>` : ''}
        </div>`
@@ -142,7 +144,7 @@ export async function printRdoPDF(rdo: RDO) {
   // Helper: return value or "Não informado" if absent/falsy
   function ni(v: string | number | undefined | null, isNum = false): string {
     if (isNum) return (v !== undefined && v !== null && (v as number) > 0) ? String(v) : 'Não informado'
-    return (v && String(v).trim()) ? String(v) : 'Não informado'
+    return (v && String(v).trim()) ? esc(v) : 'Não informado'
   }
 
   const infoTableHtml = `
@@ -189,7 +191,7 @@ export async function printRdoPDF(rdo: RDO) {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <title>${getRdoTitle(rdo)} — ${fmtDate(rdo.date)}</title>
+  <title>${esc(getRdoTitle(rdo))} — ${fmtDate(rdo.date)}</title>
   <style>
     @page { size: A4; margin: 14mm 14mm 18mm 14mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -303,13 +305,13 @@ export async function printRdoPDF(rdo: RDO) {
       : `<div class="cover-logo">R</div>`
     }
     <div>
-      <div class="cover-title">${getRdoTitle(rdo)}</div>
-      <div class="cover-sub">${companyName} · Módulo RDO</div>
+      <div class="cover-title">${esc(getRdoTitle(rdo))}</div>
+      <div class="cover-sub">${esc(companyName)} · Módulo RDO</div>
     </div>
     <div class="cover-badges">
       <span class="badge badge-orange">RDO #${rdo.number}</span>
       <span class="badge">${fmtDate(rdo.date)}</span>
-      <span class="badge">${rdo.responsible || '—'}</span>
+      <span class="badge">${esc(rdo.responsible || '—')}</span>
     </div>
   </div>
 
@@ -319,7 +321,7 @@ export async function printRdoPDF(rdo: RDO) {
   ${rdo.ocorrencias && rdo.ocorrencias !== 'Não informado' ? `
   <div class="section" style="margin-bottom:10px;">
     <div class="section-header"><span class="section-icon">⚠️</span> Ocorrências</div>
-    <div class="obs-box" style="border-color:#fca5a5;color:#dc2626;">${rdo.ocorrencias}</div>
+    <div class="obs-box" style="border-color:#fca5a5;color:#dc2626;">${esc(rdo.ocorrencias)}</div>
   </div>` : ''}
 
   <!-- 1. Condições Climáticas -->
@@ -412,12 +414,12 @@ export async function printRdoPDF(rdo: RDO) {
     <div class="section-header"><span class="section-icon">📋</span> Observações e Ocorrências</div>
     <div style="margin-bottom:6px">
       <div style="font-size:8pt;color:#6b7280;margin-bottom:3px;font-weight:600;">Observações Gerais</div>
-      <div class="obs-box">${rdo.observations || '—'}</div>
+      <div class="obs-box">${esc(rdo.observations || '—')}</div>
     </div>
     ${rdo.incidents ? `
     <div>
       <div style="font-size:8pt;color:#ef4444;margin-bottom:3px;font-weight:600;">⚠️ Ocorrências / Acidentes</div>
-      <div class="obs-box" style="border-color:#fca5a5;">${rdo.incidents}</div>
+      <div class="obs-box" style="border-color:#fca5a5;">${esc(rdo.incidents)}</div>
     </div>` : ''}
     ${geoHtml}
   </div>
@@ -432,7 +434,7 @@ export async function printRdoPDF(rdo: RDO) {
   <div class="signature">
     <div class="sig-block">
       <div class="sig-line"></div>
-      <div class="sig-label">${rdo.responsible || 'Responsável pela Obra'}</div>
+      <div class="sig-label">${esc(rdo.responsible || 'Responsável pela Obra')}</div>
     </div>
     <div class="sig-block">
       <div class="sig-line"></div>
@@ -486,15 +488,15 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
   ].filter(([, v]) => (v as number) > 0)
 
   const equipHtml = rdo.equipment.length
-    ? rdo.equipment.map((e) => `<tr><td>${e.name}</td><td style="text-align:center">${e.quantity}</td><td style="text-align:center">${e.hours}h</td></tr>`).join('')
+    ? rdo.equipment.map((e) => `<tr><td>${esc(e.name)}</td><td style="text-align:center">${e.quantity}</td><td style="text-align:center">${e.hours}h</td></tr>`).join('')
     : '<tr><td colspan="3" style="color:#6b7280;font-style:italic">Nenhum equipamento</td></tr>'
 
   const servicesHtml = rdo.services.length
-    ? rdo.services.map((s) => `<tr><td>${s.description}</td><td style="text-align:center">${s.quantity}</td><td style="text-align:center">${s.unit}</td></tr>`).join('')
+    ? rdo.services.map((s) => `<tr><td>${esc(s.description)}</td><td style="text-align:center">${s.quantity}</td><td style="text-align:center">${esc(s.unit)}</td></tr>`).join('')
     : '<tr><td colspan="3" style="color:#6b7280;font-style:italic">Nenhum serviço</td></tr>'
 
   const trechosHtml = rdo.trechos.length
-    ? rdo.trechos.map((t) => `<tr><td><code>${t.trechoCode}</code></td><td>${t.trechoDescription}</td><td style="text-align:center">${t.plannedMeters}m</td><td style="text-align:center">${t.executedMeters}m</td><td style="text-align:center"><span style="color:${STATUS_COLOR[t.status]};font-weight:600">${STATUS_LABEL[t.status] ?? t.status}</span></td></tr>`).join('')
+    ? rdo.trechos.map((t) => `<tr><td><code>${esc(t.trechoCode)}</code></td><td>${esc(t.trechoDescription)}</td><td style="text-align:center">${t.plannedMeters}m</td><td style="text-align:center">${t.executedMeters}m</td><td style="text-align:center"><span style="color:${STATUS_COLOR[t.status]};font-weight:600">${STATUS_LABEL[t.status] ?? t.status}</span></td></tr>`).join('')
     : '<tr><td colspan="5" style="color:#6b7280;font-style:italic">Nenhum trecho</td></tr>'
 
   const pageBreakStyle = addPageBreak ? 'page-break-after: always;' : ''
@@ -505,13 +507,13 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
     <div class="cover">
       <div class="cover-logo">R</div>
       <div>
-        <div class="cover-title">${getRdoTitle(rdo)}</div>
+        <div class="cover-title">${esc(getRdoTitle(rdo))}</div>
         <div class="cover-sub">Construdata · Módulo RDO</div>
       </div>
       <div class="cover-badges">
         <span class="badge badge-orange">RDO #${rdo.number}</span>
         <span class="badge">${fmtDate(rdo.date)}</span>
-        <span class="badge">${rdo.responsible || '—'}</span>
+        <span class="badge">${esc(rdo.responsible || '—')}</span>
       </div>
     </div>
 
@@ -558,8 +560,8 @@ function generateRdoHTML(rdo: RDO, addPageBreak: boolean): string {
     <div class="section">
       <div class="section-header"><span class="section-icon">📋</span> Observações e Ocorrências</div>
       <div style="margin-bottom:6px"><div style="font-size:8pt;color:#6b7280;margin-bottom:3px;font-weight:600;">Observações Gerais</div>
-      <div class="obs-box">${rdo.observations || '—'}</div></div>
-      ${rdo.incidents ? `<div><div style="font-size:8pt;color:#ef4444;margin-bottom:3px;font-weight:600;">⚠️ Ocorrências</div><div class="obs-box" style="border-color:#fca5a5;">${rdo.incidents}</div></div>` : ''}
+      <div class="obs-box">${esc(rdo.observations || '—')}</div></div>
+      ${rdo.incidents ? `<div><div style="font-size:8pt;color:#ef4444;margin-bottom:3px;font-weight:600;">⚠️ Ocorrências</div><div class="obs-box" style="border-color:#fca5a5;">${esc(rdo.incidents)}</div></div>` : ''}
     </div>
   </div>`
 }
@@ -602,7 +604,7 @@ export function printRdosBatchPDF(rdos: RDO[], label: string): void {
   const cover = `
     <div style="page-break-after: always; padding: 40px;">
       <h1 style="color: #1a3a6b; font-size: 24px; margin-bottom: 4px;">Relatório Consolidado de RDOs</h1>
-      <h2 style="color: #333; font-size: 18px; margin-top: 8px;">${label}</h2>
+      <h2 style="color: #333; font-size: 18px; margin-top: 8px;">${esc(label)}</h2>
       <div style="margin-top: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
         <div style="background: #f0f4f8; padding: 16px; border-radius: 8px;">
           <div style="font-size: 24px; font-weight: bold; color: #1a3a6b;">${rdos.length}</div>
@@ -623,7 +625,7 @@ export function printRdosBatchPDF(rdos: RDO[], label: string): void {
   const rdoSections = rdos.map((rdo, i) => generateRdoHTML(rdo, i < rdos.length - 1)).join('\n')
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <title>Relatório Consolidado — ${label}</title>
+    <title>Relatório Consolidado — ${esc(label)}</title>
     <style>${css}</style>
   </head><body>
     <div class="no-print" style="text-align:right;padding:8px 0;margin-bottom:4px;">

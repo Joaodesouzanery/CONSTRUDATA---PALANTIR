@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, Clock, AlertTriangle, CalendarDays, DollarSign, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react'
 import { generateSchedule } from '@/features/planejamento/utils/scheduleEngine'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { useShallow } from 'zustand/react/shallow'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import type { TrechoDelay, GanttRow } from '@/types'
 
@@ -326,14 +327,14 @@ interface ScheduleSummary {
 
 export function SimulacaoAtrasoPanel() {
   const { trechos, teams, productivityTable, scheduleConfig, holidays, loadDemoData } =
-    usePlanejamentoStore((s) => ({
+    usePlanejamentoStore(useShallow((s) => ({
       trechos:           s.trechos,
       teams:             s.teams,
       productivityTable: s.productivityTable,
       scheduleConfig:    s.scheduleConfig,
       holidays:          s.holidays,
       loadDemoData:      s.loadDemoData,
-    }))
+    })))
 
   const [delays, setDelays]   = useState<TrechoDelay[]>([])
   const [base, setBase]       = useState<ScheduleSummary | null>(null)

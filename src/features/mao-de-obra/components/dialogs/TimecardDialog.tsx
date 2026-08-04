@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useShallow } from 'zustand/react/shallow'
 import { timecardSchema, type TimecardFormData } from '../../schemas'
 
 interface Props {
@@ -22,7 +23,7 @@ const emptyForm: TimecardFormData = {
 const UNITS = ['m²', 'm³', 'kg', 'un', 'm', 'serv']
 
 export function TimecardDialog({ onClose }: Props) {
-  const { workers, addTimecard } = useMaoDeObraStore((s) => ({ workers: s.workers, addTimecard: s.addTimecard }))
+  const { workers, addTimecard } = useMaoDeObraStore(useShallow((s) => ({ workers: s.workers, addTimecard: s.addTimecard })))
   const [form, setForm]     = useState<TimecardFormData>(emptyForm)
   const [errors, setErrors] = useState<Partial<Record<keyof TimecardFormData, string>>>({})
 

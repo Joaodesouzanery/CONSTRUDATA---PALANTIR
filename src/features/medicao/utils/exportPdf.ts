@@ -16,6 +16,8 @@ function fmtNum(n: number) {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
 }
 
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))
+
 const BASE_CSS = `
   body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; background: #fff; margin: 0; padding: 16px; }
   h1 { font-size: 13pt; margin: 0 0 2px; color: #111; }
@@ -42,7 +44,7 @@ const BASE_CSS = `
 function openPrint(title: string, body: string) {
   const w = window.open('', '_blank', 'width=1100,height=800')
   if (!w) return
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>${BASE_CSS}</style></head><body>${body}</body></html>`)
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${BASE_CSS}</style></head><body>${body}</body></html>`)
   w.document.close()
   w.focus()
   setTimeout(() => { w.print() }, 400)
@@ -53,7 +55,7 @@ function openPrint(title: string, body: string) {
 const GRUPOS: Record<string, string> = { '01': 'Canteiros e Planos', '02': 'Esgoto', '03': 'Água', 'EX': 'Extra / Aditivos' }
 
 export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato: string, consorcio: string, sourceTotals?: MedicaoSourceTotals) {
-  let body = `<h1>Planilha de Medição Sabesp — ${periodo}</h1><p class="sub">Contrato ${contrato} · ${consorcio}</p>`
+  let body = `<h1>Planilha de Medição Sabesp — ${esc(periodo)}</h1><p class="sub">Contrato ${esc(contrato)} · ${esc(consorcio)}</p>`
 
   const grupos = ['01', '02', '03', 'EX']
   let grandTotal = 0
@@ -78,9 +80,9 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
       const totalPer = i.qtdMedida * i.valorUnitario
       const saldoR = saldoQtd * i.valorUnitario
       body += `<tr>
-        <td>${i.itemEAP || '—'}</td>
-        <td>${i.descricao}<br/><span style="color:#f97316;font-size:7pt;">${i.nPreco}</span></td>
-        <td class="center">${i.unidade}</td>
+        <td>${esc(i.itemEAP || '—')}</td>
+        <td>${esc(i.descricao)}<br/><span style="color:#f97316;font-size:7pt;">${esc(i.nPreco)}</span></td>
+        <td class="center">${esc(i.unidade)}</td>
         <td class="right">${fmtNum(i.qtdContrato)}</td><td class="right">${fmtNum(i.qtdAnterior)}</td>
         <td class="right">${fmtNum(i.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
         <td class="right">${fmtBRL(i.valorUnitario)}</td><td class="right">${fmtBRL(totalPer)}</td>
@@ -119,17 +121,17 @@ export function exportSabespPdf(itens: ItemContrato[], periodo: string, contrato
 // ─── Step 3: Subempreiteiros ──────────────────────────────────────────────────
 
 export function exportSubempreiteirosPdf(subempreiteiros: Subempreiteiro[], periodo: string, contrato: string) {
-  let body = `<h1>Subempreiteiros — ${periodo}</h1><p class="sub">Contrato ${contrato}</p>`
+  let body = `<h1>Subempreiteiros — ${esc(periodo)}</h1><p class="sub">Contrato ${esc(contrato)}</p>`
 
   for (const sub of subempreiteiros) {
-    body += `<h2>${sub.nome} — Núcleo: ${sub.nucleo}</h2>`
+    body += `<h2>${esc(sub.nome)} — Núcleo: ${esc(sub.nucleo)}</h2>`
     body += `<table><thead><tr>
       <th>Nº Preço</th><th>Vínc. Sabesp</th><th>Descrição</th><th class="center">Un</th>
       <th class="right">Qtd</th><th class="right">Vl. Unitário</th><th class="right">Vl. Total</th>
     </tr></thead><tbody>`
     for (const i of sub.itens) {
       body += `<tr>
-        <td>${i.nPreco}</td><td>${i.nPrecoSabesp || '—'}</td><td>${i.descricao}</td><td class="center">${i.unidade}</td>
+        <td>${esc(i.nPreco)}</td><td>${esc(i.nPrecoSabesp || '—')}</td><td>${esc(i.descricao)}</td><td class="center">${esc(i.unidade)}</td>
         <td class="right">${fmtNum(i.qtd)}</td><td class="right">${fmtBRL(i.valorUnitario)}</td>
         <td class="right">${fmtBRL(i.qtd * i.valorUnitario)}</td>
       </tr>`
@@ -145,12 +147,12 @@ export function exportSubempreiteirosPdf(subempreiteiros: Subempreiteiro[], peri
 
 export function exportFornecedoresPdf(fornecedores: Fornecedor[], periodo: string, contrato: string) {
   const total = fornecedores.reduce((s, f) => s + f.valorAprovado, 0)
-  let body = `<h1>Fornecedores — ${periodo}</h1><p class="sub">Contrato ${contrato}</p>`
+  let body = `<h1>Fornecedores — ${esc(periodo)}</h1><p class="sub">Contrato ${esc(contrato)}</p>`
   body += `<table><thead><tr>
     <th>Fornecedor</th><th>Período</th><th>Descrição</th><th class="right">Valor Aprovado</th>
   </tr></thead><tbody>`
   for (const f of fornecedores) {
-    body += `<tr><td>${f.nome}</td><td>${f.periodo}</td><td>${f.descricao}</td><td class="right">${fmtBRL(f.valorAprovado)}</td></tr>`
+    body += `<tr><td>${esc(f.nome)}</td><td>${esc(f.periodo)}</td><td>${esc(f.descricao)}</td><td class="right">${fmtBRL(f.valorAprovado)}</td></tr>`
   }
   body += `</tbody><tfoot><tr><td colspan="3" class="right">Total</td><td class="right">${fmtBRL(total)}</td></tr></tfoot></table>`
   openPrint(`Fornecedores ${periodo}`, body)
@@ -159,7 +161,7 @@ export function exportFornecedoresPdf(fornecedores: Fornecedor[], periodo: strin
 // ─── Step 5: Conferência (enhanced with financial summary + criteria) ─────────
 
 export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: string, contrato: string, boletim?: MedicaoBoletim) {
-  let body = `<h1>Conferência de Medição — ${periodo}</h1><p class="sub">Contrato ${contrato} · Gerado em ${new Date().toLocaleString('pt-BR')}</p>`
+  let body = `<h1>Conferência de Medição — ${esc(periodo)}</h1><p class="sub">Contrato ${esc(contrato)} · Gerado em ${new Date().toLocaleString('pt-BR')}</p>`
 
   // Financial summary if boletim available
   if (boletim) {
@@ -205,14 +207,14 @@ export function exportConferenciaPdf(conferencia: ConferenciaItem[], periodo: st
     const statusLabel = c.status === 'ok' ? 'OK' : c.status === 'divergencia' ? 'Divergência' : 'Pendente'
     const crit = getAllCriterios().find(cr => cr.nPreco === c.nPreco)
     const criterioHtml = crit
-      ? `<div class="criterion-note"><strong>Critério ${c.nPreco}:</strong> ${crit.medicao}</div>`
+      ? `<div class="criterion-note"><strong>Critério ${esc(c.nPreco)}:</strong> ${esc(crit.medicao)}</div>`
       : ''
     body += `<tr>
-      <td>${c.nPreco}</td><td>${c.descricao}${criterioHtml}</td><td class="center">${c.unidade}</td>
+      <td>${esc(c.nPreco)}</td><td>${esc(c.descricao)}${criterioHtml}</td><td class="center">${esc(c.unidade)}</td>
       <td class="right">${fmtNum(c.qtdSabesp)}</td><td class="right">${fmtNum(c.qtdSubempreiteiros)}</td>
       <td class="right">${fmtNum(c.diferenca)}</td>
       <td class="center ${statusCls}">${statusLabel}</td>
-      <td>${c.observacao || ''}</td>
+      <td>${esc(c.observacao || '')}</td>
     </tr>`
   }
   body += `</tbody></table>`
@@ -233,8 +235,8 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
   let body = `
     <div style="text-align:center;margin-bottom:16px;">
       <h1 style="font-size:15pt;margin:0;">BOLETIM DE MEDIÇÃO</h1>
-      <p style="font-size:10pt;color:#f97316;margin:2px 0 0;font-weight:700;">Contrato ${boletim.contrato} — ${boletim.consorcio}</p>
-      <p style="font-size:8.5pt;color:#555;margin:4px 0;">Período: ${boletim.periodo} · Gerado em ${new Date().toLocaleString('pt-BR')}</p>
+      <p style="font-size:10pt;color:#f97316;margin:2px 0 0;font-weight:700;">Contrato ${esc(boletim.contrato)} — ${esc(boletim.consorcio)}</p>
+      <p style="font-size:8.5pt;color:#555;margin:4px 0;">Período: ${esc(boletim.periodo)} · Gerado em ${new Date().toLocaleString('pt-BR')}</p>
     </div>
   `
 
@@ -276,12 +278,12 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
         const saldoR = saldoQtd * item.valorUnitario
         const crit = getAllCriterios().find(cr => cr.nPreco === item.nPreco)
         const criterioHtml = crit
-          ? `<div class="criterion-note"><strong>Critério:</strong> ${crit.medicao}${crit.notas ? `<br/>Notas: ${crit.notas}` : ''}</div>`
-          : `<div class="criterion-note" style="border-left-color:#dc2626;color:#991b1b;"><strong>Critério não localizado</strong> para nPreço ${item.nPreco}</div>`
+          ? `<div class="criterion-note"><strong>Critério:</strong> ${esc(crit.medicao)}${crit.notas ? `<br/>Notas: ${esc(crit.notas)}` : ''}</div>`
+          : `<div class="criterion-note" style="border-left-color:#dc2626;color:#991b1b;"><strong>Critério não localizado</strong> para nPreço ${esc(item.nPreco)}</div>`
         body += `<tr>
-          <td>${item.itemEAP || '—'}</td>
-          <td>${item.descricao}<br/><span style="color:#f97316;font-size:7pt;">${item.nPreco}</span>${criterioHtml}</td>
-          <td class="center">${item.unidade}</td>
+          <td>${esc(item.itemEAP || '—')}</td>
+          <td>${esc(item.descricao)}<br/><span style="color:#f97316;font-size:7pt;">${esc(item.nPreco)}</span>${criterioHtml}</td>
+          <td class="center">${esc(item.unidade)}</td>
           <td class="right">${fmtNum(item.qtdContrato)}</td><td class="right">${fmtNum(item.qtdAnterior)}</td>
           <td class="right">${fmtNum(item.qtdMedida)}</td><td class="right">${fmtNum(qtdAcum)}</td>
           <td class="right">${fmtBRL(item.valorUnitario)}</td><td class="right">${fmtBRL(valor)}</td>
@@ -305,7 +307,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
       <th>Empresa</th><th>Núcleo</th><th class="right">Total Medido</th><th class="right">Total Aprovado</th><th class="right">Retenção</th>
     </tr></thead><tbody>`
     for (const s of boletim.subempreiteiros) {
-      body += `<tr><td>${s.nome}</td><td>${s.nucleo}</td><td class="right">${fmtBRL(s.totalMedido)}</td><td class="right">${fmtBRL(s.totalAprovado)}</td><td class="right">${fmtBRL(s.retencao)}</td></tr>`
+      body += `<tr><td>${esc(s.nome)}</td><td>${esc(s.nucleo)}</td><td class="right">${fmtBRL(s.totalMedido)}</td><td class="right">${fmtBRL(s.totalAprovado)}</td><td class="right">${fmtBRL(s.retencao)}</td></tr>`
     }
     body += `</tbody></table>`
   }
@@ -315,7 +317,7 @@ export function exportMedicaoFinalPdf(boletim: MedicaoBoletim) {
       <th>Fornecedor</th><th>Período</th><th>Descrição</th><th class="right">Valor Aprovado</th>
     </tr></thead><tbody>`
     for (const f of boletim.fornecedores) {
-      body += `<tr><td>${f.nome}</td><td>${f.periodo}</td><td>${f.descricao}</td><td class="right">${fmtBRL(f.valorAprovado)}</td></tr>`
+      body += `<tr><td>${esc(f.nome)}</td><td>${esc(f.periodo)}</td><td>${esc(f.descricao)}</td><td class="right">${fmtBRL(f.valorAprovado)}</td></tr>`
     }
     body += `</tbody></table>`
   }
