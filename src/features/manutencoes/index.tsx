@@ -17,6 +17,7 @@ import {
   ListChecks,
   Paperclip,
   Plus,
+  QrCode,
   RefreshCcw,
   Search,
   Settings2,
@@ -25,6 +26,7 @@ import {
   Upload,
   Wrench,
   X,
+  Zap,
 } from 'lucide-react'
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
@@ -45,9 +47,11 @@ import {
   type MaintenancePriority,
   type MaintenanceStatus,
   type MaintenanceWorkOrder,
+  type ImpactoUrgencia,
   SISTEMAS_ATIVO,
   useManutencoesStore,
 } from '@/store/manutencoesStore'
+import { componentesDoSistema, SINTOMAS, IU_LABELS, prioridadeDaMatriz } from './utils/chamadoCatalogo'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import {
   removePredialAtivoFile,
@@ -676,6 +680,8 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
     status: item?.status ?? 'pendente' as MaintenanceStatus,
     priority: item?.priority ?? 'media' as MaintenancePriority,
     severity: item?.severity ?? 'media' as MaintenancePriority,
+    impacto: item?.impacto ?? 'media' as ImpactoUrgencia,
+    urgencia: item?.urgencia ?? 'media' as ImpactoUrgencia,
     planned: item?.planned ?? true,
     progress: item?.progress ?? 0,
     scheduledDate: item?.scheduledDate ?? today(),
@@ -716,9 +722,23 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
     }))
   }
 
+  // A matriz impacto×urgência define a prioridade (que continua editável manualmente).
+  function setImpactoUrgencia(next: { impacto?: ImpactoUrgencia; urgencia?: ImpactoUrgencia }) {
+    setForm((s) => {
+      const impacto = next.impacto ?? s.impacto
+      const urgencia = next.urgencia ?? s.urgencia
+      return { ...s, impacto, urgencia, priority: prioridadeDaMatriz(impacto, urgencia) }
+    })
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     if (!form.title.trim()) return
+    // Custo obrigatório no fechamento (gestão de manutenção: OS não fecha sem custo real).
+    if (form.status === 'concluida' && Number(form.actualCost) <= 0) {
+      window.alert('Informe o custo real (maior que zero) para concluir a OS.')
+      return
+    }
     setSaving(true)
     const payload = {
       code: form.code,
@@ -727,6 +747,8 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
       status: form.status,
       priority: form.priority,
       severity: form.severity,
+      impacto: form.impacto,
+      urgencia: form.urgencia,
       planned: form.planned,
       progress: Number(form.progress),
       scheduledDate: form.scheduledDate,
@@ -769,7 +791,17 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
               {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </Field>
-          <Field label="Prioridade">
+          <Field label="Impacto">
+            <select value={form.impacto} onChange={(e) => setImpactoUrgencia({ impacto: e.target.value as ImpactoUrgencia })} className={inputClass}>
+              {(['baixa', 'media', 'alta'] as ImpactoUrgencia[]).map((v) => <option key={v} value={v}>{IU_LABELS[v]}</option>)}
+            </select>
+          </Field>
+          <Field label="Urgência">
+            <select value={form.urgencia} onChange={(e) => setImpactoUrgencia({ urgencia: e.target.value as ImpactoUrgencia })} className={inputClass}>
+              {(['baixa', 'media', 'alta'] as ImpactoUrgencia[]).map((v) => <option key={v} value={v}>{IU_LABELS[v]}</option>)}
+            </select>
+          </Field>
+          <Field label="Prioridade (matriz)">
             <select value={form.priority} onChange={(e) => setForm((s) => ({ ...s, priority: e.target.value as MaintenancePriority }))} className={inputClass}>
               {Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
@@ -989,6 +1021,7 @@ export function ManutencoesPage() {
   const deleteWorkOrder = useManutencoesStore((state) => state.deleteWorkOrder)
   const deleteMonitoringPoint = useManutencoesStore((state) => state.deleteMonitoringPoint)
   const generateWorkOrderFromPlan = useManutencoesStore((state) => state.generateWorkOrderFromPlan)
+  const generateDuePreventivas = useManutencoesStore((state) => state.generateDuePreventivas)
   const selectedAssetId = useManutencoesStore((state) => state.selectedAssetId)
   const setSelectedAssetId = useManutencoesStore((state) => state.setSelectedAssetId)
 
@@ -998,6 +1031,9 @@ export function ManutencoesPage() {
   const [sistemaFilter, setSistemaFilter] = useState<'todos' | MaintenanceAssetSistema>('todos')
   const [monitoringMode, setMonitoringMode] = useState<'lista' | 'avancado'>('lista')
   const [modal, setModal] = useState<ModalState>(null)
+  const [completeOrder, setCompleteOrder] = useState<MaintenanceWorkOrder | null>(null)   // fechamento c/ custo (Kanban)
+  const [quickOpen, setQuickOpen] = useState(false)                                       // abertura rápida (QR)
+  const [genPrev, setGenPrev] = useState(false)
 
   useEffect(() => {
     if (!profileOrgId) return
@@ -1060,8 +1096,28 @@ export function ManutencoesPage() {
     const orderId = String(event.active.id)
     const status = event.over?.id as MaintenanceStatus | undefined
     if (!status || !statusColumns.some((column) => column.key === status)) return
+    if (status === 'concluida') {
+      const order = workOrders.find((o) => o.id === orderId)
+      if (order && Number(order.actualCost) <= 0) { setCompleteOrder(order); return }   // exige custo p/ fechar
+    }
     const progress = status === 'concluida' ? 100 : status === 'pendente' ? 0 : undefined
     await updateWorkOrder(orderId, { status, ...(progress !== undefined ? { progress } : {}) })
+  }
+
+  const duePreventivasCount = useMemo(() => {
+    const hoje = today()
+    return plans.filter((p) => p.active && p.frequency !== 'unica' && !!p.nextDueDate && p.nextDueDate <= hoje).length
+  }, [plans])
+
+  async function runPreventivas() {
+    if (genPrev) return
+    setGenPrev(true)
+    try {
+      const n = await generateDuePreventivas(activeObraId)
+      window.alert(n > 0 ? `${n} OS de preventiva gerada(s) e reprogramada(s).` : 'Nenhuma preventiva vencida no momento.')
+    } finally {
+      setGenPrev(false)
+    }
   }
 
   function openAsset(assetId: string) {
@@ -1098,6 +1154,10 @@ export function ManutencoesPage() {
           <button type="button" onClick={() => void pull()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
             <RefreshCcw size={15} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
             Atualizar
+          </button>
+          <button type="button" onClick={() => setQuickOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
+            <QrCode size={15} />
+            Abrir chamado
           </button>
           <button type="button" onClick={() => setModal({ type: 'order' })} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]">
             <Plus size={15} />
@@ -1323,7 +1383,12 @@ export function ManutencoesPage() {
 
           {tab === 'tarefas' && (
             <div className="space-y-3">
-              <div className="flex justify-end"><button type="button" onClick={() => setModal({ type: 'plan' })} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white"><Plus size={15} />Novo Plano</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <button type="button" onClick={() => void runPreventivas()} disabled={genPrev} className="inline-flex items-center gap-2 rounded-lg border border-[#f97316]/40 px-3 py-2 text-sm font-semibold text-[#fb923c] hover:bg-[#f97316]/10 disabled:opacity-60" title="Abre OS para todo plano ativo com vencimento até hoje e reprograma a próxima data">
+                  <Zap size={15} /> {genPrev ? 'Gerando...' : `Gerar preventivas vencidas${duePreventivasCount > 0 ? ` (${duePreventivasCount})` : ''}`}
+                </button>
+                <button type="button" onClick={() => setModal({ type: 'plan' })} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white"><Plus size={15} />Novo Plano</button>
+              </div>
               <div className="grid gap-3 xl:grid-cols-2">
                 {filteredPlans.map((plan) => (
                   <div key={plan.id} className="rounded-lg border border-[#525252] bg-[#333333] p-4">
@@ -1449,6 +1514,177 @@ export function ManutencoesPage() {
       {modal?.type === 'monitoring' && <MonitoringModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
       {modal?.type === 'plan' && <PlanModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
       {modal?.type === 'order' && <OrderModal item={modal.item} assets={assets} plans={plans} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {completeOrder && <CompleteOrderModal order={completeOrder} onClose={() => setCompleteOrder(null)} />}
+      {quickOpen && <QuickChamadoModal assets={assets} onClose={() => setQuickOpen(false)} />}
+    </div>
+  )
+}
+
+// Fechamento de OS pelo Kanban exigindo o custo real (gestão de manutenção NBR 5674).
+function CompleteOrderModal({ order, onClose }: { order: MaintenanceWorkOrder; onClose: () => void }) {
+  const updateWorkOrder = useManutencoesStore((s) => s.updateWorkOrder)
+  const [custo, setCusto] = useState(order.actualCost || order.estimatedCost || 0)
+  const [saving, setSaving] = useState(false)
+  async function concluir() {
+    if (Number(custo) <= 0) { window.alert('Informe o custo real (maior que zero) para concluir.'); return }
+    setSaving(true)
+    await updateWorkOrder(order.id, { status: 'concluida', progress: 100, actualCost: Number(custo) })
+    setSaving(false)
+    onClose()
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+      <div className="w-full max-w-md rounded-lg border border-[#525252] bg-[#2f2f2f] p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-[#f5f5f5]">Concluir OS</h2>
+          <button type="button" onClick={onClose} className="rounded p-2 text-[#a3a3a3] hover:bg-[#3f3f3f] hover:text-white"><X size={18} /></button>
+        </div>
+        <p className="mb-3 text-sm text-[#a3a3a3]">{order.code} · {order.title}</p>
+        <label className="block space-y-1.5"><span className={labelClass}>Custo real (R$)</span>
+          <input type="number" min={0} autoFocus value={custo} onChange={(e) => setCusto(Number(e.target.value))} className={inputClass} />
+        </label>
+        <div className="mt-5 flex justify-end gap-2 border-t border-[#525252] pt-4">
+          <button type="button" onClick={onClose} className="rounded-lg border border-[#525252] px-4 py-2 text-sm font-semibold text-[#e5e5e5] hover:bg-[#3f3f3f]">Cancelar</button>
+          <button type="button" onClick={() => void concluir()} disabled={saving} className="rounded-lg bg-[#22c55e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#16a34a] disabled:opacity-70">{saving ? 'Concluindo...' : 'Concluir OS'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Abertura rápida de chamado (QR): Ativo → Sistema → Componente → Sintoma + matriz impacto×urgência.
+function QuickChamadoModal({ assets, onClose }: { assets: MaintenanceAsset[]; onClose: () => void }) {
+  const addWorkOrder = useManutencoesStore((s) => s.addWorkOrder)
+  const [saving, setSaving] = useState(false)
+  const [busca, setBusca] = useState('')
+  const [assetId, setAssetId] = useState('')
+  const asset = assets.find((a) => a.id === assetId)
+  const sistemasFallback = SISTEMAS_ATIVO as readonly string[]
+  const [sistema, setSistema] = useState('')
+  const [componente, setComponente] = useState('')
+  const [sintoma, setSintoma] = useState(SINTOMAS[0])
+  const [sintomaOutro, setSintomaOutro] = useState('')
+  const [impacto, setImpacto] = useState<ImpactoUrgencia>('media')
+  const [urgencia, setUrgencia] = useState<ImpactoUrgencia>('media')
+  const [requester, setRequester] = useState('')
+
+  // Ao escolher o ativo, herda o sistema dele (editável) e reseta o componente.
+  function pickAsset(id: string) {
+    setAssetId(id)
+    const a = assets.find((x) => x.id === id)
+    setSistema(a?.sistema ?? '')
+    setComponente('')
+  }
+  const b = busca.trim().toLowerCase()
+  const matches = b
+    ? assets.filter((a) => [a.code, a.name, a.qrCode, a.location].filter(Boolean).join(' ').toLowerCase().includes(b)).slice(0, 8)
+    : []
+  const componentes = componentesDoSistema(sistema)
+  const prioridade = prioridadeDaMatriz(impacto, urgencia)
+  const sintomaFinal = sintoma === 'Outro' ? (sintomaOutro.trim() || 'Outro') : sintoma
+  const titulo = [sistema || asset?.type, componente, sintomaFinal].filter(Boolean).join(' · ') || 'Chamado'
+
+  async function abrir() {
+    if (!asset) { window.alert('Selecione o ativo (escaneie/digite o QR ou busque pelo nome).'); return }
+    setSaving(true)
+    const id = await addWorkOrder({
+      title: titulo,
+      description: `Chamado aberto via QR. Ativo: ${asset.code || ''} ${asset.name}. Sistema: ${sistema || '—'}. Componente: ${componente || '—'}. Sintoma: ${sintomaFinal}.`,
+      status: 'pendente',
+      planned: false,
+      priority: prioridade,
+      severity: prioridade,
+      impacto,
+      urgencia,
+      requester: requester.trim(),
+      assetIds: [asset.id],
+      projectId: asset.projectId,
+      constructionSiteId: asset.constructionSiteId,
+    })
+    setSaving(false)
+    if (id) onClose()
+    else window.alert('Não foi possível abrir o chamado. Tente novamente.')
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-[#525252] bg-[#2f2f2f] p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-[#f5f5f5]"><QrCode size={18} className="text-[#f97316]" /> Abrir chamado</h2>
+          <button type="button" onClick={onClose} className="rounded p-2 text-[#a3a3a3] hover:bg-[#3f3f3f] hover:text-white"><X size={18} /></button>
+        </div>
+
+        {!asset ? (
+          <div className="space-y-2">
+            <label className="block space-y-1.5"><span className={labelClass}>Ativo (escaneie/digite o QR/código ou busque)</span>
+              <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Código, QR, nome ou local do ativo..." className={inputClass} />
+            </label>
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-[#525252] bg-[#333]">
+              {matches.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-[#737373]">{b ? 'Nenhum ativo encontrado.' : 'Comece a digitar para localizar o ativo.'}</p>
+              ) : matches.map((a) => (
+                <button key={a.id} type="button" onClick={() => pickAsset(a.id)} className="flex w-full items-center justify-between gap-3 border-b border-[#525252]/60 px-3 py-2 text-left text-sm hover:bg-[#3c3c3c]">
+                  <span><span className="font-semibold text-[#f5f5f5]">{a.name}</span> <span className="text-[#a3a3a3]">{a.code}</span></span>
+                  <span className="text-xs text-[#737373]">{a.sistema ?? a.type}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-[#525252] bg-[#333] px-3 py-2 text-sm">
+              <span><span className="font-semibold text-[#f5f5f5]">{asset.name}</span> <span className="text-[#a3a3a3]">{asset.code}</span></span>
+              <button type="button" onClick={() => { setAssetId(''); setBusca('') }} className="text-xs text-[#a3a3a3] hover:text-[#fb923c]">trocar</button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1.5"><span className={labelClass}>Sistema</span>
+                <select value={sistema} onChange={(e) => { setSistema(e.target.value); setComponente('') }} className={inputClass}>
+                  <option value="">—</option>
+                  {sistemasFallback.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5"><span className={labelClass}>Componente</span>
+                <select value={componente} onChange={(e) => setComponente(e.target.value)} className={inputClass}>
+                  <option value="">—</option>
+                  {componentes.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5"><span className={labelClass}>Sintoma</span>
+                <select value={sintoma} onChange={(e) => setSintoma(e.target.value)} className={inputClass}>
+                  {SINTOMAS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+              {sintoma === 'Outro' && (
+                <label className="space-y-1.5"><span className={labelClass}>Descreva o sintoma</span>
+                  <input value={sintomaOutro} onChange={(e) => setSintomaOutro(e.target.value)} className={inputClass} />
+                </label>
+              )}
+              <label className="space-y-1.5"><span className={labelClass}>Impacto</span>
+                <select value={impacto} onChange={(e) => setImpacto(e.target.value as ImpactoUrgencia)} className={inputClass}>
+                  {(['baixa', 'media', 'alta'] as ImpactoUrgencia[]).map((v) => <option key={v} value={v}>{IU_LABELS[v]}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5"><span className={labelClass}>Urgência</span>
+                <select value={urgencia} onChange={(e) => setUrgencia(e.target.value as ImpactoUrgencia)} className={inputClass}>
+                  {(['baixa', 'media', 'alta'] as ImpactoUrgencia[]).map((v) => <option key={v} value={v}>{IU_LABELS[v]}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5 sm:col-span-2"><span className={labelClass}>Solicitante</span>
+                <input value={requester} onChange={(e) => setRequester(e.target.value)} className={inputClass} placeholder="Quem abriu o chamado" />
+              </label>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-[#525252] bg-[#333] px-3 py-2 text-sm">
+              <span className="text-[#a3a3a3]">Prioridade (matriz)</span>
+              <Badge className={priorityTone(prioridade)}>{priorityLabels[prioridade]}</Badge>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2 border-t border-[#525252] pt-4">
+          <button type="button" onClick={onClose} className="rounded-lg border border-[#525252] px-4 py-2 text-sm font-semibold text-[#e5e5e5] hover:bg-[#3f3f3f]">Cancelar</button>
+          <button type="button" onClick={() => void abrir()} disabled={saving || !asset} className="rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c] disabled:opacity-60">{saving ? 'Abrindo...' : 'Abrir chamado'}</button>
+        </div>
+      </div>
     </div>
   )
 }

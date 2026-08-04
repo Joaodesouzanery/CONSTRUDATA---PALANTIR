@@ -6,6 +6,8 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 
 export type MaintenanceStatus = 'pendente' | 'em_processo' | 'em_verificacao' | 'concluida' | 'cancelada'
 export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
+/** Nível de impacto/urgência para a matriz de priorização de chamados. */
+export type ImpactoUrgencia = 'baixa' | 'media' | 'alta'
 export type MaintenanceFrequency = 'unica' | 'diaria' | 'semanal' | 'quinzenal' | 'mensal' | 'bimestral' | 'trimestral' | 'semestral' | 'anual'
 export type MaintenanceAssetStatus = 'active' | 'idle' | 'maintenance' | 'alert' | 'offline'
 
@@ -92,6 +94,8 @@ export interface MaintenanceWorkOrder {
   status: MaintenanceStatus
   priority: MaintenancePriority
   severity: MaintenancePriority
+  impacto?: ImpactoUrgencia    // matriz impacto×urgência (payload jsonb, sem migração)
+  urgencia?: ImpactoUrgencia
   planned: boolean
   progress: number
   scheduledDate: string
@@ -165,6 +169,7 @@ interface ManutencoesState {
   updatePlan: (id: string, patch: Partial<MaintenancePlan>) => Promise<void>
   deletePlan: (id: string) => Promise<void>
   generateWorkOrderFromPlan: (planId: string) => Promise<string | null>
+  generateDuePreventivas: (obraId?: string | null) => Promise<number>
   addWorkOrder: (payload: Partial<MaintenanceWorkOrder>) => Promise<string | null>
   updateWorkOrder: (id: string, patch: Partial<MaintenanceWorkOrder>) => Promise<void>
   deleteWorkOrder: (id: string) => Promise<void>
@@ -340,6 +345,8 @@ function asPlan(row: PlanRow, assetIds: string[]): MaintenancePlan {
 }
 
 function asWorkOrder(row: WorkOrderRow, assetIds: string[]): MaintenanceWorkOrder {
+  const payload = row.payload ?? {}
+  const iu = (v: unknown): ImpactoUrgencia | undefined => (v === 'baixa' || v === 'media' || v === 'alta' ? v : undefined)
   return {
     id: row.id,
     code: row.code ?? '',
@@ -348,6 +355,8 @@ function asWorkOrder(row: WorkOrderRow, assetIds: string[]): MaintenanceWorkOrde
     status: row.status,
     priority: row.priority,
     severity: row.severity,
+    impacto: iu(payload.impacto),
+    urgencia: iu(payload.urgencia),
     planned: row.planned,
     progress: row.progress,
     scheduledDate: row.scheduled_date ?? '',
@@ -400,6 +409,29 @@ function asMonitoringPoint(row: MonitoringPointRow): MaintenanceMonitoringPoint 
 
 function compactPayload(value: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined))
+}
+
+const FREQ_STEP: Record<MaintenanceFrequency, { months?: number; days?: number }> = {
+  unica: {}, diaria: { days: 1 }, semanal: { days: 7 }, quinzenal: { days: 14 },
+  mensal: { months: 1 }, bimestral: { months: 2 }, trimestral: { months: 3 },
+  semestral: { months: 6 }, anual: { months: 12 },
+}
+
+/** Avança uma data de vencimento pela frequência até cair estritamente DEPOIS de hoje
+ * (evita backlog: gera uma OS por plano e reprograma para a próxima ocorrência futura). */
+function advanceDueDate(fromISO: string, freq: MaintenanceFrequency, todayISO: string): string {
+  const step = FREQ_STEP[freq]
+  if (!step.months && !step.days) return fromISO   // 'unica' não avança
+  const limit = new Date(todayISO + 'T12:00:00')
+  let d = new Date((fromISO || todayISO) + 'T12:00:00')
+  if (Number.isNaN(d.getTime())) d = new Date(todayISO + 'T12:00:00')   // data corrompida → parte de hoje
+  let guard = 0
+  do {
+    if (step.months) d.setMonth(d.getMonth() + step.months)
+    if (step.days) d.setDate(d.getDate() + step.days)
+    guard++
+  } while (d <= limit && guard < 100_000)   // backstop: 100k passos cobre até diário muito atrasado
+  return d.toISOString().slice(0, 10)
 }
 
 async function replaceLinks(table: 'maintenance_plan_assets' | 'maintenance_work_order_assets', ownerColumn: 'plan_id' | 'work_order_id', ownerId: string, assetIds: string[]) {
@@ -706,6 +738,25 @@ export const useManutencoesStore = create<ManutencoesState>()(
         })
       },
 
+      // Varre planos ativos com vencimento <= hoje, abre 1 OS por plano e reprograma o
+      // próximo vencimento (auto-avanço) — o "gerador de preventivas por calendário".
+      generateDuePreventivas: async (obraId) => {
+        const hojeStr = today()
+        // Escopo pela obra ativa (igual ao inObra da UI): senão o botão contaria só a obra
+        // mas geraria OS de TODAS as obras. obraId nulo/ausente = todas (nenhum filtro).
+        const due = get().plans.filter((p) =>
+          (!obraId || (p.constructionSiteId ?? null) === obraId) &&
+          p.active && p.frequency !== 'unica' && !!p.nextDueDate && p.nextDueDate <= hojeStr)
+        let count = 0
+        for (const plan of due) {
+          const id = await get().generateWorkOrderFromPlan(plan.id)
+          if (!id) continue
+          count++
+          await get().updatePlan(plan.id, { nextDueDate: advanceDueDate(plan.nextDueDate, plan.frequency, hojeStr) })
+        }
+        return count
+      },
+
       addWorkOrder: async (payload) => {
         const { orgId, userId } = getContext()
         if (!orgId || !userId) { set({ syncStatus: 'unauth' }); return null }
@@ -720,6 +771,8 @@ export const useManutencoesStore = create<ManutencoesState>()(
           status: payload.status ?? 'pendente',
           priority: payload.priority ?? 'media',
           severity: payload.severity ?? 'media',
+          impacto: payload.impacto,      // matriz impacto×urgência (payload jsonb)
+          urgencia: payload.urgencia,
           planned: payload.planned ?? true,
           progress: payload.progress ?? 0,
           scheduledDate: payload.scheduledDate ?? today(),
