@@ -263,15 +263,19 @@ function LaudoModal({ item, sites, defaultSiteId, onClose }: { item?: Laudo; sit
       documentoPath: documentoPath || undefined,
       observacoes: form.observacoes.trim() || undefined,
     }
-    const ok = item ? await updateLaudo(item.id, payload) : (await addLaudo(payload)) !== null
-    if (!ok) {
+    const savedId = item ? (await updateLaudo(item.id, payload) ? item.id : null) : await addLaudo(payload)
+    if (!savedId) {
       // Falhou: mantém o modal aberto e NÃO apaga os arquivos em trash (ainda referenciados).
       setSaving(false)
       window.alert('Não foi possível salvar o laudo. Verifique a conexão e tente novamente.')
       return
     }
-    // Só agora remove do bucket os arquivos trocados/removidos (best-effort).
-    trashRef.current.forEach((p) => void removePredialAtivoFile(p))
+    // Só apaga o documento antigo do bucket APÓS a gravação ser CONFIRMADA no servidor: se a op
+    // ficar pendente (offline) ou falhar, o servidor manteria o caminho antigo e apagar o arquivo
+    // agora criaria referência quebrada. Nesse caso deixamos o arquivo antigo (órfão, best-effort).
+    await useLaudosStore.getState().flush()
+    const aindaPendente = useLaudosStore.getState().pendingSync.some((op) => op.recordId === savedId)
+    if (!aindaPendente) trashRef.current.forEach((p) => void removePredialAtivoFile(p))
     trashRef.current = []
     setSaving(false)
     onClose()
