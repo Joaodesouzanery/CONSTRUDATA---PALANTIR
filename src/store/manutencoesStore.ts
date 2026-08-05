@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { flushQueue, mergePull, makeOp, changedColumns, type PendingOp } from '@/lib/storeSync'
 
 export type MaintenanceStatus = 'pendente' | 'em_processo' | 'em_verificacao' | 'concluida' | 'cancelada'
 export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
@@ -155,12 +156,14 @@ interface ManutencoesState {
   plans: MaintenancePlan[]
   workOrders: MaintenanceWorkOrder[]
   monitoringPoints: MaintenanceMonitoringPoint[]
+  pendingSync: PendingOp[]
   syncStatus: 'idle' | 'syncing' | 'offline' | 'unauth' | 'error'
   syncError: string | null
   lastSyncedAt: string | null
   selectedAssetId: string | null
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
+  flush: () => Promise<void>
   pull: () => Promise<void>
   addAsset: (payload: Partial<MaintenanceAsset>) => Promise<string | null>
   updateAsset: (id: string, patch: Partial<MaintenanceAsset>) => Promise<void>
@@ -336,7 +339,9 @@ function asPlan(row: PlanRow, assetIds: string[]): MaintenancePlan {
     checklist: asStringArray(row.checklist),
     nextDueDate: row.next_due_date ?? '',
     active: row.active,
-    assetIds,
+    // Payload é a fonte autoritativa dos vínculos p/ linhas novas (o insert enfileira assetIds no payload);
+    // a tabela de link (param) fica como fallback p/ linhas legadas sem assetIds no payload.
+    assetIds: Array.isArray(row.payload?.assetIds) ? (row.payload!.assetIds as string[]) : assetIds,
     projectId: row.project_id,
     constructionSiteId: row.construction_site_id,
     createdAt: row.created_at,
@@ -373,7 +378,8 @@ function asWorkOrder(row: WorkOrderRow, assetIds: string[]): MaintenanceWorkOrde
     evidence: asStringArray(row.evidence),
     pmbok: row.pmbok ?? {},
     leanLps: row.lean_lps ?? {},
-    assetIds,
+    // Payload autoritativo p/ os vínculos de linhas novas; tabela de link (param) como fallback legado.
+    assetIds: Array.isArray(payload.assetIds) ? (payload.assetIds as string[]) : assetIds,
     planId: row.plan_id,
     projectId: row.project_id,
     constructionSiteId: row.construction_site_id,
@@ -411,6 +417,107 @@ function compactPayload(value: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined))
 }
 
+// ─── Row builders (snake_case) — compartilhados pelo op de insert e pelo diff (changedColumns)
+//     do update. Incluem id/organization_id/created_by (que changedColumns ignora), garantindo
+//     que prevRow e nextRow do update tenham a MESMA forma do row de insert. ───
+function assetRow(item: MaintenanceAsset, orgId: string, userId: string): Record<string, unknown> {
+  return {
+    id: item.id,
+    organization_id: orgId,
+    project_id: item.projectId,
+    construction_site_id: item.constructionSiteId,
+    code: item.code,
+    name: item.name,
+    type: item.type,
+    status: item.status,
+    criticality: item.criticality,
+    responsible: item.responsible || null,
+    location: item.location || null,
+    qr_code: item.qrCode || null,
+    payload: compactPayload(item as unknown as Record<string, unknown>),
+    created_by: userId,
+  }
+}
+
+function planRow(item: MaintenancePlan, orgId: string, userId: string): Record<string, unknown> {
+  return {
+    id: item.id,
+    organization_id: orgId,
+    project_id: item.projectId,
+    construction_site_id: item.constructionSiteId,
+    code: item.code,
+    title: item.title,
+    description: item.description || null,
+    frequency: item.frequency,
+    priority: item.priority,
+    estimated_duration_minutes: item.estimatedDurationMinutes,
+    checklist: item.checklist,
+    next_due_date: item.nextDueDate || null,
+    active: item.active,
+    payload: compactPayload(item as unknown as Record<string, unknown>),
+    created_by: userId,
+  }
+}
+
+function workOrderRow(item: MaintenanceWorkOrder, orgId: string, userId: string): Record<string, unknown> {
+  return {
+    id: item.id,
+    organization_id: orgId,
+    project_id: item.projectId,
+    construction_site_id: item.constructionSiteId,
+    plan_id: item.planId,
+    code: item.code,
+    title: item.title,
+    description: item.description || null,
+    status: item.status,
+    priority: item.priority,
+    severity: item.severity,
+    planned: item.planned,
+    progress: item.progress,
+    scheduled_date: item.scheduledDate || null,
+    due_date: item.dueDate || null,
+    started_at: item.startedAt,
+    completed_at: item.completedAt,
+    assignee: item.assignee || null,
+    requester: item.requester || null,
+    estimated_duration_minutes: item.estimatedDurationMinutes,
+    actual_duration_minutes: item.actualDurationMinutes,
+    estimated_cost: item.estimatedCost,
+    actual_cost: item.actualCost,
+    checklist: item.checklist,
+    evidence: item.evidence,
+    pmbok: item.pmbok,
+    lean_lps: item.leanLps,
+    payload: compactPayload(item as unknown as Record<string, unknown>),
+    created_by: userId,
+  }
+}
+
+function monitoringPointRow(item: MaintenanceMonitoringPoint, orgId: string, userId: string): Record<string, unknown> {
+  return {
+    id: item.id,
+    organization_id: orgId,
+    project_id: item.projectId,
+    construction_site_id: item.constructionSiteId,
+    asset_id: item.assetId,
+    code: item.code,
+    location_part: item.locationPart || null,
+    description: item.description,
+    device_state: item.deviceState || null,
+    enabled: item.enabled,
+    serial_number: item.serialNumber || null,
+    is_counter: item.isCounter,
+    unit: item.unit || null,
+    last_reading_date: item.lastReadingDate || null,
+    last_reading_value: item.lastReadingValue || null,
+    min_value: item.minValue,
+    max_value: item.maxValue,
+    notes: item.notes || null,
+    payload: compactPayload(item as unknown as Record<string, unknown>),
+    created_by: userId,
+  }
+}
+
 const FREQ_STEP: Record<MaintenanceFrequency, { months?: number; days?: number }> = {
   unica: {}, diaria: { days: 1 }, semanal: { days: 7 }, quinzenal: { days: 14 },
   mensal: { months: 1 }, bimestral: { months: 2 }, trimestral: { months: 3 },
@@ -434,6 +541,9 @@ function advanceDueDate(fromISO: string, freq: MaintenanceFrequency, todayISO: s
   return d.toISOString().slice(0, 10)
 }
 
+// Best-effort e NÃO-bloqueante: os vínculos autoritativos viajam no payload da entidade (assetIds),
+// então falha aqui (ex.: FK enquanto a entidade ainda não subiu) não perde dado — o pull reconcilia
+// via o fallback de payload em asPlan/asWorkOrder. Chame como `void replaceLinks(...).catch(...)`.
 async function replaceLinks(table: 'maintenance_plan_assets' | 'maintenance_work_order_assets', ownerColumn: 'plan_id' | 'work_order_id', ownerId: string, assetIds: string[]) {
   const { orgId, userId } = getContext()
   if (!orgId || !userId) return
@@ -464,6 +574,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
       plans: [],
       workOrders: [],
       monitoringPoints: [],
+      pendingSync: [],
       syncStatus: 'idle',
       syncError: null,
       lastSyncedAt: null,
@@ -477,6 +588,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           plans: [],
           workOrders: [],
           monitoringPoints: [],
+          pendingSync: [],
           syncStatus: 'idle',
           syncError: null,
           lastSyncedAt: null,
@@ -490,6 +602,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
         plans: [],
         workOrders: [],
         monitoringPoints: [],
+        pendingSync: [],
         syncStatus: 'idle',
         syncError: null,
         selectedAssetId: null,
@@ -497,15 +610,37 @@ export const useManutencoesStore = create<ManutencoesState>()(
 
       setSelectedAssetId: (id) => set({ selectedAssetId: id }),
 
+      flush: async () => {
+        const queue = get().pendingSync
+        if (queue.length === 0) return
+        set({ syncStatus: 'syncing', syncError: null })
+        const res = await flushQueue(queue)
+        set((s) => {
+          const remaining = s.pendingSync.filter((op) => !res.completed.includes(op.id))
+          const offline = typeof navigator !== 'undefined' && !navigator.onLine
+          return {
+            pendingSync: remaining,
+            syncStatus: res.errored.length ? 'error' : offline && remaining.length ? 'offline' : 'idle',
+            syncError: res.lastError ?? null,
+          }
+        })
+      },
+
       pull: async () => {
         const { orgId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
         get().ensureTenantScope(orgId)
         if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
+        // Tenta drenar pendências antes de puxar (reenvia o que ficou de uma sessão offline).
+        if (get().pendingSync.length) await get().flush()
 
         // Não zera o estado antes de buscar: se a busca falhar, mantém o local (evita perda).
         // Os arrays são substituídos só no caminho de sucesso, mais abaixo.
         set({ syncStatus: 'syncing', syncError: null })
+        // Snapshot das pendências ANTES do fetch: se uma escrita local for enfileirada e drenada
+        // enquanto os selects (que podem levar até 20s) estão em voo, o servidor volta sem a linha nova.
+        // Preservar esses ids no merge evita a linha sumir da tela nessa janela (a próxima pull reconcilia).
+        const pendingSnapshot = get().pendingSync
         const [assetsResult, plansResult, planAssetsResult, ordersResult, orderAssetsResult, monitoringResult] = await Promise.all([
           supabase.from('equipamentos').select('*').eq('organization_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }),
           supabase.from('maintenance_plans').select('*').eq('organization_id', orgId).is('deleted_at', null).order('created_at', { ascending: false }),
@@ -531,14 +666,23 @@ export const useManutencoesStore = create<ManutencoesState>()(
           orderLinks.set(row.work_order_id, [...(orderLinks.get(row.work_order_id) ?? []), row.asset_id])
         }
 
-        set({
-          assets: ((assetsResult.data ?? []) as EquipmentRow[]).map(asAsset),
-          plans: ((plansResult.data ?? []) as PlanRow[]).map((row) => asPlan(row, planLinks.get(row.id) ?? [])),
-          workOrders: ((ordersResult.data ?? []) as WorkOrderRow[]).map((row) => asWorkOrder(row, orderLinks.get(row.id) ?? [])),
-          monitoringPoints: ((monitoringResult.data ?? []) as MonitoringPointRow[]).map(asMonitoringPoint),
-          syncStatus: 'idle',
-          syncError: null,
-          lastSyncedAt: new Date().toISOString(),
+        const serverAssets = ((assetsResult.data ?? []) as EquipmentRow[]).map(asAsset)
+        const serverPlans = ((plansResult.data ?? []) as PlanRow[]).map((row) => asPlan(row, planLinks.get(row.id) ?? []))
+        const serverOrders = ((ordersResult.data ?? []) as WorkOrderRow[]).map((row) => asWorkOrder(row, orderLinks.get(row.id) ?? []))
+        const serverMonitoring = ((monitoringResult.data ?? []) as MonitoringPointRow[]).map(asMonitoringPoint)
+
+        set((s) => {
+          // mergePull NÃO apaga registros com op pendente (ainda não confirmados no servidor).
+          const pending = [...s.pendingSync, ...pendingSnapshot]
+          return {
+            assets: mergePull(serverAssets, s.assets, pending, 'equipamentos'),
+            plans: mergePull(serverPlans, s.plans, pending, 'maintenance_plans'),
+            workOrders: mergePull(serverOrders, s.workOrders, pending, 'maintenance_work_orders'),
+            monitoringPoints: mergePull(serverMonitoring, s.monitoringPoints, pending, 'maintenance_monitoring_points'),
+            syncStatus: s.pendingSync.length ? s.syncStatus : 'idle',
+            syncError: null,
+            lastSyncedAt: new Date().toISOString(),
+          }
         })
       },
 
@@ -577,63 +721,41 @@ export const useManutencoesStore = create<ManutencoesState>()(
           createdAt: now,
           updatedAt: now,
         }
-        const row = {
-          id: item.id,
-          organization_id: orgId,
-          project_id: item.projectId,
-          construction_site_id: item.constructionSiteId,
-          code: item.code,
-          name: item.name,
-          type: item.type,
-          status: item.status,
-          criticality: item.criticality,
-          responsible: item.responsible || null,
-          location: item.location || null,
-          qr_code: item.qrCode || null,
-          payload: compactPayload(item as unknown as Record<string, unknown>),
-          created_by: userId,
-        }
-        const { error } = await supabase.from('equipamentos').upsert(row as never, { onConflict: 'id' })
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return null }
-        set((s) => ({ assets: [item, ...s.assets.filter((asset) => asset.id !== id)] }))
+        // Otimista: estado local + enfileira o insert. O dado já está salvo no aparelho.
+        set((s) => ({
+          assets: [item, ...s.assets.filter((asset) => asset.id !== id)],
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'asset', type: 'insert', recordId: id, row: assetRow(item, orgId, userId), table: 'equipamentos' })],
+        }))
+        void get().flush()
         return id
       },
 
       updateAsset: async (id, patch) => {
         const current = get().assets.find((asset) => asset.id === id)
         if (!current) return
-        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
-        const { orgId } = getContext()
+        const { orgId, userId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const updateRow = {
-          project_id: next.projectId,
-          construction_site_id: next.constructionSiteId,
-          code: next.code,
-          name: next.name,
-          type: next.type,
-          status: next.status,
-          criticality: next.criticality,
-          responsible: next.responsible || null,
-          location: next.location || null,
-          qr_code: next.qrCode || null,
-          payload: compactPayload(next as unknown as Record<string, unknown>),
-        }
-        const { error } = await supabase.from('equipamentos').update(updateRow as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        set((s) => ({ assets: s.assets.map((asset) => asset.id === id ? next : asset) }))
+        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+        const changed = changedColumns(assetRow(current, orgId, userId ?? ''), assetRow(next, orgId, userId ?? ''))
+        set((s) => ({
+          assets: s.assets.map((asset) => asset.id === id ? next : asset),
+          pendingSync: Object.keys(changed).length
+            ? [...s.pendingSync, makeOp({ entity: 'asset', type: 'update', recordId: id, patch: changed, table: 'equipamentos' })]
+            : s.pendingSync,
+        }))
+        void get().flush()
       },
 
       deleteAsset: async (id) => {
-        const { orgId } = getContext()
-        if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const { error } = await supabase.from('equipamentos').update({ deleted_at: new Date().toISOString() } as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
+        // Soft-delete otimista: remove local (+ limpa vínculos locais) e enfileira update de deleted_at.
         set((s) => ({
           assets: s.assets.filter((asset) => asset.id !== id),
           plans: s.plans.map((plan) => ({ ...plan, assetIds: plan.assetIds.filter((assetId) => assetId !== id) })),
           workOrders: s.workOrders.map((order) => ({ ...order, assetIds: order.assetIds.filter((assetId) => assetId !== id) })),
           selectedAssetId: s.selectedAssetId === id ? null : s.selectedAssetId,
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'asset', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'equipamentos' })],
         }))
+        void get().flush()
       },
 
       addPlan: async (payload) => {
@@ -659,62 +781,40 @@ export const useManutencoesStore = create<ManutencoesState>()(
           createdAt: now,
           updatedAt: now,
         }
-        const row = {
-          id,
-          organization_id: orgId,
-          project_id: item.projectId,
-          construction_site_id: item.constructionSiteId,
-          code: item.code,
-          title: item.title,
-          description: item.description || null,
-          frequency: item.frequency,
-          priority: item.priority,
-          estimated_duration_minutes: item.estimatedDurationMinutes,
-          checklist: item.checklist,
-          next_due_date: item.nextDueDate || null,
-          active: item.active,
-          payload: compactPayload(item as unknown as Record<string, unknown>),
-          created_by: userId,
-        }
-        const { error } = await supabase.from('maintenance_plans').upsert(row as never, { onConflict: 'id' })
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return null }
-        await replaceLinks('maintenance_plan_assets', 'plan_id', id, item.assetIds)
-        set((s) => ({ plans: [item, ...s.plans.filter((plan) => plan.id !== id)] }))
+        // Otimista: estado local + enfileira o insert (assetIds viajam no payload do row).
+        set((s) => ({
+          plans: [item, ...s.plans.filter((plan) => plan.id !== id)],
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'plan', type: 'insert', recordId: id, row: planRow(item, orgId, userId), table: 'maintenance_plans' })],
+        }))
+        // Vínculos best-effort/não-bloqueante (payload já é autoritativo): falha não trava o local.
+        void replaceLinks('maintenance_plan_assets', 'plan_id', id, item.assetIds).catch(() => undefined)
+        void get().flush()
         return id
       },
 
       updatePlan: async (id, patch) => {
         const current = get().plans.find((plan) => plan.id === id)
         if (!current) return
-        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
-        const { orgId } = getContext()
+        const { orgId, userId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const row = {
-          project_id: next.projectId,
-          construction_site_id: next.constructionSiteId,
-          code: next.code,
-          title: next.title,
-          description: next.description || null,
-          frequency: next.frequency,
-          priority: next.priority,
-          estimated_duration_minutes: next.estimatedDurationMinutes,
-          checklist: next.checklist,
-          next_due_date: next.nextDueDate || null,
-          active: next.active,
-          payload: compactPayload(next as unknown as Record<string, unknown>),
-        }
-        const { error } = await supabase.from('maintenance_plans').update(row as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        await replaceLinks('maintenance_plan_assets', 'plan_id', id, next.assetIds)
-        set((s) => ({ plans: s.plans.map((plan) => plan.id === id ? next : plan) }))
+        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+        const changed = changedColumns(planRow(current, orgId, userId ?? ''), planRow(next, orgId, userId ?? ''))
+        set((s) => ({
+          plans: s.plans.map((plan) => plan.id === id ? next : plan),
+          pendingSync: Object.keys(changed).length
+            ? [...s.pendingSync, makeOp({ entity: 'plan', type: 'update', recordId: id, patch: changed, table: 'maintenance_plans' })]
+            : s.pendingSync,
+        }))
+        void replaceLinks('maintenance_plan_assets', 'plan_id', id, next.assetIds).catch(() => undefined)
+        void get().flush()
       },
 
       deletePlan: async (id) => {
-        const { orgId } = getContext()
-        if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const { error } = await supabase.from('maintenance_plans').update({ deleted_at: new Date().toISOString() } as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        set((s) => ({ plans: s.plans.filter((plan) => plan.id !== id) }))
+        set((s) => ({
+          plans: s.plans.filter((plan) => plan.id !== id),
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'plan', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'maintenance_plans' })],
+        }))
+        void get().flush()
       },
 
       generateWorkOrderFromPlan: async (planId) => {
@@ -796,92 +896,41 @@ export const useManutencoesStore = create<ManutencoesState>()(
           createdAt: now,
           updatedAt: now,
         }
-        const row = {
-          id,
-          organization_id: orgId,
-          project_id: item.projectId,
-          construction_site_id: item.constructionSiteId,
-          plan_id: item.planId,
-          code: item.code,
-          title: item.title,
-          description: item.description || null,
-          status: item.status,
-          priority: item.priority,
-          severity: item.severity,
-          planned: item.planned,
-          progress: item.progress,
-          scheduled_date: item.scheduledDate || null,
-          due_date: item.dueDate || null,
-          started_at: item.startedAt,
-          completed_at: item.completedAt,
-          assignee: item.assignee || null,
-          requester: item.requester || null,
-          estimated_duration_minutes: item.estimatedDurationMinutes,
-          actual_duration_minutes: item.actualDurationMinutes,
-          estimated_cost: item.estimatedCost,
-          actual_cost: item.actualCost,
-          checklist: item.checklist,
-          evidence: item.evidence,
-          pmbok: item.pmbok,
-          lean_lps: item.leanLps,
-          payload: compactPayload(item as unknown as Record<string, unknown>),
-          created_by: userId,
-        }
-        const { error } = await supabase.from('maintenance_work_orders').upsert(row as never, { onConflict: 'id' })
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return null }
-        await replaceLinks('maintenance_work_order_assets', 'work_order_id', id, item.assetIds)
-        set((s) => ({ workOrders: [item, ...s.workOrders.filter((order) => order.id !== id)] }))
+        // Otimista: estado local + enfileira o insert (assetIds viajam no payload do row).
+        set((s) => ({
+          workOrders: [item, ...s.workOrders.filter((order) => order.id !== id)],
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'workOrder', type: 'insert', recordId: id, row: workOrderRow(item, orgId, userId), table: 'maintenance_work_orders' })],
+        }))
+        void replaceLinks('maintenance_work_order_assets', 'work_order_id', id, item.assetIds).catch(() => undefined)
+        void get().flush()
         return id
       },
 
       updateWorkOrder: async (id, patch) => {
         const current = get().workOrders.find((order) => order.id === id)
         if (!current) return
+        const { orgId, userId } = getContext()
+        if (!orgId) { set({ syncStatus: 'unauth' }); return }
         const next: MaintenanceWorkOrder = { ...current, ...patch, updatedAt: new Date().toISOString() }
         if (patch.status === 'concluida' && !next.completedAt) next.completedAt = new Date().toISOString()
         if (patch.status === 'em_processo' && !next.startedAt) next.startedAt = new Date().toISOString()
-        const { orgId } = getContext()
-        if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const row = {
-          project_id: next.projectId,
-          construction_site_id: next.constructionSiteId,
-          plan_id: next.planId,
-          code: next.code,
-          title: next.title,
-          description: next.description || null,
-          status: next.status,
-          priority: next.priority,
-          severity: next.severity,
-          planned: next.planned,
-          progress: next.progress,
-          scheduled_date: next.scheduledDate || null,
-          due_date: next.dueDate || null,
-          started_at: next.startedAt,
-          completed_at: next.completedAt,
-          assignee: next.assignee || null,
-          requester: next.requester || null,
-          estimated_duration_minutes: next.estimatedDurationMinutes,
-          actual_duration_minutes: next.actualDurationMinutes,
-          estimated_cost: next.estimatedCost,
-          actual_cost: next.actualCost,
-          checklist: next.checklist,
-          evidence: next.evidence,
-          pmbok: next.pmbok,
-          lean_lps: next.leanLps,
-          payload: compactPayload(next as unknown as Record<string, unknown>),
-        }
-        const { error } = await supabase.from('maintenance_work_orders').update(row as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        await replaceLinks('maintenance_work_order_assets', 'work_order_id', id, next.assetIds)
-        set((s) => ({ workOrders: s.workOrders.map((order) => order.id === id ? next : order) }))
+        const changed = changedColumns(workOrderRow(current, orgId, userId ?? ''), workOrderRow(next, orgId, userId ?? ''))
+        set((s) => ({
+          workOrders: s.workOrders.map((order) => order.id === id ? next : order),
+          pendingSync: Object.keys(changed).length
+            ? [...s.pendingSync, makeOp({ entity: 'workOrder', type: 'update', recordId: id, patch: changed, table: 'maintenance_work_orders' })]
+            : s.pendingSync,
+        }))
+        void replaceLinks('maintenance_work_order_assets', 'work_order_id', id, next.assetIds).catch(() => undefined)
+        void get().flush()
       },
 
       deleteWorkOrder: async (id) => {
-        const { orgId } = getContext()
-        if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const { error } = await supabase.from('maintenance_work_orders').update({ deleted_at: new Date().toISOString() } as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        set((s) => ({ workOrders: s.workOrders.filter((order) => order.id !== id) }))
+        set((s) => ({
+          workOrders: s.workOrders.filter((order) => order.id !== id),
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'workOrder', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'maintenance_work_orders' })],
+        }))
+        void get().flush()
       },
 
       addMonitoringPoint: async (payload) => {
@@ -911,70 +960,37 @@ export const useManutencoesStore = create<ManutencoesState>()(
           createdAt: now,
           updatedAt: now,
         }
-        const row = {
-          id,
-          organization_id: orgId,
-          project_id: item.projectId,
-          construction_site_id: item.constructionSiteId,
-          asset_id: item.assetId,
-          code: item.code,
-          location_part: item.locationPart || null,
-          description: item.description,
-          device_state: item.deviceState || null,
-          enabled: item.enabled,
-          serial_number: item.serialNumber || null,
-          is_counter: item.isCounter,
-          unit: item.unit || null,
-          last_reading_date: item.lastReadingDate || null,
-          last_reading_value: item.lastReadingValue || null,
-          min_value: item.minValue,
-          max_value: item.maxValue,
-          notes: item.notes || null,
-          payload: compactPayload(item as unknown as Record<string, unknown>),
-          created_by: userId,
-        }
-        const { error } = await supabase.from('maintenance_monitoring_points').upsert(row as never, { onConflict: 'id' })
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return null }
-        set((s) => ({ monitoringPoints: [item, ...s.monitoringPoints.filter((point) => point.id !== id)] }))
+        // Otimista: estado local + enfileira o insert. O dado já está salvo no aparelho.
+        set((s) => ({
+          monitoringPoints: [item, ...s.monitoringPoints.filter((point) => point.id !== id)],
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'monitoringPoint', type: 'insert', recordId: id, row: monitoringPointRow(item, orgId, userId), table: 'maintenance_monitoring_points' })],
+        }))
+        void get().flush()
         return id
       },
 
       updateMonitoringPoint: async (id, patch) => {
         const current = get().monitoringPoints.find((point) => point.id === id)
         if (!current) return
-        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
-        const { orgId } = getContext()
+        const { orgId, userId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const row = {
-          project_id: next.projectId,
-          construction_site_id: next.constructionSiteId,
-          asset_id: next.assetId,
-          code: next.code,
-          location_part: next.locationPart || null,
-          description: next.description,
-          device_state: next.deviceState || null,
-          enabled: next.enabled,
-          serial_number: next.serialNumber || null,
-          is_counter: next.isCounter,
-          unit: next.unit || null,
-          last_reading_date: next.lastReadingDate || null,
-          last_reading_value: next.lastReadingValue || null,
-          min_value: next.minValue,
-          max_value: next.maxValue,
-          notes: next.notes || null,
-          payload: compactPayload(next as unknown as Record<string, unknown>),
-        }
-        const { error } = await supabase.from('maintenance_monitoring_points').update(row as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        set((s) => ({ monitoringPoints: s.monitoringPoints.map((point) => point.id === id ? next : point) }))
+        const next = { ...current, ...patch, updatedAt: new Date().toISOString() }
+        const changed = changedColumns(monitoringPointRow(current, orgId, userId ?? ''), monitoringPointRow(next, orgId, userId ?? ''))
+        set((s) => ({
+          monitoringPoints: s.monitoringPoints.map((point) => point.id === id ? next : point),
+          pendingSync: Object.keys(changed).length
+            ? [...s.pendingSync, makeOp({ entity: 'monitoringPoint', type: 'update', recordId: id, patch: changed, table: 'maintenance_monitoring_points' })]
+            : s.pendingSync,
+        }))
+        void get().flush()
       },
 
       deleteMonitoringPoint: async (id) => {
-        const { orgId } = getContext()
-        if (!orgId) { set({ syncStatus: 'unauth' }); return }
-        const { error } = await supabase.from('maintenance_monitoring_points').update({ deleted_at: new Date().toISOString() } as never).eq('id', id).eq('organization_id', orgId).select('id')
-        if (error) { set({ syncStatus: 'error', syncError: error.message }); return }
-        set((s) => ({ monitoringPoints: s.monitoringPoints.filter((point) => point.id !== id) }))
+        set((s) => ({
+          monitoringPoints: s.monitoringPoints.filter((point) => point.id !== id),
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'monitoringPoint', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'maintenance_monitoring_points' })],
+        }))
+        void get().flush()
       },
     }),
     {
@@ -985,14 +1001,14 @@ export const useManutencoesStore = create<ManutencoesState>()(
         plans: state.plans,
         workOrders: state.workOrders,
         monitoringPoints: state.monitoringPoints,
+        pendingSync: state.pendingSync,   // a fila sobrevive ao reload (não perde escrita offline)
         lastSyncedAt: state.lastSyncedAt,
       }),
     },
   ),
 )
 
+// Reenvia a fila ao reconectar (escritas feitas offline sobem sozinhas).
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    void useManutencoesStore.getState().pull()
-  })
+  window.addEventListener('online', () => { void useManutencoesStore.getState().flush() })
 }

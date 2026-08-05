@@ -648,6 +648,7 @@ interface MedicaoBillingState {
   // Boletim CRUD
   loadRemote: () => Promise<void>
   syncActiveBoletim: () => Promise<void>
+  flush: () => Promise<void>   // reenvia boletins com erro de sync (offline/erro) — retry idempotente
   createBoletim: (periodo: string, contrato: string, consorcio: string) => string
   createNextBoletimFromBoletim: (sourceId: string, nextPeriodo: string) => string | null
   setActiveBoletim: (id: string) => void
@@ -755,7 +756,13 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
         if (remoteBoletins.length === 0) return
         set((state) => {
           const byId = new Map(state.boletins.map((item) => [item.id, item]))
-          for (const boletim of remoteBoletins) byId.set(boletim.id, boletim)
+          for (const boletim of remoteBoletins) {
+            const local = byId.get(boletim.id)
+            // Não sobrescreve um boletim local com edição NÃO-sincronizada (o servidor tem a versão
+            // antiga); o flush()/retry envia a versão local depois. Evita perder a edição offline.
+            if (local && local._syncError != null) continue
+            byId.set(boletim.id, boletim)
+          }
           const boletins = Array.from(byId.values()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
           return {
             boletins,
@@ -775,6 +782,23 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           set((state) => ({ boletins: state.boletins.map((item) => item.id === boletim.id ? { ...item, _syncError: message } : item) }))
+        }
+      },
+
+      // Reenvia TODOS os boletins que ficaram com erro de sync (criados/editados offline). Chamado
+      // pelo listener 'online' e por flushAllTenantStores() antes de trocar de org/logout — assim
+      // um boletim (dado financeiro) não-sincronizado não é destruído no clear. Retry idempotente.
+      flush: async () => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) return
+        const pend = get().boletins.filter((b) => b._syncError != null)
+        for (const boletim of pend) {
+          try {
+            await upsertBoletimRemote(boletim)
+            set((state) => ({ boletins: state.boletins.map((item) => item.id === boletim.id ? { ...item, _syncError: null } : item) }))
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            set((state) => ({ boletins: state.boletins.map((item) => item.id === boletim.id ? { ...item, _syncError: message } : item) }))
+          }
         }
       },
 
@@ -1500,3 +1524,8 @@ export const useMedicaoBillingStore = create<MedicaoBillingState>()(
     }
   )
 )
+
+// Reenvia boletins não-sincronizados ao reconectar (não perde dado financeiro feito offline).
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { void useMedicaoBillingStore.getState().flush() })
+}

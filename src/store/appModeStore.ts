@@ -172,6 +172,8 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'financeiro-titulos', label: 'Pagamentos e Cobranças', load: () => import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore as unknown as TenantStoreApi) },
   { key: 'rateio-consumo', label: 'Rateio de Consumo', load: () => import('./rateioConsumoStore').then(m => m.useRateioConsumoStore as unknown as TenantStoreApi) },
   { key: 'laudos', label: 'Compliance de Laudos', load: () => import('./laudosStore').then(m => m.useLaudosStore as unknown as TenantStoreApi) },
+  { key: 'manutencoes', label: 'Manutenções', load: () => import('./manutencoesStore').then(m => m.useManutencoesStore as unknown as TenantStoreApi) },
+  { key: 'medicao-billing', label: 'Medição (Boletins)', load: () => import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
