@@ -21,7 +21,7 @@ export function PredialHeader({ activeTab, onTabChange }: Props) {
         </div>
         <div>
           <h1 className="text-white font-semibold text-lg leading-tight">Predial</h1>
-          <p className="text-[#a3a3a3] text-xs">Manutenção, ativos, equipamentos e capex do edificado</p>
+          <p className="text-[#a3a3a3] text-xs">Ativos, manutenções e laudos do prédio sob controle — e um relatório pronto para a assembleia.</p>
         </div>
       </div>
 

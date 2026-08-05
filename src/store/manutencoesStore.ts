@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { flushQueue, mergePull, makeOp, changedColumns, type PendingOp } from '@/lib/storeSync'
+import { predialDemoAssets, predialDemoPlans, predialDemoWorkOrders } from '@/data/mockPredial'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 export type MaintenanceStatus = 'pendente' | 'em_processo' | 'em_verificacao' | 'concluida' | 'cancelada'
 export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'critica'
@@ -163,6 +165,7 @@ interface ManutencoesState {
   selectedAssetId: string | null
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
+  loadDemoData: () => void
   flush: () => Promise<void>
   pull: () => Promise<void>
   addAsset: (payload: Partial<MaintenanceAsset>) => Promise<string | null>
@@ -545,6 +548,7 @@ function advanceDueDate(fromISO: string, freq: MaintenanceFrequency, todayISO: s
 // então falha aqui (ex.: FK enquanto a entidade ainda não subiu) não perde dado — o pull reconcilia
 // via o fallback de payload em asPlan/asWorkOrder. Chame como `void replaceLinks(...).catch(...)`.
 async function replaceLinks(table: 'maintenance_plan_assets' | 'maintenance_work_order_assets', ownerColumn: 'plan_id' | 'work_order_id', ownerId: string, assetIds: string[]) {
+  if (isNonProductionDataMode()) return   // modo demo: nunca escreve no banco real
   const { orgId, userId } = getContext()
   if (!orgId || !userId) return
   await supabase
@@ -608,6 +612,21 @@ export const useManutencoesStore = create<ManutencoesState>()(
         selectedAssetId: null,
       }),
 
+      // Demo isolado: seed do "Residencial Modelo" (só em modo demo). pendingSync vazio → nunca
+      // sincroniza (o sync já é no-op em demo); o real fica preservado no snapshot do appModeStore.
+      loadDemoData: () => {
+        const assets = predialDemoAssets()
+        set({
+          assets,
+          plans: predialDemoPlans(assets),
+          workOrders: predialDemoWorkOrders(assets),
+          monitoringPoints: [],
+          pendingSync: [],
+          syncStatus: 'idle',
+          syncError: null,
+        })
+      },
+
       setSelectedAssetId: (id) => set({ selectedAssetId: id }),
 
       flush: async () => {
@@ -627,6 +646,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
       },
 
       pull: async () => {
+        if (isNonProductionDataMode()) return   // modo demo: não puxa dado real (não mistura com o mock)
         const { orgId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
         get().ensureTenantScope(orgId)

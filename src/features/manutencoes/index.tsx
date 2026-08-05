@@ -82,7 +82,7 @@ const tabs: { key: MaintenanceTab; label: string; icon: typeof LayoutDashboard }
 const statusColumns: { key: MaintenanceStatus; label: string; color: string }[] = [
   { key: 'pendente', label: 'Tarefas pendentes', color: '#fbbf24' },
   { key: 'em_processo', label: 'OSs em Processo', color: '#f97316' },
-  { key: 'em_verificacao', label: 'OSs em Verificação', color: '#3b82f6' },
+  { key: 'em_verificacao', label: 'Aguardando validação', color: '#3b82f6' },
   { key: 'concluida', label: 'OSs Concluídas', color: '#22c55e' },
   { key: 'cancelada', label: 'Canceladas', color: '#737373' },
 ]
@@ -97,7 +97,7 @@ const priorityLabels: Record<MaintenancePriority, string> = {
 const statusLabels: Record<MaintenanceStatus, string> = {
   pendente: 'Pendente',
   em_processo: 'Em processo',
-  em_verificacao: 'Em verificação',
+  em_verificacao: 'Aguardando validação',
   concluida: 'Concluída',
   cancelada: 'Cancelada',
 }
@@ -991,7 +991,7 @@ function DraggableOrderCard(props: { order: MaintenanceWorkOrder; assets: Mainte
   )
 }
 
-export function ManutencoesPage() {
+export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[] } = {}) {
   const profileOrgId = useAuth((state) => state.profile?.organization_id)
   const projects = useProjetosStore((state) => state.projects)
   const sites = useTorreStore((state) => state.sites)
@@ -1025,7 +1025,9 @@ export function ManutencoesPage() {
   const selectedAssetId = useManutencoesStore((state) => state.selectedAssetId)
   const setSelectedAssetId = useManutencoesStore((state) => state.setSelectedAssetId)
 
-  const [tab, setTab] = useState<MaintenanceTab>('painel')
+  // Embutido no Predial: só as sub-abas permitidas (Ativos × Manutenções ficam em top-abas separadas).
+  const visibleTabs = allowedTabs ? tabs.filter((t) => allowedTabs.includes(t.key)) : tabs
+  const [tab, setTab] = useState<MaintenanceTab>(allowedTabs?.[0] ?? 'painel')
   const [query, setQuery] = useState('')
   const [scopeFilter, setScopeFilter] = useState<'todos' | 'geral' | 'vinculados'>('todos')
   const [sistemaFilter, setSistemaFilter] = useState<'todos' | MaintenanceAssetSistema>('todos')
@@ -1148,9 +1150,9 @@ export function ManutencoesPage() {
           <p className="mt-1 text-sm text-[#a3a3a3]">Ativos, planos e ordens de serviço isolados por empresa ativa.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge className={tenantReady ? 'border-[#16a34a]/30 bg-[#16a34a]/15 text-[#4ade80]' : 'border-[#ca8a04]/30 bg-[#ca8a04]/15 text-[#fbbf24]'}>
-            {tenantReady ? 'Tenant seguro' : 'Trocando empresa'}
-          </Badge>
+          {!tenantReady && (
+            <Badge className="border-[#ca8a04]/30 bg-[#ca8a04]/15 text-[#fbbf24]">Trocando empresa...</Badge>
+          )}
           <button type="button" onClick={() => void pull()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
             <RefreshCcw size={15} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
             Atualizar
@@ -1167,7 +1169,7 @@ export function ManutencoesPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#525252] bg-[#383838] p-1">
-        {tabs.map((item) => {
+        {visibleTabs.map((item) => {
           const Icon = item.icon
           return (
             <button
@@ -1212,7 +1214,7 @@ export function ManutencoesPage() {
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard label="OSs em Processo" value={dashboard.inProgress} icon={Settings2} tone="text-[#fb923c]" />
-                <StatCard label="OSs em Verificação" value={dashboard.verification} icon={Clock3} tone="text-[#60a5fa]" />
+                <StatCard label="Aguardando validação" value={dashboard.verification} icon={Clock3} tone="text-[#60a5fa]" />
                 <StatCard label="OSs Concluídas" value={dashboard.concluded} icon={CheckCircle2} tone="text-[#4ade80]" />
                 <StatCard label="Tarefas atrasadas" value={dashboard.overdue} icon={AlertTriangle} tone="text-[#f87171]" />
                 <StatCard label="Ativos cadastrados" value={assets.length} icon={Wrench} tone="text-[#38bdf8]" />

@@ -8,6 +8,7 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { changedColumns, flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { MOCK_OBRAS } from '@/data/mockTorreDeControle'
+import { predialDemoSite } from '@/data/mockPredial'
 import type { ConstructionSite, ConstructionRisk } from '@/types'
 
 interface EditingRisk {
@@ -210,7 +211,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
           void get().flush()
         },
 
-        loadDemoData: () => set({ sites: MOCK_OBRAS, selectedId: MOCK_OBRAS[0]?.id ?? null }),
+        loadDemoData: () => { const sites = [...MOCK_OBRAS, predialDemoSite()]; set({ sites, selectedId: sites[0]?.id ?? null }) },
         clearData: () => set({ activeOrgId: null, sites: [], selectedId: null, pendingSync: [], syncError: null }),
 
         flush: async () => {

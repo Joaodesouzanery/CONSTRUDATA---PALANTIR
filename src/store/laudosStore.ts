@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { flushQueue, mergePull, makeOp, changedColumns, type PendingOp } from '@/lib/storeSync'
+import { predialDemoLaudos } from '@/data/mockPredial'
+import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 const TABLE = 'predial_laudos'
 
@@ -102,6 +104,7 @@ interface LaudosState {
   lastSyncedAt: string | null
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
+  loadDemoData: () => void
   flush: () => Promise<void>
   pull: () => Promise<void>
   addLaudo: (payload: Partial<Laudo>) => Promise<string | null>
@@ -126,6 +129,9 @@ export const useLaudosStore = create<LaudosState>()(
 
       clearData: () => set({ activeOrgId: null, laudos: [], pendingSync: [], syncStatus: 'idle', syncError: null }),
 
+      // Demo isolado: laudos do "Residencial Modelo" (só em modo demo). pendingSync vazio → não sincroniza.
+      loadDemoData: () => set({ laudos: predialDemoLaudos(), pendingSync: [], syncStatus: 'idle', syncError: null }),
+
       flush: async () => {
         const queue = get().pendingSync
         if (queue.length === 0) return
@@ -143,6 +149,7 @@ export const useLaudosStore = create<LaudosState>()(
       },
 
       pull: async () => {
+        if (isNonProductionDataMode()) return   // modo demo: não puxa dado real (não mistura com o mock)
         const { orgId } = getContext()
         if (!orgId) { set({ syncStatus: 'unauth' }); return }
         get().ensureTenantScope(orgId)
