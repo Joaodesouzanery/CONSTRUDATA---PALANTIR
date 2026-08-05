@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   ArrowUpRight,
@@ -7,7 +7,6 @@ import {
   Building2,
   Calendar,
   CalendarClock,
-  CheckCircle2,
   ClipboardCheck,
   ClipboardList,
   Coins,
@@ -37,6 +36,10 @@ const LOGIN_URL = '/login'
 const DEMO_ANCHOR = '#solicitar'
 const HOW_ANCHOR = '#como-entramos'
 const MICROCOPY = 'A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil, sem compromisso.'
+
+// URL de embed do formulário de leads (Tally/Typeform). Os leads ficam no painel da ferramenta.
+// Configure em VITE_LEAD_FORM_URL (ex.: https://tally.so/embed/XXXXXX?transparentBackground=1).
+const LEAD_FORM_URL = import.meta.env.VITE_LEAD_FORM_URL as string | undefined
 
 /* ── Tokens visuais da landing (tema técnico claro, somente nesta página) ──
    Base branca alternando com #f4f4f2; hairlines pretas a 10%; rótulos em
@@ -758,39 +761,8 @@ function ModulesSection() {
   )
 }
 
-function Input({
-  label,
-  name,
-  type = 'text',
-  required = false,
-  icon: Icon,
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  icon?: LucideIcon
-}) {
-  return (
-    <label className="block">
-      <span className={`${M_FONT} mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/50`}>
-        {Icon && <Icon size={13} className="text-[#ea580c]" />}
-        {label}
-      </span>
-      <input
-        name={name}
-        type={type}
-        required={required}
-        className="h-12 w-full rounded-none border border-black/15 bg-white px-3 text-sm text-[#0a0a0a] outline-none transition placeholder:text-black/30 focus:border-[#f97316]"
-      />
-    </label>
-  )
-}
 
 export function LandingPage() {
-  const [sent, setSent] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const topSentinelRef = useRef<HTMLDivElement>(null)
 
@@ -813,35 +785,6 @@ export function LandingPage() {
   }, [])
 
   useScrollReveal()
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError(null)
-    setSending(true)
-    const data = new FormData(event.currentTarget)
-    try {
-      const response = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          access_key: import.meta.env.VITE_WEB3FORMS_KEY ?? 'YOUR_WEB3FORMS_KEY',
-          subject: 'Nova solicitação de demonstração - ConstruData',
-          from_name: `${data.get('nome')} ${data.get('sobrenome')}`,
-          email: data.get('email'),
-          empresa: data.get('empresa'),
-          cargo: data.get('cargo'),
-          message: `Nome: ${data.get('nome')} ${data.get('sobrenome')}\nE-mail: ${data.get('email')}\nEmpresa: ${data.get('empresa')}\nCargo: ${data.get('cargo')}\nPrincipal dor: ${data.get('dor')}`,
-        }),
-      })
-      if (!response.ok) throw new Error('Não foi possível enviar o formulário agora.')
-      setSent(true)
-      event.currentTarget.reset()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro inesperado ao enviar o formulário.')
-    } finally {
-      setSending(false)
-    }
-  }
 
   return (
     <div className={`${H_FONT} min-h-screen bg-white text-[#0a0a0a] antialiased`}>
@@ -1306,59 +1249,31 @@ export function LandingPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-white p-6 sm:p-9">
+          <div data-sr className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-white p-6 sm:p-9">
             <Corners />
-            {sent ? (
-              <div className="flex min-h-[360px] flex-col items-center justify-center text-center">
-                <CheckCircle2 className="mb-5 text-[#ea580c]" size={42} />
-                <h3 className={`${H_FONT} text-3xl font-medium text-[#0a0a0a]`}>Solicitação enviada.</h3>
-                <p className="mt-3 max-w-md leading-7 text-black/60">
-                  Nossa equipe entra em contato em até 1 dia útil para entender o cenário da sua obra e preparar a demonstração.
-                </p>
+            <div className="mb-6 flex items-center gap-3">
+              <LockKeyhole className="text-[#ea580c]" size={20} />
+              <div>
+                <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Formulário de qualificação</h3>
+                <p className="mt-1 text-sm leading-6 text-black/50">Nome, e-mail corporativo, empresa, cargo e a sua principal dor.</p>
               </div>
+            </div>
+            {LEAD_FORM_URL ? (
+              <iframe
+                title="Formulário de qualificação"
+                src={LEAD_FORM_URL}
+                loading="lazy"
+                className="h-[640px] w-full border-0"
+              />
             ) : (
-              <>
-                <div className="mb-8 flex items-center gap-3">
-                  <LockKeyhole className="text-[#ea580c]" size={20} />
-                  <div>
-                    <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Formulário de qualificação</h3>
-                    <p className="mt-1 text-sm leading-6 text-black/50">Nome, e-mail corporativo, empresa, cargo e a sua principal dor.</p>
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input name="nome" label="Nome" required icon={Users} />
-                  <Input name="sobrenome" label="Sobrenome" required icon={Users} />
-                  <Input name="email" label="E-mail corporativo" type="email" required icon={FileText} />
-                  <Input name="empresa" label="Nome da empresa" required icon={Building2} />
-                  <Input name="cargo" label="Cargo" required icon={ClipboardCheck} />
-                  <label className="block sm:col-span-2">
-                    <span className={`${M_FONT} mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/50`}>
-                      <BrainCircuit size={13} className="text-[#ea580c]" />
-                      Principal dor
-                    </span>
-                    <textarea
-                      name="dor"
-                      rows={4}
-                      className="w-full rounded-none border border-black/15 bg-white px-3 py-3 text-sm text-[#0a0a0a] outline-none transition placeholder:text-black/30 focus:border-[#f97316]"
-                      placeholder="Ex.: RDO incompleto, medição manual, orçamento demorado, falta de integração com planejamento..."
-                    />
-                  </label>
-                </div>
-                {error && <p className="mt-4 border border-red-500/35 bg-red-500/[0.06] p-3 text-xs text-red-600">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={sending}
-                  className={`${M_FONT} group mt-6 flex w-full items-center justify-center gap-3 bg-[#f97316] px-6 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c] disabled:opacity-60`}
-                >
-                  {sending ? 'Enviando...' : 'Solicitar demonstração'}
-                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-                </button>
-                <p className="mt-4 text-center text-xs leading-5 text-black/45">
-                  A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil. Você conversa com quem entende de obra, não com um vendedor de software.
-                </p>
-              </>
+              <p className="border border-black/10 bg-black/[0.02] p-6 text-sm leading-6 text-black/55">
+                Formulário em configuração. Defina a variável <code>VITE_LEAD_FORM_URL</code> (URL de embed do Tally/Typeform) na Vercel para ativar a captura de leads.
+              </p>
             )}
-          </form>
+            <p className="mt-4 text-center text-xs leading-5 text-black/45">
+              A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil. Você conversa com quem entende de obra, não com um vendedor de software.
+            </p>
+          </div>
         </section>
       </main>
 
