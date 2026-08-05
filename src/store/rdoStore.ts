@@ -30,7 +30,7 @@ import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStat
 import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
-import { uploadRdoPhoto } from '@/features/rdo/utils/rdoPhotoStorage'
+import { uploadRdoPhoto, leanPhotosForPersist } from '@/features/rdo/utils/rdoPhotoStorage'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
 // Sincroniza as entradas financeiras do RDO (local-only) via app_state.
@@ -694,7 +694,10 @@ export const useRdoStore = create<RdoState>()(
       storage: createSafeJSONStorage(),
       partialize: (s) => ({
         activeOrgId:      s.activeOrgId,
-        rdos:             s.rdos,
+        // Não persiste base64 das fotos já enviadas (mantém só o storagePath) — evita inflar o
+        // localStorage e o custo de serialização a cada escrita. Fotos ainda não enviadas
+        // (offline) mantêm o base64 como fallback até subirem. Estado em memória fica intacto.
+        rdos:             s.rdos.map((r) => (r.photos?.length ? { ...r, photos: leanPhotosForPersist(r.photos) } : r)),
         financialEntries: s.financialEntries,
         budgetBRL:        s.budgetBRL,
         pendingSync:      s.pendingSync,
