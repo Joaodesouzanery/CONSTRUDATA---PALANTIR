@@ -12,6 +12,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useLaudosStore, type Laudo } from '@/store/laudosStore'
 import { LAUDO_TIPOS, LAUDO_PERIODICIDADE_PADRAO, laudoStatus, laudoDiasRestantes, addMonthsISO, type LaudoStatusCor } from '../utils/laudos'
+import { AvisoLaudos } from './AvisoLaudos'
 import { removePredialAtivoFile, signedPredialAtivoUrl, uploadPredialAtivoFile } from '@/features/manutencoes/utils/predialAtivoStorage'
 
 const inputClass = 'w-full rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#737373] focus:border-[#f97316]/70'
@@ -100,7 +101,7 @@ export function ComplianceLaudosPanel() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Compliance de Laudos</h1>
-          <p className="mt-1 text-sm text-[#a3a3a3]">Obrigações legais do prédio com semáforo de vencimento. Alerta por e-mail 60/30/7 entra na fase 2.</p>
+          <p className="mt-1 text-sm text-[#a3a3a3]">Obrigações legais do prédio com semáforo de vencimento e aviso escalonado 60/30/7 no próprio painel (sem e-mail).</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => void pull()} className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm font-semibold hover:bg-[#464646]">
@@ -121,6 +122,8 @@ export function ComplianceLaudosPanel() {
         <Kpi label="Vencendo (≤60d)" value={stats.vencendo} icon={AlertTriangle} tone="text-[#fbbf24]" onClick={() => setStatusFiltro('vencendo')} active={statusFiltro === 'vencendo'} />
         <Kpi label="Em dia" value={stats.emDia} icon={CheckCircle2} tone="text-[#4ade80]" onClick={() => setStatusFiltro('emdia')} active={statusFiltro === 'emdia'} />
       </div>
+
+      <AvisoLaudos laudos={laudos} onTier={(t) => setStatusFiltro(t === 'vencido' ? 'vencidos' : 'vencendo')} className="mb-3" />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por obrigação, obra ou responsável..." className={cn(inputClass, 'max-w-xs')} />

@@ -38,11 +38,14 @@ export function predialDemoSite(): ConstructionSite {
 let seq = 0
 const uid = (p: string) => `${p}-${(seq += 1).toString().padStart(3, '0')}`
 
-function asset(p: Partial<MaintenanceAsset> & Pick<MaintenanceAsset, 'name' | 'type' | 'sistema' | 'criticality' | 'location'>): MaintenanceAsset {
+function asset(p: Partial<MaintenanceAsset> & Pick<MaintenanceAsset, 'name' | 'type' | 'sistema' | 'criticality'>): MaintenanceAsset {
+  // `location` = texto composto da localização estruturada (como um save real produz), com fallback
+  // para o texto livre quando informado. Assim os leitores read-only (Painel/CapEx/Criticidade) funcionam.
+  const location = p.location ?? [p.torre, p.pavimento, p.ambiente].filter(Boolean).join(' · ')
   return {
     id: uid('demo-atv'), code: `ATV-${String(seq).padStart(3, '0')}`, status: 'active',
     responsible: 'Zelador — Marcos', qrCode: '', projectId: null, constructionSiteId: PREDIAL_DEMO_SITE_ID,
-    createdAt: now(), updatedAt: now(), ...p,
+    createdAt: now(), updatedAt: now(), ...p, location,
   }
 }
 function plan(p: Partial<MaintenancePlan> & Pick<MaintenancePlan, 'title' | 'frequency' | 'nextDueDate' | 'assetIds'>): MaintenancePlan {
@@ -73,21 +76,21 @@ function laudo(p: Partial<Laudo> & Pick<Laudo, 'tipo' | 'validade'>): Laudo {
 export function predialDemoAssets(): MaintenanceAsset[] {
   seq = 0
   return [
-    asset({ name: 'Bomba de Recalque 01', type: 'Bomba', sistema: 'Hidráulico', criticality: 'critica', location: 'Subsolo 3 · Casa de Bombas', areaAtendida: 'Abastecimento geral', fabricante: 'KSB', dataInstalacao: dISO(-365 * 13), vidaUtilAnosNBR: 15, replacementCostBRL: 18000 }),
-    asset({ name: 'Bomba de Recalque 02', type: 'Bomba', sistema: 'Hidráulico', criticality: 'alta', location: 'Subsolo 3 · Casa de Bombas', areaAtendida: 'Abastecimento geral (reserva)', fabricante: 'KSB', dataInstalacao: dISO(-365 * 7), vidaUtilAnosNBR: 15, replacementCostBRL: 18000 }),
-    asset({ name: 'Elevador Social — Torre A', type: 'Elevador', sistema: 'Elevadores', criticality: 'critica', location: 'Torre A · Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Atlas Schindler', dataInstalacao: dISO(-365 * 12), vidaUtilAnosNBR: 25, replacementCostBRL: 220000 }),
-    asset({ name: 'Elevador de Serviço — Torre A', type: 'Elevador', sistema: 'Elevadores', criticality: 'alta', location: 'Torre A · Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Atlas Schindler', dataInstalacao: dISO(-365 * 12), vidaUtilAnosNBR: 25, replacementCostBRL: 200000 }),
-    asset({ name: 'Elevador Social — Torre B', type: 'Elevador', sistema: 'Elevadores', criticality: 'critica', location: 'Torre B · Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Otis', dataInstalacao: dISO(-365 * 9), vidaUtilAnosNBR: 25, replacementCostBRL: 220000 }),
-    asset({ name: 'Gerador Diesel 250 kVA', type: 'Gerador', sistema: 'Elétrico', criticality: 'critica', location: 'Subsolo 2 · Casa de Máquinas', areaAtendida: 'Emergência (elevadores, bombas, iluminação)', fabricante: 'Stemac', dataInstalacao: dISO(-365 * 8), vidaUtilAnosNBR: 20, replacementCostBRL: 95000 }),
-    asset({ name: 'Quadro Geral — QGBT', type: 'Quadro elétrico', sistema: 'Elétrico', criticality: 'alta', location: 'Subsolo 1 · Medição', areaAtendida: 'Distribuição geral', fabricante: 'Schneider', dataInstalacao: dISO(-365 * 10), vidaUtilAnosNBR: 25 }),
-    asset({ name: 'Central de Alarme de Incêndio', type: 'Central de incêndio', sistema: 'Incêndio', criticality: 'critica', location: 'Portaria', areaAtendida: 'Detecção/alarme geral', fabricante: 'Intelbras', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 15 }),
-    asset({ name: 'Bomba de Incêndio', type: 'Bomba', sistema: 'Incêndio', criticality: 'critica', location: 'Subsolo 3 · Casa de Bombas', areaAtendida: 'Rede de hidrantes/sprinklers', fabricante: 'KSB', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 15, replacementCostBRL: 22000 }),
-    asset({ name: 'Pressurizador de Escada', type: 'Ventilador', sistema: 'Incêndio', criticality: 'media', location: 'Torre A · Casa de Máquinas', areaAtendida: 'Escada pressurizada', fabricante: 'Projelmec', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 20 }),
-    asset({ name: 'Portão Basculante — Garagem', type: 'Portão', sistema: 'Outros', criticality: 'media', location: 'Térreo · Acesso garagem', areaAtendida: 'Entrada/saída de veículos', fabricante: 'PPA', dataInstalacao: dISO(-365 * 5), vidaUtilAnosNBR: 10 }),
-    asset({ name: 'Bomba da Piscina', type: 'Bomba', sistema: 'Hidráulico', criticality: 'baixa', location: 'Lazer · Casa de Máquinas Piscina', areaAtendida: 'Filtragem da piscina', fabricante: 'Dancor', dataInstalacao: dISO(-365 * 4), vidaUtilAnosNBR: 12 }),
-    asset({ name: 'Reservatório Superior', type: 'Reservatório', sistema: 'Hidráulico', criticality: 'media', location: 'Cobertura · Barrilete', areaAtendida: 'Reserva de água', dataInstalacao: dISO(-365 * 10), vidaUtilAnosNBR: 30 }),
-    asset({ name: 'Ar-condicionado — Salão de Festas', type: 'Split', sistema: 'HVAC', criticality: 'baixa', location: 'Lazer · Salão de Festas', areaAtendida: 'Salão de festas', fabricante: 'LG', dataInstalacao: dISO(-365 * 3), vidaUtilAnosNBR: 12, replacementCostBRL: 9000 }),
-    asset({ name: 'Central de Interfonia', type: 'Interfone', sistema: 'Elétrico', criticality: 'baixa', location: 'Portaria', areaAtendida: 'Comunicação com as unidades', fabricante: 'Intelbras', dataInstalacao: dISO(-365 * 5), vidaUtilAnosNBR: 10 }),
+    asset({ name: 'Bomba de Recalque 01', type: 'Bomba', sistema: 'Hidráulico', criticality: 'critica', pavimento: 'Subsolo 3', ambiente: 'Casa de Bombas', areaAtendida: 'Abastecimento geral', fabricante: 'KSB', dataInstalacao: dISO(-365 * 13), vidaUtilAnosNBR: 15, replacementCostBRL: 18000 }),
+    asset({ name: 'Bomba de Recalque 02', type: 'Bomba', sistema: 'Hidráulico', criticality: 'alta', pavimento: 'Subsolo 3', ambiente: 'Casa de Bombas', areaAtendida: 'Abastecimento geral (reserva)', fabricante: 'KSB', dataInstalacao: dISO(-365 * 7), vidaUtilAnosNBR: 15, replacementCostBRL: 18000 }),
+    asset({ name: 'Elevador Social — Torre A', type: 'Elevador', sistema: 'Elevadores', criticality: 'critica', torre: 'Torre A', ambiente: 'Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Atlas Schindler', dataInstalacao: dISO(-365 * 12), vidaUtilAnosNBR: 25, replacementCostBRL: 220000 }),
+    asset({ name: 'Elevador de Serviço — Torre A', type: 'Elevador', sistema: 'Elevadores', criticality: 'alta', torre: 'Torre A', ambiente: 'Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Atlas Schindler', dataInstalacao: dISO(-365 * 12), vidaUtilAnosNBR: 25, replacementCostBRL: 200000 }),
+    asset({ name: 'Elevador Social — Torre B', type: 'Elevador', sistema: 'Elevadores', criticality: 'critica', torre: 'Torre B', ambiente: 'Casa de Máquinas', areaAtendida: 'Pavimentos 1–18', fabricante: 'Otis', dataInstalacao: dISO(-365 * 9), vidaUtilAnosNBR: 25, replacementCostBRL: 220000 }),
+    asset({ name: 'Gerador Diesel 250 kVA', type: 'Gerador', sistema: 'Elétrico', criticality: 'critica', pavimento: 'Subsolo 2', ambiente: 'Casa de Máquinas', areaAtendida: 'Emergência (elevadores, bombas, iluminação)', fabricante: 'Stemac', dataInstalacao: dISO(-365 * 8), vidaUtilAnosNBR: 20, replacementCostBRL: 95000 }),
+    asset({ name: 'Quadro Geral — QGBT', type: 'Quadro elétrico', sistema: 'Elétrico', criticality: 'alta', pavimento: 'Subsolo 1', ambiente: 'Medição', areaAtendida: 'Distribuição geral', fabricante: 'Schneider', dataInstalacao: dISO(-365 * 10), vidaUtilAnosNBR: 25 }),
+    asset({ name: 'Central de Alarme de Incêndio', type: 'Central de incêndio', sistema: 'Incêndio', criticality: 'critica', ambiente: 'Portaria', areaAtendida: 'Detecção/alarme geral', fabricante: 'Intelbras', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 15 }),
+    asset({ name: 'Bomba de Incêndio', type: 'Bomba', sistema: 'Incêndio', criticality: 'critica', pavimento: 'Subsolo 3', ambiente: 'Casa de Bombas', areaAtendida: 'Rede de hidrantes/sprinklers', fabricante: 'KSB', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 15, replacementCostBRL: 22000 }),
+    asset({ name: 'Pressurizador de Escada', type: 'Ventilador', sistema: 'Incêndio', criticality: 'media', torre: 'Torre A', ambiente: 'Casa de Máquinas', areaAtendida: 'Escada pressurizada', fabricante: 'Projelmec', dataInstalacao: dISO(-365 * 6), vidaUtilAnosNBR: 20 }),
+    asset({ name: 'Portão Basculante — Garagem', type: 'Portão', sistema: 'Outros', criticality: 'media', pavimento: 'Térreo', ambiente: 'Acesso garagem', areaAtendida: 'Entrada/saída de veículos', fabricante: 'PPA', dataInstalacao: dISO(-365 * 5), vidaUtilAnosNBR: 10 }),
+    asset({ name: 'Bomba da Piscina', type: 'Bomba', sistema: 'Hidráulico', criticality: 'baixa', pavimento: 'Lazer', ambiente: 'Casa de Máquinas da Piscina', areaAtendida: 'Filtragem da piscina', fabricante: 'Dancor', dataInstalacao: dISO(-365 * 4), vidaUtilAnosNBR: 12 }),
+    asset({ name: 'Reservatório Superior', type: 'Reservatório', sistema: 'Hidráulico', criticality: 'media', pavimento: 'Cobertura', ambiente: 'Barrilete', areaAtendida: 'Reserva de água', dataInstalacao: dISO(-365 * 10), vidaUtilAnosNBR: 30 }),
+    asset({ name: 'Ar-condicionado — Salão de Festas', type: 'Split', sistema: 'HVAC', criticality: 'baixa', pavimento: 'Lazer', ambiente: 'Salão de Festas', areaAtendida: 'Salão de festas', fabricante: 'LG', dataInstalacao: dISO(-365 * 3), vidaUtilAnosNBR: 12, replacementCostBRL: 9000 }),
+    asset({ name: 'Central de Interfonia', type: 'Interfone', sistema: 'Elétrico', criticality: 'baixa', ambiente: 'Portaria', areaAtendida: 'Comunicação com as unidades', fabricante: 'Intelbras', dataInstalacao: dISO(-365 * 5), vidaUtilAnosNBR: 10 }),
   ]
 }
 

@@ -10,6 +10,7 @@ import { Component, lazy, Suspense, type ReactNode } from 'react'
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const PredialPage           = lazy(() => import('@/features/predial/index').then((m) => ({ default: m.PredialPage })))
+const ZeladorChamadosPage   = lazy(() => import('@/features/predial/ZeladorChamadosPage').then((m) => ({ default: m.ZeladorChamadosPage })))
 const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
 const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
@@ -125,6 +126,8 @@ function App() {
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           {/* Manutenções e Gestão de Equipamentos viraram abas do módulo Predial. */}
           <Route path="predial"             element={<LazyRoute><PredialPage /></LazyRoute>} />
+          {/* View enxuta mobile do zelador: lista de chamados + abrir chamado. */}
+          <Route path="chamados"            element={<LazyRoute><ZeladorChamadosPage /></LazyRoute>} />
           {/* Equipamentos voltou a ser módulo standalone; o Predial mantém a aba (mesmo store, dados compartilhados). */}
           <Route path="equipamentos"        element={<LazyRoute><GestaoEquipamentosPage /></LazyRoute>} />
           <Route path="gestao-equipamentos" element={<Navigate to="/app/equipamentos" replace />} />

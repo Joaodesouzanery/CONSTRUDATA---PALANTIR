@@ -62,6 +62,11 @@ export interface MaintenanceAsset {
   fabricante?: string
   sistema?: MaintenanceAssetSistema
   areaAtendida?: string              // ambiente/área que o ativo atende
+  // ─── Localização estruturada (predial): torre/bloco · pavimento · ambiente. Vivem no payload
+  //     jsonb (sem migração). `location` continua como o texto composto para compat + exibição. ───
+  torre?: string                     // torre / bloco (ex.: "Torre A")
+  pavimento?: string                 // pavimento / andar (ex.: "Subsolo 3", "Cobertura")
+  ambiente?: string                  // ambiente / sala (ex.: "Casa de Bombas")
   dataInstalacao?: string            // yyyy-MM-dd
   garantiaAte?: string               // yyyy-MM-dd (vencimento da garantia)
   vidaUtilAnosNBR?: number           // vida útil de referência (NBR) — alimenta o CapEx
@@ -320,6 +325,9 @@ function asAsset(row: EquipmentRow): MaintenanceAsset {
     fabricante: pstr(payload.fabricante),
     sistema: asSistema(payload.sistema),
     areaAtendida: pstr(payload.areaAtendida),
+    torre: pstr(payload.torre),
+    pavimento: pstr(payload.pavimento),
+    ambiente: pstr(payload.ambiente),
     dataInstalacao: pstr(payload.dataInstalacao),
     garantiaAte: pstr(payload.garantiaAte),
     vidaUtilAnosNBR: pnum(payload.vidaUtilAnosNBR),
@@ -733,6 +741,9 @@ export const useManutencoesStore = create<ManutencoesState>()(
           fabricante: payload.fabricante,
           sistema: payload.sistema,
           areaAtendida: payload.areaAtendida,
+          torre: payload.torre,
+          pavimento: payload.pavimento,
+          ambiente: payload.ambiente,
           dataInstalacao: payload.dataInstalacao,
           garantiaAte: payload.garantiaAte,
           vidaUtilAnosNBR: payload.vidaUtilAnosNBR,

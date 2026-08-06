@@ -479,6 +479,9 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
     criticality: item?.criticality ?? 'media' as MaintenancePriority,
     responsible: item?.responsible ?? '',
     location: item?.location ?? '',
+    torre: item?.torre ?? '',
+    pavimento: item?.pavimento ?? '',
+    ambiente: item?.ambiente ?? '',
     qrCode: item?.qrCode ?? '',
     projectId: item?.projectId ?? '',
     constructionSiteId: item?.constructionSiteId ?? '',
@@ -509,6 +512,12 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
     setSaving(true)
     const payload = {
       ...form,
+      torre: form.torre.trim() || undefined,
+      pavimento: form.pavimento.trim() || undefined,
+      ambiente: form.ambiente.trim() || undefined,
+      // `location` = texto composto dos 3 campos estruturados (para os leitores read-only —
+      // Painel/CapEx/Criticidade — continuarem funcionando). Sem os 3, mantém o texto livre legado.
+      location: [form.torre, form.pavimento, form.ambiente].map((s) => s.trim()).filter(Boolean).join(' · ') || form.location.trim(),
       sistema: form.sistema || undefined,
       fabricante: form.fabricante.trim() || undefined,
       modelo: form.modelo.trim() || undefined,
@@ -554,7 +563,17 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
               {Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </Field>
-          <Field label="Localização"><input value={form.location} onChange={(e) => setForm((s) => ({ ...s, location: e.target.value }))} className={inputClass} placeholder="Local, setor, pavimento ou frente" /></Field>
+          <div className="space-y-1.5 md:col-span-2">
+            <span className={labelClass}>Localização</span>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <input value={form.torre} onChange={(e) => setForm((s) => ({ ...s, torre: e.target.value }))} className={inputClass} placeholder="Torre / Bloco" />
+              <input value={form.pavimento} onChange={(e) => setForm((s) => ({ ...s, pavimento: e.target.value }))} className={inputClass} placeholder="Pavimento / Andar" />
+              <input value={form.ambiente} onChange={(e) => setForm((s) => ({ ...s, ambiente: e.target.value }))} className={inputClass} placeholder="Ambiente / Sala" />
+            </div>
+            {item?.location && !form.torre.trim() && !form.pavimento.trim() && !form.ambiente.trim() && (
+              <p className="text-[11px] text-[#737373]">Local atual: <span className="text-[#a3a3a3]">{item.location}</span> — preencha os campos acima para estruturar (mantido como está se deixar em branco).</p>
+            )}
+          </div>
           <Field label="QR / Identificador"><input value={form.qrCode} onChange={(e) => setForm((s) => ({ ...s, qrCode: e.target.value }))} className={inputClass} /></Field>
           <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
@@ -1053,7 +1072,7 @@ export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[
     if (scopeFilter === 'vinculados' && !asset.projectId && !asset.constructionSiteId) return false
     if (sistemaFilter !== 'todos' && (asset.sistema ?? 'Outros') !== sistemaFilter) return false
     if (!q) return true
-    return [asset.code, asset.name, asset.type, asset.location, asset.responsible, asset.fabricante, asset.sistema].filter(Boolean).join(' ').toLowerCase().includes(q)
+    return [asset.code, asset.name, asset.type, asset.location, asset.torre, asset.pavimento, asset.ambiente, asset.responsible, asset.fabricante, asset.sistema].filter(Boolean).join(' ').toLowerCase().includes(q)
   }), [assets, q, scopeFilter, sistemaFilter])
 
   const filteredPlans = useMemo(() => plans.filter((plan) => !q || [plan.code, plan.title, plan.description, plan.frequency].join(' ').toLowerCase().includes(q)), [plans, q])
@@ -1275,7 +1294,7 @@ export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[
                         </td>
                         <td className="px-4 py-3">{asset.sistema ? <Badge className="border-[#525252] bg-[#2f2f2f] text-[#d4d4d4]">{asset.sistema}</Badge> : <span className="text-[#737373]">-</span>}</td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{asset.type}</td>
-                        <td className="px-4 py-3 text-[#d4d4d4]">{asset.location || '-'}</td>
+                        <td className="px-4 py-3 text-[#d4d4d4]">{[asset.torre, asset.pavimento, asset.ambiente].filter(Boolean).join(' · ') || asset.location || '-'}</td>
                         <td className="px-4 py-3 text-[#d4d4d4]">{asset.responsible || '-'}</td>
                         <td className="px-4 py-3"><Badge className={priorityTone(asset.criticality)}>{priorityLabels[asset.criticality]}</Badge></td>
                         <td className="px-4 py-3 text-xs"><GarantiaBadge date={asset.garantiaAte} /></td>
@@ -1555,7 +1574,7 @@ function CompleteOrderModal({ order, onClose }: { order: MaintenanceWorkOrder; o
 }
 
 // Abertura rápida de chamado (QR): Ativo → Sistema → Componente → Sintoma + matriz impacto×urgência.
-function QuickChamadoModal({ assets, onClose }: { assets: MaintenanceAsset[]; onClose: () => void }) {
+export function QuickChamadoModal({ assets, onClose }: { assets: MaintenanceAsset[]; onClose: () => void }) {
   const addWorkOrder = useManutencoesStore((s) => s.addWorkOrder)
   const [saving, setSaving] = useState(false)
   const [busca, setBusca] = useState('')

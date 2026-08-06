@@ -12,6 +12,7 @@ import { useLaudosStore } from '@/store/laudosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { laudoDiasRestantes, laudoStatus } from '../utils/laudos'
+import { AvisoLaudos } from './AvisoLaudos'
 import { printPredialReport } from '../utils/predialReportExport'
 import type { PredialTab } from '../tabs'
 
@@ -144,6 +145,8 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
           <button type="button" onClick={gerarRelatorio} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"><FileDown size={15} /> Gerar relatório</button>
         </div>
       </div>
+
+      <AvisoLaudos laudos={laudos} onTier={() => onNavigate('laudos')} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Kpi icon={<ClipboardList size={18} className="text-cyan-400" />} label="Chamados abertos" value={String(k.abertos.length)} sub={`${k.fechadosMes.length} fechados no mês`} tone="text-cyan-400" active={drill === 'abertos'} onClick={() => toggle('abertos')} />

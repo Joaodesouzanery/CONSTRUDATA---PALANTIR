@@ -63,6 +63,7 @@ const NAV_GROUPS = [
     label: 'PREDIAL',
     items: [
       { label: 'Predial',         icon: Building2,        to: '/app/predial'             },
+      { label: 'Chamados',        icon: ClipboardList,    to: '/app/chamados'            },
       { label: 'Equipamentos',    icon: Wrench,           to: '/app/equipamentos'        },
     ],
   },

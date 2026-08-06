@@ -1,7 +1,7 @@
 /**
  * laudos.ts — catálogo das obrigações legais padrão + cálculo do semáforo de vencimento
- * da Tela "Compliance de Laudos". Determinístico (sem servidor): o semáforo usa a validade
- * do laudo; os alertas por e-mail 60/30/7 são fase 2.
+ * da Tela "Compliance de Laudos". Determinístico (sem servidor): o semáforo e o aviso
+ * escalonado 60/30/7 são derivados da validade do laudo, direto no app (sem e-mail).
  */
 
 /** Obrigações legais recorrentes mais comuns (Brasil/DF). "Outro" para casos avulsos. */
@@ -49,6 +49,37 @@ export function laudoStatus(validade?: string): { cor: LaudoStatusCor; label: st
   if (dias <= 30) return { cor: 'vermelho', label: `${dias}d`, dias }
   if (dias <= 60) return { cor: 'amarelo', label: `${dias}d`, dias }
   return { cor: 'verde', label: `${dias}d`, dias }
+}
+
+/**
+ * Cadência única do aviso IN-APP (dias de antecedência). Centralizada aqui para que
+ * todas as telas (painel, aba de laudos, badge) usem os MESMOS limiares — sem números
+ * conflitantes. É um aviso no próprio produto, sem e-mail/agendador.
+ */
+export const LAUDO_ALERTA_DIAS = [60, 30, 7] as const
+
+export type LaudoAlertTier = 'vencido' | 'd7' | 'd30' | 'd60'
+
+/**
+ * Tier de aviso 60/30/7 a partir da validade — o mais urgente aplicável:
+ *  vencido · d7 (≤7d) · d30 (≤30d) · d60 (≤60d) · null (sem validade ou faltam >60 dias).
+ * Base do aviso in-app: derivado da validade, nunca persistido (funciona em demo e real).
+ */
+export function laudoAlertTier(validade?: string): LaudoAlertTier | null {
+  const dias = laudoDiasRestantes(validade)
+  if (dias == null) return null
+  if (dias < 0) return 'vencido'
+  if (dias <= 7) return 'd7'
+  if (dias <= 30) return 'd30'
+  if (dias <= 60) return 'd60'
+  return null
+}
+
+/** Conta laudos por tier de aviso (cada um entra no tier mais urgente; ignora sem-validade/>60d). */
+export function contarLaudosPorTier(laudos: { validade?: string }[]): Record<LaudoAlertTier, number> {
+  const acc: Record<LaudoAlertTier, number> = { vencido: 0, d7: 0, d30: 0, d60: 0 }
+  for (const l of laudos) { const t = laudoAlertTier(l.validade); if (t) acc[t] += 1 }
+  return acc
 }
 
 /** Soma `meses` a uma data yyyy-MM-dd e devolve yyyy-MM-dd (para sugerir a próxima validade). */
