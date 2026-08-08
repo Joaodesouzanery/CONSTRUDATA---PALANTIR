@@ -21,6 +21,7 @@ import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/Ent
 import { DrePanel } from '@/features/financeiro/components/DrePanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
+import { BoletosPanel } from '@/features/financeiro/components/BoletosPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
 import { ManejoOrcamentoPanel } from '@/features/financeiro/components/ManejoOrcamentoPanel'
 
@@ -47,6 +48,8 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
       )
     case 'pagamentos':
       return <PagamentosPanel />
+    case 'boletos':
+      return <BoletosPanel />
     case 'medicao':
       return (
         <SubTabHost tabs={[

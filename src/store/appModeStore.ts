@@ -48,7 +48,7 @@ const STORE_KEYS = [
   'cdata-qualidade', 'cdata-medicao', 'cdata-medicao-billing',
   'cdata-medicao-unificada', 'cdata-medicao-assistida',
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
-  'cdata-frota-veicular', 'cdata-financeiro', 'cdata-rdo-sabesp',
+  'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro',
@@ -115,6 +115,7 @@ async function restoreUserData() {
       import('./medicaoStore').then(m => m.useMedicaoStore),
       import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore),
       import('./financeiroStore').then(m => m.useFinanceiroStore),
+      import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore),
       import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
       import('./servicosStore').then(m => m.useServicosStore),
       import('./companySettingsStore').then(m => m.useCompanySettingsStore),
@@ -295,6 +296,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().loadDemoData())
         import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().loadDemoData())
         import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().loadDemoData())
+        import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().loadDemoData())
         // Predial (demo isolado): ativos/planos/OS + laudos do "Residencial Modelo".
         import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().loadDemoData())
         import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().loadDemoData())
@@ -330,6 +332,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().clearData())
             import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().clearData())
             import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
+            import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().clearData())
             import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().clearData())
             import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().clearData())
             clearLocalOnlyModuleData()

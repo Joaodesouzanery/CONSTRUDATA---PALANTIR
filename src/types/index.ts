@@ -2381,6 +2381,7 @@ export type FinanceiroEvmTab =
   | 'por-obra'
   | 'resultados'
   | 'pagamentos'
+  | 'boletos'
   | 'medicao'
   | 'plano-contas'
   | 'distribuicao'
@@ -2763,6 +2764,12 @@ export type TituloTipo   = 'pagar' | 'receber'
 /** Status persistido. "vencido" NÃO é persistido — é derivado (pendente + vencimento < hoje). */
 export type TituloStatus = 'pendente' | 'pago' | 'cancelado'
 
+/** Anexo (foto/arquivo) de um boleto no bucket `boletos`. */
+export interface TituloAnexo {
+  path: string   // caminho no bucket (${orgId}/${uuid}.ext)
+  nome: string   // nome original do arquivo (exibição)
+}
+
 export interface FinanceiroTitulo {
   id:            string
   tipo:          TituloTipo
@@ -2780,6 +2787,12 @@ export interface FinanceiroTitulo {
   dataPagamento?: string         // yyyy-MM-dd (preenchido na baixa)
   entryId?:      string          // FinanceiroEntry gerado na baixa (para estorno/rastreio)
   notas?:        string
+  // ─── Boleto (aba "Boletos"): as N parcelas de um mesmo boleto compartilham estes campos.
+  //     Todos vivem no payload jsonb de financeiro_titulos — sem migração de tabela. ───
+  boletoId?:     string          // agrupa as parcelas de um mesmo boleto
+  codigoBoleto?: string          // linha digitável / código de barras
+  anexos?:       TituloAnexo[]   // fotos do boleto (bucket `boletos`)
+  alertaDias?:   number          // aviso: dias de antecedência do vencimento desta parcela
   createdAt:     string
 }
 

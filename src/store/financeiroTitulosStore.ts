@@ -12,7 +12,22 @@ import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroStore } from '@/store/financeiroStore'
-import type { FinanceiroTitulo, FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
+import type { FinanceiroTitulo, FinanceiroEntry, EntradaCategoria, SaidaCategoria, TituloTipo, TituloAnexo } from '@/types'
+
+/** Entrada do cadastro de um boleto (a aba "Boletos" cria N títulos-parcela a partir disto). */
+export interface BoletoInput {
+  tipo?: TituloTipo                 // default 'pagar'
+  descricao: string
+  parceiro: string                  // beneficiário (pagar) / pagador (receber)
+  obraId?: string
+  categoria?: EntradaCategoria | SaidaCategoria
+  codigoBoleto?: string             // linha digitável / código de barras
+  anexos?: TituloAnexo[]            // fotos do boleto
+  notas?: string
+  parcelas: Array<{ vencimento: string; valor: number; alertaDias?: number }>
+}
+/** Campos compartilhados por todas as parcelas de um boleto (editáveis em lote). */
+export type BoletoPatch = Partial<Pick<FinanceiroTitulo, 'tipo' | 'descricao' | 'parceiro' | 'obraId' | 'categoria' | 'codigoBoleto' | 'anexos' | 'notas'>>
 
 const TABLE = 'financeiro_titulos'
 
@@ -45,6 +60,10 @@ interface FinanceiroTitulosState {
   removeTitulo: (id: string) => void
   /** Insere/atualiza títulos com id próprio (idempotente por id) — ex.: cobranças de rateio. */
   upsertTitulos: (titulos: FinanceiroTitulo[]) => void
+  /** Boletos (aba "Boletos"): cada boleto = N títulos-parcela agrupados por `boletoId`. */
+  addBoleto:    (input: BoletoInput) => void
+  updateBoleto: (boletoId: string, patch: BoletoPatch) => void
+  removeBoleto: (boletoId: string) => void
   /** Soft-delete em lote por id (só remove os que existem). */
   removeTitulos: (ids: string[]) => void
   /** Marca como pago e gera o lançamento correspondente no Financeiro. */
@@ -75,7 +94,12 @@ function buildDemo(): FinanceiroTitulo[] {
     return d.toISOString().slice(0, 10)
   }
   const mk = (t: Omit<FinanceiroTitulo, 'createdAt'>): FinanceiroTitulo => ({ ...t, createdAt: now })
+  const boletoId = crypto.randomUUID()
+  const codBoleto = '10499.81986 35000.100046 02003.903701 3 15560000036700'
   return [
+    // Boleto de exemplo (2 parcelas) — aparece na aba "Boletos".
+    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(24), numeroDoc: '243389', categoria: 'materiais', parcelaNum: 1, parcelaDe: 2, boletoId, codigoBoleto: codBoleto, alertaDias: 7, status: 'pendente' }),
+    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(52), numeroDoc: '243389', categoria: 'materiais', parcelaNum: 2, parcelaDe: 2, boletoId, codigoBoleto: codBoleto, alertaDias: 7, status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'receber', descricao: 'Medição #4 — Esgoto', parceiro: 'SABESP', valor: 412_000, vencimento: plus(8), emissao: plus(-6), numeroDoc: 'MED-04', categoria: 'medicao', status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'receber', descricao: 'Reajuste contratual 2026', parceiro: 'SABESP', valor: 96_500, vencimento: plus(22), numeroDoc: 'REAJ-01', categoria: 'reajuste', status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tubos PEAD DN200 — parcela 2/3', parceiro: 'Tigre Tubos', valor: 58_900, vencimento: plus(-3), emissao: plus(-33), numeroDoc: 'NF-8841', categoria: 'materiais', parcelaNum: 2, parcelaDe: 3, status: 'pendente' }),
@@ -160,6 +184,44 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
           void get().flush()
         },
 
+        // ── Boletos ──────────────────────────────────────────────────────
+        // Um boleto vira N títulos-parcela (um por vencimento) compartilhando
+        // boletoId/codigoBoleto/anexos → a "baixa" por parcela reusa baixarTitulo
+        // (lança no Fluxo/DRE). Sem tabela nova: os campos vivem no payload jsonb.
+        addBoleto: (input) => {
+          if (input.parcelas.length === 0) return
+          const boletoId = crypto.randomUUID()
+          const de = input.parcelas.length
+          get().addTitulos(input.parcelas.map((p, i) => ({
+            tipo: input.tipo ?? 'pagar',
+            descricao: input.descricao,
+            parceiro: input.parceiro,
+            valor: p.valor,
+            vencimento: p.vencimento,
+            obraId: input.obraId,
+            numeroDoc: input.codigoBoleto,   // espelha o código no nº do documento (busca em Pagamentos)
+            categoria: input.categoria,
+            parcelaNum: i + 1,
+            parcelaDe: de,
+            boletoId,
+            codigoBoleto: input.codigoBoleto,
+            anexos: input.anexos,
+            alertaDias: p.alertaDias,
+            notas: input.notas,
+          })))
+        },
+
+        updateBoleto: (boletoId, patch) => {
+          // Aplica os campos compartilhados a TODAS as parcelas do boleto.
+          // 'in patch' (não !== undefined): apagar o código também limpa numeroDoc (e a referência do lançamento).
+          const p = 'codigoBoleto' in patch ? { ...patch, numeroDoc: patch.codigoBoleto } : patch
+          for (const t of get().titulos.filter((x) => x.boletoId === boletoId)) get().updateTitulo(t.id, p)
+        },
+
+        removeBoleto: (boletoId) => {
+          get().removeTitulos(get().titulos.filter((t) => t.boletoId === boletoId).map((t) => t.id))
+        },
+
         removeTitulos: (ids) => {
           if (ids.length === 0) return
           const idset = new Set(ids)
@@ -206,7 +268,7 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
           get().updateTitulo(id, { status: 'pendente', dataPagamento: undefined, entryId: undefined })
         },
 
-        loadDemoData: () => set({ titulos: buildDemo() }),
+        loadDemoData: () => set({ titulos: buildDemo(), pendingSync: [] }),
         clearData: () => set({ titulos: [], pendingSync: [], syncError: null }),
 
         // ── Sync ─────────────────────────────────────────────────────────

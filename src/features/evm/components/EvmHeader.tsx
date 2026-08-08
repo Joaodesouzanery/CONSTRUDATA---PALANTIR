@@ -17,6 +17,7 @@ const TABS: { key: CombinedTab; label: string }[] = [
   { key: 'por-obra',     label: 'Por Obra' },
   { key: 'resultados',   label: 'Resultados' },
   { key: 'pagamentos',   label: 'Pagamentos e Cobranças' },
+  { key: 'boletos',      label: 'Boletos' },
   { key: 'medicao',      label: 'Medição Ponderada' },
   { key: 'plano-contas', label: 'Plano de Contas' },
   { key: 'distribuicao', label: 'Distribuição' },
