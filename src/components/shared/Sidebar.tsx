@@ -77,6 +77,7 @@ const NAV_GROUPS = [
     label: 'ADMIN',
     items: [
       { label: 'Membros',          icon: Users,          to: '/app/membros', adminOnly: true },
+      { label: 'Direitos do Titular', icon: ShieldCheck, to: '/app/direitos-titular', ownerOnly: true },
       { label: 'Homologação',      icon: FlaskConical,   to: '/app/homologacao', adminOnly: true },
       { label: 'Adaptação Rápida', icon: ClipboardList,  to: '/app/adaptacao-rapida', adminOnly: true },
     ],
@@ -108,7 +109,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   // Resolve pinned items from NAV_GROUPS
   const canUseGlobalAdmin = isGlobalAdminUser(profile, user)
   const visibleGroups = NAV_GROUPS
-    .map((group) => ({ ...group, items: group.items.filter((item) => !('adminOnly' in item) || canUseGlobalAdmin) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || profile?.role === 'owner')) }))
     .filter((group) => group.items.length > 0)
   const allItems = visibleGroups.flatMap((g) => g.items)
   const pinnedItems = pinnedPaths

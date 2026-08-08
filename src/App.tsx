@@ -32,6 +32,7 @@ const EconomiaPage          = lazy(() => import('@/features/economia/index').the
 // Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
 const AprovacoesPage        = lazy(() => import('@/features/admin/AprovacoesPage').then((m) => ({ default: m.AprovacoesPage })))
 const ExportarDadosPage     = lazy(() => import('@/features/admin/ExportarDadosPage').then((m) => ({ default: m.ExportarDadosPage })))
+const DireitosTitularPage   = lazy(() => import('@/features/admin/DireitosTitularPage').then((m) => ({ default: m.DireitosTitularPage })))
 const MembrosPage           = lazy(() => import('@/features/admin/MembrosPage').then((m) => ({ default: m.MembrosPage })))
 const AuditoriaPage         = lazy(() => import('@/features/admin/AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })))
 const MatrizAprovacaoPage   = lazy(() => import('@/features/admin/MatrizAprovacaoPage').then((m) => ({ default: m.MatrizAprovacaoPage })))
@@ -118,6 +119,7 @@ function App() {
           <Route path="aprovacoes"   element={<LazyRoute><AprovacoesPage /></LazyRoute>} />
           <Route path="auditoria"    element={<LazyRoute><AuditoriaPage /></LazyRoute>} />
           <Route path="exportar-dados" element={<LazyRoute><ExportarDadosPage /></LazyRoute>} />
+          <Route path="direitos-titular" element={<LazyRoute><DireitosTitularPage /></LazyRoute>} />
           <Route path="membros" element={<LazyRoute><MembrosPage /></LazyRoute>} />
           <Route path="configuracoes/aprovacoes" element={<LazyRoute><MatrizAprovacaoPage /></LazyRoute>} />
           <Route path="homologacao"   element={<LazyRoute><HomologacaoPage /></LazyRoute>} />

@@ -135,7 +135,12 @@ export function ChamadoPublicoPage() {
             <button type="submit" disabled={enviando} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#f97316] px-4 py-3 text-sm font-bold text-white hover:bg-[#ea580c] disabled:opacity-60">
               {enviando ? <><Loader2 size={16} className="animate-spin" /> Enviando…</> : <><Send size={16} /> Enviar chamado</>}
             </button>
-            <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">Ao enviar, você concorda que os dados informados sejam usados apenas para atender este chamado.</p>
+            <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">
+              Ao enviar, os dados informados (e o contato, se preenchido) são tratados pela administração do prédio
+              apenas para registrar e atender este chamado de manutenção — base legal: legítimo interesse na gestão do
+              edificado (LGPD, art. 7º, IX). O contato é opcional. Para exercer seus direitos (acesso, correção,
+              eliminação), procure a administração do condomínio.
+            </p>
           </form>
         )}
       </div>
