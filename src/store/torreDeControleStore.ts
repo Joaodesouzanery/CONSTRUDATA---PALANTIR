@@ -35,6 +35,8 @@ function siteToRow(s: ConstructionSite, orgId: string, userId: string) {
     // '' → null: colunas date/uuid rejeitam string vazia no Postgres.
     start_date:      (s as { startDate?: string }).startDate || null,
     expected_end:    (s as { expectedEnd?: string }).expectedEnd || null,
+    // Coluna REAL para o lookup da RPC anônima do QR público (o app lê do payload; a RPC, da coluna).
+    public_slug:     (s as { publicSlug?: string }).publicSlug || null,
     payload:         s as unknown as Record<string, unknown>,  // inclui risks[]
     created_by:      userId,
   }
@@ -42,6 +44,15 @@ function siteToRow(s: ConstructionSite, orgId: string, userId: string) {
 function ctxAuth() {
   const { profile, user } = useAuth.getState()
   return { orgId: profile?.organization_id ?? 'pending', userId: user?.id ?? 'pending' }
+}
+
+/** Slug curto url-safe (8 chars) para o QR público — aleatório via crypto. */
+function genPublicSlug(len = 8): string {
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  const bytes = crypto.getRandomValues(new Uint8Array(len))
+  let out = ''
+  for (const b of bytes) out += alphabet[b % alphabet.length]
+  return out
 }
 
 interface TorreState {
@@ -61,6 +72,8 @@ interface TorreActions {
   ensureTenantScope: (organizationId: string) => void
   addSite: (payload: Omit<ConstructionSite, 'id'>) => void
   updateSite: (id: string, patch: Partial<Omit<ConstructionSite, 'id'>>) => void
+  /** Garante um slug do QR público para o prédio (gera na 1ª vez); devolve o slug. */
+  ensurePublicSlug: (id: string) => string | null
   deleteSite: (id: string) => void
   resyncSites: () => void
   updateLocation: (id: string, lat: number, lng: number) => void
@@ -140,6 +153,15 @@ export const useTorreStore = create<TorreState & TorreActions>()(
               void get().flush()
             }
           }
+        },
+
+        ensurePublicSlug: (id) => {
+          const site = get().sites.find((s) => s.id === id)
+          if (!site) return null
+          if (site.publicSlug) return site.publicSlug
+          const slug = genPublicSlug()
+          get().updateSite(id, { publicSlug: slug } as Partial<Omit<ConstructionSite, 'id'>>)
+          return slug
         },
 
         deleteSite: (id) => {

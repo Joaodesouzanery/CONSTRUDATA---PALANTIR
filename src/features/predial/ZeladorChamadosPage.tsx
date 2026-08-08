@@ -12,6 +12,7 @@ import { useManutencoesStore, type MaintenanceWorkOrder } from '@/store/manutenc
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { QuickChamadoModal } from '@/features/manutencoes/index'
+import { TriagemChamadosPublicosPanel } from './components/TriagemChamadosPublicosPanel'
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   pendente:       { label: 'Pendente', cls: 'bg-[#f59e0b]/15 text-[#fbbf24] border-[#f59e0b]/30' },
@@ -87,6 +88,7 @@ export function ZeladorChamadosPage() {
       </div>
 
       <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4 pb-24">
+        <TriagemChamadosPublicosPanel />
         {lista.length === 0 ? (
           <div className="mt-10 rounded-xl border border-dashed border-[#525252] p-8 text-center text-sm text-[#6b6b6b]">
             {aberto ? 'Nenhum chamado aberto.' : 'Nenhum chamado.'}

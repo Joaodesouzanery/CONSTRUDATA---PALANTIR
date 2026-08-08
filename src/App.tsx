@@ -11,6 +11,7 @@ const AgendaPage            = lazy(() => import('@/features/agenda/index').then(
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const PredialPage           = lazy(() => import('@/features/predial/index').then((m) => ({ default: m.PredialPage })))
 const ZeladorChamadosPage   = lazy(() => import('@/features/predial/ZeladorChamadosPage').then((m) => ({ default: m.ZeladorChamadosPage })))
+const ChamadoPublicoPage    = lazy(() => import('@/features/predial/ChamadoPublicoPage').then((m) => ({ default: m.ChamadoPublicoPage })))
 const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
 const MaoDeObraPage         = lazy(() => import('@/features/mao-de-obra/index').then((m) => ({ default: m.MaoDeObraPage })))
@@ -107,6 +108,8 @@ function App() {
         <Route path="/signup"       element={<Navigate to="/login" replace />} />
         <Route path="/signup/organizacao" element={<Navigate to="/login" replace />} />
         <Route path="/aceitar-convite" element={<AuthPage mode="invite" />} />
+        {/* QR público de chamado — SEM AuthGuard/AppShell (rota anônima, morador abre chamado). */}
+        <Route path="/chamado/:slug" element={<LazyRoute><ChamadoPublicoPage /></LazyRoute>} />
         <Route path="/mfa/ativar"   element={<AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard>} />
 
         {/* App shell with all dashboard routes prefixed by /app - protegido por AuthGuard */}

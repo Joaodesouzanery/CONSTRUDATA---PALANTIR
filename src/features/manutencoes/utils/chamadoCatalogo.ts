@@ -4,6 +4,10 @@
  */
 import type { MaintenancePriority, ImpactoUrgencia } from '@/store/manutencoesStore'
 
+/** Sistemas prediais para o formulário de chamado. Lista plana e sem runtime do store —
+ *  reusável na página pública (evita arrastar o manutencoesStore no bundle anônimo). */
+export const SISTEMAS_CHAMADO = ['HVAC', 'Elétrico', 'Hidráulico', 'Incêndio', 'Elevadores', 'Outros'] as const
+
 /** Componentes típicos por sistema predial (chave = MaintenanceAsset.sistema). */
 export const COMPONENTES_POR_SISTEMA: Record<string, string[]> = {
   HVAC: ['Compressor', 'Ventilador / Fan-coil', 'Termostato', 'Filtro', 'Dreno', 'Gás refrigerante', 'Placa / controle'],

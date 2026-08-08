@@ -223,6 +223,7 @@ export interface ConstructionSite {
   floors: number        // andares / pavimentos
   torres?: number       // (predial) nº de torres/blocos — persiste no payload jsonb, sem migração
   unidades?: number     // (predial) nº de unidades/apartamentos — payload jsonb
+  publicSlug?: string   // (predial) slug do QR público de chamados — também gravado na coluna real public_slug
   serviceScope?: string  // escopo genérico: saneamento, água, esgoto, drenagem, edificação etc.
   numeroContrato?: string // nº do contrato da obra (origem oficial p/ RDO/medição)
   orcamentoBRL?: number   // orçamento/BAC contratado da obra (R$) — fallback do BAC no RDO/planejamento

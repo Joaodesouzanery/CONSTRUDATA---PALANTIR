@@ -4,10 +4,11 @@
  * e semeia os laudos padrão).
  */
 import { useState } from 'react'
-import { Building2, Plus } from 'lucide-react'
+import { Building2, Plus, QrCode } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PREDIAL_TABS, type PredialTab } from '../tabs'
 import { NovoPredioWizard } from './NovoPredioWizard'
+import { QRPublicoModal } from './QRPublicoModal'
 
 interface Props {
   activeTab: PredialTab
@@ -16,6 +17,7 @@ interface Props {
 
 export function PredialHeader({ activeTab, onTabChange }: Props) {
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [qrOpen, setQrOpen] = useState(false)
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
       <div className="px-6 py-4 flex items-center gap-3">
@@ -26,16 +28,26 @@ export function PredialHeader({ activeTab, onTabChange }: Props) {
           <h1 className="text-white font-semibold text-lg leading-tight">Predial</h1>
           <p className="text-[#a3a3a3] text-xs">Ativos, manutenções e laudos do prédio sob controle — e um relatório pronto para a assembleia.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
-        >
-          <Plus size={15} /> Novo prédio
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setQrOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#333333] px-3 py-2 text-sm font-semibold text-[#e5e5e5] hover:bg-[#3f3f3f]"
+          >
+            <QrCode size={15} /> QR público
+          </button>
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
+          >
+            <Plus size={15} /> Novo prédio
+          </button>
+        </div>
       </div>
       {/* Monta só quando aberto → estado do wizard sempre fresco (evita reabrir na Revisão e duplicar o prédio). */}
       {wizardOpen && <NovoPredioWizard open onClose={() => setWizardOpen(false)} />}
+      {qrOpen && <QRPublicoModal onClose={() => setQrOpen(false)} />}
 
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex px-6 gap-1 min-w-max pb-0">
