@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { ManutencoesPage } from '@/features/manutencoes/index'
 import { CriticidadeAtivosPanel } from './CriticidadeAtivosPanel'
 
-export function PredialAtivosTab() {
+export function PredialAtivosTab({ canViewCosts = true }: { canViewCosts?: boolean }) {
   const [view, setView] = useState<'inventario' | 'criticidade'>('inventario')
   return (
     <div className="flex h-full flex-col">
@@ -18,7 +18,7 @@ export function PredialAtivosTab() {
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
-        {view === 'inventario' ? <ManutencoesPage allowedTabs={['ativos', 'monitoramento']} /> : <CriticidadeAtivosPanel />}
+        {view === 'inventario' ? <ManutencoesPage allowedTabs={['ativos', 'monitoramento']} canViewCosts={canViewCosts} /> : <CriticidadeAtivosPanel />}
       </div>
     </div>
   )

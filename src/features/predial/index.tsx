@@ -13,6 +13,8 @@ import { CapexRoiPanel } from './components/CapexRoiPanel'
 import { ComplianceLaudosPanel } from './components/ComplianceLaudosPanel'
 import { PainelSindicoPanel } from './components/PainelSindicoPanel'
 import { PredialAtivosTab } from './components/PredialAtivosTab'
+import { useAuth } from '@/lib/auth'
+import { canViewCosts } from '@/lib/roles'
 
 function isPredialTab(v: string | null): v is PredialTab {
   return !!v && PREDIAL_TABS.some((t) => t.key === v)
@@ -22,6 +24,9 @@ export function PredialPage() {
   const [params, setParams] = useSearchParams()
   const urlTab = params.get('tab')
   const [tab, setTab] = useState<PredialTab>(isPredialTab(urlTab) ? urlTab : 'painel')
+  // Gating por papel: zelador/morador não veem valores financeiros → sem a aba CapEx.
+  const canCosts = canViewCosts(useAuth((s) => s.profile?.role))
+  const effectiveTab: PredialTab = tab === 'capex' && !canCosts ? 'painel' : tab
 
   const goTo = (t: PredialTab) => {
     setTab(t)
@@ -30,13 +35,13 @@ export function PredialPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#2c2c2c]">
-      <PredialHeader activeTab={tab} onTabChange={goTo} />
+      <PredialHeader activeTab={effectiveTab} onTabChange={goTo} canViewCosts={canCosts} />
       <div className="flex-1 overflow-auto">
-        {tab === 'painel' && <PainelSindicoPanel onNavigate={goTo} />}
-        {tab === 'ativos' && <PredialAtivosTab />}
-        {tab === 'manutencoes' && <ManutencoesPage allowedTabs={['painel', 'tarefas', 'ordens', 'kanban', 'calendario']} />}
-        {tab === 'laudos' && <ComplianceLaudosPanel />}
-        {tab === 'capex' && <CapexRoiPanel />}
+        {effectiveTab === 'painel' && <PainelSindicoPanel onNavigate={goTo} />}
+        {effectiveTab === 'ativos' && <PredialAtivosTab canViewCosts={canCosts} />}
+        {effectiveTab === 'manutencoes' && <ManutencoesPage allowedTabs={['painel', 'tarefas', 'ordens', 'kanban', 'calendario']} canViewCosts={canCosts} />}
+        {effectiveTab === 'laudos' && <ComplianceLaudosPanel />}
+        {effectiveTab === 'capex' && canCosts && <CapexRoiPanel />}
       </div>
     </div>
   )

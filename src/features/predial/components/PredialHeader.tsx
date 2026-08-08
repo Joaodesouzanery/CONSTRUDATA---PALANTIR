@@ -13,11 +13,13 @@ import { QRPublicoModal } from './QRPublicoModal'
 interface Props {
   activeTab: PredialTab
   onTabChange: (tab: PredialTab) => void
+  canViewCosts?: boolean   // false (zelador/morador) esconde a aba CapEx
 }
 
-export function PredialHeader({ activeTab, onTabChange }: Props) {
+export function PredialHeader({ activeTab, onTabChange, canViewCosts = true }: Props) {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
+  const visibleTabs = canViewCosts ? PREDIAL_TABS : PREDIAL_TABS.filter((t) => t.key !== 'capex')
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
       <div className="px-6 py-4 flex items-center gap-3">
@@ -51,7 +53,7 @@ export function PredialHeader({ activeTab, onTabChange }: Props) {
 
       <div className="overflow-x-auto scrollbar-hide">
         <div className="flex px-6 gap-1 min-w-max pb-0">
-          {PREDIAL_TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const isActive = activeTab === tab.key
             return (
               <button

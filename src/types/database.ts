@@ -26,6 +26,10 @@ export type UserRole =
   | 'planejador'
   | 'comprador'
   | 'visualizador'
+  // Predial (condomínio) — espelham o enum SQL (migração 20260808150000_user_role_predial.sql)
+  | 'sindico'
+  | 'zelador'
+  | 'morador'
 
 export type ActionStatus = 'pending' | 'approved' | 'rejected' | 'expired'
 export type OrgPlan      = 'free' | 'pro' | 'team' | 'enterprise'

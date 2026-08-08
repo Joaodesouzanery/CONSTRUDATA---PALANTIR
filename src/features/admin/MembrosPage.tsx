@@ -8,6 +8,7 @@ import { Users, ShieldAlert, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { GLOBAL_ADMIN_EMAIL, isGlobalAdminUser } from '@/lib/globalAdmin'
+import { roleLabel } from '@/lib/roles'
 
 interface MemberRow {
   id?: string
@@ -91,7 +92,7 @@ export function MembrosPage() {
                 <tr key={m.id ?? i} className="hover:bg-[#3d3d3d]">
                   <td className="px-3 py-2 font-semibold text-[#f5f5f5]">{m.full_name || '—'}</td>
                   <td className="px-3 py-2 text-[#c9c9c9]">{m.email || '—'}</td>
-                  <td className="px-3 py-2 text-[#c9c9c9]">{m.role || '—'}</td>
+                  <td className="px-3 py-2 text-[#c9c9c9]">{roleLabel(m.role)}</td>
                   <td className="px-3 py-2 text-[#c9c9c9]">{m.job_title || '—'}</td>
                   <td className="px-3 py-2 text-[#c9c9c9]">{m.activated_at ? 'Ativo' : (m.status || '—')}</td>
                 </tr>
@@ -107,7 +108,7 @@ export function MembrosPage() {
           <ul className="flex flex-col gap-1.5">
             {invites.map((inv, i) => (
               <li key={inv.id ?? i} className="rounded border border-[#484848] bg-[#2d2d2d] px-3 py-2 text-xs text-[#c9c9c9]">
-                {inv.email} · {inv.role || '—'} {inv.status ? `· ${inv.status}` : ''}
+                {inv.email} · {roleLabel(inv.role)} {inv.status ? `· ${inv.status}` : ''}
               </li>
             ))}
           </ul>

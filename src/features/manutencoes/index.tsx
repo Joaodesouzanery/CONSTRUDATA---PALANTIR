@@ -467,7 +467,7 @@ function AnexosManager({ anexos, onChange, onTrash }: { anexos: MaintenanceAsset
   )
 }
 
-function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsset; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
+function AssetModal({ item, projects, sites, canViewCosts = true, onClose }: { item?: MaintenanceAsset; projects: Project[]; sites: ConstructionSite[]; canViewCosts?: boolean; onClose: () => void }) {
   const addAsset = useManutencoesStore((state) => state.addAsset)
   const updateAsset = useManutencoesStore((state) => state.updateAsset)
   const [saving, setSaving] = useState(false)
@@ -595,7 +595,7 @@ function AssetModal({ item, projects, sites, onClose }: { item?: MaintenanceAsse
           <Field label="Data de instalação"><input type="date" value={form.dataInstalacao} onChange={(e) => setForm((s) => ({ ...s, dataInstalacao: e.target.value }))} className={inputClass} /></Field>
           <Field label="Garantia até"><input type="date" value={form.garantiaAte} onChange={(e) => setForm((s) => ({ ...s, garantiaAte: e.target.value }))} className={inputClass} /></Field>
           <Field label="Vida útil NBR (anos)"><input type="number" min={0} value={form.vidaUtilAnosNBR} onChange={(e) => setForm((s) => ({ ...s, vidaUtilAnosNBR: e.target.value }))} className={inputClass} placeholder="ex.: 15" /></Field>
-          <Field label="Custo de reposição (R$)"><input type="number" min={0} value={form.replacementCostBRL} onChange={(e) => setForm((s) => ({ ...s, replacementCostBRL: e.target.value }))} className={inputClass} /></Field>
+          {canViewCosts && <Field label="Custo de reposição (R$)"><input type="number" min={0} value={form.replacementCostBRL} onChange={(e) => setForm((s) => ({ ...s, replacementCostBRL: e.target.value }))} className={inputClass} /></Field>}
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -688,7 +688,7 @@ function PlanModal({ item, assets, projects, sites, onClose }: { item?: Maintena
   )
 }
 
-function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: MaintenanceWorkOrder; assets: MaintenanceAsset[]; plans: MaintenancePlan[]; projects: Project[]; sites: ConstructionSite[]; onClose: () => void }) {
+function OrderModal({ item, assets, plans, projects, sites, canViewCosts = true, onClose }: { item?: MaintenanceWorkOrder; assets: MaintenanceAsset[]; plans: MaintenancePlan[]; projects: Project[]; sites: ConstructionSite[]; canViewCosts?: boolean; onClose: () => void }) {
   const addWorkOrder = useManutencoesStore((state) => state.addWorkOrder)
   const updateWorkOrder = useManutencoesStore((state) => state.updateWorkOrder)
   const [saving, setSaving] = useState(false)
@@ -754,7 +754,8 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
     event.preventDefault()
     if (!form.title.trim()) return
     // Custo obrigatório no fechamento (gestão de manutenção: OS não fecha sem custo real).
-    if (form.status === 'concluida' && Number(form.actualCost) <= 0) {
+    // Dispensado p/ papéis sem custo (zelador/morador), que fecham a OS sem informar valor.
+    if (canViewCosts && form.status === 'concluida' && Number(form.actualCost) <= 0) {
       window.alert('Informe o custo real (maior que zero) para concluir a OS.')
       return
     }
@@ -836,8 +837,8 @@ function OrderModal({ item, assets, plans, projects, sites, onClose }: { item?: 
           <Field label="Responsável"><input value={form.assignee} onChange={(e) => setForm((s) => ({ ...s, assignee: e.target.value }))} className={inputClass} /></Field>
           <Field label="Solicitante"><input value={form.requester} onChange={(e) => setForm((s) => ({ ...s, requester: e.target.value }))} className={inputClass} /></Field>
           <Field label="Duração prevista (min)"><input type="number" min={0} value={form.estimatedDurationMinutes} onChange={(e) => setForm((s) => ({ ...s, estimatedDurationMinutes: Number(e.target.value) }))} className={inputClass} /></Field>
-          <Field label="Custo previsto"><input type="number" min={0} value={form.estimatedCost} onChange={(e) => setForm((s) => ({ ...s, estimatedCost: Number(e.target.value) }))} className={inputClass} /></Field>
-          <Field label="Custo real"><input type="number" min={0} value={form.actualCost} onChange={(e) => setForm((s) => ({ ...s, actualCost: Number(e.target.value) }))} className={inputClass} /></Field>
+          {canViewCosts && <Field label="Custo previsto"><input type="number" min={0} value={form.estimatedCost} onChange={(e) => setForm((s) => ({ ...s, estimatedCost: Number(e.target.value) }))} className={inputClass} /></Field>}
+          {canViewCosts && <Field label="Custo real"><input type="number" min={0} value={form.actualCost} onChange={(e) => setForm((s) => ({ ...s, actualCost: Number(e.target.value) }))} className={inputClass} /></Field>}
           <ScopeFields projects={projects} sites={sites} projectId={form.projectId} constructionSiteId={form.constructionSiteId} onChange={(patch) => setForm((s) => ({ ...s, ...patch }))} />
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -1010,7 +1011,7 @@ function DraggableOrderCard(props: { order: MaintenanceWorkOrder; assets: Mainte
   )
 }
 
-export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[] } = {}) {
+export function ManutencoesPage({ allowedTabs, canViewCosts = true }: { allowedTabs?: MaintenanceTab[]; canViewCosts?: boolean } = {}) {
   const profileOrgId = useAuth((state) => state.profile?.organization_id)
   const projects = useProjetosStore((state) => state.projects)
   const sites = useTorreStore((state) => state.sites)
@@ -1119,7 +1120,8 @@ export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[
     if (!status || !statusColumns.some((column) => column.key === status)) return
     if (status === 'concluida') {
       const order = workOrders.find((o) => o.id === orderId)
-      if (order && Number(order.actualCost) <= 0) { setCompleteOrder(order); return }   // exige custo p/ fechar
+      // Exige custo p/ fechar — só p/ papéis que veem custo (zelador/morador fecham sem custo).
+      if (canViewCosts && order && Number(order.actualCost) <= 0) { setCompleteOrder(order); return }
     }
     const progress = status === 'concluida' ? 100 : status === 'pendente' ? 0 : undefined
     await updateWorkOrder(orderId, { status, ...(progress !== undefined ? { progress } : {}) })
@@ -1531,10 +1533,10 @@ export function ManutencoesPage({ allowedTabs }: { allowedTabs?: MaintenanceTab[
         </div>
       )}
 
-      {modal?.type === 'asset' && <AssetModal item={modal.item} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {modal?.type === 'asset' && <AssetModal item={modal.item} projects={projects} sites={sites} canViewCosts={canViewCosts} onClose={() => setModal(null)} />}
       {modal?.type === 'monitoring' && <MonitoringModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
       {modal?.type === 'plan' && <PlanModal item={modal.item} assets={assets} projects={projects} sites={sites} onClose={() => setModal(null)} />}
-      {modal?.type === 'order' && <OrderModal item={modal.item} assets={assets} plans={plans} projects={projects} sites={sites} onClose={() => setModal(null)} />}
+      {modal?.type === 'order' && <OrderModal item={modal.item} assets={assets} plans={plans} projects={projects} sites={sites} canViewCosts={canViewCosts} onClose={() => setModal(null)} />}
       {completeOrder && <CompleteOrderModal order={completeOrder} onClose={() => setCompleteOrder(null)} />}
       {quickOpen && <QuickChamadoModal assets={assets} onClose={() => setQuickOpen(false)} />}
     </div>

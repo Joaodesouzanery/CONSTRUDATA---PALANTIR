@@ -13,6 +13,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { laudoDiasRestantes, laudoStatus } from '../utils/laudos'
 import { AvisoLaudos } from './AvisoLaudos'
+import { canViewCosts } from '@/lib/roles'
 import { printPredialReport } from '../utils/predialReportExport'
 import type { PredialTab } from '../tabs'
 
@@ -23,6 +24,7 @@ type DrillKey = 'abertos' | 'prazo' | 'custo' | 'preventivas' | 'laudos' | 'ativ
 
 export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTab) => void }) {
   const orgId = useAuth((s) => s.profile?.organization_id ?? null)
+  const canCosts = canViewCosts(useAuth((s) => s.profile?.role))   // zelador/morador não veem R$
   const ensureManut = useManutencoesStore((s) => s.ensureTenantScope)
   const pullManut = useManutencoesStore((s) => s.pull)
   const ensureLaudos = useLaudosStore((s) => s.ensureTenantScope)
@@ -137,12 +139,12 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Painel do Síndico</h1>
-          <p className="mt-1 text-sm text-[#a3a3a3]">Seis números do mês. Clique em qualquer um para ver os registros que o compõem.{!activeObraId && ' (todas as obras — selecione uma no topo para um prédio específico.)'}</p>
+          <p className="mt-1 text-sm text-[#a3a3a3]">Os números do mês. Clique em qualquer um para ver os registros que o compõem.{!activeObraId && ' (todas as obras — selecione uma no topo para um prédio específico.)'}</p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-0.5"><span className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">De</span><input type="date" value={periodo.inicio} max={periodo.fim} onChange={(e) => setPeriodo((p) => ({ ...p, inicio: e.target.value }))} className="rounded border border-[#525252] bg-[#3a3a3a] px-2 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/70" /></label>
           <label className="flex flex-col gap-0.5"><span className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Até</span><input type="date" value={periodo.fim} min={periodo.inicio} onChange={(e) => setPeriodo((p) => ({ ...p, fim: e.target.value }))} className="rounded border border-[#525252] bg-[#3a3a3a] px-2 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/70" /></label>
-          <button type="button" onClick={gerarRelatorio} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"><FileDown size={15} /> Gerar relatório</button>
+          {canCosts && <button type="button" onClick={gerarRelatorio} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"><FileDown size={15} /> Gerar relatório</button>}
         </div>
       </div>
 
@@ -151,10 +153,10 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Kpi icon={<ClipboardList size={18} className="text-cyan-400" />} label="Chamados abertos" value={String(k.abertos.length)} sub={`${k.fechadosMes.length} fechados no mês`} tone="text-cyan-400" active={drill === 'abertos'} onClick={() => toggle('abertos')} />
         <Kpi icon={<CheckCircle2 size={18} className="text-emerald-400" />} label="No prazo (mês)" value={k.pctPrazo != null ? `${k.pctPrazo}%` : '—'} sub={`${k.noPrazo.length}/${k.comPrazo.length} OS no prazo`} tone="text-emerald-400" active={drill === 'prazo'} onClick={() => toggle('prazo')} />
-        <Kpi icon={<DollarSign size={18} className="text-[#f97316]" />} label="Custo realizado (mês)" value={fmtBRLk(k.custoMes)} sub={k.custoM2 != null ? `${fmtBRL(k.custoM2)}/m² · OS concluídas` : 'OS concluídas no mês'} tone="text-[#f97316]" active={drill === 'custo'} onClick={() => toggle('custo')} />
+        {canCosts && <Kpi icon={<DollarSign size={18} className="text-[#f97316]" />} label="Custo realizado (mês)" value={fmtBRLk(k.custoMes)} sub={k.custoM2 != null ? `${fmtBRL(k.custoM2)}/m² · OS concluídas` : 'OS concluídas no mês'} tone="text-[#f97316]" active={drill === 'custo'} onClick={() => toggle('custo')} />}
         <Kpi icon={<ShieldCheck size={18} className="text-sky-400" />} label="Preventivas em dia" value={k.pctPrev != null ? `${k.pctPrev}%` : '—'} sub={`${k.emDia.length}/${k.planosAtivos.length} planos ativos`} tone="text-sky-400" active={drill === 'preventivas'} onClick={() => toggle('preventivas')} />
         <Kpi icon={<FileWarning size={18} className="text-amber-400" />} label="Laudos vencendo (90d)" value={String(k.laudos90.length)} sub="inclui vencidos" tone="text-amber-400" active={drill === 'laudos'} onClick={() => toggle('laudos')} />
-        <Kpi icon={<TrendingUp size={18} className="text-red-400" />} label="Ativo que + custou (12m)" value={k.top[0] ? (k.top[0].a.name || k.top[0].a.code) : '—'} sub={k.top[0] ? fmtBRLk(k.top[0].custo) : 'sem custo lançado'} tone="text-red-300" small active={drill === 'ativos'} onClick={() => toggle('ativos')} />
+        {canCosts && <Kpi icon={<TrendingUp size={18} className="text-red-400" />} label="Ativo que + custou (12m)" value={k.top[0] ? (k.top[0].a.name || k.top[0].a.code) : '—'} sub={k.top[0] ? fmtBRLk(k.top[0].custo) : 'sem custo lançado'} tone="text-red-300" small active={drill === 'ativos'} onClick={() => toggle('ativos')} />}
       </div>
 
       {drill === 'abertos' && (
@@ -172,7 +174,7 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
           })}
         </Drill>
       )}
-      {drill === 'custo' && (
+      {drill === 'custo' && canCosts && (
         <Drill title={`Custo do mês — ${fmtBRL(k.custoMes)}${k.custoM2 != null ? ` · ${fmtBRL(k.custoM2)}/m²` : ''}`} onOpen={() => onNavigate('capex')} empty={k.fechadosMes.length === 0 && 'Sem custos lançados neste mês.'}>
           {[...k.fechadosMes].sort((a, b) => (b.actualCost || 0) - (a.actualCost || 0)).map((w) => (
             <Row key={w.id} left={w.title || w.code} sub={w.code} right={fmtBRL(w.actualCost || 0)} rightClass="text-[#f97316] font-mono" />
@@ -194,7 +196,7 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
           )})}
         </Drill>
       )}
-      {drill === 'ativos' && (
+      {drill === 'ativos' && canCosts && (
         <Drill title="Ativos que mais custaram (12 meses)" onOpen={() => onNavigate('capex')} empty={k.top.length === 0 && 'Sem custo de manutenção lançado por ativo.'}>
           {k.top.map(({ a, custo }, i) => (
             <Row key={a.id} left={`${i + 1}. ${a.name || a.code}`} sub={`${a.sistema ?? a.type}${a.location ? ' · ' + a.location : ''}`} right={fmtBRL(custo)} rightClass="text-red-300 font-mono" />
