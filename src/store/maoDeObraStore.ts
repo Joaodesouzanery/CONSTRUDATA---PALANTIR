@@ -40,6 +40,24 @@ import {
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 
+/** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
+ *  Mesmo (rdoId, workerId) → mesmo id → upsert substitui em vez de duplicar, inclusive
+ *  entre dispositivos (espelha o seededUuid do feed RDO→Financeiro). */
+function seededUuid(seed: string): string {
+  let h1 = 0x9e3779b9, h2 = 0x243f6a88, h3 = 0xb7e15162, h4 = 0xdeadbeef
+  for (let i = 0; i < seed.length; i++) {
+    const c = seed.charCodeAt(i)
+    h1 = Math.imul(h1 ^ c, 2654435761)
+    h2 = Math.imul(h2 ^ c, 1597334677)
+    h3 = Math.imul(h3 ^ c, 3812015801)
+    h4 = Math.imul(h4 ^ c, 2246822519)
+  }
+  const hx = (n: number) => (n >>> 0).toString(16).padStart(8, '0')
+  const r = hx(h1) + hx(h2) + hx(h3) + hx(h4)
+  return `${r.slice(0, 8)}-${r.slice(8, 12)}-${r.slice(12, 16)}-${r.slice(16, 20)}-${r.slice(20, 32)}`
+}
+const rdoTimecardId = (rdoId: string, workerId: string) => seededUuid(`rdo-tc:${rdoId}:${workerId}`)
+
 /** Dados mínimos que a ponte RDO → timecards precisa (evita acoplar rdoStore). */
 export interface RdoLaborBridgeInput {
   id: string
@@ -114,6 +132,7 @@ interface MaoDeObraState {
   addTimecard:     (entry: Omit<TimecardEntry, 'id'>) => void
   importTimecards: (entries: Array<Omit<TimecardEntry, 'id'>>) => void
   syncRdoToTimecards: (rdo: RdoLaborBridgeInput) => void
+  removeRdoTimecards: (rdoId: string) => void
 
   // Progress & occurrences
   addProgress:   (entry: Omit<PhysicalProgress, 'id'>) => void
@@ -530,10 +549,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const deletedAt = new Date().toISOString()
 
     set((s) => {
-      const stale = s.timecards.filter((t) => t.sourceRdoId === rdo.id)
-      const kept = s.timecards.filter((t) => t.sourceRdoId !== rdo.id)
+      // Id DETERMINÍSTICO por (rdo, worker): re-finalizar em outro device faz o insert
+      // virar upsert da MESMA linha (não duplica custo de M.O. entre dispositivos).
       const novos: TimecardEntry[] = present.map((w) => ({
-        id: crypto.randomUUID(),
+        id: rdoTimecardId(rdo.id, w.id),
         workerId: w.id,
         date: rdo.date,
         hoursWorked: horasPorCabeca,
@@ -546,15 +565,37 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         siteId: w.siteId ?? rdo.siteId ?? null,
         laborCostBRL: custoDiaWorker(w, { diasMes: rdo.diasMes }),
       }))
+      const novosIds = new Set(novos.map((t) => t.id))
+      // Só soft-deleta os que SAÍRAM do RDO (id não regerado). Os que continuam são
+      // sobrescritos pelo upsert — nunca delete+insert do MESMO id no mesmo tick.
+      const stale = s.timecards.filter((t) => t.sourceRdoId === rdo.id && !novosIds.has(t.id))
+      const kept = s.timecards.filter((t) => t.sourceRdoId !== rdo.id)
       return {
         timecards: [...kept, ...novos],
         pendingSync: [
           ...s.pendingSync,
           ...stale.map((t) => makeOp({ entity: 'timecard', type: 'update', recordId: t.id, patch: { deleted_at: deletedAt }, table: 'timecards' })),
-          ...novos.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: timecardToRow(t, orgId, userId), table: 'timecards' })),
+          // deleted_at: null explícito → o upsert ressuscita a linha se um device antigo a soft-deletou.
+          ...novos.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: { ...timecardToRow(t, orgId, userId), deleted_at: null }, table: 'timecards' })),
         ],
       }
     })
+    void get().flush()
+  },
+
+  // Limpa os apontamentos gerados por um RDO que deixou de existir (exclusão aprovada) —
+  // chamado pelo reconcile do pull do rdoStore. Idempotente.
+  removeRdoTimecards: (rdoId) => {
+    const alvo = get().timecards.filter((t) => t.sourceRdoId === rdoId)
+    if (alvo.length === 0) return
+    const deletedAt = new Date().toISOString()
+    set((s) => ({
+      timecards: s.timecards.filter((t) => t.sourceRdoId !== rdoId),
+      pendingSync: [
+        ...s.pendingSync,
+        ...alvo.map((t) => makeOp({ entity: 'timecard', type: 'update', recordId: t.id, patch: { deleted_at: deletedAt }, table: 'timecards' })),
+      ],
+    }))
     void get().flush()
   },
 

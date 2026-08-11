@@ -10,6 +10,8 @@ import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, CalendarClock
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useAuth } from '@/lib/auth'
+import { canWriteTitulos } from '@/lib/roles'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { cn } from '@/lib/utils'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
@@ -35,6 +37,9 @@ export function BoletosPanel() {
   const { titulos, baixarTitulo, desfazerBaixa, removeBoleto } = useFinanceiroTitulosStore()
   const sites = useTorreStore((s) => s.sites)
   const hoje = today()
+  // Gate espelha a RLS de financeiro_titulos: papéis fora da lista não conseguem gravar
+  // no servidor (a escrita local viraria op presa e sumiria ao trocar de device).
+  const podeEscrever = canWriteTitulos(useAuth((s) => s.profile?.role))
 
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<BoletoGroup | null>(null)
@@ -95,7 +100,7 @@ export function BoletosPanel() {
           {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
         </select>
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar beneficiário/descrição/código…" className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60" />
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors"><Plus size={14} /> Novo boleto</button>
+        {podeEscrever && <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors"><Plus size={14} /> Novo boleto</button>}
       </div>
 
       {boletos.length === 0 ? (
@@ -105,7 +110,7 @@ export function BoletosPanel() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           {boletos.map((g) => (
-            <BoletoCard key={g.boletoId} g={g} hoje={hoje} siteName={siteName} onBaixa={setBaixaId} onDesfazer={desfazerBaixa} onEdit={() => setEditing(g)} onDelete={() => setDeleting(g)} />
+            <BoletoCard key={g.boletoId} g={g} hoje={hoje} siteName={siteName} canWrite={podeEscrever} onBaixa={setBaixaId} onDesfazer={desfazerBaixa} onEdit={() => setEditing(g)} onDelete={() => setDeleting(g)} />
           ))}
         </div>
       )}
@@ -151,8 +156,8 @@ function StatCard({ icon, label, value, tone }: { icon: React.ReactNode; label: 
 }
 
 // ─── Card de um boleto ────────────────────────────────────────────────────────
-function BoletoCard({ g, hoje, siteName, onBaixa, onDesfazer, onEdit, onDelete }: {
-  g: BoletoGroup; hoje: string; siteName: (id?: string) => string
+function BoletoCard({ g, hoje, siteName, canWrite, onBaixa, onDesfazer, onEdit, onDelete }: {
+  g: BoletoGroup; hoje: string; siteName: (id?: string) => string; canWrite: boolean
   onBaixa: (id: string) => void; onDesfazer: (id: string) => void; onEdit: () => void; onDelete: () => void
 }) {
   const { head, parcelas } = g
@@ -174,8 +179,8 @@ function BoletoCard({ g, hoje, siteName, onBaixa, onDesfazer, onEdit, onDelete }
             <p className="text-sm font-bold tabular-nums text-white">{fmtBRL(total)}</p>
             <p className="text-[10px] text-[#6b6b6b]">{pagas}/{parcelas.length} pagas</p>
           </div>
-          <button onClick={onEdit} title="Editar dados do boleto" className="p-1 rounded text-[#a3a3a3] opacity-0 group-hover:opacity-100 hover:bg-white/10 hover:text-[#f97316]"><Pencil size={13} /></button>
-          <button onClick={onDelete} title="Excluir boleto" className="p-1 rounded text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/20"><Trash2 size={13} /></button>
+          {canWrite && <button onClick={onEdit} title="Editar dados do boleto" className="p-1 rounded text-[#a3a3a3] opacity-0 group-hover:opacity-100 hover:bg-white/10 hover:text-[#f97316]"><Pencil size={13} /></button>}
+          {canWrite && <button onClick={onDelete} title="Excluir boleto" className="p-1 rounded text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/20"><Trash2 size={13} /></button>}
         </div>
       </div>
 
@@ -199,10 +204,12 @@ function BoletoCard({ g, hoje, siteName, onBaixa, onDesfazer, onEdit, onDelete }
               <div className="flex items-center gap-2">
                 <span className="tabular-nums text-white">{fmtBRL(p.valor)}</span>
                 {p.status === 'pago' ? (
-                  <button onClick={() => onDesfazer(p.id)} title="Desfazer baixa" className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-emerald-400 hover:bg-white/10"><Check size={12} /> pago <RotateCcw size={11} /></button>
-                ) : (
+                  canWrite
+                    ? <button onClick={() => onDesfazer(p.id)} title="Desfazer baixa" className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-emerald-400 hover:bg-white/10"><Check size={12} /> pago <RotateCcw size={11} /></button>
+                    : <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-emerald-400"><Check size={12} /> pago</span>
+                ) : canWrite ? (
                   <button onClick={() => onBaixa(p.id)} title="Dar baixa (registrar pagamento)" className="rounded p-1 text-emerald-400 hover:bg-emerald-500/20"><Check size={14} /></button>
-                )}
+                ) : null}
               </div>
             </div>
           )

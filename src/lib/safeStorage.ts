@@ -45,15 +45,21 @@ function stripHeavyPhotos(json: string): string {
     }
     if (Array.isArray(state.pendingSync)) {
       state.pendingSync = state.pendingSync.map((op) => {
+        let out = op as Record<string, unknown>
+        // op de INSERT: fotos em row.payload.photos
         const row = (op as { row?: { payload?: Record<string, unknown> } })?.row
-        const payload = row?.payload
-        if (payload && typeof payload === 'object' && 'photos' in payload) {
-          return {
-            ...(op as Record<string, unknown>),
-            row: { ...(row as Record<string, unknown>), payload: { ...payload, photos: [] } },
-          }
+        const rowPayload = row?.payload
+        if (rowPayload && typeof rowPayload === 'object' && 'photos' in rowPayload) {
+          out = { ...out, row: { ...(row as Record<string, unknown>), payload: { ...rowPayload, photos: [] } } }
         }
-        return op
+        // op de UPDATE (edição/retry de fotos): fotos em patch.payload.photos — sem este
+        // strip, um update com base64 estourava a cota e o snapshot inteiro se perdia.
+        const patch = (op as { patch?: { payload?: Record<string, unknown> } })?.patch
+        const patchPayload = patch?.payload
+        if (patchPayload && typeof patchPayload === 'object' && 'photos' in patchPayload) {
+          out = { ...out, patch: { ...(patch as Record<string, unknown>), payload: { ...patchPayload, photos: [] } } }
+        }
+        return out
       })
     }
   }

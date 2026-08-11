@@ -25,7 +25,8 @@ import {
   MOCK_RDO_BUDGET_BRL,
 } from '@/data/mockRdo'
 import { supabase } from '@/lib/supabase'
-import { useAuth, canWrite } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
+import { canWriteRdo } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { createSafeJSONStorage } from '@/lib/safeStorage'
 import { attachBlobSync } from '@/lib/blobSync'
@@ -265,7 +266,9 @@ export const useRdoStore = create<RdoState>()(
       },
 
       addRdo: (rdo) => {
-        if (!canWrite()) return ''   // visualizador é somente-leitura (não passa no RLS de INSERT)
+        // Gate espelha a policy rdo_insert_with_role: papéis fora da lista não passam no
+        // WITH CHECK do servidor — sem o gate, a criação viraria op presa no pendingSync.
+        if (!canWriteRdo(useAuth.getState().profile?.role)) return ''
         const now = new Date().toISOString()
         const nextNumber = get().rdos.length > 0
           ? Math.max(...get().rdos.map((r) => r.number)) + 1
@@ -387,8 +390,10 @@ export const useRdoStore = create<RdoState>()(
         }))
         // Excluir um RDO precisa reverter o executado que ele havia lançado no Planejamento.
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
-        // E remover os lançamentos de custo que ele gerou no Financeiro.
-        setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().removeRdoEntries(id)) }, 0)
+        // NÃO remove os lançamentos do Financeiro aqui: a exclusão passa por APROVAÇÃO
+        // (pending_action delete_rdo). Se negada, o RDO volta no pull — e os custos
+        // precisam continuar lá. A limpeza acontece no pull (reconcile abaixo), quando o
+        // RDO some de verdade do servidor.
         void get().flush()
       },
 
@@ -623,6 +628,33 @@ export const useRdoStore = create<RdoState>()(
           lastSyncedAt: new Date().toISOString(),
           syncError: null,
         }))
+        // Reconcile pós-pull: (a) uma exclusão APROVADA faz o RDO sumir do servidor → remove
+        // os lançamentos que ele gerou no Financeiro (a exclusão local NÃO remove mais, pois
+        // aguarda aprovação); (b) uma exclusão NEGADA ressuscita o RDO → re-sincroniza o
+        // Planejamento (recompute total a partir da lista mesclada).
+        setTimeout(() => {
+          const ids = new Set(get().rdos.map((r) => r.id))
+          void import('./financeiroStore').then(({ useFinanceiroStore }) => {
+            const fin = useFinanceiroStore.getState()
+            const orfaos = new Set(
+              fin.entries
+                .map((e) => e.sourceRdoId)
+                .filter((rid): rid is string => !!rid && !ids.has(rid)),
+            )
+            orfaos.forEach((rid) => fin.removeRdoEntries(rid))
+          })
+          // Idem para os apontamentos de M.O. gerados pela ponte RDO→timecards.
+          void import('./maoDeObraStore').then(({ useMaoDeObraStore }) => {
+            const mo = useMaoDeObraStore.getState()
+            const orfaos = new Set(
+              mo.timecards
+                .map((t) => t.sourceRdoId)
+                .filter((rid): rid is string => !!rid && !ids.has(rid)),
+            )
+            orfaos.forEach((rid) => mo.removeRdoTimecards(rid))
+          })
+          get().syncExecutionToPlanejamento()
+        }, 0)
         void get().retryPhotoUploads()
       },
 

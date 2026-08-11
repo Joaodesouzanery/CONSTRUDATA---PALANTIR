@@ -32,3 +32,22 @@ export const ROLES_SEM_CUSTO: readonly UserRole[] = ['zelador', 'morador']
 export function canViewCosts(role?: string | null): boolean {
   return !ROLES_SEM_CUSTO.includes((role ?? '') as UserRole)
 }
+
+// ─── Espelhos das policies RLS de escrita (gates de UI) ─────────────────────────
+// Um papel fora da lista NÃO passa no WITH CHECK do servidor: a escrita otimista
+// viraria op presa para sempre no pendingSync (o usuário acha que salvou e o dado
+// nunca chega ao Supabase). Estas listas DEVEM casar com as policies:
+//   · financeiro_titulos → 20260723120000_financeiro_titulos.sql
+//   · rdo               → 0016_rls_batch1.sql (rdo_insert_with_role)
+
+/** Papéis que a RLS deixa criar/editar títulos/boletos (Pagamentos e Cobranças). */
+export const ROLES_TITULOS_WRITE: readonly UserRole[] = ['planejador', 'engenheiro', 'gerente', 'diretor', 'owner']
+export function canWriteTitulos(role?: string | null): boolean {
+  return ROLES_TITULOS_WRITE.includes((role ?? '') as UserRole)
+}
+
+/** Papéis que a RLS deixa criar RDO. */
+export const ROLES_RDO_WRITE: readonly UserRole[] = ['engenheiro', 'qualidade', 'gerente', 'diretor', 'owner']
+export function canWriteRdo(role?: string | null): boolean {
+  return ROLES_RDO_WRITE.includes((role ?? '') as UserRole)
+}

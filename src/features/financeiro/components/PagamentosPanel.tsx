@@ -9,6 +9,8 @@ import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, ArrowDownCirc
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useAuth } from '@/lib/auth'
+import { canWriteTitulos } from '@/lib/roles'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
 import type { FinanceiroTitulo, TituloTipo, TituloStatus, EntradaCategoria, SaidaCategoria } from '@/types'
@@ -40,6 +42,8 @@ export function PagamentosPanel() {
   const { titulos, removeTitulo, baixarTitulo, desfazerBaixa } = useFinanceiroTitulosStore()
   const sites = useTorreStore((s) => s.sites)
   const hoje = today()
+  // Gate espelha a RLS de financeiro_titulos (papéis fora da lista → op presa no pendingSync).
+  const podeEscrever = canWriteTitulos(useAuth((s) => s.profile?.role))
 
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<FinanceiroTitulo | null>(null)
@@ -117,9 +121,11 @@ export function PagamentosPanel() {
           <input type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60" aria-label="Vencimento até" />
         </div>
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar parceiro/descrição…" className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60" />
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors">
-          <Plus size={14} /> Novo Título
-        </button>
+        {podeEscrever && (
+          <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors">
+            <Plus size={14} /> Novo Título
+          </button>
+        )}
       </div>
 
       {/* Tabela */}
@@ -166,15 +172,17 @@ export function PagamentosPanel() {
                     <td className={`px-3 py-2 text-right font-bold tabular-nums ${t.tipo === 'receber' ? 'text-emerald-400' : 'text-red-400'}`}>{fmtBRL(t.valor)}</td>
                     <td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${meta.color}`}>{meta.label}</span></td>
                     <td className="px-3 py-2">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                        {isPago ? (
-                          <button onClick={() => desfazerBaixa(t.id)} title="Desfazer baixa" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-amber-400"><RotateCcw size={13} /></button>
-                        ) : (
-                          <button onClick={() => setBaixaId(t.id)} title="Dar baixa (registrar pagamento)" className="p-1 rounded text-emerald-400 hover:bg-emerald-500/20"><Check size={14} /></button>
-                        )}
-                        <button onClick={() => setEditing(t)} title="Editar" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-[#f97316]"><Pencil size={12} /></button>
-                        <button onClick={() => setDeletingId(t.id)} title="Excluir" className="p-1 rounded text-red-400 hover:bg-red-500/20"><Trash2 size={12} /></button>
-                      </div>
+                      {podeEscrever && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          {isPago ? (
+                            <button onClick={() => desfazerBaixa(t.id)} title="Desfazer baixa" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-amber-400"><RotateCcw size={13} /></button>
+                          ) : (
+                            <button onClick={() => setBaixaId(t.id)} title="Dar baixa (registrar pagamento)" className="p-1 rounded text-emerald-400 hover:bg-emerald-500/20"><Check size={14} /></button>
+                          )}
+                          <button onClick={() => setEditing(t)} title="Editar" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-[#f97316]"><Pencil size={12} /></button>
+                          <button onClick={() => setDeletingId(t.id)} title="Excluir" className="p-1 rounded text-red-400 hover:bg-red-500/20"><Trash2 size={12} /></button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )

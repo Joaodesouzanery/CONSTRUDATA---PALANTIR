@@ -251,6 +251,8 @@ export const useFinanceiroStore = create<FinanceiroState>()(
             { id: 'fin-9', descricao: 'Aluguel escavadeira', tipo: 'saida' as const, valor: 32000, data: '2026-01-05', categoria: 'equipamentos' as const, createdAt: '2026-01-05' },
             { id: 'fin-10', descricao: 'Combustível', tipo: 'saida' as const, valor: 18500, data: '2026-02-25', categoria: 'equipamentos' as const, createdAt: '2026-02-25' },
           ],
+          // Demo não sincroniza: zera a fila (ids demo não-uuid nunca podem virar ops reais).
+          pendingSync: [],
         }),
 
         clearData: () => set({ entries: [], distribuicoes: [], dreConfig: DEFAULT_DRE_CONFIG, activeOrgId: null, pendingSync: [], syncError: null }),

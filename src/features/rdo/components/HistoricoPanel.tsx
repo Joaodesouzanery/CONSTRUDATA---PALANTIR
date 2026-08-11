@@ -18,7 +18,6 @@ import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { RdoDetalhe } from './RdoDetalhe'
 import { RdoIntegracaoStatus } from './RdoIntegracaoStatus'
-import { removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import type { RDO, RdoWeatherCondition } from '@/types'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespExecutedServices, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
@@ -624,9 +623,11 @@ export function HistoricoPanel() {
   }, [filteredSabesp])
 
   function handleDelete(id: string) {
-    if (!confirm('Excluir este RDO? Esta ação não pode ser desfeita.')) return
-    // Remove também as fotos do bucket (best-effort) para não deixar órfãos.
-    rdos.find((r) => r.id === id)?.photos.forEach((p) => { if (p.storagePath) void removeRdoPhoto(p.storagePath) })
+    if (!confirm('Excluir este RDO? A exclusão passa por aprovação (matriz de aprovações) antes de ser efetivada.')) return
+    // NÃO apagar as fotos do bucket aqui: a exclusão só se efetiva após APROVAÇÃO
+    // (pending_action). Apagar antes destruiria as evidências de um RDO que pode ser
+    // restaurado (aprovação negada → o RDO volta no pull). Após a aprovação, os
+    // arquivos ficam órfãos no bucket (best-effort, sem referência quebrada).
     removeRdo(id)
   }
 

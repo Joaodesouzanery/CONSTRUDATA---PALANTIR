@@ -614,6 +614,10 @@ export function NovoRdoPanel() {
     const rdoLabel = savedTitle || `RDO #${rdoNumber}`
     const primaryActivity = services.find((service) => service.description.trim())?.description || rdoServico || 'Apontamento RDO'
     addRdo({
+      // Status EXPLÍCITO: o cliente trata ausência como finalizado (isRdoFinalized), mas o
+      // trigger de estoque no servidor exige payload->>'status' = 'finalizado' EXATO — sem
+      // isto, RDO regular com material de almoxarifado nunca baixava estoque.
+      status:      'finalizado',
       title:       savedTitle || undefined,
       date:        data.date,
       responsible: data.responsible,
