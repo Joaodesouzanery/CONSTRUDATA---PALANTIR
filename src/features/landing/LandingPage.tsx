@@ -986,6 +986,41 @@ export function LandingPage() {
           </div>
         </HeroCarousel>
 
+        {/* ── Vídeo (placeholder) — quando o vídeo ficar pronto, salve em
+            public/videos/hero-loop.mp4 e troque o <img> abaixo por:
+            <video autoPlay muted loop playsInline poster="/obras/hero-slide-2.webp"
+                   src="/videos/hero-loop.mp4" className="block aspect-video w-full object-cover" />
+            (mesmas classes; nada mais muda). ── */}
+        <section className="border-t border-black/10 bg-white py-16 sm:py-24">
+          <div data-sr className="mx-auto max-w-7xl px-5 md:px-10">
+            <p className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.2em] text-black/50`}>
+              <span className="mr-3 text-[#b42318]">[ Vídeo ]</span>A plataforma em operação
+            </p>
+            <figure className="relative mt-6 overflow-hidden border border-black/10 bg-white p-2 sm:p-3">
+              <Corners />
+              <div className="relative overflow-hidden">
+                <img
+                  src="/obras/hero-slide-2.webp"
+                  alt="Operação de obra conectada no ConstruData"
+                  width={1408}
+                  height={792}
+                  loading="lazy"
+                  decoding="async"
+                  className="block aspect-video w-full object-cover"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/45">
+                  <div className="flex flex-col items-center gap-4">
+                    <span aria-hidden className="flex size-16 items-center justify-center border border-white/40 text-white">
+                      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                    </span>
+                    <span className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80`}>Em produção — disponível em breve</span>
+                  </div>
+                </div>
+              </div>
+            </figure>
+          </div>
+        </section>
+
         {/* ── Faixa de logos ── */}
         <section id="empresas" className="border-t border-black/10 bg-white py-14 sm:py-16">
           <p data-sr className="mx-auto max-w-3xl px-5 text-center text-sm leading-6 text-black/55 md:px-10">

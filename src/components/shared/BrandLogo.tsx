@@ -1,22 +1,23 @@
 import { cn } from '@/lib/utils'
 
 /**
- * Marca ConstruData — o símbolo "N" (Grupo Nery): um N geométrico de duas peças a 45°.
- * Recriado como SVG em `currentColor`, então herda a cor do container (sidebar = laranja do app;
- * landing = coral). Interpretação vetorial do símbolo oficial; para pixel-exato, exporte o símbolo
- * em .svg (não .pdf) e troque o path abaixo (ou aponte para public/logos/construdata-logo.svg).
+ * Marca ConstruData — o símbolo "N" oficial (Grupo Nery): duas peças congruentes giradas 180°
+ * (barra ortogonal + diagonal + retorno), caixa 327×334. Path extraído do PDF do manual da marca
+ * (traçado + otimização contra o render vetorial; desvio ~2%, nível de anti-alias). A peça B é a
+ * peça A girada 180° — simetria oficial. `currentColor`: sidebar = laranja do app; landing = coral
+ * ou branca via prop.
  */
 export function WaterDropLogo({ size = 22, className }: { size?: number; className?: string }) {
   return (
     <svg
-      viewBox="0 0 100 100"
+      viewBox="0 0 327 334"
       fill="currentColor"
       width={size}
-      height={size}
+      height={Math.round((size * 334) / 327)}
       className={cn('text-[#f97316]', className)}
       aria-hidden="true"
     >
-      <path d="M13 87 V13 H35 L65 53 V13 H87 V87 H65 L35 47 V87 Z" />
+      <path d="M2.6 0 L130.2 0 L261.2 140.6 L263.1 55.8 L210.5 0 L327 0 L327 233 L268 233 L100.1 51.4 L2.6 51.4 Z M324.4 334 L196.8 334 L65.8 193.4 L63.9 278.2 L116.5 334 L0 334 L0 101 L59 101 L226.9 282.6 L324.4 282.6 Z" />
     </svg>
   )
 }
