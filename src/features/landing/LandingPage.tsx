@@ -14,7 +14,6 @@ import {
   FileText,
   Layers3,
   LineChart,
-  LockKeyhole,
   Map,
   Milestone,
   PackageCheck,
@@ -424,20 +423,20 @@ const testimonials: Array<{ company: string; segment: string; quote: string; res
     company: 'Consórcio Se Liga Na Rede',
     segment: 'Saneamento',
     quote: 'Quando RDO, planejamento e medição conversam, a gestão deixa de discutir planilha e passa a discutir decisão.',
-    result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e adaptando o sistema a cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia, com um único módulo.',
+    result: 'Entramos nas obras por todos os setores, ouvindo os colaboradores de diversas áreas e configurando o fluxo de cada equipe. Só nos Relatórios Diários de Obra, economizamos cerca de 6 horas por dia, com um único módulo.',
     hasNumber: true,
   },
   {
     company: 'Engelfer Engenharia',
     segment: 'Edificação',
     quote: 'A plataforma coloca o dado de campo no centro da decisão, sem depender de consolidação manual.',
-    result: 'Entramos na obra, ouvimos as equipes e adaptamos o sistema a cada frente, do RDO à medição, antes de conectar tudo.',
+    result: 'Entramos na obra, ouvimos as equipes e configuramos o fluxo de cada frente, do RDO à medição, antes de conectar tudo.',
   },
   {
     company: 'Vila Rica Engenharia',
     segment: 'Construção civil',
     quote: 'O valor está em rastrear origem, pendência e responsabilidade antes que o problema chegue ao fechamento.',
-    result: 'Entramos na obra, mapeamos os processos e identificamos melhorias, adaptando a plataforma ao contexto de cada equipe.',
+    result: 'Entramos na obra, mapeamos os processos e identificamos melhorias, ajustando a configuração ao contexto de cada equipe.',
   },
 ]
 
@@ -455,10 +454,10 @@ const realizacoes: Array<{ obra: string; empresa: string; img: string; result: s
   { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/sao-manoel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
   { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/pantanal-baixo.webp', result: 'Saneamento · RDO, medição e avanço por trecho conectados' },
   { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/joao-carlos.webp', result: 'Saneamento · medição defensável por período e frente' },
-  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp', result: 'Saneamento · RDO digital adaptado a cada equipe' },
+  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp', result: 'Saneamento · RDO digital configurado por equipe' },
   { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-dos-criadores.webp', result: 'Saneamento · planejamento e campo na mesma base' },
   { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-israel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
-  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp', result: 'Edificação · processos mapeados e plataforma adaptada por frente' },
+  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp', result: 'Edificação · processos mapeados e fluxo configurado por frente' },
   { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', img: '/obras/compizzo.webp', result: 'Pisos industriais · economia e eficiência medidas por obra' },
   { obra: 'Obras de engenharia', empresa: 'Engelfer', img: '/obras/engelfer.webp', result: 'Engenharia · do RDO à medição numa base única' },
 ]
@@ -738,6 +737,7 @@ function ModulesSection() {
         {/* All modules grid */}
         <div className="mt-16">
           <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.22em] text-black/40`}>20 módulos. Uma ontologia.</p>
+          <p className={`${H_FONT} mt-2 max-w-2xl text-lg font-medium leading-snug tracking-[-0.02em] text-[#0a0a0a]`}>Uma plataforma, implantada dentro da sua operação. Não imposta a ela.</p>
           <div className="mt-6 grid grid-cols-1 border-t border-l border-black/10 sm:grid-cols-2 lg:grid-cols-3">
             {modules.map((module, i) => {
               const Icon = module.icon
@@ -815,7 +815,7 @@ function LeadForm() {
   if (!WEB3FORMS_KEY) {
     return (
       <div className="border border-black/10 bg-black/[0.02] p-8 text-center">
-        <p className="text-sm leading-6 text-black/55">Agende a demonstração direto na agenda da nossa engenharia.</p>
+        <p className="text-sm leading-6 text-black/55">Escolha um horário direto na agenda do nosso time de engenharia.</p>
         <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} mt-5 inline-flex min-h-12 items-center justify-center gap-2 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b]`}>
           Falar com engenharia <ArrowRight size={15} />
         </a>
@@ -1051,7 +1051,7 @@ export function LandingPage() {
           </div>
           <div className="mx-auto mt-10 flex max-w-7xl flex-col gap-6 px-5 md:flex-row md:items-center md:justify-between md:px-10">
             <p data-sr className={`${H_FONT} max-w-xl text-xl font-medium leading-snug tracking-[-0.02em] text-[#0a0a0a]`}>
-              Primeira frente em produção em semanas, não meses. A obra não para para "rodar um projeto de TI". O sistema se adapta ao ritmo dela.
+              Primeira frente em produção em semanas, não meses. A obra não para para "rodar um projeto de TI". A implantação acompanha o ritmo dela.
             </p>
             <DemoCTA />
           </div>
@@ -1074,8 +1074,8 @@ export function LandingPage() {
                 <img
                   src="/diagramas/base-operacional.png"
                   alt="Base operacional do ConstruData: sistemas da obra → conector → ontologia da obra → modelagem e análise → ação, no ciclo conectar, mapear, analisar e agir."
-                  width={1512}
-                  height={982}
+                  width={1540}
+                  height={992}
                   loading="lazy"
                   decoding="async"
                   className="block h-auto w-full min-w-[720px]"
@@ -1346,22 +1346,22 @@ export function LandingPage() {
               Veja o ConstruData na sua obra.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-black/60 sm:text-lg">
-              Começamos com um diagnóstico. Entendemos o seu contexto e mostramos a plataforma já adaptada à sua realidade. Sem compromisso de compra. Sem implantação de meses.
+              Começamos com um diagnóstico. Entendemos o seu contexto e mostramos a plataforma já configurada com o contexto da sua obra. Sem compromisso de compra. Sem implantação de meses.
             </p>
           </div>
 
           <div data-sr className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-white p-6 sm:p-9">
             <Corners />
             <div className="mb-6 flex items-center gap-3">
-              <LockKeyhole className="text-[#d13b40]" size={20} />
+              <CalendarClock className="text-[#b42318]" size={20} />
               <div>
-                <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Formulário de qualificação</h3>
-                <p className="mt-1 text-sm leading-6 text-black/50">Nome, e-mail corporativo, empresa, cargo e a sua principal dor.</p>
+                <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Agende sua demonstração</h3>
+                <p className="mt-1 text-sm leading-6 text-black/50">Uma conversa com o time de engenharia, já com o contexto da sua obra.</p>
               </div>
             </div>
             <LeadForm />
             <p className="mt-4 text-center text-xs leading-5 text-black/45">
-              A demonstração já vem adaptada à sua obra. Resposta em até 1 dia útil. Você conversa com quem entende de obra, não com um vendedor de software.
+              A demonstração já vem configurada com o contexto da sua obra. Você conversa com quem entende de obra, não com um vendedor de software.
             </p>
           </div>
         </section>
