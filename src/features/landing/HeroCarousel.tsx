@@ -14,18 +14,18 @@ import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const M_FONT = "font-['IBM_Plex_Mono']"
 const H_FONT = "font-['Inter_Tight']"
-const DEMO_ANCHOR = '#solicitar'
+const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
 const PHOTO_SLIDES: Array<{ src: string; eyebrow: string; title: string }> = [
   {
     src: '/obras/hero-slide-2.webp',
     eyebrow: 'Como entramos na sua obra',
-    title: 'Não vendemos um sistema. Adaptamos a sua operação e a conectamos.',
+    title: 'Não vendemos um sistema. Instalamos uma capacidade.',
   },
   {
     src: '/obras/hero-slide-3.webp',
-    eyebrow: 'Diferencial único',
-    title: 'Dado de campo virando decisão executiva em segundos, não em dias.',
+    eyebrow: 'A arquitetura',
+    title: 'O dado nasce no campo, atravessa o modelo e volta como ação.',
   },
 ]
 
@@ -44,7 +44,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
       role="region"
       aria-roledescription="carousel"
       aria-label="Destaques do ConstruData"
-      className="relative overflow-hidden bg-[linear-gradient(135deg,#1a1512,#0d0d0d)]"
+      className="relative overflow-hidden bg-[#0d0d0d]"
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX }}
       onTouchEnd={(e) => {
         if (touchX.current === null) return
@@ -93,7 +93,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/45 to-black/35" />
+              <div className="absolute inset-0 bg-black/55" />
               <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-end px-5 pb-24 pt-32 md:px-10">
                 <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 sm:text-[11px]`}>
                   [ {slide.eyebrow} ]
@@ -103,10 +103,12 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                 </h2>
                 <div className="mt-8">
                   <a
-                    href={DEMO_ANCHOR}
-                    className={`${M_FONT} group inline-flex min-h-12 items-center justify-center gap-3 bg-[#f97316] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c]`}
+                    href={CALENDLY_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${M_FONT} group inline-flex min-h-12 items-center justify-center gap-3 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b]`}
                   >
-                    Solicitar demonstração <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+                    Falar com engenharia <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
                   </a>
                 </div>
               </div>
@@ -134,7 +136,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
               aria-label={`Ir para o slide ${i + 1}`}
               aria-current={idx === i}
               className={`h-1.5 transition-all duration-300 ${
-                idx === i ? 'w-7 bg-[#f97316]' : 'w-3 bg-white/30 hover:bg-white/60'
+                idx === i ? 'w-7 bg-[#e5484d]' : 'w-3 bg-white/30 hover:bg-white/60'
               }`}
             />
           ))}

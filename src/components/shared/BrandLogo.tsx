@@ -1,21 +1,29 @@
 import { cn } from '@/lib/utils'
 
+/**
+ * Marca ConstruData — glifo geométrico de "nós conectados" (a base operacional / ontologia).
+ * Usa `currentColor`, então herda a cor do container (sidebar = laranja do app; landing = coral).
+ * Placeholder editável: para usar o SVG oficial, troque os paths abaixo ou aponte para
+ * `public/logos/construdata-logo.svg`. O nome do export é mantido para não quebrar os importadores.
+ */
 export function WaterDropLogo({ size = 22, className }: { size?: number; className?: string }) {
   return (
     <svg
-      viewBox="0 0 36 44"
+      viewBox="0 0 32 32"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       width={size}
-      height={Math.round((size * 44) / 36)}
+      height={size}
       className={cn('text-[#f97316]', className)}
       aria-hidden="true"
     >
-      <path d="M18 2 C18 2 33 17 33 28 C33 37.2 26.3 43 18 43 C9.7 43 3 37.2 3 28 C3 17 18 2 18 2Z" />
-      <path d="M18 12 C18 12 27 23 27 29.5 C27 35.5 23 39.5 18 39.5 C13 39.5 9 35.5 9 29.5 C9 23 18 12 18 12Z" />
+      <path d="M16 6 L26 24 L6 24 Z" />
+      <circle cx="16" cy="6" r="3" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="24" r="3" fill="currentColor" stroke="none" />
+      <circle cx="26" cy="24" r="3" fill="currentColor" stroke="none" />
     </svg>
   )
 }
@@ -24,29 +32,24 @@ export function BrandLockup({
   markSize = 20,
   dark = false,
   compact = false,
+  accent,
 }: {
   markSize?: number
   dark?: boolean
   compact?: boolean
+  /** Classe de cor da marca (ex.: 'text-[#e5484d]' na landing). Default: laranja do app. */
+  accent?: string
 }) {
   return (
     <>
       <div
         className={cn(
-          'flex shrink-0 items-center justify-center',
-          compact ? 'h-9 w-9 rounded-xl' : 'h-10 w-10 rounded-xl',
+          'flex shrink-0 items-center justify-center rounded-xl border',
+          compact ? 'h-9 w-9' : 'h-10 w-10',
+          dark ? 'border-black/12 bg-white' : 'border-white/14 bg-[#0d0d0d]',
         )}
-        style={{
-          background: dark
-            ? 'radial-gradient(circle at 40% 35%, #fffaf0 0%, #fffdf8 100%)'
-            : 'radial-gradient(circle at 40% 35%, #333333 0%, #222222 100%)',
-          boxShadow: dark
-            ? '0 12px 30px rgba(31,36,32,0.08), inset 0 1px 0 rgba(249,115,22,0.14)'
-            : '0 0 12px rgba(249,115,22,0.25), inset 0 1px 0 rgba(249,115,22,0.15)',
-          border: '1px solid rgba(249,115,22,0.3)',
-        }}
       >
-        <WaterDropLogo size={markSize} />
+        <WaterDropLogo size={markSize} className={accent} />
       </div>
       <div className="flex flex-col leading-none">
         <span
