@@ -441,13 +441,16 @@ const testimonials: Array<{ company: string; segment: string; quote: string; res
   },
 ]
 
-/* Clientes em produção. Arquivos otimizados (WebP, padding removido). Vila Rica e Atlântico
-   têm fundo sólido e não trazem o nome na arte — por isso cada célula exibe o nome embaixo. */
+/* Clientes em produção. Arquivos otimizados (WebP, recortados); Vila Rica e Atlântico tiveram
+   o fundo sólido removido (a marca virou tinta sobre transparente) para funcionar no card claro.
+   O nome vive no `alt` — visualmente fica só a marca. */
 const logos: Array<{ src: string; nome: string; w: number; h: number }> = [
   { src: '/logos/social-proof/engelfer.webp', nome: 'Engelfer Engenharia', w: 640, h: 155 },
   { src: '/logos/social-proof/cslnr.webp', nome: 'Consórcio Se Liga na Rede', w: 327, h: 288 },
+  { src: '/logos/social-proof/wcr.webp', nome: 'WCR Saneamento', w: 340, h: 182 },
   { src: '/logos/social-proof/vila-rica.webp', nome: 'Vila Rica Engenharia', w: 320, h: 320 },
-  { src: '/logos/social-proof/atlantico.webp', nome: 'Atlântico Engenharia', w: 177, h: 213 },
+  { src: '/logos/social-proof/compizzo.webp', nome: 'Compizzo', w: 288, h: 53 },
+  { src: '/logos/social-proof/atlantico.webp', nome: 'Atlântico Engenharia', w: 168, h: 206 },
 ]
 
 /* Realizações — obras por empresa. Sem foto: a seção é um ledger técnico
@@ -1059,23 +1062,27 @@ export function LandingPage() {
           {/* Grid estático de hairlines (mesma linguagem de Realizações/Prova social).
               Substituiu um marquee que duplicava 5 logos ×4 = 20 <img> no DOM e mantinha
               uma animação infinita rodando fora da viewport. */}
-          <div data-sr className="mx-auto mt-10 grid max-w-5xl grid-cols-2 border-t border-l border-black/10 px-5 md:grid-cols-4 md:px-10">
-            {logos.map((logo) => (
-              <div key={logo.src} className="flex h-32 flex-col items-center justify-center gap-3 border-b border-r border-black/10 bg-white px-4 sm:h-36">
-                <img
-                  src={logo.src}
-                  alt={logo.nome}
-                  width={logo.w}
-                  height={logo.h}
-                  loading="lazy"
-                  decoding="async"
-                  className="max-h-12 w-auto max-w-[80%] object-contain sm:max-h-14"
-                />
-                <span className={`${M_FONT} text-center text-[9px] font-medium uppercase leading-tight tracking-[0.12em] text-black/45 sm:text-[10px]`}>
-                  {logo.nome}
-                </span>
-              </div>
-            ))}
+          <div data-sr className="mx-auto mt-10 grid max-w-6xl grid-cols-2 border-t border-l border-black/10 px-5 sm:grid-cols-3 md:px-10 lg:grid-cols-6">
+            {logos.map((logo) => {
+              /* Peso óptico: limitar todos pela MESMA altura faz o logo alto/quadrado parecer
+                 minúsculo ao lado de um horizontal. A altura máxima acompanha o formato —
+                 quanto mais largo o logo, menor a altura (ele já preenche pela largura). */
+              const r = logo.w / logo.h
+              const alturaMax = r > 3 ? 'max-h-8 sm:max-h-9' : r > 1.6 ? 'max-h-11 sm:max-h-12' : 'max-h-14 sm:max-h-16'
+              return (
+                <div key={logo.src} className="flex h-24 items-center justify-center border-b border-r border-black/10 bg-white px-4 sm:h-28">
+                  <img
+                    src={logo.src}
+                    alt={logo.nome}
+                    width={logo.w}
+                    height={logo.h}
+                    loading="lazy"
+                    decoding="async"
+                    className={`${alturaMax} w-auto max-w-[84%] object-contain`}
+                  />
+                </div>
+              )
+            })}
           </div>
         </section>
 
