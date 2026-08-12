@@ -10,8 +10,8 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon).*)",
-      "destination": "/"
+      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon|app.html).+)",
+      "destination": "/app.html"
     }
   ],
   "headers": [

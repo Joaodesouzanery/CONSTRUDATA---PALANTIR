@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:prerender",
+    "build:prerender": "vite build --ssr src/prerender.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "lint": "eslint .",
     "qa:medicao-xlsx": "node scripts/qa_medicao_xlsx.mjs --write docs/qa-medicao-xlsx-snapshot.json",
     "preview": "vite preview",
