@@ -4,6 +4,7 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
@@ -90,7 +91,13 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
                   <td className="px-3 py-2 text-[#a3a3a3] tabular-nums">{e.data}</td>
                   <td className="px-3 py-2 text-white">{e.descricao}</td>
                   <td className="px-3 py-2 text-[#a3a3a3] capitalize">{e.categoria.replace('_', ' ')}</td>
-                  <td className="px-3 py-2 text-[#6b6b6b]">{e.referencia || '—'}</td>
+                  {/* Baixa de boleto traz a linha digitável (47/48 dígitos) como referência:
+                      formatada e truncada para não espremer as outras colunas. */}
+                  <td className="px-3 py-2 text-[#6b6b6b]">
+                    {e.referencia
+                      ? <span className="inline-block max-w-[14rem] truncate align-bottom" title={formatarCodigo(e.referencia)}>{formatarCodigo(e.referencia)}</span>
+                      : '—'}
+                  </td>
                   <td className={`px-3 py-2 text-right font-bold tabular-nums ${tipo === 'entrada' ? 'text-emerald-400' : 'text-red-400'}`}>{fmtBRL(e.valor)}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">

@@ -2788,10 +2788,11 @@ export interface FinanceiroTitulo {
   dataPagamento?: string         // yyyy-MM-dd (preenchido na baixa)
   entryId?:      string          // FinanceiroEntry gerado na baixa (para estorno/rastreio)
   notas?:        string
-  // ─── Boleto (aba "Boletos"): as N parcelas de um mesmo boleto compartilham estes campos.
+  // ─── Boleto (aba "Boletos"). Um boleto = N títulos-parcela agrupados por `boletoId`.
+  //     COMPARTILHADOS pelo carnê: boletoId e anexos. POR PARCELA: codigoBoleto e alertaDias.
   //     Todos vivem no payload jsonb de financeiro_titulos — sem migração de tabela. ───
   boletoId?:     string          // agrupa as parcelas de um mesmo boleto
-  codigoBoleto?: string          // linha digitável / código de barras
+  codigoBoleto?: string          // linha digitável DESTA parcela (só dígitos; formatada na exibição)
   anexos?:       TituloAnexo[]   // fotos do boleto (bucket `boletos`)
   alertaDias?:   number          // aviso: dias de antecedência do vencimento desta parcela
   createdAt:     string

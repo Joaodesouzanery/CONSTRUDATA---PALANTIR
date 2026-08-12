@@ -21,13 +21,14 @@ export interface BoletoInput {
   parceiro: string                  // beneficiário (pagar) / pagador (receber)
   obraId?: string
   categoria?: EntradaCategoria | SaidaCategoria
-  codigoBoleto?: string             // linha digitável / código de barras
-  anexos?: TituloAnexo[]            // fotos do boleto
+  anexos?: TituloAnexo[]            // fotos do boleto (compartilhadas pelo carnê)
   notas?: string
-  parcelas: Array<{ vencimento: string; valor: number; alertaDias?: number }>
+  // Cada parcela tem sua PRÓPRIA linha digitável (é assim que o carnê é emitido).
+  parcelas: Array<{ vencimento: string; valor: number; alertaDias?: number; codigoBoleto?: string }>
 }
-/** Campos compartilhados por todas as parcelas de um boleto (editáveis em lote). */
-export type BoletoPatch = Partial<Pick<FinanceiroTitulo, 'tipo' | 'descricao' | 'parceiro' | 'obraId' | 'categoria' | 'codigoBoleto' | 'anexos' | 'notas'>>
+/** Campos compartilhados por todas as parcelas (editáveis em lote). `codigoBoleto` NÃO entra
+ *  aqui de propósito: é por parcela — em lote, editar a descrição apagaria os códigos. */
+export type BoletoPatch = Partial<Pick<FinanceiroTitulo, 'tipo' | 'descricao' | 'parceiro' | 'obraId' | 'categoria' | 'anexos' | 'notas'>>
 
 const TABLE = 'financeiro_titulos'
 
@@ -62,7 +63,11 @@ interface FinanceiroTitulosState {
   upsertTitulos: (titulos: FinanceiroTitulo[]) => void
   /** Boletos (aba "Boletos"): cada boleto = N títulos-parcela agrupados por `boletoId`. */
   addBoleto:    (input: BoletoInput) => void
-  updateBoleto: (boletoId: string, patch: BoletoPatch) => void
+  /** `codigos` (opcional): linha digitável nova por id de parcela — vai na MESMA escrita
+   *  do patch compartilhado, para o salvar do modal não enfileirar duas ops por parcela. */
+  updateBoleto: (boletoId: string, patch: BoletoPatch, codigos?: Record<string, string>) => void
+  /** Altera a linha digitável de UMA parcela (cada parcela do carnê tem a sua). */
+  setParcelaCodigo: (tituloId: string, codigo: string) => void
   removeBoleto: (boletoId: string) => void
   /** Soft-delete em lote por id (só remove os que existem). */
   removeTitulos: (ids: string[]) => void
@@ -85,6 +90,19 @@ interface FinanceiroTitulosState {
   pull:  () => Promise<void>
 }
 
+/**
+ * Patch de "nova linha digitável" para uma parcela.
+ *
+ * `numeroDoc` espelha o código (é o que aparece e é buscado em *Pagamentos*), mas só enquanto
+ * ninguém o tiver editado à mão por lá: se alguém trocou por "NF-8841", mudar o código do boleto
+ * não pode apagar esse número — nem, via re-sync, a referência do lançamento já baixado.
+ */
+function codigoPatch(t: FinanceiroTitulo, codigo: string): Partial<FinanceiroTitulo> {
+  const limpo = codigo.replace(/\D/g, '') || undefined
+  const espelhando = !t.numeroDoc || t.numeroDoc === (t.codigoBoleto ?? '')
+  return espelhando ? { codigoBoleto: limpo, numeroDoc: limpo } : { codigoBoleto: limpo }
+}
+
 function buildDemo(): FinanceiroTitulo[] {
   const now = new Date().toISOString()
   const today = now.slice(0, 10)
@@ -95,11 +113,13 @@ function buildDemo(): FinanceiroTitulo[] {
   }
   const mk = (t: Omit<FinanceiroTitulo, 'createdAt'>): FinanceiroTitulo => ({ ...t, createdAt: now })
   const boletoId = crypto.randomUUID()
-  const codBoleto = '10499.81986 35000.100046 02003.903701 3 15560000036700'
+  // Cada parcela do carnê tem a SUA linha digitável (guardada só com dígitos).
+  const cod1 = '10499819863500010004602003903701315560000036700'
+  const cod2 = '10499819863500010004602003903891715840000036700'
   return [
     // Boleto de exemplo (2 parcelas) — aparece na aba "Boletos".
-    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(24), numeroDoc: '243389', categoria: 'materiais', parcelaNum: 1, parcelaDe: 2, boletoId, codigoBoleto: codBoleto, alertaDias: 7, status: 'pendente' }),
-    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(52), numeroDoc: '243389', categoria: 'materiais', parcelaNum: 2, parcelaDe: 2, boletoId, codigoBoleto: codBoleto, alertaDias: 7, status: 'pendente' }),
+    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(24), numeroDoc: cod1, categoria: 'materiais', parcelaNum: 1, parcelaDe: 2, boletoId, codigoBoleto: cod1, alertaDias: 7, status: 'pendente' }),
+    mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tintas Unitintas — pedido 027', parceiro: 'Unitintas Comércio de Tintas', valor: 367, vencimento: plus(52), numeroDoc: cod2, categoria: 'materiais', parcelaNum: 2, parcelaDe: 2, boletoId, codigoBoleto: cod2, alertaDias: 7, status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'receber', descricao: 'Medição #4 — Esgoto', parceiro: 'SABESP', valor: 412_000, vencimento: plus(8), emissao: plus(-6), numeroDoc: 'MED-04', categoria: 'medicao', status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'receber', descricao: 'Reajuste contratual 2026', parceiro: 'SABESP', valor: 96_500, vencimento: plus(22), numeroDoc: 'REAJ-01', categoria: 'reajuste', status: 'pendente' }),
     mk({ id: crypto.randomUUID(), tipo: 'pagar', descricao: 'Tubos PEAD DN200 — parcela 2/3', parceiro: 'Tigre Tubos', valor: 58_900, vencimento: plus(-3), emissao: plus(-33), numeroDoc: 'NF-8841', categoria: 'materiais', parcelaNum: 2, parcelaDe: 3, status: 'pendente' }),
@@ -185,9 +205,9 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         },
 
         // ── Boletos ──────────────────────────────────────────────────────
-        // Um boleto vira N títulos-parcela (um por vencimento) compartilhando
-        // boletoId/codigoBoleto/anexos → a "baixa" por parcela reusa baixarTitulo
-        // (lança no Fluxo/DRE). Sem tabela nova: os campos vivem no payload jsonb.
+        // Um boleto vira N títulos-parcela (um por vencimento) compartilhando boletoId/anexos.
+        // A linha digitável é POR PARCELA. A "baixa" por parcela reusa baixarTitulo (lança no
+        // Fluxo/DRE). Sem tabela nova: os campos vivem no payload jsonb.
         addBoleto: (input) => {
           if (input.parcelas.length === 0) return
           const boletoId = crypto.randomUUID()
@@ -199,23 +219,33 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
             valor: p.valor,
             vencimento: p.vencimento,
             obraId: input.obraId,
-            numeroDoc: input.codigoBoleto,   // espelha o código no nº do documento (busca em Pagamentos)
+            numeroDoc: p.codigoBoleto,   // espelha o código DESTA parcela no nº do documento (busca em Pagamentos)
             categoria: input.categoria,
             parcelaNum: i + 1,
             parcelaDe: de,
             boletoId,
-            codigoBoleto: input.codigoBoleto,
+            codigoBoleto: p.codigoBoleto,
             anexos: input.anexos,
             alertaDias: p.alertaDias,
             notas: input.notas,
           })))
         },
 
-        updateBoleto: (boletoId, patch) => {
-          // Aplica os campos compartilhados a TODAS as parcelas do boleto.
-          // 'in patch' (não !== undefined): apagar o código também limpa numeroDoc (e a referência do lançamento).
-          const p = 'codigoBoleto' in patch ? { ...patch, numeroDoc: patch.codigoBoleto } : patch
-          for (const t of get().titulos.filter((x) => x.boletoId === boletoId)) get().updateTitulo(t.id, p)
+        updateBoleto: (boletoId, patch, codigos) => {
+          // `patch` é só o que é compartilhado — o código NUNCA entra nele (senão editar a
+          // descrição sobrescreveria a linha digitável de todas as parcelas). O código vem
+          // separado por id em `codigos` e é fundido aqui, para cada parcela sofrer UMA
+          // escrita só (uma op de sync em vez de duas).
+          for (const t of get().titulos.filter((x) => x.boletoId === boletoId)) {
+            const novo = codigos?.[t.id]
+            get().updateTitulo(t.id, novo === undefined ? patch : { ...patch, ...codigoPatch(t, novo) })
+          }
+        },
+
+        /** Linha digitável de UMA parcela (edição rápida no card). */
+        setParcelaCodigo: (tituloId, codigo) => {
+          const t = get().titulos.find((x) => x.id === tituloId)
+          if (t) get().updateTitulo(tituloId, codigoPatch(t, codigo))
         },
 
         removeBoleto: (boletoId) => {

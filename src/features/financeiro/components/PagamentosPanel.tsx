@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth'
 import { canWriteTitulos } from '@/lib/roles'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
+import { digitosDe, formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroTitulo, TituloTipo, TituloStatus, EntradaCategoria, SaidaCategoria } from '@/types'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
@@ -64,6 +65,9 @@ export function PagamentosPanel() {
 
   const filtered = useMemo(() => {
     const q = busca.trim().toLowerCase()
+    // Parcelas de boleto guardam a linha digitável (só dígitos) em numeroDoc: comparar também
+    // por dígitos acha o título mesmo quando se cola o código com pontos e espaços.
+    const qDigitos = digitosDe(q)
     return titulos
       .filter((t) => {
         if (fTipo && t.tipo !== fTipo) return false
@@ -71,7 +75,11 @@ export function PagamentosPanel() {
         if (fObra && (t.obraId ?? '') !== fObra) return false
         if (fFrom && t.vencimento < fFrom) return false
         if (fTo && t.vencimento > fTo) return false
-        if (q && !(`${t.descricao} ${t.parceiro} ${t.numeroDoc ?? ''}`.toLowerCase().includes(q))) return false
+        if (q) {
+          const texto = `${t.descricao} ${t.parceiro} ${t.numeroDoc ?? ''}`.toLowerCase()
+          const achouCodigo = qDigitos.length >= 6 && digitosDe(t.numeroDoc).includes(qDigitos)
+          if (!texto.includes(q) && !achouCodigo) return false
+        }
         return true
       })
       .sort((a, b) => a.vencimento.localeCompare(b.vencimento))
@@ -163,7 +171,13 @@ export function PagamentosPanel() {
                     </td>
                     <td className="px-3 py-2 text-white">
                       {t.descricao}
-                      {t.numeroDoc && <span className="text-[10px] text-[#6b6b6b] ml-1.5">{t.numeroDoc}</span>}
+                      {/* Linha digitável de boleto tem 47/48 dígitos: formata e trunca para não
+                          estourar a coluna (formatarCodigo devolve intacto o que não for código). */}
+                      {t.numeroDoc && (
+                        <span className="ml-1.5 inline-block max-w-[16rem] truncate align-bottom text-[10px] text-[#6b6b6b]" title={formatarCodigo(t.numeroDoc)}>
+                          {formatarCodigo(t.numeroDoc)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-[#d4d4d4]">{t.parceiro || '—'}</td>
                     <td className="px-3 py-2 text-[#a3a3a3]">{siteName(t.obraId)}</td>
