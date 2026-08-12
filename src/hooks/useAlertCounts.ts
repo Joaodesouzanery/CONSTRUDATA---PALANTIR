@@ -3,6 +3,7 @@
  * Reads from stores with lightweight selectors — zero extra subscriptions
  * beyond what CommandCenterPanel already uses.
  */
+import { useMemo } from 'react'
 import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useTorreStore }           from '@/store/torreDeControleStore'
 import { useGestao360Store }       from '@/store/gestao360Store'
@@ -67,9 +68,12 @@ export function useAlertCounts(): AlertCounts {
   const planoAbsences = useMaoDeObraStore((s) => s.absences)
   const planoRdos = useRdoStore((s) => s.rdos)
   const hoje = new Date().toISOString().slice(0, 10)
-  const planoAlerts = planos.filter(
-    (p) => p.status === 'ativo' && alertasDoPlano(p, planoAbsences, hoje, planoRdos).length > 0,
-  ).length
+  // `alertasDoPlano` varre TODOS os RDOs por plano — O(planos × RDOs). Sem memo isso rodava
+  // a cada render da Sidebar (qualquer mutação em qualquer store), travando a navegação.
+  const planoAlerts = useMemo(
+    () => planos.filter((p) => p.status === 'ativo' && alertasDoPlano(p, planoAbsences, hoje, planoRdos).length > 0).length,
+    [planos, planoAbsences, planoRdos, hoje],
+  )
 
   // Pagamentos e Cobranças: títulos pendentes vencidos ou a vencer em ≤7 dias.
   // Ancora em UTC ('...Z') p/ casar com `hoje` (também UTC) — janela de exatos 7 dias.
@@ -82,15 +86,21 @@ export function useAlertCounts(): AlertCounts {
   // RDOs em rascunho (ainda não alimentam planejamento/financeiro/estoque).
   const rdoRascunhos = planoRdos.filter((r) => r.status === 'rascunho').length
 
-  return {
-    '/app/torre-de-controle':   siteRisks,
-    '/app/gestao-360':          changeOrders,
-    // Predial agrega: equipamentos vencidos + OS de manutenção vencidas + saúde crítica + laudos críticos.
-    '/app/predial':             maintOrders + manutVencidas + healthAlerts + laudosCriticos,
-    '/app/mao-de-obra':         occurrences + fleetAlerts,
-    '/app/economia':            economyEvents,
-    '/app/planejamento':        planoAlerts,
-    '/app/evm':                 titulosAlerta,
-    '/app/rdo':                 rdoRascunhos,
-  }
+  // Objeto memoizado: retornar um literal novo a cada chamada invalidava qualquer
+  // memoização a jusante (a Sidebar re-renderizava mesmo com as contagens iguais).
+  return useMemo(
+    () => ({
+      '/app/torre-de-controle':   siteRisks,
+      '/app/gestao-360':          changeOrders,
+      // Predial agrega: equipamentos vencidos + OS de manutenção vencidas + saúde crítica + laudos críticos.
+      '/app/predial':             maintOrders + manutVencidas + healthAlerts + laudosCriticos,
+      '/app/mao-de-obra':         occurrences + fleetAlerts,
+      '/app/economia':            economyEvents,
+      '/app/planejamento':        planoAlerts,
+      '/app/evm':                 titulosAlerta,
+      '/app/rdo':                 rdoRascunhos,
+    }),
+    [siteRisks, changeOrders, maintOrders, manutVencidas, healthAlerts, laudosCriticos,
+     occurrences, fleetAlerts, economyEvents, planoAlerts, titulosAlerta, rdoRascunhos],
+  )
 }

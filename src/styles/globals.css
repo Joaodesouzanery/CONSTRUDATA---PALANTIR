@@ -582,21 +582,31 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
 }
 
-/* ─── Landing Page Scroll-Reveal ─────────────────────────────────────────────── */
-[data-sr] {
+/* Fade das sub-abas de módulos da landing (era um <style> inline re-emitido a cada render). */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ─── Landing Page Scroll-Reveal ───────────────────────────────────────────────
+   O estado escondido SÓ vale quando o JS já assumiu o controle (`.sr-ready` no <html>,
+   setado no mount do hook). Antes disso — e sem JS — o conteúdo nasce VISÍVEL: com
+   `opacity:0` no default, a página inteira (headline do hero inclusive) ficava em branco
+   até o bundle baixar/parsear, o que era percebido como "site lento". */
+.sr-ready [data-sr] {
   opacity: 0;
   transform: translateY(24px);
   transition: opacity 0.65s ease, transform 0.65s ease;
 }
-[data-sr].sr-visible {
+.sr-ready [data-sr].sr-visible {
   opacity: 1;
   transform: none;
 }
-[data-sr][data-sr-delay="1"] { transition-delay: 0.08s; }
-[data-sr][data-sr-delay="2"] { transition-delay: 0.16s; }
-[data-sr][data-sr-delay="3"] { transition-delay: 0.24s; }
-[data-sr][data-sr-delay="4"] { transition-delay: 0.32s; }
-[data-sr][data-sr-delay="5"] { transition-delay: 0.40s; }
+.sr-ready [data-sr][data-sr-delay="1"] { transition-delay: 0.08s; }
+.sr-ready [data-sr][data-sr-delay="2"] { transition-delay: 0.16s; }
+.sr-ready [data-sr][data-sr-delay="3"] { transition-delay: 0.24s; }
+.sr-ready [data-sr][data-sr-delay="4"] { transition-delay: 0.32s; }
+.sr-ready [data-sr][data-sr-delay="5"] { transition-delay: 0.40s; }
 @media (prefers-reduced-motion: reduce) {
-  [data-sr] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .sr-ready [data-sr] { opacity: 1 !important; transform: none !important; transition: none !important; }
 }

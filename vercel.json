@@ -10,7 +10,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|favicon).*)",
+      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon).*)",
       "destination": "/"
     }
   ],
@@ -29,7 +29,7 @@
       ]
     },
     {
-      "source": "/(obras|logos|screenshots)/(.*)",
+      "source": "/(obras|logos|screenshots|diagramas|videos)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -38,7 +38,7 @@
       ]
     },
     {
-      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|favicon).*)",
+      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon).*)",
       "headers": [
         {
           "key": "Cache-Control",

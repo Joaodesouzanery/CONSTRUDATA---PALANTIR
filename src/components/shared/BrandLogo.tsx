@@ -22,37 +22,48 @@ export function WaterDropLogo({ size = 22, className }: { size?: number; classNa
   )
 }
 
+/** Escalas do lockup: a caixa da marca e o texto crescem JUNTOS (senão a marca fica
+ *  subdimensionada ao lado do nome). `md` é o default do app; `lg` é usado na landing. */
+const LOCKUP_SIZES = {
+  sm: { box: 'h-9 w-9', mark: 18, text: 'text-sm', tracking: '0.10em' },
+  md: { box: 'h-10 w-10', mark: 20, text: 'text-base', tracking: '0.11em' },
+  lg: { box: 'h-12 w-12', mark: 26, text: 'text-xl', tracking: '0.12em' },
+} as const
+
 export function BrandLockup({
-  markSize = 20,
+  markSize,
   dark = false,
   compact = false,
   accent,
+  size = 'md',
 }: {
   markSize?: number
   dark?: boolean
   compact?: boolean
   /** Classe de cor da marca (ex.: 'text-[#e5484d]' na landing). Default: laranja do app. */
   accent?: string
+  /** Escala do conjunto (marca + nome). */
+  size?: keyof typeof LOCKUP_SIZES
 }) {
+  const s = LOCKUP_SIZES[compact ? 'sm' : size]
   return (
     <>
       <div
         className={cn(
           'flex shrink-0 items-center justify-center rounded-xl border',
-          compact ? 'h-9 w-9' : 'h-10 w-10',
+          s.box,
           dark ? 'border-black/12 bg-white' : 'border-white/14 bg-[#0d0d0d]',
         )}
       >
-        <WaterDropLogo size={markSize} className={accent} />
+        <WaterDropLogo size={markSize ?? s.mark} className={accent} />
       </div>
-      <div className="flex flex-col leading-none">
-        <span
-          className={cn('text-sm font-bold whitespace-nowrap', dark ? 'text-[#1f2420]' : 'text-[#f5f5f5]')}
-          style={{ letterSpacing: '0.02em' }}
-        >
-          ConstruData
-        </span>
-      </div>
+      {/* Nome em CAIXA ALTA: caixa alta pede tracking mais aberto que o 0.02em anterior. */}
+      <span
+        className={cn('font-bold uppercase leading-none whitespace-nowrap', s.text, dark ? 'text-[#1f2420]' : 'text-[#f5f5f5]')}
+        style={{ letterSpacing: s.tracking }}
+      >
+        ConstruData
+      </span>
     </>
   )
 }

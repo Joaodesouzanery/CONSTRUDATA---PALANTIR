@@ -1,9 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AppShell }          from '@/components/shared/AppShell'
 import { LandingPage }       from '@/features/landing/LandingPage'
-import { AuthPage }          from '@/features/auth/AuthPage'
-import { AuthGuard }         from '@/lib/AuthGuard'
 import { Component, lazy, Suspense, type ReactNode } from 'react'
+
+/* O SHELL DO APP É LAZY DE PROPÓSITO. `AppShell` puxa Sidebar → useAlertCounts → 22 stores
+   (incl. xlsx via economiaStore e o client Supabase). Importado estaticamente, tudo isso
+   entrava no bundle de ENTRADA e era baixado/avaliado por quem só abre a landing pública
+   (~267 KB gzip + hidratação de 42 stores do localStorage). A LandingPage segue estática:
+   é a rota `/` e deve pintar sem esperar chunk nenhum. */
+const importAppShell = () => import('@/components/shared/AppShell')
+const AppShell   = lazy(() => importAppShell().then((m) => ({ default: m.AppShell })))
+const AuthPage   = lazy(() => import('@/features/auth/AuthPage').then((m) => ({ default: m.AuthPage })))
+const AuthGuard  = lazy(() => import('@/lib/AuthGuard').then((m) => ({ default: m.AuthGuard })))
 
 // Lazy-loaded modules (code-split per route)
 
@@ -85,6 +92,19 @@ class ModuleErrorBoundary extends Component<{ children: ReactNode }, { hasError:
   }
 }
 
+/* O AuthGuard segura os children enquanto o auth inicializa, então o chunk do AppShell só
+   começaria a baixar DEPOIS do round-trip do Supabase. Disparar o import aqui (no render, não
+   em efeito — a subárvore suspende e os efeitos não commitam) paraleliza os dois downloads.
+   O import é deduplicado pelo registry de módulos. */
+function AppShellRoute() {
+  void importAppShell()
+  return (
+    <AuthGuard>
+      <AppShell />
+    </AuthGuard>
+  )
+}
+
 function LazyRoute({ children }: { children: ReactNode }) {
   return (
     <ModuleErrorBoundary>
@@ -103,18 +123,18 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/noticias" element={<Navigate to="/" replace />} />
 
-        {/* Auth routes - no AppShell */}
-        <Route path="/login"        element={<AuthPage mode="login" />} />
-        <Route path="/login/mfa"    element={<AuthPage mode="mfa-challenge" />} />
+        {/* Auth routes - no AppShell (lazy: AuthPage/AuthGuard ficam fora do bundle da landing) */}
+        <Route path="/login"        element={<LazyRoute><AuthPage mode="login" /></LazyRoute>} />
+        <Route path="/login/mfa"    element={<LazyRoute><AuthPage mode="mfa-challenge" /></LazyRoute>} />
         <Route path="/signup"       element={<Navigate to="/login" replace />} />
         <Route path="/signup/organizacao" element={<Navigate to="/login" replace />} />
-        <Route path="/aceitar-convite" element={<AuthPage mode="invite" />} />
+        <Route path="/aceitar-convite" element={<LazyRoute><AuthPage mode="invite" /></LazyRoute>} />
         {/* QR público de chamado — SEM AuthGuard/AppShell (rota anônima, morador abre chamado). */}
         <Route path="/chamado/:slug" element={<LazyRoute><ChamadoPublicoPage /></LazyRoute>} />
-        <Route path="/mfa/ativar"   element={<AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard>} />
+        <Route path="/mfa/ativar"   element={<LazyRoute><AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard></LazyRoute>} />
 
         {/* App shell with all dashboard routes prefixed by /app - protegido por AuthGuard */}
-        <Route path="/app" element={<AuthGuard><AppShell /></AuthGuard>}>
+        <Route path="/app" element={<LazyRoute><AppShellRoute /></LazyRoute>}>
           <Route index element={<Navigate to="/app/minha-rotina" replace />} />
           <Route path="aprovacoes"   element={<LazyRoute><AprovacoesPage /></LazyRoute>} />
           <Route path="auditoria"    element={<LazyRoute><AuditoriaPage /></LazyRoute>} />

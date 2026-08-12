@@ -34,10 +34,16 @@ const SLIDE_COUNT = 3
 export function HeroCarousel({ children }: { children: ReactNode }) {
   // Hero estático: sem auto-avanço. Navegação só manual (setas, bolinhas, swipe).
   const [idx, setIdx] = useState(0)
+  // `loading="lazy"` NÃO adia imagem dentro da viewport (o browser olha geometria, não
+  // opacidade) — os slides de foto ficam sobrepostos com opacity-0, então baixavam junto
+  // com o hero. Montamos o <img> só quando o slide é visitado/pré-aquecido.
+  const [mounted, setMounted] = useState<number[]>([0])
   const touchX = useRef<number | null>(null)
 
-  const next = useCallback(() => setIdx((i) => (i + 1) % SLIDE_COUNT), [])
-  const prev = useCallback(() => setIdx((i) => (i - 1 + SLIDE_COUNT) % SLIDE_COUNT), [])
+  const warm = useCallback((i: number) => setMounted((m) => (m.includes(i) ? m : [...m, i])), [])
+  const go = useCallback((i: number) => { setIdx(i); warm(i) }, [warm])
+  const next = useCallback(() => go((idx + 1) % SLIDE_COUNT), [go, idx])
+  const prev = useCallback(() => go((idx - 1 + SLIDE_COUNT) % SLIDE_COUNT), [go, idx])
 
   return (
     <section
@@ -83,16 +89,17 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
               aria-hidden={!active}
               className={`absolute inset-0 transition-opacity duration-700 ${active ? 'z-10 opacity-100' : 'pointer-events-none z-0 opacity-0'}`}
             >
-              <img
-                src={slide.src}
-                alt=""
-                width={1408}
-                height={768}
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                className="absolute inset-0 h-full w-full object-cover"
-              />
+              {mounted.includes(slideIdx) && (
+                <img
+                  src={slide.src}
+                  alt=""
+                  width={1408}
+                  height={768}
+                  fetchPriority="low"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
               <div className="absolute inset-0 bg-black/55" />
               <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-end px-5 pb-24 pt-32 md:px-10">
                 <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 sm:text-[11px]`}>
@@ -119,9 +126,12 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
 
       {/* Controles */}
       <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex items-center justify-center gap-6">
+        {/* onPointerEnter pré-aquece a foto do slide vizinho: o download começa no hover,
+            então o clique já encontra a imagem pronta (sem flash do fundo escuro). */}
         <button
           type="button"
           onClick={prev}
+          onPointerEnter={() => warm((idx - 1 + SLIDE_COUNT) % SLIDE_COUNT)}
           aria-label="Slide anterior"
           className="pointer-events-auto flex size-9 items-center justify-center border border-white/30 text-white/80 transition hover:border-white hover:text-white"
         >
@@ -132,7 +142,8 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
             <button
               key={i}
               type="button"
-              onClick={() => setIdx(i)}
+              onClick={() => go(i)}
+              onPointerEnter={() => warm(i)}
               aria-label={`Ir para o slide ${i + 1}`}
               aria-current={idx === i}
               className={`h-1.5 transition-all duration-300 ${
@@ -144,6 +155,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
         <button
           type="button"
           onClick={next}
+          onPointerEnter={() => warm((idx + 1) % SLIDE_COUNT)}
           aria-label="Próximo slide"
           className="pointer-events-auto flex size-9 items-center justify-center border border-white/30 text-white/80 transition hover:border-white hover:text-white"
         >

@@ -28,7 +28,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
-import { Marquee } from '@/components/ui/marquee'
 import { HeroCarousel } from './HeroCarousel'
 
 const LOGIN_URL = '/login'
@@ -139,11 +138,13 @@ const modulePainTabs: Array<{
 ]
 
 /** Screenshot da plataforma exibido para cada dor ativa (zona de produto). */
-const painScreens: Record<ModulePain, { src: string; path: string }> = {
-  avanco: { src: '/screenshots/rdo-dashboard.png', path: 'construdata / rdo' },
-  planilhas: { src: '/screenshots/quantitativos.png', path: 'construdata / quantitativos' },
-  custo: { src: '/screenshots/gestao360.png', path: 'construdata / gestão-360' },
-  diretoria: { src: '/screenshots/torre-controle-mapa.png', path: 'construdata / torre-de-controle' },
+/* Dimensões REAIS por screenshot: com uma proporção fixa para todos, o browser reservava a
+   caixa errada (a página pulava) e o corte comia 44% do Gestão 360, que é quase quadrado. */
+const painScreens: Record<ModulePain, { src: string; path: string; w: number; h: number }> = {
+  avanco: { src: '/screenshots/rdo-dashboard.webp', path: 'construdata / rdo', w: 1600, h: 732 },
+  planilhas: { src: '/screenshots/quantitativos.webp', path: 'construdata / quantitativos', w: 1600, h: 722 },
+  custo: { src: '/screenshots/gestao360.webp', path: 'construdata / gestão-360', w: 886, h: 895 },
+  diretoria: { src: '/screenshots/torre-controle-mapa.webp', path: 'construdata / torre-de-controle', w: 1600, h: 759 },
 }
 
 const modules: ModuleItem[] = [
@@ -440,26 +441,27 @@ const testimonials: Array<{ company: string; segment: string; quote: string; res
   },
 ]
 
-const logos = [
-  ['/logos/social-proof/engelfer-horizontal.png', 'Engelfer Engenharia'],
-  ['/logos/social-proof/cslnr.jpg', 'Consórcio Se Liga na Rede'],
-  ['/logos/social-proof/vr.jfif', 'Vila Rica Engenharia'],
-  ['/logos/social-proof/atlantico.jpg', 'Atlântico Engenharia'],
-  ['/logos/social-proof/engelfer-selo.png', 'Engelfer Engenharia'],
+/* Clientes em produção. Arquivos otimizados (WebP, padding removido). Vila Rica e Atlântico
+   têm fundo sólido e não trazem o nome na arte — por isso cada célula exibe o nome embaixo. */
+const logos: Array<{ src: string; nome: string; w: number; h: number }> = [
+  { src: '/logos/social-proof/engelfer.webp', nome: 'Engelfer Engenharia', w: 640, h: 155 },
+  { src: '/logos/social-proof/cslnr.webp', nome: 'Consórcio Se Liga na Rede', w: 327, h: 288 },
+  { src: '/logos/social-proof/vila-rica.webp', nome: 'Vila Rica Engenharia', w: 320, h: 320 },
+  { src: '/logos/social-proof/atlantico.webp', nome: 'Atlântico Engenharia', w: 177, h: 213 },
 ]
 
-/* Realizações — obras por empresa. Fotos em public/obras/ (trocar o arquivo
-   substitui a imagem do card, sem mexer em código). */
-const realizacoes: Array<{ obra: string; empresa: string; img: string; result: string }> = [
-  { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/sao-manoel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
-  { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/pantanal-baixo.webp', result: 'Saneamento · RDO, medição e avanço por trecho conectados' },
-  { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/joao-carlos.webp', result: 'Saneamento · medição defensável por período e frente' },
-  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/morro-do-teteu.webp', result: 'Saneamento · RDO digital configurado por equipe' },
-  { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-dos-criadores.webp', result: 'Saneamento · planejamento e campo na mesma base' },
-  { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', img: '/obras/vila-israel.webp', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
-  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', img: '/obras/vila-rica.webp', result: 'Edificação · processos mapeados e fluxo configurado por frente' },
-  { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', img: '/obras/compizzo.webp', result: 'Pisos industriais · economia e eficiência medidas por obra' },
-  { obra: 'Obras de engenharia', empresa: 'Engelfer', img: '/obras/engelfer.webp', result: 'Engenharia · do RDO à medição numa base única' },
+/* Realizações — obras por empresa. Sem foto: a seção é um ledger técnico
+   (obra · cliente · setor · o que mudou). `result` = "Setor · mecanismo". */
+const realizacoes: Array<{ obra: string; empresa: string; result: string }> = [
+  { obra: 'São Manoel', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
+  { obra: 'Pantanal Baixo', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · RDO, medição e avanço por trecho conectados' },
+  { obra: 'João Carlos', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · medição defensável por período e frente' },
+  { obra: 'Morro do Tetéu', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · RDO digital configurado por equipe' },
+  { obra: 'Vila dos Criadores', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · planejamento e campo na mesma base' },
+  { obra: 'Vila Israel', empresa: 'Consórcio Se Liga Na Rede', result: 'Saneamento · cerca de 6h/dia economizadas só no RDO' },
+  { obra: 'Obras de edificação', empresa: 'Vila Rica Engenharia', result: 'Edificação · processos mapeados e fluxo configurado por frente' },
+  { obra: 'Pisos industriais', empresa: 'Compizzo Epoxi', result: 'Pisos industriais · economia e eficiência medidas por obra' },
+  { obra: 'Obras de engenharia', empresa: 'Engelfer', result: 'Engenharia · do RDO à medição numa base única' },
 ]
 
 const faqs: Array<[string, string]> = [
@@ -483,6 +485,7 @@ function useScrollReveal() {
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (prefersReduced) return
+    const root = document.documentElement
     const observer = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
@@ -493,9 +496,35 @@ function useScrollReveal() {
         }),
       { threshold: 0.1, rootMargin: '0px 0px -40px 0px' },
     )
-    const els = document.querySelectorAll('[data-sr]')
-    els.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
+    const observe = (el: Element) => {
+      if (el.classList.contains('sr-visible')) return
+      // O que JÁ está na viewport nasce visível: nada de esconder-para-revelar o
+      // conteúdo above-the-fold (era o motivo de o hero demorar a aparecer).
+      const r = el.getBoundingClientRect()
+      if (r.top < window.innerHeight && r.bottom > 0) el.classList.add('sr-visible')
+      else observer.observe(el)
+    }
+    document.querySelectorAll('[data-sr]').forEach(observe)
+    // Só agora o CSS passa a esconder os [data-sr] ainda não revelados (ver globals.css):
+    // sem JS, ou antes dele, a página inteira permanece visível.
+    root.classList.add('sr-ready')
+    // Conteúdo montado DEPOIS (troca de aba dos módulos, drills, etc.) também precisa ser
+    // observado — senão nasceria escondido pelo CSS e nunca receberia `sr-visible`.
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        for (const node of m.addedNodes) {
+          if (!(node instanceof Element)) continue
+          if (node.matches('[data-sr]')) observe(node)
+          node.querySelectorAll?.('[data-sr]').forEach(observe)
+        }
+      }
+    })
+    mo.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      observer.disconnect()
+      mo.disconnect()
+      root.classList.remove('sr-ready')
+    }
   }, [])
 }
 
@@ -621,7 +650,7 @@ function DemoCTA({
 }
 
 /** Moldura tipo browser para screenshots da plataforma. */
-function ScreenFrame({ src, path, alt }: { src: string; path: string; alt: string }) {
+function ScreenFrame({ src, path, alt, w, h }: { src: string; path: string; alt: string; w: number; h: number }) {
   return (
     <figure className="relative overflow-hidden border border-black/15 bg-white">
       <Corners />
@@ -635,7 +664,9 @@ function ScreenFrame({ src, path, alt }: { src: string; path: string; alt: strin
           {path}
         </figcaption>
       </div>
-      <img src={src} alt={alt} width={1408} height={768} loading="lazy" decoding="async" className="block h-auto w-full" />
+      {/* Dimensões reais → o browser reserva a caixa exata (zero CLS) e a imagem aparece
+          inteira. Antes: 1408×768 fixo para todos = caixa errada + corte. */}
+      <img src={src} alt={alt} width={w} height={h} loading="lazy" decoding="async" className="block h-auto w-full bg-[#f4f4f2]" />
     </figure>
   )
 }
@@ -701,7 +732,7 @@ function ModulesSection() {
               <p className="mt-2 leading-7 text-black/65">{activeDetails.outcome}</p>
             </div>
             <div className="mt-8">
-              <ScreenFrame src={activeScreen.src} path={activeScreen.path} alt={`Tela da plataforma: ${activeDetails.title}`} />
+              <ScreenFrame src={activeScreen.src} path={activeScreen.path} w={activeScreen.w} h={activeScreen.h} alt={`Tela da plataforma: ${activeDetails.title}`} />
             </div>
           </aside>
 
@@ -888,7 +919,6 @@ export function LandingPage() {
 
   return (
     <div className={`${H_FONT} min-h-screen bg-white text-[#0a0a0a] antialiased`}>
-      <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }`}</style>
 
       <div ref={topSentinelRef} aria-hidden className="pointer-events-none h-px w-full" />
 
@@ -1026,22 +1056,26 @@ export function LandingPage() {
           <p data-sr className="mx-auto max-w-3xl px-5 text-center text-sm leading-6 text-black/55 md:px-10">
             Construtoras, consórcios e empresas de saneamento e infraestrutura já decidem com dados conectados no ConstruData.
           </p>
-          <div className="relative mt-8 overflow-hidden">
-            <div className="pointer-events-none absolute left-0 z-20 h-full w-24 bg-gradient-to-r from-white" />
-            <div className="pointer-events-none absolute right-0 z-20 h-full w-24 bg-gradient-to-l from-white" />
-            <Marquee className="[--duration:34s] [--gap:4rem]" repeat={4}>
-              {logos.map(([src, alt]) => (
+          {/* Grid estático de hairlines (mesma linguagem de Realizações/Prova social).
+              Substituiu um marquee que duplicava 5 logos ×4 = 20 <img> no DOM e mantinha
+              uma animação infinita rodando fora da viewport. */}
+          <div data-sr className="mx-auto mt-10 grid max-w-5xl grid-cols-2 border-t border-l border-black/10 px-5 md:grid-cols-4 md:px-10">
+            {logos.map((logo) => (
+              <div key={logo.src} className="flex h-32 flex-col items-center justify-center gap-3 border-b border-r border-black/10 bg-white px-4 sm:h-36">
                 <img
-                  key={src}
-                  src={src}
-                  alt={alt}
-                  width={160}
-                  height={56}
+                  src={logo.src}
+                  alt={logo.nome}
+                  width={logo.w}
+                  height={logo.h}
                   loading="lazy"
-                  className="h-10 w-auto max-w-[150px] shrink-0 object-contain sm:h-14"
+                  decoding="async"
+                  className="max-h-12 w-auto max-w-[80%] object-contain sm:max-h-14"
                 />
-              ))}
-            </Marquee>
+                <span className={`${M_FONT} text-center text-[9px] font-medium uppercase leading-tight tracking-[0.12em] text-black/45 sm:text-[10px]`}>
+                  {logo.nome}
+                </span>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -1101,13 +1135,13 @@ export function LandingPage() {
             copy="Um modelo operacional único define como obra, frente, serviço, equipe, material, prazo, custo e evidência se relacionam, em todos os módulos, ao mesmo tempo. O dado nasce no campo, atravessa o modelo e volta como ação. Não é dashboard. É operação."
           />
           <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
-            {/* Diagrama "base operacional" — coloque o arquivo em public/diagramas/base-operacional.png
+            {/* Diagrama "base operacional" — coloque o arquivo em public/diagramas/base-operacional.webp
                 (o container rola na horizontal no mobile, sem estourar a página). */}
             <figure data-sr className="relative border border-black/10 bg-white p-2 sm:p-3">
               <Corners />
               <div className="overflow-x-auto">
                 <img
-                  src="/diagramas/base-operacional.png"
+                  src="/diagramas/base-operacional.webp"
                   alt="Base operacional do ConstruData: sistemas da obra → conector → ontologia da obra → modelagem e análise → ação, no ciclo conectar, mapear, analisar e agir."
                   width={1540}
                   height={992}
@@ -1259,36 +1293,33 @@ export function LandingPage() {
             index="09"
             eyebrow="Realizações"
             title="Obras que já decidem com dados conectados."
-            copy="Cada card no formato métrica · mecanismo: o que a obra passou a fazer com dados conectados."
+            copy="Obra, cliente, setor e o que mudou na operação."
           />
-          <div className="mx-auto mt-12 grid max-w-7xl grid-cols-1 border-t border-l border-black/10 px-5 sm:grid-cols-2 md:px-10 lg:grid-cols-3">
-            {realizacoes.map((item, i) => (
-              <figure
-                key={`${item.empresa}-${item.obra}`}
-                data-sr
-                data-sr-delay={String((i % 3) + 1)}
-                className="group relative border-b border-r border-black/10 bg-white"
-              >
-                <div className="overflow-hidden">
-                  <img
-                    src={item.img}
-                    alt={`Obra ${item.obra}, ${item.empresa}`}
-                    width={704}
-                    height={528}
-                    loading="lazy"
-                    decoding="async"
-                    className="aspect-[4/3] w-full object-cover grayscale transition duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
-                  />
-                </div>
-                <figcaption className="p-5">
-                  <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-[#b42318]`}>
-                    [ {item.empresa} ]
-                  </p>
-                  <h3 className={`${H_FONT} mt-2 text-xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
-                  <p className="mt-2 text-sm leading-6 text-black/55">{item.result}</p>
-                </figcaption>
-              </figure>
-            ))}
+          {/* Ledger técnico (sem foto): densidade informacional no lugar de imagem decorativa.
+              O `result` vem como "Setor · mecanismo" — separado aqui em duas colunas. */}
+          <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
+            <div data-sr className="border-t border-black/10">
+              {/* Cabeçalho só no desktop: no mobile cada linha vira bloco rotulado. */}
+              <div className={`${M_FONT} hidden border-b border-black/10 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40 lg:grid lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.4fr] lg:gap-4`}>
+                <span>#</span><span>Obra</span><span>Cliente</span><span>Setor</span><span>O que mudou</span>
+              </div>
+              {realizacoes.map((item, i) => {
+                const [setor, ...resto] = item.result.split(' · ')
+                const mecanismo = resto.join(' · ')
+                return (
+                  <div
+                    key={`${item.empresa}-${item.obra}`}
+                    className="grid grid-cols-1 gap-1.5 border-b border-black/10 py-5 transition-colors hover:bg-white lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.4fr] lg:items-baseline lg:gap-4"
+                  >
+                    <span className={`${M_FONT} text-xs font-semibold text-[#b42318]`}>[ {String(i + 1).padStart(2, '0')} ]</span>
+                    <h3 className={`${H_FONT} text-lg font-medium leading-tight tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
+                    <p className="text-sm leading-6 text-black/70">{item.empresa}</p>
+                    <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45`}>{setor}</p>
+                    <p className="text-sm leading-6 text-black/55">{mecanismo}</p>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </section>
 
@@ -1406,9 +1437,11 @@ export function LandingPage() {
       <footer className="border-t border-black/10 bg-white pb-8 pt-14">
         <div className="mx-auto max-w-7xl px-5 md:px-10">
           <div className="grid gap-10 border-b border-black/10 pb-12 lg:grid-cols-[1.4fr_1fr_1fr]">
-            <div>
-              <BrandLockup dark accent="text-[#e5484d]" />
-              <p className={`${H_FONT} mt-6 text-4xl font-medium tracking-[-0.04em] text-[#0a0a0a]/90 sm:text-6xl`}>ConstruData</p>
+            {/* Lockup horizontal (BrandLockup é um Fragment: sem `flex` no pai, os dois
+                filhos empilhavam). O "ConstruData" gigante que existia aqui era uma
+                repetição do próprio lockup — removido. */}
+            <div className="flex items-center gap-4">
+              <BrandLockup dark accent="text-[#e5484d]" size="lg" />
             </div>
             <nav className="flex flex-col gap-3">
               {[
