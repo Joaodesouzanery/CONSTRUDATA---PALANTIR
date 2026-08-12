@@ -243,11 +243,12 @@ export async function syncAllTenantStores(): Promise<void> {
   const stores = await getAllTenantStores()
   // 1) flush primeiro (sobe o local-only, re-carimbando a organização ativa)
   await Promise.allSettled(stores.map((s) => s.getState().flush?.()))
-  // 2) pull só onde não restou pendência
-  await Promise.allSettled(stores.map(async (s) => {
-    const st = s.getState()
-    if ((st.pendingSync?.length ?? 0) === 0) await st.pull?.()
-  }))
+  // 2) pull SEMPRE — inclusive com fila pendente. Quem protege o dado local é o
+  //    `mergePull` de storeSync: ele atualiza os registros sem op pendente e mantém os
+  //    pendentes. Pular a tabela quando havia qualquer pendência (a política antiga)
+  //    fazia UMA op presa congelar o pull daquela tabela para sempre — o usuário nunca
+  //    mais via o que os colegas cadastravam, sem sintoma nenhum.
+  await Promise.allSettled(stores.map((s) => s.getState().pull?.()))
   const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
   await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
 }

@@ -62,13 +62,12 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
       // flush primeiro: sobe o que é local-only (re-carimbando org pendente)
       try { await st.flush?.() } catch { /* mantém na fila; será re-tentado */ }
       if (cancelled) return
-      // pull SÓ quando a fila esvaziou — assim nunca sobrescrevemos dado local
-      // que ainda não chegou ao servidor (senão registros não sincronizados
-      // somem). Cada store também protege o pull por-tabela como defesa extra.
+      // pull SEMPRE, mesmo com fila pendente: quem protege o dado local não sincronizado
+      // é o `mergePull` de storeSync (mantém os registros com op pendente e atualiza o
+      // resto). Esperar a fila esvaziar — a política antiga — fazia UMA op presa congelar
+      // o pull daquela tabela para sempre, e o painel envelhecia em silêncio.
       const after = useStore.getState()
-      if ((after.pendingSync?.length ?? 0) === 0) {
-        try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
-      }
+      try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
     })()
     return () => { cancelled = true }
   }, [orgId, useStore])

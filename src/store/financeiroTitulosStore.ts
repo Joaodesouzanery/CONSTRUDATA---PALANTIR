@@ -10,8 +10,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { hojeLocalISO } from '@/lib/utils'
 import type { FinanceiroTitulo, FinanceiroEntry, EntradaCategoria, SaidaCategoria, TituloTipo, TituloAnexo } from '@/types'
 
 /** Entrada do cadastro de um boleto (a aba "Boletos" cria N títulos-parcela a partir disto). */
@@ -103,6 +104,26 @@ function codigoPatch(t: FinanceiroTitulo, codigo: string): Partial<FinanceiroTit
   return espelhando ? { codigoBoleto: limpo, numeroDoc: limpo } : { codigoBoleto: limpo }
 }
 
+/** Campos do título que definem o lançamento gerado na baixa. */
+const ENTRY_FIELDS = ['valor', 'categoria', 'descricao', 'obraId', 'numeroDoc', 'tipo'] as const
+
+/**
+ * Mantém o lançamento gerado na baixa em sincronia com o título JÁ atualizado.
+ * Só reflete os campos que definem o lançamento — assim a própria baixa não se re-dispara.
+ */
+function resyncEntry(t: FinanceiroTitulo, patch: Partial<FinanceiroTitulo>) {
+  if (t.status !== 'pago' || !t.entryId) return
+  if (!ENTRY_FIELDS.some((k) => k in patch)) return
+  useFinanceiroStore.getState().updateEntry(t.entryId, {
+    tipo: t.tipo === 'pagar' ? 'saida' : 'entrada',
+    descricao: t.descricao,
+    valor: t.valor,
+    categoria: baixaCategoria(t),
+    referencia: t.numeroDoc,
+    obraId: t.obraId,
+  })
+}
+
 function buildDemo(): FinanceiroTitulo[] {
   const now = new Date().toISOString()
   const today = now.slice(0, 10)
@@ -138,6 +159,7 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
       }
       const enqueueUpdate = (t: FinanceiroTitulo) =>
         makeOp({ entity: 'financeiro_titulo', type: 'update', recordId: t.id, patch: { payload: t as unknown as Record<string, unknown>, updated_at: new Date().toISOString() }, table: TABLE })
+      const serializarFlush = makeFlushSerializer()
 
       return {
         titulos: [],
@@ -161,19 +183,7 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
           const target = get().titulos.find((t) => t.id === id)
           if (target) {
             set((s) => ({ pendingSync: [...s.pendingSync, enqueueUpdate(target)] }))
-            // Mantém o lançamento gerado na baixa em sincronia com o título.
-            // Só reflete campos que definem o lançamento (evita disparar na própria baixa).
-            const ENTRY_FIELDS = ['valor', 'categoria', 'descricao', 'obraId', 'numeroDoc', 'tipo'] as const
-            if (target.status === 'pago' && target.entryId && ENTRY_FIELDS.some((k) => k in patch)) {
-              useFinanceiroStore.getState().updateEntry(target.entryId, {
-                tipo: target.tipo === 'pagar' ? 'saida' : 'entrada',
-                descricao: target.descricao,
-                valor: target.valor,
-                categoria: baixaCategoria(target),
-                referencia: target.numeroDoc,
-                obraId: target.obraId,
-              })
-            }
+            resyncEntry(target, patch)
             void get().flush()
           }
         },
@@ -234,12 +244,27 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         updateBoleto: (boletoId, patch, codigos) => {
           // `patch` é só o que é compartilhado — o código NUNCA entra nele (senão editar a
           // descrição sobrescreveria a linha digitável de todas as parcelas). O código vem
-          // separado por id em `codigos` e é fundido aqui, para cada parcela sofrer UMA
-          // escrita só (uma op de sync em vez de duas).
-          for (const t of get().titulos.filter((x) => x.boletoId === boletoId)) {
+          // separado por id em `codigos` e é fundido aqui.
+          //
+          // Tudo num ÚNICO `set` e um só `flush`. Chamar `updateTitulo` num laço parecia
+          // equivalente, mas cada chamada dispara um flush, e cada flush leva um snapshot
+          // MAIOR da fila: 12 parcelas viravam 78 requisições para a mesma gravação.
+          const alvos = get().titulos.filter((x) => x.boletoId === boletoId)
+          if (alvos.length === 0) return
+          // `codigoPatch` precisa ver o título ANTERIOR (é assim que sabe se `numeroDoc`
+          // ainda espelha o código ou foi editado à mão em Pagamentos).
+          const patches = new Map(alvos.map((t) => {
             const novo = codigos?.[t.id]
-            get().updateTitulo(t.id, novo === undefined ? patch : { ...patch, ...codigoPatch(t, novo) })
-          }
+            return [t.id, novo === undefined ? patch : { ...patch, ...codigoPatch(t, novo) }] as const
+          }))
+          const atualizados = alvos.map((t) => ({ ...t, ...patches.get(t.id)! }))
+          const porId = new Map(atualizados.map((t) => [t.id, t]))
+          set((s) => ({
+            titulos:     s.titulos.map((t) => porId.get(t.id) ?? t),
+            pendingSync: [...s.pendingSync, ...atualizados.map(enqueueUpdate)],
+          }))
+          for (const t of atualizados) resyncEntry(t, patches.get(t.id)!)
+          void get().flush()
         },
 
         /** Linha digitável de UMA parcela (edição rápida no card). */
@@ -272,7 +297,9 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         baixarTitulo: (id, opts) => {
           const t = get().titulos.find((x) => x.id === id)
           if (!t || t.status === 'pago') return
-          const dataPagamento = opts?.dataPagamento ?? new Date().toISOString().slice(0, 10)
+          // Data LOCAL: com toISOString (UTC), uma baixa às 22h do dia 31 caía no mês
+          // seguinte — e é essa data que define a competência do lançamento na DRE.
+          const dataPagamento = opts?.dataPagamento ?? hojeLocalISO()
           const entryId = crypto.randomUUID()
           const entry: FinanceiroEntry = {
             id: entryId,
@@ -317,14 +344,17 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         lastSyncedAt: null,
         syncError: null,
 
-        flush: async () => {
+        flush: async () => serializarFlush(async () => {
           const queue = get().pendingSync
           if (queue.length === 0) return
           if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
           const { profile } = useAuth.getState()
           if (!profile) { set({ syncStatus: 'unauth' }); return }
           set({ syncStatus: 'syncing', syncError: null })
-          const result = await flushQueue(queue)
+          let result: Awaited<ReturnType<typeof flushQueue>>
+          // Sem este catch, uma exceção inesperada deixaria syncStatus preso em 'syncing'.
+          try { result = await flushQueue(queue) }
+          catch (e) { set({ syncStatus: 'error', syncError: e instanceof Error ? e.message : 'Falha ao sincronizar.' }); return }
           set((s) => ({
             pendingSync: s.pendingSync
               .filter((p) => !result.completed.includes(p.id))
@@ -333,12 +363,18 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
             lastSyncedAt: new Date().toISOString(),
             syncError:    result.lastError ?? null,
           }))
-        },
+        }, () => get().pendingSync.length),
 
         pull: async () => {
           const rows = await pullTable<{ payload: FinanceiroTitulo }>(TABLE)
-          set((s) => ({ titulos: mergePull(rows?.map((r) => r.payload) ?? null, s.titulos, s.pendingSync, TABLE) }))
-          set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+          set((s) => ({
+            titulos: mergePull(rows?.map((r) => r.payload) ?? null, s.titulos, s.pendingSync, TABLE),
+            // O pull roda logo depois do flush e agora roda SEMPRE (inclusive com fila cheia).
+            // Zerar o status aqui apagaria o diagnóstico do flush que acabou de falhar — e é
+            // justamente com op presa que o usuário precisa ver o motivo. Mantém enquanto sobrar fila.
+            syncStatus:   s.pendingSync.length > 0 && (s.syncStatus === 'error' || s.syncStatus === 'offline') ? s.syncStatus : 'idle',
+            lastSyncedAt: new Date().toISOString(),
+          }))
         },
       }
     },

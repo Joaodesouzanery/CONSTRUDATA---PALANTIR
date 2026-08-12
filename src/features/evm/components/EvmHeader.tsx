@@ -4,6 +4,7 @@
 import { DollarSign, Download, RefreshCw } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { SyncBadge } from '@/components/shared/SyncBadge'
 import { cn } from '@/lib/utils'
@@ -63,6 +64,10 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
   const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
   const sync = useStoreSync(useFinanceiroStore)
+  // Títulos (abas "Pagamentos e Cobranças" e "Boletos") vivem noutro store e não
+  // sincronizavam ao abrir o módulo — o que o colega cadastrou só aparecia no próximo
+  // login. Fica no header porque ele não desmonta ao trocar de aba (não re-puxa a cada clique).
+  useStoreSync(useFinanceiroTitulosStore)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">

@@ -18,6 +18,7 @@ import { useManutencoesStore }     from '@/store/manutencoesStore'
 import { useLaudosStore }          from '@/store/laudosStore'
 import { laudoDiasRestantes }      from '@/features/predial/utils/laudos'
 import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
+import { hojeLocalISO }            from '@/lib/utils'
 
 /** Dias de antecedência para um título "a vencer" virar lembrete. */
 const TITULO_ALERTA_DIAS = 7
@@ -45,7 +46,7 @@ export function useAlertCounts(): AlertCounts {
   )
   // Manutenções (OS abertas vencidas) — o módulo Predial agrega isso + equipamentos + saúde.
   const manutVencidas = useManutencoesStore((s) => {
-    const hoje = new Date().toISOString().slice(0, 10)
+    const hoje = hojeLocalISO()
     return s.workOrders.filter((w) => w.status !== 'concluida' && w.status !== 'cancelada' && !!w.dueDate && w.dueDate < hoje).length
   })
   // Compliance de Laudos: obrigações vencidas ou vencendo em ≤30 dias (crítico p/ o síndico).
@@ -67,7 +68,7 @@ export function useAlertCounts(): AlertCounts {
   const planos = usePlanoExecucaoStore((s) => s.planos)
   const planoAbsences = useMaoDeObraStore((s) => s.absences)
   const planoRdos = useRdoStore((s) => s.rdos)
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeLocalISO()   // local, não UTC: às 21h no BRT o UTC já virou amanhã
   // `alertasDoPlano` varre TODOS os RDOs por plano — O(planos × RDOs). Sem memo isso rodava
   // a cada render da Sidebar (qualquer mutação em qualquer store), travando a navegação.
   const planoAlerts = useMemo(
@@ -75,12 +76,17 @@ export function useAlertCounts(): AlertCounts {
     [planos, planoAbsences, planoRdos, hoje],
   )
 
-  // Pagamentos e Cobranças: títulos pendentes vencidos ou a vencer em ≤7 dias.
-  // Ancora em UTC ('...Z') p/ casar com `hoje` (também UTC) — janela de exatos 7 dias.
-  const limiteVenc = new Date(new Date(hoje + 'T00:00:00Z').getTime() + TITULO_ALERTA_DIAS * 86_400_000)
-    .toISOString().slice(0, 10)
+  // Pagamentos e Cobranças: títulos pendentes vencidos ou dentro da própria antecedência.
+  // Cada parcela de boleto pode ter o seu `alertaDias` (o usuário informa no cadastro);
+  // usar 7 fixo para todas fazia o campo não valer nada fora do card.
   const titulosAlerta = useFinanceiroTitulosStore((s) =>
-    s.titulos.filter((t) => t.status === 'pendente' && t.vencimento <= limiteVenc).length
+    s.titulos.filter((t) => {
+      if (t.status !== 'pendente') return false
+      const dias = Math.round(
+        (new Date(t.vencimento + 'T12:00:00').getTime() - new Date(hoje + 'T12:00:00').getTime()) / 86_400_000,
+      )
+      return dias <= (t.alertaDias ?? TITULO_ALERTA_DIAS)
+    }).length
   )
 
   // RDOs em rascunho (ainda não alimentam planejamento/financeiro/estoque).

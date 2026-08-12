@@ -527,13 +527,26 @@ export const useQualidadeStore = create<QualidadeState>()(
           ? get().nonConformities
           : ((ncData as unknown as QualityNcRow[] | null)?.map(rowToQualityNc) ?? [])
 
-        set({
-          fvss: items,
-          nonConformities,
-          syncStatus: 'idle',
+        // Mescla PRESERVANDO o que ainda não subiu. O pull agora roda mesmo com a fila
+        // cheia (antes era pulado quando havia qualquer op pendente, o que congelava a
+        // tabela para sempre se uma op ficasse presa) — então sobrescrever tudo com o
+        // servidor apagaria uma FVS ou NC criada offline. Mesma regra do `mergePull` de
+        // storeSync, adaptada porque as ops daqui se identificam por `entity`, não por tabela.
+        const pendFvs = new Set(get().pendingSync.filter((o) => (o.entity ?? 'fvs') === 'fvs').map((o) => o.recordId))
+        const pendNc  = new Set(get().pendingSync.filter((o) => o.entity === 'quality_nc').map((o) => o.recordId))
+        set((s) => ({
+          fvss: pendFvs.size === 0
+            ? items
+            : [...items.filter((f) => !pendFvs.has(f.id)), ...s.fvss.filter((f) => pendFvs.has(f.id))],
+          nonConformities: ncError || pendNc.size === 0
+            ? nonConformities
+            : [...nonConformities.filter((n) => !pendNc.has(n.id)), ...s.nonConformities.filter((n) => pendNc.has(n.id))],
+          // Preserva o diagnóstico do flush enquanto sobrar op na fila: o pull vem logo depois
+          // dele e agora roda sempre, então um 'idle' cego esconderia a op presa e seu motivo.
+          syncStatus: s.pendingSync.length > 0 && (s.syncStatus === 'error' || s.syncStatus === 'offline') ? s.syncStatus : 'idle',
+          syncError:  s.pendingSync.length > 0 ? s.syncError : null,
           lastSyncedAt: new Date().toISOString(),
-          syncError: null,
-        })
+        }))
       },
     }),
     {

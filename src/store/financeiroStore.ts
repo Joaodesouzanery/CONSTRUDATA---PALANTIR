@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -124,6 +124,7 @@ export const useFinanceiroStore = create<FinanceiroState>()(
   persist(
     (set, get) => {
       const enqueue = (op: PendingOp) => set((s) => ({ pendingSync: [...s.pendingSync, op] }))
+      const serializarFlush = makeFlushSerializer()
       return {
         activeTab: 'visao-geral',
         setActiveTab: (tab) => set({ activeTab: tab }),
@@ -295,14 +296,19 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         lastSyncedAt: null,
         syncError:    null,
 
-        flush: async () => {
+        // Serializado: uma drenagem por vez (ver makeFlushSerializer). Baixar N parcelas de um
+        // carnê gera N updateEntry seguidos; sem isso, cada um relançava a fila inteira.
+        flush: async () => serializarFlush(async () => {
           const queue = get().pendingSync
           if (queue.length === 0) return
           if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
           const { profile } = useAuth.getState()
           if (!profile) { set({ syncStatus: 'unauth' }); return }
           set({ syncStatus: 'syncing', syncError: null })
-          const result = await flushQueue(queue)
+          let result: Awaited<ReturnType<typeof flushQueue>>
+          // Sem este catch, uma exceção inesperada deixaria syncStatus preso em 'syncing'.
+          try { result = await flushQueue(queue) }
+          catch (e) { set({ syncStatus: 'error', syncError: e instanceof Error ? e.message : 'Falha ao sincronizar.' }); return }
           set((s) => ({
             pendingSync: s.pendingSync
               .filter((p) => !result.completed.includes(p.id))
@@ -311,7 +317,7 @@ export const useFinanceiroStore = create<FinanceiroState>()(
             lastSyncedAt: new Date().toISOString(),
             syncError:    result.lastError ?? null,
           }))
-        },
+        }, () => get().pendingSync.length),
 
         pull: async () => {
           // Puxa cada tabela e MESCLA com o local via mergePull: registros com op
@@ -321,7 +327,12 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           const ds = await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
           set((s) => ({ entries: mergePull(es?.map((r) => r.payload) ?? null, s.entries, s.pendingSync, 'financeiro_entries') }))
           set((s) => ({ distribuicoes: mergePull(ds?.map((r) => r.payload) ?? null, s.distribuicoes, s.pendingSync, 'financeiro_distribuicoes') }))
-          set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
+          // Preserva o diagnóstico do flush enquanto sobrar op na fila: o pull vem logo depois
+          // dele e agora roda sempre, então um 'idle' cego esconderia a op presa.
+          set((s) => ({
+            syncStatus:   s.pendingSync.length > 0 && (s.syncStatus === 'error' || s.syncStatus === 'offline') ? s.syncStatus : 'idle',
+            lastSyncedAt: new Date().toISOString(),
+          }))
         },
       }
     },

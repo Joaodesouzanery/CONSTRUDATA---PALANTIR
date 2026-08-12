@@ -335,6 +335,36 @@ export function changedColumns(
 }
 
 /**
+ * Serializador de `flush` — uma drenagem por vez, por store.
+ *
+ * Sem isto, N chamadas seguidas de `flush` (ex.: um laço que grava 12 parcelas de um carnê)
+ * tiram N snapshots da MESMA fila e reenviam as mesmas ops: N(N+1)/2 requisições para uma
+ * gravação só, e a primeira op mandada N vezes. Em rede de canteiro isso estoura o timeout
+ * e realimenta a fila.
+ *
+ * Quem chega durante uma drenagem não é descartado: marca `rerun` e recebe a mesma promessa;
+ * ao terminar, se ainda houver fila, drena de novo. Nunca rejeita — o estado de erro é
+ * responsabilidade do `drain` de cada store (que o expõe em `syncStatus`/`syncError`).
+ *
+ * Uso: `const serializar = makeFlushSerializer()` no corpo da fábrica do store, e
+ * `flush: async () => serializar(async () => { ...corpo... }, () => get().pendingSync.length)`.
+ */
+export function makeFlushSerializer() {
+  let inFlight: Promise<void> | null = null
+  let rerun = false
+  return function serializar(drain: () => Promise<void>, pendentes: () => number): Promise<void> {
+    if (inFlight) { rerun = true; return inFlight }
+    inFlight = (async () => {
+      try {
+        do { rerun = false; await drain() } while (rerun && pendentes() > 0)
+      } catch { /* o drain já registra o erro no estado do store */ }
+      finally { inFlight = null }
+    })()
+    return inFlight
+  }
+}
+
+/**
  * Helper para construir uma PendingOp consistente.
  */
 export function makeOp(opts: Omit<PendingOp, 'id' | 'retries' | 'createdAt'>): PendingOp {
