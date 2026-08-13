@@ -6,26 +6,29 @@
  * (e obra opcional). Molde: PagamentosPanel.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, CalendarClock, FileText, Barcode, Paperclip, Copy, Image as ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, CalendarClock, FileText, Barcode, Paperclip, Copy, FileDown, Image as ImageIcon } from 'lucide-react'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useAuth } from '@/lib/auth'
 import { canWriteTitulos } from '@/lib/roles'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { cn } from '@/lib/utils'
+import { cn, hojeLocalISO, fmtDataBR } from '@/lib/utils'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
 import { uploadBoletoFile, signedBoletoUrl, removeBoletoFile } from '../utils/boletoStorage'
 import { digitosDe, formatarCodigo, tamanhoValido, separarCodigosColados } from '../utils/boletoCodigo'
+import { BoletosReportModal } from './BoletosReportModal'
 import type { FinanceiroTitulo, TituloTipo, EntradaCategoria, SaidaCategoria, TituloAnexo } from '@/types'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const labelCls = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
 const DEFAULT_ALERTA = 7
 
-function today() { return new Date().toISOString().slice(0, 10) }
+/** Data local — `toISOString()` é UTC e depois das 21h no BRT já devolve amanhã. */
+const today = hojeLocalISO
 function addMonths(dateStr: string, n: number): string {
-  const d = new Date(dateStr + 'T00:00:00'); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10)
+  const d = new Date(dateStr + 'T00:00:00'); d.setMonth(d.getMonth() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 function diasAte(venc: string, hoje: string): number {
   return Math.round((new Date(venc + 'T12:00:00').getTime() - new Date(hoje + 'T12:00:00').getTime()) / 86_400_000)
@@ -35,7 +38,11 @@ function diasAte(venc: string, hoje: string): number {
 interface BoletoGroup { boletoId: string; parcelas: FinanceiroTitulo[]; head: FinanceiroTitulo }
 
 export function BoletosPanel() {
-  const { titulos, baixarTitulo, desfazerBaixa, removeBoleto } = useFinanceiroTitulosStore()
+  // Seletores por campo: sem eles, cada transição de syncStatus re-renderiza todos os cards.
+  const titulos       = useFinanceiroTitulosStore((s) => s.titulos)
+  const baixarTitulo  = useFinanceiroTitulosStore((s) => s.baixarTitulo)
+  const desfazerBaixa = useFinanceiroTitulosStore((s) => s.desfazerBaixa)
+  const removeBoleto  = useFinanceiroTitulosStore((s) => s.removeBoleto)
   const sites = useTorreStore((s) => s.sites)
   const hoje = today()
   // Gate espelha a RLS de financeiro_titulos: papéis fora da lista não conseguem gravar
@@ -43,6 +50,7 @@ export function BoletosPanel() {
   const podeEscrever = canWriteTitulos(useAuth((s) => s.profile?.role))
 
   const [showAdd, setShowAdd] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const [editing, setEditing] = useState<BoletoGroup | null>(null)
   const [deleting, setDeleting] = useState<BoletoGroup | null>(null)
   const [baixaId, setBaixaId] = useState<string | null>(null)
@@ -108,6 +116,11 @@ export function BoletosPanel() {
           {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
         </select>
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar beneficiário/descrição/código…" className="flex-1 min-w-[160px] bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60" />
+        {/* Exportar é leitura: não passa pelo gate de escrita. */}
+        <button onClick={() => setShowExport(true)} disabled={boletos.length === 0}
+          className="flex items-center gap-1.5 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-xs font-semibold text-[#e5e5e5] transition-colors hover:border-[#f97316]/50 hover:text-[#f97316] disabled:opacity-40">
+          <FileDown size={14} /> Exportar
+        </button>
         {podeEscrever && <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors"><Plus size={14} /> Novo boleto</button>}
       </div>
 
@@ -123,6 +136,13 @@ export function BoletosPanel() {
         </div>
       )}
 
+      {showExport && (
+        <BoletosReportModal
+          boletos={boletos} siteName={siteName} hoje={hoje}
+          recorteTela={{ fTipo, fObra, busca }}
+          onClose={() => setShowExport(false)}
+        />
+      )}
       {showAdd && <BoletoModal onClose={() => setShowAdd(false)} />}
       {editing && <BoletoModal edit={editing} onClose={() => setEditing(null)} />}
 
@@ -172,16 +192,29 @@ function CodigoParcela({ titulo, canWrite }: { titulo: FinanceiroTitulo; canWrit
   const [editando, setEditando] = useState(false)
   const [rascunho, setRascunho] = useState('')
   const [copiado, setCopiado] = useState(false)
+  // Escape desmonta o input; no Firefox isso dispara blur, que chamaria salvar() e gravaria
+  // justamente o que o usuário quis descartar. A trava sobrevive ao unmount; um estado, não.
+  const cancelandoRef = useRef(false)
 
   const codigo = titulo.codigoBoleto ?? ''
+  const paga = titulo.status === 'pago'
 
   function abrir() {
+    cancelandoRef.current = false
     setRascunho(formatarCodigo(codigo))
     setEditando(true)
   }
+  function cancelar() { cancelandoRef.current = true; setEditando(false) }
   function salvar() {
+    if (cancelandoRef.current) { cancelandoRef.current = false; return }
     setEditando(false)
-    if (digitosDe(rascunho) !== digitosDe(codigo)) setParcelaCodigo(titulo.id, rascunho)
+    const novo = digitosDe(rascunho)
+    if (novo === digitosDe(codigo)) return
+    // Parcela já baixada: o código alimenta a `referencia` do lançamento no Fluxo/DRE.
+    // Corrigir um dígito, tudo bem; APAGAR apagaria a referência de um lançamento já
+    // postado, sem confirmação e sem desfazer. O modal já protege — aqui também.
+    if (paga && novo === '' && codigo !== '') return
+    setParcelaCodigo(titulo.id, rascunho)
   }
   async function copiar() {
     try {
@@ -202,12 +235,17 @@ function CodigoParcela({ titulo, canWrite }: { titulo: FinanceiroTitulo; canWrit
           onBlur={salvar}
           onKeyDown={(e) => {
             if (e.key === 'Enter') { e.preventDefault(); salvar() }
-            if (e.key === 'Escape') { e.preventDefault(); setEditando(false) }
+            if (e.key === 'Escape') { e.preventDefault(); cancelar() }
           }}
           inputMode="numeric"
           placeholder="linha digitável desta parcela"
           className="min-w-0 flex-1 rounded border border-[#f97316]/60 bg-[#2c2c2c] px-2 py-1 font-mono text-[10px] text-white outline-none"
         />
+        {paga && codigo !== '' && digitosDe(rascunho) === '' && (
+          <span className="shrink-0 text-[9px] text-amber-400" title="O código desta parcela alimenta a referência do lançamento no Fluxo/DRE">
+            não dá para apagar
+          </span>
+        )}
         {rascunho.trim() !== '' && !tamanhoValido(rascunho) && (
           <span className="shrink-0 text-[9px] text-amber-400" title="Uma linha digitável tem 47 (bancário) ou 48 (convênio) dígitos">
             {digitosDe(rascunho).length} díg.
@@ -231,6 +269,12 @@ function CodigoParcela({ titulo, canWrite }: { titulo: FinanceiroTitulo; canWrit
       <span className={cn('min-w-0 flex-1 truncate font-mono text-[10px]', tamanhoValido(codigo) ? 'text-[#a3a3a3]' : 'text-amber-400/80')} title={formatarCodigo(codigo)}>
         {formatarCodigo(codigo)}
       </span>
+      {paga && (
+        <span className="shrink-0 rounded bg-emerald-400/10 px-1 py-0.5 text-[9px] font-semibold text-emerald-400"
+              title="Parcela já baixada: este código é a referência do lançamento no Fluxo/DRE — dá para corrigir, não para apagar">
+          paga
+        </span>
+      )}
       <button onClick={() => void copiar()} title="Copiar código" className="shrink-0 rounded p-0.5 text-[#6b6b6b] transition-colors hover:text-white">
         {copiado ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
       </button>
@@ -289,7 +333,7 @@ function BoletoCard({ g, hoje, siteName, canWrite, onBaixa, onDesfazer, onEdit, 
                 <div className="flex items-center gap-2">
                   <span className="text-[#6b6b6b] tabular-nums">{p.parcelaNum}/{p.parcelaDe}</span>
                   <span className={cn('tabular-nums', vencido ? 'font-semibold text-red-400' : aVencer ? 'text-amber-400' : 'text-[#d4d4d4]')}>
-                    {p.vencimento}{p.status === 'pendente' && (vencido ? ` · venceu há ${-dias}d` : aVencer ? ` · vence em ${dias}d` : '')}
+                    {fmtDataBR(p.vencimento)}{p.status === 'pendente' && (vencido ? ` · venceu há ${-dias}d` : aVencer ? ` · vence em ${dias}d` : '')}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -410,27 +454,26 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
     }
     setErro(null)
 
+    // Calculado FORA do updater de setParcelas: ler um valor atribuído lá dentro só funciona
+    // enquanto o React avalia o updater na hora, e com outra atualização pendente no mesmo
+    // tick a contagem vinha zerada — a mensagem dizia "0 aplicados" tendo aplicado tudo.
     const podeReceber = (r: ParcelaRow) => !r.pago && (colarSubstituir || digitosDe(r.codigo) === '')
-    let aplicados = 0
-    setParcelas((rows) => {
-      // Na criação, códigos além das parcelas existentes viram parcelas novas (mensais).
-      const livres = rows.filter(podeReceber).length
-      const base = !edit && codigos.length > livres
-        ? [...rows, ...Array.from({ length: codigos.length - livres }, (_, k) => ({
-            vencimento: addMonths(rows[rows.length - 1]?.vencimento || today(), k + 1),
-            valor: '',
-            alertaDias: String(DEFAULT_ALERTA),
-            codigo: '',
-          }))]
-        : rows
-      let i = 0
-      const out = base.map((r) => (podeReceber(r) && i < codigos.length ? { ...r, codigo: formatarCodigo(codigos[i++]) } : r))
-      aplicados = i
-      return out
-    })
+    // Na criação, códigos além das parcelas existentes viram parcelas novas (mensais).
+    const livres = parcelas.filter(podeReceber).length
+    const base: ParcelaRow[] = !edit && codigos.length > livres
+      ? [...parcelas, ...Array.from({ length: codigos.length - livres }, (_, k) => ({
+          vencimento: addMonths(parcelas[parcelas.length - 1]?.vencimento || today(), k + 1),
+          valor: '',
+          alertaDias: String(DEFAULT_ALERTA),
+          codigo: '',
+        }))]
+      : parcelas
+    let i = 0
+    setParcelas(base.map((r) => (podeReceber(r) && i < codigos.length ? { ...r, codigo: formatarCodigo(codigos[i++]) } : r)))
+    const aplicados = i
 
     const sobraram = codigos.length - aplicados
-    const pagas = parcelas.filter((r) => r.pago).length
+    const pagas = base.filter((r) => r.pago).length
     const avisos = [
       ignoradas > 0 && `${ignoradas} trecho(s) ignorado(s) por não fechar 47/48 dígitos`,
       sobraram > 0 && `${sobraram} código(s) sem parcela livre${colarSubstituir ? '' : ' (marque "substituir" para trocar as já preenchidas)'}`,
