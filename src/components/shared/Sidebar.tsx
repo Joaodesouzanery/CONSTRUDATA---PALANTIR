@@ -7,6 +7,7 @@ import {
   Calculator, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, ArrowUp, ArrowDown,
   BadgeDollarSign, Building2, Wrench,
+  Workflow,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
       { label: 'Torre de Controle', icon: Radio,            to: '/app/torre-de-controle'   },
       { label: 'Suprimentos',     icon: PackageSearch,    to: '/app/suprimentos'         },
       { label: 'Medição',          icon: Ruler,            to: '/app/medicao'             },
+      { label: 'Processos',        icon: Workflow,         to: '/app/processos'           },
     ],
   },
   {

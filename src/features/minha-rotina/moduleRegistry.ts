@@ -10,6 +10,7 @@ import {
   PackageSearch, Users, LayoutDashboard, CalendarClock, FileText,
   Calculator, Layers, Map, Network, BrainCircuit, TrendingUp,
   ShieldCheck, Ruler, BadgeDollarSign, type LucideIcon,
+  Workflow,
 } from 'lucide-react'
 
 export interface ModuleInfo {
@@ -42,6 +43,13 @@ export const MODULE_REGISTRY: ModuleInfo[] = [
     icon: Ruler,
     group: 'gestao',
     description: 'Medição contratual com conferência automática e PDF.',
+  },
+  {
+    path: '/app/processos',
+    label: 'Processos',
+    icon: Workflow,
+    group: 'gestao',
+    description: 'Descoberta de fluxos, variantes, retrabalho e desvios a partir do event log.',
   },
 
   // ── PLANEJAMENTO ───────────────────────────────────────────────────────

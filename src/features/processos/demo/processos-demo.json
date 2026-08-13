@@ -1,0 +1,4748 @@
+{
+  "schemaVersion": 1,
+  "sourceDatasetChecksum": "fnv1a64:0e385132416e749b",
+  "sourceDatasetCaseCount": 12483,
+  "sourceDatasetEventCount": 153290,
+  "definition": {
+    "id": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+    "organizationId": "00000000-0000-4000-8000-000000000001",
+    "processKey": "construction-procurement",
+    "version": 1,
+    "name": "Compras de obra",
+    "description": "Processo sintético de solicitação, aprovação, compra, entrega e consumo de materiais.",
+    "timezone": "America/Sao_Paulo",
+    "caseObjectType": "ProcurementCase",
+    "sourceMappings": {
+      "caseId": "$.case_id",
+      "activity": "$.activity",
+      "timestamp": "$.occurred_at",
+      "actorId": "$.actor_id",
+      "lifecycle": "$.lifecycle",
+      "objectType": "$.object_type",
+      "objectId": "$.object_id"
+    },
+    "featureMappings": {
+      "amount": {
+        "path": "$.amount",
+        "type": "number",
+        "unit": "BRL"
+      },
+      "department": {
+        "path": "$.department_id",
+        "type": "string"
+      },
+      "supplier": {
+        "path": "$.supplier_id",
+        "type": "string"
+      },
+      "supplier_age_days": {
+        "path": "$.supplier_age_days",
+        "type": "number",
+        "unit": "days"
+      },
+      "material_category": {
+        "path": "$.material_category",
+        "type": "string"
+      },
+      "site": {
+        "path": "$.site_id",
+        "type": "string"
+      }
+    },
+    "processModel": {
+      "schemaVersion": 1,
+      "allowedPaths": [
+        {
+          "key": "standard",
+          "label": "Fluxo padrão",
+          "states": [
+            "Material Request.completed",
+            "Review.completed",
+            "Approval.approved",
+            "Purchase.completed",
+            "Delivery.completed",
+            "Consumption.completed"
+          ]
+        },
+        {
+          "key": "emergency",
+          "label": "Fluxo emergencial",
+          "states": [
+            "Material Request.completed",
+            "Emergency Approval.approved",
+            "Purchase.completed",
+            "Delivery.completed",
+            "Consumption.completed"
+          ]
+        },
+        {
+          "key": "cancelled",
+          "label": "Cancelamento durante aprovação",
+          "states": [
+            "Material Request.completed",
+            "Review.completed",
+            "Approval.cancelled"
+          ]
+        }
+      ],
+      "requiredStates": [
+        "Material Request.completed"
+      ],
+      "optionalStates": [
+        "Review.completed",
+        "Approval.approved",
+        "Emergency Approval.approved",
+        "Consumption.completed"
+      ],
+      "forbiddenTransitions": [
+        {
+          "from": "Review.completed",
+          "to": "Purchase.started"
+        }
+      ],
+      "startStates": [
+        "Material Request.started"
+      ],
+      "endStates": [
+        "Consumption.completed",
+        "Approval.cancelled"
+      ],
+      "concurrencyGroups": []
+    },
+    "objective": {
+      "key": "reduce_procurement_lead_time",
+      "label": "Reduzir o lead time de compras sem comprometer conformidade"
+    },
+    "kpiDefinitions": {
+      "schemaVersion": 1,
+      "definitions": [
+        {
+          "key": "approval_time",
+          "label": "Tempo de aprovação",
+          "metricType": "duration",
+          "from": {
+            "activity": "Approval",
+            "lifecycle": "started"
+          },
+          "to": {
+            "activity": "Approval",
+            "lifecycle": "approved"
+          },
+          "target": 24,
+          "warningThreshold": 30,
+          "criticalThreshold": 48,
+          "unit": "hours"
+        },
+        {
+          "key": "case_lead_time",
+          "label": "Lead time do caso",
+          "metricType": "duration",
+          "from": {
+            "activity": "Material Request",
+            "lifecycle": "started"
+          },
+          "to": {
+            "activity": "Consumption",
+            "lifecycle": "completed"
+          },
+          "target": 168,
+          "warningThreshold": 216,
+          "criticalThreshold": 288,
+          "unit": "hours"
+        }
+      ]
+    },
+    "slaDefinitions": {
+      "schemaVersion": 1,
+      "definitions": [
+        {
+          "key": "approval_sla",
+          "label": "SLA de aprovação",
+          "metricType": "duration",
+          "from": {
+            "activity": "Approval",
+            "lifecycle": "started"
+          },
+          "to": {
+            "activity": "Approval",
+            "lifecycle": "approved"
+          },
+          "target": 24,
+          "warningThreshold": 36,
+          "criticalThreshold": 48,
+          "unit": "hours"
+        }
+      ]
+    }
+  },
+  "parameters": {
+    "reworkRules": [
+      {
+        "key": "approval_review",
+        "label": "Aprovação retornou para revisão",
+        "from": "Approval",
+        "to": "Review"
+      },
+      {
+        "key": "purchase_approval",
+        "label": "Compra retornou para aprovação",
+        "from": "Purchase",
+        "to": "Approval"
+      },
+      {
+        "key": "delivery_purchase",
+        "label": "Entrega retornou para compra",
+        "from": "Delivery",
+        "to": "Purchase"
+      }
+    ],
+    "maxExampleCaseIds": 10
+  },
+  "result": {
+    "schemaVersion": 1,
+    "algorithmKey": "construdata.processos.discovery",
+    "algorithmVersion": "2.0.0",
+    "input": {
+      "organizationId": "00000000-0000-4000-8000-000000000001",
+      "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+      "definitionVersion": 1,
+      "eventCount": 153290,
+      "caseCount": 12483,
+      "inputChecksum": "fnv1a64:6c6fc21ef80ed19f"
+    },
+    "nodes": [
+      {
+        "key": "Approval",
+        "activity": "Approval",
+        "occurrenceCount": 12857,
+        "caseCount": 11609,
+        "startCount": 0,
+        "endCount": 125
+      },
+      {
+        "key": "Consumption",
+        "activity": "Consumption",
+        "occurrenceCount": 12358,
+        "caseCount": 12358,
+        "startCount": 0,
+        "endCount": 12358
+      },
+      {
+        "key": "Delivery",
+        "activity": "Delivery",
+        "occurrenceCount": 12608,
+        "caseCount": 12358,
+        "startCount": 0,
+        "endCount": 0
+      },
+      {
+        "key": "Emergency Approval",
+        "activity": "Emergency Approval",
+        "occurrenceCount": 624,
+        "caseCount": 624,
+        "startCount": 0,
+        "endCount": 0
+      },
+      {
+        "key": "Material Request",
+        "activity": "Material Request",
+        "occurrenceCount": 12483,
+        "caseCount": 12483,
+        "startCount": 12483,
+        "endCount": 0
+      },
+      {
+        "key": "Purchase",
+        "activity": "Purchase",
+        "occurrenceCount": 12982,
+        "caseCount": 12358,
+        "startCount": 0,
+        "endCount": 0
+      },
+      {
+        "key": "Review",
+        "activity": "Review",
+        "occurrenceCount": 12733,
+        "caseCount": 11859,
+        "startCount": 0,
+        "endCount": 0
+      }
+    ],
+    "edges": [
+      {
+        "key": "Approval->Purchase",
+        "from": "Approval",
+        "to": "Purchase",
+        "occurrenceCount": 11858,
+        "caseCount": 11484,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Approval->Review",
+        "from": "Approval",
+        "to": "Review",
+        "occurrenceCount": 874,
+        "caseCount": 874,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Delivery->Consumption",
+        "from": "Delivery",
+        "to": "Consumption",
+        "occurrenceCount": 12358,
+        "caseCount": 12358,
+        "isLoop": false,
+        "isForbidden": false
+      },
+      {
+        "key": "Delivery->Purchase",
+        "from": "Delivery",
+        "to": "Purchase",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Emergency Approval->Purchase",
+        "from": "Emergency Approval",
+        "to": "Purchase",
+        "occurrenceCount": 624,
+        "caseCount": 624,
+        "isLoop": false,
+        "isForbidden": false
+      },
+      {
+        "key": "Material Request->Emergency Approval",
+        "from": "Material Request",
+        "to": "Emergency Approval",
+        "occurrenceCount": 624,
+        "caseCount": 624,
+        "isLoop": false,
+        "isForbidden": false
+      },
+      {
+        "key": "Material Request->Review",
+        "from": "Material Request",
+        "to": "Review",
+        "occurrenceCount": 11859,
+        "caseCount": 11859,
+        "isLoop": false,
+        "isForbidden": false
+      },
+      {
+        "key": "Purchase->Approval",
+        "from": "Purchase",
+        "to": "Approval",
+        "occurrenceCount": 374,
+        "caseCount": 374,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Purchase->Delivery",
+        "from": "Purchase",
+        "to": "Delivery",
+        "occurrenceCount": 12608,
+        "caseCount": 12358,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Review->Approval",
+        "from": "Review",
+        "to": "Approval",
+        "occurrenceCount": 12483,
+        "caseCount": 11609,
+        "isLoop": true,
+        "isForbidden": false
+      },
+      {
+        "key": "Review->Purchase",
+        "from": "Review",
+        "to": "Purchase",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "isLoop": false,
+        "isForbidden": true
+      }
+    ],
+    "paths": [
+      {
+        "key": "variant:fnv1a32:0bd51593",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Approval",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 9986,
+        "eventCount": 119832,
+        "percentage": 79.996796
+      },
+      {
+        "key": "variant:fnv1a32:ab847686",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Approval",
+          "Review",
+          "Approval",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 874,
+        "eventCount": 13984,
+        "percentage": 7.001522
+      },
+      {
+        "key": "variant:fnv1a32:8745e741",
+        "activities": [
+          "Material Request",
+          "Emergency Approval",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 624,
+        "eventCount": 6240,
+        "percentage": 4.998798
+      },
+      {
+        "key": "variant:fnv1a32:d0dcf32f",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Approval",
+          "Purchase",
+          "Approval",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 374,
+        "eventCount": 5984,
+        "percentage": 2.996075
+      },
+      {
+        "key": "variant:fnv1a32:4925574c",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Approval",
+          "Purchase",
+          "Delivery",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 250,
+        "eventCount": 4000,
+        "percentage": 2.002724
+      },
+      {
+        "key": "variant:fnv1a32:5b1df2b9",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Purchase",
+          "Delivery",
+          "Consumption"
+        ],
+        "caseCount": 250,
+        "eventCount": 2500,
+        "percentage": 2.002724
+      },
+      {
+        "key": "variant:fnv1a32:7ff2e704",
+        "activities": [
+          "Material Request",
+          "Review",
+          "Approval"
+        ],
+        "caseCount": 125,
+        "eventCount": 750,
+        "percentage": 1.001362
+      }
+    ],
+    "loops": [
+      {
+        "key": "Approval->Purchase",
+        "occurrenceCount": 374,
+        "caseCount": 374,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000006",
+          "procurement-case:synthetic:000014",
+          "procurement-case:synthetic:000076",
+          "procurement-case:synthetic:000091",
+          "procurement-case:synthetic:000129",
+          "procurement-case:synthetic:000133",
+          "procurement-case:synthetic:000204",
+          "procurement-case:synthetic:000213",
+          "procurement-case:synthetic:000214",
+          "procurement-case:synthetic:000231"
+        ],
+        "from": "Approval",
+        "to": "Purchase"
+      },
+      {
+        "key": "Approval->Review",
+        "occurrenceCount": 874,
+        "caseCount": 874,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000022",
+          "procurement-case:synthetic:000041",
+          "procurement-case:synthetic:000056",
+          "procurement-case:synthetic:000085",
+          "procurement-case:synthetic:000090",
+          "procurement-case:synthetic:000098",
+          "procurement-case:synthetic:000099",
+          "procurement-case:synthetic:000131",
+          "procurement-case:synthetic:000144",
+          "procurement-case:synthetic:000146"
+        ],
+        "from": "Approval",
+        "to": "Review"
+      },
+      {
+        "key": "Delivery->Purchase",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000007",
+          "procurement-case:synthetic:000050",
+          "procurement-case:synthetic:000113",
+          "procurement-case:synthetic:000128",
+          "procurement-case:synthetic:000188",
+          "procurement-case:synthetic:000284",
+          "procurement-case:synthetic:000306",
+          "procurement-case:synthetic:000366",
+          "procurement-case:synthetic:000371",
+          "procurement-case:synthetic:000388"
+        ],
+        "from": "Delivery",
+        "to": "Purchase"
+      },
+      {
+        "key": "Purchase->Approval",
+        "occurrenceCount": 374,
+        "caseCount": 374,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000006",
+          "procurement-case:synthetic:000014",
+          "procurement-case:synthetic:000076",
+          "procurement-case:synthetic:000091",
+          "procurement-case:synthetic:000129",
+          "procurement-case:synthetic:000133",
+          "procurement-case:synthetic:000204",
+          "procurement-case:synthetic:000213",
+          "procurement-case:synthetic:000214",
+          "procurement-case:synthetic:000231"
+        ],
+        "from": "Purchase",
+        "to": "Approval"
+      },
+      {
+        "key": "Purchase->Delivery",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000007",
+          "procurement-case:synthetic:000050",
+          "procurement-case:synthetic:000113",
+          "procurement-case:synthetic:000128",
+          "procurement-case:synthetic:000188",
+          "procurement-case:synthetic:000284",
+          "procurement-case:synthetic:000306",
+          "procurement-case:synthetic:000366",
+          "procurement-case:synthetic:000371",
+          "procurement-case:synthetic:000388"
+        ],
+        "from": "Purchase",
+        "to": "Delivery"
+      },
+      {
+        "key": "Review->Approval",
+        "occurrenceCount": 874,
+        "caseCount": 874,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000022",
+          "procurement-case:synthetic:000041",
+          "procurement-case:synthetic:000056",
+          "procurement-case:synthetic:000085",
+          "procurement-case:synthetic:000090",
+          "procurement-case:synthetic:000098",
+          "procurement-case:synthetic:000099",
+          "procurement-case:synthetic:000131",
+          "procurement-case:synthetic:000144",
+          "procurement-case:synthetic:000146"
+        ],
+        "from": "Review",
+        "to": "Approval"
+      }
+    ],
+    "rework": [
+      {
+        "key": "approval_review",
+        "occurrenceCount": 874,
+        "caseCount": 874,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000022",
+          "procurement-case:synthetic:000041",
+          "procurement-case:synthetic:000056",
+          "procurement-case:synthetic:000085",
+          "procurement-case:synthetic:000090",
+          "procurement-case:synthetic:000098",
+          "procurement-case:synthetic:000099",
+          "procurement-case:synthetic:000131",
+          "procurement-case:synthetic:000144",
+          "procurement-case:synthetic:000146"
+        ],
+        "ruleKey": "approval_review",
+        "label": "Aprovação retornou para revisão",
+        "from": "Approval",
+        "to": "Review"
+      },
+      {
+        "key": "delivery_purchase",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000007",
+          "procurement-case:synthetic:000050",
+          "procurement-case:synthetic:000113",
+          "procurement-case:synthetic:000128",
+          "procurement-case:synthetic:000188",
+          "procurement-case:synthetic:000284",
+          "procurement-case:synthetic:000306",
+          "procurement-case:synthetic:000366",
+          "procurement-case:synthetic:000371",
+          "procurement-case:synthetic:000388"
+        ],
+        "ruleKey": "delivery_purchase",
+        "label": "Entrega retornou para compra",
+        "from": "Delivery",
+        "to": "Purchase"
+      },
+      {
+        "key": "purchase_approval",
+        "occurrenceCount": 374,
+        "caseCount": 374,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000006",
+          "procurement-case:synthetic:000014",
+          "procurement-case:synthetic:000076",
+          "procurement-case:synthetic:000091",
+          "procurement-case:synthetic:000129",
+          "procurement-case:synthetic:000133",
+          "procurement-case:synthetic:000204",
+          "procurement-case:synthetic:000213",
+          "procurement-case:synthetic:000214",
+          "procurement-case:synthetic:000231"
+        ],
+        "ruleKey": "purchase_approval",
+        "label": "Compra retornou para aprovação",
+        "from": "Purchase",
+        "to": "Approval"
+      }
+    ],
+    "repeatedActivities": [
+      {
+        "key": "Approval",
+        "occurrenceCount": 1248,
+        "caseCount": 1248,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000006",
+          "procurement-case:synthetic:000014",
+          "procurement-case:synthetic:000022",
+          "procurement-case:synthetic:000041",
+          "procurement-case:synthetic:000056",
+          "procurement-case:synthetic:000076",
+          "procurement-case:synthetic:000085",
+          "procurement-case:synthetic:000090",
+          "procurement-case:synthetic:000091",
+          "procurement-case:synthetic:000098"
+        ],
+        "activity": "Approval"
+      },
+      {
+        "key": "Delivery",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000007",
+          "procurement-case:synthetic:000050",
+          "procurement-case:synthetic:000113",
+          "procurement-case:synthetic:000128",
+          "procurement-case:synthetic:000188",
+          "procurement-case:synthetic:000284",
+          "procurement-case:synthetic:000306",
+          "procurement-case:synthetic:000366",
+          "procurement-case:synthetic:000371",
+          "procurement-case:synthetic:000388"
+        ],
+        "activity": "Delivery"
+      },
+      {
+        "key": "Purchase",
+        "occurrenceCount": 624,
+        "caseCount": 624,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000006",
+          "procurement-case:synthetic:000007",
+          "procurement-case:synthetic:000014",
+          "procurement-case:synthetic:000050",
+          "procurement-case:synthetic:000076",
+          "procurement-case:synthetic:000091",
+          "procurement-case:synthetic:000113",
+          "procurement-case:synthetic:000128",
+          "procurement-case:synthetic:000129",
+          "procurement-case:synthetic:000133"
+        ],
+        "activity": "Purchase"
+      },
+      {
+        "key": "Review",
+        "occurrenceCount": 874,
+        "caseCount": 874,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000022",
+          "procurement-case:synthetic:000041",
+          "procurement-case:synthetic:000056",
+          "procurement-case:synthetic:000085",
+          "procurement-case:synthetic:000090",
+          "procurement-case:synthetic:000098",
+          "procurement-case:synthetic:000099",
+          "procurement-case:synthetic:000131",
+          "procurement-case:synthetic:000144",
+          "procurement-case:synthetic:000146"
+        ],
+        "activity": "Review"
+      }
+    ],
+    "forbiddenTransitions": [
+      {
+        "key": "Review->Purchase",
+        "occurrenceCount": 250,
+        "caseCount": 250,
+        "exampleCaseIds": [
+          "procurement-case:synthetic:000051",
+          "procurement-case:synthetic:000141",
+          "procurement-case:synthetic:000153",
+          "procurement-case:synthetic:000176",
+          "procurement-case:synthetic:000232",
+          "procurement-case:synthetic:000350",
+          "procurement-case:synthetic:000357",
+          "procurement-case:synthetic:000364",
+          "procurement-case:synthetic:000398",
+          "procurement-case:synthetic:000445"
+        ],
+        "from": "Review",
+        "to": "Purchase"
+      }
+    ],
+    "incompleteLifecycles": [],
+    "ambiguousOrderings": [],
+    "possibleConcurrency": [],
+    "metrics": {},
+    "bottlenecks": []
+  },
+  "cases": [
+    {
+      "key": "standard",
+      "label": "Fluxo padrão",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000011",
+        "startedAt": "2026-01-01T15:18:50.499Z",
+        "endedAt": "2026-01-06T20:33:19.935Z",
+        "durationMs": 450869436,
+        "eventCount": 12,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:0bd51593",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 11488,
+          "currency": "BRL",
+          "department_id": "DEP-PROJECTS",
+          "supplier_id": "supplier:synthetic:0209",
+          "supplier_age_days": 680,
+          "material_category": "structural",
+          "site_id": "site:synthetic:03"
+        }
+      },
+      "events": [
+        {
+          "eventId": "89b2e0d1-aaec-57de-abe8-e98e48b61e81",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T15:18:50.499Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:011",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "2afbc76e-da95-5b33-867e-39f9b61085a4",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T15:48:11.270Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:011",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "5819f445-08b0-5d89-88a7-b008180e69c4",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T20:27:08.920Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:011",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "7c4a6fa2-5679-5dfd-bff4-f96e15c75b31",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T22:49:11.279Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:011",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "f3ebe3c5-5193-5ffc-aa31-f7d70849abee",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T07:50:50.017Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:011",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "1f9c3487-f60c-5759-83c1-9fbcea514c62",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-02T09:30:30.465Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:011",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "1e6a89db-0517-57b5-abb5-d3a2f0c8ddcc",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T18:44:24.739Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:011",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "de8199e6-44c8-5705-b909-55d12340bb32",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-02T22:30:16.028Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:011",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "74ab3798-6087-58c8-a5f9-a6f5f1d5a9a5",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T03:19:48.201Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:delivery:011",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:009:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "6e513f47-a547-5899-b644-c8967d52df48",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T04:12:27.008Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:delivery:011",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000011",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:010:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000011"
+            }
+          }
+        },
+        {
+          "eventId": "6abccb8a-42f3-529a-9634-b293be7b2b83",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T19:56:00.499Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:consumption:011",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000011:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:011:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000011:structural"
+            }
+          }
+        },
+        {
+          "eventId": "f6f3c808-09ad-561e-ba95-d20805cbbc1e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000011",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T20:33:19.935Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:consumption:011",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000011:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000011:012:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 11488,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0209",
+            "supplier_age_days": 680,
+            "material_category": "structural",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000011:structural"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "new-supplier",
+      "label": "Fornecedor novo",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000002",
+        "startedAt": "2026-01-01T12:15:04.339Z",
+        "endedAt": "2026-01-08T12:25:18.811Z",
+        "durationMs": 605414472,
+        "eventCount": 12,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:0bd51593",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 111591,
+          "currency": "BRL",
+          "department_id": "DEP-PROJECTS",
+          "supplier_id": "supplier:synthetic:0387",
+          "supplier_age_days": 36,
+          "material_category": "finishes",
+          "site_id": "site:synthetic:05"
+        }
+      },
+      "events": [
+        {
+          "eventId": "9eb3f456-b626-56de-82dd-b44f6a4826c7",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T12:15:04.339Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:002",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "321e52a6-d709-598a-a409-f939811e2215",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T12:43:40.048Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:002",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "c03858ba-64d9-5b14-9476-b1d03097e27e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T17:57:10.083Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:002",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "99ac3c17-049d-5b6c-b274-eff9af45d882",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T19:08:29.189Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:002",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "bf0de295-e8f5-59b4-b0d1-f4eb67292fca",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-03T22:01:29.542Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:002",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "826e58e7-eaa0-5b03-a5a2-4c594d6c6fbd",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-03T22:55:55.269Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:002",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "c89543e7-392c-5c41-8b1f-f6b7faa66911",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-04T02:02:34.717Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:002",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "eda60cfd-c8ac-5008-9515-db87701f9772",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-04T05:45:35.372Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:002",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "3a5aec34-7526-55c2-8d05-3ef88279670e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-08T00:01:53.412Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:delivery:002",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:009:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "bf156dcf-d14b-5012-94dd-f35a7a839e87",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-08T01:30:18.467Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:delivery:002",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000002",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:010:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000002"
+            }
+          }
+        },
+        {
+          "eventId": "d0897d06-5f85-5f17-817c-ec328e70de23",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-08T11:52:30.666Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:consumption:002",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000002:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:011:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000002:finishes"
+            }
+          }
+        },
+        {
+          "eventId": "dbfde0f1-a287-5ab7-a1d8-fb8318a2a1c5",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000002",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-08T12:25:18.811Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:consumption:002",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000002:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000002:012:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 111591,
+            "currency": "BRL",
+            "department_id": "DEP-PROJECTS",
+            "supplier_id": "supplier:synthetic:0387",
+            "supplier_age_days": 36,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000002:finishes"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "high-amount",
+      "label": "Valor alto",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000003",
+        "startedAt": "2026-01-01T09:15:59.063Z",
+        "endedAt": "2026-01-05T12:11:16.399Z",
+        "durationMs": 356117336,
+        "eventCount": 12,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:0bd51593",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 123730,
+          "currency": "BRL",
+          "department_id": "DEP-ADMINISTRATION",
+          "supplier_id": "supplier:synthetic:0330",
+          "supplier_age_days": 1073,
+          "material_category": "structural",
+          "site_id": "site:synthetic:04"
+        }
+      },
+      "events": [
+        {
+          "eventId": "3fe762d7-80e8-5a42-a7d4-544d58db7cd8",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T09:15:59.063Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "93a7c7bc-5274-5a90-95cd-95a4941ee888",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T09:49:17.210Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "25989fb8-4f85-5b94-934d-9cfeb95078d2",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T16:15:06.048Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "b7aa947b-9541-5d4e-b8a3-ea485a48c37d",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T18:26:43.180Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "5b2ad067-c8af-523a-9cde-b8fa8f5b4aa7",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T20:45:42.367Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:003",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "e546484f-0c37-58a2-a6f5-488c8f84d861",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-02T22:58:32.006Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:003",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "48211a52-2381-5d54-b8ef-78e6934f5fe0",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-03T03:12:10.164Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:003",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "b90c2514-2d1c-50c9-9dfc-042089ecf1fd",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-03T05:16:52.610Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:003",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "2c94169b-23c9-57f8-a8cc-22892791e3ea",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-04T13:51:43.380Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:delivery:003",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:009:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "7d407f83-012f-56e8-88ce-e11cf4a1b877",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-04T15:09:24.972Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:delivery:003",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000003",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:010:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000003"
+            }
+          }
+        },
+        {
+          "eventId": "5a225877-ac66-5970-bcd6-44394a92153e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-05T11:51:54.462Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:consumption:003",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000003:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:011:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000003:structural"
+            }
+          }
+        },
+        {
+          "eventId": "5163f322-4fe2-55ae-a8ed-1c70f66cdafc",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000003",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-05T12:11:16.399Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:consumption:003",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000003:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000003:012:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 123730,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0330",
+            "supplier_age_days": 1073,
+            "material_category": "structural",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000003:structural"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "triple-interaction",
+      "label": "Interação tripla",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000063",
+        "startedAt": "2026-01-02T06:38:31.861Z",
+        "endedAt": "2026-01-12T02:31:49.720Z",
+        "durationMs": 849197859,
+        "eventCount": 12,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:0bd51593",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 88251,
+          "currency": "BRL",
+          "department_id": "DEP-INFRASTRUCTURE",
+          "supplier_id": "supplier:synthetic:0130",
+          "supplier_age_days": 27,
+          "material_category": "finishes",
+          "site_id": "site:synthetic:05"
+        }
+      },
+      "events": [
+        {
+          "eventId": "0e0d9aa7-89f7-59bd-b98a-f9d27e707ac8",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T06:38:31.861Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:063",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "629cdc58-13f3-580a-aeda-9b789fb52f2a",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-02T07:15:48.369Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:063",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "3eafedb2-5d85-5ae5-8c8c-e1672fa60630",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T21:38:42.569Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:015",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "7f9f008b-7bf6-5a21-8ac8-a3348ea1a99e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-03T00:41:11.549Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:015",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "5aa2f15d-deca-5d14-a6ed-47fc62857bb5",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T07:40:20.956Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:003",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "3c86a419-60f6-5877-ae54-8e85f224f2eb",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-06T09:39:52.703Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:003",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "82638fc5-61e5-5a3c-8b41-dd8e28c74877",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T15:59:57.481Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:009",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "168b8cfc-3cce-5c88-ac9e-291b06dba96f",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T19:06:42.418Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:009",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "b611b5fb-b6c5-5f2c-b544-6e5735904480",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-11T15:07:28.904Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:delivery:031",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:009:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "3897aef6-623d-54cd-9acb-8608c061bc33",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-11T16:42:15.074Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:delivery:031",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000063",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:010:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000063"
+            }
+          }
+        },
+        {
+          "eventId": "14f0bedc-2898-5eb4-82aa-10aefec2f0c6",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-12T02:10:13.487Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:consumption:063",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000063:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:011:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000063:finishes"
+            }
+          }
+        },
+        {
+          "eventId": "6076a2fa-c97a-5071-91fe-afff38f2ad74",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000063",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-12T02:31:49.720Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:consumption:063",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000063:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000063:012:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 88251,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0130",
+            "supplier_age_days": 27,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:05",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000063:finishes"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "emergency",
+      "label": "Caminho emergencial",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000001",
+        "startedAt": "2026-01-01T08:58:29.420Z",
+        "endedAt": "2026-01-06T21:43:54.634Z",
+        "durationMs": 477925214,
+        "eventCount": 10,
+        "activityCount": 5,
+        "variantKey": "variant:fnv1a32:8745e741",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 22584,
+          "currency": "BRL",
+          "department_id": "DEP-ADMINISTRATION",
+          "supplier_id": "supplier:synthetic:0316",
+          "supplier_age_days": 644,
+          "material_category": "structural",
+          "site_id": "site:synthetic:01"
+        }
+      },
+      "events": [
+        {
+          "eventId": "38be3c8d-112e-5414-b591-495b1c01c1c2",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T08:58:29.420Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:001",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "059005ee-8e96-510b-9ef5-60ebd5f3940e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T09:26:07.181Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:001",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "fef73242-f5c6-58f5-a745-a0aa6c74fa1d",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Emergency Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T13:23:57.598Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:emergency-approval:001",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:003:Emergency Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "ef8e97ea-30d0-5f76-b6ec-beaee9b2b632",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Emergency Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-01T14:12:24.153Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:emergency-approval:001",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:004:Emergency Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "ddf4c625-ea20-57c8-adab-f0cb1a7f5126",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T19:38:51.101Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:purchase:001",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:005:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "9266509b-5e3c-5660-8c41-c735001b91ce",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T21:23:41.262Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:purchase:001",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:006:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "40ada596-88bb-5efd-ac94-38bc248203d7",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-05T07:17:42.644Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:delivery:001",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:007:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "3d9177d1-8179-5f10-994a-f792a5a21f53",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-05T08:19:32.092Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:delivery:001",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000001",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:008:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000001"
+            }
+          }
+        },
+        {
+          "eventId": "c267a625-538e-5ce1-8524-46bbd4cdec7f",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T21:00:07.100Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:consumption:001",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000001:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:009:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000001:structural"
+            }
+          }
+        },
+        {
+          "eventId": "1ee349fe-12b7-5fd2-8775-2fcd4b2179e1",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000001",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T21:43:54.634Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:consumption:001",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000001:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000001:010:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 22584,
+            "currency": "BRL",
+            "department_id": "DEP-ADMINISTRATION",
+            "supplier_id": "supplier:synthetic:0316",
+            "supplier_age_days": 644,
+            "material_category": "structural",
+            "site_id": "site:synthetic:01",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000001:structural"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "cancelled",
+      "label": "Caso cancelado",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000181",
+        "startedAt": "2026-01-04T02:08:23.331Z",
+        "endedAt": "2026-01-05T06:38:55.118Z",
+        "durationMs": 102631787,
+        "eventCount": 6,
+        "activityCount": 3,
+        "variantKey": "variant:fnv1a32:7ff2e704",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": false,
+        "hasAnomaly": false,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "cancelled",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 32102,
+          "currency": "BRL",
+          "department_id": "DEP-INFRASTRUCTURE",
+          "supplier_id": "supplier:synthetic:0453",
+          "supplier_age_days": 741,
+          "material_category": "structural",
+          "site_id": "site:synthetic:02"
+        }
+      },
+      "events": [
+        {
+          "eventId": "89940b95-4c5d-5215-8565-075180ac3ed1",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-04T02:08:23.331Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:061",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000181"
+            }
+          }
+        },
+        {
+          "eventId": "8b9aae5b-34dc-5c5d-9e9b-0013e1dd8215",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-04T02:32:33.966Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:061",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000181"
+            }
+          }
+        },
+        {
+          "eventId": "a28e3bdf-f5a7-52e2-9089-f6f107a01fcc",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-04T18:43:47.669Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:013",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000181"
+            }
+          }
+        },
+        {
+          "eventId": "f72de618-efe6-5145-b578-d971edb38e2c",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-04T20:57:45.338Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:013",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000181"
+            }
+          }
+        },
+        {
+          "eventId": "054f5532-254b-59f5-aec3-6c5fcec75098",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-05T05:06:15.488Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:001",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000181"
+            }
+          }
+        },
+        {
+          "eventId": "22412bc8-0d15-52da-9dd4-5a0732803315",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000181",
+          "activity": "Approval",
+          "lifecycle": "cancelled",
+          "occurredAt": "2026-01-05T06:38:55.118Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:001",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000181",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000181:006:Approval:cancelled",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 32102,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0453",
+            "supplier_age_days": 741,
+            "material_category": "structural",
+            "site_id": "site:synthetic:02",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000181"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "forbidden",
+      "label": "Desvio Review → Purchase",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000051",
+        "startedAt": "2026-01-02T03:09:10.084Z",
+        "endedAt": "2026-01-07T06:56:04.791Z",
+        "durationMs": 445614707,
+        "eventCount": 10,
+        "activityCount": 5,
+        "variantKey": "variant:fnv1a32:5b1df2b9",
+        "hasLoop": false,
+        "hasRework": false,
+        "hasDeviation": true,
+        "hasAnomaly": true,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 38864,
+          "currency": "BRL",
+          "department_id": "DEP-INFRASTRUCTURE",
+          "supplier_id": "supplier:synthetic:0204",
+          "supplier_age_days": 1989,
+          "material_category": "electrical",
+          "site_id": "site:synthetic:07"
+        }
+      },
+      "events": [
+        {
+          "eventId": "27d33ccf-f29d-584e-acf0-3085f9bea404",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T03:09:10.084Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:051",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "3d6ae999-a3f1-5af5-90a0-9f508e3b1c3c",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-02T04:01:03.516Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:051",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "2aad65fc-ae37-5994-aff0-095c2b6ad534",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T20:26:38.445Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "75bfaaab-1dec-5edc-ad6e-6b37453dff40",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-02T22:47:19.672Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:003",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "442ca50e-e04e-52dc-89e7-dadd2d85ad0f",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-03T02:25:34.535Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:purchase:015",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:005:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "3ec74a2f-b233-512c-b7fc-8903fb08e200",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-03T04:46:29.119Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:purchase:015",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:006:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "ff47310f-aa3c-5a48-9956-88584c2d831f",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T15:06:17.097Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:delivery:019",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:007:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "9fbf7e8a-70d1-54d5-9b25-d149744b2b16",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T16:18:59.963Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:delivery:019",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000051",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:008:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000051"
+            }
+          }
+        },
+        {
+          "eventId": "bc5422b2-d0fe-5568-95f3-25f43959f22e",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-07T06:31:55.888Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:consumption:051",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000051:electrical",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:009:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000051:electrical"
+            }
+          }
+        },
+        {
+          "eventId": "dcdb1a00-f899-5701-916e-9dabb52c00aa",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000051",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-07T06:56:04.791Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:consumption:051",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000051:electrical",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000051:010:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 38864,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0204",
+            "supplier_age_days": 1989,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000051:electrical"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "approval-review",
+      "label": "Loop Approval → Review",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000022",
+        "startedAt": "2026-01-01T17:56:37.389Z",
+        "endedAt": "2026-01-09T21:31:59.024Z",
+        "durationMs": 704121635,
+        "eventCount": 16,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:ab847686",
+        "hasLoop": true,
+        "hasRework": true,
+        "hasDeviation": false,
+        "hasAnomaly": true,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 9152,
+          "currency": "BRL",
+          "department_id": "DEP-INFRASTRUCTURE",
+          "supplier_id": "supplier:synthetic:0105",
+          "supplier_age_days": 8,
+          "material_category": "structural",
+          "site_id": "site:synthetic:07"
+        }
+      },
+      "events": [
+        {
+          "eventId": "5d1acc79-1afe-56cf-ba39-6446fdddeef0",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T17:56:37.389Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "16f952c4-be10-59a2-93cc-3fc0fb2504a6",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T18:27:34.767Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "926a096b-7f83-59d8-a493-63bcc97ad30f",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T09:38:27.139Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "2d917610-cd04-5a7b-890b-b7dbe99e9bb0",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-02T11:57:58.995Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "4b0577ee-dd98-5ee2-bef0-8187a86d188b",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-03T18:13:02.668Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:010",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "b99f23e0-2d8e-58d6-9789-b14ac398aa7c",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-03T20:29:52.733Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:010",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "6d177209-0aef-55de-8c13-7f28abeb88ff",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Review",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-04T08:12:29.550Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:review:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:007:Review:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "acf53486-1a28-5a61-8797-db41f14a25a6",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-04T11:03:17.907Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:review:022",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:008:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "8b3d04ae-cfa3-5ef2-aed0-1d95ea4e87c9",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Approval",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-05T18:38:47.840Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:approval:010",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:009:Approval:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "aeea9462-90fb-540f-820b-1a7cfc1a3a11",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-05T19:47:06.434Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:approval:010",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:010:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "cc05d567-61bd-5906-a3d1-31390e69bd58",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T01:41:43.096Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:purchase:004",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:011:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "c8ecbb6e-1311-5fff-9919-328042e4d611",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T03:32:54.711Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:purchase:004",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:012:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "bc16e940-a835-59e3-b7ad-347b238e44d8",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-08T22:42:57.048Z",
+          "sequenceNumber": 13,
+          "actorId": "employee:synthetic:delivery:022",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:013:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "d5afec0b-1ccc-5e16-be9a-20c5b7f972d8",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-08T23:39:13.300Z",
+          "sequenceNumber": 14,
+          "actorId": "employee:synthetic:delivery:022",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000022",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:014:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000022"
+            }
+          }
+        },
+        {
+          "eventId": "360674f1-7d95-5d4c-88b9-1256c32acbeb",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-09T20:58:18.934Z",
+          "sequenceNumber": 15,
+          "actorId": "employee:synthetic:consumption:022",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000022:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:015:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000022:structural"
+            }
+          }
+        },
+        {
+          "eventId": "645f7765-70ed-5586-88ef-bdaa9c5d6f49",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000022",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-09T21:31:59.024Z",
+          "sequenceNumber": 16,
+          "actorId": "employee:synthetic:consumption:022",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000022:structural",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000022:016:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 9152,
+            "currency": "BRL",
+            "department_id": "DEP-INFRASTRUCTURE",
+            "supplier_id": "supplier:synthetic:0105",
+            "supplier_age_days": 8,
+            "material_category": "structural",
+            "site_id": "site:synthetic:07",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000022:structural"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "purchase-approval",
+      "label": "Loop Purchase → Approval",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000006",
+        "startedAt": "2026-01-01T13:15:16.762Z",
+        "endedAt": "2026-01-11T15:03:51.651Z",
+        "durationMs": 870514889,
+        "eventCount": 16,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:d0dcf32f",
+        "hasLoop": true,
+        "hasRework": true,
+        "hasDeviation": false,
+        "hasAnomaly": true,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 18464,
+          "currency": "BRL",
+          "department_id": "DEP-OPERATIONS",
+          "supplier_id": "supplier:synthetic:0258",
+          "supplier_age_days": 1213,
+          "material_category": "electrical",
+          "site_id": "site:synthetic:04"
+        }
+      },
+      "events": [
+        {
+          "eventId": "3abf6e0d-ac04-5fde-ab8e-f53efd35a4ed",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T13:15:16.762Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:006",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "a1fbbe5b-edca-5702-9cf2-22b690c31bef",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T13:40:16.670Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:006",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "7263ad52-6b1b-5506-9942-c6d6403abe82",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T19:06:20.791Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:006",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "c642bc8e-5e38-5bad-b6a5-aeb8eedfa99b",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T21:21:34.827Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:006",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "96ff1e1c-5907-55ae-9b7f-13775487e8c5",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T15:32:52.236Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:006",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "e563d43a-0bcc-5f34-add6-bc488379b746",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-02T16:51:26.543Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:006",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "6e528c68-7b28-566b-bc2e-1733e9546d30",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-03T01:31:08.502Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:006",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "fb680905-ec2c-51c4-ba74-4347ad303b86",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-03T03:26:33.549Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:006",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "e5dc0529-65c7-55f7-bb2f-154e3b345590",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Approval",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-04T14:04:35.957Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:approval:006",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:009:Approval:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "a10f96bb-24d2-573a-ac77-55f6e9aae477",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-04T15:30:27.799Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:approval:006",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:010:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "2914d3d4-7cd0-5fc9-bde7-e71e68231b03",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Purchase",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-04T19:53:30.271Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:purchase:006",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:011:Purchase:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "61ce7c2d-d879-58ae-9049-3182e9fe8501",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-05T00:18:14.715Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:purchase:006",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:012:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "052ae3f2-61cd-5321-905c-ae8ef4bb2e5d",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-10T11:06:15.527Z",
+          "sequenceNumber": 13,
+          "actorId": "employee:synthetic:delivery:006",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:013:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "ad6c0a76-8e37-5195-aa17-c764494c9c87",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-10T12:08:16.445Z",
+          "sequenceNumber": 14,
+          "actorId": "employee:synthetic:delivery:006",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000006",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:014:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000006"
+            }
+          }
+        },
+        {
+          "eventId": "79f372c4-6690-50ed-ac78-5eb2331bcc9b",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-11T14:38:09.495Z",
+          "sequenceNumber": 15,
+          "actorId": "employee:synthetic:consumption:006",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000006:electrical",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:015:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000006:electrical"
+            }
+          }
+        },
+        {
+          "eventId": "5d40508d-d8c5-513f-b489-91fb310cf049",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000006",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-11T15:03:51.651Z",
+          "sequenceNumber": 16,
+          "actorId": "employee:synthetic:consumption:006",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000006:electrical",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000006:016:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 18464,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0258",
+            "supplier_age_days": 1213,
+            "material_category": "electrical",
+            "site_id": "site:synthetic:04",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000006:electrical"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "key": "delivery-purchase",
+      "label": "Loop Delivery → Purchase",
+      "summary": {
+        "organizationId": "00000000-0000-4000-8000-000000000001",
+        "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+        "caseId": "procurement-case:synthetic:000007",
+        "startedAt": "2026-01-01T12:49:18.021Z",
+        "endedAt": "2026-01-10T10:15:36.323Z",
+        "durationMs": 768378302,
+        "eventCount": 16,
+        "activityCount": 6,
+        "variantKey": "variant:fnv1a32:4925574c",
+        "hasLoop": true,
+        "hasRework": true,
+        "hasDeviation": false,
+        "hasAnomaly": true,
+        "hasPossibleConcurrency": false,
+        "terminalLifecycle": "completed",
+        "metadataSummary": {
+          "schema_version": 1,
+          "amount": 46761,
+          "currency": "BRL",
+          "department_id": "DEP-OPERATIONS",
+          "supplier_id": "supplier:synthetic:0279",
+          "supplier_age_days": 149,
+          "material_category": "finishes",
+          "site_id": "site:synthetic:03"
+        }
+      },
+      "events": [
+        {
+          "eventId": "e0683174-40ce-5329-aaa6-bc15ca00ce48",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Material Request",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T12:49:18.021Z",
+          "sequenceNumber": 1,
+          "actorId": "employee:synthetic:material-request:007",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:001:Material Request:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "63e766c0-f402-5cd4-9caa-bb044b4f7110",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Material Request",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T13:17:49.255Z",
+          "sequenceNumber": 2,
+          "actorId": "employee:synthetic:material-request:007",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:002:Material Request:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "22e48413-5beb-567d-9ef3-52c327fc90ad",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Review",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-01T19:08:24.922Z",
+          "sequenceNumber": 3,
+          "actorId": "employee:synthetic:review:007",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:003:Review:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "faa356d3-5c56-5390-a578-0656c38d2315",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Review",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-01T22:17:09.249Z",
+          "sequenceNumber": 4,
+          "actorId": "employee:synthetic:review:007",
+          "objectType": "MaterialRequest",
+          "objectId": "material-request:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:004:Review:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialRequest",
+              "id": "material-request:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "a5b6ffe8-b2f8-5569-9b01-554bcc4f5fca",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Approval",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T09:40:40.262Z",
+          "sequenceNumber": 5,
+          "actorId": "employee:synthetic:approval:007",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:005:Approval:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "a95a7dbb-9707-5408-80cb-dd48fe96a4fb",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Approval",
+          "lifecycle": "approved",
+          "occurredAt": "2026-01-02T11:12:59.390Z",
+          "sequenceNumber": 6,
+          "actorId": "employee:synthetic:approval:007",
+          "objectType": "Approval",
+          "objectId": "approval:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:006:Approval:approved",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Approval",
+              "id": "approval:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "a5e80f95-85ac-5ab2-80fd-7e42e0b9cb65",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Purchase",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-02T21:43:23.647Z",
+          "sequenceNumber": 7,
+          "actorId": "employee:synthetic:purchase:007",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:007:Purchase:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "39a1b4c9-3409-5211-bf1e-522332b624fb",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-03T01:28:39.422Z",
+          "sequenceNumber": 8,
+          "actorId": "employee:synthetic:purchase:007",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:008:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "9fd61af5-a809-565c-9d0a-c941aad5e5e8",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Delivery",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-06T09:52:34.193Z",
+          "sequenceNumber": 9,
+          "actorId": "employee:synthetic:delivery:007",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:009:Delivery:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "e035a4a0-3464-5980-a07e-9f8ff42f82af",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-06T10:49:08.582Z",
+          "sequenceNumber": 10,
+          "actorId": "employee:synthetic:delivery:007",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:010:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "5a2bb7ea-4542-5e36-a564-7c78fa0da5a4",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Purchase",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-06T22:05:00.801Z",
+          "sequenceNumber": 11,
+          "actorId": "employee:synthetic:purchase:007",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:011:Purchase:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "cecd9baf-b174-5b17-a04a-fa781ff32ac0",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Purchase",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-07T00:52:46.127Z",
+          "sequenceNumber": 12,
+          "actorId": "employee:synthetic:purchase:007",
+          "objectType": "PurchaseOrder",
+          "objectId": "purchase-order:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:012:Purchase:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "PurchaseOrder",
+              "id": "purchase-order:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "dccf9413-f226-5719-aefb-44ff001237f5",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Delivery",
+          "lifecycle": "reopened",
+          "occurredAt": "2026-01-09T18:22:38.621Z",
+          "sequenceNumber": 13,
+          "actorId": "employee:synthetic:delivery:007",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:013:Delivery:reopened",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "3c2090e7-ad5b-5048-89fc-f2ff9887e250",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Delivery",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-09T19:50:38.402Z",
+          "sequenceNumber": 14,
+          "actorId": "employee:synthetic:delivery:007",
+          "objectType": "Delivery",
+          "objectId": "delivery:synthetic:000007",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:014:Delivery:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "Delivery",
+              "id": "delivery:synthetic:000007"
+            }
+          }
+        },
+        {
+          "eventId": "93d3ff63-60b3-545d-a40b-0d35d76bf60b",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Consumption",
+          "lifecycle": "started",
+          "occurredAt": "2026-01-10T09:48:22.231Z",
+          "sequenceNumber": 15,
+          "actorId": "employee:synthetic:consumption:007",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000007:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:015:Consumption:started",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000007:finishes"
+            }
+          }
+        },
+        {
+          "eventId": "ec8cb5e7-babb-570e-ac0d-d3cc7a3a0125",
+          "eventSchemaVersion": 1,
+          "organizationId": "00000000-0000-4000-8000-000000000001",
+          "processDefinitionId": "ba2567a1-4298-527b-bbc6-4ef2037b5b28",
+          "caseId": "procurement-case:synthetic:000007",
+          "activity": "Consumption",
+          "lifecycle": "completed",
+          "occurredAt": "2026-01-10T10:15:36.323Z",
+          "sequenceNumber": 16,
+          "actorId": "employee:synthetic:consumption:007",
+          "objectType": "MaterialLot",
+          "objectId": "material-lot:synthetic:000007:finishes",
+          "sourceSystem": "synthetic_construction_procurement_v1",
+          "sourceEventId": "procurement-case:synthetic:000007:016:Consumption:completed",
+          "metadata": {
+            "schema_version": 1,
+            "amount": 46761,
+            "currency": "BRL",
+            "department_id": "DEP-OPERATIONS",
+            "supplier_id": "supplier:synthetic:0279",
+            "supplier_age_days": 149,
+            "material_category": "finishes",
+            "site_id": "site:synthetic:03",
+            "source_record": {
+              "type": "MaterialLot",
+              "id": "material-lot:synthetic:000007:finishes"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "artifactChecksum": "fnv1a64:30f3d639339fbdfa"
+}
