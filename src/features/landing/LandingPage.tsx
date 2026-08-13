@@ -47,8 +47,8 @@ const WEB3FORMS_KEY = import.meta.env.VITE_WEB3FORMS_KEY as string | undefined
    IBM Plex Mono caixa alta com índice entre colchetes; laranja #e5484d em
    superfícies (botões, barras, dots) e #b42318 para texto pequeno laranja
    sobre claro (contraste AA). */
-const H_FONT = "font-['Inter_Tight']"
-const M_FONT = "font-['IBM_Plex_Mono']"
+const H_FONT = 'font-display'
+const M_FONT = 'font-label'
 
 type ModuleCategory = 'gestao' | 'planejamento' | 'campo' | 'projetos' | 'suprimentos'
 type ModulePain = 'avanco' | 'planilhas' | 'custo' | 'diretoria'
@@ -587,7 +587,7 @@ function Corners() {
 }
 
 /* Section header: eyebrow mono com índice entre colchetes, headline grande
-   em Inter Tight à esquerda, copy de apoio à direita, hairline abaixo. */
+   em Inter (font-display) à esquerda, copy de apoio à direita, hairline abaixo. */
 function SectionHeader({
   index,
   eyebrow,
@@ -820,7 +820,7 @@ const inputLabelCls = "mb-1.5 block text-[10px] font-semibold uppercase tracking
 function LeadField({ name, label, type = 'text', required = false, textarea = false }: { name: string; label: string; type?: string; required?: boolean; textarea?: boolean }) {
   return (
     <label className="block">
-      <span className={`${inputLabelCls} font-['IBM_Plex_Mono']`}>{label}{required && <span className="text-[#b42318]"> *</span>}</span>
+      <span className={`${inputLabelCls} font-label`}>{label}{required && <span className="text-[#b42318]"> *</span>}</span>
       {textarea
         ? <textarea name={name} required={required} rows={3} className={inputCls} />
         : <input name={name} type={type} required={required} autoComplete="off" className={inputCls} />}
@@ -1006,7 +1006,9 @@ export function LandingPage() {
                 <h1 className={`${H_FONT} mt-7 text-5xl font-medium leading-[1.02] tracking-[-0.03em] text-white sm:text-6xl lg:text-7xl`}>
                   Sua obra está pronta?
                 </h1>
-                <p className="mt-7 max-w-2xl text-lg leading-8 text-white/75 sm:text-xl">
+                {/* max-w-3xl (era 2xl): a Inter é mais larga que a Inter Tight que havia antes,
+                    e nesta medida o subtítulo quebrava em 3 linhas deixando "real." órfão. */}
+                <p className="mt-7 max-w-3xl text-lg leading-8 text-white/75 sm:text-xl">
                   Cada RDO, cada medição, cada frente de serviço em uma única fonte de verdade. O ConstruData conecta o campo à decisão, em tempo real.
                 </p>
                 <div className="mt-9">

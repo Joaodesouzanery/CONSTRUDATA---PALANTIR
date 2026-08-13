@@ -97,7 +97,7 @@ function createHelmetIcon(site: ConstructionSite, isSelected: boolean) {
       </div>
       <div style="background:rgba(10,22,40,0.92);border:1px solid ${color}50;border-radius:4px;
         padding:2px 7px;font-size:9px;font-weight:700;color:${color};white-space:nowrap;
-        font-family:Inter,system-ui,sans-serif;line-height:1.5;pointer-events:none;
+        font-family:system-ui,sans-serif;line-height:1.5;pointer-events:none;
         box-shadow:0 2px 6px rgba(0,0,0,0.4);">
         ${shortName}
       </div>
@@ -447,7 +447,7 @@ export function ObrasMap() {
             </Tooltip>
 
             <Popup className="torre-popup">
-              <div style={{ padding: '12px 14px', minWidth: 210, fontFamily: 'Inter, system-ui, sans-serif' }}>
+              <div style={{ padding: '12px 14px', minWidth: 210, fontFamily: 'system-ui, sans-serif' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span style={{ fontFamily: 'monospace', fontSize: 11, color: STATUS_COLOR[site.status], fontWeight: 700 }}>
                     {site.code}

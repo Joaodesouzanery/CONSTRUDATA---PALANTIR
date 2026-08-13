@@ -19,7 +19,7 @@
  */
 import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
 
-const M_FONT = "font-['IBM_Plex_Mono']"
+const M_FONT = 'font-label'
 
 const POSTER = '/videos/plataforma-poster.webp'
 export const DURACAO = '2 min 47 s'

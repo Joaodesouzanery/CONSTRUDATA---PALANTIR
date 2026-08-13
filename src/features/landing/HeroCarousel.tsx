@@ -12,8 +12,8 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
-const M_FONT = "font-['IBM_Plex_Mono']"
-const H_FONT = "font-['Inter_Tight']"
+const M_FONT = 'font-label'
+const H_FONT = 'font-display'
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
 const PHOTO_SLIDES: Array<{ src: string; eyebrow: string; title: string }> = [

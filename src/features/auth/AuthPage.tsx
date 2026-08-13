@@ -8,8 +8,8 @@ import { useAuth } from '@/lib/auth'
 const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
 /* Mesmos tokens visuais da landing (tema técnico claro). */
-const H_FONT = "font-['Inter_Tight']"
-const M_FONT = "font-['IBM_Plex_Mono']"
+const H_FONT = 'font-display'
+const M_FONT = 'font-label'
 
 type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup'
 

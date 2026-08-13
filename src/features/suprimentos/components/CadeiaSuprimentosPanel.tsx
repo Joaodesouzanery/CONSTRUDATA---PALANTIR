@@ -96,7 +96,7 @@ function createNodeIcon(node: SupplyChainNode, selected: boolean) {
     iconAnchor: [selected ? 27 : 23, selected ? 31 : 27],
     popupAnchor: [0, -26],
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-family:Inter,system-ui,sans-serif;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px;font-family:system-ui,sans-serif;">
         <div style="width:${selected ? 42 : 34}px;height:${selected ? 42 : 34}px;border-radius:999px;background:${color};border:3px solid ${ring};display:flex;align-items:center;justify-content:center;color:#111827;font-weight:900;font-size:12px;box-shadow:0 8px 18px rgba(0,0,0,.35);">${abbrev}</div>
         <div style="max-width:92px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(31,31,31,.92);border:1px solid ${ring}66;border-radius:4px;padding:2px 5px;color:#f5f5f5;font-size:9px;font-weight:700;">${material}</div>
       </div>

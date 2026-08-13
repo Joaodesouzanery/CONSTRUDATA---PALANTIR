@@ -106,7 +106,7 @@ function makeProjectIcon(project: Project, selected: boolean) {
       <div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
         <div style="display:flex;align-items:center;gap:5px;background:#2c2c2cdd;border:1.5px solid ${color};border-radius:8px;padding:4px 8px;box-shadow:${glow};min-width:118px;max-width:178px;justify-content:center;">
           <div style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;box-shadow:0 0 5px ${color}aa;"></div>
-          <span style="color:#f5f5f5;font-size:10px;font-weight:700;font-family:Inter,sans-serif;white-space:nowrap;letter-spacing:0.03em;">${escapeHtml(label)}</span>
+          <span style="color:#f5f5f5;font-size:10px;font-weight:700;font-family:system-ui,sans-serif;white-space:nowrap;letter-spacing:0.03em;">${escapeHtml(label)}</span>
         </div>
         <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${color};margin-top:-1px;"></div>
       </div>
@@ -125,7 +125,7 @@ function makeSiteIcon(site: ConstructionSite, selected: boolean) {
       <div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
         <div style="display:flex;align-items:center;gap:5px;background:#1f2937dd;border:1.5px dashed ${color};border-radius:8px;padding:4px 8px;box-shadow:${glow};min-width:118px;max-width:178px;justify-content:center;">
           <div style="width:9px;height:9px;border-radius:2px;background:${color};flex-shrink:0;box-shadow:0 0 5px ${color}aa;"></div>
-          <span style="color:#f5f5f5;font-size:10px;font-weight:700;font-family:Inter,sans-serif;white-space:nowrap;letter-spacing:0.03em;">${escapeHtml(label)}</span>
+          <span style="color:#f5f5f5;font-size:10px;font-weight:700;font-family:system-ui,sans-serif;white-space:nowrap;letter-spacing:0.03em;">${escapeHtml(label)}</span>
         </div>
         <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${color};margin-top:-1px;"></div>
       </div>

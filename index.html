@@ -29,9 +29,10 @@
          eliminando o flash preto na abertura da landing. -->
     <link rel="preload" as="image" href="/obras/hero-slide-1.webp" fetchpriority="high" />
     <title>ConstruData — A base operacional da sua obra</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- As fontes são servidas do próprio domínio (ver @font-face em src/styles/globals.css).
+         Antes vinham do Google Fonts, o que custava uma folha de estilo de terceiro bloqueando
+         a renderização e deixava a página cair na fonte padrão do navegador em redes que
+         bloqueiam o Google. -->
   </head>
   <body>
     <div id="root"></div>

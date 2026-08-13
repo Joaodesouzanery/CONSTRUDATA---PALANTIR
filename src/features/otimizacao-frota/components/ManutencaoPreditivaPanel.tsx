@@ -44,7 +44,7 @@ function HealthGauge({ score, color }: { score: number; color: string }) {
       />
       {/* Score text */}
       <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle"
-        fill={textColor} fontSize="13" fontWeight="700" fontFamily="Inter, sans-serif">
+        fill={textColor} fontSize="13" fontWeight="700" fontFamily="system-ui, sans-serif">
         {score}
       </text>
     </svg>

@@ -71,7 +71,7 @@ function createPinIcon(status: EquipmentStatus, selected: boolean, label: string
         </div>
         <div style="background:rgba(13,17,23,0.85);border:1px solid ${color}40;border-radius:3px;
           padding:1px 5px;font-size:9px;font-weight:600;color:${color};white-space:nowrap;
-          font-family:Inter,system-ui,sans-serif;line-height:1.4;pointer-events:none;">
+          font-family:system-ui,sans-serif;line-height:1.4;pointer-events:none;">
           ${shortLabel}
         </div>
       </div>`,
@@ -312,7 +312,7 @@ export function EquipmentMap() {
               </Tooltip>
 
               <Popup className="equip-popup" minWidth={220}>
-                <div style={{ padding: '14px 16px', fontFamily: 'Inter, system-ui, sans-serif' }}>
+                <div style={{ padding: '14px 16px', fontFamily: 'system-ui, sans-serif' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#f97316', fontWeight: 700 }}>
                       {eq.code}

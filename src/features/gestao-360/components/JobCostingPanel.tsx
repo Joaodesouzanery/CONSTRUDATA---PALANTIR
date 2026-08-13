@@ -73,7 +73,7 @@ function IndexGauge({ value, label }: { value: number; label: string }) {
           strokeLinecap="round"
           style={{ transition: 'stroke-dasharray 0.5s ease' }}
         />
-        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill={textC} fontSize="14" fontWeight="700" fontFamily="Inter, sans-serif">
+        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="middle" fill={textC} fontSize="14" fontWeight="700" fontFamily="system-ui, sans-serif">
           {value.toFixed(2)}
         </text>
       </svg>
