@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { HeroCarousel } from './HeroCarousel'
+import { VideoShowcase, DURACAO } from './VideoShowcase'
 
 const LOGIN_URL = '/login'
 const FORM_ANCHOR = '#solicitar'
@@ -1019,11 +1020,8 @@ export function LandingPage() {
           </div>
         </HeroCarousel>
 
-        {/* ── Vídeo (placeholder) — quando o vídeo ficar pronto, salve em
-            public/videos/hero-loop.mp4 e troque o <img> abaixo por:
-            <video autoPlay muted loop playsInline poster="/obras/hero-slide-2.webp"
-                   src="/videos/hero-loop.mp4" className="block aspect-video w-full object-cover" />
-            (mesmas classes; nada mais muda). ── */}
+        {/* ── Vídeo — "clique para tocar": nenhum byte de vídeo é baixado antes do clique
+            (ver VideoShowcase.tsx). Arquivos em public/videos/. ── */}
         <section className="border-t border-black/10 bg-white py-16 sm:py-24">
           <div data-sr className="mx-auto max-w-7xl px-5 md:px-10">
             <p className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.2em] text-black/50`}>
@@ -1031,25 +1029,15 @@ export function LandingPage() {
             </p>
             <figure className="relative mt-6 overflow-hidden border border-black/10 bg-white p-2 sm:p-3">
               <Corners />
-              <div className="relative overflow-hidden">
-                <img
-                  src="/obras/hero-slide-2.webp"
-                  alt="Operação de obra conectada no ConstruData"
-                  width={1408}
-                  height={792}
-                  loading="lazy"
-                  decoding="async"
-                  className="block aspect-video w-full object-cover"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/45">
-                  <div className="flex flex-col items-center gap-4">
-                    <span aria-hidden className="flex size-16 items-center justify-center border border-white/40 text-white">
-                      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                    </span>
-                    <span className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80`}>Em produção — disponível em breve</span>
-                  </div>
-                </div>
-              </div>
+              <VideoShowcase />
+              {/* Alternativa em texto: vídeo sem áudio não se resolve com legenda (não há o
+                  que legendar) — a WCAG 1.2.1 pede um equivalente textual do que se vê. */}
+              <figcaption className="px-1 pt-4 text-[13px] leading-6 text-black/55">
+                O percurso de um dado de obra: a pressão de entrega no canteiro, os registros presos ao
+                formato em que nasceram (papel, planilha, ERP, grupo de mensagens), a implantação sobre
+                uma base comum, e o efeito — um RDO preenchido no campo que atualiza medição, suprimentos
+                e planejamento, até a obra inteira caber numa tela na diretoria. Sem áudio · {DURACAO}.
+              </figcaption>
             </figure>
           </div>
         </section>
