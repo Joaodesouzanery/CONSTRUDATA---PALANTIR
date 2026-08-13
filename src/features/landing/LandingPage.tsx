@@ -608,7 +608,7 @@ function SectionHeader({
             {eyebrow}
           </p>
           {title && (
-            <h2 className={`${H_FONT} mt-6 max-w-3xl text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-6xl`}>
+            <h2 className={`${H_FONT} mt-6 max-w-3xl text-balance text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl lg:text-[3.25rem] xl:text-6xl`}>
               {title}
             </h2>
           )}
@@ -1109,7 +1109,7 @@ export function LandingPage() {
                     <span className={`${M_FONT} text-sm font-semibold text-[#b42318]`}>[ {step.index} ]</span>
                     <span className="flex size-10 items-center justify-center border border-black/15 text-black/45 transition-colors duration-300 group-hover:text-[#d13b40]"><StepIcon size={20} /></span>
                   </div>
-                  <h3 className={`${H_FONT} mt-6 text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{step.title}</h3>
+                  <h3 className={`${H_FONT} mt-6 text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{step.title}</h3>
                   <p className="mt-3 leading-7 text-black/60">{step.copy}</p>
                 </article>
               )
@@ -1272,7 +1272,7 @@ export function LandingPage() {
               >
                 <span className="absolute inset-x-0 top-0 h-[2px] origin-left scale-x-0 bg-[#e5484d] transition-transform duration-300 ease-out group-hover:scale-x-100" />
                 <Users className="size-8 text-[#d13b40]" />
-                <h3 className={`${H_FONT} mt-6 text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
+                <h3 className={`${H_FONT} mt-6 text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h3>
                 <p className="mt-5 leading-7 text-black/60">
                   <strong className="font-semibold text-[#0a0a0a]">Problema:</strong> {problem}
                 </p>
@@ -1297,7 +1297,7 @@ export function LandingPage() {
           <div className="mx-auto mt-12 max-w-7xl px-5 md:px-10">
             <div data-sr className="border-t border-black/10">
               {/* Cabeçalho só no desktop: no mobile cada linha vira bloco rotulado. */}
-              <div className={`${M_FONT} hidden border-b border-black/10 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40 lg:grid lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.4fr] lg:gap-4`}>
+              <div className={`${M_FONT} hidden border-b border-black/10 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-black/40 lg:grid lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.5fr] lg:gap-4`}>
                 <span>#</span><span>Obra</span><span>Cliente</span><span>Setor</span><span>O que mudou</span>
               </div>
               {realizacoes.map((item, i) => {
@@ -1306,7 +1306,7 @@ export function LandingPage() {
                 return (
                   <div
                     key={`${item.empresa}-${item.obra}`}
-                    className="grid grid-cols-1 gap-1.5 border-b border-black/10 py-5 transition-colors hover:bg-white lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.4fr] lg:items-baseline lg:gap-4"
+                    className="grid grid-cols-1 gap-1.5 border-b border-black/10 py-5 transition-colors hover:bg-white lg:grid-cols-[3rem_1.1fr_1fr_0.8fr_1.5fr] lg:items-baseline lg:gap-4"
                   >
                     <span className={`${M_FONT} text-xs font-semibold text-[#b42318]`}>[ {String(i + 1).padStart(2, '0')} ]</span>
                     <h3 className={`${H_FONT} text-lg font-medium leading-tight tracking-[-0.02em] text-[#0a0a0a]`}>{item.obra}</h3>
@@ -1350,7 +1350,7 @@ export function LandingPage() {
             <div className="grid border border-black/10 lg:grid-cols-[0.85fr_1.15fr]">
               <div data-sr className="border-b border-black/10 bg-[#f4f4f2] p-7 sm:p-10 lg:border-b-0 lg:border-r">
                 <p className={`${M_FONT} text-[11px] font-semibold uppercase tracking-[0.22em] text-[#b42318]`}>Implantação em obras reais</p>
-                <h2 className={`${H_FONT} mt-7 max-w-xl text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
+                <h2 className={`${H_FONT} mt-7 max-w-xl text-balance text-3xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
                   Comece com o que a obra já usa.
                 </h2>
               </div>
@@ -1405,7 +1405,7 @@ export function LandingPage() {
         {/* ── Fechamento + formulário ── */}
         <section id="solicitar" className="border-t border-black/10 bg-[#f4f4f2] px-5 py-20 sm:py-32 md:px-10">
           <div data-sr className="mx-auto max-w-4xl text-center">
-            <h2 className={`${H_FONT} text-4xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
+            <h2 className={`${H_FONT} text-balance text-4xl font-medium leading-[1.05] tracking-[-0.03em] text-[#0a0a0a] sm:text-5xl`}>
               Veja o ConstruData na sua obra.
             </h2>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-black/60 sm:text-lg">
@@ -1418,7 +1418,7 @@ export function LandingPage() {
             <div className="mb-6 flex items-center gap-3">
               <CalendarClock className="text-[#b42318]" size={20} />
               <div>
-                <h3 className={`${H_FONT} text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Agende sua demonstração</h3>
+                <h3 className={`${H_FONT} text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Agende sua demonstração</h3>
                 <p className="mt-1 text-sm leading-6 text-black/50">Uma conversa com o time de engenharia, já com o contexto da sua obra.</p>
               </div>
             </div>

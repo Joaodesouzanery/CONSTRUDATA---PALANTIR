@@ -105,7 +105,7 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                 <p className={`${M_FONT} text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 sm:text-[11px]`}>
                   [ {slide.eyebrow} ]
                 </p>
-                <h2 className={`${H_FONT} mt-5 max-w-3xl text-3xl font-medium leading-[1.06] tracking-[-0.03em] text-white sm:text-5xl lg:text-6xl`}>
+                <h2 className={`${H_FONT} mt-5 max-w-[49rem] text-3xl font-medium leading-[1.06] tracking-[-0.03em] text-white sm:text-5xl lg:text-6xl`}>
                   {slide.title}
                 </h2>
                 <div className="mt-8">
