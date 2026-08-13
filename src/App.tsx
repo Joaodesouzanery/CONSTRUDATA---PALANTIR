@@ -35,6 +35,7 @@ const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index')
 const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
 const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
 const EconomiaPage          = lazy(() => import('@/features/economia/index').then((m) => ({ default: m.EconomiaPage })))
+const ProcessosPage         = lazy(() => import('@/features/processos/index').then((m) => ({ default: m.ProcessosPage })))
 
 // Admin pages (Sprint 1: aprovações, auditoria, export, matriz)
 const AprovacoesPage        = lazy(() => import('@/features/admin/AprovacoesPage').then((m) => ({ default: m.AprovacoesPage })))
@@ -179,6 +180,7 @@ function App() {
           <Route path="bim"                 element={<Navigate to="/app/torre-de-controle?aba=bim" replace />} />
           <Route path="evm"                 element={<LazyRoute><EvmPage /></LazyRoute>} />
           <Route path="medicao"             element={<LazyRoute><MedicaoPage /></LazyRoute>} />
+          <Route path="processos"            element={<LazyRoute><ProcessosPage /></LazyRoute>} />
           <Route path="financeiro"          element={<Navigate to="/app/evm" replace />} />
           <Route path="*"                   element={<Navigate to="/app/minha-rotina" replace />} />
         </Route>
