@@ -160,7 +160,10 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# ConstruData: /redefinir-senha é o alvo do e-mail de recuperação. Em PRODUÇÃO o domínio real
+# precisa estar na allow-list do painel (Authentication › URL Configuration), senão o link do
+# e-mail cai no site_url e a pessoa não consegue trocar a senha.
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/redefinir-senha"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -179,10 +182,14 @@ enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
 enable_manual_linking = false
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
-minimum_password_length = 6
+# ConstruData: 10, alinhado com a conferência do cliente em src/features/auth/AuthPage.tsx
+# (SENHA_MINIMA). A do cliente é cortesia; ESTA é a que o atacante não contorna.
+minimum_password_length = 10
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
 # are: `letters_digits`, `lower_upper_letters_digits`, `lower_upper_letters_digits_symbols`
-password_requirements = ""
+# ConstruData: mesma regra conferida na tela (maiúscula + minúscula + número). Vale só para
+# senha NOVA — quem já tem conta continua entrando com a senha atual.
+password_requirements = "lower_upper_letters_digits"
 
 # Configure passkey sign-ins.
 # [auth.passkey]

@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, QrCode, ShieldCheck, User } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
@@ -11,7 +11,24 @@ const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construda
 const H_FONT = 'font-display'
 const M_FONT = 'font-label'
 
-type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup'
+type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup' | 'recuperar' | 'redefinir' | 'trocar-senha'
+
+/**
+ * Regra mínima de senha, conferida no cliente.
+ *
+ * ISTO NÃO É A PROTEÇÃO — é cortesia: avisa antes de o servidor recusar. A regra que vale é a
+ * do GoTrue (`supabase/config.toml`: `minimum_password_length`, `password_requirements`), que
+ * o atacante não consegue contornar chamando o endpoint direto. Mantenha as duas alinhadas.
+ */
+const SENHA_MINIMA = 10
+function problemaNaSenha(senha: string, email?: string): string | null {
+  if (senha.length < SENHA_MINIMA) return `A senha precisa ter ao menos ${SENHA_MINIMA} caracteres.`
+  if (!/[a-z]/.test(senha) || !/[A-Z]/.test(senha)) return 'Use letras maiúsculas e minúsculas.'
+  if (!/\d/.test(senha)) return 'Inclua ao menos um número.'
+  const local = (email ?? '').split('@')[0].toLowerCase()
+  if (local.length >= 4 && senha.toLowerCase().includes(local)) return 'A senha não pode conter o seu e-mail.'
+  return null
+}
 
 /** Cantoneiras de 8px nos 4 cantos de um card (motivo de frame técnico). */
 function Corners() {
@@ -32,14 +49,26 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
       ? 'Verificação em duas etapas'
       : mode === 'mfa-setup'
         ? 'Ativar autenticação'
-        : 'Acesse a plataforma'
+        : mode === 'recuperar'
+          ? 'Recuperar acesso'
+          : mode === 'redefinir'
+            ? 'Definir nova senha'
+            : mode === 'trocar-senha'
+              ? 'Trocar a senha'
+              : 'Acesse a plataforma'
   const subtitle = mode === 'invite'
     ? 'Entre na conta da empresa com o e-mail convidado.'
     : mode === 'mfa-challenge'
       ? 'Digite o código do seu app autenticador.'
       : mode === 'mfa-setup'
         ? 'Escaneie o QR code e confirme o código.'
-        : 'Use seu e-mail e senha cadastrados.'
+        : mode === 'recuperar'
+          ? 'Enviamos um link de redefinição para o seu e-mail.'
+          : mode === 'redefinir'
+            ? 'Escolha uma senha nova para a sua conta.'
+            : mode === 'trocar-senha'
+              ? 'Confirme a senha atual e escolha a nova.'
+              : 'Use seu e-mail e senha cadastrados.'
 
   return (
     <div className={`${H_FONT} min-h-screen bg-[#f4f4f2] text-[#0a0a0a] antialiased`}>
@@ -83,7 +112,13 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
             <h2 className={`${H_FONT} mt-3 text-3xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>{title}</h2>
             <p className="mt-2 text-sm leading-6 text-black/55">{subtitle}</p>
           </div>
-          {mode === 'invite' ? <InviteForm /> : mode === 'mfa-challenge' ? <MfaChallengeForm /> : mode === 'mfa-setup' ? <MfaSetupForm /> : <LoginForm />}
+          {mode === 'invite' ? <InviteForm />
+            : mode === 'mfa-challenge' ? <MfaChallengeForm />
+            : mode === 'mfa-setup' ? <MfaSetupForm />
+            : mode === 'recuperar' ? <RecuperarSenhaForm />
+            : mode === 'redefinir' ? <NovaSenhaForm origem="recuperacao" />
+            : mode === 'trocar-senha' ? <NovaSenhaForm origem="logado" />
+            : <LoginForm />}
         </section>
       </main>
     </div>
@@ -99,6 +134,21 @@ function LoginForm() {
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Atraso progressivo depois de erros seguidos. Que fique claro o que isto é e o que não é:
+  // NÃO é rate limit. Quem quer forçar senha chama o endpoint do GoTrue direto e nunca vê esta
+  // tela. O limite de verdade é o do Auth do Supabase (`[auth.rate_limit]` em
+  // supabase/config.toml). Isto serve para o caso comum e chato: a pessoa errou a senha, insiste
+  // no mesmo erro e vai batendo — o atraso força reler o que digitou.
+  const errosSeguidos = useRef(0)
+  const [esperaAte, setEsperaAte] = useState(0)
+  const [agora, setAgora] = useState(0)
+  const segundosRestantes = esperaAte > agora ? Math.ceil((esperaAte - agora) / 1000) : 0
+
+  useEffect(() => {
+    if (esperaAte <= Date.now()) return
+    const t = window.setInterval(() => setAgora(Date.now()), 250)
+    return () => window.clearInterval(t)
+  }, [esperaAte])
 
   useEffect(() => {
     try {
@@ -109,9 +159,21 @@ function LoginForm() {
     }
   }, [])
 
+  /** Registra a falha e, a partir da 3ª, segura a próxima tentativa (2s, 4s, 8s… até 30s). */
+  function registrarFalha() {
+    errosSeguidos.current += 1
+    if (errosSeguidos.current >= 3) {
+      // Os dois juntos: sem o `setAgora` o primeiro render mostraria a espera medida a partir
+      // do zero — uma contagem de quase 57 anos.
+      setAgora(Date.now())
+      setEsperaAte(Date.now() + Math.min(2 ** (errosSeguidos.current - 2), 30) * 1000)
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    if (Date.now() < esperaAte) return
     const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail || !password) {
       setError('Preencha e-mail e senha.')
@@ -122,6 +184,7 @@ function LoginForm() {
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
       if (authError) {
+        registrarFalha()
         setError(authError.message.includes('Invalid login') ? 'E-mail ou senha incorretos.' : `Erro: ${authError.message}`)
         return
       }
@@ -194,7 +257,19 @@ function LoginForm() {
           Lembrar meu e-mail neste dispositivo
         </label>
         <ErrorMessage error={error} />
-        <SubmitButton loading={loading}>Entrar <ArrowRight size={16} /></SubmitButton>
+        {segundosRestantes > 0 && (
+          <p className="text-xs text-black/55" role="status">
+            Muitas tentativas seguidas. Aguarde {segundosRestantes}s — vale reconferir o e-mail, ou redefinir a senha.
+          </p>
+        )}
+        <SubmitButton loading={loading || segundosRestantes > 0}>
+          {segundosRestantes > 0 ? `Aguarde ${segundosRestantes}s` : <>Entrar <ArrowRight size={16} /></>}
+        </SubmitButton>
+        <p className="text-center">
+          <Link to="/esqueci-senha" className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 underline-offset-4 transition hover:text-[#c2410c] hover:underline`}>
+            Esqueci minha senha
+          </Link>
+        </p>
       </form>
       <div className="mt-6 border border-black/10 bg-[#f4f4f2] p-5 text-center">
         <p className={`${M_FONT} text-xs font-semibold uppercase tracking-[0.14em] text-[#0a0a0a]`}>Ainda não tem conta?</p>
@@ -400,6 +475,196 @@ function MfaSetupForm() {
         <SubmitButton loading={loading || code.length !== 6}>Verificar e ativar <ShieldCheck size={16} /></SubmitButton>
       </form>
     </div>
+  )
+}
+
+/**
+ * "Esqueci minha senha" — dispara o e-mail de redefinição.
+ *
+ * A resposta é sempre a mesma, exista a conta ou não. Dizer "e-mail não cadastrado" transforma
+ * a tela num verificador de quem é cliente: qualquer um descobriria, endereço por endereço,
+ * quem usa a plataforma. O Supabase já responde assim; a tela não desfaz isso.
+ */
+function RecuperarSenhaForm() {
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [enviado, setEnviado] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem('cdata-login-email')
+      if (salvo) setEmail(salvo)
+    } catch { /* armazenamento bloqueado */ }
+  }, [])
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const alvo = email.trim().toLowerCase()
+    if (!alvo) return setError('Informe o e-mail da sua conta.')
+    setLoading(true)
+    try {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(alvo, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      })
+      // Erro de rede a pessoa precisa ver; "conta não existe" não é reportado pelo Supabase.
+      if (err) setError(`Não foi possível enviar agora: ${err.message}`)
+      else setEnviado(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro inesperado.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (enviado) {
+    return (
+      <div className="space-y-5">
+        <div className="border border-black/10 bg-[#f4f4f2] p-5 text-sm leading-6 text-black/70">
+          Se existir uma conta com <b>{email.trim().toLowerCase()}</b>, o link de redefinição chega
+          em instantes. Ele vale por pouco tempo e só pode ser usado uma vez — se demorar, confira
+          o spam antes de pedir outro.
+        </div>
+        <Link to="/login" className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 border border-black/15 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
+          Voltar ao login
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <Field label="E-mail da conta" icon={<Mail size={16} />}>
+        <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" disabled={loading} placeholder="voce@empresa.com.br" className={inputClass} required />
+      </Field>
+      <ErrorMessage error={error} />
+      <SubmitButton loading={loading}>Enviar link <ArrowRight size={16} /></SubmitButton>
+      <p className="text-center">
+        <Link to="/login" className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 underline-offset-4 transition hover:text-[#c2410c] hover:underline`}>
+          Voltar ao login
+        </Link>
+      </p>
+    </form>
+  )
+}
+
+/**
+ * Define a senha nova. Dois caminhos, um componente:
+ *
+ * - `recuperacao`: a pessoa chegou pelo link do e-mail. O próprio link é a prova de identidade
+ *   (o Supabase troca o token por uma sessão ao abrir a página), então só pedimos a senha nova.
+ *   Sem sessão, o link expirou ou foi aberto em outro navegador — e aí não dá para seguir.
+ *
+ * - `logado`: a pessoa já está dentro e quer trocar. Aqui pedimos a senha ATUAL e conferimos com
+ *   um login antes de trocar. O `updateUser` do Supabase não exige isso por padrão, o que
+ *   significa que um aparelho destravado deixado sobre a mesa bastaria para tomar a conta.
+ *   Conferir custa uma requisição e fecha o buraco.
+ */
+function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
+  const navigate = useNavigate()
+  const emailSessao = useAuth((state) => state.user?.email)
+  const [atual, setAtual] = useState('')
+  const [senha, setSenha] = useState('')
+  const [repetida, setRepetida] = useState('')
+  const [mostrar, setMostrar] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [pronto, setPronto] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [temSessao, setTemSessao] = useState<boolean | null>(null)
+
+  // A sessão do link de recuperação é criada de forma assíncrona pelo cliente do Supabase ao
+  // ler a URL, então não dá para decidir no primeiro render — daí o terceiro estado (null).
+  useEffect(() => {
+    let vivo = true
+    void supabase.auth.getSession().then(({ data }) => { if (vivo) setTemSessao(!!data.session) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_evento, sessao) => { if (vivo) setTemSessao(!!sessao) })
+    return () => { vivo = false; sub.subscription.unsubscribe() }
+  }, [])
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (senha !== repetida) return setError('As duas senhas não são iguais.')
+    const problema = problemaNaSenha(senha, emailSessao ?? undefined)
+    if (problema) return setError(problema)
+    if (origem === 'logado' && !atual) return setError('Digite a senha atual.')
+
+    setLoading(true)
+    try {
+      if (origem === 'logado') {
+        if (!emailSessao) { setError('Sessão expirada. Entre de novo para trocar a senha.'); return }
+        const { error: confErr } = await supabase.auth.signInWithPassword({ email: emailSessao, password: atual })
+        if (confErr) { setError('A senha atual está incorreta.'); return }
+      }
+      const { error: err } = await supabase.auth.updateUser({ password: senha })
+      if (err) {
+        setError(err.message.toLowerCase().includes('same') ? 'A senha nova precisa ser diferente da anterior.' : `Não foi possível trocar: ${err.message}`)
+        return
+      }
+      setPronto(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro inesperado.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (pronto) {
+    return (
+      <div className="space-y-5">
+        <div className="border border-black/10 bg-[#f4f4f2] p-5 text-sm leading-6 text-black/70">
+          Senha alterada. As sessões abertas em outros aparelhos continuam válidas — se a troca foi
+          por suspeita de acesso indevido, saia da conta neles também.
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(origem === 'logado' ? '/app/minha-rotina' : '/login')}
+          className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c]`}
+        >
+          {origem === 'logado' ? 'Voltar para a plataforma' : 'Entrar com a senha nova'} <ArrowRight size={16} />
+        </button>
+      </div>
+    )
+  }
+
+  if (temSessao === false) {
+    return (
+      <div className="space-y-5">
+        <div className="border border-red-500/35 bg-red-500/[0.06] p-4 text-xs leading-5 text-red-600">
+          {origem === 'logado'
+            ? 'Sua sessão expirou. Entre de novo para trocar a senha.'
+            : 'Este link não vale mais — ele expira depois de um tempo e só funciona uma vez, no mesmo navegador em que foi aberto. Peça outro.'}
+        </div>
+        <Link to={origem === 'logado' ? '/login' : '/esqueci-senha'} className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 border border-black/15 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
+          {origem === 'logado' ? 'Ir para o login' : 'Pedir outro link'}
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5">
+      {origem === 'logado' && (
+        <Field label="Senha atual" icon={<Lock size={16} />}>
+          <input value={atual} onChange={(event) => setAtual(event.target.value)} type="password" autoComplete="current-password" disabled={loading} placeholder="********" className={inputClass} required />
+        </Field>
+      )}
+      <Field label="Nova senha" icon={<KeyRound size={16} />}>
+        <input value={senha} onChange={(event) => setSenha(event.target.value)} type={mostrar ? 'text' : 'password'} autoComplete="new-password" disabled={loading} placeholder="********" className={`${inputClass} pr-11`} required />
+        <button type="button" onClick={() => setMostrar(!mostrar)} tabIndex={-1} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-black/45 hover:text-[#ea580c]" aria-label={mostrar ? 'Ocultar senha' : 'Mostrar senha'}>
+          {mostrar ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      </Field>
+      <Field label="Repita a nova senha" icon={<KeyRound size={16} />}>
+        <input value={repetida} onChange={(event) => setRepetida(event.target.value)} type={mostrar ? 'text' : 'password'} autoComplete="new-password" disabled={loading} placeholder="********" className={inputClass} required />
+      </Field>
+      <p className="text-xs leading-5 text-black/50">
+        Pelo menos {SENHA_MINIMA} caracteres, com maiúscula, minúscula e número.
+      </p>
+      <ErrorMessage error={error} />
+      <SubmitButton loading={loading || temSessao === null}>Salvar nova senha <ShieldCheck size={16} /></SubmitButton>
+    </form>
   )
 }
 

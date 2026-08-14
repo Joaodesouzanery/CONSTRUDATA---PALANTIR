@@ -829,8 +829,22 @@ function LeadForm() {
     e.preventDefault()
     if (!WEB3FORMS_KEY) return
     const form = e.currentTarget
-    setStatus('sending')
     const data = new FormData(form)
+
+    // Armadilha para robô: uma caixa de seleção escondida que ninguém consegue marcar de
+    // propósito. Robô de formulário preenche tudo que encontra no HTML, inclusive o que está
+    // fora da tela. Se veio marcada, fingimos que deu certo e não enviamos nada — dizer "você é
+    // um robô" só ensina o robô a passar na próxima. É caixa de seleção, e não campo de texto,
+    // justamente para o preenchimento automático do navegador nunca disparar um falso positivo
+    // e engolir um contato de verdade em silêncio.
+    //
+    // LIMITE, para não parecer mais do que é: a chave do Web3Forms está no bundle, então quem
+    // insistir posta direto na API sem passar por esta página. Isto corta o robô genérico que
+    // varre formulários; robô dedicado exige captcha, que está no backlog.
+    if (String(data.get('botcheck') ?? '') !== '') { form.reset(); setStatus('ok'); return }
+    data.delete('botcheck')
+
+    setStatus('sending')
     data.append('access_key', WEB3FORMS_KEY)
     data.append('subject', 'Novo lead — ConstruData')
     data.append('from_name', 'Landing ConstruData')
@@ -867,6 +881,10 @@ function LeadForm() {
   return (
     <form onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2">
       <p className="sr-only" aria-live="polite">{status === 'sending' ? 'Enviando seu contato…' : ''}</p>
+      <div aria-hidden className="absolute left-[-9999px] top-0 h-0 w-0 overflow-hidden">
+        <label htmlFor="botcheck">Não marque esta caixa</label>
+        <input id="botcheck" type="checkbox" name="botcheck" tabIndex={-1} autoComplete="off" />
+      </div>
       <LeadField name="nome" label="Nome" required />
       <LeadField name="email" type="email" label="E-mail corporativo" required />
       <LeadField name="empresa" label="Empresa" required />

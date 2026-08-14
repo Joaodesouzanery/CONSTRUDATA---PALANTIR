@@ -130,6 +130,10 @@ function App() {
         <Route path="/signup"       element={<Navigate to="/login" replace />} />
         <Route path="/signup/organizacao" element={<Navigate to="/login" replace />} />
         <Route path="/aceitar-convite" element={<LazyRoute><AuthPage mode="invite" /></LazyRoute>} />
+        <Route path="/esqueci-senha"   element={<LazyRoute><AuthPage mode="recuperar" /></LazyRoute>} />
+        {/* Alvo do e-mail de redefinição: SEM AuthGuard — a sessão vem do próprio link. */}
+        <Route path="/redefinir-senha" element={<LazyRoute><AuthPage mode="redefinir" /></LazyRoute>} />
+        <Route path="/conta/senha"     element={<LazyRoute><AuthGuard><AuthPage mode="trocar-senha" /></AuthGuard></LazyRoute>} />
         {/* QR público de chamado — SEM AuthGuard/AppShell (rota anônima, morador abre chamado). */}
         <Route path="/chamado/:slug" element={<LazyRoute><ChamadoPublicoPage /></LazyRoute>} />
         <Route path="/mfa/ativar"   element={<LazyRoute><AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard></LazyRoute>} />

@@ -20,6 +20,7 @@ import { FeedbackModal } from './FeedbackModal'
 import { OrganizationSwitcher } from './OrganizationSwitcher'
 import { ObraSwitcher } from './ObraSwitcher'
 import { GlobalSyncIndicator } from './GlobalSyncIndicator'
+import { ContaMenu } from './ContaMenu'
 import { WaterDropLogo } from './BrandLogo'
 
 const SIDEBAR_KEY = 'cdata-sidebar'
@@ -399,6 +400,8 @@ export function Sidebar({ onClose }: SidebarProps) {
               </div>
             )}
           </div>
+
+          <ContaMenu isOpen={isOpen} />
 
           <button
             onClick={toggleSidebar}
