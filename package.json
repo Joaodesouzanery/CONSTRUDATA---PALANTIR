@@ -11,6 +11,7 @@
     "build": "tsc -b && vite build && npm run build:prerender",
     "build:prerender": "vite build --ssr src/prerender.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "lint": "eslint .",
+    "check:segredos": "node scripts/checar-segredos-no-bundle.mjs dist",
     "test:processos": "node --experimental-strip-types --test src/features/processos/*.test.ts src/features/processos/core/*.test.ts src/features/processos/core/sintetico/*.test.ts src/features/processos/demo/*.test.ts",
     "fixture:processos": "node --experimental-strip-types scripts/gerar-fixture-demo-processos.ts",
     "seed:processos": "node --experimental-strip-types scripts/semear-processos.ts",

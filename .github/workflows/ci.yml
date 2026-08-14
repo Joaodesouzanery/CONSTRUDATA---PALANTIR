@@ -18,7 +18,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Acompanha o `engines.node` do package.json. Estava em 20 enquanto o
+          # projeto declarava 22: o CI aprovava num runtime que não é o de produção.
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -29,6 +31,13 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # SECURITY.md, "antes de cada commit", pede esta conferência — e ela nunca
+      # estava automatizada. A service_role ignora todas as policies de RLS: se
+      # vazar para o bundle, qualquer visitante lê e escreve em qualquer empresa.
+      # Uma ocorrência aqui é incidente, não aviso: derruba o CI de propósito.
+      - name: Nenhum segredo de servidor no bundle
+        run: node scripts/checar-segredos-no-bundle.mjs dist
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
