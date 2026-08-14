@@ -1,6 +1,27 @@
 import { useMedicaoUnificadaStore, type UnifiedFinancialType } from '@/store/medicaoUnificadaStore'
 import type { Fornecedor } from '@/store/medicaoBillingStore'
+import { useAuth } from '@/lib/auth'
+import { seededId } from '@/lib/seededId'
 import type { SubempreiteiroParseResult } from './xlsxParsers'
+
+/**
+ * Id derivado da linha da planilha, em vez de sorteado.
+ *
+ * Importar a MESMA planilha duas vezes — por engano, ou em dois dispositivos — criava duas
+ * cópias de tudo: medições, memórias e lançamentos financeiros. Como a planilha é o próprio
+ * documento de origem, ela já traz a chave natural da linha (arquivo + aba + posição), e
+ * derivar o id dela faz a segunda importação **regravar** as mesmas linhas em vez de somar
+ * outras. Reimportar passa a ser corrigir, não duplicar.
+ *
+ * A posição na planilha entra como desempate porque a mesma linha pode repetir descrição e
+ * valor legitimamente (duas diárias iguais, dois trechos idênticos). Se o arquivo for editado
+ * e as linhas mudarem de lugar, a importação gera ids novos — é o comportamento certo: passou
+ * a ser outro documento.
+ */
+function idLinha(tipo: string, arquivo: string, ...partes: Array<string | number | null | undefined>): string {
+  const orgId = useAuth.getState().profile?.organization_id
+  return seededId(orgId, `import-medicao:${tipo}`, arquivo, ...partes.map((v) => String(v ?? '')))
+}
 
 type ImportSummary = {
   sources: number
@@ -86,11 +107,15 @@ async function promoteCostRows(input: {
 }) {
   const store = useMedicaoUnificadaStore.getState()
   let count = 0
+  const arquivo = input.fileName ?? input.contractorName
+  let indice = -1
   for (const row of input.rows ?? []) {
+    indice += 1
     const maybe = row as ImportedCostRow
     const amount = costAmount(row)
     if (amount <= 0) continue
     await store.addFinancialEntry({
+      id: idLinha('custo', arquivo, input.contractorName, input.bucket, indice),
       entry_type: financialTypeFromBucket(input.bucket),
       description: text(maybe.descricao ?? maybe.material ?? maybe.item ?? input.bucket) || input.bucket,
       amount,
@@ -126,7 +151,9 @@ export async function promoteFornecedorImportToUnified(
     const defaultNucleo = fornecedor.obraNucleo ?? null
     const warnings = fornecedor.importWarnings ?? []
 
+    let indiceMedicao = -1
     for (const item of fornecedor.medicaoItens ?? []) {
+      indiceMedicao += 1
       const quantity = num(item.quantidadeMes ?? item.noMes ?? item.total)
       const unitPrice = num(item.precoUnitario)
       const issues = sourceIssues({
@@ -140,6 +167,7 @@ export async function promoteFornecedorImportToUnified(
         sourceWarnings: item.pendencias ?? item.blockingIssues ?? warnings,
       })
       await store.addManualSource({
+        id: idLinha('medicao', workbookName, contractorName, item.sourceSheet, item.sourceRow, indiceMedicao),
         source_kind: 'spreadsheet',
         source_date: sourceDate(fornecedor.mesReferencia ?? fornecedor.periodo),
         supplier_id: supplierId,
@@ -166,10 +194,13 @@ export async function promoteFornecedorImportToUnified(
       summary.sources += 1
     }
 
+    let indiceMemoria = -1
     for (const line of fornecedor.memoriaItens ?? []) {
+      indiceMemoria += 1
       const quantity = num(line.quantidade)
       const unitPrice = num(line.valorUnitario)
       await store.addMemoryLine({
+        id: idLinha('memoria', workbookName, contractorName, line.sourceSheet, indiceMemoria),
         supplier_id: supplierId,
         service_description: line.descricao || fornecedor.descricao || 'Memória de fornecedor',
         n_preco: line.item || null,
@@ -196,6 +227,7 @@ export async function promoteFornecedorImportToUnified(
       const amount = num(value)
       if (amount <= 0) continue
       await store.addFinancialEntry({
+        id: idLinha('financeiro-fornecedor', workbookName, contractorName, entryType),
         entry_type: entryType,
         supplier_id: supplierId,
         description: `${entryType === 'invoice' ? 'Nota fiscal' : 'Ajuste financeiro'} - ${contractorName}`,
@@ -221,7 +253,9 @@ export async function promoteSubempreiteiroImportToUnified(
   const fileName = preview.fileName ?? `${preview.nome}.xlsx`
   const previewWarnings = preview.warnings ?? []
 
+  let indiceItem = -1
   for (const item of preview.itens) {
+    indiceItem += 1
     const quantity = num(item.qtd)
     const unitPrice = num(item.valorUnitario)
     const issues = sourceIssues({
@@ -235,6 +269,7 @@ export async function promoteSubempreiteiroImportToUnified(
       sourceWarnings: previewWarnings,
     })
     const sourceId = await store.addManualSource({
+      id: idLinha('sub-medicao', fileName, preview.nome, item.sourceKey, indiceItem),
       source_kind: 'spreadsheet',
       source_date: sourceDate(item.mes ?? preview.periodo),
       contract_no: 'SLNR',
@@ -262,6 +297,7 @@ export async function promoteSubempreiteiroImportToUnified(
     })
     summary.sources += 1
     await store.addMemoryLine({
+      id: idLinha('sub-memoria', fileName, preview.nome, item.sourceKey, indiceItem),
       source_id: sourceId,
       service_description: item.descricao || 'Memória de subempreiteiro',
       n_preco: item.nPrecoSabesp || item.nPreco || null,
@@ -277,10 +313,13 @@ export async function promoteSubempreiteiroImportToUnified(
     summary.memoryLines += 1
   }
 
+  let indiceNf = -1
   for (const nf of preview.nfs ?? []) {
+    indiceNf += 1
     const amount = num(nf.valorNf || nf.valorPago)
     if (amount <= 0) continue
     await store.addFinancialEntry({
+      id: idLinha('sub-nf', fileName, preview.nome, nf.numero, indiceNf),
       entry_type: 'invoice',
       description: `NF ${nf.numero || ''} - ${nf.fornecedor || preview.nome}`.trim(),
       amount,
@@ -294,9 +333,12 @@ export async function promoteSubempreiteiroImportToUnified(
     summary.financialEntries += 1
   }
 
+  let indiceDesconto = -1
   for (const desconto of preview.descontos ?? []) {
+    indiceDesconto += 1
     if (num(desconto.total) <= 0) continue
     await store.addFinancialEntry({
+      id: idLinha('sub-desconto', fileName, preview.nome, desconto.mes, indiceDesconto),
       entry_type: 'discount',
       description: `Descontos gerais - ${preview.nome}`,
       amount: num(desconto.total),

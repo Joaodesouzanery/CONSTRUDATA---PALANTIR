@@ -19,6 +19,7 @@ import { uploadBoletoFile, signedBoletoUrl, removeBoletoFile } from '../utils/bo
 import { digitosDe, formatarCodigo, tamanhoValido, separarCodigosColados } from '../utils/boletoCodigo'
 import { BoletosReportModal } from './BoletosReportModal'
 import type { FinanceiroTitulo, TituloTipo, EntradaCategoria, SaidaCategoria, TituloAnexo } from '@/types'
+import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const labelCls = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -501,6 +502,7 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
   function removeAnexo(path: string) { setAnexos((a) => a.filter((x) => x.path !== path)); trashRef.current.push(path) }
   const flushTrash = () => { trashRef.current.forEach((p) => void removeBoletoFile(p)); trashRef.current = [] }
 
+  const travarEnvio = useEnvioUnico()
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErro(null)
@@ -517,6 +519,7 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
         const novo = digitosDe(r.codigo)
         if (novo !== (codigosOriginais.current[r.id] ?? '')) codigos[r.id] = novo
       }
+      if (!travarEnvio()) return
       updateBoleto(edit.boletoId, { tipo, descricao: descricao.trim(), parceiro: parceiro.trim(), obraId: obraId || undefined, categoria: cat, anexos, notas: notas.trim() || undefined }, codigos)
       flushTrash(); onClose(); return
     }
@@ -525,6 +528,7 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
       .map((r) => ({ vencimento: r.vencimento, valor: parseValor(r.valor), alertaDias: Number(r.alertaDias) || undefined, codigoBoleto: digitosDe(r.codigo) || undefined }))
       .filter((r) => r.vencimento && r.valor > 0)
     if (rows.length === 0) return setErro('Adicione ao menos uma parcela com vencimento e valor.')
+    if (!travarEnvio()) return
     addBoleto({ tipo, descricao: descricao.trim(), parceiro: parceiro.trim(), obraId: obraId || undefined, categoria: cat, anexos, notas: notas.trim() || undefined, parcelas: rows })
     flushTrash(); onClose()
   }

@@ -18,6 +18,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
+import { seededId } from '@/lib/seededId'
 import type { PlanoAnexo, PlanoAtividade, PlanoExecucao, PlanoExecucaoMembro, Servico } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
@@ -147,6 +148,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const absences = useMaoDeObraStore((s) => s.absences)
   const rdos = useRdoStore((s) => s.rdos)
   const addEntry = useFinanceiroStore((s) => s.addEntry)
+  const orgIdAtual = useAuth((st) => st.profile?.organization_id)
   const hoje = new Date().toISOString().slice(0, 10)
   const alertas = alertasDoPlano(plano, absences, hoje, rdos)
   const faltas = faltasNoPeriodo(plano, absences)
@@ -213,7 +215,9 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
     const valor = pxe.m2Executado * (plano.precoM2 || 0)
     if (valor <= 0) return
     if (!confirm(`Registrar medição de ${Math.round(pxe.m2Executado)} m² executados = ${fmtBRL(valor)} como entrada no Financeiro desta obra?`)) return
-    addEntry({ id: crypto.randomUUID(), tipo: 'entrada', descricao: `Medição — ${plano.servico} (${Math.round(pxe.m2Executado)} m² executados)`, valor, data: hoje, categoria: 'medicao', referencia: `Medição Plano ${id.slice(0, 8)}`, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: new Date().toISOString() })
+    // Id derivado de (plano, dia): registrar a mesma medição de novo — no mesmo dia, em outro
+    // dispositivo, ou por duplo-clique — regrava o mesmo lançamento em vez de somar outro.
+    addEntry({ id: seededId(orgIdAtual, 'plano-medicao', id, hoje), tipo: 'entrada', descricao: `Medição — ${plano.servico} (${Math.round(pxe.m2Executado)} m² executados)`, valor, data: hoje, categoria: 'medicao', referencia: `Medição Plano ${id.slice(0, 8)}`, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: new Date().toISOString() })
     alert('Medição registrada no Financeiro (entrada, categoria "medição") desta obra.')
   }
   const temRdo = (data: string) =>
@@ -226,10 +230,12 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
     const now = new Date().toISOString()
     const ref = `Plano Execução ${id.slice(0, 8)}`
     const dataRef = plano.periodoFim || hoje
-    addEntry({ id: crypto.randomUUID(), tipo: 'entrada', descricao: `Faturamento — ${plano.servico} (${plano.areaM2} m²)`, valor: fat, data: dataRef, categoria: 'medicao', referencia: ref, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: now })
-    if (total > 0) addEntry({ id: crypto.randomUUID(), tipo: 'saida', descricao: `Bonificação — ${plano.servico}`, valor: total, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Bônus distribuído entre ${plano.bonificacao.length} colaborador(es)`, createdAt: now })
+    // Ids derivados de (plano, tipo): o flag `financeiroEnviadoEm` é local, então em outro
+    // dispositivo o aviso nem aparecia e os três lançamentos entravam de novo.
+    addEntry({ id: seededId(orgIdAtual, 'plano-faturamento', id), tipo: 'entrada', descricao: `Faturamento — ${plano.servico} (${plano.areaM2} m²)`, valor: fat, data: dataRef, categoria: 'medicao', referencia: ref, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: now })
+    if (total > 0) addEntry({ id: seededId(orgIdAtual, 'plano-bonificacao', id), tipo: 'saida', descricao: `Bonificação — ${plano.servico}`, valor: total, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Bônus distribuído entre ${plano.bonificacao.length} colaborador(es)`, createdAt: now })
     const custoMO = custoTotalEstimado(plano)
-    if (custoMO > 0) addEntry({ id: crypto.randomUUID(), tipo: 'saida', descricao: `Mão de obra estimada — ${plano.servico}`, valor: custoMO, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Custo estimado por diária (${(plano.atividades ?? []).length} atividade(s))`, createdAt: now })
+    if (custoMO > 0) addEntry({ id: seededId(orgIdAtual, 'plano-mao-obra', id), tipo: 'saida', descricao: `Mão de obra estimada — ${plano.servico}`, valor: custoMO, data: dataRef, categoria: 'mao_de_obra', referencia: ref, obraId: plano.siteId ?? undefined, notas: `Custo estimado por diária (${(plano.atividades ?? []).length} atividade(s))`, createdAt: now })
     set({ financeiroEnviadoEm: now })
     alert('Lançado no Financeiro: faturamento (entrada) e custos (saída) desta obra.')
   }

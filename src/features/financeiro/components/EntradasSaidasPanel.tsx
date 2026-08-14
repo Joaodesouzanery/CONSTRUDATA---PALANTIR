@@ -6,6 +6,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
+import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
@@ -149,9 +150,13 @@ function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' 
   const [obraId, setObraId] = useState((initial as { obraId?: string } | undefined)?.obraId ?? '')
   const sites = useTorreStore((s) => s.sites)
 
+  const travarEnvio = useEnvioUnico()
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!descricao || !valor) return
+    if (!travarEnvio()) return
+    // O id aqui continua sorteado de propósito: um lançamento digitado à mão não tem chave de
+    // negócio — dois iguais no mesmo dia podem ser dois fatos reais. Quem deduplica é a trava.
     onSave({
       id: initial?.id ?? crypto.randomUUID(), tipo, descricao, valor: parseFloat(valor.replace(',', '.')) || 0,
       data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined,

@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
 import { digitosDe, formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroTitulo, TituloTipo, TituloStatus, EntradaCategoria, SaidaCategoria } from '@/types'
+import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const labelCls = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -259,10 +260,12 @@ function TituloModal({ initial, onClose }: { initial?: FinanceiroTitulo; onClose
     ? (Object.entries(SAIDA_CAT_LABELS) as [SaidaCategoria, string][])
     : (Object.entries(ENTRADA_CAT_LABELS) as [EntradaCategoria, string][])
 
+  const travarEnvio = useEnvioUnico()
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const valorNum = parseFloat(valor.replace(/\./g, '').replace(',', '.')) || 0
     if (!descricao || valorNum <= 0) return
+    if (!travarEnvio()) return
     const cat = (categoria || undefined) as EntradaCategoria | SaidaCategoria | undefined
     const base = {
       tipo, descricao, parceiro, obraId: obraId || undefined,
