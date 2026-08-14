@@ -30,6 +30,8 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { HeroCarousel } from './HeroCarousel'
 import { VideoShowcase, DURACAO } from './VideoShowcase'
+import { TypeformPanel, TYPEFORM_ANCHOR } from './TypeformPanel'
+import { Corners } from './Corners'
 
 const LOGIN_URL = '/login'
 const FORM_ANCHOR = '#solicitar'
@@ -574,17 +576,6 @@ function AnimatedNumbers({ text }: { text: string }) {
   )
 }
 
-/** Cantoneiras de 8px nos 4 cantos de um card (motivo de frame técnico). */
-function Corners() {
-  return (
-    <>
-      <span aria-hidden className="pointer-events-none absolute left-0 top-0 size-2 border-l border-t border-black/30" />
-      <span aria-hidden className="pointer-events-none absolute right-0 top-0 size-2 border-r border-t border-black/30" />
-      <span aria-hidden className="pointer-events-none absolute bottom-0 left-0 size-2 border-b border-l border-black/30" />
-      <span aria-hidden className="pointer-events-none absolute bottom-0 right-0 size-2 border-b border-r border-black/30" />
-    </>
-  )
-}
 
 /* Section header: eyebrow mono com índice entre colchetes, headline grande
    em Inter (font-display) à esquerda, copy de apoio à direita, hairline abaixo. */
@@ -621,16 +612,21 @@ function SectionHeader({
   )
 }
 
-/* Primary CTA — single label across the page; scrolls to the form. */
+/* CTA primário — o mesmo trio em toda a página: agendar (Calendly, nova aba), responder a
+   qualificação, ou entender antes. O link de qualificação NÃO abre um embed aqui: rola até o
+   painel da seção final, para existir um formulário só na landing inteira. */
 function DemoCTA({
   align = 'left',
   microcopy = true,
   tone = 'dark',
 }: { align?: 'left' | 'center'; microcopy?: boolean; tone?: 'light' | 'dark' }) {
   const isLight = tone === 'light'
+  const linkCls = `${M_FONT} group inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
+    isLight ? 'text-white/85 hover:text-[#f87171]' : 'text-[#0a0a0a] hover:text-[#d13b40]'
+  }`
   return (
     <div data-sr className={`flex flex-col gap-3 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <a
           href={CALENDLY_URL}
           target="_blank"
@@ -639,12 +635,10 @@ function DemoCTA({
         >
           Falar com engenharia <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
         </a>
-        <a
-          href={HOW_ANCHOR}
-          className={`${M_FONT} group inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
-            isLight ? 'text-white/85 hover:text-[#f87171]' : 'text-[#0a0a0a] hover:text-[#d13b40]'
-          }`}
-        >
+        <a href={TYPEFORM_ANCHOR} className={linkCls}>
+          Responder 1 minuto <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
+        </a>
+        <a href={HOW_ANCHOR} className={linkCls}>
           Ver como funciona <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
         </a>
       </div>
@@ -1413,20 +1407,67 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div data-sr className="relative mx-auto mt-10 max-w-4xl border border-black/10 bg-white p-6 sm:p-9">
+          {/* Dois caminhos lado a lado: contar o contexto antes (Typeform) ou marcar direto
+              (Calendly). Empilham no celular. A âncora #qualificacao é o destino dos CTAs
+              espalhados pela página — existe um embed só na landing inteira. */}
+          {/* scroll-mt: o header é `fixed top-0` e cobriria o título do card quando os CTAs do
+              meio da página rolam até aqui. (As demais âncoras da landing têm o mesmo problema,
+              pré-existente — vale um scroll-padding global depois.) */}
+          <div id="qualificacao" data-sr className="mx-auto mt-10 grid max-w-5xl scroll-mt-28 gap-4 lg:grid-cols-2 lg:has-[[data-aberto]]:grid-cols-1">
+            <TypeformPanel origem="fechamento" />
+
+            {/* Sem altura fixa: no grid os dois cards já esticam para a mesma altura. */}
+            <div className="relative flex flex-col border border-black/10 bg-white p-6 sm:p-8">
+              <Corners />
+              <p className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.16em] text-black/45`}>
+                <span className="mr-2 text-[#b42318]">[ 02 ]</span>Agenda
+              </p>
+              <h3 className={`${H_FONT} mt-4 text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>
+                Escolha um horário
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-black/55">
+                Se você já sabe o que precisa, fale direto com o time de engenharia. A demonstração
+                vem configurada com o contexto da sua obra.
+              </p>
+              <ul className={`${M_FONT} mt-5 space-y-2 text-[10px] uppercase tracking-[0.14em] text-black/40`}>
+                <li>· 30 minutos</li>
+                <li>· Com engenheiro, não com vendedor</li>
+                <li>· Sem compromisso de compra</li>
+              </ul>
+              <div className="mt-auto pt-6">
+                <a
+                  href={CALENDLY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${M_FONT} group inline-flex min-h-12 w-full items-center justify-center gap-3 border border-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#b42318] transition hover:bg-[#cc2b33] hover:text-white sm:w-auto`}
+                >
+                  Agendar demonstração
+                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
+                </a>
+                <p className="mt-3 text-xs leading-5 text-black/40">Abre a agenda do time em outra aba.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Terceiro caminho, mais discreto: quem não quer nem responder nem marcar. Sem a chave
+              do Web3Forms o LeadForm cai num botão do Calendly — que é exatamente o card ao lado,
+              então nesse caso o bloco inteiro sai em vez de repetir o mesmo CTA duas vezes. */}
+          {WEB3FORMS_KEY && (
+          <div data-sr className="relative mx-auto mt-4 max-w-5xl border border-black/10 bg-white p-6 sm:p-9">
             <Corners />
             <div className="mb-6 flex items-center gap-3">
               <CalendarClock className="text-[#b42318]" size={20} />
               <div>
-                <h3 className={`${H_FONT} text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Agende sua demonstração</h3>
-                <p className="mt-1 text-sm leading-6 text-black/50">Uma conversa com o time de engenharia, já com o contexto da sua obra.</p>
+                <h3 className={`${H_FONT} text-balance text-2xl font-medium tracking-[-0.02em] text-[#0a0a0a]`}>Prefere só deixar o contato?</h3>
+                <p className="mt-1 text-sm leading-6 text-black/50">A gente responde e combina o resto por e-mail.</p>
               </div>
             </div>
             <LeadForm />
             <p className="mt-4 text-center text-xs leading-5 text-black/45">
-              A demonstração já vem configurada com o contexto da sua obra. Você conversa com quem entende de obra, não com um vendedor de software.
+              Você conversa com quem entende de obra, não com um vendedor de software.
             </p>
           </div>
+          )}
         </section>
       </main>
 
