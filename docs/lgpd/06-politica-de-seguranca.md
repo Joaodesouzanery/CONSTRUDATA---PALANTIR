@@ -88,13 +88,26 @@ O isolamento entre clientes **não depende do front-end esconder dados** — é 
 
 ## 8. Continuidade, backups e recuperação (art. 46; art. 49)
 
-- **Backups automáticos** gerenciados pela Supabase (diários, conforme o plano contratado).
-- **PITR** (recuperação a um ponto no tempo) em produção, quando habilitado no plano {{PLANO_SUPABASE}}.
-- **Dumps lógicos** periódicos guardados fora da Supabase ({{PERIODICIDADE_DUMP}}).
-- **Export por organização** para recuperação seletiva por `organization_id`.
+> ⚠️ **Preencher com o que existe, não com o que se pretende.** Nada abaixo pode ser
+> afirmado a um controlador antes de estar contratado e **testado ao menos uma vez**.
+> O estado real de cada camada está em `docs/database-architecture.md`, seção 8.
+
+**Implementado hoje:**
+
 - **Soft-delete** em dados operacionais importantes, reduzindo perda por exclusão acidental.
-- **Runbook de recuperação:** congelar escritas → identificar o horário do incidente por `audit_log` → restaurar PITR em ambiente paralelo (não sobrescrever produção) → comparar por `organization_id` → recuperar seletivamente → reabrir após validação.
-- Objetivos de recuperação a definir: **RPO** {{RPO}} / **RTO** {{RTO}}.
+- **Export por organização**, sob demanda do owner pela interface, para recuperação seletiva e para portabilidade (art. 18, V).
+- **Cópia local** no navegador do usuário ativo enquanto a sincronização não conclui.
+
+**Pendente de contratação/implementação — não afirmar como existente:**
+
+- [ ] **Backups automáticos** gerenciados pela Supabase (diários, conforme o plano contratado — exige plano pago).
+- [ ] **PITR** (recuperação a um ponto no tempo), add-on do plano {{PLANO_SUPABASE}}.
+- [ ] **Dumps lógicos** periódicos guardados fora da Supabase ({{PERIODICIDADE_DUMP}}).
+- [ ] **Primeiro teste de restauração** — nunca realizado. Backup que nunca foi restaurado não é backup, é hipótese.
+- [ ] Objetivos de recuperação: **RPO** {{RPO}} / **RTO** {{RTO}}.
+
+**Runbook de recuperação** (pressupõe PITR contratado; sem ele, os passos 3 e 4 não têm insumo):
+congelar escritas → identificar o horário do incidente por `audit_log` → restaurar PITR em ambiente paralelo (não sobrescrever produção) → comparar por `organization_id` → recuperar seletivamente → reabrir após validação.
 
 ---
 

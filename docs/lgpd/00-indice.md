@@ -4,7 +4,7 @@
 
 ## Contexto do produto (para os documentos refletirem a realidade)
 
-- **{{NOME_FANTASIA}} = "ConstruData"** — SaaS **multi-tenant** (React + Supabase: Postgres/Auth/Storage; hospedagem Vercel). Isolamento por organização via **RLS** (`organization_id`), **MFA**, TLS em trânsito, criptografia em repouso, `audit_log`, menor privilégio e backups gerenciados.
+- **{{NOME_FANTASIA}} = "ConstruData"** — SaaS **multi-tenant** (React + Supabase: Postgres/Auth/Storage; hospedagem Vercel). Isolamento por organização via **RLS** (`organization_id`), TLS em trânsito, criptografia em repouso, `audit_log` append-only, menor privilégio e política mínima de senha. Segundo fator (TOTP) disponível e não exigido; backup gerenciado conforme o plano contratado — o estado corrente de cada controle está em `06-politica-de-seguranca.md`, seção 8.
 - Atende **obras** (construção) e **prédios/condomínios** (módulo "Predial": ativos, manutenções, laudos, chamados).
 - **Papéis:** o **CLIENTE** (construtora / condomínio / administradora) é o **CONTROLADOR**; **`{{RAZAO_SOCIAL}}`** (fornecedor) é **OPERADOR** — trata dados em nome do controlador, conforme contrato.
 - **Base legal (regra, NÃO consentimento):** execução de contrato (art. 7º V) · obrigação legal/regulatória (art. 7º II — ex.: laudos/AVCB) · legítimo interesse (art. 7º IX — segurança, gestão do edificado), com teste de proporcionalidade. Consentimento só residual (marketing).

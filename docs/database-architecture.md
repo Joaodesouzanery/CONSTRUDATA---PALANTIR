@@ -611,17 +611,23 @@ interface PendingChange {
 
 ## 8) Backup e disaster recovery
 
+> ⚠️ **Esta seção descreve o desenho, não o estado atual.** Das sete camadas abaixo,
+> **duas estão no ar** (1 e 7) e a 2 vem do próprio Supabase. As camadas 3 a 6 **não
+> estão implementadas** — não há backup diário contratado, não há PITR, não existe job
+> de dump e **nunca houve um teste de restauração**. Antes de prometer qualquer uma
+> delas a cliente, em contrato ou em documento de LGPD, confira aqui.
+
 ### Camadas de proteção
 
-| # | Camada | Escopo | Frequência | Retenção | Quem opera |
-|---|---|---|---|---|---|
-| **1** | localStorage no navegador do usuário | Dados do usuário ativo | Tempo real | Até limpar cache | Automático |
-| **2** | Supabase Postgres (multi-AZ) | Banco vivo | Replicação síncrona | — | Supabase |
-| **3** | Supabase Daily Backup automático | Banco completo | Diário | 7 dias (Pro) / 30 dias (Team) | Supabase |
-| **4** | Point-in-Time Recovery (PITR) | Banco completo | Contínuo (WAL) | 7 dias (Pro) | Supabase |
-| **5** | Export semanal pg_dump → S3 (próprio) | Banco completo | Semanal (cron) | 90 dias | Job próprio |
-| **6** | Export por org → JSON em S3 | Por organização | Mensal | 1 ano | Job próprio |
-| **7** | Export sob demanda (UI) | Por organização | Sob clique do owner | — | Cliente |
+| # | Camada | Situação | Escopo | Frequência | Retenção | Quem opera |
+|---|---|---|---|---|---|---|
+| **1** | localStorage no navegador do usuário | ✅ no ar | Dados do usuário ativo | Tempo real | Até limpar cache | Automático |
+| **2** | Supabase Postgres (multi-AZ) | ✅ do provedor | Banco vivo | Replicação síncrona | — | Supabase |
+| **3** | Supabase Daily Backup automático | ❌ **não contratado** (exige plano pago) | Banco completo | Diário | 7 dias (Pro) / 30 dias (Team) | Supabase |
+| **4** | Point-in-Time Recovery (PITR) | ❌ **não contratado** (add-on) | Banco completo | Contínuo (WAL) | 7 dias (Pro) | Supabase |
+| **5** | Export semanal pg_dump → S3 (próprio) | ❌ **não implementado** (o script abaixo é modelo, não roda) | Banco completo | Semanal (cron) | 90 dias | Job próprio |
+| **6** | Export por org → JSON em S3 | ❌ **não implementado** | Por organização | Mensal | 1 ano | Job próprio |
+| **7** | Export sob demanda (UI) | ✅ no ar | Por organização | Sob clique do owner | — | Cliente |
 
 ### Por que 7 camadas
 
@@ -631,6 +637,20 @@ Cada uma cobre um cenário diferente de falha:
 - **Camadas 2-4**: cenários típicos de falha do banco — Supabase resolve sozinho
 - **Camadas 5-6**: proteção contra **apagar conta inteira no Supabase** ou perder a conta admin
 - **Camada 7**: cliente quer levar seus dados embora (LGPD: direito à portabilidade)
+
+### O que isso significa hoje, na prática
+
+Com 3 a 6 ausentes, dois cenários do runbook adiante **não têm o insumo que pressupõem**:
+
+- **Organização apagada por engano** — sem PITR não há a que voltar. O que existe é o
+  soft-delete (`deleted_at`), que cobre a exclusão feita pela interface, e o export que
+  o cliente porventura tenha baixado por conta própria.
+- **Perda da conta administrativa do Supabase** — sem dump fora do provedor, não há
+  cópia dos dados em lugar nenhum que não seja o próprio provedor.
+
+Fechar isso é decisão de plano e de custo (Supabase Pro cobre 3 e 4; 5 e 6 são trabalho
+próprio) e, em qualquer caminho, **só conta depois do primeiro teste de restauração** —
+backup que nunca foi restaurado é hipótese, não backup.
 
 ### Job de export semanal (próprio, fora do Supabase)
 
@@ -918,9 +938,13 @@ As que eu decidi por você (porque você pediu recomendação) estão marcadas c
 - OU quando você tiver 1 cliente grande pedindo SLA
 - Aí destrava: backup diário automático, PITR de 7 dias, banco não pausa nunca
 
-### 2. ✅ MFA obrigatório para **todos**
+### 2. ⏳ MFA obrigatório para **todos** — decidido, NÃO implementado
 
 > Você confirmou: MFA obrigatório para todos os usuários.
+>
+> ⚠️ **Estado em 2026-08:** as telas existem (`/mfa/ativar`, `/login/mfa`) e o banco tem
+> `mfa_required_roles`, mas a obrigatoriedade não está no ar — a sessão já é válida antes
+> do código e nenhum guard ou policy exige AAL2. O que está abaixo é o desenho pretendido.
 
 **Como vai funcionar:**
 1. Usuário cria conta com email + senha

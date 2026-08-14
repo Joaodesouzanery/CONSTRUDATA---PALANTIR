@@ -29,7 +29,7 @@ A regra de ouro do produto: **as bases legais aplicáveis são, prioritariamente
 - **Operadora — {{RAZAO_SOCIAL}}** (ConstruData): trata dados pessoais **em nome do controlador**, seguindo suas instruções e o contrato/DPA. Não usa os dados do controlador para finalidades próprias, exceto as estritamente técnicas de operação e segurança da plataforma descritas aqui.
 - **Isolamento entre clientes:** cada organização é um _tenant_ logicamente isolado (RLS por `organization_id`); um controlador **não** acessa dados de outro. A definição dos papéis está detalhada em `01-papeis-e-arquitetura.md` (companion).
 
-> Referência de arquitetura real: SaaS multi-tenant em **React + Supabase (Postgres/Auth/Storage)**, hospedagem **Vercel**; isolamento por **RLS (`organization_id`)**, autenticação com **MFA**, **TLS** em trânsito, **criptografia em repouso**, **`audit_log`**, princípio do **menor privilégio** e **backups gerenciados**.
+> Referência de arquitetura real: SaaS multi-tenant em **React + Supabase (Postgres/Auth/Storage)**, hospedagem **Vercel**; isolamento por **RLS (`organization_id`)**, autenticação por e-mail e senha com **política mínima de senha**, **TLS** em trânsito, **criptografia em repouso**, **`audit_log`** append-only e princípio do **menor privilégio**. Segundo fator (TOTP) está disponível e não é exigido; backup gerenciado depende do plano contratado — ver `06-politica-de-seguranca.md`, seção 8, antes de declarar qualquer um dos dois a um controlador.
 
 ## 3. Princípio geral: a regra são bases não-consentimento
 
@@ -58,7 +58,7 @@ A regra de ouro do produto: **as bases legais aplicáveis são, prioritariamente
 | 8 | **Guarda de comprovantes financeiros** (fotos de boletos/NF no Financeiro) | Dados constantes do documento fiscal | Obrigação legal — guarda fiscal/contábil (art. 7º, II) + execução de contrato (art. 7º, V) | Retenção conforme prazo legal aplicável. |
 | 9 | **Chamados de moradores via QR público** (`/chamado/:slug`) | Descrição/local; **nome e contato OPCIONAIS** | Legítimo interesse — gestão do edificado (art. 7º, IX) | Campos de contato opcionais; grava em _staging_ via RPC `SECURITY DEFINER`; anti-spam por honeypot + rate-limit. Ver LIA §5.2. |
 | 10 | **E-mail transacional** (confirmações, notificações do serviço) | E-mail, conteúdo da notificação | Execução de contrato (art. 7º, V) | Subprocessador Resend (quando ativado). Não é marketing. |
-| 11 | **Backups e continuidade** | Cópia dos dados acima | Legítimo interesse — segurança/continuidade (art. 7º, IX); guarda legal onde aplicável (art. 7º, II) | Backups gerenciados; retenção definida em política própria. |
+| 11 | **Backups e continuidade** | Cópia dos dados acima | Legítimo interesse — segurança/continuidade (art. 7º, IX); guarda legal onde aplicável (art. 7º, II) | Hoje: soft-delete e export por organização sob demanda. Backup gerenciado e PITR dependem do plano contratado — ver `06-politica-de-seguranca.md` §8. |
 | 12 | **Comunicações de marketing / novidades** | Nome, e-mail | **Consentimento (art. 7º, I)** | **Exceção.** Opt-in registrado e revogável a qualquer tempo (art. 8º, §5). |
 
 > **Dados de acesso público / atividade profissional:** parte dos dados de fornecedores e responsáveis técnicos é de natureza profissional e/ou já pública (ex.: registro em conselho, CNPJ). Isso reforça as bases dos incisos II/V/IX e reduz o balanceamento contra o titular, mas **não dispensa** a análise (art. 7º, §§3º e 4º).
@@ -71,8 +71,8 @@ Sempre que a base for **legítimo interesse**, o controlador deve documentar as 
 
 - **Finalidade (interesse legítimo):** proteger o acesso, isolar dados entre organizações, prevenir fraude e acesso indevido, e manter trilha de auditoria — condição para a própria prestação segura do serviço.
 - **Necessidade:** os dados usados são mínimos (identificador do usuário, `organization_id`, metadados de sessão, autor/timestamp no `audit_log`). Não há meio menos invasivo de garantir isolamento e rastreabilidade em um SaaS multi-tenant.
-- **Balanceamento (expectativa do titular):** o usuário que acessa uma ferramenta corporativa **espera** controles de segurança, MFA e registro de quem fez o quê. O impacto é baixo e alinhado à expectativa; prevalece o interesse legítimo.
-- **Salvaguardas:** RLS por `organization_id`, MFA, TLS em trânsito, criptografia em repouso, menor privilégio, `audit_log`, backups gerenciados; acesso da operadora limitado ao suporte/manutenção mediante contrato.
+- **Balanceamento (expectativa do titular):** o usuário que acessa uma ferramenta corporativa **espera** controles de segurança e registro de quem fez o quê. O impacto é baixo e alinhado à expectativa; prevalece o interesse legítimo.
+- **Salvaguardas:** RLS por `organization_id`, TLS em trânsito, criptografia em repouso, menor privilégio, `audit_log` append-only, política mínima de senha e soft-delete; acesso da operadora limitado ao suporte/manutenção mediante contrato. Segundo fator e backup gerenciado conforme `06-politica-de-seguranca.md` §8.
 
 ### 5.2 Caso B — Gestão do edificado e chamados via QR público (finalidade 9)
 

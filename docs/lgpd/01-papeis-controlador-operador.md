@@ -58,7 +58,7 @@ Legenda: **D** = decide/responde · **E** = executa/apoia · **—** = não se a
 | Determinar **quais dados** são inseridos na plataforma | **D** | E (limita campos a "dados mínimos") |
 | Garantir licitude da coleta na origem (ex.: contatos de fornecedores) | **D** | — |
 | Disponibilizar **funcionalidades** de tratamento (RDO, OS, laudos, medições, chamados) | E | **D** (arquitetura do produto) |
-| **Segurança** da infraestrutura (RLS, MFA, TLS, criptografia em repouso, backups, `audit_log`, menor privilégio) | E (uso correto) | **D** |
+| **Segurança** da infraestrutura (RLS, TLS, criptografia em repouso, `audit_log`, menor privilégio; MFA e backup conforme seção 8 da política) | E (uso correto) | **D** |
 | Gestão de **usuários e perfis** dentro da organização | **D** | E (ferramentas de RBAC) |
 | Contratar/gerenciar **subprocessadores** (Seção 7) | E (aprova/objeta) | **D** |
 | Atender **direitos do titular** (Seção 8) | **D** | E (recursos de exportação/apoio) |
@@ -74,7 +74,7 @@ Legenda: **D** = decide/responde · **E** = executa/apoia · **—** = não se a
 `{{RAZAO_SOCIAL}}`, na qualidade de operador, compromete-se a:
 
 1. **Tratar conforme instruções** documentadas e lícitas do controlador (arts. 39 e 6º, I), abstendo-se de tratar dados para finalidade própria ou diversa. Havendo instrução que repute ilegal, comunicará o controlador.
-2. Aplicar e manter **medidas de segurança** técnicas e administrativas (art. 46): isolamento por RLS (`organization_id`), autenticação com **MFA**, **TLS** em trânsito, **criptografia em repouso**, `audit_log`, **princípio do menor privilégio** e **backups gerenciados**.
+2. Aplicar e manter **medidas de segurança** técnicas e administrativas (art. 46): isolamento por RLS (`organization_id`), autenticação por e-mail e senha com **política mínima de senha**, **TLS** em trânsito, **criptografia em repouso**, `audit_log` append-only, **princípio do menor privilégio** e **soft-delete** em dados operacionais. Segundo fator (TOTP) está disponível e **não é exigido**; backup gerenciado e recuperação a ponto no tempo **dependem do plano contratado** — o estado corrente de cada controle está em `06-politica-de-seguranca.md`, seção 8, e não deve ser declarado como pronto sem conferir lá.
 3. **Subprocessadores** — utilizar apenas suboperadores previstos (Seção 7), sob obrigações equivalentes às deste documento, e informar previamente alterações relevantes, facultada objeção do controlador.
 4. **Sigilo e confidencialidade** — assegurar que pessoas com acesso aos dados estejam sob dever de confidencialidade (art. 46).
 5. **Apoiar os direitos do titular** — disponibilizar recursos técnicos que permitam ao controlador atender aos pedidos dos titulares (art. 18; Seção 8).

@@ -40,7 +40,14 @@ secret, **adicione antes ao `.gitignore`**.
    tem coluna `organization_id NOT NULL` + policy que filtra por
    `auth.user_org()`. Cross-tenant leakage é o bug mais grave possível.
 
-4. **MFA/TOTP obrigatório** para roles `owner` e `diretor`.
+4. **MFA/TOTP disponível, ainda NÃO obrigatório.** As telas de ativação e de
+   desafio existem (`/mfa/ativar`, `/login/mfa`) e o banco já tem
+   `mfa_required_roles`, mas hoje a checagem é decorativa: a sessão do
+   `signInWithPassword` **já é válida antes do código**, o `AuthGuard` não
+   verifica o nível de autenticação (AAL) e nenhuma policy exige AAL2. Quem
+   souber ignorar a tela de desafio entra. Tornar obrigatório significa exigir
+   AAL2 no guard e nas policies — está no backlog e **não deve ser descrito
+   como pronto em documento nenhum**, contrato incluído.
 
 5. **Audit log append-only.** A tabela `audit_log` não tem policies de UPDATE
    ou DELETE — nem mesmo o owner consegue editar histórico.

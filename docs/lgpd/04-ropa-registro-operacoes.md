@@ -156,10 +156,10 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 | **Categorias de titulares** | Todas as categorias acima, na medida em que seus dados constam do banco. |
 | **Categorias de dados** | Cópia dos dados persistidos das organizações (espelho das operações OP-01 a OP-07). |
 | **Base legal** | Legítimo interesse — continuidade do negócio e segurança da informação (art. 7º, IX). |
-| **Compartilhamento/Subprocessadores** | Supabase (backups gerenciados da plataforma). |
+| **Compartilhamento/Subprocessadores** | Supabase (infraestrutura da plataforma; backup gerenciado conforme o plano contratado — ver `06-politica-de-seguranca.md` §8). |
 | **Transferência internacional** | Conforme região/armazenamento de backup do provedor ({{REGIAO_BACKUP}}); se fora do Brasil, art. 33. |
 | **Prazo de retenção** | Janela de retenção de backup {{RETENCAO_BACKUP}}. Exclusões pontuais podem persistir em backup até a rotação da janela — informar ao controlador. |
-| **Medidas de segurança** | Criptografia em repouso, TLS, acesso restrito, backups gerenciados pelo provedor. |
+| **Medidas de segurança** | Criptografia em repouso, TLS, acesso restrito, soft-delete e export por organização sob demanda. Backup gerenciado pelo provedor conforme o plano contratado — ver `06-politica-de-seguranca.md` §8. |
 
 ---
 
