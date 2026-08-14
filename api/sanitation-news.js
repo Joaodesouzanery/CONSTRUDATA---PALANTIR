@@ -181,12 +181,20 @@ function dedupeByUrl(items) {
 }
 
 export default async function handler(req, res) {
-  // Protege o endpoint contra chamadas externas (cada hit dispara ~30 fetches).
-  // O Vercel anexa `Authorization: Bearer <CRON_SECRET>` às execuções de cron
-  // quando a env CRON_SECRET está configurada. Sem CRON_SECRET, mantém o
-  // comportamento atual (não quebra antes de você configurar o segredo).
+  // Protege o endpoint contra chamadas externas: cada acesso dispara ~30 requisições para
+  // sites de fora. O Vercel anexa `Authorization: Bearer <CRON_SECRET>` às execuções de cron.
+  //
+  // ISTO FECHA SEM O SEGREDO, DE PROPÓSITO. Antes, faltando `CRON_SECRET` o endpoint ficava
+  // aberto — "para não quebrar antes de você configurar". Só que a porta aberta é o problema:
+  // quem descobrisse a URL teria um amplificador de tráfego de graça, em nome do nosso domínio.
+  // Falhar fechado é seguro aqui porque só o cron do vercel.json chama esta rota; nenhuma tela
+  // do app consome a resposta. O custo de esquecer o segredo é o cron devolver 503 — visível
+  // nos logs — em vez de um buraco silencioso.
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && (req.headers?.authorization || '') !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return res.status(503).json({ error: 'CRON_SECRET não configurada — endpoint desativado' })
+  }
+  if ((req.headers?.authorization || '') !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'unauthorized' })
   }
 
