@@ -2788,6 +2788,11 @@ export interface FinanceiroTitulo {
   status:        TituloStatus
   dataPagamento?: string         // yyyy-MM-dd (preenchido na baixa)
   entryId?:      string          // FinanceiroEntry gerado na baixa (para estorno/rastreio)
+  // Item do rateio que originou esta cobrança. É a chave de negócio REAL da cobrança de
+  // condomínio, e o que o índice único do banco indexa. Guardar só (rateio, unidade) não
+  // serve: duas unidades podem ter o mesmo nome de propósito — "Bloco A" com dois
+  // hidrômetros são duas cobranças legítimas, e o índice as trataria como duplicata.
+  rateioItemId?: string
   notas?:        string
   // ─── Boleto (aba "Boletos"). Um boleto = N títulos-parcela agrupados por `boletoId`.
   //     COMPARTILHADOS pelo carnê: boletoId e anexos. POR PARCELA: codigoBoleto e alertaDias.

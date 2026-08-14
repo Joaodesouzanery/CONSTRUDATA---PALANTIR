@@ -161,6 +161,7 @@ export const useRateioConsumoStore = create<RateioConsumoState>()(
               obraId: it.obraId,
               categoria: 'outro',
               referencia: `Rateio ${r.id.slice(0, 8)}`,
+              rateioItemId: it.id,
               status: 'pendente',
               createdAt: nowIso,
             }))

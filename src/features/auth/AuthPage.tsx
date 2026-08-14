@@ -16,9 +16,16 @@ type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup' | 'recuperar'
 /**
  * Regra mínima de senha, conferida no cliente.
  *
- * ISTO NÃO É A PROTEÇÃO — é cortesia: avisa antes de o servidor recusar. A regra que vale é a
- * do GoTrue (`supabase/config.toml`: `minimum_password_length`, `password_requirements`), que
- * o atacante não consegue contornar chamando o endpoint direto. Mantenha as duas alinhadas.
+ * ISTO NÃO É A PROTEÇÃO — é cortesia: avisa antes de o servidor recusar, com uma frase que a
+ * pessoa entende em vez do erro cru do GoTrue em inglês.
+ *
+ * A regra que de fato protege é a do servidor de autenticação, porque quem chama o endpoint
+ * direto nunca vê esta tela. Os valores estão em `supabase/config.toml`
+ * (`minimum_password_length`, `password_requirements`) — mas **atenção**: aquele arquivo
+ * governa o Supabase local. No projeto hospedado vale o que está no painel, e enquanto alguém
+ * não replicar lá (ou rodar `supabase config push`) o servidor continua aceitando senha de 6
+ * caracteres. Está anotado como pendência em `docs/lgpd/06-politica-de-seguranca.md` §8.
+ * Mantenha os três alinhados: esta função, o config.toml e o painel.
  */
 const SENHA_MINIMA = 10
 function problemaNaSenha(senha: string, email?: string): string | null {
@@ -70,15 +77,20 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
               ? 'Confirme a senha atual e escolha a nova.'
               : 'Use seu e-mail e senha cadastrados.'
 
+  // Trocar senha é a única tela daqui alcançada por quem JÁ está dentro. Mandá-la para "/"
+  // jogava a pessoa na landing: de lá o único caminho de volta é "Entrar", que pede a senha de
+  // novo. Beco sem saída resolvido só pelo botão voltar do navegador.
+  const destinoVoltar = mode === 'trocar-senha' ? '/app/minha-rotina' : '/'
+
   return (
     <div className={`${H_FONT} min-h-screen bg-[#f4f4f2] text-[#0a0a0a] antialiased`}>
       <header className="relative z-10 border-b border-black/10 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-10">
-          <Link to="/" className="flex items-center gap-3">
+          <Link to={destinoVoltar} className="flex items-center gap-3">
             <BrandLockup dark />
           </Link>
-          <Link to="/" className={`${M_FONT} border border-black/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
-            Voltar
+          <Link to={destinoVoltar} className={`${M_FONT} border border-black/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
+            {mode === 'trocar-senha' ? 'Cancelar' : 'Voltar'}
           </Link>
         </div>
       </header>
@@ -146,7 +158,14 @@ function LoginForm() {
 
   useEffect(() => {
     if (esperaAte <= Date.now()) return
-    const t = window.setInterval(() => setAgora(Date.now()), 250)
+    // O intervalo se encerra sozinho ao chegar no fim. A guarda de cima só roda na entrada do
+    // efeito, e `esperaAte` não muda quando a contagem zera — sem isto a tela continuaria
+    // re-renderizando 4×/s enquanto ficasse aberta, mesmo depois de a espera acabar.
+    const t = window.setInterval(() => {
+      const agoraMs = Date.now()
+      setAgora(agoraMs)
+      if (agoraMs >= esperaAte) window.clearInterval(t)
+    }, 250)
     return () => window.clearInterval(t)
   }, [esperaAte])
 
@@ -262,7 +281,7 @@ function LoginForm() {
             Muitas tentativas seguidas. Aguarde {segundosRestantes}s — vale reconferir o e-mail, ou redefinir a senha.
           </p>
         )}
-        <SubmitButton loading={loading || segundosRestantes > 0}>
+        <SubmitButton loading={loading} disabled={segundosRestantes > 0}>
           {segundosRestantes > 0 ? `Aguarde ${segundosRestantes}s` : <>Entrar <ArrowRight size={16} /></>}
         </SubmitButton>
         <p className="text-center">
@@ -303,6 +322,12 @@ function InviteForm() {
     if (!email.trim() || !password) {
       setError('Preencha e-mail e senha.')
       return
+    }
+    // Conta nova também passa pela regra. Sem isto o servidor recusava e a pessoa via a
+    // mensagem crua do GoTrue, em inglês, listando o alfabeto — sem entender o que fazer.
+    if (inviteMode === 'signup') {
+      const problema = problemaNaSenha(password, email)
+      if (problema) { setError(problema); return }
     }
 
     setLoading(true)
@@ -351,8 +376,13 @@ function InviteForm() {
         <input value={email} onChange={(event) => setEmail(event.target.value)} disabled={loading} type="email" placeholder="voce@empresa.com.br" className={inputClass} required />
       </Field>
       <Field icon={<Lock size={16} />} label="Senha">
-        <input value={password} onChange={(event) => setPassword(event.target.value)} disabled={loading} type="password" placeholder="************" className={inputClass} required />
+        <input value={password} onChange={(event) => setPassword(event.target.value)} disabled={loading} type="password" autoComplete={inviteMode === 'signup' ? 'new-password' : 'current-password'} placeholder="************" className={inputClass} required />
       </Field>
+      {inviteMode === 'signup' && (
+        <p className="text-xs leading-5 text-black/50">
+          Pelo menos {SENHA_MINIMA} caracteres, com maiúscula, minúscula e número.
+        </p>
+      )}
       <ErrorMessage error={error} />
       <SubmitButton loading={loading}>Aceitar convite <ArrowRight size={16} /></SubmitButton>
       <div className="text-center"><Link to="/login" className="text-xs font-semibold text-black/50 hover:text-[#ea580c]">Voltar para login</Link></div>
@@ -560,6 +590,13 @@ function RecuperarSenhaForm() {
  *   um login antes de trocar. O `updateUser` do Supabase não exige isso por padrão, o que
  *   significa que um aparelho destravado deixado sobre a mesa bastaria para tomar a conta.
  *   Conferir custa uma requisição e fecha o buraco.
+ *
+ *   O preço, dito por inteiro: `signInWithPassword` **substitui a sessão**. O ouvinte global de
+ *   `src/lib/auth.ts` reage e refaz o pull de todos os stores — desperdício, não risco, porque
+ *   `mergePull` preserva o que tem operação pendente. E a sessão nova nasce em aal1: hoje isso
+ *   não muda nada (nenhum guard ou policy exige aal2 — ver SECURITY.md), mas **no dia em que o
+ *   MFA virar obrigatório, este ponto precisa trocar para `reauthenticate()`**, senão trocar a
+ *   senha rebaixa silenciosamente quem já tinha passado pelo segundo fator.
  */
 function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
   const navigate = useNavigate()
@@ -663,7 +700,14 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
         Pelo menos {SENHA_MINIMA} caracteres, com maiúscula, minúscula e número.
       </p>
       <ErrorMessage error={error} />
-      <SubmitButton loading={loading || temSessao === null}>Salvar nova senha <ShieldCheck size={16} /></SubmitButton>
+      <SubmitButton loading={loading} disabled={temSessao === null}>Salvar nova senha <ShieldCheck size={16} /></SubmitButton>
+      {origem === 'logado' && (
+        <p className="text-center">
+          <Link to="/app/minha-rotina" className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 underline-offset-4 transition hover:text-[#c2410c] hover:underline`}>
+            Cancelar e voltar
+          </Link>
+        </p>
+      )}
     </form>
   )
 }
@@ -687,9 +731,14 @@ function ErrorMessage({ error }: { error: string | null }) {
   return <div className="border border-red-500/35 bg-red-500/[0.06] p-3 text-xs leading-5 text-red-600">{error}</div>
 }
 
-function SubmitButton({ children, loading }: { children: ReactNode; loading: boolean }) {
+/**
+ * `loading` e `disabled` são coisas diferentes, e misturá-las mentia para o usuário: passando
+ * `loading={loading || esperando}` o botão dizia "Processando..." durante a espera por excesso
+ * de tentativas, como se o login estivesse em andamento — e o rótulo real virava código morto.
+ */
+function SubmitButton({ children, loading, disabled }: { children: ReactNode; loading: boolean; disabled?: boolean }) {
   return (
-    <button type="submit" disabled={loading} className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c] disabled:opacity-50`}>
+    <button type="submit" disabled={loading || disabled} className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c] disabled:opacity-50`}>
       {loading ? 'Processando...' : children}
     </button>
   )

@@ -103,6 +103,7 @@ O isolamento entre clientes **não depende do front-end esconder dados** — é 
 - [ ] **Backups automáticos** gerenciados pela Supabase (diários, conforme o plano contratado — exige plano pago).
 - [ ] **PITR** (recuperação a um ponto no tempo), add-on do plano {{PLANO_SUPABASE}}.
 - [ ] **Dumps lógicos** periódicos guardados fora da Supabase ({{PERIODICIDADE_DUMP}}).
+- [ ] **Política de senha no servidor de autenticação** (Supabase → Authentication → Policies): comprimento mínimo 10 e exigência de maiúscula, minúscula e número. Hoje a conferência existe **só nas telas do produto**; quem chamar o endpoint de autenticação direto ainda cadastra senha de 6 caracteres. Os valores estão versionados em `supabase/config.toml`, mas esse arquivo governa o ambiente local — **só chega em produção pelo painel ou por `supabase config push`**.
 - [ ] **Primeiro teste de restauração** — nunca realizado. Backup que nunca foi restaurado não é backup, é hipótese.
 - [ ] Objetivos de recuperação: **RPO** {{RPO}} / **RTO** {{RTO}}.
 

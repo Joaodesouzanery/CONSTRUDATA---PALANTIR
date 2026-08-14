@@ -493,7 +493,11 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           created_at: nowIso(),
           updated_at: nowIso(),
         }
-        set((state) => ({ sources: [row, ...state.sources] }))
+        // Filtra o id antes de inserir: com o id derivado da linha da planilha
+        // (unifiedImportPromotion.ts), reimportar o mesmo arquivo traz os MESMOS ids. Sem o
+        // filtro o servidor ficava com uma linha (upsert) e a tela com duas — a dedupe valia
+        // só metade. Mesmo padrão de financeiroStore.ts.
+        set((state) => ({ sources: [row, ...state.sources.filter((item) => item.id !== row.id)] }))
         const operationalKey = operationalKeyFromSource(row)
         eventBus.emit({
           type: 'measurement.draft_created',
@@ -606,7 +610,7 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           created_at: nowIso(),
           updated_at: nowIso(),
         }
-        set((state) => ({ memoryLines: [row, ...state.memoryLines] }))
+        set((state) => ({ memoryLines: [row, ...state.memoryLines.filter((item) => item.id !== row.id)] }))
         try {
           const saved = await tryUpsert('measurement_memory_lines', row)
           if (saved) set((state) => ({ memoryLines: state.memoryLines.map((item) => item.id === row.id ? saved as UnifiedMeasurementMemoryLine : item) }))
@@ -662,7 +666,7 @@ export const useMedicaoUnificadaStore = create<UnifiedMeasurementState>()(
           created_at: nowIso(),
           updated_at: nowIso(),
         }
-        set((state) => ({ financialEntries: [row, ...state.financialEntries] }))
+        set((state) => ({ financialEntries: [row, ...state.financialEntries.filter((item) => item.id !== row.id)] }))
         try {
           const saved = await tryUpsert('measurement_financial_entries', row)
           if (saved) set((state) => ({ financialEntries: state.financialEntries.map((item) => item.id === row.id ? saved as UnifiedMeasurementFinancialEntry : item) }))

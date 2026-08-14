@@ -64,10 +64,19 @@ begin
 end $$;
 
 -- ── 2. Cobrança de rateio do condomínio ─────────────────────────────────────────
--- Uma unidade não pode receber duas cobranças do mesmo rateio. A chave natural disponível no
--- payload é (referência do rateio, unidade) — a referência já carrega o id do rateio.
+-- Um ITEM do rateio não pode virar duas cobranças. A chave é o item, não a unidade: duas
+-- unidades podem ter o mesmo nome de propósito — "Bloco A" com dois hidrômetros são duas
+-- cobranças legítimas —, e indexar por (rateio, nome da unidade) rejeitaria a segunda. O
+-- INSERT falharia com 23505, a operação ficaria presa na fila de sincronização e o condomínio
+-- sairia subfaturado, sem ninguém entender por quê. Por isso o cliente passou a gravar
+-- `rateioItemId` no payload (src/store/rateioConsumoStore.ts).
+--
 -- Desfazer a emissão faz soft delete e avança a geração, então as linhas antigas saem do
--- índice e emitir de novo continua funcionando.
+-- índice parcial e emitir de novo continua funcionando.
+--
+-- Cobranças emitidas ANTES desta migration não têm `rateioItemId` e ficam de fora do índice
+-- (a condição exige o campo preenchido). É de propósito: elas seguem protegidas pelo id
+-- derivado do cliente, e forçá-las para dentro do índice só criaria conflito com dado antigo.
 do $$
 declare
   duplicatas int;
@@ -79,18 +88,18 @@ begin
 
   select count(*) into duplicatas from (
     select 1 from public.financeiro_titulos
-     where deleted_at is null and payload->>'referencia' like 'Rateio %'
-     group by organization_id, payload->>'referencia', payload->>'parceiro'
+     where deleted_at is null and coalesce(payload->>'rateioItemId', '') <> ''
+     group by organization_id, payload->>'rateioItemId'
     having count(*) > 1
   ) d;
 
   if duplicatas > 0 then
-    raise notice '[NAO criado] uniq_fin_titulos_rateio_unidade — % unidade(s) cobradas duas vezes no mesmo rateio. Rode a Parte 2 de docs/DIAGNOSTICO_SCHEMA.sql para listar e limpar, depois rode esta migration de novo.', duplicatas;
+    raise notice '[NAO criado] uniq_fin_titulos_rateio_item — % item(ns) de rateio cobrados duas vezes. Rode a Parte 2 de docs/DIAGNOSTICO_SCHEMA.sql para listar e limpar, depois rode esta migration de novo.', duplicatas;
   else
-    create unique index if not exists uniq_fin_titulos_rateio_unidade
-      on public.financeiro_titulos (organization_id, (payload->>'referencia'), (payload->>'parceiro'))
-      where deleted_at is null and payload->>'referencia' like 'Rateio %';
-    raise notice '[ok] uniq_fin_titulos_rateio_unidade';
+    create unique index if not exists uniq_fin_titulos_rateio_item
+      on public.financeiro_titulos (organization_id, (payload->>'rateioItemId'))
+      where deleted_at is null and coalesce(payload->>'rateioItemId', '') <> '';
+    raise notice '[ok] uniq_fin_titulos_rateio_item';
   end if;
 end $$;
 
@@ -130,7 +139,7 @@ select
   esperado.descricao
 from (values
   ('uniq_fin_entries_source_titulo',  'um lançamento por baixa de título'),
-  ('uniq_fin_titulos_rateio_unidade', 'uma cobrança por unidade em cada rateio'),
+  ('uniq_fin_titulos_rateio_item',    'uma cobrança por item de rateio'),
   ('uniq_fin_titulos_codigo_boleto',  'uma linha digitável não se repete')
 ) as esperado(nome, descricao)
 left join pg_indexes i

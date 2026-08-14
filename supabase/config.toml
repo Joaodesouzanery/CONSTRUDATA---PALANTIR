@@ -163,7 +163,14 @@ site_url = "http://127.0.0.1:3000"
 # ConstruData: /redefinir-senha é o alvo do e-mail de recuperação. Em PRODUÇÃO o domínio real
 # precisa estar na allow-list do painel (Authentication › URL Configuration), senão o link do
 # e-mail cai no site_url e a pessoa não consegue trocar a senha.
-additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/redefinir-senha"]
+# O dev roda em 5173 (vite, sem `server.port` fixado), não em 3000 — sem as entradas de 5173
+# o GoTrue descarta o redirect e manda o e-mail de recuperação para uma porta vazia.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000/redefinir-senha",
+  "http://localhost:5173/**",
+  "http://127.0.0.1:5173/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

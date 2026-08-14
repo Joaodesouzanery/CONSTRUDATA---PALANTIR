@@ -29,7 +29,7 @@ A regra de ouro do produto: **as bases legais aplicáveis são, prioritariamente
 - **Operadora — {{RAZAO_SOCIAL}}** (ConstruData): trata dados pessoais **em nome do controlador**, seguindo suas instruções e o contrato/DPA. Não usa os dados do controlador para finalidades próprias, exceto as estritamente técnicas de operação e segurança da plataforma descritas aqui.
 - **Isolamento entre clientes:** cada organização é um _tenant_ logicamente isolado (RLS por `organization_id`); um controlador **não** acessa dados de outro. A definição dos papéis está detalhada em `01-papeis-e-arquitetura.md` (companion).
 
-> Referência de arquitetura real: SaaS multi-tenant em **React + Supabase (Postgres/Auth/Storage)**, hospedagem **Vercel**; isolamento por **RLS (`organization_id`)**, autenticação por e-mail e senha com **política mínima de senha**, **TLS** em trânsito, **criptografia em repouso**, **`audit_log`** append-only e princípio do **menor privilégio**. Segundo fator (TOTP) está disponível e não é exigido; backup gerenciado depende do plano contratado — ver `06-politica-de-seguranca.md`, seção 8, antes de declarar qualquer um dos dois a um controlador.
+> Referência de arquitetura real: SaaS multi-tenant em **React + Supabase (Postgres/Auth/Storage)**, hospedagem **Vercel**; isolamento por **RLS (`organization_id`)**, autenticação por e-mail e senha com **conferência de senha forte nas telas do produto** (exigência no servidor de autenticação **pendente** — §8), **TLS** em trânsito, **criptografia em repouso**, **`audit_log`** append-only e princípio do **menor privilégio**. Segundo fator (TOTP) está disponível e não é exigido; backup gerenciado depende do plano contratado — ver `06-politica-de-seguranca.md`, seção 8, antes de declarar qualquer um dos dois a um controlador.
 
 ## 3. Princípio geral: a regra são bases não-consentimento
 
@@ -72,7 +72,7 @@ Sempre que a base for **legítimo interesse**, o controlador deve documentar as 
 - **Finalidade (interesse legítimo):** proteger o acesso, isolar dados entre organizações, prevenir fraude e acesso indevido, e manter trilha de auditoria — condição para a própria prestação segura do serviço.
 - **Necessidade:** os dados usados são mínimos (identificador do usuário, `organization_id`, metadados de sessão, autor/timestamp no `audit_log`). Não há meio menos invasivo de garantir isolamento e rastreabilidade em um SaaS multi-tenant.
 - **Balanceamento (expectativa do titular):** o usuário que acessa uma ferramenta corporativa **espera** controles de segurança e registro de quem fez o quê. O impacto é baixo e alinhado à expectativa; prevalece o interesse legítimo.
-- **Salvaguardas:** RLS por `organization_id`, TLS em trânsito, criptografia em repouso, menor privilégio, `audit_log` append-only, política mínima de senha e soft-delete; acesso da operadora limitado ao suporte/manutenção mediante contrato. Segundo fator e backup gerenciado conforme `06-politica-de-seguranca.md` §8.
+- **Salvaguardas:** RLS por `organization_id`, TLS em trânsito, criptografia em repouso, menor privilégio, `audit_log` append-only, conferência de senha forte nas telas do produto e soft-delete; acesso da operadora limitado ao suporte/manutenção mediante contrato. Segundo fator e backup gerenciado conforme `06-politica-de-seguranca.md` §8.
 
 ### 5.2 Caso B — Gestão do edificado e chamados via QR público (finalidade 9)
 

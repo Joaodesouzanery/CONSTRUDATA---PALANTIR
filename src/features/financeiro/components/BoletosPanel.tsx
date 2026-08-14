@@ -378,6 +378,7 @@ interface ParcelaRow { id?: string; pago?: boolean; vencimento: string; valor: s
 
 function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => void }) {
   const { addBoleto, updateBoleto } = useFinanceiroTitulosStore()
+  const todosTitulos = useFinanceiroTitulosStore((s) => s.titulos)
   const sites = useTorreStore((s) => s.sites)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const head = edit?.head
@@ -502,6 +503,38 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
   function removeAnexo(path: string) { setAnexos((a) => a.filter((x) => x.path !== path)); trashRef.current.push(path) }
   const flushTrash = () => { trashRef.current.forEach((p) => void removeBoletoFile(p)); trashRef.current = [] }
 
+  /**
+   * Linha digitável repetida — recusa antes de salvar.
+   *
+   * A linha digitável é única por definição no sistema bancário: a mesma em dois títulos é
+   * sempre erro. Ou a parcela foi lançada duas vezes, ou alguém colou o código errado — e no
+   * segundo caso o boleto certo fica sem código e ninguém paga.
+   *
+   * Isto precisa existir NA TELA, e não só no banco. O índice único (migration
+   * 20260814120000) recusa a linha lá atrás, mas a escrita aqui é otimista: a tela já mostrou
+   * "salvo", a operação vai para a fila, o servidor devolve 23505 e a operação fica presa
+   * tentando de novo para sempre — com um título fantasma que só existe naquele aparelho. É
+   * muito melhor dizer não agora, com o cursor na parcela errada.
+   */
+  function codigoRepetido(): string | null {
+    const idsDoCarne = new Set(edit?.parcelas.map((t) => t.id) ?? [])
+    const vistos = new Map<string, number>()
+    for (let i = 0; i < parcelas.length; i++) {
+      const cod = digitosDe(parcelas[i].codigo)
+      if (!cod) continue
+      const antes = vistos.get(cod)
+      if (antes !== undefined) return `As parcelas ${antes + 1} e ${i + 1} estão com a mesma linha digitável.`
+      vistos.set(cod, i)
+      // Contra o resto da empresa, ignorando as parcelas deste mesmo carnê (que estão sendo editadas).
+      const conflito = todosTitulos.find((t) => t.codigoBoleto === cod && !idsDoCarne.has(t.id))
+      if (conflito) {
+        return `A linha digitável da parcela ${i + 1} já está cadastrada em "${conflito.descricao}"`
+          + `${conflito.vencimento ? ` (vencimento ${fmtDataBR(conflito.vencimento)})` : ''}.`
+      }
+    }
+    return null
+  }
+
   const travarEnvio = useEnvioUnico()
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -519,6 +552,8 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
         const novo = digitosDe(r.codigo)
         if (novo !== (codigosOriginais.current[r.id] ?? '')) codigos[r.id] = novo
       }
+      const repetido = codigoRepetido()
+      if (repetido) return setErro(repetido)
       if (!travarEnvio()) return
       updateBoleto(edit.boletoId, { tipo, descricao: descricao.trim(), parceiro: parceiro.trim(), obraId: obraId || undefined, categoria: cat, anexos, notas: notas.trim() || undefined }, codigos)
       flushTrash(); onClose(); return
@@ -528,6 +563,8 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
       .map((r) => ({ vencimento: r.vencimento, valor: parseValor(r.valor), alertaDias: Number(r.alertaDias) || undefined, codigoBoleto: digitosDe(r.codigo) || undefined }))
       .filter((r) => r.vencimento && r.valor > 0)
     if (rows.length === 0) return setErro('Adicione ao menos uma parcela com vencimento e valor.')
+    const repetido = codigoRepetido()
+    if (repetido) return setErro(repetido)
     if (!travarEnvio()) return
     addBoleto({ tipo, descricao: descricao.trim(), parceiro: parceiro.trim(), obraId: obraId || undefined, categoria: cat, anexos, notas: notas.trim() || undefined, parcelas: rows })
     flushTrash(); onClose()

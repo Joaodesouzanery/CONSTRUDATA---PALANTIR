@@ -19,6 +19,7 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { seededId } from '@/lib/seededId'
+import { hojeLocalISO } from '@/lib/utils'
 import type { PlanoAnexo, PlanoAtividade, PlanoExecucao, PlanoExecucaoMembro, Servico } from '@/types'
 import {
   bonificacaoValor, bonificacaoTotal, bonusDiario, diasCorridos, dayOfWeekLabel,
@@ -149,7 +150,10 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const rdos = useRdoStore((s) => s.rdos)
   const addEntry = useFinanceiroStore((s) => s.addEntry)
   const orgIdAtual = useAuth((st) => st.profile?.organization_id)
-  const hoje = new Date().toISOString().slice(0, 10)
+  // Data LOCAL, não UTC. `toISOString()` devolve UTC: no Brasil (UTC−3), das 21h à meia-noite
+  // ele já diz o dia seguinte. Isso jogava a medição registrada à noite para o mês errado na
+  // DRE em toda virada de mês, e fazia o mesmo dia de trabalho gerar duas datas diferentes.
+  const hoje = hojeLocalISO()
   const alertas = alertasDoPlano(plano, absences, hoje, rdos)
   const faltas = faltasNoPeriodo(plano, absences)
   const obraWorkers = useMemo(
@@ -215,9 +219,12 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
     const valor = pxe.m2Executado * (plano.precoM2 || 0)
     if (valor <= 0) return
     if (!confirm(`Registrar medição de ${Math.round(pxe.m2Executado)} m² executados = ${fmtBRL(valor)} como entrada no Financeiro desta obra?`)) return
-    // Id derivado de (plano, dia): registrar a mesma medição de novo — no mesmo dia, em outro
-    // dispositivo, ou por duplo-clique — regrava o mesmo lançamento em vez de somar outro.
-    addEntry({ id: seededId(orgIdAtual, 'plano-medicao', id, hoje), tipo: 'entrada', descricao: `Medição — ${plano.servico} (${Math.round(pxe.m2Executado)} m² executados)`, valor, data: hoje, categoria: 'medicao', referencia: `Medição Plano ${id.slice(0, 8)}`, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: new Date().toISOString() })
+    // Id derivado do PLANO, sem o dia. `pxe.m2Executado` é o acumulado do período, não o
+    // avanço da jornada: medir na segunda (100 m²) e na sexta (250 m² acumulados) descreve o
+    // mesmo fato, mais atualizado. Com o dia na semente virariam dois lançamentos somando
+    // 350 m² de receita para 250 m² executados. Sem ele, a segunda medição corrige a primeira,
+    // que é o que o botão promete — e vale igual entre dispositivos.
+    addEntry({ id: seededId(orgIdAtual, 'plano-medicao', id), tipo: 'entrada', descricao: `Medição — ${plano.servico} (${Math.round(pxe.m2Executado)} m² executados)`, valor, data: hoje, categoria: 'medicao', referencia: `Medição Plano ${id.slice(0, 8)}`, obraId: plano.siteId ?? undefined, notas: plano.obraNome, createdAt: new Date().toISOString() })
     alert('Medição registrada no Financeiro (entrada, categoria "medição") desta obra.')
   }
   const temRdo = (data: string) =>

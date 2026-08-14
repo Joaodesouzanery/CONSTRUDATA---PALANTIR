@@ -74,8 +74,13 @@ function usePersistedRows<T>(key: string, initialRows: T[]) {
   })
   const [demoRows, setDemoRows] = useState<T[]>(initialRows)
   useEffect(() => {
-    if (!isDemoMode) window.localStorage.setItem(key, JSON.stringify(realRows))
-  }, [isDemoMode, key, realRows])
+    // `realRows !== initialRows` por REFERÊNCIA, de propósito: só é diferente quando a pessoa
+    // mexeu em alguma linha (novo array) ou quando já havia algo salvo (array recém-parseado).
+    // Antes, abrir a aba e sair sem digitar nada já gravava os valores padrão no navegador, o
+    // que fazia "existe a chave" deixar de significar "existe trabalho aqui" — e é justamente
+    // isso que o aviso de sair da conta precisa saber distinguir para não virar ruído.
+    if (!isDemoMode && realRows !== initialRows) window.localStorage.setItem(key, JSON.stringify(realRows))
+  }, [isDemoMode, key, realRows, initialRows])
   return (isDemoMode ? [demoRows, setDemoRows, true] : [realRows, setRealRows, false]) as readonly [T[], Dispatch<SetStateAction<T[]>>, boolean]
 }
 

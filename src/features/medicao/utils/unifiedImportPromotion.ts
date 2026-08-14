@@ -54,6 +54,25 @@ function sourceDate(value?: string | null) {
   return period ? `${period}-01` : undefined
 }
 
+/**
+ * Competência que entra na semente do id: 'YYYY-MM' quando dá para normalizar, senão o rótulo cru.
+ *
+ * Sem isto a semente não teria NADA que variasse com o mês, e o escritório que mantém a mesma
+ * pasta ("CONTROLE FORNECEDORES.xlsx") atualizada a cada medição veria agosto **apagar** julho:
+ * mesmo arquivo, mesmo fornecedor, mesmas abas e linhas → mesmo id → upsert por cima. Trocar
+ * "duplica" por "apaga" seria piorar.
+ *
+ * O rótulo cru serve de reserva porque `monthPeriod` só entende alguns formatos: se ele
+ * devolvesse '' para "jul/26" e para "ago/26", os dois colapsariam na mesma semente de novo.
+ */
+function chavePeriodo(...valores: Array<string | number | null | undefined>): string {
+  for (const valor of valores) {
+    const bruto = text(valor)
+    if (bruto) return monthPeriod(bruto) ?? bruto
+  }
+  return ''
+}
+
 function sourceIssues(input: {
   contractor?: string | null
   nucleo?: string | null
@@ -115,7 +134,7 @@ async function promoteCostRows(input: {
     const amount = costAmount(row)
     if (amount <= 0) continue
     await store.addFinancialEntry({
-      id: idLinha('custo', arquivo, input.contractorName, input.bucket, indice),
+      id: idLinha('custo', arquivo, input.contractorName, input.bucket, chavePeriodo(maybe.mes as string, input.period), indice),
       entry_type: financialTypeFromBucket(input.bucket),
       description: text(maybe.descricao ?? maybe.material ?? maybe.item ?? input.bucket) || input.bucket,
       amount,
@@ -150,6 +169,7 @@ export async function promoteFornecedorImportToUnified(
     const workbookName = fileName ?? fornecedor.sourceWorkbookName ?? `${contractorName}.xlsx`
     const defaultNucleo = fornecedor.obraNucleo ?? null
     const warnings = fornecedor.importWarnings ?? []
+    const competencia = chavePeriodo(fornecedor.mesReferencia, fornecedor.periodo)
 
     let indiceMedicao = -1
     for (const item of fornecedor.medicaoItens ?? []) {
@@ -167,7 +187,7 @@ export async function promoteFornecedorImportToUnified(
         sourceWarnings: item.pendencias ?? item.blockingIssues ?? warnings,
       })
       await store.addManualSource({
-        id: idLinha('medicao', workbookName, contractorName, item.sourceSheet, item.sourceRow, indiceMedicao),
+        id: idLinha('medicao', workbookName, contractorName, competencia, item.sourceSheet, item.sourceRow, indiceMedicao),
         source_kind: 'spreadsheet',
         source_date: sourceDate(fornecedor.mesReferencia ?? fornecedor.periodo),
         supplier_id: supplierId,
@@ -200,7 +220,7 @@ export async function promoteFornecedorImportToUnified(
       const quantity = num(line.quantidade)
       const unitPrice = num(line.valorUnitario)
       await store.addMemoryLine({
-        id: idLinha('memoria', workbookName, contractorName, line.sourceSheet, indiceMemoria),
+        id: idLinha('memoria', workbookName, contractorName, competencia, line.sourceSheet, indiceMemoria),
         supplier_id: supplierId,
         service_description: line.descricao || fornecedor.descricao || 'Memória de fornecedor',
         n_preco: line.item || null,
@@ -227,7 +247,7 @@ export async function promoteFornecedorImportToUnified(
       const amount = num(value)
       if (amount <= 0) continue
       await store.addFinancialEntry({
-        id: idLinha('financeiro-fornecedor', workbookName, contractorName, entryType),
+        id: idLinha('financeiro-fornecedor', workbookName, contractorName, competencia, entryType),
         entry_type: entryType,
         supplier_id: supplierId,
         description: `${entryType === 'invoice' ? 'Nota fiscal' : 'Ajuste financeiro'} - ${contractorName}`,
@@ -269,7 +289,7 @@ export async function promoteSubempreiteiroImportToUnified(
       sourceWarnings: previewWarnings,
     })
     const sourceId = await store.addManualSource({
-      id: idLinha('sub-medicao', fileName, preview.nome, item.sourceKey, indiceItem),
+      id: idLinha('sub-medicao', fileName, preview.nome, chavePeriodo(item.mes, preview.periodo), item.sourceKey, indiceItem),
       source_kind: 'spreadsheet',
       source_date: sourceDate(item.mes ?? preview.periodo),
       contract_no: 'SLNR',
@@ -297,7 +317,7 @@ export async function promoteSubempreiteiroImportToUnified(
     })
     summary.sources += 1
     await store.addMemoryLine({
-      id: idLinha('sub-memoria', fileName, preview.nome, item.sourceKey, indiceItem),
+      id: idLinha('sub-memoria', fileName, preview.nome, chavePeriodo(item.mes, preview.periodo), item.sourceKey, indiceItem),
       source_id: sourceId,
       service_description: item.descricao || 'Memória de subempreiteiro',
       n_preco: item.nPrecoSabesp || item.nPreco || null,
@@ -319,7 +339,7 @@ export async function promoteSubempreiteiroImportToUnified(
     const amount = num(nf.valorNf || nf.valorPago)
     if (amount <= 0) continue
     await store.addFinancialEntry({
-      id: idLinha('sub-nf', fileName, preview.nome, nf.numero, indiceNf),
+      id: idLinha('sub-nf', fileName, preview.nome, chavePeriodo(nf.competencia, preview.periodo), nf.numero, indiceNf),
       entry_type: 'invoice',
       description: `NF ${nf.numero || ''} - ${nf.fornecedor || preview.nome}`.trim(),
       amount,
@@ -338,7 +358,7 @@ export async function promoteSubempreiteiroImportToUnified(
     indiceDesconto += 1
     if (num(desconto.total) <= 0) continue
     await store.addFinancialEntry({
-      id: idLinha('sub-desconto', fileName, preview.nome, desconto.mes, indiceDesconto),
+      id: idLinha('sub-desconto', fileName, preview.nome, chavePeriodo(desconto.mes, preview.periodo), indiceDesconto),
       entry_type: 'discount',
       description: `Descontos gerais - ${preview.nome}`,
       amount: num(desconto.total),

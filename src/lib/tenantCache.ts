@@ -43,6 +43,67 @@ const TENANT_CACHE_KEYS = [
 
 const TENANT_MARKER_KEY = 'cdata-active-organization-id'
 
+/**
+ * Trabalho que existe SÓ no navegador e que `getPendingSummary` não enxerga.
+ *
+ * POR QUE PRECISA EXISTIR. `getPendingSummary` (appModeStore) soma a fila `pendingSync` dos
+ * stores registrados em `TENANT_STORE_DEFS`. Quem não é um desses stores não tem fila — e
+ * portanto some da conta. Só que `clearTenantScopedCaches`, logo abaixo, apaga TODA chave
+ * `cdata-*` fora da allow-list. Ou seja: existe trabalho do usuário que o "sair da conta"
+ * apagaria com a fila zerada e sem nenhum aviso.
+ *
+ * O pior caso é o RDO da Sabesp: quando o envio ao servidor falha, o app **diz na tela** que
+ * "o RDO continuará disponível neste navegador". Apagar isso em silêncio é quebrar uma
+ * promessa escrita.
+ *
+ * REGRA PARA MEXER AQUI: só entra o que dá para detectar SEM falso positivo. Um aviso que
+ * aparece à toa é pior que aviso nenhum — a pessoa aprende a clicar em "sim" sem ler, e no dia
+ * em que o aviso for verdadeiro ela vai clicar igual. Por isso o RDO conta apenas os registros
+ * marcados `_localOnly` pelo próprio app, e o levantamento personalizado só grava no navegador
+ * depois que alguém edita alguma linha (ver `usePersistedRows` em QuantitativoPersonalizadoPanel).
+ */
+const CHAVES_QUANTITATIVO_PERSONALIZADO = [
+  'cdata-quantitativo-personalizado-v6-params',
+  'cdata-quantitativo-personalizado-v6-trechos',
+  'cdata-quantitativo-personalizado-v6-pvs',
+  'cdata-quantitativo-personalizado-v6-acessorios',
+  'cdata-quantitativo-personalizado-v6-bdi',
+  'cdata-quantitativo-personalizado-v6-base',
+]
+
+function lerArray(chave: string): unknown[] {
+  try {
+    const bruto = window.localStorage.getItem(chave)
+    const parsed = bruto ? JSON.parse(bruto) : null
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+/** O que `clearTenantScopedCaches` vai apagar e não existe em lugar nenhum além deste navegador. */
+export function inventarioTrabalhoSoLocal(): { total: number; itens: string[] } {
+  if (typeof window === 'undefined') return { total: 0, itens: [] }
+  const itens: string[] = []
+  let total = 0
+
+  // RDO da Sabesp que não chegou ao servidor — o próprio app marca `_localOnly`.
+  const rdosLocais = lerArray('cdata-rdo-sabesp')
+    .filter((r) => (r as { _localOnly?: boolean; deleted_at?: string | null })?._localOnly
+      && !(r as { deleted_at?: string | null }).deleted_at).length
+  if (rdosLocais > 0) { total += rdosLocais; itens.push(`${rdosLocais} RDO(s) da Sabesp que não chegaram ao servidor`) }
+
+  // Critérios de medição criados à mão (a chave só existe se alguém criou algum).
+  const criterios = lerArray('cdata-criterios-custom').length
+  if (criterios > 0) { total += criterios; itens.push(`${criterios} critério(s) de medição criado(s) por você`) }
+
+  // Levantamento personalizado: as seis abas do assistente.
+  const abasComDado = CHAVES_QUANTITATIVO_PERSONALIZADO.filter((k) => lerArray(k).length > 0).length
+  if (abasComDado > 0) { total += abasComDado; itens.push('o levantamento quantitativo personalizado') }
+
+  return { total, itens }
+}
+
 const SAFE_GLOBAL_CDATA_KEYS = new Set([
   'cdata-auth',
   'cdata-theme',

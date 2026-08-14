@@ -101,13 +101,15 @@ having count(*) > 1
  order by vezes desc
  limit 50;
 
--- Cobranças de rateio: mais de um título para a mesma unidade no mesmo rateio
+-- Cobranças de rateio: mais de um título para o MESMO ITEM do rateio.
+-- A chave é o item, não a unidade — duas unidades podem ter o mesmo nome de propósito
+-- ("Bloco A" com dois hidrômetros são duas cobranças legítimas).
 select 'cobrança de rateio duplicada' as problema,
-       organization_id, payload->>'descricao' as descricao,
+       organization_id, payload->>'rateioItemId' as item_do_rateio,
        payload->>'parceiro' as unidade, count(*) as vezes
   from public.financeiro_titulos
- where deleted_at is null and payload->>'descricao' ilike '%rateio%'
- group by organization_id, payload->>'descricao', payload->>'parceiro', payload->>'vencimento'
+ where deleted_at is null and coalesce(payload->>'rateioItemId','') <> ''
+ group by organization_id, payload->>'rateioItemId', payload->>'parceiro'
 having count(*) > 1
  order by vezes desc
  limit 50;
