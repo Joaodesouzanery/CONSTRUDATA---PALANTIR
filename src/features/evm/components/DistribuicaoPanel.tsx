@@ -10,6 +10,8 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useContractorStore } from '@/store/contractorStore'
+import { seededId } from '@/lib/seededId'
+import { useAuth } from '@/lib/auth'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { formatCurrency } from '@/lib/utils'
@@ -40,6 +42,7 @@ export function DistribuicaoPanel() {
   const upsertDistribuicao = useFinanceiroStore((s) => s.upsertDistribuicao)
   const removeDistribuicao = useFinanceiroStore((s) => s.removeDistribuicao)
   const addEntry = useFinanceiroStore((s) => s.addEntry)
+  const orgId = useAuth((s) => s.profile?.organization_id)
 
   const [dist, setDist] = useState<Distribuicao>(emptyDist)
   const [orcamentoStr, setOrcamentoStr] = useState('')
@@ -99,7 +102,10 @@ export function DistribuicaoPanel() {
     for (const l of dist.linhas) {
       if (!l.valor) continue
       addEntry({
-        id: uid(), tipo: 'saida',
+        // Id DERIVADO da linha da distribuição, não sorteado: este botão não tinha guard
+        // nenhum, então dois cliques (ou dois dispositivos) lançavam a folha inteira duas
+        // vezes na DRE. Derivado, o segundo lançamento regrava o mesmo registro.
+        id: seededId(orgId, 'distribuicao-saida', dist.id, l.id), tipo: 'saida',
         descricao: `Distribuição: ${l.beneficiarioNome}${l.tarefa ? ` — ${l.tarefa}` : ''}`,
         valor: l.valor, data: today,
         categoria: l.beneficiarioTipo === 'funcionario' ? 'mao_de_obra' : 'subempreiteiros',

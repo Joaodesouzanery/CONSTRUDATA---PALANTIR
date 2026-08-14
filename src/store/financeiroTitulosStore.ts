@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { hojeLocalISO } from '@/lib/utils'
+import { seededId } from '@/lib/seededId'
 import type { FinanceiroTitulo, FinanceiroEntry, EntradaCategoria, SaidaCategoria, TituloTipo, TituloAnexo } from '@/types'
 
 /** Entrada do cadastro de um boleto (a aba "Boletos" cria N títulos-parcela a partir disto). */
@@ -300,7 +301,12 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
           // Data LOCAL: com toISOString (UTC), uma baixa às 22h do dia 31 caía no mês
           // seguinte — e é essa data que define a competência do lançamento na DRE.
           const dataPagamento = opts?.dataPagamento ?? hojeLocalISO()
-          const entryId = crypto.randomUUID()
+          // Id DERIVADO do título, não sorteado. Com `crypto.randomUUID()`, dar baixa no mesmo
+          // título em dois dispositivos criava DOIS lançamentos no Fluxo/DRE — e como o payload
+          // do título é último-a-escrever-vence, só um `entryId` sobrevivia: o outro lançamento
+          // virava fantasma somando para sempre, sem nenhuma forma de removê-lo pela interface.
+          // Derivado, os dois lados chegam ao mesmo id e o segundo upsert regrava a mesma linha.
+          const entryId = seededId(ctxAuth().orgId, 'baixa-titulo', id)
           const entry: FinanceiroEntry = {
             id: entryId,
             tipo: t.tipo === 'pagar' ? 'saida' : 'entrada',
@@ -310,6 +316,9 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
             categoria: baixaCategoria(t),
             referencia: t.numeroDoc,
             obraId: t.obraId,
+            // Vínculo explícito com o título de origem: sem ele um lançamento órfão é
+            // irrastreável, e é o que permite a rede de segurança (índice único) no banco.
+            sourceTituloId: id,
             createdAt: new Date().toISOString(),
           }
           // respectObra: a baixa reflete a obra do TÍTULO (inclusive "sem obra") —

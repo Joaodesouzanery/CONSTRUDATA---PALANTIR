@@ -39,24 +39,12 @@ import {
 } from '@/features/mao-de-obra/utils/cltEngine'
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
+import { seededUuidLegado } from '@/lib/seededId'
 
 /** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
  *  Mesmo (rdoId, workerId) → mesmo id → upsert substitui em vez de duplicar, inclusive
  *  entre dispositivos (espelha o seededUuid do feed RDO→Financeiro). */
-function seededUuid(seed: string): string {
-  let h1 = 0x9e3779b9, h2 = 0x243f6a88, h3 = 0xb7e15162, h4 = 0xdeadbeef
-  for (let i = 0; i < seed.length; i++) {
-    const c = seed.charCodeAt(i)
-    h1 = Math.imul(h1 ^ c, 2654435761)
-    h2 = Math.imul(h2 ^ c, 1597334677)
-    h3 = Math.imul(h3 ^ c, 3812015801)
-    h4 = Math.imul(h4 ^ c, 2246822519)
-  }
-  const hx = (n: number) => (n >>> 0).toString(16).padStart(8, '0')
-  const r = hx(h1) + hx(h2) + hx(h3) + hx(h4)
-  return `${r.slice(0, 8)}-${r.slice(8, 12)}-${r.slice(12, 16)}-${r.slice(16, 20)}-${r.slice(20, 32)}`
-}
-const rdoTimecardId = (rdoId: string, workerId: string) => seededUuid(`rdo-tc:${rdoId}:${workerId}`)
+const rdoTimecardId = (rdoId: string, workerId: string) => seededUuidLegado(`rdo-tc:${rdoId}:${workerId}`)
 
 /** Dados mínimos que a ponte RDO → timecards precisa (evita acoplar rdoStore). */
 export interface RdoLaborBridgeInput {

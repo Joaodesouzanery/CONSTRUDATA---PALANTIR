@@ -2,16 +2,21 @@
  * rateioConsumoStore.ts — "Rateio de Consumo" do módulo Predial (adaptação de domínio
  * do submeter-billback: rateio de fatura de água/energia entre unidades/obras).
  * Local-first tenant-synced (padrão payload jsonb do financeiroTitulosStore) contra a
- * tabela rateio_consumo. Aprovar pode gerar cobranças (títulos a receber) no Financeiro;
- * a geração é guardada por dispositivo (não re-gera se já há cobrancaTituloIds) e
- * reversível (desfazer remove os títulos). Ids ALEATÓRIOS — títulos usam soft-delete, e
- * re-inserir um id soft-deletado quebraria; re-gerar (após desfazer) cria ids novos.
+ * tabela rateio_consumo. Aprovar pode gerar cobranças (títulos a receber) no Financeiro,
+ * e desfazer as remove.
+ *
+ * A cobrança tem id DERIVADO de (organização, rateio, unidade, geração) — ver seededId. O
+ * guard por `cobrancaTituloIds` só protege o dispositivo que gerou; sem id derivado, quem
+ * ainda não tinha puxado emitia o conjunto inteiro de novo e o condomínio recebia a cobrança
+ * em dobro. A `geração` existe porque o título é apagado por soft-delete e a policy de update
+ * proíbe reviver a linha: desfazer avança a geração, e a emissão seguinte usa ids novos.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
+import { seededId } from '@/lib/seededId'
 import type { RateioConsumo, RateioStatus, FinanceiroTitulo } from '@/types'
 
 const TABLE = 'rateio_consumo'
@@ -134,12 +139,20 @@ export const useRateioConsumoStore = create<RateioConsumoState>()(
           const [py, pm] = r.periodo.split('-').map(Number)
           const vencimento = `${pm === 12 ? py + 1 : py}-${String(pm === 12 ? 1 : pm + 1).padStart(2, '0')}-10`
           const vals = rateioValores(r)
-          // Ids ALEATÓRIOS (não determinísticos): títulos usam soft-delete e re-inserir
-          // um id soft-deletado quebraria (RLS/pull). Re-gerar (após desfazer) cria ids novos.
+          // Id DERIVADO de (organização, rateio, unidade, geração), não sorteado. O guard acima
+          // só vale por dispositivo: quem não puxou ainda gerava o conjunto inteiro de novo, com
+          // ids diferentes — o condomínio recebia DUAS cobranças por unidade e os títulos do
+          // primeiro viravam órfãos (o `cobrancaTituloIds` é sobrescrito por inteiro). Derivado,
+          // os dois lados chegam ao mesmo id e o upsert regrava a mesma linha.
+          // A geração entra na semente porque o título é apagado por soft-delete: sem ela,
+          // desfazer e gerar de novo tentaria reviver uma linha com `deleted_at`, que a policy
+          // de update proíbe.
+          const geracao = r.cobrancaGeracao ?? 0
+          const { orgId } = ctxAuth()
           const titulos: FinanceiroTitulo[] = r.itens
             .filter((it) => (vals[it.id] ?? 0) > 0)
             .map((it) => ({
-              id: crypto.randomUUID(),
+              id: seededId(orgId, 'rateio-cobranca', r.id, it.id, String(geracao)),
               tipo: 'receber',
               descricao: `Rateio ${r.tipo === 'agua' ? 'água' : 'energia'} ${r.periodo} — ${it.unidade}`,
               parceiro: it.unidade,
@@ -160,7 +173,13 @@ export const useRateioConsumoStore = create<RateioConsumoState>()(
           const r = get().rateios.find((x) => x.id === id)
           if (!r?.cobrancaTituloIds?.length) return
           useFinanceiroTitulosStore.getState().removeTitulos(r.cobrancaTituloIds)
-          get().updateRateio(id, { cobrancaTituloIds: undefined, status: 'revisar' })
+          // Avança a geração: a próxima emissão precisa de ids novos, porque estes ficaram
+          // soft-deletados e a policy de update não deixa revivê-los.
+          get().updateRateio(id, {
+            cobrancaTituloIds: undefined,
+            cobrancaGeracao: (r.cobrancaGeracao ?? 0) + 1,
+            status: 'revisar',
+          })
         },
 
         loadDemoData: () => set({ rateios: buildDemo() }),

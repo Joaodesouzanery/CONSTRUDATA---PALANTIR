@@ -2710,6 +2710,7 @@ export interface FinanceiroEntry {
   obraId?:     string   // vínculo com a obra (ConstructionSite) do Torre de Controle
   notas?:      string
   sourceRdoId?: string  // origem: RDO que gerou este lançamento (idempotência RDO→Financeiro)
+  sourceTituloId?: string // origem: título cuja baixa gerou este lançamento (idempotência + rastreio)
   createdAt:   string
 }
 
@@ -2823,6 +2824,11 @@ export interface RateioConsumo {
   itens:            RateioItem[]
   status:           RateioStatus
   cobrancaTituloIds?: string[]   // títulos a receber gerados no Financeiro (idempotência/undo)
+  /** Quantas vezes as cobranças já foram desfeitas. Entra na semente do id dos títulos: dentro
+   *  da mesma geração dois dispositivos produzem o MESMO id (não duplica); ao desfazer e gerar
+   *  de novo, a geração muda e os ids também — necessário porque o título é apagado por
+   *  soft-delete e a policy de update proíbe reviver uma linha com `deleted_at` preenchido. */
+  cobrancaGeracao?: number
   createdAt:        string
 }
 

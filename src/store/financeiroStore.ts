@@ -7,6 +7,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { seededUuidLegado } from '@/lib/seededId'
 import type { FinanceiroTab, FinanceiroEntry, Distribuicao, DreConfig, RDO } from '@/types'
 
 export const DEFAULT_DRE_CONFIG: DreConfig = { deducaoPct: 0, mapping: {} }
@@ -18,20 +19,7 @@ export const DEFAULT_DRE_CONFIG: DreConfig = { deducaoPct: 0, mapping: {} }
  * substitui em vez de duplicar (idempotente inclusive entre dispositivos, sem
  * depender de ter puxado os lançamentos antes).
  */
-function seededUuid(seed: string): string {
-  let h1 = 0x9e3779b9, h2 = 0x243f6a88, h3 = 0xb7e15162, h4 = 0xdeadbeef
-  for (let i = 0; i < seed.length; i++) {
-    const c = seed.charCodeAt(i)
-    h1 = Math.imul(h1 ^ c, 2654435761)
-    h2 = Math.imul(h2 ^ c, 1597334677)
-    h3 = Math.imul(h3 ^ c, 3812015801)
-    h4 = Math.imul(h4 ^ c, 2246822519)
-  }
-  const hx = (n: number) => (n >>> 0).toString(16).padStart(8, '0')
-  const r = hx(h1) + hx(h2) + hx(h3) + hx(h4)
-  return `${r.slice(0, 8)}-${r.slice(8, 12)}-${r.slice(12, 16)}-${r.slice(16, 20)}-${r.slice(20, 32)}`
-}
-const rdoEntryId = (rdoId: string, cat: 'materiais' | 'mao_de_obra') => seededUuid(`rdo-fin:${rdoId}:${cat}`)
+const rdoEntryId = (rdoId: string, cat: 'materiais' | 'mao_de_obra') => seededUuidLegado(`rdo-fin:${rdoId}:${cat}`)
 
 function moneyValue(value: unknown): number {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0
