@@ -1047,10 +1047,14 @@ export function LandingPage() {
               {/* Alternativa em texto: vídeo sem áudio não se resolve com legenda (não há o
                   que legendar) — a WCAG 1.2.1 pede um equivalente textual do que se vê. */}
               <figcaption className="px-1 pt-4 text-[13px] leading-6 text-black/55">
-                O percurso de um dado de obra: a pressão de entrega no canteiro, os registros presos ao
-                formato em que nasceram (papel, planilha, ERP, grupo de mensagens), a implantação sobre
-                uma base comum, e o efeito — um RDO preenchido no campo que atualiza medição, suprimentos
-                e planejamento, até a obra inteira caber numa tela na diretoria. Sem áudio · {DURACAO}.
+                O percurso de um dado de obra, em sete cenas: a infraestrutura que a cidade espera e não
+                pode parar; a mesma medição contando números diferentes em planilhas, mensagens, documentos
+                e sistemas; os engenheiros fazendo o diagnóstico em campo, antes de qualquer tela; a
+                plataforma sendo configurada à operação, conectando o que a obra já usa — planilha, ERP,
+                SINAPI, BIM — a uma base comum; um RDO preenchido no campo que atualiza produção, mão de
+                obra, suprimentos, planejamento e financeiro; a carteira inteira num painel executivo, com
+                desvio de custo e avanço físico e financeiro; e um valor medido aberto até a evidência que
+                o gerou — frente, equipe, foto com GPS e encarregado responsável. Sem áudio · {DURACAO}.
               </figcaption>
             </figure>
           </div>

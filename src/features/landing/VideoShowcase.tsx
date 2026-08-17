@@ -13,22 +13,32 @@
  * então ler `window`/`matchMedia` durante o render quebraria o build ou faria a hidratação
  * divergir e descartar a página toda. Handler só roda no browser e só depois da hidratação.
  *
- * Trocar os arquivos: regerar `public/videos/plataforma-{1080,720}.mp4` e o pôster
- * `plataforma-poster.webp`. Se o corte mudar, atualize DURACAO e a descrição no
- * <figcaption> em LandingPage.tsx — ela é a alternativa em texto do vídeo (WCAG 1.2.1).
+ * TROCAR O CORTE: rode `node scripts/encodar-video-landing.mjs videos/source/<master>.mp4`,
+ * que gera os dois MP4 e o pôster com a receita versionada. Três coisas andam juntas e é fácil
+ * esquecer uma:
+ *
+ *  1. **Suba o número da versão nos nomes** (`-v2` → `-v3`), aqui e no script. O `vercel.json`
+ *     serve `/videos/` com `max-age=604800`: regravar por cima do mesmo nome deixa quem já
+ *     assistiu vendo o corte velho por sete dias, e parece que a troca não pegou.
+ *  2. Confira `DURACAO` abaixo.
+ *  3. Reescreva o `<figcaption>` em LandingPage.tsx — é a alternativa em texto do vídeo
+ *     (WCAG 1.2.1) e descreve o que se vê, cena a cena. Se o corte muda e ela fica, vira ficção.
+ *
+ * O master NÃO pode ficar em `public/`: tudo ali é copiado inteiro para o deploy. Guarde em
+ * `videos/source/`, que o `videos/.gitignore` já ignora.
  */
 import { useCallback, useRef, useState, type SyntheticEvent } from 'react'
 
 const M_FONT = 'font-label'
 
-const POSTER = '/videos/plataforma-poster.webp'
+const POSTER = '/videos/plataforma-poster-v2.webp'
 export const DURACAO = '2 min 47 s'
 
 /** Uma resolução por faixa de tela. Sem WebM: os dois MP4 já ficaram enxutos, e um par
  *  extra de arquivos pesaria no repositório mais do que economizaria em banda. */
 const FONTES = {
-  '720': '/videos/plataforma-720.mp4',
-  '1080': '/videos/plataforma-1080.mp4',
+  '720': '/videos/plataforma-720-v2.mp4',
+  '1080': '/videos/plataforma-1080-v2.mp4',
 } as const
 
 type Qualidade = keyof typeof FONTES
