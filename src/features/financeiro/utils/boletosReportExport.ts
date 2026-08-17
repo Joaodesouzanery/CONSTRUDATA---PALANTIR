@@ -368,8 +368,11 @@ body { font: 9.5pt/1.42 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-ser
 /* O overflow-wrap:anywhere do <td> (necessário para descrições e nomes longos) estava partindo
    valor de dinheiro no meio: numa coluna estreita, "R$ 8.450,00" saía como "R$ 8.450" numa linha
    e ",00" na seguinte — o leitor lê oito mil e quatrocentos e cinquenta. "dom" virava "do"/"m".
-   Número não quebra, nunca: se não couber, a coluna é que tem de ceder. */
-.n { font-variant-numeric: tabular-nums; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+   O overflow-wrap:normal resolve sem precisar de white-space:nowrap: ponto e vírgula não são
+   pontos de quebra, então "12.345.678,90" fica inteiro de qualquer jeito. E se um valor gigante não couber
+   na coluna, ele quebra no espaço depois do "R$" em vez de transbordar a folha — degradar assim
+   é aceitável; partir o número não é. */
+.n { font-variant-numeric: tabular-nums; overflow-wrap: normal; word-break: normal; }
 .r { text-align:right } .c { text-align:center }
 .sub { font-size:7.5pt; color:#94a3b8; }
 .vazio { font-size:8.5pt; color:#64748b; font-style:italic; padding:6px 2px; }

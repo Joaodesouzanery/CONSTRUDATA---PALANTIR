@@ -106,7 +106,32 @@ const fmtQtd = (n: number): string => n.toLocaleString('pt-BR', { maximumFractio
 
 const ehCompizzo = (r: RDO): boolean => r.template === 'compizzo' && !!r.compizzo
 
-const ehMetroLinear = (unidade: string): boolean => /^\s*(m|ml|m²|m2|metro)/i.test(unidade)
+/**
+ * Classifica a unidade de uma linha de produção.
+ *
+ * Casa o token INTEIRO. Um `/^m/` casaria com "mm" e "min" — milímetro entrando no total de
+ * metros, minuto virando metragem. E separa linear de área porque os três formatos convivem no
+ * mesmo relatório: o RDO Sabesp mede ramal em metro, o Compizzo mede piso em m². Somar os dois
+ * num número só ainda é uma aproximação, mas ao menos o rótulo passa a dizer qual é a mistura.
+ */
+function classificarUnidade(unidade: string): 'linear' | 'area' | null {
+  const u = unidade.trim().toLowerCase()
+  if (/^(m|ml|metro|metros|m\.?l\.?)$/.test(u)) return 'linear'
+  if (/^(m²|m2|metro quadrado|metros quadrados)$/.test(u)) return 'area'
+  return null
+}
+
+/** Quanto o item executou, e em que unidade — para o rótulo não mentir. */
+export type Executado = { valor: number; unidade: string }
+
+const UNIDADE_DE: Record<string, string> = { linear: 'm', area: 'm²' }
+
+function juntar(partes: { tipo: 'linear' | 'area'; valor: number }[], padrao = 'm'): Executado {
+  const valor = partes.reduce((s, p) => s + p.valor, 0)
+  const tipos = [...new Set(partes.filter((p) => p.valor !== 0).map((p) => p.tipo))]
+  if (tipos.length === 0) return { valor: 0, unidade: padrao }
+  return { valor, unidade: tipos.length === 1 ? UNIDADE_DE[tipos[0]] : 'm / m²' }
+}
 
 /** Serviços da Sabesp com quantidade lançada — água e esgoto na mesma lista, como no formulário. */
 const servicosSabesp = (r: RdoSabespData): any[] =>
@@ -128,20 +153,36 @@ export function contarPessoas(item: ItemRelatorio): number {
   return contadores > 0 ? contadores : (m.employeeNames?.length ?? 0)
 }
 
-/** Metros executados: trechos no padrão, produção no Compizzo, serviços em metro na Sabesp. */
-export function contarMetros(item: ItemRelatorio): number {
+/** O que o item executou: trechos no padrão, produção no Compizzo, serviços na Sabesp. */
+export function contarExecutado(item: ItemRelatorio): Executado {
   if (item.tipo === 'sabesp') {
-    return servicosSabesp(item.rdo)
-      .filter((s: any) => ehMetroLinear(String(s?.unidade ?? '')))
-      .reduce((acc: number, s: any) => acc + (Number(s?.quantidade) || 0), 0)
+    return juntar(servicosSabesp(item.rdo).flatMap((s: any) => {
+      const tipo = classificarUnidade(String(s?.unidade ?? ''))
+      return tipo ? [{ tipo, valor: Number(s?.quantidade) || 0 }] : []
+    }))
   }
   const r = item.rdo
   if (ehCompizzo(r)) {
-    return (r.compizzo!.producao ?? [])
-      .filter((p) => ehMetroLinear(p.unidade ?? '') || /metro|\bm²|\bm2\b/i.test(p.servico))
-      .reduce((s, p) => s + num(p.quantidade), 0)
+    return juntar((r.compizzo!.producao ?? []).flatMap((p) => {
+      const tipo = classificarUnidade(p.unidade ?? '')
+      return tipo ? [{ tipo, valor: num(p.quantidade) }] : []
+    }))
   }
-  return r.trechos.reduce((s, t) => s + t.executedMeters, 0)
+  // Trechos são sempre lineares — a coluna do tipo se chama `executedMeters`.
+  return juntar(r.trechos.map((t) => ({ tipo: 'linear' as const, valor: t.executedMeters })))
+}
+
+/** Soma de vários itens, preservando a unidade quando ela é a mesma em todos. */
+function somarExecutado(itens: ItemRelatorio[]): Executado {
+  const partes = itens.flatMap((i) => {
+    const e = contarExecutado(i)
+    if (e.valor === 0) return []
+    // 'm / m²' já é mistura: entra como as duas, para o total herdar a mistura.
+    return e.unidade === 'm / m²'
+      ? [{ tipo: 'linear' as const, valor: e.valor }, { tipo: 'area' as const, valor: 0 }]
+      : [{ tipo: (e.unidade === 'm²' ? 'area' : 'linear') as 'linear' | 'area', valor: e.valor }]
+  })
+  return juntar(partes)
 }
 
 function secao(titulo: string, corpo: string, contagem?: string): string {
@@ -544,6 +585,9 @@ code { font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-size:8p
 
 .rodape { margin-top:16px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; font-size:6.8pt; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:5px; }
 .aviso { margin-top:10px; padding:6px 9px; background:#fffbeb; border-left:3px solid #b45309; font-size:8pt; color:#92400e; }
+/* O aviso de peso é orientação de tela; no papel ele não faz sentido nenhum. */
+.aviso-peso { margin:0 0 12px; font-size:9pt; }
+@media print { .aviso-peso { display:none !important; } }
 
 .demo-wm { position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; z-index:0; }
 .demo-wm span { transform:rotate(-32deg); font-size:64pt; font-weight:900; color:#0f172a; opacity:.038; letter-spacing:.15em; }
@@ -564,6 +608,8 @@ export type OpcoesRelatorioRdos = {
   fotosPorRdo?: Record<string, RdoPhoto[]>
   /** Quantas fotos não puderam ser baixadas — declarado no rodapé em vez de sumir calado. */
   fotosFaltando?: number
+  /** Documento grande demais para imprimir sozinho: o aviso vai no topo, junto ao botão. */
+  avisoPeso?: string
   demo?: boolean
   geradoEm?: Date
 }
@@ -583,19 +629,19 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
 
   const fotosDe = (i: ItemRelatorio) => op.fotosPorRdo?.[idDoItem(i)] ?? []
   const totalPessoas = ordenados.reduce((s, i) => s + contarPessoas(i), 0)
-  const totalMetros = ordenados.reduce((s, i) => s + contarMetros(i), 0)
+  const totalExecutado = somarExecutado(ordenados)
   const totalFotos = ordenados.reduce((s, i) => s + fotosDe(i).length, 0)
   const geradoEm = op.geradoEm ?? new Date()
 
   const kpis = [
     { valor: String(ordenados.length), rotulo: 'RDOs no período' },
-    { valor: fmtNum(totalMetros, 0) + ' m', rotulo: 'Metros executados' },
+    { valor: `${fmtNum(totalExecutado.valor, 0)} ${totalExecutado.unidade}`, rotulo: 'Executado' },
     { valor: String(totalPessoas), rotulo: 'Trabalhadores-dia' },
     { valor: String(totalFotos), rotulo: 'Fotos anexadas' },
   ]
 
   const sumario = ordenados.map((i) => {
-    const metros = contarMetros(i)
+    const exec = contarExecutado(i)
     const modelo = i.tipo === 'sabesp' ? 'Sabesp' : ehCompizzo(i.rdo) ? 'Compizzo' : 'Padrão'
     return `<tr>
       <td class="c">${i.tipo === 'torre' ? i.rdo.number : '—'}</td>
@@ -603,7 +649,7 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
       <td>${esc(i.tipo === 'torre' ? (i.rdo.title || '—') : (i.rdo.rua_beco || '—'))}</td>
       <td class="c">${modelo}</td>
       <td class="r n">${contarPessoas(i) || '—'}</td>
-      <td class="r n">${metros ? fmtNum(metros, 0) + ' m' : '—'}</td>
+      <td class="r n">${exec.valor ? `${fmtNum(exec.valor, 0)} ${exec.unidade}` : '—'}</td>
       <td class="c n">${fotosDe(i).length || '—'}</td>
     </tr>`
   })
@@ -615,6 +661,7 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
 <style>${pageFooterCss(`Relatório de RDOs · ${op.obra ?? 'todas as obras'} · ${op.periodo}${op.demo ? ' · DEMONSTRAÇÃO' : ''}`)}</style></head><body>
 ${op.demo ? '<div class="demo-wm"><span>DEMONSTRAÇÃO</span></div>' : ''}
 <div class="barra-acoes"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
+${op.avisoPeso ? `<p class="aviso aviso-peso">${esc(op.avisoPeso)}</p>` : ''}
 
 <header class="head">
   <div class="head-mark">${brandMarkSvg(30, '#fff')}</div>
@@ -670,13 +717,14 @@ async function aguardarImagens(doc: Document): Promise<void> {
     img.complete ? Promise.resolve() : img.decode().catch(() => undefined)))
 }
 
-export async function escreverEImprimir(win: Window, html: string): Promise<void> {
+/** `imprimir = false` só entrega o documento; quem dispara a impressão é o botão da barra. */
+export async function escreverEImprimir(win: Window, html: string, imprimir = true): Promise<void> {
   win.document.open()
   win.document.write(html)
   win.document.close()
   await aguardarImagens(win.document)
   win.focus()
-  win.print()
+  if (imprimir) win.print()
 }
 
 /** Plano B quando o pop-up é bloqueado: imprime de um iframe oculto, sem abrir aba. */
@@ -744,25 +792,32 @@ export async function imprimirRelatorioRdos(
     if (resolvidas.length) fotosPorRdo[idDoItem(item)] = resolvidas
   }))
 
-  const html = buildRdosReportHtml(itens, {
+  // As fotos entram em tamanho original: 70mm de altura no papel a 300dpi já consomem quase os
+  // 1400px que o app guarda, e reduzir viraria borrão na impressão. O preço é peso — medido no
+  // Chrome, uma foto de canteiro (JPEG 1400px q=0.82) dá ~228 KB, que em base64 viram ~305 KB;
+  // um mês com 29 RDOs e 4 fotos cada chega a ~35 MB.
+  //
+  // Acima de 25 MB o documento é gerado do mesmo jeito, mas a impressão NÃO dispara sozinha: um
+  // aviso no topo explica o tamanho e o usuário aperta "Imprimir" quando quiser. Um `confirm()`
+  // aqui seria pior — ele abre na janela do app, que já está atrás do pop-up do relatório, e o
+  // usuário ficaria olhando um "Gerando…" parado sem entender o que trava.
+  const primeiro = buildRdosReportHtml(itens, {
     periodo, obra, fotosPorRdo, fotosFaltando: faltando, demo: isNonProductionDataMode(),
   })
-
-  // As fotos entram em tamanho original, porque 70mm de altura no papel a 300dpi já consomem
-  // quase os 1400px que o app guarda — reduzir apareceria como borrão na impressão. O preço é
-  // peso: medido no Chrome, uma foto de canteiro (JPEG 1400px q=0.82) dá ~228 KB, que em base64
-  // viram ~305 KB. Um mês cheio com 29 RDOs e 4 fotos cada chega a ~35 MB, e aí a caixa de
-  // impressão do navegador demora ou trava. Em vez de decidir sozinho por ele, o usuário escolhe.
-  const mb = html.length / 1024 / 1024
+  const mb = primeiro.length / 1024 / 1024
+  const pesado = mb > 25
   const totalFotos = Object.values(fotosPorRdo).reduce((s, f) => s + f.length, 0)
-  if (mb > 25 && !confirm(
-    `O relatório ficou com ${mb.toFixed(0)} MB por causa das ${totalFotos} fotos em tamanho original.\n\n`
-    + 'Documentos desse tamanho deixam a impressão lenta e podem travar o navegador. '
-    + 'Se preferir, cancele e exporte por semana em vez do mês inteiro.\n\nContinuar mesmo assim?')) {
-    janela?.close()
-    return
-  }
 
-  if (janela && !janela.closed) await escreverEImprimir(janela, html)
-  else await imprimirPorIframe(html)
+  const html = pesado
+    ? buildRdosReportHtml(itens, {
+        periodo, obra, fotosPorRdo, fotosFaltando: faltando, demo: isNonProductionDataMode(),
+        avisoPeso: `Este relatório ficou com cerca de ${mb.toFixed(0)} MB por causa das ${totalFotos} fotos `
+          + 'em tamanho original, então a impressão não foi aberta automaticamente — documentos desse tamanho '
+          + 'travam a caixa de impressão de alguns navegadores. Use o botão acima quando estiver pronto, ou '
+          + 'feche esta janela e exporte por semana em vez do mês inteiro.',
+      })
+    : primeiro
+
+  if (janela && !janela.closed) await escreverEImprimir(janela, html, !pesado)
+  else await imprimirPorIframe(html)   // pop-up bloqueado: imprimir daqui é a única saída
 }
