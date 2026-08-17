@@ -14,8 +14,9 @@
  * isso o navegador recusa o iframe — o estado de erro abaixo é o que o usuário veria.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Corners } from './Corners'
+import { CtaBox } from './CtaBox'
 
 const M_FONT = 'font-label'
 const H_FONT = 'font-display'
@@ -25,8 +26,9 @@ const TYPEFORM_ID = 'nvIZCyYA'
 /** Duração declarada na fachada. Se o formulário mudar de tamanho, atualize aqui. */
 export const TYPEFORM_DURACAO = 'menos de um minuto'
 
-/** Âncora usada pelos CTAs espalhados na página para trazer o visitante até aqui. */
-export const TYPEFORM_ANCHOR = '#qualificacao'
+/** Âncora usada pelos CTAs espalhados na página. Mora em landingLinks para o CtaBox poder
+ *  usá-la sem criar ciclo de import; re-exportada aqui por conveniência de quem já importava. */
+export { TYPEFORM_ANCHOR } from './landingLinks'
 
 /**
  * Monta a URL com a origem do clique. `origem` chega na Typeform como campo oculto — mas só
@@ -107,14 +109,11 @@ export function TypeformPanel({ origem = 'fechamento' }: { origem?: string }) {
             <li>· Resposta em até 1 dia útil</li>
           </ul>
           <div className="mt-auto pt-6">
-            <button
-              type="button"
-              onClick={abrir}
-              className={`${M_FONT} group inline-flex min-h-12 w-full items-center justify-center gap-3 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b] sm:w-auto`}
-            >
+            {/* Neutro, e não primário: o vermelho da página inteira marca um caminho só — o de
+                agendar. Duas caixas vermelhas lado a lado nesta seção desfariam a regra. */}
+            <CtaBox onClick={abrir} className="w-full sm:w-auto">
               Responder agora
-              <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-            </button>
+            </CtaBox>
             {/* Escape para quem prefere sair do site — e rede de segurança se o iframe for
                 bloqueado por bloqueador de rastreador ou pela CSP. */}
             <p className="mt-3 text-xs leading-5 text-black/40">

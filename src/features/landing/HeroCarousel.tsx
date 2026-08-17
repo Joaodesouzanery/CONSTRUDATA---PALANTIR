@@ -10,11 +10,12 @@
  * hero-slide-2.webp / hero-slide-3.webp) — sem tocar em código.
  */
 import { useCallback, useRef, useState, type ReactNode } from 'react'
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { CtaBox } from './CtaBox'
+import { CALENDLY_URL, CTA_AGENDAR } from './landingLinks'
 
 const M_FONT = 'font-label'
 const H_FONT = 'font-display'
-const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 
 const PHOTO_SLIDES: Array<{ src: string; eyebrow: string; title: string }> = [
   {
@@ -109,14 +110,9 @@ export function HeroCarousel({ children }: { children: ReactNode }) {
                   {slide.title}
                 </h2>
                 <div className="mt-8">
-                  <a
-                    href={CALENDLY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${M_FONT} group inline-flex min-h-12 items-center justify-center gap-3 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b]`}
-                  >
-                    Falar com engenharia <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-                  </a>
+                  <CtaBox href={CALENDLY_URL} external variant="primary" surface="dark">
+                    {CTA_AGENDAR}
+                  </CtaBox>
                 </div>
               </div>
             </div>

@@ -30,16 +30,17 @@ import {
 import { BrandLockup } from '@/components/shared/BrandLogo'
 import { HeroCarousel } from './HeroCarousel'
 import { VideoShowcase, DURACAO } from './VideoShowcase'
-import { TypeformPanel, TYPEFORM_ANCHOR } from './TypeformPanel'
+import { TypeformPanel } from './TypeformPanel'
 import { Corners } from './Corners'
+import { CtaBox } from './CtaBox'
+import {
+  CALENDLY_URL, LOGIN_URL, TYPEFORM_ANCHOR, HOW_ANCHOR, FORM_ANCHOR,
+  CTA_AGENDAR, CTA_AGENDAR_CURTO, CTA_CONTEXTO, CTA_CONTEXTO_CURTO,
+  CTA_COMO, CTA_COMO_CURTO, CTA_LOGIN, CTA_LOGIN_CURTO, CTA_ENVIAR,
+} from './landingLinks'
 
-const LOGIN_URL = '/login'
-const FORM_ANCHOR = '#solicitar'
-const HOW_ANCHOR = '#como-entramos'
 const MICROCOPY = 'Resposta em até 1 dia útil. Você conversa com quem entende de obra, não com um vendedor de software.'
 
-// CTA primária "Falar com engenharia" → agenda a demonstração no Calendly.
-const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construdata'
 // Form nativo de qualificação (Web3Forms). Defina VITE_WEB3FORMS_KEY na Vercel; sem a chave,
 // o form cai no botão do Calendly (fallback).
 const WEB3FORMS_KEY = import.meta.env.VITE_WEB3FORMS_KEY as string | undefined
@@ -612,37 +613,45 @@ function SectionHeader({
   )
 }
 
-/* CTA primário — o mesmo trio em toda a página: agendar (Calendly, nova aba), responder a
-   qualificação, ou entender antes. O link de qualificação NÃO abre um embed aqui: rola até o
-   painel da seção final, para existir um formulário só na landing inteira. */
+/**
+ * O trio de CTAs que se repete pela página: agendar (Calendly, nova aba), contar o contexto
+ * (rola até o painel da Typeform na seção final) ou entender antes.
+ *
+ * A qualificação NÃO abre um embed aqui — rola até a âncora, para existir um formulário só na
+ * landing inteira.
+ *
+ * SOBRE O AGRUPAMENTO, que é o que impede três quadros iguais de virarem indecisão: o primário
+ * fica sozinho e os dois secundários formam um par com metade do espaçamento (24px contra
+ * 12px). A leitura vira "uma coisa | ou estas duas", e não "escolha uma entre três". De quebra,
+ * quando a linha estoura, o `flex-wrap` quebra ENTRE o primário e o par, nunca no meio do par.
+ *
+ * No celular o par fica em duas colunas: três quadros de largura total custariam 168px de
+ * altura contra os ~106px de hoje, e isso é regressão dentro do hero. Com o par lado a lado dá
+ * 108px. Por isso os secundários têm rótulo curto e perdem a seta abaixo de `sm` — sem as duas
+ * coisas, "Ver como funciona" não cabe nos 137px de rótulo que sobram numa tela de 390px.
+ */
 function DemoCTA({
-  align = 'left',
   microcopy = true,
-  tone = 'dark',
-}: { align?: 'left' | 'center'; microcopy?: boolean; tone?: 'light' | 'dark' }) {
-  const isLight = tone === 'light'
-  const linkCls = `${M_FONT} group inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition ${
-    isLight ? 'text-white/85 hover:text-[#f87171]' : 'text-[#0a0a0a] hover:text-[#d13b40]'
-  }`
+  surface = 'light',
+}: { microcopy?: boolean; surface?: 'light' | 'dark' }) {
+  const escuro = surface === 'dark'
   return (
-    <div data-sr className={`flex flex-col gap-3 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <a
-          href={CALENDLY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${M_FONT} group inline-flex min-h-12 items-center justify-center gap-3 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b]`}
-        >
-          Falar com engenharia <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-        </a>
-        <a href={TYPEFORM_ANCHOR} className={linkCls}>
-          Responder 1 minuto <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
-        </a>
-        <a href={HOW_ANCHOR} className={linkCls}>
-          Ver como funciona <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
-        </a>
+    <div data-sr className="flex flex-col items-start gap-3">
+      <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
+        <CtaBox href={CALENDLY_URL} external variant="primary" surface={surface} className="w-full sm:w-auto">
+          {CTA_AGENDAR}
+        </CtaBox>
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-3">
+          <CtaBox href={TYPEFORM_ANCHOR} icon="anchor" surface={surface} shortLabel={CTA_CONTEXTO_CURTO}>
+            {CTA_CONTEXTO}
+          </CtaBox>
+          <CtaBox href={HOW_ANCHOR} icon="anchor" surface={surface} shortLabel={CTA_COMO_CURTO}>
+            {CTA_COMO}
+          </CtaBox>
+        </div>
       </div>
-      {microcopy && <p className={`max-w-md text-xs leading-5 ${isLight ? 'text-white/65' : 'text-black/45'}`}>{MICROCOPY}</p>}
+      {/* text-black/45 dava 3,36:1 sobre branco e 3,05:1 sobre #f4f4f2 — reprovava AA. */}
+      {microcopy && <p className={`max-w-md text-xs leading-5 ${escuro ? 'text-white/75' : 'text-black/60'}`}>{MICROCOPY}</p>}
     </div>
   )
 }
@@ -859,9 +868,9 @@ function LeadForm() {
     return (
       <div className="border border-black/10 bg-black/[0.02] p-8 text-center">
         <p className="text-sm leading-6 text-black/55">Escolha um horário direto na agenda do nosso time de engenharia.</p>
-        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} mt-5 inline-flex min-h-12 items-center justify-center gap-2 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b]`}>
-          Falar com engenharia <ArrowRight size={15} />
-        </a>
+        <div className="mt-5">
+          <CtaBox href={CALENDLY_URL} external variant="primary">{CTA_AGENDAR}</CtaBox>
+        </div>
       </div>
     )
   }
@@ -894,14 +903,18 @@ function LeadForm() {
         <p role="alert" className="text-sm text-[#b42318] sm:col-span-2">Não foi possível enviar agora. Tente novamente ou agende direto no Calendly.</p>
       )}
       <div className="flex flex-col gap-4 sm:col-span-2 sm:flex-row sm:items-center">
-        <button
+        {/* O rótulo não é "Agendar demonstração": este botão posta no Web3Forms, não abre a
+            agenda. Chamá-lo de "Falar com engenharia", como estava, já prometia uma conversa
+            e entregava um envio de formulário. */}
+        <CtaBox
           type="submit"
+          variant="primary"
           disabled={status === 'sending'}
-          className={`${M_FONT} group inline-flex min-h-12 items-center justify-center gap-2 bg-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#b3242b] disabled:opacity-60`}
+          aria-busy={status === 'sending'}
         >
-          {status === 'sending' ? 'Enviando…' : 'Falar com engenharia'} <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-        </button>
-        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0a0a0a] transition hover:text-[#d13b40]`}>
+          {status === 'sending' ? 'Enviando…' : CTA_ENVIAR}
+        </CtaBox>
+        <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#0a0a0a] transition hover:text-[#b42318]`}>
           ou agende direto <ArrowRight size={13} />
         </a>
       </div>
@@ -945,7 +958,11 @@ export function LandingPage() {
         }`}
       >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 md:px-10">
-          <a href="/" className="flex items-center gap-3">
+          {/* Abaixo de sm some o nome escrito e fica só o símbolo: com os dois quadros à direita,
+              o lockup inteiro (198px) mais os rótulos não cabem numa tela de 390px. O seletor
+              pega o <span> do nome que o BrandLockup renderiza — mexer no componente não serve,
+              ele é compartilhado com o app autenticado. */}
+          <a href="/" className="flex items-center gap-3 [&>span]:hidden sm:[&>span]:inline">
             <BrandLockup dark={scrolled} accent="text-[#e5484d]" />
           </a>
           <nav className="hidden items-center gap-7 lg:flex">
@@ -968,27 +985,32 @@ export function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-4">
-            <a
+          {/* Os dois caminhos que importam, visíveis em QUALQUER largura. Antes o login sumia
+              abaixo de 640px e, como não existe menu mobile nenhum nesta página, o único acesso
+              pelo celular era rolar até o rodapé. Os rótulos encurtam abaixo de md (não de sm:
+              em exatos 640px o cenário com nome da marca + rótulos longos não deixa folga). */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <CtaBox
               href={LOGIN_URL}
-              className={`hidden text-[11px] font-medium underline-offset-4 transition hover:underline sm:inline-flex ${
-                scrolled ? 'text-black/50 hover:text-[#0a0a0a]' : 'text-white/70 hover:text-white'
-              }`}
+              size="sm"
+              icon="none"
+              surface={scrolled ? 'light' : 'dark'}
+              shortLabel={CTA_LOGIN_CURTO}
+              shortLabelUntil="md"
             >
-              Acessar plataforma
-            </a>
-            <a
+              {CTA_LOGIN}
+            </CtaBox>
+            <CtaBox
               href={CALENDLY_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${M_FONT} group inline-flex items-center gap-2 border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition sm:px-4 ${
-                scrolled
-                  ? 'border-[#e5484d] text-[#b42318] hover:bg-[#cc2b33] hover:text-white'
-                  : 'border-white/40 text-white hover:border-[#e5484d] hover:bg-[#cc2b33]'
-              }`}
+              external
+              size="sm"
+              variant="primary"
+              surface={scrolled ? 'light' : 'dark'}
+              shortLabel={CTA_AGENDAR_CURTO}
+              shortLabelUntil="md"
             >
-              Falar com engenharia <ArrowRight size={13} className="hidden transition-transform duration-200 group-hover:translate-x-0.5 sm:inline" />
-            </a>
+              {CTA_AGENDAR}
+            </CtaBox>
           </div>
         </div>
       </header>
@@ -1024,7 +1046,7 @@ export function LandingPage() {
                   Cada RDO, cada medição, cada frente de serviço em uma única fonte de verdade. O ConstruData conecta o campo à decisão, em tempo real.
                 </p>
                 <div className="mt-9">
-                  <DemoCTA tone="light" microcopy={false} />
+                  <DemoCTA surface="dark" microcopy={false} />
                 </div>
                 <p className={`${M_FONT} mt-10 text-[10px] uppercase leading-5 tracking-[0.12em] text-white/45 sm:text-[11px]`}>
                   Em produção em obras de saneamento, infraestrutura e edificação · Engelfer · Consórcio Se Liga na Rede · Vila Rica · Atlântico · Compizzo
@@ -1457,15 +1479,9 @@ export function LandingPage() {
                 <li>· Sem compromisso de compra</li>
               </ul>
               <div className="mt-auto pt-6">
-                <a
-                  href={CALENDLY_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${M_FONT} group inline-flex min-h-12 w-full items-center justify-center gap-3 border border-[#cc2b33] px-7 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-[#b42318] transition hover:bg-[#cc2b33] hover:text-white sm:w-auto`}
-                >
-                  Agendar demonstração
-                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-1" />
-                </a>
+                <CtaBox href={CALENDLY_URL} external variant="primary" className="w-full sm:w-auto">
+                  {CTA_AGENDAR}
+                </CtaBox>
                 <p className="mt-3 text-xs leading-5 text-black/40">Abre a agenda do time em outra aba.</p>
               </div>
             </div>
@@ -1519,7 +1535,7 @@ export function LandingPage() {
             </nav>
             <nav className="flex flex-col gap-3">
               <a href={CALENDLY_URL} target="_blank" rel="noopener noreferrer" className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.16em] text-[#b42318] transition hover:text-[#0a0a0a]`}>
-                Falar com engenharia
+                {CTA_AGENDAR}
               </a>
               <a href={FORM_ANCHOR} className={`${M_FONT} text-[11px] font-medium uppercase tracking-[0.16em] text-black/50 transition hover:text-[#0a0a0a]`}>
                 Deixar contato
