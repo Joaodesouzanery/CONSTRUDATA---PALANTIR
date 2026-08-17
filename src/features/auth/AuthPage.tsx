@@ -137,20 +137,21 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
   )
 }
 
-function LoginForm() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [rememberEmail, setRememberEmail] = useState(true)
-  const [showPwd, setShowPwd] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  // Atraso progressivo depois de erros seguidos. Que fique claro o que isto é e o que não é:
-  // NÃO é rate limit. Quem quer forçar senha chama o endpoint do GoTrue direto e nunca vê esta
-  // tela. O limite de verdade é o do Auth do Supabase (`[auth.rate_limit]` em
-  // supabase/config.toml). Isto serve para o caso comum e chato: a pessoa errou a senha, insiste
-  // no mesmo erro e vai batendo — o atraso força reler o que digitou.
+/**
+ * Atraso crescente depois de erros seguidos: 2s, 4s, 8s… até 30s, a partir da terceira falha.
+ *
+ * QUE FIQUE CLARO O QUE ISTO NÃO É: não é rate limit. Quem quer forçar senha ou varrer e-mails
+ * chama o endpoint do GoTrue direto e nunca vê esta tela. O limite de verdade é o do Auth do
+ * Supabase (`[auth.rate_limit]` em supabase/config.toml, com a ressalva de que aquele arquivo
+ * governa o ambiente local — em produção vale o painel).
+ *
+ * O que ele resolve de verdade: encarecer a repetição feita PELA INTERFACE — a pessoa que erra
+ * a senha e insiste no mesmo erro, e o roteiro preguiçoso que automatiza o formulário.
+ *
+ * O contador vive num ref, não em estado: ele não muda nada na tela e não deve provocar
+ * re-render. Some a cada recarga de página — é o preço de não ter servidor aqui.
+ */
+function useAtrasoProgressivo() {
   const errosSeguidos = useRef(0)
   const [esperaAte, setEsperaAte] = useState(0)
   const [agora, setAgora] = useState(0)
@@ -158,7 +159,7 @@ function LoginForm() {
 
   useEffect(() => {
     if (esperaAte <= Date.now()) return
-    // O intervalo se encerra sozinho ao chegar no fim. A guarda de cima só roda na entrada do
+    // O intervalo se encerra sozinho ao chegar no fim. A guarda acima só roda na entrada do
     // efeito, e `esperaAte` não muda quando a contagem zera — sem isto a tela continuaria
     // re-renderizando 4×/s enquanto ficasse aberta, mesmo depois de a espera acabar.
     const t = window.setInterval(() => {
@@ -169,6 +170,30 @@ function LoginForm() {
     return () => window.clearInterval(t)
   }, [esperaAte])
 
+  function registrarFalha() {
+    errosSeguidos.current += 1
+    if (errosSeguidos.current >= 3) {
+      // Os dois juntos: sem o `setAgora` o primeiro render mediria a espera a partir do zero,
+      // e a tela mostraria uma contagem de quase 57 anos.
+      setAgora(Date.now())
+      setEsperaAte(Date.now() + Math.min(2 ** (errosSeguidos.current - 2), 30) * 1000)
+    }
+  }
+
+  return { segundosRestantes, registrarFalha, esperando: () => Date.now() < esperaAte }
+}
+
+function LoginForm() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberEmail, setRememberEmail] = useState(true)
+  const [showPwd, setShowPwd] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { segundosRestantes, registrarFalha, esperando } = useAtrasoProgressivo()
+
   useEffect(() => {
     try {
       const savedEmail = window.localStorage.getItem('cdata-login-email')
@@ -178,21 +203,10 @@ function LoginForm() {
     }
   }, [])
 
-  /** Registra a falha e, a partir da 3ª, segura a próxima tentativa (2s, 4s, 8s… até 30s). */
-  function registrarFalha() {
-    errosSeguidos.current += 1
-    if (errosSeguidos.current >= 3) {
-      // Os dois juntos: sem o `setAgora` o primeiro render mostraria a espera medida a partir
-      // do zero — uma contagem de quase 57 anos.
-      setAgora(Date.now())
-      setEsperaAte(Date.now() + Math.min(2 ** (errosSeguidos.current - 2), 30) * 1000)
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    if (Date.now() < esperaAte) return
+    if (esperando()) return
     const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail || !password) {
       setError('Preencha e-mail e senha.')
@@ -238,15 +252,24 @@ function LoginForm() {
         return
       }
 
-      try {
-        const { data: factors } = await supabase.auth.mfa.listFactors()
-        const totp = factors?.totp?.[0]
-        if (totp && totp.status === 'verified') {
-          navigate('/login/mfa', { state: { factorId: totp.id } })
-          return
-        }
-      } catch {
-        // MFA is optional.
+      // Ter ou não segundo fator é opcional; NÃO CONSEGUIR DESCOBRIR não é. Antes, um erro em
+      // `listFactors()` caía num catch vazio e o fluxo seguia direto para dentro do app — quem
+      // tinha TOTP ativo entrava sem passar pelo desafio, bastando que essa chamada falhasse.
+      // Agora a falha derruba a sessão e pede para tentar de novo.
+      //
+      // Vale dizer o que isto NÃO conserta: o desafio continua decorativo, porque a sessão do
+      // `signInWithPassword` já é válida antes do código e nenhum guard exige AAL2 (ver
+      // SECURITY.md). Isto fecha o fail-open; a obrigatoriedade é outro trabalho.
+      const { data: factors, error: erroMfa } = await supabase.auth.mfa.listFactors()
+      if (erroMfa) {
+        await supabase.auth.signOut()
+        setError('Não foi possível verificar a autenticação em duas etapas da sua conta. Tente novamente em instantes.')
+        return
+      }
+      const totp = factors?.totp?.[0]
+      if (totp && totp.status === 'verified') {
+        navigate('/login/mfa', { state: { factorId: totp.id } })
+        return
       }
 
       await useAuth.getState().refreshProfile()
@@ -311,12 +334,32 @@ function InviteForm() {
   const [inviteMode, setInviteMode] = useState<'signup' | 'login'>('signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { segundosRestantes, registrarFalha, esperando } = useAtrasoProgressivo()
+
+  /**
+   * Mensagem única para qualquer falha de autenticação nesta tela.
+   *
+   * POR QUE ISTO IMPORTA. Antes, o erro do GoTrue ia cru para a tela. Como
+   * `enable_confirmations` está desligado, criar conta com um e-mail já cadastrado responde
+   * "User already registered" — distinguível de qualquer outro erro. Somado ao fato de o token
+   * não ser conferido antes, `\/aceitar-convite?token=x` virava um verificador de "esta pessoa
+   * é cliente da ConstruData?", um e-mail por vez, sem captcha e sem atraso.
+   *
+   * Agora as duas situações dizem a mesma coisa. A frase precisa ser útil para quem é legítimo
+   * sem confirmar nada para quem está sondando — daí apontar as duas abas sem afirmar qual é o
+   * seu caso.
+   */
+  const FALHA_GENERICA = 'Não foi possível concluir com estes dados. Confira o e-mail e a senha '
+    + 'e, se você já tem acesso à plataforma, use a aba "Já tenho senha".'
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    if (!token) {
-      setError('Convite inválido ou sem token.')
+    if (esperando()) return
+    // O token real tem 48 caracteres hexadecimais (24 bytes). Recusar o que nem parece token
+    // corta a sondagem mais barata — `?token=x` — antes de tocar no servidor de autenticação.
+    if (token.trim().length < 20) {
+      setError('Convite inválido ou sem token. Use o link que você recebeu por e-mail.')
       return
     }
     if (!email.trim() || !password) {
@@ -336,7 +379,11 @@ function InviteForm() {
       const authResponse = inviteMode === 'signup'
         ? await supabase.auth.signUp(credentials)
         : await supabase.auth.signInWithPassword(credentials)
-      if (authResponse.error) throw authResponse.error
+      if (authResponse.error) {
+        registrarFalha()
+        setError(FALHA_GENERICA)
+        return
+      }
       if (!authResponse.data.session) {
         setError('Conta criada. Confirme seu e-mail e volte para aceitar o convite.')
         return
@@ -347,11 +394,20 @@ function InviteForm() {
         p_token: token,
         p_full_name: fullName.trim() || null,
       })
-      if (acceptError) throw acceptError
+      if (acceptError) {
+        registrarFalha()
+        // O convite falhou DEPOIS de a sessão existir. Sem derrubá-la, a pessoa ficaria logada
+        // numa conta sem empresa — e, pior, um sondador ganharia sessão de graça só por tentar.
+        await supabase.auth.signOut()
+        setError('Este convite não é válido para esta conta. Ele pode ter expirado, já ter sido '
+          + 'usado, ou ter sido enviado para outro e-mail.')
+        return
+      }
       await useAuth.getState().refreshProfile()
       navigate('/app/minha-rotina')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao aceitar convite.')
+    } catch {
+      registrarFalha()
+      setError(FALHA_GENERICA)
     } finally {
       setLoading(false)
     }
@@ -384,7 +440,14 @@ function InviteForm() {
         </p>
       )}
       <ErrorMessage error={error} />
-      <SubmitButton loading={loading}>Aceitar convite <ArrowRight size={16} /></SubmitButton>
+      {segundosRestantes > 0 && (
+        <p className="text-xs text-black/55" role="status">
+          Muitas tentativas seguidas. Aguarde {segundosRestantes}s.
+        </p>
+      )}
+      <SubmitButton loading={loading} disabled={segundosRestantes > 0}>
+        {segundosRestantes > 0 ? `Aguarde ${segundosRestantes}s` : <>Aceitar convite <ArrowRight size={16} /></>}
+      </SubmitButton>
       <div className="text-center"><Link to="/login" className="text-xs font-semibold text-black/50 hover:text-[#ea580c]">Voltar para login</Link></div>
     </form>
   )

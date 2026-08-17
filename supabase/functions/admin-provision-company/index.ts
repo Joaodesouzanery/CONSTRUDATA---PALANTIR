@@ -15,8 +15,15 @@ type Payload = {
   max_projects?: number
 }
 
+/**
+ * CORS restrito à origem do app. Era `*`, que combinado com `x-admin-secret` na allow-list de
+ * cabeçalhos deixava qualquer página da internet chamar esta função a partir do navegador de
+ * alguém. O segredo continuava sendo necessário — mas não há razão para oferecer a superfície.
+ * Chamadas de servidor para servidor (curl, script) não passam por CORS e seguem funcionando.
+ */
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': APP_URL,
+  'Vary': 'Origin',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
@@ -44,6 +51,21 @@ async function sha256Hex(value: string) {
   return Array.from(new Uint8Array(hash)).map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+/**
+ * Compara dois segredos sem vazar, pelo tempo gasto, quantos caracteres bateram.
+ *
+ * `a !== b` para no primeiro byte diferente. Medindo o tempo de resposta muitas vezes, dá para
+ * descobrir o segredo caractere a caractere. Aqui os dois lados viram digest de tamanho fixo
+ * (o que também elimina o vazamento por diferença de comprimento) e o XOR percorre tudo.
+ */
+async function segredosIguais(a: string, b: string) {
+  if (!a || !b) return false
+  const [da, db] = await Promise.all([sha256Hex(a), sha256Hex(b)])
+  let diferenca = 0
+  for (let i = 0; i < da.length; i++) diferenca |= da.charCodeAt(i) ^ db.charCodeAt(i)
+  return diferenca === 0
+}
+
 function randomHex(bytes = 24) {
   const data = new Uint8Array(bytes)
   crypto.getRandomValues(data)
@@ -55,7 +77,23 @@ serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
   const providedSecret = req.headers.get('x-admin-secret') ?? ''
-  if (!ADMIN_PROVISION_SECRET || providedSecret !== ADMIN_PROVISION_SECRET) {
+  if (!ADMIN_PROVISION_SECRET || !(await segredosIguais(providedSecret, ADMIN_PROVISION_SECRET))) {
+    // A tentativa recusada passa a deixar rastro. Antes só o sucesso era registrado, então uma
+    // varredura contra este endpoint — que cria organização e convite de owner — era invisível.
+    //
+    // Vai para o log da função, e não para `audit_log`, porque aquela tabela é por inquilino:
+    // `organization_id` é NOT NULL com chave estrangeira, e uma recusa não tem organização
+    // nenhuma. Um insert ali falharia sempre; envolver isso num try/catch pareceria auditoria
+    // e não seria. Uma tabela de eventos de plataforma não existe — está anotado no SECURITY.md.
+    console.warn(JSON.stringify({
+      evento: 'admin_provision_recusado',
+      motivo: ADMIN_PROVISION_SECRET ? 'segredo_incorreto' : 'segredo_nao_configurado',
+      origem: req.headers.get('origin') ?? null,
+      // Posto pela borda da Supabase. Não é confiável sozinho, mas serve para correlacionar.
+      ip: req.headers.get('x-forwarded-for') ?? null,
+      user_agent: req.headers.get('user-agent') ?? null,
+      em: new Date().toISOString(),
+    }))
     return json({ error: 'unauthorized' }, 401)
   }
 

@@ -6,11 +6,14 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { gerarTokenAprovacao } from '../_shared/approvalToken.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://www.construdata.software'
+/** Assina os links do e-mail. Sem ele não há como emitir link seguro — ver _shared/approvalToken.ts. */
+const APPROVAL_TOKEN_SECRET = Deno.env.get('APPROVAL_TOKEN_SECRET') ?? ''
 
 const ACTION_LABELS: Record<string, string> = {
   delete_fvs:           'Excluir FVS (Ficha de Verificação)',
@@ -62,12 +65,22 @@ serve(async (req) => {
       return new Response(JSON.stringify({ message: 'Email not configured' }), { status: 200 })
     }
 
-    // 3. Generate secure token (simple base64 encoding of action_id — in production, use JWT)
-    const token = btoa(JSON.stringify({
+    // 3. Token assinado (HMAC-SHA256). Antes era base64 puro, ou seja, forjável por qualquer
+    //    um que soubesse o UUID da pendência — e o link executa com service_role do outro lado.
+    if (!APPROVAL_TOKEN_SECRET) {
+      // Falha fechado: melhor não mandar e-mail nenhum do que mandar link que qualquer um forja.
+      // O aprovador continua tendo o caminho da plataforma, que passa por login e RLS.
+      console.error('APPROVAL_TOKEN_SECRET ausente — e-mail de aprovação NÃO enviado')
+      return new Response(
+        JSON.stringify({ error: 'APPROVAL_TOKEN_SECRET nao configurada; aprove pela plataforma' }),
+        { status: 503 },
+      )
+    }
+    const token = await gerarTokenAprovacao({
       action_id: record.id,
       org_id: record.organization_id,
-      exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-    }))
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 dias
+    }, APPROVAL_TOKEN_SECRET)
 
     const approveUrl = `${SUPABASE_URL}/functions/v1/handle-approval?token=${encodeURIComponent(token)}&action=approve`
     const rejectUrl = `${SUPABASE_URL}/functions/v1/handle-approval?token=${encodeURIComponent(token)}&action=reject`

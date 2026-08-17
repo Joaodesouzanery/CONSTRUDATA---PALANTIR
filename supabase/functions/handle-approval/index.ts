@@ -7,10 +7,13 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { parecerTokenAntigo, verificarTokenAprovacao } from '../_shared/approvalToken.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://www.construdata.software'
+/** Mesmo segredo usado por notify-approval para assinar. Sem ele, nada é aceito. */
+const APPROVAL_TOKEN_SECRET = Deno.env.get('APPROVAL_TOKEN_SECRET') ?? ''
 
 function htmlPage(title: string, message: string, success: boolean) {
   const color = success ? '#16a34a' : '#dc2626'
@@ -57,24 +60,44 @@ serve(async (req) => {
       })
     }
 
-    // Decode token
-    let payload: { action_id: string; org_id: string; exp: number }
-    try {
-      payload = JSON.parse(atob(token))
-    } catch {
-      return new Response(htmlPage('Token Invalido', 'O token de aprovacao e invalido.', false), {
-        status: 400,
+    // Confere a ASSINATURA antes de qualquer outra coisa. Este endpoint é anônimo e o que vem
+    // depois roda com service_role — ler o conteúdo de um token não verificado seria confiar
+    // em dado do atacante. Ver _shared/approvalToken.ts para o que isto conserta.
+    const verificacao = await verificarTokenAprovacao(token, APPROVAL_TOKEN_SECRET)
+
+    if (!verificacao.ok) {
+      // Uma mensagem por motivo — mas nenhuma revela se a pendência existe. Quem forja não
+      // aprende nada além de "não passou".
+      const porMotivo: Record<string, { titulo: string; texto: string; status: number }> = {
+        'sem-segredo': {
+          titulo: 'Aprovacao indisponivel',
+          texto: 'A aprovacao por e-mail nao esta configurada neste ambiente. Aprove pela plataforma.',
+          status: 503,
+        },
+        expirado: {
+          titulo: 'Link Expirado',
+          texto: 'Este link de aprovacao expirou. Solicite uma nova aprovacao na plataforma.',
+          status: 410,
+        },
+      }
+      const padrao = parecerTokenAntigo(token)
+        ? {
+            titulo: 'Link de uma versao anterior',
+            texto: 'Este e-mail foi enviado antes de os links passarem a ser assinados e nao vale mais. '
+              + 'Abra a plataforma para aprovar — a pendencia continua la.',
+            status: 410,
+          }
+        : { titulo: 'Token Invalido', texto: 'O token de aprovacao e invalido.', status: 400 }
+
+      const { titulo, texto, status } = porMotivo[verificacao.motivo] ?? padrao
+      console.warn(`[handle-approval] token recusado (${verificacao.motivo})`)
+      return new Response(htmlPage(titulo, texto, false), {
+        status,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       })
     }
 
-    // Check expiration
-    if (payload.exp < Date.now()) {
-      return new Response(htmlPage('Link Expirado', 'Este link de aprovacao expirou. Solicite uma nova aprovacao na plataforma.', false), {
-        status: 410,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      })
-    }
+    const payload = verificacao.conteudo
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -100,46 +123,38 @@ serve(async (req) => {
       })
     }
 
-    // Execute the approval/rejection using service role (bypasses RLS)
-    if (action === 'approve') {
-      const { error } = await supabase.rpc('approve_pending_action_service', {
-        p_action_id: payload.action_id,
-      })
-      if (error) {
-        // Fallback: direct update if RPC doesn't exist
-        await supabase
-          .from('pending_actions')
-          .update({ status: 'approved', approved_by: null })
-          .eq('id', payload.action_id)
-      }
+    // Executa com service_role (ignora RLS de propósito — não há sessão de usuário aqui).
+    //
+    // NÃO EXISTE MAIS ATALHO EM CASO DE ERRO. Antes, se a RPC falhasse, o código dava um UPDATE
+    // direto marcando "approved" e a tela dizia que tinha dado certo. Só que a RPC não é um
+    // detalhe de implementação: é ela que APLICA o efeito da aprovação (o DELETE da linha
+    // alvo). Marcar o status por fora deixava a pendência como aprovada sem nada ter sido
+    // executado — e ninguém ficava sabendo, porque a tela mentia. Falhar visível é melhor.
+    const { error } = action === 'approve'
+      ? await supabase.rpc('approve_pending_action_service', { p_action_id: payload.action_id })
+      : await supabase.rpc('reject_pending_action_service', {
+          p_action_id: payload.action_id,
+          p_reason: 'Rejeitado via email',
+        })
+
+    if (error) {
+      console.error(`[handle-approval] RPC ${action} falhou para ${payload.action_id}:`, error.message)
       return new Response(htmlPage(
-        'Acao Aprovada',
-        'A solicitacao foi aprovada com sucesso. A acao sera executada automaticamente na plataforma.',
-        true,
-      ), {
-        status: 200,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      })
-    } else {
-      const { error } = await supabase.rpc('reject_pending_action_service', {
-        p_action_id: payload.action_id,
-        p_reason: 'Rejeitado via email',
-      })
-      if (error) {
-        await supabase
-          .from('pending_actions')
-          .update({ status: 'rejected', rejected_reason: 'Rejeitado via email' })
-          .eq('id', payload.action_id)
-      }
-      return new Response(htmlPage(
-        'Acao Rejeitada',
-        'A solicitacao foi rejeitada. O solicitante sera notificado na plataforma.',
+        'Nao foi possivel concluir',
+        'A solicitacao NAO foi processada. Abra a plataforma e conclua por la — a pendencia continua aberta.',
         false,
       ), {
-        status: 200,
+        status: 500,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       })
     }
+
+    return new Response(
+      action === 'approve'
+        ? htmlPage('Acao Aprovada', 'A solicitacao foi aprovada com sucesso. A acao sera executada automaticamente na plataforma.', true)
+        : htmlPage('Acao Rejeitada', 'A solicitacao foi rejeitada. O solicitante sera notificado na plataforma.', false),
+      { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+    )
   } catch (err) {
     console.error('handle-approval error:', err)
     return new Response(htmlPage('Erro', 'Ocorreu um erro ao processar sua solicitacao. Tente novamente na plataforma.', false), {
