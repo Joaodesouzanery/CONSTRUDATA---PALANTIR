@@ -13,7 +13,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useAuth } from '@/lib/auth'
 import { canWriteTitulos } from '@/lib/roles'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { cn, hojeLocalISO, fmtDataBR } from '@/lib/utils'
+import { cn, hojeLocalISO, dataLocalISO, fmtDataBR } from '@/lib/utils'
 import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroCalc'
 import { uploadBoletoFile, signedBoletoUrl, removeBoletoFile } from '../utils/boletoStorage'
 import { digitosDe, formatarCodigo, tamanhoValido, separarCodigosColados } from '../utils/boletoCodigo'
@@ -93,7 +93,9 @@ export function BoletosPanel() {
   const parcelasBoleto = titulos.filter((t) => t.boletoId)
   const pend = parcelasBoleto.filter((t) => t.status === 'pendente')
   const vencidas = pend.filter((t) => t.vencimento < hoje)
-  const em7 = new Date(new Date(hoje + 'T00:00:00').getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+  // `dataLocalISO`: com `toISOString()` a janela de "7 dias" fechava em 6 — a soma parte de
+  // meia-noite local e o UTC no Brasil ainda está no dia anterior.
+  const em7 = dataLocalISO(new Date(new Date(hoje + 'T00:00:00').getTime() + 7 * 86_400_000))
   const aVencer = pend.filter((t) => t.vencimento >= hoje && t.vencimento <= em7)
   const totalPend = pend.reduce((s, t) => s + t.valor, 0)
 

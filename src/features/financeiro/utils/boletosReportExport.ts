@@ -15,6 +15,7 @@
  */
 import { formatarCodigo, tamanhoValido, digitosDe } from './boletoCodigo'
 import { brandMarkSvg } from '@/lib/brandMark'
+import { pageFooterCss } from '@/lib/printPageFooter'
 import { fmtDataBR } from '@/lib/utils'
 
 // ─── Entrada ──────────────────────────────────────────────────────────────────
@@ -153,29 +154,58 @@ function kpi(label: string, valor: string, sub = '', tom = '') {
 }
 
 /**
- * Faixa de indicadores. Quando o recorte tem os dois tipos, sai UMA FAIXA POR TIPO: somar
- * "a pagar" com "a receber" num total único produz um número que não significa nada — e o
- * corpo do documento, que é separado por tipo, não fecharia com o topo.
+ * Indicadores do recorte: QUATRO cartões e uma linha de contexto.
+ *
+ * Quando o recorte tem os dois tipos, sai UMA FAIXA POR TIPO: somar "a pagar" com "a receber"
+ * num total único produz um número que não significa nada — e o corpo do documento, que é
+ * separado por tipo, não fecharia com o topo.
+ *
+ * Eram oito cartões. Com "a pagar" e "a receber" no mesmo recorte viravam dezesseis, medidos em
+ * 70 mm — mais de um quarto da primeira folha, antes de o documento dizer qualquer coisa. Nada
+ * de informação se perdeu: o que saiu dos cartões (boletos, parcelas, já pago, próximo
+ * vencimento, beneficiários) desceu para a linha de contexto logo abaixo.
+ *
+ * Os quatro que ficaram são os que mudam uma decisão: quanto é o recorte, quanto falta pagar, o
+ * que já venceu e o que vence nesta semana. Os outros respondem "como chegamos aqui", e para
+ * isso uma linha de texto basta.
  */
 function blocoKpis(linhas: Linha[], hoje: string, rotulo?: string): string {
   const k = kpis(linhas, hoje)
   const benef = new Set(linhas.map((l) => l.item.parceiro || '—')).size
+  const rotuloParceiro = rotulo === 'A receber' ? 'pagador' : 'beneficiário'
+  const contexto = [
+    `${k.boletos} boleto(s) · ${k.parcelas} parcela(s)`,
+    `já pago ${brl(k.pago)} (${k.pctPago}%)`,
+    k.proxima
+      ? `próximo vencimento ${fmtDataBR(k.proxima.vencimento)} — ${brl(k.proxima.valor)}`
+      : 'nada em aberto',
+    `${benef} ${rotuloParceiro}${benef === 1 ? '' : 's'}`,
+  ].join(' · ')
+
   return `${rotulo ? `<div class="kpi-grupo">${esc(rotulo)}</div>` : ''}<div class="kpis">
-    ${kpi('Boletos', String(k.boletos), `${k.parcelas} parcela(s)`)}
     ${kpi('Total no recorte', brl(k.total))}
-    ${kpi('Já pago', brl(k.pago), `${k.pctPago}% do total`, k.pago > 0 ? 'is-paid' : '')}
-    ${kpi('Em aberto', brl(k.aberto))}
+    ${kpi('Em aberto', brl(k.aberto), `${100 - k.pctPago}% do total`)}
     ${kpi('Vencido', brl(k.vencidasR), `${k.vencidasN} parcela(s)`, k.vencidasN > 0 ? 'is-late' : '')}
     ${kpi('Vence em 7 dias', brl(k.em7R), `${k.em7N} parcela(s)`, k.em7N > 0 ? 'is-soon' : '')}
-    ${kpi('Próximo vencimento', k.proxima ? fmtDataBR(k.proxima.vencimento) : '—', k.proxima ? brl(k.proxima.valor) : 'nada em aberto')}
-    ${kpi(rotulo === 'A receber' ? 'Pagadores' : 'Beneficiários', String(benef), 'no recorte')}
-  </div>`
+  </div><p class="kpi-contexto">${contexto}</p>`
 }
 
 function secao(titulo: string, contador: string, inner: string) {
   return `<section class="sec"><h2>${esc(titulo)}${contador ? `<span class="cnt">${esc(contador)}</span>` : ''}</h2>${inner}</section>`
 }
 
+/**
+ * Agenda de vencimentos: UMA tabela, com os meses como faixas dentro do corpo.
+ *
+ * Antes era uma tabela por mês, cada uma com o seu `<thead>`. Num carnê de 12 parcelas isso
+ * imprimia doze vezes a mesma linha "VENC. · DIA · SITUAÇÃO · DESCRIÇÃO · PARCELA · OBRA ·
+ * VALOR" para mostrar UMA parcela embaixo de cada — o cabeçalho ocupava mais papel que o dado.
+ * Numa tabela só, o `thead` continua repetindo a cada página impressa (é para isso que serve o
+ * `display:table-header-group`), e não a cada mês.
+ *
+ * A coluna "Obra" some quando o recorte é de uma obra só: ela já está no cabeçalho do
+ * documento, e repeti-la em 17 linhas é ruído que rouba largura da descrição.
+ */
 function blocoAgenda(linhas: Linha[], hoje: string): string {
   if (linhas.length === 0) return '<p class="vazio">Nenhuma parcela no recorte.</p>'
   const meses = new Map<string, Linha[]>()
@@ -183,7 +213,10 @@ function blocoAgenda(linhas: Linha[], hoje: string): string {
     const k = mesChave(l.vencimento)
     const arr = meses.get(k); if (arr) arr.push(l); else meses.set(k, [l])
   }
-  return [...meses.entries()].map(([ym, ls]) => {
+  const comObra = new Set(linhas.map((l) => l.item.obraLabel)).size > 1
+  const colunas = comObra ? 7 : 6
+
+  const corpo = [...meses.entries()].map(([ym, ls]) => {
     // O subtotal é por TIPO quando o mês tem os dois: um valor único somando o que se paga
     // com o que se recebe não quer dizer nada (mesma regra dos indicadores do topo).
     const soma = (xs: Linha[]) => xs.reduce((s, l) => s + l.valor, 0)
@@ -194,21 +227,27 @@ function blocoAgenda(linhas: Linha[], hoje: string): string {
     const resumoAberto = doisTipos
       ? `a pagar <strong>${brl(soma(abertasDo('pagar')))}</strong> · a receber <strong>${brl(soma(abertasDo('receber')))}</strong>`
       : `em aberto <strong>${brl(aberto)}</strong>`
+
     const rows = ls.map((l) => `<tr class="${situacaoDe(l, hoje) === 'vencido' ? 'row-vencido' : l.status === 'pago' ? 'row-pago' : ''}">
       <td class="n">${fmtDataBR(l.vencimento).slice(0, 5)}</td>
-      <td class="c">${diaSemana(l.vencimento)}</td>
+      <td class="c n">${diaSemana(l.vencimento)}</td>
       <td>${chipSituacao(l, hoje)}</td>
       <td>${esc(l.item.descricao)}<div class="sub">${esc(l.item.parceiro || '—')}</div></td>
       <td class="c n">${l.num && l.de ? `${l.num}/${l.de}` : '—'}</td>
-      <td>${esc(l.item.obraLabel)}</td>
+      ${comObra ? `<td>${esc(l.item.obraLabel)}</td>` : ''}
       <td class="r n">${brl(l.valor)}</td>
     </tr>`).join('')
-    return `<div class="mes-h">${mesLabel(ym)}<span class="tot">${ls.length} parcela(s) · ${resumoAberto}${pago > 0 ? ` · pago ${brl(pago)}` : ''}</span></div>
-    <table>
-      <thead><tr><th>Venc.</th><th class="c">Dia</th><th>Situação</th><th>Descrição</th><th class="c">Parcela</th><th>Obra</th><th class="r">Valor</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`
+
+    return `<tr class="mes-row"><td colspan="${colunas}">${mesLabel(ym)}<span class="tot">${ls.length} parcela(s) · ${resumoAberto}${pago > 0 ? ` · pago ${brl(pago)}` : ''}</span></td></tr>${rows}`
   }).join('')
+
+  return `<table class="agenda">
+    <thead><tr>
+      <th>Venc.</th><th class="c">Dia</th><th>Situação</th><th>Descrição</th>
+      <th class="c">Parcela</th>${comObra ? '<th>Obra</th>' : ''}<th class="r">Valor</th>
+    </tr></thead>
+    <tbody>${corpo}</tbody>
+  </table>`
 }
 
 function blocoCodigo(p: BoletoReportParcela, mostrar: boolean): string {
@@ -235,12 +274,16 @@ function blocoFicha(item: BoletoReportItem, hoje: string, comCodigo: boolean): s
       <td class="c n">${p.dataPagamento ? fmtDataBR(p.dataPagamento) : '—'}</td>
       <td class="r n">${brl(p.valor)}</td>
     </tr>${blocoCodigo(p, comCodigo)}`).join('')
-  const meta = [
-    [item.tipo === 'pagar' ? 'Beneficiário' : 'Pagador', item.parceiro || '—'],
-    ['Obra', item.obraLabel],
-    ['Categoria', item.categoriaLabel ?? '—'],
-    ['Cadastrado em', fmtDataBR(item.criadoEm)],   // já vem yyyy-MM-dd no fuso local
-  ].map(([l, v]) => `<div><div class="t-label">${esc(l)}</div><div>${esc(v)}</div></div>`).join('')
+  const meta = ([
+    // O nome do parceiro é o campo mais longo e o mais consultado: fica sozinho na primeira
+    // linha, com a largura toda, em vez de espremido num quarto dela.
+    [item.tipo === 'pagar' ? 'Beneficiário' : 'Pagador', item.parceiro || '—', true],
+    ['Obra', item.obraLabel, false],
+    ['Categoria', item.categoriaLabel ?? '—', false],
+    ['Cadastrado em', fmtDataBR(item.criadoEm), false],   // já vem yyyy-MM-dd no fuso local
+  ] as [string, string, boolean][])
+    .map(([l, v, largo]) => `<div${largo ? ' class="largo"' : ''}><div class="t-label">${esc(l)}</div><div>${esc(v)}</div></div>`)
+    .join('')
   return `<article class="ficha${item.parcelas.length > 8 ? ' grande' : ''}">
     <header class="ficha-h">
       <span class="chip chip-${item.tipo}">${item.tipo === 'pagar' ? 'A PAGAR' : 'A RECEBER'}</span>
@@ -296,7 +339,9 @@ function blocoFotos(d: BoletosReportData): string {
   const nota = faltando > 0
     ? `<p class="vazio">${faltando} anexo(s) não puderam ser incorporados (arquivo em PDF, sem conexão, sem permissão ou modo demonstração).</p>`
     : ''
-  return `<div class="fotos">${secao('Comprovação — anexos', `${fotos.length} imagem(ns)`, `<div class="fotos-grid">${grid}</div>${nota}`)}</div>`
+  // A partir de 4 a galeria já enche uma folha; abaixo disso ela flui atrás do que veio antes.
+  const classe = fotos.length >= 4 ? 'fotos muitas' : 'fotos'
+  return `<div class="${classe}">${secao('Comprovação — anexos', `${fotos.length} imagem(ns)`, `<div class="fotos-grid">${grid}</div>${nota}`)}</div>`
 }
 
 // ─── Documento ────────────────────────────────────────────────────────────────
@@ -320,7 +365,11 @@ html, body { background:#fff !important; background-color:#fff !important; color
    na impressão quem manda é a @page, senão a margem dobraria. */
 body { font: 9.5pt/1.42 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; padding: 10mm 12mm; max-width: 210mm; margin: 0 auto; orphans:3; widows:3; }
 @media print { body { padding: 0; max-width: none; } }
-.n { font-variant-numeric: tabular-nums; }
+/* O overflow-wrap:anywhere do <td> (necessário para descrições e nomes longos) estava partindo
+   valor de dinheiro no meio: numa coluna estreita, "R$ 8.450,00" saía como "R$ 8.450" numa linha
+   e ",00" na seguinte — o leitor lê oito mil e quatrocentos e cinquenta. "dom" virava "do"/"m".
+   Número não quebra, nunca: se não couber, a coluna é que tem de ceder. */
+.n { font-variant-numeric: tabular-nums; white-space: nowrap; overflow-wrap: normal; word-break: normal; }
 .r { text-align:right } .c { text-align:center }
 .sub { font-size:7.5pt; color:#94a3b8; }
 .vazio { font-size:8.5pt; color:#64748b; font-style:italic; padding:6px 2px; }
@@ -346,6 +395,8 @@ body { font: 9.5pt/1.42 -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-ser
 .kpi-sub { font-size:7pt; color:#64748b; }
 .kpi-nota { font-size:7pt; color:#94a3b8; margin:4px 0 13px; }
 .kpi-grupo { font-size:8pt; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#334155; margin:6px 0 4px; break-after:avoid; }
+/* O que saiu dos cartões (ver blocoKpis): mesma informação, um quarto do papel. */
+.kpi-contexto { font-size:7.5pt; color:#475569; margin:4px 2px 9px; font-variant-numeric:tabular-nums; }
 
 .sec { margin-bottom:14px; }
 .sec > h2 { font-size:10pt; font-weight:700; color:#fff; background:#0f172a; padding:6px 11px; border-radius:6px 6px 0 0; break-after:avoid; display:flex; align-items:center; gap:8px; }
@@ -376,11 +427,28 @@ tr.cod-row .t-label { display:inline-block; margin-right:7px; }
 
 .mes-h { display:flex; align-items:baseline; gap:8px; padding:5px 9px; margin-top:9px; background:#f8fafc; border-left:3px solid #0f172a; font-size:9pt; font-weight:800; break-after:avoid; }
 .mes-h .tot { margin-left:auto; font-weight:600; font-size:8pt; color:#475569; font-variant-numeric:tabular-nums; }
+/* Faixa de mês DENTRO da tabela da agenda (uma tabela só, ver blocoAgenda). O break-after:avoid
+   impede que o mês fique sozinho no pé da folha, com as parcelas na página seguinte. */
+tr.mes-row td { padding:6px 9px 5px; background:#f1f5f9; border-top:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; font-size:9pt; font-weight:800; }
+tr.mes-row { break-after: avoid; break-inside: avoid; }
+tr.mes-row .tot { float:right; font-weight:600; font-size:8pt; color:#475569; font-variant-numeric:tabular-nums; }
+/* Colunas estreitas e de largura previsível; a descrição fica com o que sobra. */
+table.agenda th:first-child, table.agenda td:first-child { width:12mm; }
+table.agenda th:nth-child(2), table.agenda td:nth-child(2) { width:9mm; }
+table.agenda th:nth-child(3), table.agenda td:nth-child(3) { width:22mm; }
+table.agenda th:nth-child(5), table.agenda td:nth-child(5) { width:14mm; }
+table.agenda th:last-child, table.agenda td:last-child { width:24mm; }
 
 .ficha { border:1px solid #cbd5e1; border-radius:8px; margin-bottom:9px; break-inside:avoid; overflow:hidden; }
 .ficha.grande { break-inside:auto; }
-.ficha-h { display:grid; grid-template-columns:auto 1fr auto; gap:9px; align-items:center; padding:7px 10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
-.ficha-meta { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding:7px 10px; border-bottom:1px solid #eef2f7; font-size:8.5pt; }
+.ficha-h { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:9px; align-items:center; padding:7px 10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+.ficha-h > div { min-width:0; overflow-wrap:anywhere; }
+/* Razão social de empresa passa fácil dos 60 caracteres e não tem espaço onde quebrar; sem isto
+   ela empurrava o valor total para fora do cabeçalho da ficha. Duas colunas em vez de quatro
+   dão o dobro de largura para o nome, e o campo do parceiro atravessa a linha inteira. */
+.ficha-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 12px; padding:7px 10px; border-bottom:1px solid #eef2f7; font-size:8.5pt; }
+.ficha-meta > div { min-width:0; overflow-wrap:anywhere; }
+.ficha-meta > div.largo { grid-column:1 / -1; }
 .cod { font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-size:8.5pt; letter-spacing:.02em; word-break:break-all; }
 .cod-aviso { font-size:7pt; font-weight:700; color:#b45309; }
 .cod-vazio { font-style:italic; font-size:7.5pt; color:#94a3b8; }
@@ -390,7 +458,9 @@ td.barra { position:relative; width:26%; }
 td.barra span { display:inline-block; height:7px; background:#f97316; border-radius:2px; vertical-align:middle; min-width:2px; }
 td.barra em { font-style:normal; font-size:7.5pt; color:#64748b; margin-left:5px; }
 
-.fotos { break-before: page; }
+/* Só vai para folha nova quando são muitas: forçar uma página inteira por causa de UM
+   comprovante deixava metade de uma folha em branco em quase todo relatório. */
+.fotos.muitas { break-before: page; }
 .fotos-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; padding-top:9px; }
 .foto { border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; break-inside:avoid; }
 .foto img { display:block; width:100%; height:78mm; object-fit:contain; background:#fff; }
@@ -460,7 +530,9 @@ export function buildBoletosReportHtml(d: BoletosReportData): string {
 
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8" />
 <title>Relatório de Boletos — ${esc(d.obraLabel)}</title>
-<style>${CSS}</style></head><body>
+<style>${CSS}</style>
+<!-- Depois do CSS principal: a @page daqui precisa vencer a margem declarada lá. -->
+<style>${pageFooterCss(`Relatório de Boletos · ${d.obraLabel} · ${d.empresa} · ${fmtDataBR(d.hoje)}${d.demo ? ' · DEMONSTRAÇÃO' : ''}`)}</style></head><body>
 ${d.demo ? '<div class="demo-wm"><span>DEMONSTRAÇÃO</span></div>' : ''}
 <div class="barra-acoes"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
 

@@ -11,6 +11,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { hojeLocalISO } from '@/lib/utils'
 import type { ManejoContrato, ManejoOrcamentoItem } from '@/types'
 
 function ctxAuth() {
@@ -145,7 +146,9 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       },
 
       desobrigarContrato: (id) => {
-        get().updateContrato(id, { status: 'desobrigado', desobrigadoEm: new Date().toISOString().slice(0, 10) })
+        // Data de calendário, não timestamp: `toISOString()` desobrigaria no dia seguinte
+        // quando a ação fosse feita à noite.
+        get().updateContrato(id, { status: 'desobrigado', desobrigadoEm: hojeLocalISO() })
       },
 
       // ── Orçamento CRUD ───────────────────────────────────────────────

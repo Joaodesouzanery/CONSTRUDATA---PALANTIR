@@ -34,6 +34,7 @@ import { getCriadouroLabel, getServiceDisplayLabel } from '@/features/rdo-sabesp
 import { resolvePhotosForPdf, blobToDataUrl } from './rdoPhotoStorage'
 import { supabase } from '@/lib/supabase'
 import { brandMarkSvg } from '@/lib/brandMark'
+import { pageFooterCss } from '@/lib/printPageFooter'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 /**
@@ -608,7 +609,10 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
   })
 
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>Relatório de RDOs — ${esc(op.periodo)}</title><style>${CSS}</style></head><body>
+<title>Relatório de RDOs — ${esc(op.periodo)}</title>
+<style>${CSS}</style>
+<!-- Depois do CSS principal: a @page daqui precisa vencer a margem declarada lá. -->
+<style>${pageFooterCss(`Relatório de RDOs · ${op.obra ?? 'todas as obras'} · ${op.periodo}${op.demo ? ' · DEMONSTRAÇÃO' : ''}`)}</style></head><body>
 ${op.demo ? '<div class="demo-wm"><span>DEMONSTRAÇÃO</span></div>' : ''}
 <div class="barra-acoes"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
 

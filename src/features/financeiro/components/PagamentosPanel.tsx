@@ -16,15 +16,21 @@ import { fmtBRL, ENTRADA_CAT_LABELS, SAIDA_CAT_LABELS } from '../lib/financeiroC
 import { digitosDe, formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroTitulo, TituloTipo, TituloStatus, EntradaCategoria, SaidaCategoria } from '@/types'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
+import { hojeLocalISO, dataLocalISO } from '@/lib/utils'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const labelCls = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
 
-function today() { return new Date().toISOString().slice(0, 10) }
+const today = hojeLocalISO
+/**
+ * O `BoletosPanel` ao lado já formatava à mão; aqui ainda passava por `toISOString()`. Como
+ * `dateStr + 'T00:00:00'` é meia-noite LOCAL, converter para UTC no Brasil devolve o dia
+ * ANTERIOR — todas as parcelas geradas para o dia 10 saíam com vencimento no dia 9.
+ */
 function addMonths(dateStr: string, n: number): string {
   const d = new Date(dateStr + 'T00:00:00')
   d.setMonth(d.getMonth() + n)
-  return d.toISOString().slice(0, 10)
+  return dataLocalISO(d)
 }
 
 /** Status derivado para exibição — "vencido" = pendente com vencimento no passado. */
@@ -92,7 +98,9 @@ export function PagamentosPanel() {
   const aReceber = pend.filter((t) => t.tipo === 'receber').reduce((s, t) => s + t.valor, 0)
   const vencidos = pend.filter((t) => t.vencimento < hoje)
   const vencidosVal = vencidos.reduce((s, t) => s + t.valor, 0)
-  const em7 = new Date(new Date(hoje + 'T00:00:00').getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+  // `dataLocalISO`: com `toISOString()` a janela de "7 dias" fechava em 6 — a soma parte de
+  // meia-noite local e o UTC no Brasil ainda está no dia anterior.
+  const em7 = dataLocalISO(new Date(new Date(hoje + 'T00:00:00').getTime() + 7 * 86_400_000))
   const aVencer = pend.filter((t) => t.vencimento >= hoje && t.vencimento <= em7)
   const aVencerVal = aVencer.reduce((s, t) => s + t.valor, 0)
 

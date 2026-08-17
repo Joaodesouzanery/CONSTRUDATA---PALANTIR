@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatarCodigo } from '../utils/boletoCodigo'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
+import { hojeLocalISO } from '@/lib/utils'
 
 function fmtBRL(n: number) { return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
 
@@ -144,7 +145,8 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
 function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' | 'saida'; cats: { key: string; label: string }[]; initial?: FinanceiroEntry; onClose: () => void; onSave: (e: FinanceiroEntry) => void }) {
   const [descricao, setDescricao] = useState(initial?.descricao ?? '')
   const [valor, setValor] = useState(initial ? String(initial.valor) : '')
-  const [data, setData] = useState(initial?.data ?? new Date().toISOString().slice(0, 10))
+  // Data local: lançado depois das 21h, o UTC já é amanhã — e na virada de mês cai no mês errado.
+  const [data, setData] = useState(initial?.data ?? hojeLocalISO())
   const [categoria, setCategoria] = useState(initial?.categoria ?? cats[0].key)
   const [referencia, setReferencia] = useState(initial?.referencia ?? '')
   const [obraId, setObraId] = useState((initial as { obraId?: string } | undefined)?.obraId ?? '')
