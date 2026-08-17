@@ -4,6 +4,7 @@ import { Printer } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
 import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO } from '@/features/mao-de-obra/utils/payrollEngine'
+import { reconciliarFolhas, reconciliacaoParaCSV } from '@/features/mao-de-obra/utils/reconciliacaoFolha'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,13 +98,22 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
 // ─── FolhaPagamentoPanel ──────────────────────────────────────────────────────
 
 export function FolhaPagamentoPanel() {
-  const { workers, payrollHistory, generatePayroll, cltSettings } = useMaoDeObraStore(
+  const { workers, payrollHistory, generatePayroll, cltSettings, shifts } = useMaoDeObraStore(
     useShallow(s => ({
       workers:         s.workers,
       payrollHistory:  s.payrollHistory,
       generatePayroll: s.generatePayroll,
       cltSettings:     s.cltSettings,
+      shifts:          s.shifts,
     }))
+  )
+  const [verReconciliacao, setVerReconciliacao] = useState(false)
+
+  // Compara cada holerite já emitido com o recálculo do motor corrigido. Roda sobre o histórico
+  // inteiro, mas ele é pequeno (uma entrada por mês fechado) e só recalcula quando algo muda.
+  const reconciliacao = useMemo(
+    () => reconciliarFolhas(payrollHistory, workers, shifts, cltSettings),
+    [payrollHistory, workers, shifts, cltSettings],
   )
 
   // Tabela fiscal com mais de 12 meses é tabela provavelmente vencida. Como o valor é editável
@@ -145,6 +155,10 @@ export function FolhaPagamentoPanel() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  function handleExportReconciliacao() {
+    downloadCSV(reconciliacaoParaCSV(reconciliacao), `reconciliacao-folha-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   function handleExportCSV() {
@@ -294,6 +308,86 @@ export function FolhaPagamentoPanel() {
               </table>
             </div>
           </div>
+
+          {/* ── Reconciliação das folhas já emitidas ──────────────────────────────────
+              Os cálculos foram corrigidos numa folha que já pagou gente. Corrigir daqui para a
+              frente é metade do trabalho — sem saber quem foi afetado e em quanto, não há como
+              acertar. Este bloco só aparece quando existe diferença. ── */}
+          {reconciliacao.itens.length > 0 && (
+            <div className="rounded-lg border border-[#3b82f6]/40 bg-[#3b82f6]/[0.07] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[#93c5fd]">
+                    {reconciliacao.quantidadeAfetada} holerite(s) já emitido(s) mudam de valor com os cálculos corrigidos
+                  </h3>
+                  <p className="mt-1 text-xs leading-5 text-[var(--color-text-muted)]">
+                    A receber pelos trabalhadores: <strong className="text-[#22c55e]">{fmt(reconciliacao.totalAReceber)}</strong>
+                    {' · '}pago a mais: <strong className="text-[#ef4444]">{fmt(reconciliacao.totalPagoAMais)}</strong>
+                    {reconciliacao.quantidadeSemTurnos > 0 && (
+                      <> · <span className="text-[#f59e0b]">{reconciliacao.quantidadeSemTurnos} sem turnos guardados, conferir à mão</span></>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setVerReconciliacao((v) => !v)}
+                    className="rounded-lg bg-[#484848] px-3 py-2 text-xs font-semibold text-[#f5f5f5] transition-colors hover:bg-[#525252]"
+                  >
+                    {verReconciliacao ? 'Ocultar' : 'Ver detalhe'}
+                  </button>
+                  <button
+                    onClick={handleExportReconciliacao}
+                    className="rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c]"
+                  >
+                    Exportar para o RH
+                  </button>
+                </div>
+              </div>
+
+              {verReconciliacao && (
+                <div className="mt-3 max-h-96 overflow-auto rounded border border-[var(--color-border)]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-[var(--color-surface)]">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Competência</th>
+                        <th className="px-3 py-2 font-semibold">Funcionário</th>
+                        <th className="px-3 py-2 font-semibold">O que mudou</th>
+                        <th className="px-3 py-2 text-right font-semibold">Antes</th>
+                        <th className="px-3 py-2 text-right font-semibold">Corrigido</th>
+                        <th className="px-3 py-2 text-right font-semibold">Diferença</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reconciliacao.itens.map((item) => (
+                        <tr key={`${item.competencia}-${item.workerId}`} className="border-t border-[var(--color-border)]">
+                          <td className="px-3 py-2 align-top">{item.competencia}</td>
+                          <td className="px-3 py-2 align-top">
+                            {item.workerName}
+                            {item.semTurnos && <div className="text-[10px] text-[#f59e0b]">sem turnos guardados</div>}
+                          </td>
+                          <td className="px-3 py-2 align-top text-[var(--color-text-muted)]">
+                            {item.linhas.map((l) => l.rubrica).join(' · ') || 'apenas o líquido'}
+                          </td>
+                          <td className="px-3 py-2 text-right align-top tabular-nums">{fmt(item.liquidoAntes)}</td>
+                          <td className="px-3 py-2 text-right align-top tabular-nums">{fmt(item.liquidoAgora)}</td>
+                          <td className={`px-3 py-2 text-right align-top font-semibold tabular-nums ${item.diferencaLiquido > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                            {item.diferencaLiquido > 0 ? '+' : ''}{fmt(item.diferencaLiquido)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="mt-3 text-[11px] leading-5 text-[var(--color-text-muted)]">
+                O recálculo usa os turnos guardados de cada mês; funcionário sem turnos aparece marcado e fica
+                fora dos totais. O histórico de folha vive só neste navegador — rode em cada máquina que fechou
+                folha. Isto é a diferença bruta entre o que o sistema calculava e o que calcula agora: reflexo em
+                férias, 13º e FGTS recolhido é conta do RH.
+              </p>
+            </div>
+          )}
 
           {/* A competência das tabelas fiscais é DADO, não texto fixo. Antes dizia "2025" com os
               valores de fevereiro/2024 escritos no código — quem lesse acreditaria. */}
