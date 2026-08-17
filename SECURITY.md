@@ -106,6 +106,7 @@ Não dá para versionar em código: `supabase/config.toml` governa o ambiente **
 - [ ] `timebox` e `inactivity_timeout` de sessão.
 - [ ] Domínio de produção + `/redefinir-senha` na allow-list de redirect — sem isso o e-mail de recuperação não funciona.
 - [ ] `APPROVAL_TOKEN_SECRET` nas Edge Functions `notify-approval` e `handle-approval`, com o **mesmo** valor. Sem ela a aprovação por e-mail fica desligada, de propósito.
+- [ ] Considerar ligar `enable_confirmations`. Hoje desligado, é o que faz o `signUp` responder de formas distinguíveis para e-mail existente e livre. A tela de convite já não expõe isso — a conferência do token vem antes —, mas o endpoint do GoTrue continua respondendo assim para quem chamar direto.
 
 ## 🧪 Antes de cada commit
 

@@ -3,8 +3,13 @@
  *
  * A REGRA DE DESENHO: **nenhum botão é preenchido**. Todos são contornados, do mesmo tamanho,
  * e o vermelho marca *qual é o caminho preferido* — não "qual é o botão importante desta
- * seção". Em qualquer bloco existe no máximo uma caixa vermelha, e ela é sempre o mesmo
- * destino: agendar a demonstração. O preenchimento só aparece no hover, como recompensa.
+ * seção". O preenchimento só aparece no hover, como recompensa.
+ *
+ * O escopo do vermelho é o CARD, não a seção. Dentro de um card há no máximo uma caixa
+ * vermelha, e ela é a ação daquele card. Na seção final isso dá duas: a agenda no card do
+ * Calendly e o envio no card do formulário nativo — que são ações diferentes, em cartões
+ * separados, e nenhuma delas compete pelo mesmo clique. Onde os CTAs dividem a mesma linha
+ * (o trio de `DemoCTA`), aí sim vale uma só, e é sempre agendar.
  *
  * `surface` é a cor do FUNDO onde a caixa está, não a cor dela. Cuidado ao migrar código
  * antigo: a prop `tone` do `DemoCTA` era invertida — `tone="light"` queria dizer *texto claro

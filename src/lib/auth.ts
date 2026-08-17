@@ -212,7 +212,10 @@ export const useAuth = create<AuthState>((set, get) => ({
 
       if (membershipsError) {
         console.warn('[auth] failed to load memberships', membershipsError)
-        set({ profile: data as Profile | null, memberships: [], error: membershipsError.message })
+        // isGlobalAdmin também zera aqui: era a única saída que preservava o valor, e com ela
+        // um administrador de plataforma que saísse deixaria o menu de administração aberto
+        // para quem entrasse depois na mesma aba.
+        set({ profile: data as Profile | null, memberships: [], isGlobalAdmin: false, error: membershipsError.message })
         return
       }
 

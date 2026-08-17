@@ -71,24 +71,21 @@ as $$
      where pa.user_id = auth.uid()
        and pa.revogado_em is null
   )
-  -- REDE DE SEGURANÇA contra ficar trancado para fora, e só isso.
+  -- NÃO EXISTE REDE DE SEGURANÇA COM O E-MAIL ANTIGO, e a ausência é deliberada.
   --
-  -- Ela vale APENAS enquanto a tabela estiver COMPLETAMENTE VAZIA — o que só acontece se o
-  -- insert acima não encontrou o e-mail em auth.users. Repare que a condição é "nenhuma linha",
-  -- e não "nenhuma linha ativa": a diferença é o que faz a revogação funcionar de verdade.
-  -- Com "nenhuma linha ativa", revogar o último administrador esvaziaria o conjunto ativo, a
-  -- rede de segurança reativaria o literal, e a revogação não teria efeito nenhum — um botão
-  -- de emergência que parece funcionar e não funciona é pior que não ter botão.
+  -- A primeira versão desta migration mantinha um `or` com o literal, válido enquanto a tabela
+  -- estivesse vazia, para ninguém ficar trancado para fora caso a semente não encontrasse a
+  -- conta. Duas passagens de teste mostraram que a ideia é pior que o problema:
   --
-  -- Assim que a linha existir, este ramo fica inerte para sempre. Pode removê-lo numa migration
-  -- futura; deixá-lo não custa nada além de uma linha de comentário.
-  or (
-    not exists (select 1 from public.platform_admins)
-    and exists (
-      select 1 from auth.users u
-       where u.id = auth.uid() and lower(u.email) = 'joaoneryflu@gmail.com'
-    )
-  );
+  --  1. A chave é `on delete cascade`. Apagar a conta em Authentication → Users — um botão —
+  --     esvazia a tabela e **rearma o literal**.
+  --  2. Rearmado, ele aprova qualquer sessão cujo e-mail seja aquele. Com `enable_signup`
+  --     ligado e confirmação de e-mail desligada, conseguir essa sessão é criar uma conta com
+  --     o endereço, que ficou livre justamente porque a conta foi apagada.
+  --
+  -- O resultado seria acesso de owner a TODOS os inquilinos por um caminho de um clique. Um
+  -- travamento é recuperável com um `insert` no SQL Editor; isso não seria.
+  ;
 $$;
 
 revoke all     on function public.is_global_admin() from public;
@@ -98,9 +95,13 @@ revoke execute on function public.is_global_admin() from anon;
 grant  execute on function public.is_global_admin() to authenticated;
 
 -- ── Conferência ─────────────────────────────────────────────────────────────────
+-- ⚠️ SE VIER "VAZIA", LEIA: a semente não encontrou a conta em auth.users e NINGUÉM é
+-- administrador de plataforma agora — as três telas administrativas somem para todo mundo.
+-- Não é perda de dado e conserta-se com uma linha, pegando o id em Authentication → Users:
+--   insert into public.platform_admins (user_id, nota) values ('<uuid>', 'conta de operação');
 select
   case when count(*) filter (where revogado_em is null) > 0
-       then '  OK  ' else '❌ VAZIA — a rede de segurança do literal ainda está ativa' end as situacao,
+       then '  OK  ' else '❌ VAZIA — ver a instrução logo acima desta consulta' end as situacao,
   count(*) filter (where revogado_em is null) as admins_ativos,
   count(*) filter (where revogado_em is not null) as revogados
 from public.platform_admins;

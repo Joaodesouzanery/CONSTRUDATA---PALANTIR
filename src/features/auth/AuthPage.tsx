@@ -276,6 +276,14 @@ function LoginForm() {
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
       navigate(from?.startsWith('/app') ? from : '/app/minha-rotina')
     } catch (err) {
+      // Chegar aqui com sessão viva é o caso perigoso: o `signInWithPassword` já teve sucesso e
+      // o supabase-js já gravou a sessão no localStorage, então a pessoa ficaria na tela de
+      // login vendo um erro e, ao mesmo tempo, autenticada — bastaria abrir /app noutra aba
+      // para entrar sem passar pelo desafio de segundo fator. Derrubar a sessão fecha isso sem
+      // depender de saber exatamente qual chamada lançou.
+      const { data: { session: sessaoViva } } = await supabase.auth.getSession()
+      if (sessaoViva) await supabase.auth.signOut()
+      registrarFalha()
       setError(err instanceof Error ? err.message : 'Erro inesperado ao autenticar.')
     } finally {
       setLoading(false)
@@ -351,6 +359,8 @@ function InviteForm() {
    */
   const FALHA_GENERICA = 'Não foi possível concluir com estes dados. Confira o e-mail e a senha '
     + 'e, se você já tem acesso à plataforma, use a aba "Já tenho senha".'
+  const CONVITE_INVALIDO = 'Este convite não é válido. Ele pode ter expirado, já ter sido usado, '
+    + 'ou o link pode estar incompleto. Peça um novo convite ao administrador da empresa.'
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -375,6 +385,26 @@ function InviteForm() {
 
     setLoading(true)
     try {
+      // O CONVITE É CONFERIDO ANTES DE QUALQUER CADASTRO, e a ordem é o ponto.
+      //
+      // Antes, a conta era criada primeiro e o token conferido depois — o que produzia duas
+      // coisas ruins. A primeira: vinte caracteres quaisquer na URL bastavam para gravar uma
+      // linha em `auth.users` com a senha de quem pediu, e ela ficava lá depois do erro, dando
+      // para ocupar o endereço de alguém antes de a empresa convidá-lo. A segunda, pior: com
+      // `enable_confirmations` desligado, o `signUp` falha na hora para e-mail existente e
+      // funciona para e-mail livre — cada caso terminava numa mensagem diferente, e trocar o
+      // endereço revelava quem já é cliente. Uniformizar as frases não bastava: os dois
+      // caminhos continuavam distinguíveis pelo tempo de resposta e pela conta criada.
+      //
+      // Com a checagem antes, quem não tem convite válido nunca chega no cadastro, e todo
+      // mundo — e-mail existente ou não — recebe exatamente a mesma resposta.
+      const { data: conviteOk, error: erroConvite } = await supabase.rpc('convite_valido', { p_token: token })
+      if (erroConvite || conviteOk !== true) {
+        registrarFalha()
+        setError(CONVITE_INVALIDO)
+        return
+      }
+
       const credentials = { email: email.trim().toLowerCase(), password }
       const authResponse = inviteMode === 'signup'
         ? await supabase.auth.signUp(credentials)
@@ -396,11 +426,12 @@ function InviteForm() {
       })
       if (acceptError) {
         registrarFalha()
-        // O convite falhou DEPOIS de a sessão existir. Sem derrubá-la, a pessoa ficaria logada
-        // numa conta sem empresa — e, pior, um sondador ganharia sessão de graça só por tentar.
+        // Chegar aqui com o convite já validado significa que ele não é para ESTE e-mail — a
+        // conferência de destinatário mora em `accept_invitation` e é o que impede alguém de
+        // usar um convite alheio. Derruba a sessão: sem isso a pessoa ficaria logada numa conta
+        // sem empresa, e um sondador ganharia sessão só por tentar.
         await supabase.auth.signOut()
-        setError('Este convite não é válido para esta conta. Ele pode ter expirado, já ter sido '
-          + 'usado, ou ter sido enviado para outro e-mail.')
+        setError(FALHA_GENERICA)
         return
       }
       await useAuth.getState().refreshProfile()
