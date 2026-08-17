@@ -64,12 +64,56 @@ secret, **adicione antes ao `.gitignore`**.
    dados daquela org — usada quando cliente rescinde contrato ou pede
    portabilidade de dados.
 
+## 🔎 Auditoria da autenticação — agosto/2026
+
+Conferência completa da superfície de autenticação. O que estava errado e foi corrigido está
+descrito nos commits; o que **continua em aberto** está aqui, para ninguém prometer o que não
+existe (foi exatamente esse o problema que a rodada anterior encontrou nos documentos de LGPD).
+
+### O que está bem-feito
+
+Vale registrar, porque uma lista só de furos distorce: PKCE em vez de implicit flow; `signOut`
+com escopo global de verdade (revoga os refresh tokens no servidor, conferido na dependência
+instalada — não é só limpeza de cliente); o `AuthGuard` não renderiza conteúdo enquanto não sabe
+quem você é; a RPC do QR público nunca aceita `organization_id` do cliente, resolve pelo slug no
+servidor; as RPCs de exportação e de direitos do titular validam `owner` no banco, não só na
+tela; `signup_with_org` está desativada e lança exceção incondicional; as rotas `api/*` são
+fail-closed quando falta variável de ambiente; e nenhum `.env` jamais foi commitado.
+
+### Em aberto — com o que cada um custa de verdade
+
+| Pendência | Onde se vê | O que acontece hoje |
+|---|---|---|
+| **MFA é decorativo** | `AuthPage.tsx` (fluxo de login) | A sessão do `signInWithPassword` já é válida **antes** do código TOTP. O `AuthGuard` não checa nível de autenticação — não há uma única referência a `aal` em código executável — e nenhuma policy exige AAL2. Quem souber ignorar a tela de desafio entra. `organizations.settings.mfa_required_roles` existe semeado em 8 migrations e **nada no código lê esse campo**. E `mfa_enrolled` é auto-declarável: o cliente dá `UPDATE` na própria linha, e o trigger de guarda só protege `role` e `organization_id`. |
+| **Sessão não expira** | `supabase/config.toml` | O bloco `[auth.sessions]` está inteiramente comentado: sem `timebox`, sem `inactivity_timeout`. Com `autoRefreshToken`, uma aba esquecida aberta — ou um refresh token copiado do `localStorage` — renova indefinidamente. |
+| **Tentativa de login não deixa rastro** | — | Não há registro de login, nem falho nem bem-sucedido, em lugar nenhum. `audit_log` tem as colunas `ip` e `user_agent` desde `0006_audit_log.sql` e **nenhum código as preenche**. Uma campanha de credential stuffing não aparece em nada que a aplicação consiga consultar; o que existe é o log do GoTrue no painel. |
+| **Não existe trilha de eventos de plataforma** | `audit_log` | A tabela é por inquilino (`organization_id NOT NULL` com chave estrangeira), então eventos sem organização — uma tentativa recusada de provisionamento, por exemplo — não cabem nela. Hoje vão para o log da Edge Function. |
+| **A prop `roles` do `AuthGuard` nunca é usada** | `src/App.tsx` | Zero ocorrências de `roles={`. Todo gate por papel mora dentro dos componentes, então as telas administrativas abrem por URL. O dado está protegido (as RPCs validam no banco); a estrutura e a existência das telas, não. |
+| **`api/*` aceita qualquer autenticado de qualquer cliente** | `api/_supabaseAuth.ts` | `isAuthenticated` responde só "é um usuário válido" — sem organização, sem papel, sem limite. Três rotas consomem gateway de IA pago. |
+| **Não há captcha** | — | Em nenhuma camada: nem no login, nem no convite, nem na recuperação. O atraso progressivo das telas encarece a repetição pela interface e nada além disso. |
+| **CSP não segura XSS** | `vercel.json` | `script-src` inclui `'unsafe-inline'` e `'unsafe-eval'`, e os tokens ficam em `localStorage`. Há exatamente um `dangerouslySetInnerHTML` no projeto (o QR do TOTP, vindo da API do GoTrue) e nenhum sanitizador. |
+| **A conta de plataforma continua onipotente** | `platform_admins` | Ela é `owner` de todas as organizações em todas as policies. Desde agosto/2026 isso é dado, não código — dá para revogar e promover sem deploy —, mas o poder é o mesmo, e nenhuma entrada dela em organização de cliente é registrada. |
+| **`invitations.token` é legível por toda a organização** | `0009_rls_core.sql` | E `accept_invitation` aceita o ramo `OR token = p_token`. O que impede a escalada é a conferência de e-mail — a defesa está de pé, apoiada numa única linha. |
+| **O listener de `onAuthStateChange` nunca é desinscrito** | `src/lib/auth.ts` | Vazamento pequeno, mas real. |
+
+### Ações que só o painel do Supabase resolve
+
+Não dá para versionar em código: `supabase/config.toml` governa o ambiente **local**, e não há
+`supabase config push` em CI nenhum.
+
+- [ ] Política de senha no servidor (Authentication › Policies): mínimo 10, maiúscula/minúscula/número. Hoje o servidor ainda aceita 6.
+- [ ] Proteção contra senha vazada (HIBP).
+- [ ] `timebox` e `inactivity_timeout` de sessão.
+- [ ] Domínio de produção + `/redefinir-senha` na allow-list de redirect — sem isso o e-mail de recuperação não funciona.
+- [ ] `APPROVAL_TOKEN_SECRET` nas Edge Functions `notify-approval` e `handle-approval`, com o **mesmo** valor. Sem ela a aprovação por e-mail fica desligada, de propósito.
+
 ## 🧪 Antes de cada commit
 
 - [ ] Não há vars `VITE_*` apontando para chaves sensíveis
 - [ ] Tabelas novas têm RLS habilitado
 - [ ] `git status` não mostra `.env.local` ou dumps
-- [ ] `npm run build` e grep no `dist/` por `service_role` retorna zero matches
+- [ ] `npm run check:segredos` passa (roda no CI; varre o `dist/` por `service_role`, senhas,
+      segredos de servidor e por qualquer JWT cujo papel não seja `anon`)
 
 ## 🆘 Se um secret vazar
 
