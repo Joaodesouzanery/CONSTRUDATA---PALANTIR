@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAuth } from '@/lib/auth'
-import { isGlobalAdminUser } from '@/lib/globalAdmin'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
 import { OrganizationSwitcher } from './OrganizationSwitcher'
@@ -100,7 +99,6 @@ export function Sidebar({ onClose }: SidebarProps) {
   const alertCounts = useAlertCounts()
   const { pinnedPaths, togglePin, isPinned, movePin } = useSidebarPinsStore()
   const profile = useAuth((state) => state.profile)
-  const user = useAuth((state) => state.user)
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
@@ -110,7 +108,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const supportRef = useRef<HTMLDivElement>(null)
 
   // Resolve pinned items from NAV_GROUPS
-  const canUseGlobalAdmin = isGlobalAdminUser(profile, user)
+  const canUseGlobalAdmin = useAuth((state) => state.isGlobalAdmin)
   const visibleGroups = NAV_GROUPS
     .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || profile?.role === 'owner')) }))
     .filter((group) => group.items.length > 0)

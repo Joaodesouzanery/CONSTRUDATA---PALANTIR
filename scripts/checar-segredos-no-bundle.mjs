@@ -28,6 +28,11 @@ const PROIBIDOS = [
   { termo: 'SUPABASE_DB_PASSWORD', motivo: 'senha do banco' },
   { termo: 'ADMIN_PROVISION_SECRET', motivo: 'segredo de provisionamento de empresa' },
   { termo: 'CRON_SECRET', motivo: 'segredo do cron' },
+  { termo: 'APPROVAL_TOKEN_SECRET', motivo: 'segredo que assina os links de aprovação' },
+  // O e-mail do administrador da plataforma esteve no bundle até 2026-08: quem administra a
+  // plataforma agora é dado do banco (`platform_admins`), consultado pela RPC is_global_admin().
+  // Se este endereço reaparecer aqui, alguém voltou a decidir permissão no cliente.
+  { termo: 'joaoneryflu', motivo: 'e-mail do administrador da plataforma — a decisão é do servidor' },
 ]
 
 const JWT = /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g

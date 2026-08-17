@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { GLOBAL_ADMIN_EMAIL, isGlobalAdminUser } from '@/lib/globalAdmin'
 import { useManutencoesStore } from '@/store/manutencoesStore'
 import {
   buildFracttalSummary,
@@ -475,7 +474,6 @@ function keyForImport(value: string) {
 
 export function AdaptacaoRapidaPage() {
   const profile = useAuth((state) => state.profile)
-  const user = useAuth((state) => state.user)
   const [analyses, setAnalyses] = useState<FileAnalysis[]>([])
   const [manualEntries, setManualEntries] = useState<ManualEntry[]>([])
   const [manualTitle, setManualTitle] = useState('')
@@ -491,7 +489,7 @@ export function AdaptacaoRapidaPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [fracttalDraft, setFracttalDraft] = useState<FracttalImportDraft>(() => emptyFracttalDraft())
 
-  const canUse = isGlobalAdminUser(profile, user)
+  const canUse = useAuth((state) => state.isGlobalAdmin)
   const fracttalSummary = useMemo(() => buildFracttalSummary(fracttalDraft), [fracttalDraft])
   const hasFracttalPreview = hasFracttalData(fracttalDraft)
   const manualFound = useMemo(
@@ -874,7 +872,7 @@ export function AdaptacaoRapidaPage() {
           <div>
             <h1 className="text-lg font-semibold">Adaptação Rápida</h1>
             <p className="mt-2 text-sm leading-6 text-[#a3a3a3]">
-              Este módulo é exclusivo da conta global {GLOBAL_ADMIN_EMAIL}.
+              Este módulo é exclusivo das contas que administram a plataforma.
             </p>
           </div>
         </div>

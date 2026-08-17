@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react'
 import { Users, ShieldAlert, RefreshCw } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { GLOBAL_ADMIN_EMAIL, isGlobalAdminUser } from '@/lib/globalAdmin'
 import { roleLabel } from '@/lib/roles'
 
 interface MemberRow {
@@ -22,8 +21,7 @@ interface MemberRow {
 
 export function MembrosPage() {
   const profile = useAuth((s) => s.profile)
-  const user = useAuth((s) => s.user)
-  const canUse = isGlobalAdminUser(profile, user)
+  const canUse = useAuth((state) => state.isGlobalAdmin)
   const [members, setMembers] = useState<MemberRow[]>([])
   const [invites, setInvites] = useState<MemberRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -52,7 +50,7 @@ export function MembrosPage() {
       <div className="p-8 max-w-3xl mx-auto">
         <div className="p-6 bg-amber-50 border border-amber-200 rounded text-amber-800 flex gap-3">
           <ShieldAlert className="shrink-0" />
-          <p className="text-sm">Este módulo é exclusivo da conta global <strong>{GLOBAL_ADMIN_EMAIL}</strong>.</p>
+          <p className="text-sm">Este módulo é exclusivo das contas que administram a plataforma.</p>
         </div>
       </div>
     )

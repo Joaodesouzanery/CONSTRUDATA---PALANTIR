@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Building2, CheckCircle2, FlaskConical, RefreshCw, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
-import { GLOBAL_ADMIN_EMAIL, isGlobalAdminUser } from '@/lib/globalAdmin'
 import { cn } from '@/lib/utils'
 
 const envLabels = {
@@ -18,7 +17,6 @@ function environmentTone(environment?: string) {
 
 export function HomologacaoPage() {
   const profile = useAuth((state) => state.profile)
-  const user = useAuth((state) => state.user)
   const memberships = useAuth((state) => state.memberships)
   const refreshProfile = useAuth((state) => state.refreshProfile)
   const switchOrganization = useAuth((state) => state.switchOrganization)
@@ -27,7 +25,7 @@ export function HomologacaoPage() {
   const homologationOrgs = memberships.filter((item) => item.organization?.environment === 'homologation')
   const activeEnvironment = active?.organization?.environment ?? 'production'
   const isHomologation = activeEnvironment === 'homologation'
-  const canUse = isGlobalAdminUser(profile, user)
+  const canUse = useAuth((state) => state.isGlobalAdmin)
 
   async function handleSwitch(organizationId: string) {
     await switchOrganization(organizationId)
@@ -42,7 +40,7 @@ export function HomologacaoPage() {
           <div>
             <h1 className="text-lg font-semibold">Homologação</h1>
             <p className="mt-2 text-sm leading-6 text-[#a3a3a3]">
-              Este módulo é exclusivo da conta global {GLOBAL_ADMIN_EMAIL}.
+              Este módulo é exclusivo das contas que administram a plataforma.
             </p>
           </div>
         </div>

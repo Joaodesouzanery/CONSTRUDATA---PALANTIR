@@ -50,6 +50,18 @@ interface AuthState {
   user:       User | null
   profile:    Profile | null
   memberships: OrgMembership[]
+  /**
+   * Esta conta administra a PLATAFORMA (acesso a todas as organizações)?
+   *
+   * Vem do servidor, via RPC `is_global_admin()`. Antes era decidido no cliente comparando o
+   * e-mail com um literal em `src/lib/globalAdmin.ts` — que ia no bundle que qualquer visitante
+   * da landing baixa, e ainda era impresso na tela em três páginas. Quem administra a
+   * plataforma é dado do banco (`platform_admins`), não constante de código.
+   *
+   * Isto continua sendo só para a interface decidir o que mostrar; quem de fato autoriza é o
+   * `is_global_admin()` dentro das policies. Mentir aqui não dá acesso a nada.
+   */
+  isGlobalAdmin: boolean
   loading:    boolean
   error:      string | null
   initialized: boolean
@@ -124,6 +136,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   user:        null,
   profile:     null,
   memberships: [],
+  isGlobalAdmin: false,
   loading:     false,
   error:       null,
   initialized: false,
@@ -145,7 +158,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         if (newSession?.user) {
           void get().refreshProfile()
         } else {
-          set({ profile: null, memberships: [] })
+          set({ profile: null, memberships: [], isGlobalAdmin: false })
         }
       })
     } catch (err) {
@@ -158,7 +171,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   refreshProfile: async () => {
     const user = get().user
     if (!user) {
-      set({ profile: null, memberships: [] })
+      set({ profile: null, memberships: [], isGlobalAdmin: false })
       return
     }
     const { data, error } = await supabase
@@ -169,7 +182,7 @@ export const useAuth = create<AuthState>((set, get) => ({
 
     if (error) {
       console.warn('[auth] failed to load profile', error)
-      set({ profile: null, memberships: [], error: error.message })
+      set({ profile: null, memberships: [], isGlobalAdmin: false, error: error.message })
       return
     }
 
@@ -235,7 +248,19 @@ export const useAuth = create<AuthState>((set, get) => ({
       await resetTenantScopedRuntimeStores(nextOrgId)
     }
 
-    set({ profile: nextProfile, memberships, error: null })
+    // Quem administra a plataforma quem diz é o servidor. A RPC responde só sobre quem
+    // perguntou e nunca lista ninguém — a tabela `platform_admins` tem RLS sem policy alguma.
+    // Se a chamada falhar, o padrão é `false`: perder o menu de administração é um
+    // inconveniente; mostrá-lo por engano seria vazar a existência do papel.
+    let isGlobalAdmin = false
+    try {
+      const { data: ehAdmin } = await supabase.rpc('is_global_admin')
+      isGlobalAdmin = ehAdmin === true
+    } catch {
+      // Sem rede ou RPC ausente: segue como usuário comum.
+    }
+
+    set({ profile: nextProfile, memberships, isGlobalAdmin, error: null })
 
     // Com a organização ativa conhecida, sincroniza todos os stores tenant-scoped:
     // flush das ops locais pendentes (recupera dados criados antes do perfil) e
@@ -275,7 +300,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     await supabase.auth.signOut()
     clearTenantScopedCaches()
     await resetTenantScopedRuntimeStores()
-    set({ session: null, user: null, profile: null, memberships: [] })
+    set({ session: null, user: null, profile: null, memberships: [], isGlobalAdmin: false })
   },
 
   setSession: (s) => set({ session: s, user: s?.user ?? null }),
