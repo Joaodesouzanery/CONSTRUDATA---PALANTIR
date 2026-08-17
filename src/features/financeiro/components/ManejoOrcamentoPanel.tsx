@@ -55,7 +55,8 @@ export function ManejoOrcamentoPanel() {
           <h2 className="text-sm font-bold text-white">Manejo Orçamento — Autorizações</h2>
           <p className="text-[10px] text-[#6b6b6b]">{orcamentos.length} autorizações em 4 categorias</p>
         </div>
-        {orcamentos.length === 0 && (
+        {/* Mesma regra do ManejoFinanceiro: lista vazia não basta, precisa do Modo Demo. */}
+        {orcamentos.length === 0 && isDemoModeEnabled() && (
           <button onClick={store.loadDemoData} className="flex items-center gap-1.5 rounded-lg bg-[#484848] px-3 py-2 text-xs font-semibold text-[#f5f5f5] transition-colors hover:bg-[#525252]">
             <Download size={13} /> Carregar Demo
           </button>

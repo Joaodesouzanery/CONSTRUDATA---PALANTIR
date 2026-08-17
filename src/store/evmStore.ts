@@ -5,6 +5,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import type {
   EvmTab, WorkPackage, CostAccountEntry, WeightedMeasurement,
   EvmMetrics, SCurveMultiPoint, CostPillar, CostBreakdown,
@@ -113,6 +114,14 @@ interface EvmState {
   // Data management
   loadDemoData: () => void
   clearData: () => void
+  /** Escopo por organização — era o único store financeiro sem isso. */
+  ensureTenantScope: (organizationId: string) => void
+  /** Remove resíduo de demonstração deixado pelo botão antigo. Devolve true se limpou. */
+  limparResiduoDemo: () => boolean
+  /** Ficou resíduo e foi removido nesta sessão? A tela avisa uma vez. */
+  residuoDemoRemovido: boolean
+  /** Organização cujo dado está carregado — usado por `ensureTenantScope`. */
+  activeOrgId: string | null
 
   // Sync (Sprint 6)
   pendingSync:  PendingOp[]
@@ -385,9 +394,15 @@ function computeFinancialPortfolio(nucleos: NucleoFinanceiro[], onlyIds?: string
   }
 }
 
+/**
+ * Id do contrato de demonstração. É o que permite reconhecer resíduo demo no navegador de
+ * alguém — ver `limparResiduoDemo`. Não mude sem atualizar a limpeza.
+ */
+export const ID_CONTRATO_DEMO = 'contrato-atlantico-demo'
+
 function buildDemoFinancialModel() {
   const contrato: ContratoFinanceiro = {
-    id: 'contrato-atlantico-demo',
+    id: ID_CONTRATO_DEMO,
     numero: 'CTR-ATL-2026',
     descricao: 'Contrato Atlantico - Saneamento Integrado',
     contratante: 'Sabesp',
@@ -417,6 +432,8 @@ export const useEvmStore = create<EvmState>()(
   costAccounts: [],
   impostosNF: [],
   impostosNFSeeded: false,
+  residuoDemoRemovido: false,
+  activeOrgId: null,
   measurements: [],
   evmMetrics: { ...EMPTY_METRICS },
   sCurveData: [],
@@ -838,8 +855,52 @@ export const useEvmStore = create<EvmState>()(
         selectedNucleoId: financial.nucleos[0]?.id ?? null,
         measurementTemplates: buildMeasurementTemplates(),
         diagnosticNotes: [],
+        // Zera a fila: demo NUNCA sobe para o servidor. Os outros stores financeiros já faziam
+        // isso (financeiroStore, financeiroTitulosStore); este era o único que não.
+        pendingSync: [],
       })
     })
+  },
+
+  /**
+   * Apaga o modelo financeiro de demonstração que tenha sobrado no navegador.
+   *
+   * POR QUE PRECISA EXISTIR. Até agora havia um botão "Carregar Demo" fixo no cabeçalho do
+   * Financeiro, sem nenhuma trava de modo demo. Um clique gravava o contrato demo e seus seis
+   * núcleos no `cdata-evm`, que é persistido — e o `pull()` chama `recalculateMetrics()`, que
+   * tem um atalho: havendo qualquer núcleo, ignora os dados reais e devolve o portfólio demo.
+   * Resultado: R$ 4.891.304 de orçamento e EAC de R$ 13,9 milhões voltando a cada login, com o
+   * Modo Demo desligado. Tirar o botão conserta daqui para frente; isto conserta quem já clicou.
+   *
+   * Só age fora do Modo Demo, e só quando reconhece o contrato demo pelo id.
+   */
+  limparResiduoDemo: () => {
+    if (isDemoModeEnabled()) return false
+    const { contrato, nucleos } = get()
+    const temResiduo = contrato?.id === ID_CONTRATO_DEMO
+      || nucleos.some((n) => n.contratoId === ID_CONTRATO_DEMO)
+    if (!temResiduo) return false
+    console.warn('[evm] dado de demonstração encontrado fora do Modo Demo — removendo')
+    set({
+      contrato: null,
+      nucleos: [],
+      selectedNucleoId: null,
+      sCurveData: [],
+      evmMetrics: { ...EMPTY_METRICS },
+      residuoDemoRemovido: true,
+    })
+    // Recalcula a partir do que sobrou, que é o dado real (ou vazio).
+    get().recalculateMetrics()
+    return true
+  },
+
+  ensureTenantScope: (organizationId) => {
+    if (!organizationId) return
+    if (get().activeOrgId === organizationId) return
+    // Trocar de empresa tem de zerar o que era da anterior. Sem isto, o contrato demo do
+    // "Atlantico" seguia no cabeçalho de qualquer organização.
+    if (get().activeOrgId) get().clearData()
+    set({ activeOrgId: organizationId })
   },
 
   clearData: () =>
@@ -896,6 +957,9 @@ export const useEvmStore = create<EvmState>()(
     }),
     {
       name: 'cdata-evm',
+      // Roda logo depois de o estado voltar do localStorage, ANTES de qualquer tela ler. É o
+      // ponto certo: o resíduo demo tem de sumir antes de virar número na cara de alguém.
+      onRehydrateStorage: () => (state) => { state?.limparResiduoDemo() },
       partialize: (s) => ({
         workPackages: s.workPackages,
         costAccounts: s.costAccounts,
@@ -910,6 +974,7 @@ export const useEvmStore = create<EvmState>()(
         diagnosticNotes: s.diagnosticNotes,
         pendingSync:  s.pendingSync,
         lastSyncedAt: s.lastSyncedAt,
+        activeOrgId:  s.activeOrgId,
       }),
     },
   ),

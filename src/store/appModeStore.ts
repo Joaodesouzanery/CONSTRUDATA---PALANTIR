@@ -59,19 +59,29 @@ function clearLocalOnlyModuleData() {
   localStorage.removeItem('cdata-laudos')
 }
 
-/** Snapshot current user data from localStorage before loading demo. */
+/**
+ * Guarda o estado do usuário antes de carregar o demo.
+ *
+ * O QUE ESTAVA ERRADO, e valia para TODOS os módulos. O laço só guardava a chave que já
+ * existia (`if (val)`), e o restore devolvia `true` de qualquer jeito — pulando o `clearData()`
+ * de todos os stores. Consequência: qualquer módulo que estivesse **vazio** quando você ligou o
+ * Modo Demo ganhava a chave com dado de demonstração, e desligar o Demo não a removia, porque
+ * ela não estava no snapshot e o caminho de limpeza nunca rodava. O dado demo ficava, com o
+ * Modo Demo desligado.
+ *
+ * A correção é gravar o "não existia" explicitamente, como `null`. Assim o restore sabe a
+ * diferença entre "não guardei isso" e "isso não existia, apague".
+ */
 function snapshotUserData() {
-  const snapshot: Record<string, string> = {}
+  const snapshot: Record<string, string | null> = {}
   for (const key of STORE_KEYS) {
-    const val = localStorage.getItem(key)
-    if (val) snapshot[key] = val
+    // `null` é informação: significa "esta chave não existia, e precisa deixar de existir".
+    snapshot[key] = localStorage.getItem(key)
   }
-  if (Object.keys(snapshot).length > 0) {
-    try {
-      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot))
-    } catch {
-      // localStorage full — silently continue (demo will still load)
-    }
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot))
+  } catch {
+    // localStorage cheio — segue sem snapshot; o restore cai no clearData().
   }
 }
 
@@ -81,9 +91,17 @@ async function restoreUserData() {
   if (!raw) return false
 
   try {
-    const snapshot: Record<string, string> = JSON.parse(raw)
+    const snapshot: Record<string, string | null> = JSON.parse(raw)
     for (const [key, val] of Object.entries(snapshot)) {
-      localStorage.setItem(key, val)
+      // `null` = a chave não existia antes do demo. Removê-la é o que impede o dado de
+      // demonstração de sobreviver ao desligamento do Modo Demo.
+      if (val === null) localStorage.removeItem(key)
+      else localStorage.setItem(key, val)
+    }
+    // Snapshots antigos (formato sem null) não listavam as chaves ausentes. Para eles, apagar
+    // tudo que está fora do snapshot é o que restaura o estado de verdade.
+    for (const key of STORE_KEYS) {
+      if (!(key in snapshot)) localStorage.removeItem(key)
     }
     localStorage.removeItem(SNAPSHOT_KEY)
 

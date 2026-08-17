@@ -9,6 +9,7 @@ import { useStoreSync } from '@/lib/useStoreSync'
 import { SyncBadge } from '@/components/shared/SyncBadge'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
+import { useAppModeStore } from '@/store/appModeStore'
 import type { FinanceiroEvmTab } from '@/types'
 
 export type CombinedTab = FinanceiroEvmTab
@@ -62,6 +63,8 @@ interface EvmHeaderProps {
 
 export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
+  const isDemoMode = useAppModeStore((s) => s.isDemoMode)
+  const residuoDemoRemovido = useEvmStore((s) => s.residuoDemoRemovido)
   const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
   const sync = useStoreSync(useFinanceiroStore)
   // Títulos (abas "Pagamentos e Cobranças" e "Boletos") vivem noutro store e não
@@ -71,6 +74,16 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">
+      {/* Aviso de uma vez: havia dado de demonstração guardado neste navegador e ele foi
+          removido. Sem isso, os números simplesmente mudariam de valor sem explicação. */}
+      {residuoDemoRemovido && (
+        <div className="border-b border-[#f59e0b]/30 bg-[#f59e0b]/[0.09] px-6 py-3 text-xs leading-5 text-[#fbbf24]">
+          <strong>Dados de demonstração removidos.</strong> Este navegador tinha um contrato de
+          exemplo guardado (orçamento de R$ 4.891.304, EAC de R$ 13,9 milhões), carregado por um
+          botão que não checava o Modo Demo. Ele não era seu e não estava no servidor — os
+          indicadores acima agora refletem só o que você cadastrou.
+        </div>
+      )}
       {/* Title + actions */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -87,13 +100,19 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
 
         <div className="flex items-center gap-2 flex-wrap">
           <SyncBadge {...sync} />
-          <button
-            onClick={loadDemoData}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] transition-colors hover:bg-[#ea580c]"
-          >
-            <Download size={15} />
-            Carregar Demo
-          </button>
+          {/* SÓ com o Modo Demo ligado. Este botão era um laranja fixo no cabeçalho, sem
+              condição nenhuma, e o que ele carrega é persistido no navegador: um clique
+              plantava R$ 4.891.304 de orçamento e um EAC de R$ 13,9 milhões que voltavam a
+              cada login, com o Modo Demo desligado. É o padrão que MapaHeader.tsx já usa. */}
+          {isDemoMode && (
+            <button
+              onClick={loadDemoData}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-[#f97316] transition-colors hover:bg-[#ea580c]"
+            >
+              <Download size={15} />
+              Carregar Demo
+            </button>
+          )}
           <button
             onClick={recalculateMetrics}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
