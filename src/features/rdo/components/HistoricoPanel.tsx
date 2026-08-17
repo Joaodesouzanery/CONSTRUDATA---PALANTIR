@@ -11,9 +11,12 @@ import {
 } from 'lucide-react'
 import { useRdoStore } from '@/store/rdoStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { useContractorStore } from '@/store/contractorStore'
 import { supabase } from '@/lib/supabase'
-import { printRdoPDF, printRdosBatchPDF } from '../utils/rdoPdfExport'
+import { dataLocalISO } from '@/lib/utils'
+import { printRdoPDF } from '../utils/rdoPdfExport'
+import { abrirJanelaRelatorio, imprimirRelatorioRdos, type ItemRelatorio } from '../utils/rdosReportExport'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { RdoDetalhe } from './RdoDetalhe'
@@ -557,6 +560,7 @@ export function HistoricoPanel() {
   }, [loadSabespHistory, loadContractors])
 
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  const siteAtivo = useTorreStore((s) => s.sites).find((s) => s.id === activeObraId) ?? null
   const filtered = useMemo(() => {
     return rdos
       .filter((r) => {
@@ -648,6 +652,8 @@ export function HistoricoPanel() {
     setEditForm({})
   }
 
+  const [gerandoPdf, setGerandoPdf] = useState(false)
+
   function handleBatchPDF() {
     let from = '', to = ''
     if (pdfPeriodType === 'semanal' && pdfWeek) {
@@ -655,8 +661,10 @@ export function HistoricoPanel() {
       const jan4 = new Date(year, 0, 4)
       const startOfWeek1 = new Date(jan4.getTime() - ((jan4.getDay() || 7) - 1) * 86400000)
       const weekStart = new Date(startOfWeek1.getTime() + (week - 1) * 7 * 86400000)
-      from = weekStart.toISOString().slice(0, 10)
-      to   = new Date(weekStart.getTime() + 6 * 86400000).toISOString().slice(0, 10)
+      // `dataLocalISO`, não `toISOString()`: as datas acima são meia-noite LOCAL, e converter
+      // para UTC no Brasil (UTC-3) devolve o dia anterior — a semana inteira saía deslocada.
+      from = dataLocalISO(weekStart)
+      to   = dataLocalISO(new Date(weekStart.getTime() + 6 * 86400000))
     } else if (pdfPeriodType === 'mensal' && pdfMonth) {
       const [y, m] = pdfMonth.split('-').map(Number)
       from = `${y}-${String(m).padStart(2, '0')}-01`
@@ -665,10 +673,32 @@ export function HistoricoPanel() {
     } else if (pdfPeriodType === 'personalizado') {
       from = pdfFrom; to = pdfTo
     }
-    const batchFiltered = rdos.filter((r) => r.date >= from && r.date <= to)
-    if (batchFiltered.length === 0) { alert('Nenhum RDO no período selecionado.'); return }
-    const label = pdfPeriodType === 'mensal' ? pdfMonth : `${from} a ${to}`
-    printRdosBatchPDF(batchFiltered, label)
+
+    // Respeita a obra ativa, como a listagem da tela — antes o relatório somava todas as obras
+    // enquanto a tela mostrava uma só. E inclui os RDOs Sabesp do período, que ficavam de fora.
+    const doPeriodo: ItemRelatorio[] = [
+      ...rdos
+        .filter((r) => !activeObraId || (r.siteId ?? null) === activeObraId)
+        .filter((r) => r.date >= from && r.date <= to)
+        .map((rdo) => ({ tipo: 'torre' as const, rdo })),
+      ...sabespRdos
+        .filter((r) => r.report_date >= from && r.report_date <= to)
+        .map((rdo) => ({ tipo: 'sabesp' as const, rdo: rdo as RdoSabespData })),
+    ]
+    if (doPeriodo.length === 0) { alert('Nenhum RDO no período selecionado.'); return }
+
+    // A janela abre AGORA, ainda dentro do clique: depois do primeiro `await` o navegador
+    // trata o `window.open` como pop-up não solicitado e bloqueia.
+    const janela = abrirJanelaRelatorio()
+    const label = pdfPeriodType === 'mensal' ? pdfMonth : `${fmtDate(from)} a ${fmtDate(to)}`
+    setGerandoPdf(true)
+    void imprimirRelatorioRdos(doPeriodo, label, siteAtivo?.name ?? null, janela)
+      .catch((e) => {
+        console.error('[rdo] falha ao gerar o relatório consolidado', e)
+        janela?.close()
+        alert('Não foi possível gerar o relatório. Tente novamente.')
+      })
+      .finally(() => setGerandoPdf(false))
   }
 
   const filterInputCls = 'bg-[#3d3d3d] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50'
@@ -726,11 +756,19 @@ export function HistoricoPanel() {
         {pdfPeriodType && (
           <button
             onClick={handleBatchPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-600 text-white text-xs font-semibold transition-colors"
+            disabled={gerandoPdf}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-sky-700 hover:bg-sky-600 disabled:bg-[#484848] disabled:text-[#8a8a8a] disabled:cursor-wait text-white text-xs font-semibold transition-colors"
           >
             <Printer size={12} />
-            Exportar PDF (Período)
+            {gerandoPdf ? 'Gerando…' : 'Exportar PDF (Período)'}
           </button>
+        )}
+        {activeObraId && (
+          // O relatório segue a obra ativa. Dizer isso aqui evita a dúvida de "por que só
+          // apareceram 4 dos 29 RDOs" — antes ele somava todas as obras, silenciosamente.
+          <span className="text-[#6b6b6b] text-[11px]">
+            Somente a obra {siteAtivo?.name ?? 'selecionada'}
+          </span>
         )}
       </div>
 
