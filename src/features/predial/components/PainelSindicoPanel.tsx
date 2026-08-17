@@ -160,7 +160,7 @@ export function PainelSindicoPanel({ onNavigate }: { onNavigate: (tab: PredialTa
       </div>
 
       {drill === 'abertos' && (
-        <Drill title={`Chamados abertos (${k.abertos.length})`} onOpen={() => onNavigate('manutencoes')} empty={k.abertos.length === 0 && 'Nenhum chamado aberto.'}>
+        <Drill title={`Chamados abertos (${k.abertos.length})`} onOpen={() => onNavigate('chamados')} empty={k.abertos.length === 0 && 'Nenhum chamado aberto.'}>
           {[...k.abertos].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999')).map((w) => (
             <Row key={w.id} left={w.title || w.code} sub={`${w.code} · ${STATUS_LABEL[w.status] ?? w.status}`} right={w.dueDate || '—'} rightClass={w.dueDate && w.dueDate < k.today ? 'text-red-400 font-semibold' : 'text-[#a3a3a3]'} />
           ))}

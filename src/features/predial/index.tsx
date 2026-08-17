@@ -1,8 +1,11 @@
 /**
- * PredialPage — módulo "Predial" (gestão do edificado). 5 abas enxutas:
- * Painel (do síndico) · Ativos · Manutenções · Laudos · CapEx. Ativos e Manutenções
+ * PredialPage — módulo "Predial" (gestão do edificado). 6 abas enxutas:
+ * Painel (do síndico) · Chamados · Ativos · Manutenções · Laudos · CapEx. Ativos e Manutenções
  * reusam o ManutencoesPage com sub-abas filtradas. As antigas Visão Geral (duplicada),
  * Equipamentos/Saúde (frota) e Workbench saíram; Rateio volta em fase 2 atrás de flag.
+ *
+ * "Chamados" era a página `/app/chamados`, irmã do Predial no menu — ver o cabeçalho de
+ * `components/ChamadosPanel.tsx` para o porquê da mudança. A rota antiga redireciona para cá.
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -11,6 +14,7 @@ import { PREDIAL_TABS, type PredialTab } from './tabs'
 import { ManutencoesPage } from '@/features/manutencoes/index'
 import { CapexRoiPanel } from './components/CapexRoiPanel'
 import { ComplianceLaudosPanel } from './components/ComplianceLaudosPanel'
+import { ChamadosPanel } from './components/ChamadosPanel'
 import { PainelSindicoPanel } from './components/PainelSindicoPanel'
 import { PredialAtivosTab } from './components/PredialAtivosTab'
 import { useAuth } from '@/lib/auth'
@@ -38,6 +42,7 @@ export function PredialPage() {
       <PredialHeader activeTab={effectiveTab} onTabChange={goTo} canViewCosts={canCosts} />
       <div className="flex-1 overflow-auto">
         {effectiveTab === 'painel' && <PainelSindicoPanel onNavigate={goTo} />}
+        {effectiveTab === 'chamados' && <ChamadosPanel />}
         {effectiveTab === 'ativos' && <PredialAtivosTab canViewCosts={canCosts} />}
         {effectiveTab === 'manutencoes' && <ManutencoesPage allowedTabs={['painel', 'tarefas', 'ordens', 'kanban', 'calendario']} canViewCosts={canCosts} />}
         {effectiveTab === 'laudos' && <ComplianceLaudosPanel />}

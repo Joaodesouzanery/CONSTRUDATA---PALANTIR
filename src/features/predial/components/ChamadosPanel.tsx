@@ -1,18 +1,31 @@
 /**
- * ZeladorChamadosPage — view enxuta e mobile-first para o zelador em campo: lista de chamados
- * (cards, não tabela) + botão grande "Abrir chamado" reusando o QuickChamadoModal (Sistema →
- * Componente → Sintoma → matriz de prioridade). Sem papel novo de auth — é qualquer membro
- * autenticado da org; a lista é escopada pela obra ativa. Local-first (funciona offline).
+ * ChamadosPanel — chamados do prédio: lista em cards (não tabela, é mobile-first para o zelador
+ * em campo) + "Abrir chamado" reusando o QuickChamadoModal (Sistema → Componente → Sintoma →
+ * matriz de prioridade), com a triagem da fila do QR público no topo. Sem papel novo de auth —
+ * é qualquer membro autenticado da org; a lista é escopada pela obra ativa. Local-first.
+ *
+ * ── POR QUE VIROU ABA ─────────────────────────────────────────────────────────────────────────
+ * Era a página `/app/chamados`, irmã do Predial no menu. Duas coisas justificam a mudança: um
+ * chamado **é** uma `MaintenanceWorkOrder` — a mesma tabela e o mesmo dado que a aba
+ * "Manutenções" do Predial já mostra —, e a triagem dos chamados vindos do QR público só existia
+ * aqui, então quem abria o Predial não via a fila do QR. `/app/chamados` continua funcionando:
+ * virou um redirecionamento para esta aba, e o QR impresso aponta para `/chamado/:slug`, que é
+ * rota pública separada e não foi tocada.
+ *
+ * Como aba, dois detalhes de layout mudam em relação à página: o cabeçalho próprio some (o
+ * PredialHeader já está acima, e dois títulos empilhados desperdiçam meia tela no celular), e o
+ * botão de abrir chamado deixa de ser `fixed` — preso à viewport ele cobria o rodapé do app —
+ * para ser `sticky` dentro da própria rolagem do painel.
  */
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarClock, ClipboardList, Plus, RefreshCcw } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, hojeLocalISO } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useManutencoesStore, type MaintenanceWorkOrder } from '@/store/manutencoesStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { QuickChamadoModal } from '@/features/manutencoes/index'
-import { TriagemChamadosPublicosPanel } from './components/TriagemChamadosPublicosPanel'
+import { TriagemChamadosPublicosPanel } from './TriagemChamadosPublicosPanel'
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   pendente:       { label: 'Pendente', cls: 'bg-[#f59e0b]/15 text-[#fbbf24] border-[#f59e0b]/30' },
@@ -29,7 +42,7 @@ const PRIORIDADE: Record<string, { label: string; cls: string }> = {
 }
 const fmtBR = (iso?: string | null) => (iso ? new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR') : null)
 
-export function ZeladorChamadosPage() {
+export function ChamadosPanel() {
   const orgId = useAuth((s) => s.profile?.organization_id ?? null)
   const ensure = useManutencoesStore((s) => s.ensureTenantScope)
   const pull = useManutencoesStore((s) => s.pull)
@@ -49,7 +62,9 @@ export function ZeladorChamadosPage() {
 
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets])
   const scopedAssets = useMemo(() => (activeObraId ? assets.filter((a) => (a.constructionSiteId ?? null) === activeObraId) : assets), [assets, activeObraId])
-  const hoje = new Date().toISOString().slice(0, 10)
+  // `hojeLocalISO`, não `toISOString()`: depois das 21h no Brasil o UTC já é amanhã, e um
+  // chamado que vence hoje aparecia marcado como vencido em vermelho.
+  const hoje = hojeLocalISO()
 
   const lista = useMemo(() => {
     const scoped = activeObraId ? allWO.filter((w) => (w.constructionSiteId ?? null) === activeObraId) : allWO
@@ -69,25 +84,22 @@ export function ZeladorChamadosPage() {
 
   return (
     <div className="flex h-full flex-col bg-[#303030] text-[#f5f5f5]">
-      <div className="sticky top-0 z-10 border-b border-[#525252] bg-[#2c2c2c] px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f97316]"><ClipboardList size={18} className="text-white" /></div>
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-bold leading-tight">Chamados</h1>
-            <p className="truncate text-xs text-[#a3a3a3]">{obraNome}</p>
-          </div>
-          <button type="button" onClick={() => void pull()} className="ml-auto rounded-lg border border-[#525252] bg-[#3a3a3a] p-2 text-[#a3a3a3] hover:text-white" title="Atualizar">
-            <RefreshCcw size={16} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
-          </button>
-        </div>
-        <div className="mt-3 flex items-center gap-1">
+      {/* Sem <h1>: o título do módulo já está no PredialHeader logo acima. Aqui fica só o que
+          é desta aba — o prédio em escopo, o filtro e o atualizar. */}
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#525252] bg-[#2c2c2c] px-4 py-2.5">
+        <ClipboardList size={16} className="shrink-0 text-[#f97316]" />
+        <p className="min-w-0 truncate text-sm font-semibold">{obraNome}</p>
+        <div className="flex items-center gap-1">
           {([['abertos', true], ['todos', false]] as const).map(([label, v]) => (
             <button key={label} onClick={() => setAberto(v)} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium capitalize', aberto === v ? 'bg-[#3d3d3d] text-white' : 'text-[#a3a3a3]')}>{label}</button>
           ))}
         </div>
+        <button type="button" onClick={() => void pull()} className="ml-auto rounded-lg border border-[#525252] bg-[#3a3a3a] p-2 text-[#a3a3a3] hover:text-white" title="Atualizar">
+          <RefreshCcw size={16} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4 pb-24">
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4 pb-2">
         <TriagemChamadosPublicosPanel />
         {lista.length === 0 ? (
           <div className="mt-10 rounded-xl border border-dashed border-[#525252] p-8 text-center text-sm text-[#6b6b6b]">
@@ -119,11 +131,13 @@ export function ZeladorChamadosPage() {
         })}
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 flex justify-center p-4">
+      {/* Dentro do fluxo, não `fixed`: preso à viewport este botão flutuava sobre o rodapé do
+          app e sobre as outras abas do Predial. */}
+      <div className="shrink-0 border-t border-[#525252] bg-[#2c2c2c] p-3">
         <button
           type="button"
           onClick={() => setQuick(true)}
-          className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[#f97316] px-6 py-3 text-sm font-bold text-white shadow-2xl hover:bg-[#ea580c]"
+          className="mx-auto flex items-center gap-2 rounded-full bg-[#f97316] px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-[#ea580c]"
         >
           <Plus size={18} /> Abrir chamado
         </button>
