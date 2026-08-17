@@ -85,27 +85,47 @@ function snapshotUserData() {
   }
 }
 
-/** Restore user data from snapshot and rehydrate all stores. */
+/**
+ * Devolve o estado do usuário ao desligar o Modo Demo.
+ *
+ * ── A ORDEM DOS TRÊS PASSOS NÃO É NEGOCIÁVEL ──────────────────────────────────────────────────
+ * limpar a memória → restaurar o localStorage → reidratar. Trocar os dois primeiros de lugar
+ * DESTRÓI o dado do cliente, e isso foi medido com o zustand 5.0.12 real:
+ *
+ *   restaurar → limpar → reidratar : o `set()` do `clearData` passa pelo wrapper do persist e
+ *     grava VAZIO por cima do que acabou de ser restaurado; a reidratação lê esse vazio. O dado
+ *     real do cliente some.
+ *   limpar → restaurar → reidratar : o `clearData` também grava vazio, mas o passo seguinte
+ *     sobrescreve com o dado real, e a reidratação lê o dado real. Correto.
+ *
+ * ── POR QUE LIMPAR, SE A REIDRATAÇÃO JÁ DEVERIA BASTAR ────────────────────────────────────────
+ * Porque não basta, e isto também foi medido:
+ *
+ *   merge padrão (36 dos 37 stores), chave AUSENTE no localStorage → o estado vivo INTEIRO
+ *     sobrevive. O `middleware.mjs` chama `merge(persistido, get())` mesmo sem chave nenhuma,
+ *     com `persistido === undefined`; o merge padrão é `{ ...current, ...persisted }`, e
+ *     espalhar `undefined` não faz nada. Sai o dado de demonstração completo.
+ *   merge padrão, chave presente com listas vazias → as listas zeram, mas tudo que está fora do
+ *     `partialize` (id selecionado, filtros, contadores) continua sendo o do demo.
+ *
+ * E a chave ausente é justamente o caso de uma organização VAZIA: o snapshot grava `null` para
+ * ela e o restore faz `removeItem`. Quem mais precisava da limpeza era quem não a recebia.
+ *
+ * O `clearData()` sempre existiu para isso, mas só rodava no ramo `!restored` de
+ * `toggleDemoMode` — o caminho de exceção. Aqui ele passa a rodar no caminho normal.
+ *
+ * Seguro para os 34 stores desta lista: todos têm a sua chave em `STORE_KEYS`, então o vazio que
+ * o `clearData` grava é sempre sobrescrito no passo 2. Um store fora de `STORE_KEYS` perderia o
+ * dado — se algum entrar aqui um dia, a chave dele tem de entrar em `STORE_KEYS` junto.
+ */
 async function restoreUserData() {
   const raw = localStorage.getItem(SNAPSHOT_KEY)
   if (!raw) return false
 
   try {
     const snapshot: Record<string, string | null> = JSON.parse(raw)
-    for (const [key, val] of Object.entries(snapshot)) {
-      // `null` = a chave não existia antes do demo. Removê-la é o que impede o dado de
-      // demonstração de sobreviver ao desligamento do Modo Demo.
-      if (val === null) localStorage.removeItem(key)
-      else localStorage.setItem(key, val)
-    }
-    // Snapshots antigos (formato sem null) não listavam as chaves ausentes. Para eles, apagar
-    // tudo que está fora do snapshot é o que restaura o estado de verdade.
-    for (const key of STORE_KEYS) {
-      if (!(key in snapshot)) localStorage.removeItem(key)
-    }
-    localStorage.removeItem(SNAPSHOT_KEY)
 
-    // Rehydrate each store from restored localStorage
+    // Passo 1: os stores primeiro, porque o passo 2 depende de a memória já estar limpa.
     const stores = await Promise.all([
       import('./projetosStore').then(m => m.useProjetosStore),
       import('./agendaStore').then(m => m.useAgendaStore),
@@ -142,6 +162,29 @@ async function restoreUserData() {
       import('./manutencoesStore').then(m => m.useManutencoesStore),
       import('./laudosStore').then(m => m.useLaudosStore),
     ])
+    // Passo 2: zerar a memória. Isto grava vazio no localStorage de cada store — de propósito,
+    // porque o passo 3 sobrescreve logo em seguida com o dado real.
+    for (const store of stores) {
+      const estado = store.getState() as { clearData?: () => void }
+      if (typeof estado.clearData === 'function') estado.clearData()
+    }
+
+    // Passo 3: devolver o localStorage ao que era antes do Demo.
+    for (const [key, val] of Object.entries(snapshot)) {
+      // `null` = a chave não existia antes do demo. Removê-la é o que impede o dado de
+      // demonstração de sobreviver ao desligamento do Modo Demo.
+      if (val === null) localStorage.removeItem(key)
+      else localStorage.setItem(key, val)
+    }
+    // Snapshots antigos (formato sem null) não listavam as chaves ausentes. Para eles, apagar
+    // tudo que está fora do snapshot é o que restaura o estado de verdade.
+    for (const key of STORE_KEYS) {
+      if (!(key in snapshot)) localStorage.removeItem(key)
+    }
+    localStorage.removeItem(SNAPSHOT_KEY)
+
+    // Passo 4: reidratar. Cada store lê a sua chave restaurada; quem não tem chave fica no
+    // estado zerado do passo 2, e o `pullRealData()` seguinte traz o que houver no servidor.
     for (const store of stores) {
       store.persist?.rehydrate?.()
     }

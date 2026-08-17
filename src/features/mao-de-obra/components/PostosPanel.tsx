@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useAuth } from '@/lib/auth'
+import { canWriteMaoDeObra } from '@/lib/roles'
 import type { WorkPost } from '@/types'
 
 // ─── WorkPostDialog ────────────────────────────────────────────────────────────
@@ -195,6 +197,10 @@ export function PostosPanel() {
   }, [workPosts, coverageMatrix])
   const uncoveredNow = totalPosts - coveredToday
 
+  // A RLS de work_posts só aceita planejador/engenheiro/gerente/diretor/owner. Sem este
+  // gate o botão existia para todo mundo e a gravação ficava presa na fila em silêncio.
+  const podeEscrever = canWriteMaoDeObra(useAuth((s) => s.profile?.role))
+
   function openNew() { setEditingPost(undefined); setDialogOpen(true) }
   function openEdit(p: WorkPost) { setEditingPost(p); setDialogOpen(true) }
 
@@ -227,10 +233,14 @@ export function PostosPanel() {
             </div>
           ))}
         </div>
-        <button onClick={openNew}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-accent)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
-          <span className="text-lg leading-none">+</span> Novo Posto
-        </button>
+        {podeEscrever ? (
+          <button onClick={openNew}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-accent)] text-white text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm">
+            <span className="text-lg leading-none">+</span> Novo Posto
+          </button>
+        ) : (
+          <span className="text-xs text-[var(--color-text-muted)]">Seu perfil não edita postos de trabalho.</span>
+        )}
       </div>
 
       {/* Posts table */}

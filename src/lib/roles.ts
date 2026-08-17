@@ -51,3 +51,19 @@ export const ROLES_RDO_WRITE: readonly UserRole[] = ['engenheiro', 'qualidade', 
 export function canWriteRdo(role?: string | null): boolean {
   return ROLES_RDO_WRITE.includes((role ?? '') as UserRole)
 }
+
+/**
+ * Papéis que a RLS deixa criar posto de trabalho e ocorrência de escala
+ * (`20260817140000_work_posts_occurrences.sql`).
+ *
+ * Faltava o espelho aqui. Das onze opções do enum `user_role`, SEIS não passam no WITH CHECK
+ * destas duas tabelas — `qualidade`, `comprador`, `visualizador` e os três papéis prediais. Sem
+ * o gate, essas pessoas cadastravam o posto, viam o posto na tela, e a operação ficava presa no
+ * `pendingSync` para sempre: o servidor devolve 42501 e o `flush` deste store não tem teto de
+ * tentativas. Enquanto as tabelas não existiam o efeito era invisível; com a migration aplicada
+ * ele passou a acontecer de verdade.
+ */
+export const ROLES_MAO_DE_OBRA_WRITE: readonly UserRole[] = ['planejador', 'engenheiro', 'gerente', 'diretor', 'owner']
+export function canWriteMaoDeObra(role?: string | null): boolean {
+  return ROLES_MAO_DE_OBRA_WRITE.includes((role ?? '') as UserRole)
+}

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
+import { canWriteMaoDeObra } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -317,6 +318,27 @@ function normalizeCrew(crew: LaborCrew): LaborCrew {
   }
 }
 
+/**
+ * `merge` do persist: o que vale é SEMPRE o que está persistido, nunca o que está em memória.
+ *
+ * ── POR QUE ISTO É REGRA DURA ─────────────────────────────────────────────────────────────────
+ * Cinco campos usavam o fallback `list(persisted.x).length ? persisted.x : current.x`, e ele
+ * vazava dado de demonstração. O motivo é que `current` NÃO é o estado inicial na hora que
+ * importa: ao DESLIGAR o Modo Demo, `restoreUserData` (appModeStore.ts) devolve o localStorage e
+ * chama `persist.rehydrate()`, e aí o zustand passa como `current` o estado VIVO — que naquele
+ * instante ainda é o que o `loadDemoData()` colocou. Numa organização real vazia o persistido é
+ * `[]`, o fallback via lista vazia e devolvia os mocks: 4 postos, 4 ocorrências, 14 progressos,
+ * 3 áreas de risco e 3 sugestões continuavam na tela com o Modo Demo DESLIGADO.
+ *
+ * Pior desde a migration 20260817140000: com `work_posts` e `labor_occurrences` existindo no
+ * servidor, o `pull()` seguinte enxerga esses mocks como "dado local que nunca subiu" e os grava
+ * no banco do cliente. Antes da migration o vazamento parava no navegador porque não havia
+ * tabela; agora ele tem caminho até o Supabase.
+ *
+ * Nada se perde ao tirar o fallback: no carregamento normal da página `current` é o estado
+ * inicial, que já tem esses cinco campos vazios. `progress`, `riskAreas` e `suggestions` nem
+ * estão no `partialize` — são derivados/efêmeros e o fallback só os mantinha vivos vindos do demo.
+ */
 function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObraState): MaoDeObraState {
   return {
     ...current,
@@ -324,13 +346,13 @@ function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObr
     workers:        list(persisted.workers).map(normalizeWorker),
     crews:          list(persisted.crews).map(normalizeCrew),
     timecards:      list(persisted.timecards),
-    progress:       list(persisted.progress).length ? list(persisted.progress) : current.progress,
-    occurrences:    list(persisted.occurrences).length ? list(persisted.occurrences) : current.occurrences,
-    riskAreas:      list(persisted.riskAreas).length ? list(persisted.riskAreas) : current.riskAreas,
-    suggestions:    list(persisted.suggestions).length ? list(persisted.suggestions) : current.suggestions,
+    progress:       list(persisted.progress),
+    occurrences:    list(persisted.occurrences),
+    riskAreas:      list(persisted.riskAreas),
+    suggestions:    list(persisted.suggestions),
     shifts:         list(persisted.shifts),
     violations:     list(persisted.violations),
-    workPosts:      list(persisted.workPosts).length ? list(persisted.workPosts) : current.workPosts,
+    workPosts:      list(persisted.workPosts),
     absences:       list(persisted.absences),
     assessments:    list(persisted.assessments),
     cltSettings:    persisted.cltSettings ?? current.cltSettings,
@@ -621,6 +643,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // Ocorrência era o pior caso de perda: gravava num pedaço do estado que nem estava no
   // `partialize`. O registro aparecia na lista e sumia no primeiro F5.
   addOccurrence: (occ) => {
+    // Gate espelha a policy de INSERT/UPDATE de labor_occurrences: papel fora da lista não passa
+    // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
+    // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
     const { orgId, userId } = ctxAuth()
     const nova = { ...occ, id: crypto.randomUUID() } as LaborOccurrence
     set((s) => ({
@@ -785,6 +811,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // geração automática de escala, perder os postos era perder a escala junto.
   // O id vira uuid de verdade: `wp-3f2a1b9c` não entra numa coluna `uuid` do Postgres.
   addWorkPost: (post) => {
+    // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
+    // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
+    // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
     const { orgId, userId } = ctxAuth()
     const novo: WorkPost = { ...post, id: crypto.randomUUID() }
     set((s) => ({
@@ -795,6 +825,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   updateWorkPost: (id, updates) => {
+    // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
+    // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
+    // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
     const atual = get().workPosts.find((p) => p.id === id)
     if (!atual) return
     const atualizado = { ...atual, ...updates }
@@ -806,6 +840,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   removeWorkPost: (id) => {
+    // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
+    // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
+    // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
     set((s) => ({
       workPosts: s.workPosts.filter((p) => p.id !== id),
       // Soft delete, como no resto do projeto: a policy de DELETE é `using(false)`.

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { RefreshCw, Check, X, Plus } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useAuth } from '@/lib/auth'
+import { canWriteMaoDeObra } from '@/lib/roles'
 import { OcorrenciaDialog } from './dialogs/OcorrenciaDialog'
 import type { ReallocationSuggestion, LaborOccurrence } from '@/types'
 import { cn } from '@/lib/utils'
@@ -137,6 +139,9 @@ function OccurrenceRow({
 
 export function EscalamentoPanel() {
   const [isOcorrenciaOpen, setIsOcorrenciaOpen] = useState(false)
+  // A RLS de labor_occurrences aceita os mesmos papéis de work_posts. Sem o gate, quem não
+  // passa registrava a ocorrência, via na lista, e a gravação ficava presa na fila.
+  const podeEscrever = canWriteMaoDeObra(useAuth((s) => s.profile?.role))
 
   const { suggestions, occurrences, crews, runReallocationEngine, acceptSuggestion, dismissSuggestion } =
     useMaoDeObraStore(
@@ -206,6 +211,7 @@ export function EscalamentoPanel() {
           </p>
           <button
             onClick={() => setIsOcorrenciaOpen(true)}
+            hidden={!podeEscrever}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-xs font-semibold transition-colors"
           >
             <Plus size={13} />
