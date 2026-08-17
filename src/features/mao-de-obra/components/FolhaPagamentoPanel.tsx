@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Printer } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
-import { payrollToCSV } from '@/features/mao-de-obra/utils/payrollEngine'
+import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO } from '@/features/mao-de-obra/utils/payrollEngine'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,13 +97,24 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
 // ─── FolhaPagamentoPanel ──────────────────────────────────────────────────────
 
 export function FolhaPagamentoPanel() {
-  const { workers, payrollHistory, generatePayroll } = useMaoDeObraStore(
+  const { workers, payrollHistory, generatePayroll, cltSettings } = useMaoDeObraStore(
     useShallow(s => ({
       workers:         s.workers,
       payrollHistory:  s.payrollHistory,
       generatePayroll: s.generatePayroll,
+      cltSettings:     s.cltSettings,
     }))
   )
+
+  // Tabela fiscal com mais de 12 meses é tabela provavelmente vencida. Como o valor é editável
+  // por organização, o aviso é o que impede que ela envelheça sem ninguém notar de novo.
+  const tabelasDesatualizadas = useMemo(() => {
+    const comp = cltSettings.tabelasVigenciaEm ?? COMPETENCIA_TABELAS_PADRAO
+    const [ano, mes] = comp.split('-').map(Number)
+    if (!ano || !mes) return true
+    const meses = (new Date().getFullYear() - ano) * 12 + (new Date().getMonth() + 1 - mes)
+    return meses > 12
+  }, [cltSettings.tabelasVigenciaEm])
 
   const now = new Date()
   const [yearMonth, setYearMonth] = useState(
@@ -284,10 +295,29 @@ export function FolhaPagamentoPanel() {
             </div>
           </div>
 
+          {/* A competência das tabelas fiscais é DADO, não texto fixo. Antes dizia "2025" com os
+              valores de fevereiro/2024 escritos no código — quem lesse acreditaria. */}
           <p className="text-xs text-[var(--color-text-muted)]">
             Gerado em {new Date(currentPayroll.payslips[0]?.generatedAt ?? '').toLocaleString('pt-BR')}.
-            Clique em uma linha para expandir o detalhamento. Valores calculados com tabelas INSS/IRRF 2025.
+            Clique em uma linha para expandir o detalhamento. Tabelas INSS/IRRF da competência{' '}
+            <strong>{cltSettings.tabelasVigenciaEm ?? COMPETENCIA_TABELAS_PADRAO}</strong>
+            {tabelasDesatualizadas && (
+              <span className="ml-1 text-[#f59e0b]">
+                — desatualizadas há mais de 12 meses. Revise em Configurações antes de fechar a folha.
+              </span>
+            )}
           </p>
+
+          {/* Com a folha em uso para pagamento, o que ela é e o que ela não é precisa estar
+              escrito onde a pessoa lê, não só no código. */}
+          <div className="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.07] p-3 text-xs leading-5 text-[#fbbf24]">
+            <strong>Apoio ao cálculo, não documento fiscal.</strong> Os valores consideram horas
+            apontadas, faltas registradas na escala, adicional noturno com hora reduzida e as
+            tabelas configuradas. Três pontos dependem do acordo da sua empresa e devem ser
+            conferidos pelo RH antes do pagamento: tratamento de hora extra sem acordo de
+            compensação, base do DSR, e a política de VA/VT. Feriados não entram no DSR — não há
+            calendário de feriados no sistema.
+          </div>
         </>
       )}
 

@@ -713,6 +713,13 @@ export interface Worker {
   grossSalary?: number          // salário bruto mensal (R$)
   siteId?: string               // obra cadastrada vinculada (Project.id)
   locationNote?: string         // local — texto livre complementar ao select de obra
+  // ── Benefícios: quem tem direito ─────────────────────────────────────────────
+  // Antes o cálculo descontava VA e VT de todo mundo, sem perguntar. VT é opção do
+  // trabalhador (ele pede) e VA depende do acordo — ausente = não desconta.
+  recebeVA?: boolean
+  recebeVT?: boolean
+  /** Dependentes para a dedução do IRRF. */
+  dependentesIRRF?: number
 }
 
 export interface TimecardEntry {
@@ -953,6 +960,13 @@ export interface WorkerAssessment {
   createdBy?: string
 }
 
+/** Uma faixa de tabela progressiva (INSS ou IRRF). `ate` é o topo da faixa. */
+export interface FaixaTributaria {
+  ate: number
+  aliquota: number    // 0.075 = 7,5%
+  deduzir?: number    // só IRRF (parcela a deduzir)
+}
+
 export interface CLTSettings {
   maxDailyHours: number      // default 8
   maxOvertimeHours: number   // default 2
@@ -963,6 +977,27 @@ export interface CLTSettings {
   nightDifferential: number  // %, default 20
   overtimeRate: number       // %, default 50
   rupTargetM2PerHH?: number  // meta TCPO de RUP (homem-hora/m²), default 0.45
+
+  // ── Tabelas fiscais ────────────────────────────────────────────────────────
+  // Estavam fixas no código, rotuladas "2025" e com os valores de fevereiro/2024.
+  // Como mudam por portaria e ninguém aqui é a fonte da verdade tributária, passam a
+  // ser dado da organização, editáveis na tela, com a vigência à vista.
+  tabelaInss?: FaixaTributaria[]
+  tabelaIrrf?: FaixaTributaria[]
+  /** Competência a que as tabelas se referem (yyyy-MM). Só rótulo — mas rótulo que evita mentira. */
+  tabelasVigenciaEm?: string
+  /** Dedução por dependente no IRRF (R$). */
+  irrfDeducaoPorDependente?: number
+
+  // ── Benefícios ─────────────────────────────────────────────────────────────
+  // O código descontava R$ 35/dia de VA de TODO mundo e 6% de VT sem teto, sem
+  // cadastro de quem tem direito. Agora é opcional e parametrizado.
+  /** Valor de face do VA/VR por dia trabalhado (R$). 0 = não há VA. */
+  vaValorDia?: number
+  /** % de coparticipação do trabalhador no VA. Legalmente limitado a 20%. */
+  vaCoparticipacaoPct?: number
+  /** % de desconto do VT sobre o salário base. A lei limita a 6%. */
+  vtDescontoPct?: number
 }
 
 export interface CMORoleItem {
@@ -1022,8 +1057,13 @@ export interface WorkerPayslip {
   employerCost: number       // grossTotal + FGTS + employer-side INSS
   hoursWorked: number
   overtimeHours: number
+  /** Horas noturnas JÁ REDUZIDAS (52min30s = 1h, art. 73 §1º). */
   nightHours: number
   workingDays: number
+  /** Faltas e turnos cancelados no mês — não pagos, mas o holerite precisa mostrar por quê. */
+  absentDays?: number
+  /** Os descontos passaram do bruto. O líquido foi limitado a zero; a tela precisa avisar. */
+  descontosExcedemBruto?: boolean
   generatedAt: string
 }
 

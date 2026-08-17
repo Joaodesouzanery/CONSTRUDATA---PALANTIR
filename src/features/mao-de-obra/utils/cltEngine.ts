@@ -40,29 +40,70 @@ export function calcShiftHours(shift: Shift): number {
   return calcShiftMinutes(shift) / 60
 }
 
-/** Returns minutes of worked time that fall in the night window */
+/** Minutos de sobreposição entre dois intervalos na mesma linha do tempo. */
+function sobreposicao(aIni: number, aFim: number, bIni: number, bFim: number): number {
+  return Math.max(0, Math.min(aFim, bFim) - Math.max(aIni, bIni))
+}
+
+/**
+ * Minutos de trabalho dentro da janela noturna.
+ *
+ * DOIS DEFEITOS CORRIGIDOS AQUI:
+ *
+ * 1. **A noite ANTERIOR era ignorada.** O turno é posicionado numa linha do tempo que começa às
+ *    00:00 do dia dele. A janela noturna padrão (22h→5h) tem três aparições nessa linha: a que
+ *    termina às 5h de HOJE (isto é, [-120, 300], começou ontem), a de hoje-para-amanhã
+ *    ([1320, 1740]) e a de amanhã ([2760, 3180]). O código testava a segunda e a terceira — e a
+ *    terceira só é alcançável num turno de 46 horas, ou seja, era código morto. Faltava
+ *    justamente a primeira, que é onde cai todo turno que começa de madrugada. Turno 00:00–08:00
+ *    devolvia **zero** minutos noturnos quando o certo são 300.
+ *
+ * 2. **O intervalo era descontado do tempo noturno mesmo quando acontecia de dia.** Um turno
+ *    18:00–02:00 com pausa às 20h perdia 60 minutos de adicional que foram trabalhados de
+ *    madrugada. Agora o intervalo só reduz a parte noturna na proporção em que a própria janela
+ *    noturna representa do turno — que é a aproximação honesta possível sem saber a hora exata
+ *    da pausa, e nunca tira mais do que a parte noturna real.
+ */
 export function calcNightMinutes(shift: Shift, settings: CLTSettings): number {
   if (shift.type === 'day_off' || shift.type === 'holiday') return 0
   const { nightStart, nightEnd } = settings
+
+  const start = parseTime(shift.startTime)
+  const end = start >= parseTime(shift.endTime) || parseTime(shift.endTime) <= start
+    ? parseTime(shift.endTime) + 24 * 60
+    : parseTime(shift.endTime)
+
   const ns = nightStart * 60
-  const ne = nightEnd  * 60 + (nightEnd < nightStart ? 24 * 60 : 0)
+  const ne = nightEnd * 60 + (nightEnd < nightStart ? 24 * 60 : 0)
+  const duracaoJanela = ne - ns
 
-  let start = parseTime(shift.startTime)
-  let end   = parseTime(shift.endTime)
-  if (end <= start) end += 24 * 60
+  // As três aparições da janela na linha do tempo do turno: ontem→hoje, hoje→amanhã, amanhã.
+  const brutoNoturno =
+      sobreposicao(start, end, ns - 24 * 60, ns - 24 * 60 + duracaoJanela)
+    + sobreposicao(start, end, ns, ne)
+    + sobreposicao(start, end, ns + 24 * 60, ne + 24 * 60)
 
-  // Overlap of [start,end] with [ns, ne]
-  const overlapStart = Math.max(start, ns)
-  const overlapEnd   = Math.min(end,   ne)
-  const raw = Math.max(0, overlapEnd - overlapStart)
+  const relogio = end - start
+  if (relogio <= 0) return 0
 
-  // Also check if end wraps and the start of next day is within window
-  const overlapStart2 = Math.max(start, ns + 24 * 60)
-  const overlapEnd2   = Math.min(end,   ne + 24 * 60)
-  const raw2 = Math.max(0, overlapEnd2 - overlapStart2)
+  // O intervalo sai proporcionalmente, não inteiro do lado noturno.
+  const pausaNoturna = shift.breakMinutes * (brutoNoturno / relogio)
+  const liquido = brutoNoturno - pausaNoturna
 
-  const totalNightMinutes = raw + raw2 - shift.breakMinutes
-  return Math.max(0, Math.min(totalNightMinutes, calcShiftMinutes(shift)))
+  return Math.max(0, Math.min(Math.round(liquido), calcShiftMinutes(shift)))
+}
+
+/**
+ * Fator da hora noturna reduzida (art. 73 §1º da CLT): 60 ÷ 52,5.
+ *
+ * A hora noturna dura 52 minutos e 30 segundos. Sete horas de relógio na madrugada valem oito
+ * horas noturnas. O código dividia os minutos por 60, pagando a menos.
+ */
+export const FATOR_HORA_NOTURNA = 60 / 52.5
+
+/** Horas noturnas JÁ REDUZIDAS, que é a unidade em que o adicional deve ser pago. */
+export function calcNightHoursReduzidas(shift: Shift, settings: CLTSettings): number {
+  return calcNightMinutes(shift, settings) / 52.5
 }
 
 export function isNightShift(shift: Shift, settings: CLTSettings): boolean {
@@ -365,6 +406,24 @@ export function autoGenerateSchedule(
 
 // ─── Monthly cost projection ──────────────────────────────────────────────────
 
+/** Domingos do mês `yyyy-MM`. Duplicado do payrollEngine de propósito: importar de lá criaria
+ *  ciclo (payrollEngine já importa daqui). São seis linhas; o ciclo custaria mais. */
+function domingosNoMesCLT(month: string): number {
+  const [ano, mes] = month.split('-').map(Number)
+  if (!ano || !mes) return 4
+  let n = 0
+  for (let d = 1; d <= new Date(ano, mes, 0).getDate(); d++) if (new Date(ano, mes - 1, d).getDay() === 0) n++
+  return n
+}
+
+function diasUteisNoMesCLT(month: string): number {
+  const [ano, mes] = month.split('-').map(Number)
+  if (!ano || !mes) return 26
+  let n = 0
+  for (let d = 1; d <= new Date(ano, mes, 0).getDate(); d++) if (new Date(ano, mes - 1, d).getDay() !== 0) n++
+  return n
+}
+
 export function projectMonthlyCost(workers: Worker[], shifts: Shift[], settings: CLTSettings): CMOSummary {
   const now = new Date()
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -376,14 +435,19 @@ export function projectMonthlyCost(workers: Worker[], shifts: Shift[], settings:
 
   for (const worker of workers) {
     if (worker.status !== 'active') continue
-    const workerShifts = shifts.filter((s) => s.workerId === worker.id && s.type !== 'day_off' && s.type !== 'holiday')
+    // Falta e turno cancelado não entram no custo — mesmo critério da folha (`turnoNaoPago`).
+    // Antes, o CMO projetava custo de dia não trabalhado.
+    const workerShifts = shifts.filter((s) => s.workerId === worker.id
+      && s.type !== 'day_off' && s.type !== 'holiday'
+      && s.status !== 'absent' && s.status !== 'cancelled')
     const rate = worker.hourlyRate
 
     let regH = 0, otH = 0, nightH = 0
 
     for (const shift of workerShifts) {
       const worked = calcShiftHours(shift)
-      const night  = calcNightMinutes(shift, settings) / 60
+      // Hora noturna reduzida (art. 73 §1º), igual à folha. Dividir por 60 subestimava.
+      const night  = calcNightHoursReduzidas(shift, settings)
       if (worked > settings.maxDailyHours) {
         regH  += settings.maxDailyHours
         otH   += worked - settings.maxDailyHours
@@ -393,10 +457,15 @@ export function projectMonthlyCost(workers: Worker[], shifts: Shift[], settings:
       nightH += night
     }
 
-    // DSR: proportional to worked days (simplification: workedDays / 6 * 1 day pay)
-    const workedDays = workerShifts.length
-    const dsrDays    = Math.floor(workedDays / 6)
-    const dsrCost    = dsrDays * rate * settings.maxDailyHours
+    // DSR sobre horas extras — a MESMA definição da folha de pagamento.
+    //
+    // O CMO usava uma terceira fórmula (`floor(diasTrabalhados / 6) × valorHora × jornada`) que
+    // somava ao custo total um valor que nunca aparecia no holerite. Duas telas, dois DSRs,
+    // nenhum dos dois legal. Agora é (valor das HE ÷ dias úteis) × domingos, como manda a regra.
+    const diasUteis = diasUteisNoMesCLT(month)
+    const dsrCost = diasUteis > 0
+      ? (otH * rate * (1 + settings.overtimeRate / 100) / diasUteis) * domingosNoMesCLT(month)
+      : 0
 
     const baseCost   = regH  * rate
     const otCost     = otH   * rate * (1 + settings.overtimeRate / 100)

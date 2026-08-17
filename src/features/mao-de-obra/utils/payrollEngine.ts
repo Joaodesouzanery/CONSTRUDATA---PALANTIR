@@ -21,6 +21,7 @@ import type {
   Worker,
   Shift,
   CLTSettings,
+  FaixaTributaria,
   WorkerPayslip,
   PayrollMonth,
   PayslipAllowance,
@@ -38,60 +39,82 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-// ─── INSS 2025 — Employee progressive table ────────────────────────────────
+// ─── Tabelas fiscais ──────────────────────────────────────────────────────────
+//
+// ATENÇÃO ANTES DE MEXER. Estes valores mudam por portaria. Eles ficam aqui apenas como
+// PADRÃO para quem nunca configurou nada; a fonte da verdade é `CLTSettings.tabelaInss` /
+// `tabelaIrrf`, editável por organização na tela de configurações, com a competência à vista.
+//
+// Os valores abaixo são os de fevereiro/2024 — os mesmos que estavam no código rotulados como
+// "2025". Mantive-os como padrão em vez de inventar os de 2026 porque chutar tabela tributária é
+// pior do que exibir uma desatualizada com a data ao lado. Quem configurar, manda.
 
-const INSS_TABLE = [
-  { upTo: 1_412.00,  rate: 0.075 },
-  { upTo: 2_666.68,  rate: 0.090 },
-  { upTo: 4_000.03,  rate: 0.120 },
-  { upTo: 7_786.02,  rate: 0.140 },
-] as const
+export const TABELA_INSS_PADRAO: FaixaTributaria[] = [
+  { ate: 1_412.00, aliquota: 0.075 },
+  { ate: 2_666.68, aliquota: 0.090 },
+  { ate: 4_000.03, aliquota: 0.120 },
+  { ate: 7_786.02, aliquota: 0.140 },
+]
 
-/** Progressive INSS calculation (employee portion) */
-export function calcINSS(grossSalary: number): number {
+export const TABELA_IRRF_PADRAO: FaixaTributaria[] = [
+  { ate: 2_259.20, aliquota: 0.000, deduzir: 0.00 },
+  { ate: 2_826.65, aliquota: 0.075, deduzir: 169.44 },
+  { ate: 3_751.05, aliquota: 0.150, deduzir: 381.44 },
+  { ate: 4_664.68, aliquota: 0.225, deduzir: 662.77 },
+  { ate: Infinity, aliquota: 0.275, deduzir: 896.00 },
+]
+
+export const COMPETENCIA_TABELAS_PADRAO = '2024-02'
+export const IRRF_DEDUCAO_DEPENDENTE_PADRAO = 189.59
+
+/**
+ * INSS progressivo do trabalhador — COM TETO.
+ *
+ * O que estava errado: depois de percorrer as faixas, o código somava 14% sobre tudo que
+ * passasse do último degrau. Isso inverte a regra. O INSS do empregado tem **teto**: acima da
+ * última faixa não se contribui mais. Um salário de R$ 20.000 descontava R$ 2.618,82 quando o
+ * máximo da tabela em uso é R$ 908,86 — R$ 1.709,96 a mais, todo mês, no bolso de quem recebe.
+ *
+ * O laço abaixo já produz o teto sozinho: `Math.min(bruto, faixa.ate)` para de crescer quando o
+ * bruto ultrapassa a última faixa. Não existe nada a somar depois dele.
+ */
+export function calcINSS(grossSalary: number, tabela: FaixaTributaria[] = TABELA_INSS_PADRAO): number {
   const gross = clamp(grossSalary, 0, 1_000_000)
   let inss = 0
   let prev = 0
 
-  for (const bracket of INSS_TABLE) {
+  for (const faixa of tabela) {
     if (gross <= prev) break
-    const taxable = Math.min(gross, bracket.upTo) - prev
-    inss += taxable * bracket.rate
-    prev = bracket.upTo
-  }
-
-  // Above ceiling: remaining is taxed at 14%
-  if (gross > 7_786.02) {
-    inss += (gross - 7_786.02) * 0.14
+    inss += (Math.min(gross, faixa.ate) - prev) * faixa.aliquota
+    prev = faixa.ate
   }
 
   return r2(inss)
 }
 
-// ─── IRRF 2025 — simplified table (after INSS deduction) ─────────────────────
-
-const IRRF_TABLE = [
-  { upTo: 2_259.20,  rate: 0.000, deduction: 0.00       },
-  { upTo: 2_826.65,  rate: 0.075, deduction: 169.44     },
-  { upTo: 3_751.05,  rate: 0.150, deduction: 381.44     },
-  { upTo: 4_664.68,  rate: 0.225, deduction: 662.77     },
-  { upTo: Infinity,  rate: 0.275, deduction: 896.00     },
-] as const
+/** O maior desconto possível de INSS na tabela — o "teto". Útil para conferência e para a tela. */
+export function tetoINSS(tabela: FaixaTributaria[] = TABELA_INSS_PADRAO): number {
+  return calcINSS(Number.MAX_SAFE_INTEGER, tabela)
+}
 
 /**
- * IRRF on gross-after-INSS.
- * Standard deduction per dependent: R$ 189.59 (not applied here — simplified).
+ * IRRF sobre o bruto já descontado o INSS, com dedução por dependente.
+ *
+ * A dedução por dependente existia só no comentário ("not applied here — simplified"). Como o
+ * valor calculado aqui é exibido como "Salário Líquido" e a folha é usada para pagar gente,
+ * ignorar dependente é cobrar imposto a mais de quem tem filho.
  */
-export function calcIRRF(grossAfterINSS: number): number {
-  const base = clamp(grossAfterINSS, 0, 1_000_000)
+export function calcIRRF(
+  grossAfterINSS: number,
+  tabela: FaixaTributaria[] = TABELA_IRRF_PADRAO,
+  dependentes = 0,
+  deducaoPorDependente = IRRF_DEDUCAO_DEPENDENTE_PADRAO,
+): number {
+  const base = clamp(grossAfterINSS - Math.max(0, dependentes) * deducaoPorDependente, 0, 1_000_000)
 
-  for (const bracket of IRRF_TABLE) {
-    if (base <= bracket.upTo) {
-      const irrf = base * bracket.rate - bracket.deduction
-      return r2(Math.max(0, irrf))
-    }
+  for (const faixa of tabela) {
+    if (base <= faixa.ate) return r2(Math.max(0, base * faixa.aliquota - (faixa.deduzir ?? 0)))
   }
-
   return 0
 }
 
@@ -113,8 +136,39 @@ function getMonthShifts(shifts: Shift[], workerId: string, month: string): Shift
   )
 }
 
+/**
+ * Turno que NÃO é pago: folga, feriado, cancelado — e **falta**.
+ *
+ * `status === 'absent'` era ignorado pelos dois motores, embora a Escala ofereça "Ausente" e o
+ * calendário pinte "Falta". Quatro faltas num mês de 22 turnos pagavam R$ 800 de dia não
+ * trabalhado, e ainda cobravam quatro dias a mais de vale-alimentação.
+ */
+function turnoNaoPago(s: Shift): boolean {
+  return s.type === 'day_off' || s.type === 'holiday' || s.status === 'absent' || s.status === 'cancelled'
+}
+
 function countWorkingDays(shifts: Shift[]): number {
-  return shifts.filter((s) => s.type !== 'day_off' && s.type !== 'holiday').length
+  return shifts.filter((s) => !turnoNaoPago(s)).length
+}
+
+/** Domingos do mês `yyyy-MM` — a base de repouso do DSR. */
+function domingosNoMes(month: string): number {
+  const [ano, mes] = month.split('-').map(Number)
+  if (!ano || !mes) return 4
+  const ultimoDia = new Date(ano, mes, 0).getDate()
+  let n = 0
+  for (let d = 1; d <= ultimoDia; d++) if (new Date(ano, mes - 1, d).getDay() === 0) n++
+  return n
+}
+
+/** Dias úteis do mês (segunda a sábado), denominador legal do DSR. */
+function diasUteisNoMes(month: string): number {
+  const [ano, mes] = month.split('-').map(Number)
+  if (!ano || !mes) return 26
+  const ultimoDia = new Date(ano, mes, 0).getDate()
+  let n = 0
+  for (let d = 1; d <= ultimoDia; d++) if (new Date(ano, mes - 1, d).getDay() !== 0) n++
+  return n
 }
 
 export function generatePayslip(
@@ -139,6 +193,8 @@ export function generatePayslip(
       overtimeHours: 0,
       nightHours: 0,
       workingDays: 0,
+      absentDays: 0,
+      descontosExcedemBruto: false,
       generatedAt: new Date().toISOString(),
     }
   }
@@ -151,26 +207,36 @@ export function generatePayslip(
   let nightMinutes    = 0
 
   for (const shift of monthShifts) {
-    if (shift.type === 'day_off' || shift.type === 'holiday') continue
+    // Falta e turno cancelado não geram pagamento — ver `turnoNaoPago`.
+    if (turnoNaoPago(shift)) continue
 
     const worked = calcShiftMinutes(shift)
-    const night  = calcNightMinutes(shift, settings)
     const normalMaxMin = settings.maxDailyHours * 60
 
-    if (shift.type === 'overtime') {
-      const extraMin = Math.max(0, worked - normalMaxMin)
-      regularMinutes  += worked - extraMin
-      overtimeMinutes += extraMin
-    } else {
-      regularMinutes += worked
-    }
+    // HORA EXTRA POR DURAÇÃO, não pelo rótulo do turno.
+    //
+    // Antes, só desmembrava HE quando alguém marcasse o turno como `type: 'overtime'`. Um turno
+    // "regular" de 10 horas era pago inteiro como hora normal. Nos mesmos dados, esta tela dizia
+    // R$ 4.400 e o CMO dizia R$ 5.320 — e o validador de CLT ainda acusava excesso de jornada
+    // nesses turnos, ou seja, o sistema apontava a hora extra e não a pagava. Agora as duas
+    // telas usam o mesmo critério, que é o de `projectMonthlyCost` no cltEngine.
+    const extraMin = Math.max(0, worked - normalMaxMin)
+    regularMinutes  += worked - extraMin
+    overtimeMinutes += extraMin
 
-    nightMinutes += night
+    nightMinutes += calcNightMinutes(shift, settings)
   }
 
   const regularHours  = r2(regularMinutes  / 60)
   const overtimeHours = r2(overtimeMinutes / 60)
-  const nightHours    = r2(nightMinutes    / 60)
+  // Hora noturna reduzida: 52min30s valem uma hora (art. 73 §1º). Dividir por 60 pagava a menos.
+  //
+  // PONTO DE INTERPRETAÇÃO, e é deliberado: a redução é aplicada ao ADICIONAL noturno, não à
+  // jornada. `regularMinutes` continua contando minutos de relógio, então a hora base não é
+  // recontada. É a leitura mais conservadora — a alternativa (reduzir também a jornada) aumenta
+  // o bruto e muda a base de INSS/FGTS. Se o acordo coletivo da empresa disser o contrário, é
+  // aqui que se mexe.
+  const nightHours    = r2(nightMinutes / 52.5)
   const workingDays   = countWorkingDays(monthShifts)
 
   // ── Base salary ──────────────────────────────────────────────────────────────
@@ -192,11 +258,23 @@ export function generatePayslip(
     allowances.push({ type: 'night_diff', description: `Adicional Noturno (${settings.nightDifferential}%)`, amount: ndAmount })
   }
 
-  // DSR — proportional daily rest allowance
-  // Simplified: (weekly overtime / 6) × number of rest days
-  const dsrAmount = r2(overtimeHours > 0 ? (overtimeHours / 6) * rate * 1 : 0)
+  // DSR sobre horas extras.
+  //
+  // A fórmula anterior era `(horasExtras / 6) × valorHora × 1`. O comentário falava em "horas
+  // extras da semana", a variável era do mês inteiro, e o multiplicador era a constante 1 — não
+  // fechava dimensionalmente. Pagava R$ 40 onde o correto eram R$ 69,23.
+  //
+  // A regra: (valor total das horas extras no mês ÷ dias úteis) × dias de repouso. O "valor" é o
+  // valor JÁ COM O ADICIONAL, que a fórmula antiga também perdia.
+  //
+  // Nota de escopo: feriados não entram nos dias de repouso porque o sistema não tem calendário
+  // de feriados. Isso subestima o DSR em meses com feriado — está anotado na tela.
+  const valorHorasExtras = overtimeHours * rate * (1 + settings.overtimeRate / 100)
+  const diasUteis = diasUteisNoMes(month)
+  const diasRepouso = domingosNoMes(month)
+  const dsrAmount = r2(diasUteis > 0 ? (valorHorasExtras / diasUteis) * diasRepouso : 0)
   if (dsrAmount > 0) {
-    allowances.push({ type: 'dsr', description: 'DSR s/ Horas Extras', amount: dsrAmount })
+    allowances.push({ type: 'dsr', description: `DSR s/ HE (${diasRepouso} domingos ÷ ${diasUteis} dias úteis)`, amount: dsrAmount })
   }
 
   const grossTotal = r2(
@@ -206,29 +284,45 @@ export function generatePayslip(
   // ── Deductions ────────────────────────────────────────────────────────────────
   const deductions: PayslipDeduction[] = []
 
-  // INSS (worker)
-  const inssAmount = calcINSS(grossTotal)
+  // INSS — tabela da organização (ou o padrão), agora COM TETO.
+  const inssAmount = calcINSS(grossTotal, settings.tabelaInss ?? TABELA_INSS_PADRAO)
   if (inssAmount > 0) {
     deductions.push({ type: 'inss', description: 'INSS (trabalhador)', amount: inssAmount, workerPays: true })
   }
 
-  // IRRF (worker — after INSS)
+  // IRRF sobre o bruto menos INSS, com dedução por dependente.
   const irrfBase   = Math.max(0, grossTotal - inssAmount)
-  const irrfAmount = calcIRRF(irrfBase)
+  const irrfAmount = calcIRRF(
+    irrfBase,
+    settings.tabelaIrrf ?? TABELA_IRRF_PADRAO,
+    worker.dependentesIRRF ?? 0,
+    settings.irrfDeducaoPorDependente ?? IRRF_DEDUCAO_DEPENDENTE_PADRAO,
+  )
   if (irrfAmount > 0) {
-    deductions.push({ type: 'irrf', description: 'IRRF', amount: irrfAmount, workerPays: true })
+    const comDep = (worker.dependentesIRRF ?? 0) > 0 ? ` · ${worker.dependentesIRRF} dep.` : ''
+    deductions.push({ type: 'irrf', description: `IRRF${comDep}`, amount: irrfAmount, workerPays: true })
   }
 
-  // VT — worker portion: 6% of baseSalary (capped to baseSalary)
-  const vtWorker = r2(Math.min(baseSalary * 0.06, baseSalary))
+  // VALE-TRANSPORTE — só para quem optou, com o teto legal de 6%.
+  // Antes descontava de todo mundo, sem cadastro. O VT é opção do trabalhador: quem não pede,
+  // não recebe e não paga.
+  const vtPct = Math.min(settings.vtDescontoPct ?? 6, 6) / 100
+  const vtWorker = worker.recebeVT ? r2(Math.min(baseSalary * vtPct, baseSalary)) : 0
   if (vtWorker > 0) {
-    deductions.push({ type: 'vt', description: 'Vale-Transporte (desconto 6%)', amount: vtWorker, workerPays: true })
+    deductions.push({ type: 'vt', description: `Vale-Transporte (${(vtPct * 100).toFixed(0)}%)`, amount: vtWorker, workerPays: true })
   }
 
-  // VA/VR — R$35/working day (employee discount)
-  const vaWorker = r2(workingDays * 35)
-  if (vaWorker > 0 && workingDays > 0) {
-    deductions.push({ type: 'va', description: 'Vale-Alimentação (desconto)', amount: vaWorker, workerPays: true })
+  // VALE-ALIMENTAÇÃO — coparticipação sobre o valor de face, não o valor cheio.
+  // Antes: `workingDays × 35` descontado inteiro de todos, com o comentário dizendo que a
+  // empresa absorvia o resto. O benefício virava zero, e num salário baixo o líquido ficava
+  // abaixo do mínimo. A lei limita a coparticipação a 20% do valor do benefício.
+  const vaDia = Math.max(0, settings.vaValorDia ?? 0)
+  const vaCoparticipacao = Math.min(Math.max(settings.vaCoparticipacaoPct ?? 20, 0), 20) / 100
+  const vaWorker = worker.recebeVA && vaDia > 0 && workingDays > 0
+    ? r2(workingDays * vaDia * vaCoparticipacao)
+    : 0
+  if (vaWorker > 0) {
+    deductions.push({ type: 'va', description: `Vale-Alimentação (${(vaCoparticipacao * 100).toFixed(0)}% de ${workingDays}×${vaDia.toFixed(2)})`, amount: vaWorker, workerPays: true })
   }
 
   // FGTS (employer only — shown on payslip for transparency but worker doesn't pay)
@@ -239,7 +333,12 @@ export function generatePayslip(
     .filter((d) => d.workerPays)
     .reduce((s, d) => s + d.amount, 0)
 
-  const netTotal    = r2(grossTotal - workerDeductions)
+  // Sem piso, o holerite exibia líquido NEGATIVO quando os descontos passavam do bruto (era o
+  // caso com o VA de R$ 35/dia num salário baixo). Manter o número negativo escondia o problema
+  // num campo chamado "Salário Líquido"; zerar sem dizer nada também. O valor é limitado a zero
+  // e a flag `descontosExcedemBruto` deixa a tela avisar.
+  const netBruto = r2(grossTotal - workerDeductions)
+  const netTotal = Math.max(0, netBruto)
   const employerCost = r2(grossTotal + fgtsAmount + calcEmployerINSS(grossTotal))
 
   return {
@@ -256,6 +355,8 @@ export function generatePayslip(
     overtimeHours,
     nightHours,
     workingDays,
+    absentDays:   monthShifts.filter((sh) => sh.status === 'absent').length,
+    descontosExcedemBruto: netBruto < 0,
     generatedAt:  new Date().toISOString(),
   }
 }
