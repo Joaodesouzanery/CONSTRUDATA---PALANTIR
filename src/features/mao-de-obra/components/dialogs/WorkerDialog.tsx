@@ -6,6 +6,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { workerSchema, type WorkerFormData } from '../../schemas'
 import type { WorkerCertification } from '@/types'
+import { hojeLocalISO } from '@/lib/utils'
 
 interface Props {
   onClose: () => void
@@ -34,7 +35,7 @@ function blankCert(): WorkerCertification {
   return {
     id:          crypto.randomUUID().slice(0, 8),
     type:        'NR18',
-    issuedDate:  new Date().toISOString().slice(0, 10),
+    issuedDate:  hojeLocalISO(),
     expiryDate:  '',
     status:      'valid',
   }

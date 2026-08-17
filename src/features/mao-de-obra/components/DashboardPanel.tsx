@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore, getCertExpiringSoon } from '@/store/maoDeObraStore'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
 import { computeRup, resolveRupTarget } from '../utils/produtividade'
+import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 
 const RUP_SEM_COLOR = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' } as const
 
@@ -11,12 +12,12 @@ function RupMiniCard({ period }: { period: 'última semana' | 'último mês' | '
   const settings = useMaoDeObraStore((s) => s.cltSettings)
   const target = resolveRupTarget(settings)
   const { start, end } = useMemo(() => {
-    const e = new Date().toISOString().slice(0, 10)
+    const e = hojeLocalISO()
     const d = new Date()
     if (period === 'última semana') d.setDate(d.getDate() - 6)
     else if (period === 'este mês') d.setDate(1)
     else d.setDate(d.getDate() - 29)
-    return { start: d.toISOString().slice(0, 10), end: e }
+    return { start: dataLocalISO(d), end: e }
   }, [period])
   const rdo = useMemo(() => rdoExecInPeriod(start, end), [rdoExecInPeriod, start, end])
   const rup = useMemo(() => computeRup(timecards.filter((t) => t.date >= start && t.date <= end), { extraHH: rdo.hh, extraM2: rdo.m2 }, target), [timecards, start, end, rdo, target])
@@ -43,9 +44,9 @@ function HHBarChart({ timecards, period }: { timecards: import('@/types').Timeca
   const periodDays = period === 'última semana' ? 7 : period === 'último mês' ? 30 : 30
   const startDate = (() => {
     const d = new Date()
-    if (period === 'este mês') { d.setDate(1); return d.toISOString().slice(0, 10) }
+    if (period === 'este mês') { d.setDate(1); return dataLocalISO(d) }
     d.setDate(d.getDate() - (periodDays - 1))
-    return d.toISOString().slice(0, 10)
+    return dataLocalISO(d)
   })()
 
   const displayDays = Math.min(periodDays, period === 'este mês' ? new Date().getDate() : periodDays)
@@ -56,7 +57,7 @@ function HHBarChart({ timecards, period }: { timecards: import('@/types').Timeca
     } else {
       d.setDate(d.getDate() - i)
     }
-    const iso = d.toISOString().slice(0, 10)
+    const iso = dataLocalISO(d)
     const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
     const actual = timecards
       .filter((tc) => tc.date === iso)
@@ -246,8 +247,8 @@ function HRKpiCards() {
   )
 
   const kpis = useMemo(() => {
-    const today     = new Date().toISOString().slice(0, 10)
-    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10) })()
+    const today     = hojeLocalISO()
+    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return dataLocalISO(d) })()
 
     const active = workers.filter((w) => w.status === 'active').length
     const total  = workers.length

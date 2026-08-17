@@ -896,6 +896,15 @@ export interface Shift {
   workFront?: string
   status: ShiftStatus
   overtimeReason?: string
+  /**
+   * Obra em que o turno aconteceu, carimbada na criação.
+   *
+   * Antes o vínculo era só o `worker.siteId` ATUAL, e isso reescrevia o passado: transferir
+   * alguém de obra em agosto tirava as horas de julho da obra antiga e as somava na nova —
+   * trabalho que nunca aconteceu lá. O apontamento já resolvia isso (`TimecardEntry.siteId`);
+   * o turno ficou para trás.
+   */
+  siteId?: string | null
 }
 
 export interface CLTViolation {

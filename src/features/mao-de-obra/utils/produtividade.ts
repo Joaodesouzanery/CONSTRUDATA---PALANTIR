@@ -6,6 +6,7 @@
  */
 import type { Shift, TimecardEntry, Worker, CLTSettings, PlanoExecucao } from '@/types'
 import { calcShiftHours } from './cltEngine'
+import { dataLocalISO } from '@/lib/utils'
 
 /** RUP referência de mercado (TCPO) para piso/pintura industrial — menor é melhor. */
 export const TCPO_RUP_TARGET_DEFAULT = 0.45
@@ -25,7 +26,7 @@ function mondayOf(d: Date): Date {
   x.setHours(0, 0, 0, 0)
   return x
 }
-const ymd = (d: Date) => d.toISOString().slice(0, 10)
+const ymd = (d: Date) => dataLocalISO(d)
 const dm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 
 /** Resolve a meta TCPO (campo opcional em CLTSettings, default 0,45). */

@@ -6,6 +6,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { Shift, CLTViolationLevel, CLTSettings } from '@/types'
 import { calcShiftHours } from '../utils/cltEngine'
+import { dataLocalISO } from '@/lib/utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,8 @@ function weekOf(date: Date): Date[] {
   })
 }
 
-function toYMD(d: Date): string { return d.toISOString().slice(0, 10) }
+// Data local: `toISOString` daria o dia seguinte a partir das 21h no Brasil.
+function toYMD(d: Date): string { return dataLocalISO(d) }
 
 // ─── Shift Dialog (add/edit) ──────────────────────────────────────────────────
 

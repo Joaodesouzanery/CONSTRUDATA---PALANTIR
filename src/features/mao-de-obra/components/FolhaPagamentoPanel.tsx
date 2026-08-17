@@ -5,6 +5,7 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
 import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO } from '@/features/mao-de-obra/utils/payrollEngine'
 import { reconciliarFolhas, reconciliacaoParaCSV } from '@/features/mao-de-obra/utils/reconciliacaoFolha'
+import { hojeLocalISO } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ export function FolhaPagamentoPanel() {
   }
 
   function handleExportReconciliacao() {
-    downloadCSV(reconciliacaoParaCSV(reconciliacao), `reconciliacao-folha-${new Date().toISOString().slice(0, 10)}.csv`)
+    downloadCSV(reconciliacaoParaCSV(reconciliacao), `reconciliacao-folha-${hojeLocalISO()}.csv`)
   }
 
   function handleExportCSV() {

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import { timecardSchema, type TimecardFormData } from '../../schemas'
+import { hojeLocalISO } from '@/lib/utils'
 
 interface Props {
   onClose: () => void
@@ -10,7 +11,7 @@ interface Props {
 
 const emptyForm: TimecardFormData = {
   workerId:            '',
-  date:                new Date().toISOString().slice(0, 10),
+  date:                hojeLocalISO(),
   hoursWorked:         8,
   projectRef:          'PRJ-001',
   phaseRef:            'Construção',

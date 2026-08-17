@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { Users, Clock, ShieldCheck, AlertTriangle, MapPin, Upload } from 'lucide-react'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
-import { cn } from '@/lib/utils'
+import { cn, dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useStoreSync } from '@/lib/useStoreSync'
@@ -48,8 +48,8 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
   const sync = useStoreSync(useMaoDeObraStore)
 
   const kpis = useMemo(() => {
-    const today     = new Date().toISOString().slice(0, 10)
-    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10) })()
+    const today     = hojeLocalISO()
+    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return dataLocalISO(d) })()
 
     const activeWorkers = workers.filter((w) => w.status === 'active').length
 

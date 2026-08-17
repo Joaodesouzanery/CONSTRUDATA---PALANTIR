@@ -26,8 +26,25 @@ export function formatCurrencyCompact(value: number): string {
  * e, pior, uma baixa dada às 22h do dia 31 cair no mês seguinte na DRE.
  */
 export function hojeLocalISO(): string {
-  const d = new Date()
+  return dataLocalISO(new Date())
+}
+
+/**
+ * `Date` → `yyyy-MM-dd` no fuso LOCAL.
+ *
+ * A versão sem argumento (`hojeLocalISO`) cobria só "hoje". A maioria dos casos errados no
+ * projeto é outra: uma `Date` construída a partir de agora e deslocada — `d.setDate(d.getDate()
+ * - 6)`, `d.setDate(1)` — e depois passada por `toISOString()`. Como o deslocamento preserva a
+ * HORA corrente, às 21h30 no Brasil o resultado pula um dia. Foi assim que o filtro "este mês"
+ * do Dashboard passou a perder o dia 1º para quem abria a tela à noite.
+ */
+export function dataLocalISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** `Date` → `yyyy-MM` no fuso local. Mesmo motivo. */
+export function mesLocalISO(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 /** `yyyy-MM-dd` → `dd/MM/aaaa`. Por split de string: passar por `Date` deslocaria um dia. */

@@ -4,6 +4,7 @@ import { Plus, Upload, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { TimecardDialog } from './dialogs/TimecardDialog'
 import type { TimecardEntry, PhysicalProgress } from '@/types'
+import { hojeLocalISO } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -169,7 +170,7 @@ export function ApontamentosPanel() {
     // Simulate import: inject mock entries after a brief delay
     setIsImporting(true)
     setTimeout(() => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = hojeLocalISO()
       const mockImport: Array<Omit<import('@/types').TimecardEntry, 'id'>> = [
         { workerId: 'w-3', date: today, hoursWorked: 8, projectRef: 'PRJ-001', phaseRef: 'Construção', activityDescription: '[Importado] Apoio alvenaria bloco D', reportedQty: 0, unit: 'serv' },
         { workerId: 'w-6', date: today, hoursWorked: 8, projectRef: 'PRJ-001', phaseRef: 'Construção', activityDescription: '[Importado] Pintura tecto garagem', reportedQty: 60, unit: 'm²' },

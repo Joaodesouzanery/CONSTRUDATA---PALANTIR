@@ -231,10 +231,20 @@ function shiftToRow(sh: Shift, orgId: string, userId: string) {
     date:            sh.date,
     type:            sh.type ?? null,
     status:          sh.status ?? 'scheduled',
+    // `siteId` NÃO vira coluna: a tabela `shifts` não tem `construction_site_id`, e o turno
+    // inteiro já é serializado em `payload` jsonb — o campo viaja de graça, sem migração.
     payload:         sh as unknown as Record<string, unknown>,
     created_by:      userId,
   }
 }
+/** Obra do turno: a informada, senão a do trabalhador, senão a obra ativa na barra lateral. */
+function resolverObraDoTurno(sh: Partial<Shift>, estado: { workers: Worker[] }): string | null {
+  if (sh.siteId !== undefined) return sh.siteId ?? null
+  const doTrabalhador = estado.workers.find((w) => w.id === sh.workerId)?.siteId
+  if (doTrabalhador) return doTrabalhador
+  return useActiveObraStore.getState().activeObraId
+}
+
 function workPostToRow(wp: WorkPost, orgId: string, userId: string) {
   return { id: wp.id, organization_id: orgId, payload: wp as unknown as Record<string, unknown>, created_by: userId }
 }
@@ -674,9 +684,12 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   // ── Shifts ──────────────────────────────────────────────────────────────────
 
+  // Carimba a obra no turno, na criação. Sem isso o vínculo é o `worker.siteId` ATUAL, e
+  // transferir alguém de obra reescreve o passado: as horas de julho migram para a obra nova.
+  // Quem informa `siteId` explicitamente manda; senão herda do trabalhador, senão a obra ativa.
   addShift: (shift) => {
     const id = crypto.randomUUID()
-    const newShift: Shift = { ...shift, id }
+    const newShift: Shift = { ...shift, id, siteId: resolverObraDoTurno(shift, get()) }
     const { orgId, userId } = ctxAuth()
     set((s) => ({
       shifts: [...s.shifts, newShift],
@@ -708,7 +721,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   bulkAddShifts: (newShifts) => {
     const { orgId, userId } = ctxAuth()
-    const withIds: Shift[] = newShifts.map((sh) => ({ ...sh, id: crypto.randomUUID() }))
+    const estado = get()
+    const withIds: Shift[] = newShifts.map((sh) => ({ ...sh, id: crypto.randomUUID(), siteId: resolverObraDoTurno(sh, estado) }))
     set((s) => ({
       shifts: [...s.shifts, ...withIds],
       pendingSync: [
@@ -737,8 +751,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   generateSchedule: (month) => {
     const { workers, workPosts, cltSettings } = get()
     const { orgId, userId } = ctxAuth()
+    const estadoAtual = get()
     const gerados: Shift[] = autoGenerateSchedule(workers, workPosts, month, cltSettings)
-      .map((sh) => ({ ...sh, id: crypto.randomUUID() }))
+      .map((sh) => ({ ...sh, id: crypto.randomUUID(), siteId: resolverObraDoTurno(sh, estadoAtual) }))
 
     set((s) => {
       const substituidos = s.shifts.filter((sh) => sh.date.startsWith(month) && sh.status === 'scheduled')

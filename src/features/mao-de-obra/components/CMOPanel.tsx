@@ -5,6 +5,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { projectMonthlyCost } from '@/features/mao-de-obra/utils/cltEngine'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { countAbsencesInPeriod } from '@/features/mao-de-obra/utils/assessmentEngine'
+import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -100,10 +101,15 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone: strin
 // ─── CMOPanel ─────────────────────────────────────────────────────────────────
 
 export function CMOPanel() {
-  const { workers, shifts, cltSettings, timecards, absences } = useMaoDeObraStore(
-    useShallow(s => ({ workers: s.workers, shifts: s.shifts, cltSettings: s.cltSettings, timecards: s.timecards, absences: s.absences }))
+  const { cltSettings, absences } = useMaoDeObraStore(
+    useShallow(s => ({ cltSettings: s.cltSettings, absences: s.absences }))
   )
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  // A tela misturava dois escopos: os cards de custo (Total Bruto, HE, Adicional Noturno, FGTS)
+  // vinham das listas GLOBAIS, enquanto o custo realizado por RDO logo ao lado já filtrava pela
+  // obra ativa. Com uma obra de R$ 50 mil e outra de R$ 80 mil, o CMO da primeira mostrava
+  // R$ 130 mil de bruto ao lado de R$ 50 mil de realizado. Agora as duas metades leem o mesmo.
+  const { workers, shifts, timecards } = useObraScopedLabor()
 
   const now = new Date()
   const [yearMonth, setYearMonth] = useState(

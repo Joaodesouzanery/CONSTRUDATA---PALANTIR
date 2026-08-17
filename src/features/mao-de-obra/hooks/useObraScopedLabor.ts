@@ -1,7 +1,12 @@
 /**
- * useObraScopedLabor — fatia mão de obra / apontamentos / escala / planos / RDO
- * pela obra ativa. Timecards e Shifts NÃO têm siteId próprio, então o vínculo é
- * feito pelo `worker.siteId` (join workerId → obra). Planos/RDO já têm siteId.
+ * useObraScopedLabor — fatia mão de obra, apontamentos, escala, planos e RDO pela obra ativa.
+ *
+ * REGRA: quem tem carimbo próprio de obra manda. Turno e apontamento passaram a gravar
+ * `siteId` na criação; para os registros antigos, que não têm, o vínculo cai no `worker.siteId`.
+ *
+ * Por que o carimbo importa: usando só o vínculo do trabalhador, transferir alguém de obra
+ * **reescreve o passado** — as horas de julho saem da obra antiga e aparecem na nova, como
+ * trabalho que nunca aconteceu lá.
  */
 import { useMemo } from 'react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -40,10 +45,18 @@ export function useObraScopedLabor(): ObraScopedLabor {
     const idsInObra = new Set(workers.map((w) => w.id))
     // Apontamentos: por worker OU pelo siteId do próprio timecard (RDO carimba a obra no timecard),
     // para os apontamentos vindos do RDO aparecerem no Dashboard/Produtividade da obra.
+    // Mesma regra do turno: o carimbo do apontamento manda; sem ele, cai no vínculo do
+    // trabalhador. Antes o `||` deixava passar o apontamento de OUTRA obra sempre que o
+    // trabalhador estivesse na obra ativa — o carimbo perdia para o vínculo, não ganhava.
     const timecards = activeObraId
-      ? allTimecards.filter((tc) => idsInObra.has(tc.workerId) || (tc.siteId ?? null) === activeObraId)
+      ? allTimecards.filter((tc) => (tc.siteId != null ? tc.siteId === activeObraId : idsInObra.has(tc.workerId)))
       : allTimecards
-    const shifts = activeObraId ? allShifts.filter((s) => idsInObra.has(s.workerId)) : allShifts
+    // O turno agora carrega a obra em que aconteceu. Prefira SEMPRE esse carimbo: cair no
+    // `worker.siteId` atual faz o histórico se mover quando alguém é transferido de obra. O
+    // fallback só existe para os turnos criados antes do carimbo.
+    const shifts = activeObraId
+      ? allShifts.filter((s) => (s.siteId != null ? s.siteId === activeObraId : idsInObra.has(s.workerId)))
+      : allShifts
     const planos = byActiveObra(allPlanos, activeObraId)
     const unassignedWorkerCount = allWorkers.filter((w) => !w.siteId).length
 

@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useFrotaVeicularStore } from '@/store/frotaVeicularStore'
+import { mesLocalISO } from '@/lib/utils'
 import type {
   Vehicle, FuelRecord, VehicleMaintenanceRecord, VehicleDriver,
   VehicleServiceOrder,
@@ -309,7 +310,7 @@ function AbastecimentoTab() {
 
   const sorted = useMemo(() => [...fuelRecords].sort((a, b) => b.date.localeCompare(a.date)), [fuelRecords])
   const totalCostMonth = useMemo(() => {
-    const m = new Date().toISOString().slice(0, 7)
+    const m = mesLocalISO()
     return fuelRecords.filter(r => r.date.startsWith(m)).reduce((s, r) => s + r.totalCost, 0)
   }, [fuelRecords])
 

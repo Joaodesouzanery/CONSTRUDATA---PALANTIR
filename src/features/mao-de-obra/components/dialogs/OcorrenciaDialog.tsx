@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import { occurrenceSchema, type OccurrenceFormData } from '../../schemas'
+import { hojeLocalISO } from '@/lib/utils'
 
 interface Props {
   onClose: () => void
@@ -18,7 +19,7 @@ const TYPE_OPTIONS: Array<{ value: import('@/types').OccurrenceType; label: stri
 ]
 
 const emptyForm: OccurrenceFormData = {
-  date:            new Date().toISOString().slice(0, 10),
+  date:            hojeLocalISO(),
   type:            'other',
   description:     '',
   impactHours:     0,

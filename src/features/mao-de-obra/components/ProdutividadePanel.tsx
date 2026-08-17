@@ -8,6 +8,7 @@ import { Gauge, TrendingUp, CalendarClock, Ruler, Clock, ArrowRight, AlertTriang
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { useActiveObra } from '@/hooks/useActiveObra'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
+import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import {
   computeRup, computeRupTrend, computeMetragemBalance, analyzeWeekend, summarizeEscala,
   resolveRupTarget, rupSemaforo, type Semaforo,
@@ -34,12 +35,12 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
 
   const [period, setPeriod] = useState<'última semana' | 'último mês' | 'este mês'>('último mês')
   const { periodStart, periodEnd } = useMemo(() => {
-    const end = new Date().toISOString().slice(0, 10)
+    const end = hojeLocalISO()
     const d = new Date()
     if (period === 'última semana') d.setDate(d.getDate() - 6)
     else if (period === 'este mês') d.setDate(1)
     else d.setDate(d.getDate() - 29)
-    return { periodStart: d.toISOString().slice(0, 10), periodEnd: end }
+    return { periodStart: dataLocalISO(d), periodEnd: end }
   }, [period])
 
   const periodTc = useMemo(() => timecards.filter((tc) => tc.date >= periodStart && tc.date <= periodEnd), [timecards, periodStart, periodEnd])

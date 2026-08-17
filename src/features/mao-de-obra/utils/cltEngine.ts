@@ -13,6 +13,7 @@
  */
 
 import type { Shift, Worker, WorkPost, CLTSettings, CLTViolation, CLTViolationType, CMOSummary, CMORoleItem } from '@/types'
+import { dataLocalISO } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,7 +117,7 @@ function mondayOf(dateStr: string): string {
   const day = d.getDay() // 0=Sun,1=Mon,...6=Sat
   const diff = (day === 0 ? -6 : 1 - day)
   d.setDate(d.getDate() + diff)
-  return d.toISOString().slice(0, 10)
+  return dataLocalISO(d)
 }
 
 /** Get all dates in the same Mon–Sun week as dateStr */
@@ -125,7 +126,7 @@ function weekDates(dateStr: string): string[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday)
     d.setDate(d.getDate() + i)
-    return d.toISOString().slice(0, 10)
+    return dataLocalISO(d)
   })
 }
 
