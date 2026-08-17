@@ -93,6 +93,9 @@ interface MaoDeObraState {
   timecards:   TimecardEntry[]
   progress:    PhysicalProgress[]
   occurrences: LaborOccurrence[]
+  /** Já subiu para o servidor o que existia só no navegador? Ver a subida única no `pull`. */
+  workPostsMigrados: boolean
+  occurrencesMigradas: boolean
   riskAreas:   RiskArea[]
   suggestions: ReallocationSuggestion[]
 
@@ -232,6 +235,12 @@ function shiftToRow(sh: Shift, orgId: string, userId: string) {
     created_by:      userId,
   }
 }
+function workPostToRow(wp: WorkPost, orgId: string, userId: string) {
+  return { id: wp.id, organization_id: orgId, payload: wp as unknown as Record<string, unknown>, created_by: userId }
+}
+function occurrenceToRow(o: LaborOccurrence, orgId: string, userId: string) {
+  return { id: o.id, organization_id: orgId, payload: o as unknown as Record<string, unknown>, created_by: userId }
+}
 function absenceToRow(a: WorkerAbsence, orgId: string, userId: string) {
   return {
     id:              a.id,
@@ -316,6 +325,9 @@ function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObr
     assessments:    list(persisted.assessments),
     cltSettings:    persisted.cltSettings ?? current.cltSettings,
     payrollHistory: list(persisted.payrollHistory),
+    // Sem preservar as flags, a subida única do que era local rodaria a cada recarga.
+    workPostsMigrados:   persisted.workPostsMigrados ?? current.workPostsMigrados,
+    occurrencesMigradas: persisted.occurrencesMigradas ?? current.occurrencesMigradas,
     pendingSync:    list(persisted.pendingSync),
   }
 }
@@ -415,6 +427,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   cltSettings:    MOCK_CLT_SETTINGS,
   activeTab:      'dashboard',
   payrollHistory: [],
+  workPostsMigrados: false,
+  occurrencesMigradas: false,
   activeOrgId:    null,
 
   pendingSync:  [],
@@ -594,10 +608,17 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       progress: [...s.progress, { ...entry, id: `pp-${crypto.randomUUID().slice(0, 8)}` }],
     })),
 
-  addOccurrence: (occ) =>
+  // Ocorrência era o pior caso de perda: gravava num pedaço do estado que nem estava no
+  // `partialize`. O registro aparecia na lista e sumia no primeiro F5.
+  addOccurrence: (occ) => {
+    const { orgId, userId } = ctxAuth()
+    const nova = { ...occ, id: crypto.randomUUID() } as LaborOccurrence
     set((s) => ({
-      occurrences: [...s.occurrences, { ...occ, id: `occ-${crypto.randomUUID().slice(0, 8)}` }],
-    })),
+      occurrences: [...s.occurrences, nova],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_occurrence', type: 'insert', recordId: nova.id, row: occurrenceToRow(nova, orgId, userId), table: 'labor_occurrences' })],
+    }))
+    void get().flush()
+  },
 
   // ── Reallocation Engine ──────────────────────────────────────────────────────
 
@@ -698,17 +719,39 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     void get().flush()
   },
 
+  /**
+   * Gera a escala do mês e **envia para o servidor**.
+   *
+   * Antes, três defeitos empilhados faziam os ~600 turnos gerados sumirem:
+   *
+   *  1. Nada era enfileirado em `pendingSync`, então nada subia.
+   *  2. Como não havia op pendente para `shifts`, o `pull()` seguinte considerava o servidor a
+   *     verdade e **substituía o array local inteiro**. Bastava sair do módulo e voltar.
+   *  3. O id era `sh-3f2a1b9c`, que não é uuid — a coluna do Postgres é `uuid`. Se alguém
+   *     editasse um turno gerado antes do pull, o update casava zero linhas e a operação ficava
+   *     presa em retry infinito na fila.
+   *
+   * O padrão certo já existia ao lado, em `bulkAddShifts`. Os turnos substituídos também viram
+   * soft delete: antes eles sumiam só localmente e voltavam no pull seguinte.
+   */
   generateSchedule: (month) => {
     const { workers, workPosts, cltSettings } = get()
-    const generated = autoGenerateSchedule(workers, workPosts, month, cltSettings)
-    // Replace existing scheduled (not confirmed) shifts for the month
-    set((s) => ({
-      shifts: [
-        ...s.shifts.filter((sh) => !sh.date.startsWith(month) || sh.status !== 'scheduled'),
-        ...generated.map((sh) => ({ ...sh, id: `sh-${crypto.randomUUID().slice(0, 8)}` })),
-      ],
-    }))
-    // Re-run CLT validation
+    const { orgId, userId } = ctxAuth()
+    const gerados: Shift[] = autoGenerateSchedule(workers, workPosts, month, cltSettings)
+      .map((sh) => ({ ...sh, id: crypto.randomUUID() }))
+
+    set((s) => {
+      const substituidos = s.shifts.filter((sh) => sh.date.startsWith(month) && sh.status === 'scheduled')
+      return {
+        shifts: [...s.shifts.filter((sh) => !sh.date.startsWith(month) || sh.status !== 'scheduled'), ...gerados],
+        pendingSync: [
+          ...s.pendingSync,
+          ...substituidos.map((sh) => makeOp({ entity: 'shift', type: 'update', recordId: sh.id, patch: { deleted_at: new Date().toISOString() }, table: 'shifts' })),
+          ...gerados.map((sh) => makeOp({ entity: 'shift', type: 'insert', recordId: sh.id, row: shiftToRow(sh, orgId, userId), table: 'shifts' })),
+        ],
+      }
+    })
+    void get().flush()
     get().revalidateCLT()
   },
 
@@ -722,18 +765,39 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   // ── Work Posts ──────────────────────────────────────────────────────────────
 
-  addWorkPost: (post) =>
+  // Postos de trabalho passam a ir para o servidor. Antes ficavam só no navegador: o engenheiro
+  // cadastrava trinta, trocava de máquina, e encontrava a aba vazia — e como eles alimentam a
+  // geração automática de escala, perder os postos era perder a escala junto.
+  // O id vira uuid de verdade: `wp-3f2a1b9c` não entra numa coluna `uuid` do Postgres.
+  addWorkPost: (post) => {
+    const { orgId, userId } = ctxAuth()
+    const novo: WorkPost = { ...post, id: crypto.randomUUID() }
     set((s) => ({
-      workPosts: [...s.workPosts, { ...post, id: `wp-${crypto.randomUUID().slice(0, 8)}` }],
-    })),
+      workPosts: [...s.workPosts, novo],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'work_post', type: 'insert', recordId: novo.id, row: workPostToRow(novo, orgId, userId), table: 'work_posts' })],
+    }))
+    void get().flush()
+  },
 
-  updateWorkPost: (id, updates) =>
+  updateWorkPost: (id, updates) => {
+    const atual = get().workPosts.find((p) => p.id === id)
+    if (!atual) return
+    const atualizado = { ...atual, ...updates }
     set((s) => ({
-      workPosts: s.workPosts.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-    })),
+      workPosts: s.workPosts.map((p) => (p.id === id ? atualizado : p)),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'work_post', type: 'update', recordId: id, patch: { payload: atualizado as unknown as Record<string, unknown> }, table: 'work_posts' })],
+    }))
+    void get().flush()
+  },
 
-  removeWorkPost: (id) =>
-    set((s) => ({ workPosts: s.workPosts.filter((p) => p.id !== id) })),
+  removeWorkPost: (id) => {
+    set((s) => ({
+      workPosts: s.workPosts.filter((p) => p.id !== id),
+      // Soft delete, como no resto do projeto: a policy de DELETE é `using(false)`.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'work_post', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'work_posts' })],
+    }))
+    void get().flush()
+  },
 
   // ── Absences ────────────────────────────────────────────────────────────────
 
@@ -924,6 +988,42 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
     const asmt = await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
     const clt = await pullTable<{ payload: CLTSettings }>('clt_settings')
+    const wps = await pullTable<{ payload: WorkPost }>('work_posts')
+    const occ = await pullTable<{ payload: LaborOccurrence }>('labor_occurrences')
+
+    // ── Subida única do que já existia só no navegador ─────────────────────────────
+    //
+    // Postos e ocorrências viveram tempo em localStorage sem tabela no servidor. Assim que a
+    // migration 20260817140000 é aplicada, o servidor responde uma lista VAZIA — e `mergePull`,
+    // sem op pendente, trataria isso como "o servidor não tem nada" e apagaria o que está aqui.
+    // Seria trocar uma perda de dado por outra, no exato momento da correção.
+    //
+    // Então, na primeira vez que a tabela responde, o que é local vira operação de insert. As
+    // ops entram ANTES do mergePull abaixo, para os ids ficarem protegidos na mesma passagem.
+    // Ids antigos no formato `wp-3f2a1b9c` são reemitidos como uuid — a coluna não aceitaria.
+    const { orgId, userId } = ctxAuth()
+    const ehUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+    if (orgId && (wps || occ)) {
+      const st = get()
+      const postosASubir = wps && !st.workPostsMigrados ? st.workPosts : []
+      const ocorrASubir  = occ && !st.occurrencesMigradas ? st.occurrences : []
+      if (postosASubir.length > 0 || ocorrASubir.length > 0) {
+        const postosComId = postosASubir.map((wp) => (ehUuid(wp.id) ? wp : { ...wp, id: crypto.randomUUID() }))
+        const ocorrComId  = ocorrASubir.map((o) => (ehUuid(o.id) ? o : { ...o, id: crypto.randomUUID() }))
+        set((cur) => ({
+          workPosts:   postosComId.length ? postosComId : cur.workPosts,
+          occurrences: ocorrComId.length ? ocorrComId : cur.occurrences,
+          pendingSync: [
+            ...cur.pendingSync,
+            ...postosComId.map((wp) => makeOp({ entity: 'work_post', type: 'insert', recordId: wp.id, row: workPostToRow(wp, orgId, userId), table: 'work_posts' })),
+            ...ocorrComId.map((o) => makeOp({ entity: 'labor_occurrence', type: 'insert', recordId: o.id, row: occurrenceToRow(o, orgId, userId), table: 'labor_occurrences' })),
+          ],
+        }))
+        console.info(`[mao-de-obra] subindo ${postosComId.length} posto(s) e ${ocorrComId.length} ocorrência(s) que só existiam neste navegador`)
+      }
+      if (wps) set({ workPostsMigrados: true })
+      if (occ) set({ occurrencesMigradas: true })
+    }
     set((s) => ({
       workers:     mergePull(ws?.map((r) => normalizeWorker(r.payload)) ?? null, s.workers, s.pendingSync, 'workers'),
       crews:       mergePull(cs?.map((r) => normalizeCrew(r.payload)) ?? null, s.crews, s.pendingSync, 'labor_crews'),
@@ -931,6 +1031,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       shifts:      mergePull(ss?.map((r) => r.payload) ?? null, s.shifts, s.pendingSync, 'shifts'),
       absences:    mergePull(as_?.map((r) => r.payload) ?? null, s.absences, s.pendingSync, 'worker_absences'),
       assessments: mergePull(asmt?.map((r) => r.payload) ?? null, s.assessments, s.pendingSync, 'worker_assessments'),
+      // Tabelas novas (migration 20260817140000). Enquanto ela não for aplicada, `pullTable`
+      // devolve null e o `mergePull` preserva o que está local — nada se perde no meio-termo.
+      workPosts:   mergePull(wps?.map((r) => r.payload) ?? null, s.workPosts, s.pendingSync, 'work_posts'),
+      occurrences: mergePull(occ?.map((r) => r.payload) ?? null, s.occurrences, s.pendingSync, 'labor_occurrences'),
     }))
     // clt_settings é singleton (1 linha por org, id = organization_id) e o estado local
     // cltSettings é um único objeto sem `id` de topo — não é array de { id }, então
@@ -979,6 +1083,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         absences:       s.absences,
         assessments:    s.assessments,
         workPosts:      s.workPosts,
+        // Faltava aqui: a ocorrência aparecia na lista e sumia no primeiro F5.
+        occurrences:    s.occurrences,
+        workPostsMigrados:   s.workPostsMigrados,
+        occurrencesMigradas: s.occurrencesMigradas,
         cltSettings:    s.cltSettings,
         payrollHistory: s.payrollHistory,
         pendingSync:    s.pendingSync,
