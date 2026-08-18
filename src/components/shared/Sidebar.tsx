@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
+import { LINKEDIN_URL, INSTAGRAM_URL } from '@/lib/socialLinks'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAuth } from '@/lib/auth'
@@ -370,7 +371,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.12)' }}
               >
                 <a
-                  href="https://www.linkedin.com/company/construdatasoftware"
+                  href={LINKEDIN_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setShowSupport(false)}
@@ -380,7 +381,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                   LinkedIn
                 </a>
                 <a
-                  href="https://www.instagram.com/construdata_"
+                  href={INSTAGRAM_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setShowSupport(false)}

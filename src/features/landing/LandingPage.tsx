@@ -26,8 +26,11 @@ import {
   Users,
   Wrench,
   type LucideIcon,
+  Instagram,
+  Linkedin,
 } from 'lucide-react'
 import { BrandLockup } from '@/components/shared/BrandLogo'
+import { PERFIS_SOCIAIS } from '@/lib/socialLinks'
 import { HeroCarousel } from './HeroCarousel'
 import { VideoShowcase, DURACAO } from './VideoShowcase'
 import { TypeformPanel } from './TypeformPanel'
@@ -1516,8 +1519,31 @@ export function LandingPage() {
             {/* Lockup horizontal (BrandLockup é um Fragment: sem `flex` no pai, os dois
                 filhos empilhavam). O "ConstruData" gigante que existia aqui era uma
                 repetição do próprio lockup — removido. */}
-            <div className="flex items-center gap-4">
-              <BrandLockup dark accent="text-[#e5484d]" size="lg" />
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center gap-4">
+                <BrandLockup dark accent="text-[#e5484d]" size="lg" />
+              </div>
+              {/* Os perfis ficam na coluna da marca porque é a que sobrava espaço, e porque
+                  seguir a empresa é uma extensão da marca, não um item de navegação. Contorno
+                  em vez de preenchimento, como os CTAs da página (ver CtaBox). */}
+              <div className="flex flex-wrap items-center gap-2">
+                {PERFIS_SOCIAIS.map((perfil) => {
+                  const Icone = perfil.id === 'linkedin' ? Linkedin : Instagram
+                  return (
+                    <a
+                      key={perfil.id}
+                      href={perfil.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`ConstruData no ${perfil.nome} — abre em outra aba`}
+                      className={`${M_FONT} group inline-flex min-h-11 items-center gap-2.5 border border-black/45 px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0a0a0a] transition-colors hover:border-[#0a0a0a] hover:bg-black/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0a0a0a]`}
+                    >
+                      <Icone size={15} className="shrink-0" />
+                      {perfil.nome}
+                    </a>
+                  )
+                })}
+              </div>
             </div>
             <nav className="flex flex-col gap-3">
               {[
