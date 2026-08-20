@@ -236,6 +236,28 @@ export interface ConstructionSite {
   planningMilestones?: ConstructionMilestone[]
   executionMilestones?: ConstructionMilestone[]
   contrato?: ObraContrato   // contrato & medição por obra (payload jsonb) — "Solicitação de Medição"
+
+  /**
+   * Obra arquivada: some do mapa e do strip de cards, mas NADA dela é apagado.
+   *
+   * É campo próprio, e não um valor novo em `ObraStatus`, por dois motivos. O enum é usado em oito
+   * `Record<ObraStatus, …>` EXAUSTIVOS espalhados por quatro arquivos — um valor novo quebra os
+   * oito. E, pior, "inativa" apagaria o status real: uma obra Concluída que virasse Inativa perderia
+   * a informação de que foi concluída. Arquivar é ortogonal ao ciclo de vida.
+   *
+   * Ausente = ativa, para as obras que já existem não precisarem de migração de dado. Viaja no
+   * payload jsonb, como `torres`/`unidades`/`contrato` — sem migração de schema.
+   */
+  ativa?: boolean
+
+  /**
+   * Preço por m² contratado da obra (R$/m²).
+   *
+   * Até aqui esse número só existia no Plano de Execução (`PlanoExecucao.precoM2`), cadastrado em
+   * Planejamento → Execução. A obra passa a ser a fonte da verdade e o plano continua podendo
+   * sobrescrever por período — é o plano que conhece o recorte, a obra que conhece o contrato.
+   */
+  precoM2?: number
 }
 
 export interface ObraContratoServico {

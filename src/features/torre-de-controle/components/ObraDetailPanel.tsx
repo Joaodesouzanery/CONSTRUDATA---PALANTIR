@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock, Save, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock, Save, X, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { obraBacFromSite, withTotalBudgetLine } from '@/features/torre-de-controle/utils/obraBudget'
 import { ContratoMedicaoSection } from './ContratoMedicaoSection'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { obraEstaAtiva } from '@/lib/obraAtiva'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
 
 const fmtBRL = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -278,9 +279,13 @@ export function ObraDetailPanel() {
   const setEditing     = useTorreStore((s) => s.setEditing)
   const setEditingRisk = useTorreStore((s) => s.setEditingRisk)
 
+  const updateSiteTopo = useTorreStore((s) => s.updateSite)
+
   const site = selectedId ? sites.find((s) => s.id === selectedId) ?? null : null
 
   if (!site) return null
+
+  const ativa = obraEstaAtiva(site)
 
   const activeRisks   = site.risks.filter((r) => r.status === 'active').length
   const criticalRisks = site.risks.filter((r) => r.level === 'critical').length
@@ -297,16 +302,43 @@ export function ObraDetailPanel() {
             <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide', STATUS_COLOR[site.status])}>
               {STATUS_LABEL[site.status]}
             </span>
+            {/* O selo de arquivada é SEPARADO do status, de propósito: a obra continua sendo
+                "Concluída" ou "Pausada" — arquivar só a tira das telas de visão geral. */}
+            {!ativa && (
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide border-[#525252] bg-[#484848] text-[#a3a3a3]">
+                Arquivada
+              </span>
+            )}
           </div>
           <h3 className="text-sm font-bold text-[#f5f5f5] leading-snug">{site.name}</h3>
         </div>
-        <button
-          onClick={() => setEditing(site.id)}
-          className="shrink-0 flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#525252] hover:border-[#f97316]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
-        >
-          <Pencil size={11} />
-          Editar
-        </button>
+        <div className="shrink-0 flex items-center gap-1.5">
+          {/* Arquivar tira a obra do mapa e do strip de cards, e não apaga NADA — por isso o
+              rótulo fala em "arquivar", não em "excluir". Continua acessível por esta tela,
+              que é o único caminho de volta. */}
+          <button
+            onClick={() => updateSiteTopo(site.id, { ativa: !ativa })}
+            title={ativa
+              ? 'Arquiva a obra: ela sai do mapa e da lista, mas nada é apagado'
+              : 'Reativa a obra: volta a aparecer no mapa e na lista'}
+            className={cn(
+              'flex items-center gap-1 text-[10px] transition-colors border rounded-lg px-2.5 py-1.5 whitespace-nowrap',
+              ativa
+                ? 'text-[#6b6b6b] hover:text-[#fbbf24] border-[#525252] hover:border-[#fbbf24]/30'
+                : 'text-[#4ade80] border-[#4ade80]/40 hover:border-[#4ade80]',
+            )}
+          >
+            {ativa ? <Archive size={11} /> : <ArchiveRestore size={11} />}
+            {ativa ? 'Arquivar' : 'Reativar'}
+          </button>
+          <button
+            onClick={() => setEditing(site.id)}
+            className="flex items-center gap-1 text-[10px] text-[#6b6b6b] hover:text-[#f97316] transition-colors border border-[#525252] hover:border-[#f97316]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
+          >
+            <Pencil size={11} />
+            Editar
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}

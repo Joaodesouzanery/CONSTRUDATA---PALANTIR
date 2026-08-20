@@ -6,6 +6,7 @@ import { Image, MapPin, X } from 'lucide-react'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
 import { useShallow } from 'zustand/react/shallow'
 import type { ConstructionSite, Project, ProjectPhase } from '@/types'
+import { obraEstaAtiva } from '@/lib/obraAtiva'
 
 type Severity = 'critical' | 'high' | 'medium' | 'ok'
 type Basemap = 'voyager' | 'satellite' | 'outdoors' | 'dark'
@@ -410,12 +411,24 @@ export function ControlMap({
   const [basemap, setBasemap] = useState<Basemap>('voyager')
   const [showProjects, setShowProjects] = useState(true)
   const [showSites, setShowSites] = useState(sites.length > 0)
+  const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
   const [tileError, setTileError] = useState(false)
 
   // Derivações memoizadas: props/deps estáveis evitam o re-render em cascata que
   // fazia o mapa "piscar" (MarkerLayer re-sincronizava markers a cada render).
   const projectsWithCoords = useMemo(() => projects.filter((p) => p.lat != null && p.lng != null), [projects])
   const sitesWithCoords = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  // Filtro VISUAL: obra arquivada some do mapa, mas continua em `sitesWithCoords` para o card
+  // lateral conseguir resolvê-la se ela estiver selecionada — senão, ao arquivar a obra aberta,
+  // o card sumiria junto e não haveria caminho de volta.
+  const sitesVisiveis = useMemo(
+    () => (mostrarArquivadas ? sitesWithCoords : sitesWithCoords.filter(obraEstaAtiva)),
+    [sitesWithCoords, mostrarArquivadas],
+  )
+  const totalArquivadas = useMemo(
+    () => sitesWithCoords.length - sitesWithCoords.filter(obraEstaAtiva).length,
+    [sitesWithCoords],
+  )
   const filteredProjects = useMemo(
     () => (filter === 'all' ? projectsWithCoords : projectsWithCoords.filter((p) => calcSeverity(p) === filter)),
     [filter, projectsWithCoords],
@@ -454,10 +467,20 @@ export function ControlMap({
           }}>{f.label}</button>
         ))}
         <button onClick={() => setShowProjects((v) => !v)} className={`px-3 py-1 rounded-full text-xs font-medium border ${showProjects ? 'text-[#f97316] border-[#f97316]/50 bg-[#f97316]/10' : 'text-[#6b6b6b] border-[#525252]'}`}>Projetos</button>
-        <button onClick={() => setShowSites((v) => !v)} className={`px-3 py-1 rounded-full text-xs font-medium border ${showSites ? 'text-[#3b82f6] border-[#3b82f6]/50 bg-[#3b82f6]/10' : 'text-[#6b6b6b] border-[#525252]'}`}>Obras ({sitesWithCoords.length})</button>
+        <button onClick={() => setShowSites((v) => !v)} className={`px-3 py-1 rounded-full text-xs font-medium border ${showSites ? 'text-[#3b82f6] border-[#3b82f6]/50 bg-[#3b82f6]/10' : 'text-[#6b6b6b] border-[#525252]'}`}>Obras ({sitesVisiveis.length})</button>
+        {/* Só aparece se houver arquivada — um botão que nunca faz nada é ruído na barra. */}
+        {totalArquivadas > 0 && (
+          <button
+            onClick={() => setMostrarArquivadas((v) => !v)}
+            title="Obras arquivadas continuam com todo o histórico; ficam fora do mapa só para não poluir"
+            className={`px-3 py-1 rounded-full text-xs font-medium border ${mostrarArquivadas ? 'text-[#a3a3a3] border-[#a3a3a3]/50 bg-[#a3a3a3]/10' : 'text-[#6b6b6b] border-[#525252]'}`}
+          >
+            Arquivadas ({totalArquivadas})
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-1.5 text-[#6b6b6b] text-xs">
           <MapPin size={11} />
-          <span>{(showProjects ? filteredProjects.length : 0) + (showSites ? sitesWithCoords.length : 0)} marcador(es)</span>
+          <span>{(showProjects ? filteredProjects.length : 0) + (showSites ? sitesVisiveis.length : 0)} marcador(es)</span>
         </div>
       </div>
       <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
@@ -473,7 +496,7 @@ export function ControlMap({
           />
           <MarkerLayer
             projects={filteredProjects}
-            sites={sitesWithCoords}
+            sites={sitesVisiveis}
             selectedProjectId={selectedProjectId}
             selectedSiteId={selectedSiteId}
             showProjects={showProjects}

@@ -7,6 +7,7 @@ import { SyncBadge } from '@/components/shared/SyncBadge'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { OBRA_IMPORT_CONFIG } from '@/lib/importConfigs'
 import type { ConstructionSite, ObraStatus } from '@/types'
+import { separarPorAtividade } from '@/lib/obraAtiva'
 
 const STATUS_LABEL: Record<ObraStatus, string> = {
   active:    'Ativa',
@@ -43,6 +44,29 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
   const resyncSites = useTorreStore((s) => s.resyncSites)
   const sync = useStoreSync(useTorreStore)
   const [importOpen, setImportOpen] = useState(false)
+  // Filtro VISUAL das arquivadas. A store continua devolvendo todas — quem esconde é esta tela,
+  // e a obra arquivada continua abrindo nos Detalhes, que é o caminho de volta.
+  const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
+  const { ativas, inativas } = separarPorAtividade(sites)
+  const sitesVisiveis = mostrarArquivadas ? sites : ativas
+
+  /** Contagem + interruptor das arquivadas. Idêntico nas duas orientações do painel. */
+  function ContadorCanteiros() {
+    return (
+      <span className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b]">
+        {sitesVisiveis.length} canteiro{sitesVisiveis.length !== 1 ? 's' : ''}
+        {inativas.length > 0 && (
+          <button
+            onClick={() => setMostrarArquivadas((v) => !v)}
+            title="Obras arquivadas mantêm todo o histórico; ficam fora desta lista só para não poluir"
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[9px] font-semibold text-[#a3a3a3] hover:border-[#a3a3a3] hover:text-[#f5f5f5]"
+          >
+            {mostrarArquivadas ? 'ocultar' : 'ver'} {inativas.length} arquivada{inativas.length !== 1 ? 's' : ''}
+          </button>
+        )}
+      </span>
+    )
+  }
 
   function handleResync() {
     resyncSites()
@@ -89,7 +113,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
         <div className="flex items-center justify-between px-4 py-2 border-b border-[#525252] shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-[#f5f5f5]">PROJETOS</span>
-            <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
+            <ContadorCanteiros />
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge {...sync} />
@@ -123,9 +147,11 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
 
         {/* Horizontal scroll strip */}
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
-          {sites.length === 0 ? (
+          {sitesVisiveis.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 h-full px-4 text-center">
-              <span className="text-[#3f3f3f] text-xs">Nenhuma obra cadastrada</span>
+              <span className="text-[#3f3f3f] text-xs">
+                {sites.length === 0 ? 'Nenhuma obra cadastrada' : 'Todas as obras estão arquivadas'}
+              </span>
               <button
                 onClick={() => setEditing('new')}
                 className="text-xs text-[#f97316] hover:underline"
@@ -135,7 +161,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             </div>
           ) : (
             <div className="flex gap-2 p-3 h-full">
-              {sites.map((site) => (
+              {sitesVisiveis.map((site) => (
                 <ObraHorizontalCard
                   key={site.id}
                   site={site}
@@ -157,7 +183,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#525252] shrink-0">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs font-bold text-[#f5f5f5]">Obras</span>
-          <span className="text-[10px] text-[#6b6b6b]">{sites.length} canteiro{sites.length !== 1 ? 's' : ''}</span>
+          <ContadorCanteiros />
         </div>
         <div className="flex items-center gap-1">
           <SyncBadge {...sync} />
@@ -189,7 +215,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {sites.map((site) => (
+        {sitesVisiveis.map((site) => (
           <ObraCard
             key={site.id}
             site={site}
@@ -198,9 +224,11 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
           />
         ))}
 
-        {sites.length === 0 && (
+        {sitesVisiveis.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-2 py-12 px-4 text-center">
-            <span className="text-[#3f3f3f] text-xs">Nenhuma obra cadastrada</span>
+            <span className="text-[#3f3f3f] text-xs">
+              {sites.length === 0 ? 'Nenhuma obra cadastrada' : 'Todas as obras estão arquivadas'}
+            </span>
             <button
               onClick={() => setEditing('new')}
               className="text-xs text-[#f97316] hover:underline"

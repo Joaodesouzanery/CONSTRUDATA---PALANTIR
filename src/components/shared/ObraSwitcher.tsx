@@ -3,6 +3,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useProjetosStore } from '@/store/projetosStore'
 import { cn } from '@/lib/utils'
+import { separarPorAtividade } from '@/lib/obraAtiva'
 
 interface ObraSwitcherProps {
   expanded?: boolean
@@ -25,6 +26,13 @@ export function ObraSwitcher({ expanded = true }: ObraSwitcherProps) {
   }
 
   if (sites.length === 0) return null // sem obras cadastradas → não exibe
+
+  const { ativas, inativas } = separarPorAtividade(sites)
+  const renderOpcao = (site: (typeof sites)[number]) => (
+    <option key={site.id} value={site.id}>
+      {site.code ? `${site.code} — ` : ''}{site.name}
+    </option>
+  )
 
   const activeName = activeObraId
     ? sites.find((s) => s.id === activeObraId)?.name ?? 'Obra'
@@ -57,14 +65,13 @@ export function ObraSwitcher({ expanded = true }: ObraSwitcherProps) {
           )}
         >
           <option value="">Todas as obras</option>
-          {sites.map((site) => {
-            const code = (site as { code?: string }).code
-            return (
-              <option key={site.id} value={site.id}>
-                {code ? `${code} — ` : ''}{site.name}
-              </option>
-            )
-          })}
+          {ativas.map(renderOpcao)}
+          {/* Arquivada continua selecionável, num grupo à parte. Escondê-la seria pior: a obra
+              ativa pode ser uma arquivada, e aí o usuário veria os módulos vazios sem entender
+              por quê — o seletor mostraria outra coisa que não a obra realmente em escopo. */}
+          {inativas.length > 0 && (
+            <optgroup label="Arquivadas">{inativas.map(renderOpcao)}</optgroup>
+          )}
         </select>
         <ChevronDown
           size={14}
