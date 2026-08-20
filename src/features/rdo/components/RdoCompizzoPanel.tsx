@@ -121,7 +121,6 @@ export function RdoCompizzoPanel() {
   useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
   const crews = useMaoDeObraStore((s) => s.crews)
-  const syncRdoToTimecards = useMaoDeObraStore((s) => s.syncRdoToTimecards)
   // Suprimentos: estoque + reservas/requisições/previsão (filtrados pela obra do RDO).
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
   const reservas = useSuprimentosStore((s) => s.reservas)
@@ -452,17 +451,9 @@ export function RdoCompizzoPanel() {
     // Já salvo nesta sessão? Atualiza. Senão cria e guarda o id (rascunho não duplica).
     const rdoId = savedId ? (updateRdo(savedId, payload), savedId) : addRdo(payload)
     if (!savedId) setSavedId(rdoId)
-    // Ponte RDO → Mão de Obra: só ao finalizar, para não gerar apontamento de rascunho.
-    if (status === 'finalizado') {
-      syncRdoToTimecards({
-        id: rdoId,
-        date: data || today,
-        siteId: obraSiteId ?? useActiveObraStore.getState().activeObraId ?? null,
-        employeeNames,
-        totalHoras: parseLocaleNumber(horasTrabalhadas) || 0,
-        activityLabel: selectedSite?.name || obra || 'RDO Compizzo',
-      })
-    }
+    // A ponte RDO → Mão de Obra saiu daqui: agora ela roda dentro do `addRdo`/`updateRdo` do
+    // rdoStore, junto das outras três. Enquanto morava neste botão, editar o RDO pelo Histórico
+    // não refazia os apontamentos, e despromover para rascunho não os removia.
     setSaved(true)
     // Rascunho mantém o usuário na tela para continuar preenchendo depois;
     // o salvamento definitivo volta ao histórico.

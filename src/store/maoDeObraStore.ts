@@ -56,6 +56,16 @@ export interface RdoLaborBridgeInput {
   totalHoras: number
   activityLabel?: string
   diasMes?: number
+  /**
+   * Apontamento explícito por trabalhador, quando o RDO tem essa informação.
+   *
+   * O RDO padrão registra horas POR LINHA de mão de obra (`workforceRows`); o Compizzo registra
+   * um total do dia e divide pelo efetivo. Sem este campo, o caminho do RDO padrão precisava de
+   * uma segunda rota — que existia, com id aleatório e sem `sourceRdoId`, e por isso duplicava a
+   * cada re-save e nunca era reconciliada. Com ele, os dois formatos usam a MESMA ponte
+   * idempotente.
+   */
+  entradas?: { workerId: string; horas: number; descricao?: string; observacao?: string }[]
 }
 
 // ─── Access Check Result ───────────────────────────────────────────────────────
@@ -575,24 +585,45 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   syncRdoToTimecards: (rdo) => {
     const { orgId, userId } = ctxAuth()
     const workers = get().workers
-    const present = rdo.employeeNames
-      .map((name) => matchWorkerByName(name, workers))
-      .filter((w): w is Worker => Boolean(w))
-    const headcount = rdo.employeeNames.length || present.length || 1
-    const horasPorCabeca = rdo.totalHoras > 0 ? rdo.totalHoras / headcount : 0
+    const porId = new Map(workers.map((w) => [w.id, w]))
     const deletedAt = new Date().toISOString()
+
+    // Duas origens possíveis, um só resultado: linhas explícitas (RDO padrão, horas por linha)
+    // ou o total do dia dividido pelo efetivo presente (Compizzo).
+    const linhas: { worker: Worker; horas: number; descricao?: string }[] = rdo.entradas?.length
+      ? rdo.entradas
+          .flatMap((e) => {
+            const w = porId.get(e.workerId)
+            return w && e.horas > 0 ? [{ worker: w, horas: e.horas, descricao: e.descricao }] : []
+          })
+      : (() => {
+          const present = rdo.employeeNames
+            .map((name) => matchWorkerByName(name, workers))
+            .filter((w): w is Worker => Boolean(w))
+          const headcount = rdo.employeeNames.length || present.length || 1
+          const horasPorCabeca = rdo.totalHoras > 0 ? rdo.totalHoras / headcount : 0
+          return present.map((w) => ({ worker: w, horas: horasPorCabeca }))
+        })()
 
     set((s) => {
       // Id DETERMINÍSTICO por (rdo, worker): re-finalizar em outro device faz o insert
       // virar upsert da MESMA linha (não duplica custo de M.O. entre dispositivos).
-      const novos: TimecardEntry[] = present.map((w) => ({
+      // Um trabalhador que apareça em duas linhas do RDO tem as horas SOMADAS, senão a segunda
+      // linha sobrescreveria a primeira no mesmo id.
+      const agregado = new Map<string, { worker: Worker; horas: number; descricao?: string }>()
+      for (const l of linhas) {
+        const atual = agregado.get(l.worker.id)
+        if (atual) atual.horas += l.horas
+        else agregado.set(l.worker.id, { ...l })
+      }
+      const novos: TimecardEntry[] = [...agregado.values()].map(({ worker: w, horas, descricao }) => ({
         id: rdoTimecardId(rdo.id, w.id),
         workerId: w.id,
         date: rdo.date,
-        hoursWorked: horasPorCabeca,
+        hoursWorked: horas,
         projectRef: rdo.activityLabel ?? '',
         phaseRef: '',
-        activityDescription: rdo.activityLabel ?? 'RDO',
+        activityDescription: descricao || rdo.activityLabel || 'RDO',
         reportedQty: 0,
         unit: 'h',
         sourceRdoId: rdo.id,

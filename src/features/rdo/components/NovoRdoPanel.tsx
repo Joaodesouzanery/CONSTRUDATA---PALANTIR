@@ -201,7 +201,6 @@ export function NovoRdoPanel() {
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
   const trabalhadores = useMaoDeObraStore((s) => s.workers)
   const equipes = useMaoDeObraStore((s) => s.crews)
-  const addTimecard = useMaoDeObraStore((s) => s.addTimecard)
   const nextNumber = rdos.length + 1
 
   // react-hook-form for core fields (rdoSchema)
@@ -626,8 +625,6 @@ export function NovoRdoPanel() {
   function onValid(data: RdoFormData) {
     setSubmitError(null)
     const savedTitle = rdoTitle.trim()
-    const rdoLabel = savedTitle || `RDO #${rdoNumber}`
-    const primaryActivity = services.find((service) => service.description.trim())?.description || rdoServico || 'Apontamento RDO'
     addRdo({
       // Status EXPLÍCITO: o cliente trata ausência como finalizado (isRdoFinalized), mas o
       // trigger de estoque no servidor exige payload->>'status' = 'finalizado' EXATO — sem
@@ -677,23 +674,10 @@ export function NovoRdoPanel() {
     // A baixa de estoque agora é feita no SERVIDOR (trigger trg_rdo_to_estoque),
     // de forma idempotente por rdo_id — não consumir no cliente para não duplicar.
     // (Requer a migration 20260625120000_rdo_estoque_integration.sql aplicada.)
-    workforceRows.forEach((row) => {
-      const hoursWorked = Number(row.hoursWorked) || 0
-      if (hoursWorked <= 0) return
-      ;(row.workerIds ?? []).forEach((workerId) => {
-        addTimecard({
-          workerId,
-          date: data.date,
-          hoursWorked,
-          projectRef: rdoLocal || rdoLocalTipo || '',
-          phaseRef: row.role || 'RDO',
-          activityDescription: row.activityDescription || primaryActivity,
-          reportedQty: 0,
-          unit: 'h',
-          notes: `${rdoLabel}${row.notes ? ` - ${row.notes}` : ''}`,
-        })
-      })
-    })
+    // Os apontamentos NÃO são criados aqui. Eram, com id aleatório e sem `sourceRdoId` — então
+    // duplicavam a cada re-save e o reconcile do pull (que casa por `sourceRdoId`) nunca os
+    // encontrava. Agora o `addRdo` do rdoStore deriva os apontamentos das `workforceRows` deste
+    // mesmo RDO, com id determinístico por (rdo, trabalhador).
     setActiveTab('historico')
   }
 

@@ -233,6 +233,52 @@ interface RdoState {
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
+
+/**
+ * Ponte RDO → Apontamentos de Mão de Obra.
+ *
+ * ─── O DEFEITO QUE ISTO FECHA ─────────────────────────────────────────────────────────────────
+ * Esta sincronização só era chamada de UM lugar: o botão "Salvar" do painel Compizzo. Consequência
+ * medida: editar um RDO finalizado pelo Histórico refazia o Financeiro e o Planejamento, mas NÃO
+ * refazia os apontamentos — a Mão de Obra ficava congelada no estado do último save feito por
+ * aquele painel. E despromover para rascunho não removia apontamento nenhum, então o custo
+ * continuava lançado num RDO que não alimenta mais nada.
+ *
+ * Agora ela mora aqui, ao lado da ponte do Financeiro, e roda nos dois caminhos — criar e editar.
+ * Como o id do apontamento é derivado de (rdo, trabalhador), rodar de novo é upsert da mesma
+ * linha, nunca duplicata.
+ */
+function sincronizarApontamentos(rdo: RDO) {
+  void import('./maoDeObraStore').then(({ useMaoDeObraStore }) => {
+    const mo = useMaoDeObraStore.getState()
+    // Rascunho não alimenta nada — e se ERA finalizado e voltou a rascunho, o que já tinha sido
+    // lançado precisa sair.
+    if (!isRdoFinalized(rdo)) { mo.removeRdoTimecards(rdo.id); return }
+
+    // RDO padrão: horas por linha de mão de obra. Compizzo: total do dia dividido pelo efetivo.
+    const entradas = (rdo.workforceRows ?? []).flatMap((linha) =>
+      (linha.workerIds ?? []).map((workerId) => ({
+        workerId,
+        horas: Number(linha.hoursWorked) || 0,
+        descricao: linha.activityDescription || linha.role || undefined,
+      })),
+    ).filter((e) => e.horas > 0)
+
+    const nomes = rdo.manpower.employeeNames ?? []
+    if (entradas.length === 0 && nomes.length === 0) { mo.removeRdoTimecards(rdo.id); return }
+
+    mo.syncRdoToTimecards({
+      id: rdo.id,
+      date: rdo.date,
+      siteId: rdo.siteId ?? null,
+      employeeNames: nomes,
+      totalHoras: rdo.compizzo?.horasTrabalhadas ?? 0,
+      activityLabel: rdo.title || rdo.local || 'RDO',
+      entradas: entradas.length ? entradas : undefined,
+    })
+  })
+}
+
 export const useRdoStore = create<RdoState>()(
   persist(
     (set, get) => ({
@@ -325,6 +371,7 @@ export const useRdoStore = create<RdoState>()(
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         // Ponte RDO → Financeiro (custos): posta se finalizado, reconcilia se rascunho.
         setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().syncRdoToFinanceiro(newRdo)) }, 0)
+        setTimeout(() => sincronizarApontamentos(newRdo), 0)
         void get().flush()
         return newRdo.id
       },
@@ -371,6 +418,9 @@ export const useRdoStore = create<RdoState>()(
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
         // Ponte RDO → Financeiro: re-posta se finalizado, remove se virou rascunho.
         if (upd) setTimeout(() => { void import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().syncRdoToFinanceiro(upd)) }, 0)
+        // Ponte RDO → Mão de Obra: refaz se finalizado, remove se virou rascunho. FALTAVA — era
+        // a única das quatro pontes que não rodava na edição.
+        if (upd) setTimeout(() => sincronizarApontamentos(upd), 0)
         void get().flush()
       },
 

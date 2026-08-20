@@ -9,6 +9,7 @@ import type { RdoTrechoStatus } from '@/types'
 import { supabase } from '@/lib/supabase'
 import { getRdoSabespDashboardMetrics, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import { hojeLocalISO } from '@/lib/utils'
+import { useActiveObraStore } from '@/store/activeObraStore'
 import {
   mergeRdoSabespRemoteWithLocal,
   readLocalRdoSabesp,
@@ -191,7 +192,19 @@ function LineChart({ data }: { data: { date: string; meters: number }[] }) {
 // ─── DashboardPanel ───────────────────────────────────────────────────────────
 
 export function DashboardPanel() {
-  const { rdos } = useRdoStore()
+  const { rdos: todosRdos } = useRdoStore()
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
+  /**
+   * Os KPIs passam a respeitar a obra ativa, como o Histórico e o Previsto × Realizado já faziam.
+   * Antes este Dashboard somava TODAS as obras em silêncio: com o seletor apontando para uma obra,
+   * a tela mostrava número de todas — e ninguém percebia, porque o número parecia plausível.
+   *
+   * O painel de alertas logo acima é a exceção deliberada: ele é de supervisão e mostra todas.
+   */
+  const rdos = useMemo(
+    () => (activeObraId ? todosRdos.filter((r) => (r.siteId ?? null) === activeObraId) : todosRdos),
+    [todosRdos, activeObraId],
+  )
   const planejamentoTrechos = usePlanejamentoStore((s) => s.trechos)
   const planejamentoNuclei = usePlanejamentoStore((s) => s.nuclei)
   const [sabespRdos, setSabespRdos] = useState<LocalRdoSabespRecord[]>(() => readLocalRdoSabesp())

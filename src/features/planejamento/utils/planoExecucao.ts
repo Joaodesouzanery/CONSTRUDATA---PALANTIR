@@ -214,6 +214,11 @@ function rdosDoPlano(
 ): RDO[] {
   return rdos.filter((r) =>
     (r as { template?: string }).template === 'compizzo'
+    // RASCUNHO NÃO CONTA. Rascunho não alimenta Financeiro, estoque nem Planejamento Mestre —
+    // contá-lo aqui inflava `m2Executado` e `diasComRdo`, subestimava o `rupReal` e fazia o
+    // alerta "Atrás do ritmo" disparar falso, acendendo o badge da Sidebar. O Controle de
+    // Medição por contrato (`obraMedicao.ts:19`) já filtrava; este ficou para trás.
+    && (r as { status?: string }).status !== 'rascunho'
     && ((r as { siteId?: string | null }).siteId ?? null) === (p.siteId ?? null)
     && !!p.periodoInicio && !!p.periodoFim
     && (r as { date?: string }).date! >= p.periodoInicio
