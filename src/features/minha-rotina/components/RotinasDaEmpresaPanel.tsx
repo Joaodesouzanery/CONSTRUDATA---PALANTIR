@@ -20,7 +20,34 @@ import {
 import { useShallow } from 'zustand/react/shallow'
 import { useRotinasStore } from '@/store/rotinasStore'
 import { useAuth } from '@/lib/auth'
-import { FREQUENCIAS, cicloDe, rotuloDoCiclo, diasAteFechar, cicloAnterior, type FrequenciaRotina } from '../utils/cicloRotina'
+import { FREQUENCIAS, cicloDe, rotuloDoCiclo, diasAteFechar, type FrequenciaRotina } from '../utils/cicloRotina'
+import { atrasoDaRotina, frasePendencia, corDaPessoa, iniciaisDe, type AtrasoRotina } from '../utils/atrasoRotina'
+import { usePlanejamentoStore } from '@/store/planejamentoStore'
+
+/** O selo do responsável: iniciais + nome, na cor fixa daquela pessoa. */
+function SeloPessoa({ nome, tamanho = 'normal' }: { nome: string; tamanho?: 'normal' | 'grande' }) {
+  const cor = corDaPessoa(nome)
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full border font-semibold',
+        tamanho === 'grande' ? 'px-2 py-1 text-[11px]' : 'px-1.5 py-0.5 text-[10px]',
+      )}
+      style={{ color: cor, borderColor: `${cor}4d`, backgroundColor: `${cor}1a` }}
+    >
+      <span
+        className={cn(
+          'flex items-center justify-center rounded-full font-bold text-[#1f1f1f]',
+          tamanho === 'grande' ? 'h-5 w-5 text-[9px]' : 'h-4 w-4 text-[8px]',
+        )}
+        style={{ backgroundColor: cor }}
+      >
+        {iniciaisDe(nome)}
+      </span>
+      {nome}
+    </span>
+  )
+}
 import { MODELO_COMPIZZO, ehAOrganizacaoDoModelo } from '../modeloCompizzo'
 import { MODULE_REGISTRY } from '../moduleRegistry'
 import { cn, hojeLocalISO } from '@/lib/utils'
@@ -57,12 +84,42 @@ export function RotinasDaEmpresaPanel() {
     })),
   )
   const nomeDaOrg = useAuth((s) => s.memberships.find((m) => m.organization_id === s.profile?.organization_id)?.organization?.name)
+  // A mesma regra de dia útil do alerta de RDO: rotina diária não pode aparecer atrasada na
+  // segunda-feira por causa do fim de semana.
+  const feriados = usePlanejamentoStore((s) => s.holidays)
+  const jornada = usePlanejamentoStore((s) => s.scheduleConfig.workWeekMode)
   const [rascunho, setRascunho] = useState<Rascunho | null>(null)
   const [avisoSemente, setAvisoSemente] = useState<string | null>(null)
 
   const hoje = hojeLocalISO()
   const ativas = rotinas.filter((r) => r.ativa)
   const feitaEm = new Set(execucoes.filter((e) => e.feita).map((e) => `${e.rotinaId}|${e.periodo}`))
+
+  // Atraso por rotina. O aviso que existia antes era por GRUPO inteiro e só disparava quando 100%
+  // do grupo tinha falhado — na prática, quase nunca aparecia: bastava uma rotina estar feita para
+  // o grupo inteiro ficar mudo. Agora cada linha responde por si.
+  const feriadoSet = new Set(feriados.map((f) => f.date))
+  const atrasos = new Map<string, AtrasoRotina>()
+  for (const r of ativas) {
+    const a = atrasoDaRotina(r, { feitas: feitaEm, feriados: feriadoSet, jornada, hoje })
+    if (a) atrasos.set(r.id, a)
+  }
+
+  // Placar por pessoa, do ciclo corrente de cada rotina. É o que faz olhar a lista e saber de quem
+  // cobrar sem ler linha por linha.
+  const porPessoa = new Map<string, { feitas: number; total: number; atrasadas: number }>()
+  for (const r of ativas) {
+    const nome = r.responsavel?.trim()
+    if (!nome) continue
+    const atual = porPessoa.get(nome) ?? { feitas: 0, total: 0, atrasadas: 0 }
+    atual.total++
+    if (feitaEm.has(`${r.id}|${cicloDe(r.frequencia, hoje)}`)) atual.feitas++
+    if (atrasos.has(r.id)) atual.atrasadas++
+    porPessoa.set(nome, atual)
+  }
+  const pessoas = [...porPessoa.entries()]
+    .map(([nome, n]) => ({ nome, ...n }))
+    .sort((a, b) => b.atrasadas - a.atrasadas || a.nome.localeCompare(b.nome))
 
   const podeCarregarModelo = ehAOrganizacaoDoModelo(nomeDaOrg)
 
@@ -129,6 +186,32 @@ export function RotinasDaEmpresaPanel() {
         </div>
       )}
 
+      {pessoas.length > 0 && (
+        <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Como está cada um, no ciclo de agora</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {pessoas.map((p) => (
+              <span key={p.nome} className="flex items-center gap-2">
+                <SeloPessoa nome={p.nome} tamanho="grande" />
+                <span className={cn('font-mono text-xs', p.feitas === p.total ? 'text-[#4ade80]' : 'text-[#a3a3a3]')}>
+                  {p.feitas}/{p.total}
+                </span>
+                {p.atrasadas > 0 && (
+                  <span className="rounded bg-[#ef4444]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#fca5a5]">
+                    {p.atrasadas} atrasada{p.atrasadas !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+          {ativas.some((r) => !r.responsavel?.trim()) && (
+            <p className="mt-2 text-[10px] text-[#6b6b6b]">
+              {ativas.filter((r) => !r.responsavel?.trim()).length} rotina(s) sem dono — sem nome, não há de quem cobrar.
+            </p>
+          )}
+        </div>
+      )}
+
       {rotinas.length === 0 && !rascunho && (
         <div className="rounded-xl border border-dashed border-[#525252] px-5 py-8 text-center">
           <p className="text-sm text-[#a3a3a3]">Nenhuma rotina cadastrada ainda.</p>
@@ -145,9 +228,8 @@ export function RotinasDaEmpresaPanel() {
         if (doGrupo.length === 0) return null
 
         const ciclo = cicloDe(freq, hoje)
-        const anterior = cicloAnterior(freq, hoje)
         const feitas = doGrupo.filter((r) => feitaEm.has(`${r.id}|${ciclo}`)).length
-        const pendentesAntes = doGrupo.filter((r) => !feitaEm.has(`${r.id}|${anterior}`)).length
+        const atrasadasNoGrupo = doGrupo.filter((r) => atrasos.has(r.id)).length
         const faltamDias = diasAteFechar(freq, hoje)
         const Icone = ICONE[freq]
         const cor = COR[freq]
@@ -169,24 +251,27 @@ export function RotinasDaEmpresaPanel() {
                   {faltamDias === 0 ? 'fecha hoje' : `fecha em ${faltamDias} dia${faltamDias !== 1 ? 's' : ''}`}
                 </span>
               )}
+              {atrasadasNoGrupo > 0 && (
+                <span className="rounded bg-[#ef4444]/15 px-1.5 py-0.5 text-[10px] font-semibold text-[#fca5a5]">
+                  {atrasadasNoGrupo} atrasada{atrasadasNoGrupo !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
-
-            {pendentesAntes > 0 && pendentesAntes === doGrupo.length && (
-              <div className="mb-2 flex items-start gap-2 rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.06] px-3 py-2 text-[11px] text-[#d4a44c]">
-                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                <span>Nenhuma destas foi marcada no ciclo anterior ({anterior}). Ou não foi feito, ou não foi registrado — vale conferir qual dos dois.</span>
-              </div>
-            )}
 
             <div className="flex flex-col gap-1.5">
               {doGrupo.map((r) => {
                 const feita = feitaEm.has(`${r.id}|${ciclo}`)
+                const atraso = atrasos.get(r.id)
                 return (
                   <div
                     key={r.id}
                     className={cn(
                       'group flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors',
-                      feita ? 'border-[#22c55e]/30 bg-[#22c55e]/[0.06]' : 'border-[#525252] bg-[#2c2c2c] hover:border-[#f97316]/40',
+                      feita ? 'border-[#22c55e]/30 bg-[#22c55e]/[0.06]'
+                        // Vermelho é "está acumulando"; o âmbar do cabeçalho continua sendo
+                        // "fecha hoje". A cor precisa distinguir as duas.
+                        : atraso ? 'border-[#ef4444]/40 bg-[#ef4444]/[0.06] hover:border-[#ef4444]/60'
+                        : 'border-[#525252] bg-[#2c2c2c] hover:border-[#f97316]/40',
                     )}
                   >
                     <button
@@ -203,11 +288,15 @@ export function RotinasDaEmpresaPanel() {
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn('text-sm', feita ? 'text-[#a3a3a3] line-through' : 'text-[#f5f5f5]')}>{r.titulo}</span>
-                        {r.responsavel && (
-                          <span className="rounded bg-[#525252]/50 px-1.5 py-0.5 text-[10px] text-[#a3a3a3]">{r.responsavel}</span>
-                        )}
+                        {r.responsavel && <SeloPessoa nome={r.responsavel} tamanho="grande" />}
                       </div>
                       {r.descricao && <p className="mt-0.5 text-[11px] leading-relaxed text-[#6b6b6b]">{r.descricao}</p>}
+                      {atraso && (
+                        <p className="mt-1 flex items-start gap-1.5 text-[11px] font-medium text-[#f87171]">
+                          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                          <span>{frasePendencia(r, atraso)}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">

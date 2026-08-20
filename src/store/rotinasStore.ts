@@ -34,6 +34,14 @@ export interface Rotina {
   responsavel?: string
   ordem: number
   ativa: boolean
+  /**
+   * Quando a rotina passou a existir, em ISO.
+   *
+   * É o PISO para contar atraso: sem ele, uma rotina cadastrada ontem apareceria "atrasada há 5
+   * anos", porque a varredura para trás não teria onde parar. Vem da coluna `created_at`, que a
+   * tabela já tem — nenhuma migração nova.
+   */
+  criadaEm?: string
 }
 
 export interface RotinaExecucao {
@@ -140,7 +148,10 @@ export const useRotinasStore = create<RotinasState>()(
         const ordem = r.ordem ?? (
           Math.max(0, ...get().rotinas.filter((x) => x.frequencia === r.frequencia).map((x) => x.ordem)) + 10
         )
-        const nova: Rotina = { ...r, id, ordem, ativa: r.ativa ?? true }
+        // `criadaEm` local agora; o servidor grava o `created_at` dele no insert. Os dois batem
+        // porque a rotina é criada e enviada no mesmo instante — e o local é o que vale enquanto a
+        // operação ainda não subiu.
+        const nova: Rotina = { ...r, id, ordem, ativa: r.ativa ?? true, criadaEm: r.criadaEm ?? new Date().toISOString() }
         set((s) => ({
           rotinas: [...s.rotinas, nova],
           pendingSync: [...s.pendingSync, makeOp({ entity: 'rotina', type: 'insert', recordId: id, row: rotinaToRow(nova, orgId, userId), table: 'rotinas' })],
@@ -244,6 +255,7 @@ export const useRotinasStore = create<RotinasState>()(
               responsavel: (r.responsavel as string | null) ?? undefined,
               ordem: Number(r.ordem ?? 0),
               ativa: r.ativa !== false,
+              criadaEm: (r.created_at as string | null) ?? undefined,
             })) ?? null,
             s.rotinas, s.pendingSync, 'rotinas',
           ),

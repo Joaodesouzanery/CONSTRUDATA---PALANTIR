@@ -49,11 +49,16 @@ export const MODELO_COMPIZZO: ModeloRotina[] = [
   { titulo: 'Atualizar o cronograma da semana',           descricao: 'O que foi entregue, o que atrasou e por quê.',                                                        modulo: '/app/planejamento',  frequencia: 'semanal', responsavel: 'Eduardo',            ordem: 30, ativa: true },
   { titulo: 'Revisar as não conformidades abertas',       descricao: 'NC parada é obra parada mais tarde.',                                                                 modulo: '/app/qualidade',     frequencia: 'semanal', responsavel: 'Qualidade',          ordem: 40, ativa: true },
   { titulo: 'Conferir contas a pagar da semana',          descricao: 'Boletos que vencem nos próximos sete dias.',                                                          modulo: '/app/financeiro',    frequencia: 'semanal', responsavel: 'Financeiro',         ordem: 50, ativa: true },
+  // A planilha do estoque é CONFERÊNCIA de prateleira, não registro de movimento — e conferência
+  // vale semanal. A retirada em si é registrada no ato, na ficha (rotina diária acima): é o único
+  // momento em que se sabe quem levou. Na ficha de papel do cliente, 2 de 7 retiradas ficaram sem
+  // colaborador identificado justamente por terem sido anotadas depois.
+  { titulo: 'Conferir o estoque com a planilha',          descricao: 'Subir a planilha atualizada em Suprimentos. A diferença contra o sistema é o material que saiu sem ficha.', modulo: '/app/suprimentos', frequencia: 'semanal', responsavel: 'Valim',        ordem: 60, ativa: true },
 
   // ── A cada quinzena ─────────────────────────────────────────────────────────
   { titulo: 'Avaliação da equipe',                        descricao: 'A avaliação por funcionário, que fecha junto com a quinzena da folha.',                                modulo: '/app/mao-de-obra',   frequencia: 'quinzenal', responsavel: 'Vinicius',         ordem: 10, ativa: true },
   { titulo: 'Conferir a produtividade por funcionário',   descricao: 'Comparar com a quinzena anterior — dias úteis, não o total bruto.',                                    modulo: '/app/mao-de-obra',   frequencia: 'quinzenal', responsavel: 'Eduardo',          ordem: 20, ativa: true },
-  { titulo: 'Subir a planilha do estoque atualizada',     descricao: 'A conferência mostra o que mudou e quanto pesou em caixa antes de gravar.',                            modulo: '/app/suprimentos',   frequencia: 'quinzenal', responsavel: 'Valim',            ordem: 30, ativa: true },
+  { titulo: 'Fechar o inventário da quinzena',            descricao: 'Contagem física dos itens de maior valor, para pegar o que a conferência semanal não pega.',           modulo: '/app/suprimentos',   frequencia: 'quinzenal', responsavel: 'Valim',            ordem: 30, ativa: true },
 
   // ── Todo mês ────────────────────────────────────────────────────────────────
   { titulo: 'Fechar a folha de pagamento',                descricao: 'Conferir faltas, horas e descontos antes de gerar.',                                                   modulo: '/app/mao-de-obra',   frequencia: 'mensal', responsavel: 'Financeiro',          ordem: 10, ativa: true },
