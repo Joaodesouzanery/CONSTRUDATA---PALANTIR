@@ -50,7 +50,7 @@ const STORE_KEYS = [
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
-  'cdata-manutencoes', 'cdata-laudos', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
+  'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro',
 ]
 
@@ -161,6 +161,7 @@ async function restoreUserData() {
       import('./manejoFinanceiroStore').then(m => m.useManejoFinanceiroStore),
       import('./manutencoesStore').then(m => m.useManutencoesStore),
       import('./laudosStore').then(m => m.useLaudosStore),
+      import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore),
     ])
     // Passo 2: zerar a memória. Isto grava vazio no localStorage de cada store — de propósito,
     // porque o passo 3 sobrescreve logo em seguida com o dado real.
@@ -237,6 +238,7 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'financeiro-titulos', label: 'Pagamentos e Cobranças', load: () => import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore as unknown as TenantStoreApi) },
   { key: 'rateio-consumo', label: 'Rateio de Consumo', load: () => import('./rateioConsumoStore').then(m => m.useRateioConsumoStore as unknown as TenantStoreApi) },
   { key: 'laudos', label: 'Compliance de Laudos', load: () => import('./laudosStore').then(m => m.useLaudosStore as unknown as TenantStoreApi) },
+  { key: 'dias-sem-producao', label: 'Dias sem produção', load: () => import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore as unknown as TenantStoreApi) },
   { key: 'manutencoes', label: 'Manutenções', load: () => import('./manutencoesStore').then(m => m.useManutencoesStore as unknown as TenantStoreApi) },
   { key: 'medicao-billing', label: 'Medição (Boletins)', load: () => import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore as unknown as TenantStoreApi) },
 ]
@@ -362,6 +364,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         // Predial (demo isolado): ativos/planos/OS + laudos do "Residencial Modelo".
         import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().loadDemoData())
         import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().loadDemoData())
+        import('./diasSemProducaoStore').then(({ useDiasSemProducaoStore }) => useDiasSemProducaoStore.getState().loadDemoData())
       } else {
         // Try to restore user data from snapshot; fallback to clearing
         restoreUserData().then((restored) => {
@@ -397,6 +400,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().clearData())
             import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().clearData())
             import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().clearData())
+            import('./diasSemProducaoStore').then(({ useDiasSemProducaoStore }) => useDiasSemProducaoStore.getState().clearData())
             clearLocalOnlyModuleData()
           }
           void pullRealData()

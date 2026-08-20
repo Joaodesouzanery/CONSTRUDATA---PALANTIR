@@ -15,6 +15,7 @@ import {
   writeLocalRdoSabesp,
   type LocalRdoSabespRecord,
 } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
+import { AlertasRdoHoje } from './AlertasRdoHoje'
 
 const STATUS_LABEL: Record<RdoTrechoStatus, string> = {
   not_started: 'Não Iniciado',
@@ -448,6 +449,10 @@ export function DashboardPanel() {
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+      {/* Alertas do dia: se o RDO de hoje foi feito em cada obra. Vem ANTES dos KPIs porque é
+          o único bloco desta tela que pede ação — o resto é leitura. */}
+      <AlertasRdoHoje />
+
       {/* Row 1 KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total de RDOs"    value={String(totalRdos)} />
