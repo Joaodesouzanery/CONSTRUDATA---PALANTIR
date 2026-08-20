@@ -1,19 +1,27 @@
 /**
- * MinhaRotinaPage — Página inicial personalizada por usuário/persona.
+ * MinhaRotinaPage — a tela inicial: as rotinas da empresa, os atalhos e o tutorial.
  *
- * Mostra os módulos fixados em 3 frequências (HOJE / SEMANA / MÊS),
- * com fluxograma visual entre elas, e um picker para adicionar/remover
- * módulos. Persona presets disponíveis para começar rápido.
+ * ─── O QUE MUDOU ──────────────────────────────────────────────────────────────────────────────
+ * A tela era só os atalhos de módulo fixados, com um preset por CARGO. O cargo saiu: a empresa
+ * opera com uma conta só, então escolher "sou engenheiro" não separava nada de verdade — só
+ * trocava quais atalhos apareciam, para todo mundo ao mesmo tempo.
+ *
+ * No lugar entra a aba que faltava: as ROTINAS da empresa, com feito/não feito por ciclo
+ * (diário, semanal, quinzenal, mensal), visíveis para todos. Os atalhos continuam, na segunda
+ * aba, porque navegar rápido é útil — mas deixam de ser a única coisa aqui.
  */
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Sun, Calendar as CalendarIcon, CalendarDays, Plus, X, Settings, ChevronRight,
-  ArrowDown, BookOpen, Home,
+  Sun, Calendar as CalendarIcon, CalendarDays, Plus, X, ChevronRight,
+  ArrowDown, BookOpen, Home, ListChecks,
 } from 'lucide-react'
-import {
-  useUserRoutineStore, PERSONA_PRESETS, type RoutineFrequency,
-} from '@/store/userRoutineStore'
+import { useUserRoutineStore, type RoutineFrequency } from '@/store/userRoutineStore'
+import { RotinasDaEmpresaPanel } from './components/RotinasDaEmpresaPanel'
+import { useRotinasStore } from '@/store/rotinasStore'
+import { useAuth } from '@/lib/auth'
+import { useEffect } from 'react'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { MODULE_REGISTRY, findModule } from './moduleRegistry'
 import { TutorialPanel } from '@/components/shared/TutorialModal'
 import { cn } from '@/lib/utils'
@@ -240,20 +248,31 @@ function FrequencySection({ frequency, pinned, onUnpin, onAdd }: SectionProps) {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function MinhaRotinaPage() {
-  const persona       = useUserRoutineStore((s) => s.persona)
   const pinnedDaily   = useUserRoutineStore((s) => s.pinnedDaily)
   const pinnedWeekly  = useUserRoutineStore((s) => s.pinnedWeekly)
   const pinnedMonthly = useUserRoutineStore((s) => s.pinnedMonthly)
-  const setPersona    = useUserRoutineStore((s) => s.setPersona)
   const togglePin     = useUserRoutineStore((s) => s.togglePin)
 
-  const [activeTab, setActiveTab] = useState<'rotina' | 'tutorial'>('rotina')
+  const [activeTab, setActiveTab] = useState<'rotinas' | 'atalhos' | 'tutorial'>('rotinas')
   const [pickerFreq, setPickerFreq] = useState<RoutineFrequency | null>(null)
-  const [showPersonaMenu, setShowPersonaMenu] = useState(false)
 
-  const currentPreset = PERSONA_PRESETS.find((p) => p.id === persona)
-  const personaLabel = persona === 'custom' ? 'Personalizada' : currentPreset?.label ?? 'Engenheiro'
-  const personaEmoji = persona === 'custom' ? '⚙️' : currentPreset?.emoji ?? '👷'
+  // ── Rotinas da empresa ───────────────────────────────────────────────────────
+  const profileOrgId = useAuth((s) => s.profile?.organization_id)
+  const ensureRotinasScope = useRotinasStore((s) => s.ensureTenantScope)
+  const pullRotinas = useRotinasStore((s) => s.pull)
+  const flushRotinas = useRotinasStore((s) => s.flush)
+
+  useEffect(() => {
+    if (!profileOrgId) return
+    ensureRotinasScope(profileOrgId)
+    // As rotinas são dado real do cliente: em modo Demo não busca nem envia nada, para não
+    // misturar demonstração com operação.
+    if (isDemoModeEnabled()) return
+    void (async () => {
+      await flushRotinas().catch(() => undefined)
+      await pullRotinas().catch(() => undefined)
+    })()
+  }, [ensureRotinasScope, flushRotinas, profileOrgId, pullRotinas])
 
   function unpin(path: string) {
     const freq = useUserRoutineStore.getState().isPinned(path)
@@ -268,14 +287,24 @@ export function MinhaRotinaPage() {
           {/* Tab bar */}
           <div className="flex items-center gap-1 bg-[#3d3d3d] border border-[#525252] rounded-xl p-1 self-start">
             <button
-              onClick={() => setActiveTab('rotina')}
+              onClick={() => setActiveTab('rotinas')}
               className={cn(
                 'flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
-                activeTab === 'rotina' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+                activeTab === 'rotinas' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              )}
+            >
+              <ListChecks size={13} />
+              Rotinas da Empresa
+            </button>
+            <button
+              onClick={() => setActiveTab('atalhos')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
+                activeTab === 'atalhos' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
               )}
             >
               <Home size={13} />
-              Minha Rotina
+              Meus Atalhos
             </button>
             <button
               onClick={() => setActiveTab('tutorial')}
@@ -289,57 +318,16 @@ export function MinhaRotinaPage() {
             </button>
           </div>
 
-          {/* Title + persona selector */}
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">{personaEmoji}</span>
-                <h1 className="text-white text-xl font-bold">
-                  {activeTab === 'rotina' ? `${greeting()}, ${personaLabel}` : 'Guia da Plataforma'}
-                </h1>
-              </div>
-              <p className="text-[#a3a3a3] text-sm capitalize">
-                {activeTab === 'rotina' ? fmtToday() : 'Referência completa de módulos e funcionalidades'}
-              </p>
-            </div>
-
-          {/* Persona selector */}
-          <div className="relative">
-            <button
-              onClick={() => setShowPersonaMenu((v) => !v)}
-              className="flex items-center gap-2 px-3 py-2 bg-[#3a3a3a] hover:bg-[#484848] border border-[#525252] rounded-lg text-sm text-[#f5f5f5] transition-colors"
-            >
-              <Settings size={14} />
-              Trocar persona
-            </button>
-            {showPersonaMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowPersonaMenu(false)} />
-                <div className="absolute right-0 mt-2 w-72 bg-[#2c2c2c] border border-[#525252] rounded-xl shadow-2xl z-50 overflow-hidden">
-                  <div className="px-4 py-2 border-b border-[#525252] text-[10px] font-bold uppercase tracking-widest text-[#a3a3a3]">
-                    Escolha sua persona
-                  </div>
-                  {PERSONA_PRESETS.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => { setPersona(p.id); setShowPersonaMenu(false) }}
-                      className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-[#3a3a3a] transition-colors ${
-                        persona === p.id ? 'bg-[#f97316]/10' : ''
-                      }`}
-                    >
-                      <span className="text-xl">{p.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-semibold ${persona === p.id ? 'text-[#f97316]' : 'text-white'}`}>
-                          {p.label}
-                        </div>
-                        <div className="text-[#a3a3a3] text-xs">{p.desc}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          {/* Título */}
+          <div>
+            <h1 className="text-white text-xl font-bold">
+              {activeTab === 'rotinas' ? `${greeting()}` : activeTab === 'atalhos' ? 'Meus atalhos' : 'Guia da Plataforma'}
+            </h1>
+            <p className="text-[#a3a3a3] text-sm capitalize">
+              {activeTab === 'rotinas' ? fmtToday()
+                : activeTab === 'atalhos' ? 'Os módulos que você abre todo dia, à mão'
+                : 'Referência completa de módulos e funcionalidades'}
+            </p>
           </div>
         </div>
       </div>
@@ -348,15 +336,18 @@ export function MinhaRotinaPage() {
       <div className="flex-1 overflow-auto">
         {activeTab === 'tutorial' ? (
           <TutorialPanel />
+        ) : activeTab === 'rotinas' ? (
+          <RotinasDaEmpresaPanel />
         ) : (
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 
           {/* Intro card */}
           <div className="bg-gradient-to-r from-[#f97316]/15 via-[#f97316]/5 to-transparent border border-[#f97316]/30 rounded-xl p-5">
-            <h2 className="text-white text-base font-bold mb-1">Sua rotina, sua tela inicial</h2>
+            <h2 className="text-white text-base font-bold mb-1">Atalhos para os módulos que você usa</h2>
             <p className="text-[#e5e5e5] text-sm leading-relaxed">
-              Fixe os módulos que você mais usa. A plataforma tem 19 módulos —
-              mas você só precisa de 4 ou 5 no dia a dia. <strong className="text-[#f97316]">Personalize.</strong>
+              Isto é navegação, não tarefa: fixe aqui os módulos que você abre com mais frequência.
+              O que precisa ser <strong className="text-[#f97316]">feito</strong> — e por quem — está na aba
+              Rotinas da Empresa.
             </p>
           </div>
 
@@ -396,7 +387,8 @@ export function MinhaRotinaPage() {
 
           {/* Footer note */}
           <div className="text-center text-[#6b6b6b] text-xs pt-4 pb-8">
-            Suas preferências ficam salvas automaticamente neste navegador.
+            Os atalhos ficam salvos neste navegador. As rotinas da empresa, não: elas vão para o
+            servidor e aparecem para todo mundo.
           </div>
         </div>
         )}

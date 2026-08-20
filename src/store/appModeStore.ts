@@ -51,7 +51,7 @@ const STORE_KEYS = [
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
-  'cdata-manejo-financeiro',
+  'cdata-manejo-financeiro', 'cdata-rotinas',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -162,6 +162,7 @@ async function restoreUserData() {
       import('./manutencoesStore').then(m => m.useManutencoesStore),
       import('./laudosStore').then(m => m.useLaudosStore),
       import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore),
+      import('./rotinasStore').then(m => m.useRotinasStore),
     ])
     // Passo 2: zerar a memória. Isto grava vazio no localStorage de cada store — de propósito,
     // porque o passo 3 sobrescreve logo em seguida com o dado real.

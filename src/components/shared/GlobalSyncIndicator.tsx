@@ -26,6 +26,8 @@ const ROTULOS_TABELA: Record<string, string> = {
   worker_assessments: 'avaliações', work_posts: 'postos de trabalho', labor_occurrences: 'ocorrências',
   labor_crews: 'equipes', rdo: 'RDO', obra_dias_sem_producao: 'dias sem produção',
   construction_sites: 'obras', financeiro_titulos: 'títulos', predial_laudos: 'laudos',
+  suprimentos_estoque_itens: 'itens de estoque', suprimentos_estoque_movimentacoes: 'movimentações de estoque',
+  rotinas: 'rotinas', rotina_execucoes: 'rotinas concluídas',
 }
 const rotuloTabela = (t: string) => ROTULOS_TABELA[t] ?? t
 const rotuloAcao = (tipo: string) =>
