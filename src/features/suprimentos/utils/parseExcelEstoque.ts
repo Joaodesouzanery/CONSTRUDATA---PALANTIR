@@ -8,7 +8,15 @@ import { parseLocaleNumber } from '@/lib/numberFormat'
 
 export interface ExcelPreview {
   headers: string[]
-  rows: Record<string, string>[]   // first 20 rows, raw string values
+  /**
+   * TODAS as linhas da planilha, como texto cru.
+   *
+   * Isto era `raw.slice(0, 20)` — e a mesma lista truncada era usada para GRAVAR, não só para a
+   * prévia. Uma planilha de 80 produtos importava 20, e o contador na tela mostrava "20 itens",
+   * então nem dava para perceber que faltava. Quem precisa de amostra visual corta na hora de
+   * renderizar (o modal já corta em 5).
+   */
+  rows: Record<string, string>[]
 }
 
 // Known field names for auto-suggest mapping
@@ -16,7 +24,7 @@ const FIELD_HINTS: Record<string, string[]> = {
   descricao:           ['descrição', 'descricao', 'description', 'material', 'item', 'nome', 'produto'],
   unidade:             ['unidade', 'un', 'unit', 'und', 'medida'],
   qtdDisponivel:       ['qtd disponivel', 'quantidade disponivel', 'disponivel', 'estoque', 'saldo', 'quantidade', 'qtd', 'qty', 'qtdatual'],
-  estoqueMinimo:       ['estoque minimo', 'minimo', 'min', 'estoque_min', 'qtd_minima', 'qtd min', 'quantidade critica', 'qtd critica', 'critica', 'realizar pedido'],
+  estoqueMinimo:       ['estoque minimo', 'minimo', 'min', 'estoque_min', 'qtd_minima', 'qtd min', 'quantidade critica', 'qtd critica', 'critica'],
   codigoReferencia:    ['codigo de referencia', 'codigo referencia', 'codigo', 'cod ref', 'ref', 'sku', 'referencia'],
   dataUltimoPedido:    ['data ultimo pedido', 'ultimo pedido', 'data pedido', 'data do ultimo pedido'],
   custoUnitario:       ['custo unitario', 'valor unitario', 'unitario', 'custo', 'preco unitario', 'preço unitário', 'price', 'unit cost', 'custounit'],
@@ -28,6 +36,18 @@ const FIELD_HINTS: Record<string, string[]> = {
   qtdPorEmbalagem:     ['un por embalagem', 'unidades por embalagem', 'un por caixa', 'un/caixa', 'qtd por embalagem', 'itens por caixa', 'por caixa', 'conteudo'],
   numEmbalagens:       ['num embalagens', 'numero de embalagens', 'qtd embalagens', 'qtde caixas', 'numero de caixas', 'caixas', 'fardos'],
   valorPorEmbalagem:   ['valor embalagem', 'valor por embalagem', 'valor caixa', 'valor por caixa', 'preco caixa', 'preco embalagem', 'preco por caixa'],
+  // Duas colunas da planilha do almoxarifado que não tinham par no modelo. Vivem no `metadata`
+  // jsonb do item, sem migração. "Realizar Pedido" estava caindo em `estoqueMinimo` — é uma
+  // marcação de comprar ("SIM"/"X"), não uma quantidade, e virava mínimo 0 em todo item.
+  linkProduto:         ['link do produto', 'link produto', 'link', 'url', 'site do produto'],
+  realizarPedido:      ['realizar pedido', 'fazer pedido', 'comprar', 'pedir', 'repor'],
+}
+
+/** "SIM", "X", "1", "true" → true. Vazio, "NAO", "-" → false. */
+function parseSimNao(raw: string): boolean {
+  const v = normalize(raw)
+  if (!v) return false
+  return ['sim', 's', 'x', '1', 'true', 'ok', 'sim!', 'urgente'].includes(v)
 }
 
 function normalize(s: string): string {
@@ -92,9 +112,12 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
           return
         }
 
-        const headers = Object.keys(raw[0])
-        const rows    = raw.slice(0, 20).map((r) =>
-          Object.fromEntries(Object.entries(r).map(([k, v]) => [k, String(v)]))
+        // `Object.keys(raw[0])` não bastava: o `sheet_to_json` omite a chave quando a célula está
+        // vazia, então uma coluna preenchida só a partir da linha 30 ficava invisível no
+        // mapeamento. Varrer todas as linhas resolve.
+        const headers = [...new Set(raw.flatMap((r) => Object.keys(r)))]
+        const rows    = raw.map((r) =>
+          Object.fromEntries(headers.map((h) => [h, String(r[h] ?? '')]))
         )
         resolve({ headers, rows })
       } catch (err) {
@@ -154,6 +177,8 @@ export function applyColumnMapping(
         unidadeEmbalagem:    unidadeEmb,
         codigoReferencia:    str('codigoReferencia')    || undefined,
         dataUltimoPedido:    parseDataBR(str('dataUltimoPedido')),
+        linkProduto:         str('linkProduto')          || undefined,
+        realizarPedido:      parseSimNao(str('realizarPedido')) || undefined,
       }
     })
 }

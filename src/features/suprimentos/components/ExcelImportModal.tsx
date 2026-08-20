@@ -1,17 +1,22 @@
 /**
- * ExcelImportModal — Multi-step Excel import for Materiais & Estoque.
- * Step 1: Drag-and-drop file upload
- * Step 2: Column mapping (auto-suggested)
- * Step 3: Preview first 5 rows
- * Step 4: Confirm import → addItemEstoque
+ * ExcelImportModal — importar a planilha do almoxarifado.
+ *   1. arquivo  2. mapear colunas  3. CONFERIR o que muda  4. aplicar
+ *
+ * O passo 3 era uma amostra de 5 linhas e o botão gravava tudo por INSERT. Quem reenviava a
+ * planilha atualizada — que é o uso normal: o almoxarife mantém a planilha e sobe de novo —
+ * ficava com o estoque inteiro duplicado. Agora a planilha é comparada com o que já existe
+ * (`compararComEstoque`), a tela mostra o que muda e quanto isso pesa em R$, e a gravação
+ * atualiza quem já existe em vez de criar de novo.
  */
 import { useState, useRef } from 'react'
-import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle, FileImage, Plus, Trash2 } from 'lucide-react'
+import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle, FileImage, Plus, Trash2, Copy } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { previewExcel, autoSuggestField, applyColumnMapping } from '../utils/parseExcelEstoque'
 import type { ExcelPreview } from '../utils/parseExcelEstoque'
-import { cn } from '@/lib/utils'
+import { compararComEstoque, chaveDoItem } from '../utils/diffEstoque'
+import type { ItemEstoque } from '@/types'
+import { cn, formatCurrency } from '@/lib/utils'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
 const KNOWN_FIELDS: { value: string; label: string }[] = [
@@ -30,6 +35,8 @@ const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'qtdPorEmbalagem',   label: 'Un. por embalagem'     },
   { value: 'numEmbalagens',     label: 'Nº de embalagens'      },
   { value: 'valorPorEmbalagem', label: 'Valor por embalagem'   },
+  { value: 'linkProduto',       label: 'Link do Produto'       },
+  { value: 'realizarPedido',    label: 'Realizar Pedido'       },
 ]
 
 interface Props {
@@ -70,11 +77,13 @@ const KNOWN_IMAGE_TEMPLATES: Record<string, ImageMaterialRow[]> = {
 }
 
 export function ExcelImportModal({ onClose }: Props) {
-  const { depositos, selectedDepositoId, addItemEstoque } = useSuprimentosStore(
+  const { depositos, selectedDepositoId, estoqueItens, addItemEstoque, updateItemEstoque } = useSuprimentosStore(
     useShallow((s) => ({
       depositos:          s.depositos,
       selectedDepositoId: s.selectedDepositoId,
+      estoqueItens:       s.estoqueItens,
       addItemEstoque:     s.addItemEstoque,
+      updateItemEstoque:  s.updateItemEstoque,
     }))
   )
 
@@ -88,6 +97,7 @@ export function ExcelImportModal({ onClose }: Props) {
   const [importing, setImporting] = useState(false)
   const [imageUrl, setImageUrl]   = useState('')
   const [imageRows, setImageRows] = useState<ImageMaterialRow[]>([{ ...EMPTY_IMAGE_ROW }])
+  const [resultado, setResultado] = useState<{ criados: number; atualizados: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
@@ -135,14 +145,36 @@ export function ExcelImportModal({ onClose }: Props) {
     if (!preview) return
     setImporting(true)
     const items = applyColumnMapping(preview.rows, mapping)
+    // As duas listas casam pelo índice: `compararComEstoque` percorre `items` na ordem e só pula
+    // linha sem descrição nem código. Reindexar pela chave evita depender dessa ordem.
+    const porChave = new Map(diff.linhas.map((l) => [l.chave, l]))
+    // A planilha pode repetir um produto. A conferência conta a primeira linha e ignora as outras;
+    // a gravação faz igual, senão escreveria duas vezes e o número aplicado não bateria com o
+    // número conferido.
+    const jaGravadas = new Set<string>()
+    let criados = 0
+    let atualizados = 0
     for (const item of items) {
-      addItemEstoque({
-        ...item,
-        depositoId:   targetDeposito,
-        qtdReservada: 0,
-        qtdTransito:  0,
-      })
+      const chave = chaveDoItem(item)
+      if (jaGravadas.has(chave)) continue
+      jaGravadas.add(chave)
+      const linha = porChave.get(chave)
+      if (!linha) continue
+      if (linha?.itemId) {
+        // Só o que a planilha realmente trouxe. Um `undefined` aqui apagaria no banco um campo
+        // que a planilha simplesmente não tem coluna para representar.
+        const patch: Partial<ItemEstoque> = {}
+        for (const [k, v] of Object.entries(item)) {
+          if (v !== undefined && v !== '' && v !== null) (patch as Record<string, unknown>)[k] = v
+        }
+        updateItemEstoque(linha.itemId, patch)
+        atualizados++
+      } else {
+        addItemEstoque({ ...item, depositoId: targetDeposito, qtdReservada: 0, qtdTransito: 0 })
+        criados++
+      }
     }
+    setResultado({ criados, atualizados })
     setStep('done')
     setImporting(false)
   }
@@ -177,10 +209,24 @@ export function ExcelImportModal({ onClose }: Props) {
     setImageRows(KNOWN_IMAGE_TEMPLATES[key].map((row) => ({ ...row })))
   }
 
-  const previewItems = preview ? applyColumnMapping(preview.rows.slice(0, 5), mapping) : []
-  const totalItems   = preview ? applyColumnMapping(preview.rows, mapping).length : 0
+  // Comparado só contra o estoque DESTA frente: a mesma descrição em dois depósitos são dois
+  // saldos diferentes, e casar entre frentes moveria material de lugar sem ninguém pedir.
+  // Sem `useMemo` de propósito: o React Compiler memoiza isto sozinho, e o `useMemo` manual aqui
+  // fazia ele desistir de otimizar o componente inteiro ("memoization could not be preserved").
+  const diff = compararComEstoque(
+    preview ? applyColumnMapping(preview.rows, mapping) : [],
+    estoqueItens.filter((i) => i.depositoId === targetDeposito),
+  )
+
+  const totalItems  = diff.linhas.length
+  const mudancas    = diff.novos + diff.alterados
+  // Ordem da conferência: o que muda primeiro; o que ficou igual não precisa de atenção.
+  const linhasOrdenadas = [...diff.linhas].sort((a, b) => {
+    const peso = (t: string) => (t === 'inalterado' ? 1 : 0)
+    return peso(a.tipo) - peso(b.tipo) || Math.abs(b.impactoBRL) - Math.abs(a.impactoBRL)
+  })
   const imageTotalItems = imageRows.filter((row) => row.descricao.trim()).length
-  const importedCount = totalItems || imageTotalItems
+  const importedCount = resultado ? resultado.criados + resultado.atualizados : imageTotalItems
   const deposito     = depositos.find((d) => d.id === targetDeposito)
 
   return (
@@ -198,7 +244,7 @@ export function ExcelImportModal({ onClose }: Props) {
               <p className="text-[10px] text-[#6b6b6b]">
                 {step === 'upload'  && 'Passo 1: Selecionar arquivo'}
                 {step === 'mapping' && 'Passo 2: Mapear colunas'}
-                {step === 'preview' && 'Passo 3: Confirmar importação'}
+                {step === 'preview' && 'Passo 3: Conferir o que muda'}
                 {step === 'image'   && 'Imagem guiada: confirmar materiais'}
                 {step === 'done'    && 'Importação concluída'}
               </p>
@@ -317,37 +363,146 @@ export function ExcelImportModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Step 3: Preview */}
+          {/* Passo 3: conferência — o que a planilha muda no estoque */}
           {step === 'preview' && preview && (
             <div className="flex flex-col gap-4">
-              <p className="text-xs text-[#6b6b6b]">
-                Serão importados <span className="text-[#f5f5f5] font-semibold">{totalItems} itens</span> para a frente{' '}
-                <span className="text-[#f97316] font-medium">{deposito?.frente}</span>. Primeiras 5 linhas:
+              {/* Placar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { rotulo: 'Itens novos',   valor: String(diff.novos),        cor: 'text-[#22c55e]' },
+                  { rotulo: 'Alterados',     valor: String(diff.alterados),    cor: 'text-[#f97316]' },
+                  { rotulo: 'Sem mudança',   valor: String(diff.inalterados),  cor: 'text-[#6b6b6b]' },
+                  {
+                    rotulo: 'Impacto em caixa',
+                    valor: formatCurrency(diff.impactoTotalBRL),
+                    cor: diff.impactoTotalBRL < 0 ? 'text-[#f87171]' : diff.impactoTotalBRL > 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]',
+                  },
+                ].map((c) => (
+                  <div key={c.rotulo} className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-3 py-2.5">
+                    <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">{c.rotulo}</p>
+                    <p className={cn('mt-0.5 text-sm font-bold font-mono', c.cor)}>{c.valor}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-[11px] text-[#6b6b6b]">
+                <span className="text-[#f97316] font-medium">{filename}</span> · {totalItems} linha{totalItems !== 1 ? 's' : ''} lida{totalItems !== 1 ? 's' : ''},
+                comparadas com o estoque de <span className="text-[#f5f5f5]">{deposito?.frente}</span>.
+                {mudancas === 0 && ' Nada mudou — pode aplicar sem receio, nenhum item será duplicado.'}
               </p>
-              <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-auto">
+
+              {/* Abaixo do mínimo */}
+              {diff.abaixoDoMinimo.length > 0 && (
+                <div className="rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[#fbbf24]">
+                    <AlertTriangle size={13} /> {diff.abaixoDoMinimo.length} ite{diff.abaixoDoMinimo.length !== 1 ? 'ns ficam' : 'm fica'} no mínimo ou abaixo
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#d4a44c]">
+                    {diff.abaixoDoMinimo.slice(0, 6).map((l) => `${l.descricao} (${l.qtdDepois}/${l.estoqueMinimo})`).join(' · ')}
+                    {diff.abaixoDoMinimo.length > 6 && ` e mais ${diff.abaixoDoMinimo.length - 6}`}
+                  </p>
+                </div>
+              )}
+
+              {/* Impacto por fornecedor */}
+              {diff.impactoPorFornecedor.length > 0 && (
+                <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Impacto por fornecedor</p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                    {diff.impactoPorFornecedor.map((f) => (
+                      <span key={f.fornecedor} className="text-[11px] text-[#a3a3a3]">
+                        {f.fornecedor} <span className={cn('font-mono', f.impactoBRL < 0 ? 'text-[#f87171]' : 'text-[#22c55e]')}>{formatCurrency(f.impactoBRL)}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Linha a linha */}
+              <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-auto max-h-[320px]">
                 <table className="w-full text-[10px]">
-                  <thead>
+                  <thead className="sticky top-0">
                     <tr className="bg-[#3d3d3d]">
-                      {['Descrição', 'Un.', 'Qtd.', 'Mín.', 'Custo', 'Categoria', 'Fornecedor'].map((h) => (
+                      {['Item', 'Antes', 'Depois', 'Δ', 'Impacto', 'O que é'].map((h) => (
                         <th key={h} className="px-2.5 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {previewItems.map((item, i) => (
-                      <tr key={i} className="border-t border-[#525252]">
-                        <td className="px-2.5 py-1.5 text-[#f5f5f5] max-w-[140px] truncate" title={item.descricao}>{item.descricao}</td>
-                        <td className="px-2.5 py-1.5 text-[#6b6b6b]">{item.unidade}</td>
-                        <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{item.qtdDisponivel}</td>
-                        <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{item.estoqueMinimo}</td>
-                        <td className="px-2.5 py-1.5 text-[#6b6b6b] font-mono">{item.custoUnitario ? `R$ ${item.custoUnitario}` : '—'}</td>
-                        <td className="px-2.5 py-1.5 text-[#6b6b6b] max-w-[100px] truncate">{item.categoria ?? '—'}</td>
-                        <td className="px-2.5 py-1.5 text-[#6b6b6b] max-w-[100px] truncate">{item.fornecedorPrincipal ?? '—'}</td>
+                    {linhasOrdenadas.map((l) => (
+                      <tr key={l.chave} className={cn('border-t border-[#525252]', l.tipo === 'inalterado' && 'opacity-45')}>
+                        <td className="px-2.5 py-1.5 text-[#f5f5f5] max-w-[180px] truncate" title={l.descricao}>
+                          {l.abaixoDoMinimo && <AlertTriangle size={10} className="mr-1 inline text-[#fbbf24]" />}
+                          {l.descricao}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-[#6b6b6b] font-mono">{l.qtdAntes ?? '—'}</td>
+                        <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{l.qtdDepois}</td>
+                        <td className={cn('px-2.5 py-1.5 font-mono', l.deltaQtd < 0 ? 'text-[#f87171]' : l.deltaQtd > 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]')}>
+                          {l.tipo === 'novo' ? '—' : l.deltaQtd > 0 ? `+${l.deltaQtd}` : l.deltaQtd || '—'}
+                        </td>
+                        <td className={cn('px-2.5 py-1.5 font-mono', l.impactoBRL < 0 ? 'text-[#f87171]' : l.impactoBRL > 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]')}>
+                          {l.impactoBRL ? formatCurrency(l.impactoBRL) : '—'}
+                        </td>
+                        <td className="px-2.5 py-1.5">
+                          <span className={cn('rounded px-1.5 py-0.5 text-[9px] font-medium',
+                            l.tipo === 'novo'       ? 'bg-[#22c55e]/15 text-[#4ade80]'
+                            : l.tipo === 'quantidade' ? 'bg-[#f97316]/15 text-[#fb923c]'
+                            : l.tipo === 'custo'      ? 'bg-[#a855f7]/15 text-[#c084fc]'
+                            : l.tipo === 'dados'      ? 'bg-[#0ea5e9]/15 text-[#38bdf8]'
+                            : 'bg-[#525252]/40 text-[#8b8b8b]',
+                          )}>
+                            {l.tipo === 'novo' ? 'novo' : l.tipo === 'quantidade' ? 'quantidade' : l.tipo === 'custo' ? 'custo' : l.tipo === 'dados' ? 'cadastro' : 'igual'}
+                          </span>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* O que o sistema tem e a planilha não trouxe — nunca apagado sozinho */}
+              {diff.ausentesNaPlanilha.length > 0 && (
+                <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2.5">
+                  <p className="text-[11px] font-semibold text-[#a3a3a3]">
+                    {diff.ausentesNaPlanilha.length} ite{diff.ausentesNaPlanilha.length !== 1 ? 'ns estão' : 'm está'} no sistema e não vei{diff.ausentesNaPlanilha.length !== 1 ? 'o' : 'o'} na planilha
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#6b6b6b]">
+                    Ficam como estão. A planilha pode ser parcial, e apagar por ausência destruiria saldo real.{' '}
+                    {diff.ausentesNaPlanilha.slice(0, 8).map((a) => a.descricao).join(' · ')}
+                    {diff.ausentesNaPlanilha.length > 8 && ` e mais ${diff.ausentesNaPlanilha.length - 8}`}
+                  </p>
+                </div>
+              )}
+
+              {/* O mesmo produto repetido dentro da planilha */}
+              {diff.duplicadosNaPlanilha.length > 0 && (
+                <div className="rounded-lg border border-[#0ea5e9]/40 bg-[#0ea5e9]/[0.08] px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[#38bdf8]">
+                    <Copy size={13} /> {diff.duplicadosNaPlanilha.length} linha{diff.duplicadosNaPlanilha.length !== 1 ? 's repetidas' : ' repetida'} na planilha
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#7cc4e8]">
+                    O mesmo produto aparece mais de uma vez. Vale a primeira linha; as outras são ignoradas,
+                    porque somar saldos seria um palpite. Vale conferir a planilha.{' '}
+                    {diff.duplicadosNaPlanilha.slice(0, 6).map((d) => `${d.descricao} (${d.qtdDisponivel})`).join(' · ')}
+                    {diff.duplicadosNaPlanilha.length > 6 && ` e mais ${diff.duplicadosNaPlanilha.length - 6}`}
+                  </p>
+                </div>
+              )}
+
+              {/* Duplicatas herdadas do importador antigo */}
+              {diff.duplicadosNoSistema.length > 0 && (
+                <div className="rounded-lg border border-[#a855f7]/40 bg-[#a855f7]/[0.08] px-3 py-2.5">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[#c084fc]">
+                    <Copy size={13} /> {diff.duplicadosNoSistema.length} ite{diff.duplicadosNoSistema.length !== 1 ? 'ns repetidos' : 'm repetido'} no estoque
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#b18bd4]">
+                    Mesmo produto cadastrado mais de uma vez — sobra de importações anteriores, que duplicavam.
+                    A planilha atualiza só a primeira linha; as outras ficam para você conferir e excluir no Almoxarifado.{' '}
+                    {diff.duplicadosNoSistema.slice(0, 6).map((d) => `${d.descricao} (${d.qtdDisponivel})`).join(' · ')}
+                    {diff.duplicadosNoSistema.length > 6 && ` e mais ${diff.duplicadosNoSistema.length - 6}`}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -406,8 +561,16 @@ export function ExcelImportModal({ onClose }: Props) {
               <div className="text-center">
                 <p className="text-sm font-bold text-[#f5f5f5]">Importação concluída!</p>
                 <p className="text-xs text-[#6b6b6b] mt-1">
-                  {importedCount} ite{importedCount !== 1 ? 'ns foram adicionados' : 'm foi adicionado'} a{' '}
-                  <span className="text-[#f97316]">{deposito?.frente}</span>.
+                  {resultado
+                    ? <>
+                        {resultado.criados} ite{resultado.criados !== 1 ? 'ns criados' : 'm criado'} e{' '}
+                        {resultado.atualizados} atualizado{resultado.atualizados !== 1 ? 's' : ''} em{' '}
+                        <span className="text-[#f97316]">{deposito?.frente}</span>.
+                      </>
+                    : <>
+                        {importedCount} ite{importedCount !== 1 ? 'ns foram adicionados' : 'm foi adicionado'} a{' '}
+                        <span className="text-[#f97316]">{deposito?.frente}</span>.
+                      </>}
                 </p>
               </div>
             </div>
@@ -428,7 +591,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 onClick={() => setStep('preview')}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#f97316] text-white hover:bg-[#f97316]/80 transition-colors"
               >
-                Pré-visualizar <ChevronRight size={12} />
+                Conferir mudanças <ChevronRight size={12} />
               </button>
             )}
             {step === 'preview' && (
@@ -444,7 +607,9 @@ export function ExcelImportModal({ onClose }: Props) {
                   disabled={importing || totalItems === 0}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#22c55e] text-white hover:bg-[#22c55e]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  {importing ? 'Importando...' : `Importar ${totalItems} ite${totalItems !== 1 ? 'ns' : 'm'}`}
+                  {importing ? 'Aplicando...'
+                    : mudancas === 0 ? 'Aplicar (nada muda)'
+                    : `Aplicar ${mudancas} mudança${mudancas !== 1 ? 's' : ''}`}
                 </button>
               </>
             )}

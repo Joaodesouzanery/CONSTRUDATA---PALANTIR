@@ -65,6 +65,7 @@ import {
   type SuprimentosOrdem,
 } from '@/features/suprimentos/utils/suprimentosPlanilhasSupabase'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { hojeLocalISO, horaLocalHHMM } from '@/lib/utils'
 
 // ─── Three-Way Match algorithm ────────────────────────────────────────────────
 
@@ -237,6 +238,27 @@ const mockSupplyChainPlans: SupplyChainPlan[] = [
   { id: 'scp-2', nome: 'Ciclo mensal de demanda de saneamento', processo: 'S&OP', status: 'monitorando', gatilho: 'Aumento de consumo mensal em conexões hidráulicas', solucao: 'Ajustar plano agregado com estoque mínimo por frente e contratos guarda-chuva.', aderenciaPlano: 93, impactoOtif: 3, resiliencia: 89, atualizadoEm: '2026-04-27T17:00:00Z' },
 ]
 
+/**
+ * A ficha de retirada de material — os campos do formulário de papel do almoxarifado.
+ *
+ * Todos opcionais: a baixa continua funcionando sem eles (o RDO consome material sem passar por
+ * ficha nenhuma). Preenchidos, respondem "quem retirou, quanto e quando".
+ */
+export interface FichaRetirada {
+  lpsActivityId?: string
+  observacoes?: string
+  /** Quem LEVOU o material. */
+  retiradoPor?: string
+  /** Quem entregou. */
+  entreguePor?: string
+  /** "HH:mm" — o relógio de quem registra, não o do servidor (que roda em UTC). */
+  hora?: string
+  /** "yyyy-MM-dd" local. */
+  data?: string
+  /** A obra que recebeu. Vence a obra do item: o central atende várias frentes. */
+  siteId?: string | null
+}
+
 interface SuprimentosState {
   purchaseOrders:     PurchaseOrder[]
   receipts:           GoodsReceipt[]
@@ -325,7 +347,7 @@ interface SuprimentosState {
   addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => void
   addReserva:           (r: Omit<ReservaMaterial, 'id' | 'criadoEm'>) => void
   updateReserva:        (id: string, patch: Partial<ReservaMaterial>) => void
-  consumirMaterial:     (itemId: string, qty: number, opts?: { lpsActivityId?: string; observacoes?: string }) => void
+  consumirMaterial:     (itemId: string, qty: number, opts?: FichaRetirada) => void
   calcSemaforo:         (depositoId: string, lpsActivityId: string, semana: number) => 'verde' | 'amarelo' | 'vermelho'
   runWhatIf:            (params: { activityId: string; semanaOriginal: number; semanaSimulada: number; depositoId: string }) => WhatIfResult
 
@@ -465,6 +487,8 @@ function estoqueItemToRow(item: ItemEstoque, orgId: string, userId: string) {
     metadata: {
       ...(item.codigoReferencia ? { codigoReferencia: item.codigoReferencia } : {}),
       ...(item.dataUltimoPedido ? { dataUltimoPedido: item.dataUltimoPedido } : {}),
+      ...(item.linkProduto ? { linkProduto: item.linkProduto } : {}),
+      ...(item.realizarPedido ? { realizarPedido: true } : {}),
     },
     created_by:           userId,
   }
@@ -486,6 +510,10 @@ function movimentacaoToRow(mov: MovimentacaoEstoque, orgId: string, userId: stri
     lps_activity_id: mov.lpsActivityId ?? null,
     site_id:         mov.siteId ?? null,
     observacoes:     mov.observacoes ?? null,
+    retirado_por:    mov.retiradoPor ?? null,
+    entregue_por:    mov.entreguePor ?? null,
+    hora_movimento:  mov.horaMovimento ?? null,
+    custo_unitario:  mov.custoUnitario ?? null,
     created_by:      userId,
   }
 }
@@ -1000,8 +1028,12 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     const item = estoqueItens.find((i) => i.id === itemId)
     if (!item) return
 
-    const siteId = item.siteId ?? useActiveObraStore.getState().activeObraId ?? null
+    // A obra da ficha vence a do item: o material pode estar no almoxarifado central e sair para
+    // uma obra específica, que é justamente o que a ficha de papel registra.
+    const siteId = opts?.siteId ?? item.siteId ?? useActiveObraStore.getState().activeObraId ?? null
     const prevQtd = item.qtdDisponivel
+    const data = opts?.data ?? hojeLocalISO()
+    const hora = opts?.hora ?? horaLocalHHMM()
     const mov: MovimentacaoEstoque = {
       id: crypto.randomUUID(),
       itemId,
@@ -1009,9 +1041,16 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       siteId,
       tipo: 'saida',
       quantidade: qty,
-      dataMovimento: new Date().toISOString().slice(0, 10),
+      // Era `toISOString().slice(0,10)`, ou seja, a data em UTC: uma retirada às 21h30 no Brasil
+      // era registrada no dia seguinte.
+      dataMovimento: data,
+      horaMovimento: hora,
       lpsActivityId: opts?.lpsActivityId,
       observacoes: opts?.observacoes,
+      retiradoPor: opts?.retiradoPor,
+      entreguePor: opts?.entreguePor,
+      // Congelado agora: mudar o preço do item depois não pode reescrever o valor desta saída.
+      custoUnitario: item.custoUnitario,
     }
     // Update otimista (UI instantânea). Sem clamp em 0 — saldo negativo é alerta de inventário.
     set((s) => ({
@@ -1028,6 +1067,10 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           lpsActivityId: opts?.lpsActivityId,
           observacoes: opts?.observacoes,
           siteId,
+          retiradoPor: opts?.retiradoPor,
+          entreguePor: opts?.entreguePor,
+          hora,
+          data,
         })
         set((s) => ({
           estoqueItens: s.estoqueItens.map((i) =>
@@ -1551,6 +1594,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           unidadeEmbalagem:    (r.unidade_embalagem as string | null) ?? undefined,
           codigoReferencia:    ((r.metadata as Record<string, unknown> | null)?.codigoReferencia as string | undefined) || undefined,
           dataUltimoPedido:    ((r.metadata as Record<string, unknown> | null)?.dataUltimoPedido as string | undefined) || undefined,
+          linkProduto:         ((r.metadata as Record<string, unknown> | null)?.linkProduto as string | undefined) || undefined,
+          realizarPedido:      ((r.metadata as Record<string, unknown> | null)?.realizarPedido as boolean | undefined) || undefined,
         })), s.estoqueItens, s.pendingSync, 'suprimentos_estoque_itens'),
       }))
     }
@@ -1573,6 +1618,11 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           lpsActivityId:  (r.lps_activity_id as string | null) ?? undefined,
           observacoes:    (r.observacoes as string | null) ?? undefined,
           siteId:         (r.site_id as string | null) ?? null,
+          retiradoPor:    (r.retirado_por as string | null) ?? undefined,
+          entreguePor:    (r.entregue_por as string | null) ?? undefined,
+          // O Postgres devolve `time` como "HH:MM:SS"; a tela mostra "HH:MM".
+          horaMovimento:  ((r.hora_movimento as string | null) ?? undefined)?.slice(0, 5),
+          custoUnitario:  r.custo_unitario == null ? undefined : Number(r.custo_unitario),
         })), s.movimentacoes, s.pendingSync, 'suprimentos_estoque_movimentacoes'),
       }))
     }

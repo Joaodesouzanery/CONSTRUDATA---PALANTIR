@@ -716,7 +716,19 @@ export async function createSuprimentosOrdem(itemIds: string[]) {
 export async function baixarEstoqueItem(
   itemId: string,
   qty: number,
-  opts?: { lpsActivityId?: string; observacoes?: string; siteId?: string | null }
+  opts?: {
+    lpsActivityId?: string
+    observacoes?: string
+    siteId?: string | null
+    /** Ficha de retirada: quem levou o material e quem entregou. */
+    retiradoPor?: string
+    entreguePor?: string
+    /** "HH:mm" do relógio de quem registra. */
+    hora?: string
+    /** "yyyy-MM-dd" LOCAL. O servidor roda em UTC: depois das 21h no Brasil o `current_date` dele
+     *  já virou o dia seguinte, e a retirada sumiria do relatório de hoje. */
+    data?: string
+  }
 ): Promise<number> {
   const { data, error } = await supabase.rpc('baixar_estoque_item', {
     p_item_id: itemId,
@@ -724,6 +736,10 @@ export async function baixarEstoqueItem(
     p_lps_activity_id: opts?.lpsActivityId ?? null,
     p_observacoes: opts?.observacoes ?? null,
     p_site_id: opts?.siteId ?? null,
+    p_retirado_por: opts?.retiradoPor ?? null,
+    p_entregue_por: opts?.entreguePor ?? null,
+    p_hora: opts?.hora ?? null,
+    p_data: opts?.data ?? null,
   } as never)
   if (error) throw error
   const result = data as { qtd_disponivel: number; deposito_id: string | null } | null

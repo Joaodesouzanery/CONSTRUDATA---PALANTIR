@@ -9,7 +9,12 @@ export type SuprimentosTab =
   | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
   | 'cadeia_rede' | 'cadeia_alertas' | 'cadeia_planejamento'
 
-export type SuprimentosSection = 'suprimentos' | 'materiais' | 'planilhas' | 'cadeia'
+/**
+ * A seção "materiais" ("Análises e Alertas") deixou de existir: tudo o que estava lá passou para
+ * "Fluxo da Obra". Eram duas navegações para o mesmo assunto, e três abas declaradas numa seção
+ * eram roteadas para a outra — ao clicar nelas, nenhuma aba ficava marcada.
+ */
+export type SuprimentosSection = 'suprimentos' | 'planilhas' | 'cadeia'
 
 interface Props {
   section: SuprimentosSection
@@ -18,20 +23,22 @@ interface Props {
   onImportMaterials?: () => void
 }
 
+// A ordem das cinco primeiras é a ordem em que a operação usa o módulo: olhar o painel, conferir
+// o almoxarifado, ver onde o material está, checar o pedido, conciliar a nota. O resto vem depois.
 const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSection }[] = [
   { key: 'fluxo', label: 'Dashboard', section: 'suprimentos' },
   { key: 'almoxarifado', label: 'Estoque / Almoxarifado', section: 'suprimentos' },
-  { key: 'conciliacao', label: 'Conciliação', section: 'suprimentos' },
-  { key: 'excecoes', label: 'Exceções', section: 'suprimentos' },
-  { key: 'previsao', label: 'Previsão de Demanda', section: 'suprimentos' },
-  { key: 'requisicoes', label: 'Requisições', section: 'suprimentos' },
-  { key: 'inteligencia', label: 'Inteligência', section: 'suprimentos' },
-  { key: 'bom', label: 'Cotações / Lista', section: 'suprimentos' },
-  { key: 'materiais', label: 'Materiais & Fornecedores', section: 'materiais' },
+  { key: 'estoque', label: 'Mapa de Estoques', section: 'suprimentos' },
   { key: 'contratos', label: 'Pedidos / Contratos', section: 'suprimentos' },
-  { key: 'estoque', label: 'Mapa de Estoque', section: 'suprimentos' },
-  { key: 'semaforo', label: 'Semáforo de Prontidão', section: 'materiais' },
-  { key: 'whatif', label: 'What-if Logístico', section: 'materiais' },
+  { key: 'conciliacao', label: 'Conciliação', section: 'suprimentos' },
+  { key: 'materiais', label: 'Materiais & Fornecedores', section: 'suprimentos' },
+  { key: 'requisicoes', label: 'Requisições', section: 'suprimentos' },
+  { key: 'bom', label: 'Cotações / Lista', section: 'suprimentos' },
+  { key: 'previsao', label: 'Previsão de Demanda', section: 'suprimentos' },
+  { key: 'inteligencia', label: 'Inteligência', section: 'suprimentos' },
+  { key: 'excecoes', label: 'Exceções', section: 'suprimentos' },
+  { key: 'semaforo', label: 'Semáforo de Prontidão', section: 'suprimentos' },
+  { key: 'whatif', label: 'What-if Logístico', section: 'suprimentos' },
   { key: 'entrada_dados', label: 'Importação / Entrada', section: 'planilhas' },
   { key: 'resumo_nucleo', label: 'Resumo por Núcleo', section: 'planilhas' },
   { key: 'consolidado_trechos', label: 'Consolidado Trechos', section: 'planilhas' },
@@ -44,7 +51,6 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
 export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMaterials }: Props) {
   const {
     purchaseOrders,
-    matches,
     exceptions,
     estoqueItens,
     planilhaResumo,
@@ -55,7 +61,6 @@ export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMat
   } = useSuprimentosStore(
     useShallow((s) => ({
       purchaseOrders: s.purchaseOrders,
-      matches: s.matches,
       exceptions: s.exceptions,
       estoqueItens: s.estoqueItens,
       planilhaResumo: s.planilhaResumo,
@@ -68,14 +73,10 @@ export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMat
   const visibleTabs = ALL_TABS.filter((tab) => tab.section === section)
 
   const totalPOs = purchaseOrders.length
-  const conciliado = matches.filter((match) => match.status === 'matched').length
-  const parcial = matches.filter((match) => match.status === 'partial').length
-  const comExcecao = matches.filter((match) => match.status === 'discrepancy').length
   const openExceptions = exceptions.filter((exception) => exception.status === 'open' || exception.status === 'escalated').length
 
   const totalItens = estoqueItens.length
-  const emRuptura = estoqueItens.filter((item) => item.qtdDisponivel === 0).length
-  const emTransito = estoqueItens.filter((item) => item.qtdTransito > 0).length
+  const abaixoDoMinimo = estoqueItens.filter((item) => item.estoqueMinimo > 0 && item.qtdDisponivel <= item.estoqueMinimo).length
   const valorTotal = estoqueItens.reduce((total, item) => total + item.qtdDisponivel * (item.custoUnitario ?? 0), 0)
 
   const totalTrechos = planilhaResumo.length > 0 ? planilhaResumo.reduce((total, row) => total + row.trObra, 0) : planilhaTrechos.length
@@ -87,17 +88,14 @@ export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMat
     ? Math.round(supplyChainNodes.reduce((total, node) => total + node.otif, 0) / supplyChainNodes.length)
     : 0
 
+  // Com a fusão das duas seções, os quatro números do topo passam a ser os do estoque — que é o
+  // que a operação olha todo dia — mais o pedido. `Conciliadas/Parciais/Com Exceção` continuam
+  // dentro das próprias abas: são três números sobre a mesma coisa, e ocupavam o topo inteiro.
   const supKpis = [
-    { label: 'Conciliadas', value: conciliado, color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
-    { label: 'Parciais', value: parcial, color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
-    { label: 'Com Exceção', value: comExcecao, color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
-    { label: 'Total OCs', value: totalPOs, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
-  ]
-  const matKpis = [
-    { label: 'Total Itens', value: totalItens, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
-    { label: 'Em Ruptura', value: emRuptura, color: 'text-[#f87171]', bg: 'bg-[#dc2626]/10 border-[#dc2626]/30' },
-    { label: 'Em Trânsito', value: emTransito, color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
     { label: 'Valor em Estoque', value: `R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, color: 'text-[#4ade80]', bg: 'bg-[#16a34a]/10 border-[#16a34a]/30' },
+    { label: 'Itens Cadastrados', value: totalItens, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
+    { label: 'No mínimo ou abaixo', value: abaixoDoMinimo, color: abaixoDoMinimo ? 'text-[#fbbf24]' : 'text-[#4ade80]', bg: abaixoDoMinimo ? 'bg-[#ca8a04]/10 border-[#ca8a04]/30' : 'bg-[#16a34a]/10 border-[#16a34a]/30' },
+    { label: 'Pedidos de Compra', value: totalPOs, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
   ]
   const planKpis = [
     { label: 'Trechos em Obra', value: totalTrechos, color: 'text-[#f5f5f5]', bg: 'bg-[#3d3d3d] border-[#525252]' },
@@ -112,7 +110,7 @@ export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMat
     { label: 'Planos Ativos', value: supplyChainPlans.filter((plan) => plan.status !== 'concluido').length, color: 'text-[#fbbf24]', bg: 'bg-[#ca8a04]/10 border-[#ca8a04]/30' },
   ]
 
-  const kpis = section === 'suprimentos' ? supKpis : section === 'materiais' ? matKpis : section === 'planilhas' ? planKpis : cadeiaKpis
+  const kpis = section === 'suprimentos' ? supKpis : section === 'planilhas' ? planKpis : cadeiaKpis
 
   return (
     <div className="flex shrink-0 flex-col gap-4">

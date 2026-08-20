@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet, Plus } from 'lucide-react'
+import { FileSpreadsheet, Plus, PackageMinus } from 'lucide-react'
 import { SuprimentosHeader }    from './components/SuprimentosHeader'
 import { ConciliacaoPanel }     from './components/ConciliacaoPanel'
 import { ExcecoesPanel }        from './components/ExcecoesPanel'
@@ -14,6 +14,7 @@ import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { BomPendentePanel }    from './components/BomPendentePanel'
 import { ExcelImportModal }          from './components/ExcelImportModal'
+import { FichaRetiradaModal }        from './components/FichaRetiradaModal'
 import { NovoMaterialModal }         from './components/NovoMaterialModal'
 import { ImportConsolidadoModal }    from './components/ImportConsolidadoModal'
 import { ImportPlanilhasModal }      from './components/ImportPlanilhasModal'
@@ -22,7 +23,7 @@ import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
 import { MateriaisPendentesPanel }   from './components/MateriaisPendentesPanel'
 import { CadastroManualSuprimentosPanel } from './components/CadastroManualSuprimentosPanel'
 import { CadeiaSuprimentosPanel } from './components/CadeiaSuprimentosPanel'
-import { FluxoGestorSuprimentosPanel } from './components/FluxoGestorSuprimentosPanel'
+import { DashboardSuprimentosPanel } from './components/DashboardSuprimentosPanel'
 import type { SuprimentosTab, SuprimentosSection } from './components/SuprimentosHeader'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -31,7 +32,6 @@ import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 function defaultTabForSection(section: SuprimentosSection): SuprimentosTab {
   if (section === 'suprimentos') return 'fluxo'
-  if (section === 'materiais') return 'materiais'
   if (section === 'cadeia') return 'cadeia_rede'
   return 'resumo_nucleo'
 }
@@ -43,6 +43,7 @@ export function SuprimentosPage() {
   const [showNovoMaterial, setShowNovoMaterial] = useState(false)
   const [showConsolidado, setShowConsolidado] = useState(false)
   const [showPlanilhas, setShowPlanilhas] = useState(false)
+  const [showRetirada, setShowRetirada] = useState(false)
   const pullPlanilhasSupabase = useSuprimentosStore((s) => s.pullPlanilhasSupabase)
   const profileOrgId = useAuth((s) => s.profile?.organization_id)
   const loadDemoData = useSuprimentosStore((s) => s.loadDemoData)
@@ -57,12 +58,18 @@ export function SuprimentosPage() {
     setActiveTab(defaultTabForSection(section))
   }
 
+  // Antes: três abas declaradas como `section: 'suprimentos'` eram roteadas para 'materiais', e ao
+  // clicar nelas a barra de abas não marcava nenhuma. Com uma seção a menos, a regra cabe em duas
+  // listas — e é a MESMA lista do cabeçalho, então não dá para as duas discordarem de novo.
+  const ABAS_PLANILHAS: SuprimentosTab[] = ['entrada_dados', 'resumo_nucleo', 'consolidado_trechos', 'materiais_pendentes']
+  const ABAS_CADEIA: SuprimentosTab[] = ['cadeia_rede', 'cadeia_alertas', 'cadeia_planejamento']
+
   function navigateFlow(tab: SuprimentosTab) {
-    if (tab === 'cadeia_rede' || tab === 'cadeia_alertas' || tab === 'cadeia_planejamento') setActiveSection('cadeia')
-    else if (tab === 'materiais' || tab === 'semaforo' || tab === 'whatif' || tab === 'previsao' || tab === 'inteligencia' || tab === 'excecoes') setActiveSection('materiais')
-    else if (tab === 'contratos' || tab === 'estoque' || tab === 'almoxarifado' || tab === 'conciliacao' || tab === 'requisicoes' || tab === 'bom') setActiveSection('suprimentos')
-    else if (tab === 'entrada_dados' || tab === 'resumo_nucleo' || tab === 'consolidado_trechos' || tab === 'materiais_pendentes') setActiveSection('planilhas')
-    else setActiveSection('suprimentos')
+    setActiveSection(
+      ABAS_CADEIA.includes(tab) ? 'cadeia'
+      : ABAS_PLANILHAS.includes(tab) ? 'planilhas'
+      : 'suprimentos',
+    )
     setActiveTab(tab)
   }
 
@@ -104,15 +111,6 @@ export function SuprimentosPage() {
             Fluxo da Obra
           </button>
           <button
-            onClick={() => selectSection('materiais')}
-            className={cn(
-              'shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
-              activeSection === 'materiais' ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
-            )}
-          >
-            Análises e Alertas
-          </button>
-          <button
             onClick={() => selectSection('planilhas')}
             className={cn(
               'shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors',
@@ -134,29 +132,27 @@ export function SuprimentosPage() {
 
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
           {activeSection === 'suprimentos' && (
-            <button
-              onClick={() => setShowConsolidado(true)}
-              className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5] sm:flex-none"
-            >
-              <FileSpreadsheet size={13} />
-              Importar Consolidado
-            </button>
-          )}
-          {activeSection === 'materiais' && (
             <>
               <button
-                onClick={() => setShowNovoMaterial(true)}
+                onClick={() => setShowRetirada(true)}
                 className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c] sm:flex-none"
+              >
+                <PackageMinus size={13} />
+                Registrar Retirada
+              </button>
+              <button
+                onClick={() => setShowNovoMaterial(true)}
+                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5] sm:flex-none"
               >
                 <Plus size={13} />
                 Adicionar Material
               </button>
               <button
-                onClick={() => setShowImport(true)}
+                onClick={() => setShowConsolidado(true)}
                 className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5] sm:flex-none"
               >
                 <FileSpreadsheet size={13} />
-                Importar Excel
+                Importar Consolidado
               </button>
             </>
           )}
@@ -179,7 +175,7 @@ export function SuprimentosPage() {
         onImportMaterials={() => setShowImport(true)}
       />
 
-      {activeTab === 'fluxo' && <FluxoGestorSuprimentosPanel onNavigate={navigateFlow} />}
+      {activeTab === 'fluxo' && <DashboardSuprimentosPanel onNavigate={navigateFlow} onRegistrarRetirada={() => setShowRetirada(true)} />}
       {activeTab === 'conciliacao' && <ConciliacaoPanel />}
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
       {activeTab === 'previsao'    && <PrevisaoDemandaPanel />}
@@ -204,6 +200,7 @@ export function SuprimentosPage() {
       {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
       {showConsolidado   && <ImportConsolidadoModal onClose={() => setShowConsolidado(false)} />}
       {showPlanilhas     && <ImportPlanilhasModal onClose={() => setShowPlanilhas(false)} />}
+      {showRetirada      && <FichaRetiradaModal onClose={() => setShowRetirada(false)} />}
     </div>
   )
 }

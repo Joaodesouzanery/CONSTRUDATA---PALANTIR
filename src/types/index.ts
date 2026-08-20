@@ -652,6 +652,10 @@ export interface ItemEstoque {
   dataUltimoPedido?: string   // yyyy-MM-dd — data do último pedido (metadata jsonb)
   qtdPorEmbalagem?: number  // un por embalagem (ex.: 96 un/caixa) — facilitador; estoque é sempre em unidades
   unidadeEmbalagem?: string // rótulo da embalagem (ex.: "caixa")
+  /** Link do produto no fornecedor (metadata jsonb) — coluna da planilha do almoxarifado. */
+  linkProduto?: string
+  /** "Realizar Pedido" da planilha (metadata jsonb): marcação manual de que precisa comprar. */
+  realizarPedido?: boolean
 }
 
 export interface MovimentacaoEstoque {
@@ -668,6 +672,20 @@ export interface MovimentacaoEstoque {
   leadTimeDias?: number
   lpsActivityId?: string
   observacoes?: string
+  // ── Ficha de retirada (o formulário de papel do almoxarifado) ─────────────────
+  /** Quem LEVOU o material. Não é o `created_by`, que é quem digitou. */
+  retiradoPor?: string
+  /** Quem entregou — o outro lado da assinatura na ficha. */
+  entreguePor?: string
+  /** "HH:mm". `dataMovimento` é só a data e não separa duas retiradas do mesmo dia. */
+  horaMovimento?: string
+  /**
+   * Custo unitário congelado no momento da movimentação.
+   *
+   * Sem ele o valor de uma saída é recalculado com o preço ATUAL do item, e mudar o preço de um
+   * produto reescreve retroativamente todo o histórico de consumo dele.
+   */
+  custoUnitario?: number
 }
 
 export interface ReservaMaterial {

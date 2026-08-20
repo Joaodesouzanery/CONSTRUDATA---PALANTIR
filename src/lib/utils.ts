@@ -42,6 +42,16 @@ export function dataLocalISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * Agora em `HH:mm`, no relógio de quem está usando o sistema.
+ *
+ * Mesma história de `hojeLocalISO`: o `localtime` do Postgres é a hora do servidor, que roda em
+ * UTC. Uma retirada de material às 13h em São Paulo seria registrada como 16h.
+ */
+export function horaLocalHHMM(d: Date = new Date()): string {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 /** `Date` → `yyyy-MM` no fuso local. Mesmo motivo. */
 export function mesLocalISO(d: Date = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
