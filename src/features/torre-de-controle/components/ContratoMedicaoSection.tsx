@@ -10,7 +10,8 @@ import { FileSpreadsheet, Pencil, Plus, Trash2, Save, X, Download } from 'lucide
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import { medidoAutoPorServico, calcServico, totaisContrato } from '@/features/torre-de-controle/utils/obraMedicao'
+import { cn } from '@/lib/utils'
+import { medidoAutoPorServico, calcServico, totaisContrato, conferirTotal, ehVerba, UNIDADE_VERBA } from '@/features/torre-de-controle/utils/obraMedicao'
 import { exportSolicitacaoMedicao } from '@/features/torre-de-controle/utils/solicitacaoMedicaoXlsx'
 import type { ConstructionSite, ObraContrato, ObraContratoServico } from '@/types'
 
@@ -70,14 +71,30 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
               <div key={s.id} className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-2 flex flex-col gap-1.5">
                 <div className="flex gap-1.5">
                   <input className={inCls} value={s.descricao} onChange={(e) => setSvc(s.id, { descricao: e.target.value })} placeholder="Serviço (ex.: Pintura em Epoxi em Piso)" />
-                  <input className={inCls + ' w-16'} value={s.unidade} onChange={(e) => setSvc(s.id, { unidade: e.target.value })} placeholder="m²" list="obra-contrato-un" />
+                  <input
+                    className={inCls + ' w-16'}
+                    value={s.unidade}
+                    // Escolher "vb" trava a quantidade em 1 — é o que faz `qtd × preço` devolver o
+                    // valor fechado sem nenhum caso especial na conta.
+                    onChange={(e) => {
+                      const unidade = e.target.value
+                      setSvc(s.id, ehVerba(unidade) ? { unidade, qtdContrato: 1 } : { unidade })
+                    }}
+                    placeholder="m²"
+                    list="obra-contrato-un"
+                  />
                   <button onClick={() => rmSvc(s.id)} className="shrink-0 px-2 rounded text-[#6b6b6b] hover:text-[#ef4444] hover:bg-[#ef4444]/10"><Trash2 size={13} /></button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  <NumBox label="Qtd contratada" v={s.qtdContrato} on={(x) => setSvc(s.id, { qtdContrato: parseLocaleNumber(x) })} />
-                  <NumBox label="Preço cheio (R$)" v={s.valorUnitario} on={(x) => setSvc(s.id, { valorUnitario: parseLocaleNumber(x) })} />
+                {/* Verba não tem metragem: o campo de quantidade sai, e a qtd fica travada em 1
+                    para a conta `qtd × preço` continuar valendo sem caso especial. É assim que o
+                    "Faturamento direto" do contrato — metade do valor dele — entra sem gambiarra. */}
+                <div className={cn('grid gap-1.5', ehVerba(s.unidade) ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
+                  {!ehVerba(s.unidade) && (
+                    <NumBox label="Qtd contratada" v={s.qtdContrato} on={(x) => setSvc(s.id, { qtdContrato: parseLocaleNumber(x) })} />
+                  )}
+                  <NumBox label={ehVerba(s.unidade) ? 'Valor fechado (R$)' : 'Preço cheio (R$)'} v={s.valorUnitario} on={(x) => setSvc(s.id, { valorUnitario: parseLocaleNumber(x) })} />
                   <NumBox label="% aplicado" v={s.pctAplicado ?? 100} on={(x) => setSvc(s.id, { pctAplicado: optNum(x) })} />
-                  <NumBox label="Medido anterior" v={s.qtdAnterior} on={(x) => setSvc(s.id, { qtdAnterior: optNum(x) })} />
+                  <NumBox label={ehVerba(s.unidade) ? 'Já faturado (R$)' : 'Medido anterior'} v={s.qtdAnterior} on={(x) => setSvc(s.id, { qtdAnterior: optNum(x) })} />
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-[#6b6b6b]">
                   <span>Preço efetivo: <strong className="text-[#a3a3a3]">{brl(c.precoEfetivo)}</strong></span>
@@ -91,7 +108,10 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
             )
           })}
         </div>
-        <datalist id="obra-contrato-un"><option value="m²" /><option value="m" /><option value="un" /><option value="kg" /><option value="L" /></datalist>
+        <datalist id="obra-contrato-un">
+          <option value="m²" /><option value="m" /><option value="un" /><option value="kg" /><option value="L" />
+          <option value={UNIDADE_VERBA}>verba — valor fechado, sem metragem</option>
+        </datalist>
       </SectionShell>
     )
   }
@@ -99,6 +119,7 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
   // ── Modo leitura (Controle de Medição) ───────────────────────────────────────
   const services = contrato?.services ?? []
   const tot = totaisContrato(services, medidoAuto, contrato?.descontoNfPct)
+  const conferencia = conferirTotal(contrato?.valorTotal, tot.valorContrato)
 
   return (
     <div className="px-4 py-3 border-b border-[#525252] flex flex-col gap-2">
@@ -152,6 +173,21 @@ export function ContratoMedicaoSection({ site }: { site: ConstructionSite }) {
                   <td className="py-1 text-right text-[#22c55e] font-mono" title="saldo (R$)">{brl(tot.saldo)}</td>
                   <td className="py-1 text-right text-[#f59e0b] font-mono" title="medido bruto (R$)">{brl(tot.medidoBruto)}</td>
                 </tr>
+                {/* O total declarado no contrato era digitado, exportado e nunca comparado com a
+                    soma dos itens. Agora é — e a diferença aparece com o tamanho que tem. */}
+                {conferencia && (
+                  <tr className={conferencia.arredondamento ? 'text-[#6b6b6b]' : 'text-[#fbbf24]'}>
+                    <td className="py-0.5 text-right" colSpan={5}>
+                      declarado no contrato {brl(conferencia.declarado)}
+                      {conferencia.arredondamento
+                        ? ' · diferença de arredondamento'
+                        : ` · ⚠ ${conferencia.diferenca > 0 ? 'os itens somam mais' : 'falta serviço ou preço'}`}
+                    </td>
+                    <td className={`py-0.5 text-right font-mono ${conferencia.arredondamento ? '' : 'font-bold'}`}>
+                      {conferencia.diferenca > 0 ? '+' : ''}{brl(conferencia.diferenca)}
+                    </td>
+                  </tr>
+                )}
                 {tot.descontoNfPct > 0 && (
                   <>
                     <tr className="text-[#6b6b6b]">

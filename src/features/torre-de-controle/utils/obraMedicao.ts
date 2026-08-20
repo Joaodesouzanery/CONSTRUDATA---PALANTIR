@@ -65,6 +65,21 @@ export function calcServico(svc: ObraContratoServico, medidoAuto: Map<string, nu
   }
 }
 
+/**
+ * Serviço de valor fechado — "verba", sem metragem.
+ *
+ * O contrato real do cliente tem uma linha de "Faturamento direto" de R$ 607.620,00 que é **50,6%
+ * do contrato** e não tem quantidade nenhuma. O modelo só sabia quantidade × preço, então ela só
+ * entraria como `qtd 1 × R$ 607.620` — e a tela pediria "Qtd contratada" para algo que não tem.
+ *
+ * A convenção é a unidade `vb`: quantidade fixa em 1, e o formulário esconde o campo.
+ */
+export const UNIDADE_VERBA = 'vb'
+
+export function ehVerba(unidade?: string): boolean {
+  return (unidade ?? '').trim().toLowerCase() === UNIDADE_VERBA
+}
+
 export interface TotaisContrato {
   valorContrato:  number   // Σ qtdContrato × preço efetivo
   medidoBruto:    number   // Σ medido × preço efetivo
@@ -93,4 +108,40 @@ export function totaisContrato(
   const pct = Number.isFinite(descontoNfPctRaw) ? Math.max(0, descontoNfPctRaw as number) : 0
   const descontoNf = acc.medidoBruto * (pct / 100)
   return { ...acc, descontoNfPct: pct, descontoNf, medidoLiquido: acc.medidoBruto - descontoNf }
+}
+
+export interface ConferenciaDoTotal {
+  declarado: number
+  somado: number
+  /** `somado − declarado`. Positivo = os itens somam mais do que o contrato diz. */
+  diferenca: number
+  /** Diferença em relação ao declarado, em %. */
+  percentual: number
+  /** Diferença desprezível — cabe em arredondamento de preço unitário. */
+  arredondamento: boolean
+}
+
+/**
+ * O total digitado no contrato bate com a soma dos serviços?
+ *
+ * `ObraContrato.valorTotal` era gravado, exportado no .xlsx e **nunca comparado** com nada. No
+ * contrato real do cliente a diferença existe e é pequena: o documento declara R$ 1.199.944,15, a
+ * soma dos itens dá R$ 1.199.967,68 — R$ 23,53, arredondamento nos preços unitários. Irrelevante
+ * ali; num contrato com um preço digitado errado, é exatamente o que pega.
+ *
+ * O limiar de "arredondamento" é 0,1% ou R$ 100, o que for maior: acima disso não é dízima, é erro
+ * de digitação ou serviço faltando, e a tela precisa dizer.
+ */
+export function conferirTotal(declaradoRaw: number | undefined, somado: number): ConferenciaDoTotal | null {
+  const declarado = Number(declaradoRaw) || 0
+  if (declarado <= 0) return null   // sem total declarado não há o que conferir
+  const diferenca = somado - declarado
+  const tolerancia = Math.max(100, declarado * 0.001)
+  return {
+    declarado,
+    somado,
+    diferenca,
+    percentual: (diferenca / declarado) * 100,
+    arredondamento: Math.abs(diferenca) <= tolerancia,
+  }
 }

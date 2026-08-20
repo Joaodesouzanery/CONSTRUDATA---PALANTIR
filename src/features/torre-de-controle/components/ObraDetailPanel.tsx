@@ -385,6 +385,28 @@ export function ObraDetailPanel() {
 
           {/* Orçamento — editável; fonte do BAC por obra no Planejamento */}
           <Section icon={<DollarSign size={12} />} title="Orçamento">
+            {/* Estes três só existiam no diálogo de edição: quem abria "Detalhes da Obra" não via
+                nenhum deles, nem para conferir. O preço por m² é o que mais pesa — é ele que o RDO
+                usa no valor do dia quando a linha não está vinculada a um serviço do contrato. */}
+            {(site.numeroContrato || site.orcamentoBRL || site.precoM2) && (
+              <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+                {site.numeroContrato && <InfoRow label="Contrato" value={site.numeroContrato} />}
+                {typeof site.orcamentoBRL === 'number' && site.orcamentoBRL > 0 && (
+                  <InfoRow label="Orçamento contratado" value={site.orcamentoBRL.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
+                )}
+                {typeof site.precoM2 === 'number' && site.precoM2 > 0 && (
+                  <InfoRow label="Preço / m²" value={site.precoM2.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} />
+                )}
+              </div>
+            )}
+            {/* Dois cadastros de preço respondendo a mesma pergunta em telas diferentes. Com
+                serviços cadastrados, o preço por m² solto vale só para o que não estiver vinculado. */}
+            {typeof site.precoM2 === 'number' && site.precoM2 > 0 && (site.contrato?.services?.length ?? 0) > 0 && (
+              <p className="mb-2 text-[10px] leading-relaxed text-[#6b6b6b]">
+                Esta obra tem {site.contrato?.services?.length} serviço(s) com preço próprio no contrato.
+                O preço por m² acima só é usado no RDO para linha que não estiver vinculada a nenhum deles.
+              </p>
+            )}
             <OrcamentoEditor site={site} />
             {site.budgetLines && site.budgetLines.length > 0 && (
               <BudgetTable lines={site.budgetLines} />

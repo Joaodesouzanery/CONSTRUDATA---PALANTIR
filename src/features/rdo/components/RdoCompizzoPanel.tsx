@@ -27,6 +27,7 @@ import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } f
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
+import { precoEfetivo } from '@/features/torre-de-controle/utils/obraMedicao'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
@@ -477,23 +478,54 @@ export function RdoCompizzoPanel() {
   /**
    * Quanto o dia produziu, em R$.
    *
-   * Até aqui o RDO só EXIBIA o preço/m² — não fazia conta nenhuma com ele; o valor só aparecia
-   * depois, no Previsto × Realizado e na medição. Aqui ele fecha na hora, enquanto o encarregado
-   * ainda está preenchendo, que é quando um erro de digitação é barato de corrigir.
+   * ─── O QUE ESTAVA ERRADO ───────────────────────────────────────────────────────────────────
+   * Somava TODOS os m² do dia e multiplicava por UM preço — o `precoM2` global da obra —, mesmo
+   * quando cada linha já sabia a qual serviço do contrato pertence (`contractServiceId`) e cada
+   * serviço tem o seu preço. Num contrato de pintura real: piso a R$ 28,94/m², parede a R$ 27,65/m²
+   * e demarcação a R$ 8,75 por metro LINEAR.
    *
-   * Só entram as linhas medidas em ÁREA — o preço é por m². Uma linha em "un" (vagas PCD, por
-   * exemplo) ou em metro linear não pode ser multiplicada por R$/m² sem virar número errado.
+   * Num dia de 200 m² de piso + 150 m² de parede + 80 m de demarcação, o certo é R$ 10.635,50. Com
+   * um preço só saía R$ 10.129,00 (erro de 4,8%) ou R$ 9.677,50 (9,0%), conforme qual preço
+   * estivesse cadastrado — e os R$ 700 da demarcação ficavam fora da conta, porque metro linear era
+   * descartado.
+   *
+   * ─── COMO É AGORA ──────────────────────────────────────────────────────────────────────────
+   * Cada linha vale pelo preço do SERVIÇO dela, seja qual for a unidade. O `precoM2` da obra vira
+   * o recurso para linha solta — a que não está vinculada a serviço nenhum —, e aí a regra antiga
+   * continua valendo: só área, porque o preço é por m².
    */
   const producaoDoDia = useMemo(() => {
     const ehArea = (u?: string) => /^\s*(m²|m2|metro quadrado|metros quadrados)\s*$/i.test(u ?? '')
-    const m2 = producao
-      .filter((linha) => ehArea(linha.unidade))
-      .reduce((soma, linha) => soma + (parseLocaleNumber(linha.quantidade) || 0), 0)
-    const foraDaConta = producao.filter(
-      (linha) => String(linha.quantidade ?? '').trim() !== '' && !ehArea(linha.unidade),
-    ).length
-    return { m2, valor: m2 * precoM2, foraDaConta }
-  }, [producao, precoM2])
+    const porServico = new Map(
+      (selectedSite?.contrato?.services ?? []).map((s) => [s.id, s]),
+    )
+
+    let valor = 0
+    let m2 = 0
+    let foraDaConta = 0
+    let comPrecoProprio = 0
+
+    for (const linha of producao) {
+      const qtd = parseLocaleNumber(linha.quantidade) || 0
+      if (qtd <= 0) continue
+      if (ehArea(linha.unidade)) m2 += qtd
+
+      const servico = linha.contractServiceId ? porServico.get(linha.contractServiceId) : undefined
+      if (servico) {
+        // Preço efetivo = preço cheio × (% aplicado). Mesma conta da medição, para o valor do dia
+        // e o valor medido no fim do mês não discordarem.
+        valor += qtd * precoEfetivo(servico)
+        comPrecoProprio++
+        continue
+      }
+
+      // Sem serviço vinculado: cai no preço por m² da obra, e só se a linha for em área.
+      if (ehArea(linha.unidade) && precoM2 > 0) valor += qtd * precoM2
+      else foraDaConta++
+    }
+
+    return { m2, valor, foraDaConta, comPrecoProprio }
+  }, [producao, precoM2, selectedSite])
   // Custo de mão de obra do dia = Σ custo/dia dos presentes (match normalizado, igual à ponte de apontamentos).
   const custoMaoObraDia = useMemo(
     () => employeeNames.reduce((s, name) => { const w = matchWorkerByName(name, workers); return s + (w ? custoDiaWorker(w) : 0) }, 0),
@@ -577,16 +609,23 @@ export function RdoCompizzoPanel() {
                   {activePlano && (activePlano.areaM2 ?? 0) > 0 && <Meta label="Meta (m²)" value={String(activePlano.areaM2)} />}
                 </div>
               )}
-              {precoM2 > 0 && producaoDoDia.m2 > 0 && (
+              {/* Basta HAVER valor. A condição era `precoM2 > 0 && m2 > 0`, que escondia o bloco
+                  justamente nos dois casos novos: obra que só tem preço por serviço (sem `precoM2`
+                  cadastrado) e dia produzido só em metro linear. */}
+              {producaoDoDia.valor > 0 && (
                 <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg border border-[#f97316]/30 bg-[#f97316]/[0.07] px-3 py-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-[#fdba74]">Produzido hoje</span>
                   <span className="text-sm font-bold tabular-nums text-[#f5f5f5]">{brl(producaoDoDia.valor)}</span>
                   <span className="text-[10px] text-[#a3a3a3]">
-                    {producaoDoDia.m2.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m² × {brl(precoM2)}/m²
+                    {producaoDoDia.comPrecoProprio > 0
+                      // Com serviços do contrato vinculados, a conta é linha a linha e não cabe numa
+                      // multiplicação só — dizer "N m² × R$/m²" ali seria mentir sobre como saiu.
+                      ? `${producaoDoDia.comPrecoProprio} serviço(s) do contrato, cada um pelo seu preço`
+                      : `${producaoDoDia.m2.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m² × ${brl(precoM2)}/m²`}
                   </span>
                   {producaoDoDia.foraDaConta > 0 && (
                     <span className="text-[10px] text-[#6b6b6b]">
-                      · {producaoDoDia.foraDaConta} linha(s) fora da conta (não medidas em m²)
+                      · {producaoDoDia.foraDaConta} linha(s) fora da conta (sem serviço do contrato e não medidas em m²)
                     </span>
                   )}
                 </div>
