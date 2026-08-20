@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { canWriteMaoDeObra } from '@/lib/roles'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, changedColumns, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
@@ -170,6 +170,10 @@ interface MaoDeObraState {
 
   // Absences
   registerAbsence:   (absence: Omit<WorkerAbsence, 'id' | 'registeredAt'>) => string
+  updateAbsence:     (id: string, patch: Partial<WorkerAbsence>) => void
+  removeAbsence:     (id: string) => void
+  /** Devolve `false` quando não havia turno naquele dia — nada a descontar. */
+  marcarTurnoAusente: (workerId: string, date: string, ausente: boolean) => boolean
   assignSubstitute:  (absenceId: string, substituteWorkerId: string) => void
   resolveAbsence:    (absenceId: string) => void
 
@@ -270,6 +274,9 @@ function absenceToRow(a: WorkerAbsence, orgId: string, userId: string) {
     date:            a.date,
     type:            a.type ?? null,
     status:          a.status ?? 'open',
+    // A coluna existe desde a migração de escopo por obra e nunca era preenchida — por isso todo
+    // indicador de falta somava todas as obras.
+    site_id:         a.siteId ?? null,
     payload:         a as unknown as Record<string, unknown>,
     created_by:      userId,
   }
@@ -485,6 +492,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // ── Worker CRUD ─────────────────────────────────────────────────────────────
 
   addWorker: (worker) => {
+    // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
+    // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
     const id = crypto.randomUUID()
     // Respeita a escolha explícita de obra do form: '' = geral (sem obra, aparece em todas);
     // id = aquela obra. Só cai na obra ativa quando o caller NÃO informa siteId (undefined).
@@ -555,6 +565,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // ── Timecards ───────────────────────────────────────────────────────────────
 
   addTimecard: (entry) => {
+    // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
+    // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
     const id = crypto.randomUUID()
     const newEntry: TimecardEntry = { ...entry, id }
     const { orgId, userId } = ctxAuth()
@@ -745,6 +758,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // transferir alguém de obra reescreve o passado: as horas de julho migram para a obra nova.
   // Quem informa `siteId` explicitamente manda; senão herda do trabalhador, senão a obra ativa.
   addShift: (shift) => {
+    // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
+    // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
     const id = crypto.randomUUID()
     const newShift: Shift = { ...shift, id, siteId: resolverObraDoTurno(shift, get()) }
     const { orgId, userId } = ctxAuth()
@@ -885,16 +901,110 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   // ── Absences ────────────────────────────────────────────────────────────────
 
+  /**
+   * Registra a falta — e DESCONTA o dia.
+   *
+   * ─── O DEFEITO QUE ISTO FECHA ───────────────────────────────────────────────────────────────
+   * A falta era gravada na lista de ausências e não tocava no turno. Mas a folha
+   * (`payrollEngine`) e o CMO só olham `shift.status === 'absent'`. Consequência: você registrava
+   * a falta na aba certa, via "registrado com sucesso", e o dia continuava PAGO — `absentDays` do
+   * holerite ficava zero. As duas telas existiam e não se falavam.
+   *
+   * Agora registrar a falta marca o turno daquele dia como `absent`, que é exatamente o que a
+   * folha já sabe ler. Não invento caminho novo: ligo os dois que já existem.
+   *
+   * Se não houver turno no dia, a falta é registrada mesmo assim e `turnoMarcado` volta `false` —
+   * cabe à tela dizer que não houve o que descontar, em vez de fingir que descontou.
+   */
   registerAbsence: (absence) => {
+    // Gate espelhando a policy de `worker_absences`: papel fora da lista não passa no WITH CHECK,
+    // e a escrita otimista viraria op presa para sempre.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+
+    // Duas faltas do mesmo trabalhador no mesmo dia dobram a penalização na avaliação e o
+    // desconto no CMO. A segunda é ignorada, devolvendo o id da que já existe.
+    const jaExiste = get().absences.find((a) => a.workerId === absence.workerId && a.date === absence.date)
+    if (jaExiste) return jaExiste.id
+
     const id = crypto.randomUUID()
-    const newAbsence: WorkerAbsence = { ...absence, id, registeredAt: new Date().toISOString() }
     const { orgId, userId } = ctxAuth()
+    const siteId = absence.siteId
+      ?? get().workers.find((w) => w.id === absence.workerId)?.siteId
+      ?? useActiveObraStore.getState().activeObraId
+      ?? null
+    const newAbsence: WorkerAbsence = { ...absence, siteId, id, registeredAt: new Date().toISOString() }
+
     set((s) => ({
       absences: [...s.absences, newAbsence],
       pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'insert', recordId: id, row: absenceToRow(newAbsence, orgId, userId), table: 'worker_absences' })],
     }))
+    get().marcarTurnoAusente(absence.workerId, absence.date, true)
     void get().flush()
     return id
+  },
+
+  /**
+   * Marca (ou desmarca) o turno do dia como ausente — a ponte entre a aba Faltas e a folha.
+   *
+   * Devolve `true` se havia turno para marcar. Sem turno no dia não há o que descontar: a falta
+   * fica registrada para histórico e avaliação, e a tela avisa.
+   */
+  marcarTurnoAusente: (workerId, date, ausente) => {
+    const alvos = get().shifts.filter((sh) => sh.workerId === workerId && sh.date === date)
+    if (alvos.length === 0) return false
+    set((s) => ({
+      shifts: s.shifts.map((sh) =>
+        sh.workerId === workerId && sh.date === date
+          ? { ...sh, status: ausente ? 'absent' as const : 'scheduled' as const }
+          : sh,
+      ),
+      pendingSync: [
+        ...s.pendingSync,
+        ...alvos.map((sh) => makeOp({
+          entity: 'shift', type: 'update', recordId: sh.id,
+          patch: { payload: { ...sh, status: ausente ? 'absent' : 'scheduled' } as unknown as Record<string, unknown> },
+          table: 'shifts',
+        })),
+      ],
+    }))
+    get().revalidateCLT()
+    return true
+  },
+
+  /** Corrige uma falta lançada errado. Não existia — o erro era permanente. */
+  updateAbsence: (id, patch) => {
+    const atual = get().absences.find((a) => a.id === id)
+    if (!atual) return
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    const proximo: WorkerAbsence = { ...atual, ...patch }
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      absences: s.absences.map((a) => (a.id === id ? proximo : a)),
+      pendingSync: [...s.pendingSync, makeOp({
+        entity: 'worker_absence', type: 'update', recordId: id,
+        patch: changedColumns(absenceToRow(atual, orgId, userId), absenceToRow(proximo, orgId, userId)),
+        table: 'worker_absences',
+      })],
+    }))
+    // Mudou de pessoa ou de dia: o turno antigo volta ao normal e o novo é marcado.
+    if (patch.workerId !== undefined || patch.date !== undefined) {
+      get().marcarTurnoAusente(atual.workerId, atual.date, false)
+      get().marcarTurnoAusente(proximo.workerId, proximo.date, true)
+    }
+    void get().flush()
+  },
+
+  /** Apaga uma falta e DESFAZ o desconto. Também não existia. */
+  removeAbsence: (id) => {
+    const alvo = get().absences.find((a) => a.id === id)
+    if (!alvo) return
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    set((s) => ({
+      absences: s.absences.filter((a) => a.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'worker_absences' })],
+    }))
+    get().marcarTurnoAusente(alvo.workerId, alvo.date, false)
+    void get().flush()
   },
 
   assignSubstitute: (absenceId, substituteWorkerId) => {
@@ -932,6 +1042,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // ── Assessments (ficha de avaliação) ─────────────────────────────────────────
 
   addAssessment: (assessment) => {
+    // Gate espelhando a policy de `worker_assessments`: papel fora da lista não passa no WITH
+    // CHECK e a escrita otimista viraria op presa para sempre.
+    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
     const id = crypto.randomUUID()
     const newAssessment: WorkerAssessment = { ...assessment, id, createdAt: new Date().toISOString() }
     const { orgId, userId } = ctxAuth()

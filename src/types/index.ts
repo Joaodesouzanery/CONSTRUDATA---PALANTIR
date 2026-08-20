@@ -957,6 +957,11 @@ export interface WorkerAbsence {
   substituteWorkerId?: string
   status: 'open' | 'covered' | 'uncovered'
   registeredAt: string
+  /**
+   * Obra da falta. A COLUNA `site_id` existe na tabela desde a migração de escopo por obra, mas
+   * nunca era escrita — então todo indicador de falta somava as faltas de todas as obras.
+   */
+  siteId?: string | null
 }
 
 // ─── Mão de Obra — Ficha de Avaliação de Funcionário ──────────────────────────

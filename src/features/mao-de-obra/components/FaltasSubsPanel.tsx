@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { suggestSubstitutes } from '@/features/mao-de-obra/utils/cltEngine'
 import type { AbsenceType, WorkerAbsence } from '@/types'
+import { hojeLocalISO } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,19 +48,23 @@ interface AbsenceDialogProps {
 }
 
 function AbsenceDialog({ onClose }: AbsenceDialogProps) {
-  const { workers, shifts, cltSettings, registerAbsence, assignSubstitute } =
+  const { workers, shifts, absences, cltSettings, registerAbsence, assignSubstitute } =
     useMaoDeObraStore(useShallow(s => ({
       workers:          s.workers,
       shifts:           s.shifts,
+      absences:         s.absences,
       cltSettings:      s.cltSettings,
       registerAbsence:  s.registerAbsence,
       assignSubstitute: s.assignSubstitute,
     })))
 
   const [workerId, setWorkerId]     = useState('')
-  const [date, setDate]             = useState(new Date().toISOString().split('T')[0])
+  // `hojeLocalISO`, não `toISOString()`: depois das 21h no Brasil o UTC já é amanhã, e a falta
+  // era registrada no dia seguinte — na virada de mês, no mês errado da folha.
+  const [date, setDate]             = useState(hojeLocalISO())
   const [type, setType]             = useState<AbsenceType>('sick_leave')
   const [description, setDesc]      = useState('')
+  const [semTurno, setSemTurno]     = useState(false)
   const [registeredId, setReg]      = useState<string | null>(null)
   const [errors, setErrors]         = useState<Record<string, string>>({})
 
@@ -81,7 +86,14 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
 
   function handleRegister() {
     if (!validate()) return
+    const jaExistia = absences.some((a) => a.workerId === workerId && a.date === date)
     const id = registerAbsence({ workerId, date, type, description: description.trim() || undefined, status: 'open' })
+    if (!id) { setErrors({ workerId: 'Seu perfil não registra faltas.' }); return }
+    if (jaExistia) { setErrors({ date: 'Já existe falta desse funcionário nesta data.' }); return }
+    // Sem turno no dia não há o que descontar. Dizer isso é o que impede o usuário de achar que
+    // a folha foi ajustada quando não foi.
+    const tinhaTurno = shifts.some((sh) => sh.workerId === workerId && sh.date === date)
+    setSemTurno(!tinhaTurno)
     setReg(id)
   }
 
@@ -100,6 +112,12 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
       <div className="w-full max-w-lg bg-[var(--color-surface-elevated)] rounded-2xl shadow-2xl p-6 mb-8">
         <h2 className="text-base font-bold text-[var(--color-text-primary)] mb-5">Registrar Falta</h2>
 
+        {semTurno && registeredId && (
+          <div className="mb-3 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] text-[#fbbf24]">
+            Não havia turno escalado nesse dia, então <strong>não há o que descontar na folha</strong>.
+            A falta fica registrada para histórico e avaliação.
+          </div>
+        )}
         {!registeredId ? (
           <div className="space-y-4">
             <div>
@@ -208,11 +226,12 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
 // ─── FaltasSubsPanel ──────────────────────────────────────────────────────────
 
 export function FaltasSubsPanel() {
-  const { absences, workers, resolveAbsence } = useMaoDeObraStore(
+  const { absences, workers, resolveAbsence, removeAbsence } = useMaoDeObraStore(
     useShallow(s => ({
       absences:      s.absences,
       workers:       s.workers,
       resolveAbsence: s.resolveAbsence,
+      removeAbsence:  s.removeAbsence,
     }))
   )
 
@@ -399,12 +418,24 @@ export function FaltasSubsPanel() {
                     {getSubName(absence.substituteWorkerId)}
                   </td>
                   <td className="px-4 py-3">
-                    {absence.status === 'open' && (
-                      <button onClick={() => resolveAbsence(absence.id)}
-                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20 transition-colors">
-                        Resolver
+                    <div className="flex items-center gap-1.5">
+                      {absence.status === 'open' && (
+                        <button onClick={() => resolveAbsence(absence.id)}
+                          className="px-3 py-1 rounded-lg text-xs font-medium bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20 transition-colors">
+                          Resolver
+                        </button>
+                      )}
+                      {/* Apagar NÃO existia: uma falta lançada errado penalizava a avaliação e
+                          descontava o dia para sempre. Desfaz também a marcação do turno. */}
+                      <button
+                        onClick={() => {
+                          if (confirm('Apagar esta falta? O dia volta a ser pago na folha.')) removeAbsence(absence.id)
+                        }}
+                        title="Apagar a falta e desfazer o desconto do dia"
+                        className="px-2 py-1 rounded-lg text-xs font-medium text-[#a3a3a3] hover:bg-[#ef4444]/10 hover:text-[#f87171] transition-colors">
+                        Apagar
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
