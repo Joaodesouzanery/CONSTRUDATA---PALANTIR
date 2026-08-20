@@ -133,12 +133,16 @@ interface MaoDeObraState {
   // Timecard actions
   addTimecard:     (entry: Omit<TimecardEntry, 'id'>) => void
   importTimecards: (entries: Array<Omit<TimecardEntry, 'id'>>) => void
+  updateTimecard: (id: string, updates: Partial<Omit<TimecardEntry, 'id'>>) => void
+  removeTimecard: (id: string) => void
   syncRdoToTimecards: (rdo: RdoLaborBridgeInput) => void
   removeRdoTimecards: (rdoId: string) => void
 
   // Progress & occurrences
   addProgress:   (entry: Omit<PhysicalProgress, 'id'>) => void
   addOccurrence: (occ: Omit<LaborOccurrence, 'id'>) => void
+  updateOccurrence: (id: string, updates: Partial<Omit<LaborOccurrence, 'id'>>) => void
+  removeOccurrence: (id: string) => void
 
   // Reallocation engine
   runReallocationEngine: () => void
@@ -511,6 +515,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   updateWorker: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({ workers: s.workers.map((w) => (w.id === id ? { ...w, ...updates } : w)) }))
     const target = get().workers.find((w) => w.id === id)
     if (target) {
@@ -523,6 +528,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   removeWorker: (id) => {
+    // Sem o gate, o funcionário sumia da tela DESTE navegador, a op era recusada pelo servidor e
+    // ele continuava existindo para todo mundo — a mesma divergência silenciosa das faltas.
+    if (!podeEscreverMaoDeObra().pode) return
     // Soft-delete (DELETE bloqueado por RLS): marca deleted_at; o pull filtra deleted_at IS NULL.
     set((s) => ({ workers: s.workers.filter((w) => w.id !== id) }))
     set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'workers' })] }))
@@ -532,6 +540,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // ── Crew CRUD ───────────────────────────────────────────────────────────────
 
   addCrew: (crew) => {
+    // `labor_crews_insert_with_role` exige papel de escrita: sem o gate, a equipe aparecia no
+    // grid, era escolhida no RDO e na escala, e nunca existia no banco.
+    if (!podeEscreverMaoDeObra().pode) return
     const id = crypto.randomUUID()
     const newCrew: LaborCrew = { ...crew, id }
     const { orgId, userId } = ctxAuth()
@@ -543,6 +554,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   updateCrew: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({ crews: s.crews.map((c) => (c.id === id ? { ...c, ...updates } : c)) }))
     const target = get().crews.find((c) => c.id === id)
     if (target) {
@@ -555,9 +567,15 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   removeCrew: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       crews: s.crews.filter((c) => c.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'delete', recordId: id, table: 'labor_crews', approvalActionType: 'delete_labor_crew' })],
+      // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+      // CRIA UM PEDIDO e não apaga nada. A op saía da fila como concluída, e a equipe voltava no
+      // pull seguinte. Numa empresa que usa uma conta só, não havia um segundo aprovador para
+      // destravar — excluir equipe era impossível. A RLS aceita o soft delete direto
+      // (`labor_crews_update_role`), que é o caminho que remove* das outras tabelas já usa.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'labor_crews' })],
     }))
     void get().flush()
   },
@@ -579,6 +597,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   importTimecards: (entries) => {
+    if (!podeEscreverMaoDeObra().pode) return
     const { orgId, userId } = ctxAuth()
     const withIds = entries.map((e) => ({ ...e, id: crypto.randomUUID() }))
     set((s) => ({
@@ -587,6 +606,39 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         ...s.pendingSync,
         ...withIds.map((t) => makeOp({ entity: 'timecard', type: 'insert', recordId: t.id, row: timecardToRow(t, orgId, userId), table: 'timecards' })),
       ],
+    }))
+    void get().flush()
+  },
+
+  /**
+   * Corrigir e apagar apontamento.
+   *
+   * Não existiam. Um apontamento lançado com 80 horas em vez de 8 ficava lá para sempre,
+   * envenenando a RUP, o custo por atividade e o progresso físico — a única saída era pedir para
+   * alguém mexer no banco. A RLS de `timecards` já aceitava os dois caminhos (`timecards_update_role`);
+   * era só a tela que não tinha por onde.
+   *
+   * O apontamento que veio do RDO (`sourceRdoId`) é editável do mesmo jeito, mas vale saber que
+   * re-finalizar aquele RDO reescreve o registro — a ponte é idempotente por `sourceRdoId`.
+   */
+  updateTimecard: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    set((s) => ({ timecards: s.timecards.map((t) => (t.id === id ? { ...t, ...updates } : t)) }))
+    const target = get().timecards.find((t) => t.id === id)
+    if (!target) return
+    const { orgId, userId } = ctxAuth()
+    const row = timecardToRow(target, orgId, userId)
+    const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'timecard', type: 'update', recordId: id, patch, table: 'timecards' })] }))
+    void get().flush()
+  },
+
+  removeTimecard: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    // Soft delete: a policy de DELETE é `using(false)` em todas as tabelas do módulo.
+    set((s) => ({
+      timecards: s.timecards.filter((t) => t.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'timecard', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'timecards' })],
     }))
     void get().flush()
   },
@@ -700,6 +752,37 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     void get().flush()
   },
 
+  /**
+   * Corrigir e apagar ocorrência.
+   *
+   * Mesma lacuna dos apontamentos: dava para registrar, nunca para desfazer. Uma advertência
+   * lançada no funcionário errado ficava no histórico dele para sempre — e histórico de ocorrência
+   * é o tipo de registro que pesa numa demissão.
+   */
+  updateOccurrence: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    const atual = get().occurrences.find((o) => o.id === id)
+    if (!atual) return
+    const atualizada = { ...atual, ...updates } as LaborOccurrence
+    const { orgId, userId } = ctxAuth()
+    const row = occurrenceToRow(atualizada, orgId, userId)
+    const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+    set((s) => ({
+      occurrences: s.occurrences.map((o) => (o.id === id ? atualizada : o)),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_occurrence', type: 'update', recordId: id, patch, table: 'labor_occurrences' })],
+    }))
+    void get().flush()
+  },
+
+  removeOccurrence: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    set((s) => ({
+      occurrences: s.occurrences.filter((o) => o.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_occurrence', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'labor_occurrences' })],
+    }))
+    void get().flush()
+  },
+
   // ── Reallocation Engine ──────────────────────────────────────────────────────
 
   runReallocationEngine: () => {
@@ -773,6 +856,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   updateShift: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({ shifts: s.shifts.map((sh) => (sh.id === id ? { ...sh, ...updates } : sh)) }))
     const target = get().shifts.find((sh) => sh.id === id)
     if (target) {
@@ -785,9 +869,12 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   removeShift: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       shifts: s.shifts.filter((sh) => sh.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'shift', type: 'delete', recordId: id, table: 'shifts', approvalActionType: 'delete_shift' })],
+      // Mesma correção de `removeCrew`: o caminho de aprovação não apagava nada e o turno
+      // reaparecia no pull. `shifts_update_role` aceita o soft delete direto.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'shift', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'shifts' })],
     }))
     void get().flush()
   },
@@ -822,10 +909,25 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
    * soft delete: antes eles sumiam só localmente e voltavam no pull seguinte.
    */
   generateSchedule: (month) => {
+    if (!podeEscreverMaoDeObra().pode) return
     const { workers, workPosts, cltSettings } = get()
     const { orgId, userId } = ctxAuth()
     const estadoAtual = get()
+
+    // Dias que JÁ têm um turno não-'scheduled' para aquela pessoa: falta, feriado, atestado.
+    //
+    // Sem isto o gerador punha um turno novo por cima. O dia 10 ficava com dois turnos — o
+    // 'absent' e um 'scheduled' — e a folha, que conta dias trabalhados pela quantidade de turnos
+    // pagáveis, voltava a PAGAR o dia. O desconto da falta sumia sem ninguém ter apagado nada, e
+    // a falta continuava aparecendo na tela, então não havia como desconfiar.
+    const jaDecididos = new Set(
+      estadoAtual.shifts
+        .filter((sh) => sh.date.startsWith(month) && sh.status !== 'scheduled')
+        .map((sh) => `${sh.workerId}|${sh.date}`),
+    )
+
     const gerados: Shift[] = autoGenerateSchedule(workers, workPosts, month, cltSettings)
+      .filter((sh) => !jaDecididos.has(`${sh.workerId}|${sh.date}`))
       .map((sh) => ({ ...sh, id: crypto.randomUUID(), siteId: resolverObraDoTurno(sh, estadoAtual) }))
 
     set((s) => {
@@ -1063,6 +1165,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   updateAssessment: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({ assessments: s.assessments.map((a) => (a.id === id ? { ...a, ...updates } : a)) }))
     const target = get().assessments.find((a) => a.id === id)
     if (target) {
@@ -1076,6 +1179,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
   // Exclusão é soft delete via UPDATE de deleted_at (DELETE é bloqueado por RLS).
   removeAssessment: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({ assessments: s.assessments.filter((a) => a.id !== id) }))
     set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_assessment', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'worker_assessments' })] }))
     void get().flush()

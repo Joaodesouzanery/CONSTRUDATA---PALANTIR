@@ -4,9 +4,12 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import { occurrenceSchema, type OccurrenceFormData } from '../../schemas'
 import { hojeLocalISO } from '@/lib/utils'
+import type { LaborOccurrence } from '@/types'
 
 interface Props {
   onClose: () => void
+  /** Quando informada, o diálogo corrige esta ocorrência em vez de registrar uma nova. */
+  ocorrencia?: LaborOccurrence
 }
 
 const TYPE_OPTIONS: Array<{ value: import('@/types').OccurrenceType; label: string }> = [
@@ -26,9 +29,21 @@ const emptyForm: OccurrenceFormData = {
   affectedCrewIds: [],
 }
 
-export function OcorrenciaDialog({ onClose }: Props) {
-  const { crews, addOccurrence } = useMaoDeObraStore(useShallow((s) => ({ crews: s.crews, addOccurrence: s.addOccurrence })))
-  const [form, setForm]     = useState<OccurrenceFormData>(emptyForm)
+export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
+  const { crews, addOccurrence, updateOccurrence } = useMaoDeObraStore(useShallow((s) => ({
+    crews: s.crews, addOccurrence: s.addOccurrence, updateOccurrence: s.updateOccurrence,
+  })))
+  const [form, setForm]     = useState<OccurrenceFormData>(
+    ocorrencia
+      ? {
+          date:            ocorrencia.date,
+          type:            ocorrencia.type,
+          description:     ocorrencia.description,
+          impactHours:     ocorrencia.impactHours,
+          affectedCrewIds: ocorrencia.affectedCrewIds,
+        }
+      : emptyForm,
+  )
   const [errors, setErrors] = useState<Partial<Record<keyof OccurrenceFormData, string>>>({})
 
   function handleField<K extends keyof OccurrenceFormData>(key: K, val: OccurrenceFormData[K]) {
@@ -58,7 +73,8 @@ export function OcorrenciaDialog({ onClose }: Props) {
       setErrors(fieldErrors)
       return
     }
-    addOccurrence(parsed.data)
+    if (ocorrencia) updateOccurrence(ocorrencia.id, parsed.data)
+    else addOccurrence(parsed.data)
     onClose()
   }
 

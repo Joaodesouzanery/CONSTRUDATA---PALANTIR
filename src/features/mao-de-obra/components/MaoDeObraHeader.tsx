@@ -28,19 +28,25 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'seguranca',     label: 'Segurança'              },
 ]
 
+/** Sem acento, sem caixa, sem espaço dobrado — "EQUIPE  A" casa com "Equipe A". */
+function normalizarNome(v: string): string {
+  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+}
+
 interface Props {
   activeTab: MaoDeObraTab
   onTabChange: (tab: MaoDeObraTab) => void
 }
 
 export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
-  const { workers, shifts, absences, workPosts, violations } = useMaoDeObraStore(
+  const { workers, shifts, absences, workPosts, violations, crews } = useMaoDeObraStore(
     useShallow((s) => ({
       workers:    s.workers,
       shifts:     s.shifts,
       absences:   s.absences,
       workPosts:  s.workPosts,
       violations: s.violations,
+      crews:      s.crews,
     }))
   )
   const addWorker = useMaoDeObraStore((s) => s.addWorker)
@@ -148,10 +154,18 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
         templateFilename="atlantico-funcionarios-template.xlsx"
         commitLabel={(n) => `Importar ${n} ${n === 1 ? 'funcionário' : 'funcionários'}`}
         onCommit={(rows) => {
-          rows.forEach((w) => addWorker({
-            ...w,
-            certifications: [],
-          }))
+          // A coluna "equipe" da planilha vem como TEXTO ("Equipe A"), e `workers.crew_id` é uuid.
+          // Sem esta tradução o Postgres recusava a linha (22P02) e o funcionário ficava preso na
+          // fila de sincronização para sempre: aparecia na tela de quem importou e não existia
+          // para mais ninguém. Nome que não casa com equipe cadastrada vira "sem equipe" — melhor
+          // do que travar a importação inteira por causa de um nome escrito diferente.
+          const porNome = new Map(crews.map((c) => [normalizarNome(c.name), c.id]))
+          const idsValidos = new Set(crews.map((c) => c.id))
+          rows.forEach((w) => {
+            const bruto = String(w.crewId ?? '').trim()
+            const crewId = idsValidos.has(bruto) ? bruto : (porNome.get(normalizarNome(bruto)) ?? '')
+            addWorker({ ...w, crewId, certifications: [] })
+          })
         }}
       />
 

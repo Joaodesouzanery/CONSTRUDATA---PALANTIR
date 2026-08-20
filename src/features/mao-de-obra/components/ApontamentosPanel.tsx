@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Plus, Upload, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Upload, ChevronDown, ChevronUp, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { TimecardDialog } from './dialogs/TimecardDialog'
 import type { TimecardEntry, PhysicalProgress } from '@/types'
-import { hojeLocalISO } from '@/lib/utils'
+import { ImportModal } from '@/components/shared/ImportModal'
+import { TIMECARD_IMPORT_CONFIG } from '@/lib/importConfigs'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,9 +78,15 @@ function ProgressTable({ progress }: { progress: PhysicalProgress[] }) {
 function TimecardTable({
   timecards,
   workers,
+  podeEditar,
+  onEditar,
+  onExcluir,
 }: {
   timecards: TimecardEntry[]
   workers: import('@/types').Worker[]
+  podeEditar: boolean
+  onEditar: (tc: TimecardEntry) => void
+  onExcluir: (tc: TimecardEntry) => void
 }) {
   const [showAll, setShowAll] = useState(false)
   const workerMap = new Map(workers.map((w) => [w.id, w.name]))
@@ -103,6 +111,7 @@ function TimecardTable({
                   <th className="text-right text-[#6b6b6b] font-medium pb-2">HH</th>
                   <th className="text-right text-[#6b6b6b] font-medium pb-2">Qtd</th>
                   <th className="text-left text-[#6b6b6b] font-medium pb-2">Un</th>
+                  {podeEditar && <th className="text-right text-[#6b6b6b] font-medium pb-2">Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -118,6 +127,24 @@ function TimecardTable({
                     <td className="py-2 text-right text-[#f5f5f5]">{tc.hoursWorked}h</td>
                     <td className="py-2 text-right text-[#f5f5f5]">{tc.reportedQty}</td>
                     <td className="py-2 text-[#6b6b6b]">{tc.unit}</td>
+                    {podeEditar && (
+                      <td className="py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => onEditar(tc)}
+                          className="rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#484848] hover:text-[#f5f5f5]"
+                          title="Corrigir este apontamento"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                        <button
+                          onClick={() => onExcluir(tc)}
+                          className="ml-1 rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#dc2626]/20 hover:text-[#f87171]"
+                          title="Excluir este apontamento"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -140,44 +167,66 @@ function TimecardTable({
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
+/** Sem acento, sem caixa, sem espaço dobrado — "JOAO  DA SILVA" casa com "João da Silva". */
+function normalizarNome(v: string): string {
+  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+}
+
 export function ApontamentosPanel() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isImporting,  setIsImporting]  = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [importOpen, setImportOpen]     = useState(false)
+  const [naoEncontrados, setNaoEncontrados] = useState<string[]>([])
 
-  const { workers, timecards, progress, importTimecards } = useMaoDeObraStore(
+  const { workers, timecards, progress, importTimecards, removeTimecard } = useMaoDeObraStore(
     useShallow((s) => ({
       workers:        s.workers,
       timecards:      s.timecards,
       progress:       s.progress,
       importTimecards: s.importTimecards,
+      removeTimecard:  s.removeTimecard,
     }))
   )
+  const [editando, setEditando] = useState<TimecardEntry | null>(null)
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
 
-  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!fileRef.current) return
-    fileRef.current.value = ''
-    if (!file) return
+  /**
+   * O botão "Importar Planilha" NÃO lia o arquivo.
+   *
+   * Ele esperava 1,2 s e injetava dois apontamentos fixos de demonstração — `workerId` 'w-3' e
+   * 'w-6', 8h cada — no dado real do cliente. Os dois entravam no RUP e no calendário, nunca
+   * chegavam ao servidor (aqueles ids não são uuid), voltavam a cada F5 e não tinham como ser
+   * excluídos. Cada clique somava mais dois.
+   *
+   * Agora usa o mesmo importador do resto do projeto: prévia, validação linha a linha e o
+   * funcionário identificado pelo nome, traduzido para o cadastro real na hora de gravar.
+   */
+  function commitApontamentos(rows: { workerName: string; date: string; hoursWorked: number; projectRef: string; phaseRef: string; activityDescription: string; reportedQty: number; unit: string }[]) {
+    const porNome = new Map(workers.map((w) => [normalizarNome(w.name), w.id]))
+    const semCadastro: string[] = []
+    const entradas: Omit<TimecardEntry, 'id'>[] = []
 
-    // Validate MIME/extension client-side
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (!['xlsx', 'csv'].includes(ext ?? '')) {
-      alert('Arquivo inválido. Apenas .xlsx e .csv são aceitos.')
-      return
+    for (const linha of rows) {
+      const workerId = porNome.get(normalizarNome(linha.workerName))
+      if (!workerId) {
+        // Inventar o funcionário aqui criaria um cadastro pela porta dos fundos, sem CPF, sem
+        // salário e sem contrato — e a folha dele sairia errada. Melhor dizer quem faltou.
+        if (!semCadastro.includes(linha.workerName)) semCadastro.push(linha.workerName)
+        continue
+      }
+      entradas.push({
+        workerId,
+        date: linha.date,
+        hoursWorked: linha.hoursWorked,
+        projectRef: linha.projectRef,
+        phaseRef: linha.phaseRef,
+        activityDescription: linha.activityDescription,
+        reportedQty: linha.reportedQty,
+        unit: linha.unit,
+      })
     }
 
-    // Simulate import: inject mock entries after a brief delay
-    setIsImporting(true)
-    setTimeout(() => {
-      const today = hojeLocalISO()
-      const mockImport: Array<Omit<import('@/types').TimecardEntry, 'id'>> = [
-        { workerId: 'w-3', date: today, hoursWorked: 8, projectRef: 'PRJ-001', phaseRef: 'Construção', activityDescription: '[Importado] Apoio alvenaria bloco D', reportedQty: 0, unit: 'serv' },
-        { workerId: 'w-6', date: today, hoursWorked: 8, projectRef: 'PRJ-001', phaseRef: 'Construção', activityDescription: '[Importado] Pintura tecto garagem', reportedQty: 60, unit: 'm²' },
-      ]
-      importTimecards(mockImport)
-      setIsImporting(false)
-    }, 1200)
+    if (entradas.length) importTimecards(entradas)
+    setNaoEncontrados(semCadastro)
   }
 
   return (
@@ -193,27 +242,59 @@ export function ApontamentosPanel() {
         </button>
 
         <button
-          onClick={() => fileRef.current?.click()}
-          disabled={isImporting}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm font-medium hover:bg-[#484848] transition-colors disabled:opacity-50"
+          onClick={() => setImportOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1f3c5e] text-[#f5f5f5] text-sm font-medium hover:bg-[#484848] transition-colors"
         >
-          {isImporting ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-          {isImporting ? 'Importando...' : 'Importar Planilha'}
+          <Upload size={15} />
+          Importar Planilha
         </button>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx,.csv"
-          className="hidden"
-          onChange={handleImportFile}
-        />
       </div>
 
-      <TimecardTable timecards={timecards} workers={workers} />
+      {!permissao.pode && (
+        <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span><strong>Este acesso não lança apontamento.</strong> {permissao.explicacao}</span>
+        </div>
+      )}
+
+      {naoEncontrados.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>{naoEncontrados.length} nome{naoEncontrados.length !== 1 ? 's' : ''} da planilha não está no cadastro</strong> e
+            ficou de fora: {naoEncontrados.join(' · ')}. Cadastre em Funcionários (ou corrija a grafia na planilha) e importe de novo —
+            só essas linhas voltam.
+          </span>
+        </div>
+      )}
+
+      <TimecardTable
+        timecards={timecards}
+        workers={workers}
+        podeEditar={permissao.pode}
+        onEditar={(tc) => setEditando(tc)}
+        onExcluir={(tc) => {
+          const nome = workers.find((w) => w.id === tc.workerId)?.name ?? 'este funcionário'
+          if (window.confirm(`Excluir o apontamento de ${nome} em ${formatDate(tc.date)} (${tc.hoursWorked}h)?`)) {
+            removeTimecard(tc.id)
+          }
+        }}
+      />
       <ProgressTable progress={progress} />
 
       {isDialogOpen && <TimecardDialog onClose={() => setIsDialogOpen(false)} />}
+      {editando && <TimecardDialog apontamento={editando} onClose={() => setEditando(null)} />}
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Apontamentos"
+        description="Aceita .xlsx, .xls ou .csv. O funcionário é identificado pelo nome, como está no cadastro."
+        config={TIMECARD_IMPORT_CONFIG}
+        templateFilename="apontamentos-template.xlsx"
+        commitLabel={(n) => `Importar ${n} ${n === 1 ? 'apontamento' : 'apontamentos'}`}
+        onCommit={commitApontamentos}
+      />
     </div>
   )
 }

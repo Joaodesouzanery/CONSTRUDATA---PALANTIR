@@ -1,8 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
-import { useAuth } from '@/lib/auth'
-import { canWriteMaoDeObra } from '@/lib/roles'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import type { WorkPost } from '@/types'
 
 // ─── WorkPostDialog ────────────────────────────────────────────────────────────
@@ -199,7 +198,13 @@ export function PostosPanel() {
 
   // A RLS de work_posts só aceita planejador/engenheiro/gerente/diretor/owner. Sem este
   // gate o botão existia para todo mundo e a gravação ficava presa na fila em silêncio.
-  const podeEscrever = canWriteMaoDeObra(useAuth((s) => s.profile?.role))
+  //
+  // E a fonte importa: quem decide no servidor é `memberships.role`, não `profiles.role`. Os dois
+  // divergem em situações banais (membership com papel diferente, desativada, ou inexistente — e
+  // aí o cliente FABRICA uma a partir do profile). Enquanto o gate olhava o profile, o botão
+  // ficava aceso para quem o servidor barra, que é exatamente como a fila presa nasce.
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
+  const podeEscrever = permissao.pode
 
   function openNew() { setEditingPost(undefined); setDialogOpen(true) }
   function openEdit(p: WorkPost) { setEditingPost(p); setDialogOpen(true) }
@@ -239,7 +244,7 @@ export function PostosPanel() {
             <span className="text-lg leading-none">+</span> Novo Posto
           </button>
         ) : (
-          <span className="text-xs text-[var(--color-text-muted)]">Seu perfil não edita postos de trabalho.</span>
+          <span className="max-w-sm text-xs text-[var(--color-text-muted)]">{permissao.explicacao}</span>
         )}
       </div>
 

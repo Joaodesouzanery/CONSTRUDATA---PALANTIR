@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Plus, Download, Search, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { Plus, Download, Search, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -336,6 +337,8 @@ export function FuncionariosPanel() {
   const [expandedId,  setExpandedId]  = useState<string | null>(null)
   const [showForm,    setShowForm]    = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
+  const [avisoPermissao, setAvisoPermissao] = useState<string | null>(null)
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
 
   const roles = useMemo(() => [...new Set(workers.map((w) => w.role))].sort(), [workers])
   const depts = useMemo(() => [...new Set(workers.map((w) => w.department).filter(Boolean))].sort() as string[], [workers])
@@ -373,6 +376,13 @@ export function FuncionariosPanel() {
   }, [groupByCrew, filtered, crews])
 
   function handleSave(data: Omit<Worker, 'id'>) {
+    // O gate da loja devolve sem fazer nada quando o papel não autoriza. Fechar o formulário aqui
+    // significava perder tudo o que a pessoa digitou, sem uma linha de aviso — ela só descobria
+    // que não salvou quando o funcionário não aparecia na lista.
+    if (!permissao.pode) {
+      setAvisoPermissao(permissao.explicacao ?? 'Seu acesso não permite salvar funcionários.')
+      return
+    }
     if (editingWorker) {
       updateWorker(editingWorker.id, data)
     } else {
@@ -388,6 +398,10 @@ export function FuncionariosPanel() {
   }
 
   function handleDelete(worker: Worker) {
+    if (!permissao.pode) {
+      setAvisoPermissao(permissao.explicacao ?? 'Seu acesso não permite excluir funcionários.')
+      return
+    }
     if (window.confirm(`Excluir o funcionário ${worker.name}? Esta ação não pode ser desfeita.`)) {
       removeWorker(worker.id)
       if (expandedId === worker.id) setExpandedId(null)
@@ -417,6 +431,16 @@ export function FuncionariosPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      {(!permissao.pode || avisoPermissao) && (
+        <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>Este acesso não cadastra funcionários.</strong>{' '}
+            {avisoPermissao ?? permissao.explicacao}{' '}
+            O aviso aparece de propósito: aceitar o cadastro e perdê-lo depois é pior.
+          </span>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">

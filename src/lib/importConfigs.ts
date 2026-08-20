@@ -236,6 +236,10 @@ export const WORKER_IMPORT_CONFIG: ImportConfig<WorkerImportRow> = {
     { key: 'name',               headerAliases: ['name', 'nome', 'colaborador'],                       type: 'string', required: true },
     { key: 'role',               headerAliases: ['role', 'função', 'funcao', 'cargo'],                 type: 'string', required: true },
     { key: 'cpfMasked',          headerAliases: ['cpf', 'cpfmasked', 'cpf mascarado'],                 type: 'string', defaultValue: '***.***.***-XX', transform: maskCpf },
+    // O valor desta coluna é o NOME da equipe, não um id. Quem monta a planilha escreve
+    // "Equipe A"; a resolução para o uuid acontece no commit, contra as equipes cadastradas.
+    // Antes o exemplo do template era `crew-A`, que ia direto para a coluna `crew_id uuid` e
+    // fazia o Postgres recusar a linha inteira — o funcionário ficava preso naquele navegador.
     { key: 'crewId',             headerAliases: ['crewid', 'crew', 'equipe', 'turma'],                 type: 'string', defaultValue: '' },
     { key: 'status',             headerAliases: ['status'],                                            type: 'string', defaultValue: 'active', transform: (raw) => {
       const s = String(raw).toLowerCase().trim()
@@ -265,12 +269,73 @@ export const WORKER_IMPORT_CONFIG: ImportConfig<WorkerImportRow> = {
     name: 'Carlos Mendes',
     role: 'Encarregado',
     cpf: '12345678900',
-    crewId: 'crew-A',
+    crewId: 'Equipe A',
     status: 'active',
     hourlyRate: 28.50,
     admissionDate: '2024-03-15',
     contractType: 'clt',
     phone: '(11) 99999-9999',
+  },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4b) MÃO DE OBRA — apontamentos.csv
+//
+// A tela de Apontamentos tinha um botão "Importar Planilha" que IGNORAVA o arquivo escolhido e,
+// depois de 1,2 s de falsa espera, injetava dois registros fixos de demonstração no dado real —
+// com `workerId` 'w-3' e 'w-6', que nem são uuid. Eles entravam no RUP e no calendário, nunca
+// chegavam ao servidor, voltavam a cada F5 e não tinham como ser excluídos. Cada clique
+// acrescentava mais dois.
+//
+// Este config é o que faltava para o botão fazer o que promete. O funcionário é identificado pelo
+// NOME (é o que a planilha do apontamento traz), e a tradução para o uuid acontece no commit,
+// contra o cadastro — mesmo cuidado da coluna "equipe" do import de funcionários.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TimecardImportRow = {
+  workerName:          string
+  date:                string
+  hoursWorked:         number
+  projectRef:          string
+  phaseRef:            string
+  activityDescription: string
+  reportedQty:         number
+  unit:                string
+} & Record<string, unknown>
+
+const timecardSchema = z.object({
+  workerName:          z.string().min(1, 'Nome do funcionário é obrigatório'),
+  date:                z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data deve ser yyyy-MM-dd'),
+  hoursWorked:         z.number().nonnegative('Horas não podem ser negativas').default(0),
+  projectRef:          z.string().default(''),
+  phaseRef:            z.string().default(''),
+  activityDescription: z.string().default(''),
+  reportedQty:         z.number().nonnegative().default(0),
+  unit:                z.string().default('h'),
+})
+
+export const TIMECARD_IMPORT_CONFIG: ImportConfig<TimecardImportRow> = {
+  schema: timecardSchema,
+  columns: [
+    { key: 'workerName',          headerAliases: ['funcionario', 'funcionário', 'colaborador', 'nome', 'worker', 'name'], type: 'string', required: true },
+    { key: 'date',                headerAliases: ['data', 'date', 'dia'],                                    type: 'date',   required: true },
+    { key: 'hoursWorked',         headerAliases: ['horas', 'hh', 'hours', 'hoursworked', 'horas trabalhadas'], type: 'number', required: true, defaultValue: 0 },
+    { key: 'projectRef',          headerAliases: ['obra', 'projeto', 'project', 'projectref'],                type: 'string', defaultValue: '' },
+    { key: 'phaseRef',            headerAliases: ['fase', 'etapa', 'phase', 'phaseref'],                      type: 'string', defaultValue: '' },
+    { key: 'activityDescription', headerAliases: ['atividade', 'servico', 'serviço', 'descricao', 'descrição', 'activity'], type: 'string', defaultValue: '' },
+    { key: 'reportedQty',         headerAliases: ['quantidade', 'qtd', 'producao', 'produção', 'qty'],        type: 'number', defaultValue: 0 },
+    { key: 'unit',                headerAliases: ['unidade', 'un', 'unit'],                                   type: 'string', defaultValue: 'h' },
+  ],
+  exampleHeaders: ['funcionario', 'data', 'horas', 'obra', 'fase', 'atividade', 'quantidade', 'unidade'],
+  exampleRow: {
+    funcionario: 'Carlos Mendes',
+    data: '2026-08-19',
+    horas: 8,
+    obra: 'Morro do Tetéu',
+    fase: 'Estrutura',
+    atividade: 'Pintura do teto da garagem',
+    quantidade: 60,
+    unidade: 'm2',
   },
 }
 

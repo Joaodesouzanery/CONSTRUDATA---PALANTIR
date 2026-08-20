@@ -1,12 +1,16 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, AlertTriangle } from 'lucide-react'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import { timecardSchema, type TimecardFormData } from '../../schemas'
+import type { TimecardEntry } from '@/types'
 import { hojeLocalISO } from '@/lib/utils'
 
 interface Props {
   onClose: () => void
+  /** Quando informado, o diálogo corrige este apontamento em vez de criar um novo. */
+  apontamento?: TimecardEntry
 }
 
 const emptyForm: TimecardFormData = {
@@ -23,10 +27,27 @@ const emptyForm: TimecardFormData = {
 
 const UNITS = ['m²', 'm³', 'kg', 'un', 'm', 'serv']
 
-export function TimecardDialog({ onClose }: Props) {
-  const { workers, addTimecard } = useMaoDeObraStore(useShallow((s) => ({ workers: s.workers, addTimecard: s.addTimecard })))
-  const [form, setForm]     = useState<TimecardFormData>(emptyForm)
+export function TimecardDialog({ onClose, apontamento }: Props) {
+  const { workers, addTimecard, updateTimecard } = useMaoDeObraStore(useShallow((s) => ({
+    workers: s.workers, addTimecard: s.addTimecard, updateTimecard: s.updateTimecard,
+  })))
+  const [form, setForm]     = useState<TimecardFormData>(
+    apontamento
+      ? {
+          workerId:            apontamento.workerId,
+          date:                apontamento.date,
+          hoursWorked:         apontamento.hoursWorked,
+          projectRef:          apontamento.projectRef,
+          phaseRef:            apontamento.phaseRef,
+          activityDescription: apontamento.activityDescription,
+          reportedQty:         apontamento.reportedQty,
+          unit:                apontamento.unit,
+          notes:               apontamento.notes ?? '',
+        }
+      : emptyForm,
+  )
   const [errors, setErrors] = useState<Partial<Record<keyof TimecardFormData, string>>>({})
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
 
   function handleField<K extends keyof TimecardFormData>(key: K, val: TimecardFormData[K]) {
     setForm((f) => ({ ...f, [key]: val }))
@@ -45,7 +66,11 @@ export function TimecardDialog({ onClose }: Props) {
       setErrors(fieldErrors)
       return
     }
-    addTimecard(parsed.data)
+    // `addTimecard` devolve sem fazer nada quando o papel não autoriza. Fechar o diálogo aqui
+    // jogava fora o apontamento inteiro sem uma palavra de aviso.
+    if (!permissao.pode) return
+    if (apontamento) updateTimecard(apontamento.id, parsed.data)
+    else addTimecard(parsed.data)
     onClose()
   }
 
@@ -56,11 +81,18 @@ export function TimecardDialog({ onClose }: Props) {
     >
       <div className="bg-[#333333] border border-[#525252] rounded-xl w-full max-w-md p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-[#f5f5f5] text-base font-semibold">Novo Apontamento</h2>
+          <h2 className="text-[#f5f5f5] text-base font-semibold">{apontamento ? 'Corrigir Apontamento' : 'Novo Apontamento'}</h2>
           <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
             <X size={18} />
           </button>
         </div>
+
+        {!permissao.pode && (
+          <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span><strong>Este acesso não lança apontamento.</strong> {permissao.explicacao}</span>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Worker */}
@@ -175,7 +207,8 @@ export function TimecardDialog({ onClose }: Props) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-sm font-semibold transition-colors"
+              disabled={!permissao.pode}
+              className="px-4 py-2 rounded-lg bg-[#f97316] hover:bg-[#ea6c0a] text-white text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             >
               Salvar
             </button>

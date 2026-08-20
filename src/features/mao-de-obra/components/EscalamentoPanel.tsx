@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { RefreshCw, Check, X, Plus } from 'lucide-react'
+import { RefreshCw, Check, X, Plus, Pencil, Trash2 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
-import { useAuth } from '@/lib/auth'
-import { canWriteMaoDeObra } from '@/lib/roles'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { OcorrenciaDialog } from './dialogs/OcorrenciaDialog'
 import type { ReallocationSuggestion, LaborOccurrence } from '@/types'
 import { cn } from '@/lib/utils'
@@ -114,9 +113,15 @@ function SuggestionCard({
 function OccurrenceRow({
   occ,
   crews,
+  podeEditar,
+  onEditar,
+  onExcluir,
 }: {
   occ: LaborOccurrence
   crews: import('@/types').LaborCrew[]
+  podeEditar: boolean
+  onEditar: () => void
+  onExcluir: () => void
 }) {
   const crewNames = occ.affectedCrewIds
     .map((id) => crews.find((c) => c.id === id)?.name ?? id)
@@ -131,6 +136,18 @@ function OccurrenceRow({
       <td className="py-2 text-[#f5f5f5] text-xs max-w-[240px] truncate">{occ.description}</td>
       <td className="py-2 text-right text-[#f5f5f5] text-xs font-semibold">{occ.impactHours}h</td>
       <td className="py-2 text-[#6b6b6b] text-xs hidden md:table-cell">{crewNames}</td>
+      {podeEditar && (
+        <td className="py-2 text-right whitespace-nowrap">
+          <button onClick={onEditar} title="Corrigir esta ocorrência"
+            className="rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#484848] hover:text-[#f5f5f5]">
+            <Pencil size={12} />
+          </button>
+          <button onClick={onExcluir} title="Excluir esta ocorrência"
+            className="ml-1 rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#dc2626]/20 hover:text-[#f87171]">
+            <Trash2 size={12} />
+          </button>
+        </td>
+      )}
     </tr>
   )
 }
@@ -139,11 +156,16 @@ function OccurrenceRow({
 
 export function EscalamentoPanel() {
   const [isOcorrenciaOpen, setIsOcorrenciaOpen] = useState(false)
+  const [editando, setEditando] = useState<LaborOccurrence | null>(null)
   // A RLS de labor_occurrences aceita os mesmos papéis de work_posts. Sem o gate, quem não
   // passa registrava a ocorrência, via na lista, e a gravação ficava presa na fila.
-  const podeEscrever = canWriteMaoDeObra(useAuth((s) => s.profile?.role))
+  //
+  // Quem decide no servidor é a MEMBERSHIP, não `profiles.role` — as duas divergem em situações
+  // banais, e enquanto o gate olhava o profile o botão ficava aceso para quem o servidor barra.
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
+  const podeEscrever = permissao.pode
 
-  const { suggestions, occurrences, crews, runReallocationEngine, acceptSuggestion, dismissSuggestion } =
+  const { suggestions, occurrences, crews, runReallocationEngine, acceptSuggestion, dismissSuggestion, removeOccurrence } =
     useMaoDeObraStore(
       useShallow((s) => ({
         suggestions:          s.suggestions,
@@ -152,6 +174,7 @@ export function EscalamentoPanel() {
         runReallocationEngine: s.runReallocationEngine,
         acceptSuggestion:     s.acceptSuggestion,
         dismissSuggestion:    s.dismissSuggestion,
+        removeOccurrence:     s.removeOccurrence,
       }))
     )
 
@@ -231,13 +254,25 @@ export function EscalamentoPanel() {
                   <th className="text-left text-[#6b6b6b] font-medium pb-2">Descrição</th>
                   <th className="text-right text-[#6b6b6b] font-medium pb-2">Impacto</th>
                   <th className="text-left text-[#6b6b6b] font-medium pb-2 hidden md:table-cell">Equipes</th>
+                  {podeEscrever && <th className="text-right text-[#6b6b6b] font-medium pb-2">Ações</th>}
                 </tr>
               </thead>
               <tbody>
                 {[...occurrences]
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((occ) => (
-                    <OccurrenceRow key={occ.id} occ={occ} crews={crews} />
+                    <OccurrenceRow
+                      key={occ.id}
+                      occ={occ}
+                      crews={crews}
+                      podeEditar={podeEscrever}
+                      onEditar={() => setEditando(occ)}
+                      onExcluir={() => {
+                        if (window.confirm(`Excluir a ocorrência de ${new Date(occ.date + 'T00:00:00').toLocaleDateString('pt-BR')} (${occ.description.slice(0, 40)})?`)) {
+                          removeOccurrence(occ.id)
+                        }
+                      }}
+                    />
                   ))}
               </tbody>
             </table>
@@ -246,6 +281,7 @@ export function EscalamentoPanel() {
       </div>
 
       {isOcorrenciaOpen && <OcorrenciaDialog onClose={() => setIsOcorrenciaOpen(false)} />}
+      {editando && <OcorrenciaDialog ocorrencia={editando} onClose={() => setEditando(null)} />}
     </div>
   )
 }
