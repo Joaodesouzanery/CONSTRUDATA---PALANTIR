@@ -153,6 +153,55 @@ body {
   background: #f97316;
 }
 
+/* ─── Landing: rolagem no documento, e barra que dá para pegar ────────────────
+ *
+ * DOIS PROBLEMAS, UM DE CADA VEZ.
+ *
+ * 1. QUEM ROLA. `html, body, #root { height: 100% }` (acima) trava os três na altura da janela;
+ *    com `overflow-x: hidden` junto, o `overflow-y` computa para `auto` e quem passa a rolar é o
+ *    `#root`, não o documento. Isso é o que o app escuro quer — ele tem cabeçalho e sidebar fixos.
+ *    A landing não: é uma página longa e comum. Rolando no `#root` ela perde três coisas do
+ *    navegador — no celular a barra de endereço não recolhe, a restauração de scroll ao voltar
+ *    não acerta, e as âncoras não usam o caminho nativo.
+ *
+ * 2. O TAMANHO DA BARRA. Medido no Chrome antes de mexer: 6px de largura e polegar de 4,9% do
+ *    trilho (≈44px) numa página de 18.446px — um alvo de 6×44 para dezoito metros de página. E o
+ *    trilho global é #333333, quase preto, correndo ao lado de uma página branca.
+ *
+ * A classe é posta em <html> pela própria LandingPage, no mesmo efeito que já tira o `data-theme`,
+ * e sai ao trocar de rota. O app escuro continua exatamente como estava.
+ */
+html.landing-rolagem,
+html.landing-rolagem body,
+html.landing-rolagem #root {
+  height: auto;
+  min-height: 100%;
+}
+
+html.landing-rolagem {
+  /* Firefox não estiliza a barra por pseudo-elemento; estas duas linhas são o que ele lê. */
+  scrollbar-width: auto;
+  scrollbar-color: rgba(10, 10, 10, 0.32) #f1f1ef;
+}
+html.landing-rolagem::-webkit-scrollbar {
+  width: 13px;
+}
+html.landing-rolagem::-webkit-scrollbar-track {
+  background: #f1f1ef;
+}
+html.landing-rolagem::-webkit-scrollbar-thumb {
+  /* A borda da cor do trilho + `background-clip: padding-box` é o truque que dá respiro ao
+     polegar sem precisar de um trilho mais estreito que a área clicável. */
+  background: rgba(10, 10, 10, 0.32);
+  border: 3px solid #f1f1ef;
+  background-clip: padding-box;
+  border-radius: 99px;
+}
+html.landing-rolagem::-webkit-scrollbar-thumb:hover {
+  background: #cc2b33;
+  background-clip: padding-box;
+}
+
 .font-mono {
   font-family: var(--font-mono);
 }

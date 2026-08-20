@@ -941,9 +941,14 @@ export function LandingPage() {
     const html = document.documentElement
     const previousTheme = html.getAttribute('data-theme')
     html.removeAttribute('data-theme')
+    // `landing-rolagem` faz duas coisas, as duas explicadas no globals.css: solta o
+    // `height: 100%` para a página rolar no DOCUMENTO (e não no #root, como o app escuro
+    // precisa), e troca a barra de 6px escura por uma de 13px clara. Sai ao trocar de rota.
+    html.classList.add('landing-rolagem')
     return () => {
       if (previousTheme) html.setAttribute('data-theme', previousTheme)
       else html.removeAttribute('data-theme')
+      html.classList.remove('landing-rolagem')
     }
   }, [])
 
