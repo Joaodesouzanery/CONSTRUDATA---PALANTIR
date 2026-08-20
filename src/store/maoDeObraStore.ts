@@ -648,6 +648,22 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // um RDO substitui os apontamentos daquele RDO, sem duplicar). unit:'h'/reportedQty:0
   // para NÃO dobrar o m² que a RUP já lê direto do Compizzo.
   syncRdoToTimecards: (rdo) => {
+    // ─── O CASO QUE ATRAVESSA MÓDULOS ─────────────────────────────────────────
+    // Esta ponte roda quando o RDO é FINALIZADO, dentro do `rdoStore`. E as duas listas de papéis
+    // não são a mesma: `qualidade` pode finalizar RDO (`ROLES_RDO_WRITE`) mas não pode escrever em
+    // `timecards` (`ROLES_MAO_DE_OBRA_WRITE`). Sem gate, o RDO finalizava com sucesso e cada
+    // apontamento gerado voltava 42501 — as horas nunca chegavam à folha, e a fila entupia.
+    //
+    // Voltar calado seria trocar um problema por outro: quem finalizou acharia que a ponte rodou.
+    // Então avisa, e o aviso aparece no indicador de sincronização.
+    if (!podeEscreverMaoDeObra().pode) {
+      set({
+        syncError: 'O RDO foi finalizado, mas as horas não foram lançadas nos apontamentos: '
+          + 'este acesso não tem permissão para escrever em Mão de Obra. Peça a alguém com papel de '
+          + 'engenheiro, planejador, gerente ou diretor para reabrir e finalizar o RDO.',
+      })
+      return
+    }
     const { orgId, userId } = ctxAuth()
     const workers = get().workers
     const porId = new Map(workers.map((w) => [w.id, w]))
@@ -716,6 +732,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // Limpa os apontamentos gerados por um RDO que deixou de existir (exclusão aprovada) —
   // chamado pelo reconcile do pull do rdoStore. Idempotente.
   removeRdoTimecards: (rdoId) => {
+    // Mesma ponte, sentido inverso (reabrir ou excluir o RDO). Mesmo motivo do gate acima.
+    if (!podeEscreverMaoDeObra().pode) return
     const alvo = get().timecards.filter((t) => t.sourceRdoId === rdoId)
     if (alvo.length === 0) return
     const deletedAt = new Date().toISOString()
@@ -880,6 +898,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   bulkAddShifts: (newShifts) => {
+    if (!podeEscreverMaoDeObra().pode) return
     const { orgId, userId } = ctxAuth()
     const estado = get()
     const withIds: Shift[] = newShifts.map((sh) => ({ ...sh, id: crypto.randomUUID(), siteId: resolverObraDoTurno(sh, estado) }))
@@ -1052,6 +1071,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
    * fica registrada para histórico e avaliação, e a tela avisa.
    */
   marcarTurnoAusente: (workerId, date, ausente) => {
+    if (!podeEscreverMaoDeObra().pode) return false
     const alvos = get().shifts.filter((sh) => sh.workerId === workerId && sh.date === date)
     if (alvos.length === 0) return false
     set((s) => ({
@@ -1188,6 +1208,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // ── CLT Settings ─────────────────────────────────────────────────────────────
 
   updateCLTSettings: (settings) => {
+    // SEM gate de papel, e isso é deliberado: as policies de `clt_settings`
+    // (`20260704120000_clt_settings.sql`) exigem só `organization_id = user_org()`, sem `has_role`.
+    // Um gate aqui seria mais rígido que o servidor e esconderia a tela de quem tem direito a ela.
+    // A regra deste projeto é: o gate espelha a RLS — nem mais, nem menos.
     set((s) => ({ cltSettings: { ...s.cltSettings, ...settings } }))
     const { orgId, userId } = ctxAuth()
     if (orgId === 'pending') return   // sem org real ainda: fica local; sincroniza na próxima edição logada

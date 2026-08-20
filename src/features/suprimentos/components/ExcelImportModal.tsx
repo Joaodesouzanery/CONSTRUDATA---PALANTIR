@@ -17,6 +17,7 @@ import type { ExcelPreview } from '../utils/parseExcelEstoque'
 import { compararComEstoque, chaveDoItem } from '../utils/diffEstoque'
 import type { ItemEstoque } from '@/types'
 import { cn, formatCurrency } from '@/lib/utils'
+import { usePermissaoEscrita, ROLES_SUPRIMENTOS_WRITE } from '@/lib/roles'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
 const KNOWN_FIELDS: { value: string; label: string }[] = [
@@ -78,6 +79,7 @@ export function ExcelImportModal({ onClose }: Props) {
   const [imageUrl, setImageUrl]   = useState('')
   const [imageRows, setImageRows] = useState<ImageMaterialRow[]>([{ ...EMPTY_IMAGE_ROW }])
   const [resultado, setResultado] = useState<{ criados: number; atualizados: number } | null>(null)
+  const permissao = usePermissaoEscrita(ROLES_SUPRIMENTOS_WRITE)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
@@ -301,6 +303,17 @@ export function ExcelImportModal({ onClose }: Props) {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
+          {/* O aviso vem antes de tudo: sem permissão, a importação inteira vira fila presa —
+              a tela diria "23 itens criados" e cada insert voltaria 42501. */}
+          {!permissao.pode && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>
+                <strong>Este acesso não cadastra material.</strong> {permissao.explicacao} Dá para
+                conferir o que a planilha mudaria, mas o botão de aplicar fica desligado.
+              </span>
+            </div>
+          )}
 
           {/* Step 1: Upload */}
           {step === 'upload' && (
@@ -639,7 +652,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={importing || totalItems === 0}
+                  disabled={importing || totalItems === 0 || !permissao.pode}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#22c55e] text-white hover:bg-[#22c55e]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {importing ? 'Aplicando...'
@@ -651,7 +664,7 @@ export function ExcelImportModal({ onClose }: Props) {
             {step === 'image' && (
               <button
                 onClick={handleImageImport}
-                disabled={importing || imageTotalItems === 0}
+                disabled={importing || imageTotalItems === 0 || !permissao.pode}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#22c55e] text-white hover:bg-[#22c55e]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {importing ? 'Importando...' : `Importar ${imageTotalItems} ite${imageTotalItems !== 1 ? 'ns' : 'm'}`}

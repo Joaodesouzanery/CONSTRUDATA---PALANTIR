@@ -69,6 +69,25 @@ export function canWriteMaoDeObra(role?: string | null): boolean {
   return ROLES_MAO_DE_OBRA_WRITE.includes((role ?? '') as UserRole)
 }
 
+/**
+ * Papéis que a RLS deixa mexer em estoque, depósito e movimentação
+ * (`20260518133035_tenant_safe_almoxarifado_isolation.sql:38, :57, :70`).
+ *
+ * ─── REPARE QUE A LISTA É DIFERENTE ───────────────────────────────────────────
+ * Aqui entra `comprador` e NÃO entra `planejador` — o inverso de Mão de Obra. Reaproveitar
+ * `ROLES_MAO_DE_OBRA_WRITE` liberaria o planejador para importar a planilha (e a op ficaria presa)
+ * e barraria o comprador de cadastrar item (e o botão sumiria de quem mais precisa dele). São dois
+ * espelhos de duas policies diferentes, e precisam continuar separados.
+ *
+ * O `suprimentosStore` não tinha gate NENHUM: qualquer papel importava a planilha, via "23 itens
+ * criados" na tela, e cada insert voltava 42501. Depois de cinco tentativas a fila estacionava, e
+ * o único botão oferecido era "Descartar" — que apagaria o trabalho.
+ */
+export const ROLES_SUPRIMENTOS_WRITE: readonly UserRole[] = ['comprador', 'engenheiro', 'gerente', 'diretor', 'owner']
+export function canWriteSuprimentos(role?: string | null): boolean {
+  return ROLES_SUPRIMENTOS_WRITE.includes((role ?? '') as UserRole)
+}
+
 // ─── O gate do cliente e a RLS do servidor precisam olhar a MESMA coisa ─────────
 //
 // Este bloco existe por causa de um incidente real, e vale a pena registrar o mecanismo.
@@ -166,6 +185,7 @@ function avaliarPermissao(
 }
 
 /** Atalhos por módulo, para o chamador não repetir a lista de papéis. */
-export const podeEscreverMaoDeObra = () => podeEscrever(ROLES_MAO_DE_OBRA_WRITE)
-export const podeEscreverRdo       = () => podeEscrever(ROLES_RDO_WRITE)
-export const podeEscreverTitulos   = () => podeEscrever(ROLES_TITULOS_WRITE)
+export const podeEscreverMaoDeObra   = () => podeEscrever(ROLES_MAO_DE_OBRA_WRITE)
+export const podeEscreverRdo         = () => podeEscrever(ROLES_RDO_WRITE)
+export const podeEscreverTitulos     = () => podeEscrever(ROLES_TITULOS_WRITE)
+export const podeEscreverSuprimentos = () => podeEscrever(ROLES_SUPRIMENTOS_WRITE)

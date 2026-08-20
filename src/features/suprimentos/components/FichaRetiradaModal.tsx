@@ -26,6 +26,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useAuth } from '@/lib/auth'
 import { cn, formatCurrency, hojeLocalISO, horaLocalHHMM } from '@/lib/utils'
+import { usePermissaoEscrita, ROLES_SUPRIMENTOS_WRITE } from '@/lib/roles'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { ItemEstoque } from '@/types'
 
@@ -57,6 +58,7 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
   const [hora, setHora]         = useState(horaLocalHHMM())
   const [observacoes, setObs]   = useState('')
   const [salvando, setSalvando] = useState(false)
+  const permissao = usePermissaoEscrita(ROLES_SUPRIMENTOS_WRITE)
 
   const item = estoqueItens.find((i) => i.id === itemId)
   const qtd  = parseLocaleNumber(quantidade)
@@ -76,7 +78,7 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
   const ficaNegativo = Boolean(item) && saldoDepois < 0
   const ficaAbaixoDoMinimo = Boolean(item) && (item?.estoqueMinimo ?? 0) > 0 && saldoDepois <= (item?.estoqueMinimo ?? 0)
 
-  const faltaPreencher = !item || !Number.isFinite(qtd) || qtd <= 0 || !retiradoPor.trim()
+  const faltaPreencher = !item || !Number.isFinite(qtd) || qtd <= 0 || !retiradoPor.trim() || !permissao.pode
 
   function registrar() {
     if (!item || faltaPreencher) return
@@ -115,6 +117,16 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
 
         <div className="flex-1 overflow-y-auto p-5">
           <div className="flex flex-col gap-3.5">
+            {!permissao.pode && (
+              <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <strong>Este acesso não dá baixa no estoque.</strong> {permissao.explicacao} O botão
+                  está desligado de propósito: descer o saldo na tela e o servidor recusar depois é pior
+                  do que avisar agora.
+                </span>
+              </div>
+            )}
 
             {/* Material */}
             <div>

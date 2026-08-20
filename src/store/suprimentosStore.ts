@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth, canWrite } from '@/lib/auth'
+import { podeEscreverSuprimentos } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { eventBus } from '@/lib/eventBus'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -893,6 +894,8 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   // ─── Estoque actions ────────────────────────────────────────────────────────
 
   addDeposito: (deposito) => {
+    // `sup_dep_insert_with_role` — mesma lista do item de estoque.
+    if (!podeEscreverSuprimentos().pode) return ''
     const id = crypto.randomUUID()
     const row = { ...deposito, id, ativo: deposito.ativo ?? true, siteId: deposito.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     const { orgId, userId } = currentSyncContext()
@@ -953,6 +956,11 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   setSelectedDeposito: (id) => set({ selectedDepositoId: id }),
 
   addItemEstoque: (item) => {
+    // `sup_est_itens_insert_with_role` exige comprador/engenheiro/gerente/diretor/owner. Sem este
+    // gate, importar a planilha com outro papel mostrava "23 itens criados" na tela e cada insert
+    // voltava 42501 — a fila estacionava depois de cinco tentativas, e o único botão oferecido
+    // apagaria o trabalho. Repare que a lista NÃO é a mesma de Mão de Obra.
+    if (!podeEscreverSuprimentos().pode) return ''
     const id = crypto.randomUUID()
     const { orgId, userId } = currentSyncContext()
     let depositoId = item.depositoId
@@ -1008,6 +1016,10 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   },
 
   addMovimentacao: (mov) => {
+    // `sup_est_mov_insert_with_role`. As demais mutações de estoque (update de item, de depósito e
+    // os soft deletes) NÃO ganham gate de propósito: a policy de UPDATE pede só a organização, e
+    // um gate mais rígido que a RLS esconderia botão de quem o servidor aceita.
+    if (!podeEscreverSuprimentos().pode) return
     const id = crypto.randomUUID()
     const row = { ...mov, id, siteId: mov.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     const { orgId, userId } = currentSyncContext()
@@ -1032,6 +1044,11 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     })),
 
   consumirMaterial: (itemId, qty, opts) => {
+    // Espelha a checagem que a RPC `baixar_estoque_item` passou a fazer
+    // (`20260824120000_baixar_estoque_confere_papel.sql`). Sem o gate aqui, a tela desceria o saldo
+    // na hora e o servidor recusaria depois — e o `catch` do reverte devolveria a quantidade, o que
+    // pisca na tela sem explicar nada.
+    if (!podeEscreverSuprimentos().pode) return
     const { estoqueItens } = get()
     const item = estoqueItens.find((i) => i.id === itemId)
     if (!item) return
