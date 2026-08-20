@@ -85,15 +85,83 @@ function parseDataBR(raw: string): string | undefined {
   return undefined
 }
 
-/** Auto-suggest a field mapping for a detected Excel header. */
+/**
+ * Adivinha a qual campo do sistema um cabeçalho da planilha corresponde.
+ *
+ * ─── POR QUE ISTO NÃO É UM `includes` ─────────────────────────────────────────────────────────
+ * Era: percorria os campos na ordem do objeto e devolvia o PRIMEIRO cuja dica estivesse contida no
+ * cabeçalho. Duas colunas da planilha real do cliente caíam no campo errado, e o efeito era
+ * destrutivo:
+ *
+ *   "Quantidade Crítica"  → `qtdDisponivel`, porque a dica 'quantidade' está contida nela e
+ *                           `qtdDisponivel` é testado antes de `estoqueMinimo`
+ *   "Link do Produto"     → `descricao`,     porque a dica 'produto' está contida nela e
+ *                           `descricao` é o primeiro campo do objeto
+ *
+ * Somado ao fato de que o mapa invertido deixava a ÚLTIMA coluna vencer, importar a planilha
+ * gravava o nome do produto como "[URL]" e o saldo como a quantidade crítica — que naquela planilha
+ * está vazia, ou seja, zero. Vinte e três produtos chamados "[URL]" com saldo zero.
+ *
+ * Agora a decisão é por PONTUAÇÃO, e a dica mais específica vence:
+ *
+ *   1000  o cabeçalho é IGUAL à dica            ("quantidade critica" = 'quantidade critica')
+ *    100  a dica aparece como palavra inteira   ("qtd critica no dep" contém 'qtd critica')
+ *     50  a dica CONTÉM o cabeçalho             ("fornec" dentro de 'fornecedorprincipal')
+ *
+ * Empate é desfeito pelo tamanho da dica, então 'quantidade critica' (18) ganha de 'quantidade'
+ * (10) no mesmo cabeçalho. É isso que conserta os dois casos acima.
+ */
 export function autoSuggestField(header: string): string {
   const n = normalize(header)
+  if (!n) return 'ignorar'
+
+  let melhorCampo = 'ignorar'
+  let melhorNota = 0
+
   for (const [field, hints] of Object.entries(FIELD_HINTS)) {
-    if (hints.some((h) => n.includes(h) || h.includes(n))) {
-      return field
+    for (const h of hints) {
+      let nota = 0
+      if (n === h) nota = 1000 + h.length
+      else if (contemPalavraInteira(n, h)) nota = 100 + h.length
+      else if (h.includes(n)) nota = 50 + n.length
+      if (nota > melhorNota) { melhorNota = nota; melhorCampo = field }
     }
   }
-  return 'ignorar'
+  return melhorCampo
+}
+
+/**
+ * A dica aparece no cabeçalho delimitada por não-alfanumérico?
+ *
+ * Fronteira de caractere, não `includes`: assim 'quantidade' casa em "quantidade (un)" e NÃO casa
+ * dentro de outra palavra. É a mesma regra que `custoLedger.matchesProject` usa para não deixar
+ * "OBRA-1" casar com "OBRA-10".
+ */
+function contemPalavraInteira(texto: string, dica: string): boolean {
+  const escapada = dica.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^a-z0-9])${escapada}([^a-z0-9]|$)`, 'i').test(texto)
+}
+
+/**
+ * Duas colunas disputando o mesmo campo.
+ *
+ * Antes isso passava calado — `inv[campo] = cabecalho` deixava a última coluna do arquivo vencer, e
+ * era exatamente assim que "Link do Produto" roubava o lugar de "Produto". A tela precisa mostrar.
+ */
+export interface ConflitoDeColuna {
+  campo: string
+  cabecalhos: string[]
+}
+
+export function detectarConflitos(mapping: Record<string, string>): ConflitoDeColuna[] {
+  const porCampo = new Map<string, string[]>()
+  for (const [cabecalho, campo] of Object.entries(mapping)) {
+    if (campo === 'ignorar') continue
+    porCampo.set(campo, [...(porCampo.get(campo) ?? []), cabecalho])
+  }
+  return [...porCampo.entries()]
+    .filter(([, cabecalhos]) => cabecalhos.length > 1)
+    .map(([campo, cabecalhos]) => ({ campo, cabecalhos }))
 }
 
 /** Read an Excel/CSV file and return headers + first 20 rows. */
@@ -130,14 +198,32 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
 }
 
 /** Apply a header→field mapping to raw rows and produce ItemEstoque shapes. */
+/**
+ * Item vindo da planilha, já mapeado.
+ *
+ * `qtdDisponivel` e `estoqueMinimo` são OPCIONAIS de propósito, e a diferença importa:
+ * `undefined` quer dizer "a planilha não falou sobre isso"; `0` quer dizer "a planilha disse zero".
+ * Antes os dois viravam `0`, e como zero passa no filtro de gravação, uma célula em branco
+ * **apagava** o estoque mínimo que já existia no sistema. Na planilha do cliente as colunas
+ * Fornecedor, Código de Referência e Quantidade Crítica estão vazias nas 23 linhas.
+ */
+export type ItemImportado = Omit<
+  ItemEstoque, 'id' | 'depositoId' | 'qtdReservada' | 'qtdTransito' | 'qtdDisponivel' | 'estoqueMinimo'
+> & {
+  qtdDisponivel?: number
+  estoqueMinimo?: number
+}
+
 export function applyColumnMapping(
   rows: Record<string, string>[],
   mapping: Record<string, string>,   // excelHeader → fieldName (or 'ignorar')
-): Omit<ItemEstoque, 'id' | 'depositoId' | 'qtdReservada' | 'qtdTransito'>[] {
-  // Invert mapping: fieldName → excelHeader
+): ItemImportado[] {
+  // fieldName → excelHeader. A PRIMEIRA coluna que reivindica um campo vence — antes era a última,
+  // e era assim que "Link do Produto" tomava o lugar de "Produto". Disputa é sinalizada na tela
+  // por `detectarConflitos`, não resolvida em silêncio aqui.
   const inv: Record<string, string> = {}
   for (const [header, field] of Object.entries(mapping)) {
-    if (field !== 'ignorar') inv[field] = header
+    if (field !== 'ignorar' && !inv[field]) inv[field] = header
   }
 
   return rows
@@ -146,8 +232,14 @@ export function applyColumnMapping(
       return descCol ? row[descCol]?.trim() !== '' : true
     })
     .map((row) => {
-      const str  = (field: string) => (inv[field] ? row[inv[field]]?.trim() ?? '' : '')
-      const num  = (field: string) => parseLocaleNumber(str(field))
+      const str = (field: string) => (inv[field] ? row[inv[field]]?.trim() ?? '' : '')
+      /** A planilha falou sobre este campo? Coluna não mapeada ou célula em branco = não falou. */
+      const informado = (field: string) => str(field) !== ''
+      /** Número quando informado; `undefined` quando a planilha não disse nada. */
+      const numOpt = (field: string) => (informado(field) ? parseLocaleNumber(str(field)) : undefined)
+      /** Número para as contas internas, onde ausente pode virar zero sem prejuízo. */
+      const num = (field: string) => numOpt(field) ?? 0
+
       const valorTotal = num('valorTotal')
       // Embalagem: colunas dedicadas têm prioridade; senão parseia a string "9 cx (24un)" da Quantidade.
       const embStr = parseQuantidadeEmbalagem(str('qtdDisponivel'))
@@ -155,21 +247,29 @@ export function applyColumnMapping(
       const porEmb = colPorEmb > 0 ? colPorEmb : (embStr.porEmb ?? 0)
       const numEmb = colPorEmb > 0 ? num('numEmbalagens') : (embStr.porEmb ? embStr.num : 0)
       const valorEmb = num('valorPorEmbalagem')
-      const quantidade = porEmb > 0 && numEmb > 0 ? porEmb * numEmb : (embStr.num || num('qtdDisponivel'))
+
+      // A quantidade só existe se ALGUMA fonte falou dela. Sem isso, "31un" e célula vazia
+      // produziam o mesmo `0`, e a gravação zerava o saldo do item.
+      const quantidade: number | undefined =
+        porEmb > 0 && numEmb > 0 ? porEmb * numEmb
+        : informado('qtdDisponivel') ? (embStr.num || num('qtdDisponivel'))
+        : undefined
+
       const custoUnitario =
         num('custoUnitario') ||
         (valorEmb > 0 && porEmb > 0 ? valorEmb / porEmb : 0) ||
-        (quantidade > 0 && valorTotal > 0 ? valorTotal / quantidade : 0)
+        ((quantidade ?? 0) > 0 && valorTotal > 0 ? valorTotal / (quantidade as number) : 0)
       // Unidade base: só sobrescreve com a de dentro dos parênteses quando a embalagem veio da STRING
       // ("9 cx (24un)"). Se veio de colunas dedicadas, respeita a coluna "Unidade" mapeada.
       const embFromString = colPorEmb === 0 && (embStr.porEmb ?? 0) > 0
       const unidadeBase = embFromString ? (embStr.unidadeInterna || 'un') : (str('unidade') || embStr.unidadeExterna || '')
       const unidadeEmb = str('unidadeEmbalagem') || (embFromString ? embStr.unidadeExterna : undefined) || undefined
+
       return {
         descricao:           str('descricao')           || '—',
         unidade:             unidadeBase,
         qtdDisponivel:       quantidade,
-        estoqueMinimo:       num('estoqueMinimo'),
+        estoqueMinimo:       numOpt('estoqueMinimo'),
         custoUnitario:       custoUnitario || undefined,
         categoria:           str('categoria')           || undefined,
         fornecedorPrincipal: str('fornecedorPrincipal') || undefined,
@@ -178,7 +278,10 @@ export function applyColumnMapping(
         codigoReferencia:    str('codigoReferencia')    || undefined,
         dataUltimoPedido:    parseDataBR(str('dataUltimoPedido')),
         linkProduto:         str('linkProduto')          || undefined,
-        realizarPedido:      parseSimNao(str('realizarPedido')) || undefined,
+        // Quando a COLUNA existe, `false` é resposta e precisa ser gravado — é assim que a
+        // marcação se apaga depois que o pedido foi feito. Antes `false` virava `undefined`,
+        // era descartado no patch, e a marcação ficava acesa para sempre.
+        realizarPedido:      inv['realizarPedido'] ? parseSimNao(str('realizarPedido')) : undefined,
       }
     })
 }

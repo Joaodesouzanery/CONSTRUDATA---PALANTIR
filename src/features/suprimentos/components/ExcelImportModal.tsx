@@ -12,7 +12,7 @@ import { useState, useRef } from 'react'
 import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle, FileImage, Plus, Trash2, Copy } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
-import { previewExcel, autoSuggestField, applyColumnMapping } from '../utils/parseExcelEstoque'
+import { previewExcel, autoSuggestField, applyColumnMapping, detectarConflitos } from '../utils/parseExcelEstoque'
 import type { ExcelPreview } from '../utils/parseExcelEstoque'
 import { compararComEstoque, chaveDoItem } from '../utils/diffEstoque'
 import type { ItemEstoque } from '@/types'
@@ -55,26 +55,6 @@ type ImageMaterialRow = {
 
 const EMPTY_IMAGE_ROW: ImageMaterialRow = { descricao: '', unidade: '', qtdDisponivel: '', custoUnitario: '', categoria: '' }
 
-const KNOWN_IMAGE_TEMPLATES: Record<string, ImageMaterialRow[]> = {
-  spin: [
-    { descricao: 'Abastecimento SPIN 01/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '322.25', categoria: 'Combustível' },
-    { descricao: 'Abastecimento SPIN 06/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '321.23', categoria: 'Combustível' },
-    { descricao: 'Abastecimento SPIN 13/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '313.00', categoria: 'Combustível' },
-    { descricao: 'Abastecimento SPIN 16/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '278.97', categoria: 'Combustível' },
-    { descricao: 'Abastecimento SPIN 24/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '319.44', categoria: 'Combustível' },
-    { descricao: 'Abastecimento SPIN 29/04/2026', unidade: '', qtdDisponivel: '1', custoUnitario: '334.97', categoria: 'Combustível' },
-  ],
-  insumos: [
-    { descricao: 'Álcool', unidade: '', qtdDisponivel: '1', custoUnitario: '96.16', categoria: 'Insumos' },
-    { descricao: 'Arame', unidade: '', qtdDisponivel: '2', custoUnitario: '18.99', categoria: 'Insumos' },
-    { descricao: 'Bota NUBUCK', unidade: '', qtdDisponivel: '1', custoUnitario: '162.00', categoria: 'EPI' },
-    { descricao: 'Carrinho de mão', unidade: '', qtdDisponivel: '1', custoUnitario: '215.00', categoria: 'Ferramentas' },
-    { descricao: 'Disco diamantado', unidade: '', qtdDisponivel: '10', custoUnitario: '13.75', categoria: 'Ferramentas' },
-    { descricao: 'Fita crepe', unidade: '', qtdDisponivel: '24', custoUnitario: '6.58', categoria: 'Insumos' },
-    { descricao: 'Respirador PFF2', unidade: '', qtdDisponivel: '115', custoUnitario: '1.15', categoria: 'EPI' },
-    { descricao: 'Rolo 9cm', unidade: '', qtdDisponivel: '48', custoUnitario: '9.14', categoria: 'Insumos' },
-  ],
-}
 
 export function ExcelImportModal({ onClose }: Props) {
   const { depositos, selectedDepositoId, estoqueItens, addItemEstoque, updateItemEstoque } = useSuprimentosStore(
@@ -160,9 +140,15 @@ export function ExcelImportModal({ onClose }: Props) {
       jaGravadas.add(chave)
       const linha = porChave.get(chave)
       if (!linha) continue
-      if (linha?.itemId) {
-        // Só o que a planilha realmente trouxe. Um `undefined` aqui apagaria no banco um campo
-        // que a planilha simplesmente não tem coluna para representar.
+      // Linha sem mudança não vai para o servidor. Antes ia: numa planilha de 200 produtos, clicar
+      // em "Aplicar (nada muda)" disparava 200 updates no Supabase para não mudar nada.
+      if (linha.tipo === 'inalterado') continue
+
+      if (linha.itemId) {
+        // Só o que a planilha realmente trouxe. `undefined` aqui apagaria no banco um campo que a
+        // planilha não tem coluna para representar — e é por isso que o parser distingue "célula
+        // em branco" (undefined) de "a planilha disse zero" (0). `false` PASSA de propósito: é
+        // assim que a marcação "Realizar Pedido" se apaga depois que o pedido foi feito.
         const patch: Partial<ItemEstoque> = {}
         for (const [k, v] of Object.entries(item)) {
           if (v !== undefined && v !== '' && v !== null) (patch as Record<string, unknown>)[k] = v
@@ -170,7 +156,15 @@ export function ExcelImportModal({ onClose }: Props) {
         updateItemEstoque(linha.itemId, patch)
         atualizados++
       } else {
-        addItemEstoque({ ...item, depositoId: targetDeposito, qtdReservada: 0, qtdTransito: 0 })
+        // Item novo: aqui "não informado" só pode virar zero mesmo — não existe saldo anterior.
+        addItemEstoque({
+          ...item,
+          qtdDisponivel: item.qtdDisponivel ?? 0,
+          estoqueMinimo: item.estoqueMinimo ?? 0,
+          depositoId: targetDeposito,
+          qtdReservada: 0,
+          qtdTransito: 0,
+        })
         criados++
       }
     }
@@ -179,34 +173,57 @@ export function ExcelImportModal({ onClose }: Props) {
     setImporting(false)
   }
 
+  /**
+   * Importar pela foto.
+   *
+   * Só INSERIA — reenviar a mesma foto duplicava tudo, o mesmo defeito que o caminho do Excel já
+   * tinha corrigido. Agora casa pelo mesmo critério do diff (código, senão descrição normalizada)
+   * e atualiza quem já existe.
+   */
   function handleImageImport() {
     setImporting(true)
+    const doDeposito = estoqueItens.filter((i) => i.depositoId === targetDeposito)
+    const porChave = new Map(doDeposito.map((i) => [chaveDoItem(i), i]))
+    let criados = 0
+    let atualizados = 0
+
     for (const row of imageRows) {
       if (!row.descricao.trim()) continue
+      const descricao = row.descricao.trim()
       const quantity = parseLocaleNumber(row.qtdDisponivel)
       const unitValue = parseLocaleNumber(row.custoUnitario)
-      addItemEstoque({
-        depositoId: targetDeposito,
-        descricao: row.descricao.trim(),
-        unidade: row.unidade.trim(),
-        qtdDisponivel: quantity,
-        qtdReservada: 0,
-        qtdTransito: 0,
-        estoqueMinimo: 0,
-        custoUnitario: unitValue || undefined,
-        categoria: row.categoria.trim() || undefined,
-      })
+      const existente = porChave.get(chaveDoItem({ descricao }))
+
+      if (existente) {
+        updateItemEstoque(existente.id, {
+          qtdDisponivel: quantity,
+          ...(row.unidade.trim()   ? { unidade: row.unidade.trim() }     : {}),
+          ...(unitValue            ? { custoUnitario: unitValue }        : {}),
+          ...(row.categoria.trim() ? { categoria: row.categoria.trim() } : {}),
+        })
+        atualizados++
+      } else {
+        addItemEstoque({
+          depositoId: targetDeposito,
+          descricao,
+          unidade: row.unidade.trim(),
+          qtdDisponivel: quantity,
+          qtdReservada: 0,
+          qtdTransito: 0,
+          estoqueMinimo: 0,
+          custoUnitario: unitValue || undefined,
+          categoria: row.categoria.trim() || undefined,
+        })
+        criados++
+      }
     }
+    setResultado({ criados, atualizados })
     setStep('done')
     setImporting(false)
   }
 
   function patchImageRow(index: number, patch: Partial<ImageMaterialRow>) {
     setImageRows((rows) => rows.map((row, i) => i === index ? { ...row, ...patch } : row))
-  }
-
-  function applyImageTemplate(key: keyof typeof KNOWN_IMAGE_TEMPLATES) {
-    setImageRows(KNOWN_IMAGE_TEMPLATES[key].map((row) => ({ ...row })))
   }
 
   // Comparado só contra o estoque DESTA frente: a mesma descrição em dois depósitos são dois
@@ -217,6 +234,11 @@ export function ExcelImportModal({ onClose }: Props) {
     preview ? applyColumnMapping(preview.rows, mapping) : [],
     estoqueItens.filter((i) => i.depositoId === targetDeposito),
   )
+
+  // Duas colunas disputando o mesmo campo. Antes a última vencia calada, e era assim que
+  // "Link do Produto" tomava o lugar de "Produto" — o nome do produto virava a URL.
+  const conflitos = detectarConflitos(mapping)
+  const rotuloCampo = (v: string) => KNOWN_FIELDS.find((f) => f.value === v)?.label ?? v
 
   const totalItems  = diff.linhas.length
   const mudancas    = diff.novos + diff.alterados
@@ -255,7 +277,9 @@ export function ExcelImportModal({ onClose }: Props) {
           </button>
         </div>
 
-        {/* Step progress */}
+        {/* Passos. Escondido no caminho da foto: ele não passa por "mapear/conferir", e o
+            `indexOf(step)` devolvia -1 ali, deixando todos os círculos apagados. */}
+        {step !== 'image' && (
         <div className="flex items-center gap-0 px-5 py-3 border-b border-[#525252]">
           {(['upload', 'mapping', 'preview', 'done'] as Step[]).map((s, i, arr) => (
             <div key={s} className="flex items-center">
@@ -273,6 +297,7 @@ export function ExcelImportModal({ onClose }: Props) {
             </div>
           ))}
         </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
@@ -337,6 +362,19 @@ export function ExcelImportModal({ onClose }: Props) {
                   ))}
                 </select>
               </div>
+
+              {conflitos.length > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    <strong>Duas colunas apontam para o mesmo campo.</strong> Só a primeira é usada, e o
+                    resto é ignorado — escolha qual vale, ou marque a outra como "Ignorar".
+                    <span className="mt-1 block text-[#d4a44c]">
+                      {conflitos.map((c) => `${rotuloCampo(c.campo)}: ${c.cabecalhos.join(' e ')}`).join(' · ')}
+                    </span>
+                  </span>
+                </div>
+              )}
 
               <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl overflow-hidden">
                 <div className="grid grid-cols-2 px-3 py-2 text-[10px] text-[#6b6b6b] font-medium uppercase tracking-wide border-b border-[#525252]">
@@ -512,14 +550,11 @@ export function ExcelImportModal({ onClose }: Props) {
                 <div className="overflow-hidden rounded-xl border border-[#525252] bg-[#2c2c2c]">
                   {imageUrl ? <img src={imageUrl} alt={filename} className="max-h-[360px] w-full object-contain" /> : <FileImage className="m-8 text-[#6b6b6b]" />}
                 </div>
-                <div className="grid gap-2">
-                  <button type="button" onClick={() => applyImageTemplate('spin')} className="rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#f5f5f5] hover:border-[#f97316]/50">
-                    Aplicar modelo SPIN
-                  </button>
-                  <button type="button" onClick={() => applyImageTemplate('insumos')} className="rounded-lg border border-[#525252] px-3 py-2 text-xs text-[#f5f5f5] hover:border-[#f97316]/50">
-                    Aplicar modelo gastos de insumos
-                  </button>
-                </div>
+                <p className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-[10px] leading-relaxed text-[#6b6b6b]">
+                  Havia aqui dois botões de "modelo" que gravavam linhas inventadas
+                  ("Abastecimento SPIN — R$ 322,25", "Respirador PFF2 115un") direto no estoque de
+                  produção, como se fossem reais. Saíram. Digite o que está na foto.
+                </p>
               </div>
               <div className="space-y-3">
                 <div>

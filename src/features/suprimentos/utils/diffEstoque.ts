@@ -15,6 +15,9 @@
  * para conferir a conta sem abrir a tela.
  */
 import type { ItemEstoque } from '@/types'
+import type { ItemImportado } from './parseExcelEstoque'
+
+export type { ItemImportado }
 
 /** O que aconteceu com uma linha da planilha em relação ao sistema. */
 export type TipoMudanca = 'novo' | 'quantidade' | 'custo' | 'dados' | 'inalterado'
@@ -35,6 +38,13 @@ export interface LinhaDiff {
   estoqueMinimo: number
   /** A quantidade nova fica abaixo (ou no limite) do mínimo. */
   abaixoDoMinimo: boolean
+  /**
+   * A planilha DISSE alguma coisa sobre a quantidade deste item?
+   *
+   * Coluna não mapeada ou célula em branco = não disse. Nesse caso o saldo do sistema é mantido e
+   * a linha não conta como mudança de quantidade — antes, uma célula vazia zerava o saldo.
+   */
+  qtdInformada: boolean
   fornecedor?: string
 }
 
@@ -102,9 +112,6 @@ export function chaveDoItem(item: { codigoReferencia?: string; descricao?: strin
   return `desc:${normalizarChave(item.descricao ?? '')}`
 }
 
-/** Item vindo da planilha, já mapeado (o que `applyColumnMapping` devolve). */
-export type ItemImportado = Omit<ItemEstoque, 'id' | 'depositoId' | 'qtdReservada' | 'qtdTransito'>
-
 const r2 = (n: number) => Math.round(n * 100) / 100 + 0
 
 const resumirItem = (item: ItemEstoque): ItemAusente => ({
@@ -146,8 +153,11 @@ export function compararComEstoque(
     const atual = porChave.get(chave)
     casados.add(chave)
 
-    const qtdDepois = Number(imp.qtdDisponivel) || 0
     const qtdAntes = atual ? Number(atual.qtdDisponivel) || 0 : null
+    // Quantidade não informada = fica como está. Só vira zero quando o item é novo, porque aí não
+    // existe saldo anterior para preservar.
+    const qtdInformada = imp.qtdDisponivel != null
+    const qtdDepois = qtdInformada ? Number(imp.qtdDisponivel) || 0 : (qtdAntes ?? 0)
     const deltaQtd = r2(qtdDepois - (qtdAntes ?? 0))
     // O custo da planilha vence; sem ele, mantém o que o sistema já sabia.
     const custoUnitario = Number(imp.custoUnitario ?? atual?.custoUnitario ?? 0) || 0
@@ -178,6 +188,7 @@ export function compararComEstoque(
       impactoBRL: atual ? r2(deltaQtd * custoUnitario) : 0,
       estoqueMinimo,
       abaixoDoMinimo: estoqueMinimo > 0 && qtdDepois <= estoqueMinimo,
+      qtdInformada,
       fornecedor: imp.fornecedorPrincipal || atual?.fornecedorPrincipal || undefined,
     })
   }
