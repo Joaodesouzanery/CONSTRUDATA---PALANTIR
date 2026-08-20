@@ -20,6 +20,12 @@ export const siteSchema = z.object({
   cep:         z.string().regex(CEP_REGEX, 'CEP inválido (ex: 01310-200)'),
   buildingType: z.string().max(80).optional(),
   totalArea:   z.number().min(0, 'Area nao pode ser negativa'),
+  // Contrato da obra. `numeroContrato` e `orcamentoBRL` já existiam no tipo e já eram LIDOS pelo
+  // RDO — só nunca houve tela que os gravasse. `precoM2` é novo e passa a ser a fonte da verdade
+  // do preço, que até aqui só existia no Plano de Execução.
+  numeroContrato: z.string().max(60).optional(),
+  orcamentoBRL: z.number().min(0, 'Orçamento não pode ser negativo').optional(),
+  precoM2:     z.number().min(0, 'Preço não pode ser negativo').optional(),
   floors:      z.number().int().min(0, 'Informe zero ou mais frentes/pavimentos'),
   startDate:   z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),
   expectedEnd: z.string().regex(DATE_REGEX, 'Data inválida (yyyy-mm-dd)'),

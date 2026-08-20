@@ -122,15 +122,22 @@ export const usePlanoExecucaoStore = create<PlanoExecucaoState>()(
         addPlano: (initial) => {
           const id = crypto.randomUUID()
           const now = new Date().toISOString()
+          const siteId = initial?.siteId ?? useActiveObraStore.getState().activeObraId ?? null
+          // O preço/m² nasce herdado da obra (Torre de Controle), que é a fonte da verdade do
+          // contrato. O plano continua podendo sobrescrever — é ele que conhece o recorte do
+          // período —, mas plano novo já vem com o preço certo em vez de zero.
+          const precoDaObra = siteId
+            ? (useTorreStore.getState().sites.find((st) => st.id === siteId)?.precoM2 ?? 0)
+            : 0
           const plano: PlanoExecucao = {
             id,
-            siteId: initial?.siteId ?? useActiveObraStore.getState().activeObraId ?? null,
+            siteId,
             obraNome: initial?.obraNome ?? '',
             periodoInicio: initial?.periodoInicio ?? '',
             periodoFim: initial?.periodoFim ?? '',
             areaM2: initial?.areaM2 ?? 0,
             servico: initial?.servico ?? 'Piso Epóxi + Demarcação',
-            precoM2: initial?.precoM2 ?? 0,
+            precoM2: initial?.precoM2 ?? precoDaObra,
             precoConfirmado: initial?.precoConfirmado ?? true,
             faturamentoOverride: initial?.faturamentoOverride ?? null,
             status: initial?.status ?? 'rascunho',

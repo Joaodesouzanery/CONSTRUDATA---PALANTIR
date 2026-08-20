@@ -21,6 +21,7 @@ function blankDefaults(): SiteFormValues {
     description: '', status: 'active', projectId: '',
     street: '', number: '', district: '', city: '', state: '', cep: '',
     buildingType: '', totalArea: 0, floors: 0,
+    numeroContrato: '', orcamentoBRL: 0, precoM2: 0,
     startDate: '', expectedEnd: '',
     lat: '', lng: '',
   }
@@ -70,6 +71,9 @@ export function ObraDialog() {
         buildingType: existing.buildingType,
         totalArea:    existing.totalArea,
         floors:       existing.floors,
+        numeroContrato: existing.numeroContrato ?? '',
+        orcamentoBRL: existing.orcamentoBRL ?? 0,
+        precoM2:      existing.precoM2 ?? 0,
         startDate:    existing.startDate,
         expectedEnd:  existing.expectedEnd,
         lat:          existing.lat  != null ? String(existing.lat)  : '',
@@ -110,6 +114,11 @@ export function ObraDialog() {
       state: values.state ?? '',
       buildingType: values.buildingType ?? '',
       description: values.description ?? '',
+      numeroContrato: values.numeroContrato?.trim() || undefined,
+      // Zero significa "não informado": guardar 0 faria o RDO calcular faturamento zerado em vez
+      // de cair no fallback do Plano de Execução.
+      orcamentoBRL: values.orcamentoBRL && values.orcamentoBRL > 0 ? values.orcamentoBRL : undefined,
+      precoM2: values.precoM2 && values.precoM2 > 0 ? values.precoM2 : undefined,
       serviceScope: values.buildingType ?? '',
       projectId: values.projectId || null,
       lat,
@@ -198,6 +207,20 @@ export function ObraDialog() {
                     <option value="Outro" />
                   </datalist>
                 </Field>
+                {/* Contrato — os três campos que o RDO lê. `numeroContrato` e o orçamento já eram
+                    lidos lá e não tinham onde ser cadastrados; o preço/m² só existia no Plano de
+                    Execução, e a obra passa a ser a fonte da verdade. */}
+                <Field label="Nº do contrato" error={errors.numeroContrato?.message}>
+                  <input {...register('numeroContrato')} placeholder="CT-2026-000" className={inp(!!errors.numeroContrato)} />
+                </Field>
+                <div className="grid grid-cols-2 gap-2">
+                  <Field label="Preço por m² (R$)" error={errors.precoM2?.message}>
+                    <input type="number" min="0" step="0.01" {...register('precoM2', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.precoM2)} />
+                  </Field>
+                  <Field label="Orçamento contratado (R$)" error={errors.orcamentoBRL?.message}>
+                    <input type="number" min="0" step="0.01" {...register('orcamentoBRL', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.orcamentoBRL)} />
+                  </Field>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Área / Extensão" error={errors.totalArea?.message}>
                     <input type="number" min="0" {...register('totalArea', { setValueAs: (value) => value === '' || Number.isNaN(Number(value)) ? 0 : Number(value) })} placeholder="0" className={inp(!!errors.totalArea)} />

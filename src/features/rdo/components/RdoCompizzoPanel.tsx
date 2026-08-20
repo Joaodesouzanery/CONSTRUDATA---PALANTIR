@@ -157,10 +157,15 @@ export function RdoCompizzoPanel() {
   }, [planos, obraSiteId])
   const numeroContrato    = selectedSite?.numeroContrato ?? ''
   const servicoContratado = activePlano?.servico ?? ''
-  const precoM2           = activePlano?.precoM2 ?? 0
+  // A OBRA é a fonte da verdade do preço; o Plano de Execução continua podendo sobrescrever,
+  // porque é ele que conhece o recorte do período. Antes o preço só existia no plano — obra sem
+  // plano cadastrado ficava sem preço nenhum no RDO.
+  const precoM2           = activePlano?.precoM2 || selectedSite?.precoM2 || 0
   const periodoInicio     = activePlano?.periodoInicio ?? ''
   const periodoFim        = activePlano?.periodoFim ?? ''
-  const bacObra           = activePlano ? faturamento(activePlano) : (selectedSite?.orcamentoBRL ?? 0)
+  const bacObra           = (activePlano ? faturamento(activePlano) : 0)
+    || (selectedSite?.orcamentoBRL ?? 0)
+    || (selectedSite ? (selectedSite.totalArea || 0) * (selectedSite.precoM2 || 0) : 0)
   const hasContratoMeta   = Boolean(numeroContrato || servicoContratado || precoM2 || bacObra || periodoInicio)
 
   const obraAtividades = useMemo(
@@ -473,6 +478,27 @@ export function RdoCompizzoPanel() {
 
   const totalColab = employeeNames.length
   const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+  /**
+   * Quanto o dia produziu, em R$.
+   *
+   * Até aqui o RDO só EXIBIA o preço/m² — não fazia conta nenhuma com ele; o valor só aparecia
+   * depois, no Previsto × Realizado e na medição. Aqui ele fecha na hora, enquanto o encarregado
+   * ainda está preenchendo, que é quando um erro de digitação é barato de corrigir.
+   *
+   * Só entram as linhas medidas em ÁREA — o preço é por m². Uma linha em "un" (vagas PCD, por
+   * exemplo) ou em metro linear não pode ser multiplicada por R$/m² sem virar número errado.
+   */
+  const producaoDoDia = useMemo(() => {
+    const ehArea = (u?: string) => /^\s*(m²|m2|metro quadrado|metros quadrados)\s*$/i.test(u ?? '')
+    const m2 = producao
+      .filter((linha) => ehArea(linha.unidade))
+      .reduce((soma, linha) => soma + (parseLocaleNumber(linha.quantidade) || 0), 0)
+    const foraDaConta = producao.filter(
+      (linha) => String(linha.quantidade ?? '').trim() !== '' && !ehArea(linha.unidade),
+    ).length
+    return { m2, valor: m2 * precoM2, foraDaConta }
+  }, [producao, precoM2])
   // Custo de mão de obra do dia = Σ custo/dia dos presentes (match normalizado, igual à ponte de apontamentos).
   const custoMaoObraDia = useMemo(
     () => employeeNames.reduce((s, name) => { const w = matchWorkerByName(name, workers); return s + (w ? custoDiaWorker(w) : 0) }, 0),
@@ -554,6 +580,20 @@ export function RdoCompizzoPanel() {
                   {bacObra > 0 && <Meta label="BAC (faturamento previsto)" value={brl(bacObra)} />}
                   {(periodoInicio || periodoFim) && <Meta label="Período" value={`${periodoInicio || '—'} a ${periodoFim || '—'}`} />}
                   {activePlano && (activePlano.areaM2 ?? 0) > 0 && <Meta label="Meta (m²)" value={String(activePlano.areaM2)} />}
+                </div>
+              )}
+              {precoM2 > 0 && producaoDoDia.m2 > 0 && (
+                <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-lg border border-[#f97316]/30 bg-[#f97316]/[0.07] px-3 py-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[#fdba74]">Produzido hoje</span>
+                  <span className="text-sm font-bold tabular-nums text-[#f5f5f5]">{brl(producaoDoDia.valor)}</span>
+                  <span className="text-[10px] text-[#a3a3a3]">
+                    {producaoDoDia.m2.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} m² × {brl(precoM2)}/m²
+                  </span>
+                  {producaoDoDia.foraDaConta > 0 && (
+                    <span className="text-[10px] text-[#6b6b6b]">
+                      · {producaoDoDia.foraDaConta} linha(s) fora da conta (não medidas em m²)
+                    </span>
+                  )}
                 </div>
               )}
             </div>
