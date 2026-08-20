@@ -4,13 +4,14 @@
  * Escopo pela obra ativa via useObraScopedLabor. Meta TCPO configurável (CLTSettings).
  */
 import { useMemo, useState } from 'react'
-import { Gauge, TrendingUp, CalendarClock, Ruler, Clock, ArrowRight, AlertTriangle } from 'lucide-react'
+import { Gauge, TrendingUp, CalendarClock, Ruler, Clock, ArrowRight, AlertTriangle, Users } from 'lucide-react'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { useActiveObra } from '@/hooks/useActiveObra'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
 import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import {
   computeRup, computeRupTrend, computeMetragemBalance, analyzeWeekend, summarizeEscala,
+  computeRupPorWorker, type RupPorWorker,
   resolveRupTarget, rupSemaforo, type Semaforo,
 } from '../utils/produtividade'
 
@@ -47,6 +48,9 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
   const rdoExec = useMemo(() => rdoExecInPeriod(periodStart, periodEnd), [rdoExecInPeriod, periodStart, periodEnd])
   const rup = useMemo(() => computeRup(periodTc, { extraHH: rdoExec.hh, extraM2: rdoExec.m2 }, target), [periodTc, rdoExec, target])
   const tcM2 = useMemo(() => periodTc.filter((tc) => tc.unit === 'm²').reduce((s, tc) => s + (tc.reportedQty || 0), 0), [periodTc])
+  // Por funcionário: mesma fórmula e mesmo filtro do agregado, para as duas visões fecharem.
+  const porWorker = useMemo(() => computeRupPorWorker(periodTc, target), [periodTc, target])
+  const nomeDoWorker = useMemo(() => new Map(workers.map((w) => [w.id, w.name])), [workers])
   const executedM2 = rup.totalM2
   // Tendência: janela própria (6 semanas), com RDO por data de todo o histórico da obra.
   const trendRdo = useMemo(() => rdoExecInPeriod('0000-01-01', '9999-12-31').byDate, [rdoExecInPeriod])
@@ -91,6 +95,8 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
           <AlertTriangle size={13} /> {unassignedWorkerCount} funcionário(s) sem obra vinculada — selecione uma obra para o RUP por obra, ou vincule-os na aba Funcionários.
         </div>
       )}
+
+      <ProdutividadePorFuncionario linhas={porWorker} nomes={nomeDoWorker} target={target} extraHH={rdoExec.hh} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -200,6 +206,86 @@ function We({ label, value }: { label: string; value: string }) {
     <div className="bg-[#2d2d2d] border border-[#484848] rounded-lg p-2.5">
       <div className="text-[10px] uppercase tracking-wider text-[#9a9a9a]">{label}</div>
       <div className="text-sm font-bold text-[#f5f5f5] mt-0.5">{value}</div>
+    </div>
+  )
+}
+
+/**
+ * Produtividade por funcionário.
+ *
+ * A visão agregada responde "a obra está a 0,42 HH/m²". Esta responde QUEM. São perguntas
+ * diferentes, e até aqui o módulo só sabia responder a primeira — nenhum cálculo quebrava por
+ * pessoa, embora o dado bruto sempre estivesse no apontamento.
+ *
+ * Duas honestidades na tela, porque sem elas a tabela induz conclusão errada:
+ *  - os m² lançados pelo RDO Compizzo NÃO entram: o RDO registra o total do dia sem dizer quem
+ *    fez o quê, então não há a quem atribuir. O total que fica de fora é mostrado;
+ *  - amostra pequena não sustenta comparação, e a coluna de apontamentos diz isso em vez de
+ *    deixar o leitor supor.
+ */
+function ProdutividadePorFuncionario({
+  linhas, nomes, target, extraHH,
+}: {
+  linhas: RupPorWorker[]
+  nomes: Map<string, string>
+  target: number
+  extraHH: number
+}) {
+  const card = 'bg-[#3d3d3d] border border-[#525252] rounded-xl p-4'
+  if (linhas.length === 0) {
+    return (
+      <div className={card}>
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]"><Users size={13} /> Produtividade por funcionário</div>
+        <p className="mt-2 text-[11px] text-[#7a7a7a]">
+          Nenhum apontamento em m² no período. A produtividade por pessoa vem do apontamento
+          nominal — o m² lançado pelo RDO não diz quem executou.
+        </p>
+      </div>
+    )
+  }
+  const cor = (s: RupPorWorker['semaforo']) =>
+    s === 'verde' ? '#4ade80' : s === 'amarelo' ? '#fbbf24' : s === 'vermelho' ? '#f87171' : '#7a7a7a'
+
+  return (
+    <div className={card}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]"><Users size={13} /> Produtividade por funcionário</div>
+        <span className="text-[10px] text-[#7a7a7a]">HH/m² · meta ≤ {target} · menor é melhor</span>
+        {extraHH > 0 && (
+          <span className="ml-auto text-[10px] text-[#7a7a7a]">
+            {extraHH.toFixed(0)} HH vindos de RDO ficam fora (sem atribuição por pessoa)
+          </span>
+        )}
+      </div>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wide text-[#7a7a7a]">
+              <th className="pb-1.5 text-left font-semibold">Funcionário</th>
+              <th className="pb-1.5 text-right font-semibold">HH</th>
+              <th className="pb-1.5 text-right font-semibold">m²</th>
+              <th className="pb-1.5 text-right font-semibold">RUP</th>
+              <th className="pb-1.5 text-right font-semibold">Apont.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((l) => (
+              <tr key={l.workerId} className="border-t border-[#525252]/50">
+                <td className="py-1.5 text-[#e5e5e5]">{nomes.get(l.workerId) ?? 'Funcionário removido'}</td>
+                <td className="py-1.5 text-right tabular-nums text-[#a3a3a3]">{l.hh.toFixed(1)}</td>
+                <td className="py-1.5 text-right tabular-nums text-[#a3a3a3]">{l.m2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</td>
+                <td className="py-1.5 text-right font-bold tabular-nums" style={{ color: cor(l.semaforo) }}>
+                  {l.rup != null ? l.rup.toFixed(2) : '—'}
+                </td>
+                <td className="py-1.5 text-right tabular-nums text-[#7a7a7a]">
+                  {l.apontamentos}
+                  {l.apontamentos < 3 && <span className="ml-1 text-[9px] text-[#7a7a7a]">amostra baixa</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

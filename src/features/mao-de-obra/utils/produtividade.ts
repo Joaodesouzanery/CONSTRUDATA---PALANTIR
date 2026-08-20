@@ -68,6 +68,54 @@ export function computeRup(
   return { totalHH, totalM2, rup, semaforo: rupSemaforo(rup, target), sampleSize: relevant.length }
 }
 
+/**
+ * RUP por trabalhador.
+ *
+ * O dado bruto sempre existiu — `TimecardEntry` tem `workerId`, `hoursWorked`, `reportedQty` e
+ * `unit` —, mas nenhum cálculo do módulo quebrava por pessoa: `computeRup` e todos os seus
+ * vizinhos recebem arrays já fatiados e devolvem um número só. Dava para saber que a obra estava
+ * a 0,42 HH/m², não QUEM estava puxando a média para cima ou para baixo.
+ *
+ * Mesma fórmula do agregado, mesmo filtro (`unit === 'm²'`), para as duas visões fecharem: a soma
+ * dos HH por trabalhador é exatamente o `totalHH` de `computeRup` sobre a mesma fatia.
+ *
+ * O que fica DE FORA, e é preciso dizer: os extras do RDO Compizzo (`extraHH`/`extraM2`) não têm
+ * a quem atribuir — o RDO registra o total do dia, não quem fez o quê. Por isso a visão por
+ * pessoa cobre só o que veio de apontamento nominal, e a tela declara isso.
+ */
+export interface RupPorWorker {
+  workerId: string
+  hh: number
+  m2: number
+  rup: number | null
+  /** `null` quando não há m² apontado — sem base, não se pinta semáforo. */
+  semaforo: Semaforo | null
+  /** Quantos apontamentos entraram — amostra pequena não sustenta conclusão. */
+  apontamentos: number
+}
+
+export function computeRupPorWorker(
+  timecards: TimecardEntry[],
+  target = TCPO_RUP_TARGET_DEFAULT,
+): RupPorWorker[] {
+  const porWorker = new Map<string, { hh: number; m2: number; apontamentos: number }>()
+  for (const tc of timecards) {
+    if (tc.unit !== 'm²' || tc.reportedQty <= 0) continue
+    const atual = porWorker.get(tc.workerId) ?? { hh: 0, m2: 0, apontamentos: 0 }
+    atual.hh += tc.hoursWorked || 0
+    atual.m2 += tc.reportedQty || 0
+    atual.apontamentos += 1
+    porWorker.set(tc.workerId, atual)
+  }
+  return [...porWorker.entries()]
+    .map(([workerId, v]) => {
+      const rup = v.m2 > 0 ? v.hh / v.m2 : null
+      return { workerId, hh: v.hh, m2: v.m2, rup, semaforo: rupSemaforo(rup, target), apontamentos: v.apontamentos }
+    })
+    // Mais produtivo primeiro (RUP menor = menos hora por m²). Sem RUP vai para o fim.
+    .sort((a, b) => (a.rup ?? Infinity) - (b.rup ?? Infinity))
+}
+
 export interface RupTrendPoint { label: string; startISO: string; rup: number | null; hh: number; m2: number }
 
 /** Tendência do RUP nos últimos `buckets` períodos (dia ou semana), terminando hoje. */

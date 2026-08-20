@@ -4,6 +4,8 @@ import { useMaoDeObraStore, getCertExpiringSoon } from '@/store/maoDeObraStore'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
 import { computeRup, resolveRupTarget } from '../utils/produtividade'
 import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
+import { ClipboardCheck } from 'lucide-react'
+import { quinzenaAtual, deslocarQuinzena, avaliacaoNaQuinzena } from '../utils/quinzena'
 
 const RUP_SEM_COLOR = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' } as const
 
@@ -350,12 +352,97 @@ export function DashboardPanel() {
       </div>
 
       <HRKpiCards />
+      <AvaliacoesDaQuinzena />
       <RupMiniCard period={period} />
       <HHBarChart timecards={timecards} period={period} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PhysicalProgressSummary progress={progress} />
         <CertExpiryTable workers={filteredWorkers} />
       </div>
+    </div>
+  )
+}
+
+
+/**
+ * Avaliações da quinzena — quem falta avaliar.
+ *
+ * As avaliações eram avulsas: o período era um par de datas digitado à mão, sem ciclo nenhum, e
+ * nada dizia quem já tinha sido avaliado nem quando. Dava para criar cinco avaliações do mesmo
+ * funcionário no mesmo intervalo e nenhuma para o resto da equipe, sem que a tela notasse.
+ *
+ * Quinzena de calendário (1–15 e 16 ao fim do mês) porque é assim que a folha e a medição deste
+ * produto fecham; a definição e o porquê estão em `utils/quinzena.ts`.
+ */
+function AvaliacoesDaQuinzena() {
+  const { workers, assessments } = useMaoDeObraStore(
+    useShallow((s) => ({ workers: s.workers, assessments: s.assessments })),
+  )
+  const [deslocamento, setDeslocamento] = useState(0)
+  const q = useMemo(() => deslocarQuinzena(quinzenaAtual(), deslocamento), [deslocamento])
+
+  const { avaliados, pendentes } = useMemo(() => {
+    // Só quem está ativo entra na cobrança — desligado não se avalia.
+    const ativos = workers.filter((w) => w.status !== 'inactive')
+    const feitos = new Set(
+      assessments.filter((a) => avaliacaoNaQuinzena(a, q)).map((a) => a.workerId),
+    )
+    return {
+      avaliados: ativos.filter((w) => feitos.has(w.id)),
+      pendentes: ativos.filter((w) => !feitos.has(w.id)),
+    }
+  }, [workers, assessments, q])
+
+  const total = avaliados.length + pendentes.length
+  const pct = total > 0 ? Math.round((avaliados.length / total) * 100) : 0
+
+  return (
+    <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]">
+          <ClipboardCheck size={13} /> Avaliações da quinzena
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setDeslocamento((d) => d - 1)} title="Quinzena anterior"
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3] hover:text-white">‹</button>
+          <span className="min-w-[11rem] text-center text-[11px] font-semibold text-[#e5e5e5]">{q.rotulo}</span>
+          <button onClick={() => setDeslocamento((d) => d + 1)} disabled={deslocamento >= 0} title="Próxima quinzena"
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3] hover:text-white disabled:opacity-30">›</button>
+        </div>
+        <span className="text-[10px] text-[#7a7a7a]">
+          {q.inicio.slice(8)}/{q.mes.toString().padStart(2, '0')} a {q.fim.slice(8)}/{q.mes.toString().padStart(2, '0')} · {q.diasNaQuinzena} dias
+        </span>
+        <span className="ml-auto text-sm font-bold tabular-nums text-[#e5e5e5]">
+          {avaliados.length}/{total}
+          <span className="ml-1 text-[10px] font-normal text-[#7a7a7a]">avaliados</span>
+        </span>
+      </div>
+
+      {total === 0 ? (
+        <p className="mt-2 text-[11px] text-[#7a7a7a]">Nenhum funcionário ativo cadastrado.</p>
+      ) : (
+        <>
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#2c2c2c]">
+            <div className="h-full rounded-full transition-all"
+              style={{ width: `${pct}%`, background: pct === 100 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
+          </div>
+          {pendentes.length > 0 ? (
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#7a7a7a]">Faltam:</span>
+              {pendentes.slice(0, 12).map((w) => (
+                <span key={w.id} className="rounded border border-[#525252] bg-[#333333] px-1.5 py-0.5 text-[10px] text-[#d4d4d4]">
+                  {w.name}
+                </span>
+              ))}
+              {pendentes.length > 12 && (
+                <span className="text-[10px] text-[#7a7a7a]">e mais {pendentes.length - 12}</span>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2.5 text-[11px] text-[#4ade80]">Todos os funcionários ativos avaliados nesta quinzena.</p>
+          )}
+        </>
+      )}
     </div>
   )
 }

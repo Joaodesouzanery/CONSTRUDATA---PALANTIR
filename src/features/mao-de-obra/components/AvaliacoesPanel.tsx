@@ -13,6 +13,7 @@ import {
   classify,
 } from '@/features/mao-de-obra/utils/assessmentEngine'
 import type { AssessmentCriteria, AssessmentRating, WorkerAssessment } from '@/types'
+import { quinzenaAtual, quinzenaDe, avaliacaoNaQuinzena } from '../utils/quinzena'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,12 +30,8 @@ function RatingBadge({ rating }: { rating: AssessmentRating }) {
   )
 }
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-function monthStartISO() {
-  return todayISO().slice(0, 8) + '01' // yyyy-MM-01
-}
+// A data padrão passou a vir da quinzena (ver abaixo). O `hojeLocalISO` continua sendo o único
+// caminho aceito para "hoje" — `toISOString()` em UTC, depois das 21h no Brasil, devolve amanhã.
 
 // ─── AssessmentDialog ─────────────────────────────────────────────────────────
 
@@ -44,10 +41,11 @@ interface AssessmentDialogProps {
 }
 
 function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
-  const { workers, absences, addAssessment, updateAssessment } = useMaoDeObraStore(
+  const { workers, absences, assessments, addAssessment, updateAssessment } = useMaoDeObraStore(
     useShallow((s) => ({
       workers: s.workers,
       absences: s.absences,
+      assessments: s.assessments,
       addAssessment: s.addAssessment,
       updateAssessment: s.updateAssessment,
     })),
@@ -56,11 +54,30 @@ function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
 
   const [workerId, setWorkerId]   = useState(initial?.workerId ?? '')
   const [siteId, setSiteId]       = useState(initial?.siteId ?? '')
-  const [periodStart, setStart]   = useState(initial?.periodStart ?? monthStartISO())
-  const [periodEnd, setEnd]       = useState(initial?.periodEnd ?? todayISO())
+  // O período sugerido é a QUINZENA corrente, não "início do mês até hoje". A avaliação passou a
+  // ter cadência: sem uma sugestão coerente com ela, cada avaliação nasce com um período diferente
+  // e a contagem por quinzena vira estimativa.
+  const quinzena = useMemo(() => quinzenaAtual(), [])
+  const [periodStart, setStart]   = useState(initial?.periodStart ?? quinzena.inicio)
+  const [periodEnd, setEnd]       = useState(initial?.periodEnd ?? quinzena.fim)
   const [lateCount, setLate]      = useState(initial?.lateCount ?? 0)
   const [criteria, setCriteria]   = useState<AssessmentCriteria>(initial?.criteria ?? EMPTY_CRITERIA)
   const [notes, setNotes]         = useState(initial?.notes ?? '')
+
+  /**
+   * Já existe avaliação desse funcionário nesta quinzena?
+   *
+   * Nada impedia criar cinco avaliações da mesma pessoa no mesmo intervalo — e como a avaliação
+   * penaliza por falta e alimenta a contagem da quinzena, a duplicata distorce as duas coisas.
+   * É AVISO, não bloqueio: pode haver motivo legítimo para reavaliar, e o dono decide.
+   */
+  const duplicada = useMemo(() => {
+    if (!workerId || !periodEnd) return null
+    const q = quinzenaDe(periodEnd)
+    return assessments.find(
+      (a) => a.workerId === workerId && a.id !== initial?.id && avaliacaoNaQuinzena(a, q),
+    ) ?? null
+  }, [assessments, workerId, periodEnd, initial?.id])
   const [error, setError]         = useState('')
 
   const activeWorkers = workers.filter((w) => w.status === 'active' || w.id === initial?.workerId)
@@ -217,6 +234,12 @@ function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
             <RatingBadge rating={classificacao} />
           </div>
 
+          {duplicada && (
+            <p className="rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] text-[#fbbf24]">
+              Este funcionário já tem avaliação em {quinzenaDe(periodEnd).rotulo}. Duplicar distorce a
+              contagem da quinzena e a penalização por falta — confira se não é a mesma.
+            </p>
+          )}
           {error && <p className="text-xs text-[#ef4444]">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-1">
