@@ -15,6 +15,7 @@ import { Ecosystem360Panel } from '@/features/relatorio360/components/Ecosystem3
 import { mergeProjectsWithSites } from '../utils/siteProjects'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { useActiveObraStore } from '@/store/activeObraStore'
 
 function Kpi({ label, value, icon: Icon, tone = '#f97316' }: {
   label: string
@@ -61,6 +62,7 @@ export function DailyReportPanel() {
   const sites = useTorreStore((s) => s.sites)
   const projects = mergeProjectsWithSites(baseProjects, sites)
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
+  const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const changeOrders = useGestao360Store((s) => s.changeOrders)
   const reports = useRelatorio360Store((s) => s.reports)
   const rdos = useRdoStore((s) => s.rdos)
@@ -183,7 +185,9 @@ export function DailyReportPanel() {
         <Kpi label="NCs abertas" value={String(daily.ncs.length)} icon={ShieldAlert} tone={daily.ncs.length ? '#ef4444' : '#22c55e'} />
       </div>
 
-      <Ecosystem360Panel date={date} projectName={project.name} compact />
+      {/* Aqui o recorte é o DIA, de propósito: é o Daily Report. O período compartilhado do
+          cabeçalho vale para as outras abas. A obra vem do escopo, para o radar não misturar. */}
+      <Ecosystem360Panel date={date} siteId={activeObraId} projectName={project.name} compact />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Section title="Atividades e RDOs">

@@ -11,38 +11,15 @@ import { useMedicaoStore } from '@/store/medicaoStore'
 import { useEvmStore } from '@/store/evmStore'
 import type { BudgetLineType, Project } from '@/types'
 import { mergeProjectsWithSites } from '../utils/siteProjects'
+import { LINE_META, buildLedger } from '../utils/custoLedger'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
-
-const LINE_META: Record<BudgetLineType, { label: string; color: string }> = {
-  labor: { label: 'Mao de Obra', color: '#3b82f6' },
-  equipment: { label: 'Equipamentos', color: '#f97316' },
-  materials: { label: 'Materiais', color: '#22c55e' },
-  subcontract: { label: 'Subcontratos', color: '#a855f7' },
-  overhead: { label: 'Overhead', color: '#eab308' },
-  other: { label: 'Outros', color: '#6b6b6b' },
-}
 
 const PHASE_STATUS: Record<string, { label: string; color: string }> = {
   not_started: { label: 'Nao iniciada', color: '#6b6b6b' },
   in_progress: { label: 'Em andamento', color: '#3b82f6' },
   completed: { label: 'Concluida', color: '#22c55e' },
   delayed: { label: 'Atrasada', color: '#ef4444' },
-}
-
-type LedgerType = 'actual' | 'committed' | 'earned' | 'baseline'
-
-interface CostLedgerEntry {
-  id: string
-  date: string
-  module: string
-  projectRef: string
-  nucleo: string
-  type: LedgerType
-  category: BudgetLineType
-  description: string
-  amountBRL: number
-  basis: string
 }
 
 function IndexGauge({ value, label }: { value: number; label: string }) {
@@ -134,248 +111,6 @@ function formatDate(value: string) {
   return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
-function normalize(text: string) {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-}
-
-function matchesProject(project: Project, ref?: string | null, includeUnscoped = true) {
-  if (!ref) return includeUnscoped
-  const text = normalize(ref)
-  return [project.id, project.code, project.name].some((value) => value && text.includes(normalize(value)))
-}
-
-function addEntry(entries: CostLedgerEntry[], entry: CostLedgerEntry) {
-  if (!Number.isFinite(entry.amountBRL)) return
-  entries.push(entry)
-}
-
-function buildLedger(project: Project, options: { includeUnscoped?: boolean; includeEvm?: boolean } = {}): CostLedgerEntry[] {
-  const entries: CostLedgerEntry[] = []
-  const includeUnscoped = options.includeUnscoped ?? true
-  const includeEvm = options.includeEvm ?? true
-  const todayIso = new Date().toISOString().slice(0, 10)
-  const mao = useMaoDeObraStore.getState()
-  const equipamentos = useGestaoEquipamentosStore.getState()
-  const suprimentos = useSuprimentosStore.getState()
-  const rdo = useRdoStore.getState()
-  const medicao = useMedicaoStore.getState()
-  const evm = useEvmStore.getState()
-  const workersById = new Map(mao.workers.map((worker) => [worker.id, worker]))
-  const estoqueById = new Map(suprimentos.estoqueItens.map((item) => [item.id, item]))
-  const poById = new Map(suprimentos.purchaseOrders.map((po) => [po.id, po]))
-
-  for (const line of project.budgetLines) {
-    addEntry(entries, {
-      id: `budget-${line.id}`,
-      date: project.startDate,
-      module: 'Projetos/Nucleos',
-      projectRef: project.code,
-      nucleo: project.name,
-      type: 'baseline',
-      category: line.type,
-      description: `Orcamento base - ${LINE_META[line.type]?.label ?? line.type}`,
-      amountBRL: line.budgeted,
-      basis: 'Orçamento planejado do projeto/nucleo',
-    })
-  }
-
-  for (const timecard of mao.timecards) {
-    if (!matchesProject(project, timecard.projectRef, includeUnscoped)) continue
-    const worker = workersById.get(timecard.workerId)
-    const amount = timecard.hoursWorked * (worker?.hourlyRate ?? 0)
-    if (amount <= 0) continue
-    addEntry(entries, {
-      id: `timecard-${timecard.id}`,
-      date: timecard.date,
-      module: 'Mao de Obra',
-      projectRef: timecard.projectRef,
-      nucleo: timecard.phaseRef || worker?.workFront || project.name,
-      type: 'actual',
-      category: 'labor',
-      description: `${worker?.name ?? 'Trabalhador'} - ${timecard.activityDescription}`,
-      amountBRL: amount,
-      basis: `${timecard.hoursWorked}h x ${toCurrency(worker?.hourlyRate ?? 0)}/h`,
-    })
-  }
-
-  for (const po of suprimentos.purchaseOrders) {
-    if (!matchesProject(project, po.projectRef, includeUnscoped)) continue
-    const amount = po.items.reduce((sum, item) => sum + item.totalPrice, 0)
-    addEntry(entries, {
-      id: `po-${po.id}`,
-      date: po.issuedDate,
-      module: 'Suprimentos',
-      projectRef: po.projectRef ?? project.code,
-      nucleo: po.projectRef ?? project.name,
-      type: po.status === 'closed' ? 'actual' : 'committed',
-      category: 'materials',
-      description: `OC ${po.code} - ${po.supplier}`,
-      amountBRL: amount,
-      basis: 'Soma dos itens da ordem de compra',
-    })
-  }
-
-  for (const invoice of suprimentos.invoices) {
-    const po = poById.get(invoice.poId)
-    if (!matchesProject(project, po?.projectRef, includeUnscoped)) continue
-    addEntry(entries, {
-      id: `nf-${invoice.id}`,
-      date: invoice.issueDate,
-      module: 'Financeiro/EVM',
-      projectRef: po?.projectRef ?? project.code,
-      nucleo: po?.projectRef ?? project.name,
-      type: invoice.status === 'approved' || invoice.status === 'pre_approved' ? 'actual' : 'committed',
-      category: 'materials',
-      description: `NF ${invoice.number} - ${invoice.supplier}`,
-      amountBRL: invoice.totalAmount,
-      basis: 'Valor total da nota fiscal vinculada ao three-way match',
-    })
-  }
-
-  for (const receipt of suprimentos.receipts) {
-    const po = poById.get(receipt.poId)
-    if (!matchesProject(project, po?.projectRef, includeUnscoped)) continue
-    addEntry(entries, {
-      id: `receipt-${receipt.id}`,
-      date: receipt.receivedDate,
-      module: 'Almoxarifado',
-      projectRef: po?.projectRef ?? project.code,
-      nucleo: po?.projectRef ?? project.name,
-      type: 'earned',
-      category: 'materials',
-      description: `Recebimento ${receipt.code}`,
-      amountBRL: 0,
-      basis: 'Evento fisico de recebimento; custo reconhecido pela OC/NF',
-    })
-  }
-
-  for (const mov of suprimentos.movimentacoes) {
-    if (mov.tipo !== 'saida') continue
-    const item = estoqueById.get(mov.itemId)
-    const amount = mov.quantidade * (item?.custoUnitario ?? 0)
-    if (amount <= 0) continue
-    addEntry(entries, {
-      id: `estoque-${mov.id}`,
-      date: mov.dataMovimento,
-      module: 'Almoxarifado',
-      projectRef: project.code,
-      nucleo: item?.lpsActivityId ?? project.name,
-      type: 'actual',
-      category: 'materials',
-      description: `Consumo de estoque - ${item?.descricao ?? mov.itemId}`,
-      amountBRL: amount,
-      basis: `${mov.quantidade} ${item?.unidade ?? ''} x custo medio`,
-    })
-  }
-
-  for (const entry of rdo.financialEntries) {
-    addEntry(entries, {
-      id: `rdo-fin-${entry.id}`,
-      date: entry.date,
-      module: 'RDO',
-      projectRef: project.code,
-      nucleo: project.name,
-      type: 'actual',
-      category: entry.type === 'revenue' ? 'other' : 'subcontract',
-      description: entry.description,
-      amountBRL: entry.type === 'revenue' ? -entry.valueBRL : entry.valueBRL,
-      basis: `Lancamento financeiro RDO - ${entry.category}`,
-    })
-  }
-
-  for (const report of rdo.rdos) {
-    const reportProject = (report as { projectId?: string | null }).projectId
-    if (!matchesProject(project, reportProject ?? report.local, includeUnscoped)) continue
-    const manpowerAmount =
-      report.manpower.foremanCount * 8 * 65 +
-      report.manpower.officialCount * 8 * 48 +
-      report.manpower.helperCount * 8 * 34 +
-      report.manpower.operatorCount * 8 * 58
-    if (manpowerAmount > 0) {
-      addEntry(entries, {
-        id: `rdo-labor-${report.id}`,
-        date: report.date,
-        module: 'RDO',
-        projectRef: reportProject ?? project.code,
-        nucleo: report.local ?? project.name,
-        type: 'actual',
-        category: 'labor',
-        description: `Equipe RDO ${report.number}`,
-        amountBRL: manpowerAmount,
-        basis: 'Equipe diaria x 8h x tarifa padrao por funcao',
-      })
-    }
-    for (const equip of report.equipment) {
-      const amount = equip.quantity * equip.hours * 180
-      if (amount <= 0) continue
-      addEntry(entries, {
-        id: `rdo-eq-${report.id}-${equip.id}`,
-        date: report.date,
-        module: 'RDO',
-        projectRef: reportProject ?? project.code,
-        nucleo: report.local ?? project.name,
-        type: 'actual',
-        category: 'equipment',
-        description: `${equip.name} no RDO ${report.number}`,
-        amountBRL: amount,
-        basis: `${equip.quantity} un x ${equip.hours}h x tarifa referencia`,
-      })
-    }
-  }
-
-  for (const order of equipamentos.orders) {
-    const amount = order.actualCost ?? order.estimatedCost
-    if (amount <= 0) continue
-    addEntry(entries, {
-      id: `eq-order-${order.id}`,
-      date: order.completedDate ?? order.scheduledDate,
-      module: 'Equipamentos',
-      projectRef: project.code,
-      nucleo: project.name,
-      type: order.status === 'completed' ? 'actual' : 'committed',
-      category: 'equipment',
-      description: `${order.description} - ${order.equipmentId}`,
-      amountBRL: amount,
-      basis: order.actualCost ? 'Custo real da OS de manutencao' : 'Custo estimado da OS de manutencao',
-    })
-  }
-
-  const medicaoKpis = medicao.getGlobalKpis()
-  if (medicaoKpis.kmExec > 0) {
-    addEntry(entries, {
-      id: 'medicao-progress',
-      date: todayIso,
-      module: 'Medicao',
-      projectRef: project.code,
-      nucleo: project.name,
-      type: 'earned',
-      category: 'other',
-      description: `Avanco fisico medido: ${medicaoKpis.kmExec.toLocaleString('pt-BR')} km executados`,
-      amountBRL: 0,
-      basis: 'Evento de avanco fisico; alimenta EV/SPI sem duplicar custo',
-    })
-  }
-
-  if (includeEvm && evm.evmMetrics.AC > 0) {
-    addEntry(entries, {
-      id: 'evm-ac',
-      date: todayIso,
-      module: 'Financeiro/EVM',
-      projectRef: project.code,
-      nucleo: project.name,
-      type: 'actual',
-      category: 'other',
-      description: 'AC consolidado pelo EVM',
-      amountBRL: evm.evmMetrics.AC,
-      basis: 'Custo real consolidado do modulo Financeiro/EVM',
-    })
-  }
-
-  return entries.sort((a, b) => b.date.localeCompare(a.date))
-}
 
 function aggregateBudgetLines(projects: Project[]) {
   const byType = new Map<BudgetLineType, Project['budgetLines'][number]>()
@@ -415,6 +150,9 @@ export function JobCostingPanel() {
   const ledger = scopeProjects.flatMap((project, index) => buildLedger(project, {
     includeUnscoped: isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
     includeEvm:      isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
+    // As fontes que não guardam obra entram uma vez só. Com um projeto selecionado, é ele; com
+    // todos, é o primeiro da lista — em ambos os casos, UMA vez.
+    incluirGlobais:  selectedProject ? true : index === 0,
   })).sort((a, b) => b.date.localeCompare(a.date))
 
   if (scopeProjects.length === 0) {

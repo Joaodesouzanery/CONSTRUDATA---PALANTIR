@@ -12,6 +12,7 @@ import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStat
 import { uploadFile, removeFile } from '@/lib/storage'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
+import { periodoDe, type Periodo } from '@/lib/periodo'
 
 export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'relatorio360'
 
@@ -42,6 +43,14 @@ interface Gestao360State {
   changeOrders:      ChangeOrder[]
   selectedProjectId: string | null
   activeTab:         Gestao360Tab
+  /**
+   * O período que a reunião está olhando.
+   *
+   * Fica no store, e não no componente, porque as abas trocam de tela: escolher a quinzena no
+   * Radar e voltar para o Custo em Tempo Real com o mês corrente seria trocar o assunto no meio
+   * da reunião. Persiste junto do resto (ver `partialize`).
+   */
+  periodo:           Periodo
 
   // Sync
   pendingSync:  PendingOp[]
@@ -52,6 +61,7 @@ interface Gestao360State {
   ensureTenantScope: (organizationId: string) => void
   selectProject: (id: string | null) => void
   setActiveTab:  (tab: Gestao360Tab) => void
+  setPeriodo:    (p: Periodo) => void
 
   addChangeOrder: (co: {
     projectId: string
@@ -98,6 +108,8 @@ export const useGestao360Store = create<Gestao360State>()(
         changeOrders:      [],
         selectedProjectId: null,
         activeTab:         'dashboard',
+        // A semana corrente é o padrão: é o ciclo da reunião de obra.
+        periodo:           periodoDe('semana'),
         pendingSync:       [],
         syncStatus:        'idle',
         lastSyncedAt:      null,
@@ -116,6 +128,7 @@ export const useGestao360Store = create<Gestao360State>()(
         },
 
         selectProject: (id) => set({ selectedProjectId: id }),
+        setPeriodo:    (p) => set({ periodo: p }),
         setActiveTab:  (tab) => set({ activeTab: tab }),
 
         addChangeOrder: (payload) => {
@@ -272,6 +285,7 @@ export const useGestao360Store = create<Gestao360State>()(
         activeOrgId:       s.activeOrgId,
         changeOrders:      s.changeOrders,
         selectedProjectId: s.selectedProjectId,
+        periodo:           s.periodo,
         pendingSync:       s.pendingSync,
         lastSyncedAt:      s.lastSyncedAt,
       }),

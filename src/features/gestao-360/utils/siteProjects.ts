@@ -61,3 +61,45 @@ export function mergeProjectsWithSites(projects: Project[], sites: ConstructionS
 
   return [...projects, ...siteProjects]
 }
+
+/**
+ * O projeto que corresponde à obra ativa da barra lateral.
+ *
+ * Três caminhos, e os três precisam existir:
+ *
+ *   1. A obra virou projeto derivado (`site:<uuid>`) — o caso comum.
+ *   2. A obra tem um projeto DE VERDADE cadastrado. Aí `mergeProjectsWithSites` descartou o
+ *      derivado, e o elo é o `projectId` da obra.
+ *   3. Nem um nem outro, mas o código ou o nome batem exatamente — que é como o merge decidiu
+ *      que os dois eram a mesma coisa, na linha 59 deste arquivo.
+ *
+ * Sem os caminhos 2 e 3, uma obra com projeto cadastrado devolveria `null`, e Gestão 360 leria
+ * isso como "todas as obras": o escopo abriria sozinho, em silêncio, bem na obra mais bem
+ * cadastrada do cliente.
+ *
+ * `null` só quando não há obra ativa — aí "todas" é a resposta certa.
+ */
+export function projetoDaObraAtiva(
+  projects: Project[],
+  activeObraId: string | null,
+  sites: ConstructionSite[] = [],
+): Project | null {
+  if (!activeObraId) return null
+
+  const derivado = projects.find((p) => p.id === `site:${activeObraId}`)
+  if (derivado) return derivado
+
+  const obra = sites.find((s) => s.id === activeObraId)
+  if (!obra) return projects.find((p) => p.id === activeObraId) ?? null
+
+  if (obra.projectId) {
+    const vinculado = projects.find((p) => p.id === obra.projectId)
+    if (vinculado) return vinculado
+  }
+
+  const codigo = obra.code?.toLowerCase()
+  const nome = obra.name?.toLowerCase()
+  return projects.find((p) =>
+    (codigo && p.code.toLowerCase() === codigo) || (nome && p.name.toLowerCase() === nome),
+  ) ?? null
+}
