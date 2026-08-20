@@ -39,6 +39,14 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { formatCurrencyCompact } from '@/lib/utils'
 import { dentroDoPeriodo, periodoLivre, type Periodo } from '@/lib/periodo'
+import { ListChecks } from 'lucide-react'
+import { hojeLocalISO } from '@/lib/utils'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { useDiasSemProducaoStore } from '@/store/diasSemProducaoStore'
+import { useRotinasStore } from '@/store/rotinasStore'
+import { lacunaDeRdo } from '@/features/rdo/utils/statusRdoDia'
+import { atrasoDaRotina } from '@/features/minha-rotina/utils/atrasoRotina'
+import { cicloDe } from '@/features/minha-rotina/utils/cicloRotina'
 
 export interface Signal {
   label: string
@@ -113,6 +121,13 @@ export function useSinais360({ periodo, date, siteId }: EscopoDosSinais): { sina
     }))
   )
   const weeklyPpcResults = useOperacaoCampoStore((s) => s.weeklyPpcResults)
+  // Para os cartões de RDO em falta e de Rotinas atrasadas.
+  const sites = useTorreStore((s) => s.sites)
+  const diasSemProducao = useDiasSemProducaoStore((s) => s.dias)
+  const feriados = usePlanejamentoStore((s) => s.holidays)
+  const jornada = usePlanejamentoStore((s) => s.scheduleConfig.workWeekMode)
+  const rotinas = useRotinasStore((s) => s.rotinas)
+  const execucoesRotina = useRotinasStore((s) => s.execucoes)
   const getMedicaoKpis = useMedicaoStore((s) => s.getGlobalKpis)
   const medicaoKpis = getMedicaoKpis()
   const { outages, serviceOrders } = useRede360Store(
@@ -170,14 +185,58 @@ export function useSinais360({ periodo, date, siteId }: EscopoDosSinais): { sina
   const latestPpc = weeklyPpcResults.at(-1)?.ppc ?? null
   const totalRdos = reportList.length + rdoList.length + sabespRdos.length
 
+  // ── Obras sem RDO ────────────────────────────────────────────────────────────
+  // Sempre em relação a HOJE, não ao período: "quantas obras estão sem RDO agora" é a pergunta que
+  // a reunião faz. Contar lacuna dentro de um período passado não teria significado.
+  const semProducaoMapa = new Map<string, string>()
+  for (const d of diasSemProducao) semProducaoMapa.set(`${d.siteId}|${d.data}`, 'x')
+  const hojeISO = hojeLocalISO()
+  let obrasComLacuna = 0
+  let piorLacuna = 0
+  for (const site of sites) {
+    if (siteId && site.id !== siteId) continue
+    const l = lacunaDeRdo({ site, rdos, semProducao: semProducaoMapa, hoje: hojeISO, feriados, jornada })
+    if (!l) continue
+    obrasComLacuna++
+    piorLacuna = Math.max(piorLacuna, l.diasEmAberto)
+  }
+
+  // ── Rotinas ──────────────────────────────────────────────────────────────────
+  const feitasChave = new Set(execucoesRotina.filter((e) => e.feita).map((e) => `${e.rotinaId}|${e.periodo}`))
+  const feriadoSet = new Set(feriados.map((f) => f.date))
+  const rotinasDaEmpresa = rotinas.filter((r) => r.ativa)
+  const rotinasAtivas = rotinasDaEmpresa.length
+  const rotinasAtrasadas = rotinasDaEmpresa
+    .filter((r) => atrasoDaRotina(r, { feitas: feitasChave, feriados: feriadoSet, jornada, hoje: hojeISO })).length
+  const rotinasFeitasNoCiclo = rotinasDaEmpresa
+    .filter((r) => feitasChave.has(`${r.id}|${cicloDe(r.frequencia, hojeISO)}`)).length
+
   const signals: Signal[] = [
     {
       label: 'RDOs',
       value: String(totalRdos),
-      sub: rdosRascunho > 0 ? `${rdosFinalizados} finalizados · ${rdosRascunho} em rascunho` : `${reportList.length} R360 · ${rdoList.length + sabespRdos.length} campo`,
+      // A lacuna vem primeiro quando existe: "2 obras sem RDO há 3 dias" muda a reunião; "5
+      // finalizados" só informa.
+      sub: obrasComLacuna > 0
+        ? `${obrasComLacuna} obra${obrasComLacuna !== 1 ? 's' : ''} sem RDO${piorLacuna > 1 ? ` — a pior há ${piorLacuna} dias` : ' hoje'}`
+        : rdosRascunho > 0
+          ? `${rdosFinalizados} finalizados · ${rdosRascunho} em rascunho`
+          : `${reportList.length} R360 · ${rdoList.length + sabespRdos.length} campo`,
       icon: ClipboardList,
-      tone: totalRdos > 0 ? (rdosRascunho > 0 ? 'warn' : 'ok') : 'warn',
+      tone: piorLacuna > 1 ? 'danger' : obrasComLacuna > 0 || rdosRascunho > 0 ? 'warn' : totalRdos > 0 ? 'ok' : 'warn',
       escopo: 'periodo',
+    },
+    {
+      label: 'Rotinas',
+      value: String(rotinasAtrasadas),
+      sub: rotinasAtrasadas > 0
+        ? `atrasadas · ${rotinasFeitasNoCiclo}/${rotinasAtivas} feitas no ciclo`
+        : rotinasAtivas > 0 ? `${rotinasFeitasNoCiclo}/${rotinasAtivas} feitas no ciclo` : 'nenhuma cadastrada',
+      icon: ListChecks,
+      tone: rotinasAtrasadas > 2 ? 'danger' : rotinasAtrasadas > 0 ? 'warn' : rotinasAtivas > 0 ? 'ok' : 'neutral',
+      // A rotina tem ciclo próprio (diário, semanal, quinzenal, mensal) e não obedece ao período
+      // da reunião: dizer "3 atrasadas na semana selecionada" seria inventar um recorte.
+      escopo: 'acumulado',
     },
     {
       label: 'Qualidade',

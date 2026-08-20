@@ -19,6 +19,11 @@ import { useLaudosStore }          from '@/store/laudosStore'
 import { laudoDiasRestantes }      from '@/features/predial/utils/laudos'
 import { alertasDoPlano }          from '@/features/planejamento/utils/planoExecucao'
 import { hojeLocalISO }            from '@/lib/utils'
+import { useDiasSemProducaoStore } from '@/store/diasSemProducaoStore'
+import { usePlanejamentoStore }    from '@/store/planejamentoStore'
+import { useRotinasStore }         from '@/store/rotinasStore'
+import { lacunaDeRdo }             from '@/features/rdo/utils/statusRdoDia'
+import { atrasoDaRotina }          from '@/features/minha-rotina/utils/atrasoRotina'
 
 /** Dias de antecedência para um título "a vencer" virar lembrete. */
 const TITULO_ALERTA_DIAS = 7
@@ -92,6 +97,38 @@ export function useAlertCounts(): AlertCounts {
   // RDOs em rascunho (ainda não alimentam planejamento/financeiro/estoque).
   const rdoRascunhos = planoRdos.filter((r) => r.status === 'rascunho').length
 
+  // ─── Obras sem RDO ──────────────────────────────────────────────────────────
+  //
+  // O badge do RDO contava só rascunhos. Rascunho é o caso BOM: alguém já digitou e falta
+  // finalizar. A obra que não tem RDO nenhum — a que o alerta do Dashboard existe para pegar —
+  // não aparecia em lugar nenhum fora daquela tela.
+  const diasSemProducao = useDiasSemProducaoStore((s) => s.dias)
+  const feriados = usePlanejamentoStore((s) => s.holidays)
+  const jornada = usePlanejamentoStore((s) => s.scheduleConfig.workWeekMode)
+  const sitesParaRdo = useTorreStore((s) => s.sites)
+
+  const obrasComLacuna = useMemo(() => {
+    const semProducao = new Map<string, string>()
+    for (const d of diasSemProducao) semProducao.set(`${d.siteId}|${d.data}`, 'x')
+    const hoje = hojeLocalISO()
+    let n = 0
+    for (const site of sitesParaRdo) {
+      if (lacunaDeRdo({ site, rdos: planoRdos as never, semProducao, hoje, feriados, jornada })) n++
+    }
+    return n
+  }, [sitesParaRdo, planoRdos, diasSemProducao, feriados, jornada])
+
+  // ─── Rotinas atrasadas ──────────────────────────────────────────────────────
+  const rotinas = useRotinasStore((s) => s.rotinas)
+  const execucoes = useRotinasStore((s) => s.execucoes)
+
+  const rotinasAtrasadas = useMemo(() => {
+    const feitas = new Set(execucoes.filter((e) => e.feita).map((e) => `${e.rotinaId}|${e.periodo}`))
+    const feriadoSet = new Set(feriados.map((f) => f.date))
+    const hoje = hojeLocalISO()
+    return rotinas.filter((r) => r.ativa && atrasoDaRotina(r, { feitas, feriados: feriadoSet, jornada, hoje })).length
+  }, [rotinas, execucoes, feriados, jornada])
+
   // Objeto memoizado: retornar um literal novo a cada chamada invalidava qualquer
   // memoização a jusante (a Sidebar re-renderizava mesmo com as contagens iguais).
   return useMemo(
@@ -104,9 +141,12 @@ export function useAlertCounts(): AlertCounts {
       '/app/economia':            economyEvents,
       '/app/planejamento':        planoAlerts,
       '/app/evm':                 titulosAlerta,
-      '/app/rdo':                 rdoRascunhos,
+      // Rascunho + obra sem RDO nenhum. As duas pedem ação; a segunda é a que estava invisível.
+      '/app/rdo':                 rdoRascunhos + obrasComLacuna,
+      '/app/minha-rotina':        rotinasAtrasadas,
     }),
     [siteRisks, changeOrders, maintOrders, manutVencidas, healthAlerts, laudosCriticos,
-     occurrences, fleetAlerts, economyEvents, planoAlerts, titulosAlerta, rdoRascunhos],
+     occurrences, fleetAlerts, economyEvents, planoAlerts, titulosAlerta, rdoRascunhos,
+     obrasComLacuna, rotinasAtrasadas],
   )
 }

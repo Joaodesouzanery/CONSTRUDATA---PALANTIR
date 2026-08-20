@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useUserRoutineStore, type RoutineFrequency } from '@/store/userRoutineStore'
 import { RotinasDaEmpresaPanel } from './components/RotinasDaEmpresaPanel'
+import { PendenciasDoDia } from './components/PendenciasDoDia'
 import { useRotinasStore } from '@/store/rotinasStore'
 import { useAuth } from '@/lib/auth'
 import { useEffect } from 'react'
@@ -337,7 +338,12 @@ export function MinhaRotinaPage() {
         {activeTab === 'tutorial' ? (
           <TutorialPanel />
         ) : activeTab === 'rotinas' ? (
-          <RotinasDaEmpresaPanel />
+          <>
+            {/* Antes da lista: o que já está atrasado, e as obras sem RDO. Esta é a primeira tela
+                depois do login, e era a única que não sabia de nenhuma das duas cobranças. */}
+            <PendenciasDoDia />
+            <RotinasDaEmpresaPanel />
+          </>
         ) : (
         <div className="max-w-6xl mx-auto px-6 py-8 space-y-8">
 

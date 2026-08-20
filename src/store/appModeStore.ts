@@ -242,6 +242,11 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'dias-sem-producao', label: 'Dias sem produção', load: () => import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore as unknown as TenantStoreApi) },
   { key: 'manutencoes', label: 'Manutenções', load: () => import('./manutencoesStore').then(m => m.useManutencoesStore as unknown as TenantStoreApi) },
   { key: 'medicao-billing', label: 'Medição (Boletins)', load: () => import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore as unknown as TenantStoreApi) },
+  // Faltava. Sem estar aqui, as operações pendentes de rotina eram INVISÍVEIS: o indicador de
+  // sincronização não as contava nem listava, "Tentar novamente" não as reenviava e "Baixar cópia"
+  // não as encontrava. E os rótulos `rotinas` / `rotinas concluídas` já tinham sido adicionados ao
+  // indicador — rótulos que nunca podiam aparecer, porque o store não era consultado.
+  { key: 'rotinas', label: 'Rotinas da Empresa', load: () => import('./rotinasStore').then(m => m.useRotinasStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
