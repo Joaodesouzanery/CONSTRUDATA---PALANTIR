@@ -73,8 +73,26 @@ export interface PendingOp<TEntity extends string = string> {
 export interface FlushResult {
   completed:  string[]   // ids das ops drenadas com sucesso confirmado
   errored:    string[]   // ids que falharam mas continuam na fila
+  /**
+   * Ids que já falharam vezes demais e NÃO foram reenviados nesta rodada.
+   *
+   * Sem isto, uma op barrada pela RLS voltava para a fila e era reenviada em todo mount de
+   * módulo, todo login e todo clique em "Tentar novamente" — para sempre, sem backoff, sempre
+   * com o mesmo resultado. O `retries` era incrementado pelos stores e **nunca lido por
+   * ninguém**. Agora elas param de girar em falso e passam a ser mostradas ao usuário.
+   */
+  esgotadas:  string[]
   lastError?: string
 }
+
+/**
+ * Depois disto a op para de ser reenviada sozinha.
+ *
+ * Cinco é o mesmo teto do store legado `syncableStore`, que já tinha essa proteção — os stores
+ * novos ficaram sem. Não é um número mágico: é alto o bastante para atravessar uma queda de rede
+ * ou um deploy, e baixo o bastante para o usuário ser avisado no mesmo dia.
+ */
+export const MAX_TENTATIVAS_SYNC = 5
 
 function rowCount(data: unknown): number {
   return Array.isArray(data) ? data.length : data ? 1 : 0
@@ -97,8 +115,9 @@ function softDeleteRpcFor(op: PendingOp): 'soft_delete_suprimentos_deposito' | '
  * Retorna quais ops foram completadas (remover da fila) e quais erraram
  * (incrementar retry e manter na fila para nova tentativa).
  */
-export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
-  const result: FlushResult = { completed: [], errored: [] }
+export async function flushQueue(queueEntrada: PendingOp[]): Promise<FlushResult> {
+  let queue = queueEntrada
+  const result: FlushResult = { completed: [], errored: [], esgotadas: [] }
 
   if (isNonProductionDataMode()) {
     return result
@@ -115,6 +134,16 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
 
   const activeOrgId = profile.organization_id
   const activeUserId = user.id
+
+  // Ops que já falharam vezes demais saem da rodada. Elas CONTINUAM na fila (o dado não é
+  // jogado fora), mas param de ser reenviadas sozinhas: uma op barrada por RLS falharia de novo,
+  // e reenviar em todo mount de módulo só gera ruído no servidor e um erro eterno na tela.
+  const esgotadas = queue.filter((op) => op.retries >= MAX_TENTATIVAS_SYNC)
+  if (esgotadas.length) {
+    result.esgotadas = esgotadas.map((op) => op.id)
+    queue = queue.filter((op) => op.retries < MAX_TENTATIVAS_SYNC)
+    if (queue.length === 0) return result
+  }
 
   // Coage colunas terminadas em `_id` com string vazia para null: '' nunca é um uuid
   // válido e o Postgres rejeitaria o insert/update ("invalid input syntax for type uuid"),
@@ -136,7 +165,20 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
   const fixOrg = (row: Record<string, unknown>) => {
     const patch: Record<string, unknown> = {}
     if (row.organization_id === 'pending' || row.organization_id == null) patch.organization_id = activeOrgId
-    if (row.created_by === 'pending' || row.created_by == null) patch.created_by = activeUserId
+    // `created_by` é reparado em TRÊS casos, não só no 'pending':
+    //
+    //  - 'pending' ou nulo: op enfileirada antes de o perfil carregar;
+    //  - **uuid de OUTRO usuário**: a fila mora no localStorage e a limpeza de cache é por
+    //    ORGANIZAÇÃO, nunca por usuário. Alguém cria registros, sai, outra pessoa entra na mesma
+    //    empresa no mesmo navegador — e a fila da primeira é drenada com a sessão da segunda.
+    //    A RLS exige `created_by = auth.uid()`, então o insert é rejeitado e a op fica presa
+    //    PARA SEMPRE. Antes deste reparo, esse dado nunca chegava ao servidor.
+    //
+    // Atribuir a autoria a quem está sincronizando é uma imprecisão pequena e assumida; a
+    // alternativa é perder o registro, que é pior. Quem de fato criou continua no payload.
+    if (row.created_by === 'pending' || row.created_by == null || row.created_by !== activeUserId) {
+      patch.created_by = activeUserId
+    }
     const out = Object.keys(patch).length ? { ...row, ...patch } : row
     return sanitizeIds(out)
   }
@@ -193,6 +235,29 @@ export async function flushQueue(queue: PendingOp[]): Promise<FlushResult> {
           .eq('organization_id', activeOrgId)
           .abortSignal(signal))
         if (error) throw error
+
+        // CONFERE se apagou de verdade.
+        //
+        // Sem erro NÃO significa sucesso aqui: quando a policy de UPDATE tem `deleted_at is null`
+        // ou gate de papel no USING, a linha simplesmente não casa — o Postgres devolve "0 linhas
+        // atualizadas", sem erro nenhum. O registro sumia da tela, o servidor continuava
+        // intacto, e ele REAPARECIA no próximo pull. Nenhum aviso em lugar nenhum.
+        //
+        // A verificação é barata e só roda no caminho de exclusão: a policy de SELECT filtra
+        // `deleted_at is null`, então uma linha que continua VISÍVEL depois do update é prova de
+        // que o update não pegou. Linha invisível = apagada (ou já não existia), que é sucesso.
+        const { data: aindaVisivel } = await withAbort((signal) => supabase
+          .from(op.table)
+          .select('id')
+          .eq('id', op.recordId)
+          .eq('organization_id', activeOrgId)
+          .abortSignal(signal))
+        if (rowCount(aindaVisivel) > 0) {
+          throw new Error(
+            `A exclusão em ${op.table} não foi aceita pelo servidor: o registro continua lá. `
+            + 'Normalmente é permissão — o seu papel não autoriza esta exclusão.',
+          )
+        }
       } else {
         const { data, error } = await withAbort((signal) => supabase
           .from(op.table)

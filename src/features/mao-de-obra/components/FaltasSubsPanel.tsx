@@ -4,6 +4,8 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { suggestSubstitutes } from '@/features/mao-de-obra/utils/cltEngine'
 import type { AbsenceType, WorkerAbsence } from '@/types'
 import { hojeLocalISO } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -226,6 +228,7 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
 // ─── FaltasSubsPanel ──────────────────────────────────────────────────────────
 
 export function FaltasSubsPanel() {
+  const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
   const { absences, workers, resolveAbsence, removeAbsence } = useMaoDeObraStore(
     useShallow(s => ({
       absences:      s.absences,
@@ -289,6 +292,20 @@ export function FaltasSubsPanel() {
 
   return (
     <div className="space-y-6">
+      {/* Aviso quando o SERVIDOR não aceita escrita desta conta.
+          Antes, os botões ficavam visíveis, diziam "registrado com sucesso" e a operação ficava
+          presa na fila com uma mensagem de RLS em inglês — o usuário não tinha como saber. */}
+      {!permissao.pode && (
+        <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            <strong>Este acesso não registra faltas.</strong>{' '}
+            {permissao.explicacao}{' '}
+            Os botões estão ocultos de propósito: melhor não oferecer do que aceitar e perder depois.
+          </span>
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -419,7 +436,7 @@ export function FaltasSubsPanel() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
-                      {absence.status === 'open' && (
+                      {permissao.pode && absence.status === 'open' && (
                         <button onClick={() => resolveAbsence(absence.id)}
                           className="px-3 py-1 rounded-lg text-xs font-medium bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20 transition-colors">
                           Resolver
@@ -427,14 +444,14 @@ export function FaltasSubsPanel() {
                       )}
                       {/* Apagar NÃO existia: uma falta lançada errado penalizava a avaliação e
                           descontava o dia para sempre. Desfaz também a marcação do turno. */}
-                      <button
+                      {permissao.pode && <button
                         onClick={() => {
                           if (confirm('Apagar esta falta? O dia volta a ser pago na folha.')) removeAbsence(absence.id)
                         }}
                         title="Apagar a falta e desfazer o desconto do dia"
                         className="px-2 py-1 rounded-lg text-xs font-medium text-[#a3a3a3] hover:bg-[#ef4444]/10 hover:text-[#f87171] transition-colors">
                         Apagar
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>

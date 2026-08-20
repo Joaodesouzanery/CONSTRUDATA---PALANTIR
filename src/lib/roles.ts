@@ -5,6 +5,7 @@
  * financeira por has_role nas policies).
  */
 import type { UserRole } from '@/types/database'
+import { useAuth, type Profile, type OrgMembership } from '@/lib/auth'
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   owner: 'Owner',
@@ -67,3 +68,104 @@ export const ROLES_MAO_DE_OBRA_WRITE: readonly UserRole[] = ['planejador', 'enge
 export function canWriteMaoDeObra(role?: string | null): boolean {
   return ROLES_MAO_DE_OBRA_WRITE.includes((role ?? '') as UserRole)
 }
+
+// ─── O gate do cliente e a RLS do servidor precisam olhar a MESMA coisa ─────────
+//
+// Este bloco existe por causa de um incidente real, e vale a pena registrar o mecanismo.
+//
+// As funções `canWrite*` acima recebem um papel — e todo chamador passava `profile.role`. Só que
+// a RLS do servidor NÃO olha o profile: `public.has_role()` exige uma linha em `memberships` com
+// `status = 'active'`, sem `deleted_at`, e com o papel lá dentro.
+//
+// As duas fontes divergem em situações banais: membership criada com papel diferente do profile,
+// membership desativada, ou membership que simplesmente não existe (e aí o cliente FABRICA uma
+// sintética a partir do profile — ver `auth.ts`). Como `user_org()` só exige membership ativa de
+// qualquer papel, o usuário continua LENDO tudo normalmente: só as escritas quebram.
+//
+// O resultado, na tela do cliente: botões habilitados, "salvo com sucesso", e uma fila de
+// operações presas com "new row violates row-level security policy" — em inglês, sem dizer quais
+// registros, e com um botão "Descartar" que apagaria o dado.
+
+
+export type MotivoSemEscrita = 'sem_membership' | 'papel_insuficiente' | 'membership_nao_confirmada'
+
+export interface PermissaoEscrita {
+  pode: boolean
+  motivo?: MotivoSemEscrita
+  /** Frase pronta para a tela, em português, dizendo o que fazer. */
+  explicacao?: string
+}
+
+/**
+ * A pergunta que importa: o SERVIDOR vai aceitar esta escrita?
+ *
+ * Responde pela membership da organização ativa, que é o que a RLS lê — e não pelo `profiles.role`,
+ * que é o que o app lia até aqui.
+ */
+export function podeEscrever(papeisAceitos: readonly UserRole[]): PermissaoEscrita {
+  return avaliarPermissao(papeisAceitos, useAuth.getState())
+}
+
+/** Versão reativa, para componentes: reavalia quando as memberships chegam do servidor. */
+export function usePermissaoEscrita(papeisAceitos: readonly UserRole[]): PermissaoEscrita {
+  const profile = useAuth((s) => s.profile)
+  const memberships = useAuth((s) => s.memberships)
+  const isGlobalAdmin = useAuth((s) => s.isGlobalAdmin)
+  return avaliarPermissao(papeisAceitos, { profile, memberships, isGlobalAdmin })
+}
+
+/** Pura: recebe o estado, para servir aos dois caminhos acima e ser testável sem renderizar. */
+function avaliarPermissao(
+  papeisAceitos: readonly UserRole[],
+  estado: { profile: Profile | null; memberships: OrgMembership[]; isGlobalAdmin: boolean },
+): PermissaoEscrita {
+  const { profile, memberships, isGlobalAdmin } = estado
+  if (isGlobalAdmin) return { pode: true }
+  if (!profile) return { pode: false, motivo: 'sem_membership', explicacao: 'Sessão não carregada.' }
+
+  const daOrg = memberships.find((m) => m.organization_id === profile.organization_id)
+
+  if (!daOrg) {
+    return {
+      pode: false,
+      motivo: 'sem_membership',
+      explicacao: 'Você não tem vínculo ativo com esta empresa no servidor. Peça a um administrador '
+        + 'para reativar o seu acesso — até lá, o sistema não consegue salvar o que você criar.',
+    }
+  }
+
+  // A sintética (ver auth.ts) é um palpite do cliente, não um vínculo confirmado pelo servidor.
+  // Deixar passar aqui é exatamente o que produzia a fila presa.
+  if (daOrg.id.startsWith('profile-')) {
+    return {
+      pode: false,
+      motivo: 'membership_nao_confirmada',
+      explicacao: 'Não foi possível confirmar o seu vínculo com esta empresa no servidor. Recarregue '
+        + 'a página; se continuar, peça a um administrador para conferir o seu acesso. Enquanto isso '
+        + 'o sistema não vai salvar o que você criar.',
+    }
+  }
+
+  if (daOrg.status !== 'active') {
+    return {
+      pode: false,
+      motivo: 'sem_membership',
+      explicacao: `Seu acesso a esta empresa está "${daOrg.status}". Um administrador precisa reativá-lo.`,
+    }
+  }
+
+  if (!papeisAceitos.includes(daOrg.role)) {
+    return {
+      pode: false,
+      motivo: 'papel_insuficiente',
+      explicacao: `Seu perfil (${daOrg.role}) não tem permissão para esta ação.`,
+    }
+  }
+
+  return { pode: true }
+}
+
+/** Atalhos por módulo, para o chamador não repetir a lista de papéis. */
+export const podeEscreverMaoDeObra = () => podeEscrever(ROLES_MAO_DE_OBRA_WRITE)
+export const podeEscreverRdo       = () => podeEscrever(ROLES_RDO_WRITE)
+export const podeEscreverTitulos   = () => podeEscrever(ROLES_TITULOS_WRITE)

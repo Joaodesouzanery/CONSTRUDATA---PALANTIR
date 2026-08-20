@@ -229,6 +229,17 @@ export const useAuth = create<AuthState>((set, get) => ({
       })) as OrgMembership[]
     }
 
+    // Membership SINTÉTICA — e o `id` com prefixo `profile-` é o que a identifica.
+    //
+    // Ela existe para o app conseguir navegar quando a lista de memberships vem vazia (RPC
+    // indisponível, replicação atrasada). Mas ela é uma SUPOSIÇÃO baseada no `profiles.role`, e a
+    // RLS do servidor NÃO olha o profile: `has_role()` exige uma linha real em `memberships`, com
+    // `status='active'` e sem `deleted_at`.
+    //
+    // Ou seja: é exatamente esta membership fabricada que faz o app mostrar "owner" e liberar os
+    // botões enquanto o servidor rejeita toda escrita — e o usuário só descobre pela fila presa,
+    // com uma mensagem de RLS em inglês. Por isso ela serve para navegar, mas `podeEscrever()`
+    // (em roles.ts) a trata como "não confirmada" e avisa, em vez de deixar enfileirar.
     if (memberships.length === 0 && data?.organization_id) {
       memberships = [{
         id: `profile-${data.organization_id}`,

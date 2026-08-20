@@ -268,12 +268,78 @@ export async function retryAllTenantStores(): Promise<void> {
   await flushAllTenantStores()
 }
 
-/** Escotilha de escape: descarta as ops não salvas de um módulo (perda de dados — confirmar antes). */
-export async function discardErroredOps(storeKey: string): Promise<void> {
+/**
+ * Lê as operações não salvas de um módulo, para a tela poder DIZER o que está preso.
+ *
+ * Até aqui o painel mostrava só a contagem e a última mensagem de erro do Postgres, em inglês.
+ * Quem via "3 NÃO SALVO(S)" não tinha como saber quais três registros eram.
+ */
+export async function listarOpsPendentes(storeKey: string): Promise<OpPendenteResumo[]> {
+  const def = TENANT_STORE_DEFS.find((d) => d.key === storeKey)
+  if (!def) return []
+  const store = await def.load()
+  const fila = (store.getState().pendingSync ?? []) as Array<Record<string, unknown>>
+  return fila.map((op) => ({
+    id: String(op.id ?? ''),
+    tabela: String(op.table ?? '—'),
+    tipo: String(op.type ?? '—') as OpPendenteResumo['tipo'],
+    recordId: String(op.recordId ?? ''),
+    tentativas: Number(op.retries ?? 0),
+    criadaEm: String(op.createdAt ?? ''),
+  }))
+}
+
+export interface OpPendenteResumo {
+  id: string
+  tabela: string
+  tipo: 'insert' | 'update' | 'delete' | string
+  recordId: string
+  tentativas: number
+  criadaEm: string
+}
+
+/**
+ * Baixa as operações não salvas de um módulo como JSON.
+ *
+ * É a rede de proteção do "Descartar". Sem ela, descartar era PERDA SILENCIOSA: a fila era
+ * zerada, os registros continuavam na tela, e o próximo `pull` — que roda a cada abertura do
+ * módulo — os apagava, porque sem op pendente o `mergePull` devolve a lista do servidor. O
+ * usuário não via aviso nenhum e só descobria depois, se descobrisse.
+ */
+export async function baixarOpsPendentes(storeKey: string): Promise<number> {
+  const def = TENANT_STORE_DEFS.find((d) => d.key === storeKey)
+  if (!def) return 0
+  const store = await def.load()
+  const fila = (store.getState().pendingSync ?? []) as unknown[]
+  if (fila.length === 0) return 0
+
+  const conteudo = JSON.stringify({ modulo: def.label, chave: def.key, baixadoEm: new Date().toISOString(), operacoes: fila }, null, 2)
+  const url = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `nao-salvos-${def.key}-${new Date().toISOString().slice(0, 10)}.json`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+  return fila.length
+}
+
+/**
+ * Escotilha de escape: descarta as operações não salvas de um módulo.
+ *
+ * `apenasComErro` existe porque o comportamento anterior zerava a fila INTEIRA, inclusive
+ * operações sadias que só estavam esperando a vez. Quem clicava para se livrar de um erro
+ * perdia junto tudo o que ainda ia subir.
+ */
+export async function discardErroredOps(storeKey: string, apenasComErro = true): Promise<void> {
   const def = TENANT_STORE_DEFS.find((d) => d.key === storeKey)
   if (!def) return
   const store = await def.load()
-  store.setState({ pendingSync: [], syncStatus: 'idle', syncError: null } as Partial<TenantSyncState>)
+  const fila = (store.getState().pendingSync ?? []) as Array<{ retries?: number }>
+  // "Com erro" = já tentou e falhou pelo menos uma vez. Op recém-criada tem `retries: 0`.
+  const restante = apenasComErro ? fila.filter((op) => (op.retries ?? 0) === 0) : []
+  store.setState({ pendingSync: restante, syncStatus: 'idle', syncError: null } as Partial<TenantSyncState>)
 }
 
 async function pullRealData() {

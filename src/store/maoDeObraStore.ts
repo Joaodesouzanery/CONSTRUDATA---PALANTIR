@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { canWriteMaoDeObra } from '@/lib/roles'
+import { podeEscreverMaoDeObra } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, changedColumns, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -494,7 +494,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   addWorker: (worker) => {
     // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
     // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+    if (!podeEscreverMaoDeObra().pode) return ''
     const id = crypto.randomUUID()
     // Respeita a escolha explícita de obra do form: '' = geral (sem obra, aparece em todas);
     // id = aquela obra. Só cai na obra ativa quando o caller NÃO informa siteId (undefined).
@@ -567,7 +567,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   addTimecard: (entry) => {
     // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
     // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+    if (!podeEscreverMaoDeObra().pode) return ''
     const id = crypto.randomUUID()
     const newEntry: TimecardEntry = { ...entry, id }
     const { orgId, userId } = ctxAuth()
@@ -690,7 +690,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // Gate espelha a policy de INSERT/UPDATE de labor_occurrences: papel fora da lista não passa
     // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
     // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     const { orgId, userId } = ctxAuth()
     const nova = { ...occ, id: crypto.randomUUID() } as LaborOccurrence
     set((s) => ({
@@ -760,7 +760,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   addShift: (shift) => {
     // Gate espelhando a policy da tabela: papel fora da lista não passa no WITH CHECK e a
     // escrita otimista viraria op presa para sempre (o usuário acha que salvou).
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+    if (!podeEscreverMaoDeObra().pode) return ''
     const id = crypto.randomUUID()
     const newShift: Shift = { ...shift, id, siteId: resolverObraDoTurno(shift, get()) }
     const { orgId, userId } = ctxAuth()
@@ -861,7 +861,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
     // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
     // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     const { orgId, userId } = ctxAuth()
     const novo: WorkPost = { ...post, id: crypto.randomUUID() }
     set((s) => ({
@@ -875,7 +875,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
     // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
     // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     const atual = get().workPosts.find((p) => p.id === id)
     if (!atual) return
     const atualizado = { ...atual, ...updates }
@@ -890,7 +890,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // Gate espelha a policy de INSERT/UPDATE de work_posts: papel fora da lista não passa
     // no WITH CHECK e a escrita otimista viraria op presa para sempre (o usuário acha que
     // salvou e o dado nunca chega). Mesmo padrão de `rdoStore.addRdo`.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       workPosts: s.workPosts.filter((p) => p.id !== id),
       // Soft delete, como no resto do projeto: a policy de DELETE é `using(false)`.
@@ -919,7 +919,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   registerAbsence: (absence) => {
     // Gate espelhando a policy de `worker_absences`: papel fora da lista não passa no WITH CHECK,
     // e a escrita otimista viraria op presa para sempre.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+    if (!podeEscreverMaoDeObra().pode) return ''
 
     // Duas faltas do mesmo trabalhador no mesmo dia dobram a penalização na avaliação e o
     // desconto no CMO. A segunda é ignorada, devolvendo o id da que já existe.
@@ -975,7 +975,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   updateAbsence: (id, patch) => {
     const atual = get().absences.find((a) => a.id === id)
     if (!atual) return
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     const proximo: WorkerAbsence = { ...atual, ...patch }
     const { orgId, userId } = ctxAuth()
     set((s) => ({
@@ -998,7 +998,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   removeAbsence: (id) => {
     const alvo = get().absences.find((a) => a.id === id)
     if (!alvo) return
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       absences: s.absences.filter((a) => a.id !== id),
       pendingSync: [...s.pendingSync, makeOp({ entity: 'worker_absence', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'worker_absences' })],
@@ -1008,6 +1008,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   assignSubstitute: (absenceId, substituteWorkerId) => {
+    // Sem este gate, papel sem escrita criava op presa para sempre — o botão "Resolver" dizia
+    // que resolveu e o servidor rejeitava em silêncio.
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       absences: s.absences.map((a) =>
         a.id === absenceId ? { ...a, substituteWorkerId, status: 'covered' as const } : a
@@ -1024,6 +1027,9 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   },
 
   resolveAbsence: (absenceId) => {
+    // Sem este gate, papel sem escrita criava op presa para sempre — o botão "Resolver" dizia
+    // que resolveu e o servidor rejeitava em silêncio.
+    if (!podeEscreverMaoDeObra().pode) return
     set((s) => ({
       absences: s.absences.map((a) =>
         a.id === absenceId ? { ...a, status: 'covered' as const } : a
@@ -1044,7 +1050,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   addAssessment: (assessment) => {
     // Gate espelhando a policy de `worker_assessments`: papel fora da lista não passa no WITH
     // CHECK e a escrita otimista viraria op presa para sempre.
-    if (!canWriteMaoDeObra(useAuth.getState().profile?.role)) return ''
+    if (!podeEscreverMaoDeObra().pode) return ''
     const id = crypto.randomUUID()
     const newAssessment: WorkerAssessment = { ...assessment, id, createdAt: new Date().toISOString() }
     const { orgId, userId } = ctxAuth()

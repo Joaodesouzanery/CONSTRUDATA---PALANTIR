@@ -6,7 +6,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { FlaskConical, Cloud, CloudOff, RefreshCw, X, CheckCircle2 } from 'lucide-react'
-import { useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps } from '@/store/appModeStore'
+import { useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps, baixarOpsPendentes, listarOpsPendentes, type OpPendenteResumo } from '@/store/appModeStore'
+import { fmtDataBR } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
@@ -17,6 +18,18 @@ function isSchemaError(msg: string): boolean {
   const m = msg.toLowerCase()
   return m.includes('schema cache') || m.includes('could not find the table') || (m.includes('could not find') && m.includes('column'))
 }
+
+
+/** O painel falava a língua do Postgres. Estes dois traduzem para a língua de quem usa. */
+const ROTULOS_TABELA: Record<string, string> = {
+  worker_absences: 'faltas', workers: 'funcionários', shifts: 'escala', timecards: 'apontamentos',
+  worker_assessments: 'avaliações', work_posts: 'postos de trabalho', labor_occurrences: 'ocorrências',
+  labor_crews: 'equipes', rdo: 'RDO', obra_dias_sem_producao: 'dias sem produção',
+  construction_sites: 'obras', financeiro_titulos: 'títulos', predial_laudos: 'laudos',
+}
+const rotuloTabela = (t: string) => ROTULOS_TABELA[t] ?? t
+const rotuloAcao = (tipo: string) =>
+  tipo === 'insert' ? 'Criação' : tipo === 'delete' ? 'Exclusão' : 'Alteração'
 
 export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   useAppModeStore((s) => s.isDemoMode)
@@ -84,6 +97,8 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
 function SyncPanel({ onClose }: { onClose: () => void }) {
   const [diags, setDiags] = useState<Diag[] | null>(null)
   const [busy, setBusy] = useState(false)
+  const [detalhe, setDetalhe] = useState<string | null>(null)
+  const [ops, setOps] = useState<Record<string, OpPendenteResumo[]>>({})
 
   const refresh = useCallback(async () => { setDiags(await getSyncDiagnostics()) }, [])
   useEffect(() => { void refresh() }, [refresh])
@@ -103,10 +118,34 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
     } finally { setBusy(false) }
   }
 
+  async function handleBaixar(d: Diag) {
+    setBusy(true)
+    try {
+      const n = await baixarOpsPendentes(d.key)
+      if (n === 0) window.alert('Nada pendente para baixar.')
+    } finally { setBusy(false) }
+  }
+
   async function handleDiscard(d: Diag) {
-    if (!window.confirm(`Descartar ${d.pending} alteração(ões) não salva(s) de "${d.label}"? Esses dados NÃO serão salvos na nuvem e some(m) do aviso. Use só se não conseguir sincronizar.`)) return
+    // O texto mudou porque o comportamento anterior era pior do que o aviso dizia: zerava a fila
+    // INTEIRA, os registros continuavam na tela, e o próximo `pull` — que roda a cada abertura do
+    // módulo — os apagava. Era perda silenciosa, sem nenhum sinal.
+    if (!window.confirm(
+      `Descartar ${d.pending} alteração(ões) não salva(s) de "${d.label}"?\n\n`
+      + 'ESTES DADOS SERÃO PERDIDOS. Eles ainda não estão no servidor, e ao descartar eles somem '
+      + 'da tela também, na próxima vez que você abrir o módulo.\n\n'
+      + 'Se ainda não baixou uma cópia, cancele e clique em "Baixar cópia" primeiro.',
+    )) return
     setBusy(true)
     try { await discardErroredOps(d.key); await refresh() } finally { setBusy(false) }
+  }
+
+  async function verDetalhe(d: Diag) {
+    setDetalhe((atual) => (atual === d.key ? null : d.key))
+    if (!ops[d.key]) {
+      const lista = await listarOpsPendentes(d.key)
+      setOps((o) => ({ ...o, [d.key]: lista }))
+    }
   }
 
   const totalPending = diags?.reduce((s, d) => s + d.pending, 0) ?? 0
@@ -154,8 +193,36 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
                     {d.key === 'torre' && (
                       <button onClick={handleResyncObras} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">Ressincronizar obras</button>
                     )}
+                    <button onClick={() => verDetalhe(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">
+                      {detalhe === d.key ? 'Ocultar' : 'Ver o que está preso'}
+                    </button>
+                    {/* Baixar vem ANTES de descartar, e não por acaso: é a única cópia desses dados. */}
+                    <button onClick={() => handleBaixar(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">Baixar cópia</button>
                     <button onClick={() => handleDiscard(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold text-[#f87171] hover:bg-[#f87171]/15 disabled:opacity-50">Descartar</button>
                   </div>
+
+                  {detalhe === d.key && (
+                    <div className="mt-2 rounded border border-[#525252] bg-[#2c2c2c]/60 p-2">
+                      {!ops[d.key] ? (
+                        <p className="text-[11px] text-[#9a9a9a]">Carregando…</p>
+                      ) : ops[d.key].length === 0 ? (
+                        <p className="text-[11px] text-[#9a9a9a]">Nada pendente.</p>
+                      ) : (
+                        <ul className="flex flex-col gap-1">
+                          {ops[d.key].map((op) => (
+                            <li key={op.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-[#d4d4d4]">
+                              <span className="font-semibold">{rotuloAcao(op.tipo)}</span>
+                              <span className="text-[#9a9a9a]">em {rotuloTabela(op.tabela)}</span>
+                              <span className="text-[#6b6b6b]">· {op.criadaEm ? fmtDataBR(op.criadaEm.slice(0, 10)) : 'sem data'}</span>
+                              {op.tentativas > 0 && (
+                                <span className="text-[#fbbf24]">· {op.tentativas} tentativa(s)</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
