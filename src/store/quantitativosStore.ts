@@ -90,6 +90,7 @@ interface QuantitativosState {
   // Custom base management
   importCustomBase(entries: Omit<CustomBaseEntry, 'id'>[]): void
   addCustomEntry(entry: Omit<CustomBaseEntry, 'id'>): void
+  updateCustomEntry(id: string, updates: Partial<Omit<CustomBaseEntry, 'id'>>): void
   removeCustomEntry(id: string): void
 
   // Budget history
@@ -347,10 +348,41 @@ export const useQuantitativosStore = create<QuantitativosState>()(
     void get().flush()
   },
 
+  /**
+   * Editar uma entrada da base própria, no lugar.
+   *
+   * A tela fazia isto como `removeCustomEntry` + `addCustomEntry`, e enquanto a exclusão era um
+   * pedido de aprovação que ninguém aprovava isso era só feio: o servidor ficava com a linha velha
+   * E a nova, e as duas voltavam no pull.
+   *
+   * Agora que a exclusão apaga de verdade, apagar-e-recriar virou risco: são DUAS operações
+   * independentes na fila, e se a segunda falhar (offline, RLS, código duplicado) a entrada some.
+   * Um UPDATE no mesmo id não tem esse buraco — e preserva o id, que é o que o orçamento referencia.
+   */
+  updateCustomEntry: (id, updates) => {
+    const atual = get().customBase.find((e) => e.id === id)
+    if (!atual) return
+    const atualizada: CustomBaseEntry = { ...atual, ...updates, id }
+    const { orgId, userId } = ctxAuth()
+    const row = customBaseToRow(atualizada, orgId, userId)
+    const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id', 'organization_id', 'created_by'].includes(k)))
+    set((s) => ({
+      customBase: s.customBase.map((e) => (e.id === id ? atualizada : e)),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'update', recordId: id, patch, table: 'quantitativos_custom_base' })],
+    }))
+    void get().flush()
+  },
+
   removeCustomEntry: (id) => {
     set((s) => ({
       customBase:  s.customBase.filter((e) => e.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'delete', recordId: id, table: 'quantitativos_custom_base', approvalActionType: 'delete_quantitativo_custom_base' })],
+      // Era `type: 'delete'` com `approvalActionType`, que só chama `request_action` e CRIA UM
+      // PEDIDO — não apaga nada. Numa empresa que usa uma conta só não existe segundo aprovador,
+      // então a linha da base de custos própria sumia da tela e voltava no pull seguinte: o preço
+      // velho reaparecia no seletor de composição e era puxado de novo para o orçamento.
+      // `quantitativos_custom_base_update_role` aceita o soft delete direto (mesmo UPDATE que a
+      // aprovação faria) e a policy de SELECT já filtra `deleted_at IS NULL`.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'custom_base', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'quantitativos_custom_base' })],
     }))
     void get().flush()
   },
@@ -394,7 +426,12 @@ export const useQuantitativosStore = create<QuantitativosState>()(
   deleteBudget: (id) => {
     set((s) => ({
       savedBudgets: s.savedBudgets.filter((b) => b.id !== id),
-      pendingSync:  [...s.pendingSync, makeOp({ entity: 'budget', type: 'delete', recordId: id, table: 'quantitativos_budgets', approvalActionType: 'delete_quantitativo_budget' })],
+      // Mesma correção de `removeCustomEntry`: o caminho de aprovação não apagava nada e o
+      // orçamento voltava no pull. Aqui doía mais — uma versão descartada reaparecia no
+      // histórico e podia ser carregada por `loadBudget` por cima do orçamento em edição,
+      // trocando itens, base de custo e BDI pelos valores antigos.
+      // `quantitativos_budgets_update_role` aceita o soft delete direto.
+      pendingSync:  [...s.pendingSync, makeOp({ entity: 'budget', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'quantitativos_budgets' })],
     }))
     void get().flush()
   },

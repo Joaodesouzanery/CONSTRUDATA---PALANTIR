@@ -236,7 +236,13 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
 
         removeActivity: (id) => {
           set((s) => ({ activities: s.activities.filter((a) => a.id !== id) }))
-          enqueue(makeOp({ entity: 'master_activity', type: 'delete', recordId: id, table: 'master_activities', approvalActionType: 'delete_master_activity' }))
+          // Era `type: 'delete'` com `approvalActionType`: o RPC `request_action` apenas cria um
+          // pedido em `pending_actions` e não apaga a linha. A atividade voltava no pull seguinte,
+          // reaparecendo na WBS do cronograma mestre e puxando de novo o lookahead derivado dela.
+          // Com uma conta só para a empresa não existe segundo aprovador (o RPC de aprovação
+          // proíbe quem pediu), então o pedido ficava parado para sempre. A RLS aceita o soft
+          // delete direto (`master_activities_update_role`, os mesmos papéis do updateActivity).
+          enqueue(makeOp({ entity: 'master_activity', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'master_activities' }))
           void get().flush()
         },
 

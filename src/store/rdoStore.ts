@@ -6,7 +6,10 @@
  * - Persistência localStorage via persist middleware (chave 'cdata-rdo')
  * - Mutações são otimistas + enfileiradas em pendingSync[]
  * - Quando online + autenticado, dispara flush() para o Supabase
- * - DELETE de RDO passa por request_action('delete_rdo', ...) — vira pending_action
+ * - DELETE de RDO é soft delete direto (`deleted_at`), como no resto do projeto. Passava por
+ *   `request_action('delete_rdo')`, que só abria um pedido em `pending_actions` e não apagava — o
+ *   RDO voltava no pull seguinte, e como quem pede não pode aprovar, numa empresa de conta única
+ *   nunca havia quem destravasse.
  *
  * A API pública (addRdo/updateRdo/removeRdo/financialEntries/etc.) é a mesma
  * da v0 — componentes existentes continuam funcionando sem mudança.
@@ -427,23 +430,30 @@ export const useRdoStore = create<RdoState>()(
       removeRdo: (id) => {
         set((s) => ({
           rdos: s.rdos.filter((r) => r.id !== id),
+          // Era `type: 'delete'` com `approvalActionType: 'delete_rdo'`, que chama o RPC
+          // `request_action`: aquilo só ABRE UM PEDIDO em pending_actions, não apaga nada. A op
+          // saía da fila como concluída e o RDO voltava no pull seguinte — reaparecia no
+          // histórico e voltava a somar produção na medição, sem ninguém entender por quê.
+          // Como a empresa opera com uma conta só, não existe o segundo aprovador que
+          // `approve_pending_action` exige, então o pedido nunca era destravado. Agora é soft
+          // delete direto: a policy de SELECT do rdo filtra `deleted_at IS NULL`, e a de UPDATE
+          // (`rdo_update_author_or_manager`) aceita autor OU gerente/diretor/owner.
           pendingSync: [
             ...s.pendingSync,
             makeOp({
               entity: 'rdo',
-              type: 'delete',
+              type: 'update',
               recordId: id,
+              patch: { deleted_at: new Date().toISOString() },
               table: 'rdo',
-              approvalActionType: 'delete_rdo',
             }),
           ],
         }))
         // Excluir um RDO precisa reverter o executado que ele havia lançado no Planejamento.
         setTimeout(() => get().syncExecutionToPlanejamento(), 0)
-        // NÃO remove os lançamentos do Financeiro aqui: a exclusão passa por APROVAÇÃO
-        // (pending_action delete_rdo). Se negada, o RDO volta no pull — e os custos
-        // precisam continuar lá. A limpeza acontece no pull (reconcile abaixo), quando o
-        // RDO some de verdade do servidor.
+        // NÃO remove os lançamentos do Financeiro aqui: quem limpa é o reconcile do pull
+        // (abaixo), assim que o RDO some do SELECT por causa do `deleted_at`. Um caminho só
+        // para os dois casos — exclusão feita aqui e RDO apagado por outro dispositivo.
         void get().flush()
       },
 
@@ -678,10 +688,10 @@ export const useRdoStore = create<RdoState>()(
           lastSyncedAt: new Date().toISOString(),
           syncError: null,
         }))
-        // Reconcile pós-pull: (a) uma exclusão APROVADA faz o RDO sumir do servidor → remove
-        // os lançamentos que ele gerou no Financeiro (a exclusão local NÃO remove mais, pois
-        // aguarda aprovação); (b) uma exclusão NEGADA ressuscita o RDO → re-sincroniza o
-        // Planejamento (recompute total a partir da lista mesclada).
+        // Reconcile pós-pull: (a) um RDO excluído (soft delete) some do SELECT → remove os
+        // lançamentos que ele gerou no Financeiro e na M.O., aqui e nos outros dispositivos;
+        // (b) um RDO que reapareceu (restaurado no servidor) → re-sincroniza o Planejamento
+        // (recompute total a partir da lista mesclada).
         setTimeout(() => {
           const ids = new Set(get().rdos.map((r) => r.id))
           void import('./financeiroStore').then(({ useFinanceiroStore }) => {

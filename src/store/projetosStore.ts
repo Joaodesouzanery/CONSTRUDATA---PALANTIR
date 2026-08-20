@@ -4,7 +4,7 @@
  * Sprint 4: migrado para Supabase via storeSync helper.
  * Tabelas: projects (1 row por projeto, payload jsonb com phases/budgetLines),
  * project_documents (metadata; binário no bucket project-documents/).
- * DELETE crítico passa por request_action RPC.
+ * Exclusão é soft delete (`deleted_at`) — não passa mais pelo request_action RPC.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -105,6 +105,22 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
   persist(
     (set, get) => {
       const enqueue = (op: PendingOp) => set((s) => ({ pendingSync: [...s.pendingSync, op] }))
+
+      /**
+       * Reenfileira o projeto inteiro.
+       *
+       * Fases, linhas de orçamento e documentos moram todos dentro de `projects.payload` — quem
+       * mexe em qualquer um deles precisa mandar o projeto de volta, senão o `pull` traz o payload
+       * antigo e desfaz a mudança. Este trecho estava copiado em quatro lugares.
+       */
+      const enqueueProjetoInteiro = (projectId: string) => {
+        const target = get().projects.find((p) => p.id === projectId)
+        if (!target) return
+        const { orgId, userId } = ctxAuth()
+        const row = projectToRow(target, orgId, userId)
+        const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id', 'organization_id', 'created_by'].includes(k)))
+        enqueue(makeOp({ entity: 'project', type: 'update', recordId: projectId, patch, table: 'projects' }))
+      }
       return {
         activeOrgId: null,
         projects: [],
@@ -173,7 +189,14 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
               activeTab: 0,
             }
           })
-          enqueue(makeOp({ entity: 'project', type: 'delete', recordId: id, table: 'projects', approvalActionType: 'delete_project' }))
+          // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+          // só CRIA um pedido em `pending_actions` e não apaga o projeto. A op saía da fila como
+          // concluída e a obra voltava inteira no pull seguinte — com fases, orçamento e documentos —
+          // e ainda virava a obra selecionada. Com uma conta só na empresa não há segundo aprovador
+          // (approve_pending_action proíbe o próprio solicitante), então excluir era impossível.
+          // A RLS aceita o soft delete direto (`projects_update_role`), e o SELECT já filtra
+          // `deleted_at IS NULL`, então o registro some do pull.
+          enqueue(makeOp({ entity: 'project', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'projects' }))
           void get().flush()
         },
 
@@ -293,8 +316,11 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
               },
               table: 'project_documents',
             }))
-            void get().flush()
           }
+          // O projeto vai junto SEMPRE — inclusive no modo legado sem `storagePath`, porque é o
+          // payload dele que a tela lê. Sem isto, o documento recém-anexado sumia no próximo pull.
+          enqueueProjetoInteiro(projectId)
+          void get().flush()
         },
 
         deleteDocument: (projectId, docId) => {
@@ -308,11 +334,22 @@ export const useProjetosStore = create<ProjetosState & ProjetosActions>()(
                 : p
             ),
           }))
+          // Era `type: 'delete'` com `approvalActionType`: o RPC `request_action` só registra o
+          // pedido, então o metadata continuava em project_documents e o anexo reaparecia na lista
+          // do projeto — só que apontando para um arquivo que o removeFile() logo abaixo já tinha
+          // tirado do Storage, ou seja, um documento fantasma cujo download quebra. Soft delete
+          // direto: `project_documents_update_role` aceita o UPDATE e o SELECT filtra `deleted_at`.
           enqueue(makeOp({
-            entity: 'project_document', type: 'delete', recordId: docId,
-            table: 'project_documents', approvalActionType: 'delete_project_document',
+            entity: 'project_document', type: 'update', recordId: docId,
+            patch: { deleted_at: new Date().toISOString() }, table: 'project_documents',
           }))
-          // Limpa o arquivo do Storage best-effort (não bloqueia approval)
+          // E o projeto TAMBÉM precisa ir, senão o soft delete acima não resolve nada: a tela lê
+          // `project.documents`, que mora dentro de `projects.payload` (`projectToRow` serializa o
+          // Project inteiro). Sem esta segunda op, o `pull` traz o payload antigo e o documento
+          // reaparece na lista — apontando para um arquivo que o `removeFile` abaixo já apagou do
+          // Storage. É o mesmo par que `deleteBudgetLine` já fazia.
+          enqueueProjetoInteiro(projectId)
+          // Limpa o arquivo do Storage best-effort (não bloqueia a exclusão)
           const sp = (doc as unknown as { storagePath?: string } | undefined)?.storagePath
           if (sp) void removeFile('project-documents', sp)
           void get().flush()

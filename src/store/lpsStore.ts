@@ -4,7 +4,7 @@
  * Sprint 3: migrado para Supabase via storeSync helper.
  * Tabelas: lps_activities, lps_restrictions, lps_takt_zones.
  * Padrão: payload jsonb completo + colunas top-level apenas para chaves indexáveis.
- * DELETE crítico passa por request_action RPC.
+ * Exclusão é soft delete (deleted_at) direto; só "resolver restrição" passa por request_action.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -242,7 +242,12 @@ export const useLpsStore = create<LpsState>()(
 
         removeActivity: (id) => {
           set((s) => ({ activities: s.activities.filter((a) => a.id !== id) }))
-          enqueue(makeOp({ entity: 'lps_activity', type: 'delete', recordId: id, table: 'lps_activities', approvalActionType: 'delete_lps_activity' }))
+          // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+          // só CRIA UM PEDIDO em pending_actions e não apaga nada. A op saía da fila como concluída
+          // e a atividade voltava no pull seguinte — reaparecia no lookahead e no semáforo e voltava
+          // a entrar na conta do PPC da semana (planejadas × concluídas), fazendo o percentual
+          // mentir. A RLS aceita o soft delete direto (`lps_activities_update_role`).
+          enqueue(makeOp({ entity: 'lps_activity', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'lps_activities' }))
           void get().flush()
         },
 
@@ -309,7 +314,11 @@ export const useLpsStore = create<LpsState>()(
 
         removeRestriction: (id) => {
           set((s) => ({ restrictions: s.restrictions.filter((r) => r.id !== id) }))
-          enqueue(makeOp({ entity: 'lps_restriction', type: 'delete', recordId: id, table: 'lps_restrictions', approvalActionType: 'delete_lps_restriction' }))
+          // Mesma correção de `removeActivity`: o caminho de aprovação não apagava nada e a restrição
+          // reaparecia no pull — voltava a bloquear a atividade no gate operacional e a ser contada
+          // como restrição em aberto no painel de saúde da obra. `lps_restrictions_update_role`
+          // aceita o soft delete direto.
+          enqueue(makeOp({ entity: 'lps_restriction', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'lps_restrictions' }))
           void get().flush()
         },
 

@@ -107,7 +107,11 @@ export const useEquipamentosStore = create<EquipamentosState>()(
             equipamentos: s.equipamentos.filter((e) => e.id !== id),
             selectedId: s.selectedId === id ? null : s.selectedId,
             editingId:  s.editingId === id ? null : s.editingId,
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'equipamento', type: 'delete', recordId: id, table: 'equipamentos', approvalActionType: 'delete_equipamento' })],
+            // Era `type: 'delete'` com `approvalActionType`: o RPC `request_action` só ABRE um
+            // pedido de aprovação — não apaga linha nenhuma. O equipamento sumia da lista e voltava
+            // no pull seguinte, de volta à frota, aos alertas e à taxa de utilização. A RLS aceita
+            // o soft delete direto (`equipamentos_update_role`).
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'equipamento', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'equipamentos' })],
           }))
           void get().flush()
         },

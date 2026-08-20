@@ -367,7 +367,13 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
 
   deleteHealthScore: (equipmentId) => {
     set((s) => ({ healthScores: s.healthScores.filter((h) => h.equipmentId !== equipmentId) }))
-    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'oths', type: 'delete', recordId: equipmentId, table: 'otimizacao_health_scores', approvalActionType: 'delete_otimizacao_health' })] }))
+    // Era `type: 'delete'` com `approvalActionType`: o `request_action` só abria um pedido que
+    // ninguém aprova (a empresa usa uma conta só) e deixava um pendente fantasma por score
+    // descartado. `oths_update_role` aceita o soft delete direto.
+    // Ressalva: a linha do servidor tem `id` próprio e guarda o equipamento em `equipment_id`
+    // (ver healthToRow), então o update casa por `id`. Hoje é inofensivo — nenhum health score
+    // chega a ser inserido; quando o insert entrar, o recordId tem que ser o id da linha.
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'oths', type: 'update', recordId: equipmentId, patch: { deleted_at: new Date().toISOString() }, table: 'otimizacao_health_scores' })] }))
     void get().flush()
   },
 
@@ -446,7 +452,10 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
 
   deleteBuyLeaseAnalysis: (id) => {
     set((s) => ({ buyLeaseAnalyses: s.buyLeaseAnalyses.filter((a) => a.id !== id) }))
-    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'otbl', type: 'delete', recordId: id, table: 'otimizacao_buy_lease_analyses', approvalActionType: 'delete_otimizacao_buy_lease' })] }))
+    // Era `type: 'delete'` com `approvalActionType`, que apenas registra um pedido de aprovação.
+    // A análise comprar-x-alugar descartada voltava no pull e reentrava na conta de economia da
+    // frota (calcTotalSavings). `otbl_update_role` aceita o soft delete direto.
+    set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'otbl', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'otimizacao_buy_lease_analyses' })] }))
     void get().flush()
   },
 

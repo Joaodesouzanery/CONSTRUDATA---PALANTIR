@@ -82,7 +82,11 @@ export const useGestaoEquipamentosStore = create<GestaoState>()(
       deleteOrder: (id) => {
         set((s) => ({
           orders: s.orders.filter((o) => o.id !== id),
-          pendingSync: [...s.pendingSync, makeOp({ entity: 'eq_manutencao', type: 'delete', recordId: id, table: 'equipamentos_manutencoes', approvalActionType: 'delete_equipamento_manutencao' })],
+          // Era `type: 'delete'` com `approvalActionType`, que só cria um pedido em
+          // `pending_actions` e não apaga nada. A ordem de manutenção excluída reaparecia no pull
+          // seguinte e voltava a pesar na agenda e no custo de manutenção do equipamento.
+          // `eq_man_update_role` permite o soft delete direto.
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'eq_manutencao', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'equipamentos_manutencoes' })],
         }))
         void get().flush()
       },

@@ -163,7 +163,13 @@ export const useRede360Store = create<Rede360State>()(
         removeServiceOrder: (id) => {
           set((s) => ({
             serviceOrders: s.serviceOrders.filter((o) => o.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'rede_so', type: 'delete', recordId: id, table: 'rede_service_orders', approvalActionType: 'delete_rede_service_order' })],
+            // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`:
+            // aquilo só CRIA UM PEDIDO em `pending_actions` e não apaga nada. A OS voltava no pull
+            // seguinte — reabria na fila de ordens do ativo e continuava contando como pendente no
+            // painel da rede, depois de o usuário ter confirmado a exclusão. Sem um segundo
+            // aprovador na conta única do cliente, o pedido ficava parado para sempre. A RLS aceita
+            // o soft delete direto (`rso_update_role`).
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'rede_so', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'rede_service_orders' })],
           }))
           void get().flush()
         },

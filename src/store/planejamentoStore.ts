@@ -590,7 +590,13 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
       isScheduleDirty: true,
       pendingSync: [
         ...s.pendingSync,
-        makeOp({ entity: 'trecho', type: 'delete', recordId: id, table: 'plan_trechos', approvalActionType: 'delete_plan_trecho' }),
+        // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+        // só ABRE UM PEDIDO em `pending_actions` e não apaga nada. O trecho sumia da tela, a op
+        // saía da fila como concluída e ele voltava no pull seguinte — reaparecendo no cronograma
+        // e voltando a somar metros no avanço planejado. Numa empresa que usa uma conta só não há
+        // segundo aprovador para destravar o pedido. A RLS aceita o soft delete direto
+        // (`plan_trechos_update_role`, mesmos papéis que já editam o trecho).
+        makeOp({ entity: 'trecho', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'plan_trechos' }),
       ],
     }))
     void get().flush()
@@ -893,7 +899,13 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
       scenarios: s.scenarios.filter((sc) => sc.id !== id),
       pendingSync: [
         ...s.pendingSync,
-        makeOp({ entity: 'scenario', type: 'delete', recordId: id, table: 'plan_scenarios', approvalActionType: 'delete_plan_scenario' }),
+        // Era `type: 'delete'` com `approvalActionType` — o RPC `request_action` só registra um
+        // pedido de aprovação, não apaga. O cenário descartado voltava no pull seguinte e
+        // reaparecia na lista de what-if, atrapalhando a comparação entre cenários (e dá para
+        // carregá-lo de volta por engano, sobrescrevendo o planejamento atual). Sem um segundo
+        // aprovador na conta única da empresa, o pedido nunca era aprovado. A RLS aceita o soft
+        // delete direto (`plan_scenarios_update_role`).
+        makeOp({ entity: 'scenario', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'plan_scenarios' }),
       ],
     }))
     void get().flush()

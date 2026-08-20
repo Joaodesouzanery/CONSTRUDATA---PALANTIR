@@ -18,6 +18,7 @@
  */
 import type { ConstructionSite, PlanHoliday, RDO, WorkWeekMode } from '@/types'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
+import { ehDiaUtil, diaAnterior, diasEntre } from '@/lib/diasUteis'
 
 export type StatusRdoDia =
   | 'ok'            // RDO finalizado no dia
@@ -44,13 +45,14 @@ const finalizado = (rdo: RDO): boolean => rdo.status !== 'rascunho'
 /**
  * O dia é cobrável para esta obra?
  *
- * Reusa a MESMA regra de dia útil do `scheduleEngine.buildWorkDays` — domingo nunca, sábado
- * conforme a jornada da organização, feriado cadastrado nunca. Duplicar essa regra criaria duas
- * definições de dia útil no mesmo produto, que divergiriam na primeira mudança.
+ * Duas metades: o ESTADO da obra (arquivada, parada, ainda não começou) e o CALENDÁRIO (domingo,
+ * sábado conforme a jornada, feriado). A metade do calendário mora em `@/lib/diasUteis` porque as
+ * Rotinas precisam exatamente dela — uma rotina diária não pode aparecer atrasada na segunda-feira
+ * por causa do fim de semana. Duas cópias dessa regra divergiriam na primeira mudança.
  *
  * Ressalva conhecida: o feriado é cadastrado por ORGANIZAÇÃO, não por obra. Um feriado municipal
- * de uma cidade vale para todas as obras. Está isolado aqui para o override por obra caber depois
- * sem tocar em mais nada.
+ * de uma cidade vale para todas as obras. Está isolado em `diasUteis` para o override por obra
+ * caber depois sem tocar em mais nada.
  */
 export function ehDiaCobravel(
   site: ConstructionSite,
@@ -63,13 +65,18 @@ export function ehDiaCobravel(
   if (site.status === 'paused') return { cobra: false, razao: 'obra pausada' }
   if (site.status === 'planning') return { cobra: false, razao: 'obra em planejamento' }
 
-  // Meio-dia local: `new Date('yyyy-MM-dd')` é interpretado como UTC e devolveria o dia anterior
-  // no Brasil, trocando o dia da semana na virada.
-  const diaDaSemana = new Date(`${dataISO}T12:00:00`).getDay()
-  if (diaDaSemana === 0) return { cobra: false, razao: 'domingo' }
-  if (diaDaSemana === 6 && jornada === 'mon_fri') return { cobra: false, razao: 'sábado fora da jornada' }
-  if (feriados.has(dataISO)) return { cobra: false, razao: 'feriado' }
-  return { cobra: true }
+  // Antes do primeiro dia da obra não há o que cobrar.
+  //
+  // Faltava esta linha, e ela só passou a doer agora: enquanto o painel olhava um dia só, cobrar um
+  // dia anterior ao início era invisível. Contando a LACUNA para trás, uma obra cadastrada semana
+  // passada apareceria com noventa dias de RDO em falta — exatamente o alarme falso que este
+  // cálculo existe para não produzir.
+  if (site.startDate && dataISO < site.startDate) {
+    return { cobra: false, razao: 'antes do início da obra' }
+  }
+
+  const { util, razao } = ehDiaUtil(dataISO, feriados, jornada)
+  return util ? { cobra: true } : { cobra: false, razao }
 }
 
 export interface EntradaStatus {
@@ -141,6 +148,93 @@ export function calcularStatusDoDia(entrada: EntradaStatus): ResultadoStatus {
     semProducao: contar('sem_producao'),
     ok: contar('ok'),
     naoCobraveis: contar('nao_cobravel'),
+  }
+}
+
+// ─── A LACUNA ─────────────────────────────────────────────────────────────────
+//
+// `calcularStatusDoDia` responde "e hoje?". Isso basta para o alerta piscar, mas não para cobrar:
+// um encarregado que entra na obra precisa saber HÁ QUANTO TEMPO o RDO está em falta, e desde
+// quando. "Sem RDO hoje" e "3 dias sem RDO, o mais antigo é 14/08" pedem ações diferentes.
+
+export interface LacunaRdo {
+  /** Dias cobráveis sem RDO finalizado e sem justificativa, do mais recente para trás. */
+  diasEmAberto: number
+  /** Os dias em aberto, `yyyy-MM-dd`, do mais recente para o mais antigo. */
+  dias: string[]
+  /** O dia em aberto mais ANTIGO da sequência, `yyyy-MM-dd`. */
+  maisAntigo: string
+  /** Dias de calendário entre `maisAntigo` e hoje. Zero quando o mais antigo é hoje. */
+  diasDesde: number
+  /** A varredura bateu o teto — há mais lacuna do que a que está sendo mostrada. */
+  truncado: boolean
+}
+
+export interface EntradaLacuna {
+  site: ConstructionSite
+  rdos: RDO[]
+  /** Dias já justificados: chave `${siteId}|${data}`. */
+  semProducao: Map<string, string>
+  hoje: string
+  feriados: PlanHoliday[]
+  jornada: WorkWeekMode
+  /** Teto de dias de CALENDÁRIO varridos para trás. */
+  maxDias?: number
+}
+
+/**
+ * Há quantos dias esta obra está sem RDO?
+ *
+ * ─── DUAS DECISÕES ────────────────────────────────────────────────────────────────────────────
+ *
+ * 1. **Conta a sequência que vem de hoje para trás, e para no primeiro dia resolvido.** Se ontem o
+ *    RDO foi feito, a lacuna é só a de hoje — mesmo que a semana passada tenha buracos. Um
+ *    contador que soma todo dia em falta desde sempre só cresce, e alerta que só cresce vira
+ *    paisagem. O que precisa de ação é a sequência aberta agora.
+ *
+ * 2. **Só conta dia cobrável.** Domingo, sábado fora da jornada, feriado, obra parada e dia
+ *    anterior ao início da obra não entram — é `ehDiaCobravel` que decide, o mesmo juiz do painel
+ *    diário. Sem isso, toda segunda-feira acusaria dois dias de atraso.
+ *
+ * Devolve `null` quando não há lacuna nenhuma (o dia cobrável mais recente está resolvido).
+ */
+export function lacunaDeRdo(entrada: EntradaLacuna): LacunaRdo | null {
+  const { site, rdos, semProducao, hoje, feriados, jornada, maxDias = 90 } = entrada
+  const feriadoSet = new Set(feriados.map((f) => f.date))
+
+  // Índice de uma passada só: os dias em que esta obra tem RDO finalizado. Rascunho NÃO conta —
+  // ele não alimenta nada, então o dia segue em aberto (mesma regra do painel diário).
+  const comRdoFinalizado = new Set<string>()
+  for (const rdo of rdos) {
+    if ((rdo.siteId ?? null) !== site.id) continue
+    if (rdo.status === 'rascunho') continue
+    comRdoFinalizado.add(rdo.date)
+  }
+
+  const emAberto: string[] = []
+  let cursor = hoje
+  let truncado = false
+
+  for (let guarda = 0; ; guarda++) {
+    if (guarda >= maxDias) { truncado = emAberto.length > 0; break }
+    if (site.startDate && cursor < site.startDate) break
+
+    if (ehDiaCobravel(site, cursor, feriadoSet, jornada).cobra) {
+      const resolvido = comRdoFinalizado.has(cursor) || semProducao.has(`${site.id}|${cursor}`)
+      if (resolvido) break        // a sequência aberta terminou aqui
+      emAberto.push(cursor)
+    }
+    cursor = diaAnterior(cursor)
+  }
+
+  if (emAberto.length === 0) return null
+  const maisAntigo = emAberto[emAberto.length - 1]
+  return {
+    diasEmAberto: emAberto.length,
+    dias: emAberto,
+    maisAntigo,
+    diasDesde: diasEntre(maisAntigo, hoje),
+    truncado,
   }
 }
 

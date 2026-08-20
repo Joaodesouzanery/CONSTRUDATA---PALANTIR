@@ -101,7 +101,7 @@ function AddEntryRow({ onAdd }: { onAdd: (e: Omit<CustomBaseEntry, 'id'>) => voi
 }
 
 export function BancoDadosPanel() {
-  const { costBase, setCostBase, customBase, importCustomBase, addCustomEntry, removeCustomEntry } = useQuantitativosStore()
+  const { costBase, setCostBase, customBase, importCustomBase, addCustomEntry, updateCustomEntry, removeCustomEntry } = useQuantitativosStore()
   const [search, setSearch] = useState('')
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -284,14 +284,11 @@ export function BancoDadosPanel() {
                     <EntryRow
                       key={entry.id}
                       entry={entry}
-                      onUpdate={(id, updates) => {
-                        const store = useQuantitativosStore.getState()
-                        const existing = store.customBase.find((e) => e.id === id)
-                        if (existing) {
-                          store.removeCustomEntry(id)
-                          store.addCustomEntry({ ...existing, ...updates })
-                        }
-                      }}
+                      // Editar é UPDATE, não apagar-e-recriar. Enquanto a exclusão era um pedido de
+                      // aprovação que ninguém aprovava, o velho jeito só deixava lixo no servidor;
+                      // agora que ela apaga de verdade, ele arriscava perder a entrada se o insert
+                      // seguinte falhasse.
+                      onUpdate={updateCustomEntry}
                       onDelete={removeCustomEntry}
                     />
                   ))}

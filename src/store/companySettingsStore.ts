@@ -112,7 +112,12 @@ export const useCompanySettingsStore = create<CompanySettingsState>()(
           logos: s.logos.filter((l) => l.id !== id),
           pendingSync: [
             ...s.pendingSync,
-            makeOp({ entity: 'company_logo', type: 'delete', recordId: id, table: 'company_logos', approvalActionType: 'delete_company_logo' }),
+            // Era `type: 'delete'` com `approvalActionType`: o `request_action` só abre um pedido
+            // e não apaga a linha. O arquivo já tinha saído do storage logo acima, então o logo
+            // voltava no pull seguinte como registro órfão — reaparecia na lista e o cabeçalho dos
+            // relatórios apontava para um arquivo inexistente. `company_logos_update_role` aceita
+            // o soft delete direto.
+            makeOp({ entity: 'company_logo', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'company_logos' }),
           ],
         }))
         void get().flush()

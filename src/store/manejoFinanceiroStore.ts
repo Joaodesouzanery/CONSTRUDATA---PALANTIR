@@ -140,7 +140,12 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       removeContrato: (id) => {
         set((s) => ({
           contratos: s.contratos.filter((c) => c.id !== id),
-          pendingSync: [...s.pendingSync, makeOp({ entity: 'manejo_contrato', type: 'delete', recordId: id, table: 'financeiro_contratos', approvalActionType: 'delete_financeiro_contrato' })],
+          // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+          // só CRIA UM PEDIDO em `pending_actions` e não apaga nada. O contrato voltava no pull
+          // seguinte e com ele o valor empenhado, bagunçando o saldo do manejo — sem que ninguém
+          // fosse avisado. Como não existe um segundo aprovador na conta única do cliente, o pedido
+          // nunca era aprovado. A RLS aceita o soft delete direto (`fin_contratos_update_role`).
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'manejo_contrato', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'financeiro_contratos' })],
         }))
         void get().flush()
       },
@@ -176,9 +181,14 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       removeOrcamento: (id) => {
         set((s) => ({
           orcamentos: s.orcamentos.filter((o) => o.id !== id),
-          // Remove o id excluído dos vínculos dos demais itens.
-          pendingSync: [...s.pendingSync, makeOp({ entity: 'manejo_orcamento', type: 'delete', recordId: id, table: 'financeiro_orcamentos', approvalActionType: 'delete_financeiro_orcamento' })],
+          // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo
+          // só CRIA UM PEDIDO em `pending_actions` e não apaga nada. Pior aqui do que nas outras
+          // tabelas: os vínculos dos itens vizinhos já tinham sido limpos logo abaixo, então o item
+          // voltava no pull seguinte órfão, valendo de novo no total alocado e sem os vínculos que
+          // o justificavam. A RLS aceita o soft delete direto (`fin_orcamentos_update_role`).
+          pendingSync: [...s.pendingSync, makeOp({ entity: 'manejo_orcamento', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'financeiro_orcamentos' })],
         }))
+        // Remove o id excluído dos vínculos dos demais itens.
         const afetados = get().orcamentos.filter((o) => o.vinculos.includes(id))
         for (const o of afetados) {
           get().updateOrcamento(o.id, { vinculos: o.vinculos.filter((v) => v !== id) })

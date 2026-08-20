@@ -5,7 +5,8 @@
  * Security:
  *  - All IDs via crypto.randomUUID()
  *  - CPF/license numbers stored only in masked form (never raw)
- *  - DELETE crítico via approval RPC
+ *  - Exclusão = soft delete (`deleted_at`) gravado direto; a RLS das 9 tabelas
+ *    bloqueia DELETE físico e o SELECT já filtra `deleted_at IS NULL`.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -206,7 +207,14 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeVehicle: (id) => {
           set((s) => ({
             vehicles: s.vehicles.filter((v) => v.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'veiculo', type: 'delete', recordId: id, table: 'veiculos', approvalActionType: 'delete_veiculo' })],
+            // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`:
+            // aquilo só CRIA UM PEDIDO em `pending_actions` e não apaga nada. A op saía da fila
+            // como concluída e o veículo voltava no pull seguinte — de volta na frota, e voltando
+            // a puxar abastecimentos, multas e OS para os indicadores de custo. Como o cliente usa
+            // uma conta só, não existe o segundo aprovador que `approve_pending_action` exige.
+            // Escrevemos direto o mesmo `deleted_at` que aquele RPC gravaria; `veiculos_update_role`
+            // aceita a escrita (papéis engenheiro/planejador/gerente/diretor/owner).
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'veiculo', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'veiculos' })],
           }))
           void get().flush()
         },
@@ -234,7 +242,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeFuelRecord: (id) => {
           set((s) => ({
             fuelRecords: s.fuelRecords.filter((r) => r.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'fuel', type: 'delete', recordId: id, table: 'fleet_fuel_records', approvalActionType: 'delete_fleet_fuel_record' })],
+            // Era `type: 'delete'` com `approvalActionType`, que só abre um pedido de aprovação
+            // e devolve a op como concluída sem apagar nada. Um abastecimento lançado errado
+            // sumia da tela e voltava no pull, somando litros e custo de novo no consumo do
+            // veículo. Soft delete direto: `ffr_update_role` aceita a escrita.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'fuel', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_fuel_records' })],
           }))
           void get().flush()
         },
@@ -262,7 +274,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeMaintenance: (id) => {
           set((s) => ({
             maintenance: s.maintenance.filter((m) => m.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'veh_maint', type: 'delete', recordId: id, table: 'fleet_vehicle_maintenance', approvalActionType: 'delete_fleet_vehicle_maintenance' })],
+            // Era `type: 'delete'` com `approvalActionType`: pedido de aprovação que ninguém
+            // aprova (conta única), e a manutenção reaparecia no pull. Pior aqui, porque ela
+            // carrega `next_service_date` — o registro voltava e ressuscitava a revisão futura
+            // e o alerta dela. Soft delete direto via `fvm_update_role`.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'veh_maint', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_vehicle_maintenance' })],
           }))
           void get().flush()
         },
@@ -290,7 +306,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeDriver: (id) => {
           set((s) => ({
             drivers: s.drivers.filter((d) => d.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'driver', type: 'delete', recordId: id, table: 'fleet_drivers', approvalActionType: 'delete_fleet_driver' })],
+            // Era `type: 'delete'` com `approvalActionType`, que não apaga — só registra o
+            // pedido. O motorista desligado voltava na lista de escolha de rota no pull
+            // seguinte, e junto voltavam CPF mascarado e CNH que deveriam ter saído de cena.
+            // Soft delete direto: `fd_update_role` aceita a escrita.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'driver', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_drivers' })],
           }))
           void get().flush()
         },
@@ -318,7 +338,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeRoute: (id) => {
           set((s) => ({
             routes: s.routes.filter((r) => r.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'route', type: 'delete', recordId: id, table: 'fleet_routes', approvalActionType: 'delete_fleet_route' })],
+            // Era `type: 'delete'` com `approvalActionType` — pedido de aprovação, não exclusão.
+            // Uma rota cancelada voltava no pull e reocupava veículo e motorista naquela data,
+            // fazendo a agenda mostrar conflito com a rota que a substituiu. Soft delete direto
+            // via `fr_update_role`.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'route', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_routes' })],
           }))
           void get().flush()
         },
@@ -347,7 +371,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeOrder: (id) => {
           set((s) => ({
             orders: s.orders.filter((o) => o.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'fleet_so', type: 'delete', recordId: id, table: 'fleet_service_orders', approvalActionType: 'delete_fleet_service_order' })],
+            // Era `type: 'delete'` com `approvalActionType`: virava pedido em `pending_actions`
+            // e a OS voltava no pull, de volta na fila de serviço da oficina. Note que `addOrder`
+            // numera pelo tamanho da lista, então a OS ressuscitada ainda colide de código com a
+            // que foi criada depois dela. Soft delete direto via `fso_update_role`.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'fleet_so', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_service_orders' })],
           }))
           void get().flush()
         },
@@ -375,7 +403,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeFine: (id) => {
           set((s) => ({
             fines: s.fines.filter((f) => f.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'fine', type: 'delete', recordId: id, table: 'fleet_fines', approvalActionType: 'delete_fleet_fine' })],
+            // Era `type: 'delete'` com `approvalActionType`, que só pede aprovação. A multa
+            // lançada em duplicidade voltava no pull, com o mesmo `due_date`, e continuava
+            // pesando como pendência no motorista e no veículo. Soft delete direto: a policy
+            // `ff_update_role` aceita a escrita.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'fine', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_fines' })],
           }))
           void get().flush()
         },
@@ -424,7 +456,11 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         removeSchedule: (id) => {
           set((s) => ({
             schedules: s.schedules.filter((sc) => sc.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'fleet_sched', type: 'delete', recordId: id, table: 'fleet_schedules', approvalActionType: 'delete_fleet_schedule' })],
+            // Era `type: 'delete'` com `approvalActionType` — pedido de aprovação sem ninguém
+            // para aprovar. O agendamento desmarcado voltava no pull e reservava o veículo de
+            // novo naquela `scheduled_date`, bloqueando quem tentasse usá-lo. Soft delete
+            // direto via `fs_update_role`.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'fleet_sched', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'fleet_schedules' })],
           }))
           void get().flush()
         },

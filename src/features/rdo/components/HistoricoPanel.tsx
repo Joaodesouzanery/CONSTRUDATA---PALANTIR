@@ -627,7 +627,11 @@ export function HistoricoPanel() {
   }, [filteredSabesp])
 
   function handleDelete(id: string) {
-    if (!confirm('Excluir este RDO? A exclusão passa por aprovação (matriz de aprovações) antes de ser efetivada.')) return
+    // O texto dizia que a exclusão "passa por aprovação antes de ser efetivada". Isso era falso das
+    // duas maneiras: o pedido nunca era aprovado (a empresa usa uma conta só e quem pede não pode
+    // aprovar), então o RDO voltava; e agora, com o soft delete direto, ele some na hora. Prometer
+    // um crivo que não existe é pior do que não avisar nada.
+    if (!confirm('Excluir este RDO? Ele sai do histórico e deixa de alimentar medição, estoque e Financeiro. Não há aprovação intermediária.')) return
     // NÃO apagar as fotos do bucket aqui: a exclusão só se efetiva após APROVAÇÃO
     // (pending_action). Apagar antes destruiria as evidências de um RDO que pode ser
     // restaurado (aprovação negada → o RDO volta no pull). Após a aprovação, os

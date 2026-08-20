@@ -1,7 +1,7 @@
 /**
  * torreDeControleStore.ts — Sprint 6: migrado para Supabase via storeSync.
  * Tabela: construction_sites. Risks ficam no payload (subarray).
- * DELETE crítico via approval (delete_construction_site).
+ * Excluir obra é soft delete (`deleted_at`) — ver `deleteSite`.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -171,7 +171,16 @@ export const useTorreStore = create<TorreState & TorreActions>()(
               sites: remaining,
               selectedId: remaining[0]?.id ?? null,
               editingId: null,
-              pendingSync: [...s.pendingSync, makeOp({ entity: 'site', type: 'delete', recordId: id, table: 'construction_sites', approvalActionType: 'delete_construction_site' })],
+              // Era `type: 'delete'` com `approvalActionType: 'delete_construction_site'`, que chama
+              // o RPC `request_action`: aquilo só CRIA UM PEDIDO em `pending_actions`, não apaga a
+              // obra. A op saía da fila como concluída e a obra voltava no pull seguinte — arrastando
+              // atrás dela tudo que aponta pra ela (RDOs, medições, restrições, chamados do Predial
+              // pelo `site_id`), e a obra "excluída" reaparecia no mapa da Torre. Como a empresa usa
+              // uma conta só, não existia um segundo aprovador para destravar o pedido.
+              // O soft delete aqui é exatamente o que `approve_pending_action` faria
+              // (0034_sprint6_rpcs.sql: `UPDATE construction_sites SET deleted_at = now()`),
+              // e a RLS aceita direto por `sites_update_role`.
+              pendingSync: [...s.pendingSync, makeOp({ entity: 'site', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'construction_sites' })],
             }
           })
           void get().flush()

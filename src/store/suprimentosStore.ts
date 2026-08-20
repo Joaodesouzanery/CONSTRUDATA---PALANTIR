@@ -753,9 +753,17 @@ export const useSuprimentosStore = create<SuprimentosState>()(
   deletePO: (id) => {
     set((s) => ({
       purchaseOrders: s.purchaseOrders.filter((p) => p.id !== id),
+      // Era `type: 'delete'` com `approvalActionType: 'delete_po'`, que chama o RPC
+      // `request_action`: aquilo só ENFILEIRA um pedido em `pending_actions` e não apaga a OC.
+      // A op saía da fila como concluída e a OC voltava no pull seguinte — reaparecendo na
+      // conciliação, no 3-way match e no total comprometido com o fornecedor. E como
+      // `approve_pending_action` proíbe quem pediu de aprovar, numa empresa que usa uma conta
+      // só nunca havia um segundo aprovador: excluir OC era impossível. O soft delete direto
+      // faz exatamente o que a aprovação faria (`delete_po` = `SET deleted_at = now()`), e a
+      // RLS aceita pelo `po_update_role`.
       pendingSync: [
         ...s.pendingSync,
-        makeOp({ entity: 'po', type: 'delete', recordId: id, table: 'purchase_orders', approvalActionType: 'delete_po' }),
+        makeOp({ entity: 'po', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'purchase_orders' }),
       ],
     }))
     void get().flush()

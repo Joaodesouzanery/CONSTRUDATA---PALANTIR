@@ -19,7 +19,14 @@ import { usePlanejamentoStore } from '@/store/planejamentoStore'
 import { useDiasSemProducaoStore, MOTIVOS_SEM_PRODUCAO, rotuloMotivo, type MotivoSemProducao } from '@/store/diasSemProducaoStore'
 import { useAuth } from '@/lib/auth'
 import { canWriteRdo } from '@/lib/roles'
-import { calcularStatusDoDia, ordenarLinhas, type LinhaStatusObra } from '../utils/statusRdoDia'
+import { calcularStatusDoDia, ordenarLinhas, lacunaDeRdo, type LinhaStatusObra, type LacunaRdo } from '../utils/statusRdoDia'
+
+/** "quinta, 14/08" — o dia da semana ajuda a lembrar o que aconteceu naquele dia. */
+function diaComSemana(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`)
+  const semana = d.toLocaleDateString('pt-BR', { weekday: 'long' }).replace('-feira', '')
+  return `${semana}, ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
 
 /** Acima disto a lista completa vira ruído no topo do Dashboard e colapsa em resumo. */
 const LIMITE_EXPANDIDO = 8
@@ -67,6 +74,35 @@ export function AlertasRdoHoje() {
 
   const linhas = useMemo(() => ordenarLinhas(resultado.linhas, activeObraId), [resultado.linhas, activeObraId])
 
+  /**
+   * Há quantos dias cada obra está sem RDO.
+   *
+   * "Sem RDO hoje" e "3 dias sem RDO, o mais antigo é quinta, 14/08" pedem ações diferentes — o
+   * segundo é o que faz o encarregado cobrar. Calculado só para as obras que estão pendentes: o
+   * resto já está resolvido, e varrer 90 dias por obra à toa custaria caro com muitas obras.
+   */
+  const lacunas = useMemo(() => {
+    const semProducao = new Map<string, string>()
+    for (const d of dias) semProducao.set(`${d.siteId}|${d.data}`, rotuloMotivo(d.categoria))
+    const mapa = new Map<string, LacunaRdo>()
+    for (const linha of resultado.linhas) {
+      if (linha.status !== 'pendente') continue
+      const l = lacunaDeRdo({ site: linha.site, rdos, semProducao, hoje, feriados, jornada })
+      if (l) mapa.set(linha.site.id, l)
+    }
+    return mapa
+  }, [resultado.linhas, rdos, dias, hoje, feriados, jornada])
+
+  /** A obra com a lacuna mais antiga — é o que o cabeçalho precisa gritar. */
+  const piorLacuna = useMemo(() => {
+    let pior: { nome: string; lacuna: LacunaRdo } | null = null
+    for (const linha of resultado.linhas) {
+      const l = lacunas.get(linha.site.id)
+      if (l && (!pior || l.diasDesde > pior.lacuna.diasDesde)) pior = { nome: linha.site.name, lacuna: l }
+    }
+    return pior
+  }, [resultado.linhas, lacunas])
+
   // Sem obra cadastrada não há o que cobrar — mesma regra do ObraSwitcher.
   if (sites.length === 0) return null
 
@@ -97,17 +133,27 @@ export function AlertasRdoHoje() {
     <div
       className={cn(
         'rounded-xl border',
-        precisaAcao > 0 ? 'border-[#f59e0b]/40 bg-[#f59e0b]/[0.07]' : 'border-[#525252] bg-[#333333]',
+        // Lacuna de mais de um dia é vermelha, não âmbar: âmbar é "falta fazer hoje", vermelho é
+        // "isto está acumulando". A cor precisa distinguir as duas, senão o painel fica sempre
+        // do mesmo tom e para de comunicar.
+        (piorLacuna?.lacuna.diasEmAberto ?? 0) > 1
+          ? 'border-[#ef4444]/50 bg-[#ef4444]/[0.07]'
+          : precisaAcao > 0 ? 'border-[#f59e0b]/40 bg-[#f59e0b]/[0.07]' : 'border-[#525252] bg-[#333333]',
       )}
     >
       {/* Cabeçalho: o número que importa primeiro, o contexto depois. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
         {precisaAcao > 0
-          ? <AlertTriangle size={15} className="shrink-0 text-[#fbbf24]" />
+          ? <AlertTriangle size={15} className={cn('shrink-0', (piorLacuna?.lacuna.diasEmAberto ?? 0) > 1 ? 'text-[#f87171]' : 'text-[#fbbf24]')} />
           : <BellRing size={15} className="shrink-0 text-[#4ade80]" />}
         <span className="text-sm font-bold text-[#f5f5f5]">
           RDO de hoje · {fmtDataBR(hoje)}
         </span>
+        {piorLacuna && piorLacuna.lacuna.diasEmAberto > 1 && (
+          <span className="rounded-lg border border-[#ef4444]/40 bg-[#ef4444]/10 px-2.5 py-1 text-xs font-semibold text-[#fca5a5]">
+            {piorLacuna.nome} está há {piorLacuna.lacuna.diasEmAberto} dias sem RDO
+          </span>
+        )}
         <div className="flex flex-wrap items-center gap-1.5">
           {([
             ['pendente', resultado.pendentes, 'sem RDO'],
@@ -151,7 +197,13 @@ export function AlertasRdoHoje() {
                   {linha.status === 'rascunho' && `RDO #${linha.numero} em rascunho — não alimenta nada até finalizar`}
                   {linha.status === 'sem_producao' && `sem produção: ${linha.motivo}`}
                   {linha.status === 'nao_cobravel' && linha.razaoNaoCobravel}
-                  {linha.status === 'pendente' && 'sem RDO hoje'}
+                  {linha.status === 'pendente' && (() => {
+                    const l = lacunas.get(linha.site.id)
+                    // Um dia só em aberto continua sendo "sem RDO hoje" — dizer "1 dia sem RDO"
+                    // para o próprio dia de hoje soaria como atraso quando ainda dá tempo.
+                    if (!l || l.diasEmAberto <= 1) return 'sem RDO hoje'
+                    return `${l.diasEmAberto} dias sem RDO${l.truncado ? '+' : ''} — o mais antigo é ${diaComSemana(l.maisAntigo)}`
+                  })()}
                 </span>
 
                 {podeEscrever && (
@@ -177,6 +229,9 @@ export function AlertasRdoHoje() {
                     {linha.status === 'sem_producao' && (
                       <button
                         onClick={() => {
+                          // O status desta linha é o de HOJE, então o registro a desfazer é o de
+                          // hoje — mas dito explicitamente, porque o modal agora marca dia passado
+                          // e um `hoje` solto aqui viraria a linha errada na primeira mudança.
                           const registro = dias.find((d) => d.siteId === linha.site.id && d.data === hoje)
                           if (registro) desmarcar(registro.id)
                         }}
@@ -223,9 +278,13 @@ export function AlertasRdoHoje() {
       {marcando && (
         <ModalSemProducao
           linha={marcando}
+          // Os dias que estão em aberto nesta obra. Sem isto o modal só sabia marcar HOJE — e uma
+          // lacuna aberta em 14/08 não tinha como ser justificada, então ficava vermelha para
+          // sempre. Cair em `[hoje]` cobre a obra sem lacuna calculada.
+          diasEmAberto={lacunas.get(marcando.site.id)?.dias ?? [hoje]}
           onFechar={() => setMarcando(null)}
-          onConfirmar={(categoria, motivo) => {
-            marcar({ siteId: marcando.site.id, data: hoje, categoria, motivo })
+          onConfirmar={(data, categoria, motivo) => {
+            marcar({ siteId: marcando.site.id, data, categoria, motivo })
             setMarcando(null)
           }}
         />
@@ -235,28 +294,56 @@ export function AlertasRdoHoje() {
 }
 
 function ModalSemProducao({
-  linha, onFechar, onConfirmar,
+  linha, diasEmAberto, onFechar, onConfirmar,
 }: {
   linha: LinhaStatusObra
+  /** Dias cobráveis em aberto nesta obra, do mais recente para o mais antigo. */
+  diasEmAberto: string[]
   onFechar: () => void
-  onConfirmar: (categoria: MotivoSemProducao, motivo?: string) => void
+  onConfirmar: (data: string, categoria: MotivoSemProducao, motivo?: string) => void
 }) {
   const [categoria, setCategoria] = useState<MotivoSemProducao>('chuva')
   const [texto, setTexto] = useState('')
+  const [data, setData] = useState(diasEmAberto[0] ?? hojeLocalISO())
   // "Outro" sem descrição não explica nada a quem lê o relatório daqui a três meses.
   const faltaTexto = categoria === 'outros' && texto.trim().length < 3
+  const varios = diasEmAberto.length > 1
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onFechar}>
       <div className="w-full max-w-md rounded-xl border border-[#525252] bg-[#333333] p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-bold text-[#f5f5f5]">Sem produção hoje</h3>
-        <p className="mt-1 text-xs text-[#a3a3a3]">
-          {linha.site.name} · {fmtDataBR(hojeLocalISO())}
-        </p>
+        <h3 className="text-sm font-bold text-[#f5f5f5]">Dia sem produção</h3>
+        <p className="mt-1 text-xs text-[#a3a3a3]">{linha.site.name}</p>
         <p className="mt-2 text-[11px] text-[#6b6b6b]">
           Fica registrado com data, obra e autor. É o que permite explicar depois por que a obra
           parou em X dias do mês — e não é RDO, então não entra em nenhum indicador de produção.
         </p>
+
+        {/* Um dia de cada vez, de propósito: cada dia teve o seu motivo, e marcar cinco de uma vez
+            com "chuva" produziria um histórico que ninguém pode defender numa medição. */}
+        <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wide text-[#a3a3a3]">
+          Qual dia
+        </label>
+        {varios ? (
+          <select
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+          >
+            {diasEmAberto.map((d) => (
+              <option key={d} value={d}>
+                {diaComSemana(d)}{d === hojeLocalISO() ? ' (hoje)' : ''}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="mt-1 text-sm text-[#f5f5f5]">{fmtDataBR(data)}</p>
+        )}
+        {varios && (
+          <p className="mt-1 text-[10px] text-[#6b6b6b]">
+            Esta obra tem {diasEmAberto.length} dias em aberto. Marque um; os outros continuam na lista.
+          </p>
+        )}
 
         <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Motivo</label>
         <select
@@ -283,7 +370,7 @@ function ModalSemProducao({
           </button>
           <button
             disabled={faltaTexto}
-            onClick={() => onConfirmar(categoria, texto.trim() || undefined)}
+            onClick={() => onConfirmar(data, categoria, texto.trim() || undefined)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-bold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:bg-[#484848] disabled:text-[#6b6b6b]"
           >
             <CheckCircle2 size={13} /> Registrar

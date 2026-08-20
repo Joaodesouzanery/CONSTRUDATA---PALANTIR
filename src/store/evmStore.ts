@@ -575,7 +575,12 @@ export const useEvmStore = create<EvmState>()(
   removeWorkPackage: (id) => {
     set((s) => ({
       workPackages: s.workPackages.filter((wp) => wp.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_wp', type: 'delete', recordId: id, table: 'evm_work_packages', approvalActionType: 'delete_evm_work_package' })],
+      // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`: aquilo só
+      // ABRE UM PEDIDO em `pending_actions` e não apaga nada. A op saía da fila como concluída e o
+      // work package voltava no pull seguinte, trazendo de volta todo o escopo e o orçamento dele
+      // para a EAP. `evm_wp_update_role` aceita o soft delete direto (a policy exige papel
+      // planejador/engenheiro/gerente/diretor/owner, e a tela ainda não tem esse gate).
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_wp', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'evm_work_packages' })],
     }))
     void get().flush()
   },
@@ -615,7 +620,11 @@ export const useEvmStore = create<EvmState>()(
   removeCostAccount: (id) => {
     set((s) => ({
       costAccounts: s.costAccounts.filter((ca) => ca.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'delete', recordId: id, table: 'evm_cost_accounts', approvalActionType: 'delete_evm_cost_account' })],
+      // Mesma correção de `removeWorkPackage`: pelo caminho de aprovação nada era apagado. Aqui o
+      // estrago cai direto no número — a conta voltava no pull e somava outra vez no BAC e no custo
+      // do pilar dela (`recalculateMetrics`), derrubando o CPI sem que ninguém entendesse por quê.
+      // `evm_ca_update_role` aceita o soft delete direto.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_ca', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'evm_cost_accounts' })],
     }))
     void get().flush()
   },
@@ -645,7 +654,11 @@ export const useEvmStore = create<EvmState>()(
   removeImpostoNF: (id) => {
     set((s) => ({
       impostosNF: s.impostosNF.filter((imp) => imp.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'imposto_nf', type: 'delete', recordId: id, table: 'financeiro_impostos_nf', approvalActionType: 'delete_financeiro_imposto_nf' })],
+      // Mesmo caso: o `approvalActionType` só abria um pedido e o imposto voltava no pull. Como a
+      // tabela nasce pré-preenchida pelo `seedImpostosNF`, a empresa ficava presa com retenções que
+      // não usa reaparecendo na tela de NF a cada sincronização. `fin_impostos_update_role` aceita
+      // o soft delete direto.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'imposto_nf', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'financeiro_impostos_nf' })],
     }))
     void get().flush()
   },
@@ -702,7 +715,10 @@ export const useEvmStore = create<EvmState>()(
   removeMeasurement: (id) => {
     set((s) => ({
       measurements: s.measurements.filter((m) => m.id !== id),
-      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_meas', type: 'delete', recordId: id, table: 'evm_measurements', approvalActionType: 'delete_evm_measurement' })],
+      // Mesmo caso: nada era apagado no servidor. A medição voltava no pull e o avanço daquela
+      // atividade era contado de novo na medição ponderada, inflando o compositeScore que o painel
+      // usa como progresso físico. `evm_meas_update_role` aceita o soft delete direto.
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'evm_meas', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'evm_measurements' })],
     }))
     void get().flush()
   },

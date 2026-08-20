@@ -3,7 +3,8 @@
  *
  * Tabelas: change_orders, change_order_photos.
  * Photos: binário no Supabase Storage bucket project-documents/ prefix change-orders/.
- * DELETE crítico via approval (delete_change_order, delete_change_order_photo).
+ * DELETE de ordem de mudança é soft delete direto (`deleted_at`). Passava por aprovação, que só
+ * abria um pedido e não apagava nada — a OM voltava no pull seguinte.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -231,7 +232,13 @@ export const useGestao360Store = create<Gestao360State>()(
           }
           set((s) => ({
             changeOrders: s.changeOrders.filter((co) => co.id !== id),
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'co', type: 'delete', recordId: id, table: 'change_orders', approvalActionType: 'delete_change_order' })],
+            // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`:
+            // aquilo só CRIA UM PEDIDO em `pending_actions` e não apaga nada. A op saía da fila
+            // como concluída e o change order voltava no pull seguinte — reaparecia na lista e o
+            // impacto de custo/prazo dele voltava a somar no Gestão 360. Numa empresa que usa uma
+            // conta só não há segundo aprovador (`approve_pending_action` proíbe autoaprovação),
+            // então excluir era impossível. A RLS aceita o soft delete direto (`co_update_role`).
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'co', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'change_orders' })],
           }))
           void get().flush()
         },

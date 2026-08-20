@@ -190,7 +190,14 @@ export const useAgendaStore = create<AgendaState>()(
           set((s) => ({
             tasks: s.tasks.filter((t) => t.id !== id),
             editingTaskId: s.editingTaskId === id ? null : s.editingTaskId,
-            pendingSync: [...s.pendingSync, makeOp({ entity: 'agenda_task', type: 'delete', recordId: id, table: 'agenda_tasks', approvalActionType: 'delete_agenda_task' })],
+            // Era `type: 'delete'` com `approvalActionType`, que chama o RPC `request_action`:
+            // aquilo só CRIA UM PEDIDO em `pending_actions` e não apaga nada. A op saía da fila
+            // como concluída e a tarefa voltava no pull seguinte — reaparecendo na barra do Gantt,
+            // ocupando de novo o recurso alocado e voltando a contar como pendente no calendário.
+            // Com uma conta só para a empresa inteira não há segundo aprovador para destravar.
+            // A RLS aceita o soft delete direto (`agenda_tasks_update_role`), o mesmo caminho que
+            // `updateTask` e `moveTask` já usam.
+            pendingSync: [...s.pendingSync, makeOp({ entity: 'agenda_task', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'agenda_tasks' })],
           }))
           void get().flush()
         },

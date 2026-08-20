@@ -292,12 +292,17 @@ export const useRelatorio360Store = create<Relatorio360State>()(
         },
         pendingSync: [
           ...state.pendingSync,
+          // Era `type: 'delete'` com `approvalActionType`, que só cria o pedido de aprovação e
+          // não apaga a foto. A foto removida do relatório do dia voltava no pull seguinte e
+          // reaparecia no relatório impresso — inclusive foto trocada por engano ou de obra errada,
+          // que era justamente o motivo de apagar. `daily_report_photos_update_role` aceita o soft
+          // delete direto.
           makeOp({
             entity: 'daily_report_photo',
-            type:   'delete',
+            type:   'update',
             recordId: photoId,
+            patch:    { deleted_at: new Date().toISOString() },
             table:    'daily_report_photos',
-            approvalActionType: 'delete_daily_report_photo',
           }),
         ],
       }
