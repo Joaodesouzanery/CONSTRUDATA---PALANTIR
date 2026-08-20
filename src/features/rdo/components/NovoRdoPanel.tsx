@@ -28,6 +28,10 @@ import { RdoPhotoImg } from './RdoPhotoImg'
 import { rdoSchema } from '../schemas'
 import type { RdoFormData } from '../schemas'
 import type { RdoEquipmentEntry, RdoMaterialConsumptionEntry, RdoServiceEntry, RdoTrechoEntry, RdoPhoto, RdoTrechoStatus, RdoStoppageEntry, RdoWorkforceRow } from '@/types'
+import { hojeLocalISO } from '@/lib/utils'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { useActiveObraStore } from '@/store/activeObraStore'
+import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { TextParseModal } from './TextParseModal'
 import type { ParsedRdoData } from '../utils/parseRdoText'
 
@@ -62,8 +66,11 @@ const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_PHOTOS   = 20
 const MAX_SIZE_MB  = 5
 
+// `hojeLocalISO()`, não `toISOString()`: o UTC no Brasil já é AMANHÃ depois das 21h — e é
+// justamente no fim da tarde que o encarregado preenche o RDO. Com a data em UTC, o RDO salvo
+// carimbava o dia seguinte e o painel de alertas acusaria "sem RDO hoje" numa obra que apontou.
 function todayStr() {
-  return new Date().toISOString().slice(0, 10)
+  return hojeLocalISO()
 }
 
 // ─── Section component ────────────────────────────────────────────────────────
@@ -231,6 +238,14 @@ export function NovoRdoPanel() {
   const [selectedLogoId, setSelectedLogoId] = useState<string | undefined>(undefined)
 
   // ── Extra identification fields (not in rdoSchema Zod) ────────────────────
+  /**
+   * A obra do RDO. Isto FALTAVA: só o RDO Compizzo tinha seletor de obra; aqui o `siteId` caía
+   * silenciosamente em `activeObraId ?? null` (rdoStore), e como o padrão do seletor da Sidebar é
+   * "Todas as obras", todo RDO regular nascia ÓRFÃO — sem obra nenhuma. Isso quebra o escopo por
+   * obra, a medição por contrato e o alerta diário, que não consegue saber de que obra é o RDO.
+   */
+  const sites = useTorreStore((s) => s.sites)
+  const [obraSiteId, setObraSiteId] = useState<string | null>(() => useActiveObraStore.getState().activeObraId)
   const [rdoLocal,            setRdoLocal]            = useState('')
   const [rdoGerenteContrato,  setRdoGerenteContrato]  = useState('')
   const [rdoTecnicoSeg,       setRdoTecnicoSeg]       = useState('')
@@ -637,7 +652,8 @@ export function NovoRdoPanel() {
       geolocation,
       logoId:      selectedLogoId,
       // Identification fields
-      local:                      rdoLocal || undefined,
+      siteId:                     obraSiteId,
+      local:                      rdoLocal || (obraSiteId ? sites.find((st) => st.id === obraSiteId)?.name : undefined) || undefined,
       gerenteContrato:            rdoGerenteContrato || undefined,
       tecnicoSeguranca:           rdoTecnicoSeg || undefined,
       nomeEmpreiteira:            rdoEmpreiteira || undefined,
@@ -826,7 +842,27 @@ export function NovoRdoPanel() {
         <Section title="Identificação do Contrato" icon={<FileText size={16} className="text-[#f97316]" />} defaultOpen={false}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#a3a3a3] text-xs mb-1">Local / Obra</label>
+              <label className="block text-[#a3a3a3] text-xs mb-1">
+                Obra (Torre de Controle)
+                {!obraSiteId && <span className="ml-1 text-[10px] text-[#fdba74]">— sem obra, o RDO não entra no escopo de nenhuma</span>}
+              </label>
+              <select
+                value={obraSiteId ?? ''}
+                onChange={(e) => setObraSiteId(e.target.value || null)}
+                className={inputCls}
+              >
+                <option value="">Selecione a obra…</option>
+                {/* Arquivadas continuam selecionáveis: pode ser preciso lançar um RDO atrasado de
+                    uma obra que acabou de ser arquivada. */}
+                {sites.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.code ? `${st.code} — ` : ''}{st.name}{obraEstaAtiva(st) ? '' : ' (arquivada)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[#a3a3a3] text-xs mb-1">Local / endereço</label>
               <input type="text" value={rdoLocal} onChange={(e) => setRdoLocal(e.target.value)} placeholder="Ex: Rua das Palmeiras, 100 — Centro" className={inputCls} />
             </div>
             <div>

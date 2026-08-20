@@ -22,6 +22,7 @@ import { useStoreSync } from '@/lib/useStoreSync'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { compressImageToBlob } from '@/lib/imageCompression'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { hojeLocalISO } from '@/lib/utils'
 import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
@@ -111,7 +112,10 @@ export function RdoCompizzoPanel() {
   const updateRdo = useRdoStore((s) => s.updateRdo)
   const setActiveTab = useRdoStore((s) => s.setActiveTab)
   const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
-  const today = new Date().toISOString().slice(0, 10)
+  // `hojeLocalISO()`, não `toISOString()`: o UTC no Brasil já é AMANHÃ depois das 21h — e é
+  // justamente no fim da tarde que o encarregado preenche o RDO. Com a data em UTC, o RDO salvo
+  // carimbava o dia seguinte e o painel de alertas acusaria "sem RDO hoje" numa obra que apontou.
+  const today = hojeLocalISO()
 
   // Funcionários e equipes cadastrados no módulo Mão de Obra (sincroniza ao abrir).
   useStoreSync(useMaoDeObraStore)
