@@ -2,13 +2,60 @@ import { useState } from 'react'
 import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, DollarSign, CalendarDays, CheckCircle2, Circle, Clock, Save, X, Archive, ArchiveRestore } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
-import { obraBacFromSite, withTotalBudgetLine } from '@/features/torre-de-controle/utils/obraBudget'
+import { obraBacFromSite, withTotalBudgetLine, bacVemDoContrato } from '@/features/torre-de-controle/utils/obraBudget'
 import { ContratoMedicaoSection } from './ContratoMedicaoSection'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { metragemContratada, precoMedioM2, valoresDoContrato } from '@/features/torre-de-controle/utils/obraMedicao'
+import { formatarMetragem, temUnidadesMistas } from '@/lib/unidadesMedida'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone, ConstructionBudgetLine } from '@/types'
 
 const fmtBRL = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+// ─── Área / Extensão ──────────────────────────────────────────────────────────
+/**
+ * A obra tem uma metragem geral, mas ela pode ser dividida por serviço — e é a divisão que
+ * importa: cada parcela tem preço próprio e é ela que o RDO usa para cobrar o dia.
+ *
+ * Quando há serviços no contrato, a metragem vem deles. **Separada por unidade**: o contrato real
+ * tem 18.605,01 m² de piso/parede/meio-fio e 6.962,01 m de demarcação, e somar as duas daria
+ * 25.567,02 — metro quadrado com metro linear, um número que ninguém consegue conferir.
+ *
+ * Obra sem serviços cadastrados continua mostrando o campo digitado à mão, como sempre.
+ */
+function AreaExtensao({ site }: { site: ConstructionSite }) {
+  const services = site.contrato?.services ?? []
+  if (services.length === 0) {
+    return <InfoRow label="Área / Extensão" value={`${site.totalArea.toLocaleString('pt-BR')} m²`} />
+  }
+
+  const m = metragemContratada(services)
+  const medio = precoMedioM2(services)
+  const divergeDoCadastro = site.totalArea > 0 && Math.abs(site.totalArea - m.area) > 1
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <InfoRow label="Área / Extensão" value={formatarMetragem(m)} />
+      <p className="text-[10px] leading-relaxed text-[#6b6b6b]">
+        Somada de {services.length} serviço(s) do contrato
+        {temUnidadesMistas(m) && ' — em parcelas, porque m² e metro linear não se somam'}
+        {m.verbas > 0 && `. ${m.verbas} item(ns) de valor fechado, sem metragem`}.
+      </p>
+      {medio != null && (
+        <p className="text-[10px] leading-relaxed text-[#6b6b6b]">
+          Preço médio da área: {medio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 4 })}/m²
+          {' '}— é uma média, não o preço de nenhum serviço. Cada um tem o seu.
+        </p>
+      )}
+      {divergeDoCadastro && (
+        <p className="text-[10px] leading-relaxed text-[#fbbf24]">
+          O cadastro da obra diz {site.totalArea.toLocaleString('pt-BR')} m², e os serviços somam
+          {' '}{m.area.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m². Vale conferir qual está certo.
+        </p>
+      )}
+    </div>
+  )
+}
 
 // ─── Orçamento do contrato (editável) ─────────────────────────────────────────
 // Fonte do BAC por obra que o Planejamento consome. Grava/atualiza a linha 'Total'.
@@ -17,6 +64,25 @@ function OrcamentoEditor({ site }: { site: ConstructionSite }) {
   const atual = obraBacFromSite(site)
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState('')
+
+  // Com contrato cadastrado, o valor vem DE LÁ e este campo só exibe. Eram três lugares para
+  // digitar o mesmo número — aqui, no diálogo da obra e no contrato — sem nenhum aviso quando
+  // discordavam. Editar em duplicata é o que criava a divergência; então a edição sai.
+  if (bacVemDoContrato(site)) {
+    const v = valoresDoContrato(site.contrato)
+    return (
+      <div className="mb-2 rounded-lg border border-[#525252] bg-[#333333] px-3 py-2">
+        <p className="text-[10px] uppercase tracking-wider text-[#6b6b6b]">Orçamento do contrato</p>
+        <p className="mt-0.5 text-sm font-bold text-[#f59e0b]">{fmtBRL(atual)}</p>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-[#6b6b6b]">
+          {v.material > 0
+            ? `Serviço ${fmtBRL(v.servico)} + material ${fmtBRL(v.material)}. `
+            : ''}
+          Vem de "Contrato &amp; Medição", abaixo — é lá que se edita.
+        </p>
+      </div>
+    )
+  }
 
   function open() { setVal(atual ? String(atual) : ''); setEditing(true) }
   function save() {
@@ -366,7 +432,7 @@ export function ObraDetailPanel() {
           {/* Edificação */}
           <Section icon={<Building2 size={12} />} title="Edificação">
             <InfoRow label="Tipo"       value={site.buildingType} />
-            <InfoRow label="Área Total" value={`${site.totalArea.toLocaleString('pt-BR')} m²`} />
+            <AreaExtensao site={site} />
             <InfoRow label="Pavimentos" value={`${site.floors}`} />
           </Section>
 

@@ -27,7 +27,8 @@ import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } f
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
-import { precoEfetivo } from '@/features/torre-de-controle/utils/obraMedicao'
+import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/features/torre-de-controle/utils/obraMedicao'
+import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
@@ -113,6 +114,8 @@ export function RdoCompizzoPanel() {
   const updateRdo = useRdoStore((s) => s.updateRdo)
   const setActiveTab = useRdoStore((s) => s.setActiveTab)
   const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
+  // Para o saldo por serviço: o medido acumulado sai dos RDOs finalizados da obra.
+  const todosRdos = useRdoStore((s) => s.rdos)
   // `hojeLocalISO()`, não `toISOString()`: o UTC no Brasil já é AMANHÃ depois das 21h — e é
   // justamente no fim da tarde que o encarregado preenche o RDO. Com a data em UTC, o RDO salvo
   // carimbava o dia seguinte e o painel de alertas acusaria "sem RDO hoje" numa obra que apontou.
@@ -526,6 +529,51 @@ export function RdoCompizzoPanel() {
 
     return { m2, valor, foraDaConta, comPrecoProprio }
   }, [producao, precoM2, selectedSite])
+
+  /**
+   * O outro lado da conta: quanto ainda falta executar de cada serviço tocado hoje.
+   *
+   * O valor do dia já saía certo, mas sozinho ele não diz nada sobre o andamento — quem preenche o
+   * RDO no canteiro precisa ver que aqueles 320 m² de piso são os últimos, ou que ainda faltam
+   * 4.000. `medidoAutoPorServico` soma os RDOs FINALIZADOS da obra; o RDO em edição é descontado
+   * para a quantidade de hoje não ser contada duas vezes.
+   */
+  const avancoPorServico = useMemo(() => {
+    const services = selectedSite?.contrato?.services ?? []
+    if (services.length === 0) return []
+    const porServico = new Map(services.map((sv) => [sv.id, sv]))
+
+    // Quantidade lançada hoje, por serviço.
+    const hoje = new Map<string, number>()
+    for (const linha of producao) {
+      if (!linha.contractServiceId || !porServico.has(linha.contractServiceId)) continue
+      const q = parseLocaleNumber(linha.quantidade) || 0
+      if (q > 0) hoje.set(linha.contractServiceId, (hoje.get(linha.contractServiceId) ?? 0) + q)
+    }
+    if (hoje.size === 0) return []
+
+    const jaMedido = medidoAutoPorServico(
+      todosRdos.filter((r) => r.id !== editing?.id),
+      selectedSite?.id,
+    )
+
+    return [...hoje.entries()].map(([id, qtdHoje]) => {
+      const sv = porServico.get(id)!
+      const unidade = ehVerba(sv.unidade) ? '' : (sv.unidade || ROTULO_UNIDADE[classificarUnidade(sv.unidade)])
+      const acumulado = qtdMedida(sv, jaMedido) + qtdHoje
+      return {
+        id,
+        descricao: sv.descricao || 'Serviço sem descrição',
+        unidade,
+        qtdHoje,
+        contratada: sv.qtdContrato || 0,
+        // `saldoQtd` já desconta o `qtdAnterior` do contrato (o medido antes de o sistema entrar).
+        saldo: saldoQtd(sv, acumulado),
+        valorHoje: qtdHoje * precoEfetivo(sv),
+        semMetragem: ehVerba(sv.unidade),
+      }
+    })
+  }, [producao, selectedSite, todosRdos, editing])
   // Custo de mão de obra do dia = Σ custo/dia dos presentes (match normalizado, igual à ponte de apontamentos).
   const custoMaoObraDia = useMemo(
     () => employeeNames.reduce((s, name) => { const w = matchWorkerByName(name, workers); return s + (w ? custoDiaWorker(w) : 0) }, 0),
@@ -628,6 +676,30 @@ export function RdoCompizzoPanel() {
                       · {producaoDoDia.foraDaConta} linha(s) fora da conta (sem serviço do contrato e não medidas em m²)
                     </span>
                   )}
+                </div>
+              )}
+              {/* Avanço contra a metragem contratada, serviço a serviço. */}
+              {avancoPorServico.length > 0 && (
+                <div className="mt-2 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#9a9a9a]">Avanço do dia por serviço</p>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {avancoPorServico.map((a) => (
+                      <li key={a.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px]">
+                        <span className="text-[#e5e5e5]">{a.descricao}</span>
+                        <span className="tabular-nums font-semibold text-[#f5f5f5]">
+                          +{a.qtdHoje.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {a.unidade}
+                        </span>
+                        <span className="tabular-nums text-[#fdba74]">{brl(a.valorHoje)}</span>
+                        {!a.semMetragem && a.contratada > 0 && (
+                          <span className={`tabular-nums ${a.saldo < 0 ? 'text-[#f87171]' : 'text-[#9a9a9a]'}`}>
+                            · {a.saldo < 0 ? 'passou em ' : 'faltam '}
+                            {Math.abs(a.saldo).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {a.unidade}
+                            {' '}de {a.contratada.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>

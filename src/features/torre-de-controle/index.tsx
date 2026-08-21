@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams } from 'react-router-dom'
-import { FolderKanban, Globe, Layers, ListChecks, Map, type LucideIcon } from 'lucide-react'
+import { FolderKanban, Globe, Layers, ListChecks, Map, Wallet, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
@@ -11,6 +11,7 @@ import { useProjetosStore } from '@/store/projetosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ObrasListPanel }  from './components/ObrasListPanel'
 import { ObraDetailPanel }  from './components/ObraDetailPanel'
+import { CarteiraObrasPanel } from './components/CarteiraObrasPanel'
 import { ObraDialog }       from './components/ObraDialog'
 import { RiskDialog }       from './components/RiskDialog'
 
@@ -19,10 +20,11 @@ import { RiskDialog }       from './components/RiskDialog'
 const BimPageLazy = lazy(() => import('@/features/bim').then((m) => ({ default: m.BimPage })))
 const MapaInterativoPageLazy = lazy(() => import('@/features/mapa-interativo').then((m) => ({ default: m.MapaInterativoPage })))
 
-type TorreTab = 'mapa' | 'projetos' | 'detalhes' | 'bim' | 'mapa-interativo'
+type TorreTab = 'mapa' | 'carteira' | 'projetos' | 'detalhes' | 'bim' | 'mapa-interativo'
 
 const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
   { key: 'mapa',     label: 'Mapa Geral',       icon: Map },
+  { key: 'carteira', label: 'Carteira',         icon: Wallet },
   { key: 'projetos', label: 'Projetos',         icon: FolderKanban },
   { key: 'detalhes', label: 'Detalhes da Obra', icon: ListChecks },
   { key: 'bim',      label: 'BIM 3D/4D/5D',     icon: Layers },
@@ -30,7 +32,7 @@ const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
 ]
 
 function parseTorreTab(value: string | null): TorreTab | null {
-  return value === 'mapa' || value === 'projetos' || value === 'detalhes' || value === 'bim' || value === 'mapa-interativo'
+  return value === 'mapa' || value === 'carteira' || value === 'projetos' || value === 'detalhes' || value === 'bim' || value === 'mapa-interativo'
     ? value
     : null
 }
@@ -131,6 +133,12 @@ export function TorreDeControlePage() {
                 onEditSite={setEditing}
               />
             </div>
+          </div>
+        )}
+
+        {activeTab === 'carteira' && (
+          <div className="h-full min-h-0">
+            <CarteiraObrasPanel />
           </div>
         )}
 

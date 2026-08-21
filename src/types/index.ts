@@ -275,6 +275,30 @@ export interface ObraContratoServico {
 }
 
 /** Contrato & medição por obra (payload da obra) — espelha a planilha "Solicitação de Medição". */
+/**
+ * Uma linha do extrato de faturamento da obra — uma nota emitida contra o contrato.
+ *
+ * Espelha a planilha "Obras em Andamento - BSB" linha a linha. O **valor de entrada não é um
+ * campo à parte**: é a primeira linha do extrato, marcada com `entrada: true`. Na planilha ela
+ * aparece como "Entrada Serviço" / "entrada 40%", ou seja, já é um faturamento — criar um segundo
+ * campo para o mesmo número daria dois lugares para digitar e duas versões da verdade.
+ */
+export interface ObraFaturamento {
+  id: string
+  data: string              // ISO (yyyy-mm-dd)
+  nf?: string               // número da nota
+  valor: number
+  descricao?: string        // "Entrada Serviço", "2ª medição"…
+  /** Retenção Técnica/Contratual desta nota. Some no rodapé, não abate do saldo. */
+  retencaoTecnica?: number
+  situacao: 'recebido' | 'a_receber'
+  /** Quando `situacao === 'a_receber'`: a data prevista (vermelho na planilha do cliente). */
+  previsaoRecebimento?: string
+  /** Primeira parcela / sinal. É daqui que sai o "valor de entrada" exibido na obra. */
+  entrada?: boolean
+  observacoes?: string
+}
+
 export interface ObraContrato {
   contratanteRazao?: string
   contratanteCnpj?:  string
@@ -284,13 +308,37 @@ export interface ObraContrato {
   numeroContrato?:   string
   numeroAditivo?:    string
   objetoAditivo?:    string
+  /**
+   * @deprecated Use `valorServico` + `valorMaterial`. Continua sendo LIDO como `valorServico`
+   * para não quebrar obra já cadastrada — ver `valoresDoContrato()` em `obraMedicao.ts`.
+   */
   valorTotal?:       number
+  /**
+   * Valor de SERVIÇO do contrato — a mão de obra. É contra ele que o saldo é calculado
+   * (`saldo = valorServico − Σ faturado`); o material não entra nessa conta.
+   */
+  valorServico?:     number
+  /**
+   * Valor de MATERIAL do contrato, faturado à parte.
+   *
+   * Na planilha BSB da SUPERA são R$ 607.620,00 — exatamente o "Faturamento direto" da cláusula 6
+   * do contrato. Era isso que estava modelado como um serviço de unidade `vb`; é um valor de
+   * contrato, e agora tem o campo que lhe cabe.
+   */
+  valorMaterial?:    number
   local?:            string
   numeroMedicao?:    string
   periodoReferencia?: string
   dataSolicitacao?:  string
-  descontoNfPct?:    number   // desconto sobre NFs de materiais (%)
+  /**
+   * @deprecated Abatimento percentual cego sobre o medido — a tentativa antiga de separar
+   * material. Fica porque obras já cadastradas usam e removê-lo mudaria contrato existente;
+   * para separar material, use `valorMaterial`.
+   */
+  descontoNfPct?:    number
   services:          ObraContratoServico[]
+  /** Extrato de faturamento: as notas emitidas contra este contrato. */
+  faturamentos?:     ObraFaturamento[]
 }
 
 export interface ConstructionBudgetLine {

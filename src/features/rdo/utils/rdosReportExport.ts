@@ -29,6 +29,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- o RDO Sabesp é tipado com `any` na origem */
 import type { RDO, RdoPhoto, RdoWeatherCondition } from '@/types'
+import { classificarUnidade as classificarUnidadeCanonica } from '@/lib/unidadesMedida'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getServiceDisplayLabel } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import { resolvePhotosForPdf, blobToDataUrl } from './rdoPhotoStorage'
@@ -109,16 +110,13 @@ const ehCompizzo = (r: RDO): boolean => r.template === 'compizzo' && !!r.compizz
 /**
  * Classifica a unidade de uma linha de produção.
  *
- * Casa o token INTEIRO. Um `/^m/` casaria com "mm" e "min" — milímetro entrando no total de
- * metros, minuto virando metragem. E separa linear de área porque os três formatos convivem no
- * mesmo relatório: o RDO Sabesp mede ramal em metro, o Compizzo mede piso em m². Somar os dois
- * num número só ainda é uma aproximação, mas ao menos o rótulo passa a dizer qual é a mistura.
+ * Delega para `@/lib/unidadesMedida`, que é o único lugar do projeto que responde a esta pergunta
+ * — antes eram quatro listas divergentes. Aqui só se estreita o resultado para os dois tipos que
+ * este relatório sabe exibir; verba e unidades avulsas não entram em metragem.
  */
 function classificarUnidade(unidade: string): 'linear' | 'area' | null {
-  const u = unidade.trim().toLowerCase()
-  if (/^(m|ml|metro|metros|m\.?l\.?)$/.test(u)) return 'linear'
-  if (/^(m²|m2|metro quadrado|metros quadrados)$/.test(u)) return 'area'
-  return null
+  const t = classificarUnidadeCanonica(unidade)
+  return t === 'linear' || t === 'area' ? t : null
 }
 
 /** Quanto o item executou, e em que unidade — para o rótulo não mentir. */
