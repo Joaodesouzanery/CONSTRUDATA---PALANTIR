@@ -15,6 +15,7 @@ import {
   X,
   FileSpreadsheet,
   PackageMinus,
+  ExternalLink,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -53,6 +54,10 @@ interface ItemForm {
   fornecedorPrincipal: string
   codigoReferencia: string
   dataUltimoPedido: string   // yyyy-MM-dd (input date)
+  // Duas colunas da planilha do almoxarifado. Entravam pelo import e não eram editáveis em
+  // lugar nenhum — quem corrigisse um link errado teria de reimportar a planilha inteira.
+  linkProduto: string
+  realizarPedido: boolean
 }
 
 interface DepositoForm {
@@ -78,6 +83,8 @@ const emptyForm: ItemForm = {
   fornecedorPrincipal: '',
   codigoReferencia: '',
   dataUltimoPedido: '',
+  linkProduto: '',
+  realizarPedido: false,
 }
 
 const emptyDepositoForm: DepositoForm = {
@@ -240,6 +247,8 @@ export function AlmoxarifadoPanel() {
       valorTotal: formatMoneyInput(item.qtdDisponivel * (item.custoUnitario ?? 0)),
       fornecedorPrincipal: item.fornecedorPrincipal ?? '',
       codigoReferencia: item.codigoReferencia ?? '',
+      linkProduto: item.linkProduto ?? '',
+      realizarPedido: item.realizarPedido ?? false,
       dataUltimoPedido: item.dataUltimoPedido ?? '',
     })
     setShowItemForm(true)
@@ -276,6 +285,8 @@ export function AlmoxarifadoPanel() {
       unidadeEmbalagem: form.unidadeEmbalagem.trim().replace(/^\s*[\d.,]+\s*/, '') || undefined,
       codigoReferencia: form.codigoReferencia.trim() || undefined,
       dataUltimoPedido: form.dataUltimoPedido || undefined,
+      linkProduto: form.linkProduto.trim() || undefined,
+      realizarPedido: form.realizarPedido || undefined,
     }
 
     if (editingItemId) {
@@ -481,6 +492,25 @@ export function AlmoxarifadoPanel() {
             <span className="font-mono">{item.codigoReferencia || item.id.slice(0, 8)}</span>
             <span className="rounded-full border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3]">{item.categoria || 'Sem categoria'}</span>
             {item.dataUltimoPedido && <span title="Data do último pedido">· últ. pedido {item.dataUltimoPedido.split('-').reverse().join('/')}</span>}
+            {/* Duas colunas da planilha que entravam no banco e não apareciam em tela nenhuma.
+                O link é o que resolve "onde eu compro isso mesmo?" na hora de repor. */}
+            {item.realizarPedido && (
+              <span className="rounded bg-[#f97316]/20 px-1.5 py-0.5 font-semibold text-[#fb923c]" title="Marcado na planilha como 'Realizar Pedido'">
+                pedir
+              </span>
+            )}
+            {item.linkProduto && (
+              <a
+                href={item.linkProduto}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-0.5 text-[#7dd3fc] underline-offset-2 hover:underline"
+                title={item.linkProduto}
+              >
+                <ExternalLink size={9} /> link
+              </a>
+            )}
           </div>
         </td>
         {/* Frente */}
@@ -761,6 +791,16 @@ export function AlmoxarifadoPanel() {
             <input type="text" inputMode="decimal" value={form.valorTotal} onChange={(event) => updateTotalValue(event.target.value)} placeholder="Valor total (R$ da nota)" className={inputClass} />
             <input value={form.fornecedorPrincipal} onChange={(event) => setForm((item) => ({ ...item, fornecedorPrincipal: event.target.value }))} placeholder="Fornecedor" className={inputClass} />
             <input value={form.codigoReferencia} onChange={(event) => setForm((item) => ({ ...item, codigoReferencia: event.target.value }))} placeholder="Código (referência)" className={inputClass} />
+            <input value={form.linkProduto} onChange={(event) => setForm((item) => ({ ...item, linkProduto: event.target.value }))} placeholder="Link do produto (onde comprar)" className={inputClass} />
+            <label className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-sm text-[#f5f5f5]">
+              <input
+                type="checkbox"
+                checked={form.realizarPedido}
+                onChange={(event) => setForm((item) => ({ ...item, realizarPedido: event.target.checked }))}
+                className="h-4 w-4 accent-[#f97316]"
+              />
+              Realizar pedido
+            </label>
             <label className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 text-xs text-[#6b6b6b]">
               <span className="whitespace-nowrap">Últ. pedido</span>
               <input type="date" value={form.dataUltimoPedido} onChange={(event) => setForm((item) => ({ ...item, dataUltimoPedido: event.target.value }))} className="flex-1 bg-transparent py-2 text-sm text-[#f5f5f5] outline-none" />

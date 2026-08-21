@@ -1,4 +1,28 @@
 -- =====================================================================
+-- ⛔ NÃO RODE MAIS ESTE ARQUIVO — ele foi cumprido e agora causa dano
+-- =====================================================================
+-- Este bundle contém a versão ANTIGA de `baixar_estoque_item`, com 5
+-- parâmetros. Em 22/08/2026 a função foi reescrita com 9 parâmetros
+-- (`20260822120000_estoque_ficha_de_retirada.sql`, para gravar a ficha de
+-- retirada) e em 24/08 ganhou checagem de papel.
+--
+-- Rodar este arquivo de novo faria um `CREATE OR REPLACE` da assinatura
+-- velha AO LADO da nova — duas funções de mesmo nome. O PostgREST passaria
+-- a escolher entre elas conforme os argumentos da chamada, que é exatamente
+-- a ambiguidade que aquelas migrações existiram para evitar: funciona no
+-- teste, falha em produção.
+--
+-- O mesmo vale, em menor grau, para qualquer outra função aqui que tenha
+-- sido reescrita depois de 22/07/2026.
+--
+-- ▸ O que aplicar hoje está listado em `docs/APLICAR_MIGRACOES.md`.
+-- ▸ Para saber o que o banco JÁ tem: `docs/DIAGNOSTICO_SCHEMA.sql`.
+--
+-- Mantido no repositório só como histórico do que foi aplicado até 22/07.
+-- =====================================================================
+--
+-- --------- conteúdo original, a partir daqui ---------
+--
 -- APPLY_PENDENTE_20260722.sql — bundle de recuperação de schema
 -- =====================================================================
 -- Junta, em ordem, TODAS as migrações que podem não ter sido aplicadas

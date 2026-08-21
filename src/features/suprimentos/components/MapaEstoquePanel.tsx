@@ -416,7 +416,16 @@ export function MapaEstoquePanel() {
                   : <ArrowDownCircle size={14} className="text-[#4ade80] shrink-0" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] text-[#f5f5f5] truncate">{item?.descricao ?? m.itemId}</p>
-                  <p className="text-[10px] text-[#6b6b6b]">{m.dataMovimento}{m.nf ? ` · ${m.nf}` : ''}{m.fornecedor ? ` · ${m.fornecedor}` : ''}</p>
+                  {/* A hora e quem retirou existiam no dado e não apareciam em lugar nenhum — esta
+                      lista mostrava data, NF e fornecedor, ou seja, metade da ficha de retirada. */}
+                  <p className="text-[10px] text-[#6b6b6b]">
+                    {m.dataMovimento.split('-').reverse().join('/')}
+                    {m.horaMovimento ? ` ${m.horaMovimento}` : ''}
+                    {m.retiradoPor ? ` · ${m.retiradoPor}` : ''}
+                    {m.entreguePor ? ` (entregue por ${m.entreguePor})` : ''}
+                    {m.nf ? ` · ${m.nf}` : ''}
+                    {m.fornecedor ? ` · ${m.fornecedor}` : ''}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {isBig && <span title="Consumo acima do esperado"><AlertTriangle size={12} className="text-[#fbbf24]" /></span>}

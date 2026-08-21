@@ -288,7 +288,12 @@ export function DashboardSuprimentosPanel({ onNavigate, onRegistrarRetirada }: P
                       <td className="px-2 py-1.5 font-mono text-[#6b6b6b]">{m.horaMovimento ?? '—'}</td>
                       <td className="max-w-[220px] truncate px-2 py-1.5 text-[#f5f5f5]" title={item?.descricao}>{item?.descricao ?? '(item removido)'}</td>
                       <td className="px-2 py-1.5 font-mono text-[#f5f5f5]">{m.quantidade} {item?.unidade || ''}</td>
-                      <td className="px-2 py-1.5 text-[#a3a3a3]">{m.retiradoPor ?? <span className="text-[#6b6b6b]">não registrado</span>}</td>
+                      {/* "Entregue por" é o outro lado da assinatura da ficha de papel. Era
+                          capturado no formulário e não podia ser lido em tela nenhuma. */}
+                      <td className="px-2 py-1.5 text-[#a3a3a3]">
+                        {m.retiradoPor ?? <span className="text-[#6b6b6b]">não registrado</span>}
+                        {m.entreguePor && <span className="block text-[10px] text-[#6b6b6b]">entregue por {m.entreguePor}</span>}
+                      </td>
                       <td className="max-w-[140px] truncate px-2 py-1.5 text-[#6b6b6b]">{nomeDaObra(m.siteId ?? item?.siteId)}</td>
                       <td className="whitespace-nowrap px-2 py-1.5 font-mono text-[#fb923c]">
                         {custoDaMov(m) > 0 ? formatCurrency(m.quantidade * custoDaMov(m)) : '—'}
