@@ -647,7 +647,7 @@ export const useManutencoesStore = create<ManutencoesState>()(
           const offline = typeof navigator !== 'undefined' && !navigator.onLine
           return {
             pendingSync: remaining,
-            syncStatus: res.errored.length ? 'error' : offline && remaining.length ? 'offline' : 'idle',
+            syncStatus: res.lastError ? 'error' : offline && remaining.length ? 'offline' : 'idle',
             syncError: res.lastError ?? null,
           }
         })

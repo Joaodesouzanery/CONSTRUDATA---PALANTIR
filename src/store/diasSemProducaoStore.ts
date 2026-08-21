@@ -153,7 +153,7 @@ export const useDiasSemProducaoStore = create<Estado>()(
           const offline = typeof navigator !== 'undefined' && !navigator.onLine
           return {
             pendingSync: restante,
-            syncStatus: res.errored.length ? 'error' : offline && restante.length ? 'offline' : 'idle',
+            syncStatus: res.lastError ? 'error' : offline && restante.length ? 'offline' : 'idle',
             syncError: res.lastError ?? null,
           }
         })
