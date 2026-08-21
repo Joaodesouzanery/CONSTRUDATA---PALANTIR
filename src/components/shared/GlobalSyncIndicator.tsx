@@ -1,26 +1,34 @@
 /**
  * GlobalSyncIndicator — na sidebar, abaixo do seletor de organização.
- * - Modo demo/homologação: avisa que nada é salvo no servidor.
- * - Produção: mostra "Tudo salvo" ou "N não salvo(s)"; ao clicar, abre um painel
- *   com o módulo culpado + a mensagem de erro real + "Tentar novamente" / descartar.
+ *
+ * A regra desta tela é: **o usuário não deveria precisar cuidar disto.** A fila de sincronização
+ * não morre mais por contagem de tentativas (ver `storeSync.ts`), então uma pendência é um estado
+ * passageiro, não um problema — e não merece contagem em vermelho nem botão de socorro.
+ *
+ * Três estados, nesta ordem de prioridade:
+ *  - **Precisa de você**: só falha BLOQUEANTE (permissão) que já insistiu por mais de uma hora.
+ *    É o único caso que aparece, e vem com motivo em português e um botão que resolve.
+ *  - **Enviando**: há algo na fila. Sem número, sem alarme — vai subir.
+ *  - **Tudo salvo**.
+ *
+ * O painel completo continua acessível pelo clique: ele é o histórico do que ainda não subiu,
+ * com a opção de reenviar na hora e de baixar uma cópia.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { FlaskConical, Cloud, CloudOff, RefreshCw, X, CheckCircle2 } from 'lucide-react'
-import { useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps, baixarOpsPendentes, listarOpsPendentes, type OpPendenteResumo } from '@/store/appModeStore'
+import { FlaskConical, Cloud, RefreshCw, X, CheckCircle2, ShieldAlert } from 'lucide-react'
+import {
+  useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps,
+  baixarOpsPendentes, listarOpsPendentes, pendenciasQuePedemAtencao,
+  type OpPendenteResumo, type PendenciaBloqueada,
+} from '@/store/appModeStore'
 import { fmtDataBR } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
 type Diag = { key: string; label: string; pending: number; error: boolean; syncError: string | null }
 
-/** Erro de schema faltando (PGRST205 tabela / PGRST204 coluna) → dica de rodar as migrações. */
-function isSchemaError(msg: string): boolean {
-  const m = msg.toLowerCase()
-  return m.includes('schema cache') || m.includes('could not find the table') || (m.includes('could not find') && m.includes('column'))
-}
-
-
-/** O painel falava a língua do Postgres. Estes dois traduzem para a língua de quem usa. */
+/** O painel falava a língua do Postgres. Estes traduzem para a língua de quem usa. */
 const ROTULOS_TABELA: Record<string, string> = {
   worker_absences: 'faltas', workers: 'funcionários', shifts: 'escala', timecards: 'apontamentos',
   worker_assessments: 'avaliações', work_posts: 'postos de trabalho', labor_occurrences: 'ocorrências',
@@ -33,18 +41,49 @@ const rotuloTabela = (t: string) => ROTULOS_TABELA[t] ?? t
 const rotuloAcao = (tipo: string) =>
   tipo === 'insert' ? 'Criação' : tipo === 'delete' ? 'Exclusão' : 'Alteração'
 
+/**
+ * Traduz o erro do servidor para uma frase que diz o que fazer.
+ *
+ * Um "new row violates row-level security policy" não ajuda ninguém; "o seu papel não autoriza"
+ * ajuda. A mensagem original continua disponível no detalhe, para quando o suporte precisar.
+ */
+function motivoAmigavel(p: PendenciaBloqueada): string {
+  const m = (p.motivo ?? '').toLowerCase()
+  const alvo = rotuloTabela(p.tabela)
+  if (m.includes('row-level security') || m.includes('42501') || m.includes('não autoriza') || m.includes('permission denied')) {
+    return `O seu papel não autoriza ${p.tipo === 'delete' ? 'excluir' : 'gravar'} em ${alvo}.`
+  }
+  if (m.includes('não foi aceita pelo servidor')) {
+    return `O servidor recusou a exclusão em ${alvo} — o registro continua lá. Normalmente é permissão.`
+  }
+  if (m.includes('violates foreign key')) {
+    return `Este registro de ${alvo} depende de outro que ainda não subiu.`
+  }
+  return `O servidor recusou esta alteração em ${alvo}.`
+}
+
+/** Erro de schema faltando (PGRST205 tabela / PGRST204 coluna) → dica de rodar as migrações. */
+function isSchemaError(msg: string): boolean {
+  const m = msg.toLowerCase()
+  return m.includes('schema cache') || m.includes('could not find the table') || (m.includes('could not find') && m.includes('column'))
+}
+
 export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   useAppModeStore((s) => s.isDemoMode)
   const orgId = useAuth((s) => s.profile?.organization_id)
 
   const [summary, setSummary] = useState<{ pending: number; error: boolean; syncing: boolean }>({ pending: 0, error: false, syncing: false })
+  const [atencao, setAtencao] = useState<PendenciaBloqueada[]>([])
   const [open, setOpen] = useState(false)
   const demo = isDemoModeEnabled()
 
   useEffect(() => {
     if (demo) return
     let alive = true
-    const tick = () => { void getPendingSummary().then((s) => { if (alive) setSummary(s) }) }
+    const tick = () => {
+      void getPendingSummary().then((s) => { if (alive) setSummary(s) })
+      void pendenciasQuePedemAtencao().then((p) => { if (alive) setAtencao(p) })
+    }
     tick()
     const t = window.setInterval(tick, 4000)
     return () => { alive = false; window.clearInterval(t) }
@@ -66,16 +105,23 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   }
 
   // ── Produção ──
-  const { pending, error, syncing } = summary
-  const dirty = pending > 0 || error
-  const tone = error ? '#eab308' : dirty ? '#eab308' : syncing ? '#60a5fa' : '#4ade80'
-  const Icon = error ? CloudOff : dirty ? CloudOff : syncing ? RefreshCw : Cloud
-  const label = error
-    ? `${pending} salvo(s) no aparelho · reenviar`
-    : dirty ? `${pending} salvo(s) no aparelho` : syncing ? 'Enviando para a nuvem…' : 'Tudo salvo na nuvem'
-  const title = dirty
-    ? 'Salvo no aparelho — ainda não subiu para a nuvem. Clique para ver detalhes e reenviar. Não atualize a página.'
-    : label
+  //
+  // Note o que NÃO está aqui: contagem de pendências e estado de "erro". Uma op na fila vai subir
+  // sozinha; mostrar "3 NÃO SALVO(S)" em amarelo transformava um processo normal em um susto, e
+  // ainda oferecia dois botões — um que não fazia nada e outro que apagava o dado.
+  const precisaAtencao = atencao.length > 0
+  const enviando = summary.syncing || summary.pending > 0
+
+  const tone = precisaAtencao ? '#eab308' : enviando ? '#60a5fa' : '#4ade80'
+  const Icon = precisaAtencao ? ShieldAlert : enviando ? RefreshCw : Cloud
+  const label = precisaAtencao
+    ? 'Precisa da sua autorização'
+    : enviando ? 'Enviando para a nuvem…' : 'Tudo salvo na nuvem'
+  const title = precisaAtencao
+    ? `${atencao.length} alteração(ões) o servidor recusou. Clique para ver o motivo e resolver.`
+    : enviando
+      ? 'Salvo no aparelho e a caminho da nuvem. Não precisa fazer nada — o envio se resolve sozinho.'
+      : label
 
   return (
     <>
@@ -87,7 +133,7 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
         <button type="button" onClick={() => setOpen(true)}
           className="mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug hover:brightness-125"
           style={{ borderColor: `${tone}55`, background: `${tone}18`, color: tone }} title={title}>
-          <Icon size={13} className={`shrink-0 ${syncing && !dirty ? 'animate-spin' : ''}`} />
+          <Icon size={13} className={`shrink-0 ${enviando && !precisaAtencao ? 'animate-spin' : ''}`} />
           <span className="truncate">{label}</span>
         </button>
       )}
@@ -98,16 +144,25 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
 
 function SyncPanel({ onClose }: { onClose: () => void }) {
   const [diags, setDiags] = useState<Diag[] | null>(null)
+  const [atencao, setAtencao] = useState<PendenciaBloqueada[]>([])
   const [busy, setBusy] = useState(false)
   const [detalhe, setDetalhe] = useState<string | null>(null)
   const [ops, setOps] = useState<Record<string, OpPendenteResumo[]>>({})
+  const [pedidos, setPedidos] = useState<Record<string, 'ok' | 'erro'>>({})
 
-  const refresh = useCallback(async () => { setDiags(await getSyncDiagnostics()) }, [])
+  const refresh = useCallback(async () => {
+    setDiags(await getSyncDiagnostics())
+    setAtencao(await pendenciasQuePedemAtencao())
+    setOps({})
+  }, [])
   useEffect(() => { void refresh() }, [refresh])
 
   async function handleRetry() {
     setBusy(true)
-    try { await retryAllTenantStores(); await new Promise((r) => setTimeout(r, 400)); await refresh() }
+    // `retryAllTenantStores` agora zera a espera do backoff antes de drenar. Antes ele era um
+    // apelido de flush e caía no mesmo filtro que já havia tirado as ops travadas da rodada —
+    // por isso o botão parecia não fazer nada: ele de fato não fazia.
+    try { await retryAllTenantStores(); await new Promise((r) => setTimeout(r, 600)); await refresh() }
     finally { setBusy(false) }
   }
 
@@ -128,18 +183,35 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
     } finally { setBusy(false) }
   }
 
-  async function handleDiscard(d: Diag) {
-    // O texto mudou porque o comportamento anterior era pior do que o aviso dizia: zerava a fila
-    // INTEIRA, os registros continuavam na tela, e o próximo `pull` — que roda a cada abertura do
-    // módulo — os apagava. Era perda silenciosa, sem nenhum sinal.
+  /**
+   * O "botão que resolve": manda o pedido para quem tem permissão aprovar. Usa o RPC
+   * `request_action`, que já existe e cria uma linha em `pending_actions` (a aprovação em si é
+   * feita por outra pessoa — o próprio autor não pode aprovar).
+   */
+  async function handlePedirAprovacao(p: PendenciaBloqueada) {
+    setBusy(true)
+    try {
+      const { error } = await supabase.rpc('request_action', {
+        p_action_type:  p.tipo === 'delete' ? `delete_${p.tabela}` : `write_${p.tabela}`,
+        p_target_table: p.tabela,
+        p_target_id:    p.recordId,
+        p_payload:      {},
+      } as never)
+      setPedidos((s) => ({ ...s, [p.opId]: error ? 'erro' : 'ok' }))
+    } catch {
+      setPedidos((s) => ({ ...s, [p.opId]: 'erro' }))
+    } finally { setBusy(false) }
+  }
+
+  /** Descarte é item a item e sempre baixa uma cópia antes. Nunca "tudo o que deu erro". */
+  async function handleDescartarOp(d: Diag, op: OpPendenteResumo) {
     if (!window.confirm(
-      `Descartar ${d.pending} alteração(ões) não salva(s) de "${d.label}"?\n\n`
-      + 'ESTES DADOS SERÃO PERDIDOS. Eles ainda não estão no servidor, e ao descartar eles somem '
-      + 'da tela também, na próxima vez que você abrir o módulo.\n\n'
-      + 'Se ainda não baixou uma cópia, cancele e clique em "Baixar cópia" primeiro.',
+      `Descartar esta alteração?\n\n${rotuloAcao(op.tipo)} em ${rotuloTabela(op.tabela)}.\n\n`
+      + 'ESTE DADO SERÁ PERDIDO — ele ainda não está no servidor. Uma cópia em JSON será baixada '
+      + 'automaticamente antes do descarte.',
     )) return
     setBusy(true)
-    try { await discardErroredOps(d.key); await refresh() } finally { setBusy(false) }
+    try { await discardErroredOps(d.key, [op.id]); await refresh() } finally { setBusy(false) }
   }
 
   async function verDetalhe(d: Diag) {
@@ -151,7 +223,6 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
   }
 
   const totalPending = diags?.reduce((s, d) => s + d.pending, 0) ?? 0
-  const hasError = diags?.some((d) => d.error) ?? false
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.72)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
@@ -161,12 +232,35 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
             <h3 className="text-sm font-bold text-[#f5f5f5] flex items-center gap-2">
               <RefreshCw size={15} className={`text-[#f97316] ${busy ? 'animate-spin' : ''}`} /> Sincronização com a nuvem
             </h3>
-            <p className="text-xs text-[#9a9a9a] mt-0.5">O que ainda não foi salvo no servidor e como recuperar.</p>
+            <p className="text-xs text-[#9a9a9a] mt-0.5">O envio se resolve sozinho. Isto aqui é só o histórico.</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-[#a3a3a3] hover:bg-[#3d3d3d] hover:text-white"><X size={16} /></button>
         </div>
 
         <div className="p-4 overflow-y-auto">
+          {/* O que de fato pede uma decisão vem primeiro e separado do resto. */}
+          {atencao.length > 0 && (
+            <div className="mb-3 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 p-3">
+              <p className="flex items-center gap-2 text-xs font-bold text-[#eab308]">
+                <ShieldAlert size={14} /> Precisa da sua autorização
+              </p>
+              <ul className="mt-2 flex flex-col gap-2">
+                {atencao.map((p) => (
+                  <li key={p.opId} className="text-[11px] text-[#e5e5e5]">
+                    <p><b>{p.modulo}</b> — {motivoAmigavel(p)}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <button onClick={() => handlePedirAprovacao(p)} disabled={busy || pedidos[p.opId] === 'ok'}
+                        className="rounded bg-[#eab308]/25 px-2 py-0.5 text-[10px] font-semibold text-[#fde047] hover:bg-[#eab308]/40 disabled:opacity-50">
+                        {pedidos[p.opId] === 'ok' ? 'Pedido enviado' : 'Pedir aprovação'}
+                      </button>
+                      {pedidos[p.opId] === 'erro' && <span className="text-[10px] text-[#fca5a5]">Não foi possível enviar o pedido.</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {diags === null ? (
             <p className="text-sm text-[#9a9a9a] py-6 text-center">Verificando…</p>
           ) : diags.length === 0 ? (
@@ -176,19 +270,16 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
           ) : (
             <ul className="flex flex-col gap-2">
               {diags.map((d) => (
-                <li key={d.key} className={`rounded-lg border px-3 py-2.5 ${d.error ? 'border-[#f87171]/40 bg-[#f87171]/10' : 'border-[#eab308]/30 bg-[#eab308]/10'}`}>
+                <li key={d.key} className="rounded-lg border border-[#525252] bg-[#3a3a3a]/40 px-3 py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold text-[#f5f5f5]">{d.label}</span>
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${d.error ? 'bg-[#f87171]/20 text-[#f87171]' : 'bg-[#eab308]/20 text-[#eab308]'}`}>
-                      {d.pending} não salvo(s){d.error ? ' · erro' : ''}
+                    <span className="rounded bg-[#60a5fa]/20 px-2 py-0.5 text-[10px] font-bold uppercase text-[#93c5fd]">
+                      {d.pending} a caminho
                     </span>
                   </div>
-                  {d.error && d.syncError && (
-                    <p className="mt-1.5 text-[11px] text-[#fca5a5] break-words">{d.syncError}</p>
-                  )}
                   {d.error && d.syncError && isSchemaError(d.syncError) && (
-                    <p className="mt-1 text-[11px] text-[#fbbf24] break-words">
-                      Falta uma tabela/coluna no banco. Rode o <b>APPLY_PENDENTE.sql</b> no Supabase (SQL Editor) e clique em "Tentar novamente".
+                    <p className="mt-1.5 text-[11px] text-[#fbbf24] break-words">
+                      Falta uma tabela ou coluna no banco — veja <b>docs/APLICAR_MIGRACOES.md</b>. Assim que a migração for aplicada, isto sobe sozinho.
                     </p>
                   )}
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -196,11 +287,9 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
                       <button onClick={handleResyncObras} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">Ressincronizar obras</button>
                     )}
                     <button onClick={() => verDetalhe(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">
-                      {detalhe === d.key ? 'Ocultar' : 'Ver o que está preso'}
+                      {detalhe === d.key ? 'Ocultar' : 'Ver o que está na fila'}
                     </button>
-                    {/* Baixar vem ANTES de descartar, e não por acaso: é a única cópia desses dados. */}
                     <button onClick={() => handleBaixar(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold bg-[#484848] hover:bg-[#525252] disabled:opacity-50">Baixar cópia</button>
-                    <button onClick={() => handleDiscard(d)} disabled={busy} className="rounded px-2.5 py-1 text-[11px] font-semibold text-[#f87171] hover:bg-[#f87171]/15 disabled:opacity-50">Descartar</button>
                   </div>
 
                   {detalhe === d.key && (
@@ -210,15 +299,19 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
                       ) : ops[d.key].length === 0 ? (
                         <p className="text-[11px] text-[#9a9a9a]">Nada pendente.</p>
                       ) : (
-                        <ul className="flex flex-col gap-1">
+                        <ul className="flex flex-col gap-1.5">
                           {ops[d.key].map((op) => (
                             <li key={op.id} className="flex flex-wrap items-baseline gap-x-2 text-[11px] text-[#d4d4d4]">
                               <span className="font-semibold">{rotuloAcao(op.tipo)}</span>
                               <span className="text-[#9a9a9a]">em {rotuloTabela(op.tabela)}</span>
                               <span className="text-[#6b6b6b]">· {op.criadaEm ? fmtDataBR(op.criadaEm.slice(0, 10)) : 'sem data'}</span>
-                              {op.tentativas > 0 && (
-                                <span className="text-[#fbbf24]">· {op.tentativas} tentativa(s)</span>
-                              )}
+                              {op.classe === 'bloqueante' && <span className="text-[#fbbf24]">· recusado pelo servidor</span>}
+                              {op.classe === 'aguardando-servidor' && <span className="text-[#93c5fd]">· aguardando migração</span>}
+                              {op.classe === 'transitorio' && <span className="text-[#93c5fd]">· rede instável</span>}
+                              <button onClick={() => handleDescartarOp(d, op)} disabled={busy}
+                                className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-[#f87171] hover:bg-[#f87171]/15 disabled:opacity-50">
+                                Descartar
+                              </button>
                             </li>
                           ))}
                         </ul>
@@ -229,19 +322,14 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
               ))}
             </ul>
           )}
-          {diags && diags.length > 0 && (
-            <p className="mt-3 text-[10px] text-[#7a7a7a]">
-              Dica: se você acabou de aplicar uma mudança no banco de dados, aguarde alguns segundos e clique em "Tentar novamente" — o servidor leva um instante para reconhecer as colunas novas.
-            </p>
-          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-[#525252]">
-          <span className="text-[11px] text-[#9a9a9a]">{totalPending > 0 ? `${totalPending} pendência(s)${hasError ? ' com erro' : ''}` : 'Sem pendências'}</span>
+          <span className="text-[11px] text-[#9a9a9a]">{totalPending > 0 ? `${totalPending} a caminho` : 'Sem pendências'}</span>
           <div className="flex gap-2">
             <button onClick={onClose} className="rounded-lg px-3 py-2 text-sm font-semibold text-[#a3a3a3] hover:bg-[#3d3d3d]">Fechar</button>
             <button onClick={handleRetry} disabled={busy || totalPending === 0} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white hover:bg-[#ea580c] disabled:opacity-50">
-              <RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Tentar novamente
+              <RefreshCw size={14} className={busy ? 'animate-spin' : ''} /> Enviar agora
             </button>
           </div>
         </div>

@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, mergePullPorChave, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import type {
   OperacaoCampoTab, FieldCalendarActivity, FieldCalendarDay,
   WeeklyPpcResult, NotableServiceCurve, TrendPoint,
@@ -156,13 +156,21 @@ export const useOperacaoCampoStore = create<OperacaoCampoState>()(
       },
 
       pull: async () => {
-        // operacao_campo_days não tem `id` no topo do payload (chave composta
-        // date_activityId) → mergePull não se aplica; mantém a proteção antiga.
-        const pendingTables = new Set(get().pendingSync.map((op) => op.table))
+        // operacao_campo_days tem chave composta (`date_activityId`, ver `dayToRow`), a mesma que
+        // vira `recordId` ao enfileirar. Antes a tabela inteira era pulada quando havia qualquer
+        // op pendente — uma marcação sua no calendário fazia você parar de ver as dos colegas.
         const acts = await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
-        const days = pendingTables.has('operacao_campo_days') ? null : await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
+        const days = await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
         set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'operacao_campo_activities') }))
-        if (days) set({ calendarDays: days.map((r) => r.payload) })
+        set((s) => ({
+          calendarDays: mergePullPorChave(
+            days?.map((r) => r.payload) ?? null,
+            s.calendarDays,
+            s.pendingSync,
+            'operacao_campo_days',
+            (d) => `${d.date}_${d.activityId}`,
+          ),
+        }))
         get().recompute()
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
       },

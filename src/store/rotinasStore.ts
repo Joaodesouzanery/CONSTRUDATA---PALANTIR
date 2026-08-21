@@ -138,8 +138,11 @@ export const useRotinasStore = create<RotinasState>()(
       ensureTenantScope: (organizationId) => {
         if (!organizationId) return
         if (get().activeOrgId === organizationId) return
-        // Troca de empresa zera tudo: rotina de uma empresa não pode vazar para outra.
-        set({ activeOrgId: organizationId, rotinas: [], execucoes: [], pendingSync: [], syncError: null })
+        // Troca de empresa zera o que está NA TELA — rotina de uma empresa não pode vazar para
+        // outra. Mas a fila de não-sincronizados fica: apagá-la era perda silenciosa de trabalho
+        // de quem só tinha trocado de aba. O `flushQueue` estaciona op de outra organização em vez
+        // de enviá-la, então nada vaza e nada se perde; ao voltar para a empresa de origem, sobe.
+        set({ activeOrgId: organizationId, rotinas: [], execucoes: [], syncError: null })
       },
 
       addRotina: (r) => {

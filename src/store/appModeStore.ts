@@ -7,6 +7,7 @@
  */
 import { create } from 'zustand'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { destravarAgenda, proximoVencimento, opsQuePedemAtencao, agendamentoDaOp } from '@/lib/storeSync'
 
 interface AppModeState {
   isDemoMode: boolean
@@ -269,8 +270,16 @@ export async function getSyncDiagnostics(): Promise<Array<{ key: string; label: 
   return out.sort((a, b) => Number(b.error) - Number(a.error) || b.pending - a.pending)
 }
 
-/** Re-tenta subir as ops paradas de todos os módulos (mesma coisa que flush em todos). */
+/**
+ * Reenvia AGORA tudo o que está parado, ignorando a espera do backoff.
+ *
+ * Antes isto era um apelido puro de `flushAllTenantStores()` — e por isso o botão "Tentar
+ * novamente" não resolvia nada: as ops travadas já haviam sido excluídas da rodada pelo teto de
+ * tentativas, então o flush voltava sem ter enviado nenhuma delas. `destravarAgenda()` é a parte
+ * que faltava: ela zera a espera de todas as ops antes de drenar.
+ */
 export async function retryAllTenantStores(): Promise<void> {
+  destravarAgenda()
   await flushAllTenantStores()
 }
 
@@ -285,14 +294,20 @@ export async function listarOpsPendentes(storeKey: string): Promise<OpPendenteRe
   if (!def) return []
   const store = await def.load()
   const fila = (store.getState().pendingSync ?? []) as Array<Record<string, unknown>>
-  return fila.map((op) => ({
-    id: String(op.id ?? ''),
-    tabela: String(op.table ?? '—'),
-    tipo: String(op.type ?? '—') as OpPendenteResumo['tipo'],
-    recordId: String(op.recordId ?? ''),
-    tentativas: Number(op.retries ?? 0),
-    criadaEm: String(op.createdAt ?? ''),
-  }))
+  return fila.map((op) => {
+    const ag = agendamentoDaOp(String(op.id ?? ''))
+    return {
+      id: String(op.id ?? ''),
+      tabela: String(op.table ?? '—'),
+      tipo: String(op.type ?? '—') as OpPendenteResumo['tipo'],
+      recordId: String(op.recordId ?? ''),
+      tentativas: Number(op.retries ?? 0),
+      criadaEm: String(op.createdAt ?? ''),
+      classe: ag?.classe ?? null,
+      motivo: ag?.motivo ?? null,
+      proximaTentativa: ag?.proximaTentativa ?? null,
+    }
+  })
 }
 
 export interface OpPendenteResumo {
@@ -302,6 +317,10 @@ export interface OpPendenteResumo {
   recordId: string
   tentativas: number
   criadaEm: string
+  /** Classificação da última falha — `null` enquanto a op nunca falhou. */
+  classe: 'transitorio' | 'aguardando-servidor' | 'auto-curavel' | 'bloqueante' | null
+  motivo: string | null
+  proximaTentativa: number | null
 }
 
 /**
@@ -332,20 +351,136 @@ export async function baixarOpsPendentes(storeKey: string): Promise<number> {
 }
 
 /**
- * Escotilha de escape: descarta as operações não salvas de um módulo.
+ * Escotilha de escape: descarta operações não salvas de um módulo.
  *
- * `apenasComErro` existe porque o comportamento anterior zerava a fila INTEIRA, inclusive
- * operações sadias que só estavam esperando a vez. Quem clicava para se livrar de um erro
- * perdia junto tudo o que ainda ia subir.
+ * ⚠️ Esta função PERDE DADO. Ela existia ligada a um botão "Descartar" no painel de
+ * sincronização, e o filtro era exatamente ao contrário do que parecia: mantinha só as ops com
+ * `retries === 0`, ou seja, jogava fora **precisamente as que estavam travadas** — o trabalho que
+ * o usuário tentava salvar. Dos dois botões oferecidos, um não fazia nada e o outro destruía.
+ *
+ * Agora nada é descartado por contagem de tentativas: quem chama precisa dizer QUAIS ops remover
+ * (`opIds`). Sem essa lista a função baixa o JSON e não apaga nada. Como a fila não morre mais
+ * sozinha (`storeSync` reagenda para sempre), descartar deixou de ser uma necessidade do dia a
+ * dia e virou o que sempre deveria ter sido: uma decisão explícita, item a item.
  */
-export async function discardErroredOps(storeKey: string, apenasComErro = true): Promise<void> {
+export async function discardErroredOps(storeKey: string, opIds?: string[]): Promise<number> {
   const def = TENANT_STORE_DEFS.find((d) => d.key === storeKey)
-  if (!def) return
+  if (!def) return 0
   const store = await def.load()
-  const fila = (store.getState().pendingSync ?? []) as Array<{ retries?: number }>
-  // "Com erro" = já tentou e falhou pelo menos uma vez. Op recém-criada tem `retries: 0`.
-  const restante = apenasComErro ? fila.filter((op) => (op.retries ?? 0) === 0) : []
+  const fila = (store.getState().pendingSync ?? []) as Array<{ id?: string }>
+  if (fila.length === 0) return 0
+
+  // Sempre salva uma cópia antes de perder qualquer coisa.
+  await baixarOpsPendentes(storeKey)
+  if (!opIds || opIds.length === 0) return 0
+
+  const remover = new Set(opIds)
+  const restante = fila.filter((op) => !remover.has(String(op.id ?? '')))
+  const descartadas = fila.length - restante.length
   store.setState({ pendingSync: restante, syncStatus: 'idle', syncError: null } as Partial<TenantSyncState>)
+  return descartadas
+}
+
+/**
+ * Agendador único de sincronização.
+ *
+ * Antes, o único gatilho automático era `addEventListener('online')` — repetido em 42 arquivos e
+ * disparado só na TRANSIÇÃO de offline para online. Para quem já estava online com uma op presa,
+ * ele nunca disparava: o dado ficava parado até alguém abrir o módulo na mão.
+ *
+ * Aqui há um relógio só, que acorda quando a próxima op vence, mais os três momentos em que faz
+ * sentido tentar de novo: a rede voltou, a aba voltou a ficar visível, a janela recebeu foco.
+ */
+let timerAgendador: number | null = null
+let agendadorLigado = false
+
+function reagendarTimer(): void {
+  if (typeof window === 'undefined') return
+  if (timerAgendador != null) { window.clearTimeout(timerAgendador); timerAgendador = null }
+  const vencimento = proximoVencimento()
+  if (vencimento == null) return
+  // Piso de 1s (evita laço quente) e teto de 60s (o relógio reavalia de tempos em tempos, mesmo
+  // que a próxima op só vença daqui a meia hora — assim uma op nova entra no ritmo na hora).
+  const espera = Math.min(Math.max(vencimento - Date.now(), 1_000), 60_000)
+  timerAgendador = window.setTimeout(() => { void tentarAgora('timer') }, espera) as unknown as number
+}
+
+async function tentarAgora(origem: string): Promise<void> {
+  if (isNonProductionDataMode()) return
+  if (typeof navigator !== 'undefined' && !navigator.onLine) { reagendarTimer(); return }
+  try {
+    await flushAllTenantStores()
+  } catch {
+    /* cada store já registra o próprio erro; o agendador só cuida do "quando" */
+  } finally {
+    if (origem !== 'timer' || proximoVencimento() != null) reagendarTimer()
+  }
+}
+
+export function iniciarAgendadorDeSync(): () => void {
+  if (typeof window === 'undefined' || agendadorLigado) return () => undefined
+  agendadorLigado = true
+
+  const aoVoltarRede = () => { destravarAgenda(); void tentarAgora('online') }
+  const aoFicarVisivel = () => { if (document.visibilityState === 'visible') void tentarAgora('visibilitychange') }
+  const aoFocar = () => { void tentarAgora('focus') }
+
+  window.addEventListener('online', aoVoltarRede)
+  document.addEventListener('visibilitychange', aoFicarVisivel)
+  window.addEventListener('focus', aoFocar)
+
+  // Destravamento de boot: a espera vive em memória, então abrir o app já tenta tudo de novo.
+  // É isto que faz uma pendência antiga subir sozinha, sem o usuário refazer ou clicar em nada.
+  void tentarAgora('boot')
+
+  return () => {
+    window.removeEventListener('online', aoVoltarRede)
+    document.removeEventListener('visibilitychange', aoFicarVisivel)
+    window.removeEventListener('focus', aoFocar)
+    if (timerAgendador != null) window.clearTimeout(timerAgendador)
+    timerAgendador = null
+    agendadorLigado = false
+  }
+}
+
+/**
+ * O que de fato precisa da atenção de uma pessoa: só falha BLOQUEANTE que já insistiu bastante.
+ * Tudo o mais — rede ruim, migração pendente, conflito que o próprio flush resolve — continua
+ * sendo tentado em silêncio, que é o combinado com o usuário.
+ */
+export interface PendenciaBloqueada {
+  opId:     string
+  modulo:   string
+  motivo:   string
+  tabela:   string
+  recordId: string
+  tipo:     string
+}
+
+export async function pendenciasQuePedemAtencao(): Promise<PendenciaBloqueada[]> {
+  if (isNonProductionDataMode()) return []
+  const bloqueadas = opsQuePedemAtencao()
+  if (bloqueadas.length === 0) return []
+  const porOpId = new Map(bloqueadas.map((b) => [b.opId, b]))
+  const out: PendenciaBloqueada[] = []
+  await Promise.all(TENANT_STORE_DEFS.map(async (d) => {
+    try {
+      const store = await d.load()
+      for (const op of (store.getState().pendingSync ?? []) as Array<Record<string, unknown>>) {
+        const b = porOpId.get(String(op.id ?? ''))
+        if (!b) continue
+        out.push({
+          opId:     b.opId,
+          modulo:   d.label,
+          motivo:   b.motivo,
+          tabela:   String(op.table ?? ''),
+          recordId: String(op.recordId ?? ''),
+          tipo:     String(op.type ?? ''),
+        })
+      }
+    } catch { /* store não carregou — ignora */ }
+  }))
+  return out
 }
 
 async function pullRealData() {
@@ -375,6 +510,9 @@ export async function flushAllTenantStores(): Promise<void> {
 
 export async function syncAllTenantStores(): Promise<void> {
   if (isNonProductionDataMode()) return
+  // Liga o relógio de reenvio. É idempotente, e este é o momento certo: só faz sentido tentar
+  // subir alguma coisa depois que existe sessão e organização ativa.
+  iniciarAgendadorDeSync()
   const stores = await getAllTenantStores()
   // 1) flush primeiro (sobe o local-only, re-carimbando a organização ativa)
   await Promise.allSettled(stores.map((s) => s.getState().flush?.()))
