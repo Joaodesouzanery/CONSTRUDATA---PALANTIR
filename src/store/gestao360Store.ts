@@ -14,6 +14,7 @@ import { uploadFile, removeFile } from '@/lib/storage'
 import type { ChangeOrder, ChangeOrderPhoto, ChangeOrderStatus, ChangeOrderType } from '@/types'
 import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
 import { periodoDe, type Periodo } from '@/lib/periodo'
+import { hojeLocalISO } from '@/lib/utils'
 
 export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'relatorio360'
 
@@ -296,6 +297,29 @@ export const useGestao360Store = create<Gestao360State>()(
         pendingSync:       s.pendingSync,
         lastSyncedAt:      s.lastSyncedAt,
       }),
+
+      /**
+       * Período salvo que já venceu volta a ser o de agora.
+       *
+       * Guardar o período é certo — trocar de aba não pode trocar o assunto no meio da reunião. Mas
+       * ele era reidratado cru: na segunda-feira seguinte a tela abria na SEMANA PASSADA, com o
+       * rótulo correto e o número errado para quem esperava "esta semana". O rótulo certo é o pior
+       * dos dois mundos: não parece defeito, parece que a obra não produziu.
+       *
+       * Um período de granularidade fixa (semana, quinzena, mês, trimestre) que já terminou é
+       * recalculado para o ciclo corrente. O intervalo LIVRE é preservado: ali a data foi escolhida
+       * à mão, e mexer nela seria desfazer o que a pessoa pediu.
+       */
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<Gestao360State>
+        const salvo = p.periodo
+        const venceu = salvo && salvo.tipo !== 'livre' && salvo.ate < hojeLocalISO()
+        return {
+          ...current,
+          ...p,
+          periodo: venceu ? periodoDe(salvo.tipo) : (salvo ?? current.periodo),
+        }
+      },
     },
   ),
 )

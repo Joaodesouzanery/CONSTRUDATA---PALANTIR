@@ -14,6 +14,7 @@ import { mergeProjectsWithSites } from '../utils/siteProjects'
 import { LINE_META, buildLedger } from '../utils/custoLedger'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { dentroDoPeriodo } from '@/lib/periodo'
 
 const PHASE_STATUS: Record<string, { label: string; color: string }> = {
   not_started: { label: 'Nao iniciada', color: '#6b6b6b' },
@@ -134,6 +135,7 @@ function aggregateBudgetLines(projects: Project[]) {
 
 export function JobCostingPanel() {
   const selectedProjectId = useGestao360Store((s) => s.selectedProjectId)
+  const periodo = useGestao360Store((s) => s.periodo)
   const baseProjects = useProjetosStore((s) => s.projects)
   const sites = useTorreStore((s) => s.sites)
   useMaoDeObraStore()
@@ -147,13 +149,27 @@ export function JobCostingPanel() {
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
   const scopeProjects = selectedProject ? [selectedProject] : projects
   const scopeLabel = selectedProject ? selectedProject.name : 'Todos os projetos/nucleos'
-  const ledger = scopeProjects.flatMap((project, index) => buildLedger(project, {
+  const ledgerCompleto = scopeProjects.flatMap((project, index) => buildLedger(project, {
     includeUnscoped: isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
     includeEvm:      isDemoModeEnabled() ? (selectedProject ? true : index === 0) : false,
     // As fontes que não guardam obra entram uma vez só. Com um projeto selecionado, é ele; com
     // todos, é o primeiro da lista — em ambos os casos, UMA vez.
     incluirGlobais:  selectedProject ? true : index === 0,
   })).sort((a, b) => b.date.localeCompare(a.date))
+
+  /**
+   * O período do cabeçalho vale AQUI também.
+   *
+   * Esta aba ignorava o seletor e somava tudo desde sempre, enquanto o PDF da pauta filtrava pelo
+   * período — a tela e o papel mostravam totais diferentes para a mesma reunião, e a mensagem do
+   * commit que introduziu o seletor dizia que ele valia "para todas as abas". Não valia.
+   *
+   * A linha de ORÇAMENTO BASE fica fora do filtro de propósito: ela é datada com o início do
+   * projeto, então recortá-la por semana zeraria o orçamento e o "realizado × orçado" perderia o
+   * denominador.
+   */
+  const ledger = ledgerCompleto.filter((l) => l.type === 'baseline' || dentroDoPeriodo(l.date, periodo))
+  const forasDoPeriodo = ledgerCompleto.length - ledger.length
 
   if (scopeProjects.length === 0) {
     return (
@@ -235,7 +251,13 @@ export function JobCostingPanel() {
             <p className="text-[#f5f5f5] text-sm font-semibold">Livro razao de custo</p>
           </div>
           <p className="mt-1 text-[#a3a3a3] text-xs">
-            {scopeLabel} atualizado por evento: apontamento, recebimento, NF, consumo, medicao, RDO e avanco fisico.
+            {scopeLabel} · <span className="text-[#f5f5f5]">{periodo.rotulo}</span>. Atualizado por evento:
+            apontamento, recebimento, NF, consumo, medição, RDO e avanço físico.
+            {forasDoPeriodo > 0 && (
+              <> <span className="text-[#a3a3a3]">
+                {forasDoPeriodo} lançamento(s) fora do período não estão somados aqui — troque o período no topo para vê-los.
+              </span></>
+            )}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {modulesInLedger.map((module) => (
