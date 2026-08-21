@@ -13,6 +13,8 @@ import {
   Trash2,
   TrendingUp,
   X,
+  FileSpreadsheet,
+  PackageMinus,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -22,6 +24,8 @@ import type { ItemEstoque } from '@/types'
 import { cn } from '@/lib/utils'
 import { formatDecimalInput, formatMoneyInput, parseLocaleNumber } from '@/lib/numberFormat'
 import { buildFrenteOptions, resolveFrenteDeposito } from '../utils/frentes'
+import { ExcelImportModal } from './ExcelImportModal'
+import { FichaRetiradaModal } from './FichaRetiradaModal'
 
 type MovementType = 'entrada' | 'saida'
 
@@ -132,6 +136,10 @@ export function AlmoxarifadoPanel() {
   const [form, setForm] = useState<ItemForm>(emptyForm)
   const [depositoForm, setDepositoForm] = useState<DepositoForm>(emptyDepositoForm)
   const [editingDepositoId, setEditingDepositoId] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  // A ficha pode abrir vazia (pelo botão do topo) ou já com o item da linha — que é de onde faz
+  // sentido: "dar baixa NESTE aqui". A prop `itemInicial` existia e nenhum chamador usava.
+  const [retiradaOpen, setRetiradaOpen] = useState<boolean | ItemEstoque>(false)
   const itemFormRef = useRef<HTMLDivElement | null>(null)
 
   const categories = useMemo(
@@ -525,6 +533,23 @@ export function AlmoxarifadoPanel() {
           <h2 className="text-xl font-bold text-[#f5f5f5]">Almoxarifado</h2>
           <p className="text-sm text-[#a3a3a3]">Controle operacional de materiais, estoque mínimo e movimentações.</p>
         </div>
+        {/* O import só era alcançável pelo botão "Importar Materiais" da barra de abas, que aparece
+            em todas as outras abas junto e fica longe daqui — que é onde o almoxarife trabalha. */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-2 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5]"
+            title="Sobe a planilha atualizada e mostra o que mudou antes de gravar"
+          >
+            <FileSpreadsheet size={13} /> Importar planilha atualizada
+          </button>
+          <button
+            onClick={() => setRetiradaOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c]"
+          >
+            <PackageMinus size={13} /> Registrar retirada
+          </button>
+        </div>
       </div>
 
       {(syncStatus === 'error' || estoquePendingSync.length > 0) && (
@@ -873,6 +898,14 @@ export function AlmoxarifadoPanel() {
             </div>
           </div>
         </div>
+      )}
+
+      {importOpen && <ExcelImportModal onClose={() => setImportOpen(false)} />}
+      {retiradaOpen && (
+        <FichaRetiradaModal
+          itemInicial={typeof retiradaOpen === 'object' ? retiradaOpen : undefined}
+          onClose={() => setRetiradaOpen(false)}
+        />
       )}
     </div>
   )

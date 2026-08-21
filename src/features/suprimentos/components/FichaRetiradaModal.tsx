@@ -19,7 +19,7 @@
  * nome, que é a mesma garantia que a ficha de papel dá de fato.
  */
 import { useState } from 'react'
-import { X, PackageMinus, AlertTriangle, Search } from 'lucide-react'
+import { X, PackageMinus, AlertTriangle, Search, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -37,11 +37,14 @@ interface Props {
 }
 
 export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
-  const { estoqueItens, movimentacoes, consumirMaterial } = useSuprimentosStore(
+  const { estoqueItens, movimentacoes, consumirMaterial, depositos, selectedDepositoId, addItemEstoque } = useSuprimentosStore(
     useShallow((s) => ({
       estoqueItens:     s.estoqueItens,
       movimentacoes:    s.movimentacoes,
       consumirMaterial: s.consumirMaterial,
+      depositos:        s.depositos,
+      selectedDepositoId: s.selectedDepositoId,
+      addItemEstoque:   s.addItemEstoque,
     })),
   )
   const sites = useTorreStore((s) => s.sites)
@@ -52,6 +55,7 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
   const [itemId, setItemId]     = useState(itemInicial?.id ?? '')
   const [quantidade, setQtd]    = useState('')
   const [retiradoPor, setRetiradoPor] = useState('')
+  const [naoIdentificado, setNaoIdentificado] = useState(false)
   const [entreguePor, setEntreguePor] = useState(nomeDoUsuario)
   const [siteId, setSiteId]     = useState<string>(activeObraId ?? '')
   const [data, setData]         = useState(hojeLocalISO())
@@ -61,6 +65,8 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
   const permissao = usePermissaoEscrita(ROLES_SUPRIMENTOS_WRITE)
 
   const item = estoqueItens.find((i) => i.id === itemId)
+  // Onde o item novo nasce: a frente selecionada, senão a primeira ativa.
+  const depositoPadrao = selectedDepositoId ?? depositos.find((d) => d.ativo)?.id ?? depositos[0]?.id ?? ''
   const qtd  = parseLocaleNumber(quantidade)
 
   // Quem já retirou antes vira sugestão. A equipe do depósito é a mesma toda semana, e digitar
@@ -78,13 +84,25 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
   const ficaNegativo = Boolean(item) && saldoDepois < 0
   const ficaAbaixoDoMinimo = Boolean(item) && (item?.estoqueMinimo ?? 0) > 0 && saldoDepois <= (item?.estoqueMinimo ?? 0)
 
-  const faltaPreencher = !item || !Number.isFinite(qtd) || qtd <= 0 || !retiradoPor.trim() || !permissao.pode
+  /**
+   * O nome deixa de ser obrigatório.
+   *
+   * A ficha de papel do cliente mostra o custo de exigir: em 2 das 7 retiradas o colaborador ficou
+   * como "INDEFINIDO" ou em branco. Bloquear o registro quando não se sabe quem levou significa que
+   * a retirada NÃO é registrada — e aí o saldo derrapa, que é pior do que um nome faltando.
+   * "Não identificado" vira uma escolha explícita, que também é um dado: dá para contar quantas
+   * saíram sem dono.
+   */
+  const faltaPreencher = !item || !Number.isFinite(qtd) || qtd <= 0 || !permissao.pode
+    || (!retiradoPor.trim() && !naoIdentificado)
 
   function registrar() {
     if (!item || faltaPreencher) return
     setSalvando(true)
     consumirMaterial(item.id, qtd, {
-      retiradoPor: retiradoPor.trim(),
+      // "Não identificado" é gravado como texto, não como vazio: assim dá para contar depois
+      // quantas retiradas saíram sem dono, que é um número que importa.
+      retiradoPor: naoIdentificado ? 'Não identificado' : retiradoPor.trim(),
       entreguePor: entreguePor.trim() || undefined,
       siteId: siteId || null,
       data,
@@ -155,6 +173,29 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
                   Mostrando {itensFiltrados.length} de {estoqueItens.length}. Use a busca para achar o resto.
                 </p>
               )}
+              {/* Sem isto, retirar fita velcro é impossível: a planilha de estoque tem tinta e
+                  agregado; a ficha de papel registra consumível e EPI. São dois universos, e o
+                  segundo nunca foi cadastrado. Bloquear a retirada por causa disso empurra o
+                  almoxarife de volta para o papel. */}
+              {!itemInicial && busca.trim() && itensFiltrados.length === 0 && permissao.pode && (
+                <button
+                  onClick={() => {
+                    const id = addItemEstoque({
+                      depositoId: depositoPadrao,
+                      descricao: busca.trim(),
+                      unidade: 'un',
+                      qtdDisponivel: 0,
+                      qtdReservada: 0,
+                      qtdTransito: 0,
+                      estoqueMinimo: 0,
+                    })
+                    if (id) { setItemId(id); setBusca('') }
+                  }}
+                  className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#525252] px-3 py-2 text-xs text-[#a3a3a3] transition-colors hover:border-[#f97316]/50 hover:text-[#f5f5f5]"
+                >
+                  <Plus size={13} /> Cadastrar “{busca.trim()}” agora
+                </button>
+              )}
             </div>
 
             {/* Quantidade + saldo resultante */}
@@ -195,15 +236,32 @@ export function FichaRetiradaModal({ onClose, itemInicial }: Props) {
             <div>
               <label className={rotulo}>Colaborador que retirou</label>
               <input
-                value={retiradoPor}
-                onChange={(e) => setRetiradoPor(e.target.value)}
+                value={naoIdentificado ? '' : retiradoPor}
+                onChange={(e) => { setRetiradoPor(e.target.value); if (e.target.value) setNaoIdentificado(false) }}
+                disabled={naoIdentificado}
                 list="nomes-que-ja-retiraram"
-                placeholder="Nome de quem levou o material"
-                className={campo}
+                placeholder={naoIdentificado ? 'não identificado' : 'Nome de quem levou o material'}
+                className={cn(campo, naoIdentificado && 'opacity-50')}
               />
               <datalist id="nomes-que-ja-retiraram">
                 {nomesConhecidos.map((n) => <option key={n} value={n} />)}
               </datalist>
+              <label className="mt-1.5 flex cursor-pointer items-center gap-1.5 text-[11px] text-[#a3a3a3]">
+                <input
+                  type="checkbox"
+                  checked={naoIdentificado}
+                  onChange={(e) => setNaoIdentificado(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-[#f97316]"
+                />
+                Não sei quem levou — registrar assim mesmo
+              </label>
+              {naoIdentificado && (
+                <p className="mt-1 text-[10px] leading-relaxed text-[#6b6b6b]">
+                  Melhor registrar sem o nome do que não registrar: sem a baixa, o saldo do sistema
+                  fica maior que a prateleira, e a conferência da planilha acusa uma diferença que
+                  ninguém explica.
+                </p>
+              )}
             </div>
 
             {/* Obra */}

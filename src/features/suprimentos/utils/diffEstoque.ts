@@ -90,6 +90,57 @@ export interface ResumoDiff {
   duplicadosNaPlanilha: { descricao: string; qtdDisponivel: number }[]
 }
 
+/**
+ * Marca que identifica uma movimentação nascida da conferência de planilha.
+ *
+ * Fica na observação porque `suprimentos_depositos` não tem coluna `payload` — guardar a data da
+ * última conferência exigiria migração, e a própria movimentação já é o registro. Achar a última
+ * conferência é procurar a movimentação mais recente com esta marca.
+ */
+export const MARCA_CONFERENCIA = 'Conferência de planilha'
+
+export interface MovimentacaoParaConferencia {
+  itemId: string
+  tipo: string
+  quantidade: number
+  dataMovimento: string
+  observacoes?: string
+  retiradoPor?: string
+}
+
+/** A data da última conferência de planilha, ou `null` se nunca houve uma. */
+export function ultimaConferencia(movs: MovimentacaoParaConferencia[]): string | null {
+  let ultima: string | null = null
+  for (const m of movs) {
+    if (!m.observacoes?.startsWith(MARCA_CONFERENCIA)) continue
+    if (!ultima || m.dataMovimento > ultima) ultima = m.dataMovimento
+  }
+  return ultima
+}
+
+/**
+ * Quanto saiu COM ficha de retirada, por item, desde a última conferência.
+ *
+ * É o outro lado da conta que dá sentido a rodar as duas coisas: a planilha diz quanto saiu no
+ * total; a ficha diz quanto saiu com nome. A diferença entre as duas é o material que saiu sem
+ * registro — o número mais útil do módulo, e o único jeito de saber se a ficha está sendo usada.
+ *
+ * Só conta saída COM `retiradoPor`: uma saída lançada pelo RDO ou por ajuste não é ficha.
+ */
+export function retiradasComFicha(
+  movs: MovimentacaoParaConferencia[],
+  desde: string | null,
+): Map<string, number> {
+  const porItem = new Map<string, number>()
+  for (const m of movs) {
+    if (m.tipo !== 'saida') continue
+    if (!m.retiradoPor?.trim()) continue
+    if (desde && m.dataMovimento <= desde) continue
+    porItem.set(m.itemId, (porItem.get(m.itemId) ?? 0) + (Number(m.quantidade) || 0))
+  }
+  return porItem
+}
+
 /** Sem acento, sem caixa, sem espaço dobrado — para "Base Cinza  7047" casar com "base cinza 7047". */
 export function normalizarChave(s: string): string {
   return (s ?? '')

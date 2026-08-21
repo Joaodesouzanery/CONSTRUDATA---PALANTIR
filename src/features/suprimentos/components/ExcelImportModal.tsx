@@ -14,8 +14,9 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { previewExcel, autoSuggestField, applyColumnMapping, detectarConflitos } from '../utils/parseExcelEstoque'
 import type { ExcelPreview } from '../utils/parseExcelEstoque'
-import { compararComEstoque, chaveDoItem } from '../utils/diffEstoque'
-import type { ItemEstoque } from '@/types'
+import { compararComEstoque, chaveDoItem, ultimaConferencia, retiradasComFicha, MARCA_CONFERENCIA } from '../utils/diffEstoque'
+import type { ItemEstoque, MovimentacaoEstoque } from '@/types'
+import { hojeLocalISO, horaLocalHHMM } from '@/lib/utils'
 import { cn, formatCurrency } from '@/lib/utils'
 import { usePermissaoEscrita, ROLES_SUPRIMENTOS_WRITE } from '@/lib/roles'
 import { parseLocaleNumber } from '@/lib/numberFormat'
@@ -58,13 +59,15 @@ const EMPTY_IMAGE_ROW: ImageMaterialRow = { descricao: '', unidade: '', qtdDispo
 
 
 export function ExcelImportModal({ onClose }: Props) {
-  const { depositos, selectedDepositoId, estoqueItens, addItemEstoque, updateItemEstoque } = useSuprimentosStore(
+  const { depositos, selectedDepositoId, estoqueItens, movimentacoes, addItemEstoque, updateItemEstoque, addMovimentacao } = useSuprimentosStore(
     useShallow((s) => ({
       depositos:          s.depositos,
       selectedDepositoId: s.selectedDepositoId,
       estoqueItens:       s.estoqueItens,
+      movimentacoes:      s.movimentacoes,
       addItemEstoque:     s.addItemEstoque,
       updateItemEstoque:  s.updateItemEstoque,
+      addMovimentacao:    s.addMovimentacao,
     }))
   )
 
@@ -78,7 +81,7 @@ export function ExcelImportModal({ onClose }: Props) {
   const [importing, setImporting] = useState(false)
   const [imageUrl, setImageUrl]   = useState('')
   const [imageRows, setImageRows] = useState<ImageMaterialRow[]>([{ ...EMPTY_IMAGE_ROW }])
-  const [resultado, setResultado] = useState<{ criados: number; atualizados: number } | null>(null)
+  const [resultado, setResultado] = useState<{ criados: number; atualizados: number; movimentos: number } | null>(null)
   const permissao = usePermissaoEscrita(ROLES_SUPRIMENTOS_WRITE)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -134,6 +137,8 @@ export function ExcelImportModal({ onClose }: Props) {
     // a gravação faz igual, senão escreveria duas vezes e o número aplicado não bateria com o
     // número conferido.
     const jaGravadas = new Set<string>()
+    const movimentosNovos: Omit<MovimentacaoEstoque, 'id'>[] = []
+    const hoje = hojeLocalISO()
     let criados = 0
     let atualizados = 0
     for (const item of items) {
@@ -157,6 +162,27 @@ export function ExcelImportModal({ onClose }: Props) {
         }
         updateItemEstoque(linha.itemId, patch)
         atualizados++
+
+        // ─── A MOVIMENTAÇÃO ─────────────────────────────────────────────────
+        // O saldo mudar não bastava: o consumo não aparecia em relatório nenhum. Dashboard de
+        // Suprimentos, custo por obra e o cartão do Gestão 360 leem MOVIMENTAÇÃO, não saldo — os
+        // três mostravam R$ 0 com material saindo todo dia.
+        //
+        // Queda vira saída, aumento vira entrada. Não uso a RPC de baixa atômica aqui de propósito:
+        // ela subtrai um delta, e a planilha traz o saldo ABSOLUTO — aplicar as duas coisas
+        // descontaria duas vezes.
+        if (linha.deltaQtd !== 0 && linha.qtdInformada) {
+          movimentosNovos.push({
+            itemId: linha.itemId,
+            depositoId: targetDeposito,
+            tipo: linha.deltaQtd < 0 ? 'saida' : 'entrada',
+            quantidade: Math.abs(linha.deltaQtd),
+            dataMovimento: hoje,
+            horaMovimento: horaLocalHHMM(),
+            custoUnitario: linha.custoUnitario || undefined,
+            observacoes: `${MARCA_CONFERENCIA} de ${hoje.split('-').reverse().join('/')}`,
+          })
+        }
       } else {
         // Item novo: aqui "não informado" só pode virar zero mesmo — não existe saldo anterior.
         addItemEstoque({
@@ -170,7 +196,12 @@ export function ExcelImportModal({ onClose }: Props) {
         criados++
       }
     }
-    setResultado({ criados, atualizados })
+
+    // As movimentações vão DEPOIS de todos os saldos: se alguma falhar, o saldo já está certo e o
+    // que falta é o histórico. Na ordem inversa, perderia-se o número que o almoxarife conferiu.
+    for (const mov of movimentosNovos) addMovimentacao(mov)
+
+    setResultado({ criados, atualizados, movimentos: movimentosNovos.length })
     setStep('done')
     setImporting(false)
   }
@@ -219,7 +250,7 @@ export function ExcelImportModal({ onClose }: Props) {
         criados++
       }
     }
-    setResultado({ criados, atualizados })
+    setResultado({ criados, atualizados, movimentos: 0 })
     setStep('done')
     setImporting(false)
   }
@@ -241,6 +272,11 @@ export function ExcelImportModal({ onClose }: Props) {
   // "Link do Produto" tomava o lugar de "Produto" — o nome do produto virava a URL.
   const conflitos = detectarConflitos(mapping)
   const rotuloCampo = (v: string) => KNOWN_FIELDS.find((f) => f.value === v)?.label ?? v
+
+  // Quanto saiu COM ficha desde a última conferência. A diferença contra o que a planilha acusa é
+  // o material que saiu sem registro — o número que dá sentido a rodar as duas coisas.
+  const desdeAConferencia = ultimaConferencia(movimentacoes)
+  const comFicha = retiradasComFicha(movimentacoes, desdeAConferencia)
 
   const totalItems  = diff.linhas.length
   const mudancas    = diff.novos + diff.alterados
@@ -474,7 +510,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 <table className="w-full text-[10px]">
                   <thead className="sticky top-0">
                     <tr className="bg-[#3d3d3d]">
-                      {['Item', 'Antes', 'Depois', 'Δ', 'Impacto', 'O que é'].map((h) => (
+                      {['Item', 'Antes', 'Depois', 'Δ', 'Com ficha', 'Impacto', 'O que é'].map((h) => (
                         <th key={h} className="px-2.5 py-2 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -490,6 +526,23 @@ export function ExcelImportModal({ onClose }: Props) {
                         <td className="px-2.5 py-1.5 text-[#f5f5f5] font-mono">{l.qtdDepois}</td>
                         <td className={cn('px-2.5 py-1.5 font-mono', l.deltaQtd < 0 ? 'text-[#f87171]' : l.deltaQtd > 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]')}>
                           {l.tipo === 'novo' ? '—' : l.deltaQtd > 0 ? `+${l.deltaQtd}` : l.deltaQtd || '—'}
+                        </td>
+                        {/* A saída que a planilha acusa × a que tem ficha. Quando a planilha diz
+                            que saíram 3 e a ficha registrou 0, três unidades saíram sem ninguém
+                            assinar — e é isso que a conferência semanal existe para achar. */}
+                        <td className="px-2.5 py-1.5 font-mono">
+                          {(() => {
+                            if (!l.itemId || l.deltaQtd >= 0) return <span className="text-[#6b6b6b]">—</span>
+                            const saiu = Math.abs(l.deltaQtd)
+                            const registrado = comFicha.get(l.itemId) ?? 0
+                            const semFicha = Math.round((saiu - registrado) * 100) / 100
+                            if (semFicha <= 0) return <span className="text-[#4ade80]">{registrado} ✓</span>
+                            return (
+                              <span className="text-[#fbbf24]" title={`${saiu} saíram, ${registrado} com ficha`}>
+                                {registrado}/{saiu} · faltam {semFicha}
+                              </span>
+                            )
+                          })()}
                         </td>
                         <td className={cn('px-2.5 py-1.5 font-mono', l.impactoBRL < 0 ? 'text-[#f87171]' : l.impactoBRL > 0 ? 'text-[#22c55e]' : 'text-[#6b6b6b]')}>
                           {l.impactoBRL ? formatCurrency(l.impactoBRL) : '—'}
@@ -612,7 +665,16 @@ export function ExcelImportModal({ onClose }: Props) {
                   {resultado
                     ? <>
                         {resultado.criados} ite{resultado.criados !== 1 ? 'ns criados' : 'm criado'} e{' '}
-                        {resultado.atualizados} atualizado{resultado.atualizados !== 1 ? 's' : ''} em{' '}
+                        {resultado.atualizados} atualizado{resultado.atualizados !== 1 ? 's' : ''}
+                        {resultado.movimentos > 0 && (
+                          <>
+                            {', '}
+                            <span className="text-[#fb923c]">
+                              {resultado.movimentos} movimentaç{resultado.movimentos !== 1 ? 'ões' : 'ão'} registrada{resultado.movimentos !== 1 ? 's' : ''}
+                            </span>
+                          </>
+                        )}
+                        {' em '}
                         <span className="text-[#f97316]">{deposito?.frente}</span>.
                       </>
                     : <>
