@@ -5,7 +5,8 @@
  *   - Mutações são otimistas: aplicam local imediatamente + enfileiram pra Supabase
  *   - localStorage funciona como cache offline (chave 'cdata-qualidade')
  *   - Quando online + autenticado, drena a fila de pendentes
- *   - DELETE de FVS dispara request_action('delete_fvs', ...) — vira pending_action
+ *   - DELETE de FVS é soft delete direto (era request_action, que só abria um pedido e não
+ *     apagava nada — a FVS voltava no pull seguinte)
  *
  * A API pública (addFvs/updateFvs/removeFvs/fvss/setActiveTab/loadDemoData/clearData)
  * é a mesma da v0 — componentes existentes continuam funcionando sem mudança.
@@ -456,13 +457,21 @@ export const useQualidadeStore = create<QualidadeState>()(
             }
 
             if (op.type === 'delete') {
-              // DELETE de FVS sempre passa por aprovação
-              const { error } = await supabase.rpc('request_action', {
-                p_action_type:  'delete_fvs',
-                p_target_table: 'fvs',
-                p_target_id:    op.recordId,
-                p_payload:      {},
-              })
+              // Soft delete direto, como os outros 25 stores do projeto.
+              //
+              // Aqui o DELETE de FVS chamava `request_action('delete_fvs')`, que só CRIA UM PEDIDO
+              // em `pending_actions` — não apaga nada. A FVS sumia da tela, voltava no pull
+              // seguinte, e o pedido ficava numa fila sem link em menu nenhum, que o próprio autor
+              // não pode aprovar. O usuário via a exclusão "não funcionar" sem nenhum aviso.
+              //
+              // A RLS de `fvs` tem `closed = false` no UPDATE (0011_qualidade_rls.sql:32), então
+              // uma FVS fechada não podia ser excluída nem por aqui; a migração 20260824130000
+              // libera o caso específico de preencher `deleted_at`.
+              const { error } = await supabase
+                .from('fvs')
+                .update({ deleted_at: new Date().toISOString() } as never)
+                .eq('id', op.recordId)
+                .eq('organization_id', profile.organization_id)
               if (error) throw error
             }
 

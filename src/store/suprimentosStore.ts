@@ -722,17 +722,18 @@ export const useSuprimentosStore = create<SuprimentosState>()(
       const row    = target ? poToRow(target, orgId, userId) : undefined
       const updatePatch = row ? Object.fromEntries(Object.entries(row).filter(([k]) =>
         !['id','organization_id','created_by'].includes(k))) : undefined
-      // PO já fechada (closed) precisa de aprovação para UPDATE
-      const isLocked = target?.status === 'closed'
+      // Editar uma ordem de compra é sempre um UPDATE — inclusive quando ela já está fechada.
+      //
+      // Aqui havia um `type: 'delete'` com `approvalActionType: 'update_po_approved'` para a PO
+      // fechada. O `delete` era só o veículo do RPC de aprovação: a intenção era EDITAR, nunca
+      // apagar. Na prática a edição não chegava ao servidor — virava um pedido numa fila sem tela
+      // e sem quem pudesse aprovar. A RLS de `purchase_orders` ainda tem `status != 'closed'` no
+      // UPDATE; a migração 20260824130000 abre o caminho para gerente/diretor/dono.
       return {
         purchaseOrders: updated,
         pendingSync: [
           ...s.pendingSync,
-          isLocked && !wasClosed
-            ? makeOp({ entity: 'po', type: 'update', recordId: id, patch: updatePatch, table: 'purchase_orders' })
-            : isLocked
-            ? makeOp({ entity: 'po', type: 'delete', recordId: id, table: 'purchase_orders', approvalActionType: 'update_po_approved' })
-            : makeOp({ entity: 'po', type: 'update', recordId: id, patch: updatePatch, table: 'purchase_orders' }),
+          makeOp({ entity: 'po', type: 'update', recordId: id, patch: updatePatch, table: 'purchase_orders' }),
         ],
       }
     })

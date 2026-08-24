@@ -4,7 +4,8 @@
  * Sprint 3: migrado para Supabase via storeSync helper.
  * Tabelas: lps_activities, lps_restrictions, lps_takt_zones.
  * Padrão: payload jsonb completo + colunas top-level apenas para chaves indexáveis.
- * Exclusão é soft delete (deleted_at) direto; só "resolver restrição" passa por request_action.
+ * Exclusão é soft delete (deleted_at) direto. Resolver restrição é UPDATE — já passou por
+ * request_action, e aquilo nunca gravou nada (só abria um pedido que ninguém podia aprovar).
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -300,14 +301,18 @@ export const useLpsStore = create<LpsState>()(
           const target = get().restrictions.find((r) => r.id === id)
           if (target) {
             const { orgId, userId } = ctx()
-            // Marcar como resolvida exige aprovação
-            if (updates.status === 'resolvida') {
-              enqueue(makeOp({ entity: 'lps_restriction', type: 'delete', recordId: id, table: 'lps_restrictions', approvalActionType: 'mark_restriction_resolved' }))
-            } else {
-              const row = restrictionToRow(target, orgId, userId)
-              const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
-              enqueue(makeOp({ entity: 'lps_restriction', type: 'update', recordId: id, patch, table: 'lps_restrictions' }))
-            }
+            // Resolver uma restrição é um UPDATE, e sempre foi.
+            //
+            // Antes, `status === 'resolvida'` enfileirava `type: 'delete'` com
+            // `approvalActionType: 'mark_restriction_resolved'` — o `type: 'delete'` era só o
+            // veículo para chamar o RPC de aprovação, a intenção nunca foi apagar a restrição.
+            // O efeito prático era que resolver uma restrição não gravava nada: criava um pedido
+            // numa fila que ninguém enxerga (a tela de aprovações não tem link em menu nenhum) e
+            // que o próprio autor não pode aprovar. A restrição voltava para "em resolução" no
+            // pull seguinte. Agora grava o que o usuário fez, como qualquer outra edição.
+            const row = restrictionToRow(target, orgId, userId)
+            const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+            enqueue(makeOp({ entity: 'lps_restriction', type: 'update', recordId: id, patch, table: 'lps_restrictions' }))
             void get().flush()
           }
         },
@@ -551,9 +556,15 @@ export const useLpsStore = create<LpsState>()(
             return r
           })
           set({ restrictions: updated })
-          // Mesma op de "resolver" do caminho manual (updateRestriction status='resolvida').
+          // Mesma op de "resolver" do caminho manual (updateRestriction status='resolvida'):
+          // UPDATE de verdade, não o falso `delete` com aprovação que existia aqui.
+          const { orgId, userId } = ctx()
           for (const id of resolvedIds) {
-            enqueue(makeOp({ entity: 'lps_restriction', type: 'delete', recordId: id, table: 'lps_restrictions', approvalActionType: 'mark_restriction_resolved' }))
+            const alvo = get().restrictions.find((r) => r.id === id)
+            if (!alvo) continue
+            const row = restrictionToRow(alvo, orgId, userId)
+            const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+            enqueue(makeOp({ entity: 'lps_restriction', type: 'update', recordId: id, patch, table: 'lps_restrictions' }))
           }
           if (resolvedIds.length) void get().flush()
         },

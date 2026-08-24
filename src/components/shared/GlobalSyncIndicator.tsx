@@ -7,9 +7,16 @@
  *
  * Três estados, nesta ordem de prioridade:
  *  - **Precisa de você**: só falha BLOQUEANTE (permissão) que já insistiu por mais de uma hora.
- *    É o único caso que aparece, e vem com motivo em português e um botão que resolve.
+ *    Diz o motivo em português e oferece tentar de novo. NÃO pede aprovação de ninguém.
  *  - **Enviando**: há algo na fila. Sem número, sem alarme — vai subir.
  *  - **Tudo salvo**.
+ *
+ * Aqui existiu um botão "Pedir aprovação" (removido em 24/08/2026). Ele montava o pedido com o
+ * nome da tabela no PLURAL (`delete_worker_absences`) enquanto o servidor só conhece o SINGULAR
+ * (`delete_worker_absence`): o pedido era criado, alguém aprovava e NADA acontecia. Somado a isso,
+ * a tela que lista aprovações não tem link em menu nenhum e o servidor proíbe aprovar o próprio
+ * pedido — numa empresa de conta única, ninguém podia aprovar. Era um buraco negro, e o cliente
+ * foi direto ao ponto: "se eu decidi apagar algo, eu quero apagar e pronto".
  *
  * O painel completo continua acessível pelo clique: ele é o histórico do que ainda não subiu,
  * com a opção de reenviar na hora e de baixar uma cópia.
@@ -22,7 +29,6 @@ import {
   type OpPendenteResumo, type PendenciaBloqueada,
 } from '@/store/appModeStore'
 import { fmtDataBR } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 
@@ -115,10 +121,10 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   const tone = precisaAtencao ? '#eab308' : enviando ? '#60a5fa' : '#4ade80'
   const Icon = precisaAtencao ? ShieldAlert : enviando ? RefreshCw : Cloud
   const label = precisaAtencao
-    ? 'Precisa da sua autorização'
+    ? 'O servidor recusou'
     : enviando ? 'Enviando para a nuvem…' : 'Tudo salvo na nuvem'
   const title = precisaAtencao
-    ? `${atencao.length} alteração(ões) o servidor recusou. Clique para ver o motivo e resolver.`
+    ? `${atencao.length} alteração(ões) recusadas pelo servidor. Clique para ver o motivo.`
     : enviando
       ? 'Salvo no aparelho e a caminho da nuvem. Não precisa fazer nada — o envio se resolve sozinho.'
       : label
@@ -148,7 +154,6 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [detalhe, setDetalhe] = useState<string | null>(null)
   const [ops, setOps] = useState<Record<string, OpPendenteResumo[]>>({})
-  const [pedidos, setPedidos] = useState<Record<string, 'ok' | 'erro'>>({})
 
   const refresh = useCallback(async () => {
     setDiags(await getSyncDiagnostics())
@@ -180,26 +185,6 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
     try {
       const n = await baixarOpsPendentes(d.key)
       if (n === 0) window.alert('Nada pendente para baixar.')
-    } finally { setBusy(false) }
-  }
-
-  /**
-   * O "botão que resolve": manda o pedido para quem tem permissão aprovar. Usa o RPC
-   * `request_action`, que já existe e cria uma linha em `pending_actions` (a aprovação em si é
-   * feita por outra pessoa — o próprio autor não pode aprovar).
-   */
-  async function handlePedirAprovacao(p: PendenciaBloqueada) {
-    setBusy(true)
-    try {
-      const { error } = await supabase.rpc('request_action', {
-        p_action_type:  p.tipo === 'delete' ? `delete_${p.tabela}` : `write_${p.tabela}`,
-        p_target_table: p.tabela,
-        p_target_id:    p.recordId,
-        p_payload:      {},
-      } as never)
-      setPedidos((s) => ({ ...s, [p.opId]: error ? 'erro' : 'ok' }))
-    } catch {
-      setPedidos((s) => ({ ...s, [p.opId]: 'erro' }))
     } finally { setBusy(false) }
   }
 
@@ -238,26 +223,25 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="p-4 overflow-y-auto">
-          {/* O que de fato pede uma decisão vem primeiro e separado do resto. */}
+          {/* O que de fato precisa de uma pessoa vem primeiro e separado do resto. Sem pedido de
+              aprovação: só o motivo, em português, e o botão de tentar de novo lá embaixo. */}
           {atencao.length > 0 && (
             <div className="mb-3 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 p-3">
               <p className="flex items-center gap-2 text-xs font-bold text-[#eab308]">
-                <ShieldAlert size={14} /> Precisa da sua autorização
+                <ShieldAlert size={14} /> O servidor recusou
               </p>
-              <ul className="mt-2 flex flex-col gap-2">
+              <ul className="mt-2 flex flex-col gap-1.5">
                 {atencao.map((p) => (
                   <li key={p.opId} className="text-[11px] text-[#e5e5e5]">
-                    <p><b>{p.modulo}</b> — {motivoAmigavel(p)}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <button onClick={() => handlePedirAprovacao(p)} disabled={busy || pedidos[p.opId] === 'ok'}
-                        className="rounded bg-[#eab308]/25 px-2 py-0.5 text-[10px] font-semibold text-[#fde047] hover:bg-[#eab308]/40 disabled:opacity-50">
-                        {pedidos[p.opId] === 'ok' ? 'Pedido enviado' : 'Pedir aprovação'}
-                      </button>
-                      {pedidos[p.opId] === 'erro' && <span className="text-[10px] text-[#fca5a5]">Não foi possível enviar o pedido.</span>}
-                    </div>
+                    <b>{p.modulo}</b> — {motivoAmigavel(p)}
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 text-[11px] text-[#d4d4d4]">
+                Nada foi perdido — está tudo salvo no seu aparelho. Clique em <b>Enviar agora</b> para
+                tentar de novo. Se continuar, é permissão no banco: rode o
+                {' '}<b>docs/CONFERIR_EXCLUSAO.sql</b> para saber qual é.
+              </p>
             </div>
           )}
 

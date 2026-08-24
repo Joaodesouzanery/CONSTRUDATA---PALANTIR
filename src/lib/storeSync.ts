@@ -59,9 +59,15 @@ export interface PendingOp<TEntity extends string = string> {
    */
   patch?:    Record<string, unknown>
   /**
-   * Para delete via aprovação: action_type a chamar no request_action RPC.
-   * Se undefined, usa DELETE direto (que vai falhar pelo RLS na maioria
-   * dos casos — então sempre defina para entities que precisam de aprovação).
+   * @deprecated Nenhum store preenche mais este campo (24/08/2026), e ele NÃO deve voltar.
+   *
+   * A ideia era "exclusão que precisa de aprovação", mas `request_action` só cria uma linha em
+   * `pending_actions` — não apaga nada. O registro sumia da tela, voltava no pull seguinte, e o
+   * pedido ficava numa fila que não tem link em menu nenhum e que o próprio autor não pode
+   * aprovar. Pior: em três dos quatro usos a intenção não era nem apagar — `type: 'delete'` era só
+   * o veículo para chamar o RPC (resolver restrição do LPS, editar ordem de compra fechada).
+   *
+   * Mantido só para reconhecer e descartar ops antigas que ainda estejam em `localStorage`.
    */
   approvalActionType?: string
   /** Tabela alvo no Supabase. */
@@ -420,23 +426,31 @@ export async function flushQueue(queueEntrada: PendingOp[]): Promise<FlushResult
           .abortSignal(signal))
         if (error) throw error
 
-        // CONFERE se apagou de verdade.
+        // CONFERE se apagou de verdade — olhando o `deleted_at`, não a visibilidade.
         //
-        // Sem erro NÃO significa sucesso aqui: quando a policy de UPDATE tem `deleted_at is null`
-        // ou gate de papel no USING, a linha simplesmente não casa — o Postgres devolve "0 linhas
-        // atualizadas", sem erro nenhum. O registro sumia da tela, o servidor continuava
-        // intacto, e ele REAPARECIA no próximo pull. Nenhum aviso em lugar nenhum.
+        // Sem erro NÃO significa sucesso: quando o `USING` da policy de UPDATE não casa, o
+        // Postgres devolve "0 linhas atualizadas" sem erro nenhum. O registro sumia da tela, o
+        // servidor continuava intacto, e ele reaparecia no próximo pull, sem aviso.
         //
-        // A verificação é barata e só roda no caminho de exclusão: a policy de SELECT filtra
-        // `deleted_at is null`, então uma linha que continua VISÍVEL depois do update é prova de
-        // que o update não pegou. Linha invisível = apagada (ou já não existia), que é sucesso.
-        const { data: aindaVisivel } = await withAbort((signal) => supabase
+        // A versão anterior desta conferência perguntava "a linha ainda está visível?", apostando
+        // que a policy de SELECT filtra `deleted_at is null`. A migração 20260824130000 tira
+        // justamente esse filtro de 18 tabelas — porque ele era o que IMPEDIA o soft delete (o
+        // Postgres recusa um UPDATE que torne a linha invisível para o próprio SELECT: "new row
+        // violates row-level security policy"). Com o filtro fora, "ainda visível" passou a ser o
+        // estado NORMAL de um registro apagado, e a pergunta antiga daria falso positivo eterno.
+        //
+        // Perguntar pelo `deleted_at` funciona nos dois mundos: com ou sem filtro no SELECT.
+        const { data: conferido } = await withAbort((signal) => supabase
           .from(op.table)
-          .select('id')
+          .select('deleted_at')
           .eq('id', op.recordId)
           .eq('organization_id', activeOrgId)
           .abortSignal(signal))
-        if (rowCount(aindaVisivel) > 0) {
+        const linhas = Array.isArray(conferido) ? conferido : conferido ? [conferido] : []
+        // Nenhuma linha = apagada de vez ou já não existia (e o delete é idempotente): sucesso.
+        // Linha com `deleted_at` preenchido: sucesso. Linha com `deleted_at` nulo: não pegou.
+        const naoPegou = linhas.some((r) => (r as { deleted_at?: string | null })?.deleted_at == null)
+        if (naoPegou) {
           throw new Error(
             `A exclusão em ${op.table} não foi aceita pelo servidor: o registro continua lá. `
             + 'Normalmente é permissão — o seu papel não autoriza esta exclusão.',
@@ -455,14 +469,19 @@ export async function flushQueue(queueEntrada: PendingOp[]): Promise<FlushResult
       }
     } else if (op.type === 'delete') {
       if (op.approvalActionType) {
-        const { error } = await withAbort((signal) => supabase.rpc('request_action', {
-          p_action_type:  op.approvalActionType,
-          p_target_table: op.table,
-          p_target_id:    op.recordId,
-          p_payload:      {},
-        } as never).abortSignal(signal))
-        if (error) throw error
-      } else {
+        // Op LEGADA: nenhum store cria mais isto (24/08/2026). O caminho antigo chamava
+        // `request_action`, que só INSERE uma linha em `pending_actions` — nunca aplicou nada ao
+        // registro. Reenviar seria condenar a op a girar para sempre: o pedido nasce numa fila sem
+        // link em menu nenhum e o servidor proíbe o próprio autor de aprovar, então numa empresa de
+        // conta única ninguém pode. Sai da fila com aviso no console. Nada é perdido que algum dia
+        // fosse ser salvo — refazer a ação agora grava de verdade.
+        console.warn(
+          `[sync:${op.table}] op de aprovação legada descartada (${op.approvalActionType}, registro `
+          + `${op.recordId}). Ela nunca chegou a alterar nada no servidor. Refaça a ação: agora salva.`,
+        )
+        return
+      }
+      {
         // DELETE é idempotente: 0 linhas afetadas significa que o registro já não
         // existe (ex.: apagado em outro dispositivo) — isso é SUCESSO, não erro.
         // Não usa assertAffectedRows porque prenderia a op para sempre (todo retry

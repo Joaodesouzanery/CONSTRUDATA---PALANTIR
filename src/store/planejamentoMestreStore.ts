@@ -497,7 +497,13 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
             baselines: s.baselines.filter((b) => b.id !== id),
             activeBaselineId: s.activeBaselineId === id ? null : s.activeBaselineId,
           }))
-          enqueue(makeOp({ entity: 'master_baseline', type: 'delete', recordId: id, table: 'master_baselines', approvalActionType: 'delete_master_baseline' }))
+          // Este é o único dos quatro casos de aprovação que era exclusão DE VERDADE. Vira soft
+          // delete, como o resto do app. Depende da migração 20260824130000: hoje
+          // `master_baselines` tem UPDATE bloqueado (`USING (false)`, 0020:293) porque a linha de
+          // base foi modelada como imutável — e com isso apagar só era possível pelo RPC de
+          // aprovação, que ninguém consegue aprovar. A migração permite exatamente um update:
+          // preencher `deleted_at`. O conteúdo da linha de base segue imutável.
+          enqueue(makeOp({ entity: 'master_baseline', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'master_baselines' }))
           void get().flush()
         },
 
