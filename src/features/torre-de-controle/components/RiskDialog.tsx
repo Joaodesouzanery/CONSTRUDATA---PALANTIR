@@ -101,9 +101,9 @@ export function RiskDialog() {
             <h2 className="text-[#f5f5f5] font-bold text-sm">
               {isNew ? 'Novo Risco' : 'Editar Risco'}
             </h2>
-            {site && <p className="text-[11px] text-[#6b6b6b] mt-0.5">{site.name}</p>}
+            {site && <p className="text-[11px] text-[#a3a3a3] mt-0.5">{site.name}</p>}
           </div>
-          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors">
+          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors">
             <X size={15} />
           </button>
         </div>
@@ -138,7 +138,7 @@ export function RiskDialog() {
               {LEVEL_OPTIONS.map((o) => (
                 <div key={o.value} className="flex items-center gap-1">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ background: o.color }} />
-                  <span className="text-[9px] text-[#6b6b6b]">{o.label}</span>
+                  <span className="text-[11px] text-[#a3a3a3]">{o.label}</span>
                 </div>
               ))}
             </div>
@@ -179,7 +179,7 @@ export function RiskDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] transition-colors',
     hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#525252] focus:border-[#f97316]'
   )
 }
@@ -187,7 +187,7 @@ function inp(hasError: boolean) {
 function Field({ label, error, children }: { label: React.ReactNode; error?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold">{label}</label>
+      <label className="text-[11px] uppercase tracking-widest text-[#a3a3a3] font-semibold">{label}</label>
       {children}
       {error && <span className="text-[11px] text-[#ef4444]">{error}</span>}
     </div>

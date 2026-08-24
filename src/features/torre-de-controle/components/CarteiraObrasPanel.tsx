@@ -124,14 +124,14 @@ export function CarteiraObrasPanel() {
         ) : (
           <table className="w-full min-w-[760px] text-xs">
             <thead>
-              <tr className="text-[10px] uppercase tracking-wider text-[#6b6b6b]">
+              <tr className="text-[11px] uppercase tracking-wider text-[#a3a3a3]">
                 <th className="pb-2 text-left font-semibold">Obra</th>
                 <th className="pb-2 text-right font-semibold">Serviço</th>
                 <th className="pb-2 text-right font-semibold">Material</th>
                 <th className="pb-2 text-right font-semibold">Entrada</th>
                 <th className="pb-2 text-right font-semibold">Faturado</th>
                 <th className="pb-2 text-right font-semibold">Saldo do serviço</th>
-                <th className="pb-2 text-right font-semibold">Retenção</th>
+                <th className="pb-2 text-right font-semibold" title="Garantia retida pelo cliente, liberada depois da entrega">Retenção a liberar</th>
               </tr>
             </thead>
             <tbody>
@@ -144,7 +144,7 @@ export function CarteiraObrasPanel() {
                   <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{l.entrada != null ? brl(l.entrada) : '—'}</td>
                   <td className="py-1.5 text-right font-mono text-[#f59e0b]">{brl(l.faturado)}</td>
                   <td className={`py-1.5 text-right font-mono font-bold ${l.saldo < 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>{brl(l.saldo)}</td>
-                  <td className="py-1.5 text-right font-mono text-[#6b6b6b]">{l.retencao > 0 ? brl(l.retencao) : '—'}</td>
+                  <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{l.retencao > 0 ? brl(l.retencao) : '—'}</td>
                 </tr>
               ))}
               <tr className="border-t-2 border-[#525252] font-bold">
@@ -156,17 +156,25 @@ export function CarteiraObrasPanel() {
                 <td className="py-2 text-right font-mono text-[#22c55e]">{brl(totais.saldo)}</td>
                 <td className="py-2 text-right font-mono text-[#a3a3a3]">{brl(totais.retencao)}</td>
               </tr>
-              <tr className="text-[10px] text-[#6b6b6b]">
+              <tr className="text-[11px] text-[#a3a3a3]">
                 <td className="pt-1" colSpan={5}>Valor Serviço Restante</td>
                 <td className="pt-1 text-right font-mono">{brl(totais.saldo)}</td>
-                <td className="pt-1 text-right font-mono" title="Retenção Técnica / Contratual">{brl(totais.retencao)}</td>
+                <td className="pt-1 text-right font-mono" title="Garantia retida pelo cliente — dinheiro seu, liberado depois da entrega">{brl(totais.retencao)}</td>
               </tr>
             </tbody>
           </table>
         )}
 
+        {totais.retencao > 0 && (
+          <p className="mt-3 text-[11px] text-[#d4d4d4]">
+            <b>{brl(totais.retencao)} de retenção a liberar.</b> É a parte de cada nota que o cliente
+            segura como garantia e devolve depois da entrega — dinheiro seu, que não está no saldo nem
+            no caixa. Fica aqui para não sumir da sua previsão.
+          </p>
+        )}
+
         {semContrato.length > 0 && (
-          <p className="mt-4 text-[11px] text-[#6b6b6b]">
+          <p className="mt-4 text-[11px] text-[#a3a3a3]">
             {semContrato.length} obra(s) sem valor de contrato cadastrado, fora do total:{' '}
             {semContrato.map((l) => l.nome).join(', ')}. Cadastre em Detalhes da Obra → Contrato &amp; Medição.
           </p>

@@ -53,13 +53,13 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
   /** Contagem + interruptor das arquivadas. Idêntico nas duas orientações do painel. */
   function ContadorCanteiros() {
     return (
-      <span className="flex items-center gap-1.5 text-[10px] text-[#6b6b6b]">
+      <span className="flex items-center gap-1.5 text-[11px] text-[#a3a3a3]">
         {sitesVisiveis.length} canteiro{sitesVisiveis.length !== 1 ? 's' : ''}
         {inativas.length > 0 && (
           <button
             onClick={() => setMostrarArquivadas((v) => !v)}
             title="Obras arquivadas mantêm todo o histórico; ficam fora desta lista só para não poluir"
-            className="rounded border border-[#525252] px-1.5 py-0.5 text-[9px] font-semibold text-[#a3a3a3] hover:border-[#a3a3a3] hover:text-[#f5f5f5]"
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[11px] font-semibold text-[#a3a3a3] hover:border-[#a3a3a3] hover:text-[#f5f5f5]"
           >
             {mostrarArquivadas ? 'ocultar' : 'ver'} {inativas.length} arquivada{inativas.length !== 1 ? 's' : ''}
           </button>
@@ -119,7 +119,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             <SyncBadge {...sync} />
             <button
               onClick={handleResync}
-              className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
+              className="flex items-center gap-1 text-[11px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
               title="Reenviar todas as obras ao servidor (para que todos da empresa vejam)"
             >
               <RefreshCw size={11} />
@@ -127,7 +127,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
+              className="flex items-center gap-1 text-[11px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors px-2 py-1 rounded border border-[#525252]"
               title="Importar obras de Excel/CSV"
             >
               <Upload size={11} />
@@ -135,7 +135,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
             </button>
             <button
               onClick={() => setEditing('new')}
-              className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors px-2 py-1 rounded border border-[#f97316]/30"
+              className="flex items-center gap-1 text-[11px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors px-2 py-1 rounded border border-[#f97316]/30"
             >
               <Plus size={12} />
               Nova Obra
@@ -149,7 +149,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
         <div className="flex-1 overflow-x-auto overflow-y-hidden">
           {sitesVisiveis.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 h-full px-4 text-center">
-              <span className="text-[#3f3f3f] text-xs">
+              <span className="text-[#a3a3a3] text-xs">
                 {sites.length === 0 ? 'Nenhuma obra cadastrada' : 'Todas as obras estão arquivadas'}
               </span>
               <button
@@ -189,21 +189,21 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
           <SyncBadge {...sync} />
           <button
             onClick={handleResync}
-            className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            className="flex items-center gap-1 text-[11px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
             title="Reenviar todas as obras ao servidor (para que todos da empresa vejam)"
           >
             <RefreshCw size={11} />
           </button>
           <button
             onClick={() => setImportOpen(true)}
-            className="flex items-center gap-1 text-[10px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
+            className="flex items-center gap-1 text-[11px] font-semibold text-[#a3a3a3] hover:text-[#f5f5f5] transition-colors"
             title="Importar"
           >
             <Upload size={11} />
           </button>
           <button
             onClick={() => setEditing('new')}
-            className="flex items-center gap-1 text-[10px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors"
+            className="flex items-center gap-1 text-[11px] font-semibold text-[#f97316] hover:text-[#ea580c] transition-colors"
           >
             <Plus size={13} />
             Nova Obra
@@ -226,7 +226,7 @@ export function ObrasListPanel({ orientation = 'vertical' }: ObrasListPanelProps
 
         {sitesVisiveis.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-2 py-12 px-4 text-center">
-            <span className="text-[#3f3f3f] text-xs">
+            <span className="text-[#a3a3a3] text-xs">
               {sites.length === 0 ? 'Nenhuma obra cadastrada' : 'Todas as obras estão arquivadas'}
             </span>
             <button
@@ -268,31 +268,31 @@ function ObraCard({
         <div className="flex flex-col gap-0.5 min-w-0">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_DOT[site.status] }} />
-            <span className="text-[10px] font-mono text-[#6b6b6b]">{site.code}</span>
+            <span className="text-[11px] font-mono text-[#a3a3a3]">{site.code}</span>
           </div>
           <span className="text-sm font-semibold text-[#f5f5f5] leading-snug line-clamp-2">
             {site.name}
           </span>
         </div>
-        <span className={cn('shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide', STATUS_COLOR[site.status])}>
+        <span className={cn('shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide', STATUS_COLOR[site.status])}>
           {STATUS_LABEL[site.status]}
         </span>
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] text-[#6b6b6b] truncate">
+        <span className="text-[11px] text-[#a3a3a3] truncate">
           {site.street}, {site.number} — {site.district}
         </span>
-        <span className="text-[10px] text-[#6b6b6b]">{site.city} / {site.state}</span>
+        <span className="text-[11px] text-[#a3a3a3]">{site.city} / {site.state}</span>
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-[#6b6b6b]">
+        <span className="text-[11px] text-[#a3a3a3]">
           Gerente: <span className="text-[#a3a3a3]">{site.manager}</span>
         </span>
         {(criticalRisks > 0 || highRisks > 0) && (
           <span className={cn(
-            'text-[9px] font-semibold px-1.5 py-0.5 rounded',
+            'text-[11px] font-semibold px-1.5 py-0.5 rounded',
             criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#f97316] bg-[#f97316]/10'
           )}>
             {criticalRisks > 0 ? `${criticalRisks} crítico${criticalRisks > 1 ? 's' : ''}` : `${highRisks} alto${highRisks > 1 ? 's' : ''}`}
@@ -330,9 +330,9 @@ function ObraHorizontalCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_DOT[site.status] }} />
-          <span className="text-[10px] font-mono text-[#6b6b6b] truncate">{site.code}</span>
+          <span className="text-[11px] font-mono text-[#a3a3a3] truncate">{site.code}</span>
         </div>
-        <span className={cn('shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide', STATUS_COLOR[site.status])}>
+        <span className={cn('shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide', STATUS_COLOR[site.status])}>
           {STATUS_LABEL[site.status]}
         </span>
       </div>
@@ -341,17 +341,17 @@ function ObraHorizontalCard({
         {site.name}
       </div>
 
-      <div className="text-[10px] text-[#6b6b6b] truncate">
+      <div className="text-[11px] text-[#a3a3a3] truncate">
         {site.city} / {site.state}
       </div>
 
       <div className="flex items-center justify-between mt-auto">
-        <span className="text-[10px] text-[#6b6b6b] truncate">
+        <span className="text-[11px] text-[#a3a3a3] truncate">
           {site.manager}
         </span>
         {(criticalRisks > 0 || highRisks > 0) && (
           <span className={cn(
-            'shrink-0 text-[9px] font-semibold px-1.5 py-0.5 rounded',
+            'shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded',
             criticalRisks > 0 ? 'text-[#ef4444] bg-[#ef4444]/10' : 'text-[#f97316] bg-[#f97316]/10'
           )}>
             {criticalRisks > 0 ? `${criticalRisks} crítico${criticalRisks > 1 ? 's' : ''}` : `${highRisks} alto${highRisks > 1 ? 's' : ''}`}

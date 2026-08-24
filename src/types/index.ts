@@ -260,12 +260,40 @@ export interface ConstructionSite {
   precoM2?: number
 }
 
+/**
+ * Natureza de uma linha da composição do contrato.
+ *
+ * Serve para agrupar o subtotal e para conferir cada parte contra o valor declarado no cabeçalho
+ * — e é o que impede o material de ser somado duas vezes.
+ */
+export type ObraItemCategoria = 'servico' | 'material' | 'frete' | 'equipamento'
+
 export interface ObraContratoServico {
   id: string
   descricao: string
-  unidade: string             // 'm²' | 'm' | 'un'…
+  unidade: string             // 'm²' | 'm' | 'un' | 'vb'…
   qtdContrato: number         // quantidade contratada
-  valorUnitario: number       // preço cheio (R$/unidade)
+  /**
+   * Preço cheio da MÃO DE OBRA por unidade. O nome é histórico: antes da separação
+   * serviço × material ele era o único preço da linha, e continua sendo lido assim.
+   */
+  valorUnitario: number
+  /**
+   * Preço do MATERIAL por unidade, quando a linha carrega os dois.
+   *
+   * É o formato da proposta real do cliente: 20 linhas com ITEM · DESCRIÇÃO · UN · QTD ·
+   * mão de obra · TOTAL, fechando R$ 183.624,55 de mão de obra + R$ 180.030,00 de material.
+   * No contrato da SUPERA as linhas têm só mão de obra e o "Faturamento direto" só material —
+   * os dois formatos cabem no mesmo modelo, com um dos preços em zero.
+   */
+  valorMaterialUnit?: number
+  /** Ordem de exibição — o "ITEM" numerado da proposta. Ausente = ordem de cadastro. */
+  ordem?: number
+  /**
+   * Natureza da linha. Ausente é lido como `'servico'`, que é o que toda linha já cadastrada é —
+   * exceto a de unidade `vb`, tratada como material (ver `categoriaDoItem` em obraMedicao.ts).
+   */
+  categoria?: ObraItemCategoria
   pctAplicado?: number        // % aplicado (ex.: fase 01) — ausente = 100%
   qtdAnterior?: number        // medido em períodos anteriores (manual)
   qtdMedidaOverride?: number  // sobrepõe a qtd medida AUTO (dos RDOs) quando preenchido
@@ -289,8 +317,24 @@ export interface ObraFaturamento {
   nf?: string               // número da nota
   valor: number
   descricao?: string        // "Entrada Serviço", "2ª medição"…
-  /** Retenção Técnica/Contratual desta nota. Some no rodapé, não abate do saldo. */
+  /**
+   * Retenção (garantia) desta nota — a parte que o cliente não paga na hora.
+   *
+   * Não é desconto: o dinheiro é seu, fica retido como garantia de que o serviço foi bem feito e
+   * é liberado depois da entrega. Some no rodapé e aparece como "a liberar" na carteira; **não**
+   * abate do saldo do contrato. Na planilha do cliente só duas notas têm — Parque Nacional
+   * R$ 5.091,42 (5,00%) e Brasal R$ 1.070,50 (4,99%), juntas os R$ 6.161,92 do rodapé.
+   */
   retencaoTecnica?: number
+  /**
+   * De qual saldo esta nota abate. Ausente é lido como `'servico'`.
+   *
+   * É o que separa as duas contas do contrato: o saldo acompanhado é
+   * `valorServico − Σ notas de serviço`, e o material é faturado à parte.
+   */
+  categoria?: 'servico' | 'material'
+  /** Data em que o dinheiro entrou. Preenchida quando a nota passa a `'recebido'`. */
+  dataRecebimento?: string
   situacao: 'recebido' | 'a_receber'
   /** Quando `situacao === 'a_receber'`: a data prevista (vermelho na planilha do cliente). */
   previsaoRecebimento?: string
@@ -339,6 +383,29 @@ export interface ObraContrato {
   services:          ObraContratoServico[]
   /** Extrato de faturamento: as notas emitidas contra este contrato. */
   faturamentos?:     ObraFaturamento[]
+  /** Contrato assinado, aditivos e propostas. O arquivo vai para o Storage; aqui fica a ficha. */
+  documentos?:       ObraDocumento[]
+}
+
+/**
+ * Um arquivo do contrato — o PDF assinado, um aditivo, a proposta.
+ *
+ * Só a FICHA mora aqui (no payload da obra); o arquivo vai para o bucket `project-documents`,
+ * que já existe e já tem regra por organização. É o padrão de `PlanoAnexo`
+ * (`ExecucaoPanel.tsx`), e deliberadamente NÃO o de Projetos, que grava o PDF inteiro em base64
+ * dentro do banco — erro que o próprio repositório já teve de reverter no RDO
+ * (`20260722130000_rdo_photos_bucket.sql`: "estourava localStorage e inflava o banco").
+ */
+export interface ObraDocumento {
+  id: string
+  tipo: 'contrato' | 'aditivo' | 'proposta' | 'art' | 'nf' | 'outro'
+  nome: string
+  storagePath: string
+  mime?: string
+  tamanho?: number
+  /** ISO. É por ela que as versões são empilhadas — a mais recente em cima. */
+  enviadoEm: string
+  enviadoPor?: string
 }
 
 export interface ConstructionBudgetLine {

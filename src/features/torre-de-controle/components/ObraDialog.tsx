@@ -158,7 +158,7 @@ export function ObraDialog() {
           <h2 className="text-[#f5f5f5] font-bold text-base">
             {isNew ? 'Nova Obra' : `Editar — ${existing?.name ?? ''}`}
           </h2>
-          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors">
+          <button onClick={close} className="w-7 h-7 flex items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#f5f5f5] hover:bg-[#484848] transition-colors">
             <X size={15} />
           </button>
         </div>
@@ -186,7 +186,7 @@ export function ObraDialog() {
                   <option value="">— Nenhum (sem vínculo) —</option>
                   {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                <p className="text-[10px] text-[#6b6b6b] mt-1">Liga a obra a um Projeto — ao selecioná-la no topo, EVM/Aditivos passam a focar nesse projeto.</p>
+                <p className="text-[11px] text-[#a3a3a3] mt-1">Liga a obra a um Projeto — ao selecioná-la no topo, EVM/Aditivos passam a focar nesse projeto.</p>
               </Field>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Tipo / Escopo da Obra" error={errors.buildingType?.message}>
@@ -291,7 +291,7 @@ export function ObraDialog() {
 
             {/* Localização */}
             <Section title={<span className="flex items-center gap-1.5"><MapPin size={9} />Coordenadas no Mapa</span>}>
-              <p className="text-[10px] text-[#3f3f3f] -mt-1">
+              <p className="text-[11px] text-[#a3a3a3] -mt-1">
                 Preencha para posicionar o marcador no mapa. Pode ser ajustado arrastando o marcador depois.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -323,7 +323,7 @@ export function ObraDialog() {
                   <button type="button" onClick={() => setConfirmDelete(false)} className="text-xs px-2 py-1 rounded bg-[#484848] text-[#a3a3a3] hover:bg-[#525252]">Não</button>
                 </div>
               ) : (
-                <button type="button" onClick={handleDelete} className="flex items-center gap-1.5 text-xs text-[#6b6b6b] hover:text-[#ef4444] transition-colors">
+                <button type="button" onClick={handleDelete} className="flex items-center gap-1.5 text-xs text-[#a3a3a3] hover:text-[#ef4444] transition-colors">
                   <Trash2 size={13} />Excluir Obra
                 </button>
               )
@@ -344,7 +344,7 @@ export function ObraDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#3f3f3f] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] transition-colors',
     hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#525252] focus:border-[#f97316]'
   )
 }
@@ -352,7 +352,7 @@ function inp(hasError: boolean) {
 function Field({ label, error, children }: { label: React.ReactNode; error?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] uppercase tracking-widest text-[#a3a3a3] font-semibold">{label}</label>
+      <label className="text-[11px] uppercase tracking-widest text-[#a3a3a3] font-semibold">{label}</label>
       {children}
       {error && <span className="text-[11px] text-[#ef4444]">{error}</span>}
     </div>
@@ -362,7 +362,7 @@ function Field({ label, error, children }: { label: React.ReactNode; error?: str
 function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-[10px] uppercase tracking-widest text-[#6b6b6b] font-semibold mb-0.5 w-full pb-1 border-b border-[#525252]">{title}</legend>
+      <legend className="text-[11px] uppercase tracking-widest text-[#a3a3a3] font-semibold mb-0.5 w-full pb-1 border-b border-[#525252]">{title}</legend>
       {children}
     </fieldset>
   )

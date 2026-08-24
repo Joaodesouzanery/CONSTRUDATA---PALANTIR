@@ -158,14 +158,25 @@ test('contrato sem extrato: saldo é o serviço inteiro', () => {
 // ── O rodapé da planilha ──────────────────────────────────────────────────────
 
 test('o rodapé fecha: 953.026,34 de serviço restante e 6.161,92 de retenção', () => {
+  // ⚠️ CORREÇÃO (24/08/2026): a versão anterior deste teste espalhava a retenção pelas quatro
+  // obras (3.080,96 · 1.072,50 · 1.521,46 · 487,00). Somava certo, mas era invenção minha —
+  // números deduzidos de trás para frente a partir do total. Na planilha do cliente **só duas
+  // notas têm retenção**, e são estas:
+  //
+  //   Parque Nacional   5.091,42  sobre  101.828,36  =  5,00%
+  //   Brasal            1.070,50  sobre   21.450,00  =  4,99%
+  //                     ─────────
+  //                     6.161,92
+  //
+  // Se a retenção fosse 5% de TODAS as notas, o total daria 17.459,12 — não é o caso.
   const linha = (nome: string, servico: number, material: number, faturado: number, retencao: number): LinhaCarteira => ({
     siteId: nome, nome, servico, material, faturado, saldo: servico - faturado, retencao, aReceber: 0,
   })
   const t = totaisCarteira([
-    linha('SUPERA',             592324.14, 607620.00, 138558.20, 3080.96),
-    linha('BRASAL',             236949.07, 252635.00,  21450.00, 1072.50),
-    linha('PARQUE NACIONAL',    254570.90, 272819.65, 101828.36, 1521.46),
-    linha('CONDOMÍNIO 314 SUL', 218364.65,  72917.80,  87345.86,  487.00),
+    linha('SUPERA',             592324.14, 607620.00, 138558.20,       0),
+    linha('BRASAL',             236949.07, 252635.00,  21450.00, 1070.50),
+    linha('PARQUE NACIONAL',    254570.90, 272819.65, 101828.36, 5091.42),
+    linha('CONDOMÍNIO 314 SUL', 218364.65,  72917.80,  87345.86,       0),
   ])
   assert.equal(cent(t.saldo), 953026.34, 'Valor Serviço Restante')
   assert.equal(cent(t.retencao), 6161.92, 'Retenção Técnica / Contratual')
@@ -176,4 +187,42 @@ test('o rodapé fecha: 953.026,34 de serviço restante e 6.161,92 de retenção'
 test('carteira vazia soma zero em tudo', () => {
   const t = totaisCarteira([])
   assert.deepEqual(t, { servico: 0, material: 0, faturado: 0, saldo: 0, retencao: 0, aReceber: 0 })
+})
+
+
+test('a retenção da planilha é 5% da nota — nas duas que têm', () => {
+  // Trava a proporção, para o dia em que alguém lançar uma retenção e ela sair fora da faixa.
+  const casos = [
+    { nota: 101828.36, retencao: 5091.42 },   // Parque Nacional
+    { nota: 21450.00,  retencao: 1070.50 },   // Brasal
+  ]
+  for (const c of casos) {
+    const pct = (c.retencao / c.nota) * 100
+    assert.ok(pct > 4.9 && pct < 5.1, `${pct.toFixed(2)}% está fora da faixa de 5%`)
+  }
+})
+
+test('a retenção NÃO abate do saldo — só é acompanhada', () => {
+  const r = resumoFaturamento(contrato({
+    valorServico: 254570.90,
+    faturamentos: [nota({ valor: 101828.36, retencaoTecnica: 5091.42 })],
+  }), HOJE)
+  assert.equal(cent(r.retencao), 5091.42)
+  assert.equal(cent(r.saldo), 152742.54, 'o saldo da planilha, sem descontar a retenção')
+})
+
+test('nota de MATERIAL não abate do saldo de serviço', () => {
+  // A regra que faz a conta da planilha fechar: o material é faturado à parte.
+  const r = resumoFaturamento(contrato({
+    valorServico: 592324.14,
+    valorMaterial: 607620,
+    faturamentos: [
+      nota({ id: 's', valor: 138558.20, categoria: 'servico' }),
+      nota({ id: 'm', valor: 300000.00, categoria: 'material' }),
+    ],
+  }), HOJE)
+  assert.equal(cent(r.faturado), 438558.20, 'o total faturado soma os dois')
+  assert.equal(cent(r.faturadoServico), 138558.20)
+  assert.equal(cent(r.faturadoMaterial), 300000.00)
+  assert.equal(cent(r.saldo), 453765.94, 'mas o saldo só desconta o serviço')
 })

@@ -6,9 +6,9 @@
  * vinculadas ao serviço (RdoCompizzoProducaoRow.contractServiceId) — a integração "camada única"
  * (o RDO alimenta a medição sozinho) — OU o override manual (qtdMedidaOverride) quando preenchido.
  */
-import type { RDO, ObraContratoServico, ObraContrato, ObraFaturamento } from '@/types'
+import type { RDO, ObraContratoServico, ObraContrato, ObraFaturamento, ObraItemCategoria } from '@/types'
 import { parseLocaleNumber } from '@/lib/numberFormat'
-import { classificarUnidade, somarMetragem, type Metragem } from '@/lib/unidadesMedida'
+import { classificarUnidade, somarMetragem, ehVerba, type Metragem } from '@/lib/unidadesMedida'
 
 /** Mapa contractServiceId → quantidade medida (auto) somada dos RDOs finalizados da obra. */
 export function medidoAutoPorServico(rdos: RDO[], siteId: string | null | undefined): Map<string, number> {
@@ -78,7 +78,8 @@ export function calcServico(svc: ObraContratoServico, medidoAuto: Map<string, nu
  * A definição mora em `@/lib/unidadesMedida`, junto com a de área e comprimento — é lá que se
  * decide o que é cada unidade, para não haver duas respostas para a mesma pergunta.
  */
-export { UNIDADE_VERBA, ehVerba } from '@/lib/unidadesMedida'
+export { UNIDADE_VERBA } from '@/lib/unidadesMedida'
+export { ehVerba }
 
 /**
  * Metragem contratada da obra, **separada por unidade**.
@@ -176,11 +177,22 @@ export interface ConferenciaDoTotal {
  * O limiar de "arredondamento" é 0,1% ou R$ 100, o que for maior: acima disso não é dízima, é erro
  * de digitação ou serviço faltando, e a tela precisa dizer.
  */
+/**
+ * Limite acima do qual a diferença deixa de ser arredondamento e vira alerta.
+ *
+ * Era 0,1% ou R$ 100; passou a 0,5% ou R$ 1.000 a pedido do cliente. O contrato real da SUPERA
+ * tem R$ 23,54 de diferença entre o valor de serviço declarado (592.324,14) e a soma de
+ * quantidade × preço (592.347,68) — 0,004%. Isso é arredondamento de preço unitário e não deve
+ * pintar a tela de amarelo toda vez que ele abrir a obra.
+ */
+export const TOLERANCIA_PCT = 0.005
+export const TOLERANCIA_BRL = 1000
+
 export function conferirTotal(declaradoRaw: number | undefined, somado: number): ConferenciaDoTotal | null {
   const declarado = Number(declaradoRaw) || 0
   if (declarado <= 0) return null   // sem total declarado não há o que conferir
   const diferenca = somado - declarado
-  const tolerancia = Math.max(100, declarado * 0.001)
+  const tolerancia = Math.max(TOLERANCIA_BRL, declarado * TOLERANCIA_PCT)
   return {
     declarado,
     somado,
@@ -218,8 +230,12 @@ export function valoresDoContrato(contrato?: ObraContrato | null): ValoresDoCont
 }
 
 export interface ResumoFaturamento {
-  /** Σ de todas as notas do extrato. */
+  /** Σ de todas as notas do extrato — serviço e material juntos. */
   faturado:   number
+  /** Σ das notas que abatem do SERVIÇO. É esta que forma o saldo. */
+  faturadoServico:  number
+  /** Σ das notas de material, faturado à parte. */
+  faturadoMaterial: number
   /** Σ das notas já recebidas. */
   recebido:   number
   /** Σ das notas emitidas e ainda não recebidas. */
@@ -229,7 +245,7 @@ export interface ResumoFaturamento {
   /** Valor da linha marcada como entrada (a primeira parcela). `null` quando não há. */
   entrada:    number | null
   /**
-   * `valorServico − faturado`.
+   * `valorServico − faturadoServico`.
    *
    * O MATERIAL não entra: na planilha do cliente ele é faturado à parte e o saldo acompanhado é
    * o do serviço. Conferido nos quatro blocos — ex.: SUPERA 592.324,14 − 138.558,20 = 453.765,94.
@@ -246,13 +262,18 @@ export function resumoFaturamento(
   const notas = contrato?.faturamentos ?? []
   const { servico } = valoresDoContrato(contrato)
 
-  let faturado = 0, recebido = 0, aReceber = 0, retencao = 0
+  let faturado = 0, faturadoServico = 0, faturadoMaterial = 0
+  let recebido = 0, aReceber = 0, retencao = 0
   let entrada: number | null = null
   const vencidas: ObraFaturamento[] = []
 
   for (const n of notas) {
     const v = Number(n.valor) || 0
     faturado += v
+    // Nota sem categoria é de serviço — é o que toda nota já lançada é, e o que mantém o saldo
+    // das obras cadastradas antes desta separação exatamente como estava.
+    if ((n.categoria ?? 'servico') === 'material') faturadoMaterial += v
+    else faturadoServico += v
     retencao += Number(n.retencaoTecnica) || 0
     if (n.situacao === 'recebido') recebido += v
     else {
@@ -263,7 +284,13 @@ export function resumoFaturamento(
     if (n.entrada && entrada == null) entrada = v
   }
 
-  return { faturado, recebido, aReceber, retencao, entrada, saldo: servico - faturado, vencidas }
+  return {
+    faturado, faturadoServico, faturadoMaterial, recebido, aReceber, retencao, entrada,
+    // O saldo é contra o SERVIÇO, e só as notas de serviço abatem dele. É a conta da planilha
+    // do cliente: SUPERA 592.324,14 − 138.558,20 = 453.765,94.
+    saldo: servico - faturadoServico,
+    vencidas,
+  }
 }
 
 export interface LinhaCarteira {
@@ -301,4 +328,128 @@ export function totaisCarteira(linhas: LinhaCarteira[]): TotaisCarteira {
     }),
     { servico: 0, material: 0, faturado: 0, saldo: 0, retencao: 0, aReceber: 0 },
   )
+}
+
+
+// ─── Composição por categoria — e o fim do material contado duas vezes ────────
+
+/**
+ * A que categoria a linha pertence.
+ *
+ * Regra de compatibilidade que importa: linha de unidade `vb` **sem categoria** é lida como
+ * MATERIAL. É o caso do "Faturamento direto" de R$ 607.620,00 do contrato da SUPERA, que eu
+ * modelei como verba antes de descobrir que ele é o valor de material do contrato. Sem essa
+ * regra ele continuaria entrando no subtotal de serviço.
+ */
+export function categoriaDoItem(svc: ObraContratoServico): ObraItemCategoria {
+  if (svc.categoria) return svc.categoria
+  return ehVerba(svc.unidade) ? 'material' : 'servico'
+}
+
+/** Preço de material efetivo — mesma regra de `pctAplicado` do preço de mão de obra. */
+export function precoMaterialEfetivo(svc: ObraContratoServico): number {
+  return (svc.valorMaterialUnit || 0) * ((svc.pctAplicado ?? 100) / 100)
+}
+
+export interface ValoresDaLinha {
+  /** qtd × preço de mão de obra efetivo. */
+  maoDeObra: number
+  /** qtd × preço de material efetivo. */
+  material:  number
+  /** Mão de obra + material. É o "TOTAL" da linha na proposta. */
+  total:     number
+}
+
+/**
+ * Quanto vale uma linha, separando mão de obra de material.
+ *
+ * Uma linha pode ter os dois preços (formato da proposta) ou só um (formato do contrato da
+ * SUPERA). A regra que decide o lado:
+ *
+ *  - **linha de serviço**: `valorUnitario` é MÃO DE OBRA. Se houver `valorMaterialUnit`, ele
+ *    entra do lado do material — é o caso da proposta, em que a mesma linha tem os dois.
+ *  - **linha de material, frete ou equipamento**: `valorUnitario` é o preço do INSUMO e vai
+ *    inteiro para o lado do material. Frete e equipamento são coisas que se compram, não
+ *    trabalho — e o contrato só tem duas caixas (`valorServico` e `valorMaterial`), então elas
+ *    precisam cair numa delas para a conferência fechar. O subtotal por categoria continua
+ *    aparecendo separado na tela, para nada ficar escondido.
+ *
+ * É esta regra que faz a linha `vb` de "Faturamento direto" (R$ 607.620,00) cair do lado certo
+ * sem ninguém precisar reeditar contrato nenhum.
+ */
+export function valoresDaLinha(svc: ObraContratoServico): ValoresDaLinha {
+  const qtd = svc.qtdContrato || 0
+  const ehServico = categoriaDoItem(svc) === 'servico'
+  const precoLinha = qtd * precoEfetivo(svc)
+  const precoMat   = qtd * precoMaterialEfetivo(svc)
+
+  const maoDeObra = ehServico ? precoLinha : 0
+  const material  = ehServico ? precoMat : precoLinha + precoMat
+
+  return { maoDeObra, material, total: maoDeObra + material }
+}
+
+export interface SubtotaisComposicao {
+  /** Σ da mão de obra de todas as linhas — confere contra `contrato.valorServico`. */
+  servico:  number
+  /** Σ do material de todas as linhas — confere contra `contrato.valorMaterial`. */
+  material: number
+  total:    number
+  porCategoria: Record<ObraItemCategoria, number>
+}
+
+/**
+ * Subtotais da composição, por categoria.
+ *
+ * ⚠️ É esta função que conserta o bug de 22/08: `conferirTotal(valorServico, tot.valorContrato)`
+ * comparava o valor de SERVIÇO contra a soma de TODAS as linhas, inclusive a de material. No
+ * contrato da SUPERA isso acusava uma divergência de R$ 607.643,54 que não existe. Agora cada
+ * lado confere contra o seu par.
+ */
+export function subtotaisComposicao(services: ObraContratoServico[]): SubtotaisComposicao {
+  const porCategoria: Record<ObraItemCategoria, number> = { servico: 0, material: 0, frete: 0, equipamento: 0 }
+  let servico = 0, material = 0
+  for (const svc of services) {
+    const v = valoresDaLinha(svc)
+    servico  += v.maoDeObra
+    material += v.material
+    porCategoria[categoriaDoItem(svc)] += v.total
+  }
+  return { servico, material, total: servico + material, porCategoria }
+}
+
+/** As linhas na ordem em que o contrato as numera (`ordem`), preservando o cadastro no empate. */
+export function itensOrdenados(services: ObraContratoServico[]): ObraContratoServico[] {
+  return services
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => (a.s.ordem ?? a.i + 1) - (b.s.ordem ?? b.i + 1) || a.i - b.i)
+    .map(({ s }) => s)
+}
+
+
+export interface ConferenciaDoContrato {
+  /** Valor de serviço declarado × soma da mão de obra da composição. */
+  servico:  ConferenciaDoTotal | null
+  /** Valor de material declarado × soma do material da composição. */
+  material: ConferenciaDoTotal | null
+}
+
+/**
+ * Confere o contrato **por categoria** — cada lado contra o seu par.
+ *
+ * Substitui a conferência única, que comparava o valor de serviço contra a soma de tudo e
+ * acusava R$ 607.643,54 de divergência no contrato da SUPERA (o material entrando na conta do
+ * serviço). O valor digitado no cabeçalho continua sendo a fonte da verdade; a composição só
+ * aponta a diferença.
+ */
+export function conferirContrato(
+  contrato: ObraContrato | null | undefined,
+  services: ObraContratoServico[],
+): ConferenciaDoContrato {
+  const v = valoresDoContrato(contrato)
+  const sub = subtotaisComposicao(services)
+  return {
+    servico:  conferirTotal(v.servico, sub.servico),
+    material: conferirTotal(v.material, sub.material),
+  }
 }
