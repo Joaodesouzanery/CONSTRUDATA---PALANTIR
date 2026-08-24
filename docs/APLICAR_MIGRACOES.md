@@ -45,10 +45,30 @@ Confirmadas como **aplicadas** pelo João: `20260623120000_security_role_guard`,
 `20260821120000_worker_absences_site_id_insurance`, `20260822120000_estoque_ficha_de_retirada`,
 `20260823120000_rotinas_da_empresa`.
 
+### 🔴 Rode esta primeiro: `20260824130000_desfazer_exclusao`
+
+**Sem ela, apagar não funciona** — e nunca funcionou. Não é permissão nem rede: o Postgres recusa
+um `UPDATE` que torne a linha invisível para a própria policy de `SELECT`, e 18 tabelas têm
+`deleted_at IS NULL` na leitura. Marcar `deleted_at` devolve
+`ERROR: new row violates row-level security policy`, sempre, para qualquer papel — inclusive o dono
+da empresa.
+
+Foi medido em PostgreSQL 16.15 com caso mínimo, e a migração inteira foi testada em Postgres real
+(11 casos, incluindo os negativos). O repositório já tinha aplicado essa mesma correção às 3 tabelas
+do almoxarifado em maio (`20260518160000`); esta generaliza.
+
+Ela também traz o **desfazer** (`restaurar_registro`) e destrava FVS fechada, ordem de compra
+fechada e linha de base do planejamento.
+
+Antes de aplicar, vale rodar **`docs/CONFERIR_EXCLUSAO.sql`** (somente leitura): ele diz se o seu
+vínculo em `memberships` é real e ativo, quais tabelas travam a exclusão e se há pedidos de
+aprovação presos.
+
 Pendentes conhecidas:
 
 | Migração | O que quebra sem ela |
 |---|---|
+| **`20260824130000_desfazer_exclusao`** | **Apagar não funciona em 18 tabelas** (falta, funcionário, apontamento, RDO, FVS, obra, título, rotina…), e não há como desfazer uma exclusão. Ver acima. |
 | `20260824120000_baixar_estoque_confere_papel` | A baixa de estoque continua contornando a RLS: um `visualizador` consegue dar baixa. Não quebra nada — é fechar uma brecha. |
 | `20260808140000_lgpd_direitos_titular` | A página "Direitos do Titular" dá erro (RPCs de exportar/anonimizar não existem). |
 | `20260808150000_user_role_predial` | Atribuir os papéis `sindico`/`zelador`/`morador` falha no banco. |
