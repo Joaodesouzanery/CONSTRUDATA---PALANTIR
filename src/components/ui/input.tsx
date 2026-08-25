@@ -7,7 +7,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
       <input
         type={type}
         className={cn(
-          "flex h-9 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-sm text-[#f5f5f5] shadow-sm transition-shadow placeholder:text-[#6b6b6b] focus-visible:border-[#f97316] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#f97316]/20 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-sm text-[#f5f5f5] shadow-sm transition-shadow placeholder:text-[#9a9a9a] focus-visible:border-[#f97316] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#f97316]/20 disabled:cursor-not-allowed disabled:opacity-50",
           type === "search" &&
             "[&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none",
           type === "file" &&

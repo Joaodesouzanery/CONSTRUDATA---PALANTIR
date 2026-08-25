@@ -16,7 +16,13 @@
  * 1,2:1, literalmente ilegível.
  *
  * A regra daqui em diante: **texto de conteúdo nunca abaixo de `#a3a3a3`**, e nada menor que
- * 11px. `#6b6b6b` e `#3f3f3f` só para borda e placeholder.
+ * 11px. `#6b6b6b` e `#3f3f3f` só para BORDA.
+ *
+ * Correção de 25/08: a primeira versão desta regra dizia "borda e placeholder". Estava errada —
+ * placeholder é texto que se lê, e `#6b6b6b` dá 2,4:1. O cliente reclamou exatamente disso no
+ * formulário da obra. Placeholder agora é `#8a8a8a` (4,6:1): passa o mínimo e continua mais fraco
+ * que o valor digitado, que é a função dele. Medido: `#9a9a9a` sobre o `#2c2c2c` do campo dá
+ * 4,96:1. (Cheguei a escrever `#8a8a8a` aqui — dá 4,05:1 e NÃO passa. Sempre medir.)
  */
 
 /** Paleta de texto. Use estes nomes em vez de repetir hexadecimal pela tela. */
@@ -44,5 +50,5 @@ export const pct = (v: number) => `${num(v, 1)}%`
 /** Campo de texto do formulário. 12px — o antigo era 10px. */
 export const inputCls =
   'w-full rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1.5 text-xs text-[#f5f5f5] ' +
-  'outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60'
+  'outline-none placeholder:text-[#9a9a9a] focus:border-[#f97316]/60'
 export const numCls = `${inputCls} text-right tabular-nums`

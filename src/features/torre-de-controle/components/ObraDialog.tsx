@@ -4,9 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Trash2, AlertTriangle, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { bacVemDoContrato } from '@/features/torre-de-controle/utils/obraBudget'
+import { valoresDoContrato, precoMedioM2 } from '@/features/torre-de-controle/utils/obraMedicao'
 import { useProjetosStore } from '@/store/projetosStore'
 import { siteSchema, type SiteFormValues } from '../schemas'
-import type { ObraStatus } from '@/types'
+import type { ObraStatus, ConstructionSite } from '@/types'
 
 const STATUS_OPTIONS: Array<{ value: ObraStatus; label: string }> = [
   { value: 'active',    label: 'Ativa' },
@@ -40,6 +42,8 @@ export function ObraDialog() {
 
   const isNew    = editingId === 'new'
   const existing = isNew ? null : sites.find((s) => s.id === editingId) ?? null
+  // Com contrato cadastrado, o valor da obra tem UM dono: o card CONTRATO.
+  const temContrato = bacVemDoContrato(existing)
 
   const {
     register,
@@ -213,14 +217,24 @@ export function ObraDialog() {
                 <Field label="Nº do contrato" error={errors.numeroContrato?.message}>
                   <input {...register('numeroContrato')} placeholder="CT-2026-000" className={inp(!!errors.numeroContrato)} />
                 </Field>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="Preço por m² (R$)" error={errors.precoM2?.message}>
-                    <input type="number" min="0" step="0.01" {...register('precoM2', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.precoM2)} />
-                  </Field>
-                  <Field label="Orçamento contratado (R$)" error={errors.orcamentoBRL?.message}>
-                    <input type="number" min="0" step="0.01" {...register('orcamentoBRL', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.orcamentoBRL)} />
-                  </Field>
-                </div>
+                {/* Valor da obra: UM lugar por vez.
+                    Com contrato cadastrado, estes dois campos viram leitura e apontam para o card
+                    CONTRATO. Antes eles continuavam editáveis, e existiam dois lugares dizendo
+                    quanto a obra vale — foi o cliente quem percebeu: "é o R$ 607.620 acontecendo
+                    de novo". A trava (`bacVemDoContrato`) estava escrita desde 23/08 e nunca havia
+                    sido ligada em lugar nenhum. */}
+                {temContrato ? (
+                  <ValorVemDoContrato site={existing!} />
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Field label="Preço por m² (R$)" error={errors.precoM2?.message}>
+                      <input type="number" min="0" step="0.01" {...register('precoM2', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.precoM2)} />
+                    </Field>
+                    <Field label="Orçamento contratado (R$)" error={errors.orcamentoBRL?.message}>
+                      <input type="number" min="0" step="0.01" {...register('orcamentoBRL', { setValueAs: (v) => v === '' || Number.isNaN(Number(v)) ? 0 : Number(v) })} placeholder="0,00" className={inp(!!errors.orcamentoBRL)} />
+                    </Field>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Área / Extensão" error={errors.totalArea?.message}>
                     <input type="number" min="0" {...register('totalArea', { setValueAs: (value) => value === '' || Number.isNaN(Number(value)) ? 0 : Number(value) })} placeholder="0" className={inp(!!errors.totalArea)} />
@@ -342,9 +356,52 @@ export function ObraDialog() {
   )
 }
 
+/**
+ * O valor da obra quando ele vem do contrato — leitura, com o caminho para editar.
+ *
+ * O preço por m² aqui é **derivado** (valor ÷ área), não digitado. Antes eram três campos que não
+ * se falavam: nesta obra o cliente tinha preço 0, área 0 e orçamento 12.000. E é uma MÉDIA: no
+ * contrato real há quatro preços diferentes (R$ 28,94 · 27,65 · 8,75 · 28,70) e a média ponderada
+ * não é nenhum deles — por isso a tela diz isso em vez de fingir precisão.
+ */
+function ValorVemDoContrato({ site }: { site: ConstructionSite }) {
+  const v = valoresDoContrato(site.contrato)
+  const medio = precoMedioM2(site.contrato?.services ?? [])
+  const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2.5">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+        <span className="flex items-baseline gap-1.5">
+          <span className="text-[11px] uppercase tracking-widest text-[#a3a3a3]">Valor da obra</span>
+          <strong className="font-mono text-sm text-[#f5f5f5]">{brl(v.total)}</strong>
+        </span>
+        {v.material > 0 && (
+          <span className="text-[11px] text-[#a3a3a3]">
+            serviço {brl(v.servico)} · material {brl(v.material)}
+          </span>
+        )}
+        {medio != null && (
+          <span className="text-[11px] text-[#a3a3a3]">
+            média {medio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 4 })}/m²
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-[#d4d4d4]">
+        Vem do card <b>Contrato</b>, nos Detalhes da Obra — é lá que se edita. O preço por m² é
+        calculado (valor ÷ área) e é uma média: cada serviço tem o preço dele.
+      </p>
+    </div>
+  )
+}
+
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] transition-colors',
+    // Placeholder `#9a9a9a` = 4,96:1 sobre o `#2c2c2c` do campo — medido, não estimado. O antigo
+    // `#6b6b6b` dava 2,4:1 e era ele que pintava os 24 campos deste modal do cinza que o cliente
+    // reclamou. Continua bem mais fraco que o valor digitado (`#f5f5f5`, 11,6:1), que é a função
+    // do placeholder — só que agora legível.
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#9a9a9a] transition-colors',
     hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#525252] focus:border-[#f97316]'
   )
 }

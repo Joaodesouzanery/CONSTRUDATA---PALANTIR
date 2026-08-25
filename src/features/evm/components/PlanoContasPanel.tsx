@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X, TrendingUp, ArrowRight } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
+import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
@@ -110,9 +111,16 @@ export function PlanoContasPanel() {
   function realPillar(p: PillarConfig) { return p.cats.reduce((s, c) => s + (realByCat.get(c) ?? 0), 0) }
 
   // Receitas
+  //
+  // Usa `obraBacFromSite`, que é a MESMA precedência da Carteira e do Planejamento Mestre:
+  // contrato → linha 'Total' do orçamento → soma das linhas → `orcamentoBRL` do cadastro.
+  //
+  // Antes esta tela lia SÓ `orcamentoBRL`, ignorando o contrato. O resultado era duas telas do
+  // mesmo sistema dando respostas diferentes para "quanto vale a obra": a Carteira mostrava o
+  // contrato (ex.: R$ 592.324,14) e aqui aparecia o valor solto do cadastro (R$ 12.000).
   const orcadoReceita = obraFilter
-    ? (sites.find((s) => s.id === obraFilter)?.orcamentoBRL ?? 0)
-    : sites.reduce((s, o) => s + (o.orcamentoBRL ?? 0), 0)
+    ? obraBacFromSite(sites.find((s) => s.id === obraFilter))
+    : sites.reduce((s, o) => s + obraBacFromSite(o), 0)
   const realReceita = entradas.reduce((s, e) => s + num(e.valor), 0)
   const realReceitaByCat = useMemo(() => {
     const m = new Map<string, number>()

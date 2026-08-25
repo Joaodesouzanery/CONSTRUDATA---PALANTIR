@@ -179,7 +179,7 @@ export function RiskDialog() {
 
 function inp(hasError: boolean) {
   return cn(
-    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] transition-colors',
+    'w-full bg-[#2c2c2c] border rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#9a9a9a] transition-colors',
     hasError ? 'border-[#ef4444] focus:border-[#ef4444]' : 'border-[#525252] focus:border-[#f97316]'
   )
 }

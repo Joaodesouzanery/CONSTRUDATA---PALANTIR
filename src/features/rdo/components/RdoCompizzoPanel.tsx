@@ -28,6 +28,7 @@ import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
 import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/features/torre-de-controle/utils/obraMedicao'
+import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
@@ -170,8 +171,12 @@ export function RdoCompizzoPanel() {
   const precoM2           = activePlano?.precoM2 || selectedSite?.precoM2 || 0
   const periodoInicio     = activePlano?.periodoInicio ?? ''
   const periodoFim        = activePlano?.periodoFim ?? ''
+  // O BAC segue a mesma precedência da Carteira e do Plano de Contas (`obraBacFromSite`:
+  // contrato → linha 'Total' → soma → orçamento do cadastro). Antes esta tela tinha uma cadeia
+  // própria que pulava o contrato e ia direto no `orcamentoBRL` — a terceira resposta diferente
+  // para "quanto vale a obra" dentro do mesmo sistema.
   const bacObra           = (activePlano ? faturamento(activePlano) : 0)
-    || (selectedSite?.orcamentoBRL ?? 0)
+    || obraBacFromSite(selectedSite)
     || (selectedSite ? (selectedSite.totalArea || 0) * (selectedSite.precoM2 || 0) : 0)
   const hasContratoMeta   = Boolean(numeroContrato || servicoContratado || precoM2 || bacObra || periodoInicio)
 
