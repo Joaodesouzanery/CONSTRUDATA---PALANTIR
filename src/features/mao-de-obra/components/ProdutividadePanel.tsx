@@ -14,6 +14,7 @@ import {
   computeRupPorWorker, type RupPorWorker,
   resolveRupTarget, rupSemaforo, type Semaforo,
 } from '../utils/produtividade'
+import { ProdutividadePorServico } from './ProdutividadePorServico'
 
 const SEM_COLOR: Record<Semaforo, string> = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' }
 const SEM_LABEL: Record<Semaforo, string> = { verde: 'No alvo', amarelo: 'Atenção', vermelho: 'Fora do alvo' }
@@ -95,6 +96,10 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
           <AlertTriangle size={13} /> {unassignedWorkerCount} funcionário(s) sem obra vinculada — selecione uma obra para o RUP por obra, ou vincule-os na aba Funcionários.
         </div>
       )}
+
+      {/* Ritmo por serviço — a pergunta do encarregado: "quanto uma equipe de 6 faz de piso por
+          dia?". Os dados já existiam no RDO; faltava a função que os cruzasse. */}
+      <ProdutividadePorServico siteId={activeSite?.id ?? null} />
 
       <ProdutividadePorFuncionario linhas={porWorker} nomes={nomeDoWorker} target={target} extraHH={rdoExec.hh} />
 

@@ -14,6 +14,7 @@
 
 import type { Shift, Worker, WorkPost, CLTSettings, CLTViolation, CLTViolationType, CMOSummary, CMORoleItem } from '@/types'
 import { dataLocalISO } from '@/lib/utils'
+import { HORARIO_DO_TURNO } from './coberturaDePostos'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -383,20 +384,26 @@ export function autoGenerateSchedule(
         // Check weekly hours
         if ((weeklyHours[worker.id] ?? 0) + settings.maxDailyHours > settings.maxWeeklyHours) continue
 
+        // O turno do POSTO passa a valer. Antes era 07:00–16:00 cravado, e o campo
+        // "Manhã / Tarde / Noite / Integral" que o usuário preenche no cadastro do posto era
+        // simplesmente ignorado — cadastro morto.
+        const horario = HORARIO_DO_TURNO[post.shift] ?? HORARIO_DO_TURNO.all
         const shift: Omit<Shift, 'id'> = {
           workerId:     worker.id,
           date,
-          startTime:    '07:00',
-          endTime:      '16:00',
+          startTime:    horario.inicio,
+          endTime:      horario.fim,
           breakMinutes: 60,
           type:         'regular',
           workFront:    post.workFront,
+          // O vínculo por id: renomear a frente deixa de quebrar a cobertura em silêncio.
+          workPostId:   post.id,
           status:       'scheduled',
         }
         result.push(shift)
         assignedToday.add(worker.id)
         weeklyHours[worker.id] = (weeklyHours[worker.id] ?? 0) + settings.maxDailyHours
-        lastShiftEnd[worker.id] = new Date(date + 'T16:00:00')
+        lastShiftEnd[worker.id] = new Date(`${date}T${horario.fim}:00`)
         assigned++
       }
     }
@@ -566,38 +573,14 @@ export interface PostCoverageResult {
   workerNames: string[]
 }
 
-export function checkPostCoverage(
-  posts: WorkPost[],
-  shifts: Shift[],
-  workers: Worker[],
-  dates: string[],
-): PostCoverageResult[] {
-  const results: PostCoverageResult[] = []
-  const workerMap = new Map(workers.map((w) => [w.id, w]))
+/**
+ * A cobertura de posto vive em `utils/coberturaDePostos.ts`.
+ *
+ * Aqui existia um `checkPostCoverage` com regra própria (frente igual, sem tolerância de texto),
+ * e ele estava **morto** — zero chamadores. Era a quarta implementação da mesma pergunta, e as
+ * quatro discordavam entre si. Removido para não voltar a ser usado por engano.
+ */
 
-  for (const date of dates) {
-    for (const post of posts) {
-      const dayShifts = shifts.filter(
-        (s) => s.date === date && s.workFront === post.workFront && s.type !== 'day_off'
-      )
-      const matchingWorkers = dayShifts
-        .map((s) => workerMap.get(s.workerId))
-        .filter((w): w is Worker => w !== undefined && w.role === post.role)
-
-      results.push({
-        postId:      post.id,
-        postName:    post.name,
-        date,
-        required:    post.minWorkers,
-        scheduled:   matchingWorkers.length,
-        isCovered:   matchingWorkers.length >= post.minWorkers,
-        workerNames: matchingWorkers.map((w) => w.name),
-      })
-    }
-  }
-
-  return results
-}
 
 // Re-export addMinutesToDateTime for use in components if needed
 export { addMinutesToDateTime }

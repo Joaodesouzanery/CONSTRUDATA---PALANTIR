@@ -7,6 +7,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
 import { AcoesDaLinha } from './AcoesDaLinha'
+import { EquipesSection } from './EquipesSection'
 
 type ObraOption = { id: string; code: string; name: string }
 
@@ -320,8 +321,12 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }:
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function FuncionariosPanel() {
-  const { workers, crews, addWorker, updateWorker, removeWorker } = useMaoDeObraStore(
-    useShallow((s) => ({ workers: s.workers, crews: s.crews, addWorker: s.addWorker, updateWorker: s.updateWorker, removeWorker: s.removeWorker }))
+  const { workers, crews, addWorker, updateWorker, removeWorker, addCrew, updateCrew, removeCrew } = useMaoDeObraStore(
+    useShallow((s) => ({
+      workers: s.workers, crews: s.crews,
+      addWorker: s.addWorker, updateWorker: s.updateWorker, removeWorker: s.removeWorker,
+      addCrew: s.addCrew, updateCrew: s.updateCrew, removeCrew: s.removeCrew,
+    }))
   )
   const sites = useTorreStore((s) => s.sites)
 
@@ -428,6 +433,16 @@ export function FuncionariosPanel() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Equipes — vieram da aba Escala (25/08/2026). Elas não têm relação com turno nem com
+          posto; o que elas agrupam é FUNCIONÁRIO, e o vínculo (`Worker.crewId`) já mora aqui. */}
+      <EquipesSection
+        crews={crews}
+        workers={workers}
+        addCrew={addCrew}
+        updateCrew={updateCrew}
+        removeCrew={removeCrew}
+      />
+
       {(!permissao.pode || avisoPermissao) && (
         <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />

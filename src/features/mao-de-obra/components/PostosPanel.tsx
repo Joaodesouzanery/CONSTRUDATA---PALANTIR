@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import type { WorkPost } from '@/types'
+import { matrizDeCobertura } from '@/features/mao-de-obra/utils/coberturaDePostos'
 
 // ─── WorkPostDialog ────────────────────────────────────────────────────────────
 
@@ -158,31 +159,18 @@ export function PostosPanel() {
   }, [weekOffset])
 
   // Coverage matrix: postId → date → { scheduled, required, workers }
+  // A regra vive em `coberturaDePostos` e é a mesma do Dashboard e do cabeçalho. Aqui só se
+  // adapta o formato para a grade. Antes eram quatro implementações que podiam discordar.
   const coverageMatrix = useMemo(() => {
-    type CellData = { scheduled: number; required: number; workerNames: string[] }
-    const matrix: Record<string, Record<string, CellData>> = {}
-
-    for (const post of workPosts) {
-      matrix[post.id] = {}
-      for (const date of weekDates) {
-        const dayShifts = shifts.filter(s =>
-          s.date === date &&
-          s.type !== 'day_off' &&
-          s.type !== 'holiday' &&
-          (s.workFront === post.workFront || !s.workFront)
-        )
-        const matched = dayShifts.filter(s => {
-          const w = workers.find(w => w.id === s.workerId)
-          return w?.role === post.role
-        })
-        matrix[post.id][date] = {
-          scheduled:   matched.length,
-          required:    post.minWorkers,
-          workerNames: matched.map(s => workers.find(w => w.id === s.workerId)?.name ?? s.workerId),
-        }
+    const m = matrizDeCobertura(workPosts, weekDates, shifts, workers)
+    const out: Record<string, Record<string, { scheduled: number; required: number; workerNames: string[] }>> = {}
+    for (const [postId, porData] of Object.entries(m)) {
+      out[postId] = {}
+      for (const [data, c] of Object.entries(porData)) {
+        out[postId][data] = { scheduled: c.escalados, required: c.exigidos, workerNames: c.nomes }
       }
     }
-    return matrix
+    return out
   }, [workPosts, shifts, workers, weekDates])
 
   // Summary stats

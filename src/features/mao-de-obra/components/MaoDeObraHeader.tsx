@@ -7,6 +7,7 @@ import { ImportModal } from '@/components/shared/ImportModal'
 import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { SyncBadge } from '@/components/shared/SyncBadge'
+import { postosDescobertos } from '@/features/mao-de-obra/utils/coberturaDePostos'
 
 // Re-export so index.tsx can keep using this import path
 export type { MaoDeObraTab } from '@/store/maoDeObraStore'
@@ -15,8 +16,10 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'dashboard',     label: 'Dashboard'             },
   { id: 'produtividade', label: 'Produtividade'          },
   { id: 'funcionarios',  label: 'Funcionários'           },
-  { id: 'escala',        label: 'Escala'                 },
-  { id: 'postos',        label: 'Postos'                 },
+  // Escala e Postos eram duas abas: a demanda (que cargo, quantos) e a oferta (quem, quando).
+  // "Gerar Escala Automática" já era alimentado 100% pelos Postos — eram entrada e saída do
+  // mesmo motor, em telas separadas.
+  { id: 'escala',        label: 'Escala e Postos'        },
   { id: 'cmo',           label: 'Custo Mensal'           },
   { id: 'faltas',        label: 'Faltas / Subs'          },
   { id: 'avaliacoes',    label: 'Avaliações'             },
@@ -74,14 +77,8 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
       return sum + Math.max(0, h - s.breakMinutes / 60)
     }, 0)
 
-    // Posts uncovered today
-    const todayActive = shifts.filter(
-      (s) => s.date === today && s.status !== 'cancelled' && s.status !== 'absent',
-    )
-    const postosDesc = workPosts.filter((p) => {
-      const covered = todayActive.filter((s) => s.workFront === p.workFront).length
-      return covered < p.minWorkers
-    }).length
+    // Mesma regra da aba Postos e do Dashboard — antes esta ignorava o cargo.
+    const postosDesc = postosDescobertos(workPosts, today, shifts, workers)
 
     const cltViol = violations.length
 

@@ -11,7 +11,6 @@ import { EscalamentoPanel }      from './components/EscalamentoPanel'
 import { SegurancaPanel }        from './components/SegurancaPanel'
 import { FuncionariosPanel }     from './components/FuncionariosPanel'
 import { EscalaInteligentePanel } from './components/EscalaInteligentePanel'
-import { PostosPanel }           from './components/PostosPanel'
 import { CMOPanel }              from './components/CMOPanel'
 import { FaltasSubsPanel }       from './components/FaltasSubsPanel'
 import { AvaliacoesPanel }       from './components/AvaliacoesPanel'
@@ -78,8 +77,9 @@ export function MaoDeObraPage() {
       case 'dashboard':     return <DashboardPanel />
       case 'produtividade': return <ProdutividadePanel onNavigate={setActiveTab} />
       case 'funcionarios':  return <FuncionariosPanel />
+      // 'postos' cai aqui: a aba foi fundida e quem tinha a antiga salva não fica na tela em branco.
+      case 'postos':
       case 'escala':        return <EscalaInteligentePanel />
-      case 'postos':        return <PostosPanel />
       case 'cmo':           return <CMOPanel />
       case 'faltas':        return <FaltasSubsPanel />
       case 'avaliacoes':    return <AvaliacoesPanel />

@@ -84,7 +84,9 @@ export type MaoDeObraTab =
   | 'dashboard'
   | 'produtividade'
   | 'funcionarios'
+  /** Escala e Postos são a MESMA aba desde 25/08/2026 — demanda (posto) e oferta (turno). */
   | 'escala'
+  /** @deprecated Virou parte de 'escala'. Mantido só para redirecionar quem tinha isto salvo. */
   | 'postos'
   | 'cmo'
   | 'faltas'

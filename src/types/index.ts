@@ -1048,7 +1048,20 @@ export interface Shift {
   endTime: string       // "HH:mm"
   breakMinutes: number
   type: ShiftType
+  /**
+   * Frente de trabalho, em texto livre. Continua existindo para compatibilidade e para turno que
+   * não pertence a posto nenhum — mas o vínculo confiável é o `workPostId`.
+   */
   workFront?: string
+  /**
+   * O posto que este turno cobre.
+   *
+   * Antes a ligação entre turno e posto era só a igualdade de dois textos livres
+   * (`Shift.workFront === WorkPost.workFront`) mais o cargo. Renomear "Bloco A" para "Bloco-A" em
+   * um dos lados quebrava a cobertura **em silêncio**: a célula ficava vermelha sem nada ter
+   * mudado na obra. Com o id, o vínculo sobrevive ao nome.
+   */
+  workPostId?: string
   status: ShiftStatus
   overtimeReason?: string
   /**

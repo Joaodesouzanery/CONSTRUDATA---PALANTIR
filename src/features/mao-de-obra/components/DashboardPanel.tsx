@@ -6,6 +6,8 @@ import { computeRup, resolveRupTarget } from '../utils/produtividade'
 import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import { ClipboardCheck } from 'lucide-react'
 import { quinzenaAtual, deslocarQuinzena, avaliacaoNaQuinzena } from '../utils/quinzena'
+import { postosDescobertos } from '@/features/mao-de-obra/utils/coberturaDePostos'
+import { FaixaDeCusto } from './FaixaDeCusto'
 
 const RUP_SEM_COLOR = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' } as const
 
@@ -269,13 +271,9 @@ function HRKpiCards() {
       return sum + Math.max(0, h - s.breakMinutes / 60)
     }, 0)
 
-    const todayActive = shifts.filter(
-      (s) => s.date === today && s.status !== 'cancelled' && s.status !== 'absent',
-    )
-    const postosDesc = workPosts.filter((p) => {
-      const covered = todayActive.filter((s) => s.workFront === p.workFront).length
-      return covered < p.minWorkers
-    }).length
+    // Esta conta ignorava o CARGO: dizia "coberto" com qualquer pessoa da frente, enquanto a
+    // matriz da aba Postos, olhando os mesmos dados, dizia "descoberto". Agora é a mesma regra.
+    const postosDesc = postosDescobertos(workPosts, today, shifts, workers)
 
     // Aderência HH: actual vs planned ratio this week
     const weekTimecards = timecards?.filter((tc: import('@/types').TimecardEntry) => tc.date >= weekStart && tc.date <= today) ?? []
@@ -352,6 +350,13 @@ export function DashboardPanel() {
       </div>
 
       <HRKpiCards />
+
+      {/* A faixa de dinheiro. Três abas inteiras do módulo — Custo Mensal, Folha de Pagamento e
+          RH Financeiro — não tinham um pixel aqui; o Dashboard não mostrava um único valor em
+          reais. Junto vêm as férias da semana (que o KPI de faltas exclui, então ninguém via) e as
+          faltas DESCOBERTAS, que é o dado acionável. */}
+      <FaixaDeCusto />
+
       <AvaliacoesDaQuinzena />
       <RupMiniCard period={period} />
       <HHBarChart timecards={timecards} period={period} />
