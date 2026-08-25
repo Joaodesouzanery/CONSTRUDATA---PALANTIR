@@ -104,7 +104,7 @@ const STORE_KEYS = [
   'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
-  'cdata-manejo-financeiro', 'cdata-rotinas',
+  'cdata-manejo-financeiro', 'cdata-rotinas', 'cdata-rateio-consumo',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -627,6 +627,20 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().loadDemoData())
         import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().loadDemoData())
         import('./diasSemProducaoStore').then(({ useDiasSemProducaoStore }) => useDiasSemProducaoStore.getState().loadDemoData())
+        // ⚠️ Quatro stores estavam FORA desta cascata (achado em 25/08/2026 pelo
+        // `cascataDemo.test.ts`), todos com `loadDemoData` pronto e nunca chamado. O efeito: com a
+        // Demonstração ligada, os outros módulos trocavam para o dado de exemplo e estes quatro
+        // continuavam exibindo o dado REAL do cliente, lado a lado. No Economia era pior ainda: a
+        // varredura de eventos lê os outros stores, então passava a gerar eventos a partir do dado
+        // de demonstração e a misturá-los na lista real, em memória.
+        //
+        // `cdata-rateio-consumo` também não estava em STORE_KEYS. A ordem do conserto importou:
+        // sem a chave no snapshot, pôr o store na cascata apagaria o dado real do cliente sem nada
+        // para restaurar depois.
+        import('./economiaStore').then(({ useEconomiaStore }) => useEconomiaStore.getState().loadDemoData())
+        import('./manejoFinanceiroStore').then(({ useManejoFinanceiroStore }) => useManejoFinanceiroStore.getState().loadDemoData())
+        import('./planejamentoRestricoesStore').then(({ usePlanejamentoRestricoesStore }) => usePlanejamentoRestricoesStore.getState().loadDemoData())
+        import('./rateioConsumoStore').then(({ useRateioConsumoStore }) => useRateioConsumoStore.getState().loadDemoData())
       } else {
         // Try to restore user data from snapshot; fallback to clearing
         restoreUserData().then((restored) => {
@@ -663,6 +677,10 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().clearData())
             import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().clearData())
             import('./diasSemProducaoStore').then(({ useDiasSemProducaoStore }) => useDiasSemProducaoStore.getState().clearData())
+            import('./economiaStore').then(({ useEconomiaStore }) => useEconomiaStore.getState().clearData())
+            import('./manejoFinanceiroStore').then(({ useManejoFinanceiroStore }) => useManejoFinanceiroStore.getState().clearData())
+            import('./planejamentoRestricoesStore').then(({ usePlanejamentoRestricoesStore }) => usePlanejamentoRestricoesStore.getState().clearData())
+            import('./rateioConsumoStore').then(({ useRateioConsumoStore }) => useRateioConsumoStore.getState().clearData())
             clearLocalOnlyModuleData()
           }
           void pullRealData()
