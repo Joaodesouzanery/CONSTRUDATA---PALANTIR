@@ -7,7 +7,10 @@
  */
 import { create } from 'zustand'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
-import { destravarAgenda, proximoVencimento, opsQuePedemAtencao, agendamentoDaOp } from '@/lib/storeSync'
+import {
+  destravarAgenda, proximoVencimento, opsQuePedemAtencao, agendamentoDaOp,
+  opsEstacionadas, opsEsperando,
+} from '@/lib/storeSync'
 
 interface AppModeState {
   isDemoMode: boolean
@@ -22,18 +25,67 @@ interface TenantSyncState {
   pull?: () => Promise<void> | void
 }
 
-/** Resumo global de sincronização (para o indicador de "não salvo" em produção). */
-export async function getPendingSummary(): Promise<{ pending: number; error: boolean; syncing: boolean }> {
-  if (isNonProductionDataMode()) return { pending: 0, error: false, syncing: false }
-  const stores = await getAllTenantStores()
+export interface ResumoSync {
+  /** Tudo que está na fila, some o que for. */
+  pending: number
+  /** Requisição em voo agora. */
+  syncing: boolean
+  error: boolean
+  /** Ops só esperando o horário da próxima tentativa — não estão travadas nem em voo. */
+  esperando: number
+  /** Ops de outra organização, paradas até você voltar para ela. */
+  estacionadas: number
+}
+
+/**
+ * Resumo global de sincronização.
+ *
+ * ─── DUAS CORREÇÕES ───────────────────────────────────────────────────────────
+ * 1. **Distingue "em voo" de "esperando" de "estacionada".** Antes devolvia só um `pending`, e o
+ *    indicador fazia `syncing || pending > 0` → "Enviando para a nuvem…". Uma op reagendada para
+ *    daqui a 30 minutos deixava o ícone girando o tempo todo, dizendo "não precisa fazer nada".
+ *    E op de outra organização, que nunca sai da fila, girava para sempre.
+ *
+ * 2. **Um store que falha ao carregar não derruba mais o resumo.** Era `Promise.all` sem
+ *    try/catch por item, e o chamador não tinha `.catch`: um único módulo que não baixasse — o
+ *    que acontece logo depois de um deploy, com o índice antigo em cache — fazia a função
+ *    rejeitar e o indicador **congelar no último valor**, indefinidamente. As duas funções irmãs
+ *    (`getSyncDiagnostics`, `pendenciasQuePedemAtencao`) já tinham a proteção; esta ficou de fora.
+ */
+export async function getPendingSummary(): Promise<ResumoSync> {
+  const vazio: ResumoSync = { pending: 0, error: false, syncing: false, esperando: 0, estacionadas: 0 }
+  if (isNonProductionDataMode()) return vazio
+
   let pending = 0, error = false, syncing = false
-  for (const s of stores) {
-    const st = s.getState()
-    pending += st.pendingSync?.length ?? 0
-    if (st.syncStatus === 'error') error = true
-    if (st.syncStatus === 'syncing') syncing = true
-  }
-  return { pending, error, syncing }
+  await Promise.all(TENANT_STORE_DEFS.map(async (d) => {
+    try {
+      const st = (await d.load()).getState()
+      pending += st.pendingSync?.length ?? 0
+      if (st.syncStatus === 'error') error = true
+      if (st.syncStatus === 'syncing') syncing = true
+    } catch { /* store não carregou — o resumo segue com o que deu, em vez de sumir */ }
+  }))
+
+  return { pending, error, syncing, esperando: opsEsperando(), estacionadas: opsEstacionadas().length }
+}
+
+/** As ops paradas por serem de outra empresa, com o nome do módulo, para a tela explicar. */
+export async function pendenciasDeOutraEmpresa(): Promise<Array<{ modulo: string; tabela: string; orgId: string }>> {
+  if (isNonProductionDataMode()) return []
+  const paradas = opsEstacionadas()
+  if (paradas.length === 0) return []
+  const porOpId = new Map(paradas.map((p) => [p.opId, p]))
+  const out: Array<{ modulo: string; tabela: string; orgId: string }> = []
+  await Promise.all(TENANT_STORE_DEFS.map(async (d) => {
+    try {
+      const store = await d.load()
+      for (const op of (store.getState().pendingSync ?? []) as Array<{ id?: string }>) {
+        const p = porOpId.get(String(op.id ?? ''))
+        if (p) out.push({ modulo: d.label, tabela: p.table, orgId: p.orgId })
+      }
+    } catch { /* store não carregou — ignora */ }
+  }))
+  return out
 }
 
 const STORAGE_KEY = 'cdata-demo'

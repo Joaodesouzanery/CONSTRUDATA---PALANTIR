@@ -199,6 +199,33 @@ export interface AgendamentoOp {
  */
 const agenda = new Map<string, AgendamentoOp>()
 
+/**
+ * Ops que pertencem a OUTRA organização e estão esperando você voltar para ela.
+ *
+ * Elas saem da rodada (mandá-las com a sessão errada seria pior — a RLS rejeitaria, ou o `fixOrg`
+ * carimbaria a organização errada), mas **não entram em `completed` nem em `errored`**, então os
+ * stores nunca as removem da fila. Isso está certo: o dado não pode ser perdido.
+ *
+ * O que estava errado era o silêncio. Elas contavam como "pendente" no indicador global, que
+ * ficava eternamente em "Enviando para a nuvem…" com o ícone girando — sem horário, sem
+ * classificação, sem aviso, sem rótulo no painel. Este registro existe para o indicador poder
+ * dizer o que elas são.
+ */
+const estacionadas = new Map<string, { orgId: string; table: string }>()
+
+/** Ids das ops paradas por serem de outra organização. */
+export function opsEstacionadas(): Array<{ opId: string; orgId: string; table: string }> {
+  return [...estacionadas].map(([opId, v]) => ({ opId, ...v }))
+}
+
+/** Quantas ops estão só esperando o horário do backoff (não estão em voo, não estão travadas). */
+export function opsEsperando(): number {
+  const agora = Date.now()
+  let n = 0
+  for (const a of agenda.values()) if (a.proximaTentativa > agora) n++
+  return n
+}
+
 /** Quando a próxima op vence, em epoch ms. `null` se não há nada agendado. */
 export function proximoVencimento(): number | null {
   let menor: number | null = null
@@ -286,9 +313,12 @@ export async function flushQueue(queueEntrada: PendingOp[]): Promise<FlushResult
   }
   const deOutraOrg = queue.filter((op) => { const o = orgDaOp(op); return o != null && o !== activeOrgId })
   if (deOutraOrg.length) {
+    for (const op of deOutraOrg) estacionadas.set(op.id, { orgId: orgDaOp(op)!, table: op.table })
     queue = queue.filter((op) => { const o = orgDaOp(op); return o == null || o === activeOrgId })
     if (queue.length === 0) return result
   }
+  // Op que voltou a ser da organização ativa deixa de estar estacionada.
+  for (const op of queue) estacionadas.delete(op.id)
 
   // Ops que falharam há pouco esperam a vez — mas NUNCA saem da fila por contagem.
   //
@@ -349,7 +379,7 @@ export async function flushQueue(queueEntrada: PendingOp[]): Promise<FlushResult
     return sanitizeIds(out)
   }
 
-  const markOk = (op: PendingOp) => { agenda.delete(op.id); result.completed.push(op.id) }
+  const markOk = (op: PendingOp) => { agenda.delete(op.id); estacionadas.delete(op.id); result.completed.push(op.id) }
   // Erros do Supabase são objetos simples ({message,details,hint,code}), não Error —
   // String() neles daria "[object Object]". Extrai sempre uma mensagem legível.
   const errMessage = (e: unknown): string => {

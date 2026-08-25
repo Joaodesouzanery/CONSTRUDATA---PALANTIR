@@ -22,15 +22,19 @@
  * com a opção de reenviar na hora e de baixar uma cópia.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { FlaskConical, Cloud, RefreshCw, X, CheckCircle2, ShieldAlert } from 'lucide-react'
+import { FlaskConical, Cloud, CloudOff, RefreshCw, X, CheckCircle2, ShieldAlert } from 'lucide-react'
 import {
   useAppModeStore, getPendingSummary, getSyncDiagnostics, retryAllTenantStores, discardErroredOps,
-  baixarOpsPendentes, listarOpsPendentes, pendenciasQuePedemAtencao,
-  type OpPendenteResumo, type PendenciaBloqueada,
+  baixarOpsPendentes, listarOpsPendentes, pendenciasQuePedemAtencao, pendenciasDeOutraEmpresa,
+  type OpPendenteResumo, type PendenciaBloqueada, type ResumoSync,
 } from '@/store/appModeStore'
 import { fmtDataBR } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { estadoDoSync, deveGirar } from '@/lib/estadoDoSync'
+
+const TXT_NORMAL = 'text-[#e5e5e5]'
+const TXT_FRACO = 'text-[#a3a3a3]'
 
 type Diag = { key: string; label: string; pending: number; error: boolean; syncError: string | null }
 
@@ -78,7 +82,7 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   useAppModeStore((s) => s.isDemoMode)
   const orgId = useAuth((s) => s.profile?.organization_id)
 
-  const [summary, setSummary] = useState<{ pending: number; error: boolean; syncing: boolean }>({ pending: 0, error: false, syncing: false })
+  const [summary, setSummary] = useState<ResumoSync>({ pending: 0, error: false, syncing: false, esperando: 0, estacionadas: 0 })
   const [atencao, setAtencao] = useState<PendenciaBloqueada[]>([])
   const [open, setOpen] = useState(false)
   const demo = isDemoModeEnabled()
@@ -87,8 +91,9 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
     if (demo) return
     let alive = true
     const tick = () => {
-      void getPendingSummary().then((s) => { if (alive) setSummary(s) })
-      void pendenciasQuePedemAtencao().then((p) => { if (alive) setAtencao(p) })
+      // `.catch` em todas: uma falha aqui não pode congelar o indicador no último valor.
+      void getPendingSummary().then((s) => { if (alive) setSummary(s) }).catch(() => undefined)
+      void pendenciasQuePedemAtencao().then((p) => { if (alive) setAtencao(p) }).catch(() => undefined)
     }
     tick()
     const t = window.setInterval(tick, 4000)
@@ -115,19 +120,26 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
   // Note o que NÃO está aqui: contagem de pendências e estado de "erro". Uma op na fila vai subir
   // sozinha; mostrar "3 NÃO SALVO(S)" em amarelo transformava um processo normal em um susto, e
   // ainda oferecia dois botões — um que não fazia nada e outro que apagava o dado.
-  const precisaAtencao = atencao.length > 0
-  const enviando = summary.syncing || summary.pending > 0
+  // A regra mora em `estadoDoSync`, que é pura e testada. Aqui só se escolhe cor e texto.
+  const estado = estadoDoSync(summary, atencao.length)
 
-  const tone = precisaAtencao ? '#eab308' : enviando ? '#60a5fa' : '#4ade80'
-  const Icon = precisaAtencao ? ShieldAlert : enviando ? RefreshCw : Cloud
-  const label = precisaAtencao
-    ? 'O servidor recusou'
-    : enviando ? 'Enviando para a nuvem…' : 'Tudo salvo na nuvem'
-  const title = precisaAtencao
-    ? `${atencao.length} alteração(ões) recusadas pelo servidor. Clique para ver o motivo.`
-    : enviando
-      ? 'Salvo no aparelho e a caminho da nuvem. Não precisa fazer nada — o envio se resolve sozinho.'
-      : label
+  const APARENCIA = {
+    'tudo-salvo':      { cor: '#4ade80', Icone: Cloud,       texto: 'Tudo salvo na nuvem' },
+    'enviando':        { cor: '#60a5fa', Icone: RefreshCw,   texto: 'Enviando para a nuvem…' },
+    'esperando':       { cor: '#60a5fa', Icone: RefreshCw,   texto: 'Nova tentativa em instantes' },
+    'estacionado':     { cor: '#93c5fd', Icone: CloudOff,    texto: 'Esperando trocar de empresa' },
+    'precisa-atencao': { cor: '#eab308', Icone: ShieldAlert, texto: 'O servidor recusou' },
+  } as const
+  const { cor: tone, Icone: Icon, texto: label } = APARENCIA[estado]
+
+  const EXPLICACAO: Record<typeof estado, string> = {
+    'tudo-salvo':  'Tudo salvo na nuvem',
+    'enviando':    'Salvo no aparelho e a caminho da nuvem. Não precisa fazer nada.',
+    'esperando':   'Salvo no aparelho. A última tentativa não passou e o envio se repete sozinho em instantes.',
+    'estacionado': `${summary.estacionadas} alteração(ões) foram feitas em outra empresa e sobem quando você voltar para ela. Nada foi perdido.`,
+    'precisa-atencao': `${atencao.length} alteração(ões) recusadas pelo servidor. Clique para ver o motivo.`,
+  }
+  const title = EXPLICACAO[estado]
 
   return (
     <>
@@ -139,7 +151,7 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
         <button type="button" onClick={() => setOpen(true)}
           className="mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug hover:brightness-125"
           style={{ borderColor: `${tone}55`, background: `${tone}18`, color: tone }} title={title}>
-          <Icon size={13} className={`shrink-0 ${enviando && !precisaAtencao ? 'animate-spin' : ''}`} />
+          <Icon size={13} className={`shrink-0 ${deveGirar(estado) ? 'animate-spin' : ''}`} />
           <span className="truncate">{label}</span>
         </button>
       )}
@@ -151,6 +163,7 @@ export function GlobalSyncIndicator({ expanded }: { expanded: boolean }) {
 function SyncPanel({ onClose }: { onClose: () => void }) {
   const [diags, setDiags] = useState<Diag[] | null>(null)
   const [atencao, setAtencao] = useState<PendenciaBloqueada[]>([])
+  const [deOutraEmpresa, setDeOutraEmpresa] = useState<Array<{ modulo: string; tabela: string; orgId: string }>>([])
   const [busy, setBusy] = useState(false)
   const [detalhe, setDetalhe] = useState<string | null>(null)
   const [ops, setOps] = useState<Record<string, OpPendenteResumo[]>>({})
@@ -158,6 +171,7 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
   const refresh = useCallback(async () => {
     setDiags(await getSyncDiagnostics())
     setAtencao(await pendenciasQuePedemAtencao())
+    setDeOutraEmpresa(await pendenciasDeOutraEmpresa())
     setOps({})
   }, [])
   useEffect(() => { void refresh() }, [refresh])
@@ -242,6 +256,24 @@ function SyncPanel({ onClose }: { onClose: () => void }) {
                 tentar de novo. Se continuar, é permissão no banco: rode o
                 {' '}<b>docs/CONFERIR_EXCLUSAO.sql</b> para saber qual é.
               </p>
+            </div>
+          )}
+
+          {/* Op de outra empresa: nem erro, nem envio. Antes ficava muda, contando como "enviando"
+              e girando para sempre — sem horário, sem classificação, sem rótulo aqui. */}
+          {deOutraEmpresa.length > 0 && (
+            <div className="mb-3 rounded-lg border border-[#60a5fa]/40 bg-[#60a5fa]/10 p-3">
+              <p className="text-xs font-bold text-[#93c5fd]">Esperando você voltar para a outra empresa</p>
+              <p className={`mt-1 text-[11px] ${TXT_NORMAL}`}>
+                {deOutraEmpresa.length} alteração(ões) foram feitas com outra empresa ativa. Elas ficam
+                guardadas no aparelho e sobem sozinhas assim que você trocar de volta —{' '}
+                <b>nada foi perdido</b>. Enviá-las agora gravaria o dado na empresa errada.
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-0.5">
+                {[...new Set(deOutraEmpresa.map((p) => p.modulo))].map((m) => (
+                  <li key={m} className={`text-[11px] ${TXT_FRACO}`}>· {m}</li>
+                ))}
+              </ul>
             </div>
           )}
 

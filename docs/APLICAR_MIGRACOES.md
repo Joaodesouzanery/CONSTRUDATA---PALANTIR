@@ -43,32 +43,39 @@ Confirmadas como **aplicadas** pelo João: `20260623120000_security_role_guard`,
 `20260808120000_boletos_bucket`, `20260808130000_predial_chamados_publicos`,
 `20260817140000_work_posts_occurrences`, `20260820120000_obra_dias_sem_producao`,
 `20260821120000_worker_absences_site_id_insurance`, `20260822120000_estoque_ficha_de_retirada`,
-`20260823120000_rotinas_da_empresa`.
+`20260823120000_rotinas_da_empresa`, `20260824130000_desfazer_exclusao`.
 
-### 🔴 Rode esta primeiro: `20260824130000_desfazer_exclusao`
+### 🔴 Rode esta primeiro: `20260825120000_soft_delete_resto_do_schema`
 
-**Sem ela, apagar não funciona** — e nunca funcionou. Não é permissão nem rede: o Postgres recusa
-um `UPDATE` que torne a linha invisível para a própria policy de `SELECT`, e 18 tabelas têm
-`deleted_at IS NULL` na leitura. Marcar `deleted_at` devolve
-`ERROR: new row violates row-level security policy`, sempre, para qualquer papel — inclusive o dono
-da empresa.
+**Sem ela, apagar continua falhando em 72 tabelas.** A `20260824130000` (que você já aplicou)
+consertou 18, e eu tratei aquilo como se fosse o problema inteiro. Não era: levantando de novo, com
+o app na mão, são **75 tabelas** com `deleted_at IS NULL` na policy de leitura e escritas pelo app.
 
-Foi medido em PostgreSQL 16.15 com caso mínimo, e a migração inteira foi testada em Postgres real
-(11 casos, incluindo os negativos). O repositório já tinha aplicado essa mesma correção às 3 tabelas
-do almoxarifado em maio (`20260518160000`); esta generaliza.
+O defeito é sempre o mesmo, e foi medido em PostgreSQL 16.15 — inclusive o detalhe que faltava:
 
-Ela também traz o **desfazer** (`restaurar_registro`) e destrava FVS fechada, ordem de compra
-fechada e linha de base do planejamento.
+```sql
+update t set deleted_at = now();               -- sem WHERE  → passa
+update t set deleted_at = now() where id = 1;  -- com WHERE  → ERROR: new row violates RLS
+```
 
-Antes de aplicar, vale rodar **`docs/CONFERIR_EXCLUSAO.sql`** (somente leitura): ele diz se o seu
-vínculo em `memberships` é real e ativo, quais tabelas travam a exclusão e se há pedidos de
-aprovação presos.
+Com `WHERE`, o Postgres precisa **ler** a linha, e aí aplica a policy de SELECT também ao
+resultado. Como marcar `deleted_at` torna a linha invisível, o comando é recusado. E o app
+**sempre** usa `WHERE` (`.eq('id', …)`).
+
+Esta migração é **gerada a partir das policies reais**, não digitada — foi assim que sobraram
+tabelas nas duas vezes anteriores (`20260518160000` fez 3 em maio, `20260824130000` fez 18 ontem).
+Testada em Postgres 16 real: reproduz o erro antes, funciona depois, é idempotente, e o isolamento
+entre empresas continua intacto.
+
+**Já aplicadas por você:** `20260824130000_desfazer_exclusao` (24/08).
+
+Antes de aplicar, vale rodar **`docs/CONFERIR_EXCLUSAO.sql`** (somente leitura).
 
 Pendentes conhecidas:
 
 | Migração | O que quebra sem ela |
 |---|---|
-| **`20260824130000_desfazer_exclusao`** | **Apagar não funciona em 18 tabelas** (falta, funcionário, apontamento, RDO, FVS, obra, título, rotina…), e não há como desfazer uma exclusão. Ver acima. |
+| **`20260825120000_soft_delete_resto_do_schema`** | **Apagar continua falhando em 72 tabelas** (manutenções, equipamentos, laudos, lançamentos financeiros, frota, LPS, quantitativos…). Ver acima. |
 | `20260824120000_baixar_estoque_confere_papel` | A baixa de estoque continua contornando a RLS: um `visualizador` consegue dar baixa. Não quebra nada — é fechar uma brecha. |
 | `20260808140000_lgpd_direitos_titular` | A página "Direitos do Titular" dá erro (RPCs de exportar/anonimizar não existem). |
 | `20260808150000_user_role_predial` | Atribuir os papéis `sindico`/`zelador`/`morador` falha no banco. |
