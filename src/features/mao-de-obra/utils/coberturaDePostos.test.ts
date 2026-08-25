@@ -95,3 +95,52 @@ test('sem posto e sem turno não quebra', () => {
   assert.equal(c.escalados, 0)
   assert.ok(!c.coberto)
 })
+
+// ── Desligado não cobre posto daqui para a frente ─────────────────────────────
+
+/** Desligado numa data. Cargo certo — o que muda é só o momento em que ele saiu. */
+const desligado = (id: string, role: string, data: string): Worker =>
+  ({ id, name: id, role, status: 'inactive', desligamentoData: data } as unknown as Worker)
+
+test('turno agendado DEPOIS do desligamento não cobre — o posto está descoberto', () => {
+  // Sem esta regra, um turno de semana que vem em nome de quem saiu ontem aparecia como coberto e
+  // ninguém era escalado no lugar.
+  const c = coberturaDoPosto(
+    post({ minWorkers: 1 }), '2026-09-10',
+    [turno('w1', { date: '2026-09-10' })],
+    [desligado('w1', 'Pintor', '2026-09-01')],
+  )
+  assert.equal(c.escalados, 0)
+  assert.equal(c.coberto, false)
+})
+
+test('o que ele cobriu ANTES de sair continua valendo — o passado não se reescreve', () => {
+  const c = coberturaDoPosto(
+    post({ minWorkers: 1 }), '2026-08-20',
+    [turno('w1', { date: '2026-08-20' })],
+    [desligado('w1', 'Pintor', '2026-09-01')],
+  )
+  assert.equal(c.escalados, 1)
+  assert.equal(c.coberto, true)
+})
+
+test('o próprio dia da saída já não conta — ele saiu, não trabalhou', () => {
+  const c = coberturaDoPosto(
+    post({ minWorkers: 1 }), '2026-09-01',
+    [turno('w1', { date: '2026-09-01' })],
+    [desligado('w1', 'Pintor', '2026-09-01')],
+  )
+  assert.equal(c.coberto, false)
+})
+
+test('desligado sem data registrada não muda nada — sem saber quando saiu, adivinhar seria pior', () => {
+  const semData = { id: 'w1', name: 'w1', role: 'Pintor', status: 'inactive' } as unknown as Worker
+  const c = coberturaDoPosto(post({ minWorkers: 1 }), '2026-08-25', [turno('w1')], [semData])
+  assert.equal(c.coberto, true)
+})
+
+test('quem está na ativa cobre em qualquer data, com ou sem campo de desligamento', () => {
+  const c = coberturaDoPosto(post({ minWorkers: 1 }), '2027-01-15',
+    [turno('w1', { date: '2027-01-15' })], [worker('w1', 'Pintor')])
+  assert.equal(c.coberto, true)
+})

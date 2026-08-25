@@ -875,6 +875,14 @@ export interface Worker {
   recebeVT?: boolean
   /** Dependentes para a dedução do IRRF. */
   dependentesIRRF?: number
+  // ── Desligamento ─────────────────────────────────────────────────────────────
+  // Vão no `payload` jsonb da tabela `workers`, sem migração. Só fazem sentido com
+  // `status: 'inactive'`; desligar é preferível a excluir porque o rastro da pessoa (turnos,
+  // apontamentos, faltas, holerites) não tem chave estrangeira e vira órfão silencioso.
+  /** Data do desligamento, `yyyy-MM-dd`. */
+  desligamentoData?: string
+  /** Motivo, texto livre. Aparece no selo e no cadastro. */
+  desligamentoMotivo?: string
 }
 
 export interface TimecardEntry {

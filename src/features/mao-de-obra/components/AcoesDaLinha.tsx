@@ -20,6 +20,7 @@
  * não dá para esquecer — quem não quiser passa `confirmar={false}`.
  */
 import { Pencil, Trash2 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 interface Props {
   /** O que está sendo mexido: "a falta de João em 12/08", "o posto Bloco A". Vai no aviso. */
@@ -35,10 +36,23 @@ interface Props {
   consequencia?: string
   /** `false` só para o que é trivialmente refazível. O padrão é perguntar. */
   confirmar?: boolean
+  /**
+   * Ação intermediária, entre editar e excluir — hoje é "desligar funcionário".
+   *
+   * Fica **antes** da lixeira de propósito: é a alternativa não destrutiva, e quem varre a linha da
+   * esquerda para a direita encontra ela primeiro. Nunca pergunta nada aqui; quem abre confirmação
+   * é a própria ação, que costuma precisar de mais do que sim/não.
+   */
+  acaoExtra?: {
+    icone: LucideIcon
+    /** Vai em `title` e `aria-label` inteiro. Ex.: "Desligar João da Silva". */
+    titulo: string
+    onClick: () => void
+  }
 }
 
 export function AcoesDaLinha({
-  descricao, onEditar, onExcluir, podeEscrever = true, consequencia, confirmar = true,
+  descricao, onEditar, onExcluir, podeEscrever = true, consequencia, confirmar = true, acaoExtra,
 }: Props) {
   if (!podeEscrever) return null
 
@@ -62,6 +76,17 @@ export function AcoesDaLinha({
                      focus-visible:ring-2 focus-visible:ring-[#ffa055]/50"
         >
           <Pencil size={15} />
+        </button>
+      )}
+      {acaoExtra && (
+        <button
+          type="button" onClick={acaoExtra.onClick}
+          title={acaoExtra.titulo} aria-label={acaoExtra.titulo}
+          className="flex size-8 items-center justify-center rounded-lg text-[#c9c9c9]
+                     hover:bg-[#ffa055]/15 hover:text-[#ffa055] focus-visible:outline-none
+                     focus-visible:ring-2 focus-visible:ring-[#ffa055]/50"
+        >
+          <acaoExtra.icone size={15} />
         </button>
       )}
       {onExcluir && (

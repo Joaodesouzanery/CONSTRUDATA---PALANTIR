@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Download, Search, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react'
+import { Plus, Download, Search, ChevronDown, ChevronUp, X, AlertTriangle, UserMinus, UserCheck } from 'lucide-react'
 import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -7,15 +7,21 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
 import { AcoesDaLinha } from './AcoesDaLinha'
+import { DesligarOuExcluirDialog } from './DesligarOuExcluirDialog'
+import { funcionarioEstaAtivo, contarHistoricoDoFuncionario, decidirExclusao } from '@/lib/funcionarioAtivo'
+import type { HistoricoDoFuncionario, DecisaoDeExclusao } from '@/lib/funcionarioAtivo'
 import { EquipesSection } from './EquipesSection'
 
 type ObraOption = { id: string; code: string; name: string }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// O `#6b6b6b` do "Inativo" dava 2,04:1 sobre a linha (#3d3d3d) e 1,72:1 sobre o hover (#484848) —
+// era o selo mais importante da tela e o único ilegível. `#c9c9c9` dá 6,56 e 5,52. Cinza porque
+// desligado não é erro nem alerta; só não está mais na ativa.
 const STATUS_COLOR: Record<string, string> = {
   active:    '#22c55e',
-  inactive:  '#6b6b6b',
+  inactive:  '#c9c9c9',
   suspended: '#ef4444',
 }
 const STATUS_LABEL: Record<string, string> = {
@@ -157,6 +163,23 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
               <option value="suspended">Suspenso</option>
             </select>
           </div>
+          {/* Data e motivo só existem quando alguém saiu. Aparecem aqui para poder corrigir o que
+              foi preenchido no diálogo de desligamento — não é onde se desliga alguém. */}
+          {form.status === 'inactive' && (
+            <>
+              <div>
+                <label className={labelClass}>Data do desligamento</label>
+                <input type="date" className={fieldClass} value={form.desligamentoData ?? ''}
+                       onChange={(e) => set('desligamentoData', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Motivo do desligamento</label>
+                <input className={fieldClass} value={form.desligamentoMotivo ?? ''}
+                       onChange={(e) => set('desligamentoMotivo', e.target.value)}
+                       placeholder="Pedido de demissão, fim de obra…" />
+              </div>
+            </>
+          )}
           <div>
             <label className={labelClass}>Taxa Horária (R$)</label>
             <input type="number" step="0.01" min="0" className={fieldClass} value={form.hourlyRate ?? 0} onChange={(e) => set('hourlyRate', parseFloat(e.target.value) || 0)} />
@@ -261,21 +284,26 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
 
 // ─── Worker table row ─────────────────────────────────────────────────────────
 
-function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }: {
+function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete, onDesligar, onReativar }: {
   worker: Worker
   crews: { id: string; name: string }[]
   expandedId: string | null
   onToggle: (id: string | null) => void
   onEdit: (w: Worker) => void
   onDelete: (w: Worker) => void
+  onDesligar: (w: Worker) => void
+  onReativar: (w: Worker) => void
 }) {
   const isExpanded = expandedId === w.id
   const sc = STATUS_COLOR[w.status]
   const crewName = crews.find((c) => c.id === w.crewId)?.name
+  // Desligado NÃO some da lista (escolha do cliente: "sempre visível, apagado e com selo"). Some
+  // da folha, do custo e da escala — mas continua no holerite antigo e no histórico da obra.
+  const ativo = funcionarioEstaAtivo(w)
   return (
     <>
       <tr
-        className="border-b border-[#525252] hover:bg-[#484848] cursor-pointer"
+        className={`border-b border-[#525252] hover:bg-[#484848] cursor-pointer${ativo ? '' : ' opacity-60'}`}
         onClick={() => onToggle(isExpanded ? null : w.id)}
       >
         <td className="px-3 py-2.5 text-[#adadad] font-mono">{w.registrationNumber ?? '—'}</td>
@@ -292,6 +320,12 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }:
           <span className="px-2 py-0.5 rounded text-[11px] font-bold" style={{ backgroundColor: `${sc}18`, color: sc }}>
             {STATUS_LABEL[w.status]}
           </span>
+          {!ativo && w.desligamentoData && (
+            <span className="ml-1.5 whitespace-nowrap text-[10px] text-[#a3a3a3]"
+                  title={w.desligamentoMotivo ? `Motivo: ${w.desligamentoMotivo}` : undefined}>
+              desde {w.desligamentoData.slice(8, 10)}/{w.desligamentoData.slice(5, 7)}/{w.desligamentoData.slice(0, 4)}
+            </span>
+          )}
         </td>
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -300,7 +334,12 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }:
                 descricao={`o funcionário ${w.name}`}
                 onEditar={() => onEdit(w)}
                 onExcluir={() => onDelete(w)}
-                consequencia="Apontamentos e turnos já lançados continuam no histórico."
+                acaoExtra={ativo
+                  ? { icone: UserMinus, titulo: `Desligar ${w.name}`, onClick: () => onDesligar(w) }
+                  : { icone: UserCheck, titulo: `Reativar ${w.name}`, onClick: () => onReativar(w) }}
+                // A confirmação é o diálogo de três saídas, não o aviso do navegador: aqui as
+                // opções são desligar, excluir mesmo assim e cancelar.
+                confirmar={false}
               />
             </div>
             {isExpanded ? <ChevronUp size={12} className="text-[#adadad]" /> : <ChevronDown size={12} className="text-[#adadad]" />}
@@ -321,10 +360,19 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }:
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function FuncionariosPanel() {
-  const { workers, crews, addWorker, updateWorker, removeWorker, addCrew, updateCrew, removeCrew } = useMaoDeObraStore(
+  const {
+    workers, crews, shifts, timecards, absences, assessments,
+    addWorker, updateWorker, removeWorker, inativarWorker, reativarWorker, restaurarWorker,
+    addCrew, updateCrew, removeCrew,
+  } = useMaoDeObraStore(
     useShallow((s) => ({
       workers: s.workers, crews: s.crews,
+      // Para contar o que se perde ao excluir. São as quatro coleções que apontam para `workerId`
+      // e não têm chave estrangeira — o rastro que ficaria órfão.
+      shifts: s.shifts, timecards: s.timecards, absences: s.absences, assessments: s.assessments,
       addWorker: s.addWorker, updateWorker: s.updateWorker, removeWorker: s.removeWorker,
+      inativarWorker: s.inativarWorker, reativarWorker: s.reativarWorker,
+      restaurarWorker: s.restaurarWorker,
       addCrew: s.addCrew, updateCrew: s.updateCrew, removeCrew: s.removeCrew,
     }))
   )
@@ -340,6 +388,18 @@ export function FuncionariosPanel() {
   const [showForm,    setShowForm]    = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [avisoPermissao, setAvisoPermissao] = useState<string | null>(null)
+  /**
+   * O último excluído, guardado para o desfazer.
+   *
+   * Guardar o registro inteiro (e não só o id) é o que faz o desfazer funcionar sem depender de
+   * uma leitura do servidor — e é o que faz ele funcionar em Demonstração.
+   */
+  const [ultimoExcluido, setUltimoExcluido] = useState<Worker | null>(null)
+  const [falhaAoDesfazer, setFalhaAoDesfazer] = useState(false)
+  /** Quem está no diálogo de desligar/excluir, com a conta do rastro já feita. */
+  const [emDecisao, setEmDecisao] = useState<
+    { worker: Worker; historico: HistoricoDoFuncionario; decisao: DecisaoDeExclusao } | null
+  >(null)
   const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
 
   const roles = useMemo(() => [...new Set(workers.map((w) => w.role))].sort(), [workers])
@@ -399,15 +459,39 @@ export function FuncionariosPanel() {
     setShowForm(true)
   }
 
+  /**
+   * Abre a decisão em vez de perguntar sim/não.
+   *
+   * Antes eram dois avisos seguidos e contraditórios — "os apontamentos continuam no histórico" e
+   * "esta ação não pode ser desfeita" — e nenhum dos dois dizia que dava para só desligar. O
+   * diálogo conta o rastro real desta pessoa antes de oferecer qualquer coisa.
+   */
   function handleDelete(worker: Worker) {
     if (!permissao.pode) {
       setAvisoPermissao(permissao.explicacao ?? 'Seu acesso não permite excluir funcionários.')
       return
     }
-    if (window.confirm(`Excluir o funcionário ${worker.name}? Esta ação não pode ser desfeita.`)) {
-      removeWorker(worker.id)
-      if (expandedId === worker.id) setExpandedId(null)
+    const historico = contarHistoricoDoFuncionario(worker.id, { shifts, timecards, absences, assessments })
+    setEmDecisao({ worker, historico, decisao: decidirExclusao(historico) })
+  }
+
+  /** O botão de desligar direto na linha cai no MESMO diálogo — a conta do rastro também informa
+   *  quem só quer desligar, e ali ele preenche data e motivo. */
+  function handleDesligar(worker: Worker) {
+    if (!permissao.pode) {
+      setAvisoPermissao(permissao.explicacao ?? 'Seu acesso não permite alterar funcionários.')
+      return
     }
+    const historico = contarHistoricoDoFuncionario(worker.id, { shifts, timecards, absences, assessments })
+    setEmDecisao({ worker, historico, decisao: decidirExclusao(historico) })
+  }
+
+  function handleReativar(worker: Worker) {
+    if (!permissao.pode) {
+      setAvisoPermissao(permissao.explicacao ?? 'Seu acesso não permite alterar funcionários.')
+      return
+    }
+    reativarWorker(worker.id)
   }
 
   function exportCSV() {
@@ -442,6 +526,36 @@ export function FuncionariosPanel() {
         updateCrew={updateCrew}
         removeCrew={removeCrew}
       />
+
+      {/* O desfazer. Antes desta faixa, excluir pela interface era irreversível: a função de
+          restauração existia no servidor e nada no app a chamava. */}
+      {ultimoExcluido && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2.5 text-[12px] text-[#d4d4d4]">
+          <UserMinus size={14} className="shrink-0 text-[#a3a3a3]" />
+          <span><b className="text-[#f5f5f5]">{ultimoExcluido.name}</b> foi excluído.</span>
+          <button
+            type="button"
+            onClick={async () => {
+              const ok = await restaurarWorker(ultimoExcluido)
+              if (ok) setUltimoExcluido(null)
+              else setFalhaAoDesfazer(true)
+            }}
+            className="rounded-lg border border-[#f97316]/50 px-2.5 py-1 text-[11px] font-semibold text-[#ffa055] hover:bg-[#f97316]/10"
+          >
+            Desfazer
+          </button>
+          <button type="button" onClick={() => { setUltimoExcluido(null); setFalhaAoDesfazer(false) }}
+                  className="ml-auto text-[#a3a3a3] hover:text-[#f5f5f5]" aria-label="Dispensar">
+            <X size={14} />
+          </button>
+          {falhaAoDesfazer && (
+            <p className="w-full text-[11px] text-[#fca5a5]">
+              Não deu para desfazer agora — sem conexão ou sem permissão. O cadastro segue excluído
+              no servidor; tente de novo com a rede de volta.
+            </p>
+          )}
+        </div>
+      )}
 
       {(!permissao.pode || avisoPermissao) && (
         <div className="flex items-start gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
@@ -529,13 +643,13 @@ export function FuncionariosPanel() {
                       </td>
                     </tr>
                     {group.workers.map((w) => (
-                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} />
+                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
                     ))}
                   </>
                 ))
               ) : (
                 filtered.map((w) => (
-                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} />
+                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
                 ))
               )}
               {filtered.length === 0 && (
@@ -547,6 +661,26 @@ export function FuncionariosPanel() {
           </table>
         </div>
       </div>
+
+      {emDecisao && (
+        <DesligarOuExcluirDialog
+          nome={emDecisao.worker.name}
+          historico={emDecisao.historico}
+          decisao={emDecisao.decisao}
+          onDesligar={({ data, motivo }) => {
+            inativarWorker(emDecisao.worker.id, { data, motivo })
+            setEmDecisao(null)
+          }}
+          onExcluir={() => {
+            removeWorker(emDecisao.worker.id)
+            if (expandedId === emDecisao.worker.id) setExpandedId(null)
+            setUltimoExcluido(emDecisao.worker)
+            setFalhaAoDesfazer(false)
+            setEmDecisao(null)
+          }}
+          onCancelar={() => setEmDecisao(null)}
+        />
+      )}
 
       {showForm && (
         <WorkerFormModal

@@ -6,6 +6,7 @@ import { projectMonthlyCost } from '@/features/mao-de-obra/utils/cltEngine'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { countAbsencesInPeriod } from '@/features/mao-de-obra/utils/assessmentEngine'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
+import { funcionarioEstaAtivo } from '@/lib/funcionarioAtivo'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -192,9 +193,14 @@ export function CMOPanel() {
   }, [timecards, yearMonth, activeObraId])
 
   // Desconto de falta: falta injustificada × custo/dia do funcionário (o funcionário custa X e faltou → tira X).
+  //
+  // Só de quem ainda está na folha. Quem foi desligado sai do cálculo de custo inteiro
+  // (`payrollEngine` corta em `status !== 'active'`), então descontar a falta dele subtraía um
+  // custo que não estava somado — o número do mês fechava para baixo sem motivo.
   const descontoFaltas = useMemo(() => {
     const start = `${yearMonth}-01`, end = `${yearMonth}-31`
-    const scopedWorkers = activeObraId ? workers.filter((w) => (w.siteId ?? null) === activeObraId) : workers
+    const naFolha = workers.filter(funcionarioEstaAtivo)
+    const scopedWorkers = activeObraId ? naFolha.filter((w) => (w.siteId ?? null) === activeObraId) : naFolha
     return scopedWorkers.reduce((s, w) => {
       const { unjustified } = countAbsencesInPeriod(absences, w.id, start, end)
       return s + unjustified * custoDiaWorker(w)

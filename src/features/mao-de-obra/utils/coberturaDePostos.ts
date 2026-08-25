@@ -34,13 +34,29 @@ function mesmaFrente(a?: string, b?: string): boolean {
   return n(a) === n(b)
 }
 
-/** Este turno cobre este posto? */
+/**
+ * Este turno cobre este posto?
+ *
+ * A quarta condição é temporal: **quem já foi desligado não cobre posto a partir do dia em que
+ * saiu.** Um turno agendado para semana que vem em nome de alguém que saiu ontem é um posto
+ * descoberto que a tela mostrava como coberto — e ninguém seria escalado no lugar.
+ *
+ * O que ele cobriu ANTES de sair continua valendo. O passado não se reescreve: a matriz da semana
+ * retrasada tem de continuar mostrando o que de fato aconteceu. É a mesma regra das obras
+ * arquivadas — some do que vem pela frente, permanece no histórico.
+ *
+ * Desligado sem data registrada (cadastro antigo) não muda nada: sem saber quando saiu, mexer na
+ * cobertura seria adivinhar.
+ */
 export function turnoCobrePosto(s: Shift, post: WorkPost, worker: Worker | undefined): boolean {
   if (!turnoAtivo(s)) return false
   // O id manda. Só quando ele não existe (turno antigo) é que caímos no texto.
   const vinculado = s.workPostId ? s.workPostId === post.id : mesmaFrente(s.workFront, post.workFront)
   if (!vinculado) return false
-  return worker?.role === post.role
+  if (worker?.role !== post.role) return false
+  // `yyyy-MM-dd` compara como texto na ordem certa, e sem fuso para errar.
+  if (worker.status === 'inactive' && worker.desligamentoData && s.date >= worker.desligamentoData) return false
+  return true
 }
 
 export interface CoberturaDoDia {

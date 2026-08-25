@@ -4,6 +4,7 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useShallow } from 'zustand/react/shallow'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { funcionarioEstaAtivo } from '@/lib/funcionarioAtivo'
 import type { Shift, CLTViolationLevel, CLTSettings } from '@/types'
 import { calcShiftHours } from '../utils/cltEngine'
 import { dataLocalISO } from '@/lib/utils'
@@ -419,7 +420,14 @@ export function EscalaInteligentePanel() {
   const [showSettings, setShowSettings] = useState(false)
 
   const weekDates = useMemo(() => weekOf(new Date(selectedDate + 'T00:00:00')), [selectedDate])
-  const activeWorkers = useMemo(() => workers.filter((w) => w.status !== 'suspended'), [workers])
+  // Suspenso é afastamento temporário — a pessoa volta, e por isso continua fora da escala mas
+  // dentro do cadastro. Desligado também sai daqui: um turno agendado em nome de quem já saiu vira
+  // posto descoberto sem ninguém perceber. Os turnos PASSADOS dele continuam na grade — quem
+  // desapareceria da grade sem sair da conta de horas seria pior do que aparecer apagado.
+  const activeWorkers = useMemo(
+    () => workers.filter((w) => w.status !== 'suspended' && funcionarioEstaAtivo(w)),
+    [workers],
+  )
 
   const currentMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`
 

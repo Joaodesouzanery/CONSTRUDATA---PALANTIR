@@ -1,9 +1,11 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { podeEscreverMaoDeObra } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, changedColumns, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
   Worker,
@@ -41,6 +43,7 @@ import {
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { seededUuidLegado } from '@/lib/seededId'
+import { funcionarioEstaAtivo } from '@/lib/funcionarioAtivo'
 
 /** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
  *  Mesmo (rdoId, workerId) → mesmo id → upsert substitui em vez de duplicar, inclusive
@@ -126,6 +129,13 @@ interface MaoDeObraState {
   addWorker:    (worker: Omit<Worker, 'id'>) => void
   updateWorker: (id: string, updates: Partial<Omit<Worker, 'id'>>) => void
   removeWorker: (id: string) => void
+  /** Desliga sem apagar: o rastro (turnos, apontamentos, holerites) continua inteiro. */
+  inativarWorker: (id: string, dados?: { data?: string; motivo?: string }) => void
+  /** Volta a ativo. Também limpa a data e o motivo do desligamento. */
+  reativarWorker: (id: string) => void
+  /** Desfaz uma exclusão, chamando `restaurar_registro` no servidor. Recebe o próprio registro
+   *  porque quem apagou já o tinha em mãos — e assim o desfazer não depende de uma leitura. */
+  restaurarWorker: (worker: Worker) => Promise<boolean>
 
   // Crew CRUD
   addCrew:    (crew: Omit<LaborCrew, 'id'>) => void
@@ -539,6 +549,56 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     void get().flush()
   },
 
+  /**
+   * Desligar em vez de excluir.
+   *
+   * É `updateWorker` com um nome que diz o que faz — a diferença é que a pessoa **continua na
+   * lista**, e não some da folha antiga nem do custo histórico das obras. O filtro de quem já
+   * saiu é da tela, nunca daqui.
+   */
+  inativarWorker: (id, dados) => {
+    get().updateWorker(id, {
+      status: 'inactive',
+      desligamentoData: dados?.data || new Date().toISOString().slice(0, 10),
+      desligamentoMotivo: dados?.motivo?.trim() || undefined,
+    })
+  },
+
+  reativarWorker: (id) => {
+    get().updateWorker(id, { status: 'active', desligamentoData: undefined, desligamentoMotivo: undefined })
+  },
+
+  /**
+   * Desfazer a exclusão.
+   *
+   * A função `restaurar_registro` existe no servidor desde 24/08 (`20260824130000`), aceita
+   * `'workers'` na lista fechada — **e o app nunca a chamava**. Sem isto, excluir pela interface
+   * era irreversível: o `pull` filtra `deleted_at`, e a regra de escrita da tabela não alcança
+   * linha excluída.
+   *
+   * Depois de restaurar, puxa a linha de volta para a lista local — o `pull` normal só traria na
+   * próxima sincronização, e o usuário que acabou de clicar em "desfazer" precisa ver agora.
+   */
+  restaurarWorker: async (worker) => {
+    if (!podeEscreverMaoDeObra().pode) return false
+    const devolverALista = () =>
+      set((s) => (s.workers.some((x) => x.id === worker.id) ? s : { workers: [...s.workers, worker] }))
+
+    // Em Demonstração nada sobe nem desce do servidor: devolve à lista e pronto. Uma chamada real
+    // aqui misturaria os dois mundos.
+    if (isDemoModeEnabled()) { devolverALista(); return true }
+
+    // `restaurar_registro` é `SECURITY DEFINER` e existe desde 20260824130000, com `workers` na
+    // lista fechada — e o app nunca a chamava. Sem ela, excluir pela interface era irreversível: o
+    // pull filtra `deleted_at`, e a regra de escrita da tabela não alcança linha excluída.
+    const { data, error } = await supabase.rpc('restaurar_registro', { p_tabela: 'workers', p_id: worker.id })
+    // Falhou (sem rede, papel insuficiente) = NÃO devolve à lista. Um registro de volta na tela e
+    // apagado no servidor é pior do que o desfazer não ter funcionado — e ninguém saberia.
+    if (error || data !== true) return false
+    devolverALista()
+    return true
+  },
+
   // ── Crew CRUD ───────────────────────────────────────────────────────────────
 
   addCrew: (crew) => {
@@ -680,8 +740,12 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
             return w && e.horas > 0 ? [{ worker: w, horas: e.horas, descricao: e.descricao }] : []
           })
       : (() => {
+          // Casa nome contra quem AINDA está na ativa. Um homônimo desligado casando por nome
+          // ressuscitaria a pessoa no custo e na produtividade da obra, a partir de um RDO em que
+          // ninguém a escolheu — foi digitado um nome, não um cadastro.
+          const naAtiva = workers.filter(funcionarioEstaAtivo)
           const present = rdo.employeeNames
-            .map((name) => matchWorkerByName(name, workers))
+            .map((name) => matchWorkerByName(name, naAtiva))
             .filter((w): w is Worker => Boolean(w))
           const headcount = rdo.employeeNames.length || present.length || 1
           const horasPorCabeca = rdo.totalHoras > 0 ? rdo.totalHoras / headcount : 0
