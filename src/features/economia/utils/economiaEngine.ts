@@ -261,6 +261,10 @@ export function generateEconomyEvents(input: EconomyInput): EconomyEvent[] {
       ...draft,
       id: existing?.id ?? crypto.randomUUID(),
       impactBRL: roundMoney(existing && existing.status !== 'detected' ? existing.impactBRL : draft.impactBRL),
+      // O que o cálculo diz, sempre — mesmo quando o valor em uso foi digitado à mão. É o que
+      // permite à tela separar estimativa de ajuste manual em vez de somar os dois como se fossem
+      // a mesma coisa.
+      impactEstimadoBRL: roundMoney(draft.impactBRL),
       assumptions: existing && existing.status !== 'detected' ? existing.assumptions : draft.assumptions,
       evidence: existing?.evidence?.length ? existing.evidence : draft.evidence,
       status: existing?.status ?? draft.status ?? 'detected',
@@ -721,4 +725,104 @@ function normalizeMeasurementPeriod(periodLabel: string): string {
   if (!month) return monthPeriod()
   const year = match[2].length === 2 ? `20${match[2]}` : match[2]
   return `${year}-${month}`
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// O QUE ESTE MÓDULO PODE E NÃO PODE AFIRMAR
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Auditoria de 25/08/2026. O encanamento é real — o módulo lê mesmo RDO, Suprimentos, LPS, EVM,
+// Equipamentos e Medição, e o PPC é o único antes/depois honestamente medido. Mas o valor em reais
+// de quase todo evento é:
+//
+//     dado real  ×  constante fixa no código  ×  campo da linha de base
+//
+// As constantes (0,35 · 0,12 · 0,08 · 0,10 · 0,02 · 0,25 · 4,33) não apareciam em lugar nenhum da
+// tela, e a linha de base nasce preenchida sozinha com números de exemplo. Isso não é medição, é
+// estimativa — e a tela dizia "economia comprovada... calculada a partir de dados reais, nunca de
+// números fictícios", texto que ia inteiro para o PDF entregue a uma diretoria.
+//
+// As funções abaixo existem para a tela conseguir dizer a verdade sobre o próprio número.
+
+/** O valor deste evento foi digitado à mão, e não calculado? */
+export function ehAjusteManual(event: EconomyEvent): boolean {
+  if (event.impactEstimadoBRL == null) return false
+  return Math.abs(event.impactBRL - event.impactEstimadoBRL) > 0.005
+}
+
+/** Alguém confirmou a linha de base, ou ela ainda é a de exemplo? */
+export function baselineFoiConfirmada(baseline: EconomyBaseline | undefined | null): boolean {
+  return baseline?.confirmadaPeloUsuario === true
+}
+
+/** Rótulos em português dos campos de premissa que aparecem nas fórmulas. */
+const ROTULO_PREMISSA: Record<string, string> = {
+  diasImpacto: 'dias de impacto',
+  custoEquipamentosOpcional: 'custo de equipamentos',
+  emergencyMarkupPct: 'sobrepreço de compra emergencial',
+  probabilidadeImpacto: 'probabilidade de virar atraso',
+  diasEvitados: 'dias evitados',
+  diasOciososEvitados: 'dias ociosos evitados',
+  horasAtuais: 'horas hoje',
+  horasBaseline: 'horas antes',
+  fatorConservadorDeErro: 'fator de erro de medição',
+  valorEstimado: 'valor estimado',
+  premioEmergencialEvitado: 'prêmio emergencial evitado',
+  desvioAntes: 'desvio antes',
+  desvioAtualOuMeta: 'desvio atual (ou meta)',
+  orcamentoMensalMaterial: 'orçamento mensal de material',
+  custoDiaParada: 'custo de um dia parado',
+  custoDiaPessoa: 'custo por pessoa-dia',
+  trabalhadores: 'trabalhadores',
+  custoHoraGestor: 'custo-hora do gestor',
+  custoDiarioEquipamento: 'custo diário do equipamento',
+}
+
+/** Percentual disfarçado de fração: 0,35 vira "35%". */
+function formatarPremissa(chave: string, valor: number): string {
+  const ehFracao = /pct|percent|probabilidade|fator|premio/i.test(chave) && valor > 0 && valor <= 1
+  if (ehFracao) return `${(valor * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`
+  if (Math.abs(valor) >= 1000) return brl(valor)
+  return valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+}
+
+/**
+ * As premissas de um evento, em português, prontas para a tela.
+ *
+ * Sem isto, "R$ 4.480" aparecia sozinho. Com isto, aparece ao lado de
+ * "probabilidade de virar atraso 35% · custo de um dia parado R$ 12.800 · dias evitados 1" — e o
+ * leitor consegue discordar de um número em vez de aceitar o total.
+ */
+export function premissasDoEvento(event: EconomyEvent): Array<{ rotulo: string; valor: string }> {
+  return Object.entries(event.assumptions ?? {})
+    .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+    .map(([k, v]) => ({ rotulo: ROTULO_PREMISSA[k] ?? k, valor: formatarPremissa(k, v) }))
+}
+
+/** Os totais separados por origem do número. Nunca some estimado com digitado num total só. */
+export interface TotaisPorOrigem {
+  /** Soma do que o cálculo estimou (eventos validados, sem ajuste manual). */
+  estimadoBRL: number
+  /** Soma do que foi digitado à mão (eventos validados com ajuste). */
+  ajustadoAMaoBRL: number
+  /** Quantos eventos validados tiveram o valor digitado. */
+  eventosAjustados: number
+}
+
+export function totaisPorOrigem(events: EconomyEvent[]): TotaisPorOrigem {
+  let estimadoBRL = 0
+  let ajustadoAMaoBRL = 0
+  let eventosAjustados = 0
+  for (const e of events) {
+    if (e.status !== 'validated' && e.status !== 'reported') continue
+    const valor = Math.max(0, e.impactBRL)
+    if (ehAjusteManual(e)) { ajustadoAMaoBRL += valor; eventosAjustados += 1 }
+    else estimadoBRL += valor
+  }
+  return {
+    estimadoBRL: roundMoney(estimadoBRL),
+    ajustadoAMaoBRL: roundMoney(ajustadoAMaoBRL),
+    eventosAjustados,
+  }
 }

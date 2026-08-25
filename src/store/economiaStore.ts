@@ -296,7 +296,11 @@ export const useEconomiaStore = create<EconomiaState>()(
         generateMonthlyReport: (period = get().selectedPeriod, projectId = get().selectedProjectId) => {
           const summary = summarizeEconomy(get().events, get().baselines, period, projectId ?? undefined)
           const baseline = summary.baseline
-          const ppcAfter = latestPpc(useLpsStore.getState().activities) || Math.max(baseline?.ppcPercent ?? 0, 78)
+          // ⚠️ Aqui havia `|| Math.max(baseline?.ppcPercent ?? 0, 78)`: sem dados de planejamento, o
+          // relatório AFIRMAVA um PPC de 78% que ninguém mediu — num PDF entregue a uma diretoria.
+          // Sem medição o número é o da linha de base, e quando nem ela existe é zero; a tela
+          // mostra "—" e diz que falta alimentar o LPS.
+          const ppcAfter = latestPpc(useLpsStore.getState().activities) || (baseline?.ppcPercent ?? 0)
           const materialAfter = baseline?.targetMaterialDeviationPercent ?? 3
           const report: EconomyReport = {
             id: crypto.randomUUID(),

@@ -3098,6 +3098,16 @@ export interface EconomyBaseline {
   id: string
   projectId: string | null
   projectName: string
+  /**
+   * Alguém confirmou estes números, ou eles nasceram do padrão?
+   *
+   * A linha de base é criada sozinha na primeira abertura do módulo, preenchida com 80
+   * trabalhadores, R$ 160/pessoa-dia e R$ 300 mil/mês de material — números de exemplo. Como quase
+   * todo valor em reais do módulo é `dado real × constante × campo da linha de base`, dobrar o
+   * custo-dia dobra a "economia". Ausente ou `false` = ninguém confirmou, e a tela precisa dizer
+   * isso. Vai no `payload` jsonb, sem migração.
+   */
+  confirmadaPeloUsuario?: boolean
   capturedAt: string
   period: string
   ppcPercent: number
@@ -3149,6 +3159,15 @@ export interface EconomyEvent {
   title: string
   description: string
   impactBRL: number
+  /**
+   * Quanto o cálculo estimou, antes de qualquer edição manual.
+   *
+   * `impactBRL` é um campo editável na tela: dá para digitar qualquer número e validar. Sem
+   * guardar o estimado, não havia como a tela separar o que a plataforma calculou do que alguém
+   * digitou — e os dois somavam no mesmo total, apresentado como "economia comprovada".
+   * Recalculado a cada varredura. Vai no `payload` jsonb, sem migração.
+   */
+  impactEstimadoBRL?: number
   formula: string
   assumptions: Record<string, number>
   confidence: EconomyConfidence

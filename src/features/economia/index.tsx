@@ -29,6 +29,11 @@ import {
   monthlySeries,
   monthPeriod,
   summarizeEconomy,
+  ehAjusteManual,
+  baselineFoiConfirmada,
+  premissasDoEvento,
+  totaisPorOrigem,
+  type TotaisPorOrigem,
 } from './utils/economiaEngine'
 import { printEconomyDossier, printEconomyReport } from './utils/economiaReportExport'
 
@@ -262,7 +267,7 @@ function ProvaDeValorPanel({
 
   return (
     <div className="space-y-6">
-      <HeroProof summary={summary} />
+      <HeroProof summary={summary} origem={totaisPorOrigem(events)} baselineConfirmada={baselineFoiConfirmada(baseline)} />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="De onde vem a economia (por módulo)">
@@ -322,25 +327,42 @@ function proofRank(event: EconomyEvent) {
   return event.status === 'validated' || event.status === 'reported' ? 1 : 0
 }
 
-function HeroProof({ summary }: { summary: ReturnType<typeof summarizeEconomy> }) {
+function HeroProof({ summary, origem, baselineConfirmada }: {
+  summary: ReturnType<typeof summarizeEconomy>
+  origem: TotaisPorOrigem
+  baselineConfirmada: boolean
+}) {
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#525252] bg-gradient-to-br from-[#1d2a23] via-[#242424] to-[#1f1f1f] p-6 sm:p-8">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="relative">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300/80">
-          <BadgeDollarSign size={15} /> Economia comprovada no período
+          <BadgeDollarSign size={15} /> Potencial de perda evitada no período · estimativa
         </p>
         <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
           <p className="text-4xl font-bold tabular-nums text-emerald-300 sm:text-5xl lg:text-6xl">{brl(summary.avoidedLossBRL)}</p>
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 pb-1">
-            <Stat icon={TrendingUp} label="ROI do mês" value={`${Math.round(summary.roiPercent)}%`} positive={summary.roiPercent >= 0} />
-            <Stat label="Retorno por R$ investido" value={`${summary.paybackRatio.toFixed(1)}x`} positive={summary.paybackRatio >= 1} />
+            <Stat icon={TrendingUp} label="Retorno estimado no mês" value={`${Math.round(summary.roiPercent)}%`} positive={summary.roiPercent >= 0} />
+            <Stat label="Por R$ investido" value={`${summary.paybackRatio.toFixed(1)}x`} positive={summary.paybackRatio >= 1} />
           </div>
         </div>
         <p className="mt-4 max-w-2xl text-xs leading-5 text-[#a3a3a3]">
           {summary.validatedEvents} de {summary.detectedEvents} eventos validados · investimento na plataforma {brl(summary.platformFeeBRL)}/mês
           {summary.estimatedPipelineBRL > 0 && <> · {brl(summary.estimatedPipelineBRL)} em potencial ainda em análise (não somado)</>}
         </p>
+        {/* O total mistura duas coisas de naturezas diferentes; dizer isso é o mínimo. */}
+        {origem.ajustadoAMaoBRL > 0 && (
+          <p className="mt-1.5 max-w-2xl text-xs leading-5 text-amber-300/90">
+            Deste total, <b>{brl(origem.ajustadoAMaoBRL)}</b> em {origem.eventosAjustados} evento(s)
+            foi digitado à mão, não calculado pela plataforma.
+          </p>
+        )}
+        {!baselineConfirmada && (
+          <p className="mt-1.5 max-w-2xl text-xs leading-5 text-amber-300/90">
+            A linha de base ainda é a de exemplo. Quase todo valor aqui depende dela — confirme os
+            números em <b>Linha de base</b> antes de levar isto a uma reunião.
+          </p>
+        )}
       </div>
     </section>
   )
@@ -440,9 +462,13 @@ function ConfidencePill({ confidence }: { confidence: EconomyEvent['confidence']
 
 function DisclosureNote({ summary, lastScanAt }: { summary: ReturnType<typeof summarizeEconomy>; lastScanAt: string | null }) {
   return (
-    <p className="text-[11px] leading-5 text-[#737373]">
-      Valores conservadores, calculados a partir de dados reais dos módulos operacionais. O ROI considera apenas eventos validados ({summary.validatedEvents} de {summary.detectedEvents});
-      indicadores sem R$ direto não entram na conta, para evitar dupla contagem.
+    <p className="text-[11px] leading-5 text-[#a3a3a3]">
+      <b className="text-[#d4d4d4]">Como ler estes números.</b> Os eventos são detectados a partir dos
+      dados reais dos módulos operacionais — RDO, Suprimentos, LPS, Medição e EVM. O <b>valor em reais</b> de
+      cada um é uma <b>estimativa</b>: o dado real multiplicado por um fator do método e pelos números da
+      linha de base que você preencheu. Trocar o custo por pessoa-dia muda o total na mesma proporção.
+      Cada evento mostra as premissas que usou. Só entram na conta os validados ({summary.validatedEvents} de{' '}
+      {summary.detectedEvents}); indicadores sem R$ direto ficam de fora para não contar duas vezes.
       {lastScanAt && <> Última atualização: {new Date(lastScanAt).toLocaleString('pt-BR')}.</>}
     </p>
   )
@@ -452,9 +478,11 @@ function ProofEmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-[#525252] bg-[#242424] p-10 text-center">
       <ShieldCheck className="mx-auto text-[#525252]" size={40} />
-      <h2 className="mt-4 text-lg font-semibold text-white">Ainda não há economia comprovada neste período</h2>
+      <h2 className="mt-4 text-lg font-semibold text-white">Nenhum evento de economia neste período</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#a3a3a3]">
-        Alimente RDO, Suprimentos, LPS, Medição e EVM e clique em <span className="text-[#e5e5e5]">"Atualizar eventos"</span>. A comprovação é gerada a partir de dados reais — nunca de números fictícios.
+        Alimente RDO, Suprimentos, LPS, Medição e EVM e clique em <span className="text-[#e5e5e5]">"Atualizar eventos"</span>.
+        Os eventos saem dos seus dados; o valor em reais de cada um é estimado com as premissas da
+        linha de base, e cada evento mostra quais usou.
       </p>
     </div>
   )
@@ -570,11 +598,42 @@ function EventEditor({
           </button>
         </div>
       </div>
+      {/* As premissas por extenso. Antes o número aparecia sozinho, e as constantes do cálculo
+          (0,35 · 0,12 · 0,08 · 0,02 · 0,25 · 4,33) não estavam em lugar nenhum da tela — dava para
+          discordar do total, mas não de nenhum número em particular. */}
+      <Premissas event={event} />
       <div className="mt-3 grid gap-2 text-xs text-[#d4d4d4] md:grid-cols-3">
         <span>Obra: {event.projectName}</span>
-        <span>Formula: {event.formula}</span>
-        <span>Confianca: {event.confidence}</span>
+        <span>Fórmula: {event.formula}</span>
+        <span>Confiança: {event.confidence}</span>
       </div>
+    </div>
+  )
+}
+
+/** A conta por extenso: premissas usadas e, quando houver, o quanto o valor foi mexido à mão. */
+function Premissas({ event }: { event: EconomyEvent }) {
+  const premissas = premissasDoEvento(event)
+  const manual = ehAjusteManual(event)
+  if (premissas.length === 0 && !manual) return null
+  return (
+    <div className="mt-3 rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 py-2">
+      {premissas.length > 0 && (
+        <p className="text-[11px] leading-5 text-[#a3a3a3]">
+          <span className="font-semibold text-[#d4d4d4]">Premissas: </span>
+          {premissas.map((p, i) => (
+            <span key={p.rotulo}>
+              {i > 0 && ' · '}{p.rotulo} <b className="text-[#e5e5e5]">{p.valor}</b>
+            </span>
+          ))}
+        </p>
+      )}
+      {manual && (
+        <p className="mt-1 text-[11px] leading-5 text-amber-300">
+          <b>Valor ajustado à mão.</b> O cálculo estimava{' '}
+          {brl(event.impactEstimadoBRL ?? 0)} com estas premissas.
+        </p>
+      )}
     </div>
   )
 }
@@ -597,8 +656,32 @@ function BaselinePanel({
     )
   }
 
+  const confirmada = baselineFoiConfirmada(baseline)
+
   return (
-    <Panel title="Baseline semana 0">
+    <Panel title="Linha de base">
+      {/* A linha de base é criada sozinha na primeira abertura, com números de exemplo. Como quase
+          todo valor em reais do módulo depende dela, apresentá-la como fato é o que transformava
+          uma estimativa em "comprovação". */}
+      {confirmada ? (
+        <p className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] px-3 py-2 text-[11px] leading-5 text-emerald-300">
+          <b>Números confirmados.</b> As estimativas do módulo usam estes valores. Ao alterá-los, o
+          total muda na mesma proporção.
+        </p>
+      ) : (
+        <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2.5">
+          <p className="text-[11px] leading-5 text-amber-300">
+            <b>Estes números são de exemplo</b> — foram preenchidos automaticamente quando o módulo
+            abriu pela primeira vez, e ninguém os confirmou. Quase todo valor em reais da tela de
+            Prova de valor depende deles: dobrar o custo por pessoa-dia dobra a economia declarada.
+            Ajuste o que for diferente e confirme.
+          </p>
+          <button type="button" onClick={() => updateBaseline(baseline.id, { confirmadaPeloUsuario: true })}
+                  className="mt-2 rounded-lg border border-amber-400/50 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/10">
+            Conferi — estes são os números da operação
+          </button>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <Field label="Obra / carteira" value={baseline.projectName} onChange={(value) => updateBaseline(baseline.id, { projectName: value })} />
         <Field label="PPC atual (%)" type="number" value={baseline.ppcPercent} onChange={(value) => updateBaseline(baseline.id, { ppcPercent: num(value) })} />

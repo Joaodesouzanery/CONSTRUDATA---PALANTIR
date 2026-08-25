@@ -1,5 +1,5 @@
 import type { EconomyBaseline, EconomyEvent, EconomyEventCategory, EconomyReport } from '@/types'
-import { brl, ECONOMY_CATEGORY_LABELS, ECONOMY_SOURCE_LABELS, methodologyFor, monthlySeries } from './economiaEngine'
+import { brl, ECONOMY_CATEGORY_LABELS, ECONOMY_SOURCE_LABELS, methodologyFor, monthlySeries, totaisPorOrigem } from './economiaEngine'
 
 function esc(value: string | number | undefined | null): string {
   return String(value ?? '')
@@ -27,7 +27,11 @@ function confidenceLabel(confidence: EconomyEvent['confidence']): string {
 /**
  * Dossiê de comprovação de economia/eficiência (cliente · diretoria · comercial).
  * Documento branded com resumo executivo, metodologia transparente, antes/depois,
- * evidências rastreáveis e tendência. Impressão via janela do navegador (sem dependência).
+ * os eventos que compõem o total e a tendência. Impressão via janela do navegador (sem dependência).
+ *
+ * O documento diz o que o número é: **estimativa** de perda evitada, com as premissas da linha
+ * de base à vista. Ele sai da mão do cliente para uma diretoria — prometer comprovação que o
+ * cálculo não entrega é o erro mais caro que este arquivo pode cometer.
  */
 export function printEconomyDossier(
   report: EconomyReport,
@@ -65,6 +69,11 @@ export function printEconomyDossier(
 
   // metodologia: categorias distintas presentes com R$
   const categories = Array.from(new Set(valued.map((event) => event.category))) as EconomyEventCategory[]
+  // Quanto do total foi digitado à mão. Vai na metodologia porque um relatório de diretoria não
+  // pode apresentar valor digitado e valor calculado como se fossem a mesma coisa.
+  const origem = totaisPorOrigem(events)
+  const ajustados = origem.eventosAjustados
+  const ajustadoBRL = origem.ajustadoAMaoBRL
 
   // tendência (últimos 6 meses)
   const series = monthlySeries(events, 6)
@@ -153,7 +162,7 @@ export function printEconomyDossier(
 
   <div class="hero">
     <div>
-      <div class="biglabel">Economia comprovada no período</div>
+      <div class="biglabel">Potencial de perda evitada no período · estimativa</div>
       <div class="big">${brl(report.avoidedLossBRL)}</div>
     </div>
     <div>
@@ -191,7 +200,7 @@ export function printEconomyDossier(
       <div class="body">
         <div class="compare">
           <div class="mini"><div class="label">PPC antes</div><div class="value">${pct(report.ppcBefore)}</div><div class="bar"><div class="fill" style="width:${Math.min(100, report.ppcBefore)}%"></div></div></div>
-          <div class="mini"><div class="label">PPC atual</div><div class="value green">${pct(report.ppcAfter)}</div><div class="bar"><div class="fill" style="width:${Math.min(100, report.ppcAfter)}%"></div></div></div>
+          <div class="mini"><div class="label">PPC atual</div><div class="value green">${report.ppcAfter > 0 ? pct(report.ppcAfter) : '—'}</div><div class="bar"><div class="fill" style="width:${Math.min(100, report.ppcAfter)}%"></div></div></div>
           <div class="mini"><div class="label">Desvio material antes</div><div class="value">${report.materialDeviationBefore.toFixed(1)}%</div></div>
           <div class="mini"><div class="label">Desvio material meta</div><div class="value green">${report.materialDeviationAfter.toFixed(1)}%</div></div>
         </div>
@@ -200,7 +209,7 @@ export function printEconomyDossier(
   </div>
 
   <div class="section">
-    <h2>Evidências rastreáveis</h2>
+    <h2>Eventos que compõem o total</h2>
     <table>
       <thead><tr><th>Evento</th><th>Origem</th><th class="center">Confiança</th><th class="right">Valor</th></tr></thead>
       <tbody>${eventRows || '<tr><td colspan="4">Sem eventos com valor financeiro no período.</td></tr>'}</tbody>
@@ -226,7 +235,14 @@ export function printEconomyDossier(
     <h2>Metodologia e transparência</h2>
     <div class="body">
       <ul class="method">
-        ${categories.map((category) => `<li><b>${esc(ECONOMY_CATEGORY_LABELS[category])}:</b> ${esc(methodologyFor(category))}</li>`).join('') || '<li>Cálculo conservador a partir de dados operacionais auditáveis.</li>'}
+        <li><b>O que este número é.</b> Os eventos são detectados a partir dos dados reais dos
+        módulos operacionais. O <b>valor em reais</b> de cada um é uma <b>estimativa</b>: o dado real
+        multiplicado por um fator do método e pelos números da linha de base informados pela
+        operação. Alterar a linha de base altera o total na mesma proporção. Não é medição de caixa,
+        e não substitui o resultado contábil.</li>
+        ${categories.map((category) => `<li><b>${esc(ECONOMY_CATEGORY_LABELS[category])}:</b> ${esc(methodologyFor(category))}</li>`).join('') || '<li>Estimativa a partir de dados operacionais, com as premissas da linha de base.</li>'}
+        ${ajustados > 0 ? `<li><b>Ajuste manual:</b> ${ajustados} evento(s) deste relatório tiveram o valor digitado por um usuário, e não calculado pela plataforma, somando ${brl(ajustadoBRL)}.</li>` : ''}
+        ${baseline && baseline.confirmadaPeloUsuario !== true ? '<li><b>Atenção:</b> a linha de base ainda não foi confirmada pela operação — os valores partem dos números de exemplo preenchidos automaticamente.</li>' : ''}
         <li>O ROI considera <b>apenas eventos validados</b>; indicadores sem valor financeiro direto (ex.: alertas de cronograma) não entram na conta, para evitar dupla contagem.</li>
       </ul>
     </div>
