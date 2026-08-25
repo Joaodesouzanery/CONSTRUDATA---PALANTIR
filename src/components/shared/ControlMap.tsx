@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet.markercluster'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet/dist/leaflet.css'
 import { Image, MapPin, X } from 'lucide-react'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
@@ -115,20 +117,40 @@ function makeProjectIcon(project: Project, selected: boolean) {
   })
 }
 
-function makeSiteIcon(site: ConstructionSite, selected: boolean) {
+/** Capacete de obra, em SVG inline — sem dependência de fonte de ícone. */
+const SVG_CAPACETE =
+  '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" '
+  + 'stroke-linecap="round" stroke-linejoin="round">'
+  + '<path d="M2 18h20"/><path d="M4 18v-3a8 8 0 0 1 16 0v3"/><path d="M10 18V7.5a2 2 0 0 1 4 0V18"/></svg>'
+
+/**
+ * Marcador de obra: ícone de capacete, com o nome logo abaixo.
+ *
+ * O marcador anterior era uma pílula com o nome DENTRO e `min-width: 118px`. Oito obras em
+ * Brasília viravam uma mancha só, com rótulos sobrepostos — foi o que o cliente viu no mapa. O
+ * ícone tem 28px: **quatro vezes menos largura**. O nome vai embaixo, numa linha estreita, e só
+ * aparece quando há zoom suficiente para ele não colidir com o vizinho (`mostrarNome`).
+ */
+function makeSiteIcon(site: ConstructionSite, selected: boolean, mostrarNome: boolean) {
   const color = SITE_STATUS_COLOR[site.status]
-  const label = site.name.length > 22 ? `${site.name.slice(0, 21)}...` : site.name
-  const glow = selected ? `0 0 0 2px ${color}60, 0 0 14px ${color}80` : '0 2px 8px rgba(0,0,0,0.55)'
+  const label = site.name.length > 18 ? `${site.name.slice(0, 17)}…` : site.name
+  const glow = selected ? `0 0 0 3px ${color}55, 0 0 12px ${color}90` : '0 2px 6px rgba(0,0,0,0.6)'
+  const nome = mostrarNome
+    ? `<span style="margin-top:3px;max-width:96px;text-align:center;color:#f5f5f5;font-size:11px;`
+      + `font-weight:600;font-family:system-ui,sans-serif;line-height:1.15;text-shadow:0 1px 3px #000,0 0 6px #000;`
+      + `overflow-wrap:anywhere;">${escapeHtml(label)}</span>`
+    : ''
   return L.divIcon({
     className: '',
-    iconAnchor: [44, 38],
+    // Âncora na base do ícone: a ponta do capacete é que aponta o lugar, não o meio do rótulo.
+    iconAnchor: [14, 30],
     html: `
-      <div style="position:relative;display:inline-flex;flex-direction:column;align-items:center;">
-        <div style="display:flex;align-items:center;gap:5px;background:#1f2937dd;border:1.5px dashed ${color};border-radius:8px;padding:4px 8px;box-shadow:${glow};min-width:118px;max-width:178px;justify-content:center;">
-          <div style="width:9px;height:9px;border-radius:2px;background:${color};flex-shrink:0;box-shadow:0 0 5px ${color}aa;"></div>
-          <span style="color:#f5f5f5;font-size:10px;font-weight:700;font-family:system-ui,sans-serif;white-space:nowrap;letter-spacing:0.03em;">${escapeHtml(label)}</span>
+      <div style="display:inline-flex;flex-direction:column;align-items:center;width:28px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:#1f2937ee;border:2px solid ${color};
+                    box-shadow:${glow};display:flex;align-items:center;justify-content:center;color:${color};">
+          ${SVG_CAPACETE}
         </div>
-        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid ${color};margin-top:-1px;"></div>
+        ${nome}
       </div>
     `,
   })
@@ -263,6 +285,55 @@ function Project360Modal({ project, onClose }: { project: Project; onClose: () =
   )
 }
 
+/** Tem coordenada utilizável? `!= null` não basta: `NaN` passa e o Leaflet quebra. */
+function temCoordenada(r: { lat?: number | null; lng?: number | null }): boolean {
+  return r.lat != null && r.lng != null && Number.isFinite(r.lat) && Number.isFinite(r.lng)
+}
+
+/**
+ * Enquadra o mapa nas obras assim que elas chegam.
+ *
+ * O `center`/`zoom` do `MapContainer` era `[-15, -52]` no zoom 5 — o centro geográfico do Brasil
+ * num zoom continental. Abria mostrando a América do Sul inteira e parte da África, com as obras
+ * viradas uma mancha no meio. E `center`/`zoom` do react-leaflet só valem na montagem: mudá-los
+ * depois não move nada, então tinha de ser `fitBounds`.
+ *
+ * Três cuidados, copiados do enquadramento que já existia no projeto:
+ *  - **enquadra UMA vez** (`jaEnquadrou`): sem isso, trocar de filtro jogaria o usuário de volta
+ *    para longe, desfazendo o zoom que ele mesmo deu;
+ *  - **não enquadra se já há obra selecionada** — quem abriu numa obra quer ficar nela;
+ *  - **obra única vai a zoom 15**, não ao máximo: `fitBounds` de um ponto só aproxima até a calçada.
+ */
+function EnquadrarAoAbrir({ pontos, selecionado }: {
+  pontos: Array<{ lat?: number | null; lng?: number | null }>
+  selecionado: string | null
+}) {
+  const map = useMap()
+  const jaEnquadrou = useRef(false)
+
+  useEffect(() => {
+    if (jaEnquadrou.current || selecionado) return
+    const validos = pontos.filter(temCoordenada)
+    if (validos.length === 0) return
+    jaEnquadrou.current = true
+    try {
+      map.invalidateSize()
+      if (validos.length === 1) {
+        map.setView([validos[0].lat!, validos[0].lng!], 15)
+      } else {
+        map.fitBounds(
+          L.latLngBounds(validos.map((p) => [p.lat!, p.lng!] as [number, number])),
+          { padding: [48, 48], maxZoom: 15 },
+        )
+      }
+    } catch (err) {
+      console.warn('[ControlMap] enquadramento inicial falhou:', err)
+    }
+  }, [map, pontos, selecionado])
+
+  return null
+}
+
 function MarkerLayer({
   projects,
   sites,
@@ -285,9 +356,49 @@ function MarkerLayer({
   const map = useMap()
   const projectMarkers = useRef<Map<string, L.Marker>>(new Map())
   const siteMarkers = useRef<Map<string, L.Marker>>(new Map())
+  const grupo = useRef<L.MarkerClusterGroup | null>(null)
+
+  /**
+   * O nome só aparece com zoom suficiente para caber.
+   *
+   * Abaixo de 11 as obras de uma mesma cidade ficam a poucos pixels uma da outra e os nomes se
+   * empilham — foi exatamente o que o cliente viu, com dois rótulos sobrepostos. Aí fica só o
+   * capacete, que tem 28px.
+   */
+  const [mostrarNome, setMostrarNome] = useState(map.getZoom() >= 11)
+  useEffect(() => {
+    const aoMudarZoom = () => setMostrarNome(map.getZoom() >= 11)
+    map.on('zoomend', aoMudarZoom)
+    return () => { map.off('zoomend', aoMudarZoom) }
+  }, [map])
+
+  /**
+   * Agrupamento: obras a poucos metros viram um círculo com o número delas, que se abre ao
+   * aproximar. Sem isto, o enquadramento automático resolveria o zoom mas não a sobreposição.
+   */
+  useEffect(() => {
+    const g = L.markerClusterGroup({
+      maxClusterRadius: 45,
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: true,
+      // Ícone no mesmo vocabulário do marcador: círculo escuro, borda laranja, número no meio.
+      iconCreateFunction: (cluster) => L.divIcon({
+        className: '',
+        iconSize: [34, 34],
+        html: `<div style="width:34px;height:34px;border-radius:50%;background:#1f2937ee;
+                 border:2px solid #f97316;box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;
+                 align-items:center;justify-content:center;color:#f5f5f5;font-size:13px;
+                 font-weight:700;font-family:system-ui,sans-serif;">${cluster.getChildCount()}</div>`,
+      }),
+    })
+    g.addTo(map)
+    grupo.current = g
+    return () => { try { g.remove() } catch { /* mapa já desmontado */ } grupo.current = null }
+  }, [map])
 
   const safeRemove = (marker: L.Marker) => {
     try {
+      grupo.current?.removeLayer(marker)
       marker.remove()
     } catch (error) {
       console.warn('[ControlMap] marker cleanup ignored', error)
@@ -312,15 +423,16 @@ function MarkerLayer({
         if (markers.has(row.id)) {
           markers.get(row.id)!.setIcon(makeIcon(row))
         } else {
-          const marker = L.marker([row.lat, row.lng], { icon: makeIcon(row) }).addTo(map).on('click', () => onSelect(row.id))
+          const marker = L.marker([row.lat, row.lng], { icon: makeIcon(row) }).on('click', () => onSelect(row.id))
+          if (grupo.current) grupo.current.addLayer(marker); else marker.addTo(map)
           markers.set(row.id, marker)
         }
       })
     }
 
     sync(projectMarkers.current, showProjects ? projects : [], (p) => makeProjectIcon(p, p.id === selectedProjectId), onProjectSelect)
-    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId), (id) => onSiteSelect?.(id))
-  }, [map, onProjectSelect, onSiteSelect, projects, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
+    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId, mostrarNome), (id) => onSiteSelect?.(id))
+  }, [map, mostrarNome, onProjectSelect, onSiteSelect, projects, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
 
   useEffect(() => {
     const targetProject = projects.find((p) => p.id === selectedProjectId)
@@ -410,14 +522,23 @@ export function ControlMap({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [basemap, setBasemap] = useState<Basemap>('voyager')
   const [showProjects, setShowProjects] = useState(true)
-  const [showSites, setShowSites] = useState(sites.length > 0)
+  // ⚠️ Isto era `useState(sites.length > 0)`, avaliado UMA vez. As obras chegam do servidor depois
+  // do mapa montar, então a camada nascia desligada e nunca se corrigia — o usuário abria a Torre
+  // e simplesmente não havia obra no mapa, sem nenhum aviso. Agora começa ligada e só muda se a
+  // pessoa desligar.
+  const [showSites, setShowSites] = useState(true)
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
   const [tileError, setTileError] = useState(false)
 
   // Derivações memoizadas: props/deps estáveis evitam o re-render em cascata que
   // fazia o mapa "piscar" (MarkerLayer re-sincronizava markers a cada render).
-  const projectsWithCoords = useMemo(() => projects.filter((p) => p.lat != null && p.lng != null), [projects])
-  const sitesWithCoords = useMemo(() => sites.filter((s) => s.lat != null && s.lng != null), [sites])
+  const projectsWithCoords = useMemo(() => projects.filter(temCoordenada), [projects])
+  // `temCoordenada`, e não `!= null`: uma obra com `lat: NaN` passava neste filtro, entrava na
+  // contagem do selo "N marcador(es)" e não gerava marcador nenhum — o contador mentia.
+  const sitesWithCoords = useMemo(() => sites.filter(temCoordenada), [sites])
+  // As que ficam de fora do mapa por não terem endereço no cadastro. Antes sumiam em silêncio:
+  // a lista dizia "9 canteiros" e o mapa "8 marcador(es)", sem explicar o nono.
+  const sitesSemCoordenada = useMemo(() => sites.filter((s) => !temCoordenada(s) && obraEstaAtiva(s)), [sites])
   // Filtro VISUAL: obra arquivada some do mapa, mas continua em `sitesWithCoords` para o card
   // lateral conseguir resolvê-la se ela estiver selecionada — senão, ao arquivar a obra aberta,
   // o card sumiria junto e não haveria caminho de volta.
@@ -478,9 +599,19 @@ export function ControlMap({
             Arquivadas ({totalArquivadas})
           </button>
         )}
-        <div className="ml-auto flex items-center gap-1.5 text-[#6b6b6b] text-xs">
+        <div className="ml-auto flex items-center gap-1.5 text-[#a3a3a3] text-xs">
           <MapPin size={11} />
           <span>{(showProjects ? filteredProjects.length : 0) + (showSites ? sitesVisiveis.length : 0)} marcador(es)</span>
+          {/* A obra sem endereço não aparece no mapa. Antes sumia calada — a lista dizia "9
+              canteiros" e o mapa "8 marcador(es)", e nada explicava o nono. */}
+          {sitesSemCoordenada.length > 0 && (
+            <span
+              className="rounded border border-[#eab308]/40 bg-[#eab308]/10 px-1.5 py-0.5 text-[11px] text-[#fbbf24]"
+              title={`Sem endereço no cadastro, então não aparece(m) no mapa: ${sitesSemCoordenada.map((s) => s.name).join(', ')}. Abra a obra em Detalhes → Editar e preencha as coordenadas.`}
+            >
+              {sitesSemCoordenada.length} sem endereço
+            </span>
+          )}
         </div>
       </div>
       <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
@@ -493,6 +624,10 @@ export function ControlMap({
             subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'}
             maxZoom={19}
             eventHandlers={tileEventHandlers}
+          />
+          <EnquadrarAoAbrir
+            pontos={[...(showSites ? sitesVisiveis : []), ...(showProjects ? filteredProjects : [])]}
+            selecionado={selectedSiteId ?? selectedProjectId}
           />
           <MarkerLayer
             projects={filteredProjects}
