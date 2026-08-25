@@ -24,9 +24,36 @@
  */
 import type { Worker, Shift, TimecardEntry, WorkerAbsence, WorkerAssessment } from '@/types'
 
-/** Só `inactive` é desligamento. `suspended` é afastamento temporário — a pessoa volta. */
+/**
+ * A pessoa **não foi desligada**? — a pergunta de VISIBILIDADE.
+ *
+ * Só `inactive` é desligamento. `suspended` é afastamento temporário — a pessoa volta, e por isso
+ * continua aparecendo, contando no quadro e podendo ser reativada sem recadastro.
+ *
+ * ⚠️ Esta NÃO é a pergunta do dinheiro. Para custo, folha e apontamento use `entraNaFolha`.
+ */
 export function funcionarioEstaAtivo(w: Pick<Worker, 'status'>): boolean {
   return w.status !== 'inactive'
+}
+
+/**
+ * A pessoa **conta no custo deste mês**? — a pergunta do DINHEIRO.
+ *
+ * ─── POR QUE É UM PREDICADO SEPARADO ──────────────────────────────────────────
+ * Porque confundir as duas custou um erro em 25/08/2026, meu: usei `funcionarioEstaAtivo` no
+ * desconto de falta do custo mensal e na ponte RDO→apontamentos, com um comentário afirmando que
+ * o corte era `status !== 'active'`. Não era — `suspended` passava. O resultado é assimétrico e
+ * silencioso: `generatePayslip` (payrollEngine) e `projectMonthlyCost` zeram o suspenso por
+ * completo, mas a falta dele continuava sendo descontada de um custo que nunca foi somado, e a
+ * ponte do RDO gravava `laborCostBRL` no nome dele.
+ *
+ * `pending_approval` também fica de fora: cadastro que ninguém aprovou não gera despesa.
+ *
+ * O critério espelha `payrollEngine.generatePayslip` e `cltEngine` de propósito. Se algum dia o
+ * corte da folha mudar, muda aqui junto — e é por isso que existe um teste amarrando os dois.
+ */
+export function entraNaFolha(w: Pick<Worker, 'status'>): boolean {
+  return w.status === 'active'
 }
 
 /** Separa em ativos e desligados preservando a ordem original de cada grupo. */

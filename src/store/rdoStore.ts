@@ -124,7 +124,13 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     number:           rdo.number,
     date:             rdo.date,
     responsible:      rdo.responsible || null,
-    project_id:       (rdo as { projectId?: string | null }).projectId ?? null,
+    // ⚠️ `project_id` é coluna LEGADA (0013_rdo.sql: `text`, "ref textual a projetos.id"), de um
+    // espaço de id diferente do da obra — `siteToProject` produz `site:<uuid>`, não o uuid. O cast
+    // que havia aqui apontava para um campo que NÃO existe em `RDO` (o tipo tem `siteId`):
+    // resolvia `undefined ?? null` sempre. Fica null explícito — preencher com `siteId` gravaria
+    // id de obra numa coluna de projeto, e há função no servidor que faz `r.project_id::uuid = p.id`.
+    project_id:       null,
+    // A obra de verdade. É esta que vale para escopo.
     site_id:          rdo.siteId ?? null,
     contract_no:      rdo.numeroContrato ?? null,
     service_order_no: rdo.numeroOS ?? null,
@@ -351,17 +357,21 @@ export const useRdoStore = create<RdoState>()(
           eventBus.emit({
             type: 'rdo.closed',
             rdoId: newRdo.id,
-            projectId: row.project_id,
+            // Era `row.project_id`, que o cast morto deixava sempre null: RDO recém-criado
+            // anunciava obra nula, e o MESMO RDO editado depois anunciava a obra certa (a edição
+            // já usava `siteId`). Quem passar a ler este payload — o Economia vai — veria criação
+            // e edição discordando.
+            projectId: newRdo.siteId ?? null,
             date: newRdo.date,
           })
           eventBus.emit({
             type: 'rdo.finalized',
             rdoId: newRdo.id,
-            projectId: row.project_id,
+            projectId: newRdo.siteId ?? null,
             date: newRdo.date,
             operationalKey: buildOperationalKey({
               contractNo: newRdo.numeroContrato ?? row.contract_no,
-              projectId: row.project_id,
+              projectId: newRdo.siteId ?? null,
               nucleo: newRdo.localTipo,
               local: newRdo.local,
               serviceCode: newRdo.servicoExecutar ?? newRdo.services?.[0]?.contractItemCode,

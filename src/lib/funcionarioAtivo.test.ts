@@ -8,8 +8,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  funcionarioEstaAtivo, separarPorAtividade, contarHistoricoDoFuncionario, decidirExclusao,
-  HISTORICO_QUE_BLOQUEIA_EXCLUSAO,
+  funcionarioEstaAtivo, entraNaFolha, separarPorAtividade, contarHistoricoDoFuncionario,
+  decidirExclusao, HISTORICO_QUE_BLOQUEIA_EXCLUSAO,
 } from './funcionarioAtivo'
 import type { Worker, Shift, TimecardEntry, WorkerAbsence, WorkerAssessment } from '@/types'
 
@@ -123,4 +123,38 @@ test('o limite soma as quatro coleções, não uma só', () => {
   })
   assert.ok(h.total >= n)
   assert.equal(decidirExclusao(h), 'bloquear')
+})
+
+
+// ── As duas perguntas, que não são a mesma ────────────────────────────────────
+
+test('visibilidade e dinheiro divergem exatamente no suspenso e no pendente', () => {
+  // Foi confundi-las que produziu o erro de 25/08/2026: o desconto de falta e a ponte RDO usavam o
+  // predicado da visibilidade, com um comentário afirmando que usavam o do dinheiro.
+  const casos: Array<[Worker['status'], boolean, boolean]> = [
+    // status              visível   na folha
+    ['active',            true,     true],
+    ['inactive',          false,    false],
+    ['suspended',         true,     false],
+    ['pending_approval',  true,     false],
+  ]
+  for (const [status, visivel, folha] of casos) {
+    assert.equal(funcionarioEstaAtivo(w({ status })), visivel, `visibilidade de ${status}`)
+    assert.equal(entraNaFolha(w({ status })), folha, `folha de ${status}`)
+  }
+})
+
+test('o corte do dinheiro é o MESMO do payrollEngine — se um mudar, este teste cai', async () => {
+  // `generatePayslip` zera o holerite de quem não é 'active'. `entraNaFolha` existe para dizer isso
+  // num lugar só; se o motor da folha passar a aceitar outro status, os dois têm de andar juntos.
+  const { readFile } = await import('node:fs/promises')
+  const motor = await readFile(new URL('../features/mao-de-obra/utils/payrollEngine.ts', import.meta.url), 'utf8')
+  assert.match(motor, /worker\.status !== 'active'/, 'o corte da folha mudou — reveja entraNaFolha')
+})
+
+test('suspenso continua na lista, mas fora da conta', () => {
+  const { ativos, desligados } = separarPorAtividade([w({ id: 'a', status: 'suspended' })])
+  assert.equal(ativos.length, 1, 'o afastado não some da tela')
+  assert.equal(desligados.length, 0)
+  assert.equal(entraNaFolha(w({ status: 'suspended' })), false, 'mas não custa nada este mês')
 })

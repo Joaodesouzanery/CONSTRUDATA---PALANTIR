@@ -6,7 +6,7 @@ import { projectMonthlyCost } from '@/features/mao-de-obra/utils/cltEngine'
 import { custoDiaWorker } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { countAbsencesInPeriod } from '@/features/mao-de-obra/utils/assessmentEngine'
 import { useObraScopedLabor } from '../hooks/useObraScopedLabor'
-import { funcionarioEstaAtivo } from '@/lib/funcionarioAtivo'
+import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
 function fmt(n: number) {
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -194,12 +194,15 @@ export function CMOPanel() {
 
   // Desconto de falta: falta injustificada × custo/dia do funcionário (o funcionário custa X e faltou → tira X).
   //
-  // Só de quem ainda está na folha. Quem foi desligado sai do cálculo de custo inteiro
-  // (`payrollEngine` corta em `status !== 'active'`), então descontar a falta dele subtraía um
-  // custo que não estava somado — o número do mês fechava para baixo sem motivo.
+  // Só de quem está na folha, e o predicado tem de ser o MESMO da folha: `payrollEngine` zera o
+  // holerite de todo mundo que não seja `active`. Descontar a falta de quem a folha zerou subtrai
+  // um custo que nunca foi somado, e o mês fecha para baixo sem motivo.
+  //
+  // (Aqui estava `funcionarioEstaAtivo`, que só corta o desligado — o suspenso escapava, apesar de
+  // este comentário já afirmar que o corte era `status !== 'active'`.)
   const descontoFaltas = useMemo(() => {
     const start = `${yearMonth}-01`, end = `${yearMonth}-31`
-    const naFolha = workers.filter(funcionarioEstaAtivo)
+    const naFolha = workers.filter(entraNaFolha)
     const scopedWorkers = activeObraId ? naFolha.filter((w) => (w.siteId ?? null) === activeObraId) : naFolha
     return scopedWorkers.reduce((s, w) => {
       const { unjustified } = countAbsencesInPeriod(absences, w.id, start, end)

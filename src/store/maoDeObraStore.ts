@@ -43,7 +43,7 @@ import {
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { seededUuidLegado } from '@/lib/seededId'
-import { funcionarioEstaAtivo } from '@/lib/funcionarioAtivo'
+import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
 /** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
  *  Mesmo (rdoId, workerId) → mesmo id → upsert substitui em vez de duplicar, inclusive
@@ -740,10 +740,14 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
             return w && e.horas > 0 ? [{ worker: w, horas: e.horas, descricao: e.descricao }] : []
           })
       : (() => {
-          // Casa nome contra quem AINDA está na ativa. Um homônimo desligado casando por nome
+          // Casa nome contra quem está NA FOLHA. Um homônimo desligado casando por nome
           // ressuscitaria a pessoa no custo e na produtividade da obra, a partir de um RDO em que
           // ninguém a escolheu — foi digitado um nome, não um cadastro.
-          const naAtiva = workers.filter(funcionarioEstaAtivo)
+          //
+          // É `entraNaFolha`, não `funcionarioEstaAtivo`: esta ponte grava `laborCostBRL`, e o
+          // suspenso tem holerite zerado pelo `payrollEngine`. Gravar custo no nome dele criaria
+          // despesa que a folha não reconhece.
+          const naAtiva = workers.filter(entraNaFolha)
           const present = rdo.employeeNames
             .map((name) => matchWorkerByName(name, naAtiva))
             .filter((w): w is Worker => Boolean(w))
