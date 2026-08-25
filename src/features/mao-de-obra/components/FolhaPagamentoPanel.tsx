@@ -5,6 +5,7 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
 import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO } from '@/features/mao-de-obra/utils/payrollEngine'
 import { reconciliarFolhas, reconciliacaoParaCSV } from '@/features/mao-de-obra/utils/reconciliacaoFolha'
+import { conferirDiasDeRdo, turnosQueFaltam } from '@/features/mao-de-obra/utils/diasDeRdoNaFolha'
 import { hojeLocalISO } from '@/lib/utils'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
               {payslip.allowances.map((a, i) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span className="text-[var(--color-text-secondary)]">{a.description}</span>
-                  <span className="text-[#22c55e] font-medium">+ {fmt(a.amount)}</span>
+                  <span className="text-[#4ade80] font-medium">+ {fmt(a.amount)}</span>
                 </div>
               ))}
               <div className="flex justify-between text-sm font-bold border-t border-[var(--color-border)] pt-1.5 mt-1.5">
@@ -63,14 +64,14 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
                   <span className={`${d.workerPays ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-muted)] italic'}`}>
                     {d.description}{!d.workerPays ? ' (empregador)' : ''}
                   </span>
-                  <span className={`font-medium ${d.workerPays ? 'text-[#ef4444]' : 'text-[var(--color-text-muted)]'}`}>
+                  <span className={`font-medium ${d.workerPays ? 'text-[#fca5a5]' : 'text-[var(--color-text-muted)]'}`}>
                     {d.workerPays ? '- ' : ''}{fmt(d.amount)}
                   </span>
                 </div>
               ))}
               <div className="flex justify-between text-sm font-bold border-t border-[var(--color-border)] pt-1.5 mt-1.5">
                 <span className="text-[var(--color-text-primary)]">Salário Líquido</span>
-                <span className="text-[#22c55e]">{fmt(payslip.netTotal)}</span>
+                <span className="text-[#4ade80]">{fmt(payslip.netTotal)}</span>
               </div>
             </div>
           </div>
@@ -99,13 +100,15 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
 // ─── FolhaPagamentoPanel ──────────────────────────────────────────────────────
 
 export function FolhaPagamentoPanel() {
-  const { workers, payrollHistory, generatePayroll, cltSettings, shifts } = useMaoDeObraStore(
+  const { workers, payrollHistory, generatePayroll, cltSettings, shifts, timecards, addShift } = useMaoDeObraStore(
     useShallow(s => ({
       workers:         s.workers,
       payrollHistory:  s.payrollHistory,
       generatePayroll: s.generatePayroll,
       cltSettings:     s.cltSettings,
       shifts:          s.shifts,
+      timecards:       s.timecards,
+      addShift:        s.addShift,
     }))
   )
   const [verReconciliacao, setVerReconciliacao] = useState(false)
@@ -132,6 +135,36 @@ export function FolhaPagamentoPanel() {
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   )
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  /**
+   * Dias comprovados por RDO que a Escala não registrou.
+   *
+   * A folha lê `shifts` e ignora os apontamentos vindos do RDO — um dia com RDO finalizado, o
+   * funcionário na lista de efetivo e as horas rateadas não pagava nada. Isto MOSTRA a diferença;
+   * nada muda de valor até a pessoa clicar. Mexer em folha sem avisar seria inaceitável.
+   */
+  const conferenciaRdo = useMemo(
+    () => conferirDiasDeRdo(workers, shifts, timecards, yearMonth),
+    [workers, shifts, timecards, yearMonth],
+  )
+
+  function aplicarDiasDeRdo() {
+    const turnos = turnosQueFaltam(conferenciaRdo)
+    if (turnos.length === 0) return
+    if (!window.confirm(
+      `Lançar ${turnos.length} turno(s) na Escala, para ${conferenciaRdo.pessoas} funcionário(s)?\n\n`
+      + `Isso muda a folha de ${monthLabel} em aproximadamente ${fmt(conferenciaRdo.diferencaBRL)}.\n\n`
+      + 'Os turnos passam a existir na aba Escala e você pode conferir ou apagar por lá. '
+      + 'Depois, gere a folha de novo.',
+    )) return
+    // `addShift` recebe o turno sem id — o store gera o dele.
+    for (const t of turnos) {
+      addShift({
+        workerId: t.workerId, date: t.date, startTime: t.startTime, endTime: t.endTime,
+        breakMinutes: t.breakMinutes, type: t.type, status: t.status,
+      })
+    }
+  }
 
   const currentPayroll = payrollHistory.find(p => p.month === yearMonth)
 
@@ -220,6 +253,36 @@ export function FolhaPagamentoPanel() {
         </div>
       </div>
 
+      {/* A conferência aparece ANTES da folha: é ela que decide se os números abaixo estão
+          completos. Some sozinha quando não há divergência. */}
+      {conferenciaRdo.dias.length > 0 && (
+        <div className="mb-4 rounded-xl border border-[#eab308]/40 bg-[#eab308]/10 p-4">
+          <p className="text-sm font-bold text-[#fbbf24]">
+            {conferenciaRdo.dias.length} dia(s) com RDO não estão na Escala
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#e5e5e5]">
+            O RDO foi finalizado, {conferenciaRdo.pessoas === 1 ? 'a pessoa estava' : 'as pessoas estavam'} na
+            lista de efetivo e as horas foram rateadas — mas a folha lê a <b>Escala</b>, e esses dias
+            não têm turno lançado. Do jeito que está, <b>eles não são pagos</b>.
+            Diferença estimada: <b>{fmt(conferenciaRdo.diferencaBRL)}</b>.
+          </p>
+          <ul className="mt-2 flex flex-col gap-0.5">
+            {conferenciaRdo.porFuncionario.slice(0, 6).map((f) => (
+              <li key={f.workerId} className="text-[13px] text-[#c9c9c9]">
+                {f.workerName} — {f.dias} dia(s) · {fmt(f.valorBRL)}
+              </li>
+            ))}
+            {conferenciaRdo.porFuncionario.length > 6 && (
+              <li className="text-[13px] text-[#adadad]">e mais {conferenciaRdo.porFuncionario.length - 6}…</li>
+            )}
+          </ul>
+          <button onClick={aplicarDiasDeRdo}
+            className="mt-3 rounded-lg bg-[#eab308]/25 px-3 py-1.5 text-[13px] font-semibold text-[#fde047] hover:bg-[#eab308]/40">
+            Lançar esses turnos na Escala
+          </button>
+        </div>
+      )}
+
       {!currentPayroll ? (
         <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl border border-dashed border-[var(--color-border)]">
           <p className="text-[var(--color-text-muted)] text-sm mb-4">
@@ -235,8 +298,8 @@ export function FolhaPagamentoPanel() {
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Custo Total Empresa', value: fmt(currentPayroll.totalEmployerCost), color: 'text-[#ef4444]' },
-              { label: 'Total Líquido',        value: fmt(currentPayroll.totalNet),          color: 'text-[#22c55e]' },
+              { label: 'Custo Total Empresa', value: fmt(currentPayroll.totalEmployerCost), color: 'text-[#fca5a5]' },
+              { label: 'Total Líquido',        value: fmt(currentPayroll.totalNet),          color: 'text-[#4ade80]' },
               { label: 'Total Bruto',          value: fmt(currentPayroll.totalGross),        color: 'text-[var(--color-accent)]' },
               { label: 'Colaboradores',        value: currentPayroll.headcount,              color: 'text-[var(--color-text-primary)]' },
             ].map(card => (
@@ -282,8 +345,8 @@ export function FolhaPagamentoPanel() {
                           <td className="px-3 py-3 text-[var(--color-text-secondary)] text-xs max-w-[120px] truncate">{role}</td>
                           <td className="px-3 py-3 text-[var(--color-text-secondary)]">{payslip.hoursWorked.toFixed(1)}h</td>
                           <td className="px-3 py-3 text-[var(--color-text-primary)]">{fmt(payslip.baseSalary)}</td>
-                          <td className="px-3 py-3 text-[#ef4444]">- {fmt(workerDed)}</td>
-                          <td className="px-3 py-3 font-semibold text-[#22c55e]">{fmt(payslip.netTotal)}</td>
+                          <td className="px-3 py-3 text-[#fca5a5]">- {fmt(workerDed)}</td>
+                          <td className="px-3 py-3 font-semibold text-[#4ade80]">{fmt(payslip.netTotal)}</td>
                           <td className="px-3 py-3 font-semibold text-[var(--color-text-primary)]">{fmt(payslip.employerCost)}</td>
                           <td className="px-3 py-3" />
                         </tr>
@@ -298,10 +361,10 @@ export function FolhaPagamentoPanel() {
                     <td className="px-3 py-3 font-bold text-[var(--color-text-primary)]">
                       {fmt(currentPayroll.payslips.reduce((s, p) => s + p.baseSalary, 0))}
                     </td>
-                    <td className="px-3 py-3 font-bold text-[#ef4444]">
+                    <td className="px-3 py-3 font-bold text-[#fca5a5]">
                       - {fmt(currentPayroll.payslips.reduce((s, p) => s + p.deductions.filter(d => d.workerPays).reduce((a, d) => a + d.amount, 0), 0))}
                     </td>
-                    <td className="px-3 py-3 font-bold text-[#22c55e]">{fmt(currentPayroll.totalNet)}</td>
+                    <td className="px-3 py-3 font-bold text-[#4ade80]">{fmt(currentPayroll.totalNet)}</td>
                     <td className="px-3 py-3 font-bold text-[var(--color-text-primary)]">{fmt(currentPayroll.totalEmployerCost)}</td>
                     <td />
                   </tr>
@@ -322,10 +385,10 @@ export function FolhaPagamentoPanel() {
                     {reconciliacao.quantidadeAfetada} holerite(s) já emitido(s) mudam de valor com os cálculos corrigidos
                   </h3>
                   <p className="mt-1 text-xs leading-5 text-[var(--color-text-muted)]">
-                    A receber pelos trabalhadores: <strong className="text-[#22c55e]">{fmt(reconciliacao.totalAReceber)}</strong>
-                    {' · '}pago a mais: <strong className="text-[#ef4444]">{fmt(reconciliacao.totalPagoAMais)}</strong>
+                    A receber pelos trabalhadores: <strong className="text-[#4ade80]">{fmt(reconciliacao.totalAReceber)}</strong>
+                    {' · '}pago a mais: <strong className="text-[#fca5a5]">{fmt(reconciliacao.totalPagoAMais)}</strong>
                     {reconciliacao.quantidadeSemTurnos > 0 && (
-                      <> · <span className="text-[#f59e0b]">{reconciliacao.quantidadeSemTurnos} sem turnos guardados, conferir à mão</span></>
+                      <> · <span className="text-[#fbbf24]">{reconciliacao.quantidadeSemTurnos} sem turnos guardados, conferir à mão</span></>
                     )}
                   </p>
                 </div>
@@ -364,14 +427,14 @@ export function FolhaPagamentoPanel() {
                           <td className="px-3 py-2 align-top">{item.competencia}</td>
                           <td className="px-3 py-2 align-top">
                             {item.workerName}
-                            {item.semTurnos && <div className="text-[10px] text-[#f59e0b]">sem turnos guardados</div>}
+                            {item.semTurnos && <div className="text-[11px] text-[#fbbf24]">sem turnos guardados</div>}
                           </td>
                           <td className="px-3 py-2 align-top text-[var(--color-text-muted)]">
                             {item.linhas.map((l) => l.rubrica).join(' · ') || 'apenas o líquido'}
                           </td>
                           <td className="px-3 py-2 text-right align-top tabular-nums">{fmt(item.liquidoAntes)}</td>
                           <td className="px-3 py-2 text-right align-top tabular-nums">{fmt(item.liquidoAgora)}</td>
-                          <td className={`px-3 py-2 text-right align-top font-semibold tabular-nums ${item.diferencaLiquido > 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                          <td className={`px-3 py-2 text-right align-top font-semibold tabular-nums ${item.diferencaLiquido > 0 ? 'text-[#4ade80]' : 'text-[#fca5a5]'}`}>
                             {item.diferencaLiquido > 0 ? '+' : ''}{fmt(item.diferencaLiquido)}
                           </td>
                         </tr>
@@ -397,7 +460,7 @@ export function FolhaPagamentoPanel() {
             Clique em uma linha para expandir o detalhamento. Tabelas INSS/IRRF da competência{' '}
             <strong>{cltSettings.tabelasVigenciaEm ?? COMPETENCIA_TABELAS_PADRAO}</strong>
             {tabelasDesatualizadas && (
-              <span className="ml-1 text-[#f59e0b]">
+              <span className="ml-1 text-[#fbbf24]">
                 — desatualizadas há mais de 12 meses. Revise em Configurações antes de fechar a folha.
               </span>
             )}
@@ -420,7 +483,7 @@ export function FolhaPagamentoPanel() {
       {currentPayroll && (
         <div className="hidden print:block mt-4">
           <h1 className="text-lg font-bold mb-1">Folha de Pagamento — {monthLabel}</h1>
-          <p className="text-xs text-[#6b6b6b] mb-3">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
+          <p className="text-xs text-[#adadad] mb-3">Gerado em: {new Date().toLocaleString('pt-BR')}</p>
           <table className="w-full border-collapse text-xs">
             <thead>
               <tr>

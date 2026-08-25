@@ -7,6 +7,7 @@ import { parseLocaleNumber } from '@/lib/numberFormat'
 import type { Shift, CLTViolationLevel, CLTSettings } from '@/types'
 import { calcShiftHours } from '../utils/cltEngine'
 import { dataLocalISO } from '@/lib/utils'
+import { AcoesDaLinha } from './AcoesDaLinha'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -80,14 +81,14 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
   }
 
   const fieldClass = 'w-full bg-[#333333] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
-  const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
+  const labelClass = 'block text-[#adadad] text-xs mb-1'
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-[#333333] border border-[#525252] rounded-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-4 border-b border-[#525252]">
           <h3 className="text-[#f5f5f5] text-sm font-semibold">{initial?.id ? 'Editar Turno' : 'Novo Turno'}</h3>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-3">
           <div>
@@ -143,12 +144,12 @@ function ShiftDialog({ initial, workers, onSave, onDelete, onClose }: ShiftDialo
           )}
           <div className="flex justify-between pt-1">
             {onDelete && (
-              <button type="button" onClick={onDelete} className="px-3 py-1.5 rounded-lg border border-[#ef4444]/40 text-[#ef4444] text-xs hover:bg-[#ef4444]/10">
+              <button type="button" onClick={onDelete} className="px-3 py-1.5 rounded-lg border border-[#ef4444]/40 text-[#fca5a5] text-xs hover:bg-[#ef4444]/10">
                 Remover
               </button>
             )}
             <div className="flex gap-2 ml-auto">
-              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">Cancelar</button>
+              <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-[#adadad] text-xs hover:text-[#f5f5f5]">Cancelar</button>
               <button type="submit" className="px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold">Salvar</button>
             </div>
           </div>
@@ -164,13 +165,13 @@ function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings
   const [form, setForm] = useState({ ...settings })
   const num = (field: keyof CLTSettings) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((p) => ({ ...p, [field]: parseFloat(e.target.value) || 0 }))
   const fieldClass = 'w-full bg-[#333333] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
-  const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
+  const labelClass = 'block text-[#adadad] text-xs mb-1'
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-[#333333] border border-[#525252] rounded-2xl w-full max-w-sm">
         <div className="flex items-center justify-between p-4 border-b border-[#525252]">
           <h3 className="text-[#f5f5f5] text-sm font-semibold">Configurações CLT</h3>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={16} /></button>
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5]"><X size={16} /></button>
         </div>
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div><label className={labelClass}>Jornada diária (h)</label><input type="number" className={fieldClass} value={form.maxDailyHours} onChange={num('maxDailyHours')} /></div>
@@ -182,7 +183,7 @@ function CLTSettingsModal({ settings, onSave, onClose }: { settings: CLTSettings
           <div><label className={labelClass}>Adicional noturno (%)</label><input type="number" className={fieldClass} value={form.nightDifferential} onChange={num('nightDifferential')} /></div>
           <div><label className={labelClass}>Taxa HE (%)</label><input type="number" className={fieldClass} value={form.overtimeRate} onChange={num('overtimeRate')} /></div>
           <div className="col-span-2 flex justify-end gap-2 pt-1">
-            <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs">Cancelar</button>
+            <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-[#525252] text-[#adadad] text-xs">Cancelar</button>
             <button onClick={() => { onSave(form); onClose() }} className="px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold">Salvar</button>
           </div>
         </div>
@@ -217,7 +218,7 @@ function MonthlyView({ shifts, year, month, onDayClick, m2ByDate }: { shifts: Sh
     <div>
       <div className="grid grid-cols-7 gap-px">
         {days.map((d) => (
-          <div key={d} className="py-2 text-center text-[10px] text-[#6b6b6b] font-semibold">{d}</div>
+          <div key={d} className="py-2 text-center text-[11px] text-[#adadad] font-semibold">{d}</div>
         ))}
         {Array.from({ length: blanks }).map((_, i) => <div key={`b-${i}`} />)}
         {dates.map((date) => {
@@ -237,12 +238,12 @@ function MonthlyView({ shifts, year, month, onDayClick, m2ByDate }: { shifts: Sh
             >
               <span className="text-[11px] font-semibold" style={{ color: isWeekend ? '#3f3f3f' : '#f5f5f5' }}>{date.getDate()}</span>
               {info && (
-                <span className="text-[9px] mt-0.5" style={{ color }}>
+                <span className="text-[11px] mt-0.5" style={{ color }}>
                   {info.dayOff > 0 ? 'DSR' : `${info.total}↑${info.absent > 0 ? ` ${info.absent}✗` : ''}`}
                 </span>
               )}
               {!!m2ByDate?.get(ymd) && (
-                <span className="text-[8px] leading-none mt-0.5 text-[#22c55e]" title="m² produzidos (apontamentos + RDO)">{Math.round(m2ByDate.get(ymd)!)}m²</span>
+                <span className="text-[11px] leading-none mt-0.5 text-[#4ade80]" title="m² produzidos (apontamentos + RDO)">{Math.round(m2ByDate.get(ymd)!)}m²</span>
               )}
             </button>
           )
@@ -274,11 +275,11 @@ function WeeklyView({ shifts, workers, dates, onCellClick }: {
       <table className="w-full text-xs border-collapse">
         <thead>
           <tr>
-            <th className="text-left px-2 py-2 text-[#6b6b6b] font-medium w-32">Colaborador</th>
+            <th className="text-left px-2 py-2 text-[#adadad] font-medium w-32">Colaborador</th>
             {dates.map((d) => (
-              <th key={toYMD(d)} className="text-center px-1 py-2 text-[#6b6b6b] font-medium min-w-[80px]">
+              <th key={toYMD(d)} className="text-center px-1 py-2 text-[#adadad] font-medium min-w-[80px]">
                 <div>{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][d.getDay()]}</div>
-                <div className="text-[10px]">{d.getDate().toString().padStart(2, '0')}/{(d.getMonth() + 1).toString().padStart(2, '0')}</div>
+                <div className="text-[11px]">{d.getDate().toString().padStart(2, '0')}/{(d.getMonth() + 1).toString().padStart(2, '0')}</div>
               </th>
             ))}
           </tr>
@@ -297,12 +298,12 @@ function WeeklyView({ shifts, workers, dates, onCellClick }: {
                     onClick={() => onCellClick(w.id, ymd)}
                   >
                     {dayShifts.length === 0 ? (
-                      <span className="text-[#1f3c5e]">—</span>
+                      <span className="text-[#adadad]">—</span>
                     ) : (
                       dayShifts.map((s) => {
                         const color = SHIFT_TYPE_COLOR[s.status === 'absent' ? 'absent' : s.type]
                         return (
-                          <div key={s.id} className="rounded px-1 py-0.5 text-[9px] font-semibold leading-tight" style={{ backgroundColor: `${color}22`, color }}>
+                          <div key={s.id} className="rounded px-1 py-0.5 text-[11px] font-semibold leading-tight" style={{ backgroundColor: `${color}22`, color }}>
                             {s.type === 'day_off' ? 'DSR' : s.status === 'absent' ? 'Falta' : `${s.startTime}–${s.endTime}`}
                           </div>
                         )
@@ -343,7 +344,7 @@ function DailyView({ shifts, workers, selectedDate, onAddShift, onEditShift }: {
       </div>
       {dayShifts.length === 0 ? (
         <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-6 text-center">
-          <p className="text-[#6b6b6b] text-sm">Nenhum turno registrado para este dia.</p>
+          <p className="text-[#adadad] text-sm">Nenhum turno registrado para este dia.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -361,14 +362,14 @@ function DailyView({ shifts, workers, selectedDate, onAddShift, onEditShift }: {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-[#f5f5f5] text-xs font-semibold truncate">{w?.name ?? s.workerId}</span>
-                    <span className="text-[#6b6b6b] text-[10px]">{w?.role}</span>
+                    <span className="text-[#adadad] text-[11px]">{w?.role}</span>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-[#6b6b6b]">
+                  <div className="flex items-center gap-3 text-[11px] text-[#adadad]">
                     {s.type !== 'day_off' && <span>{s.startTime}–{s.endTime} · {hours.toFixed(1)}h</span>}
                     {s.workFront && <span>📍 {s.workFront}</span>}
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold shrink-0" style={{ backgroundColor: `${color}18`, color }}>
+                <span className="px-2 py-0.5 rounded text-[11px] font-bold shrink-0" style={{ backgroundColor: `${color}18`, color }}>
                   {s.type === 'day_off' ? 'DSR' : s.status === 'absent' ? 'Falta' : SHIFT_TYPE_LABEL[s.type]}
                 </span>
               </div>
@@ -492,22 +493,22 @@ export function EscalaInteligentePanel() {
         {/* Month/Year navigation */}
         {viewMode !== 'day' && (
           <>
-            <button onClick={() => { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1) }} className="px-2 py-1.5 text-[#6b6b6b] hover:text-[#f5f5f5]">‹</button>
+            <button onClick={() => { if (month === 0) { setMonth(11); setYear(y => y - 1) } else setMonth(m => m - 1) }} className="px-2 py-1.5 text-[#adadad] hover:text-[#f5f5f5]">‹</button>
             <span className="text-[#f5f5f5] text-xs font-semibold min-w-20 text-center">{monthNames[month]} {year}</span>
-            <button onClick={() => { if (month === 11) { setMonth(0); setYear(y => y + 1) } else setMonth(m => m + 1) }} className="px-2 py-1.5 text-[#6b6b6b] hover:text-[#f5f5f5]">›</button>
+            <button onClick={() => { if (month === 11) { setMonth(0); setYear(y => y + 1) } else setMonth(m => m + 1) }} className="px-2 py-1.5 text-[#adadad] hover:text-[#f5f5f5]">›</button>
           </>
         )}
 
         {viewMode === 'day' && (
           <>
-            <button onClick={() => { const d = new Date(selectedDate + 'T00:00:00'); d.setDate(d.getDate() - 1); setSelectedDate(toYMD(d)) }} className="px-2 py-1.5 text-[#6b6b6b] hover:text-[#f5f5f5]">‹</button>
+            <button onClick={() => { const d = new Date(selectedDate + 'T00:00:00'); d.setDate(d.getDate() - 1); setSelectedDate(toYMD(d)) }} className="px-2 py-1.5 text-[#adadad] hover:text-[#f5f5f5]">‹</button>
             <span className="text-[#f5f5f5] text-xs font-semibold">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
-            <button onClick={() => { const d = new Date(selectedDate + 'T00:00:00'); d.setDate(d.getDate() + 1); setSelectedDate(toYMD(d)) }} className="px-2 py-1.5 text-[#6b6b6b] hover:text-[#f5f5f5]">›</button>
+            <button onClick={() => { const d = new Date(selectedDate + 'T00:00:00'); d.setDate(d.getDate() + 1); setSelectedDate(toYMD(d)) }} className="px-2 py-1.5 text-[#adadad] hover:text-[#f5f5f5]">›</button>
           </>
         )}
 
         <div className="ml-auto flex gap-2">
-          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#f5f5f5]">
+          <button onClick={() => setShowSettings(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#adadad] text-xs hover:text-[#f5f5f5]">
             <Settings size={12} /> CLT
           </button>
           <button
@@ -545,12 +546,12 @@ export function EscalaInteligentePanel() {
             <p className="text-[#f5f5f5] text-sm font-semibold">Alertas CLT</p>
             <div className="flex gap-1.5">
               {blocking.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: '#ef444418', color: '#ef4444' }}>
+                <span className="px-1.5 py-0.5 rounded text-[11px] font-bold" style={{ backgroundColor: '#ef444418', color: '#ef4444' }}>
                   {blocking.length} bloqueante{blocking.length !== 1 ? 's' : ''}
                 </span>
               )}
               {warnings.length > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: '#f59e0b18', color: '#f59e0b' }}>
+                <span className="px-1.5 py-0.5 rounded text-[11px] font-bold" style={{ backgroundColor: '#f59e0b18', color: '#f59e0b' }}>
                   {warnings.length} aviso{warnings.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -559,7 +560,7 @@ export function EscalaInteligentePanel() {
 
           {violations.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-[#22c55e] text-xs text-center">✓ Nenhuma violação CLT detectada</p>
+              <p className="text-[#4ade80] text-xs text-center">✓ Nenhuma violação CLT detectada</p>
             </div>
           ) : (
             <div className="flex flex-col gap-2 overflow-y-auto max-h-[400px]">
@@ -568,25 +569,25 @@ export function EscalaInteligentePanel() {
                 return (
                   <div key={v.id} className="rounded-lg p-2.5" style={{ backgroundColor: `${color}0f`, border: `1px solid ${color}22` }}>
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[9px] font-bold px-1 rounded" style={{ backgroundColor: `${color}22`, color }}>{SEVERITY_LABEL[v.severity]}</span>
-                      <span className="text-[#6b6b6b] text-[9px]">{v.date}</span>
+                      <span className="text-[11px] font-bold px-1 rounded" style={{ backgroundColor: `${color}22`, color }}>{SEVERITY_LABEL[v.severity]}</span>
+                      <span className="text-[#adadad] text-[11px]">{v.date}</span>
                     </div>
-                    <p className="text-[10px] leading-relaxed" style={{ color }}>{v.description}</p>
+                    <p className="text-[11px] leading-relaxed" style={{ color }}>{v.description}</p>
                   </div>
                 )
               })}
               {violations.length > 20 && (
-                <p className="text-[#6b6b6b] text-[10px] text-center">+ {violations.length - 20} mais…</p>
+                <p className="text-[#adadad] text-[11px] text-center">+ {violations.length - 20} mais…</p>
               )}
             </div>
           )}
 
           {/* Legend */}
           <div className="border-t border-[#525252] pt-3">
-            <p className="text-[#6b6b6b] text-[10px] mb-2">Tipos de turno</p>
+            <p className="text-[#adadad] text-[11px] mb-2">Tipos de turno</p>
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(SHIFT_TYPE_LABEL).map(([type, label]) => (
-                <span key={type} className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: `${SHIFT_TYPE_COLOR[type]}18`, color: SHIFT_TYPE_COLOR[type] }}>
+                <span key={type} className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ backgroundColor: `${SHIFT_TYPE_COLOR[type]}18`, color: SHIFT_TYPE_COLOR[type] }}>
                   {label}
                 </span>
               ))}
@@ -639,11 +640,11 @@ function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew }: Equ
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-[#f5f5f5]">
-          <LayoutGrid size={14} className="text-[#f97316]" />
+          <LayoutGrid size={14} className="text-[#ffa055]" />
           Equipes ({crews.length})
-          <span className="text-[10px] font-normal text-[#6b6b6b]">— configure times por obra e selecione-os direto nos RDOs</span>
+          <span className="text-[11px] font-normal text-[#adadad]">— configure times por obra e selecione-os direto nos RDOs</span>
         </span>
-        <span className="text-[#6b6b6b] text-xs">{open ? 'Recolher' : 'Expandir'}</span>
+        <span className="text-[#adadad] text-xs">{open ? 'Recolher' : 'Expandir'}</span>
       </button>
 
       {open && (
@@ -654,14 +655,19 @@ function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew }: Equ
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#f5f5f5]">{crew.name}</p>
-                    <p className="text-[10px] text-[#6b6b6b]">{crew.projectRef || 'Sem obra vinculada'}{crew.specialty ? ` · ${crew.specialty}` : ''}</p>
+                    <p className="text-[11px] text-[#adadad]">{crew.projectRef || 'Sem obra vinculada'}{crew.specialty ? ` · ${crew.specialty}` : ''}</p>
                   </div>
-                  <div className="flex shrink-0 gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button onClick={() => setEditing(crew)} className="p-1 text-[#6b6b6b] hover:text-[#f97316]" aria-label={`Editar equipe ${crew.name}`}><Settings size={13} /></button>
-                    <button onClick={() => removeCrew(crew.id)} className="p-1 text-[#6b6b6b] hover:text-red-400" aria-label={`Excluir equipe ${crew.name}`}><X size={13} /></button>
-                  </div>
+                  {/* Estes dois eram `opacity-0` até o hover — em tablet no canteiro NÃO existe
+                      hover, então editar e excluir equipe eram inalcançáveis. E usavam engrenagem
+                      e "X" no lugar de lápis e lixeira, quebrando o vocabulário do módulo. */}
+                  <AcoesDaLinha
+                    descricao={`a equipe ${crew.name}`}
+                    onEditar={() => setEditing(crew)}
+                    onExcluir={() => removeCrew(crew.id)}
+                    consequencia="Os funcionários continuam cadastrados; só o agrupamento é desfeito."
+                  />
                 </div>
-                <p className="mt-2 text-[11px] text-[#a3a3a3]">
+                <p className="mt-2 text-[11px] text-[#c9c9c9]">
                   {crew.foreman ? `Encarregado: ${crew.foreman} · ` : ''}{crew.workerIds.length} membro{crew.workerIds.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -669,7 +675,7 @@ function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew }: Equ
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="flex min-h-[72px] items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#525252] text-xs font-semibold text-[#a3a3a3] transition-colors hover:border-[#f97316] hover:text-[#f97316]"
+              className="flex min-h-[72px] items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#525252] text-xs font-semibold text-[#c9c9c9] transition-colors hover:border-[#f97316] hover:text-[#ffa055]"
             >
               <Plus size={13} /> Nova equipe
             </button>
@@ -709,14 +715,14 @@ function EquipeDialog({
   const [memberIds, setMemberIds] = useState<string[]>(initial?.workerIds ?? [])
 
   const input = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]'
-  const label = 'block text-[10px] text-[#a3a3a3] uppercase mb-1'
+  const label = 'block text-[11px] text-[#c9c9c9] uppercase mb-1'
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="w-full max-w-md space-y-3 rounded-xl border border-[#525252] bg-[#333333] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{initial ? 'Editar Equipe' : 'Nova Equipe'}</h3>
-          <button type="button" onClick={onClose} className="text-[#6b6b6b] hover:text-white" aria-label="Fechar"><X size={16} /></button>
+          <button type="button" onClick={onClose} className="text-[#adadad] hover:text-white" aria-label="Fechar"><X size={16} /></button>
         </div>
         <div>
           <label className={label}>Nome da equipe *</label>
@@ -742,11 +748,11 @@ function EquipeDialog({
         <div>
           <label className={label}>Funcionários ({memberIds.length} selecionado{memberIds.length !== 1 ? 's' : ''})</label>
           {workers.length === 0 ? (
-            <p className="text-xs text-[#6b6b6b]">Cadastre funcionários na aba Funcionários para montar equipes.</p>
+            <p className="text-xs text-[#adadad]">Cadastre funcionários na aba Funcionários para montar equipes.</p>
           ) : (
             <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-[#525252] bg-[#2c2c2c] p-2">
               {workers.map((w) => (
-                <label key={w.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-[#a3a3a3] transition-colors hover:bg-[#3d3d3d] hover:text-[#f5f5f5]">
+                <label key={w.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-[#c9c9c9] transition-colors hover:bg-[#3d3d3d] hover:text-[#f5f5f5]">
                   <input
                     type="checkbox"
                     className="h-3.5 w-3.5 accent-[#f97316]"
@@ -754,7 +760,7 @@ function EquipeDialog({
                     onChange={() => setMemberIds((ids) => ids.includes(w.id) ? ids.filter((x) => x !== w.id) : [...ids, w.id])}
                   />
                   <span>{w.name}</span>
-                  {w.role && <span className="text-[10px] text-[#6b6b6b]">· {w.role}</span>}
+                  {w.role && <span className="text-[11px] text-[#adadad]">· {w.role}</span>}
                 </label>
               ))}
             </div>

@@ -86,7 +86,7 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
       <div className="bg-[#333333] border border-[#525252] rounded-xl w-full max-w-md p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[#f5f5f5] text-base font-semibold">Registrar Ocorrência</h2>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5] transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -95,18 +95,18 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
           {/* Date + Type row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Data *</span>
+              <span className="text-[#adadad] text-xs font-medium">Data *</span>
               <input
                 type="date"
                 value={form.date}
                 onChange={(e) => handleField('date', e.target.value)}
                 className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               />
-              {errors.date && <span className="text-[#ef4444] text-xs">{errors.date}</span>}
+              {errors.date && <span className="text-[#fca5a5] text-xs">{errors.date}</span>}
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Tipo *</span>
+              <span className="text-[#adadad] text-xs font-medium">Tipo *</span>
               <select
                 value={form.type}
                 onChange={(e) => handleField('type', e.target.value as import('@/types').OccurrenceType)}
@@ -121,7 +121,7 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
 
           {/* Description */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Descrição *</span>
+            <span className="text-[#adadad] text-xs font-medium">Descrição *</span>
             <textarea
               maxLength={500}
               rows={3}
@@ -130,12 +130,12 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
               className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316] resize-none"
               placeholder="Descreva a ocorrência e seu impacto..."
             />
-            {errors.description && <span className="text-[#ef4444] text-xs">{errors.description}</span>}
+            {errors.description && <span className="text-[#fca5a5] text-xs">{errors.description}</span>}
           </label>
 
           {/* Impact hours */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Horas impactadas *</span>
+            <span className="text-[#adadad] text-xs font-medium">Horas impactadas *</span>
             <input
               type="number"
               min={0}
@@ -145,12 +145,12 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
               onChange={(e) => handleField('impactHours', parseFloat(e.target.value) || 0)}
               className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
             />
-            {errors.impactHours && <span className="text-[#ef4444] text-xs">{errors.impactHours}</span>}
+            {errors.impactHours && <span className="text-[#fca5a5] text-xs">{errors.impactHours}</span>}
           </label>
 
           {/* Affected crews */}
           <div className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Equipes afetadas *</span>
+            <span className="text-[#adadad] text-xs font-medium">Equipes afetadas *</span>
             <div className="flex flex-col gap-1.5">
               {crews.map((crew) => (
                 <label key={crew.id} className="flex items-center gap-2 cursor-pointer">
@@ -165,7 +165,7 @@ export function OcorrenciaDialog({ onClose, ocorrencia }: Props) {
               ))}
             </div>
             {errors.affectedCrewIds && (
-              <span className="text-[#ef4444] text-xs">{errors.affectedCrewIds}</span>
+              <span className="text-[#fca5a5] text-xs">{errors.affectedCrewIds}</span>
             )}
           </div>
 

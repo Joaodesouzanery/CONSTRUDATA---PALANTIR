@@ -92,7 +92,7 @@ export function WorkerDialog({ onClose }: Props) {
       <div className="bg-[#333333] border border-[#525252] rounded-xl w-full max-w-lg p-6 flex flex-col gap-4 my-auto">
         <div className="flex items-center justify-between">
           <h2 className="text-[#f5f5f5] text-base font-semibold">Novo Funcionário</h2>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5] transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -100,7 +100,7 @@ export function WorkerDialog({ onClose }: Props) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Name */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Nome completo *</span>
+            <span className="text-[#adadad] text-xs font-medium">Nome completo *</span>
             <input
               type="text"
               maxLength={100}
@@ -109,12 +109,12 @@ export function WorkerDialog({ onClose }: Props) {
               className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               placeholder="Ex: João da Silva"
             />
-            {errors.name && <span className="text-[#ef4444] text-xs">{errors.name}</span>}
+            {errors.name && <span className="text-[#fca5a5] text-xs">{errors.name}</span>}
           </label>
 
           {/* Role */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Função *</span>
+            <span className="text-[#adadad] text-xs font-medium">Função *</span>
             <input
               type="text"
               maxLength={100}
@@ -123,13 +123,13 @@ export function WorkerDialog({ onClose }: Props) {
               className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               placeholder="Ex: Pedreiro Oficial"
             />
-            {errors.role && <span className="text-[#ef4444] text-xs">{errors.role}</span>}
+            {errors.role && <span className="text-[#fca5a5] text-xs">{errors.role}</span>}
           </label>
 
           {/* Crew + Status row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Equipe</span>
+              <span className="text-[#adadad] text-xs font-medium">Equipe</span>
               <select
                 value={form.crewId}
                 onChange={(e) => handleField('crewId', e.target.value)}
@@ -141,7 +141,7 @@ export function WorkerDialog({ onClose }: Props) {
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Status *</span>
+              <span className="text-[#adadad] text-xs font-medium">Status *</span>
               <select
                 value={form.status}
                 onChange={(e) => handleField('status', e.target.value as import('@/types').WorkerStatus)}
@@ -154,7 +154,7 @@ export function WorkerDialog({ onClose }: Props) {
 
           {/* Obra (Torre) — vínculo de obra do funcionário */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Obra (Torre de Controle)</span>
+            <span className="text-[#adadad] text-xs font-medium">Obra (Torre de Controle)</span>
             <select
               value={form.siteId ?? ''}
               onChange={(e) => handleField('siteId', e.target.value)}
@@ -167,7 +167,7 @@ export function WorkerDialog({ onClose }: Props) {
 
           {/* Hourly rate */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Valor hora (R$) *</span>
+            <span className="text-[#adadad] text-xs font-medium">Valor hora (R$) *</span>
             <input
               type="number"
               min={0}
@@ -177,17 +177,17 @@ export function WorkerDialog({ onClose }: Props) {
               onChange={(e) => handleField('hourlyRate', parseFloat(e.target.value) || 0)}
               className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
             />
-            {errors.hourlyRate && <span className="text-[#ef4444] text-xs">{errors.hourlyRate}</span>}
+            {errors.hourlyRate && <span className="text-[#fca5a5] text-xs">{errors.hourlyRate}</span>}
           </label>
 
           {/* Certifications */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-[#6b6b6b] text-xs font-medium">Certificações</span>
+              <span className="text-[#adadad] text-xs font-medium">Certificações</span>
               <button
                 type="button"
                 onClick={addCert}
-                className="flex items-center gap-1 text-xs text-[#f97316] hover:underline"
+                className="flex items-center gap-1 text-xs text-[#ffa055] hover:underline"
               >
                 <Plus size={11} /> Adicionar
               </button>
@@ -217,7 +217,7 @@ export function WorkerDialog({ onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => removeCert(idx)}
-                  className="text-[#6b6b6b] hover:text-[#ef4444] transition-colors ml-auto shrink-0"
+                  className="text-[#adadad] hover:text-[#fca5a5] transition-colors ml-auto shrink-0"
                 >
                   <Trash2 size={13} />
                 </button>

@@ -6,6 +6,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { Worker, ContractType, ScheduleType } from '@/types'
+import { AcoesDaLinha } from './AcoesDaLinha'
 
 type ObraOption = { id: string; code: string; name: string }
 
@@ -74,14 +75,14 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
   }
 
   const fieldClass = 'w-full bg-[#333333] border border-[#1f3c5e] rounded-lg px-3 py-2 text-[#f5f5f5] text-sm focus:outline-none focus:border-[#f97316]'
-  const labelClass = 'block text-[#6b6b6b] text-xs mb-1'
+  const labelClass = 'block text-[#adadad] text-xs mb-1'
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="bg-[#333333] border border-[#525252] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-[#525252]">
           <h2 className="text-[#f5f5f5] text-base font-semibold">{initial ? 'Editar Funcionário' : 'Novo Funcionário'}</h2>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={18} /></button>
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5]"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Col 1 */}
@@ -168,10 +169,10 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
             <input className={fieldClass} value={form.cpfMasked ?? ''} onChange={(e) => set('cpfMasked', e.target.value)} placeholder="***.***.***-XX" />
           </div>
 
-          {error && <p className="col-span-2 text-[#ef4444] text-xs">{error}</p>}
+          {error && <p className="col-span-2 text-[#fca5a5] text-xs">{error}</p>}
 
           <div className="col-span-2 flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#525252] text-[#6b6b6b] text-sm hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-[#525252] text-[#adadad] text-sm hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
               Cancelar
             </button>
             <button type="submit" className="px-4 py-2 rounded-lg bg-[#f97316] text-white text-sm font-semibold hover:bg-[#ea6c10]">
@@ -193,59 +194,59 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 py-3 bg-[#333333] border-t border-[#525252] text-xs">
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">E-mail</p>
+        <p className="text-[#adadad] mb-0.5">E-mail</p>
         <p className="text-[#f5f5f5]">{worker.email ?? '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Telefone</p>
+        <p className="text-[#adadad] mb-0.5">Telefone</p>
         <p className="text-[#f5f5f5]">{worker.phone ?? '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Equipe</p>
+        <p className="text-[#adadad] mb-0.5">Equipe</p>
         <p className="text-[#f5f5f5]">{crewName}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Frente de Trabalho</p>
+        <p className="text-[#adadad] mb-0.5">Frente de Trabalho</p>
         <p className="text-[#f5f5f5]">{worker.workFront ?? '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Admissão</p>
+        <p className="text-[#adadad] mb-0.5">Admissão</p>
         <p className="text-[#f5f5f5]">
           {worker.admissionDate ? new Date(worker.admissionDate + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
         </p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Contrato</p>
+        <p className="text-[#adadad] mb-0.5">Contrato</p>
         <p className="text-[#f5f5f5]">{worker.contractType ? CONTRACT_LABEL[worker.contractType] : '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Regime</p>
+        <p className="text-[#adadad] mb-0.5">Regime</p>
         <p className="text-[#f5f5f5]">{worker.scheduleType ? SCHEDULE_LABEL[worker.scheduleType] : '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Taxa Horária</p>
+        <p className="text-[#adadad] mb-0.5">Taxa Horária</p>
         <p className="text-[#f5f5f5]">R${worker.hourlyRate.toFixed(2)}/h</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Salário Bruto</p>
+        <p className="text-[#adadad] mb-0.5">Salário Bruto</p>
         <p className="text-[#f5f5f5]">{typeof worker.grossSalary === 'number' && worker.grossSalary > 0 ? `R$${worker.grossSalary.toFixed(2)}` : '—'}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Obra</p>
+        <p className="text-[#adadad] mb-0.5">Obra</p>
         <p className="text-[#f5f5f5]">{obraName}</p>
       </div>
       <div>
-        <p className="text-[#6b6b6b] mb-0.5">Local</p>
+        <p className="text-[#adadad] mb-0.5">Local</p>
         <p className="text-[#f5f5f5]">{worker.locationNote || '—'}</p>
       </div>
       {worker.certifications.length > 0 && (
         <div className="col-span-2 md:col-span-4">
-          <p className="text-[#6b6b6b] mb-1">Certificações</p>
+          <p className="text-[#adadad] mb-1">Certificações</p>
           <div className="flex flex-wrap gap-1.5">
             {worker.certifications.map((cert) => {
               const c = cert.status === 'valid' ? '#22c55e' : cert.status === 'expiring' ? '#f59e0b' : '#ef4444'
               return (
-                <span key={cert.id} className="px-2 py-0.5 rounded text-[10px] font-semibold" style={{ backgroundColor: `${c}18`, color: c }}>
+                <span key={cert.id} className="px-2 py-0.5 rounded text-[11px] font-semibold" style={{ backgroundColor: `${c}18`, color: c }}>
                   {cert.type} · {cert.status === 'valid' ? 'Válida' : cert.status === 'expiring' ? 'Vencendo' : 'Expirada'}
                 </span>
               )
@@ -276,36 +277,32 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete }:
         className="border-b border-[#525252] hover:bg-[#484848] cursor-pointer"
         onClick={() => onToggle(isExpanded ? null : w.id)}
       >
-        <td className="px-3 py-2.5 text-[#6b6b6b] font-mono">{w.registrationNumber ?? '—'}</td>
+        <td className="px-3 py-2.5 text-[#adadad] font-mono">{w.registrationNumber ?? '—'}</td>
         <td className="px-3 py-2.5 text-[#f5f5f5] font-medium max-w-[160px] truncate">{w.name}</td>
-        <td className="px-3 py-2.5 text-[#a3a3a3] max-w-[140px] truncate">{w.role}</td>
+        <td className="px-3 py-2.5 text-[#c9c9c9] max-w-[140px] truncate">{w.role}</td>
         <td className="px-3 py-2.5">
           {crewName
-            ? <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#f97316]/15 text-[#f97316]">{crewName}</span>
-            : <span className="text-[#6b6b6b] italic text-[10px]">Sem equipe</span>}
+            ? <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#f97316]/15 text-[#ffa055]">{crewName}</span>
+            : <span className="text-[#adadad] italic text-[11px]">Sem equipe</span>}
         </td>
-        <td className="px-3 py-2.5 text-[#6b6b6b] hidden md:table-cell">{w.department ?? '—'}</td>
+        <td className="px-3 py-2.5 text-[#adadad] hidden md:table-cell">{w.department ?? '—'}</td>
         <td className="px-3 py-2.5 text-[#f5f5f5] font-mono hidden md:table-cell">R${w.hourlyRate.toFixed(2)}</td>
         <td className="px-3 py-2.5">
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold" style={{ backgroundColor: `${sc}18`, color: sc }}>
+          <span className="px-2 py-0.5 rounded text-[11px] font-bold" style={{ backgroundColor: `${sc}18`, color: sc }}>
             {STATUS_LABEL[w.status]}
           </span>
         </td>
         <td className="px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(w) }}
-              className="text-[#6b6b6b] hover:text-[#f97316] text-[10px] font-semibold"
-            >
-              Editar
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(w) }}
-              className="text-[#6b6b6b] hover:text-[#ef4444] text-[10px] font-semibold"
-            >
-              Excluir
-            </button>
-            {isExpanded ? <ChevronUp size={12} className="text-[#6b6b6b]" /> : <ChevronDown size={12} className="text-[#6b6b6b]" />}
+            <div onClick={(e) => e.stopPropagation()}>
+              <AcoesDaLinha
+                descricao={`o funcionário ${w.name}`}
+                onEditar={() => onEdit(w)}
+                onExcluir={() => onDelete(w)}
+                consequencia="Apontamentos e turnos já lançados continuam no histórico."
+              />
+            </div>
+            {isExpanded ? <ChevronUp size={12} className="text-[#adadad]" /> : <ChevronDown size={12} className="text-[#adadad]" />}
           </div>
         </td>
       </tr>
@@ -444,7 +441,7 @@ export function FuncionariosPanel() {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-48">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#adadad]" />
           <input
             className="w-full bg-[#333333] border border-[#525252] rounded-lg pl-8 pr-3 py-1.5 text-[#f5f5f5] text-xs focus:outline-none focus:border-[#f97316]"
             placeholder="Buscar por nome ou matrícula…"
@@ -475,14 +472,14 @@ export function FuncionariosPanel() {
           onClick={() => setGroupByCrew(!groupByCrew)}
           className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
             groupByCrew
-              ? 'bg-[#f97316]/20 border-[#f97316] text-[#f97316]'
-              : 'border-[#525252] text-[#6b6b6b] hover:text-[#f5f5f5]'
+              ? 'bg-[#f97316]/20 border-[#f97316] text-[#ffa055]'
+              : 'border-[#525252] text-[#adadad] hover:text-[#f5f5f5]'
           }`}
         >
           Agrupar por Equipe
         </button>
-        <span className="text-[#6b6b6b] text-xs ml-auto">{filtered.length} colaborador{filtered.length !== 1 ? 'es' : ''}</span>
-        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#6b6b6b] text-xs hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
+        <span className="text-[#adadad] text-xs ml-auto">{filtered.length} colaborador{filtered.length !== 1 ? 'es' : ''}</span>
+        <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#525252] text-[#adadad] text-xs hover:text-[#f5f5f5] hover:border-[#1f3c5e]">
           <Download size={12} /> CSV
         </button>
         <button onClick={() => { setEditingWorker(null); setShowForm(true) }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#f97316] text-white text-xs font-semibold hover:bg-[#ea6c10]">
@@ -497,7 +494,7 @@ export function FuncionariosPanel() {
             <thead>
               <tr className="border-b border-[#525252]">
                 {['Matrícula', 'Nome', 'Função', 'Equipe', 'Departamento', 'Taxa/h', 'Status', ''].map((h) => (
-                  <th key={h} className="px-3 py-2.5 text-left text-[#6b6b6b] font-medium whitespace-nowrap">{h}</th>
+                  <th key={h} className="px-3 py-2.5 text-left text-[#adadad] font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -512,7 +509,7 @@ export function FuncionariosPanel() {
                           <span className="text-[#f5f5f5] text-xs font-semibold">
                             {group.crew?.name ?? 'Sem equipe definida'}
                           </span>
-                          <span className="text-[#6b6b6b] text-[10px]">({group.workers.length})</span>
+                          <span className="text-[#adadad] text-[11px]">({group.workers.length})</span>
                         </div>
                       </td>
                     </tr>
@@ -528,7 +525,7 @@ export function FuncionariosPanel() {
               )}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#6b6b6b]">Nenhum colaborador encontrado</td>
+                  <td colSpan={8} className="px-4 py-8 text-center text-[#adadad]">Nenhum colaborador encontrado</td>
                 </tr>
               )}
             </tbody>

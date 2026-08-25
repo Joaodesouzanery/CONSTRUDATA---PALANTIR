@@ -41,11 +41,11 @@ class MaoDeObraPanelBoundary extends Component<{ children: ReactNode; activeTab:
     return (
       <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-6 text-center">
         <p className="text-sm font-semibold text-[#f5f5f5]">Nao foi possivel abrir esta aba.</p>
-        <p className="mt-2 text-xs text-[#a3a3a3]">Os dados locais foram preservados. Tente outra aba ou recarregue a tela.</p>
+        <p className="mt-2 text-xs text-[#c9c9c9]">Os dados locais foram preservados. Tente outra aba ou recarregue a tela.</p>
         <button
           type="button"
           onClick={() => this.setState({ hasError: false })}
-          className="mt-4 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-semibold text-[#f97316] hover:border-[#f97316]/40"
+          className="mt-4 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-semibold text-[#ffa055] hover:border-[#f97316]/40"
         >
           Tentar novamente
         </button>

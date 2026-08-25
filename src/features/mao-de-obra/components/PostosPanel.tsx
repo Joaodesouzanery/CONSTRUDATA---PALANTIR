@@ -41,7 +41,7 @@ function WorkPostDialog({ post, onClose, onSave }: WorkPostDialogProps) {
 
   const labelCls = 'block text-xs font-medium text-[var(--color-text-secondary)] mb-1'
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]'
-  const errCls   = 'text-xs text-[#ef4444] mt-1'
+  const errCls   = 'text-xs text-[#fca5a5] mt-1'
 
   const shiftOptions: { value: WorkPost['shift']; label: string }[] = [
     { value: 'morning',   label: 'Manhã'   },
@@ -228,8 +228,8 @@ export function PostosPanel() {
         <div className="flex gap-3">
           {[
             { label: 'Total de Postos', value: totalPosts,  color: 'text-[var(--color-text-primary)]' },
-            { label: 'Cobertos Hoje',   value: coveredToday,  color: 'text-[#22c55e]' },
-            { label: 'Descobertos',     value: uncoveredNow,  color: uncoveredNow > 0 ? 'text-[#ef4444]' : 'text-[var(--color-text-secondary)]' },
+            { label: 'Cobertos Hoje',   value: coveredToday,  color: 'text-[#4ade80]' },
+            { label: 'Descobertos',     value: uncoveredNow,  color: uncoveredNow > 0 ? 'text-[#fca5a5]' : 'text-[var(--color-text-secondary)]' },
           ].map(stat => (
             <div key={stat.label}
               className="flex flex-col items-center px-4 py-2 rounded-xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)]">
@@ -290,7 +290,7 @@ export function PostosPanel() {
                         Editar
                       </button>
                       <button onClick={() => setConfirmDelete(post.id)}
-                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors">
+                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[#ef4444]/10 text-[#fca5a5] hover:bg-[#ef4444]/20 transition-colors">
                         Remover
                       </button>
                     </div>
@@ -337,7 +337,7 @@ export function PostosPanel() {
                     const dow = new Date(date + 'T12:00:00').getDay()
                     const isSun = dow === 0
                     return (
-                      <th key={date} className={`px-2 py-2 text-center font-semibold ${isSun ? 'text-[#ef4444]/70' : 'text-[var(--color-text-secondary)]'} uppercase tracking-wider min-w-[80px]`}>
+                      <th key={date} className={`px-2 py-2 text-center font-semibold ${isSun ? 'text-[#fca5a5]/70' : 'text-[var(--color-text-secondary)]'} uppercase tracking-wider min-w-[80px]`}>
                         {formatDateShort(date)}
                       </th>
                     )
@@ -367,16 +367,16 @@ export function PostosPanel() {
 
                       const covered = cell.scheduled >= cell.required
                       const partial = !covered && cell.scheduled > 0
-                      const bgCls = covered ? 'bg-[#22c55e]/15 text-[#22c55e]'
-                                  : partial  ? 'bg-[#f59e0b]/15 text-[#f59e0b]'
-                                  :            'bg-[#ef4444]/15 text-[#ef4444]'
+                      const bgCls = covered ? 'bg-[#22c55e]/15 text-[#4ade80]'
+                                  : partial  ? 'bg-[#f59e0b]/15 text-[#fbbf24]'
+                                  :            'bg-[#ef4444]/15 text-[#fca5a5]'
 
                       return (
                         <td key={date} className="px-2 py-2 text-center">
                           <div className={`inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 min-w-[52px] ${bgCls}`}>
                             <span className="font-bold text-sm">{cell.scheduled}/{cell.required}</span>
                             {cell.workerNames.length > 0 && (
-                              <span className="text-[10px] leading-tight opacity-80 max-w-[70px] truncate">
+                              <span className="text-[11px] leading-tight opacity-80 max-w-[70px] truncate">
                                 {cell.workerNames[0].split(' ')[0]}
                                 {cell.workerNames.length > 1 ? ` +${cell.workerNames.length - 1}` : ''}
                               </span>
@@ -395,9 +395,9 @@ export function PostosPanel() {
         {/* Legend */}
         <div className="flex items-center gap-4 px-5 py-2 border-t border-[var(--color-border)]">
           {[
-            { color: 'bg-[#22c55e]/15 text-[#22c55e]', label: 'Coberto' },
-            { color: 'bg-[#f59e0b]/15 text-[#f59e0b]', label: 'Parcial' },
-            { color: 'bg-[#ef4444]/15 text-[#ef4444]', label: 'Descoberto' },
+            { color: 'bg-[#22c55e]/15 text-[#4ade80]', label: 'Coberto' },
+            { color: 'bg-[#f59e0b]/15 text-[#fbbf24]', label: 'Parcial' },
+            { color: 'bg-[#ef4444]/15 text-[#fca5a5]', label: 'Descoberto' },
           ].map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1.5">
               <span className={`inline-block w-3 h-3 rounded ${color.split(' ')[0]}`} />

@@ -125,11 +125,11 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15">
-            <Users size={18} className="text-[#f97316]" />
+            <Users size={18} className="text-[#ffa055]" />
           </div>
           <div>
             <h1 className="text-[#f5f5f5] text-lg font-semibold leading-none">Mão de Obra</h1>
-            <p className="text-[#6b6b6b] text-xs mt-0.5">Gestão de equipes, ausências e folha de pagamento</p>
+            <p className="text-[#adadad] text-xs mt-0.5">Gestão de equipes, ausências e folha de pagamento</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -183,7 +183,7 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
               <kpi.icon size={16} style={{ color: kpi.color }} />
             </div>
             <div className="min-w-0">
-              <p className="text-[#6b6b6b] text-xs truncate">{kpi.label}</p>
+              <p className="text-[#adadad] text-xs truncate">{kpi.label}</p>
               <p className="text-[#f5f5f5] text-lg font-bold leading-tight">{kpi.value}</p>
             </div>
           </div>
@@ -199,8 +199,8 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
             className={cn(
               'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0',
               activeTab === tab.id
-                ? 'border-[#f97316] text-[#f97316]'
-                : 'border-transparent text-[#6b6b6b] hover:text-[#f5f5f5]',
+                ? 'border-[#f97316] text-[#ffa055]'
+                : 'border-transparent text-[#adadad] hover:text-[#f5f5f5]',
             )}
           >
             {tab.label}

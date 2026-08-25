@@ -69,22 +69,22 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15"><Gauge size={18} className="text-[#f97316]" /></div>
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#f97316]/15"><Gauge size={18} className="text-[#ffa055]" /></div>
           <div>
             <h2 className="text-[#f5f5f5] text-base font-semibold leading-none">Produtividade (RUP)</h2>
-            <p className="text-[#6b6b6b] text-xs mt-0.5">{isAllObras ? 'Todas as obras' : (activeSite?.name ?? 'Obra')} · homem-hora por m² vs TCPO</p>
+            <p className="text-[#adadad] text-xs mt-0.5">{isAllObras ? 'Todas as obras' : (activeSite?.name ?? 'Obra')} · homem-hora por m² vs TCPO</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 bg-[#2d2d2d] border border-[#525252] rounded-lg px-2 py-1">
-            <label className="text-[10px] uppercase tracking-wider text-[#9a9a9a]">Meta TCPO (h/m²)</label>
+            <label className="text-[11px] uppercase tracking-wider text-[#c9c9c9]">Meta TCPO (h/m²)</label>
             <input className="w-16 bg-transparent text-sm text-[#f5f5f5] outline-none text-right" defaultValue={target} key={`tcpo-${target}`}
               onBlur={(e) => { const v = Number(String(e.target.value).replace(',', '.')); updateCLTSettings({ rupTargetM2PerHH: v > 0 ? v : 0.45 }) }} />
           </div>
           <div className="flex bg-[#2d2d2d] border border-[#525252] rounded-lg p-0.5">
             {(['última semana', 'último mês', 'este mês'] as const).map((p) => (
               <button key={p} onClick={() => setPeriod(p)}
-                className={`px-2.5 py-1 rounded text-xs transition-colors ${period === p ? 'bg-[#f97316] text-white' : 'text-[#9a9a9a] hover:text-[#f5f5f5]'}`}>{p}</button>
+                className={`px-2.5 py-1 rounded text-xs transition-colors ${period === p ? 'bg-[#f97316] text-white' : 'text-[#c9c9c9] hover:text-[#f5f5f5]'}`}>{p}</button>
             ))}
           </div>
         </div>
@@ -101,70 +101,70 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className={card}>
-          <div className="flex items-center gap-2 text-[#9a9a9a] text-xs"><Gauge size={13} /> RUP atual</div>
+          <div className="flex items-center gap-2 text-[#c9c9c9] text-xs"><Gauge size={13} /> RUP atual</div>
           <div className="mt-1 text-2xl font-bold" style={{ color: rupColor }}>{rup.rup != null ? rup.rup.toFixed(2) : '—'}</div>
-          <div className="text-[10px] text-[#7a7a7a]">HH/m² · meta ≤ {target}</div>
+          <div className="text-[11px] text-[#adadad]">HH/m² · meta ≤ {target}</div>
         </div>
         <div className={card}>
-          <div className="flex items-center gap-2 text-[#9a9a9a] text-xs">Situação vs TCPO</div>
+          <div className="flex items-center gap-2 text-[#c9c9c9] text-xs">Situação vs TCPO</div>
           {sem ? (
             <div className="mt-1 inline-flex items-center gap-2 px-2 py-1 rounded" style={{ backgroundColor: `${SEM_COLOR[sem]}20`, color: SEM_COLOR[sem] }}>
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SEM_COLOR[sem] }} /> <span className="text-sm font-semibold">{SEM_LABEL[sem]}</span>
             </div>
-          ) : <div className="mt-1 text-sm text-[#7a7a7a]">Sem apontamentos em m²</div>}
-          <div className="text-[10px] text-[#7a7a7a] mt-1">{rup.sampleSize} apontamento(s)</div>
+          ) : <div className="mt-1 text-sm text-[#adadad]">Sem apontamentos em m²</div>}
+          <div className="text-[11px] text-[#adadad] mt-1">{rup.sampleSize} apontamento(s)</div>
         </div>
         <div className={card}>
-          <div className="flex items-center gap-2 text-[#9a9a9a] text-xs"><Clock size={13} /> Homem-hora</div>
-          <div className="mt-1 text-2xl font-bold text-[#f5f5f5]">{rup.totalHH.toFixed(0)}<span className="text-sm font-normal text-[#9a9a9a]"> h</span></div>
-          <div className="text-[10px] text-[#7a7a7a]">Produtividade: {produtividade != null ? `${produtividade.toFixed(2)} m²/HH` : '—'}</div>
+          <div className="flex items-center gap-2 text-[#c9c9c9] text-xs"><Clock size={13} /> Homem-hora</div>
+          <div className="mt-1 text-2xl font-bold text-[#f5f5f5]">{rup.totalHH.toFixed(0)}<span className="text-sm font-normal text-[#c9c9c9]"> h</span></div>
+          <div className="text-[11px] text-[#adadad]">Produtividade: {produtividade != null ? `${produtividade.toFixed(2)} m²/HH` : '—'}</div>
         </div>
         <div className={card}>
-          <div className="flex items-center gap-2 text-[#9a9a9a] text-xs"><Ruler size={13} /> Metragem</div>
-          <div className="mt-1 text-2xl font-bold text-[#f5f5f5]">{Math.round(executedM2).toLocaleString('pt-BR')}<span className="text-sm font-normal text-[#9a9a9a]"> m²</span></div>
-          <div className="text-[10px] text-[#7a7a7a]">Apontam.: {Math.round(tcM2).toLocaleString('pt-BR')} · RDO: {Math.round(rdoExec.m2).toLocaleString('pt-BR')}</div>
+          <div className="flex items-center gap-2 text-[#c9c9c9] text-xs"><Ruler size={13} /> Metragem</div>
+          <div className="mt-1 text-2xl font-bold text-[#f5f5f5]">{Math.round(executedM2).toLocaleString('pt-BR')}<span className="text-sm font-normal text-[#c9c9c9]"> m²</span></div>
+          <div className="text-[11px] text-[#adadad]">Apontam.: {Math.round(tcM2).toLocaleString('pt-BR')} · RDO: {Math.round(rdoExec.m2).toLocaleString('pt-BR')}</div>
         </div>
       </div>
 
       {/* Trend + Metragem */}
       <div className="grid lg:grid-cols-3 gap-3">
         <div className={`${card} lg:col-span-2`}>
-          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold mb-3"><TrendingUp size={15} className="text-[#f97316]" /> Tendência do RUP (6 semanas)</div>
+          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold mb-3"><TrendingUp size={15} className="text-[#ffa055]" /> Tendência do RUP (6 semanas)</div>
           <div className="flex items-end gap-2 h-32">
             {trend.map((p, i) => {
               const h = p.rup != null ? Math.max(4, (p.rup / trendMax) * 100) : 0
               const c = p.rup != null ? SEM_COLOR[rupSemaforo(p.rup, target) ?? 'vermelho'] : '#525252'
               return (
                 <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1 h-full">
-                  <span className="text-[9px] text-[#9a9a9a]">{p.rup != null ? p.rup.toFixed(2) : '—'}</span>
+                  <span className="text-[11px] text-[#c9c9c9]">{p.rup != null ? p.rup.toFixed(2) : '—'}</span>
                   <div className="w-full rounded-t" style={{ height: `${h}%`, backgroundColor: c, minHeight: p.rup != null ? 4 : 0 }} title={`${p.hh.toFixed(0)} HH · ${p.m2.toFixed(0)} m²`} />
-                  <span className="text-[9px] text-[#7a7a7a]">{p.label}</span>
+                  <span className="text-[11px] text-[#adadad]">{p.label}</span>
                 </div>
               )
             })}
           </div>
-          <div className="mt-2 text-[10px] text-[#7a7a7a] flex items-center gap-1.5"><span className="inline-block w-3 h-[2px]" style={{ backgroundColor: '#22c55e' }} /> meta TCPO ≤ {target} HH/m² (barras menores = melhor)</div>
+          <div className="mt-2 text-[11px] text-[#adadad] flex items-center gap-1.5"><span className="inline-block w-3 h-[2px]" style={{ backgroundColor: '#22c55e' }} /> meta TCPO ≤ {target} HH/m² (barras menores = melhor)</div>
         </div>
         <div className={card}>
-          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold mb-2"><Ruler size={15} className="text-[#f97316]" /> Planejado × Executado</div>
-          <div className="flex justify-between text-xs text-[#9a9a9a] mb-1">
+          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold mb-2"><Ruler size={15} className="text-[#ffa055]" /> Planejado × Executado</div>
+          <div className="flex justify-between text-xs text-[#c9c9c9] mb-1">
             <span>{Math.round(metragem.executedM2).toLocaleString('pt-BR')} de {Math.round(metragem.plannedM2).toLocaleString('pt-BR')} m²</span>
             <span>{metragem.pctExecuted.toFixed(0)}%</span>
           </div>
           <div className="h-2.5 rounded-full bg-[#2d2d2d] overflow-hidden">
             <div className="h-full rounded-full" style={{ width: `${Math.min(100, metragem.pctExecuted)}%`, background: metragem.aheadBehind === 'behind' ? '#ef4444' : metragem.aheadBehind === 'ahead' ? '#22c55e' : '#f97316' }} />
           </div>
-          <div className="mt-2 text-[11px] text-[#9a9a9a]">
+          <div className="mt-2 text-[11px] text-[#c9c9c9]">
             {metragem.plannedM2 === 0 ? 'Sem plano de execução no período para comparar.' : metragem.aheadBehind === 'behind' ? 'Abaixo do planejado no período.' : metragem.aheadBehind === 'ahead' ? 'No/acima do planejado.' : 'Dentro do esperado.'}
           </div>
-          <p className="mt-1 text-[10px] text-[#6b6b6b]">Planejado = Σ áreas dos planos que cobrem o período.</p>
+          <p className="mt-1 text-[11px] text-[#adadad]">Planejado = Σ áreas dos planos que cobrem o período.</p>
         </div>
       </div>
 
       {/* Fim de semana */}
       <div className={card}>
         <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold"><CalendarClock size={15} className="text-[#f97316]" /> Vale a pena sábado / domingo?</div>
+          <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold"><CalendarClock size={15} className="text-[#ffa055]" /> Vale a pena sábado / domingo?</div>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold" style={{ backgroundColor: `${VERDICT[weekend.verdict].color}20`, color: VERDICT[weekend.verdict].color }}>
             {VERDICT[weekend.verdict].label}
           </span>
@@ -176,7 +176,7 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
           <We label="R$/m² FDS vs útil" value={`${weekend.costPerM2Weekend != null ? brl(weekend.costPerM2Weekend) : '—'} / ${weekend.costPerM2Weekday != null ? brl(weekend.costPerM2Weekday) : '—'}`} />
           <We label="Dias ganhos no prazo" value={weekend.scheduleDaysSaved > 0 ? `~${weekend.scheduleDaysSaved.toFixed(1)}` : '—'} />
         </div>
-        <p className="mt-2 text-[10px] text-[#6b6b6b]">Sábado com prêmio de HE ({settings.overtimeRate}%); domingo/feriado com 100%.</p>
+        <p className="mt-2 text-[11px] text-[#adadad]">Sábado com prêmio de HE ({settings.overtimeRate}%); domingo/feriado com 100%.</p>
       </div>
 
       {/* Escala */}
@@ -184,16 +184,16 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 text-[#f5f5f5] text-sm font-semibold">Como estão escalados?</div>
           {onNavigate && (
-            <button onClick={() => onNavigate('escala')} className="flex items-center gap-1 text-xs text-[#f97316] hover:text-[#ea580c]">Ver calendário completo <ArrowRight size={13} /></button>
+            <button onClick={() => onNavigate('escala')} className="flex items-center gap-1 text-xs text-[#ffa055] hover:text-[#ffa055]">Ver calendário completo <ArrowRight size={13} /></button>
           )}
         </div>
         <div className="flex flex-wrap gap-2 mb-2">
-          {Object.entries(escala.byType).length === 0 ? <span className="text-xs text-[#9a9a9a]">Sem turnos no período.</span> :
+          {Object.entries(escala.byType).length === 0 ? <span className="text-xs text-[#c9c9c9]">Sem turnos no período.</span> :
             Object.entries(escala.byType).map(([t, n]) => (
               <span key={t} className="px-2.5 py-1 rounded-full bg-[#2d2d2d] border border-[#484848] text-xs text-[#e5e5e5]">{SHIFT_LABEL[t] ?? t}: <strong>{n}</strong></span>
             ))}
         </div>
-        <div className="text-xs text-[#9a9a9a]">
+        <div className="text-xs text-[#c9c9c9]">
           {escala.total} turno(s) no período · {escala.weekendShifts} em fim de semana ({escala.weekendHHShare.toFixed(0)}% das horas) · {workers.filter((w) => w.status === 'active').length} funcionário(s) ativo(s){isAllObras ? '' : ' nesta obra'}
         </div>
       </div>
@@ -204,7 +204,7 @@ export function ProdutividadePanel({ onNavigate }: { onNavigate?: (tab: MaoDeObr
 function We({ label, value }: { label: string; value: string }) {
   return (
     <div className="bg-[#2d2d2d] border border-[#484848] rounded-lg p-2.5">
-      <div className="text-[10px] uppercase tracking-wider text-[#9a9a9a]">{label}</div>
+      <div className="text-[11px] uppercase tracking-wider text-[#c9c9c9]">{label}</div>
       <div className="text-sm font-bold text-[#f5f5f5] mt-0.5">{value}</div>
     </div>
   )
@@ -235,8 +235,8 @@ function ProdutividadePorFuncionario({
   if (linhas.length === 0) {
     return (
       <div className={card}>
-        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]"><Users size={13} /> Produtividade por funcionário</div>
-        <p className="mt-2 text-[11px] text-[#7a7a7a]">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#c9c9c9]"><Users size={13} /> Produtividade por funcionário</div>
+        <p className="mt-2 text-[11px] text-[#adadad]">
           Nenhum apontamento em m² no período. A produtividade por pessoa vem do apontamento
           nominal — o m² lançado pelo RDO não diz quem executou.
         </p>
@@ -249,10 +249,10 @@ function ProdutividadePorFuncionario({
   return (
     <div className={card}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]"><Users size={13} /> Produtividade por funcionário</div>
-        <span className="text-[10px] text-[#7a7a7a]">HH/m² · meta ≤ {target} · menor é melhor</span>
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#c9c9c9]"><Users size={13} /> Produtividade por funcionário</div>
+        <span className="text-[11px] text-[#adadad]">HH/m² · meta ≤ {target} · menor é melhor</span>
         {extraHH > 0 && (
-          <span className="ml-auto text-[10px] text-[#7a7a7a]">
+          <span className="ml-auto text-[11px] text-[#adadad]">
             {extraHH.toFixed(0)} HH vindos de RDO ficam fora (sem atribuição por pessoa)
           </span>
         )}
@@ -260,7 +260,7 @@ function ProdutividadePorFuncionario({
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-[10px] uppercase tracking-wide text-[#7a7a7a]">
+            <tr className="text-[11px] uppercase tracking-wide text-[#adadad]">
               <th className="pb-1.5 text-left font-semibold">Funcionário</th>
               <th className="pb-1.5 text-right font-semibold">HH</th>
               <th className="pb-1.5 text-right font-semibold">m²</th>
@@ -272,14 +272,14 @@ function ProdutividadePorFuncionario({
             {linhas.map((l) => (
               <tr key={l.workerId} className="border-t border-[#525252]/50">
                 <td className="py-1.5 text-[#e5e5e5]">{nomes.get(l.workerId) ?? 'Funcionário removido'}</td>
-                <td className="py-1.5 text-right tabular-nums text-[#a3a3a3]">{l.hh.toFixed(1)}</td>
-                <td className="py-1.5 text-right tabular-nums text-[#a3a3a3]">{l.m2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</td>
+                <td className="py-1.5 text-right tabular-nums text-[#c9c9c9]">{l.hh.toFixed(1)}</td>
+                <td className="py-1.5 text-right tabular-nums text-[#c9c9c9]">{l.m2.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</td>
                 <td className="py-1.5 text-right font-bold tabular-nums" style={{ color: cor(l.semaforo) }}>
                   {l.rup != null ? l.rup.toFixed(2) : '—'}
                 </td>
-                <td className="py-1.5 text-right tabular-nums text-[#7a7a7a]">
+                <td className="py-1.5 text-right tabular-nums text-[#adadad]">
                   {l.apontamentos}
-                  {l.apontamentos < 3 && <span className="ml-1 text-[9px] text-[#7a7a7a]">amostra baixa</span>}
+                  {l.apontamentos < 3 && <span className="ml-1 text-[11px] text-[#adadad]">amostra baixa</span>}
                 </td>
               </tr>
             ))}

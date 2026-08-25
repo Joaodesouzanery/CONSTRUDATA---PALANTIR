@@ -82,7 +82,7 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
       <div className="bg-[#333333] border border-[#525252] rounded-xl w-full max-w-md p-6 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-[#f5f5f5] text-base font-semibold">{apontamento ? 'Corrigir Apontamento' : 'Novo Apontamento'}</h2>
-          <button onClick={onClose} className="text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors">
+          <button onClick={onClose} className="text-[#adadad] hover:text-[#f5f5f5] transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -97,7 +97,7 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {/* Worker */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Funcionário *</span>
+            <span className="text-[#adadad] text-xs font-medium">Funcionário *</span>
             <select
               value={form.workerId}
               onChange={(e) => handleField('workerId', e.target.value)}
@@ -110,24 +110,24 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
                   <option key={w.id} value={w.id}>{w.name}</option>
                 ))}
             </select>
-            {errors.workerId && <span className="text-[#ef4444] text-xs">{errors.workerId}</span>}
+            {errors.workerId && <span className="text-[#fca5a5] text-xs">{errors.workerId}</span>}
           </label>
 
           {/* Date + HH row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Data *</span>
+              <span className="text-[#adadad] text-xs font-medium">Data *</span>
               <input
                 type="date"
                 value={form.date}
                 onChange={(e) => handleField('date', e.target.value)}
                 className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               />
-              {errors.date && <span className="text-[#ef4444] text-xs">{errors.date}</span>}
+              {errors.date && <span className="text-[#fca5a5] text-xs">{errors.date}</span>}
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Horas trabalhadas *</span>
+              <span className="text-[#adadad] text-xs font-medium">Horas trabalhadas *</span>
               <input
                 type="number"
                 min={0}
@@ -137,13 +137,13 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
                 onChange={(e) => handleField('hoursWorked', parseFloat(e.target.value) || 0)}
                 className="bg-[#3d3d3d] border border-[#1f3c5e] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] focus:outline-none focus:border-[#f97316]"
               />
-              {errors.hoursWorked && <span className="text-[#ef4444] text-xs">{errors.hoursWorked}</span>}
+              {errors.hoursWorked && <span className="text-[#fca5a5] text-xs">{errors.hoursWorked}</span>}
             </label>
           </div>
 
           {/* Activity */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Atividade *</span>
+            <span className="text-[#adadad] text-xs font-medium">Atividade *</span>
             <input
               type="text"
               maxLength={200}
@@ -153,14 +153,14 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
               placeholder="Ex: Elevação de alvenaria bloco A"
             />
             {errors.activityDescription && (
-              <span className="text-[#ef4444] text-xs">{errors.activityDescription}</span>
+              <span className="text-[#fca5a5] text-xs">{errors.activityDescription}</span>
             )}
           </label>
 
           {/* Qty + Unit */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Quantidade produzida</span>
+              <span className="text-[#adadad] text-xs font-medium">Quantidade produzida</span>
               <input
                 type="number"
                 min={0}
@@ -172,7 +172,7 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-[#6b6b6b] text-xs font-medium">Unidade</span>
+              <span className="text-[#adadad] text-xs font-medium">Unidade</span>
               <select
                 value={form.unit}
                 onChange={(e) => handleField('unit', e.target.value)}
@@ -185,7 +185,7 @@ export function TimecardDialog({ onClose, apontamento }: Props) {
 
           {/* Notes */}
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Observações</span>
+            <span className="text-[#adadad] text-xs font-medium">Observações</span>
             <textarea
               maxLength={500}
               rows={2}

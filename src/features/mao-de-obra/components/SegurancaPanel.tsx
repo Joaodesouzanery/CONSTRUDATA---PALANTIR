@@ -11,9 +11,9 @@ import { cn } from '@/lib/utils'
 
 function CertBadge({ status, type }: { status: import('@/types').CertStatus; type: string }) {
   const styles: Record<import('@/types').CertStatus, string> = {
-    valid:    'bg-[#22c55e]/15 text-[#22c55e]',
-    expiring: 'bg-[#f59e0b]/15 text-[#f59e0b]',
-    expired:  'bg-[#ef4444]/15 text-[#ef4444]',
+    valid:    'bg-[#22c55e]/15 text-[#4ade80]',
+    expiring: 'bg-[#f59e0b]/15 text-[#fbbf24]',
+    expired:  'bg-[#ef4444]/15 text-[#fca5a5]',
   }
   return (
     <span className={cn('px-1.5 py-0.5 rounded text-xs font-mono font-semibold', styles[status])}>
@@ -25,9 +25,9 @@ function CertBadge({ status, type }: { status: import('@/types').CertStatus; typ
 // ─── Worker status icon ───────────────────────────────────────────────────────
 
 function WorkerStatusIcon({ status }: { status: import('@/types').WorkerStatus }) {
-  if (status === 'active')    return <ShieldCheck size={14} className="text-[#22c55e]" />
-  if (status === 'suspended') return <ShieldX size={14} className="text-[#ef4444]" />
-  return <ShieldAlert size={14} className="text-[#6b6b6b]" />
+  if (status === 'active')    return <ShieldCheck size={14} className="text-[#4ade80]" />
+  if (status === 'suspended') return <ShieldX size={14} className="text-[#fca5a5]" />
+  return <ShieldAlert size={14} className="text-[#adadad]" />
 }
 
 // ─── Access Check Modal ───────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ function AccessCheckModal({
 
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Funcionário</span>
+            <span className="text-[#adadad] text-xs font-medium">Funcionário</span>
             <select
               value={workerId}
               onChange={(e) => setWorkerId(e.target.value)}
@@ -71,7 +71,7 @@ function AccessCheckModal({
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-[#6b6b6b] text-xs font-medium">Área de Risco</span>
+            <span className="text-[#adadad] text-xs font-medium">Área de Risco</span>
             <select
               value={riskAreaId}
               onChange={(e) => setRiskAreaId(e.target.value)}
@@ -94,9 +94,9 @@ function AccessCheckModal({
           >
             <div className="flex items-center gap-2 mb-2">
               {result.allowed
-                ? <CheckCircle size={18} className="text-[#22c55e]" />
-                : <XCircle size={18} className="text-[#ef4444]" />}
-              <span className={cn('font-semibold text-sm', result.allowed ? 'text-[#22c55e]' : 'text-[#ef4444]')}>
+                ? <CheckCircle size={18} className="text-[#4ade80]" />
+                : <XCircle size={18} className="text-[#fca5a5]" />}
+              <span className={cn('font-semibold text-sm', result.allowed ? 'text-[#4ade80]' : 'text-[#fca5a5]')}>
                 {result.allowed ? 'Acesso Permitido' : 'Acesso Bloqueado'}
               </span>
             </div>
@@ -104,24 +104,24 @@ function AccessCheckModal({
             {!result.allowed && (
               <div className="flex flex-col gap-1">
                 {result.worker.status !== 'active' && (
-                  <p className="text-[#ef4444] text-xs">
+                  <p className="text-[#fca5a5] text-xs">
                     Funcionário com status: <strong>{result.worker.status}</strong>
                   </p>
                 )}
                 {result.missingCerts.length > 0 && (
-                  <p className="text-[#ef4444] text-xs">
+                  <p className="text-[#fca5a5] text-xs">
                     Certificações ausentes: <strong>{result.missingCerts.join(', ')}</strong>
                   </p>
                 )}
                 {result.expiredCerts.length > 0 && (
-                  <p className="text-[#ef4444] text-xs">
+                  <p className="text-[#fca5a5] text-xs">
                     Certificações vencidas: <strong>{result.expiredCerts.join(', ')}</strong>
                   </p>
                 )}
               </div>
             )}
 
-            <p className="text-[#6b6b6b] text-xs mt-2">
+            <p className="text-[#adadad] text-xs mt-2">
               Área: <span className="text-[#f5f5f5]">{result.riskArea.name}</span>
               {' '}· Requer: <span className="text-[#f5f5f5]">{result.riskArea.requiredCertTypes.join(', ')}</span>
             </p>
@@ -159,17 +159,17 @@ function TrainingCalendar({ workers }: { workers: Worker[] }) {
             <div key={band.label}>
               <p className="text-xs font-semibold mb-1.5" style={{ color: band.color }}>{band.label}</p>
               {items.length === 0 ? (
-                <p className="text-[#6b6b6b] text-xs pl-2">Nenhuma renovação neste período.</p>
+                <p className="text-[#adadad] text-xs pl-2">Nenhuma renovação neste período.</p>
               ) : (
                 <div className="flex flex-col gap-1 pl-2">
                   {items.map((item, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="px-1.5 py-0.5 rounded font-mono text-[10px]"
+                      <span className="px-1.5 py-0.5 rounded font-mono text-[11px]"
                         style={{ backgroundColor: `${band.color}22`, color: band.color }}>
                         {item.certType}
                       </span>
                       <span className="text-[#f5f5f5]">{item.worker.name}</span>
-                      <span className="text-[#6b6b6b] ml-auto">
+                      <span className="text-[#adadad] ml-auto">
                         {new Date(item.expiryDate).toLocaleDateString('pt-BR')} ({item.daysLeft}d)
                       </span>
                     </div>
@@ -220,7 +220,7 @@ export function SegurancaPanel() {
           Funcionários ({workers.length})
         </p>
         {workers.length === 0 ? (
-          <p className="text-[#6b6b6b] text-sm">Nenhum funcionário cadastrado.</p>
+          <p className="text-[#adadad] text-sm">Nenhum funcionário cadastrado.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {workers.map((w) => {
@@ -242,9 +242,9 @@ export function SegurancaPanel() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[#f5f5f5] text-sm font-medium">{w.name}</span>
-                      <span className="text-[#6b6b6b] text-xs">{w.role}</span>
+                      <span className="text-[#adadad] text-xs">{w.role}</span>
                       {w.status === 'suspended' && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#ef4444]/15 text-[#ef4444]">
+                        <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#ef4444]/15 text-[#fca5a5]">
                           Suspenso
                         </span>
                       )}
@@ -254,17 +254,17 @@ export function SegurancaPanel() {
                         <CertBadge key={c.id} status={c.status} type={c.type} />
                       ))}
                       {w.certifications.length === 0 && (
-                        <span className="text-[#ef4444] text-xs">Sem certificações</span>
+                        <span className="text-[#fca5a5] text-xs">Sem certificações</span>
                       )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-[#6b6b6b] text-xs">{w.cpfMasked}</p>
+                    <p className="text-[#adadad] text-xs">{w.cpfMasked}</p>
                     {worst === 'expired' && (
-                      <span className="text-[10px] font-semibold text-[#ef4444]">Cert. vencida</span>
+                      <span className="text-[11px] font-semibold text-[#fca5a5]">Cert. vencida</span>
                     )}
                     {worst === 'expiring' && (
-                      <span className="text-[10px] font-semibold text-[#f59e0b]">Cert. vencendo</span>
+                      <span className="text-[11px] font-semibold text-[#fbbf24]">Cert. vencendo</span>
                     )}
                   </div>
                 </div>
@@ -283,7 +283,7 @@ export function SegurancaPanel() {
               <span className="text-[#f5f5f5] text-sm">{area.name}</span>
               <div className="flex gap-1">
                 {area.requiredCertTypes.map((ct) => (
-                  <span key={ct} className="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-[#525252] text-[#6b6b6b]">
+                  <span key={ct} className="px-1.5 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#525252] text-[#adadad]">
                     {ct}
                   </span>
                 ))}

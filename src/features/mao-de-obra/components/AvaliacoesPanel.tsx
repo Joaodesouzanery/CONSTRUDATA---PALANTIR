@@ -14,6 +14,7 @@ import {
 } from '@/features/mao-de-obra/utils/assessmentEngine'
 import type { AssessmentCriteria, AssessmentRating, WorkerAssessment } from '@/types'
 import { quinzenaAtual, quinzenaDe, avaliacaoNaQuinzena } from '../utils/quinzena'
+import { AcoesDaLinha } from './AcoesDaLinha'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
                 value={lateCount}
                 onChange={(e) => setLate(Math.max(0, parseInt(e.target.value) || 0))}
               />
-              <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+              <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
                 Não há registro automático de atrasos — informe manualmente.
               </p>
             </div>
@@ -227,7 +228,7 @@ function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
           <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
             <div>
               <div className="text-xs text-[var(--color-text-muted)]">
-                Nota Final {penalty > 0 && <span className="text-[#ef4444]">(penalização −{penalty.toFixed(2)})</span>}
+                Nota Final {penalty > 0 && <span className="text-[#fca5a5]">(penalização −{penalty.toFixed(2)})</span>}
               </div>
               <div className="text-2xl font-bold text-[var(--color-text-primary)]">{notaFinal.toFixed(1)}</div>
             </div>
@@ -240,7 +241,7 @@ function AssessmentDialog({ initial, onClose }: AssessmentDialogProps) {
               contagem da quinzena e a penalização por falta — confira se não é a mesma.
             </p>
           )}
-          {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+          {error && <p className="text-xs text-[#fca5a5]">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-1">
             <button onClick={onClose}
@@ -298,7 +299,7 @@ export function AvaliacoesPanel() {
         {[
           { label: 'Avaliações', value: assessments.length, color: 'text-[var(--color-text-primary)]' },
           { label: 'Nota média', value: avgNota ? avgNota.toFixed(1) : '—', color: 'text-[var(--color-accent)]' },
-          { label: 'Em atenção', value: atencaoCount, color: 'text-[#ef4444]' },
+          { label: 'Em atenção', value: atencaoCount, color: 'text-[#fca5a5]' },
         ].map((stat) => (
           <div key={stat.label}
             className="flex flex-col items-center py-3 px-2 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)]">
@@ -349,16 +350,13 @@ export function AvaliacoesPanel() {
                   <td className="px-4 py-3 font-bold text-[var(--color-text-primary)] text-center">{a.notaFinal.toFixed(1)}</td>
                   <td className="px-4 py-3"><RatingBadge rating={a.classificacao} /></td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button onClick={() => openEdit(a)}
-                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
-                        Editar
-                      </button>
-                      <button onClick={() => removeAssessment(a.id)}
-                        className="px-3 py-1 rounded-lg text-xs font-medium bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors">
-                        Remover
-                      </button>
-                    </div>
+                    {/* Este "Remover" apagava a avaliação SEM PERGUNTAR NADA — era o único do
+                        módulo sem confirmação. Agora pergunta, como todos os outros. */}
+                    <AcoesDaLinha
+                      descricao={`a avaliação de ${workerName(a.workerId)}`}
+                      onEditar={() => openEdit(a)}
+                      onExcluir={() => removeAssessment(a.id)}
+                    />
                   </td>
                 </tr>
               ))}

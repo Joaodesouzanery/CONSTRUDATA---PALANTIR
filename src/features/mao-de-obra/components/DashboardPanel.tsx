@@ -27,10 +27,10 @@ function RupMiniCard({ period }: { period: 'última semana' | 'último mês' | '
   return (
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
       <div>
-        <p className="text-[#6b6b6b] text-xs">Produtividade RUP (homem-hora/m²) · meta TCPO ≤ {target}</p>
+        <p className="text-[#adadad] text-xs">Produtividade RUP (homem-hora/m²) · meta TCPO ≤ {target}</p>
         <p className="text-xl font-bold leading-tight" style={{ color }}>{rup.rup != null ? `${rup.rup.toFixed(2)} HH/m²` : '— sem apontamentos/RDO em m²'}</p>
       </div>
-      <div className="text-right text-[11px] text-[#9a9a9a]">
+      <div className="text-right text-[11px] text-[#c9c9c9]">
         <div>{rup.totalHH.toFixed(0)} HH · {Math.round(rup.totalM2).toLocaleString('pt-BR')} m²</div>
         {rup.rup != null && <div style={{ color }}>{rup.rup <= target ? 'No alvo' : rup.rup <= target * 1.15 ? 'Atenção' : 'Fora do alvo'}</div>}
       </div>
@@ -101,21 +101,21 @@ function HHBarChart({ timecards, period }: { timecards: import('@/types').Timeca
                   title={`Realizado: ${day.actual}h`}
                 />
               </div>
-              <span className="text-[#6b6b6b] text-[10px] truncate w-full text-center">{day.label}</span>
+              <span className="text-[#adadad] text-[11px] truncate w-full text-center">{day.label}</span>
             </div>
           )
         })}
       </div>
       <div className="flex gap-4 mt-3">
-        <span className="flex items-center gap-1.5 text-[#6b6b6b] text-xs">
+        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
           <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]/40 inline-block" />
           Planejado
         </span>
-        <span className="flex items-center gap-1.5 text-[#6b6b6b] text-xs">
+        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
           <span className="w-2.5 h-2.5 rounded-sm bg-[#22c55e] inline-block" />
           Realizado ≥ 85%
         </span>
-        <span className="flex items-center gap-1.5 text-[#6b6b6b] text-xs">
+        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
           <span className="w-2.5 h-2.5 rounded-sm bg-[#f59e0b] inline-block" />
           Realizado {'<'} 85%
         </span>
@@ -185,22 +185,22 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">
         Certificações a Vencer (60 dias)
         {expiring.length > 0 && (
-          <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-semibold bg-[#f59e0b]/20 text-[#f59e0b]">
+          <span className="ml-2 px-1.5 py-0.5 rounded text-xs font-semibold bg-[#f59e0b]/20 text-[#fbbf24]">
             {expiring.length}
           </span>
         )}
       </p>
       {expiring.length === 0 ? (
-        <p className="text-[#6b6b6b] text-sm">Nenhuma certificação vencendo nos próximos 60 dias.</p>
+        <p className="text-[#adadad] text-sm">Nenhuma certificação vencendo nos próximos 60 dias.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#525252]">
-                <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Funcionário</th>
-                <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Certificação</th>
-                <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Vence em</th>
-                <th className="text-left text-[#6b6b6b] text-xs font-medium pb-2">Dias</th>
+                <th className="text-left text-[#adadad] text-xs font-medium pb-2">Funcionário</th>
+                <th className="text-left text-[#adadad] text-xs font-medium pb-2">Certificação</th>
+                <th className="text-left text-[#adadad] text-xs font-medium pb-2">Vence em</th>
+                <th className="text-left text-[#adadad] text-xs font-medium pb-2">Dias</th>
               </tr>
             </thead>
             <tbody>
@@ -212,7 +212,7 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
                       {item.certType}
                     </span>
                   </td>
-                  <td className="py-2 text-[#6b6b6b] text-xs">
+                  <td className="py-2 text-[#adadad] text-xs">
                     {new Date(item.expiryDate).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="py-2">
@@ -302,11 +302,11 @@ function HRKpiCards() {
     <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
       {kpis.map((kpi) => (
         <div key={kpi.label} className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3">
-          <p className="text-[#6b6b6b] text-xs mb-1">{kpi.label}</p>
+          <p className="text-[#adadad] text-xs mb-1">{kpi.label}</p>
           <p className="text-[#f5f5f5] text-xl font-bold leading-tight" style={{ color: kpi.color }}>
             {kpi.value}
           </p>
-          <p className="text-[#6b6b6b] text-xs mt-0.5">{kpi.sub}</p>
+          <p className="text-[#adadad] text-xs mt-0.5">{kpi.sub}</p>
         </div>
       ))}
     </div>
@@ -338,7 +338,7 @@ export function DashboardPanel() {
           {(['última semana', 'último mês', 'este mês'] as const).map((p) => (
             <button key={p} onClick={() => setPeriod(p)}
               className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                period === p ? 'bg-orange-600 text-white' : 'text-[#a3a3a3] hover:text-white'
+                period === p ? 'bg-orange-600 text-white' : 'text-[#c9c9c9] hover:text-white'
               }`}>
               {p}
             </button>
@@ -399,27 +399,27 @@ function AvaliacoesDaQuinzena() {
   return (
     <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex items-center gap-2 text-xs font-semibold text-[#9a9a9a]">
+        <div className="flex items-center gap-2 text-xs font-semibold text-[#c9c9c9]">
           <ClipboardCheck size={13} /> Avaliações da quinzena
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setDeslocamento((d) => d - 1)} title="Quinzena anterior"
-            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3] hover:text-white">‹</button>
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#c9c9c9] hover:text-white">‹</button>
           <span className="min-w-[11rem] text-center text-[11px] font-semibold text-[#e5e5e5]">{q.rotulo}</span>
           <button onClick={() => setDeslocamento((d) => d + 1)} disabled={deslocamento >= 0} title="Próxima quinzena"
-            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#a3a3a3] hover:text-white disabled:opacity-30">›</button>
+            className="rounded border border-[#525252] px-1.5 py-0.5 text-[#c9c9c9] hover:text-white disabled:opacity-30">›</button>
         </div>
-        <span className="text-[10px] text-[#7a7a7a]">
+        <span className="text-[11px] text-[#adadad]">
           {q.inicio.slice(8)}/{q.mes.toString().padStart(2, '0')} a {q.fim.slice(8)}/{q.mes.toString().padStart(2, '0')} · {q.diasNaQuinzena} dias
         </span>
         <span className="ml-auto text-sm font-bold tabular-nums text-[#e5e5e5]">
           {avaliados.length}/{total}
-          <span className="ml-1 text-[10px] font-normal text-[#7a7a7a]">avaliados</span>
+          <span className="ml-1 text-[11px] font-normal text-[#adadad]">avaliados</span>
         </span>
       </div>
 
       {total === 0 ? (
-        <p className="mt-2 text-[11px] text-[#7a7a7a]">Nenhum funcionário ativo cadastrado.</p>
+        <p className="mt-2 text-[11px] text-[#adadad]">Nenhum funcionário ativo cadastrado.</p>
       ) : (
         <>
           <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#2c2c2c]">
@@ -428,14 +428,14 @@ function AvaliacoesDaQuinzena() {
           </div>
           {pendentes.length > 0 ? (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#7a7a7a]">Faltam:</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#adadad]">Faltam:</span>
               {pendentes.slice(0, 12).map((w) => (
-                <span key={w.id} className="rounded border border-[#525252] bg-[#333333] px-1.5 py-0.5 text-[10px] text-[#d4d4d4]">
+                <span key={w.id} className="rounded border border-[#525252] bg-[#333333] px-1.5 py-0.5 text-[11px] text-[#d4d4d4]">
                   {w.name}
                 </span>
               ))}
               {pendentes.length > 12 && (
-                <span className="text-[10px] text-[#7a7a7a]">e mais {pendentes.length - 12}</span>
+                <span className="text-[11px] text-[#adadad]">e mais {pendentes.length - 12}</span>
               )}
             </div>
           ) : (

@@ -45,31 +45,31 @@ const STATUS_LABELS: Record<VehicleStatus, string> = {
   active: 'Ativo', maintenance: 'Em Manutenção', inactive: 'Inativo', unavailable: 'Indisponível',
 }
 const STATUS_COLORS: Record<VehicleStatus, string> = {
-  active:      'bg-[#22c55e]/15 text-[#22c55e]',
-  maintenance: 'bg-[#f59e0b]/15 text-[#f59e0b]',
+  active:      'bg-[#22c55e]/15 text-[#4ade80]',
+  maintenance: 'bg-[#f59e0b]/15 text-[#fbbf24]',
   inactive:    'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
-  unavailable: 'bg-[#ef4444]/15 text-[#ef4444]',
+  unavailable: 'bg-[#ef4444]/15 text-[#fca5a5]',
 }
 const ALERT_COLORS: Record<string, string> = {
-  critical: 'bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30',
-  high:     'bg-[#f59e0b]/15 text-[#f59e0b] border-[#f59e0b]/30',
-  medium:   'bg-[#3b82f6]/15 text-[#3b82f6] border-[#3b82f6]/30',
+  critical: 'bg-[#ef4444]/15 text-[#fca5a5] border-[#ef4444]/30',
+  high:     'bg-[#f59e0b]/15 text-[#fbbf24] border-[#f59e0b]/30',
+  medium:   'bg-[#3b82f6]/15 text-[#7dabff] border-[#3b82f6]/30',
   low:      'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border-[var(--color-border)]',
 }
 const FINE_STATUS_COLORS: Record<FineStatus, string> = {
-  pending:   'bg-[#f59e0b]/15 text-[#f59e0b]',
-  paid:      'bg-[#22c55e]/15 text-[#22c55e]',
-  contested: 'bg-[#8b5cf6]/15 text-[#8b5cf6]',
+  pending:   'bg-[#f59e0b]/15 text-[#fbbf24]',
+  paid:      'bg-[#22c55e]/15 text-[#4ade80]',
+  contested: 'bg-[#8b5cf6]/15 text-[#b79bff]',
 }
 const OS_STATUS_COLORS: Record<ServiceOrderStatus, string> = {
-  open:           'bg-[#f59e0b]/15 text-[#f59e0b]',
-  in_progress:    'bg-[#3b82f6]/15 text-[#3b82f6]',
-  awaiting_parts: 'bg-[#8b5cf6]/15 text-[#8b5cf6]',
-  completed:      'bg-[#22c55e]/15 text-[#22c55e]',
+  open:           'bg-[#f59e0b]/15 text-[#fbbf24]',
+  in_progress:    'bg-[#3b82f6]/15 text-[#7dabff]',
+  awaiting_parts: 'bg-[#8b5cf6]/15 text-[#b79bff]',
+  completed:      'bg-[#22c55e]/15 text-[#4ade80]',
   cancelled:      'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
 }
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: 'text-[#ef4444]', high: 'text-[#f59e0b]', normal: 'text-[var(--color-text-secondary)]', low: 'text-[var(--color-text-muted)]',
+  urgent: 'text-[#fca5a5]', high: 'text-[#fbbf24]', normal: 'text-[var(--color-text-secondary)]', low: 'text-[var(--color-text-muted)]',
 }
 
 function StatusBadge({ status }: { status: VehicleStatus }) {
@@ -128,19 +128,19 @@ function VehicleDialog({ vehicle, onClose, onSave }: {
             <div>
               <label className={labelCls}>Placa</label>
               <input className={inputCls} value={form.plate} onChange={e => setForm(f => ({ ...f, plate: e.target.value.toUpperCase() }))} placeholder="ABC-1234" />
-              {errors.plate && <p className="text-xs text-[#ef4444] mt-1">{errors.plate}</p>}
+              {errors.plate && <p className="text-xs text-[#fca5a5] mt-1">{errors.plate}</p>}
             </div>
             <div>
               <label className={labelCls}>Marca</label>
               <input className={inputCls} value={form.make} onChange={e => setForm(f => ({ ...f, make: e.target.value }))} />
-              {errors.make && <p className="text-xs text-[#ef4444] mt-1">{errors.make}</p>}
+              {errors.make && <p className="text-xs text-[#fca5a5] mt-1">{errors.make}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Modelo</label>
               <input className={inputCls} value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} />
-              {errors.model && <p className="text-xs text-[#ef4444] mt-1">{errors.model}</p>}
+              {errors.model && <p className="text-xs text-[#fca5a5] mt-1">{errors.model}</p>}
             </div>
             <div>
               <label className={labelCls}>Ano</label>
@@ -266,7 +266,7 @@ function VeiculosTab() {
                         <button onClick={e => { e.stopPropagation(); setDialog({ open: true, vehicle: v }) }}
                           className={`${actionBtn} bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20`}>Editar</button>
                         <button onClick={e => { e.stopPropagation(); removeVehicle(v.id) }}
-                          className={`${actionBtn} bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20`}>Remover</button>
+                          className={`${actionBtn} bg-[#ef4444]/10 text-[#fca5a5] hover:bg-[#ef4444]/20`}>Remover</button>
                       </div>
                     </td>
                   </tr>
@@ -372,9 +372,9 @@ function AbastecimentoTab() {
                     <td className={`${tdCls} font-semibold text-[var(--color-text-primary)]`}>{fmt(r.totalCost)}</td>
                     <td className={tdCls}>{r.kmAtFill.toLocaleString('pt-BR')}</td>
                     <td className={tdCls}>{r.fullTank ? '✓' : '—'}</td>
-                    <td className={`${tdCls} text-[#22c55e] font-medium`}>{efficiency[r.vehicleId] ?? '—'}</td>
+                    <td className={`${tdCls} text-[#4ade80] font-medium`}>{efficiency[r.vehicleId] ?? '—'}</td>
                     <td className={tdCls}>
-                      <button onClick={() => removeFuelRecord(r.id)} className={`${actionBtn} bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20`}>Remover</button>
+                      <button onClick={() => removeFuelRecord(r.id)} className={`${actionBtn} bg-[#ef4444]/10 text-[#fca5a5] hover:bg-[#ef4444]/20`}>Remover</button>
                     </td>
                   </tr>
                 ))}
@@ -457,9 +457,9 @@ function ManutencaoTab() {
   function getPlate(id: string) { return vehicles.find(v => v.id === id)?.plate ?? id }
 
   const MAINT_STATUS_COLORS: Record<VehicleMaintenanceStatus, string> = {
-    scheduled:   'bg-[#3b82f6]/15 text-[#3b82f6]',
-    in_progress: 'bg-[#f59e0b]/15 text-[#f59e0b]',
-    completed:   'bg-[#22c55e]/15 text-[#22c55e]',
+    scheduled:   'bg-[#3b82f6]/15 text-[#7dabff]',
+    in_progress: 'bg-[#f59e0b]/15 text-[#fbbf24]',
+    completed:   'bg-[#22c55e]/15 text-[#4ade80]',
     cancelled:   'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
   }
   const MAINT_STATUS_LABELS: Record<VehicleMaintenanceStatus, string> = {
@@ -629,7 +629,7 @@ function MotoristasTab() {
             <tbody className="divide-y divide-[var(--color-border)]">
               {drivers.map(d => {
                 const days   = daysUntil(d.licenseExpiry)
-                const expCls = days < 0 ? 'text-[#ef4444]' : days < 30 ? 'text-[#f59e0b]' : 'text-[var(--color-text-secondary)]'
+                const expCls = days < 0 ? 'text-[#fca5a5]' : days < 30 ? 'text-[#fbbf24]' : 'text-[var(--color-text-secondary)]'
                 return (
                   <tr key={d.id} className="hover:bg-[var(--color-surface)] transition-colors">
                     <td className={`${tdCls} font-medium text-[var(--color-text-primary)]`}>{d.name}</td>
@@ -639,14 +639,14 @@ function MotoristasTab() {
                     <td className={`${tdCls} ${expCls} font-medium`}>{fmtDate(d.licenseExpiry)}{days < 30 && days >= 0 ? ` (${days}d)` : ''}</td>
                     <td className={tdCls}>{d.phone}</td>
                     <td className={tdCls}>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${d.status === 'active' ? 'bg-[#22c55e]/15 text-[#22c55e]' : 'bg-[#ef4444]/15 text-[#ef4444]'}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${d.status === 'active' ? 'bg-[#22c55e]/15 text-[#4ade80]' : 'bg-[#ef4444]/15 text-[#fca5a5]'}`}>
                         {d.status === 'active' ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
                     <td className={tdCls}>
                       <div className="flex gap-1.5">
                         <button onClick={() => openEdit(d)} className={`${actionBtn} bg-[var(--color-accent)]/10 text-[var(--color-accent)] hover:bg-[var(--color-accent)]/20`}>Editar</button>
-                        <button onClick={() => removeDriver(d.id)} className={`${actionBtn} bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20`}>Remover</button>
+                        <button onClick={() => removeDriver(d.id)} className={`${actionBtn} bg-[#ef4444]/10 text-[#fca5a5] hover:bg-[#ef4444]/20`}>Remover</button>
                       </div>
                     </td>
                   </tr>
@@ -695,8 +695,8 @@ function RotasTab() {
     planned: 'Planejado', in_progress: 'Em Andamento', completed: 'Concluído', cancelled: 'Cancelado',
   }
   const ROUTE_STATUS_COLORS: Record<RouteStatus, string> = {
-    planned: 'bg-[#3b82f6]/15 text-[#3b82f6]', in_progress: 'bg-[#f59e0b]/15 text-[#f59e0b]',
-    completed: 'bg-[#22c55e]/15 text-[#22c55e]', cancelled: 'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
+    planned: 'bg-[#3b82f6]/15 text-[#7dabff]', in_progress: 'bg-[#f59e0b]/15 text-[#fbbf24]',
+    completed: 'bg-[#22c55e]/15 text-[#4ade80]', cancelled: 'bg-[var(--color-surface)] text-[var(--color-text-muted)]',
   }
 
   function getPlate(id: string) { return vehicles.find(v => v.id === id)?.plate ?? id }
@@ -924,7 +924,7 @@ function MultasTab() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         {pendingTotal > 0 && (
-          <div className="px-3 py-2 rounded-xl border border-[#ef4444]/30 bg-[#ef4444]/10 text-xs font-medium text-[#ef4444]">
+          <div className="px-3 py-2 rounded-xl border border-[#ef4444]/30 bg-[#ef4444]/10 text-xs font-medium text-[#fca5a5]">
             Total pendente: <strong>{fmt(pendingTotal)}</strong>
           </div>
         )}
@@ -948,16 +948,16 @@ function MultasTab() {
                     <td className={tdCls}>{getDriver(f.driverId)}</td>
                     <td className={`${tdCls} max-w-[160px] truncate`}>{f.infraction}</td>
                     <td className={tdCls}>{f.points ?? '—'}</td>
-                    <td className={`${tdCls} font-semibold text-[#ef4444]`}>{fmt(f.amount)}</td>
+                    <td className={`${tdCls} font-semibold text-[#fca5a5]`}>{fmt(f.amount)}</td>
                     <td className={tdCls}>{fmtDate(f.dueDate)}</td>
                     <td className={tdCls}><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${FINE_STATUS_COLORS[f.status]}`}>{FINE_LABELS[f.status]}</span></td>
                     <td className={tdCls}>
                       <div className="flex gap-1.5">
                         {f.status === 'pending' && (
-                          <button onClick={() => updateFine(f.id, { status: 'paid' })} className={`${actionBtn} bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20`}>Pagar</button>
+                          <button onClick={() => updateFine(f.id, { status: 'paid' })} className={`${actionBtn} bg-[#22c55e]/10 text-[#4ade80] hover:bg-[#22c55e]/20`}>Pagar</button>
                         )}
                         {f.status === 'pending' && (
-                          <button onClick={() => updateFine(f.id, { status: 'contested' })} className={`${actionBtn} bg-[#8b5cf6]/10 text-[#8b5cf6] hover:bg-[#8b5cf6]/20`}>Contestar</button>
+                          <button onClick={() => updateFine(f.id, { status: 'contested' })} className={`${actionBtn} bg-[#8b5cf6]/10 text-[#b79bff] hover:bg-[#8b5cf6]/20`}>Contestar</button>
                         )}
                       </div>
                     </td>
@@ -1057,8 +1057,8 @@ function CustosTab() {
                   <div className="w-full bg-[#f59e0b]" style={{ height: `${m.maintenance / (total || 1) * 100}%` }} />
                   <div className="w-full bg-[#3b82f6]" style={{ height: `${m.fuel / (total || 1) * 100}%` }} />
                 </div>
-                <span className="text-[9px] text-[var(--color-text-muted)] capitalize">{mLabel}</span>
-                {total > 0 && <span className="text-[9px] font-semibold text-[var(--color-text-secondary)]">R${Math.round(total/1000)}k</span>}
+                <span className="text-[11px] text-[var(--color-text-muted)] capitalize">{mLabel}</span>
+                {total > 0 && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">R${Math.round(total/1000)}k</span>}
               </div>
             )
           })}
@@ -1088,9 +1088,9 @@ function CustosTab() {
                   <td className={`${tdCls} text-center font-bold text-[var(--color-text-muted)]`}>{i + 1}</td>
                   <td className={`${tdCls} font-mono font-bold text-[var(--color-text-primary)]`}>{row.vehicle.plate}</td>
                   <td className={tdCls}>{row.vehicle.make} {row.vehicle.model}</td>
-                  <td className={`${tdCls} text-[#3b82f6]`}>{fmt(row.fuel)}</td>
-                  <td className={`${tdCls} text-[#f59e0b]`}>{fmt(row.maint)}</td>
-                  <td className={`${tdCls} text-[#ef4444]`}>{fmt(row.fines)}</td>
+                  <td className={`${tdCls} text-[#7dabff]`}>{fmt(row.fuel)}</td>
+                  <td className={`${tdCls} text-[#fbbf24]`}>{fmt(row.maint)}</td>
+                  <td className={`${tdCls} text-[#fca5a5]`}>{fmt(row.fines)}</td>
                   <td className={`${tdCls} font-bold text-[var(--color-text-primary)]`}>{fmt(row.total)}</td>
                 </tr>
               ))}
@@ -1124,7 +1124,7 @@ function AgendamentoTab() {
   }, [weekOffset])
 
   const TYPE_LABELS: Record<FleetScheduleEntry['type'], string> = { maintenance: 'Manutenção', inspection: 'Inspeção', route: 'Rota' }
-  const TYPE_COLORS: Record<FleetScheduleEntry['type'], string> = { maintenance: 'bg-[#f59e0b]/15 text-[#f59e0b]', inspection: 'bg-[#3b82f6]/15 text-[#3b82f6]', route: 'bg-[#22c55e]/15 text-[#22c55e]' }
+  const TYPE_COLORS: Record<FleetScheduleEntry['type'], string> = { maintenance: 'bg-[#f59e0b]/15 text-[#fbbf24]', inspection: 'bg-[#3b82f6]/15 text-[#7dabff]', route: 'bg-[#22c55e]/15 text-[#4ade80]' }
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -1153,7 +1153,7 @@ function AgendamentoTab() {
                 <th className={`${thCls} sticky left-0 bg-[var(--color-surface)] z-10 min-w-[100px]`}>Veículo</th>
                 {weekDates.map(d => {
                   const dow = new Date(d + 'T12:00:00').getDay()
-                  return <th key={d} className={`${thCls} text-center min-w-[100px] ${dow === 0 ? 'text-[#ef4444]/70' : ''}`}>{new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}</th>
+                  return <th key={d} className={`${thCls} text-center min-w-[100px] ${dow === 0 ? 'text-[#fca5a5]/70' : ''}`}>{new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })}</th>
                 })}
               </tr>
             </thead>
@@ -1166,7 +1166,7 @@ function AgendamentoTab() {
                     return (
                       <td key={date} className="px-2 py-2 align-top min-h-[60px]">
                         {dayEvents.map(ev => (
-                          <div key={ev.id} className={`rounded-md px-2 py-1 mb-1 text-[10px] font-medium ${TYPE_COLORS[ev.type]}`}>
+                          <div key={ev.id} className={`rounded-md px-2 py-1 mb-1 text-[11px] font-medium ${TYPE_COLORS[ev.type]}`}>
                             {ev.title.length > 16 ? ev.title.slice(0, 15) + '…' : ev.title}
                           </div>
                         ))}
@@ -1303,10 +1303,10 @@ function InsightsTab() {
     <div className="space-y-5">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Disponibilidade', value: `${fleetAvail}%`, color: parseFloat(fleetAvail) >= 80 ? 'text-[#22c55e]' : 'text-[#f59e0b]' },
-          { label: 'Média km/L',      value: avgKmL,           color: 'text-[#3b82f6]' },
+          { label: 'Disponibilidade', value: `${fleetAvail}%`, color: parseFloat(fleetAvail) >= 80 ? 'text-[#4ade80]' : 'text-[#fbbf24]' },
+          { label: 'Média km/L',      value: avgKmL,           color: 'text-[#7dabff]' },
           { label: 'Custo/km',        value: costPerKm !== '—' ? `R$ ${costPerKm}` : '—', color: 'text-[var(--color-text-primary)]' },
-          { label: 'OS em Aberto',    value: openOS,           color: openOS > 0 ? 'text-[#f59e0b]' : 'text-[#22c55e]' },
+          { label: 'OS em Aberto',    value: openOS,           color: openOS > 0 ? 'text-[#fbbf24]' : 'text-[#4ade80]' },
         ].map(k => (
           <div key={k.label} className="flex flex-col items-center py-3 px-2 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)]">
             <span className={`text-xl font-bold ${k.color}`}>{k.value}</span>
@@ -1315,7 +1315,7 @@ function InsightsTab() {
         ))}
       </div>
       {activeAlerts > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/30 text-sm text-[#ef4444] font-medium">
+        <div className="px-4 py-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/30 text-sm text-[#fca5a5] font-medium">
           ⚠ {activeAlerts} alerta{activeAlerts > 1 ? 's' : ''} crítico{activeAlerts > 1 ? 's' : ''} ativo{activeAlerts > 1 ? 's' : ''} — verifique a aba Alertas
         </div>
       )}
@@ -1513,7 +1513,7 @@ export function GestaoFrotasPanel() {
             }`}>
             {tab.label}
             {tab.id === 'alertas' && alertCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ef4444] text-white text-[9px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#ef4444] text-white text-[11px] font-bold flex items-center justify-center">
                 {alertCount > 9 ? '9+' : alertCount}
               </span>
             )}

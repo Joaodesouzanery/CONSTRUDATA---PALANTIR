@@ -165,10 +165,10 @@ export function CMOPanel() {
 
   const kpiCards = [
     { label: 'Total Bruto',         value: fmt(summary.baseCost + summary.overtimeCost + summary.nightCost), color: 'text-[var(--color-accent)]' },
-    { label: 'Horas Regulares',     value: fmtH(summary.regularHours),  color: 'text-[#22c55e]' },
-    { label: 'Custo Hora Extra',    value: fmt(summary.overtimeCost),    color: summary.overtimeCost > 2000 ? 'text-[#f59e0b]' : 'text-[var(--color-text-primary)]' },
-    { label: 'Adicional Noturno',   value: fmt(summary.nightCost),       color: 'text-[#8b5cf6]' },
-    { label: 'FGTS (empregador)',   value: fmt(fgtsTotal),               color: 'text-[#ef4444]' },
+    { label: 'Horas Regulares',     value: fmtH(summary.regularHours),  color: 'text-[#4ade80]' },
+    { label: 'Custo Hora Extra',    value: fmt(summary.overtimeCost),    color: summary.overtimeCost > 2000 ? 'text-[#fbbf24]' : 'text-[var(--color-text-primary)]' },
+    { label: 'Adicional Noturno',   value: fmt(summary.nightCost),       color: 'text-[#b79bff]' },
+    { label: 'FGTS (empregador)',   value: fmt(fgtsTotal),               color: 'text-[#fca5a5]' },
     { label: 'Total Geral',         value: fmt(summary.totalCost + fgtsTotal), color: 'text-[var(--color-text-primary)]' },
   ]
 
@@ -240,40 +240,40 @@ export function CMOPanel() {
       {/* Optimization controls (only when optimized) */}
       {scenario === 'optimized' && (
         <div className="rounded-xl bg-[#22c55e]/10 border border-[#22c55e]/30 p-4 flex flex-col gap-4">
-          <p className="text-sm font-semibold text-[#22c55e]">Parâmetros de Otimização</p>
+          <p className="text-sm font-semibold text-[#4ade80]">Parâmetros de Otimização</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between text-xs">
                 <label className="text-[var(--color-text-secondary)]">Redução de HE</label>
-                <span className="font-semibold text-[#f59e0b]">{otReductionPct}%</span>
+                <span className="font-semibold text-[#fbbf24]">{otReductionPct}%</span>
               </div>
               <input type="range" min={0} max={50} value={otReductionPct}
                 onChange={(e) => setOtReductionPct(Number(e.target.value))}
                 className="w-full accent-orange-500" />
-              <p className="text-[10px] text-[var(--color-text-muted)]">Reduz horas extras de {100 - otReductionPct}% dos turnos OT</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Reduz horas extras de {100 - otReductionPct}% dos turnos OT</p>
             </div>
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between text-xs">
                 <label className="text-[var(--color-text-secondary)]">Redistribuição Noturno</label>
-                <span className="font-semibold text-[#8b5cf6]">{nightRedistPct}%</span>
+                <span className="font-semibold text-[#b79bff]">{nightRedistPct}%</span>
               </div>
               <input type="range" min={0} max={100} value={nightRedistPct}
                 onChange={(e) => setNightRedistPct(Number(e.target.value))}
                 className="w-full accent-purple-500" />
-              <p className="text-[10px] text-[var(--color-text-muted)]">Simulação: redistribuir {nightRedistPct}% dos turnos noturnos para o dia</p>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Simulação: redistribuir {nightRedistPct}% dos turnos noturnos para o dia</p>
             </div>
           </div>
           {savings > 0 && (
             <div className="border-t border-[#22c55e]/20 pt-3 flex flex-col gap-1.5">
               <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Economia estimada:</p>
               <div className="flex flex-wrap gap-4 text-xs">
-                <span className="text-[#f59e0b]">
+                <span className="text-[#fbbf24]">
                   HE: <strong>{fmt(baseSummary.overtimeCost - summary.overtimeCost)}</strong>
                 </span>
-                <span className="text-[#8b5cf6]">
+                <span className="text-[#b79bff]">
                   Not.: <strong>{fmt(Math.round(baseSummary.nightCost * nightRedistPct / 100 * 0.3))}</strong> (estimado)
                 </span>
-                <span className="text-[#22c55e] font-bold">
+                <span className="text-[#4ade80] font-bold">
                   Total: {fmt(savings)}
                 </span>
               </div>
@@ -305,7 +305,7 @@ export function CMOPanel() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <Kpi label="Custo realizado" value={fmt(rdoLabor.custoRealizado)} tone="text-[var(--color-accent)]" />
-          <Kpi label="Desconto de faltas" value={`- ${fmt(descontoFaltas)}`} tone={descontoFaltas > 0 ? 'text-[#ef4444]' : 'text-[var(--color-text-muted)]'} />
+          <Kpi label="Desconto de faltas" value={`- ${fmt(descontoFaltas)}`} tone={descontoFaltas > 0 ? 'text-[#fca5a5]' : 'text-[var(--color-text-muted)]'} />
           <Kpi label="Custo líquido" value={fmt(custoLiquidoRdo)} tone="text-[var(--color-text-primary)]" />
           <Kpi label="Dias com RDO" value={String(rdoLabor.dias)} tone="text-[var(--color-text-primary)]" />
           <Kpi label="Funcionários" value={String(rdoLabor.funcionarios)} tone="text-[var(--color-text-primary)]" />
@@ -346,8 +346,8 @@ export function CMOPanel() {
                     <td className="px-3 py-2 font-medium text-[var(--color-text-primary)] max-w-[120px] truncate">{r.role}</td>
                     <td className="px-3 py-2 text-center text-[var(--color-text-secondary)]">{r.workerCount}</td>
                     <td className="px-3 py-2 text-[var(--color-text-secondary)]">{fmtH(r.regularHours)}</td>
-                    <td className="px-3 py-2 text-[#f59e0b]">{fmtH(r.overtimeHours)}</td>
-                    <td className="px-3 py-2 text-[#8b5cf6]">{fmtH(r.nightHours)}</td>
+                    <td className="px-3 py-2 text-[#fbbf24]">{fmtH(r.overtimeHours)}</td>
+                    <td className="px-3 py-2 text-[#b79bff]">{fmtH(r.nightHours)}</td>
                     <td className="px-3 py-2 font-semibold text-[var(--color-text-primary)]">{fmt(r.totalCost)}</td>
                   </tr>
                 ))}
@@ -360,8 +360,8 @@ export function CMOPanel() {
                       {summary.roleBreakdown.reduce((s, r) => s + r.workerCount, 0)}
                     </td>
                     <td className="px-3 py-2 font-semibold text-[var(--color-text-secondary)]">{fmtH(summary.regularHours)}</td>
-                    <td className="px-3 py-2 font-semibold text-[#f59e0b]">{fmtH(summary.overtimeHours)}</td>
-                    <td className="px-3 py-2 font-semibold text-[#8b5cf6]">{fmtH(summary.nightHours)}</td>
+                    <td className="px-3 py-2 font-semibold text-[#fbbf24]">{fmtH(summary.overtimeHours)}</td>
+                    <td className="px-3 py-2 font-semibold text-[#b79bff]">{fmtH(summary.nightHours)}</td>
                     <td className="px-3 py-2 font-bold text-[var(--color-text-primary)]">{fmt(summary.totalCost)}</td>
                   </tr>
                 </tfoot>

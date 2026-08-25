@@ -19,11 +19,11 @@ const ABSENCE_LABELS: Record<AbsenceType, string> = {
 }
 
 const ABSENCE_COLORS: Record<AbsenceType, string> = {
-  sick_leave:   'bg-[#3b82f6]/15 text-[#3b82f6]',
-  justified:    'bg-[#f59e0b]/15 text-[#f59e0b]',
-  unjustified:  'bg-[#ef4444]/15 text-[#ef4444]',
-  vacation:     'bg-[#22c55e]/15 text-[#22c55e]',
-  accident:     'bg-[#8b5cf6]/15 text-[#8b5cf6]',
+  sick_leave:   'bg-[#3b82f6]/15 text-[#7dabff]',
+  justified:    'bg-[#f59e0b]/15 text-[#fbbf24]',
+  unjustified:  'bg-[#ef4444]/15 text-[#fca5a5]',
+  vacation:     'bg-[#22c55e]/15 text-[#4ade80]',
+  accident:     'bg-[#8b5cf6]/15 text-[#b79bff]',
   other:        'bg-[var(--color-surface)] text-[var(--color-text-secondary)]',
 }
 
@@ -36,9 +36,9 @@ function TypeBadge({ type }: { type: AbsenceType }) {
 }
 
 function StatusBadge({ status }: { status: WorkerAbsence['status'] }) {
-  const cls = status === 'covered'   ? 'bg-[#22c55e]/15 text-[#22c55e]'
-            : status === 'uncovered' ? 'bg-[#ef4444]/15 text-[#ef4444]'
-            : 'bg-[#f59e0b]/15 text-[#f59e0b]'
+  const cls = status === 'covered'   ? 'bg-[#22c55e]/15 text-[#4ade80]'
+            : status === 'uncovered' ? 'bg-[#ef4444]/15 text-[#fca5a5]'
+            : 'bg-[#f59e0b]/15 text-[#fbbf24]'
   const label = status === 'covered' ? 'Coberta' : status === 'uncovered' ? 'Descoberta' : 'Aberta'
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
 }
@@ -107,7 +107,7 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
 
   const inputCls = 'w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]'
   const labelCls = 'block text-xs font-medium text-[var(--color-text-secondary)] mb-1'
-  const errCls   = 'text-xs text-[#ef4444] mt-1'
+  const errCls   = 'text-xs text-[#fca5a5] mt-1'
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 bg-black/40 backdrop-blur-sm overflow-y-auto">
@@ -171,8 +171,8 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
           // Substitute suggestions
           <div className="space-y-4">
             <div className="flex items-center gap-2 p-3 rounded-xl bg-[#22c55e]/10 border border-[#22c55e]/30">
-              <span className="text-[#22c55e] text-lg">✓</span>
-              <span className="text-sm font-medium text-[#22c55e]">Falta registrada com sucesso</span>
+              <span className="text-[#4ade80] text-lg">✓</span>
+              <span className="text-sm font-medium text-[#4ade80]">Falta registrada com sucesso</span>
             </div>
             <div>
               <h3 className="text-sm font-bold text-[var(--color-text-primary)] mb-3">
@@ -199,7 +199,7 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#22c55e]/15 text-[#22c55e]">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[#22c55e]/15 text-[#4ade80]">
                           CLT OK
                         </span>
                         <button onClick={() => handleAssign(sub.id)}
@@ -310,9 +310,9 @@ export function FaltasSubsPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Faltas (30d)',   value: recent30.length,                                           color: 'text-[var(--color-text-primary)]' },
-          { label: 'Cobertas',       value: recent30.filter(a => a.status === 'covered').length,       color: 'text-[#22c55e]' },
-          { label: 'Descobertas',    value: recent30.filter(a => a.status === 'uncovered').length,     color: 'text-[#ef4444]' },
-          { label: 'Em Aberto',      value: recent30.filter(a => a.status === 'open').length,          color: 'text-[#f59e0b]' },
+          { label: 'Cobertas',       value: recent30.filter(a => a.status === 'covered').length,       color: 'text-[#4ade80]' },
+          { label: 'Descobertas',    value: recent30.filter(a => a.status === 'uncovered').length,     color: 'text-[#fca5a5]' },
+          { label: 'Em Aberto',      value: recent30.filter(a => a.status === 'open').length,          color: 'text-[#fbbf24]' },
         ].map(stat => (
           <div key={stat.label}
             className="flex flex-col items-center py-3 px-2 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)]">
@@ -358,7 +358,7 @@ export function FaltasSubsPanel() {
                       {idx + 1}
                     </span>
                     <span className="flex-1 text-sm text-[var(--color-text-primary)] truncate">{worker!.name}</span>
-                    <span className="text-xs font-semibold text-[#ef4444]">{count}x</span>
+                    <span className="text-xs font-semibold text-[#fca5a5]">{count}x</span>
                   </div>
                 ))}
               </div>
@@ -438,7 +438,7 @@ export function FaltasSubsPanel() {
                     <div className="flex items-center gap-1.5">
                       {permissao.pode && absence.status === 'open' && (
                         <button onClick={() => resolveAbsence(absence.id)}
-                          className="px-3 py-1 rounded-lg text-xs font-medium bg-[#22c55e]/10 text-[#22c55e] hover:bg-[#22c55e]/20 transition-colors">
+                          className="px-3 py-1 rounded-lg text-xs font-medium bg-[#22c55e]/10 text-[#4ade80] hover:bg-[#22c55e]/20 transition-colors">
                           Resolver
                         </button>
                       )}
@@ -449,7 +449,7 @@ export function FaltasSubsPanel() {
                           if (confirm('Apagar esta falta? O dia volta a ser pago na folha.')) removeAbsence(absence.id)
                         }}
                         title="Apagar a falta e desfazer o desconto do dia"
-                        className="px-2 py-1 rounded-lg text-xs font-medium text-[#a3a3a3] hover:bg-[#ef4444]/10 hover:text-[#f87171] transition-colors">
+                        className="px-2 py-1 rounded-lg text-xs font-medium text-[#c9c9c9] hover:bg-[#ef4444]/10 hover:text-[#fca5a5] transition-colors">
                         Apagar
                       </button>}
                     </div>

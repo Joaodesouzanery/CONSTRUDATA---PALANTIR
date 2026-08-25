@@ -199,7 +199,7 @@ export function RHFinanceiroPanel() {
       {budgetOverrun && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#ef4444]/10 border border-[#ef4444]/30">
           <span className="text-lg">⚠️</span>
-          <span className="text-sm font-medium text-[#ef4444]">
+          <span className="text-sm font-medium text-[#fca5a5]">
             Custo mensal ({fmt(currentPayroll.totalEmployerCost)}) supera o orçamento definido ({fmt(budgetCap)})
           </span>
         </div>
@@ -209,9 +209,9 @@ export function RHFinanceiroPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: 'Headcount Ativo',          value: activeWorkers.length,                       color: 'text-[var(--color-text-primary)]', suffix: '' },
-          { label: 'Custo RH (mês atual)',      value: fmt(currentPayroll.totalEmployerCost),      color: budgetOverrun ? 'text-[#ef4444]' : 'text-[var(--color-accent)]', suffix: '' },
+          { label: 'Custo RH (mês atual)',      value: fmt(currentPayroll.totalEmployerCost),      color: budgetOverrun ? 'text-[#fca5a5]' : 'text-[var(--color-accent)]', suffix: '' },
           { label: 'Custo Médio / Colaborador', value: fmt(avgCostPerWorker),                      color: 'text-[var(--color-text-primary)]', suffix: '' },
-          { label: '% HE / Total',              value: `${otPct}%`,                               color: parseFloat(otPct) > 5 ? 'text-[#f59e0b]' : 'text-[#22c55e]', suffix: '' },
+          { label: '% HE / Total',              value: `${otPct}%`,                               color: parseFloat(otPct) > 5 ? 'text-[#fbbf24]' : 'text-[#4ade80]', suffix: '' },
         ].map(card => (
           <div key={card.label}
             className="flex flex-col items-center py-3 px-2 rounded-2xl bg-[var(--color-surface-elevated)] border border-[var(--color-border)]">
@@ -281,19 +281,19 @@ export function RHFinanceiroPanel() {
                 {
                   label: 'Violações CLT',
                   value: violations.filter(v => v.severity === 'blocking').length,
-                  color: violations.filter(v => v.severity === 'blocking').length > 0 ? 'text-[#ef4444]' : 'text-[#22c55e]',
+                  color: violations.filter(v => v.severity === 'blocking').length > 0 ? 'text-[#fca5a5]' : 'text-[#4ade80]',
                   icon: violations.filter(v => v.severity === 'blocking').length > 0 ? '⚠' : '✓',
                 },
                 {
                   label: 'Postos Descobertos',
                   value: uncoveredPosts,
-                  color: uncoveredPosts > 0 ? 'text-[#ef4444]' : 'text-[#22c55e]',
+                  color: uncoveredPosts > 0 ? 'text-[#fca5a5]' : 'text-[#4ade80]',
                   icon: uncoveredPosts > 0 ? '⚠' : '✓',
                 },
                 {
                   label: 'Faltas Descobertas',
                   value: absences.filter(a => a.status === 'uncovered').length,
-                  color: absences.filter(a => a.status === 'uncovered').length > 0 ? 'text-[#f59e0b]' : 'text-[#22c55e]',
+                  color: absences.filter(a => a.status === 'uncovered').length > 0 ? 'text-[#fbbf24]' : 'text-[#4ade80]',
                   icon: absences.filter(a => a.status === 'uncovered').length > 0 ? '!' : '✓',
                 },
               ].map(alert => (
@@ -327,7 +327,7 @@ export function RHFinanceiroPanel() {
               </div>
             ) : (
               <div className="flex items-center justify-between">
-                <span className={`text-base font-bold ${budgetOverrun ? 'text-[#ef4444]' : 'text-[var(--color-text-primary)]'}`}>
+                <span className={`text-base font-bold ${budgetOverrun ? 'text-[#fca5a5]' : 'text-[var(--color-text-primary)]'}`}>
                   {fmt(budgetCap)}
                 </span>
                 <button onClick={() => { setBudgetInput(String(budgetCap)); setEditBudget(true) }}

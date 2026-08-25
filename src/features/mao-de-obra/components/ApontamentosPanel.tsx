@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Plus, Upload, ChevronDown, ChevronUp, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Upload, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { TimecardDialog } from './dialogs/TimecardDialog'
 import type { TimecardEntry, PhysicalProgress } from '@/types'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { TIMECARD_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
+import { AcoesDaLinha } from './AcoesDaLinha'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,17 +43,17 @@ function ProgressTable({ progress }: { progress: PhysicalProgress[] }) {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#525252]">
-              <th className="text-left text-[#6b6b6b] font-medium pb-2">Atividade</th>
-              <th className="text-right text-[#6b6b6b] font-medium pb-2">Planejado</th>
-              <th className="text-right text-[#6b6b6b] font-medium pb-2">Realizado</th>
-              <th className="text-right text-[#6b6b6b] font-medium pb-2">Desvio</th>
+              <th className="text-left text-[#adadad] font-medium pb-2">Atividade</th>
+              <th className="text-right text-[#adadad] font-medium pb-2">Planejado</th>
+              <th className="text-right text-[#adadad] font-medium pb-2">Realizado</th>
+              <th className="text-right text-[#adadad] font-medium pb-2">Desvio</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={i} className="border-b border-[#3d3d3d] last:border-0">
                 <td className="py-2 text-[#f5f5f5]">{row.name}</td>
-                <td className="py-2 text-right text-[#6b6b6b]">{row.planned} {row.unit}</td>
+                <td className="py-2 text-right text-[#adadad]">{row.planned} {row.unit}</td>
                 <td className="py-2 text-right text-[#f5f5f5]">{row.reported} {row.unit}</td>
                 <td className="py-2 text-right">
                   <span
@@ -98,26 +99,26 @@ function TimecardTable({
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
       <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Apontamentos ({timecards.length})</p>
       {timecards.length === 0 ? (
-        <p className="text-[#6b6b6b] text-sm">Nenhum apontamento registrado.</p>
+        <p className="text-[#adadad] text-sm">Nenhum apontamento registrado.</p>
       ) : (
         <>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[#525252]">
-                  <th className="text-left text-[#6b6b6b] font-medium pb-2">Data</th>
-                  <th className="text-left text-[#6b6b6b] font-medium pb-2">Funcionário</th>
-                  <th className="text-left text-[#6b6b6b] font-medium pb-2 hidden md:table-cell">Atividade</th>
-                  <th className="text-right text-[#6b6b6b] font-medium pb-2">HH</th>
-                  <th className="text-right text-[#6b6b6b] font-medium pb-2">Qtd</th>
-                  <th className="text-left text-[#6b6b6b] font-medium pb-2">Un</th>
-                  {podeEditar && <th className="text-right text-[#6b6b6b] font-medium pb-2">Ações</th>}
+                  <th className="text-left text-[#adadad] font-medium pb-2">Data</th>
+                  <th className="text-left text-[#adadad] font-medium pb-2">Funcionário</th>
+                  <th className="text-left text-[#adadad] font-medium pb-2 hidden md:table-cell">Atividade</th>
+                  <th className="text-right text-[#adadad] font-medium pb-2">HH</th>
+                  <th className="text-right text-[#adadad] font-medium pb-2">Qtd</th>
+                  <th className="text-left text-[#adadad] font-medium pb-2">Un</th>
+                  {podeEditar && <th className="text-right text-[#adadad] font-medium pb-2">Ações</th>}
                 </tr>
               </thead>
               <tbody>
                 {visible.map((tc) => (
                   <tr key={tc.id} className="border-b border-[#3d3d3d] last:border-0">
-                    <td className="py-2 text-[#6b6b6b] shrink-0">{formatDate(tc.date)}</td>
+                    <td className="py-2 text-[#adadad] shrink-0">{formatDate(tc.date)}</td>
                     <td className="py-2 text-[#f5f5f5] max-w-[120px] truncate">
                       {workerMap.get(tc.workerId) ?? tc.workerId}
                     </td>
@@ -126,23 +127,18 @@ function TimecardTable({
                     </td>
                     <td className="py-2 text-right text-[#f5f5f5]">{tc.hoursWorked}h</td>
                     <td className="py-2 text-right text-[#f5f5f5]">{tc.reportedQty}</td>
-                    <td className="py-2 text-[#6b6b6b]">{tc.unit}</td>
+                    <td className="py-2 text-[#adadad]">{tc.unit}</td>
                     {podeEditar && (
                       <td className="py-2 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => onEditar(tc)}
-                          className="rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#484848] hover:text-[#f5f5f5]"
-                          title="Corrigir este apontamento"
-                        >
-                          <Pencil size={12} />
-                        </button>
-                        <button
-                          onClick={() => onExcluir(tc)}
-                          className="ml-1 rounded p-1 text-[#6b6b6b] transition-colors hover:bg-[#dc2626]/20 hover:text-[#f87171]"
-                          title="Excluir este apontamento"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <div className="flex justify-end">
+                          <AcoesDaLinha
+                            descricao={`o apontamento de ${tc.date}`}
+                            onEditar={() => onEditar(tc)}
+                            onExcluir={() => onExcluir(tc)}
+                            // A tela já tem a própria confirmação neste caminho.
+                            confirmar={false}
+                          />
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -153,7 +149,7 @@ function TimecardTable({
           {sorted.length > 10 && (
             <button
               onClick={() => setShowAll((v) => !v)}
-              className="mt-2 flex items-center gap-1 text-xs text-[#6b6b6b] hover:text-[#f5f5f5] transition-colors"
+              className="mt-2 flex items-center gap-1 text-xs text-[#adadad] hover:text-[#f5f5f5] transition-colors"
             >
               {showAll ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               {showAll ? 'Mostrar menos' : `Ver todos (${sorted.length})`}
