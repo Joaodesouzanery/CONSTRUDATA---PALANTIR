@@ -43,11 +43,40 @@ const FIELD_HINTS: Record<string, string[]> = {
   realizarPedido:      ['realizar pedido', 'fazer pedido', 'comprar', 'pedir', 'repor'],
 }
 
-/** "SIM", "X", "1", "true" → true. Vazio, "NAO", "-" → false. */
+/** "SIM", "X", "1", "true" → true. Vazio, "NAO", "FALSE", "-" → false. */
 function parseSimNao(raw: string): boolean {
   const v = normalize(raw)
   if (!v) return false
-  return ['sim', 's', 'x', '1', 'true', 'ok', 'sim!', 'urgente'].includes(v)
+  return ['sim', 's', 'x', '1', 'true', 'verdadeiro', 'ok', 'sim!', 'urgente'].includes(v)
+}
+
+/**
+ * A célula é um booleano de planilha?
+ *
+ * Existe para uma armadilha concreta: a coluna do cliente se chama "Quantidade Critica / Realizar
+ * Pedido" e o dado é `FALSE` — é caixa de seleção, não número. Como o nome tem "quantidade", ela
+ * era lida como quantidade, `FALSE` virava **0**, e o zero era gravado: o estoque mínimo de TODO
+ * item atualizado ia a zero e o alerta "abaixo do mínimo" nunca mais disparava.
+ *
+ * Esta função é a rede de segurança: um booleano nunca vira quantidade, mesmo que alguém mapeie a
+ * coluna errada à mão.
+ */
+/**
+ * O texto é mesmo um endereço, ou é um marcador de modelo?
+ *
+ * A planilha do cliente traz literalmente `[URL]` nas 34 linhas — é o placeholder do modelo, não um
+ * link. Gravar isso enche o cadastro de "links" que não abrem nada. Mesma ideia do `dd/mm/yyyy`
+ * que o `parseDataBR` já descarta.
+ */
+function ehEnderecoDeVerdade(raw: string): boolean {
+  const v = (raw ?? '').trim()
+  if (!v) return false
+  if (/^[[<({].*[\]>)}]$/.test(v)) return false          // [URL], <link>, (endereço)
+  return /^(https?:\/\/|www\.)/i.test(v) || /\.[a-z]{2,}(\/|$)/i.test(v)
+}
+
+function ehBooleano(raw: string): boolean {
+  return ['true', 'false', 'verdadeiro', 'falso', 'sim', 'nao'].includes(normalize(raw))
 }
 
 function normalize(s: string): string {
@@ -115,6 +144,13 @@ export function autoSuggestField(header: string): string {
   const n = normalize(header)
   if (!n) return 'ignorar'
 
+  // Cabeçalho que diz as DUAS coisas — "Quantidade Critica / Realizar Pedido", numa célula só com
+  // quebra de linha — é marcação, não quantidade. Sem esta regra, `estoqueMinimo` vencia por 3
+  // pontos de diferença no comprimento da dica (118 × 115), puro acidente, e o `FALSE` da planilha
+  // zerava o mínimo de todo o estoque.
+  const pedeCompra = FIELD_HINTS.realizarPedido.some((d) => contemPalavraInteira(n, d))
+  if (pedeCompra) return 'realizarPedido'
+
   let melhorCampo = 'ignorar'
   let melhorNota = 0
 
@@ -128,6 +164,31 @@ export function autoSuggestField(header: string): string {
     }
   }
   return melhorCampo
+}
+
+/** Campos que só fazem sentido como número — se a coluna toda é sim/não, o palpite está errado. */
+const CAMPOS_NUMERICOS = new Set([
+  'estoqueMinimo', 'qtdDisponivel', 'custoUnitario', 'valorTotal',
+  'qtdPorEmbalagem', 'numEmbalagens', 'valorPorEmbalagem',
+])
+
+/**
+ * Corrige o palpite do cabeçalho olhando o que a coluna de fato contém.
+ *
+ * O nome sozinho não basta. "Quantidade Critica" tem "quantidade" no nome e vira `estoqueMinimo`
+ * por pontuação — mas na planilha do cliente a coluna inteira é `FALSE`, ou seja, **é uma caixa de
+ * seleção**, não um número. Gravar isso como mínimo zerava o alerta de reposição de todo item
+ * atualizado.
+ *
+ * A regra é conservadora de propósito: só troca quando **todas** as células preenchidas são
+ * sim/não. Uma coluna com `10`, `5`, `FALSE` continua sendo número — o `FALSE` isolado é descartado
+ * pela rede de segurança em `applyColumnMapping`, e o mínimo dos outros itens é respeitado.
+ */
+export function refinarPorConteudo(campo: string, valores: string[]): string {
+  if (!CAMPOS_NUMERICOS.has(campo)) return campo
+  const preenchidos = valores.filter((v) => String(v ?? '').trim() !== '')
+  if (preenchidos.length === 0) return campo
+  return preenchidos.every(ehBooleano) ? 'realizarPedido' : campo
 }
 
 /**
@@ -165,15 +226,45 @@ export function detectarConflitos(mapping: Record<string, string>): ConflitoDeCo
 }
 
 /** Read an Excel/CSV file and return headers + first 20 rows. */
+/**
+ * Data que veio como objeto (célula de data real do .xlsx) vira `dd/mm/aaaa`.
+ *
+ * Com `cellDates`, o xlsx entrega um `Date`; o CSV entrega texto. Normalizar aqui deixa o resto do
+ * parser lidando com um formato só.
+ */
+function dataParaTexto(v: unknown): string {
+  if (v instanceof Date && !Number.isNaN(v.getTime())) {
+    const d = String(v.getDate()).padStart(2, '0')
+    const m = String(v.getMonth() + 1).padStart(2, '0')
+    return `${d}/${m}/${v.getFullYear()}`
+  }
+  return String(v ?? '')
+}
+
 export function previewExcel(file: File): Promise<ExcelPreview> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
         const data = e.target?.result
-        const wb   = XLSX.read(data, { type: 'binary' })
+        // ─── Três opções, e cada uma conserta um defeito MEDIDO com a planilha real do cliente ───
+        //
+        // `codepage: 65001` — sem isto, um CSV UTF-8 SEM BOM (o que o Google Sheets exporta) vira
+        //   mojibake: "MÃ¡scaras PFF2", "CÃ³digo de ReferÃªncia". E o estrago não é só o nome feio:
+        //   o cabeçalho corrompido deixa de ser reconhecido (as colunas de CÓDIGO e DATA eram
+        //   descartadas em silêncio), e a descrição corrompida nunca casa com o que já está
+        //   cadastrado — todo item acentuado virava "material novo". Ler o arquivo como bytes NÃO
+        //   basta: sem a codepage o SheetJS assume Latin-1 do mesmo jeito.
+        //
+        // `raw: true` — impede o SheetJS de "adivinhar" datas no CSV. Ele lia `01/11/2025` como
+        //   data AMERICANA e ainda deslocava um dia: gravava 01/10 no lugar de 01/11. Só escapava
+        //   quando o dia passava de 12, porque aí o "mês" era inválido e ele desistia.
+        //
+        // `cellDates: true` — em contrapartida, a célula de data DE VERDADE do .xlsx viraria um
+        //   número de série (45961.99). Com isto ela chega como `Date` e é normalizada abaixo.
+        const wb   = XLSX.read(data, { type: 'array', codepage: 65001, raw: true, cellDates: true })
         const ws   = wb.Sheets[wb.SheetNames[0]]
-        const raw  = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: false })
+        const raw  = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: true })
 
         if (raw.length === 0) {
           resolve({ headers: [], rows: [] })
@@ -185,7 +276,7 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
         // mapeamento. Varrer todas as linhas resolve.
         const headers = [...new Set(raw.flatMap((r) => Object.keys(r)))]
         const rows    = raw.map((r) =>
-          Object.fromEntries(headers.map((h) => [h, String(r[h] ?? '')]))
+          Object.fromEntries(headers.map((h) => [h, dataParaTexto(r[h])]))
         )
         resolve({ headers, rows })
       } catch (err) {
@@ -193,7 +284,9 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
       }
     }
     reader.onerror = () => reject(new Error('Erro ao ler arquivo'))
-    reader.readAsBinaryString(file)
+    // `readAsArrayBuffer`, não `readAsBinaryString`: a string binária já perde a informação de
+    // codificação antes de o SheetJS ver o arquivo.
+    reader.readAsArrayBuffer(file)
   })
 }
 
@@ -236,7 +329,19 @@ export function applyColumnMapping(
       /** A planilha falou sobre este campo? Coluna não mapeada ou célula em branco = não falou. */
       const informado = (field: string) => str(field) !== ''
       /** Número quando informado; `undefined` quando a planilha não disse nada. */
-      const numOpt = (field: string) => (informado(field) ? parseLocaleNumber(str(field)) : undefined)
+      /**
+       * Número opcional — e a rede de segurança contra booleano virando quantidade.
+       *
+       * `parseLocaleNumber('FALSE')` devolve **0**, não NaN: ele tira tudo que não é dígito e
+       * `Number('')` é zero. E zero é gravado, porque o filtro do patch só descarta `undefined`,
+       * `''` e `null`. Foi assim que a coluna "Quantidade Critica / Realizar Pedido" zerava o
+       * estoque mínimo de todo item atualizado. Uma célula booleana agora é "não informado".
+       */
+      const numOpt = (field: string) => {
+        if (!informado(field)) return undefined
+        if (ehBooleano(str(field))) return undefined
+        return parseLocaleNumber(str(field))
+      }
       /** Número para as contas internas, onde ausente pode virar zero sem prejuízo. */
       const num = (field: string) => numOpt(field) ?? 0
 
@@ -277,7 +382,7 @@ export function applyColumnMapping(
         unidadeEmbalagem:    unidadeEmb,
         codigoReferencia:    str('codigoReferencia')    || undefined,
         dataUltimoPedido:    parseDataBR(str('dataUltimoPedido')),
-        linkProduto:         str('linkProduto')          || undefined,
+        linkProduto:         ehEnderecoDeVerdade(str('linkProduto')) ? str('linkProduto') : undefined,
         // Quando a COLUNA existe, `false` é resposta e precisa ser gravado — é assim que a
         // marcação se apaga depois que o pedido foi feito. Antes `false` virava `undefined`,
         // era descartado no patch, e a marcação ficava acesa para sempre.

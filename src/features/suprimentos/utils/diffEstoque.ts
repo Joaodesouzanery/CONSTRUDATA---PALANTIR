@@ -36,6 +36,14 @@ export interface LinhaDiff {
   /** `deltaQtd × custoUnitário`. Negativo = saiu do estoque. */
   impactoBRL: number
   estoqueMinimo: number
+  /**
+   * O mínimo que o sistema já tinha — `null` quando o item é novo.
+   *
+   * Existe para a conferência mostrar antes → depois. Foi o mínimo sumindo em silêncio que fez a
+   * coluna "Quantidade Critica / Realizar Pedido" zerar o alerta de todo item atualizado sem
+   * ninguém ver.
+   */
+  minimoAntes: number | null
   /** A quantidade nova fica abaixo (ou no limite) do mínimo. */
   abaixoDoMinimo: boolean
   /**
@@ -179,11 +187,19 @@ export function compararComEstoque(
   // importador antigo, que só inseria —, a planilha casa com a PRIMEIRA e as demais vão para
   // `duplicadosNoSistema`. Sem isso elas não apareceriam em canto nenhum do relatório.
   const porChave = new Map<string, ItemEstoque>()
+  // Índice reserva pela DESCRIÇÃO, para o caso em que as duas planilhas não trazem o mesmo
+  // identificador. Sem ele: o sistema tem o item COM código (chave `cod:thn05l`), a planilha nova
+  // vem SEM a coluna de código (chave `desc:thinner 18l`), as chaves não batem e o item vira
+  // "material novo" — duplicando o estoque inteiro. Era o pior desdobramento do problema de
+  // codificação, em que a coluna de código deixava de ser reconhecida.
+  const porDescricao = new Map<string, ItemEstoque>()
   const duplicadosNoSistema: ItemAusente[] = []
   for (const item of existentes) {
     const k = chaveDoItem(item)
     if (porChave.has(k)) duplicadosNoSistema.push(resumirItem(item))
     else porChave.set(k, item)
+    const kd = `desc:${normalizarChave(item.descricao ?? '')}`
+    if (kd !== 'desc:' && !porDescricao.has(kd)) porDescricao.set(kd, item)
   }
 
   const linhas: LinhaDiff[] = []
@@ -201,8 +217,13 @@ export function compararComEstoque(
       continue
     }
 
+    // Casa pela chave; se não achar, tenta pela descrição (ver o índice reserva acima).
     const atual = porChave.get(chave)
+      ?? porDescricao.get(`desc:${normalizarChave(imp.descricao ?? '')}`)
     casados.add(chave)
+    // Marca também a chave real do item encontrado, para a mesma linha não casar duas vezes por
+    // caminhos diferentes numa planilha com o produto repetido.
+    if (atual) casados.add(chaveDoItem(atual))
 
     const qtdAntes = atual ? Number(atual.qtdDisponivel) || 0 : null
     // Quantidade não informada = fica como está. Só vira zero quando o item é novo, porque aí não
@@ -218,10 +239,16 @@ export function compararComEstoque(
     if (!atual) tipo = 'novo'
     else if (deltaQtd !== 0) tipo = 'quantidade'
     else if (custoUnitario !== (Number(atual.custoUnitario) || 0)) tipo = 'custo'
+    // Só conta como mudança de cadastro o que a planilha DE FATO disse. É a mesma regra do
+    // `qtdInformada` logo acima, estendida aos outros campos — sem ela, uma coluna não mapeada ou
+    // 100% em branco marcava TODOS os itens como "cadastro alterado". Acontece de verdade: na
+    // planilha do cliente a coluna "Fornecedor Principal" está inteiramente vazia, e todo item que
+    // já tivesse fornecedor cadastrado apareceria como alterado, sem nada ter mudado.
     else if (
-      (imp.unidade ?? '') !== (atual.unidade ?? '')
-      || estoqueMinimo !== (Number(atual.estoqueMinimo) || 0)
-      || (imp.fornecedorPrincipal ?? '') !== (atual.fornecedorPrincipal ?? '')
+      (imp.unidade !== undefined && (imp.unidade ?? '') !== (atual.unidade ?? ''))
+      || (imp.estoqueMinimo !== undefined && estoqueMinimo !== (Number(atual.estoqueMinimo) || 0))
+      || (imp.fornecedorPrincipal !== undefined
+          && (imp.fornecedorPrincipal ?? '') !== (atual.fornecedorPrincipal ?? ''))
     ) tipo = 'dados'
     else tipo = 'inalterado'
 
@@ -238,6 +265,7 @@ export function compararComEstoque(
       // Contar a carga inicial como compra inflaria o número em milhares na primeira importação.
       impactoBRL: atual ? r2(deltaQtd * custoUnitario) : 0,
       estoqueMinimo,
+      minimoAntes: atual ? Number(atual.estoqueMinimo) || 0 : null,
       abaixoDoMinimo: estoqueMinimo > 0 && qtdDepois <= estoqueMinimo,
       qtdInformada,
       fornecedor: imp.fornecedorPrincipal || atual?.fornecedorPrincipal || undefined,
