@@ -226,3 +226,22 @@ test('nota de MATERIAL não abate do saldo de serviço', () => {
   assert.equal(cent(r.faturadoMaterial), 300000.00)
   assert.equal(cent(r.saldo), 453765.94, 'mas o saldo só desconta o serviço')
 })
+
+test('a barra de Execução é serviço contra serviço — nota de material não a move', () => {
+  // O card de contrato dividia o faturado TOTAL pelo valor de SERVIÇO. Na SUPERA o material
+  // (R$ 607.620) é quase do tamanho do serviço (R$ 592.324): uma nota de material de R$ 300 mil
+  // levava a barra para 74% sem nada ter sido executado.
+  const c = contrato({
+    valorServico: 592324.14,
+    valorMaterial: 607620,
+    faturamentos: [
+      nota({ id: 's', valor: 138558.20, categoria: 'servico' }),
+      nota({ id: 'm', valor: 300000.00, categoria: 'material' }),
+    ],
+  })
+  const r = resumoFaturamento(c, HOJE)
+  const executadoCerto  = (r.faturadoServico / 592324.14) * 100
+  const executadoErrado = (r.faturado / 592324.14) * 100
+  assert.ok(executadoCerto > 23 && executadoCerto < 24, `${executadoCerto.toFixed(1)}% — deveria ser ~23%`)
+  assert.ok(executadoErrado > 74, 'a conta antiga inflava para além de 74%')
+})
