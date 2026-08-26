@@ -145,6 +145,13 @@ test('nenhum texto da tela nem do PDF promete o que o cálculo não entrega', as
     [/economia comprovada/i,              'chama de "comprovada" o que é estimado'],
     [/evid[êe]ncias rastre[áa]veis/i,     'promete rastreabilidade que a constante do cálculo não tem'],
     [/calculad[oa]s? a partir de dados reais/i, 'sugere que o valor em R$ vem medido do dado real'],
+    // ⚠️ Esta escapou da primeira varredura e ficou no PDF: "foram comprovados R$ X ... a partir de
+    // dados operacionais reais", dezesseis linhas abaixo de um cabeçalho que já dizia "estimativa".
+    // O mesmo número, chamado de estimado em cima e de comprovado embaixo, no documento que vai
+    // para a diretoria. Os padrões acima eram estreitos demais — este é sobre o VERBO.
+    [/foram comprovad[oa]s/i,             'diz "comprovado" sobre número estimado'],
+    [/dados operacionais reais/i,         'sugere que o valor em R$ é medido, e não estimado'],
+    [/comprova(ção|cao) de economia/i,    'chama o documento de comprovação'],
   ]
   const arquivos = [
     'src/features/economia/index.tsx',

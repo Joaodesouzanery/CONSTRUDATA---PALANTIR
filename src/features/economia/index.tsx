@@ -31,10 +31,18 @@ import {
   summarizeEconomy,
   ehAjusteManual,
   baselineFoiConfirmada,
+  baselineDaObra,
   premissasDoEvento,
   totaisPorOrigem,
+  coberturaDeObra,
+  obrasComEventos,
+  SEM_OBRA,
   type TotaisPorOrigem,
 } from './utils/economiaEngine'
+import { retratoDaObra } from './utils/retratoDaObra'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { printEconomyDossier, printEconomyReport } from './utils/economiaReportExport'
 
 type EconomiaTab = 'overview' | 'events' | 'baseline' | 'report' | 'qbr'
@@ -57,6 +65,12 @@ const STATUS_LABELS: Record<EconomyEventStatus, string> = {
 export function EconomiaPage() {
   const store = useEconomiaStore()
   const lpsActivities = useLpsStore((state) => state.activities)
+  // As três fontes que faltavam para responder "esta obra gastou menos do que gastaria?".
+  const sites = useTorreStore((s) => s.sites)
+  const entries = useFinanceiroStore((s) => s.entries)
+  const workers = useMaoDeObraStore((s) => s.workers)
+  const shifts = useMaoDeObraStore((s) => s.shifts)
+  const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const [activeTab, setActiveTab] = useState<EconomiaTab>('overview')
   const [obra, setObra] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<EconomySourceModule | 'all'>('all')
@@ -69,22 +83,102 @@ export function EconomiaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Obra = filtro por nome de obra presente nos eventos (exato, sem heurística).
-  // Cliente já é isolado por organização via RLS no store.
+  // ─── ESCOPO POR OBRA ────────────────────────────────────────────────────────
+  // O filtro é pelo **id** da obra, não pelo nome. Era por nome — comparação de string contra o
+  // `projectName` do evento — e isso quebrava ao renomear uma obra e confundia nomes parecidos.
+  //
+  // `obra` tem três valores, e os três significam coisas diferentes no `summarizeEconomy`:
+  //   'all'        → a carteira inteira (passa `undefined`)
+  //   '<uuid>'     → só aquela obra
+  //   'sem-obra'   → só os eventos que não sabem a obra (passa `null`)
   const obraOptions = useMemo(
-    () => Array.from(new Set(store.events.map((event) => event.projectName).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [store.events],
+    () => obrasComEventos(store.events, store.selectedPeriod),
+    [store.events, store.selectedPeriod],
   )
 
-  const eventsForObra = useMemo(
-    () => (obra === 'all' ? store.events : store.events.filter((event) => event.projectName === obra)),
-    [obra, store.events],
-  )
+  /** O que vai para o `summarizeEconomy`: `undefined` = tudo, `null` = sem obra, id = a obra. */
+  const escopo: string | null | undefined =
+    obra === 'all' ? undefined : obra === 'sem-obra' ? null : obra
 
   const summary = useMemo(
-    () => summarizeEconomy(eventsForObra, store.baselines, store.selectedPeriod, undefined),
-    [eventsForObra, store.baselines, store.selectedPeriod],
+    () => summarizeEconomy(store.events, store.baselines, store.selectedPeriod, escopo),
+    [store.events, store.baselines, store.selectedPeriod, escopo],
   )
+
+  /** A tendência e o dossiê seguem o escopo escolhido. */
+  const eventsForObra = useMemo(
+    () => (escopo === undefined ? store.events : store.events.filter((e) => (e.projectId ?? null) === escopo)),
+    [store.events, escopo],
+  )
+
+  /** Quantos eventos do período não sabem a obra, em qualquer status — para o seletor. */
+  const semObraNoPeriodo = useMemo(
+    () => store.events.filter((e) => e.period === store.selectedPeriod && e.status !== 'dismissed' && !e.projectId).length,
+    [store.events, store.selectedPeriod],
+  )
+
+  /** Quanto do mês tem obra conhecida — sempre sobre a CARTEIRA, não sobre o recorte. */
+  const cobertura = useMemo(
+    () => coberturaDeObra(store.events.filter((e) => e.period === store.selectedPeriod)),
+    [store.events, store.selectedPeriod],
+  )
+
+  /**
+   * Trocar o mês pode tirar do ar a obra escolhida.
+   *
+   * `obraOptions` é recalculado por período. Se a obra selecionada não tem evento no mês novo, a
+   * `<option>` some, o `<select>` controlado fica com `selectedIndex = -1` e a caixa renderiza
+   * VAZIA — enquanto o conteúdo continua filtrado por ela. O cabeçalho dizia uma coisa e a tela
+   * mostrava outra. Volta para a carteira, que é o estado que o seletor consegue exibir.
+   */
+  useEffect(() => {
+    if (obra === 'all' || obra === 'sem-obra') return
+    if (!obraOptions.some((o) => o.id === obra)) setObra('all')
+  }, [obra, obraOptions])
+
+  /** A obra selecionada de verdade (nem 'all' nem 'sem-obra'), para o retrato financeiro. */
+  const siteSelecionado = useMemo(
+    () => (typeof escopo === 'string' ? sites.find((s) => s.id === escopo) ?? null : null),
+    [escopo, sites],
+  )
+
+  /**
+   * O retrato medido da obra: contrato + financeiro + custo real de mão de obra.
+   *
+   * ─── POR QUE O RECORTE AQUI NÃO É O DO `useObraScopedLabor` ──────────────────
+   * O hook usa a regra "trabalhador **sem** obra é geral e entra em todas". Para uma LISTA isso é
+   * generoso e certo — o sujeito pode mesmo ter trabalhado ali. Para uma SOMA DE DINHEIRO por obra
+   * é errado, e o erro é grande: o custo dele não se reparte entre as obras, ele se **repete**
+   * inteiro em cada uma. Com três obras e dez funcionários sem vínculo, a folha de cada obra
+   * carrega os dez, e somar as três daria três vezes a folha da empresa.
+   *
+   * Aqui a regra é a estrita: **só conta o que está carimbado nesta obra.**
+   *  - turno com `siteId` desta obra, sempre — o carimbo é a evidência de onde o trabalho ocorreu;
+   *  - turno sem carimbo entra só se o trabalhador tem `siteId` DESTA obra (turno legado, anterior
+   *    ao carimbo, de gente vinculada);
+   *  - trabalhador sem obra e turno sem carimbo ficam de fora, e a tela conta quantos são.
+   *
+   * O que fica de fora não some: aparece como aviso, para o número não parecer completo quando não é.
+   */
+  const retrato = useMemo(() => {
+    if (!siteSelecionado) return null
+    const id = siteSelecionado.id
+    const daObra = new Set(workers.filter((w) => w.siteId === id).map((w) => w.id))
+    const shiftsDaObra = shifts.filter((sh) => (sh.siteId != null ? sh.siteId === id : daObra.has(sh.workerId)))
+    const idsComTurno = new Set(shiftsDaObra.map((sh) => sh.workerId))
+    // Só quem tem turno nesta obra entra na folha dela — senão o headcount conta gente que não
+    // trabalhou aqui e produziu R$ 0.
+    const workersDaObra = workers.filter((w) => idsComTurno.has(w.id))
+    return retratoDaObra({
+      site: siteSelecionado,
+      period: store.selectedPeriod,
+      entries,
+      workers: workersDaObra,
+      shifts: shiftsDaObra,
+      cltSettings,
+      hoje: new Date().toISOString().slice(0, 10),
+    })
+  }, [siteSelecionado, store.selectedPeriod, entries, workers, shifts, cltSettings])
 
   const series = useMemo(() => monthlySeries(eventsForObra, 6), [eventsForObra])
   const currentPpc = useMemo(() => latestPpc(lpsActivities), [lpsActivities])
@@ -97,9 +191,25 @@ export function EconomiaPage() {
     })
   }, [sourceFilter, statusFilter, summary.events])
 
+  /**
+   * O seletor do topo passa a valer para o módulo inteiro.
+   *
+   * `store.setSelectedProject` existia e **nunca era chamado por ninguém** (grep no repositório:
+   * só a definição). Resultado: com "SUPERA" escolhida no cabeçalho, a aba Relatório procurava o
+   * relatório da carteira, gerava o da carteira e o "Marcar enviado" mexia no status de eventos de
+   * todas as obras. A tela dizia uma coisa e o documento saía outra.
+   *
+   * "Sem obra" cai na carteira aqui de propósito: um relatório mensal só dos eventos que não sabem
+   * a obra não é documento que se entregue a alguém.
+   */
+  const setSelectedProject = store.setSelectedProject
+  useEffect(() => {
+    setSelectedProject(siteSelecionado?.id ?? null)
+  }, [siteSelecionado?.id, setSelectedProject])
+
   const currentReport = store.reports.find((report) =>
     report.period === store.selectedPeriod &&
-    report.projectId === (store.selectedProjectId ?? null)
+    report.projectId === (siteSelecionado?.id ?? null)
   )
 
   // Exporta o dossiê com exatamente o que está na tela (obra + período selecionados),
@@ -109,8 +219,12 @@ export function EconomiaPage() {
     const liveReport: EconomyReport = {
       id: 'live',
       period: store.selectedPeriod,
-      projectId: null,
-      projectName: obra === 'all' ? (baseline?.projectName ?? 'Carteira de obras') : obra,
+      // O escopo real vai no id; o nome é para o cabeçalho do documento. Aqui estava
+      // `: obra`, que antes era o NOME da obra (o filtro era por string) e depois desta rodada
+      // passou a ser o UUID — o PDF entregue a uma diretoria abria com `3f8c1a94-…` no título.
+      projectId: typeof escopo === 'string' ? escopo : null,
+      projectName: siteSelecionado?.name
+        ?? (escopo === null ? `${SEM_OBRA} (eventos sem obra identificada)` : (baseline?.projectName ?? 'Carteira de obras')),
       baselineId: baseline?.id ?? null,
       eventIds: summary.events.map((event) => event.id),
       detectedEvents: summary.detectedEvents,
@@ -131,7 +245,12 @@ export function EconomiaPage() {
   const renderPanel = () => {
     switch (activeTab) {
       case 'overview':
-        return <ProvaDeValorPanel summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt} />
+        return (
+          <ProvaDeValorPanel
+            summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt}
+            cobertura={cobertura} retrato={retrato}
+          />
+        )
       case 'events':
         return (
           <EventsPanel
@@ -146,21 +265,34 @@ export function EconomiaPage() {
           />
         )
       case 'baseline':
-        return <BaselinePanel baselines={store.baselines} updateBaseline={store.updateBaseline} addBaseline={store.addBaseline} />
+        return (
+          <BaselinePanel
+            baselines={store.baselines}
+            updateBaseline={store.updateBaseline}
+            addBaseline={store.addBaseline}
+            obraSelecionada={siteSelecionado ? { id: siteSelecionado.id, nome: siteSelecionado.name } : null}
+            escopoTemObra={typeof escopo === 'string'}
+          />
+        )
       case 'report':
         return (
           <ReportPanel
             report={currentReport}
             events={store.events}
             baseline={summary.baseline}
-            generateReport={() => store.generateMonthlyReport()}
+            generateReport={() => store.generateMonthlyReport(store.selectedPeriod, siteSelecionado?.id ?? null)}
             markSent={store.markReportSent}
           />
         )
       case 'qbr':
         return <QbrPanel events={store.events} baseline={summary.baseline} />
       default:
-        return <ProvaDeValorPanel summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt} />
+        return (
+          <ProvaDeValorPanel
+            summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt}
+            cobertura={cobertura} retrato={retrato}
+          />
+        )
     }
   }
 
@@ -183,9 +315,18 @@ export function EconomiaPage() {
               title="Obra / carteira"
             >
               <option value="all">Carteira (todas as obras)</option>
-              {obraOptions.map((name) => (
-                <option key={name} value={name}>{name}</option>
+              {obraOptions.map((o) => (
+                <option key={o.id} value={o.id}>{o.nome}</option>
               ))}
+              {/* Sete dos treze tipos de evento não gravam a obra na origem. Eles precisam de um
+                  lugar onde possam ser vistos — escondê-los faria a soma das obras não bater com
+                  a carteira, sem explicação nenhuma. */}
+              {/* Contado sobre os eventos do período, e não sobre a cobertura: a cobertura só
+                  soma validados, e num mês recém-varrido todo evento nasce `detected`. A opção
+                  sumia justamente quando havia mais para ver. */}
+              {semObraNoPeriodo > 0 && (
+                <option value="sem-obra">{SEM_OBRA} ({semObraNoPeriodo})</option>
+              )}
             </select>
             <input
               type="month"
@@ -248,11 +389,15 @@ function ProvaDeValorPanel({
   series,
   currentPpc,
   lastScanAt,
+  cobertura,
+  retrato,
 }: {
   summary: ReturnType<typeof summarizeEconomy>
   series: Array<{ period: string; validatedBRL: number }>
   currentPpc: number
   lastScanAt: string | null
+  cobertura: ReturnType<typeof coberturaDeObra>
+  retrato: ReturnType<typeof retratoDaObra> | null
 }) {
   const events = summary.events
   const baseline = summary.baseline
@@ -268,6 +413,23 @@ function ProvaDeValorPanel({
   return (
     <div className="space-y-6">
       <HeroProof summary={summary} origem={totaisPorOrigem(events)} baselineConfirmada={baselineFoiConfirmada(baseline)} />
+
+      {/* Quanto do mês tem obra conhecida. Sem isto, "SUPERA economizou R$ 38.400" esconde que
+          outro tanto do mesmo mês não pôde ser atribuído a obra nenhuma. */}
+      <CoberturaDeObraAviso cobertura={cobertura} />
+
+      {/* O lado MEDIDO — só aparece quando há uma obra escolhida. Na carteira não faz sentido:
+          somar contrato de quatro obras não responde pergunta nenhuma. */}
+      {retrato && (
+        <RetratoDaObraPanel retrato={retrato} economiaEstimadaBRL={summary.avoidedLossBRL} />
+      )}
+
+      {summary.baselineHerdada && (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2 text-[11px] leading-5 text-amber-300">
+          Esta obra ainda não tem linha de base própria — os valores acima usam as premissas da
+          carteira. Preencha as dela em <b>Linha de base</b> para o número passar a ser sobre esta obra.
+        </p>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Panel title="De onde vem a economia (por módulo)">
@@ -642,12 +804,20 @@ function BaselinePanel({
   baselines,
   updateBaseline,
   addBaseline,
+  obraSelecionada,
+  escopoTemObra,
 }: {
   baselines: EconomyBaseline[]
   updateBaseline: (id: string, patch: Partial<EconomyBaseline>) => void
   addBaseline: (baseline?: Partial<EconomyBaseline>) => EconomyBaseline
+  /** A obra do seletor do topo, ou `null` na carteira. */
+  obraSelecionada: { id: string; nome: string } | null
+  /** O seletor aponta para uma obra, mesmo que ela não esteja mais no cadastro. */
+  escopoTemObra: boolean
 }) {
-  const baseline = baselines[0]
+  // A linha de base que vale para o escopo atual — a da obra, ou a da carteira por herança.
+  const { baseline: escolhida, herdada } = baselineDaObra(baselines, obraSelecionada?.id ?? null)
+  const baseline = escolhida
   if (!baseline) {
     return (
       <Panel title="Baseline semana 0">
@@ -659,7 +829,46 @@ function BaselinePanel({
   const confirmada = baselineFoiConfirmada(baseline)
 
   return (
-    <Panel title="Linha de base">
+    <Panel title={obraSelecionada ? `Linha de base — ${obraSelecionada.nome}` : 'Linha de base — carteira'}>
+      {/* Uma por obra, herdando a da carteira (escolha do cliente). Quem nunca abrir isto continua
+          exatamente como antes: um número só para tudo. */}
+      {obraSelecionada && herdada && (
+        <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2.5">
+          <p className="text-[11px] leading-5 text-amber-300">
+            <b>{obraSelecionada.nome} está usando os números da carteira.</b> Editar os campos abaixo
+            mudaria a carteira inteira e todas as outras obras junto. Crie a linha de base desta obra
+            para que os valores dela passem a sair das premissas dela.
+          </p>
+          <button
+            type="button"
+            onClick={() => addBaseline({
+              ...baseline,
+              id: undefined,
+              projectId: obraSelecionada.id,
+              projectName: obraSelecionada.nome,
+              // Herdou os números, mas herdar não é conferir: quem copiou não olhou.
+              confirmadaPeloUsuario: false,
+            })}
+            className="mt-2 rounded-lg border border-amber-400/50 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/10"
+          >
+            Criar linha de base para {obraSelecionada.nome}
+          </button>
+        </div>
+      )}
+      {/* Obra que está nos eventos mas não no cadastro (excluída na Torre). Sem este aviso, a aba
+          cai silenciosamente na carteira e QUALQUER edição aqui muda todas as obras. */}
+      {!obraSelecionada && escopoTemObra && (
+        <p className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/[0.08] px-3 py-2.5 text-[11px] leading-5 text-amber-300">
+          <b>Esta obra não está mais no cadastro</b> — foi excluída na Torre de Controle, e os
+          eventos dela continuam no histórico. Os campos abaixo são os da <b>carteira</b>: editar
+          aqui muda todas as obras.
+        </p>
+      )}
+      {obraSelecionada && !herdada && (
+        <p className="mb-3 text-[11px] leading-5 text-[#a3a3a3]">
+          Números próprios desta obra. A carteira e as outras obras não mudam com o que for editado aqui.
+        </p>
+      )}
       {/* A linha de base é criada sozinha na primeira abertura, com números de exemplo. Como quase
           todo valor em reais do módulo depende dela, apresentá-la como fato é o que transformava
           uma estimativa em "comprovação". */}
@@ -769,6 +978,172 @@ function KpiCard({ label, value, tone, icon: Icon = BadgeDollarSign }: { label: 
         <Icon size={16} className="text-[#f97316]" />
       </div>
       <p className={`mt-3 text-2xl font-semibold ${tone === 'green' ? 'text-emerald-300' : tone === 'red' ? 'text-red-300' : 'text-white'}`}>{value}</p>
+    </div>
+  )
+}
+
+const CATEGORIA_ROTULO: Record<string, string> = {
+  materiais: 'Materiais', mao_de_obra: 'Mão de obra', equipamentos: 'Equipamentos',
+  subempreiteiros: 'Subempreiteiros', administrativo: 'Administrativo', outro: 'Outros',
+}
+
+/**
+ * O retrato financeiro da obra — o lado MEDIDO, ao lado do estimado.
+ *
+ * Cada linha aqui é soma de lançamento que alguém registrou, com a fonte dita em voz alta. É o que
+ * faltava para a pergunta do cliente ("uma métrica de economia para a obra") ter chão: sem
+ * contrato, financeiro e custo real de mão de obra, o módulo só sabia multiplicar constantes.
+ *
+ * A folha aparece **ao lado** da saída de mão de obra, nunca somada a ela: a ponte RDO→Financeiro
+ * já lança esse custo como saída, e somar contaria o mesmo dinheiro duas vezes.
+ */
+function RetratoDaObraPanel({ retrato, economiaEstimadaBRL }: {
+  retrato: ReturnType<typeof retratoDaObra>
+  economiaEstimadaBRL: number
+}) {
+  if (!retrato.temDados) {
+    return (
+      <Panel title={`${retrato.obraNome} — o que o sistema sabe`}>
+        <EmptyText text="Esta obra ainda não tem contrato cadastrado, lançamento financeiro no mês nem folha calculada. Sem nenhuma das três, não há o que medir." />
+      </Panel>
+    )
+  }
+  const dif = retrato.diferencaFolhaCaixaBRL
+  return (
+    <Panel title={`${retrato.obraNome} — o que o sistema sabe, e de onde`}>
+      <div className="space-y-4">
+        {retrato.temContrato && (
+          <Bloco fonte="Contrato · Torre de Controle">
+            <LinhaValor rotulo="Valor de serviço" valor={retrato.contratoServicoBRL} />
+            {retrato.contratoMaterialBRL > 0 && (
+              <LinhaValor rotulo="Valor de material" valor={retrato.contratoMaterialBRL}
+                          nota="faturado à parte; não entra no saldo" />
+            )}
+            {/* Serviço e material separados: o saldo desconta só o serviço, e mostrar um
+                "faturado" único ao lado dele convidava a uma subtração que não fecha. */}
+            <LinhaValor rotulo="Faturado — serviço" valor={retrato.faturadoServicoBRL} />
+            {retrato.faturadoMaterialBRL > 0 && (
+              <LinhaValor rotulo="Faturado — material" valor={retrato.faturadoMaterialBRL}
+                          nota="não abate do saldo de serviço" />
+            )}
+            <LinhaValor rotulo="Saldo de serviço" valor={retrato.saldoServicoBRL} destaque />
+          </Bloco>
+        )}
+
+        <Bloco fonte="Financeiro · o que está lançado para esta obra no mês">
+          {retrato.saidasPorCategoria.length === 0
+            ? <EmptyText text="Nenhuma saída lançada para esta obra neste mês." />
+            : retrato.saidasPorCategoria.map((c) => (
+                <LinhaValor key={c.categoria}
+                            rotulo={CATEGORIA_ROTULO[c.categoria] ?? c.categoria}
+                            valor={c.valorBRL}
+                            nota={`${c.lancamentos} lançamento${c.lancamentos !== 1 ? 's' : ''}`} />
+              ))}
+          {retrato.saidasBRL > 0 && <LinhaValor rotulo="Soma dos lançamentos" valor={retrato.saidasBRL} destaque />}
+          <p className="mt-1.5 text-[11px] leading-5 text-[#a3a3a3]">
+            É o que está <b>lançado</b>, e não necessariamente o que saiu do banco. Duas ressalvas
+            que valem antes de usar este total: o Financeiro aceita lançamento <b>previsto</b> (a
+            Execução do Planejamento posta "mão de obra estimada" aqui), e o <b>mesmo</b> insumo
+            pode aparecer duas vezes — o RDO lança o consumo, a baixa da nota lança o pagamento.
+            Só entra o que tem esta obra no lançamento: despesa sem obra não é rateada, porque
+            dividir administrativo entre obras é decisão de negócio e não conta automática.
+          </p>
+        </Bloco>
+
+        <Bloco fonte="Mão de obra · apontamentos e turnos, com encargos">
+          <LinhaValor rotulo="Folha da obra no mês" valor={retrato.folhaDaObraBRL}
+                      nota={`${retrato.folhaHeadcount} pessoa${retrato.folhaHeadcount !== 1 ? 's' : ''} na folha`} />
+          {/* A conferência: Escala × RDO. NUNCA contra a categoria inteira — ela tem cinco
+              produtores do mesmo custo, e o "rombo" seria só repetição. */}
+          {(retrato.saidaMaoDeObraRdoBRL > 0 || retrato.folhaDaObraBRL > 0) && (
+            <div className="mt-1.5 rounded-lg border border-[#525252] bg-[#1f1f1f] px-3 py-2">
+              <p className="text-[11px] leading-5 text-[#d4d4d4]">
+                <b>Escala × RDO.</b> Os turnos da Escala dão {brl(retrato.folhaDaObraBRL)}; o que o
+                RDO lançou no Financeiro dá {brl(retrato.saidaMaoDeObraRdoBRL)}.{' '}
+                {Math.abs(dif) < 0.01
+                  ? <span className="text-emerald-300">Batem.</span>
+                  : <span className="text-[#e5e5e5]">Diferença de <b>{brl(Math.abs(dif))}</b>.</span>}
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-[#a3a3a3]">
+                São dois registros do mesmo trabalho, por caminhos diferentes — e com fórmulas
+                diferentes: a Escala usa valor-hora × horas, o RDO usa custo/dia de quem esteve
+                presente. <b>Não se somam, e a diferença não é erro:</b> serve para procurar turno
+                sem RDO, RDO sem turno, ou cadastro sem salário bruto.
+              </p>
+              {retrato.saidaMaoDeObraOutrasBRL > 0 && (
+                <p className="mt-1 text-[11px] leading-5 text-[#a3a3a3]">
+                  Há outros <b>{brl(retrato.saidaMaoDeObraOutrasBRL)}</b> lançados em mão de obra por
+                  outras origens — plano de execução, baixa de título, distribuição, lançamento
+                  manual. Ficam fora desta comparação de propósito: podem ser o mesmo trabalho.
+                </p>
+              )}
+            </div>
+          )}
+        </Bloco>
+
+        {/* O estimado, separado do medido por uma linha e por um rótulo. */}
+        <div className="rounded-lg border border-dashed border-[#525252] bg-[#242424] px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]">Economia · estimativa</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-emerald-300">{brl(economiaEstimadaBRL)}</p>
+          <p className="mt-1 text-[11px] leading-5 text-[#a3a3a3]">
+            Este é o único número desta tela que <b>não</b> é soma de lançamento: sai dos eventos do
+            período multiplicados pelas premissas da linha de base. Fica aqui embaixo, e à parte, de
+            propósito — ele não se soma com nada acima.
+          </p>
+        </div>
+      </div>
+    </Panel>
+  )
+}
+
+/**
+ * Quanto do valor do mês tem obra conhecida.
+ *
+ * Sete dos treze tipos de evento não gravam a obra na origem — o three-way match, as restrições do
+ * LPS, as medições e o EVM só têm texto livre. A decisão foi **não adivinhar**: eles contam na
+ * carteira e em obra nenhuma. Isso é honesto, mas só se a tela disser — senão o número de uma obra
+ * parece o total do mês, e a soma das obras não bate com a carteira sem explicação.
+ */
+function CoberturaDeObraAviso({ cobertura }: { cobertura: ReturnType<typeof coberturaDeObra> }) {
+  if (cobertura.percentual === null || cobertura.semObraEventos === 0) return null
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#242424] px-3 py-2.5">
+      <p className="text-[11px] leading-5 text-[#d4d4d4]">
+        <b>{cobertura.percentual}% do valor deste mês tem obra identificada</b> ({brl(cobertura.comObraBRL)} em{' '}
+        {cobertura.comObraEventos} evento{cobertura.comObraEventos !== 1 ? 's' : ''}).
+        Os outros {brl(cobertura.semObraBRL)} — {cobertura.semObraEventos} evento
+        {cobertura.semObraEventos !== 1 ? 's' : ''} — contam no total da carteira e em obra nenhuma.
+      </p>
+      <p className="mt-1 text-[11px] leading-5 text-[#a3a3a3]">
+        Restrições do LPS, medições, three-way match e EVM não gravam a obra na origem, só texto
+        livre. Atribuir obra por semelhança de nome daria número errado sem avisar; para contarem
+        por obra, a obra precisa ser preenchida no módulo de origem.
+      </p>
+    </div>
+  )
+}
+
+function Bloco({ fonte, children }: { fonte: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[#f97316]">{fonte}</p>
+      <div className="space-y-1">{children}</div>
+    </div>
+  )
+}
+
+function LinhaValor({ rotulo, valor, nota, destaque }: {
+  rotulo: string; valor: number; nota?: string; destaque?: boolean
+}) {
+  return (
+    <div className={`flex items-baseline justify-between gap-3 ${destaque ? 'border-t border-[#525252] pt-1.5' : ''}`}>
+      <span className={`text-xs ${destaque ? 'font-semibold text-[#f5f5f5]' : 'text-[#d4d4d4]'}`}>
+        {rotulo}
+        {nota && <span className="ml-1.5 text-[11px] text-[#a3a3a3]">({nota})</span>}
+      </span>
+      <span className={`shrink-0 tabular-nums ${destaque ? 'text-sm font-bold text-[#f5f5f5]' : 'text-xs text-[#e5e5e5]'}`}>
+        {brl(valor)}
+      </span>
     </div>
   )
 }

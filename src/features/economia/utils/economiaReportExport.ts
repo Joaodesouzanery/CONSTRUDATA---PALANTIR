@@ -25,12 +25,12 @@ function confidenceLabel(confidence: EconomyEvent['confidence']): string {
 }
 
 /**
- * Dossiê de comprovação de economia/eficiência (cliente · diretoria · comercial).
+ * Dossiê de perda evitada estimada (cliente · diretoria · comercial).
  * Documento branded com resumo executivo, metodologia transparente, antes/depois,
  * os eventos que compõem o total e a tendência. Impressão via janela do navegador (sem dependência).
  *
  * O documento diz o que o número é: **estimativa** de perda evitada, com as premissas da linha
- * de base à vista. Ele sai da mão do cliente para uma diretoria — prometer comprovação que o
+ * de base à vista. Ele sai da mão do cliente para uma diretoria — prometer prova que o
  * cálculo não entrega é o erro mais caro que este arquivo pode cometer.
  */
 export function printEconomyDossier(
@@ -71,7 +71,10 @@ export function printEconomyDossier(
   const categories = Array.from(new Set(valued.map((event) => event.category))) as EconomyEventCategory[]
   // Quanto do total foi digitado à mão. Vai na metodologia porque um relatório de diretoria não
   // pode apresentar valor digitado e valor calculado como se fossem a mesma coisa.
-  const origem = totaisPorOrigem(events)
+  // Sobre os eventos DESTE relatório, não sobre tudo o que o chamador passou. A tela manda
+  // `store.events` filtrado só por obra — todos os períodos — e a frase da metodologia diz
+  // "evento(s) deste relatório", contando junho num dossiê de agosto.
+  const origem = totaisPorOrigem(scoped)
   const ajustados = origem.eventosAjustados
   const ajustadoBRL = origem.ajustadoAMaoBRL
 
@@ -101,7 +104,7 @@ export function printEconomyDossier(
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <title>Comprovação de economia - ${esc(report.projectName)} - ${esc(report.period)}</title>
+  <title>Perda evitada (estimativa) - ${esc(report.projectName)} - ${esc(report.period)}</title>
   <style>
     @page { size: A4; margin: 12mm; }
     * { box-sizing: border-box; }
@@ -153,7 +156,7 @@ export function printEconomyDossier(
   <div class="cover">
     <div class="logo">R$</div>
     <div>
-      <div class="eyebrow">Documento de comprovação de economia e eficiência</div>
+      <div class="eyebrow">Estimativa de perda evitada e ganho de eficiência</div>
       <h1>${esc(report.projectName)}</h1>
       <div class="sub">${esc(orgName)} · período ${esc(periodLabel)} · gerado em ${esc(new Date(report.generatedAt).toLocaleDateString('pt-BR'))}</div>
     </div>
@@ -178,7 +181,7 @@ export function printEconomyDossier(
       <div class="stat">${brl(report.platformFeeBRL)}/mês</div>
     </div>
   </div>
-  <p class="impact">Para cada R$ 1,00 investido na plataforma, foram comprovados <b>${brl(paybackRatio)}</b> em economia e perdas evitadas no período, a partir de dados operacionais reais.</p>
+  <p class="impact">Para cada R$ 1,00 investido na plataforma, o período aponta <b>${brl(paybackRatio)}</b> em perda potencialmente evitada — <b>estimativa</b>, calculada sobre eventos detectados nos módulos operacionais com as premissas da linha de base informada pela operação.</p>
 
   <div class="grid">
     <div class="section">
@@ -261,7 +264,7 @@ export function printEconomyDossier(
   win.document.close()
 }
 
-/** Compatibilidade: o relatório mensal agora gera o dossiê de comprovação. */
+/** Compatibilidade: o relatório mensal agora gera o mesmo dossiê. */
 export function printEconomyReport(report: EconomyReport, events: EconomyEvent[], baseline?: EconomyBaseline | null) {
   printEconomyDossier(report, events, baseline)
 }

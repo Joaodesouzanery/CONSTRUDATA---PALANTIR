@@ -17,6 +17,13 @@ import type { GeneratedSubempreiteiroMeasurement } from '@/features/medicao/util
 
 export interface EconomyInput {
   baselines: EconomyBaseline[]
+  /**
+   * As obras cadastradas, só para traduzir id → nome.
+   *
+   * O evento guarda o **id**; o nome é enfeite de tela e pode mudar sem invalidar nada. Antes era
+   * o contrário: guardava-se um texto (`rdo.local`, `nucleo`, `projectRef`) e não havia id nenhum.
+   */
+  sites?: Array<{ id: string; name: string }>
   existingEvents: EconomyEvent[]
   rules: EconomyValuationRule[]
   purchaseOrders: PurchaseOrder[]
@@ -220,13 +227,49 @@ export function defaultEconomyRules(): EconomyValuationRule[] {
   ]
 }
 
+/**
+ * A linha de base que vale para uma obra — a dela, ou a da carteira por herança.
+ *
+ * Escolha do cliente: **uma por obra, herdando a da carteira.** Quem nunca abrir a aba continua
+ * exatamente como antes, com um número só para tudo; quem preencher a de uma obra passa a ver
+ * aquela obra calculada com os números dela.
+ *
+ * `herdada: true` é o que a tela precisa para não apresentar como "os números desta obra" o que na
+ * verdade são os da carteira — foi o mesmo tipo de silêncio que fazia a linha de base de exemplo
+ * passar por medição.
+ */
+export function baselineDaObra(
+  baselines: EconomyBaseline[],
+  projectId: string | null | undefined,
+): { baseline: EconomyBaseline | undefined; herdada: boolean } {
+  // A da carteira é a que não tem obra. Se ninguém criou nenhuma ainda, cai na primeira que houver
+  // — é o comportamento antigo, e obra nenhuma fica sem número por causa disso.
+  const daCarteira = baselines.find((b) => !b.projectId) ?? baselines[0]
+  if (!projectId) return { baseline: daCarteira, herdada: false }
+  const propria = baselines.find((b) => b.projectId === projectId)
+  return propria ? { baseline: propria, herdada: false } : { baseline: daCarteira, herdada: true }
+}
+
+/**
+ * Os números do período, no escopo pedido.
+ *
+ * `projectId` tem **três** valores com significados distintos, e confundi-los é fácil:
+ *
+ *   `undefined`  → a carteira inteira: todo evento do período, com obra ou sem
+ *   `'<uuid>'`   → só os eventos daquela obra
+ *   `null`       → só os eventos SEM obra
+ *
+ * O terceiro caso existe porque sete dos treze tipos de evento não têm como saber a obra (o
+ * three-way match, as restrições do LPS, as medições e o EVM não gravam obra na origem). Eles
+ * contam na carteira e em lugar nenhum além dela — a alternativa seria adivinhar pelo texto.
+ */
 export function summarizeEconomy(events: EconomyEvent[], baselines: EconomyBaseline[], period: string, projectId?: string | null) {
   const filtered = events.filter((event) =>
     event.period === period &&
-    (projectId === undefined || event.projectId === projectId) &&
+    (projectId === undefined || (event.projectId ?? null) === projectId) &&
     event.status !== 'dismissed',
   )
-  const baseline = baselines.find((item) => (projectId === undefined ? true : item.projectId === projectId)) ?? baselines[0]
+  const { baseline, herdada: baselineHerdada } = baselineDaObra(baselines, projectId)
   const validated = filtered.filter((event) => event.status === 'validated' || event.status === 'reported')
   const avoidedLossBRL = validated.reduce((sum, event) => sum + Math.max(0, event.impactBRL), 0)
   const estimatedPipelineBRL = filtered
@@ -238,6 +281,8 @@ export function summarizeEconomy(events: EconomyEvent[], baselines: EconomyBasel
   return {
     events: filtered,
     baseline,
+    /** A obra está usando os números da carteira por falta dos próprios. */
+    baselineHerdada,
     detectedEvents: filtered.length,
     validatedEvents: validated.length,
     avoidedLossBRL,
@@ -248,9 +293,29 @@ export function summarizeEconomy(events: EconomyEvent[], baselines: EconomyBasel
   }
 }
 
+/** Resolve a linha de base que vale para cada obra. Ver `baselineDaObra`. */
+export type ResolverBaseline = (projectId: string | null | undefined) => EconomyBaseline
+
 export function generateEconomyEvents(input: EconomyInput): EconomyEvent[] {
   const existingByKey = new Map(input.existingEvents.map((event) => [event.stableKey, event]))
-  const baseline = input.baselines[0] ?? defaultEconomyBaseline()
+
+  /**
+   * ⚠️ Aqui havia `const baseline = input.baselines[0]` — UMA linha de base para valorar tudo.
+   *
+   * Com linhas de base por obra isso passou de limitação a defeito, de dois jeitos:
+   *
+   *  1. criar a linha de base de uma obra **não mudava um centavo** — a tela prometia que os
+   *     valores daquela obra passariam a sair das premissas dela, e a valoração continuava lendo
+   *     a primeira do array;
+   *  2. pior, `pull()` traz `economy_baselines` sem `orderBy`, e o padrão do `pullTable` é
+   *     `created_at DESC`. Depois do próximo login, `baselines[0]` viraria a linha de base **mais
+   *     recente** — a da última obra criada — e ela repricificaria a **carteira inteira**.
+   *
+   * Agora cada evento é valorado pela linha de base da SUA obra, com herança da carteira.
+   */
+  const baselinePara: ResolverBaseline = (projectId) =>
+    baselineDaObra(input.baselines, projectId).baseline ?? defaultEconomyBaseline()
+
   const generated: EconomyEvent[] = []
 
   const push = (draft: Omit<EconomyEvent, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { status?: EconomyEvent['status'] }) => {
@@ -275,18 +340,53 @@ export function generateEconomyEvents(input: EconomyInput): EconomyEvent[] {
     })
   }
 
-  collectSupplyEvents(input, baseline, push)
-  collectLpsEvents(input, baseline, push)
-  collectRdoEvents(input, baseline, push)
-  collectEquipmentEvents(input, baseline, push)
-  collectEvmEvents(input, baseline, push)
-  collectMeasurementEvents(input, baseline, push)
-  collectManagementHoursEvent(input, baseline, push)
+  collectSupplyEvents(input, baselinePara, push)
+  collectLpsEvents(input, baselinePara, push)
+  collectRdoEvents(input, baselinePara, push)
+  collectEquipmentEvents(input, baselinePara, push)
+  collectEvmEvents(input, baselinePara, push)
+  collectMeasurementEvents(input, baselinePara, push)
+  collectManagementHoursEvent(input, baselinePara, push)
 
   return generated.sort((a, b) => b.date.localeCompare(a.date) || b.impactBRL - a.impactBRL)
 }
 
-function collectSupplyEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+/**
+ * Nome de exibição de uma obra a partir do id.
+ *
+ * ─── A REGRA DE OURO DESTE MÓDULO ─────────────────────────────────────────────
+ * **O evento guarda o `projectId`; o `projectName` é só rótulo.** Antes era o inverso: 20 dos 24
+ * pontos de criação gravavam `projectId: null` e punham no `projectName` um texto qualquer da
+ * fonte (`rdo.local`, `nucleo`, `projectRef`, e até `relatedPhase`, que é FASE e não obra). A tela
+ * então filtrava obra comparando essa string — de modo que renomear uma obra quebrava o filtro, e
+ * duas obras com nome parecido se confundiam.
+ *
+ * Sem obra conhecida devolve `null`, e quem chama escreve "Sem obra". Nunca inventa o nome da
+ * linha de base: dizer "SUPERA" num evento que não sabe a obra é pior do que dizer que não sabe.
+ */
+function nomeDaObra(input: EconomyInput, projectId: string | null | undefined): string | null {
+  if (!projectId) return null
+  return input.sites?.find((s) => s.id === projectId)?.name ?? null
+}
+
+/** O par (id, nome) de um evento, com o rótulo honesto quando a obra é desconhecida. */
+function obraDoEvento(input: EconomyInput, projectId: string | null | undefined): {
+  projectId: string | null
+  projectName: string
+} {
+  const id = projectId || null
+  return { projectId: id, projectName: nomeDaObra(input, id) ?? SEM_OBRA }
+}
+
+/**
+ * O rótulo de quem não tem obra.
+ *
+ * É texto, e não `null`, porque `projectName` é obrigatório em `EconomyEvent` e a tela agrupa por
+ * ele. O que separa "sem obra" de uma obra de verdade é o `projectId`, nunca este texto.
+ */
+export const SEM_OBRA = 'Sem obra'
+
+function collectSupplyEvents(input: EconomyInput, _baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   const poById = new Map(input.purchaseOrders.map((po) => [po.id, po]))
   for (const match of input.matches) {
     if (match.status !== 'discrepancy' && match.status !== 'partial') continue
@@ -305,8 +405,9 @@ function collectSupplyEvents(input: EconomyInput, baseline: EconomyBaseline, pus
         sourceModule: 'suprimentos',
         sourceId: match.id,
         category: 'material_waste',
-        projectId: null,
-        projectName: po?.projectRef || baseline.projectName,
+        // Sem obra: `PurchaseOrder` não tem `siteId` — só `projectRef`, texto livre ("PRJ-001").
+        // Casar isso com uma obra seria adivinhação; o evento conta na carteira, não numa obra.
+        ...obraDoEvento(input, null),
         date,
         period,
         title: 'Divergencia de material detectada',
@@ -335,8 +436,8 @@ function collectSupplyEvents(input: EconomyInput, baseline: EconomyBaseline, pus
       sourceModule: 'suprimentos',
       sourceId: item.id,
       category: 'material_waste',
-      projectId: null,
-      projectName: baseline.projectName,
+      // `ItemEstoque.siteId` é `construction_sites.id`, gravado a partir da obra ativa.
+      ...obraDoEvento(input, item.siteId),
       date: todayIso(),
       period,
       title: 'Risco de ruptura de estoque mitigavel',
@@ -361,8 +462,9 @@ function collectSupplyEvents(input: EconomyInput, baseline: EconomyBaseline, pus
       sourceModule: 'suprimentos',
       sourceId: forecast.id,
       category: 'material_waste',
-      projectId: null,
-      projectName: forecast.relatedPhase || baseline.projectName,
+      // `DemandForecast.siteId` é a obra. O `relatedPhase` que ficava aqui é FASE — "Fundação",
+      // "Alvenaria" — e aparecia na tela como se fosse o nome de uma obra.
+      ...obraDoEvento(input, forecast.siteId),
       date,
       period,
       title: 'Compra preventiva acionada por previsao de demanda',
@@ -379,7 +481,10 @@ function collectSupplyEvents(input: EconomyInput, baseline: EconomyBaseline, pus
   }
 }
 
-function collectLpsEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectLpsEvents(input: EconomyInput, baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
+  // Restrição e PPC não sabem a obra (ver os comentários nos pushes abaixo), então a linha de base
+  // que vale é a da carteira — a mesma que sempre valeu para eles.
+  const baseline = baselinePara(null)
   const costDay = baseline.workersCount * baseline.costPerPersonDayBRL
   for (const restriction of input.lpsRestrictions) {
     if (restriction.status !== 'resolvida') continue
@@ -394,8 +499,9 @@ function collectLpsEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
       sourceModule: 'lps',
       sourceId: restriction.id,
       category: 'restriction_removed',
-      projectId: null,
-      projectName: restriction.obraProjeto || restriction.nucleo || baseline.projectName,
+      // Sem obra: `LpsRestriction` não tem `siteId`. `obraProjeto` nem editável é (nenhum input
+      // escreve nele); o que o usuário digita é `nucleo`, texto livre tipo "Morro do Teteu".
+      ...obraDoEvento(input, null),
       date,
       period,
       title: 'Restricao resolvida antes de virar atraso',
@@ -418,8 +524,10 @@ function collectLpsEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
       sourceModule: 'lps',
       sourceId: ppc.week,
       category: 'schedule_alert',
-      projectId: null,
-      projectName: baseline.projectName,
+      // Sem obra: o PPC sai de `computeWeeklyPpc`, que agrupa só por semana. `LpsActivity.obraId`
+      // existe, mas só a sincronia Plano→LPS o preenche — atividade criada pela tela do LPS nasce
+      // sem ele, então agrupar por obra aqui daria cobertura enganosa.
+      ...obraDoEvento(input, null),
       date: todayIso(),
       period: monthPeriod(),
       title: 'PPC abaixo de 60%',
@@ -433,7 +541,7 @@ function collectLpsEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
   }
 }
 
-function collectRdoEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectRdoEvents(input: EconomyInput, baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   for (const rdo of input.rdos) {
     const period = dateToPeriod(rdo.date)
     for (const [index, stoppage] of (rdo.stoppages ?? []).entries()) {
@@ -442,15 +550,21 @@ function collectRdoEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
         sourceModule: 'rdo',
         sourceId: rdo.id,
         category: 'production_stoppage',
-        projectId: (rdo as { projectId?: string | null }).projectId ?? null,
-        projectName: rdo.local || baseline.projectName,
+        // `RDO.siteId` é a obra — ver a nota no evento de equipamento ocioso, logo abaixo.
+        ...obraDoEvento(input, rdo.siteId),
         date: rdo.date,
         period,
         title: 'Paralisacao registrada no RDO',
         description: `${stoppage.reason}. Evento registrado para evidenciar causa raiz; valor fica zerado ate validacao humana.`,
         impactBRL: 0,
         formula: 'validacao humana necessaria',
-        assumptions: { trabalhadores: baseline.workersCount, custoDiaPessoa: baseline.costPerPersonDayBRL },
+        // A linha de base DESTA obra: um canteiro de 12 pessoas não tem o custo-dia de um de 80.
+        // Era aqui que a promessa da tela ("os valores desta obra saem das premissas dela")
+        // deixava de se cumprir.
+        assumptions: {
+          trabalhadores: baselinePara(rdo.siteId).workersCount,
+          custoDiaPessoa: baselinePara(rdo.siteId).costPerPersonDayBRL,
+        },
         confidence: 'medium',
         evidence: [
           { label: 'Periodo', value: stoppage.period },
@@ -466,15 +580,20 @@ function collectRdoEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
         sourceModule: 'rdo',
         sourceId: rdo.id,
         category: 'equipment_idle',
-        projectId: (rdo as { projectId?: string | null }).projectId ?? null,
-        projectName: rdo.local || baseline.projectName,
+        // `RDO.siteId` é a obra. Aqui havia um cast para `rdo.projectId`, campo que NÃO existe
+        // no tipo — resolvia `undefined ?? null`, então TODO evento de RDO nascia sem obra.
+        ...obraDoEvento(input, rdo.siteId),
         date: rdo.date,
         period,
         title: 'Equipamento ocioso registrado no RDO',
         description: `${equipment.name} com ${equipment.hours}h de uso no dia.`,
-        impactBRL: baseline.equipmentDailyCostBRL * equipment.quantity,
+        impactBRL: baselinePara(rdo.siteId).equipmentDailyCostBRL * equipment.quantity,
         formula: 'diasOciososEvitados * custoDiarioEquipamento * quantidade',
-        assumptions: { diasOciososEvitados: 1, custoDiarioEquipamento: baseline.equipmentDailyCostBRL, quantidade: equipment.quantity },
+        assumptions: {
+          diasOciososEvitados: 1,
+          custoDiarioEquipamento: baselinePara(rdo.siteId).equipmentDailyCostBRL,
+          quantidade: equipment.quantity,
+        },
         confidence: 'medium',
         evidence: [{ label: 'Equipamento', value: equipment.name }],
       })
@@ -482,7 +601,7 @@ function collectRdoEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
   }
 }
 
-function collectEquipmentEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectEquipmentEvents(input: EconomyInput, baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   const today = todayIso()
   for (const order of input.maintenanceOrders) {
     if (order.status === 'completed' || order.status === 'cancelled') continue
@@ -493,15 +612,17 @@ function collectEquipmentEvents(input: EconomyInput, baseline: EconomyBaseline, 
       sourceModule: 'equipamentos',
       sourceId: order.id,
       category: 'equipment_idle',
-      projectId: null,
-      projectName: baseline.projectName,
+      // Sem obra: `MaintenanceOrder` não tem obra. Existe caminho indireto (equipamento → perfil
+      // → `siteId`), mas o store de equipamentos nem entra no `EconomyInput` — atribuir obra por
+      // aí seria inventar uma ligação que este módulo não tem.
+      ...obraDoEvento(input, null),
       date: today,
       period,
       title: 'Manutencao vencida com risco de parada',
       description: order.description,
-      impactBRL: Math.max(baseline.equipmentDailyCostBRL, order.estimatedCost * 0.25),
+      impactBRL: Math.max(baselinePara(null).equipmentDailyCostBRL, order.estimatedCost * 0.25),
       formula: 'max(custoDiarioEquipamento, custoEstimadoManutencao * 25%)',
-      assumptions: { custoDiarioEquipamento: baseline.equipmentDailyCostBRL, estimatedCost: order.estimatedCost },
+      assumptions: { custoDiarioEquipamento: baselinePara(null).equipmentDailyCostBRL, estimatedCost: order.estimatedCost },
       confidence: 'medium',
       evidence: [
         { label: 'Equipamento', value: order.equipmentId },
@@ -511,7 +632,7 @@ function collectEquipmentEvents(input: EconomyInput, baseline: EconomyBaseline, 
   }
 }
 
-function collectEvmEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectEvmEvents(input: EconomyInput, _baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   const metrics = input.evmMetrics
   if (!metrics) return
   const cpi = metrics.CPI ?? 1
@@ -524,8 +645,8 @@ function collectEvmEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
     sourceModule: 'evm',
     sourceId: `evm-${period}`,
     category: 'cost_deviation',
-    projectId: null,
-    projectName: baseline.projectName,
+    // Sem obra: `evmMetrics` são só números (CPI/SPI/CV/VAC) — nenhum identificador chega aqui.
+    ...obraDoEvento(input, null),
     date: todayIso(),
     period,
     title: 'Desvio financeiro detectado em tempo real',
@@ -541,7 +662,7 @@ function collectEvmEvents(input: EconomyInput, baseline: EconomyBaseline, push: 
   })
 }
 
-function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectMeasurementEvents(input: EconomyInput, baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   const measurements = input.generatedMeasurements ?? []
   if (!measurements.length) return
 
@@ -561,8 +682,8 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
         sourceModule: 'medicao',
         sourceId: measurement.key,
         category: 'measurement_discrepancy',
-        projectId: null,
-        projectName: measurement.nucleo || baseline.projectName,
+        // Sem obra: `nucleo` é texto livre, não o id da obra.
+        ...obraDoEvento(input, null),
         date: todayIso(),
         period,
         title: 'Divergencia de medicao detectada antes do fechamento',
@@ -571,7 +692,7 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
         formula: 'valorAfetadoOuEstimado * fatorConservadorDeErro',
         assumptions: {
           valorLiquidoPrevisto: measurement.economy.netPreviewBRL,
-          fatorConservadorDeErro: baseline.baselineMeasurementErrorRatePercent ?? 2,
+          fatorConservadorDeErro: baselinePara(null).baselineMeasurementErrorRatePercent ?? 2,
           pendenciasCriticas: measurement.economy.pendingCriticalCount,
         },
         confidence: measurement.economy.pendingCriticalCount > 0 ? 'high' : 'medium',
@@ -589,8 +710,8 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
         sourceModule: 'medicao',
         sourceId: measurement.key,
         category: 'measurement_discrepancy',
-        projectId: null,
-        projectName: measurement.nucleo || baseline.projectName,
+        // Sem obra: a medição gerada só traz `nucleo`, texto livre.
+        ...obraDoEvento(input, null),
         date: todayIso(),
         period,
         title: 'Medição com evidencia rastreavel',
@@ -605,6 +726,10 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
   }
 
   for (const [period, list] of periodGroups) {
+    // Horas de medição são de processo, não de canteiro: valem para a carteira. Antes isto usava
+    // `baseline.projectId` da primeira linha de base do array — que com linhas por obra passaria a
+    // carimbar estes eventos numa obra arbitrária.
+    const baseline = baselinePara(null)
     const manualHours = baseline.manualMeasurementHoursPerSub ?? 8
     const automatedHours = baseline.automatedMeasurementHoursPerSub ?? 1.5
     const savedHours = Math.max(0, manualHours - automatedHours) * list.length
@@ -614,8 +739,10 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
       sourceModule: 'medicao',
       sourceId: `measurement-hours-${period}`,
       category: 'management_hours',
-      projectId: baseline.projectId,
-      projectName: baseline.projectName,
+      // Idem: o escopo é o da linha de base que valorou estas horas.
+      // Evento de carteira: não pertence a obra nenhuma, e dizer que pertence seria pior do que
+      // dizer que não se sabe. (Era `baseline.projectId`, da primeira linha de base do array.)
+      ...obraDoEvento(input, null),
       date: todayIso(),
       period,
       title: 'Horas de medicao recuperadas',
@@ -637,8 +764,10 @@ function collectMeasurementEvents(input: EconomyInput, baseline: EconomyBaseline
   }
 }
 
-function collectManagementHoursEvent(input: EconomyInput, baseline: EconomyBaseline, push: (event: EventDraft) => void) {
+function collectManagementHoursEvent(input: EconomyInput, baselinePara: ResolverBaseline, push: (event: EventDraft) => void) {
   if (!input.rdos.length && !input.matches.length && !input.lpsActivities.length) return
+  // Idem: "horas de gestão recuperadas" é da operação inteira, não de uma obra.
+  const baseline = baselinePara(null)
   const period = monthPeriod()
   const hoursNow = input.rules.find((rule) => rule.category === 'management_hours')?.assumptions.horasAtuais ?? 0.5
   const savedHours = Math.max(0, baseline.manualReportHoursPerWeek - hoursNow)
@@ -648,8 +777,11 @@ function collectManagementHoursEvent(input: EconomyInput, baseline: EconomyBasel
     sourceModule: 'manual',
     sourceId: `management-hours-${period}`,
     category: 'management_hours',
-    projectId: baseline.projectId,
-    projectName: baseline.projectName,
+      // Evento da própria linha de base: a obra dele é a da linha de base (agora pode haver uma
+      // por obra). Carteira = sem obra.
+      // Evento de carteira: não pertence a obra nenhuma, e dizer que pertence seria pior do que
+      // dizer que não se sabe. (Era `baseline.projectId`, da primeira linha de base do array.)
+      ...obraDoEvento(input, null),
     date: todayIso(),
     period,
     title: 'Horas de gestao recuperadas',
@@ -825,4 +957,70 @@ export function totaisPorOrigem(events: EconomyEvent[]): TotaisPorOrigem {
     ajustadoAMaoBRL: roundMoney(ajustadoAMaoBRL),
     eventosAjustados,
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ESCOPO POR OBRA — E O QUANTO DELE EXISTE
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Dos treze tipos de evento, quatro sabem a obra por id: os dois de RDO (`RDO.siteId`), a ruptura
+// de estoque (`ItemEstoque.siteId`) e a previsão de demanda (`DemandForecast.siteId`). Os outros
+// não têm nada além de texto livre na origem — `nucleo`, `projectRef`, `obraProjeto` — e a decisão
+// do cliente foi **não adivinhar**: eles contam na carteira e em obra nenhuma.
+//
+// Isso torna a cobertura um número que a tela precisa mostrar. Dizer "SUPERA economizou R$ 38.400"
+// sem dizer que outros R$ 92.100 do mesmo mês não puderam ser atribuídos a obra alguma seria a
+// mesma meia-verdade que este módulo acabou de parar de contar.
+
+/** Quanto do valor do período tem obra conhecida, e quanto não tem. */
+export interface CoberturaDeObra {
+  /** Soma dos eventos validados COM obra. */
+  comObraBRL: number
+  /** Soma dos eventos validados SEM obra — só entram no total da carteira. */
+  semObraBRL: number
+  comObraEventos: number
+  semObraEventos: number
+  /** `comObraBRL / (comObraBRL + semObraBRL)` em %, ou `null` quando não há valor nenhum. */
+  percentual: number | null
+}
+
+export function coberturaDeObra(events: EconomyEvent[]): CoberturaDeObra {
+  let comObraBRL = 0, semObraBRL = 0, comObraEventos = 0, semObraEventos = 0
+  for (const e of events) {
+    if (e.status !== 'validated' && e.status !== 'reported') continue
+    const valor = Math.max(0, e.impactBRL)
+    if (e.projectId) { comObraBRL += valor; comObraEventos += 1 }
+    else { semObraBRL += valor; semObraEventos += 1 }
+  }
+  const total = comObraBRL + semObraBRL
+  return {
+    comObraBRL: roundMoney(comObraBRL),
+    semObraBRL: roundMoney(semObraBRL),
+    comObraEventos,
+    semObraEventos,
+    // Zero eventos não é "0% de cobertura" — é ausência de dado. A tela precisa da diferença para
+    // não pintar de vermelho um período em que simplesmente não houve nada.
+    percentual: total > 0 ? Math.round((comObraBRL / total) * 100) : null,
+  }
+}
+
+/** As obras que aparecem nos eventos do período, para o seletor da tela. */
+export function obrasComEventos(events: EconomyEvent[], period: string): Array<{ id: string; nome: string }> {
+  const porId = new Map<string, string>()
+  for (const e of events) {
+    if (e.period !== period || e.status === 'dismissed' || !e.projectId) continue
+    // Primeiro nome útil vence: os eventos da mesma obra carregam o mesmo rótulo, e se divergirem
+    // é porque a obra foi renomeada — o id é que manda.
+    const atual = porId.get(e.projectId)
+    if (!atual || atual === SEM_OBRA) porId.set(e.projectId, e.projectName || SEM_OBRA)
+  }
+  return [...porId]
+    .map(([id, nome]) => ({
+      // Obra excluída do cadastro: o evento guarda o id, mas `nomeDaObra` não acha mais o nome e
+      // devolve SEM_OBRA. Sem isto, o seletor mostrava DUAS opções lendo "Sem obra" — uma com o
+      // uuid de uma obra real e apagada, outra com os eventos que nunca tiveram obra.
+      id,
+      nome: nome === SEM_OBRA ? `Obra removida (${id.slice(0, 8)})` : nome,
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 }

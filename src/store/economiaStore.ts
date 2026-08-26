@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus, changedColumns } from '@/lib/storeSync'
 import type {
   EconomyBaseline,
   EconomyEvent,
@@ -12,6 +12,7 @@ import type {
 import { useEvmStore } from './evmStore'
 import { useGestaoEquipamentosStore } from './gestaoEquipamentosStore'
 import { useContractorStore } from './contractorStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
 import { useLpsStore } from './lpsStore'
 import { useMedicaoUnificadaStore } from './medicaoUnificadaStore'
 import { useRdoStore } from './rdoStore'
@@ -228,6 +229,8 @@ export const useEconomiaStore = create<EconomiaState>()(
           const eventIdByStableKey = new Map(current.map((event) => [event.stableKey, event.id]))
           const generated = generateEconomyEvents({
             baselines: baseline,
+            // Só para traduzir id → nome na hora de rotular o evento. O que o evento guarda é o id.
+            sites: useTorreStore.getState().sites.map((s) => ({ id: s.id, name: s.name })),
             existingEvents: current,
             rules: get().rules,
             purchaseOrders: sups.purchaseOrders,
@@ -248,9 +251,39 @@ export const useEconomiaStore = create<EconomiaState>()(
           }))
           const generatedKeys = new Set(generated.map((event) => event.stableKey))
           const manualEvents = current.filter((event) => event.sourceModule === 'manual' && !generatedKeys.has(event.stableKey))
-          const newEvents = generated.filter((event) => !current.some((existing) => existing.id === event.id))
+          const porId = new Map(current.map((event) => [event.id, event]))
+          const newEvents = generated.filter((event) => !porId.has(event.id))
           const { orgId, userId } = ctxAuth()
+
+          /**
+           * ⚠️ Evento que JÁ EXISTE também precisa subir quando a varredura muda alguma coisa nele.
+           *
+           * Antes só `newEvents` virava op. Parecia inofensivo — o re-scan recalcula, o resultado
+           * costuma ser igual. Deixou de ser no momento em que a varredura passou a **corrigir** o
+           * evento: os que estão gravados no servidor têm `project_id = null`, e o escopo por obra
+           * os conserta. Sem esta op, o conserto vivia só no navegador; no login seguinte o `pull`
+           * traria `project_id = null` de volta (sem op pendente, `mergePull` deixa o servidor
+           * vencer) e **o escopo por obra inteiro desapareceria**, sem erro nenhum na tela.
+           *
+           * Só sobe o que de fato mudou (`changedColumns`), para o re-scan de rotina não encher a
+           * fila com update idêntico a cada abertura do módulo.
+           */
+          const changedEvents = generated.flatMap((event) => {
+            const antes = porId.get(event.id)
+            if (!antes) return []
+            const patch = changedColumns(eventToRow(antes, orgId, userId), eventToRow(event, orgId, userId))
+            return Object.keys(patch).length ? [{ id: event.id, patch }] : []
+          })
+
           set({ events: [...generated, ...manualEvents], lastScanAt: new Date().toISOString() })
+          if (changedEvents.length) {
+            set((state) => ({
+              pendingSync: [
+                ...state.pendingSync,
+                ...changedEvents.map(({ id, patch }) => makeOp({ entity: 'economy_event', type: 'update', recordId: id, patch, table: 'economy_events' })),
+              ],
+            }))
+          }
           if (newEvents.length) {
             set((state) => ({
               pendingSync: [
