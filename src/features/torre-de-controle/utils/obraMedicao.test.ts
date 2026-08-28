@@ -11,8 +11,27 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { calcServico, totaisContrato, conferirTotal, ehVerba, precoEfetivo, UNIDADE_VERBA } from './obraMedicao'
-import type { ObraContratoServico } from '@/types'
+import {
+  calcServico, totaisContrato, conferirTotal, ehVerba, precoEfetivo, UNIDADE_VERBA,
+  medidoAutoPorServico, medidoPorServicoPorMes,
+} from './obraMedicao'
+import type { ObraContratoServico, RDO } from '@/types'
+
+/** RDO no template `compizzo` — o único que grava produção por serviço do contrato. */
+const rdoCompizzo = (p: {
+  date: string
+  producao: Array<{ contractServiceId: string; quantidade: string }>
+  siteId?: string
+  status?: string
+}): RDO => ({
+  id: Math.random().toString(36).slice(2),
+  number: '1',
+  date: p.date,
+  siteId: p.siteId ?? 'obra-1',
+  status: p.status ?? 'finalizado',
+  template: 'compizzo',
+  compizzo: { producao: p.producao },
+} as unknown as RDO)
 
 const svc = (p: Partial<ObraContratoServico>): ObraContratoServico => ({
   id: 'x', descricao: '', unidade: 'm²', qtdContrato: 0, valorUnitario: 0, ...p,
@@ -154,4 +173,36 @@ test('um dia misto vale a soma por serviço, não a metragem vezes um preço', (
   assert.equal(cent(m2 * 28.94), 10129.00, 'com o preço do piso: R$ 506,50 a menos')
   assert.equal(cent(m2 * 27.65), 9677.50,  'com o preço da parede: R$ 958,00 a menos')
   assert.equal(cent(80 * 8.75), 700, 'e os R$ 700 da demarcação ficavam fora')
+})
+
+// ── O medido, quebrado por mês (o quadro de Gestão à Vista) ───────────────────
+
+test('a soma dos meses de um serviço é exatamente o total medido dele', () => {
+  // As duas funções varrem os mesmos RDOs com as mesmas regras; se divergirem, o quadro da parede
+  // e a aba Composição passam a contar coisas diferentes sobre o mesmo serviço.
+  const rdos = [
+    rdoCompizzo({ date: '2026-04-10', producao: [{ contractServiceId: 's1', quantidade: '100' }] }),
+    rdoCompizzo({ date: '2026-04-22', producao: [{ contractServiceId: 's1', quantidade: '50' }] }),
+    rdoCompizzo({ date: '2026-05-03', producao: [{ contractServiceId: 's1', quantidade: '25' }] }),
+  ]
+  const porMes = medidoPorServicoPorMes(rdos, 'obra-1').get('s1')!
+  assert.equal(porMes.get('2026-04'), 150)
+  assert.equal(porMes.get('2026-05'), 25)
+
+  const total = medidoAutoPorServico(rdos, 'obra-1').get('s1')
+  assert.equal([...porMes.values()].reduce((s, v) => s + v, 0), total)
+})
+
+test('rascunho não entra, nem RDO de outra obra', () => {
+  const rdos = [
+    rdoCompizzo({ date: '2026-04-10', status: 'rascunho', producao: [{ contractServiceId: 's1', quantidade: '999' }] }),
+    rdoCompizzo({ date: '2026-04-11', siteId: 'obra-2', producao: [{ contractServiceId: 's1', quantidade: '888' }] }),
+    rdoCompizzo({ date: '2026-04-12', producao: [{ contractServiceId: 's1', quantidade: '7' }] }),
+  ]
+  assert.equal(medidoPorServicoPorMes(rdos, 'obra-1').get('s1')?.get('2026-04'), 7)
+})
+
+test('sem obra selecionada devolve mapa vazio, não o total da empresa', () => {
+  const rdos = [rdoCompizzo({ date: '2026-04-10', producao: [{ contractServiceId: 's1', quantidade: '10' }] })]
+  assert.equal(medidoPorServicoPorMes(rdos, null).size, 0)
 })

@@ -27,6 +27,43 @@ export function medidoAutoPorServico(rdos: RDO[], siteId: string | null | undefi
   return m
 }
 
+/**
+ * O mesmo `medidoAutoPorServico`, quebrado por MÊS.
+ *
+ * É o que preenche as colunas verdes do quadro de Gestão à Vista da parede: quanto de cada serviço
+ * saiu em abril, em maio, em junho. A soma dos meses de um serviço é exatamente o que
+ * `medidoAutoPorServico` devolve para ele — há teste amarrando as duas.
+ *
+ * ⚠️ **Isto é o EXECUTADO, e o quadro impresso tem duas metades.** A outra — as colunas de
+ * *previsto* mês a mês — não existe neste produto: o contrato guarda quantidade e preço, não
+ * distribuição no tempo. Preencher aquela metade exigiria um cadastro de cronograma por serviço
+ * que ninguém pediu ainda.
+ *
+ * Chave do mapa externo: `contractServiceId`. Chave do interno: `yyyy-MM`.
+ */
+export function medidoPorServicoPorMes(
+  rdos: RDO[],
+  siteId: string | null | undefined,
+): Map<string, Map<string, number>> {
+  const m = new Map<string, Map<string, number>>()
+  if (!siteId) return m
+  for (const rdo of rdos) {
+    if ((rdo.siteId ?? null) !== siteId) continue
+    if (rdo.template !== 'compizzo' || !rdo.compizzo) continue
+    if (rdo.status === 'rascunho') continue   // idêntico a `medidoAutoPorServico`: só finalizados
+    const mes = rdo.date.slice(0, 7)
+    for (const p of rdo.compizzo.producao ?? []) {
+      if (!p.contractServiceId) continue
+      const q = parseLocaleNumber(p.quantidade)
+      if (q <= 0) continue
+      const porMes = m.get(p.contractServiceId) ?? new Map<string, number>()
+      porMes.set(mes, (porMes.get(mes) ?? 0) + q)
+      m.set(p.contractServiceId, porMes)
+    }
+  }
+  return m
+}
+
 /** Preço efetivo = preço cheio × (% aplicado / 100). % ausente = 100%. */
 export function precoEfetivo(svc: ObraContratoServico): number {
   return (svc.valorUnitario || 0) * ((svc.pctAplicado ?? 100) / 100)
