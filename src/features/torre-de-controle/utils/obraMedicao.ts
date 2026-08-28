@@ -240,6 +240,13 @@ export interface ResumoFaturamento {
   recebido:   number
   /** Σ das notas emitidas e ainda não recebidas. */
   aReceber:   number
+  /**
+   * Quantas notas compõem o `aReceber`.
+   *
+   * "R$ 296 mil a receber" e "R$ 296 mil a receber em 12 notas" pedem ações diferentes: uma nota
+   * grande é um telefonema, doze notas pequenas é um problema de cobrança.
+   */
+  aReceberNotas: number
   /** Σ da retenção técnica/contratual de todas as notas. */
   retencao:   number
   /** Valor da linha marcada como entrada (a primeira parcela). `null` quando não há. */
@@ -263,7 +270,7 @@ export function resumoFaturamento(
   const { servico } = valoresDoContrato(contrato)
 
   let faturado = 0, faturadoServico = 0, faturadoMaterial = 0
-  let recebido = 0, aReceber = 0, retencao = 0
+  let recebido = 0, aReceber = 0, aReceberNotas = 0, retencao = 0
   let entrada: number | null = null
   const vencidas: ObraFaturamento[] = []
 
@@ -278,6 +285,7 @@ export function resumoFaturamento(
     if (n.situacao === 'recebido') recebido += v
     else {
       aReceber += v
+      aReceberNotas += 1
       // Comparação de string ISO — 'yyyy-mm-dd' ordena lexicograficamente igual à data.
       if (n.previsaoRecebimento && n.previsaoRecebimento < hojeISO) vencidas.push(n)
     }
@@ -285,12 +293,37 @@ export function resumoFaturamento(
   }
 
   return {
-    faturado, faturadoServico, faturadoMaterial, recebido, aReceber, retencao, entrada,
+    faturado, faturadoServico, faturadoMaterial, recebido, aReceber, aReceberNotas, retencao, entrada,
     // O saldo é contra o SERVIÇO, e só as notas de serviço abatem dele. É a conta da planilha
     // do cliente: SUPERA 592.324,14 − 138.558,20 = 453.765,94.
     saldo: servico - faturadoServico,
     vencidas,
   }
+}
+
+/**
+ * Quanto do SERVIÇO contratado já virou nota, em 0–100.
+ *
+ * ─── POR QUE ESTA FUNÇÃO EXISTE, EM VEZ DA CONTA SOLTA NA TELA ────────────────
+ * Ela vivia inline no card de contrato, e ali dividia o faturado **total** pelo valor de serviço.
+ * O material é faturado à parte e pode ser do tamanho do serviço — na SUPERA são R$ 607.620 contra
+ * R$ 592.324 —, então uma nota de material empurrava a barra para 74% com 23% executado
+ * (corrigido em `bb03a87`). Com dois lugares querendo o mesmo número, a conta passa a morar aqui.
+ *
+ * Devolve `null`, e não `0`, quando não há valor de serviço cadastrado: `0%` se lê como "esta obra
+ * não andou", e a verdade é "esta obra não tem contrato lançado". São coisas diferentes, e a tela
+ * mostra cada uma de um jeito.
+ */
+export function pctServicoFaturado(
+  contrato: ObraContrato | null | undefined,
+  hojeISO: string,
+): number | null {
+  const { servico } = valoresDoContrato(contrato)
+  if (servico <= 0) return null
+  const { faturadoServico } = resumoFaturamento(contrato, hojeISO)
+  // Trava em 100: faturar acima do contrato acontece (aditivo lançado como nota antes de o valor
+  // do contrato ser atualizado), e uma barra de 118% confunde mais do que informa.
+  return Math.min(100, (faturadoServico / servico) * 100)
 }
 
 export interface LinhaCarteira {

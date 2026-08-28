@@ -29,6 +29,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { hojeLocalISO } from '@/lib/utils'
 import {
   medidoAutoPorServico, valoresDoContrato, resumoFaturamento, subtotaisComposicao,
+  pctServicoFaturado,
 } from '@/features/torre-de-controle/utils/obraMedicao'
 import {
   titulosDoFaturamento, titulosObsoletos, lancamentosDuplicados, type LancamentoSuspeito,
@@ -91,11 +92,10 @@ export function ContratoCard({ site }: { site: ConstructionSite }) {
     setDuplicados(lancamentosDuplicados(comNovo, useFinanceiroStore.getState().entries ?? []))
   }
 
-  // ⚠️ Serviço contra serviço. Aqui estava `fat.faturado`, que soma serviço + material — e o
-  // material é faturado à parte, podendo ser do mesmo tamanho do serviço (na SUPERA são
-  // R$ 607.620 contra R$ 592.324). Uma nota de material empurrava esta barra para perto de 100%
-  // sem nada ter sido executado. É a mesma regra que faz o saldo da carteira fechar.
-  const executado = valores.servico > 0 ? Math.min(100, (fat.faturadoServico / valores.servico) * 100) : 0
+  // A conta mora em `pctServicoFaturado` porque o painel de indicadores da tela inicial faz a
+  // mesma pergunta — e duas cópias divergiriam na primeira mudança. Ela devolve `null` quando não
+  // há contrato; aqui a barra fica em zero, que é o que uma barra sem contrato deve mostrar.
+  const executado = pctServicoFaturado(contrato, hoje) ?? 0
 
   return (
     <div className="flex flex-col gap-3 border-b border-[#525252] px-4 py-3">
