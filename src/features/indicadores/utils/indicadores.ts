@@ -250,3 +250,181 @@ export function rotinasEmDia(entrada: {
 
   return { ativas: ativas.length, feitasNoCiclo, atrasadas, pior }
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// APRESENTAÇÃO — o cartão, e a explicação que vai junto
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** `sem-dado` é CINZA. Nunca verde — é o defeito que este arquivo existe para consertar. */
+export type TomIndicador = 'ok' | 'atencao' | 'grave' | 'sem-dado'
+
+export interface Indicador {
+  id: 'dinheiro' | 'reportando' | 'executado' | 'rotinas'
+  titulo: string
+  /** O número grande. `'—'` quando falta dado. */
+  valor: string
+  detalhe: string
+  tom: TomIndicador
+  explicacao: {
+    oQueE: string
+    deOndeVem: string
+    /** Obrigatório sempre que `tom === 'sem-dado'`: o cartão precisa dizer o que preencher. */
+    oQueFalta?: string
+  }
+  /** Para onde o clique leva. */
+  destino: string
+}
+
+const brlCompacto = (n: number) =>
+  n >= 1_000_000 ? `R$ ${(n / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`
+  : n >= 1_000   ? `R$ ${(n / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
+  : `R$ ${n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+
+/** `2026-08-01` → `01/08`. Sem `Date`: split de string não desloca dia por fuso. */
+const diaMes = (iso: string) => (iso.length >= 10 ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : iso)
+
+/**
+ * Monta os quatro cartões. Puro: recebe os resumos já calculados.
+ *
+ * Os textos são longos de propósito. O dono do produto disse, sobre CPI e EAC, "não sei o que é" —
+ * e um indicador que precisa de glossário é um indicador que ninguém usa. Cada cartão carrega a
+ * própria explicação: o que é, de onde vem, e o que falta quando falta.
+ */
+export function montarIndicadores(entrada: {
+  dinheiro: DinheiroDoContrato
+  reportando: ObrasReportando
+  executado: ExecucaoContratada
+  rotinas: RotinasEmDia
+}): Indicador[] {
+  const { dinheiro, reportando, executado, rotinas } = entrada
+
+  const faltamContratos = (nomes: string[]) =>
+    nomes.length === 0 ? undefined
+      : `${nomes.slice(0, 3).join(', ')}${nomes.length > 3 ? ` e mais ${nomes.length - 3}` : ''} `
+        + `${nomes.length === 1 ? 'ainda não tem' : 'ainda não têm'} valor de contrato cadastrado. `
+        + `${nomes.length === 1 ? 'Ela está fora' : 'Elas estão fora'} desta conta — cadastre em `
+        + `Torre de Controle → a obra → Contrato → Resumo.`
+
+  // ── 1 ──────────────────────────────────────────────────────────────────────
+  const semNenhumContrato = dinheiro.obrasComContrato === 0
+  const cartaoDinheiro: Indicador = {
+    id: 'dinheiro',
+    titulo: 'A receber',
+    valor: semNenhumContrato ? '—' : brlCompacto(dinheiro.aReceberBRL),
+    detalhe: semNenhumContrato
+      ? 'nenhuma obra com contrato cadastrado'
+      : dinheiro.vencidoNotas > 0
+        ? `${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · ${brlCompacto(dinheiro.vencidoBRL)} já `
+          + `${dinheiro.vencidoNotas === 1 ? 'venceu' : 'venceram'}`
+            + (dinheiro.maisAntiga ? ` — ${dinheiro.maisAntiga.obra}, desde ${diaMes(dinheiro.maisAntiga.venceuEm)}` : '')
+        : `em ${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · nada vencido`,
+    tom: semNenhumContrato ? 'sem-dado' : dinheiro.vencidoNotas > 0 ? 'grave' : 'ok',
+    explicacao: {
+      oQueE: 'O dinheiro das notas que você já emitiu e ainda não recebeu. "Já venceu" é a parte '
+        + 'dele cuja data prevista de recebimento passou — está contada DENTRO do a receber, não '
+        + 'somada a ele.',
+      deOndeVem: 'Do extrato de faturamento de cada obra: Torre de Controle → a obra → Contrato → '
+        + 'Medições. Cada nota lançada ali entra aqui. Nada é estimado.',
+      oQueFalta: semNenhumContrato
+        ? 'Nenhuma obra tem valor de contrato cadastrado. Sem isso não há o que receber para somar.'
+        : faltamContratos(dinheiro.obrasSemContrato),
+    },
+    destino: '/app/torre-de-controle',
+  }
+
+  // ── 2 ──────────────────────────────────────────────────────────────────────
+  const emDia = reportando.cobraveisHoje - reportando.semRdo.length
+  const pior = reportando.semRdo[0]
+  const cartaoReportando: Indicador = {
+    id: 'reportando',
+    titulo: 'Obras reportando hoje',
+    valor: reportando.incerto || reportando.cobraveisHoje === 0
+      ? '—'
+      : `${emDia} de ${reportando.cobraveisHoje}`,
+    detalhe: reportando.incerto
+      ? 'ainda sincronizando as obras'
+      : reportando.cobraveisHoje === 0
+        ? 'hoje não é dia de RDO em nenhuma obra'
+        : pior
+          ? `${pior.nome} está há ${plural(pior.diasUteisEmAberto, 'dia útil', 'dias úteis')} sem RDO — desde ${diaMes(pior.desde)}`
+          : 'todas em dia',
+    tom: reportando.incerto || reportando.cobraveisHoje === 0 ? 'sem-dado'
+      : reportando.piorLacunaDiasUteis >= 3 ? 'grave'
+      : reportando.semRdo.length > 0 ? 'atencao' : 'ok',
+    explicacao: {
+      oQueE: 'Quantas obras deviam ter RDO hoje e têm. O contador de dias é de DIAS ÚTEIS seguidos '
+        + 'em aberto e para no primeiro dia resolvido — não é um número que só cresce.',
+      deOndeVem: 'Dos RDOs finalizados de cada obra. Rascunho não conta: ele não alimenta medição, '
+        + 'financeiro nem estoque. Domingo, sábado fora da jornada, feriado do Planejamento, obra '
+        + 'pausada ou concluída e dia anterior ao início da obra não são cobrados.',
+      oQueFalta: reportando.incerto
+        ? 'As obras ainda estão sincronizando neste aparelho. Até terminar, este número estaria '
+          + 'incompleto — por isso ele não aparece, em vez de aparecer errado.'
+        : reportando.cobraveisHoje === 0
+          ? 'Nenhuma obra cobra RDO hoje. Pode ser feriado, fim de semana fora da jornada, ou não '
+            + 'haver obra ativa cadastrada.'
+          : undefined,
+    },
+    destino: '/app/rdo',
+  }
+
+  // ── 3 ──────────────────────────────────────────────────────────────────────
+  const cartaoExecutado: Indicador = {
+    id: 'executado',
+    titulo: 'Executado do contrato',
+    valor: executado.pctCarteira === null
+      ? '—'
+      : `${executado.pctCarteira.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%`,
+    detalhe: executado.pctCarteira === null
+      ? 'nenhuma obra com valor de serviço cadastrado'
+      : `${brlCompacto(executado.obras.reduce((s, o) => s + o.faturadoServicoBRL, 0))} faturados de `
+        + `${brlCompacto(executado.obras.reduce((s, o) => s + o.contratoServicoBRL, 0))} de serviço · `
+        + plural(executado.obras.length, 'obra', 'obras'),
+    tom: executado.pctCarteira === null ? 'sem-dado' : 'ok',
+    explicacao: {
+      oQueE: 'Quanto do SERVIÇO contratado já virou nota fiscal. O material é faturado à parte e '
+        + 'não entra: na SUPERA ele é quase do tamanho do serviço, e somá-lo empurraria esta barra '
+        + 'para perto de 100% sem nada ter sido executado.',
+      deOndeVem: 'Notas de serviço do extrato, divididas pelo valor de serviço do contrato. Obra a '
+        + 'obra, na lista abaixo. É o FATURADO — o que o RDO já mediu e ainda não virou nota '
+        + 'aparece em Contrato → Medições.',
+      oQueFalta: executado.pctCarteira === null
+        ? 'Nenhuma obra tem valor de serviço cadastrado no contrato.'
+        : faltamContratos(executado.semContrato),
+    },
+    destino: '/app/torre-de-controle',
+  }
+
+  // ── 4 ──────────────────────────────────────────────────────────────────────
+  const cartaoRotinas: Indicador = {
+    id: 'rotinas',
+    titulo: 'Rotinas em dia',
+    valor: rotinas.ativas === 0 ? '—' : `${rotinas.feitasNoCiclo} de ${rotinas.ativas}`,
+    detalhe: rotinas.ativas === 0
+      ? 'nenhuma rotina cadastrada'
+      : rotinas.pior
+        ? `${plural(rotinas.atrasadas, 'atrasada', 'atrasadas')} · a pior: "${rotinas.pior.titulo}" `
+          + `há ${plural(rotinas.pior.diasDeAtraso, 'dia', 'dias')}`
+        : 'nenhuma atrasada',
+    tom: rotinas.ativas === 0 ? 'sem-dado'
+      : rotinas.atrasadas > 2 ? 'grave'
+      : rotinas.atrasadas > 0 ? 'atencao' : 'ok',
+    explicacao: {
+      oQueE: 'Quantas rotinas ativas da empresa já foram marcadas como feitas no ciclo que está '
+        + 'correndo agora: o dia de hoje para a diária, a semana para a semanal, o mês para a mensal.',
+      deOndeVem: 'Da aba Rotinas da Empresa, nesta mesma tela. Alguém precisa marcar — o sistema '
+        + 'não marca sozinho. "Atrasada" conta ciclo já FECHADO sem execução; o ciclo de hoje nunca '
+        + 'conta como atraso, ainda dá tempo de fazer.',
+      oQueFalta: rotinas.ativas === 0
+        ? 'Nenhuma rotina cadastrada. Use "Carregar o modelo" aqui embaixo para começar com as 18 '
+          + 'rotinas da operação.'
+        : undefined,
+    },
+    destino: '/app/minha-rotina',
+  }
+
+  return [cartaoDinheiro, cartaoReportando, cartaoExecutado, cartaoRotinas]
+}

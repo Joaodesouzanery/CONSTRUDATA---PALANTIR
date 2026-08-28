@@ -19,6 +19,7 @@ import {
 import { useUserRoutineStore, type RoutineFrequency } from '@/store/userRoutineStore'
 import { RotinasDaEmpresaPanel } from './components/RotinasDaEmpresaPanel'
 import { PendenciasDoDia } from './components/PendenciasDoDia'
+import { PainelIndicadores } from '@/features/indicadores/PainelIndicadores'
 import { useRotinasStore } from '@/store/rotinasStore'
 import { useAuth } from '@/lib/auth'
 import { useEffect } from 'react'
@@ -342,6 +343,11 @@ export function MinhaRotinaPage() {
             {/* Antes da lista: o que já está atrasado, e as obras sem RDO. Esta é a primeira tela
                 depois do login, e era a única que não sabia de nenhuma das duas cobranças. */}
             <PendenciasDoDia />
+            {/* Os indicadores vêm DEPOIS das pendências, e não antes: `PendenciasDoDia` só existe
+                quando há ação esperando, e um painel permanente acima empurraria o alerta vermelho
+                para baixo justamente nos dias em que ele importa. Sem pendência, este painel fica
+                no topo sozinho — que é o retrato certo de um dia em que não há o que cobrar. */}
+            <PainelIndicadores />
             <RotinasDaEmpresaPanel />
           </>
         ) : (

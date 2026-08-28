@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  dinheiroDoContrato, obrasReportando, execucaoContratada, rotinasEmDia,
+  dinheiroDoContrato, obrasReportando, execucaoContratada, rotinasEmDia, montarIndicadores,
 } from './indicadores'
 import type { ConstructionSite, ObraFaturamento, RDO, WorkWeekMode } from '@/types'
 import type { Rotina, RotinaExecucao } from '@/store/rotinasStore'
@@ -219,4 +219,89 @@ test('⚠️ SEM DADO NENHUM, nada é verde e nada inventa número', () => {
   assert.equal(o.cobraveisHoje, 0)
   assert.equal(rr.ativas, 0)
   assert.equal(rr.pior, null)
+})
+
+// ═══ A extração não pode ser desfeita ═══════════════════════════════════════
+
+test('o Radar 360 CHAMA estas funções, em vez de reimplementar as contas', async () => {
+  // Duas implementações do mesmo fato divergem na primeira mudança, e aí o Radar e a tela de
+  // abertura passam a discordar sobre quantas obras estão sem RDO — sem ninguém saber qual está
+  // certa. Foi assim que a cascata do Modo Demonstração ficou quatro stores atrás da realidade.
+  const { readFile } = await import('node:fs/promises')
+  const sinais = await readFile(new URL('../../relatorio360/utils/sinais360.ts', import.meta.url), 'utf8')
+
+  assert.match(sinais, /import \{[^}]*obrasReportando[^}]*\} from '@\/features\/indicadores\/utils\/indicadores'/s)
+  assert.match(sinais, /import \{[^}]*rotinasEmDia[^}]*\} from '@\/features\/indicadores\/utils\/indicadores'/s)
+
+  // E os laços que existiam antes não podem voltar: o do RDO acumulava `obrasComLacuna++` sobre
+  // `lacunaDeRdo`, e o das rotinas filtrava `atrasoDaRotina` direto.
+  const codigo = sinais.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+  assert.ok(!/obrasComLacuna\+\+/.test(codigo), 'o laço inline de obras sem RDO voltou')
+  assert.ok(!/atrasoDaRotina\(/.test(codigo), 'a chamada direta a atrasoDaRotina voltou')
+})
+
+// ═══ Os cartões ═════════════════════════════════════════════════════════════
+
+const vazio = {
+  dinheiro: dinheiroDoContrato([], HOJE),
+  reportando: obrasReportando({ sites: [], rdos: [], semProducao: new Map(), feriados: [], jornada: JORNADA, hoje: HOJE, torreSincronizada: true }),
+  executado: execucaoContratada([], HOJE),
+  rotinas: rotinasEmDia({ rotinas: [], execucoes: [], ...ctxRot }),
+}
+
+test('⚠️ com tudo vazio, os quatro cartões são "sem-dado" e mostram "—" — nunca verde', () => {
+  // O oposto exato do CPI 1,00 em verde. Se este teste cair, a tela voltou a inventar.
+  for (const i of montarIndicadores(vazio)) {
+    assert.equal(i.tom, 'sem-dado', `${i.id} não deveria ter tom "${i.tom}"`)
+    assert.equal(i.valor, '—', `${i.id} inventou o valor "${i.valor}"`)
+  }
+})
+
+test('todo cartão explica o que é e de onde vem; sem dado, explica também o que falta', () => {
+  for (const i of montarIndicadores(vazio)) {
+    assert.ok(i.explicacao.oQueE.length > 40, `${i.id}: explicação curta demais`)
+    assert.ok(i.explicacao.deOndeVem.length > 40, `${i.id}: origem não declarada`)
+    assert.ok(i.explicacao.oQueFalta, `${i.id}: está sem dado e não diz o que preencher`)
+    assert.ok(i.destino.startsWith('/app/'), `${i.id}: sem destino de clique`)
+  }
+})
+
+test('nota vencida põe o cartão de dinheiro em GRAVE e cita a obra', () => {
+  const com = {
+    ...vazio,
+    dinheiro: dinheiroDoContrato([obra({ name: 'BRASAL', contrato: { services: [], valorServico: 236949.07, faturamentos: [
+      nota({ valor: 21450, previsaoRecebimento: '2026-08-01' }),
+    ] } })], HOJE),
+  }
+  const c = montarIndicadores(com).find((i) => i.id === 'dinheiro')!
+  assert.equal(c.tom, 'grave')
+  assert.match(c.detalhe, /venceu/)
+  assert.match(c.detalhe, /BRASAL/)
+})
+
+test('obra em dia deixa o cartão de RDO verde, e o denominador conta ela', () => {
+  const com = {
+    ...vazio,
+    reportando: obrasReportando({
+      sites: [obra()], rdos: [rdo()], semProducao: new Map(),
+      feriados: [], jornada: JORNADA, hoje: HOJE, torreSincronizada: true,
+    }),
+  }
+  const c = montarIndicadores(com).find((i) => i.id === 'reportando')!
+  assert.equal(c.valor, '1 de 1')
+  assert.equal(c.tom, 'ok')
+})
+
+test('sincronização em andamento é "sem-dado", não "tudo em aberto"', () => {
+  const com = {
+    ...vazio,
+    reportando: obrasReportando({
+      sites: [obra()], rdos: [], semProducao: new Map(),
+      feriados: [], jornada: JORNADA, hoje: HOJE, torreSincronizada: false,
+    }),
+  }
+  const c = montarIndicadores(com).find((i) => i.id === 'reportando')!
+  assert.equal(c.tom, 'sem-dado')
+  assert.equal(c.valor, '—')
+  assert.match(c.explicacao.oQueFalta ?? '', /sincroniz/i)
 })

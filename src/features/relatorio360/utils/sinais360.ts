@@ -44,9 +44,7 @@ import { hojeLocalISO } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useDiasSemProducaoStore } from '@/store/diasSemProducaoStore'
 import { useRotinasStore } from '@/store/rotinasStore'
-import { lacunaDeRdo } from '@/features/rdo/utils/statusRdoDia'
-import { atrasoDaRotina } from '@/features/minha-rotina/utils/atrasoRotina'
-import { cicloDe } from '@/features/minha-rotina/utils/cicloRotina'
+import { obrasReportando, rotinasEmDia } from '@/features/indicadores/utils/indicadores'
 
 export interface Signal {
   label: string
@@ -191,25 +189,26 @@ export function useSinais360({ periodo, date, siteId }: EscopoDosSinais): { sina
   const semProducaoMapa = new Map<string, string>()
   for (const d of diasSemProducao) semProducaoMapa.set(`${d.siteId}|${d.data}`, 'x')
   const hojeISO = hojeLocalISO()
-  let obrasComLacuna = 0
-  let piorLacuna = 0
-  for (const site of sites) {
-    if (siteId && site.id !== siteId) continue
-    const l = lacunaDeRdo({ site, rdos, semProducao: semProducaoMapa, hoje: hojeISO, feriados, jornada })
-    if (!l) continue
-    obrasComLacuna++
-    piorLacuna = Math.max(piorLacuna, l.diasEmAberto)
-  }
+
+  // Estas duas contas são as MESMAS que o painel de indicadores da tela inicial faz. Elas moram em
+  // `features/indicadores/utils/indicadores.ts` e são chamadas daqui de propósito: duas
+  // implementações do mesmo fato divergem na primeira mudança, e aí o Radar e a tela de abertura
+  // passam a discordar sobre quantas obras estão sem RDO — sem ninguém perceber qual está certa.
+  const reportando = obrasReportando({
+    sites: siteId ? sites.filter((s) => s.id === siteId) : sites,
+    rdos, semProducao: semProducaoMapa, feriados, jornada, hoje: hojeISO,
+    // Aqui não há guarda de sincronização: o Radar já roda dentro de uma tela que carregou a Torre.
+    torreSincronizada: true,
+  })
+  const obrasComLacuna = reportando.semRdo.length
+  const piorLacuna = reportando.piorLacunaDiasUteis
 
   // ── Rotinas ──────────────────────────────────────────────────────────────────
-  const feitasChave = new Set(execucoesRotina.filter((e) => e.feita).map((e) => `${e.rotinaId}|${e.periodo}`))
   const feriadoSet = new Set(feriados.map((f) => f.date))
-  const rotinasDaEmpresa = rotinas.filter((r) => r.ativa)
-  const rotinasAtivas = rotinasDaEmpresa.length
-  const rotinasAtrasadas = rotinasDaEmpresa
-    .filter((r) => atrasoDaRotina(r, { feitas: feitasChave, feriados: feriadoSet, jornada, hoje: hojeISO })).length
-  const rotinasFeitasNoCiclo = rotinasDaEmpresa
-    .filter((r) => feitasChave.has(`${r.id}|${cicloDe(r.frequencia, hojeISO)}`)).length
+  const emDia = rotinasEmDia({ rotinas, execucoes: execucoesRotina, feriados: feriadoSet, jornada, hoje: hojeISO })
+  const rotinasAtivas = emDia.ativas
+  const rotinasAtrasadas = emDia.atrasadas
+  const rotinasFeitasNoCiclo = emDia.feitasNoCiclo
 
   const signals: Signal[] = [
     {
