@@ -1,13 +1,13 @@
 import { useShallow } from 'zustand/react/shallow'
-import { LayoutDashboard, TrendingUp, TrendingDown, AlertTriangle, FileEdit, Activity, Printer } from 'lucide-react'
+import { LayoutDashboard, Printer } from 'lucide-react'
 import { useGestao360Store } from '@/store/gestao360Store'
 import { useProjetosStore } from '@/store/projetosStore'
-import { useOtimizacaoFrotaStore } from '@/store/otimizacaoFrotaStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import type { Gestao360Tab } from '@/store/gestao360Store'
 import { mergeProjectsWithSites, projetoDaObraAtiva } from '../utils/siteProjects'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { PainelIndicadores } from '@/features/indicadores/PainelIndicadores'
 import { PeriodoSelector } from '@/components/shared/PeriodoSelector'
 import { useEffect } from 'react'
 import { useSinais360 } from '@/features/relatorio360/utils/sinais360'
@@ -39,7 +39,6 @@ export function Gestao360Header() {
   )
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const baseProjects  = useProjetosStore((s) => s.projects)
-  const healthScores  = useOtimizacaoFrotaStore((s) => s.healthScores)
   const sites         = useTorreStore((s) => s.sites)
   const projects      = mergeProjectsWithSites(baseProjects, sites)
 
@@ -60,38 +59,12 @@ export function Gestao360Header() {
   const selectedProject = projects.find((p) => p.id === selectedProjectId) ?? null
   const scopeProjects = selectedProject ? [selectedProject] : projects
 
-  // ─── EAC derived values ────────────────────────────────────────────
-  const lines        = scopeProjects.flatMap((p) => p.budgetLines)
-  const budgeted     = lines.reduce((s, l) => s + l.budgeted, 0)
-  const spent        = lines.reduce((s, l) => s + l.spent, 0)
-  const eac          = lines.reduce((s, l) => s + l.projected, 0)
-  const budgetDelta  = budgeted > 0 ? ((eac - budgeted) / budgeted) * 100 : 0
-
-  // ─── SPI/CPI from execution phases ────────────────────────────────
-  const execPhases = scopeProjects.flatMap((p) => p.executionPhases)
-  const avgProgress = execPhases.length
-    ? execPhases.reduce((s, p) => s + p.progress, 0) / execPhases.length
-    : 0
-
-  const today = new Date()
-  const start = scopeProjects.length
-    ? new Date(Math.min(...scopeProjects.map((p) => new Date(p.startDate + 'T00:00:00').getTime())))
-    : today
-  const end = scopeProjects.length
-    ? new Date(Math.max(...scopeProjects.map((p) => new Date(p.endDate + 'T00:00:00').getTime())))
-    : today
-  const totalMs    = Math.max(1, end.getTime() - start.getTime())
-  const elapsedMs  = Math.min(totalMs, Math.max(0, today.getTime() - start.getTime()))
-  const plannedPct = (elapsedMs / totalMs) * 100
-
-  const spi = plannedPct > 0 ? avgProgress / plannedPct : 1
-  const cpi = spent > 0 ? (budgeted * (avgProgress / 100)) / spent : 1
-
-  // ─── Cross-module critical alerts ─────────────────────────────────
-  const criticalEquip = isDemoModeEnabled() ? healthScores.filter((h) => h.riskLevel === 'critical' || h.riskLevel === 'high').length : 0
-  const criticalRisks = sites.flatMap((s) => s.risks).filter((r) => r.level === 'critical' && r.status === 'active').length
-  const totalAlerts   = criticalEquip + criticalRisks
-  const openCOs       = changeOrders.filter((co) => co.status === 'submitted').length
+  // As ordens de mudança em aberto DESTA obra. Antes isto somava a empresa inteira e ia para um
+  // cartão que dizia "Obra: X" logo abaixo do seletor; agora é o número no rótulo da aba, onde o
+  // escopo é o da própria aba.
+  const openCOs = changeOrders.filter(
+    (co) => co.status === 'submitted' && (!selectedProjectId || co.projectId === selectedProjectId),
+  ).length
 
   // ── Exportar a pauta ─────────────────────────────────────────────────────────
   // Os MESMOS sinais da tela: o hook é a única fonte, então o papel não pode discordar do que a
@@ -145,50 +118,6 @@ export function Gestao360Header() {
     else void printReuniaoViaIframe(dados)
   }
 
-  function spiCpiColor(v: number) {
-    if (v >= 0.9) return '#22c55e'
-    if (v >= 0.7) return '#eab308'
-    return '#ef4444'
-  }
-
-  const kpis = [
-    {
-      label: 'EAC Projetado',
-      value: eac > 0 ? `R$${(eac / 1_000_000).toFixed(1)}M` : '—',
-      icon:  TrendingUp,
-      color: '#f97316',
-    },
-    {
-      label: 'Δ Orçamento',
-      value: budgeted > 0 ? `${budgetDelta > 0 ? '+' : ''}${budgetDelta.toFixed(1)}%` : '—',
-      icon:  budgetDelta > 5 ? TrendingUp : TrendingDown,
-      color: Math.abs(budgetDelta) <= 5 ? '#22c55e' : Math.abs(budgetDelta) <= 15 ? '#eab308' : '#ef4444',
-    },
-    {
-      label: 'CPI',
-      value: cpi > 0 ? cpi.toFixed(2) : '—',
-      icon:  Activity,
-      color: spiCpiColor(cpi),
-    },
-    {
-      label: 'SPI',
-      value: spi > 0 ? spi.toFixed(2) : '—',
-      icon:  Activity,
-      color: spiCpiColor(spi),
-    },
-    {
-      label: 'OMs em Aprovação',
-      value: String(openCOs),
-      icon:  FileEdit,
-      color: openCOs === 0 ? '#22c55e' : '#f97316',
-    },
-    {
-      label: 'Alertas Críticos',
-      value: String(totalAlerts),
-      icon:  AlertTriangle,
-      color: totalAlerts === 0 ? '#22c55e' : totalAlerts <= 2 ? '#eab308' : '#ef4444',
-    },
-  ]
 
   return (
     <div className="flex flex-col gap-4 px-6 pt-6 pb-0">
@@ -228,28 +157,20 @@ export function Gestao360Header() {
         </button>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {kpis.map((kpi) => (
-          <div
-            key={kpi.label}
-            className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-3 py-3 flex items-center gap-2"
-          >
-            <div
-              className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0"
-              style={{ backgroundColor: `${kpi.color}18` }}
-            >
-              <kpi.icon size={14} style={{ color: kpi.color }} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[#6b6b6b] text-[10px] truncate">{kpi.label}</p>
-              <p className="text-[#f5f5f5] text-base font-bold leading-tight" style={{ color: kpi.color }}>
-                {kpi.value}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* ─── OS SEIS KPIs QUE ESTAVAM AQUI ─────────────────────────────────────────
+          EAC, Δ Orçamento, CPI e SPI liam `Project.budgetLines`, e para obra vinda da Torre o
+          `siteToProject` grava `spent: 0` fixo — não por descuido: `ConstructionBudgetLine` NÃO TEM
+          campo de realizado. O CPI caía no ramo `: 1` do ternário e mostrava **1,00 em verde**,
+          sempre, para qualquer obra. O SPI mostrava "—" pelo mesmo motivo.
+
+          "OMs em Aprovação" e "Alertas Críticos" somavam a empresa inteira enquanto o cabeçalho
+          logo acima anuncia "Obra: X". A contagem de OMs virou o número no rótulo da própria aba,
+          onde ela é verdadeira.
+
+          No lugar, os quatro indicadores da tela inicial — mesma conta, mesma explicação, e cinza
+          quando não se sabe. A conta de CPI não sumiu do produto: ela continua no Custo em Tempo
+          Real, onde o realizado pode de fato vir do livro razão. */}
+      <PainelIndicadores />
 
       {/* Tab bar — horizontal scroll on mobile */}
       <div className="flex gap-1 border-b border-[#525252] -mb-px overflow-x-auto scrollbar-none">
@@ -264,6 +185,13 @@ export function Gestao360Header() {
             }
           >
             {tab.label}
+            {/* O número no rótulo, e não num cartão do cabeçalho: aqui o escopo é o da própria
+                aba, então ele não pode discordar do que ela mostra. */}
+            {tab.id === 'changeorders' && openCOs > 0 && (
+              <span className="ml-1.5 rounded-full bg-[#f97316]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#ffa055]">
+                {openCOs}
+              </span>
+            )}
           </button>
         ))}
       </div>

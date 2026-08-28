@@ -23,8 +23,31 @@ const PHASE_STATUS: Record<string, { label: string; color: string }> = {
   delayed: { label: 'Atrasada', color: '#ef4444' },
 }
 
-function IndexGauge({ value, label }: { value: number; label: string }) {
+/**
+ * O medidor de índice — que agora aceita "não sei".
+ *
+ * ⚠️ `value` é `number | null` de propósito. Com `spent === 0` a conta caía em `1` e este medidor
+ * pintava **verde com o rótulo "Bom"** — sobre uma obra da qual não se sabia absolutamente nada.
+ * Sem lançamento no período não há como calcular índice nenhum, e o medidor precisa dizer isso em
+ * vez de inventar um número tranquilizador.
+ */
+function IndexGauge({ value, label, faltando }: { value: number | null; label: string; faltando?: string }) {
   const isDark = useThemeStore((s) => s.theme === 'dark')
+  const track0 = isDark ? '#525252' : '#e5e8ed'
+  if (value === null) {
+    return (
+      <div className="flex flex-col items-center gap-1">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx={36} cy={36} r={28} fill="none" stroke={track0} strokeWidth="7" />
+          <text x={36} y={37} textAnchor="middle" dominantBaseline="middle" fill="#a3a3a3" fontSize="18" fontWeight="700" fontFamily="system-ui, sans-serif">—</text>
+        </svg>
+        <span className="text-[#a3a3a3] text-[11px] font-medium">{label}</span>
+        <span className="max-w-[9rem] text-center text-[10px] leading-4 text-[#a3a3a3]">
+          {faltando ?? 'sem dado no período'}
+        </span>
+      </div>
+    )
+  }
   const color = value >= 0.9 ? '#22c55e' : value >= 0.7 ? '#eab308' : '#ef4444'
   const track = isDark ? '#525252' : '#e5e8ed'
   const textC = isDark ? '#f5f5f5' : '#1a1d23'
@@ -216,8 +239,10 @@ export function JobCostingPanel() {
   const totalMs = Math.max(1, end.getTime() - start.getTime())
   const elapsedMs = Math.min(totalMs, Math.max(0, today.getTime() - start.getTime()))
   const plannedPct = (elapsedMs / totalMs) * 100
-  const spi = plannedPct > 0 ? avgProgress / plannedPct : 1
-  const cpi = spent > 0 ? (budgeted * (avgProgress / 100)) / spent : 1
+  // `null`, e não `1`, quando falta a base. O ramo `: 1` fazia os dois medidores pintarem verde e
+  // escreverem "Bom" para uma obra sem um único lançamento — que é o oposto do que se sabe dela.
+  const spi = plannedPct > 0 && avgProgress > 0 ? avgProgress / plannedPct : null
+  const cpi = spent > 0 && budgeted > 0 ? (budgeted * (avgProgress / 100)) / spent : null
   const allPhases = scopeProjects.flatMap((project) => [
     ...project.planningPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
     ...project.executionPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
@@ -320,11 +345,20 @@ export function JobCostingPanel() {
         <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 flex flex-col">
           <p className="text-[#f5f5f5] text-sm font-semibold mb-4">Indices de Desempenho</p>
           <div className="flex gap-4 justify-center flex-1 items-center">
-            <IndexGauge value={cpi} label="CPI (Custo)" />
-            <IndexGauge value={spi} label="SPI (Prazo)" />
+            <IndexGauge
+              value={cpi} label="Custo (CPI)"
+              faltando={budgeted <= 0 ? 'sem orçamento no plano de contas' : 'sem custo lançado no período'}
+            />
+            <IndexGauge
+              value={spi} label="Prazo (SPI)"
+              faltando="sem avanço físico registrado"
+            />
           </div>
-          <p className="text-[#6b6b6b] text-[10px] text-center mt-3">
-            CPI usa EV/AC com AC vindo do livro razao; SPI usa avanco fisico planejado x real.
+          <p className="text-[#a3a3a3] text-[10px] text-center mt-3 leading-4">
+            <b>Custo</b> compara o que a obra entregou com o que ela gastou: acima de 1,00 gastou
+            menos do que entregou. <b>Prazo</b> compara o avanço físico com o tempo decorrido.
+            O gasto vem do livro razão abaixo; sem lançamento, não há índice — e o medidor mostra
+            um traço em vez de um número.
           </p>
         </div>
       </div>
