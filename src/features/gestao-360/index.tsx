@@ -9,7 +9,7 @@ import { Gestao360MapDashboard } from './components/Gestao360MapDashboard'
 import { JobCostingPanel } from './components/JobCostingPanel'
 import { ChangeOrderPanel } from './components/ChangeOrderPanel'
 import { DailyReportPanel } from './components/DailyReportPanel'
-import { Relatorio360Page } from '@/features/relatorio360/index'
+import { GestaoAVistaPanel } from './components/GestaoAVistaPanel'
 
 export function Gestao360Page() {
   const activeTab = useGestao360Store((s) => s.activeTab)
@@ -75,11 +75,11 @@ export function Gestao360Page() {
       {/* Tab content */}
       {activeTab === 'dashboard' ? (
         <Gestao360MapDashboard />
-      ) : activeTab === 'relatorio360' ? (
-        // Relatório 360 traz o próprio layout/cabeçalho (data), então renderiza
-        // full-bleed no seu próprio container de scroll (sem o padding padrão).
+      ) : activeTab === 'gestao-a-vista' ? (
+        // Gestão à Vista traz o próprio cabeçalho (obra, período, botão de imprimir), então
+        // renderiza full-bleed no seu próprio container de scroll.
         <div className="flex-1 overflow-y-auto">
-          <Relatorio360Page />
+          <GestaoAVistaPanel />
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-6 py-5">

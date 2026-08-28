@@ -16,7 +16,14 @@ import { MOCK_CHANGE_ORDERS } from '@/data/mockGestao360'
 import { periodoDe, type Periodo } from '@/lib/periodo'
 import { hojeLocalISO } from '@/lib/utils'
 
-export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'relatorio360'
+/**
+ * As abas do módulo.
+ *
+ * `relatorio360` saiu: aquela aba era permanentemente vazia — nenhuma tela do app cria um
+ * `DailyReport`, então ela só sabia mostrar "Nenhum relatório encontrado para esta data". No lugar
+ * dela entrou `gestao-a-vista`, que é o quadro que o gestor de obra realmente usa.
+ */
+export type Gestao360Tab = 'dashboard' | 'daily-report' | 'jobacosting' | 'changeorders' | 'gestao-a-vista'
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function changeOrderToRow(co: ChangeOrder, orgId: string, userId: string) {
