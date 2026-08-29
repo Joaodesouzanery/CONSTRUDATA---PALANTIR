@@ -186,3 +186,53 @@ test('a série de meses atravessa a virada do ano sem pular nem repetir', () => 
   assert.deepEqual(ultimosMeses('2027-02', 4), ['2026-11', '2026-12', '2027-01', '2027-02'])
   assert.deepEqual(ultimosMeses('2026-08', 1), ['2026-08'])
 })
+
+// ── Presença por apontamento: o caso da empresa que opera por RDO ─────────────
+
+const apont = (p: Partial<import('@/types').TimecardEntry> = {}) => ({
+  id: Math.random().toString(36).slice(2), workerId: 'w1', date: QUINTA,
+  hoursWorked: 8, projectRef: '', phaseRef: '', activityDescription: '', ...p,
+} as import('@/types').TimecardEntry)
+
+test('⚠️ apontamento conta como presença — sem isso, quem opera por RDO teria 0% de frequência', () => {
+  // A ponte RDO→Mão de Obra grava APONTAMENTO, não turno. Numa empresa que não usa a Escala,
+  // olhar só para turnos jogaria a equipe inteira em "Outros" e mostraria absenteísmo de 100%.
+  const r = situacaoNoDia({ workers: [w()], absences: [], shifts: [], timecards: [apont()], data: QUINTA })
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 1)
+  assert.equal(r.contagem.find((c) => c.situacao === 'outros')?.pessoas, 0)
+})
+
+test('apontamento com zero hora não é presença', () => {
+  const r = situacaoNoDia({ workers: [w()], absences: [], shifts: [], timecards: [apont({ hoursWorked: 0 })], data: QUINTA })
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 0)
+})
+
+test('falta lançada vence o apontamento — a ausência é o registro mais específico', () => {
+  const r = situacaoNoDia({
+    workers: [w()], absences: [falta({ type: 'sick_leave' })], shifts: [], timecards: [apont()], data: QUINTA,
+  })
+  assert.equal(r.contagem.find((c) => c.situacao === 'atestado')?.pessoas, 1)
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 0)
+})
+
+test('folga marcada vence o apontamento', () => {
+  const r = situacaoNoDia({
+    workers: [w()], absences: [], shifts: [turno({ type: 'day_off' })], timecards: [apont()], data: QUINTA,
+  })
+  assert.equal(r.contagem.find((c) => c.situacao === 'folga')?.pessoas, 1)
+})
+
+test('turno e apontamento no mesmo dia contam UMA presença, não duas', () => {
+  const r = situacaoNoDia({ workers: [w()], absences: [], shifts: [turno()], timecards: [apont()], data: QUINTA })
+  assert.equal(r.total, 1)
+  assert.equal(r.contagem.reduce((s, c) => s + c.pessoas, 0), 1)
+})
+
+test('a frequência do período sobe com apontamento, como sobe com turno', () => {
+  const dias = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07']
+  const f = frequenciaNoPeriodo({
+    workers: [w()], absences: [], shifts: [], timecards: dias.map((d) => apont({ date: d })),
+    de: '2026-08-03', ate: '2026-08-07', feriados: SEM_FERIADO, jornada: JORNADA,
+  })
+  assert.equal(f.frequenciaPct, 100)
+})

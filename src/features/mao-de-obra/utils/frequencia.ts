@@ -19,7 +19,7 @@
  *
  * Arquivo puro: tudo entra por parâmetro, nada lê store, nada chama `new Date()`.
  */
-import type { Worker, WorkerAbsence, Shift, WorkWeekMode } from '@/types'
+import type { Worker, WorkerAbsence, Shift, TimecardEntry, WorkWeekMode } from '@/types'
 import { ehDiaUtil } from '@/lib/diasUteis'
 import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
@@ -61,9 +61,21 @@ export function situacaoNoDia(entrada: {
   workers: Worker[]
   absences: WorkerAbsence[]
   shifts: Shift[]
+  /**
+   * Apontamentos do dia — e eles NÃO são opcionais no espírito, só na assinatura.
+   *
+   * ⚠️ Presença não pode depender só de turno. A ponte RDO→Mão de Obra grava **apontamento**
+   * (`TimecardEntry`), não turno: numa empresa que opera por RDO e não usa a Escala, ninguém tem
+   * turno lançado — e olhar só para turnos jogaria a equipe inteira em "Outros" e mostraria
+   * frequência de 0%. Seria o mesmo "zero que não é zero" que este trabalho existe para eliminar.
+   *
+   * Um apontamento com horas é a evidência mais forte de presença que existe: alguém registrou
+   * que a pessoa trabalhou N horas naquele dia.
+   */
+  timecards?: TimecardEntry[]
   data: string
 }): { total: number; contagem: SituacaoContada[] } {
-  const { workers, absences, shifts, data } = entrada
+  const { workers, absences, shifts, timecards = [], data } = entrada
   // Só quem está na folha: desligado e suspenso não têm situação num dia de trabalho.
   const efetivo = workers.filter(entraNaFolha)
 
@@ -72,6 +84,9 @@ export function situacaoNoDia(entrada: {
 
   const turnoPorWorker = new Map<string, Shift>()
   for (const s of shifts) if (s.date === data) turnoPorWorker.set(s.workerId, s)
+
+  const apontou = new Set<string>()
+  for (const t of timecards) if (t.date === data && (Number(t.hoursWorked) || 0) > 0) apontou.add(t.workerId)
 
   const baldes: Record<SituacaoDoDia, number> = {
     presente: 0, folga: 0, falta: 0, atestado: 0, ferias: 0, outros: 0,
@@ -88,10 +103,14 @@ export function situacaoNoDia(entrada: {
       continue
     }
     const turno = turnoPorWorker.get(w.id)
+    // Folga marcada vence o apontamento: se o turno diz folga e ainda assim há horas lançadas, o
+    // que se sabe com mais certeza é que aquele dia foi declarado folga.
     if (turno && (turno.type === 'day_off' || turno.type === 'holiday')) { baldes.folga += 1; continue }
-    if (turno) { baldes.presente += 1; continue }
-    // Sem falta e sem turno: o dia simplesmente não foi registrado para esta pessoa. Não é
-    // presença — presumir presença infla a frequência com base em ausência de dado.
+    // Turno OU apontamento. Empresa que usa a Escala tem o primeiro; empresa que opera por RDO tem
+    // o segundo. Exigir os dois deixaria metade dos clientes com 0% de frequência.
+    if (turno || apontou.has(w.id)) { baldes.presente += 1; continue }
+    // Sem falta, sem turno e sem apontamento: o dia simplesmente não foi registrado para esta
+    // pessoa. Não é presença — presumir presença infla a frequência com base em ausência de dado.
     baldes.outros += 1
   }
 
@@ -152,19 +171,20 @@ export function frequenciaNoPeriodo(entrada: {
   workers: Worker[]
   absences: WorkerAbsence[]
   shifts: Shift[]
+  timecards?: TimecardEntry[]
   de: string
   ate: string
   feriados: Set<string>
   jornada: WorkWeekMode
 }): FrequenciaDoPeriodo {
-  const { workers, absences, shifts, de, ate, feriados, jornada } = entrada
+  const { workers, absences, shifts, timecards = [], de, ate, feriados, jornada } = entrada
   const efetivo = workers.filter(entraNaFolha).length
 
   let diasUteis = 0, presencas = 0
   for (const dia of diasEntreISO(de, ate)) {
     if (!ehDiaUtil(dia, feriados, jornada).util) continue
     diasUteis += 1
-    presencas += situacaoNoDia({ workers, absences, shifts, data: dia })
+    presencas += situacaoNoDia({ workers, absences, shifts, timecards, data: dia })
       .contagem.find((c) => c.situacao === 'presente')?.pessoas ?? 0
   }
 
@@ -196,18 +216,19 @@ export function serieMensal(entrada: {
   workers: Worker[]
   absences: WorkerAbsence[]
   shifts: Shift[]
+  timecards?: TimecardEntry[]
   /** `yyyy-MM`, do mais antigo ao mais recente. */
   meses: string[]
   feriados: Set<string>
   jornada: WorkWeekMode
 }): PontoMensal[] {
-  const { workers, absences, shifts, meses, feriados, jornada } = entrada
+  const { workers, absences, shifts, timecards = [], meses, feriados, jornada } = entrada
   const efetivo = workers.filter(entraNaFolha)
 
   return meses.map((mes) => {
     const de = `${mes}-01`
     const ate = ultimoDiaDoMes(mes)
-    const f = frequenciaNoPeriodo({ workers, absences, shifts, de, ate, feriados, jornada })
+    const f = frequenciaNoPeriodo({ workers, absences, shifts, timecards, de, ate, feriados, jornada })
     const faltas = absences.filter((a) => a.date >= de && a.date <= ate).length
     return {
       mes,

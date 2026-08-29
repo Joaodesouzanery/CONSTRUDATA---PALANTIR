@@ -121,9 +121,10 @@ function blocoSituacao(d: DadosGestaoAVista): string {
     <div><div class="rot">Frequência do mês</div><div class="val" style="color:#15803d">${pct(f.frequenciaPct)}</div></div>
     <div><div class="rot">Absenteísmo</div><div class="val" style="color:#b45309">${pct(f.absenteismoPct)}</div></div>
   </div>
-  <p class="nota">Presenças ÷ (pessoas na folha × ${f.diasUteis} dia(s) útil(eis) do mês). Domingo,
-  sábado fora da jornada e feriado não entram. Dia sem falta e sem turno lançado conta como
-  <b>Outros</b>, não como presença.</p>`
+  <p class="nota">Presenças ÷ (pessoas na folha × ${f.diasUteis} dia(s) útil(eis) do mês). Conta como
+  presença o dia com <b>turno na Escala ou apontamento de horas</b> — o RDO finalizado gera
+  apontamento. Domingo, sábado fora da jornada e feriado não entram. Dia sem nenhum registro conta
+  como <b>Outros</b>, não como presença.</p>`
 }
 
 function blocoSerie(d: DadosGestaoAVista): string {

@@ -7,7 +7,7 @@
  *
  * Puro: entra dado, sai dado. Nada de store, nada de `new Date()`.
  */
-import type { Worker, WorkerAbsence, Shift, RDO, ConstructionSite, WorkWeekMode } from '@/types'
+import type { Worker, WorkerAbsence, Shift, TimecardEntry, RDO, ConstructionSite, WorkWeekMode } from '@/types'
 import {
   efetivoPorCargo, situacaoNoDia, frequenciaNoPeriodo, serieMensal, ultimosMeses, ultimoDiaDoMes,
   type EfetivoPorCargo, type SituacaoContada, type FrequenciaDoPeriodo, type PontoMensal,
@@ -52,6 +52,8 @@ export function montarGestaoAVista(entrada: {
   workers: Worker[]
   absences: WorkerAbsence[]
   shifts: Shift[]
+  /** Presença também vem daqui: a ponte do RDO grava apontamento, não turno. */
+  timecards: TimecardEntry[]
   rdos: RDO[]
   feriados: Set<string>
   jornada: WorkWeekMode
@@ -59,18 +61,18 @@ export function montarGestaoAVista(entrada: {
   /** Quantos meses a série mostra. O quadro da parede usa 11; 12 fecha o ano. */
   janelaMeses?: number
 }): DadosGestaoAVista {
-  const { site, workers, absences, shifts, rdos, feriados, jornada, hoje, janelaMeses = 12 } = entrada
+  const { site, workers, absences, shifts, timecards, rdos, feriados, jornada, hoje, janelaMeses = 12 } = entrada
   const mesAtual = hoje.slice(0, 7)
   const meses = ultimosMeses(mesAtual, janelaMeses)
 
   const efetivo = efetivoPorCargo(workers)
-  const situacaoHoje = situacaoNoDia({ workers, absences, shifts, data: hoje })
+  const situacaoHoje = situacaoNoDia({ workers, absences, shifts, timecards, data: hoje })
   const frequenciaDoMes = frequenciaNoPeriodo({
-    workers, absences, shifts,
+    workers, absences, shifts, timecards,
     de: `${mesAtual}-01`, ate: ultimoDiaDoMes(mesAtual),
     feriados, jornada,
   })
-  const serie = serieMensal({ workers, absences, shifts, meses, feriados, jornada })
+  const serie = serieMensal({ workers, absences, shifts, timecards, meses, feriados, jornada })
 
   // ── Avanço por serviço ──────────────────────────────────────────────────────
   const servicos = site?.contrato?.services ?? []

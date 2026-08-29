@@ -35,7 +35,7 @@ const obra = (p: Partial<ConstructionSite> = {}): ConstructionSite => ({
 } as unknown as ConstructionSite)
 
 const montar = (p: Partial<Parameters<typeof montarGestaoAVista>[0]> = {}) => montarGestaoAVista({
-  site: null, workers: [], absences: [], shifts: [], rdos: [],
+  site: null, workers: [], absences: [], shifts: [], timecards: [], rdos: [],
   feriados: SEM_FERIADO, jornada: JORNADA, hoje: HOJE, ...p,
 })
 

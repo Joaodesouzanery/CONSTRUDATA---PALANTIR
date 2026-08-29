@@ -50,8 +50,8 @@ export function GestaoAVistaPanel() {
   const feriados = usePlanejamentoStore((s) => s.holidays)
   const jornada = usePlanejamentoStore((s) => s.scheduleConfig.workWeekMode)
   const profile = useAuth((s) => s.profile)
-  const { workers, absences, shifts } = useMaoDeObraStore(
-    useShallow((s) => ({ workers: s.workers, absences: s.absences, shifts: s.shifts })),
+  const { workers, absences, shifts, timecards } = useMaoDeObraStore(
+    useShallow((s) => ({ workers: s.workers, absences: s.absences, shifts: s.shifts, timecards: s.timecards })),
   )
 
   const hoje = hojeLocalISO()
@@ -69,12 +69,13 @@ export function GestaoAVistaPanel() {
       workers: doEscopo,
       absences: absences.filter((a) => ids.has(a.workerId)),
       shifts: shifts.filter((s) => ids.has(s.workerId)),
+      timecards: timecards.filter((t) => ids.has(t.workerId)),
       rdos,
       feriados: new Set(feriados.map((f) => f.date)),
       jornada,
       hoje,
     })
-  }, [site, activeObraId, workers, absences, shifts, rdos, feriados, jornada, hoje])
+  }, [site, activeObraId, workers, absences, shifts, timecards, rdos, feriados, jornada, hoje])
 
   function imprimir() {
     // `window.open` PRECISA ser síncrono no clique — depois de um `await` o navegador bloqueia.
@@ -213,9 +214,11 @@ function BlocoSituacao({ dados }: { dados: Dados }) {
       </div>
       <p className="mt-2 text-[10px] leading-4 text-[#a3a3a3]">
         Presenças ÷ (pessoas na folha × {f.diasUteis} dia{f.diasUteis !== 1 ? 's' : ''} útil
-        {f.diasUteis !== 1 ? 'eis' : ''} do mês). Domingo, sábado fora da jornada e feriado não
-        entram na conta. Dia sem falta e sem turno lançado conta como <b>Outros</b>, não como
-        presença.
+        {f.diasUteis !== 1 ? 'eis' : ''} do mês). Conta como presença o dia com <b>turno na Escala
+        ou apontamento de horas</b> — o RDO finalizado gera apontamento, então quem trabalha por RDO
+        aparece aqui sem precisar montar escala. Domingo, sábado fora da jornada e feriado não
+        entram. Dia sem nenhum registro conta como <b>Outros</b>, e não como presença: presumir
+        presença por falta de dado inflaria este número justamente onde ele é desconhecido.
       </p>
     </Painel>
   )
