@@ -22,9 +22,9 @@
  */
 import type { WorkWeekMode } from '@/types'
 import type { Rotina } from '@/store/rotinasStore'
-import { hojeLocalISO, dataLocalISO } from '@/lib/utils'
+import { hojeLocalISO } from '@/lib/utils'
 import { ehDiaUtil, diasEntre } from '@/lib/diasUteis'
-import { cicloDe, limitesDoCiclo, rotuloDoCiclo, type FrequenciaRotina } from './cicloRotina'
+import { cicloDe, limitesDoCiclo, rotuloDoCiclo, diaDoCicloAnterior, type FrequenciaRotina } from './cicloRotina'
 
 export interface AtrasoRotina {
   /** A etiqueta do ciclo em aberto mais antigo da sequência: '2026-W33'. */
@@ -51,14 +51,6 @@ export interface ContextoAtraso {
   maxCiclos?: number
 }
 
-/** O ciclo imediatamente anterior a este, pela etiqueta. */
-function anteriorAo(frequencia: FrequenciaRotina, dataDoCiclo: string): string {
-  const { de } = limitesDoCiclo(frequencia, dataDoCiclo)
-  const d = new Date(`${de}T00:00:00`)
-  d.setDate(d.getDate() - 1)   // um dia antes do início cai dentro do ciclo anterior
-  return dataLocalISO(d)
-}
-
 /**
  * A rotina está atrasada? Devolve `null` quando não está.
  *
@@ -74,7 +66,7 @@ export function atrasoDaRotina(rotina: Rotina, ctx: ContextoAtraso): AtrasoRotin
 
   const abertos: { ciclo: string; fechouEm: string; dataDoCiclo: string }[] = []
   // Começa no ciclo anterior ao corrente: o de hoje ainda não venceu.
-  let cursor = anteriorAo(rotina.frequencia, hoje)
+  let cursor = diaDoCicloAnterior(rotina.frequencia, hoje)
   let truncado = false
 
   for (let i = 0; ; i++) {
@@ -93,7 +85,7 @@ export function atrasoDaRotina(rotina: Rotina, ctx: ContextoAtraso): AtrasoRotin
       abertos.push({ ciclo, fechouEm: ate, dataDoCiclo: cursor })
     }
 
-    cursor = anteriorAo(rotina.frequencia, cursor)
+    cursor = diaDoCicloAnterior(rotina.frequencia, cursor)
   }
 
   if (abertos.length === 0) return null

@@ -641,6 +641,10 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./manejoFinanceiroStore').then(({ useManejoFinanceiroStore }) => useManejoFinanceiroStore.getState().loadDemoData())
         import('./planejamentoRestricoesStore').then(({ usePlanejamentoRestricoesStore }) => usePlanejamentoRestricoesStore.getState().loadDemoData())
         import('./rateioConsumoStore').then(({ useRateioConsumoStore }) => useRateioConsumoStore.getState().loadDemoData())
+        // Faltava: com a Demonstração ligada, as rotinas REAIS do cliente ficavam na tela ao lado
+        // das obras de exemplo. O teste da cascata não pegou porque o store não declarava
+        // `loadDemoData` — agora declara, e o teste passa a cobrar sozinho.
+        import('./rotinasStore').then(({ useRotinasStore }) => useRotinasStore.getState().loadDemoData())
       } else {
         // Try to restore user data from snapshot; fallback to clearing
         restoreUserData().then((restored) => {
@@ -681,6 +685,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./manejoFinanceiroStore').then(({ useManejoFinanceiroStore }) => useManejoFinanceiroStore.getState().clearData())
             import('./planejamentoRestricoesStore').then(({ usePlanejamentoRestricoesStore }) => usePlanejamentoRestricoesStore.getState().clearData())
             import('./rateioConsumoStore').then(({ useRateioConsumoStore }) => useRateioConsumoStore.getState().clearData())
+            import('./rotinasStore').then(({ useRotinasStore }) => useRotinasStore.getState().clearData())
             clearLocalOnlyModuleData()
           }
           void pullRealData()

@@ -52,6 +52,13 @@ export interface RotinaExecucao {
   feita: boolean
   marcadaEm: string
   observacao?: string
+  /**
+   * Nome DECLARADO de quem fez. Texto, e não referência a usuário: a empresa opera com uma conta
+   * só, então `created_by` diria sempre a mesma coisa. É a diferença entre não ter dado nenhum e
+   * ter o que a equipe declarou — e o `responsavel` da rotina responde outra pergunta ("de quem é
+   * a tarefa"), não esta.
+   */
+  quemFez?: string
 }
 
 function ctxAuth() {
@@ -84,6 +91,7 @@ function execucaoToRow(e: RotinaExecucao, orgId: string, userId: string) {
     feita: e.feita,
     marcada_em: e.marcadaEm,
     observacao: e.observacao ?? null,
+    quem_fez: e.quemFez ?? null,
     created_by: userId,
   }
 }
@@ -114,11 +122,23 @@ interface RotinasState {
   updateRotina: (id: string, patch: Partial<Omit<Rotina, 'id'>>) => void
   removeRotina: (id: string) => void
   /** Marca ou desmarca a rotina no ciclo corrente (ou no ciclo informado). */
-  alternarFeita: (rotinaId: string, periodo?: string, observacao?: string) => void
+  alternarFeita: (rotinaId: string, periodo?: string, dados?: { quemFez?: string; observacao?: string }) => void
+  /**
+   * O último nome usado para marcar, NESTE aparelho.
+   *
+   * É o padrão que a tela oferece — e de propósito não é o `responsavel` da rotina: se A marca a
+   * tarefa de B e aceita o padrão, o registro passa a dizer que B fez. Seria a mesma precisão
+   * falsa que a decisão original rejeitou, agora com o nome errado em vez do genérico. Quem está
+   * no teclado costuma ser a mesma pessoa por vários cliques seguidos, então o último nome acerta
+   * quase sempre — e quando erra, erra visivelmente.
+   */
+  ultimoQuemFez: string | null
+  lembrarQuemFez: (nome: string) => void
   /** true se a rotina está feita naquele ciclo. */
   estaFeita: (rotinaId: string, periodo: string) => boolean
   semear: (modelo: Omit<Rotina, 'id'>[]) => number
 
+  loadDemoData: () => void
   clearData: () => void
   flush: () => Promise<void>
   pull: () => Promise<void>
@@ -142,7 +162,9 @@ export const useRotinasStore = create<RotinasState>()(
         // outra. Mas a fila de não-sincronizados fica: apagá-la era perda silenciosa de trabalho
         // de quem só tinha trocado de aba. O `flushQueue` estaciona op de outra organização em vez
         // de enviá-la, então nada vaza e nada se perde; ao voltar para a empresa de origem, sobe.
-        set({ activeOrgId: organizationId, rotinas: [], execucoes: [], syncError: null })
+        // `ultimoQuemFez` vai junto: sem isto, o nome digitado num cliente pré-preencheria a tela
+        // do outro.
+        set({ activeOrgId: organizationId, rotinas: [], execucoes: [], ultimoQuemFez: null, syncError: null })
       },
 
       addRotina: (r) => {
@@ -189,7 +211,10 @@ export const useRotinasStore = create<RotinasState>()(
         void get().flush()
       },
 
-      alternarFeita: (rotinaId, periodo, observacao) => {
+      ultimoQuemFez: null,
+      lembrarQuemFez: (nome) => set({ ultimoQuemFez: nome.trim() || null }),
+
+      alternarFeita: (rotinaId, periodo, dados) => {
         const rotina = get().rotinas.find((r) => r.id === rotinaId)
         if (!rotina) return
         const ciclo = periodo ?? cicloDe(rotina.frequencia, hojeLocalISO())
@@ -200,7 +225,12 @@ export const useRotinasStore = create<RotinasState>()(
         const registro: RotinaExecucao = {
           id, rotinaId, periodo: ciclo, feita,
           marcadaEm: new Date().toISOString(),
-          observacao: observacao ?? atual?.observacao,
+          // Ao DESMARCAR, os dois campos são limpos: uma linha com `feita: false` e
+          // `quem_fez: 'Valim'` se lê como contradição — quem fez o que não foi feito?
+          // E ao remarcar, o nome novo SOBRESCREVE: sem isso, marcar (Valim) → desmarcar →
+          // marcar (Eduardo) continuaria creditando o Valim.
+          observacao: feita ? dados?.observacao : undefined,
+          quemFez: feita ? dados?.quemFez : undefined,
         }
         set((s) => ({
           execucoes: atual
@@ -225,7 +255,21 @@ export const useRotinasStore = create<RotinasState>()(
         return novas.length
       },
 
-      clearData: () => set({ activeOrgId: null, rotinas: [], execucoes: [], pendingSync: [], syncError: null }),
+      /**
+       * Demonstração NÃO tem rotina de exemplo — o vazio é a resposta honesta.
+       *
+       * ⚠️ Este store não estava na cascata do Modo Demonstração e não declarava `loadDemoData`.
+       * Com a Demonstração ligada, **as rotinas reais do cliente ficavam na tela ao lado das obras
+       * de exemplo**. O `cascataDemo.test.ts` não pegou porque ele só cobra quem *declara*
+       * `loadDemoData` — e este não declarava. A partir daqui, cobra.
+       *
+       * Vazio em vez de rotina fictícia, no padrão de `diasSemProducaoStore`: inventar "Conferir
+       * estoque — Valim" numa demonstração ensinaria o cliente a esperar dado que não é dele.
+       * `cdata-rotinas` está em STORE_KEYS, então o snapshot devolve o real ao desligar.
+       */
+      loadDemoData: () => set({ rotinas: [], execucoes: [], ultimoQuemFez: null, pendingSync: [], syncError: null }),
+
+      clearData: () => set({ activeOrgId: null, rotinas: [], execucoes: [], ultimoQuemFez: null, pendingSync: [], syncError: null }),
 
       flush: async () => {
         const queue = get().pendingSync
@@ -272,6 +316,9 @@ export const useRotinasStore = create<RotinasState>()(
               feita: e.feita !== false,
               marcadaEm: (e.marcada_em as string) ?? new Date().toISOString(),
               observacao: (e.observacao as string | null) ?? undefined,
+              // Sem esta linha o nome de quem marcou sobrevive só até o próximo pull, e some
+              // sem erro nenhum — o defeito mais insidioso do local-first.
+              quemFez: (e.quem_fez as string | null) ?? undefined,
             })) ?? null,
             s.execucoes, s.pendingSync, 'rotina_execucoes',
           ),
@@ -285,6 +332,10 @@ export const useRotinasStore = create<RotinasState>()(
         activeOrgId: s.activeOrgId,
         rotinas: s.rotinas,
         execucoes: s.execucoes,
+        // Mora aqui de propósito. `cdata-rotinas` está em STORE_KEYS, então o snapshot do Modo
+        // Demonstração cobre o que estiver no partialize. Numa chave própria, o nome digitado
+        // durante a demonstração sobreviveria para a operação real.
+        ultimoQuemFez: s.ultimoQuemFez,
         pendingSync: s.pendingSync,
         lastSyncedAt: s.lastSyncedAt,
       }),

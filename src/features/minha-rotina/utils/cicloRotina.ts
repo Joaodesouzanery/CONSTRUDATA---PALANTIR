@@ -97,10 +97,35 @@ export function diasAteFechar(frequencia: FrequenciaRotina, dataISO: string = ho
   return Math.round(ms / 86_400_000)
 }
 
-/** O ciclo anterior ao corrente — para "a semana passada ficou por fazer". */
-export function cicloAnterior(frequencia: FrequenciaRotina, dataISO: string = hojeLocalISO()): string {
+/**
+ * Uma DATA dentro do ciclo anterior a este.
+ *
+ * É a primitiva de varredura. `cicloAnterior` devolve a etiqueta, que serve para exibir mas não
+ * para continuar andando — para dar o próximo passo é preciso de uma data. `atrasoRotina` tinha
+ * uma cópia privada disto chamada `anteriorAo`; agora existe uma só, e ela ganhou o espelho para
+ * a frente.
+ */
+export function diaDoCicloAnterior(frequencia: FrequenciaRotina, dataISO: string = hojeLocalISO()): string {
   const { de } = limitesDoCiclo(frequencia, dataISO)
   const d = dataDe(de)
   d.setDate(d.getDate() - 1)   // um dia antes do início = dentro do ciclo anterior
-  return cicloDe(frequencia, dataLocalISO(d))
+  return dataLocalISO(d)
+}
+
+/**
+ * Uma DATA dentro do ciclo seguinte a este. Espelho da de cima.
+ *
+ * Sem ela não dá para varrer um intervalo para a frente, que é o que a adesão precisa fazer: "quais
+ * ciclos desta rotina caíram dentro de agosto".
+ */
+export function diaDoCicloSeguinte(frequencia: FrequenciaRotina, dataISO: string = hojeLocalISO()): string {
+  const { ate } = limitesDoCiclo(frequencia, dataISO)
+  const d = dataDe(ate)
+  d.setDate(d.getDate() + 1)   // um dia depois do fim = dentro do ciclo seguinte
+  return dataLocalISO(d)
+}
+
+/** O ciclo anterior ao corrente — para "a semana passada ficou por fazer". */
+export function cicloAnterior(frequencia: FrequenciaRotina, dataISO: string = hojeLocalISO()): string {
+  return cicloDe(frequencia, diaDoCicloAnterior(frequencia, dataISO))
 }
