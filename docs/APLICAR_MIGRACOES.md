@@ -45,6 +45,41 @@ Confirmadas como **aplicadas** pelo João: `20260623120000_security_role_guard`,
 `20260821120000_worker_absences_site_id_insurance`, `20260822120000_estoque_ficha_de_retirada`,
 `20260823120000_rotinas_da_empresa`, `20260824130000_desfazer_exclusao`.
 
+### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
+
+Liga a auditoria em **toda tabela de negócio**: gatilho genérico gravando na `audit_log` (que já
+existe desde a 0006 e nunca foi usada para isso), `updated_by` em toda tabela que tem `created_by`,
+e a RPC `auditoria_da_organizacao` com gate de papel para a tela de Auditoria.
+
+Aplica por varredura do `information_schema`, não por lista — tabela nova entra sozinha.
+
+⚠️ **Quem preenche o `updated_by` é o banco, não o app** (gatilho `trg_updated_by`, no mesmo molde
+do `set_updated_at` que já existe em 49 tabelas). Isso é deliberado: se o app mandasse a coluna, toda
+escrita voltaria `PGRST204` até esta migração ser aplicada — e `PGRST204` é classificado como
+"aguardando servidor" (`storeSync.ts:115`), que **segura a operação na fila**. Como o campo apareceria
+em 35 stores, a sincronização inteira do produto ficaria parada entre o deploy e você rodar o SQL,
+sem nenhum erro na tela. Preenchendo no banco não existe essa janela — e ainda funciona para quem
+escreve sem passar pelo app (o webhook do n8n, um script, o painel do Supabase).
+
+**Testada em Postgres 16 real, 20 casos**, inclusive os três que mais importam: soft delete vira
+`delete` (senão a exclusão sumiria no meio das edições), UPDATE que não muda nada **não** entra (o
+reenvio da fila viraria ruído), e **com o log quebrado de propósito o cadastro grava mesmo assim** —
+auditoria nunca pode impedir a equipe de trabalhar. Zero vazamento entre organizações, conferido
+linha a linha. Rodando três vezes: nenhum gatilho duplicado.
+
+⚠️ Ela **aperta a leitura ampla** do log: hoje qualquer membro da organização lê tudo, inclusive
+`visualizador`, `zelador` e `morador`. Passa a exigir `diretor` ou `owner`. A leitura **por
+registro** continua liberada, senão o "Histórico" dentro de cada tela morre.
+
+### `20260829130000_org_wcr_saneamento` — o cliente novo
+
+Cria só a organização. **Não cria o primeiro usuário** — isso é competência do Supabase Auth, e
+migração que escreve em `auth.users` na mão produz conta que não loga.
+
+Se você rodar o `curl` do `admin-provision-company` (linha 65 deste documento), ele faz organização
+**e** dono de uma vez e esta migração fica desnecessária. Rodar os dois é seguro: o
+`on conflict (slug) do nothing` não duplica.
+
 ### 🔴 Rode esta primeiro: `20260825120000_soft_delete_resto_do_schema`
 
 **Sem ela, apagar continua falhando em 72 tabelas.** A `20260824130000` (que você já aplicou)

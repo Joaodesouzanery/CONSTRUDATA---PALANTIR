@@ -10,6 +10,7 @@ import { AcoesDaLinha } from './AcoesDaLinha'
 import { DesligarOuExcluirDialog } from './DesligarOuExcluirDialog'
 import { funcionarioEstaAtivo, contarHistoricoDoFuncionario, decidirExclusao } from '@/lib/funcionarioAtivo'
 import type { HistoricoDoFuncionario, DecisaoDeExclusao } from '@/lib/funcionarioAtivo'
+import { Autoria } from '@/components/shared/Autoria'
 import { EquipesSection } from './EquipesSection'
 
 type ObraOption = { id: string; code: string; name: string }
@@ -278,6 +279,9 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
           </div>
         </div>
       )}
+      <div className="col-span-2 md:col-span-4 pt-2 border-t border-[#525252]">
+        <Autoria tabela="workers" registroId={worker.id} />
+      </div>
     </div>
   )
 }

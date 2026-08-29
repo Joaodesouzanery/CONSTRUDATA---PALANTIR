@@ -20,6 +20,7 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { medidoAutoPorServico, calcServico, totaisContrato } from '@/features/torre-de-controle/utils/obraMedicao'
 import type { RDO } from '@/types'
+import { Autoria } from '@/components/shared/Autoria'
 
 // Controle de Medição (read-only) do contrato da obra deste RDO — medido auto dos RDOs finalizados.
 function CompizzoMedicaoSection({ rdo }: { rdo: RDO }) {
@@ -146,6 +147,7 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
           {typeof rdo.epiUtilizado === 'boolean' && <Meta label="EPI utilizado" value={rdo.epiUtilizado ? 'Sim' : 'Não'} />}
         </div>
         {!contrato && !isCompizzo && <p className="mt-2 text-[11px] text-[#6b6b6b] italic">Sem bloco de contrato preenchido.</p>}
+        <Autoria tabela="rdo" registroId={rdo.id} className="mt-3 pt-3 border-t border-[#525252]" />
       </Section>
 
       {/* ── Clima ─────────────────────────────────────────────────────────── */}

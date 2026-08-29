@@ -7,6 +7,7 @@ import { metragemContratada, precoMedioM2 } from '@/features/torre-de-controle/u
 import { formatarMetragem, temUnidadesMistas } from '@/lib/unidadesMedida'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone } from '@/types'
+import { Autoria } from '@/components/shared/Autoria'
 
 // ─── Área / Extensão ──────────────────────────────────────────────────────────
 /**
@@ -313,6 +314,7 @@ export function ObraDetailPanel() {
             {site.lat != null && site.lng != null && (
               <InfoRow label="Coordenadas" value={`${site.lat.toFixed(5)}, ${site.lng.toFixed(5)}`} mono />
             )}
+            <Autoria tabela="construction_sites" registroId={site.id} className="mt-2 pt-2 border-t border-[#525252]" />
           </Section>
 
           {/* Responsáveis */}

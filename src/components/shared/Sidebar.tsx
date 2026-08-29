@@ -7,7 +7,7 @@ import {
   Calculator, X, BrainCircuit, TrendingUp, ShieldCheck, Home,
   LifeBuoy, MessageSquarePlus, Linkedin, Instagram, Ruler, Pin, ArrowUp, ArrowDown,
   BadgeDollarSign, Building2, Wrench,
-  Workflow,
+  Workflow, History,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
@@ -82,6 +82,10 @@ const NAV_GROUPS = [
     label: 'ADMIN',
     items: [
       { label: 'Membros',          icon: Users,          to: '/app/membros', adminOnly: true },
+      // `diretoriaOnly` e não `adminOnly`: `adminOnly` é admin da PLATAFORMA (isGlobalAdmin), e a
+      // auditoria é do diretor da empresa cliente. A trava de verdade está na RPC, que exige o
+      // mesmo papel — esconder do menu é só para não oferecer uma tela que vai negar.
+      { label: 'Auditoria',        icon: History,        to: '/app/auditoria', diretoriaOnly: true },
       { label: 'Direitos do Titular', icon: ShieldCheck, to: '/app/direitos-titular', ownerOnly: true },
       { label: 'Homologação',      icon: FlaskConical,   to: '/app/homologacao', adminOnly: true },
       { label: 'Adaptação Rápida', icon: ClipboardList,  to: '/app/adaptacao-rapida', adminOnly: true },
@@ -113,7 +117,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   // Resolve pinned items from NAV_GROUPS
   const canUseGlobalAdmin = useAuth((state) => state.isGlobalAdmin)
   const visibleGroups = NAV_GROUPS
-    .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || profile?.role === 'owner')) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || profile?.role === 'owner') && (!('diretoriaOnly' in item) || profile?.role === 'owner' || profile?.role === 'diretor')) }))
     .filter((group) => group.items.length > 0)
   const allItems = visibleGroups.flatMap((g) => g.items)
   const pinnedItems = pinnedPaths
