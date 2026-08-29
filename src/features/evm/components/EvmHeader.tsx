@@ -17,7 +17,9 @@ export type CombinedTab = FinanceiroEvmTab
 const TABS: { key: CombinedTab; label: string }[] = [
   { key: 'visao-geral',  label: 'Visão Geral' },
   { key: 'por-obra',     label: 'Por Obra' },
-  { key: 'resultados',   label: 'Resultados' },
+  // Renomeada de "Resultados": ela já continha o DRE, e uma aba nova para o mesmo assunto
+  // deixaria DOIS DREs no módulo respondendo a mesma pergunta com números diferentes.
+  { key: 'resultados',   label: 'DRE e Resultado' },
   { key: 'pagamentos',   label: 'Pagamentos e Cobranças' },
   { key: 'boletos',      label: 'Boletos' },
   { key: 'medicao',      label: 'Medição Ponderada' },

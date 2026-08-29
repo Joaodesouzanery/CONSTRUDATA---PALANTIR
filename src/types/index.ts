@@ -2942,6 +2942,30 @@ export interface FinanceiroEntry {
   sourceRdoId?: string  // origem: RDO que gerou este lançamento (idempotência RDO→Financeiro)
   sourceTituloId?: string // origem: título cuja baixa gerou este lançamento (idempotência + rastreio)
   createdAt:   string
+
+  // ── Controle de Caixa ──────────────────────────────────────────────────────
+  // Campos OPCIONAIS, e é o que os torna baratos: `financeiro_entries` guarda a entry inteira num
+  // `payload jsonb`, então campo novo aqui **não precisa de migração**. Lançamento antigo continua
+  // válido sem nenhum deles.
+  /** Quem pediu o gasto. É lista porque a planilha tem `DAMIÃO/WELLINGTON` — duas pessoas. */
+  solicitantes?: string[]
+  /** Fim do período, quando a despesa cobre vários dias (`01 A 10/07/2026` na planilha real). */
+  dataFim?: string
+  /** Já conferido — a coluna "Conferido" da planilha do cliente. */
+  conferido?: boolean
+  conferidoPor?: string
+  conferidoEm?: string
+  /** Por onde entrou. `planilha` é a via principal; `manual` é correção pontual na tela. */
+  origem?: 'planilha' | 'manual' | 'horas-extras'
+  /**
+   * Identidade da linha na planilha, para reimportar sem duplicar.
+   * É dela que sai o `id` determinístico — e é o `id` que faz o `addEntry` (upsert) atualizar em
+   * vez de criar outro lançamento quando o mesmo arquivo é enviado de novo.
+   */
+  chavePlanilha?: string
+  /** Horas extras: de quem é o lançamento. O cargo é informativo — o valor NÃO sai dele. */
+  funcionarioNome?: string
+  cargo?: string
 }
 
 // ─── DRE simplificada (auto-calculada a partir das entradas/saídas) ───────────

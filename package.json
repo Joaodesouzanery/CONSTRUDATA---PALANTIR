@@ -19,6 +19,7 @@
     "verify:processos": "node --experimental-strip-types scripts/verificar-processos.ts",
     "discover:processos": "node --experimental-strip-types scripts/materializar-descoberta-processos.ts",
     "qa:medicao-xlsx": "node scripts/qa_medicao_xlsx.mjs --write docs/qa-medicao-xlsx-snapshot.json",
+    "qa:controle-caixa": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-controle-caixa.mjs",
     "preview": "vite preview",
     "video:preview": "npm.cmd --prefix videos run preview",
     "video:render:hero": "npm.cmd --prefix videos run render:hero",

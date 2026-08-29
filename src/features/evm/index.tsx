@@ -1,6 +1,6 @@
 /**
- * EvmPage — módulo Financeiro (EVM). Estrutura reorganizada em 7 abas:
- *   Visão Geral · Por Obra · Resultados · Pagamentos e Cobranças ·
+ * EvmPage — módulo Financeiro (EVM). Estrutura em 8 abas:
+ *   Visão Geral · Por Obra · DRE e Resultado · Pagamentos e Cobranças · Boletos ·
  *   Medição Ponderada · Plano de Contas · Distribuição
  * Painéis legados viraram sub-abas (SubTabHost) dentro das abas acima —
  * nenhum store/tabela foi alterado, só a navegação.
@@ -20,6 +20,7 @@ import { VisaoGeralPanel } from '@/features/financeiro/components/VisaoGeralPane
 import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/EntradasSaidasPanel'
 import { DrePanel } from '@/features/financeiro/components/DrePanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
+import { ControleDeCaixaPanel } from '@/features/financeiro/components/ControleDeCaixaPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
 import { BoletosPanel } from '@/features/financeiro/components/BoletosPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
@@ -43,7 +44,10 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
           { key: 'dre',      label: 'DRE',            render: () => <DrePanel /> },
           { key: 'entradas', label: 'Entradas',       render: () => <EntradasPanel /> },
           { key: 'saidas',   label: 'Saídas',         render: () => <SaidasPanel /> },
+          // O Fluxo de Caixa aqui é o REALIZADO; o Projetado (FCP) entra ao lado dele, e cada um
+          // diz qual é qual — é a mesma distinção entre medido e estimado que o Economia faz.
           { key: 'fluxo',    label: 'Fluxo de Caixa', render: () => <FluxoCaixaPanel /> },
+          { key: 'caixa',    label: 'Controle de Caixa', render: () => <ControleDeCaixaPanel /> },
         ]} />
       )
     case 'pagamentos':
@@ -79,7 +83,13 @@ export function EvmPage() {
     <div className="flex flex-col h-full bg-[#2c2c2c]">
       <EvmHeader activeTab={activeTab} setActiveTab={setActiveTab} />
       <div className="flex-1 overflow-auto">
-        {renderPanel(activeTab)}
+        {/* ⚠️ `key` obrigatório: o SubTabHost guarda a sub-aba ativa em estado LOCAL e não reseta
+            ao trocar de aba principal. Sem isto, ir de "Visão Geral" (sub-aba 'analise') para
+            "Medição" mantém `active='analise'`, o conteúdo cai no fallback e NENHUMA pill acende —
+            as quatro listas de sub-abas não têm nenhuma chave em comum. */}
+        <div key={activeTab} className="h-full">
+          {renderPanel(activeTab)}
+        </div>
       </div>
     </div>
   )
