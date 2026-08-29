@@ -64,14 +64,25 @@ function Cartao({ indicador }: { indicador: Indicador }) {
               aria-label={`O que é "${indicador.titulo}"`}
               // O hover só no mouse: no toque o navegador dispara pointerenter E click, e o
               // popover abriria e fecharia no mesmo gesto.
+              //
+              // ⚠️ Só ABRE no hover; quem fecha é o Radix (clique fora, Esc) ou o `onPointerLeave`
+              // do conteúdo. O `PopoverContent` vive num Portal, então NÃO é descendente do botão
+              // no DOM: fechar aqui ao sair do `?` matava o popover no caminho do cursor até ele —
+              // e no desktop o hover é justamente o único caminho para a explicação.
               onPointerEnter={(e) => { if (e.pointerType === 'mouse') setAberto(true) }}
-              onPointerLeave={(e) => { if (e.pointerType === 'mouse') setAberto(false) }}
               className="shrink-0 rounded text-[#a3a3a3] hover:text-[#f5f5f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffa055]/50"
             >
               <HelpCircle size={13} />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-72 border-[#525252] bg-[#333333] p-3">
+          <PopoverContent
+            align="end" className="w-72 border-[#525252] bg-[#333333] p-3"
+            // Fecha ao sair do próprio conteúdo — e não ao sair do botão. Assim o cursor pode
+            // atravessar o vão entre os dois.
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') setAberto(false) }}
+            // Sem isto o Radix rouba o foco ao abrir por hover, e a página pula.
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <p className="text-[11px] font-bold text-[#f5f5f5]">{indicador.titulo}</p>
             <p className="mt-1.5 text-[11px] leading-5 text-[#d4d4d4]">{indicador.explicacao.oQueE}</p>
             <p className="mt-2 text-[11px] leading-5 text-[#a3a3a3]">

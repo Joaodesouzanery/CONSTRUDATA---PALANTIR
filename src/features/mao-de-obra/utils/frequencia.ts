@@ -103,14 +103,33 @@ export function situacaoNoDia(entrada: {
       continue
     }
     const turno = turnoPorWorker.get(w.id)
+    // ─── O QUE FOI DECLARADO VENCE O QUE FOI INFERIDO ─────────────────────────
     // Folga marcada vence o apontamento: se o turno diz folga e ainda assim há horas lançadas, o
     // que se sabe com mais certeza é que aquele dia foi declarado folga.
     if (turno && (turno.type === 'day_off' || turno.type === 'holiday')) { baldes.folga += 1; continue }
-    // Turno OU apontamento. Empresa que usa a Escala tem o primeiro; empresa que opera por RDO tem
-    // o segundo. Exigir os dois deixaria metade dos clientes com 0% de frequência.
-    if (turno || apontou.has(w.id)) { baldes.presente += 1; continue }
-    // Sem falta, sem turno e sem apontamento: o dia simplesmente não foi registrado para esta
-    // pessoa. Não é presença — presumir presença infla a frequência com base em ausência de dado.
+
+    // ⚠️ `Shift.status` importa, e ignorá-lo foi um defeito real desta função.
+    // A Escala oferece "Ausente" e "Cancelado" no seletor de status e pinta o primeiro de vermelho
+    // como "Falta". A folha (`payrollEngine.ts:147`), o custo mensal, a cobertura de postos e o
+    // motor CLT já descontam esse dia — a frequência era a ÚNICA que ainda o pagava. O quadro na
+    // parede mostraria 0% de absenteísmo no mesmo dia em que o holerite desconta a falta.
+    if (turno?.status === 'absent') { baldes.falta += 1; continue }
+    // Cancelado não é imputável a ninguém: dia sem trabalho, mas sem culpa. Vai para o balde
+    // honesto, e não para "falta".
+    if (turno?.status === 'cancelled') { baldes.outros += 1; continue }
+
+    // ─── PRESENÇA EXIGE EVIDÊNCIA, NÃO PLANO ──────────────────────────────────
+    // `confirmed` é alguém dizendo que aconteceu. Apontamento com horas é alguém registrando
+    // quantas. Já `scheduled` é só o que estava previsto — e `autoGenerateSchedule` gera o MÊS
+    // INTEIRO assim de uma vez: contá-lo como presença faria a frequência de agosto nascer em
+    // 100% no dia 1º, antes de ninguém trabalhar.
+    //
+    // Empresa que usa a Escala tem o turno confirmado; empresa que opera por RDO tem o
+    // apontamento. Exigir os dois deixaria metade dos clientes em zero.
+    if (turno?.status === 'confirmed' || apontou.has(w.id)) { baldes.presente += 1; continue }
+
+    // Sobrou: sem registro nenhum, ou só um turno previsto e nunca confirmado. Não é presença —
+    // presumir presença infla a frequência com base em ausência de dado.
     baldes.outros += 1
   }
 
@@ -148,6 +167,29 @@ export function efetivoPorCargo(workers: Worker[]): { linhas: EfetivoPorCargo[];
   }
 }
 
+/**
+ * Quem estava na folha durante um intervalo — e não quem está hoje.
+ *
+ * ⚠️ Usar o efetivo de HOJE como denominador de um mês passado é a segunda forma do "zero que não
+ * é zero": dez admitidos este mês inflam o denominador de março, onde eles não podiam ter
+ * trabalhado, e março passa a exibir 30% de frequência. O mesmo vale ao contrário — quem foi
+ * desligado ontem sumiria do denominador de um ano inteiro que ele trabalhou.
+ *
+ * Usa `admissionDate` e `desligamentoData`, que já existem no cadastro. Quem não tem data de
+ * admissão é contado (o cadastro antigo não a tem, e excluí-lo esvaziaria o denominador).
+ */
+export function naFolhaNoIntervalo(workers: Worker[], de: string, ate: string): Worker[] {
+  return workers.filter((w) => {
+    // Desligado antes do início do intervalo: não conta. Desligado no meio, conta — ele trabalhou.
+    if (w.status === 'inactive' && w.desligamentoData && w.desligamentoData < de) return false
+    // Suspenso e pendente seguem fora, como em toda conta de dinheiro e de presença.
+    if (w.status === 'suspended' || w.status === 'pending_approval') return false
+    // Admitido depois do fim do intervalo: não podia ter trabalhado nele.
+    if (w.admissionDate && w.admissionDate > ate) return false
+    return true
+  })
+}
+
 export interface FrequenciaDoPeriodo {
   /** Presenças ÷ (efetivo × dias úteis), em 0–100. `null` quando não houve dia útil. */
   frequenciaPct: number | null
@@ -178,13 +220,14 @@ export function frequenciaNoPeriodo(entrada: {
   jornada: WorkWeekMode
 }): FrequenciaDoPeriodo {
   const { workers, absences, shifts, timecards = [], de, ate, feriados, jornada } = entrada
-  const efetivo = workers.filter(entraNaFolha).length
+  const doIntervalo = naFolhaNoIntervalo(workers, de, ate)
+  const efetivo = doIntervalo.length
 
   let diasUteis = 0, presencas = 0
   for (const dia of diasEntreISO(de, ate)) {
     if (!ehDiaUtil(dia, feriados, jornada).util) continue
     diasUteis += 1
-    presencas += situacaoNoDia({ workers, absences, shifts, timecards, data: dia })
+    presencas += situacaoNoDia({ workers: doIntervalo, absences, shifts, timecards, data: dia })
       .contagem.find((c) => c.situacao === 'presente')?.pessoas ?? 0
   }
 
@@ -221,22 +264,31 @@ export function serieMensal(entrada: {
   meses: string[]
   feriados: Set<string>
   jornada: WorkWeekMode
+  /** `yyyy-MM-dd`. O mês corrente é cortado aqui: dia futuro não entra no denominador. */
+  hoje?: string
 }): PontoMensal[] {
-  const { workers, absences, shifts, timecards = [], meses, feriados, jornada } = entrada
-  const efetivo = workers.filter(entraNaFolha)
+  const { workers, absences, shifts, timecards = [], meses, feriados, jornada, hoje } = entrada
 
   return meses.map((mes) => {
     const de = `${mes}-01`
-    const ate = ultimoDiaDoMes(mes)
-    const f = frequenciaNoPeriodo({ workers, absences, shifts, timecards, de, ate, feriados, jornada })
-    const faltas = absences.filter((a) => a.date >= de && a.date <= ate).length
+    const fimDoMes = ultimoDiaDoMes(mes)
+    // Mês corrente para em hoje; mês já fechado usa o mês inteiro.
+    const ate = hoje && hoje < fimDoMes && hoje >= de ? hoje : fimDoMes
+    // O efetivo é recalculado POR MÊS. Antes era um só, o de hoje, repetido nos doze pontos — e
+    // o próprio nome do campo (`ativos`) promete "na folha no fim do mês".
+    const doMes = naFolhaNoIntervalo(workers, de, ate)
+    const idsDoMes = new Set(doMes.map((w) => w.id))
+    const f = frequenciaNoPeriodo({ workers: doMes, absences, shifts, timecards, de, ate, feriados, jornada })
+    // Faltas da MESMA população do denominador. Contar a falta de quem não está no efetivo
+    // (desligado, suspenso) e dividir só pelos ativos produzia faltas/funcionário inflado.
+    const faltas = absences.filter((a) => a.date >= de && a.date <= ate && idsDoMes.has(a.workerId)).length
     return {
       mes,
       frequenciaPct: f.frequenciaPct,
       absenteismoPct: f.absenteismoPct,
-      ativos: efetivo.length,
+      ativos: doMes.length,
       faltas,
-      faltasPorFuncionario: efetivo.length > 0 ? Math.round((faltas / efetivo.length) * 100) / 100 : null,
+      faltasPorFuncionario: doMes.length > 0 ? Math.round((faltas / doMes.length) * 100) / 100 : null,
     }
   })
 }

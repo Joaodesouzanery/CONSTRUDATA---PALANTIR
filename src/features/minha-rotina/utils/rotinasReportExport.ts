@@ -113,8 +113,18 @@ function blocoFalhas(a: AdesaoNoPeriodo): string {
   const comFalha = a.porRotina
     .filter((r) => r.emAberto.length > 0)
     .sort((x, y) => y.emAberto.length - x.emAberto.length)
+  const naoAvaliadas = a.porRotina.filter((r) => r.esperados === 0).length
+  // A regra que EXCLUIU rotinas precisa aparecer aqui também, e não só no ramo de período vazio:
+  // num relatório de semana, toda mensal e quinzenal some — e "nenhuma ficou em aberto" lido sem
+  // essa ressalva é um atestado de que estava tudo em dia.
+  const ressalva = naoAvaliadas > 0
+    ? `<div class="aviso"><strong>${naoAvaliadas} rotina(s) não foram avaliadas neste recorte.</strong>
+       Só entra na conta o ciclo que começou e terminou dentro do período — num relatório de semana,
+       por exemplo, uma rotina mensal não deve nada. Elas não estão em dia nem atrasadas: não foram
+       medidas.</div>`
+    : ''
   if (comFalha.length === 0) {
-    return '<p class="vazio">Nenhuma rotina ficou em aberto no período. </p>'
+    return `<p class="vazio">Nenhuma rotina ficou em aberto entre as avaliadas no período.</p>${ressalva}`
   }
   return `<table>
     <thead><tr>
@@ -126,7 +136,7 @@ function blocoFalhas(a: AdesaoNoPeriodo): string {
       <td class="num"><b>${r.emAberto.length}</b> de ${r.esperados}</td>
       <td>${esc(r.emAberto.slice(0, 4).map((c) => c.rotulo).join(' · '))}${r.emAberto.length > 4 ? ` e mais ${r.emAberto.length - 4}` : ''}</td>
     </tr>`).join('')}</tbody>
-  </table>`
+  </table>${ressalva}`
 }
 
 /** PURA: entra dado, sai o documento. Dá para conferir sem imprimir nada. */

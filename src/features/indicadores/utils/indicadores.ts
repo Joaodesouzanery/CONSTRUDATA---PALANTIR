@@ -47,10 +47,18 @@ export interface DinheiroDoContrato {
   obrasComContrato: number
   /** Obras sem valor de contrato: ficam FORA do total, e o cartão diz quais são. */
   obrasSemContrato: string[]
+  /**
+   * Notas a receber SEM data de previsão de recebimento.
+   *
+   * ⚠️ Sem previsão, a nota nunca entra em `vencidas` — e o cartão diria "nada vencido", em verde,
+   * sobre notas paradas há seis meses. O campo é opcional no extrato, então isto acontece.
+   */
+  aReceberSemPrevisao: number
 }
 
 export function dinheiroDoContrato(sites: ConstructionSite[], hojeISO: string): DinheiroDoContrato {
   let aReceberBRL = 0, aReceberNotas = 0, vencidoBRL = 0, vencidoNotas = 0, obrasComContrato = 0
+  let aReceberSemPrevisao = 0
   const obrasSemContrato: string[] = []
   let maisAntiga: DinheiroDoContrato['maisAntiga'] = null
 
@@ -60,6 +68,8 @@ export function dinheiroDoContrato(sites: ConstructionSite[], hojeISO: string): 
     const r = resumoFaturamento(site.contrato, hojeISO)
     aReceberBRL += r.aReceber
     aReceberNotas += r.aReceberNotas
+    aReceberSemPrevisao += (site.contrato?.faturamentos ?? [])
+      .filter((n) => n.situacao !== 'recebido' && !n.previsaoRecebimento).length
     for (const nota of r.vencidas) {
       const v = Number(nota.valor) || 0
       vencidoBRL += v
@@ -75,7 +85,7 @@ export function dinheiroDoContrato(sites: ConstructionSite[], hojeISO: string): 
   return {
     aReceberBRL: r2(aReceberBRL), aReceberNotas,
     vencidoBRL: r2(vencidoBRL), vencidoNotas,
-    maisAntiga, obrasComContrato, obrasSemContrato,
+    maisAntiga, obrasComContrato, obrasSemContrato, aReceberSemPrevisao,
   }
 }
 
@@ -320,8 +330,17 @@ export function montarIndicadores(entrada: {
         ? `${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · ${brlCompacto(dinheiro.vencidoBRL)} já `
           + `${dinheiro.vencidoNotas === 1 ? 'venceu' : 'venceram'}`
             + (dinheiro.maisAntiga ? ` — ${dinheiro.maisAntiga.obra}, desde ${diaMes(dinheiro.maisAntiga.venceuEm)}` : '')
-        : `em ${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · nada vencido`,
-    tom: semNenhumContrato ? 'sem-dado' : dinheiro.vencidoNotas > 0 ? 'grave' : 'ok',
+        : dinheiro.aReceberSemPrevisao > 0
+          ? `em ${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · `
+            + `${dinheiro.aReceberSemPrevisao} sem data de previsão`
+          : `em ${plural(dinheiro.aReceberNotas, 'nota', 'notas')} · nada vencido`,
+    // Verde só quando dá para AFIRMAR que nada venceu. Com notas sem data de previsão, não dá:
+    // elas nunca entram em `vencidas`, e um cartão verde dizendo "nada vencido" sobre uma nota
+    // parada há seis meses é a mentira mais cara desta tela.
+    tom: semNenhumContrato ? 'sem-dado'
+      : dinheiro.vencidoNotas > 0 ? 'grave'
+      : dinheiro.aReceberSemPrevisao > 0 ? 'atencao'
+      : 'ok',
     explicacao: {
       oQueE: 'O dinheiro das notas que você já emitiu e ainda não recebeu. "Já venceu" é a parte '
         + 'dele cuja data prevista de recebimento passou — está contada DENTRO do a receber, não '
@@ -330,7 +349,11 @@ export function montarIndicadores(entrada: {
         + 'Medições. Cada nota lançada ali entra aqui. Nada é estimado.',
       oQueFalta: semNenhumContrato
         ? 'Nenhuma obra tem valor de contrato cadastrado. Sem isso não há o que receber para somar.'
-        : faltamContratos(dinheiro.obrasSemContrato),
+        : dinheiro.aReceberSemPrevisao > 0
+          ? `${dinheiro.aReceberSemPrevisao} nota(s) a receber estão sem data de previsão de `
+            + 'recebimento. Sem essa data, elas nunca aparecem como vencidas — por isso este cartão '
+            + 'não está verde. Preencha em Contrato → Medições.'
+          : faltamContratos(dinheiro.obrasSemContrato),
     },
     destino: '/app/torre-de-controle',
   }
@@ -349,7 +372,10 @@ export function montarIndicadores(entrada: {
       : reportando.cobraveisHoje === 0
         ? 'hoje não é dia de RDO em nenhuma obra'
         : pior
-          ? `${pior.nome} está há ${plural(pior.diasUteisEmAberto, 'dia útil', 'dias úteis')} sem RDO — desde ${diaMes(pior.desde)}`
+          // `truncado` significa que a varredura bateu o teto de 90 dias: o número é um PISO,
+          // não a lacuna real. Dizer "64 dias" quando podem ser 200 é precisão falsa.
+          ? `${pior.nome} está há ${pior.truncado ? 'mais de ' : ''}`
+            + `${plural(pior.diasUteisEmAberto, 'dia útil', 'dias úteis')} sem RDO — desde ${diaMes(pior.desde)}`
           : 'todas em dia',
     tom: reportando.incerto || reportando.cobraveisHoje === 0 ? 'sem-dado'
       : reportando.piorLacunaDiasUteis >= 3 ? 'grave'

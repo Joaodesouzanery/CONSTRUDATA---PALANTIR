@@ -76,6 +76,10 @@ interface AuthState {
 async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<void> {
   const stores = await Promise.allSettled([
     import('@/store/activeObraStore').then((m) => m.useActiveObraStore),
+    // Faltava: o único `ensureTenantScope` das rotinas era chamado dentro de /app/minha-rotina.
+    // Como o painel de indicadores passou a viver também no Gestão 360, trocar de empresa e abrir
+    // aquela tela mostrava "Rotinas em dia" da empresa ANTERIOR.
+    import('@/store/rotinasStore').then((m) => m.useRotinasStore),
     import('@/store/agendaStore').then((m) => m.useAgendaStore),
     import('@/store/bimStore').then((m) => m.useBimStore),
     import('@/store/companySettingsStore').then((m) => m.useCompanySettingsStore),

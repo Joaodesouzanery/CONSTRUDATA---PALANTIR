@@ -105,6 +105,10 @@ const STORE_KEYS = [
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro', 'cdata-rotinas', 'cdata-rateio-consumo',
+  // A obra SELECIONADA também é dado do usuário. Ela entra aqui ANTES de o store ser zerado na
+  // cascata abaixo — a ordem é a mesma lição do `cd9e7a3`: sem a chave no snapshot, zerar na
+  // cascata perderia a seleção para sempre.
+  'cdata-active-obra',
 ]
 
 function clearLocalOnlyModuleData() {
@@ -645,6 +649,10 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         // das obras de exemplo. O teste da cascata não pegou porque o store não declarava
         // `loadDemoData` — agora declara, e o teste passa a cobrar sozinho.
         import('./rotinasStore').then(({ useRotinasStore }) => useRotinasStore.getState().loadDemoData())
+        // A obra selecionada volta para "todas": o id apontava para uma obra REAL, que não existe
+        // entre as de demonstração. O cabeçalho do Gestão à Vista dizia "Todas as obras" enquanto
+        // o painel filtrava por uma obra inexistente — e o quadro saía vazio sem explicação.
+        import('./activeObraStore').then(({ useActiveObraStore }) => useActiveObraStore.getState().setActiveObra(null))
       } else {
         // Try to restore user data from snapshot; fallback to clearing
         restoreUserData().then((restored) => {
@@ -686,6 +694,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./planejamentoRestricoesStore').then(({ usePlanejamentoRestricoesStore }) => usePlanejamentoRestricoesStore.getState().clearData())
             import('./rateioConsumoStore').then(({ useRateioConsumoStore }) => useRateioConsumoStore.getState().clearData())
             import('./rotinasStore').then(({ useRotinasStore }) => useRotinasStore.getState().clearData())
+            import('./activeObraStore').then(({ useActiveObraStore }) => useActiveObraStore.getState().setActiveObra(null))
             clearLocalOnlyModuleData()
           }
           void pullRealData()

@@ -25,10 +25,17 @@ const falta = (p: Partial<WorkerAbsence>): WorkerAbsence => ({
   type: 'unjustified', status: 'open', registeredAt: '', ...p,
 } as WorkerAbsence)
 
+/**
+ * ⚠️ SEM `as unknown as Shift`, de propósito.
+ *
+ * A versão anterior deste helper usava `status: 'completed'` — valor que NÃO existe em
+ * `ShiftStatus` — e o cast desligava o type-checker exatamente no campo que escondia o defeito.
+ * Com o tipo real, um status inventado não compila.
+ */
 const turno = (p: Partial<Shift> = {}): Shift => ({
   id: Math.random().toString(36).slice(2), workerId: 'w1', date: QUINTA,
-  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular', status: 'completed', ...p,
-} as unknown as Shift)
+  startTime: '07:00', endTime: '16:00', breakMinutes: 60, type: 'regular', status: 'confirmed', ...p,
+})
 
 // ── O invariante ──────────────────────────────────────────────────────────────
 
@@ -154,7 +161,11 @@ test('sem ninguém na folha, a frequência é null e não 0%', () => {
 test('faltas por funcionário é faltas ÷ ativos, e null sem ninguém', () => {
   const s = serieMensal({
     workers: [w({ id: 'a' }), w({ id: 'b' })],
-    absences: [falta({ date: '2026-08-03' }), falta({ date: '2026-08-04' }), falta({ date: '2026-08-05' })],
+    absences: [
+      falta({ workerId: 'a', date: '2026-08-03' }),
+      falta({ workerId: 'a', date: '2026-08-04' }),
+      falta({ workerId: 'b', date: '2026-08-05' }),
+    ],
     shifts: [], meses: ['2026-08'], feriados: SEM_FERIADO, jornada: JORNADA,
   })
   assert.equal(s[0].faltas, 3)
@@ -235,4 +246,94 @@ test('a frequência do período sobe com apontamento, como sobe com turno', () =
     de: '2026-08-03', ate: '2026-08-07', feriados: SEM_FERIADO, jornada: JORNADA,
   })
   assert.equal(f.frequenciaPct, 100)
+})
+
+
+// ── O denominador: a população certa, no período certo ───────────────────────
+
+test('⚠️ falta de quem NÃO está no efetivo não entra na conta', () => {
+  // Contar a falta de um desligado e dividir só pelos ativos inflava faltas/funcionário sem que
+  // nenhum ativo tivesse faltado.
+  const s = serieMensal({
+    workers: [w({ id: 'a' })],
+    absences: [falta({ workerId: 'a' }), falta({ workerId: 'fantasma', date: '2026-08-04' })],
+    shifts: [], meses: ['2026-08'], feriados: SEM_FERIADO, jornada: JORNADA,
+  })
+  assert.equal(s[0].faltas, 1, 'a falta do fantasma entrou na conta')
+})
+
+test('⚠️ quem foi admitido DEPOIS não infla o denominador de um mês passado', () => {
+  // Dez admitidos em agosto não podiam ter trabalhado em março — contá-los no denominador de
+  // março derrubava a frequência daquele mês sem que nada tivesse acontecido.
+  const antigos = [w({ id: 'a', admissionDate: '2025-01-01' })]
+  const novos = Array.from({ length: 9 }, (_, i) => w({ id: `n${i}`, admissionDate: '2026-08-01' }))
+  const marco = ['2026-03-02', '2026-03-03', '2026-03-04', '2026-03-05', '2026-03-06']
+
+  const f = frequenciaNoPeriodo({
+    workers: [...antigos, ...novos],
+    absences: [], shifts: [], timecards: marco.map((d) => apont({ workerId: 'a', date: d })),
+    de: '2026-03-02', ate: '2026-03-06', feriados: SEM_FERIADO, jornada: JORNADA,
+  })
+  assert.equal(f.frequenciaPct, 100, `${f.frequenciaPct}% — os admitidos em agosto entraram em março`)
+})
+
+test('quem foi desligado no meio do mês continua no denominador daquele mês', () => {
+  // Ele trabalhou parte dele; sumir do denominador inflaria a frequência dos que ficaram.
+  const f = frequenciaNoPeriodo({
+    workers: [w({ id: 'a', status: 'inactive', desligamentoData: '2026-03-20' })],
+    absences: [], shifts: [], timecards: [],
+    de: '2026-03-02', ate: '2026-03-06', feriados: SEM_FERIADO, jornada: JORNADA,
+  })
+  assert.equal(f.possiveis, 5, 'o desligado depois do período saiu do denominador')
+})
+
+test('quem foi desligado ANTES do período não entra nele', () => {
+  const f = frequenciaNoPeriodo({
+    workers: [w({ id: 'a', status: 'inactive', desligamentoData: '2026-01-15' })],
+    absences: [], shifts: [], timecards: [],
+    de: '2026-03-02', ate: '2026-03-06', feriados: SEM_FERIADO, jornada: JORNADA,
+  })
+  assert.equal(f.possiveis, 0)
+  assert.equal(f.frequenciaPct, null)
+})
+
+// ── O status do turno ─────────────────────────────────────────────────────────
+
+test('⚠️ turno marcado como Ausente ou Cancelado NÃO é presença', () => {
+  // A Escala oferece os dois no seletor e pinta "Ausente" de vermelho como Falta. A folha, o custo
+  // mensal, a cobertura de postos e o motor CLT já descontam esse dia — a frequência era a única
+  // que ainda o pagava, e o quadro da parede mostrava 0% de absenteísmo no mesmo dia em que o
+  // holerite descontava.
+  const r = situacaoNoDia({
+    workers: [w({ id: 'a' }), w({ id: 'b' }), w({ id: 'c' })],
+    absences: [],
+    shifts: [
+      turno({ workerId: 'a', status: 'confirmed' }),
+      turno({ workerId: 'b', status: 'absent' }),
+      turno({ workerId: 'c', status: 'cancelled' }),
+    ],
+    data: QUINTA,
+  })
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 1)
+  assert.equal(r.contagem.find((c) => c.situacao === 'falta')?.pessoas, 1, 'ausente é falta')
+  assert.equal(r.contagem.find((c) => c.situacao === 'outros')?.pessoas, 1, 'cancelado não é culpa de ninguém')
+  assert.equal(r.contagem.reduce((s, c) => s + c.pessoas, 0), 3, 'o invariante continua fechando')
+})
+
+test('⚠️ turno apenas PLANEJADO não conta como presença', () => {
+  // `autoGenerateSchedule` gera o mês inteiro como 'scheduled'. Contá-lo faria a frequência de
+  // agosto nascer em 100% no dia 1º, antes de ninguém trabalhar.
+  const r = situacaoNoDia({
+    workers: [w()], absences: [], shifts: [turno({ status: 'scheduled' })], data: QUINTA,
+  })
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 0)
+  assert.equal(r.contagem.find((c) => c.situacao === 'outros')?.pessoas, 1)
+})
+
+test('turno ausente vence o apontamento — o declarado é mais forte que o inferido', () => {
+  const r = situacaoNoDia({
+    workers: [w()], absences: [], shifts: [turno({ status: 'absent' })], timecards: [apont()], data: QUINTA,
+  })
+  assert.equal(r.contagem.find((c) => c.situacao === 'falta')?.pessoas, 1)
+  assert.equal(r.contagem.find((c) => c.situacao === 'presente')?.pessoas, 0)
 })

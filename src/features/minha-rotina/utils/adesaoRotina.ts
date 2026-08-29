@@ -21,7 +21,7 @@ import type { Rotina } from '@/store/rotinasStore'
 import type { Periodo } from '@/lib/periodo'
 import { ehDiaUtil } from '@/lib/diasUteis'
 import {
-  cicloDe, limitesDoCiclo, rotuloDoCiclo, diaDoCicloSeguinte, type FrequenciaRotina,
+  cicloDe, limitesDoCiclo, rotuloDoCiclo, diaDoCicloAnterior, type FrequenciaRotina,
 } from './cicloRotina'
 import { hojeLocalISO } from '@/lib/utils'
 
@@ -114,13 +114,20 @@ export function ciclosEsperados(rotina: Rotina, periodo: Periodo, ctx: ContextoA
   const nasceuEm = rotina.criadaEm?.slice(0, 10)
 
   const ciclos: CicloEsperado[] = []
-  let cursor = periodo.de
+  // ⚠️ A varredura anda para TRÁS, a partir do fim do período.
+  //
+  // Ela começava em `periodo.de` e andava para a frente, e o teto de voltas cortava justamente a
+  // parte relevante: num período de dois anos, uma rotina diária gastava as 400 voltas em 2024 e
+  // devolvia `esperados: 0` — a rotina sumia do relatório inteiro. Varrendo do fim para o começo,
+  // o teto corta o passado distante, que é o que se pode perder sem prejuízo.
+  let cursor = periodo.ate
   let truncado = false
 
   for (let guarda = 0; ; guarda++) {
     if (guarda >= teto) { truncado = true; break }
     const { de, ate } = limitesDoCiclo(rotina.frequencia, cursor)
-    if (de > periodo.ate) break            // passou do fim: acabou a varredura
+    if (ate < periodo.de) break            // passou do começo: acabou a varredura
+    if (nasceuEm && ate < nasceuEm) break  // antes de a rotina existir: não há mais o que buscar
 
     const inteiroNoPeriodo = de >= periodo.de && ate <= periodo.ate
     const jaFechou = ate < hoje
@@ -135,9 +142,11 @@ export function ciclosEsperados(rotina: Rotina, periodo: Periodo, ctx: ContextoA
         cumprido: ctx.feitas.has(`${rotina.id}|${ciclo}`),
       })
     }
-    cursor = diaDoCicloSeguinte(rotina.frequencia, cursor)
+    cursor = diaDoCicloAnterior(rotina.frequencia, cursor)
   }
 
+  // A varredura foi do fim para o começo; a lista sai na ordem cronológica, que é como se lê.
+  ciclos.reverse()
   return { ciclos, truncado }
 }
 
@@ -166,11 +175,14 @@ export function adesaoNoPeriodo(rotinas: Rotina[], periodo: Periodo, ctx: Contex
   for (const r of porRotina) {
     if (!r.responsavel) continue          // rotina sem dono entra no total, não no placar por pessoa
     if (r.esperados === 0) continue       // não avaliada no período: não conta nem a favor nem contra
-    const atual = acc.get(r.responsavel) ?? { nome: r.responsavel, rotinas: 0, esperados: 0, cumpridos: 0, percentual: null }
+    // Chave sem caixa: as 18 rotinas são digitadas à mão, e "Valim" em dez delas com "valim" em
+    // duas viraria duas pessoas — uma com 75% e um fantasma com 0% no topo do "pior primeiro".
+    const chave = r.responsavel.toLowerCase()
+    const atual = acc.get(chave) ?? { nome: r.responsavel, rotinas: 0, esperados: 0, cumpridos: 0, percentual: null }
     atual.rotinas += 1
     atual.esperados += r.esperados
     atual.cumpridos += r.cumpridos
-    acc.set(r.responsavel, atual)
+    acc.set(chave, atual)
   }
   const porPessoa = [...acc.values()]
     .map((p) => ({ ...p, percentual: pctDe(p.cumpridos, p.esperados) }))

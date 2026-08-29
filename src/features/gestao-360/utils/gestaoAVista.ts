@@ -67,12 +67,21 @@ export function montarGestaoAVista(entrada: {
 
   const efetivo = efetivoPorCargo(workers)
   const situacaoHoje = situacaoNoDia({ workers, absences, shifts, timecards, data: hoje })
+  // ⚠️ Até HOJE, não até o fim do mês.
+  //
+  // Com `ate: ultimoDiaDoMes(...)`, o denominador do mês corrente inclui os dias que ainda não
+  // aconteceram: no dia 3 de agosto, dez pessoas presentes nos dois dias úteis já decorridos
+  // davam 10 ÷ (10 × 21) = **4,8% de frequência e 95% de absenteísmo** — impresso em A4 e pregado
+  // na parede. O mês fechado usa o mês inteiro porque aí ele já passou.
+  const fimDaConta = ultimoDiaDoMes(mesAtual) < hoje ? ultimoDiaDoMes(mesAtual) : hoje
   const frequenciaDoMes = frequenciaNoPeriodo({
     workers, absences, shifts, timecards,
-    de: `${mesAtual}-01`, ate: ultimoDiaDoMes(mesAtual),
+    de: `${mesAtual}-01`, ate: fimDaConta,
     feriados, jornada,
   })
-  const serie = serieMensal({ workers, absences, shifts, timecards, meses, feriados, jornada })
+  // A série passa `hoje` para o mês corrente sofrer o mesmo corte — sem isso o último ponto do
+  // gráfico despencaria todo dia 1º e subiria ao longo do mês, sem nada ter acontecido na obra.
+  const serie = serieMensal({ workers, absences, shifts, timecards, meses, feriados, jornada, hoje })
 
   // ── Avanço por serviço ──────────────────────────────────────────────────────
   const servicos = site?.contrato?.services ?? []

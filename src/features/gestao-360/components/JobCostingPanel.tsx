@@ -242,7 +242,11 @@ export function JobCostingPanel() {
   // `null`, e não `1`, quando falta a base. O ramo `: 1` fazia os dois medidores pintarem verde e
   // escreverem "Bom" para uma obra sem um único lançamento — que é o oposto do que se sabe dela.
   const spi = plannedPct > 0 && avgProgress > 0 ? avgProgress / plannedPct : null
-  const cpi = spent > 0 && budgeted > 0 ? (budgeted * (avgProgress / 100)) / spent : null
+  // `avgProgress > 0` também aqui, e não só no SPI: `siteProjects.ts` fixa o progresso da fase em
+  // 0 para toda obra que não esteja concluída, e nenhuma tela escreve esse campo. Sem a guarda, o
+  // CPI virava 0,00 pintado de vermelho com o rótulo "Crítico" — trocando um verde falso por um
+  // vermelho falso, que é igualmente mentira.
+  const cpi = spent > 0 && budgeted > 0 && avgProgress > 0 ? (budgeted * (avgProgress / 100)) / spent : null
   const allPhases = scopeProjects.flatMap((project) => [
     ...project.planningPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
     ...project.executionPhases.map((phase) => ({ ...phase, name: `${project.code} - ${phase.name}` })),
@@ -347,7 +351,9 @@ export function JobCostingPanel() {
           <div className="flex gap-4 justify-center flex-1 items-center">
             <IndexGauge
               value={cpi} label="Custo (CPI)"
-              faltando={budgeted <= 0 ? 'sem orçamento no plano de contas' : 'sem custo lançado no período'}
+              faltando={budgeted <= 0 ? 'sem orçamento no plano de contas'
+                : spent <= 0 ? 'sem custo lançado no período'
+                : 'sem avanço físico registrado'}
             />
             <IndexGauge
               value={spi} label="Prazo (SPI)"

@@ -58,18 +58,29 @@ export function GestaoAVistaPanel() {
   const site = activeObraId ? sites.find((s) => s.id === activeObraId) ?? null : null
 
   const dados = useMemo(() => {
-    // O recorte de mão de obra é o mesmo do resto do produto: quem tem esta obra, mais quem não
-    // tem obra nenhuma (o "geral"). Sem obra selecionada, é a empresa inteira.
+    // ─── O RECORTE POR OBRA, NA REGRA CANÔNICA ────────────────────────────────
+    // É a mesma de `useObraScopedLabor`, e a diferença importa: filtrar só por trabalhador faria
+    // o turno que ele cumpriu em OUTRA obra contar como presença desta. Numa empresa com quatro
+    // obras e gente circulando entre elas, o quadro de cada uma mostraria a presença de todas.
+    //
+    //  - trabalhador: quem é desta obra, mais quem não tem obra (o "geral", que circula);
+    //  - turno, falta e apontamento: **o carimbo `siteId` manda**; sem carimbo (registro anterior
+    //    ao carimbo), cai no vínculo do trabalhador.
     const doEscopo = activeObraId
       ? workers.filter((w) => !w.siteId || w.siteId === activeObraId)
       : workers
     const ids = new Set(doEscopo.map((w) => w.id))
+    const daObra = <T extends { workerId: string; siteId?: string | null }>(lista: T[]) =>
+      activeObraId
+        ? lista.filter((x) => (x.siteId != null ? x.siteId === activeObraId : ids.has(x.workerId)))
+        : lista.filter((x) => ids.has(x.workerId))
+
     return montarGestaoAVista({
       site,
       workers: doEscopo,
-      absences: absences.filter((a) => ids.has(a.workerId)),
-      shifts: shifts.filter((s) => ids.has(s.workerId)),
-      timecards: timecards.filter((t) => ids.has(t.workerId)),
+      absences: daObra(absences),
+      shifts: daObra(shifts),
+      timecards: daObra(timecards),
       rdos,
       feriados: new Set(feriados.map((f) => f.date)),
       jornada,

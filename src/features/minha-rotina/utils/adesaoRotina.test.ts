@@ -92,9 +92,46 @@ test('4b. jornada mon_sat inclui o sábado', () => {
   assert.equal(r.ciclos.length, 6)
 })
 
-test('5. período absurdo é truncado em vez de travar a tela', () => {
-  const r = ciclosEsperados(rot({ frequencia: 'diaria' }), periodoLivre('2015-01-01', '2026-08-20'), ctx())
-  assert.equal(r.truncado, true)
+test('5. ⚠️ período longo NÃO faz a rotina diária sumir do relatório', () => {
+  // A varredura andava para a FRENTE a partir do começo do período, e o teto de voltas cortava
+  // justamente a parte relevante: num recorte de dois anos, a diária gastava as 400 voltas em
+  // 2024 e devolvia `esperados: 0` — a rotina desaparecia do relatório inteiro, sem aviso.
+  // Agora ela anda de trás para a frente, e o que se perde é o passado distante.
+  const r = ciclosEsperados(
+    rot({ frequencia: 'diaria', criadaEm: '2024-06-01T00:00:00Z' }),
+    periodoLivre('2024-08-28', '2026-08-19'),
+    ctx(),
+  )
+  // O teto de 400 voltas cobre ~14 meses de dias úteis. O que não pode acontecer é devolver zero.
+  assert.ok(r.ciclos.length > 250, `só ${r.ciclos.length} ciclos — a varredura morreu no passado`)
+  assert.equal(r.truncado, true, 'e quando corta, precisa dizer que cortou')
+  // O que sobrou são os ciclos RECENTES — a parte que a reunião discute. Antes sobrava o começo
+  // de 2024 e o ano corrente inteiro ficava de fora.
+  assert.ok(r.ciclos[r.ciclos.length - 1].ate >= '2026-08-01', 'o fim do período tem de estar coberto')
+  assert.ok(r.ciclos[0].de > '2024-09-01', 'o corte deve cair no passado distante, não no recente')
+})
+
+test('5b. a varredura para no nascimento da rotina, sem gastar voltas antes dela', () => {
+  const r = ciclosEsperados(rot({ frequencia: 'diaria' }), periodoLivre('2015-01-01', '2026-08-19'), ctx())
+  assert.equal(r.truncado, false, 'não precisa truncar: a rotina nasceu em 2026-01-01')
+  assert.ok(r.ciclos.every((c) => c.de >= '2026-01-01'))
+})
+
+test('5c. os ciclos saem em ordem cronológica, mesmo varrendo de trás para a frente', () => {
+  const { ciclos } = ciclosEsperados(rot(), AGOSTO, ctx())
+  const ordenados = [...ciclos].sort((a, b) => a.de.localeCompare(b.de))
+  assert.deepEqual(ciclos.map((c) => c.ciclo), ordenados.map((c) => c.ciclo))
+})
+
+test('o placar não parte a mesma pessoa em duas por causa da caixa do nome', () => {
+  // 18 rotinas digitadas à mão com login compartilhado: "Valim" e "valim" acontecem.
+  const r = adesaoNoPeriodo([
+    rot({ id: 'a', responsavel: 'Valim' }),
+    rot({ id: 'b', responsavel: 'valim' }),
+  ], AGOSTO, ctx(['a|2026-W32', 'a|2026-W33']))
+  assert.equal(r.porPessoa.length, 1, 'duas linhas para a mesma pessoa')
+  assert.equal(r.porPessoa[0].esperados, 4)
+  assert.equal(r.porPessoa[0].cumpridos, 2)
 })
 
 // ── Rotina inativa ────────────────────────────────────────────────────────────
