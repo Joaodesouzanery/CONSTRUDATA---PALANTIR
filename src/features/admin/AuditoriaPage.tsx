@@ -39,6 +39,8 @@ interface LinhaAuditoria {
   record_id: string | null
   before: Record<string, unknown> | null
   after: Record<string, unknown> | null
+  /** De onde veio a escrita, quando não veio do app: 'n8n:producao-diaria', por exemplo. */
+  origem: string | null
 }
 
 interface Pessoa { id: string; full_name: string | null }
@@ -246,6 +248,14 @@ export function AuditoriaPage() {
                       </td>
                       <td className="px-4 py-2.5 text-xs text-[#f5f5f5] align-top">
                         {l.actor_nome ?? (l.actor_id ? 'usuário removido' : 'sistema')}
+                        {/* A origem só existe quando a escrita NÃO veio do app — é o webhook do
+                            n8n, um script, o painel. Sem ela a linha seria só "sistema", que é
+                            verdade e não ajuda. */}
+                        {l.origem && (
+                          <span className="block mt-0.5 rounded border border-violet-500/30 bg-violet-500/15 px-1.5 py-0.5 text-[10px] text-violet-300 w-fit">
+                            integração · {l.origem}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 align-top">
                         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${COR[corDaAcao(l.action)]}`}>

@@ -89,6 +89,46 @@ quebrado (erro, não "0 linhas"). Foi a causa raiz de "apagar não funciona" em 
 `updated_by` é preenchido pelo banco, o soft delete **com WHERE** funciona, e o `status` fora de
 rascunho/enviado/aprovado é recusado.
 
+### `20260830130000_auditoria_origem` — a integração se identifica no log
+
+Antes: quem escreve pela service role (webhook, script, Edge Function) não tem `auth.uid()`, e a
+linha do log sai com ator nulo — na tela vira "sistema", que é verdade e é inútil.
+
+Agora a escrita pode declarar de onde vem:
+
+```sql
+select set_config('app.origem', 'n8n:producao-semanal', true);
+update ... ;
+```
+
+⚠️ **O `true` é obrigatório** — ele dá escopo de TRANSAÇÃO à variável. Sem ele a marca vaza para a
+próxima operação da mesma conexão, e o pool do Supabase reusa conexão entre requisições de pessoas
+diferentes: uma escrita sua sairia carimbada como n8n. Há teste que trava isso.
+
+A origem é gravada em `user_agent`, que já existe e é exatamente isso. A RPC da tela passa a
+devolvê-la, e a Auditoria mostra "integração · n8n:…" ao lado do ator.
+
+**Testada em Postgres 16 real, 7 casos**, incluindo o vazamento e as decisões antigas (o UPDATE
+que não muda nada continua fora, o soft delete continua virando `delete`).
+
+### `20260830140000_fcp_webhook` — a porta do n8n
+
+RPC `fcp_lancar_producao`, usada pela Edge Function `fcp-webhook`.
+
+⚠️ **É RPC e não UPDATE direto por uma razão:** a marca de origem só entra no log se o
+`set_config` acontecer na MESMA transação do UPDATE, e o supabase-js não dá transação. Uma função
+dá, porque o corpo dela é uma.
+
+⚠️ **NÃO liberada para `authenticated`.** Ela é `SECURITY DEFINER` e não checa `user_org()` —
+liberá-la daria a qualquer usuário a capacidade de escrever no plano de outra obra. Só service
+role. Há teste que confere o grant.
+
+**Testada em Postgres 16 real, 12 casos**: `null` apaga o lançamento (a semana volta ao previsto)
+enquanto `0` é zero de verdade, cidade nova não apaga a que existia, plano inexistente e semana
+fora da faixa são recusados, e a origem não vaza.
+
+Configuração e uso do webhook: `docs/FCP_WEBHOOK.md`.
+
 ### `20260829130000_org_wcr_saneamento` — o cliente novo
 
 Cria só a organização. **Não cria o primeiro usuário** — isso é competência do Supabase Auth, e

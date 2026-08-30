@@ -13,10 +13,11 @@
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import {
-  AlertTriangle, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X,
+  AlertTriangle, ArrowLeftRight, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X,
 } from 'lucide-react'
 import { SubTabHost } from '@/components/shared/SubTabHost'
 import { useFcpStore, type PlanoFcp, type StatusDoPlano } from '@/store/fcpStore'
+import { useLpsStore } from '@/store/lpsStore'
 import { useAuth } from '@/lib/auth'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { Autoria } from '@/components/shared/Autoria'
@@ -29,6 +30,10 @@ import {
 } from '../utils/fcp/motor'
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import { ROTULO_CENARIO, type Cenario, type PremissasFcp } from '../utils/fcp/tipos'
+import {
+  atividadesDoPlano, mudancasVindasDoLps, realizadoDoLps,
+  type MudancaVindaDoLps,
+} from '../utils/fcp/fcpParaLps'
 import type { Matriz } from '../utils/controleDeCaixaPlanilha'
 
 const BTN_P = 'px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors disabled:opacity-40'
@@ -113,6 +118,8 @@ export function FcpPanel() {
         papel={profile?.role}
         onMudar={(patch) => updatePlano(plano!.id, patch)}
       />
+
+      <PonteComOLps plano={plano!} />
 
       <ResumoDoPlano premissas={P} realizado={realizado} />
 
@@ -243,6 +250,137 @@ function FluxoDeAprovacao({
         </>
       )}
     </div>
+  )
+}
+
+// ─── A ponte com o Last Planner ───────────────────────────────────────────────
+
+/**
+ * O plano vira compromisso semanal no LPS; o executado do LPS volta como produção realizada.
+ *
+ * ⚠️ As duas direções mostram o que vai mudar ANTES de gravar — mesma regra do resto do módulo.
+ * Puxar do LPS mexe na medição projetada, que mexe no capital necessário: é dinheiro, não é
+ * sincronização de calendário.
+ */
+function PonteComOLps({ plano }: { plano: PlanoFcp }) {
+  const { atividades, addActivity } = useLpsStore((s) => ({
+    atividades: s.activities, addActivity: s.addActivity,
+  }))
+  const lancarProducao = useFcpStore((s) => s.lancarProducao)
+  const [conferindo, setConferindo] = useState<MudancaVindaDoLps[] | null>(null)
+
+  const jaGeradas = useMemo(
+    () => atividades.filter((a) => a.sourceFcpId?.startsWith(`${plano.id}:`)).length,
+    [atividades, plano.id],
+  )
+  const doLps = useMemo(() => realizadoDoLps(atividades, plano.id), [atividades, plano.id])
+  const pendentes = useMemo(
+    () => mudancasVindasDoLps(plano.premissas, plano.realizado, doLps),
+    [plano.premissas, plano.realizado, doLps],
+  )
+
+  function gerar() {
+    const novas = atividadesDoPlano(plano.premissas, plano.id, 12)
+    // Não recria o que já existe — gerar duas vezes duplicaria a meta na reunião.
+    const existentes = new Set(atividades.map((a) => a.sourceFcpId).filter(Boolean))
+    let criadas = 0
+    for (const a of novas) {
+      if (existentes.has(a.sourceFcpId)) continue
+      addActivity({ ...a, obraId: plano.obraId ?? null })
+      criadas++
+    }
+    if (criadas === 0) alert('As atividades deste plano já estão no Last Planner.')
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+        <ArrowLeftRight size={14} className="text-[#f97316] shrink-0" />
+        <span className="text-[11px] text-[#6b6b6b]">
+          Last Planner:{' '}
+          {jaGeradas > 0
+            ? <>o plano já virou <strong className="text-[#a3a3a3]">{jaGeradas} atividade(s)</strong> semanais</>
+            : <>a meta semanal do plano pode virar compromisso na reunião de planejamento</>}
+          {pendentes.length > 0 && (
+            <> · <strong className="text-amber-300">{pendentes.length} lançamento(s)</strong> aguardando</>
+          )}
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <button type="button" onClick={gerar} className={BTN_S}>
+            {jaGeradas > 0 ? 'Gerar as que faltam' : 'Gerar atividades no LPS'}
+          </button>
+          <button
+            type="button" disabled={pendentes.length === 0}
+            onClick={() => setConferindo(pendentes)}
+            className={pendentes.length > 0 ? BTN_P : BTN_S}
+          >
+            Puxar realizado do LPS {pendentes.length > 0 ? `(${pendentes.length})` : ''}
+          </button>
+        </div>
+      </div>
+
+      {conferindo && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-xl border border-[#525252] bg-[#2d2d2d] shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#525252]">
+              <div>
+                <p className="text-sm font-semibold text-white">Puxar realizado do Last Planner</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                  Isto muda a medição projetada — e portanto o capital necessário.
+                </p>
+              </div>
+              <button type="button" onClick={() => setConferindo(null)} className="text-[#6b6b6b] hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="overflow-x-auto rounded-xl border border-[#525252]">
+                <table className={TABELA}>
+                  <thead><tr className={THEAD}>
+                    <th className={TH}>Semana</th><th className={TH}>Cidade</th>
+                    <th className="px-3 py-2 text-right">Previsto</th>
+                    <th className="px-3 py-2 text-right">Hoje no FCP</th>
+                    <th className="px-3 py-2 text-right">No LPS</th>
+                    <th className="px-3 py-2 text-right">Impacto na medição</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-[#1f2937]">
+                    {conferindo.map((m) => (
+                      <tr key={`${m.cidadeId}-${m.semana}`} className="hover:bg-white/[0.02]">
+                        <td className={`${TD} text-[#f5f5f5]`}>S{m.semana}</td>
+                        <td className={TD}>{m.cidadeNome}</td>
+                        <td className={NUM}>{un(m.previsto)}</td>
+                        <td className={NUM}>{m.noFcp !== undefined ? un(m.noFcp) : '—'}</td>
+                        <td className={`${NUM} text-[#f5f5f5] font-semibold`}>{un(m.noLps)}</td>
+                        <td className={`${NUM} ${m.impactoEmReais < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
+                          {fmtBRL(m.impactoEmReais)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 text-[11px] text-[#6b6b6b]">
+                Impacto total na medição:{' '}
+                <strong className={conferindo.reduce((s, m) => s + m.impactoEmReais, 0) < 0 ? 'text-red-300' : 'text-emerald-300'}>
+                  {fmtBRL(conferindo.reduce((s, m) => s + m.impactoEmReais, 0))}
+                </strong>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 px-5 py-4 border-t border-[#525252]">
+              <button type="button" onClick={() => setConferindo(null)} className={BTN_S}>Cancelar</button>
+              <button
+                type="button"
+                onClick={() => {
+                  for (const m of conferindo) lancarProducao(plano.id, m.cidadeId, m.semana, m.noLps)
+                  setConferindo(null)
+                }}
+                className={`${BTN_P} ml-auto`}
+              >
+                Adotar {conferindo.length} lançamento(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

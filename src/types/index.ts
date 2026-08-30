@@ -2205,6 +2205,11 @@ export interface LpsActivity {
   executedMeters?: number
   sourceExecucaoId?: string   // vínculo com uma atividade do Planejamento de Execução (integração)
   sourceMasterId?: string     // vínculo com uma atividade derivada do Planejamento Mestre (Médio Prazo → LPS)
+  /**
+   * Vínculo com o Fluxo de Caixa Projetado: `planoId:cidadeId:semana`.
+   * É por ele que o executado lançado aqui volta para o PLANEJADO × REALIZADO do FCP.
+   */
+  sourceFcpId?: string
   obraId?: string | null      // obra (construction_sites.id) — PPC por obra
 }
 
