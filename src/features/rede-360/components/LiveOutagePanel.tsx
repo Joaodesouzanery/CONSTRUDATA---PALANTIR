@@ -17,8 +17,8 @@ export function LiveOutagePanel() {
     .reduce((acc, o) => acc + (o.affectedCustomers ?? 0), 0)
 
   const BASEMAP_URL: Record<string, string> = {
-    dark:    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    streets: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    dark:    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    streets: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
   }
 
   function fmtTime(iso: string) {
@@ -49,7 +49,7 @@ export function LiveOutagePanel() {
       {/* Map */}
       <div style={{ height: '55%' }} className="shrink-0">
         <MapContainer center={[-23.55, -46.63]} zoom={12} style={{ height: '100%' }}>
-          <TileLayer url={BASEMAP_URL[basemap] ?? BASEMAP_URL.dark} attribution="© CartoDB" />
+          <TileLayer url={BASEMAP_URL[basemap] ?? BASEMAP_URL.dark} attribution="Tiles © Esri" />
           {outages.filter((o) => o.status !== 'resolved').map((outage) => {
             const asset = assets.find((a) => outage.affectedAssetIds.includes(a.id))
             if (!asset) return null

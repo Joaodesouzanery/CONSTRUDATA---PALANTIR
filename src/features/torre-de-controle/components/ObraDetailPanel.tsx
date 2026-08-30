@@ -243,7 +243,20 @@ export function ObraDetailPanel() {
 
   const site = selectedId ? sites.find((s) => s.id === selectedId) ?? null : null
 
-  if (!site) return null
+  // ⚠️ Antes era `return null`: a aba renderizava NADA quando não havia obra selecionada. Como
+  // painel próprio isso já era ruim; como sub-aba de "Obras" seria uma tela preta.
+  if (!site) {
+    return (
+      <div className="flex h-full items-center justify-center p-8 text-center">
+        <div className="max-w-sm">
+          <p className="text-sm text-[#a3a3a3]">Nenhuma obra selecionada.</p>
+          <p className="mt-1.5 text-xs text-[#6b6b6b]">
+            Escolha uma na <strong>Carteira</strong>, ao lado — ou clique num pino do Mapa Geral.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const ativa = obraEstaAtiva(site)
 

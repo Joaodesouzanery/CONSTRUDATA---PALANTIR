@@ -19,7 +19,7 @@ exatamente estes mesmos passos, no mesmo pedido.
 
 ## Passo 1 · Abrir a obra
 
-**Torre de Controle → Detalhes da Obra → SUPERA.** O card **CONTRATO** fica abaixo do Cronograma.
+**Torre de Controle → Obras → Detalhe da obra → SUPERA.** O card **CONTRATO** fica abaixo do Cronograma.
 
 ---
 
@@ -86,7 +86,7 @@ contado como serviço. Me avise.
 
 ## Passo 5 · A Área/Extensão em duas parcelas
 
-Ainda nos Detalhes da Obra, seção **Edificação**.
+Ainda no Detalhe da obra, seção **Edificação**.
 
 ✅ **Área / Extensão: `18.605,01 m² + 6.962,01 m`**
 
@@ -137,7 +137,7 @@ o contrato, mostrando os dois lado a lado. Apague o manual, senão a receita con
 
 ## Passo 9 · A Carteira
 
-**Torre de Controle → aba Carteira.**
+**Torre de Controle → Obras → Carteira.**
 
 ✅ A linha da SUPERA: serviço 592.324,14 · material 607.620,00 · faturado 138.558,20 · saldo
 **453.765,94**.

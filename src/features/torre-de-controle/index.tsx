@@ -1,11 +1,12 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams } from 'react-router-dom'
-import { FolderKanban, Globe, Layers, ListChecks, Map, Wallet, type LucideIcon } from 'lucide-react'
+import { FolderKanban, Globe, Layers, Map, Wallet, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { ControlMap } from '@/components/shared/ControlMap'
+import { SubTabHost } from '@/components/shared/SubTabHost'
 import { ProjetosPage } from '@/features/projetos'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -20,19 +21,25 @@ import { RiskDialog }       from './components/RiskDialog'
 const BimPageLazy = lazy(() => import('@/features/bim').then((m) => ({ default: m.BimPage })))
 const MapaInterativoPageLazy = lazy(() => import('@/features/mapa-interativo').then((m) => ({ default: m.MapaInterativoPage })))
 
-type TorreTab = 'mapa' | 'carteira' | 'projetos' | 'detalhes' | 'bim' | 'mapa-interativo'
+type TorreTab = 'mapa' | 'obras' | 'projetos' | 'bim' | 'mapa-interativo'
 
 const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
   { key: 'mapa',     label: 'Mapa Geral',       icon: Map },
-  { key: 'carteira', label: 'Carteira',         icon: Wallet },
+  // "Carteira" e "Detalhes da Obra" eram duas abas lendo os MESMOS utilitários: a Carteira é a
+  // soma por obra do que o detalhe mostra numa. Viraram uma aba com duas sub-abas, e o clique na
+  // linha da Carteira — que antes selecionava a obra e não levava a lugar nenhum — agora abre o
+  // detalhe dela.
+  { key: 'obras',    label: 'Obras',            icon: Wallet },
   { key: 'projetos', label: 'Projetos',         icon: FolderKanban },
-  { key: 'detalhes', label: 'Detalhes da Obra', icon: ListChecks },
   { key: 'bim',      label: 'BIM 3D/4D/5D',     icon: Layers },
   { key: 'mapa-interativo', label: 'Mapa Interativo', icon: Globe },
 ]
 
 function parseTorreTab(value: string | null): TorreTab | null {
-  return value === 'mapa' || value === 'carteira' || value === 'projetos' || value === 'detalhes' || value === 'bim' || value === 'mapa-interativo'
+  // `carteira` e `detalhes` viraram sub-abas de `obras`. Link antigo continua chegando no lugar
+  // certo em vez de cair no mapa em silêncio.
+  if (value === 'carteira' || value === 'detalhes') return 'obras'
+  return value === 'mapa' || value === 'obras' || value === 'projetos' || value === 'bim' || value === 'mapa-interativo'
     ? value
     : null
 }
@@ -62,6 +69,8 @@ export function TorreDeControlePage() {
   const pullProjetos = useProjetosStore((s) => s.pull)
   const pullTorre = useTorreStore((s) => s.pull)
   const activeTab = parseTorreTab(searchParams.get('aba')) ?? 'mapa'
+  /** Qual sub-aba de "Obras" está aberta. Fica aqui para a Carteira poder abrir o detalhe. */
+  const [subAbaObras, setSubAbaObras] = useState('carteira')
 
   useEffect(() => {
     if (!profileOrgId) return
@@ -136,9 +145,16 @@ export function TorreDeControlePage() {
           </div>
         )}
 
-        {activeTab === 'carteira' && (
-          <div className="h-full min-h-0">
-            <CarteiraObrasPanel />
+        {activeTab === 'obras' && (
+          <div className="flex h-full min-h-0 flex-col">
+            <SubTabHost tabs={[
+              { key: 'carteira', label: 'Carteira', render: () => (
+                <CarteiraObrasPanel onAbrirObra={() => setSubAbaObras('detalhe')} />
+              ) },
+              { key: 'detalhe',  label: 'Detalhe da obra', render: () => (
+                <div className="flex h-full flex-col overflow-y-auto"><ObraDetailPanel /></div>
+              ) },
+            ]} ativa={subAbaObras} onTrocar={setSubAbaObras} />
           </div>
         )}
 
@@ -148,11 +164,6 @@ export function TorreDeControlePage() {
           </div>
         )}
 
-        {activeTab === 'detalhes' && (
-          <div className="flex h-full flex-col overflow-y-auto">
-            <ObraDetailPanel />
-          </div>
-        )}
 
         {activeTab === 'bim' && (
           <div className="h-full min-h-0 overflow-auto">

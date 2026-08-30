@@ -14,7 +14,8 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { filterEntries, catLabel, DRE_LINE_LABELS, num } from '@/features/financeiro/lib/financeiroCalc'
-import type { CostPillar, ImpostoNF, DreLineKey, SaidaCategoria, EntradaCategoria } from '@/types'
+import type { ConstructionSite, CostPillar, ImpostoNF, DreLineKey, SaidaCategoria, EntradaCategoria } from '@/types'
+import { valoresDoContrato } from '@/features/torre-de-controle/utils/obraMedicao'
 
 interface PillarConfig {
   key: CostPillar
@@ -205,9 +206,22 @@ export function PlanoContasPanel() {
         </div>
         <div className="px-4 py-3">
           {realReceitaByCat.size === 0 ? (
-            <p className="text-[#6b6b6b] text-xs">
-              Sem entradas no escopo. Orçado de receita vem do valor de contrato da obra{obraFilter ? '' : ' (soma das obras)'}.
-            </p>
+            /* ⚠️ Este vazio precisa ENSINAR O CAMINHO, não só constatar. A pergunta que ele
+               responde é a que o cliente fez olhando a tela: "por que tem receita orçada e não tem
+               receita real?". A resposta é que o valor do contrato NÃO é receita — receita nasce de
+               nota emitida, e nota se lança no extrato de faturamento da obra. */
+            <div className="text-xs text-[#6b6b6b] space-y-1.5">
+              <p>
+                <span className="text-[#a3a3a3]">Nenhuma receita realizada ainda.</span>{' '}
+                O valor do contrato é o que a obra <em>vale</em>; receita só nasce de nota emitida.
+              </p>
+              <p>
+                Para aparecer aqui: <span className="text-[#a3a3a3]">Torre de Controle → Obras →
+                Detalhe → Contrato &amp; Medição → extrato de faturamento</span>. Cada nota vira um
+                título em Pagamentos e Cobranças, e dar baixa no título gera a entrada.
+              </p>
+              <OrigemDoOrcado sites={sites} obraFilter={obraFilter} />
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {(['medicao', 'adiantamento', 'reajuste', 'outro'] as EntradaCategoria[]).map((c) => {
@@ -517,4 +531,74 @@ function ImpostosNFSection() {
       />
     </div>
   )
+}
+
+/**
+ * De onde vem a receita orçada — obra por obra, com a origem de cada parcela.
+ *
+ * ⚠️ Existe porque o número aparecia sem explicação e parecia dado de demonstração. Ele é real, mas
+ * a fonte é uma cascata: **contrato → linha 'Total' do orçamento → soma das linhas → o campo
+ * "Orçamento" do cadastro da obra**. O último é fácil de preencher sem perceber e sem contrato
+ * nenhum — e é justamente o caso que dá "receita orçada alta com receita real zero".
+ */
+function OrigemDoOrcado({ sites, obraFilter }: { sites: ConstructionSite[]; obraFilter: string }) {
+  const [aberto, setAberto] = useState(false)
+
+  const linhas = useMemo(() => (obraFilter ? sites.filter((s) => s.id === obraFilter) : sites)
+    .map((s) => ({ nome: s.name, valor: obraBacFromSite(s), origem: origemDoBac(s) }))
+    .filter((l: { valor: number }) => l.valor > 0)
+    .sort((a, b) => b.valor - a.valor),
+  [sites, obraFilter])
+
+  if (linhas.length === 0) return null
+
+  return (
+    <div>
+      <button
+        type="button" onClick={() => setAberto((v) => !v)}
+        className="text-[11px] text-[#f97316] hover:underline"
+      >
+        {aberto ? 'Esconder' : `De onde vêm os ${formatCurrency(linhas.reduce((s, l) => s + l.valor, 0))} orçados?`}
+      </button>
+      {aberto && (
+        <div className="mt-2 overflow-x-auto rounded-lg border border-[#525252]">
+          <table className="w-full text-[11px]">
+            <thead>
+              <tr className="bg-[#1f1f1f] text-[#a3a3a3] uppercase tracking-wider text-[10px]">
+                <th className="px-3 py-1.5 text-left">Obra</th>
+                <th className="px-3 py-1.5 text-right">Valor</th>
+                <th className="px-3 py-1.5 text-left">Origem</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#1f2937]">
+              {linhas.map((l) => (
+                <tr key={l.nome}>
+                  <td className="px-3 py-1.5 text-[#f5f5f5]">{l.nome}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-[#f5f5f5]">{formatCurrency(l.valor)}</td>
+                  <td className={`px-3 py-1.5 ${l.origem === 'cadastro' ? 'text-amber-300' : 'text-[#6b6b6b]'}`}>
+                    {ROTULO_ORIGEM[l.origem]}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ROTULO_ORIGEM: Record<string, string> = {
+  contrato: 'Contrato da obra',
+  total: 'Linha “Total” do orçamento',
+  linhas: 'Soma das linhas do orçamento',
+  cadastro: 'Campo “Orçamento” do cadastro — sem contrato',
+}
+
+/** A mesma cascata de `obraBacFromSite`, só que dizendo QUAL degrau respondeu. */
+function origemDoBac(site: ConstructionSite): keyof typeof ROTULO_ORIGEM {
+  if (valoresDoContrato(site.contrato).total > 0) return 'contrato'
+  const lines = site.budgetLines ?? []
+  if (lines.length) return lines.some((l) => /^\s*total\s*(geral)?\s*$/i.test(l.label ?? '')) ? 'total' : 'linhas'
+  return 'cadastro'
 }

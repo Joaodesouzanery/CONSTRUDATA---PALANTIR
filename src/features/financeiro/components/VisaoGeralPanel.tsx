@@ -69,7 +69,7 @@ export function VisaoGeralPanel() {
           {/* Quebra por categoria */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card title="Entradas por categoria">
-              <CategoryBars data={porCatEntrada} total={totEntradas} color="#22c55e" />
+              <CategoryBars data={porCatEntrada} total={totEntradas} color="#22c55e" vazio={<SemReceita />} />
             </Card>
             <Card title="Saídas por categoria">
               <CategoryBars data={porCatSaida} total={totSaidas} color="#ef4444" />
@@ -235,8 +235,10 @@ function SaldoLine({ monthly }: { monthly: ReturnType<typeof monthlySeries> }) {
   )
 }
 
-function CategoryBars({ data, total, color }: { data: { key: string; valor: number }[]; total: number; color: string }) {
-  if (data.length === 0) return <div className="text-[#6b6b6b] text-xs py-6 text-center">Sem dados.</div>
+function CategoryBars({ data, total, color, vazio }: {
+  data: { key: string; valor: number }[]; total: number; color: string; vazio?: React.ReactNode
+}) {
+  if (data.length === 0) return <>{vazio ?? <div className="text-[#6b6b6b] text-xs py-6 text-center">Sem dados.</div>}</>
   const max = Math.max(...data.map((d) => d.valor), 1)
   return (
     <div className="space-y-2.5">
@@ -251,6 +253,30 @@ function CategoryBars({ data, total, color }: { data: { key: string; valor: numb
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/**
+ * O vazio das receitas — ensinando o caminho em vez de dizer "Sem dados.".
+ *
+ * ⚠️ A confusão que ele desfaz é real e foi o cliente quem apontou: ele viu receita ORÇADA de
+ * R$ 1,6 milhão e receita real zero, e achou que era dado de demonstração. Não é. O valor do
+ * contrato é o que a obra vale; receita só nasce quando uma nota é emitida e recebida.
+ */
+function SemReceita() {
+  return (
+    <div className="text-xs text-[#6b6b6b] py-4 space-y-1.5">
+      <p className="text-[#a3a3a3]">Nenhuma receita lançada no período.</p>
+      <p>
+        O valor do contrato não entra aqui — ele é o que a obra <em>vale</em>. Receita nasce de nota
+        emitida.
+      </p>
+      <p>
+        O caminho: <span className="text-[#a3a3a3]">Torre de Controle → Obras → Detalhe →
+        Contrato &amp; Medição</span>, lance a nota no extrato de faturamento. Ela vira título em
+        Pagamentos e Cobranças, e a baixa do título vira a entrada.
+      </p>
     </div>
   )
 }

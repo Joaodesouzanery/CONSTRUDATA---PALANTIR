@@ -16,14 +16,14 @@ import { STATUS_CONFIG } from '../constants'
 // ─── Tile layer URLs ───────────────────────────────────────────────────────────
 
 const TILES = {
-  voyager:  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark:     'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  voyager:  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+  dark:     'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 } as const
 
 const TILE_ATTR = {
-  voyager:   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  dark:      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  voyager:   'Tiles &copy; Esri',
+  dark:      'Tiles &copy; Esri',
   satellite: '&copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, Maxar, GeoEye',
 }
 
@@ -239,10 +239,10 @@ export function EquipmentMap() {
         >
           <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Voyager">
-              <TileLayer url={TILES.voyager} attribution={TILE_ATTR.voyager} subdomains="abcd" maxZoom={20} />
+              <TileLayer url={TILES.voyager} attribution={TILE_ATTR.voyager} maxZoom={20} />
             </LayersControl.BaseLayer>
             <LayersControl.BaseLayer name="Dark Matter">
-              <TileLayer url={TILES.dark} attribution={TILE_ATTR.dark} subdomains="abcd" maxZoom={20} />
+              <TileLayer url={TILES.dark} attribution={TILE_ATTR.dark} maxZoom={20} />
             </LayersControl.BaseLayer>
             <LayersControl.BaseLayer name="Satélite">
               <TileLayer url={TILES.satellite} attribution={TILE_ATTR.satellite} maxZoom={19} />

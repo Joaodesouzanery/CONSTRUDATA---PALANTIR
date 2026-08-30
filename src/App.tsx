@@ -43,7 +43,6 @@ const DireitosTitularPage   = lazy(() => import('@/features/admin/DireitosTitula
 const MembrosPage           = lazy(() => import('@/features/admin/MembrosPage').then((m) => ({ default: m.MembrosPage })))
 const AuditoriaPage         = lazy(() => import('@/features/admin/AuditoriaPage').then((m) => ({ default: m.AuditoriaPage })))
 const MatrizAprovacaoPage   = lazy(() => import('@/features/admin/MatrizAprovacaoPage').then((m) => ({ default: m.MatrizAprovacaoPage })))
-const HomologacaoPage       = lazy(() => import('@/features/admin/HomologacaoPage').then((m) => ({ default: m.HomologacaoPage })))
 const AdaptacaoRapidaPage   = lazy(() => import('@/features/admin/AdaptacaoRapidaPage').then((m) => ({ default: m.AdaptacaoRapidaPage })))
 
 // Route loading fallback
@@ -132,7 +131,6 @@ function App() {
         <Route path="/esqueci-senha"   element={<LazyRoute><AuthPage mode="recuperar" /></LazyRoute>} />
         {/* Alvo do e-mail de redefinição: SEM AuthGuard — a sessão vem do próprio link. */}
         <Route path="/redefinir-senha" element={<LazyRoute><AuthPage mode="redefinir" /></LazyRoute>} />
-        <Route path="/conta/senha"     element={<LazyRoute><AuthGuard><AuthPage mode="trocar-senha" /></AuthGuard></LazyRoute>} />
         {/* QR público de chamado — SEM AuthGuard/AppShell (rota anônima, morador abre chamado). */}
         <Route path="/chamado/:slug" element={<LazyRoute><ChamadoPublicoPage /></LazyRoute>} />
         <Route path="/mfa/ativar"   element={<LazyRoute><AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard></LazyRoute>} />
@@ -146,7 +144,6 @@ function App() {
           <Route path="direitos-titular" element={<LazyRoute><DireitosTitularPage /></LazyRoute>} />
           <Route path="membros" element={<LazyRoute><MembrosPage /></LazyRoute>} />
           <Route path="configuracoes/aprovacoes" element={<LazyRoute><MatrizAprovacaoPage /></LazyRoute>} />
-          <Route path="homologacao"   element={<LazyRoute><HomologacaoPage /></LazyRoute>} />
           <Route path="adaptacao-rapida" element={<LazyRoute><AdaptacaoRapidaPage /></LazyRoute>} />
           <Route path="minha-rotina"        element={<LazyRoute><MinhaRotinaPage /></LazyRoute>} />
           <Route path="comando-central"     element={<LazyRoute><ComandoCentralPage /></LazyRoute>} />

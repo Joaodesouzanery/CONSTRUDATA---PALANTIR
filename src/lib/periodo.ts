@@ -17,7 +17,26 @@
 import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import { montarQuinzena, quinzenaDe, deslocarQuinzena, ultimoDiaDoMes } from '@/features/mao-de-obra/utils/quinzena'
 
-export type TipoPeriodo = 'semana' | 'quinzena' | 'mes' | 'trimestre' | 'livre'
+/**
+ * ⚠️ Duas famílias, e a diferença importa na navegação:
+ *
+ *  - **GRADE** (`semana`, `quinzena`, `mes`, `trimestre`): o período é uma casa do calendário. As
+ *    setas andam de casa em casa — o mês anterior a março é fevereiro inteiro.
+ *  - **JANELA MÓVEL** (`hoje`, `ultimos7`, `ultimos30`, `ultimos3meses`): termina HOJE e olha para
+ *    trás. As setas deslocam a janela pelo mesmo tamanho dela.
+ */
+export type TipoPeriodo =
+  | 'hoje' | 'ultimos7' | 'ultimos30' | 'ultimos3meses'
+  | 'semana' | 'quinzena' | 'mes' | 'trimestre' | 'livre'
+
+/** Quantos dias cada janela móvel cobre. Ausente = não é janela móvel. */
+const DIAS_DA_JANELA: Partial<Record<TipoPeriodo, number>> = {
+  hoje: 1, ultimos7: 7, ultimos30: 30, ultimos3meses: 90,
+}
+
+export function ehJanelaMovel(tipo: TipoPeriodo): boolean {
+  return DIAS_DA_JANELA[tipo] !== undefined
+}
 
 export interface Periodo {
   tipo: TipoPeriodo
@@ -102,13 +121,35 @@ export function quinzenaComoPeriodo(dataISO: string): Periodo {
 
 // ─── Construção e navegação ────────────────────────────────────────────────────
 
+/**
+ * A janela que TERMINA na data de referência e olha N dias para trás.
+ *
+ * ⚠️ A janela de 7 dias inclui hoje: 24 a 30, não 23 a 30. Contar `hoje − 7` dá OITO dias, e é o
+ * erro clássico — o mesmo que já custou um dia inteiro num filtro deste projeto.
+ */
+export function janelaDe(tipo: TipoPeriodo, dias: number, fimISO: string): Periodo {
+  const fim = dataDe(fimISO)
+  const inicio = new Date(fim)
+  inicio.setDate(fim.getDate() - (dias - 1))
+  const de = dataLocalISO(inicio)
+  const rotulo = dias === 1
+    ? `Dia ${curto(fimISO)}`
+    : `Últimos ${dias} dias · ${curto(de)} a ${curto(fimISO)}`
+  return { tipo, de, ate: fimISO, rotulo }
+}
+
 export function periodoDe(tipo: TipoPeriodo, dataDeReferencia = hojeLocalISO()): Periodo {
+  const dias = DIAS_DA_JANELA[tipo]
+  if (dias !== undefined) return janelaDe(tipo, dias, dataDeReferencia)
   switch (tipo) {
     case 'semana':    return semanaDe(dataDeReferencia)
     case 'quinzena':  return quinzenaComoPeriodo(dataDeReferencia)
     case 'mes':       return mesDe(dataDeReferencia)
     case 'trimestre': return trimestreDe(dataDeReferencia)
     case 'livre':     return { tipo: 'livre', de: dataDeReferencia, ate: dataDeReferencia, rotulo: 'Intervalo livre' }
+    // As janelas móveis já saíram acima, no `DIAS_DA_JANELA`. O compilador não consegue estreitar
+    // o union depois de uma checagem em tempo de execução, então o caminho é declarado aqui.
+    default:          return janelaDe(tipo, DIAS_DA_JANELA[tipo] ?? 1, dataDeReferencia)
   }
 }
 
@@ -120,6 +161,15 @@ export function periodoDe(tipo: TipoPeriodo, dataDeReferencia = hojeLocalISO()):
  */
 export function deslocar(periodo: Periodo, n: number): Periodo {
   if (n === 0) return periodo
+
+  // Janela móvel anda pelo próprio tamanho: "últimos 7 dias" recuado uma vez são os 7 anteriores.
+  const dias = DIAS_DA_JANELA[periodo.tipo]
+  if (dias !== undefined) {
+    const fim = dataDe(periodo.ate)
+    fim.setDate(fim.getDate() + n * dias)
+    return janelaDe(periodo.tipo, dias, dataLocalISO(fim))
+  }
+
   switch (periodo.tipo) {
     case 'semana': {
       const d = dataDe(periodo.de)
@@ -144,6 +194,9 @@ export function deslocar(periodo: Periodo, n: number): Periodo {
       const d = new Date(ano, mes - 1 + n * 3, 1)
       return trimestreDe(dataLocalISO(d))
     }
+    // As janelas móveis já saíram acima; o compilador não estreita o union depois de uma
+    // checagem em tempo de execução, então o caminho é declarado aqui.
+    default:
     case 'livre': {
       // Desloca pelo próprio tamanho do intervalo, que é o único significado razoável de
       // "o anterior" quando quem escolheu as datas foi a pessoa.

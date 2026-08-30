@@ -9,9 +9,9 @@ import { useRelatorio360Store } from '@/store/relatorio360Store'
 import { useShallow } from 'zustand/react/shallow'
 import type { ConstructionSite, Project, ProjectPhase } from '@/types'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
+import { BASE, ROTULOS } from '@/lib/basemaps'
 
 type Severity = 'critical' | 'high' | 'medium' | 'ok'
-type Basemap = 'voyager' | 'satellite' | 'outdoors' | 'dark'
 type Filter = 'all' | Severity
 
 const SEVERITY_COLOR: Record<Severity, string> = {
@@ -42,32 +42,16 @@ const SITE_STATUS_LABEL: Record<ConstructionSite['status'], string> = {
   completed: 'Concluída',
 }
 
-const TILE_CONFIG: Record<Basemap, { url: string; attribution: string; subdomains?: string }> = {
-  voyager: {
-    url:         'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains:  'abcd',
-  },
-  satellite: {
-    url:         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri, Maxar, Earthstar Geographics',
-  },
-  outdoors: {
-    url:         'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenTopoMap',
-    subdomains:  'abc',
-  },
-  dark: {
-    url:         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains:  'abcd',
-  },
-}
-
-const BASEMAP_LABELS: Record<Basemap, string> = {
-  voyager: 'Ruas', satellite: 'Satélite', outdoors: 'Relevo', dark: 'Escuro',
-}
-
+/**
+ * ⚠️ O mapa é ESCURO, e só.
+ *
+ * Antes havia quatro estilos num seletor no canto. Foram embora por dois motivos: o CARTO passou a
+ * exigir chave e carimbava "API KEY REQUIRED" dentro do tile (por isso o aviso de falha nunca
+ * disparava — o tile volta 200, com a marca d'água pintada), e a escolha entre quatro fundos não
+ * mudava decisão nenhuma de quem olha obra num mapa. Uma tela a menos para poluir.
+ *
+ * As camadas vivem em `@/lib/basemaps`, com os outros mapas do sistema.
+ */
 function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
 }
@@ -520,7 +504,6 @@ export function ControlMap({
 }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
-  const [basemap, setBasemap] = useState<Basemap>('voyager')
   const [showProjects, setShowProjects] = useState(true)
   // ⚠️ Isto era `useState(sites.length > 0)`, avaliado UMA vez. As obras chegam do servidor depois
   // do mapa montar, então a camada nascia desligada e nunca se corrigia — o usuário abria a Torre
@@ -617,14 +600,15 @@ export function ControlMap({
       <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
         <MapContainer center={[-15.0, -52.0]} zoom={5} style={{ height: '100%', width: '100%', background: '#2c2c2c' }} zoomControl>
           <MapResizeHandler />
+          {/* Duas camadas: a base escura não tem texto, os rótulos vêm por cima. Uma só ficaria
+              ou sem nome de cidade nenhum, ou com o texto ilegível sobre o fundo. */}
           <TileLayer
-            key={basemap}
-            url={TILE_CONFIG[basemap].url}
-            attribution={TILE_CONFIG[basemap].attribution}
-            subdomains={TILE_CONFIG[basemap].subdomains ?? 'abc'}
-            maxZoom={19}
+            url={BASE.escuro.url}
+            attribution={BASE.escuro.attribution}
+            maxZoom={BASE.escuro.maxZoom}
             eventHandlers={tileEventHandlers}
           />
+          <TileLayer url={ROTULOS.escuro!.url} maxZoom={ROTULOS.escuro!.maxZoom} />
           <EnquadrarAoAbrir
             pontos={[...(showSites ? sitesVisiveis : []), ...(showProjects ? filteredProjects : [])]}
             selecionado={selectedSiteId ?? selectedProjectId}
@@ -645,11 +629,6 @@ export function ControlMap({
             Mapa base indisponivel. Marcadores mantidos no fallback local.
           </div>
         )}
-        <div className="absolute bottom-4 left-4 z-[1000] flex gap-1 bg-[#333333]/90 border border-[#525252] rounded-lg p-1 backdrop-blur-sm">
-          {(Object.keys(BASEMAP_LABELS) as Basemap[]).map((b) => (
-            <button key={b} onClick={() => setBasemap(b)} className="px-2.5 py-1 rounded text-[10px] font-medium transition-colors" style={{ background: basemap === b ? '#f9731620' : 'transparent', color: basemap === b ? '#f97316' : '#6b6b6b', border: `1px solid ${basemap === b ? '#f9731650' : 'transparent'}` }}>{BASEMAP_LABELS[b]}</button>
-          ))}
-        </div>
         {selectedSite && (
           <div className="absolute right-4 top-4 z-[1000] w-72 rounded-lg border border-[#525252] bg-[#333333]/95 p-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-start justify-between gap-2">

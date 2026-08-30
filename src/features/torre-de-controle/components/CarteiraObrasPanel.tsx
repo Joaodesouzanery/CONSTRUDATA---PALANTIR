@@ -24,7 +24,11 @@ import {
 
 const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export function CarteiraObrasPanel() {
+/**
+ * `onAbrirObra`: a Carteira é a lista; o detalhe é a outra sub-aba. Antes clicar numa linha só
+ * chamava `selectSite` e nada visível acontecia — o clique era morto.
+ */
+export function CarteiraObrasPanel({ onAbrirObra }: { onAbrirObra?: (siteId: string) => void } = {}) {
   const sites = useTorreStore((s) => s.sites)
   const selectSite = useTorreStore((s) => s.selectSite)
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
@@ -136,7 +140,7 @@ export function CarteiraObrasPanel() {
             </thead>
             <tbody>
               {linhas.filter((l) => l.temContrato).map((l) => (
-                <tr key={l.siteId} onClick={() => selectSite(l.siteId)}
+                <tr key={l.siteId} onClick={() => { selectSite(l.siteId); onAbrirObra?.(l.siteId) }}
                   className="cursor-pointer border-t border-[#3d3d3d] hover:bg-[#333333]">
                   <td className="py-1.5 pr-2 font-semibold text-[#f5f5f5]">{l.nome}</td>
                   <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{brl(l.servico)}</td>

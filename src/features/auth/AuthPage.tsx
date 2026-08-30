@@ -11,7 +11,12 @@ const CALENDLY_URL = 'https://calendly.com/joaodsouzanery/demonstracao-construda
 const H_FONT = 'font-display'
 const M_FONT = 'font-label'
 
-type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup' | 'recuperar' | 'redefinir' | 'trocar-senha'
+/**
+ * ⚠️ `trocar-senha` saiu: ninguém troca a própria senha estando logado — isso passa pelo painel do
+ * Supabase. O `redefinir` FICA: é o link de e-mail do "esqueci a senha", que é outro caminho e
+ * continua valendo. O `invite` também fica — é o primeiro acesso.
+ */
+type AuthMode = 'login' | 'invite' | 'mfa-challenge' | 'mfa-setup' | 'recuperar' | 'redefinir'
 
 /**
  * Regra mínima de senha, conferida no cliente.
@@ -60,9 +65,7 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
           ? 'Recuperar acesso'
           : mode === 'redefinir'
             ? 'Definir nova senha'
-            : mode === 'trocar-senha'
-              ? 'Trocar a senha'
-              : 'Acesse a plataforma'
+            : 'Acesse a plataforma'
   const subtitle = mode === 'invite'
     ? 'Entre na conta da empresa com o e-mail convidado.'
     : mode === 'mfa-challenge'
@@ -73,14 +76,11 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
           ? 'Enviamos um link de redefinição para o seu e-mail.'
           : mode === 'redefinir'
             ? 'Escolha uma senha nova para a sua conta.'
-            : mode === 'trocar-senha'
-              ? 'Confirme a senha atual e escolha a nova.'
-              : 'Use seu e-mail e senha cadastrados.'
+            : 'Use seu e-mail e senha cadastrados.'
 
-  // Trocar senha é a única tela daqui alcançada por quem JÁ está dentro. Mandá-la para "/"
-  // jogava a pessoa na landing: de lá o único caminho de volta é "Entrar", que pede a senha de
-  // novo. Beco sem saída resolvido só pelo botão voltar do navegador.
-  const destinoVoltar = mode === 'trocar-senha' ? '/app/minha-rotina' : '/'
+  // Todas as telas daqui são de quem está FORA (login, convite, recuperação). O caminho de volta
+  // é sempre a landing.
+  const destinoVoltar = '/'
 
   return (
     <div className={`${H_FONT} min-h-screen bg-[#f4f4f2] text-[#0a0a0a] antialiased`}>
@@ -90,7 +90,7 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
             <BrandLockup dark />
           </Link>
           <Link to={destinoVoltar} className={`${M_FONT} border border-black/15 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
-            {mode === 'trocar-senha' ? 'Cancelar' : 'Voltar'}
+            Voltar
           </Link>
         </div>
       </header>
@@ -128,8 +128,7 @@ export function AuthPage({ mode = 'login' }: { mode?: AuthMode }) {
             : mode === 'mfa-challenge' ? <MfaChallengeForm />
             : mode === 'mfa-setup' ? <MfaSetupForm />
             : mode === 'recuperar' ? <RecuperarSenhaForm />
-            : mode === 'redefinir' ? <NovaSenhaForm origem="recuperacao" />
-            : mode === 'trocar-senha' ? <NovaSenhaForm origem="logado" />
+            : mode === 'redefinir' ? <NovaSenhaForm />
             : <LoginForm />}
         </section>
       </main>
@@ -674,28 +673,20 @@ function RecuperarSenhaForm() {
 }
 
 /**
- * Define a senha nova. Dois caminhos, um componente:
+ * Define a senha nova, vinda do link de recuperação por e-mail.
  *
- * - `recuperacao`: a pessoa chegou pelo link do e-mail. O próprio link é a prova de identidade
- *   (o Supabase troca o token por uma sessão ao abrir a página), então só pedimos a senha nova.
- *   Sem sessão, o link expirou ou foi aberto em outro navegador — e aí não dá para seguir.
+ * O próprio link é a prova de identidade — o Supabase troca o token por uma sessão ao abrir a
+ * página —, então só pedimos a senha nova. Sem sessão, o link expirou ou foi aberto em outro
+ * navegador, e aí não dá para seguir.
  *
- * - `logado`: a pessoa já está dentro e quer trocar. Aqui pedimos a senha ATUAL e conferimos com
- *   um login antes de trocar. O `updateUser` do Supabase não exige isso por padrão, o que
- *   significa que um aparelho destravado deixado sobre a mesa bastaria para tomar a conta.
- *   Conferir custa uma requisição e fecha o buraco.
- *
- *   O preço, dito por inteiro: `signInWithPassword` **substitui a sessão**. O ouvinte global de
- *   `src/lib/auth.ts` reage e refaz o pull de todos os stores — desperdício, não risco, porque
- *   `mergePull` preserva o que tem operação pendente. E a sessão nova nasce em aal1: hoje isso
- *   não muda nada (nenhum guard ou policy exige aal2 — ver SECURITY.md), mas **no dia em que o
- *   MFA virar obrigatório, este ponto precisa trocar para `reauthenticate()`**, senão trocar a
- *   senha rebaixa silenciosamente quem já tinha passado pelo segundo fator.
+ * ⚠️ Havia um segundo caminho aqui (`logado`: trocar a senha estando dentro, conferindo a atual).
+ * Ele foi removido por decisão do produto — quem precisa trocar senha passa pelo painel do
+ * Supabase. Se um dia voltar, ele precisa conferir a senha atual antes do `updateUser`, que por
+ * padrão não exige nada: um aparelho destravado sobre a mesa bastaria para tomar a conta.
  */
-function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
+function NovaSenhaForm() {
   const navigate = useNavigate()
   const emailSessao = useAuth((state) => state.user?.email)
-  const [atual, setAtual] = useState('')
   const [senha, setSenha] = useState('')
   const [repetida, setRepetida] = useState('')
   const [mostrar, setMostrar] = useState(false)
@@ -719,15 +710,9 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
     if (senha !== repetida) return setError('As duas senhas não são iguais.')
     const problema = problemaNaSenha(senha, emailSessao ?? undefined)
     if (problema) return setError(problema)
-    if (origem === 'logado' && !atual) return setError('Digite a senha atual.')
 
     setLoading(true)
     try {
-      if (origem === 'logado') {
-        if (!emailSessao) { setError('Sessão expirada. Entre de novo para trocar a senha.'); return }
-        const { error: confErr } = await supabase.auth.signInWithPassword({ email: emailSessao, password: atual })
-        if (confErr) { setError('A senha atual está incorreta.'); return }
-      }
       const { error: err } = await supabase.auth.updateUser({ password: senha })
       if (err) {
         setError(err.message.toLowerCase().includes('same') ? 'A senha nova precisa ser diferente da anterior.' : `Não foi possível trocar: ${err.message}`)
@@ -750,10 +735,10 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
         </div>
         <button
           type="button"
-          onClick={() => navigate(origem === 'logado' ? '/app/minha-rotina' : '/login')}
+          onClick={() => navigate('/login')}
           className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 bg-[#f97316] text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#ea580c]`}
         >
-          {origem === 'logado' ? 'Voltar para a plataforma' : 'Entrar com a senha nova'} <ArrowRight size={16} />
+          Entrar com a senha nova <ArrowRight size={16} />
         </button>
       </div>
     )
@@ -763,12 +748,11 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
     return (
       <div className="space-y-5">
         <div className="border border-red-500/35 bg-red-500/[0.06] p-4 text-xs leading-5 text-red-600">
-          {origem === 'logado'
-            ? 'Sua sessão expirou. Entre de novo para trocar a senha.'
-            : 'Este link não vale mais — ele expira depois de um tempo e só funciona uma vez, no mesmo navegador em que foi aberto. Peça outro.'}
+          Este link não vale mais — ele expira depois de um tempo e só funciona uma vez, no mesmo
+          navegador em que foi aberto. Peça outro.
         </div>
-        <Link to={origem === 'logado' ? '/login' : '/esqueci-senha'} className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 border border-black/15 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
-          {origem === 'logado' ? 'Ir para o login' : 'Pedir outro link'}
+        <Link to="/esqueci-senha" className={`${M_FONT} flex h-12 w-full items-center justify-center gap-2 border border-black/15 text-xs font-semibold uppercase tracking-[0.14em] text-black/60 transition hover:border-[#f97316] hover:text-[#0a0a0a]`}>
+          Pedir outro link
         </Link>
       </div>
     )
@@ -776,11 +760,6 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {origem === 'logado' && (
-        <Field label="Senha atual" icon={<Lock size={16} />}>
-          <input value={atual} onChange={(event) => setAtual(event.target.value)} type="password" autoComplete="current-password" disabled={loading} placeholder="********" className={inputClass} required />
-        </Field>
-      )}
       <Field label="Nova senha" icon={<KeyRound size={16} />}>
         <input value={senha} onChange={(event) => setSenha(event.target.value)} type={mostrar ? 'text' : 'password'} autoComplete="new-password" disabled={loading} placeholder="********" className={`${inputClass} pr-11`} required />
         <button type="button" onClick={() => setMostrar(!mostrar)} tabIndex={-1} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-black/45 hover:text-[#ea580c]" aria-label={mostrar ? 'Ocultar senha' : 'Mostrar senha'}>
@@ -795,13 +774,6 @@ function NovaSenhaForm({ origem }: { origem: 'recuperacao' | 'logado' }) {
       </p>
       <ErrorMessage error={error} />
       <SubmitButton loading={loading} disabled={temSessao === null}>Salvar nova senha <ShieldCheck size={16} /></SubmitButton>
-      {origem === 'logado' && (
-        <p className="text-center">
-          <Link to="/app/minha-rotina" className={`${M_FONT} text-[10px] font-semibold uppercase tracking-[0.14em] text-black/50 underline-offset-4 transition hover:text-[#c2410c] hover:underline`}>
-            Cancelar e voltar
-          </Link>
-        </p>
-      )}
     </form>
   )
 }

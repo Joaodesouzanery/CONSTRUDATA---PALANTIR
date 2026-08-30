@@ -11,6 +11,7 @@
  * Uma obra pode ter margem excelente e quebrar de caixa. Misturar os dois é o erro.
  */
 import { useMemo, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import * as XLSX from 'xlsx'
 import {
   AlertTriangle, ArrowLeftRight, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X,
@@ -29,6 +30,9 @@ import {
   viabilidadeDaCidade, viabilidadeGlobal,
 } from '../utils/fcp/motor'
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
+import {
+  conferirPlano, idDoPlano, planoParaGravar, type ConferenciaDoPlano,
+} from '../utils/fcp/reimportarPlano'
 import { ROTULO_CENARIO, type Cenario, type PremissasFcp } from '../utils/fcp/tipos'
 import {
   atividadesDoPlano, mudancasVindasDoLps, realizadoDoLps,
@@ -57,9 +61,15 @@ const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 const un = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function FcpPanel() {
-  const { planos, addPlano, updatePlano, lancarProducao } = useFcpStore((s) => ({
-    planos: s.planos, addPlano: s.addPlano, updatePlano: s.updatePlano, lancarProducao: s.lancarProducao,
-  }))
+  // ⚠️ `useShallow` é OBRIGATÓRIO aqui. Um seletor que devolve objeto literal cria um objeto novo
+  // a cada chamada; no zustand 5 + React 19 isso é re-render infinito, e o módulo Financeiro
+  // INTEIRO cai — o `ModuleErrorBoundary` (App.tsx) envolve a rota, não a aba. Foi assim que esta
+  // tela derrubou o Controle de Caixa junto, que não tinha defeito nenhum.
+  const { planos, addPlano, updatePlano, lancarProducao } = useFcpStore(
+    useShallow((s) => ({
+      planos: s.planos, addPlano: s.addPlano, updatePlano: s.updatePlano, lancarProducao: s.lancarProducao,
+    })),
+  )
   const profile = useAuth((s) => s.profile)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
 
@@ -84,6 +94,8 @@ export function FcpPanel() {
         {importando && (
           <ImportarFcpModal
             obraId={activeObraId ?? undefined}
+            planos={planos}
+            orgId={profile?.organization_id}
             onGravar={(p) => { addPlano(p); setSelecionado(p.id) }}
             onClose={() => setImportando(false)}
           />
@@ -146,6 +158,8 @@ export function FcpPanel() {
       {importando && (
         <ImportarFcpModal
           obraId={activeObraId ?? undefined}
+          planos={planos}
+          orgId={profile?.organization_id}
           onGravar={(p) => { addPlano(p); setSelecionado(p.id) }}
           onClose={() => setImportando(false)}
         />
@@ -263,9 +277,9 @@ function FluxoDeAprovacao({
  * sincronização de calendário.
  */
 function PonteComOLps({ plano }: { plano: PlanoFcp }) {
-  const { atividades, addActivity } = useLpsStore((s) => ({
-    atividades: s.activities, addActivity: s.addActivity,
-  }))
+  const { atividades, addActivity } = useLpsStore(
+    useShallow((s) => ({ atividades: s.activities, addActivity: s.addActivity })),
+  )
   const lancarProducao = useFcpStore((s) => s.lancarProducao)
   const [conferindo, setConferindo] = useState<MudancaVindaDoLps[] | null>(null)
 
@@ -965,19 +979,23 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
 // ─── Importação ───────────────────────────────────────────────────────────────
 
 function ImportarFcpModal({
-  obraId, onGravar, onClose,
+  obraId, planos, orgId, onGravar, onClose,
 }: {
   obraId?: string
+  planos: PlanoFcp[]
+  orgId: string | null | undefined
   onGravar: (plano: PlanoFcp) => void
   onClose: () => void
 }) {
   const [lido, setLido] = useState<{
+    id: string
     nome: string
     premissas: PremissasFcp
     realizado: PlanoFcp['realizado']
     precos: Record<string, PrecoDoContrato[]>
     divergencias: Divergencia[]
     problemas: Array<{ aba: string; motivo: string }>
+    plano: ConferenciaDoPlano
   } | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -991,10 +1009,16 @@ function ImportarFcpModal({
       }
       const r = lerPlanilhaFcp(abas)
       if (!r.premissas) { setErro(r.problemas[0]?.motivo ?? 'Não consegui ler esta planilha.'); return }
+      // ⚠️ A identidade do plano vem de obra + nome do arquivo, não de um sorteio. É isto que faz
+      // "jogar a planilha atualizada" ATUALIZAR o plano em vez de criar o segundo.
+      const id = idDoPlano(orgId, obraId, file.name)
+      const existente = planos.find((p) => p.id === id) ?? null
       setLido({
+        id,
         nome: file.name.replace(/\.xlsx?$/i, ''),
         premissas: r.premissas, realizado: r.realizado, precos: r.precos,
         divergencias: r.divergencias, problemas: r.problemas,
+        plano: conferirPlano({ premissas: r.premissas, nome: file.name }, existente),
       })
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não consegui abrir este arquivo.')
@@ -1040,6 +1064,68 @@ function ImportarFcpModal({
                   valor={fmtBRL(capitalNecessario(lido.premissas, fluxoMensal(lido.premissas, lido.realizado)).capitalRecomendado)}
                 />
               </div>
+
+              {/* ⚠️ O que a reimportação faz com o plano que já existe. É a pergunta que importa
+                  quando alguém joga a planilha atualizada: vai criar outro, ou atualizar este? */}
+              {!lido.plano.ehNovo && (
+                <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
+                  <p className="text-xs font-semibold text-[#f5f5f5] mb-1">
+                    Este arquivo já tem um plano no sistema — ele será <strong>atualizado</strong>, não duplicado.
+                  </p>
+
+                  {lido.plano.travadoPorAprovacao ? (
+                    <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+                      <AlertTriangle size={12} className="inline mr-1" />
+                      O plano está <strong>aprovado</strong>. Reabra antes de importar por cima — o
+                      número que a diretoria aprovou não muda em silêncio.
+                    </p>
+                  ) : lido.plano.mudancas.length === 0 ? (
+                    <p className="mt-1 text-[11px] text-emerald-300">
+                      <CheckCircle2 size={12} className="inline mr-1" />
+                      Nenhuma premissa mudou. Importar não altera nada.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-[#6b6b6b] mb-2">
+                        {lido.plano.mudancas.length} premissa(s) mudaram.
+                        {lido.plano.capitalAntes !== null && lido.plano.capitalAntes !== lido.plano.capitalDepois && (
+                          <> O capital recomendado vai de <strong className="text-[#a3a3a3]">{fmtBRL(lido.plano.capitalAntes)}</strong>
+                          {' '}para{' '}
+                          <strong className={lido.plano.capitalDepois > lido.plano.capitalAntes ? 'text-red-300' : 'text-emerald-300'}>
+                            {fmtBRL(lido.plano.capitalDepois)}
+                          </strong>.</>
+                        )}
+                      </p>
+                      <div className="overflow-x-auto rounded-lg border border-[#525252] max-h-64">
+                        <table className={TABELA}>
+                          <thead className="sticky top-0"><tr className={THEAD}>
+                            <th className={TH}>Premissa</th><th className={TH}>Antes</th><th className={TH}>Depois</th>
+                          </tr></thead>
+                          <tbody className="divide-y divide-[#1f2937]">
+                            {lido.plano.mudancas.map((m) => (
+                              <tr key={m.rotulo} className="hover:bg-white/[0.02]">
+                                <td className={`${TD} text-[#a3a3a3]`}>{m.rotulo}</td>
+                                <td className={`${TD} text-[#6b6b6b] line-through`}>{m.antes}</td>
+                                <td className={`${TD} text-[#f5f5f5]`}>{m.depois}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+
+                  {lido.plano.lancamentosPreservados > 0 && (
+                    <p className="mt-2 text-[11px] text-[#6b6b6b]">
+                      {/* A produção lançada é trabalho que a equipe registrou semana a semana e não
+                          existe em lugar nenhum além do sistema. A planilha traz premissas. */}
+                      <strong className="text-[#a3a3a3]">{lido.plano.lancamentosPreservados} lançamento(s)</strong>
+                      {' '}de produção realizada serão <strong>preservados</strong> — a planilha traz
+                      premissas, não apaga o que a equipe lançou.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {lido.problemas.length > 0 && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
@@ -1103,22 +1189,20 @@ function ImportarFcpModal({
             <button type="button" onClick={() => setLido(null)} className={BTN_S}>Escolher outro arquivo</button>
             <button
               type="button"
+              disabled={lido.plano.travadoPorAprovacao}
+              title={lido.plano.travadoPorAprovacao ? 'Reabra o plano aprovado antes de importar por cima' : undefined}
               onClick={() => {
-                onGravar({
-                  id: crypto.randomUUID(),
-                  nome: lido.nome,
+                onGravar(planoParaGravar(
+                  { nome: lido.nome, premissas: lido.premissas, precos: lido.precos, realizadoDaPlanilha: lido.realizado },
+                  lido.plano.existente,
+                  lido.id,
                   obraId,
-                  status: 'rascunho',
-                  premissas: lido.premissas,
-                  realizado: lido.realizado,
-                  precos: lido.precos,
-                  criadoEm: new Date().toISOString(),
-                })
+                ))
                 onClose()
               }}
               className={`${BTN_P} ml-auto`}
             >
-              Criar plano
+              {lido.plano.ehNovo ? 'Criar plano' : 'Atualizar o plano'}
             </button>
           </div>
         )}

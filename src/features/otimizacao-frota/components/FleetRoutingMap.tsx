@@ -11,8 +11,8 @@ import type { ObraStatus } from '@/types'
 // ─── Tile URLs ────────────────────────────────────────────────────────────────
 
 const TILES = {
-  voyager:   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  dark:      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  voyager:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+  dark:      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
   satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
 } as const
 
@@ -109,12 +109,12 @@ export function FleetRoutingMap() {
       >
         <LayersControl position="topright">
           <LayersControl.BaseLayer checked name="Voyager">
-            <TileLayer url={TILES.voyager} subdomains="abcd" maxZoom={20}
-              attribution='&copy; OpenStreetMap &copy; CARTO' />
+            <TileLayer url={TILES.voyager} maxZoom={20}
+              attribution='Tiles &copy; Esri' />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Dark Matter">
-            <TileLayer url={TILES.dark} subdomains="abcd" maxZoom={20}
-              attribution='&copy; OpenStreetMap &copy; CARTO' />
+            <TileLayer url={TILES.dark} maxZoom={20}
+              attribution='Tiles &copy; Esri' />
           </LayersControl.BaseLayer>
           <LayersControl.BaseLayer name="Satélite">
             <TileLayer url={TILES.satellite} maxZoom={19}

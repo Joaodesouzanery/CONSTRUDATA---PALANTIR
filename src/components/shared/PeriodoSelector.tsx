@@ -5,29 +5,62 @@
  * para poderem ser conferidas num teste de mesa — semana virando o ano, fevereiro bissexto e o
  * "mês anterior" a partir do dia 31 são exatamente o tipo de coisa que erra em silêncio.
  */
+import { useEffect } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { periodoDe, deslocar, periodoLivre, diasNoPeriodo, type Periodo, type TipoPeriodo } from '@/lib/periodo'
 import { hojeLocalISO } from '@/lib/utils'
 
-const TIPOS: { tipo: TipoPeriodo; rotulo: string }[] = [
-  { tipo: 'semana',    rotulo: 'Semana'    },
-  { tipo: 'quinzena',  rotulo: 'Quinzena'  },
-  { tipo: 'mes',       rotulo: 'Mês'       },
-  { tipo: 'trimestre', rotulo: 'Trimestre' },
-  { tipo: 'livre',     rotulo: 'Livre'     },
-]
+const ROTULO: Record<TipoPeriodo, string> = {
+  hoje: 'Hoje', ultimos7: '7 dias', ultimos30: '30 dias', ultimos3meses: '3 meses',
+  semana: 'Semana', quinzena: 'Quinzena', mes: 'Mês', trimestre: 'Trimestre', livre: 'Livre',
+}
+
+/** Os atalhos que aparecem quando quem usa não pede uma lista própria. */
+const PADRAO: TipoPeriodo[] = ['hoje', 'ultimos7', 'ultimos30', 'mes', 'trimestre', 'ultimos3meses', 'livre']
 
 interface Props {
   valor: Periodo
   onChange: (p: Periodo) => void
+  /**
+   * Quais atalhos mostrar. Cada tela escolhe os seus — a reunião semanal e o fechamento mensal não
+   * fazem as mesmas perguntas.
+   *
+   * ⚠️ Se o período salvo for de um tipo que NÃO está nesta lista, nenhuma pílula acenderia. O
+   * componente resolve isso sozinho: ao montar, ele salta para o primeiro tipo da lista.
+   */
+  tipos?: TipoPeriodo[]
   /** Texto extra à direita — costuma ser a obra em escopo. */
   contexto?: React.ReactNode
   className?: string
 }
 
-export function PeriodoSelector({ valor, onChange, contexto, className }: Props) {
+export function PeriodoSelector({ valor, onChange, contexto, className, tipos = PADRAO }: Props) {
   const ehLivre = valor.tipo === 'livre'
+
+  /**
+   * ⚠️ Duas correções, e as duas vêm do mesmo relato: a tela abriu na semana de 29/06 com a data
+   * de hoje em 30/08.
+   *
+   *  1. **Período que não contém hoje volta para o ciclo corrente.** Havia lógica parecida no
+   *     `merge` do store, mas ela só pega o que já VENCEU e só na reidratação. Aqui pega qualquer
+   *     descolamento e roda toda vez que a barra monta.
+   *  2. **Tipo fora da lista de atalhos** salta para o primeiro — senão nenhuma pílula acende e a
+   *     pessoa não sabe onde está.
+   *
+   * O intervalo LIVRE é preservado: ali a data foi escolhida à mão, e mexer nela seria desfazer o
+   * que a pessoa pediu.
+   */
+  useEffect(() => {
+    if (valor.tipo === 'livre') return
+    const hoje = hojeLocalISO()
+    const foraDaLista = !tipos.includes(valor.tipo)
+    const naoContemHoje = valor.de > hoje || valor.ate < hoje
+    if (foraDaLista) onChange(periodoDe(tipos[0] === 'livre' ? 'hoje' : tipos[0]))
+    else if (naoContemHoje) onChange(periodoDe(valor.tipo))
+    // Só na montagem: depois disso, navegar para trás com as setas é o que a pessoa pediu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function trocarTipo(tipo: TipoPeriodo) {
     // Ao trocar de granularidade, o período novo é o que CONTÉM a data inicial do atual — assim
@@ -40,16 +73,16 @@ export function PeriodoSelector({ valor, onChange, contexto, className }: Props)
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       <div className="flex gap-1 rounded-lg border border-[#525252] bg-[#3d3d3d] p-1">
-        {TIPOS.map((t) => (
+        {tipos.map((t) => (
           <button
-            key={t.tipo}
-            onClick={() => trocarTipo(t.tipo)}
+            key={t}
+            onClick={() => trocarTipo(t)}
             className={cn(
               'rounded px-2.5 py-1 text-xs font-medium transition-colors',
-              valor.tipo === t.tipo ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
+              valor.tipo === t ? 'bg-[#f97316] text-white' : 'text-[#6b6b6b] hover:text-[#f5f5f5]',
             )}
           >
-            {t.rotulo}
+            {ROTULO[t]}
           </button>
         ))}
       </div>

@@ -11,8 +11,23 @@ import { useState, type ReactNode } from 'react'
 
 export type SubTab = { key: string; label: string; render: () => ReactNode }
 
-export function SubTabHost({ tabs }: { tabs: SubTab[] }) {
-  const [active, setActive] = useState(tabs[0]?.key)
+/**
+ * Opcionalmente CONTROLADO.
+ *
+ * ⚠️ Sem isso, para abrir uma sub-aba de fora só restava `key={...}` + prop inicial — e aí clicar
+ * duas vezes na mesma linha da Carteira não navegava, porque o estado não mudava e o remount não
+ * acontecia. Com `ativa`/`onTrocar` quem tem o estado é o pai, e o gesto funciona sempre.
+ *
+ * Sem as duas props, o host continua guardando a aba sozinho — que é o uso da maioria.
+ */
+export function SubTabHost({ tabs, ativa, onTrocar }: {
+  tabs: SubTab[]
+  ativa?: string
+  onTrocar?: (key: string) => void
+}) {
+  const [interna, setInterna] = useState(tabs[0]?.key)
+  const active = ativa ?? interna
+  const setActive = (k: string) => { if (onTrocar) onTrocar(k); else setInterna(k) }
   const current = tabs.find((t) => t.key === active) ?? tabs[0]
 
   return (

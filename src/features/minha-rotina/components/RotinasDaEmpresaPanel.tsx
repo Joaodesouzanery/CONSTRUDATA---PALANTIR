@@ -568,7 +568,11 @@ function BlocoHistorico({ rotinas, feitaEm, feriados, jornada, hoje, periodo, on
       {periodo && adesao && (
         <div className="border-t border-[#525252] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <PeriodoSelector valor={periodo} onChange={onPeriodo} />
+            {/* Rotina se cobra por CICLO do calendário — "as rotinas desta semana", "deste mês".
+                Uma janela de "últimos 7 dias" atravessaria dois ciclos e a adesão perderia o
+                sentido. Por isso esta tela mantém os atalhos de grade. */}
+            <PeriodoSelector valor={periodo} onChange={onPeriodo}
+                             tipos={['semana', 'quinzena', 'mes', 'trimestre', 'livre']} />
             {/* Um botão por recorte, e não um "exportar" genérico: o gesto da reunião é "quero o
                 da semana" ou "quero o do mês", não "quero configurar um período". */}
             <div className="flex gap-1.5">

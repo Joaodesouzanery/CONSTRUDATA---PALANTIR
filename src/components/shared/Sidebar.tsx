@@ -87,7 +87,6 @@ const NAV_GROUPS = [
       // mesmo papel — esconder do menu é só para não oferecer uma tela que vai negar.
       { label: 'Auditoria',        icon: History,        to: '/app/auditoria', diretoriaOnly: true },
       { label: 'Direitos do Titular', icon: ShieldCheck, to: '/app/direitos-titular', ownerOnly: true },
-      { label: 'Homologação',      icon: FlaskConical,   to: '/app/homologacao', adminOnly: true },
       { label: 'Adaptação Rápida', icon: ClipboardList,  to: '/app/adaptacao-rapida', adminOnly: true },
     ],
   },

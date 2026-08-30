@@ -43,7 +43,13 @@ Cada `ObraCard`/`ObraHorizontalCard` mostra: ponto colorido de status, código, 
 ### Aba "Projetos" (`projetos`)
 Renderiza a `ProjetosPage` do módulo Projetos (`index.tsx:137-141`) — é o mesmo componente do módulo de Projetos/Pré-construção embutido como aba (por isso `/app/projetos` e `/app/pre-construcao` redirecionam para cá).
 
-### Aba "Detalhes da Obra" (`detalhes`) — `ObraDetailPanel`
+### Aba "Obras" (`obras`) — sub-abas Carteira + Detalhe
+
+Duas sub-abas: `CarteiraObrasPanel` (todas as obras) e `ObraDetailPanel` (a selecionada).
+Clicar numa linha da Carteira seleciona a obra e abre o detalhe. `?aba=carteira` e `?aba=detalhes`
+continuam funcionando — o parser redireciona os dois para `obras`.
+
+#### `ObraDetailPanel`
 Mostra o dossiê completo da obra selecionada (`selectedId`). Seções (`src/features/torre-de-controle/components/ObraDetailPanel.tsx`):
 - **Localização** (`:316-324`): endereço, bairro, cidade/UF, CEP e coordenadas (`lat, lng` com 5 casas).
 - **Responsáveis** (`:327-331`): empresa, dono, gerente.

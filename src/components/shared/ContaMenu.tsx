@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { KeyRound, LogOut, UserCircle } from 'lucide-react'
+import { LogOut, UserCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { flushAllTenantStores, getPendingSummary } from '@/store/appModeStore'
@@ -154,14 +154,6 @@ export function ContaMenu({ isOpen }: { isOpen: boolean }) {
             {email && email !== nome && <p className="text-[10px] text-[#9a9a9a] truncate">{email}</p>}
           </div>
           <div className="border-t border-[#333]" />
-          <button
-            role="menuitem"
-            onClick={() => { setAberto(false); navigate('/conta/senha') }}
-            className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-[#e5e5e5] hover:bg-[#333333] hover:text-white transition-colors w-full"
-          >
-            <KeyRound size={14} className="shrink-0" />
-            Trocar senha
-          </button>
           <button
             role="menuitem"
             onClick={() => void sair()}

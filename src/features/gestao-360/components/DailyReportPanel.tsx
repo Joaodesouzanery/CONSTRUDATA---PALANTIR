@@ -16,6 +16,7 @@ import { mergeProjectsWithSites } from '../utils/siteProjects'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { useActiveObraStore } from '@/store/activeObraStore'
+import { hojeLocalISO } from '@/lib/utils'
 
 function Kpi({ label, value, icon: Icon, tone = '#f97316' }: {
   label: string
@@ -73,14 +74,26 @@ export function DailyReportPanel() {
   const purchaseOrders = useSuprimentosStore((s) => s.purchaseOrders)
   const agendaTasks = useAgendaStore((s) => s.tasks)
   const agendaResources = useAgendaStore((s) => s.resources)
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  // ⚠️ `toISOString()` é UTC: depois das 21h no horário de Brasília ele já devolve AMANHÃ, e o
+  // Daily Report abriria no dia errado justamente no fim do expediente.
+  const [date, setDate] = useState(hojeLocalISO)
 
-  const project = projects.find((p) => p.id === selectedProjectId) ?? projects[0] ?? null
+  /**
+   * O escopo do relatório.
+   *
+   * ⚠️ Antes era `projects.find(...) ?? projects[0]`: sem obra selecionada, o painel caía na
+   * PRIMEIRA da lista e mostrava o nome dela — enquanto o cabeçalho do módulo dizia "Todas as
+   * obras". Agora "todas" quer dizer todas, e a escolha é explícita aqui.
+   */
+  const [escopo, setEscopo] = useState<string>(() => selectedProjectId ?? activeObraId ?? 'todas')
+  const doEscopo = escopo === 'todas'
+    ? projects
+    : projects.filter((p) => p.id === escopo)
+  const project = escopo === 'todas' ? null : doEscopo[0] ?? null
   const [sabespRdos] = useState(() => readLocalRdoSabesp())
 
   const daily = useMemo(() => {
-    if (!project) {
-      return {
+    const vazio = {
         reports360: [],
         regularRdos: [],
         sabesp: [],
@@ -90,11 +103,14 @@ export function DailyReportPanel() {
         reqs: [],
         pos: [],
         agenda: [],
-        activities: [],
-        photos: [],
-      }
+      activities: [] as Array<{ label: string; status: string; detail: string; obra: string }>,
+      photos: [] as (typeof reports)[string]['photos'],
     }
 
+    // Uma passada por obra, somando no fim. Ficou assim porque cada filtro casa a obra pelo TEXTO
+    // (`sameProject`) — não há id em RDO nem em FVS — e uma passada só não teria como dizer de
+    // qual obra veio cada linha.
+    const porObra = doEscopo.map((project) => {
     const reports360 = Object.values(reports).filter(
       (report) => report.date === date && sameProject(report.projectName, project.name, project.code),
     )
@@ -147,17 +163,42 @@ export function DailyReportPanel() {
         detail: 'RDO Sabesp',
       }))),
     ]
-    const photos = reports360.flatMap((report) => report.photos).slice(0, 8)
+    const photos = reports360.flatMap((report) => report.photos)
 
-    return { reports360, regularRdos, sabesp, fvs, ncs, maintenance, reqs, pos, agenda, activities, photos }
-  }, [project, reports, date, rdos, sabespRdos, fvss, nonConformities, maintenanceOrders, requisitions, purchaseOrders, agendaTasks, agendaResources])
+    // A obra vai junto de cada atividade: em "todas", sem isso a lista vira uma pilha sem dono.
+    return {
+      reports360, regularRdos, sabesp, fvs, ncs, maintenance, reqs, pos, agenda, photos,
+      activities: activities.map((a) => ({ ...a, obra: project.name })),
+    }
+    })
+    if (porObra.length === 0) return vazio
 
-  if (!project) {
-    return <div className="text-sm text-[#a3a3a3]">Nenhum projeto disponível.</div>
+    // Sem valor inicial: o `reduce` parte do primeiro elemento, e aí os tipos casam sozinhos.
+    return porObra.reduce((a, b) => ({
+      reports360: [...a.reports360, ...b.reports360],
+      regularRdos: [...a.regularRdos, ...b.regularRdos],
+      sabesp: [...a.sabesp, ...b.sabesp],
+      // ⚠️ FVS, NC, manutenção, requisição e pedido NÃO são filtrados por obra nos `filter` acima
+      // — eles já são globais. Concatenar N vezes multiplicaria a contagem por N obras, e o cartão
+      // de "NCs abertas" mostraria cinco vezes o número real. Por isso o primeiro vence.
+      fvs: a.fvs.length ? a.fvs : b.fvs,
+      ncs: a.ncs.length ? a.ncs : b.ncs,
+      maintenance: a.maintenance.length ? a.maintenance : b.maintenance,
+      reqs: a.reqs.length ? a.reqs : b.reqs,
+      pos: a.pos.length ? a.pos : b.pos,
+      agenda: [...a.agenda, ...b.agenda],
+      activities: [...a.activities, ...b.activities],
+      photos: [...a.photos, ...b.photos].slice(0, 8),
+    }))
+  }, [doEscopo, reports, date, rdos, sabespRdos, fvss, nonConformities, maintenanceOrders, requisitions, purchaseOrders, agendaTasks, agendaResources])
+
+  if (projects.length === 0) {
+    return <div className="text-sm text-[#a3a3a3]">Nenhuma obra cadastrada.</div>
   }
 
+  const idsDoEscopo = new Set(doEscopo.map((p) => p.id))
   const costImpact = changeOrders
-    .filter((order) => order.projectId === project.id && order.submittedAt?.slice(0, 10) === date)
+    .filter((order) => idsDoEscopo.has(order.projectId) && order.submittedAt?.slice(0, 10) === date)
     .reduce((sum, order) => sum + order.impactCostBRL, 0)
 
   return (
@@ -165,8 +206,18 @@ export function DailyReportPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">Daily Report</h2>
-          <p className="text-xs text-[#a3a3a3]">{project.name}</p>
+          <p className="text-xs text-[#a3a3a3]">
+            {escopo === 'todas' ? `Todas as obras · ${doEscopo.length}` : project?.name}
+          </p>
         </div>
+        <select
+          value={escopo}
+          onChange={(event) => setEscopo(event.target.value)}
+          className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+        >
+          <option value="todas">Todas as obras</option>
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
         <label className="flex items-center gap-2 rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-sm text-[#f5f5f5]">
           <CalendarDays size={15} className="text-[#f97316]" />
           <input
@@ -187,7 +238,13 @@ export function DailyReportPanel() {
 
       {/* Aqui o recorte é o DIA, de propósito: é o Daily Report. O período compartilhado do
           cabeçalho vale para as outras abas. A obra vem do escopo, para o radar não misturar. */}
-      <Ecosystem360Panel date={date} siteId={activeObraId} projectName={project.name} compact />
+      {/* Em "todas", `siteId` vai nulo e o radar soma o conjunto — é o que ele já sabe fazer. */}
+      <Ecosystem360Panel
+        date={date}
+        siteId={escopo === 'todas' ? null : activeObraId}
+        projectName={escopo === 'todas' ? 'Todas as obras' : project?.name ?? ''}
+        compact
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <Section title="Atividades e RDOs">
@@ -197,7 +254,13 @@ export function DailyReportPanel() {
                 <div key={`${activity.label}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-[#525252] bg-[#333333] px-3 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-white">{activity.label}</div>
-                    <div className="text-xs text-[#a3a3a3]">{activity.detail}</div>
+                    <div className="text-xs text-[#a3a3a3]">
+                      {/* Em "todas as obras", a linha sem dono não diz nada. */}
+                      {escopo === 'todas' && activity.obra && (
+                        <span className="text-[#f97316]">{activity.obra} · </span>
+                      )}
+                      {activity.detail}
+                    </div>
                   </div>
                   <span className="rounded-full bg-[#484848] px-2 py-1 text-[10px] font-semibold uppercase text-[#a3a3a3]">{activity.status}</span>
                 </div>
