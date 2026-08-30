@@ -5,6 +5,7 @@ import { DollarSign, Download, RefreshCw } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
+import { useFcpStore } from '@/store/fcpStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { SyncBadge } from '@/components/shared/SyncBadge'
 import { cn } from '@/lib/utils'
@@ -73,6 +74,8 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   // sincronizavam ao abrir o módulo — o que o colega cadastrou só aparecia no próximo
   // login. Fica no header porque ele não desmonta ao trocar de aba (não re-puxa a cada clique).
   useStoreSync(useFinanceiroTitulosStore)
+  // Idem para os planos de fluxo projetado (sub-aba "Fluxo de Caixa Projetado").
+  useStoreSync(useFcpStore)
 
   return (
     <div className="bg-[#2c2c2c] border-b border-[#525252] print:hidden">

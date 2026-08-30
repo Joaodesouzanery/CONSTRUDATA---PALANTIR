@@ -105,6 +105,7 @@ const STORE_KEYS = [
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro', 'cdata-rotinas', 'cdata-rateio-consumo',
+  'cdata-fcp',
   // A obra SELECIONADA também é dado do usuário. Ela entra aqui ANTES de o store ser zerado na
   // cascata abaixo — a ordem é a mesma lição do `cd9e7a3`: sem a chave no snapshot, zerar na
   // cascata perderia a seleção para sempre.
@@ -210,6 +211,7 @@ async function restoreUserData() {
       import('./medicaoStore').then(m => m.useMedicaoStore),
       import('./medicaoBillingStore').then(m => m.useMedicaoBillingStore),
       import('./financeiroStore').then(m => m.useFinanceiroStore),
+      import('./fcpStore').then(m => m.useFcpStore),
       import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore),
       import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
       import('./servicosStore').then(m => m.useServicosStore),
@@ -286,6 +288,7 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'frota-veicular', label: 'Frota Veicular', load: () => import('./frotaVeicularStore').then(m => m.useFrotaVeicularStore as unknown as TenantStoreApi) },
   { key: 'medicao', label: 'Medição', load: () => import('./medicaoStore').then(m => m.useMedicaoStore as unknown as TenantStoreApi) },
   { key: 'financeiro', label: 'Financeiro', load: () => import('./financeiroStore').then(m => m.useFinanceiroStore as unknown as TenantStoreApi) },
+  { key: 'fcp', label: 'Fluxo de Caixa Projetado', load: () => import('./fcpStore').then(m => m.useFcpStore as unknown as TenantStoreApi) },
   { key: 'plano-execucao', label: 'Planejamento de Execução', load: () => import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore as unknown as TenantStoreApi) },
   { key: 'servicos', label: 'Catálogo de Serviços', load: () => import('./servicosStore').then(m => m.useServicosStore as unknown as TenantStoreApi) },
   { key: 'company-settings', label: 'Configurações da Empresa', load: () => import('./companySettingsStore').then(m => m.useCompanySettingsStore as unknown as TenantStoreApi) },
@@ -626,6 +629,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().loadDemoData())
         import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().loadDemoData())
         import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().loadDemoData())
+        import('./fcpStore').then(({ useFcpStore }) => useFcpStore.getState().loadDemoData())
         import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().loadDemoData())
         // Predial (demo isolado): ativos/planos/OS + laudos do "Residencial Modelo".
         import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().loadDemoData())
@@ -685,6 +689,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./medicaoStore').then(({ useMedicaoStore }) => useMedicaoStore.getState().clearData())
             import('./medicaoBillingStore').then(({ useMedicaoBillingStore }) => useMedicaoBillingStore.getState().clearData())
             import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
+            import('./fcpStore').then(({ useFcpStore }) => useFcpStore.getState().clearData())
             import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().clearData())
             import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().clearData())
             import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().clearData())

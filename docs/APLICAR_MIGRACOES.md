@@ -71,6 +71,24 @@ linha a linha. Rodando três vezes: nenhum gatilho duplicado.
 `visualizador`, `zelador` e `morador`. Passa a exigir `diretor` ou `owner`. A leitura **por
 registro** continua liberada, senão o "Histórico" dentro de cada tela morre.
 
+### `20260830120000_fcp_planos` — o Fluxo de Caixa Projetado
+
+Cria `fcp_planos`: um plano é um documento de premissas por obra, com a produção realizada. **Só as
+entradas são gravadas** — semanal, mensal, econômico, viabilidade e capital são recalculados na
+hora. Guardar número calculado é convite para ele envelhecer e discordar da própria conta.
+
+⚠️ **Ela liga a auditoria em si mesma, e isso é regra para toda tabela nova daqui em diante.** A
+`20260829120000` aplica os gatilhos por VARREDURA do `information_schema` — e a varredura rodou
+naquele momento. Tabela criada depois nasce fora da auditoria, em silêncio. Por isso esta migração
+repete as três linhas (`updated_by`, `trg_updated_by`, `trg_auditoria`) para a própria tabela.
+
+⚠️ E **sem `deleted_at is null` na policy de SELECT**: com o filtro ali o soft delete nasceria
+quebrado (erro, não "0 linhas"). Foi a causa raiz de "apagar não funciona" em 75 tabelas.
+
+**Testada em Postgres 16 real, 10 casos**, incluindo: a auditoria pega a tabela nova, o
+`updated_by` é preenchido pelo banco, o soft delete **com WHERE** funciona, e o `status` fora de
+rascunho/enviado/aprovado é recusado.
+
 ### `20260829130000_org_wcr_saneamento` — o cliente novo
 
 Cria só a organização. **Não cria o primeiro usuário** — isso é competência do Supabase Auth, e

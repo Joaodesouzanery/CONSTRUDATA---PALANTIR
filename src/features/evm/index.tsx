@@ -21,6 +21,7 @@ import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/Ent
 import { DrePanel } from '@/features/financeiro/components/DrePanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
 import { ControleDeCaixaPanel } from '@/features/financeiro/components/ControleDeCaixaPanel'
+import { FcpPanel } from '@/features/financeiro/components/FcpPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
 import { BoletosPanel } from '@/features/financeiro/components/BoletosPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
@@ -47,6 +48,7 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
           // O Fluxo de Caixa aqui é o REALIZADO; o Projetado (FCP) entra ao lado dele, e cada um
           // diz qual é qual — é a mesma distinção entre medido e estimado que o Economia faz.
           { key: 'fluxo',    label: 'Fluxo de Caixa', render: () => <FluxoCaixaPanel /> },
+          { key: 'fcp',      label: 'Fluxo de Caixa Projetado', render: () => <FcpPanel /> },
           { key: 'caixa',    label: 'Controle de Caixa', render: () => <ControleDeCaixaPanel /> },
         ]} />
       )
