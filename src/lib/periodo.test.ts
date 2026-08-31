@@ -11,8 +11,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  deslocar, diasNoPeriodo, ehJanelaMovel, janelaDe, periodoDe, semanaDe, type Periodo,
+  contem, deslocar, diasNoPeriodo, ehJanelaMovel, janelaDe, periodoDe, semanaDe, trocarParaTipo,
+  type Periodo, type TipoPeriodo,
 } from './periodo'
+import { hojeLocalISO } from '@/lib/utils'
 
 // ─── Janelas móveis ───────────────────────────────────────────────────────────
 
@@ -127,4 +129,88 @@ test('periodoDe monta qualquer tipo sem estourar', () => {
     assert.ok(p.de <= p.ate, `${t}: ${p.de} > ${p.ate}`)
     assert.ok(p.rotulo.length > 0, `${t} sem rótulo`)
   }
+})
+
+// ─── Trocar de pílula — onde estava o defeito ─────────────────────────────────
+//
+// ⚠️ Esta seção não existia, e é por isso que os 13 testes acima passavam com o defeito em pé:
+// eles cobriam `periodoDe` e `deslocar`, que estavam sãos. Ninguém cobria a TROCA.
+
+test('⚠️ O DEFEITO: Trimestre → 3 meses → Hoje tem de terminar em HOJE', () => {
+  // A sequência exata do relato. Com `periodoDe(tipo, valor.de)`, o início do trimestre (01/07)
+  // virava o FIM da janela de 90 dias, e "Hoje" acabava em 03/04 — quatro meses e meio atrás.
+  const hoje = hojeLocalISO()
+  let p = periodoDe('hoje')
+  for (const tipo of ['trimestre', 'ultimos3meses', 'hoje'] as TipoPeriodo[]) {
+    p = trocarParaTipo(p, tipo)
+  }
+  assert.equal(p.tipo, 'hoje')
+  assert.equal(p.de, hoje)
+  assert.equal(p.ate, hoje)
+})
+
+test('⚠️ e a deriva não ACUMULA — cem cliques continuam ancorados em hoje', () => {
+  // O defeito piorava a cada clique. Se a correção fosse parcial, isto pegaria.
+  const hoje = hojeLocalISO()
+  const pilulas: TipoPeriodo[] = ['hoje', 'ultimos7', 'ultimos30', 'mes', 'trimestre', 'ultimos3meses']
+  let p = periodoDe('hoje')
+  for (let i = 0; i < 100; i++) p = trocarParaTipo(p, pilulas[i % pilulas.length])
+  assert.ok(contem(p, hoje), `depois de 100 cliques o período é ${p.de}..${p.ate}, e não contém ${hoje}`)
+})
+
+test('toda pílula de janela móvel termina hoje, venha de onde vier', () => {
+  const hoje = hojeLocalISO()
+  const origens: Periodo[] = [
+    periodoDe('mes', '2026-01-15'),
+    periodoDe('trimestre', '2025-04-01'),
+    { tipo: 'livre', de: '2020-01-01', ate: '2020-01-31', rotulo: 'Livre' },
+  ]
+  for (const origem of origens) {
+    for (const janela of ['hoje', 'ultimos7', 'ultimos30', 'ultimos3meses'] as TipoPeriodo[]) {
+      const p = trocarParaTipo(origem, janela)
+      assert.equal(p.ate, hoje, `${origem.rotulo} → ${janela} terminou em ${p.ate}`)
+    }
+  }
+})
+
+test('grade → grade PRESERVA onde a pessoa estava — quem olha março não volta para hoje', () => {
+  // É o comportamento que o comentário original queria, e que continua valendo.
+  const marco = periodoDe('mes', '2026-03-15')
+  const trimestre = trocarParaTipo(marco, 'trimestre')
+  assert.equal(trimestre.de, '2026-01-01', 'março está no 1º trimestre')
+  const semana = trocarParaTipo(marco, 'semana')
+  assert.ok(contem(semana, '2026-03-01'), 'a semana que contém o início de março')
+})
+
+test('⚠️ janela móvel → grade ancora no FIM, não no início', () => {
+  // "Últimos 3 meses" começa três meses atrás. Clicar em "Mês" e cair no mês de TRÊS MESES ATRÁS
+  // seria tão errado quanto o defeito antigo — o que a pessoa quer é o mês corrente.
+  const hoje = hojeLocalISO()
+  const janela = periodoDe('ultimos3meses')
+  assert.ok(janela.de < hoje.slice(0, 8) + '01', 'a janela realmente começa em outro mês')
+  const mes = trocarParaTipo(janela, 'mes')
+  assert.ok(contem(mes, hoje), `caiu em ${mes.rotulo}, que não contém hoje`)
+})
+
+test('o intervalo livre preserva as datas escolhidas à mão', () => {
+  const p = trocarParaTipo(periodoDe('mes', '2026-03-15'), 'livre')
+  assert.equal(p.tipo, 'livre')
+  assert.equal(p.de, '2026-03-01')
+  assert.equal(p.ate, '2026-03-31')
+})
+
+test('as setas continuam navegando — trocar de pílula é outra coisa', () => {
+  // A correção não pode ter travado a navegação: a seta PRECISA sair de hoje.
+  const hoje = hojeLocalISO()
+  const anterior = deslocar(periodoDe('ultimos7'), -1)
+  assert.ok(!contem(anterior, hoje), 'a seta para trás sai de hoje, e isso é o certo')
+  assert.equal(diasNoPeriodo(anterior), 7)
+})
+
+test('contem() responde as duas pontas, inclusivas', () => {
+  const p = janelaDe('ultimos7', 7, '2026-08-30')
+  assert.equal(contem(p, '2026-08-24'), true, 'o primeiro dia conta')
+  assert.equal(contem(p, '2026-08-30'), true, 'o último também')
+  assert.equal(contem(p, '2026-08-23'), false)
+  assert.equal(contem(p, '2026-08-31'), false)
 })

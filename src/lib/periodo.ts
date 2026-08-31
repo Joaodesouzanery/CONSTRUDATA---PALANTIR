@@ -138,19 +138,59 @@ export function janelaDe(tipo: TipoPeriodo, dias: number, fimISO: string): Perio
   return { tipo, de, ate: fimISO, rotulo }
 }
 
-export function periodoDe(tipo: TipoPeriodo, dataDeReferencia = hojeLocalISO()): Periodo {
+/**
+ * Monta um período do tipo pedido, ancorado numa data.
+ *
+ * ⚠️ **A âncora significa COISAS DIFERENTES nas duas famílias, e isso já causou um defeito:**
+ *
+ *  - **GRADE** → "a casa do calendário que CONTÉM esta data". `periodoDe('mes', '17/08')` = agosto.
+ *  - **JANELA MÓVEL** → "a janela que TERMINA nesta data". `periodoDe('ultimos7', '17/08')` =
+ *    11/08 a 17/08.
+ *
+ * Quem trocava de pílula passava `valor.de` (o INÍCIO do período atual) achando que a semântica
+ * era sempre "contém". Para a janela móvel isso virava "termine no início do anterior", e cada
+ * clique arrastava a âncora para trás, **acumulando**: Trimestre → 3 meses → Hoje levava de 31/08
+ * para 03/04.
+ *
+ * Por isso: **para trocar de granularidade, use `trocarParaTipo`**, que sabe a diferença. Esta
+ * função continua existindo para quem sabe qual das duas quer — `deslocar` e a montagem inicial.
+ */
+export function periodoDe(tipo: TipoPeriodo, ancora = hojeLocalISO()): Periodo {
   const dias = DIAS_DA_JANELA[tipo]
-  if (dias !== undefined) return janelaDe(tipo, dias, dataDeReferencia)
+  if (dias !== undefined) return janelaDe(tipo, dias, ancora)
   switch (tipo) {
-    case 'semana':    return semanaDe(dataDeReferencia)
-    case 'quinzena':  return quinzenaComoPeriodo(dataDeReferencia)
-    case 'mes':       return mesDe(dataDeReferencia)
-    case 'trimestre': return trimestreDe(dataDeReferencia)
-    case 'livre':     return { tipo: 'livre', de: dataDeReferencia, ate: dataDeReferencia, rotulo: 'Intervalo livre' }
+    case 'semana':    return semanaDe(ancora)
+    case 'quinzena':  return quinzenaComoPeriodo(ancora)
+    case 'mes':       return mesDe(ancora)
+    case 'trimestre': return trimestreDe(ancora)
+    case 'livre':     return { tipo: 'livre', de: ancora, ate: ancora, rotulo: 'Intervalo livre' }
     // As janelas móveis já saíram acima, no `DIAS_DA_JANELA`. O compilador não consegue estreitar
     // o union depois de uma checagem em tempo de execução, então o caminho é declarado aqui.
-    default:          return janelaDe(tipo, DIAS_DA_JANELA[tipo] ?? 1, dataDeReferencia)
+    default:          return janelaDe(tipo, DIAS_DA_JANELA[tipo] ?? 1, ancora)
   }
+}
+
+/**
+ * Trocar de granularidade sem perder onde a pessoa estava — e sem o defeito da âncora.
+ *
+ * **Grade → grade:** mantém o lugar. Quem olhava a semana de 17/08 e clica em "Mês" vai para
+ * agosto, não para o mês corrente.
+ *
+ * ⚠️ **Janela móvel → SEMPRE termina hoje.** "Últimos 7 dias" a partir de outra data não quer
+ * dizer nada: `últimos` é relativo a agora. Clicar na pílula é trocar de PERGUNTA, não navegar no
+ * tempo — quem navega são as setas, e para isso existe `deslocar`.
+ */
+export function trocarParaTipo(atual: Periodo, tipo: TipoPeriodo): Periodo {
+  if (ehJanelaMovel(tipo)) return periodoDe(tipo)
+  if (tipo === 'livre') return { tipo: 'livre', de: atual.de, ate: atual.ate, rotulo: 'Intervalo livre' }
+  // Da janela móvel para a grade, a âncora é o FIM (que é hoje) — o início da janela pode estar
+  // três meses atrás, e cair em maio ao clicar em "Mês" seria tão errado quanto o defeito antigo.
+  return periodoDe(tipo, ehJanelaMovel(atual.tipo) ? atual.ate : atual.de)
+}
+
+/** O período contém a data? Usado para saber se ele ainda vale para hoje. */
+export function contem(p: Periodo, dataISO: string): boolean {
+  return p.de <= dataISO && p.ate >= dataISO
 }
 
 /**

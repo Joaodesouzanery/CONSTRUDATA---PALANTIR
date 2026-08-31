@@ -8,7 +8,7 @@
 import { useEffect } from 'react'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { periodoDe, deslocar, periodoLivre, diasNoPeriodo, type Periodo, type TipoPeriodo } from '@/lib/periodo'
+import { periodoDe, deslocar, periodoLivre, diasNoPeriodo, trocarParaTipo, contem, type Periodo, type TipoPeriodo } from '@/lib/periodo'
 import { hojeLocalISO } from '@/lib/utils'
 
 const ROTULO: Record<TipoPeriodo, string> = {
@@ -55,7 +55,7 @@ export function PeriodoSelector({ valor, onChange, contexto, className, tipos = 
     if (valor.tipo === 'livre') return
     const hoje = hojeLocalISO()
     const foraDaLista = !tipos.includes(valor.tipo)
-    const naoContemHoje = valor.de > hoje || valor.ate < hoje
+    const naoContemHoje = !contem(valor, hoje)
     if (foraDaLista) onChange(periodoDe(tipos[0] === 'livre' ? 'hoje' : tipos[0]))
     else if (naoContemHoje) onChange(periodoDe(valor.tipo))
     // Só na montagem: depois disso, navegar para trás com as setas é o que a pessoa pediu.
@@ -63,11 +63,13 @@ export function PeriodoSelector({ valor, onChange, contexto, className, tipos = 
   }, [])
 
   function trocarTipo(tipo: TipoPeriodo) {
-    // Ao trocar de granularidade, o período novo é o que CONTÉM a data inicial do atual — assim
-    // "semana de 17/08" vira "agosto", e não "o mês em que estamos hoje". Quem estava olhando
-    // março não é jogado de volta para o mês corrente.
+    // ⚠️ `trocarParaTipo` existe por causa de um defeito real: aqui havia
+    // `periodoDe(tipo, valor.de)`, passando o INÍCIO do período atual como âncora. Para a grade
+    // isso está certo ("semana de 17/08" vira "agosto"), mas para janela móvel a âncora é o FIM —
+    // e a janela passava a terminar no início do período anterior. Cada clique arrastava a data
+    // para trás, acumulando: Trimestre → 3 meses → Hoje levava de 31/08 para 03/04.
     if (tipo === 'livre') { onChange(periodoLivre(valor.de, valor.ate)); return }
-    onChange(periodoDe(tipo, valor.de))
+    onChange(trocarParaTipo(valor, tipo))
   }
 
   return (
@@ -135,7 +137,10 @@ export function PeriodoSelector({ valor, onChange, contexto, className, tipos = 
 
       <span className="text-[11px] text-[#6b6b6b]">
         {valor.de.split('-').reverse().join('/')} a {valor.ate.split('-').reverse().join('/')} · {diasNoPeriodo(valor)} dia{diasNoPeriodo(valor) !== 1 ? 's' : ''}
+        {/* ⚠️ Avisa nos DOIS sentidos. Antes só o futuro acendia — um período PASSADO e descolado
+            ficava mudo, que é exatamente o caso em que a pessoa lê o número errado sem perceber. */}
         {valor.ate > hojeLocalISO() && <span className="text-[#fbbf24]"> · inclui dias que ainda não aconteceram</span>}
+        {valor.ate < hojeLocalISO() && <span className="text-[#fbbf24]"> · período encerrado, não inclui hoje</span>}
       </span>
 
       {contexto && <span className="text-[11px] text-[#a3a3a3]">{contexto}</span>}

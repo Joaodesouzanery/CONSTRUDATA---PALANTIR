@@ -51,13 +51,39 @@ export const ROTULO_ESTILO: Record<EstiloDeMapa, string> = {
 }
 
 /**
- * O OpenStreetMap puro, para os mapas pequenos de escolher coordenada.
+ * OpenStreetMap — o mapa base escolhido para a Torre de Controle.
  *
- * Não precisa de chave e é o único lugar onde ele ainda faz sentido: num seletor de ponto, o mapa
- * de ruas comum é mais legível do que o estilizado.
+ * ⚠️ **A política de uso deles é uma escolha de risco consciente, e ela tem exigências.**
+ * (https://operations.osmfoundation.org/policies/tiles/)
+ *
+ * O que a política diz, literalmente: *"Commercial services… should be especially aware that
+ * access may be withdrawn at any point."* Não existe limite numérico publicado — de propósito, para
+ * não criar a leitura "se N é demais, N−1 é permitido" — e o bloqueio é **sem aviso**. Os tiles são
+ * bancados por doação da comunidade.
+ *
+ * O que ela EXIGE, e que este código cumpre:
+ *  - **atribuição visível**, nunca escondida atrás de UI ou fora da tela;
+ *  - **zero prefetch** — buscar tile que o usuário não está olhando é proibido;
+ *  - **cache respeitado** (nunca `Cache-Control: no-cache`);
+ *  - **URL não chumbada no código**, para trocar de provedor sem atualizar o software — que é
+ *    exatamente o que este arquivo existe para fazer.
+ *
+ * ⚠️ E por isso existe `FALLBACK`: no dia em que o acesso for cortado, o mapa troca de provedor
+ * sozinho em vez de ficar em branco na tela do cliente.
+ *
+ * Sem subdomínio `{s}.`: a OSMF desencoraja desde o HTTP/2, e o host único já é servido por CDN
+ * com ponto de presença em Brasília.
  */
 export const OSM: CamadaDeMapa = {
   url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: CREDITO_OSM,
   maxZoom: 19,
 }
+
+/**
+ * Para onde o mapa cai se o provedor principal falhar.
+ *
+ * O Esri não pede chave e não tem política de caridade — serve de rede sem custo nenhum. Não é o
+ * padrão porque o cliente escolheu o visual do OSM; é o que impede a tela em branco.
+ */
+export const FALLBACK: CamadaDeMapa = BASE.ruas

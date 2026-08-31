@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import 'leaflet.markercluster'
-import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet/dist/leaflet.css'
 import { Image, MapPin, X } from 'lucide-react'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
 import { useShallow } from 'zustand/react/shallow'
 import type { ConstructionSite, Project, ProjectPhase } from '@/types'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
-import { BASE, ROTULOS } from '@/lib/basemaps'
+import { FALLBACK, OSM } from '@/lib/basemaps'
 
 type Severity = 'critical' | 'high' | 'medium' | 'ok'
 type Filter = 'all' | Severity
@@ -115,23 +113,43 @@ const SVG_CAPACETE =
  * ícone tem 28px: **quatro vezes menos largura**. O nome vai embaixo, numa linha estreita, e só
  * aparece quando há zoom suficiente para ele não colidir com o vizinho (`mostrarNome`).
  */
+/** Largura do balão do nome. O ícone continua com 28px; quem tem largura é o rótulo. */
+const LARGURA_ROTULO = 150
+const LARGURA_ICONE = 28
+
 function makeSiteIcon(site: ConstructionSite, selected: boolean, mostrarNome: boolean) {
   const color = SITE_STATUS_COLOR[site.status]
-  const label = site.name.length > 18 ? `${site.name.slice(0, 17)}…` : site.name
+  const label = site.name.length > 20 ? `${site.name.slice(0, 19)}…` : site.name
   const glow = selected ? `0 0 0 3px ${color}55, 0 0 12px ${color}90` : '0 2px 6px rgba(0,0,0,0.6)'
+
+  // ⚠️ O nome QUEBRAVA LETRA A LETRA — "BAS / E - / Parq / ue". Três causas somadas: o container
+  // flex tinha `width:28px` (a largura do capacete), o `max-width:96px` do span não expande nada
+  // (só limita, e o pai já era 28px), e faltava `white-space:nowrap`. Com 28px e fonte 11px cabem
+  // quatro caracteres por linha, e `overflow-wrap:anywhere` autorizava partir no meio da palavra.
+  //
+  // Agora a largura fica no ROTULO, o capacete tem a sua própria, e o texto não quebra nunca. O
+  // corte em 20 caracteres é o freio; a elipse diz que foi cortado.
   const nome = mostrarNome
-    ? `<span style="margin-top:3px;max-width:96px;text-align:center;color:#f5f5f5;font-size:11px;`
-      + `font-weight:600;font-family:system-ui,sans-serif;line-height:1.15;text-shadow:0 1px 3px #000,0 0 6px #000;`
-      + `overflow-wrap:anywhere;">${escapeHtml(label)}</span>`
+    ? `<span style="margin-top:4px;width:${LARGURA_ROTULO}px;text-align:center;color:#f5f5f5;font-size:11px;`
+      + `font-weight:600;font-family:system-ui,sans-serif;line-height:1.2;`
+      + `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`
+      + `text-shadow:0 1px 3px #000,0 0 6px #000,0 0 10px #000;">${escapeHtml(label)}</span>`
     : ''
+
+  const altura = mostrarNome ? 30 + 18 : 30
   return L.divIcon({
     className: '',
-    // Âncora na base do ícone: a ponta do capacete é que aponta o lugar, não o meio do rótulo.
-    iconAnchor: [14, 30],
+    // ⚠️ `iconSize` declarado: sem ele o Leaflet aplica o default [12,12] no wrapper, e o conteúdo
+    // transborda de um retângulo que não corresponde a nada. Com o rótulo largo, a âncora tem de
+    // ficar no CENTRO horizontal — senão o capacete desloca do ponto ao ligar o nome.
+    iconSize: [LARGURA_ROTULO, altura],
+    // Âncora na base do capacete: a ponta é que aponta o lugar, não o meio do rótulo.
+    iconAnchor: [LARGURA_ROTULO / 2, 30],
     html: `
-      <div style="display:inline-flex;flex-direction:column;align-items:center;width:28px;">
-        <div style="width:28px;height:28px;border-radius:50%;background:#1f2937ee;border:2px solid ${color};
-                    box-shadow:${glow};display:flex;align-items:center;justify-content:center;color:${color};">
+      <div style="display:flex;flex-direction:column;align-items:center;width:${LARGURA_ROTULO}px;pointer-events:none;">
+        <div style="width:${LARGURA_ICONE}px;height:${LARGURA_ICONE}px;border-radius:50%;background:#1f2937ee;border:2px solid ${color};
+                    box-shadow:${glow};display:flex;align-items:center;justify-content:center;color:${color};
+                    pointer-events:auto;cursor:pointer;">
           ${SVG_CAPACETE}
         </div>
         ${nome}
@@ -340,7 +358,6 @@ function MarkerLayer({
   const map = useMap()
   const projectMarkers = useRef<Map<string, L.Marker>>(new Map())
   const siteMarkers = useRef<Map<string, L.Marker>>(new Map())
-  const grupo = useRef<L.MarkerClusterGroup | null>(null)
 
   /**
    * O nome só aparece com zoom suficiente para caber.
@@ -357,32 +374,20 @@ function MarkerLayer({
   }, [map])
 
   /**
-   * Agrupamento: obras a poucos metros viram um círculo com o número delas, que se abre ao
-   * aproximar. Sem isto, o enquadramento automático resolveria o zoom mas não a sobreposição.
+   * ⚠️ O AGRUPAMENTO SAIU.
+   *
+   * Havia um círculo com o número de obras (`markerClusterGroup`) para resolver a sobreposição das
+   * oito obras de Brasília em zoom baixo. Foi removido a pedido: ele escondia justamente o que a
+   * tela existe para mostrar — quais obras, e onde.
+   *
+   * O que continua resolvendo a sobreposição: `EnquadrarAoAbrir` já abre o mapa com `fitBounds`
+   * nas obras, num zoom em que elas se separam, e o nome só aparece a partir do zoom 11.
+   *
+   * O marcador vai direto ao mapa (`marker.addTo(map)`) — o caminho alternativo já existia.
    */
-  useEffect(() => {
-    const g = L.markerClusterGroup({
-      maxClusterRadius: 45,
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      // Ícone no mesmo vocabulário do marcador: círculo escuro, borda laranja, número no meio.
-      iconCreateFunction: (cluster) => L.divIcon({
-        className: '',
-        iconSize: [34, 34],
-        html: `<div style="width:34px;height:34px;border-radius:50%;background:#1f2937ee;
-                 border:2px solid #f97316;box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;
-                 align-items:center;justify-content:center;color:#f5f5f5;font-size:13px;
-                 font-weight:700;font-family:system-ui,sans-serif;">${cluster.getChildCount()}</div>`,
-      }),
-    })
-    g.addTo(map)
-    grupo.current = g
-    return () => { try { g.remove() } catch { /* mapa já desmontado */ } grupo.current = null }
-  }, [map])
 
   const safeRemove = (marker: L.Marker) => {
     try {
-      grupo.current?.removeLayer(marker)
       marker.remove()
     } catch (error) {
       console.warn('[ControlMap] marker cleanup ignored', error)
@@ -408,7 +413,7 @@ function MarkerLayer({
           markers.get(row.id)!.setIcon(makeIcon(row))
         } else {
           const marker = L.marker([row.lat, row.lng], { icon: makeIcon(row) }).on('click', () => onSelect(row.id))
-          if (grupo.current) grupo.current.addLayer(marker); else marker.addTo(map)
+          marker.addTo(map)
           markers.set(row.id, marker)
         }
       })
@@ -511,7 +516,18 @@ export function ControlMap({
   // pessoa desligar.
   const [showSites, setShowSites] = useState(true)
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
-  const [tileError, setTileError] = useState(false)
+  /**
+   * ⚠️ O mapa base cai no reserva sozinho.
+   *
+   * O OpenStreetMap foi escolhido pelo visual, e a política dele diz textualmente que o acesso a
+   * serviço comercial **pode ser cortado a qualquer momento, sem aviso**. Sem esta troca, o dia em
+   * que isso acontecer é o dia em que o mapa da Torre fica branco na tela do cliente.
+   *
+   * Três tiles com erro bastam: um tile solto falha por rede, três seguidos é o provedor.
+   */
+  const [tilesComErro, setTilesComErro] = useState(0)
+  const usandoReserva = tilesComErro >= 3
+  const camada = usandoReserva ? FALLBACK : OSM
 
   // Derivações memoizadas: props/deps estáveis evitam o re-render em cascata que
   // fazia o mapa "piscar" (MarkerLayer re-sincronizava markers a cada render).
@@ -554,8 +570,9 @@ export function ControlMap({
   ], [projectsWithCoords, counts])
 
   const tileEventHandlers = useMemo(() => ({
-    loading: () => setTileError(false),
-    tileerror: () => setTileError(true),
+    // Um lote que carrega inteiro zera a contagem: falha passageira não derruba o provedor bom.
+    load: () => setTilesComErro(0),
+    tileerror: () => setTilesComErro((n) => n + 1),
   }), [])
   const handleProjectSelect = useCallback((id: string) => setSelectedProjectId((prev) => (prev === id ? null : id)), [])
   const handleSiteSelect = useCallback((id: string | null) => onSiteSelect?.(id), [onSiteSelect])
@@ -600,15 +617,15 @@ export function ControlMap({
       <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
         <MapContainer center={[-15.0, -52.0]} zoom={5} style={{ height: '100%', width: '100%', background: '#2c2c2c' }} zoomControl>
           <MapResizeHandler />
-          {/* Duas camadas: a base escura não tem texto, os rótulos vêm por cima. Uma só ficaria
-              ou sem nome de cidade nenhum, ou com o texto ilegível sobre o fundo. */}
+          {/* ⚠️ A atribuição é EXIGÊNCIA da política do OpenStreetMap, não cortesia: ela tem de
+              estar visível e não pode ficar escondida atrás de UI. O Leaflet a desenha no canto. */}
           <TileLayer
-            url={BASE.escuro.url}
-            attribution={BASE.escuro.attribution}
-            maxZoom={BASE.escuro.maxZoom}
+            key={usandoReserva ? 'reserva' : 'principal'}
+            url={camada.url}
+            attribution={camada.attribution}
+            maxZoom={camada.maxZoom}
             eventHandlers={tileEventHandlers}
           />
-          <TileLayer url={ROTULOS.escuro!.url} maxZoom={ROTULOS.escuro!.maxZoom} />
           <EnquadrarAoAbrir
             pontos={[...(showSites ? sitesVisiveis : []), ...(showProjects ? filteredProjects : [])]}
             selecionado={selectedSiteId ?? selectedProjectId}
@@ -624,9 +641,9 @@ export function ControlMap({
             onSiteSelect={handleSiteSelect}
           />
         </MapContainer>
-        {tileError && (
+        {usandoReserva && (
           <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-lg border border-[#525252] bg-[#2c2c2c]/90 px-3 py-2 text-xs text-[#d4d4d4] shadow-lg">
-            Mapa base indisponivel. Marcadores mantidos no fallback local.
+            O mapa do OpenStreetMap não respondeu — usando o mapa reserva. As obras continuam no lugar.
           </div>
         )}
         {selectedSite && (

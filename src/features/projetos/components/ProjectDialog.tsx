@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { useProjetosStore } from '@/store/projetosStore'
 import { projectInfoSchema, type ProjectInfoFormValues, type ProjectInfoFormInput } from '../schemas'
 import type { ProjectStatus } from '@/types'
+import { OSM } from '@/lib/basemaps'
 
 // Custom orange marker icon
 const orangeMarkerIcon = L.divIcon({
@@ -405,8 +406,9 @@ export function ProjectDialog() {
                     zoomControl={false}
                   >
                     <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                      url={OSM.url}
+                      maxZoom={OSM.maxZoom}
+                      attribution={OSM.attribution}
                     />
                     <MapClickHandler onMapClick={handleMapClick} />
                     {markerPos && <Marker position={markerPos} icon={orangeMarkerIcon} />}

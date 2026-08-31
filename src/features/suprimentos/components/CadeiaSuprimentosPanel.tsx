@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { AlertTriangle, Boxes, Building2, CheckCircle2, Factory, Filter, GitBranch, PackageCheck, Plus, Search, Store, Trash2, Truck, Users } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
+import { OSM } from '@/lib/basemaps'
 import {
   useSuprimentosStore,
   type SupplyChainAlertPriority,
@@ -224,7 +225,8 @@ function RedeCadeiaPanel() {
           </div>
           <div className="h-[455px]">
             <MapContainer center={center} zoom={6} style={{ height: '100%', width: '100%' }} className="leaflet-embedded">
-              <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <TileLayer attribution={OSM.attribution} url={OSM.url}
+                      maxZoom={OSM.maxZoom} />
               {filtered.map((node) => (
                 <Marker key={node.id} position={[node.latitude, node.longitude]} icon={createNodeIcon(node, node.id === selected?.id)} eventHandlers={{ click: () => setSelectedId(node.id) }}>
                   <Tooltip direction="top">{node.nome} - {node.material}</Tooltip>

@@ -118,7 +118,10 @@ export const useGestao360Store = create<Gestao360State>()(
         selectedProjectId: null,
         activeTab:         'dashboard',
         // A semana corrente é o padrão: é o ciclo da reunião de obra.
-        periodo:           periodoDe('semana'),
+        // ⚠️ `hoje`, e não `semana`: `semana` não está entre as pílulas do Gestão 360, então todo
+        // primeiro acesso caía no ramo de correção do seletor e saltava para `hoje` de qualquer
+        // jeito. Funcionava por acidente — agora é a intenção.
+        periodo:           periodoDe('hoje'),
         pendingSync:       [],
         syncStatus:        'idle',
         lastSyncedAt:      null,

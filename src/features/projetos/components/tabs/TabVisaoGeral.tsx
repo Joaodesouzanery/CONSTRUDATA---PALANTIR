@@ -7,6 +7,7 @@ import { cn, formatCurrencyCompact } from '@/lib/utils'
 import { StatCard } from '@/components/shared/StatCard'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { Project, ProjectPhase, ProjectPhaseStatus, ProjectStatus } from '@/types'
+import { OSM } from '@/lib/basemaps'
 
 // Custom orange marker icon (avoids CDN dependency for default Leaflet icons)
 const orangeMarkerIcon = L.divIcon({
@@ -144,8 +145,9 @@ export function TabVisaoGeral({ project }: { project: Project }) {
               scrollWheelZoom={false}
             >
               <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url={OSM.url}
+                      maxZoom={OSM.maxZoom}
+                attribution={OSM.attribution}
               />
               <Marker position={[project.lat, project.lng]} icon={orangeMarkerIcon} />
             </MapContainer>
