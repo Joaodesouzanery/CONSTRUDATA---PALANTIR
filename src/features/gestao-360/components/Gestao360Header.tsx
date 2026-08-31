@@ -88,6 +88,8 @@ export function Gestao360Header() {
         descricao: linha.description,
         valorBRL: linha.amountBRL,
         tipo: linha.type,
+        // A marca acompanha a linha até o papel: é lá que ela mais importa.
+        estimado: linha.estimado,
       }))
 
     return {

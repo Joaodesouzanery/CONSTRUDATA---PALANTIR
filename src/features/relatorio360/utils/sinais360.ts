@@ -179,6 +179,9 @@ export function useSinais360({ periodo, date, siteId }: EscopoDosSinais): { sina
   // ── Rede 360 ─────────────────────────────────────────────────────────────────
   const ocorrenciasAbertas = outages.filter((o) => o.status !== 'resolved').length
   const osAbertas = serviceOrders.filter((o) => ['pending', 'in_progress'].includes(o.status)).length
+  // Sem NENHUM registro, o módulo não está em uso — e zero seria uma afirmação falsa de "tudo em
+  // ordem". Com registro, mesmo que todos resolvidos, o zero é medido e vale.
+  const temRede360 = outages.length > 0 || serviceOrders.length > 0
 
   const latestPpc = weeklyPpcResults.at(-1)?.ppc ?? null
   const totalRdos = reportList.length + rdoList.length + sabespRdos.length
@@ -285,26 +288,46 @@ export function useSinais360({ periodo, date, siteId }: EscopoDosSinais): { sina
       tone: evmMetrics.CPI < 0.9 || evmMetrics.SPI < 0.9 ? 'danger' : evmMetrics.CPI < 1 || evmMetrics.SPI < 1 ? 'warn' : 'ok',
       escopo: 'acumulado',
     },
+    // ─────────────────────────────────────────────────────────────────────────
+    // ⚠️ OS TRÊS QUE MOSTRAVAM ZERO PARA SEMPRE
+    //
+    // Cada um por um motivo estrutural, não por a obra estar parada:
+    //  · Medição  — o store vive só no navegador de quem abriu; nunca sincroniza.
+    //  · Rede 360 — o módulo não tem rota no app; o dado só existe em Demonstração.
+    //  · Campo/PPC— idem, e o store nem tem ação de criar dia de calendário.
+    //
+    // Zero num cartão verde é pior do que ausência: ele afirma "está tudo bem" sobre algo que
+    // ninguém mediu. Passam a dizer o que são, em cinza, com o motivo — que é a regra que o
+    // `indicadores.ts` já segue: "Dado ausente é CINZA com '—', nunca verde".
+    // ─────────────────────────────────────────────────────────────────────────
     {
       label: 'Medição',
-      value: `${medicaoKpis.pctExec}%`,
-      sub: `${medicaoKpis.kmExec.toFixed(1)} km exec · ${medicaoKpis.kmPend.toFixed(1)} km pend`,
+      value: medicaoKpis.kmExec > 0 || medicaoKpis.kmPend > 0 ? `${medicaoKpis.pctExec}%` : '—',
+      sub: medicaoKpis.kmExec > 0 || medicaoKpis.kmPend > 0
+        ? `${medicaoKpis.kmExec.toFixed(1)} km exec · ${medicaoKpis.kmPend.toFixed(1)} km pend`
+        : 'sem dado — a Medição ainda não sincroniza com o servidor',
       icon: CheckCircle2,
-      tone: medicaoKpis.pctExec >= 70 ? 'ok' : medicaoKpis.pctExec >= 35 ? 'warn' : 'info',
+      tone: medicaoKpis.kmExec > 0 || medicaoKpis.kmPend > 0
+        ? (medicaoKpis.pctExec >= 70 ? 'ok' : medicaoKpis.pctExec >= 35 ? 'warn' : 'info')
+        : 'neutral',
       escopo: 'acumulado',
     },
     {
       label: 'Rede 360',
-      value: String(ocorrenciasAbertas + osAbertas),
-      sub: `${ocorrenciasAbertas} ocorrências · ${osAbertas} OS abertas`,
+      value: temRede360 ? String(ocorrenciasAbertas + osAbertas) : '—',
+      sub: temRede360
+        ? `${ocorrenciasAbertas} ocorrências · ${osAbertas} OS abertas`
+        : 'sem dado — o módulo não está disponível nesta versão',
       icon: RadioTower,
-      tone: metricTone(ocorrenciasAbertas + osAbertas, 1, 4),
+      tone: temRede360 ? metricTone(ocorrenciasAbertas + osAbertas, 1, 4) : 'neutral',
       escopo: 'acumulado',
     },
     {
       label: 'Campo / PPC',
       value: latestPpc === null ? '—' : `${latestPpc}%`,
-      sub: `${materiaisPendentes} materiais pendentes · última semana fechada`,
+      sub: latestPpc === null
+        ? 'sem dado — nenhuma semana de campo fechada'
+        : `${materiaisPendentes} materiais pendentes · última semana fechada`,
       icon: HardHat,
       tone: latestPpc === null ? 'neutral' : latestPpc >= 80 ? 'ok' : latestPpc >= 60 ? 'warn' : 'danger',
       escopo: 'acumulado',

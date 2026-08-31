@@ -11,7 +11,10 @@ import { useMedicaoStore } from '@/store/medicaoStore'
 import { useEvmStore } from '@/store/evmStore'
 import type { BudgetLineType, Project } from '@/types'
 import { mergeProjectsWithSites } from '../utils/siteProjects'
-import { LINE_META, buildLedger } from '../utils/custoLedger'
+import { LINE_META, buildLedger, quantoEhEstimado } from '../utils/custoLedger'
+
+/** Fração do orçamento restante que o EAC assume que vira custo. Ver o comentário no uso. */
+const FATOR_PROJECAO_EAC = 0.35
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { dentroDoPeriodo } from '@/lib/periodo'
@@ -209,9 +212,18 @@ export function JobCostingPanel() {
   const earnedEvents = ledger.filter((e) => e.type === 'earned').length
   const spent = actualCost > 0 ? actualCost : lines.reduce((s, l) => s + l.spent, 0)
   const remainingBudget = Math.max(0, budgeted - spent)
-  const eac = Math.max(lines.reduce((s, l) => s + l.projected, 0), spent + committedCost + remainingBudget * 0.35)
+  /**
+   * ⚠️ O `0,35` é um FATOR DE PROJEÇÃO, não uma medição — e não aparecia em lugar nenhum.
+   *
+   * Ele diz "do orçamento que ainda não foi gasto, assuma que 35% vira custo neste horizonte". É
+   * uma escolha, defensável ou não, mas quem lê o EAC precisa saber que ela existe. Fica nomeado
+   * aqui e declarado na tela, abaixo do número.
+   */
+  const eac = Math.max(lines.reduce((s, l) => s + l.projected, 0), spent + committedCost + remainingBudget * FATOR_PROJECAO_EAC)
   const variance = eac - budgeted
   const variancePct = budgeted > 0 ? (variance / budgeted) * 100 : 0
+
+  const estimativa = quantoEhEstimado(ledger)
 
   const actualByCategory = ledger
     .filter((entry) => entry.type === 'actual')
@@ -288,6 +300,16 @@ export function JobCostingPanel() {
               </span></>
             )}
           </p>
+          {/* ⚠️ Quanto do total NÃO é medição. Antes o razão somava nota fiscal com tarifa
+              inventada e apresentava um número só, como se tudo fosse real. */}
+          {estimativa.linhas > 0 && (
+            <p className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200">
+              <strong>{toCurrency(estimativa.valorBRL)}</strong> deste total
+              ({(estimativa.fracao * 100).toFixed(0)}%, em {estimativa.linhas} lançamento(s)) é
+              <strong> estimativa</strong>, não medição — equipe e equipamento de RDO sem valor/hora
+              cadastrado. Cadastre o salário em Mão de Obra para o número virar medido.
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {modulesInLedger.map((module) => (
               <span key={module} className="rounded-full border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[10px] text-[#a3a3a3]">
@@ -393,8 +415,17 @@ export function JobCostingPanel() {
                   <td className="px-3 py-2 text-xs font-semibold text-[#f5f5f5]">{entry.module}</td>
                   <td className="px-3 py-2 text-xs text-[#a3a3a3]">{entry.nucleo}</td>
                   <td className="px-3 py-2">
-                    <p className="text-xs text-[#f5f5f5]">{entry.description}</p>
-                    <p className="text-[10px] text-[#6b6b6b]">{entry.basis}</p>
+                    <p className="text-xs text-[#f5f5f5]">
+                      {entry.description}
+                      {/* ⚠️ A marca existe porque estas linhas iam para a tela e para o PDF da
+                          reunião misturadas com valor de nota fiscal, sem nada distinguindo. */}
+                      {entry.estimado && (
+                        <span className="ml-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-0.5 text-[9px] font-semibold text-amber-300">
+                          estimado
+                        </span>
+                      )}
+                    </p>
+                    <p className={`text-[10px] ${entry.estimado ? 'text-amber-300/70' : 'text-[#6b6b6b]'}`}>{entry.basis}</p>
                   </td>
                   <td className="px-3 py-2">
                     <span className="rounded-full border border-[#525252] bg-[#2c2c2c] px-2 py-0.5 text-[10px] text-[#a3a3a3]">

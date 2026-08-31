@@ -14,6 +14,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useMedicaoStore } from '@/store/medicaoStore'
 import { useEvmStore } from '@/store/evmStore'
+import { custoDaEquipeDoRdo, custoDoEquipamentoNoRdo } from './tarifaDoRdo'
 
 export const LINE_META: Record<BudgetLineType, { label: string; color: string }> = {
   labor: { label: 'Mao de Obra', color: '#3b82f6' },
@@ -37,6 +38,12 @@ export interface CostLedgerEntry {
   description: string
   amountBRL: number
   basis: string
+  /**
+   * ⚠️ `true` quando o valor NÃO é medição — veio de tarifa de referência, não de nota, contrato
+   * ou cadastro. A tela e o PDF marcam essas linhas; somá-las com as medidas sem dizer nada foi o
+   * defeito que este campo existe para impedir.
+   */
+  estimado?: boolean
 }
 
 const toCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -252,12 +259,12 @@ export function buildLedger(
   for (const report of rdo.rdos) {
     const reportProject = (report as { projectId?: string | null }).projectId
     if (!matchesProject(project, reportProject ?? report.local, includeUnscoped)) continue
-    const manpowerAmount =
-      report.manpower.foremanCount * 8 * 65 +
-      report.manpower.officialCount * 8 * 48 +
-      report.manpower.helperCount * 8 * 34 +
-      report.manpower.operatorCount * 8 * 58
-    if (manpowerAmount > 0) {
+    // ⚠️ Aqui havia R$ 65/48/34/58 por função e R$ 180/h de equipamento, chumbados no código —
+    // números que não eram o `hourlyRate` de ninguém, não eram configuráveis, não apareciam em
+    // tela, e iam para o PDF da reunião misturados com valor de nota fiscal. Agora `tarifaDoRdo`
+    // usa o cadastro quando ele existe e MARCA o que sobrou como referência.
+    const equipe = custoDaEquipeDoRdo(report.manpower, mao.workers)
+    if (equipe.valorBRL > 0) {
       addEntry(entries, {
         id: `rdo-labor-${report.id}`,
         date: report.date,
@@ -267,13 +274,14 @@ export function buildLedger(
         type: 'actual',
         category: 'labor',
         description: `Equipe RDO ${report.number}`,
-        amountBRL: manpowerAmount,
-        basis: 'Equipe diaria x 8h x tarifa padrao por funcao',
+        amountBRL: equipe.valorBRL,
+        basis: equipe.base,
+        estimado: equipe.estimado,
       })
     }
     for (const equip of report.equipment) {
-      const amount = equip.quantity * equip.hours * 180
-      if (amount <= 0) continue
+      const custo = custoDoEquipamentoNoRdo(equip.quantity, equip.hours)
+      if (custo.valorBRL <= 0) continue
       addEntry(entries, {
         id: `rdo-eq-${report.id}-${equip.id}`,
         date: report.date,
@@ -283,8 +291,9 @@ export function buildLedger(
         type: 'actual',
         category: 'equipment',
         description: `${equip.name} no RDO ${report.number}`,
-        amountBRL: amount,
-        basis: `${equip.quantity} un x ${equip.hours}h x tarifa referencia`,
+        amountBRL: custo.valorBRL,
+        basis: custo.base,
+        estimado: custo.estimado,
       })
     }
   }
@@ -340,4 +349,19 @@ export function buildLedger(
   }
 
   return entries.sort((a, b) => b.date.localeCompare(a.date))
+}
+
+
+/**
+ * Quanto do razão é estimativa, e não medição.
+ *
+ * ⚠️ A tela precisa disso para não apresentar um total como se fosse tudo medido. A regra do
+ * produto, que o Economia já segue: **estimado pode aparecer, desde que apareça como estimado.**
+ */
+export function quantoEhEstimado(entries: CostLedgerEntry[]): { valorBRL: number; linhas: number; fracao: number } {
+  const soDeCusto = entries.filter((e) => e.type === 'actual')
+  const total = soDeCusto.reduce((s, e) => s + e.amountBRL, 0)
+  const estimadas = soDeCusto.filter((e) => e.estimado)
+  const valorBRL = estimadas.reduce((s, e) => s + e.amountBRL, 0)
+  return { valorBRL, linhas: estimadas.length, fracao: total > 0 ? valorBRL / total : 0 }
 }

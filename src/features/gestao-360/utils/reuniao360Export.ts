@@ -37,6 +37,8 @@ export interface LinhaDeCusto {
   descricao: string
   valorBRL: number
   tipo: 'actual' | 'committed' | 'earned' | 'baseline'
+  /** ⚠️ Veio de tarifa de referência, não de medição. O papel PRECISA dizer isso. */
+  estimado?: boolean
 }
 
 export interface Reuniao360Data {
@@ -144,6 +146,16 @@ function blocoCustos(custos: LinhaDeCusto[]): string {
 
   const maiores = [...reais].sort((a, b) => b.valorBRL - a.valorBRL).slice(0, 25)
 
+  // ⚠️ Quanto do total NÃO é medição. Este papel vai para a reunião de diretoria, e até agora ele
+  // somava nota fiscal com tarifa inventada sem uma palavra distinguindo as duas.
+  const estimadas = reais.filter((c) => c.estimado)
+  const totalEstimado = estimadas.reduce((s, c) => s + c.valorBRL, 0)
+  const avisoEstimativa = estimadas.length === 0 ? '' : `
+  <p class="aviso"><strong>${brl(totalEstimado)}</strong> deste total
+  (${total ? ((totalEstimado / total) * 100).toFixed(0) : '0'}%, em ${estimadas.length} lançamento(s))
+  é <strong>estimativa</strong>, não medição: equipe e equipamento de RDO sem valor/hora cadastrado,
+  valorados por tarifa de referência. As linhas marcadas com <strong>*</strong> abaixo são essas.</p>`
+
   return `
   <table>
     <thead><tr><th>Categoria</th><th class="num">Valor</th><th class="num">% do total</th></tr></thead>
@@ -153,6 +165,7 @@ function blocoCustos(custos: LinhaDeCusto[]): string {
     </tbody>
     <tfoot><tr><td>Total</td><td class="num">${brl(total)}</td><td class="num">100%</td></tr></tfoot>
   </table>
+  ${avisoEstimativa}
 
   <h2>Maiores lançamentos<span class="cont">${maiores.length} de ${reais.length}</span></h2>
   <table>
@@ -161,7 +174,7 @@ function blocoCustos(custos: LinhaDeCusto[]): string {
       ${maiores.map((c) => `<tr>
         <td>${esc(fmtDataBR(c.data))}</td>
         <td>${esc(c.modulo)}</td>
-        <td>${esc(c.descricao)}</td>
+        <td>${esc(c.descricao)}${c.estimado ? ' <strong>*</strong>' : ''}</td>
         <td class="num">${brl(c.valorBRL)}</td>
       </tr>`).join('')}
     </tbody>
