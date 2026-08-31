@@ -3092,6 +3092,57 @@ export type EconomyEventStatus = 'detected' | 'validated' | 'dismissed' | 'repor
 export type EconomyReportStatus = 'draft' | 'sent' | 'archived'
 export type EconomyConfidence = 'low' | 'medium' | 'high'
 
+// ─── Linha de base MEDIDA (o período-espelho) ────────────────────────────────
+//
+// As contas vivem em `src/features/economia/utils/linhaDeBaseMedida.ts`, que também re-exporta
+// estas formas. Elas moram aqui porque `EconomyBaseline.medida` as guarda.
+
+/** Um mês do período-espelho, com o que o cliente já tem no controle dele. */
+export interface MesDaLinhaDeBase {
+  /** `yyyy-MM`. */
+  periodo: string
+  /** Quanto foi executado no mês, na unidade do contrato. */
+  quantidadeExecutada: number
+  /** Quanto custou — o que saiu, pelo controle do cliente. */
+  custoBRL: number
+  /** Homens-hora trabalhados no mês. Opcional: nem todo cliente registra. */
+  homensHora?: number
+}
+
+/**
+ * O que torna (ou não) os dois períodos comparáveis.
+ *
+ * ⚠️ **Isto é declarado ANTES de ver o resultado, e travado.** É a regra que impede o ajuste de
+ * virar a alavanca que produz o número desejado — e é a única razão de alguém de fora acreditar.
+ */
+export interface AjusteAcordado {
+  /** A unidade do que se compara: `m²`, `m`, `un`. Comparar m com m² não é comparação. */
+  unidade: string
+  /** Quais serviços entram. Vazio = todos, e a tela diz que isso é uma escolha. */
+  servicos: string[]
+  /**
+   * Correção de preço entre os dois períodos, em fração (0,08 = 8%).
+   * Sem ela, inflação vira "economia" — ou o contrário.
+   */
+  inflacao: number
+  /** O que mudou fora da plataforma no meio do caminho. Texto livre, obrigatório. */
+  ressalvas: string
+  /** Quem acordou, e quando. Depois disto, mudar o ajuste é um evento, não uma edição. */
+  acordadoPor: string
+  acordadoEm: string
+}
+
+export interface LinhaDeBaseMedida {
+  id: string
+  obraId: string
+  obraNome: string
+  meses: MesDaLinhaDeBase[]
+  ajuste: AjusteAcordado
+  /** De onde veio o dado. Some no papel se ninguém escrever. */
+  fonte: string
+  criadoEm: string
+}
+
 export interface EconomyBaseline {
   id: string
   projectId: string | null
@@ -3124,6 +3175,16 @@ export interface EconomyBaseline {
   baselineMeasurementErrorRatePercent?: number
   costOfCapitalMonthlyPercent?: number
   notes?: string
+  /**
+   * A linha de base MEDIDA — o periodo-espelho da mesma obra, antes da plataforma.
+   *
+   * Tudo o que esta acima nesta interface e premissa: alguem digitou um percentual e o motor
+   * multiplicou por uma constante. Isto aqui e outra coisa: sao meses medidos, com quantidade
+   * executada, custo incorrido e homens-hora, importados do controle que o cliente ja tinha.
+   *
+   * Fica dentro do `payload` JSONB de `economy_baselines` — sem coluna nova, sem migracao.
+   */
+  medida?: LinhaDeBaseMedida
   createdAt: string
   updatedAt: string
 }

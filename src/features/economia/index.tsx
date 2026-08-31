@@ -11,6 +11,7 @@ import {
   FileText,
   Gauge,
   RefreshCw,
+  Ruler,
   ShieldCheck,
   SlidersHorizontal,
   TrendingUp,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react'
 import { useEconomiaStore } from '@/store/economiaStore'
 import { useLpsStore } from '@/store/lpsStore'
-import type { EconomyBaseline, EconomyEvent, EconomyEventStatus, EconomyReport, EconomySourceModule } from '@/types'
+import type { EconomyBaseline, EconomyEvent, EconomyEventStatus, EconomyReport, EconomySourceModule, LinhaDeBaseMedida } from '@/types'
 import {
   brl,
   ECONOMY_CATEGORY_LABELS,
@@ -40,15 +41,20 @@ import {
   type TotaisPorOrigem,
 } from './utils/economiaEngine'
 import { retratoDaObra } from './utils/retratoDaObra'
+import { indicadoresDaProducao, janelaDeMeses, producaoDaPlataforma } from './utils/producaoDaPlataforma'
+import { compararComALinhaDeBase, fraseDoResultado } from './utils/linhaDeBaseMedida'
+import { LinhaDeBasePanel } from './components/LinhaDeBasePanel'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useRdoStore } from '@/store/rdoStore'
 import { printEconomyDossier, printEconomyReport } from './utils/economiaReportExport'
 
-type EconomiaTab = 'overview' | 'events' | 'baseline' | 'report' | 'qbr'
+type EconomiaTab = 'overview' | 'medida' | 'events' | 'baseline' | 'report' | 'qbr'
 
 const TABS: { id: EconomiaTab; label: string; icon: typeof Gauge }[] = [
   { id: 'overview', label: 'Prova de valor', icon: ShieldCheck },
+  { id: 'medida', label: 'Linha de base medida', icon: Ruler },
   { id: 'events', label: 'Eventos', icon: BadgeDollarSign },
   { id: 'baseline', label: 'Baseline', icon: SlidersHorizontal },
   { id: 'report', label: 'Relatorio mensal', icon: FileText },
@@ -71,10 +77,14 @@ export function EconomiaPage() {
   const workers = useMaoDeObraStore((s) => s.workers)
   const shifts = useMaoDeObraStore((s) => s.shifts)
   const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
+  const rdos = useRdoStore((s) => s.rdos)
   const [activeTab, setActiveTab] = useState<EconomiaTab>('overview')
   const [obra, setObra] = useState<string>('all')
   const [sourceFilter, setSourceFilter] = useState<EconomySourceModule | 'all'>('all')
   const [statusFilter, setStatusFilter] = useState<EconomyEventStatus | 'all'>('all')
+  /** A janela do lado 'depois' e a unidade comparada — vivem aqui porque a produção depende das duas. */
+  const [mesesDaJanela, setMesesDaJanela] = useState(3)
+  const [unidade, setUnidade] = useState('m²')
 
   useEffect(() => {
     if (store.baselines.length === 0) store.addBaseline()
@@ -180,6 +190,72 @@ export function EconomiaPage() {
     })
   }, [siteSelecionado, store.selectedPeriod, entries, workers, shifts, cltSettings])
 
+  /**
+   * O lado "depois" da linha de base medida.
+   *
+   * ⚠️ **Não é o mês selecionado, é uma JANELA.** Comparar um mês contra os seis do
+   * período-espelho compara sazonalidade, não desempenho — e `compararComALinhaDeBase` recusa
+   * quando os tamanhos diferem mais que o dobro. Por isso a janela é escolhida na tela, e o padrão
+   * são três meses terminando no período selecionado.
+   *
+   * O recorte de turnos é o ESTRITO, o mesmo do retrato: só o que está carimbado nesta obra. A
+   * regra generosa ("quem não tem obra entra em todas") serve para lista, não para uma conta em
+   * que o mesmo custo se repetiria inteiro em cada obra.
+   */
+  const janela = useMemo(() => janelaDeMeses(store.selectedPeriod, mesesDaJanela), [store.selectedPeriod, mesesDaJanela])
+
+  const producao = useMemo(() => {
+    const id = siteSelecionado?.id ?? ''
+    const daObra = new Set(workers.filter((w) => w.siteId === id).map((w) => w.id))
+    const shiftsDaObra = id ? shifts.filter((sh) => (sh.siteId != null ? sh.siteId === id : daObra.has(sh.workerId))) : []
+    return producaoDaPlataforma({ obraId: id, meses: janela, unidade, rdos, entries, shifts: shiftsDaObra })
+  }, [siteSelecionado?.id, janela, unidade, rdos, entries, shifts, workers])
+
+  /**
+   * A linha de base MEDIDA da obra — procurada pelo id da obra, **sem herdar a da carteira**.
+   *
+   * `baselineDaObra` cai na baseline geral quando a obra não tem a sua, e para as premissas isso é
+   * certo. Aqui seria errado: um período-espelho medido pertence a UMA obra, e emprestá-lo a outra
+   * mostraria o custo por m² de um canteiro no cabeçalho de outro.
+   */
+  const baselineDaObraPropria = useMemo(
+    () => (siteSelecionado ? store.baselines.find((b) => b.projectId === siteSelecionado.id) : undefined),
+    [store.baselines, siteSelecionado],
+  )
+  const linhaDeBaseMedida = baselineDaObraPropria?.medida ?? null
+
+  /**
+   * A comparação que a manchete usa — e ela olha só o que está SALVO.
+   *
+   * Não depende de nada que a aba da linha de base tenha na tela no momento: a janela tem o mesmo
+   * número de meses do período-espelho (é o que faz o corte de tamanho passar) e a unidade é a que
+   * foi acordada, não a que alguém está digitando agora. Rascunho não vira manchete.
+   */
+  const comparacaoSalva = useMemo(() => {
+    if (!linhaDeBaseMedida || !siteSelecionado || linhaDeBaseMedida.meses.length === 0) return null
+    const id = siteSelecionado.id
+    const daObra = new Set(workers.filter((w) => w.siteId === id).map((w) => w.id))
+    const shiftsDaObra = shifts.filter((sh) => (sh.siteId != null ? sh.siteId === id : daObra.has(sh.workerId)))
+    const medido = producaoDaPlataforma({
+      obraId: id,
+      meses: janelaDeMeses(store.selectedPeriod, linhaDeBaseMedida.meses.length),
+      unidade: linhaDeBaseMedida.ajuste.unidade,
+      rdos, entries, shifts: shiftsDaObra,
+    })
+    return {
+      c: compararComALinhaDeBase(linhaDeBaseMedida, indicadoresDaProducao(medido)),
+      unidade: linhaDeBaseMedida.ajuste.unidade,
+    }
+  }, [linhaDeBaseMedida, siteSelecionado, store.selectedPeriod, rdos, entries, shifts, workers])
+
+  const addBaseline = store.addBaseline
+  const updateBaseline = store.updateBaseline
+  const salvarLinhaDeBase = (medida: LinhaDeBaseMedida) => {
+    const alvo = baselineDaObraPropria
+      ?? addBaseline({ projectId: siteSelecionado?.id ?? null, projectName: siteSelecionado?.name ?? '' })
+    updateBaseline(alvo.id, { medida })
+  }
+
   const series = useMemo(() => monthlySeries(eventsForObra, 6), [eventsForObra])
   const currentPpc = useMemo(() => latestPpc(lpsActivities), [lpsActivities])
 
@@ -248,7 +324,22 @@ export function EconomiaPage() {
         return (
           <ProvaDeValorPanel
             summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt}
-            cobertura={cobertura} retrato={retrato}
+            cobertura={cobertura} retrato={retrato} medido={comparacaoSalva}
+          />
+        )
+      case 'medida':
+        return (
+          <LinhaDeBasePanel
+            obraId={siteSelecionado?.id ?? null}
+            obraNome={siteSelecionado?.name ?? ''}
+            producao={producao}
+            mesesDaJanela={mesesDaJanela}
+            setMesesDaJanela={setMesesDaJanela}
+            janela={janela}
+            linhaDeBase={linhaDeBaseMedida}
+            onSalvar={salvarLinhaDeBase}
+            unidade={unidade}
+            setUnidade={setUnidade}
           />
         )
       case 'events':
@@ -290,7 +381,7 @@ export function EconomiaPage() {
         return (
           <ProvaDeValorPanel
             summary={summary} series={series} currentPpc={currentPpc} lastScanAt={store.lastScanAt}
-            cobertura={cobertura} retrato={retrato}
+            cobertura={cobertura} retrato={retrato} medido={comparacaoSalva}
           />
         )
     }
@@ -391,6 +482,7 @@ function ProvaDeValorPanel({
   lastScanAt,
   cobertura,
   retrato,
+  medido,
 }: {
   summary: ReturnType<typeof summarizeEconomy>
   series: Array<{ period: string; validatedBRL: number }>
@@ -398,6 +490,7 @@ function ProvaDeValorPanel({
   lastScanAt: string | null
   cobertura: ReturnType<typeof coberturaDeObra>
   retrato: ReturnType<typeof retratoDaObra> | null
+  medido: { c: ReturnType<typeof compararComALinhaDeBase>; unidade: string } | null
 }) {
   const events = summary.events
   const baseline = summary.baseline
@@ -412,7 +505,7 @@ function ProvaDeValorPanel({
 
   return (
     <div className="space-y-6">
-      <HeroProof summary={summary} origem={totaisPorOrigem(events)} baselineConfirmada={baselineFoiConfirmada(baseline)} />
+      <HeroProof summary={summary} origem={totaisPorOrigem(events)} baselineConfirmada={baselineFoiConfirmada(baseline)} medido={medido} />
 
       {/* Quanto do mês tem obra conhecida. Sem isto, "SUPERA economizou R$ 38.400" esconde que
           outro tanto do mesmo mês não pôde ser atribuído a obra nenhuma. */}
@@ -489,20 +582,73 @@ function proofRank(event: EconomyEvent) {
   return event.status === 'validated' || event.status === 'reported' ? 1 : 0
 }
 
-function HeroProof({ summary, origem, baselineConfirmada }: {
+/**
+ * O cabeçalho da prova de valor.
+ *
+ * ─── ⚠️ A INVERSÃO QUE ESTE COMPONENTE FAZ, E POR QUÊ ─────────────────────────
+ * Até aqui a manchete — quatro a seis vezes maior que tudo o resto — era o total ESTIMADO: dado
+ * real multiplicado por constante fixa, vezes um formulário de premissas que nasce preenchido com
+ * números de exemplo. O rótulo dizia "estimativa" em letra miúda, e ninguém lê letra miúda embaixo
+ * de um número de sessenta pixels.
+ *
+ * Agora a manchete é **o que foi medido**: a comparação entre dois períodos reais da mesma obra.
+ * O total estimado não some — continua no cabeçalho, rotulado, num corpo menor, do lado. Quando
+ * não há nada medido, a manchete diz isso, em vez de promover a estimativa ao lugar vago.
+ */
+function HeroProof({ summary, origem, baselineConfirmada, medido }: {
   summary: ReturnType<typeof summarizeEconomy>
   origem: TotaisPorOrigem
   baselineConfirmada: boolean
+  medido: { c: ReturnType<typeof compararComALinhaDeBase>; unidade: string } | null
 }) {
+  const temMedido = !!medido && medido.c.impedimentos.length === 0
   return (
     <section className="relative overflow-hidden rounded-2xl border border-[#525252] bg-gradient-to-br from-[#1d2a23] via-[#242424] to-[#1f1f1f] p-6 sm:p-8">
       <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-emerald-500/10 blur-3xl" />
       <div className="relative">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300/80">
-          <BadgeDollarSign size={15} /> Potencial de perda evitada no período · estimativa
-        </p>
-        <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
-          <p className="text-4xl font-bold tabular-nums text-emerald-300 sm:text-5xl lg:text-6xl">{brl(summary.avoidedLossBRL)}</p>
+        {temMedido && medido ? (
+          <>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300/80">
+              <Ruler size={15} /> Medido — dois períodos reais da mesma obra
+            </p>
+            <p className="mt-3 max-w-3xl text-2xl font-bold leading-snug text-[#f5f5f5] sm:text-3xl">
+              {fraseDoResultado(medido.c, medido.unidade)}
+            </p>
+            <p className="mt-2 text-xs text-[#a3a3a3]">
+              {brl(medido.c.antes.custoPorUnidade ?? 0)}/{medido.unidade} ({medido.c.antes.meses} mês(es) antes)
+              {' → '}{brl(medido.c.depois.custoPorUnidade ?? 0)}/{medido.unidade} ({medido.c.depois.meses} mês(es) com a plataforma)
+              {medido.c.antes.hhPorUnidade !== null && medido.c.depois.hhPorUnidade !== null && (
+                <> · {medido.c.antes.hhPorUnidade.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}
+                  {' → '}{medido.c.depois.hhPorUnidade.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} HH/{medido.unidade}</>
+              )}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#a3a3a3]">
+              <Ruler size={15} /> Ainda não há resultado medido
+            </p>
+            <p className="mt-3 max-w-3xl text-xl font-semibold leading-snug text-[#f5f5f5] sm:text-2xl">
+              O número abaixo é estimativa, não medição.
+            </p>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-[#a3a3a3]">
+              Para ter um resultado medido, escolha uma obra e monte o período-espelho em
+              <b> Linha de base medida</b>: são dois períodos reais da mesma obra, comparados com um
+              critério acordado antes.
+              {medido && medido.c.impedimentos.length > 0 && (
+                <> Falta: {medido.c.impedimentos[0].toLowerCase()}</>
+              )}
+            </p>
+          </>
+        )}
+
+        <div className={`flex flex-wrap items-end gap-x-8 gap-y-3 ${temMedido ? 'mt-5 border-t border-white/10 pt-4' : 'mt-4'}`}>
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-[#a3a3a3]">Potencial de perda evitada · estimativa</p>
+            <p className={`mt-0.5 font-bold tabular-nums text-emerald-300 ${temMedido ? 'text-2xl' : 'text-3xl sm:text-4xl'}`}>
+              {brl(summary.avoidedLossBRL)}
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-x-8 gap-y-2 pb-1">
             <Stat icon={TrendingUp} label="Retorno estimado no mês" value={`${Math.round(summary.roiPercent)}%`} positive={summary.roiPercent >= 0} />
             <Stat label="Por R$ investido" value={`${summary.paybackRatio.toFixed(1)}x`} positive={summary.paybackRatio >= 1} />
