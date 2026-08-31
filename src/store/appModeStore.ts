@@ -94,7 +94,7 @@ const SNAPSHOT_KEY = 'cdata-user-snapshot'
 // All persist keys used by feature stores (user data that must be preserved)
 const STORE_KEYS = [
   'cdata-rdo', 'cdata-suprimentos', 'cdata-agenda', 'cdata-projetos',
-  'cdata-planejamento', 'cdata-planejamento-restricoes', 'cdata-quantitativos', 'cdata-relatorio360', 'cdata-bim',
+  'cdata-planejamento', 'cdata-planejamento-restricoes', 'cdata-quantitativos', 'cdata-relatorio360',
   'cdata-torre-controle', 'cdata-equipamentos', 'cdata-gestao-equipamentos',
   'cdata-preconstrucao', 'cdata-mao-de-obra', 'cdata-otimizacao-frota',
   'cdata-lps', 'cdata-evm', 'cdata-mapa-interativo', 'cdata-gestao-360',
@@ -199,7 +199,6 @@ async function restoreUserData() {
       import('./planejamentoStore').then(m => m.usePlanejamentoStore),
       import('./rdoStore').then(m => m.useRdoStore),
       import('./quantitativosStore').then(m => m.useQuantitativosStore),
-      import('./bimStore').then(m => m.useBimStore),
       import('./lpsStore').then(m => m.useLpsStore),
       import('./mapaInterativoStore').then(m => m.useMapaInterativoStore),
       import('./evmStore').then(m => m.useEvmStore),
@@ -276,7 +275,6 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'planejamento', label: 'Planejamento (Trechos)', load: () => import('./planejamentoStore').then(m => m.usePlanejamentoStore as unknown as TenantStoreApi) },
   { key: 'rdo', label: 'RDO', load: () => import('./rdoStore').then(m => m.useRdoStore as unknown as TenantStoreApi) },
   { key: 'quantitativos', label: 'Quantitativos', load: () => import('./quantitativosStore').then(m => m.useQuantitativosStore as unknown as TenantStoreApi) },
-  { key: 'bim', label: 'BIM', load: () => import('./bimStore').then(m => m.useBimStore as unknown as TenantStoreApi) },
   { key: 'lps', label: 'LPS / Lean', load: () => import('./lpsStore').then(m => m.useLpsStore as unknown as TenantStoreApi) },
   { key: 'mapa', label: 'Mapa Interativo', load: () => import('./mapaInterativoStore').then(m => m.useMapaInterativoStore as unknown as TenantStoreApi) },
   { key: 'evm', label: 'Financeiro (EVM)', load: () => import('./evmStore').then(m => m.useEvmStore as unknown as TenantStoreApi) },
@@ -616,7 +614,6 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().loadDemoData())
         import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().loadDemoData())
         import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().loadDemoData())
-        import('./bimStore').then(({ useBimStore }) => useBimStore.getState().loadDemoData())
         import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().loadDemoData())
         import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().loadDemoData())
         import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().loadDemoData())
@@ -676,7 +673,6 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./planejamentoStore').then(({ usePlanejamentoStore }) => usePlanejamentoStore.getState().clearData())
             import('./rdoStore').then(({ useRdoStore }) => useRdoStore.getState().clearData())
             import('./quantitativosStore').then(({ useQuantitativosStore }) => useQuantitativosStore.getState().clearData())
-            import('./bimStore').then(({ useBimStore }) => useBimStore.getState().clearData())
             import('./lpsStore').then(({ useLpsStore }) => useLpsStore.getState().clearData())
             import('./mapaInterativoStore').then(({ useMapaInterativoStore }) => useMapaInterativoStore.getState().clearData())
             import('./evmStore').then(({ useEvmStore }) => useEvmStore.getState().clearData())

@@ -2108,44 +2108,13 @@ export interface CustomBaseEntry {
 }
 
 // ─── BIM 3D/4D/5D ─────────────────────────────────────────────────────────────
-
-export interface BimSegment {
-  id:               string
-  vertices:         [number, number, number][]  // [x, y, z]
-  attributes:       Record<string, string | number>
-  trechoCode?:      string
-  itemId?:          string
-  lengthM:          number
-  avgDepthM:        number
-  diameter:         number    // mm
-  material:         string
-  unitCostBRL:      number
-  totalCostBRL:     number
-  constructionDate?: string   // yyyy-MM-dd (from 4D match)
-  phase?:           string
-  elementType?:     'pipe' | 'slab' | 'column' | 'wall' | 'beam'
-}
-
-export interface BimLayer {
-  id:         string
-  name:       string
-  visible:    boolean
-  color:      string
-  attribute?: string
-}
-
-export interface BimProject {
-  id:                  string
-  name:                string
-  type?:               'sanitation' | 'building' | 'generic'
-  segments:            BimSegment[]
-  layers:              BimLayer[]
-  uploadedAt:          string
-  shapefileSourceName: string
-}
-
-export type BimColorMode = 'default' | 'depth' | 'date' | 'cost' | 'diameter' | 'pressure'
-export type BimTab = 'viewer' | '4d' | '5d'
+//
+// O módulo foi removido em 31/08/2026. Os tipos (`BimSegment`, `BimLayer`, `BimProject`,
+// `BimColorMode`, `BimTab`) saíram junto — nada mais os usa.
+//
+// ⚠️ As TABELAS `bim_projects` e `bim_segments` continuam no Supabase, com RLS e histórico
+// exportável: remover a tela não apaga dado de ninguém. Elas só param de receber escrita. Por isso
+// os rótulos delas seguem em `src/lib/auditoria.ts` — o histórico precisa saber traduzi-las.
 
 // ─── LPS / Lean Construction ──────────────────────────────────────────────────
 

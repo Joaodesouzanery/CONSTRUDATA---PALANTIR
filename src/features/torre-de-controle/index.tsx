@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSearchParams } from 'react-router-dom'
-import { FolderKanban, Globe, Layers, Map, Wallet, type LucideIcon } from 'lucide-react'
+import { FolderKanban, Globe, Map, Wallet, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
@@ -18,10 +18,9 @@ import { RiskDialog }       from './components/RiskDialog'
 
 /* BIM e Mapa Interativo vivem como abas da Torre, mas continuam em chunks
    separados (Three.js/Forge e Leaflet só baixam quando a aba é aberta). */
-const BimPageLazy = lazy(() => import('@/features/bim').then((m) => ({ default: m.BimPage })))
 const MapaInterativoPageLazy = lazy(() => import('@/features/mapa-interativo').then((m) => ({ default: m.MapaInterativoPage })))
 
-type TorreTab = 'mapa' | 'obras' | 'projetos' | 'bim' | 'mapa-interativo'
+type TorreTab = 'mapa' | 'obras' | 'projetos' | 'mapa-interativo'
 
 const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
   { key: 'mapa',     label: 'Mapa Geral',       icon: Map },
@@ -31,7 +30,6 @@ const TORRE_TABS: { key: TorreTab; label: string; icon: LucideIcon }[] = [
   // detalhe dela.
   { key: 'obras',    label: 'Obras',            icon: Wallet },
   { key: 'projetos', label: 'Projetos',         icon: FolderKanban },
-  { key: 'bim',      label: 'BIM 3D/4D/5D',     icon: Layers },
   { key: 'mapa-interativo', label: 'Mapa Interativo', icon: Globe },
 ]
 
@@ -39,7 +37,9 @@ function parseTorreTab(value: string | null): TorreTab | null {
   // `carteira` e `detalhes` viraram sub-abas de `obras`. Link antigo continua chegando no lugar
   // certo em vez de cair no mapa em silêncio.
   if (value === 'carteira' || value === 'detalhes') return 'obras'
-  return value === 'mapa' || value === 'obras' || value === 'projetos' || value === 'bim' || value === 'mapa-interativo'
+  // O BIM saiu do produto. Link antigo cai no mapa em vez de numa aba que não existe.
+  if (value === 'bim') return 'mapa'
+  return value === 'mapa' || value === 'obras' || value === 'projetos' || value === 'mapa-interativo'
     ? value
     : null
 }
@@ -161,15 +161,6 @@ export function TorreDeControlePage() {
         {activeTab === 'projetos' && (
           <div className="flex h-full flex-col overflow-hidden">
             <ProjetosPage />
-          </div>
-        )}
-
-
-        {activeTab === 'bim' && (
-          <div className="h-full min-h-0 overflow-auto">
-            <Suspense fallback={<TabLoading />}>
-              <BimPageLazy />
-            </Suspense>
           </div>
         )}
 

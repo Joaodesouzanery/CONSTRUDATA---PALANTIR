@@ -19,7 +19,6 @@ import { useEvmStore } from '@/store/evmStore'
 import { useProjetosStore } from '@/store/projetosStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
-import { useBimStore } from '@/store/bimStore'
 import type { FrameworkAgreement, ItemEstoque, PlanTrecho } from '@/types'
 import type { ConsolidadoTrecho, MaterialItem, ResumoNucleo } from '@/data/mockPlanilhasConsolidadas'
 
@@ -372,7 +371,6 @@ export function InteligenciaSuprimentosPanel() {
   const projects = useProjetosStore((s) => s.projects)
   const nonConformities = useQualidadeStore((s) => s.nonConformities)
   const quantItems = useQuantitativosStore((s) => s.currentItems)
-  const bimProjects = useBimStore((s) => s.projects)
 
   const updatedAt = planilhaMetadata?.dataRef || todayIso
   const demands = useMemo<IntelligenceDemand[]>(() => {
@@ -437,7 +435,7 @@ export function InteligenciaSuprimentosPanel() {
   const moduleStatus = [
     { label: 'Planilhas', count: planilhaMateriais.length + planilhaTrechos.length + planilhaResumo.length },
     { label: 'Planejamento', count: trechos.length + derivedActivities.length },
-    { label: 'Quant/BIM', count: quantItems.length + bimProjects.reduce((sum, project) => sum + project.segments.length, 0) },
+    { label: 'Quantitativos', count: quantItems.length },
     { label: 'Medição/RDO', count: medicaoSegments.length + rdos.length },
     { label: 'EVM/Qualidade', count: (evmMetrics.BAC > 0 || evmMetrics.AC > 0 ? 1 : 0) + nonConformities.length },
     { label: 'Projetos', count: projects.length },

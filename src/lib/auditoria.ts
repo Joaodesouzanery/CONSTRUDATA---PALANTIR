@@ -14,8 +14,10 @@
 // O usuário não sabe o que é `labor_occurrences`. Ele sabe o que é Mão de Obra.
 const MODULOS: Record<string, [modulo: string, registro: string]> = {
   agenda_tasks:                       ['Agenda', 'tarefa'],
-  bim_projects:                       ['BIM', 'projeto'],
-  bim_segments:                       ['BIM', 'segmento'],
+  // ⚠️ O módulo BIM saiu do produto em 31/08/2026, mas as tabelas ficaram com o histórico. Estes
+  // rótulos continuam aqui para o log antigo não virar nome de tabela cru na tela de Auditoria.
+  bim_projects:                       ['BIM (removido)', 'projeto'],
+  bim_segments:                       ['BIM (removido)', 'segmento'],
   change_orders:                      ['Gestão 360', 'aditivo'],
   change_order_photos:                ['Gestão 360', 'foto de aditivo'],
   clt_settings:                       ['Mão de Obra', 'parâmetro CLT'],

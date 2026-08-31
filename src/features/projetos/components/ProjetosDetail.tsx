@@ -5,17 +5,18 @@ import { TabVisaoGeral }   from './tabs/TabVisaoGeral'
 import { TabPlanejamento } from './tabs/TabPlanejamento'
 import { TabExecucao }     from './tabs/TabExecucao'
 import { TabOrcamento }    from './tabs/TabOrcamento'
-import { TabVisualizacao } from './tabs/TabVisualizacao'
 import { TabDocumentos }   from './tabs/TabDocumentos'
 import { FolderOpen }      from 'lucide-react'
 
+// A aba "3D / 4D / 5D" saiu junto com o módulo BIM. Ela mostrava um prédio genérico de 20×15m
+// gerado a partir das fases do projeto — não o prédio de ninguém — e custos vindos de arquivo de
+// exemplo. Pior: ela GRAVAVA esse projeto sintético no banco a cada visita.
 const TABS = [
   'Visão Geral',
   'Planejamento',
   'Pré-Construção',
   'Execução',
   'Orçamento',
-  '3D / 4D / 5D',
   'Documentos',
 ]
 
@@ -67,8 +68,7 @@ export function ProjetosDetail() {
         )}
         {activeTab === 3 && <TabExecucao     project={project} />}
         {activeTab === 4 && <TabOrcamento    project={project} />}
-        {activeTab === 5 && <TabVisualizacao project={project} />}
-        {activeTab === 6 && <TabDocumentos   project={project} />}
+        {activeTab === 5 && <TabDocumentos   project={project} />}
       </div>
     </div>
   )

@@ -4,7 +4,7 @@
  */
 import { useState } from 'react'
 import {
-  Map, ZoomIn, ZoomOut, RotateCcw, Trash2, Save, FolderOpen,
+  Map, ZoomOut, RotateCcw, Trash2, Save, FolderOpen,
   Plus, Link, MousePointer, Scissors, Move, Building2,
   ArrowRightLeft, Upload, Download, Maximize2, BarChart2,
 } from 'lucide-react'
@@ -65,35 +65,6 @@ export function MapaHeader({
   const [showExport, setShowExport]     = useState(false)
   const [showTransform, setShowTransform] = useState(false)
 
-  function handleImportBim() {
-    import('@/store/bimStore').then(({ useBimStore }) => {
-      const bimState = useBimStore.getState()
-      const proj = bimState.project
-      if (!proj) { alert('Nenhum projeto BIM ativo. Abra um projeto em /bim primeiro.'); return }
-      const { addNode, addSegment } = useMapaInterativoStore.getState()
-      const BASE_LAT = -12.9714, BASE_LNG = -38.5014
-      const SCALE = 0.00001  // 1 unit ≈ ~1.1m
-
-      proj.segments.forEach((seg) => {
-        if (seg.vertices.length < 2) return
-        const [x1, , z1] = seg.vertices[0]
-        const [x2, , z2] = seg.vertices[seg.vertices.length - 1]
-        const n1 = { lat: BASE_LAT + z1 * SCALE, lng: BASE_LNG + x1 * SCALE, nodeType: 'junction' as const }
-        const n2 = { lat: BASE_LAT + z2 * SCALE, lng: BASE_LNG + x2 * SCALE, nodeType: 'endpoint' as const }
-        const id1 = crypto.randomUUID()
-        const id2 = crypto.randomUUID()
-        addNode({ ...n1 })
-        addNode({ ...n2 })
-        // addNode returns void, so we re-fetch last two added
-        const state = useMapaInterativoStore.getState()
-        const last2 = state.nodes.slice(-2)
-        if (last2.length === 2) {
-          addSegment({ fromNodeId: last2[0].id, toNodeId: last2[1].id, networkType: 'civil' as MapNetworkType, label: seg.trechoCode })
-        }
-        void id1; void id2
-      })
-    }).catch(() => alert('Erro ao acessar dados BIM.'))
-  }
 
   function handleImportPlanejamento() {
     import('@/store/planejamentoStore').then(({ usePlanejamentoStore }) => {
@@ -222,7 +193,6 @@ export function MapaHeader({
           <div className="w-px h-5 bg-[#484848] mx-1" />
 
           {/* Import BIM / Planejamento */}
-          <ToolBtn label="Importar BIM"    icon={<ZoomIn size={13} />}  onClick={handleImportBim} />
           <ToolBtn label="Import. Trechos" icon={<ZoomOut size={13} />} onClick={handleImportPlanejamento} />
 
           <div className="w-px h-5 bg-[#484848] mx-1" />

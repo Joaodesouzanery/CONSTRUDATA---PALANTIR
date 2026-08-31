@@ -81,7 +81,6 @@ async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<
     // aquela tela mostrava "Rotinas em dia" da empresa ANTERIOR.
     import('@/store/rotinasStore').then((m) => m.useRotinasStore),
     import('@/store/agendaStore').then((m) => m.useAgendaStore),
-    import('@/store/bimStore').then((m) => m.useBimStore),
     import('@/store/companySettingsStore').then((m) => m.useCompanySettingsStore),
     import('@/store/contractorStore').then((m) => m.useContractorStore),
     import('@/store/equipamentosStore').then((m) => m.useEquipamentosStore),
