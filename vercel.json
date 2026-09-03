@@ -10,11 +10,24 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon|app.html).+)",
+      "source": "/((?!assets/|api/|ocr/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon|app.html).+)",
       "destination": "/app.html"
     }
   ],
   "headers": [
+    {
+      "source": "/ocr/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [
@@ -38,7 +51,7 @@
       ]
     },
     {
-      "source": "/((?!assets/|api/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon).*)",
+      "source": "/((?!assets/|api/|ocr/|obras/|logos/|screenshots/|diagramas/|videos/|icons|favicon).*)",
       "headers": [
         {
           "key": "Cache-Control",

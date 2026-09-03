@@ -101,7 +101,7 @@ const STORE_KEYS = [
   'cdata-qualidade', 'cdata-medicao', 'cdata-medicao-billing',
   'cdata-medicao-unificada', 'cdata-medicao-assistida',
   'cdata-planejamento-mestre', 'cdata-operacao-campo', 'cdata-rede-360',
-  'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-rdo-sabesp',
+  'cdata-frota-veicular', 'cdata-financeiro', 'cdata-financeiro-titulos', 'cdata-notas-fiscais', 'cdata-rdo-sabesp',
   'cdata-company-settings', 'cdata-contractors', 'cdata-economia',
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro', 'cdata-rotinas', 'cdata-rateio-consumo',
@@ -212,6 +212,7 @@ async function restoreUserData() {
       import('./financeiroStore').then(m => m.useFinanceiroStore),
       import('./fcpStore').then(m => m.useFcpStore),
       import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore),
+      import('./notasFiscaisStore').then(m => m.useNotasFiscaisStore),
       import('./planoExecucaoStore').then(m => m.usePlanoExecucaoStore),
       import('./servicosStore').then(m => m.useServicosStore),
       import('./companySettingsStore').then(m => m.useCompanySettingsStore),
@@ -295,6 +296,7 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   { key: 'medicao-unificada', label: 'Medição Unificada', load: () => import('./medicaoUnificadaStore').then(m => m.useMedicaoUnificadaStore as unknown as TenantStoreApi) },
   { key: 'contractors', label: 'Empreiteiros / Faturas', load: () => import('./contractorStore').then(m => m.useContractorStore as unknown as TenantStoreApi) },
   { key: 'financeiro-titulos', label: 'Pagamentos e Cobranças', load: () => import('./financeiroTitulosStore').then(m => m.useFinanceiroTitulosStore as unknown as TenantStoreApi) },
+  { key: 'notas-fiscais', label: 'Notas Fiscais', load: () => import('./notasFiscaisStore').then(m => m.useNotasFiscaisStore as unknown as TenantStoreApi) },
   { key: 'rateio-consumo', label: 'Rateio de Consumo', load: () => import('./rateioConsumoStore').then(m => m.useRateioConsumoStore as unknown as TenantStoreApi) },
   { key: 'laudos', label: 'Compliance de Laudos', load: () => import('./laudosStore').then(m => m.useLaudosStore as unknown as TenantStoreApi) },
   { key: 'dias-sem-producao', label: 'Dias sem produção', load: () => import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore as unknown as TenantStoreApi) },
@@ -628,6 +630,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
         import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().loadDemoData())
         import('./fcpStore').then(({ useFcpStore }) => useFcpStore.getState().loadDemoData())
         import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().loadDemoData())
+        import('./notasFiscaisStore').then(({ useNotasFiscaisStore }) => useNotasFiscaisStore.getState().loadDemoData())
         // Predial (demo isolado): ativos/planos/OS + laudos do "Residencial Modelo".
         import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().loadDemoData())
         import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().loadDemoData())
@@ -687,6 +690,7 @@ export const useAppModeStore = create<AppModeState>((set) => ({
             import('./financeiroStore').then(({ useFinanceiroStore }) => useFinanceiroStore.getState().clearData())
             import('./fcpStore').then(({ useFcpStore }) => useFcpStore.getState().clearData())
             import('./financeiroTitulosStore').then(({ useFinanceiroTitulosStore }) => useFinanceiroTitulosStore.getState().clearData())
+            import('./notasFiscaisStore').then(({ useNotasFiscaisStore }) => useNotasFiscaisStore.getState().clearData())
             import('./manutencoesStore').then(({ useManutencoesStore }) => useManutencoesStore.getState().clearData())
             import('./laudosStore').then(({ useLaudosStore }) => useLaudosStore.getState().clearData())
             import('./diasSemProducaoStore').then(({ useDiasSemProducaoStore }) => useDiasSemProducaoStore.getState().clearData())

@@ -39,3 +39,11 @@ Microsoft/
 *.sw?
 
 .vercel
+
+# OCR do leitor de cupom (aba Nota Fiscal)
+# O núcleo WebAssembly e o worker são regenerados de node_modules pelo `prebuild`
+# (scripts/copiar-ocr.mjs) — 7,5 MB que não precisam viver no histórico.
+# ⚠️ O `por.traineddata.gz` FICA versionado de propósito: ele não está em
+# node_modules, vem da rede, e um build não pode depender do GitHub estar de pé.
+public/ocr/*.wasm.js
+public/ocr/worker.min.js

@@ -24,6 +24,8 @@ import { ControleDeCaixaPanel } from '@/features/financeiro/components/ControleD
 import { FcpPanel } from '@/features/financeiro/components/FcpPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
 import { BoletosPanel } from '@/features/financeiro/components/BoletosPanel'
+import { NotasFiscaisPanel } from '@/features/financeiro/components/NotasFiscaisPanel'
+import { NotasPainelPanel } from '@/features/financeiro/components/NotasPainelPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
 import { ManejoOrcamentoPanel } from '@/features/financeiro/components/ManejoOrcamentoPanel'
 
@@ -56,6 +58,13 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
       return <PagamentosPanel />
     case 'boletos':
       return <BoletosPanel />
+    case 'notas-fiscais':
+      return (
+        <SubTabHost tabs={[
+          { key: 'notas',  label: 'Notas',  render: () => <NotasFiscaisPanel /> },
+          { key: 'painel', label: 'Painel', render: () => <NotasPainelPanel /> },
+        ]} />
+      )
     case 'medicao':
       return (
         <SubTabHost tabs={[

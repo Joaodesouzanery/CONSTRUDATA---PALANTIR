@@ -89,6 +89,28 @@ quebrado (erro, não "0 linhas"). Foi a causa raiz de "apagar não funciona" em 
 `updated_by` é preenchido pelo banco, o soft delete **com WHERE** funciona, e o `status` fora de
 rascunho/enviado/aprovado é recusado.
 
+### `20260903120000_financeiro_notas` + `20260903120100_notas_fiscais_bucket` — a aba Nota Fiscal
+
+Cria `financeiro_notas` (a nota importada por foto) e o bucket privado `notas-fiscais`.
+
+⚠️ **A identidade é a chave de acesso.** O `id` vem pronto do cliente
+(`seededId(orgId,'nota-fiscal',chave44)`), então a própria PK impede duplicar: a mesma foto
+importada em dois celulares chega ao mesmo id e o segundo upsert regrava a mesma linha. Por isso
+**não** há índice único sobre `chave_acesso` — seria um segundo jeito de receber um 23505 sobre o
+mesmo fato. A chave só vira id depois de passar pelo dígito verificador.
+
+Repete os três da auditoria (`updated_by`, `trg_updated_by`, `trg_auditoria`), como toda tabela
+nova precisa, e a policy de SELECT vai **sem** `deleted_at is null`.
+
+Traz também `uniq_fin_entries_source_nota` — um lançamento por nota —, dentro de um bloco `do $$`
+que conta duplicatas antes e **não aborta** a migração se houver: um índice que falha não pode
+impedir a tabela de nascer.
+
+⚠️ Enquanto não for aplicada, a aba **funciona inteira no aparelho** (é local-first) e a fila fica
+em backoff — `42P01` está em `CODIGOS_AGUARDANDO_SERVIDOR` (`storeSync.ts`), então nada é
+descartado nem vira aviso na tela. Como o store é novo e tem fila própria, **não trava o sync dos
+outros módulos**.
+
 ### `20260830130000_auditoria_origem` — a integração se identifica no log
 
 Antes: quem escreve pela service role (webhook, script, Edge Function) não tem `auth.uid()`, e a

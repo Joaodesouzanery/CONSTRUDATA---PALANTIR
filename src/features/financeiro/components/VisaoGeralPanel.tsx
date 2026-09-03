@@ -235,8 +235,17 @@ function SaldoLine({ monthly }: { monthly: ReturnType<typeof monthlySeries> }) {
   )
 }
 
-function CategoryBars({ data, total, color, vazio }: {
-  data: { key: string; valor: number }[]; total: number; color: string; vazio?: React.ReactNode
+/**
+ * Barras por categoria. Exportada porque a aba Nota Fiscal usa a mesma — uma
+ * segunda cópia divergiria em silêncio na primeira vez que alguém mexesse aqui.
+ *
+ * ⚠️ `rotulo` existe porque o padrão é `catLabel`, que só conhece as 6 categorias
+ * oficiais. A Nota Fiscal também agrupa por ETIQUETA livre, e ali `catLabel`
+ * devolveria a chave crua.
+ */
+export function CategoryBars({ data, total, color, vazio, rotulo }: {
+  data: { key: string; valor: number }[]; total: number; color: string
+  vazio?: React.ReactNode; rotulo?: (k: string) => string
 }) {
   if (data.length === 0) return <>{vazio ?? <div className="text-[#6b6b6b] text-xs py-6 text-center">Sem dados.</div>}</>
   const max = Math.max(...data.map((d) => d.valor), 1)
@@ -245,7 +254,7 @@ function CategoryBars({ data, total, color, vazio }: {
       {data.map((d) => (
         <div key={d.key}>
           <div className="flex items-center justify-between text-[11px] mb-1">
-            <span className="text-white">{catLabel(d.key as never)}</span>
+            <span className="text-white">{rotulo ? rotulo(d.key) : catLabel(d.key as never)}</span>
             <span className="text-[#a3a3a3] tabular-nums">{fmtBRL(d.valor)} · {total > 0 ? ((d.valor / total) * 100).toFixed(0) : 0}%</span>
           </div>
           <div className="h-2.5 bg-[#2c2c2c] rounded-full overflow-hidden">

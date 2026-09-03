@@ -2587,6 +2587,7 @@ export type FinanceiroEvmTab =
   | 'resultados'
   | 'pagamentos'
   | 'boletos'
+  | 'notas-fiscais'
   | 'medicao'
   | 'plano-contas'
   | 'distribuicao'
@@ -2915,6 +2916,7 @@ export interface FinanceiroEntry {
   notas?:      string
   sourceRdoId?: string  // origem: RDO que gerou este lançamento (idempotência RDO→Financeiro)
   sourceTituloId?: string // origem: título cuja baixa gerou este lançamento (idempotência + rastreio)
+  sourceNotaId?: string   // origem: nota fiscal lançada. Mesmo papel do acima, outra porta.
   createdAt:   string
 
   // ── Controle de Caixa ──────────────────────────────────────────────────────
@@ -3063,6 +3065,96 @@ export interface RateioConsumo {
    *  soft-delete e a policy de update proíbe reviver uma linha com `deleted_at` preenchido. */
   cobrancaGeracao?: number
   createdAt:        string
+}
+
+// ─── Nota Fiscal (aba "Nota Fiscal" do Financeiro) ──────────────────────────
+//
+// Uma nota fiscal NAO e um titulo, e por isso nao mora em `financeiro_titulos`:
+// cupom nao tem vencimento, ja nasce pago, e o `PagamentosPanel` lista todos os
+// titulos sem filtro — centenas de cupons de restaurante entrariam la e nos KPIs
+// de "a vencer" e "vencidas". Tabela propria, `financeiro_notas`.
+//
+// ⚠️ A IDENTIDADE E A CHAVE DE ACESSO. O `id` e `seededId(orgId,'nota-fiscal',chave)`,
+// entao a propria PK impede duplicar: a mesma foto importada em dois celulares
+// chega ao mesmo id e o segundo upsert regrava a mesma linha. Nao ha indice unico
+// separado — seria um segundo jeito de receber um 23505 sobre o mesmo fato.
+
+export type NotaStatus = 'arquivada' | 'lancada' | 'cancelada'
+
+/**
+ * De onde veio o campo. Vai para a TELA, campo a campo — e essa e a regra que
+ * separa o que o sistema garante do que alguem afirmou.
+ *
+ *  `chave`    o QR, conferido pelo digito verificador. Certeza.
+ *  `ocr`      leitura da foto. Proposta, sempre confirmada por gente.
+ *  `manual`   digitado.
+ *  `sugerida` veio do historico do mesmo CNPJ, e a tela diz de quantas notas.
+ */
+export type OrigemDoCampo = 'chave' | 'ocr' | 'manual' | 'sugerida'
+
+export interface ItemDaNota {
+  descricao: string
+  valor:     number
+  origem:    OrigemDoCampo
+}
+
+export interface NotaFiscal {
+  /** `seededId(orgId, 'nota-fiscal', chaveAcesso)` — a identidade E a chave. */
+  id:            string
+  /** 44 digitos, com o DV ja conferido. Sem isso a nota nao entra. */
+  chaveAcesso:   string
+
+  // ── Derivados da chave ────────────────────────────────────────────────────
+  // Redundantes de proposito: filtrar e agrupar sem reparsear 44 digitos a cada
+  // render, e sem depender de o parser estar carregado.
+  cnpjEmitente:  string   // 14 digitos
+  modelo:        string   // '65' NFC-e · '55' NF-e
+  numero:        string
+  serie:         string
+  uf:            string
+  /** `yyyy-MM`, garantido pela chave. A data COMPLETA nao esta nela. */
+  competencia:   string
+
+  emitente?:     string   // do OCR ou digitado; casa com `Supplier.cnpj` quando existe
+  /** `yyyy-MM-dd`. Em conflito com a competencia da chave, a CHAVE manda. */
+  dataEmissao?:  string
+
+  // ── O que a pessoa confirmou ──────────────────────────────────────────────
+  /** Nunca gravado sem confirmacao humana, qualquer que seja a origem. */
+  valor:         number
+  valorOrigem:   OrigemDoCampo
+  /** O trecho cru que o OCR devolveu — a prova do que a maquina viu. */
+  valorLidoBruto?: string
+  tributosBRL?:  number
+  itens?:        ItemDaNota[]
+
+  // ── Classificacao ─────────────────────────────────────────────────────────
+  /** Uma das 6 oficiais. E ela que alimenta a DRE quando a nota e lancada. */
+  categoria:     SaidaCategoria
+  /** Etiqueta fina e livre, normalizada. So para o painel; NUNCA entra na DRE. */
+  etiqueta?:     string
+  /**
+   * ⚠️ Quando um HUMANO confirmou a categoria.
+   *
+   * So notas com este campo alimentam a sugestao por CNPJ. Sem essa regra, uma
+   * sugestao aceita por inercia vira evidencia de si mesma e um erro calcifica.
+   */
+  categoriaConfirmadaEm?: string
+
+  obraId?:       string
+  notas?:        string
+  /** Caminho no bucket `notas-fiscais`. So o caminho; a exibicao usa signed URL. */
+  fotoPath?:     string
+  fotoNome?:     string
+
+  status:        NotaStatus
+  /** O lancamento gerado. Vazio = arquivada, nunca lancada. */
+  entryId?:      string
+  lancadaEm?:    string
+  lancadaPor?:   string
+
+  createdAt:     string
+  createdBy?:    string
 }
 
 // Economia / ROI

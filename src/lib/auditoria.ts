@@ -43,6 +43,7 @@ const MODULOS: Record<string, [modulo: string, registro: string]> = {
   financeiro_impostos_nf:             ['Financeiro', 'imposto de nota'],
   financeiro_orcamentos:              ['Financeiro', 'orçamento'],
   financeiro_titulos:                 ['Financeiro', 'título'],
+  financeiro_notas:                   ['Financeiro', 'nota fiscal'],
   fleet_alerts:                       ['Frota', 'alerta'],
   fleet_drivers:                      ['Frota', 'motorista'],
   fleet_fines:                        ['Frota', 'multa'],
