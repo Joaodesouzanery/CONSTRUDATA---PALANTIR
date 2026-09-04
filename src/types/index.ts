@@ -375,6 +375,19 @@ export interface ObraContrato {
   periodoReferencia?: string
   dataSolicitacao?:  string
   /**
+   * A VIGÊNCIA do contrato — de quando até quando ele vale. `yyyy-MM-dd`.
+   *
+   * ⚠️ Não existia, e a falta dela era o buraco por trás de "entrada antiga confrontada com saída
+   * de agora": o Financeiro não tinha onde ler o "de X até Y" para recortar a janela. Havia
+   * `periodoReferencia`, mas é texto livre que ninguém nunca parseou.
+   *
+   * Campo OPCIONAL no payload jsonb, então **não precisa de migração**. Vazio, o sistema recorre a
+   * `ConstructionSite.startDate` / `expectedEnd`, que já existem e que o Financeiro nunca tinha
+   * lido — ver `vigenciaDaObra()` em `obraBudget.ts`.
+   */
+  vigenciaInicio?:   string
+  vigenciaFim?:      string
+  /**
    * @deprecated Abatimento percentual cego sobre o medido — a tentativa antiga de separar
    * material. Fica porque obras já cadastradas usam e removê-lo mudaria contrato existente;
    * para separar material, use `valorMaterial`.

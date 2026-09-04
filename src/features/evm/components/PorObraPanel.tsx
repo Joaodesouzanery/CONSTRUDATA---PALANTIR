@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react'
 import { Building2, ArrowDownCircle, ArrowUpCircle, Wallet, PiggyBank } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
-import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
+import { obraBacFromSite, vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import { FinanceiroFilterBar } from '@/features/financeiro/components/FinanceiroFilterBar'
 import { filterEntries, presetDePeriodo } from '@/features/financeiro/lib/financeiroCalc'
 import type { FinanceiroFilter } from '@/features/financeiro/lib/financeiroCalc'
@@ -42,6 +42,12 @@ export function PorObraPanel() {
    * com despesas de agosto. Agora nasce no mês corrente, como as outras.
    */
   const [filter, setFilter] = useState<FinanceiroFilter>(() => presetDePeriodo('mes'))
+
+  /** A obra desta tela vem do seletor próprio, não do filtro. */
+  const vigencia = useMemo(
+    () => (selectedId && selectedId !== '__none__' ? vigenciaDaObra(sites.find((s) => s.id === selectedId)) : null),
+    [selectedId, sites],
+  )
 
   const noPeriodo = useMemo(
     () => filterEntries(entries, { from: filter.from, to: filter.to }),
@@ -96,7 +102,7 @@ export function PorObraPanel() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
-      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} showObra={false} />
+      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} showObra={false} vigencia={vigencia} />
       {/* Header + filtro */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">

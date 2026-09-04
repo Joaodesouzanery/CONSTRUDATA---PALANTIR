@@ -5,6 +5,7 @@
 import { Filter, X } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ENTRADA_CATS, SAIDA_CATS, catLabel, presetDePeriodo } from '../lib/financeiroCalc'
+import type { VigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 
 const inputCls = 'bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60'
@@ -16,9 +17,15 @@ interface Props {
   showCategoria?: boolean
   /** A tela "Por Obra" tem seletor de obra próprio — dois na mesma barra confundem. */
   showObra?: boolean
+  /**
+   * A vigência da obra escolhida, quando há uma. Vira um atalho "Contrato".
+   *
+   * ⚠️ Só aparece quando existe — um botão que às vezes não faz nada é pior que botão nenhum.
+   */
+  vigencia?: VigenciaDaObra | null
 }
 
-export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCategoria = true, showObra = true }: Props) {
+export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCategoria = true, showObra = true, vigencia }: Props) {
   const sites = useTorreStore((s) => s.sites)
   const set = (patch: Partial<FinanceiroFilter>) => onChange({ ...value, ...patch })
   const cats = [
@@ -45,6 +52,23 @@ export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCate
             {label}
           </button>
         ))}
+        {/* O "de X até Y" do contrato. Recorta entrada e saída na MESMA janela — que é o ponto. */}
+        {vigencia && (
+          <button
+            type="button"
+            onClick={() => set({ from: vigencia.de, to: vigencia.ate })}
+            title={vigencia.origem === 'contrato'
+              ? `Vigência do contrato: ${vigencia.de.split('-').reverse().join('/')} a ${vigencia.ate.split('-').reverse().join('/')}`
+              : `O contrato não tem vigência preenchida — usando as datas da obra: ${vigencia.de.split('-').reverse().join('/')} a ${vigencia.ate.split('-').reverse().join('/')}`}
+            className={`px-2 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+              value.from === vigencia.de && value.to === vigencia.ate
+                ? 'bg-[#f97316] text-white border-[#f97316]'
+                : 'text-[#a3a3a3] bg-[#2c2c2c] border-[#525252] hover:text-white hover:border-[#f97316]/50'
+            }`}
+          >
+            {vigencia.origem === 'contrato' ? 'Contrato' : 'Período da obra'}
+          </button>
+        )}
       </div>
 
       {/* Intervalo livre */}

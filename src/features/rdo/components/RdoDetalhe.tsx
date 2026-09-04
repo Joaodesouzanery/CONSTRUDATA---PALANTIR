@@ -16,6 +16,8 @@ import { PhotoLightbox } from './PhotoLightbox'
 import { Section, Meta, Field, Chip, Empty } from './detailPrimitives'
 import { fmtDate, weatherIcon, weatherLabel, trechoStatusBadge } from './detailFormatters'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { formatarMetragem, somarMetragem } from '@/lib/unidadesMedida'
+import { unidadeDaLinha } from '../utils/producaoCompizzo'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { medidoAutoPorServico, calcServico, totaisContrato } from '@/features/torre-de-controle/utils/obraMedicao'
@@ -242,9 +244,21 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
           {/* Produção + RUP */}
           {(() => {
             const linhas = (cz.producao ?? []).filter((p) => (p.quantidade ?? '').trim() !== '' || (p.servico ?? '').trim() !== '')
-            const totalM2 = linhas.reduce((s, p) => s + parseLocaleNumber(p.quantidade), 0)
+            /**
+             * ⚠️ Aqui havia `totalM2` — a soma CRUA de todas as linhas, exibida com "m²" fixo.
+             *
+             * Metro linear de faixa, metro quadrado de piso e unidade de vaga PCD caíam no mesmo
+             * número, e o rótulo dizia m². Some 200 m de faixa com 800 m² de piso e você tem
+             * 1.000 de coisa nenhuma. `somarMetragem` separa por tipo e `formatarMetragem` mostra
+             * as PARCELAS — que é a regra que `@/lib/unidadesMedida` existe para impor.
+             */
+            const metragem = somarMetragem(
+              linhas.map((p) => ({ unidade: unidadeDaLinha(p), quantidade: parseLocaleNumber(p.quantidade) })),
+            )
             const horas = cz.horasTrabalhadas ?? 0
-            const rup = totalM2 > 0 && horas > 0 ? horas / totalM2 : null
+            // RUP é HH por metro QUADRADO. Com só faixa linear no dia, não existe RUP em m² —
+            // e mostrar um número ali seria dividir horas por metro e chamar de área.
+            const rup = metragem.area > 0 && horas > 0 ? horas / metragem.area : null
             return (
               <Section
                 title="Produção do Dia"
@@ -257,15 +271,17 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
                       <div key={`${p.servico}-${i}`} className="flex items-center gap-3 text-sm text-[#f5f5f5]">
                         <span className="flex-1">{p.servico || '—'}{p.planningActivityId && <span className="ml-2 text-[10px] text-[#6b6b6b]">→ planej.</span>}</span>
                         <span className="text-[#6b6b6b]">
-                          {p.quantidade || '0'} {p.unidade || 'm²'}
+                          {/* A unidade da LINHA — deduzida do nome quando o campo está vazio, que é
+                              o caso das linhas padrão ("Faixa Branca (m)"). Nunca "m²" fixo. */}
+                          {p.quantidade || '0'} {unidadeDaLinha(p) || ''}
                           {typeof p.quantidadePrevista === 'number' ? ` / ${p.quantidadePrevista} prev.` : ''}
                         </span>
                       </div>
                     ))}
-                    {totalM2 > 0 && (
+                    {(metragem.area > 0 || metragem.linear > 0 || metragem.outra > 0) && (
                       <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-[#525252] text-sm">
                         <span className="text-[#a3a3a3]">Total</span>
-                        <span className="text-[#f97316] font-semibold">{totalM2.toLocaleString('pt-BR')} m²</span>
+                        <span className="text-[#f97316] font-semibold">{formatarMetragem(metragem)}</span>
                       </div>
                     )}
                   </div>

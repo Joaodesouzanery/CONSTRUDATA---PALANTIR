@@ -30,6 +30,7 @@ import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/features/torre-de-controle/utils/obraMedicao'
 import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
+import { ehLinhaDeArea, unidadeDaLinha } from '../utils/producaoCompizzo'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
@@ -241,7 +242,7 @@ export function RdoCompizzoPanel() {
     // naquela atividade. Migramos vinculando a atividade a TODAS as linhas em m² (preserva a soma);
     // se não houver linha em m², vincula a 1ª linha.
     if (c0?.planningActivityId && !base.some((r) => r.planningActivityId)) {
-      const temM2 = base.some((r) => /m²|m2/i.test(r.servico))
+      const temM2 = base.some((r) => ehLinhaDeArea(r))   // pela UNIDADE, não pelo nome
       if (temM2) return base.map((r) => (/m²|m2/i.test(r.servico) ? { ...r, planningActivityId: c0.planningActivityId } : r))
       return base.map((r, i) => (i === 0 ? { ...r, planningActivityId: c0.planningActivityId } : r))
     }
@@ -419,10 +420,6 @@ export function RdoCompizzoPanel() {
   }
 
   // Infere a unidade a partir do texto do serviço ("(m²)", "(m)", "(un)"…) quando não informada.
-  function inferUnidade(servico: string): string | undefined {
-    const m = servico.match(/\(\s*(m²|m2|m|un|kg|l|h)\s*\)/i)
-    return m ? m[1].toLowerCase().replace('m2', 'm²') : undefined
-  }
   // Ao salvar: cada linha de produção com serviço e SEM vínculo CRIA (ou reusa por nome) uma
   // atividade no Planejamento da obra e se vincula — o sync depois avança o %. Precisa de obra.
   function buildProducaoFinal(): RdoCompizzoProducaoRow[] {
@@ -437,19 +434,22 @@ export function RdoCompizzoPanel() {
       if (!nome || (qtdDia <= 0 && meta <= 0)) return row
       const chave = norm(nome)
       const existente = obraAtividades.find((a) => norm(a.name) === chave)
-      if (existente) return { ...row, planningActivityId: existente.id, quantidadePrevista: existente.plannedQuantity ?? (meta || undefined) }
+      // ⚠️ `unidade: unidadeDaLinha(row)` em todos os retornos: a linha padrão traz a unidade
+      // DENTRO do nome ("Faixa Branca (m)") e o campo vem vazio. Sem gravar de volta, a tela e o
+      // PDF caíam num "m²" literal e metro linear virava metro quadrado.
+      if (existente) return { ...row, unidade: unidadeDaLinha(row), planningActivityId: existente.id, quantidadePrevista: existente.plannedQuantity ?? (meta || undefined) }
       // Outra linha do MESMO save já criou esta atividade? Reusa (evita duplicata; a soma vai p/ uma só).
       const jaCriada = criadasNesteSave.get(chave)
-      if (jaCriada) return { ...row, planningActivityId: jaCriada, quantidadePrevista: meta || undefined }
+      if (jaCriada) return { ...row, unidade: unidadeDaLinha(row), planningActivityId: jaCriada, quantidadePrevista: meta || undefined }
       const id = addActivity({
         wbsCode: '', name: nome, parentId: null, level: 1,
         plannedStart: data || today, plannedEnd: data || today, trendStart: data || today, trendEnd: data || today,
         durationDays: 1, percentComplete: 0, status: 'not_started', isMilestone: false,
-        obraId: obraSiteId, plannedQuantity: meta > 0 ? meta : qtdDia, unidade: row.unidade || inferUnidade(nome),
+        obraId: obraSiteId, plannedQuantity: meta > 0 ? meta : qtdDia, unidade: unidadeDaLinha(row),
         operationalKey: `|${nome}`.toLowerCase(),
       })
       criadasNesteSave.set(chave, id)
-      return { ...row, planningActivityId: id, quantidadePrevista: meta > 0 ? meta : qtdDia }
+      return { ...row, unidade: unidadeDaLinha(row), planningActivityId: id, quantidadePrevista: meta > 0 ? meta : qtdDia }
     })
   }
 

@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Building2 } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
 import {
   filterEntries, monthlySeries, catLabel, fmtBRL, fmtBRLcompact, fmtPct, monthLabel, num, presetDePeriodo,
@@ -32,6 +33,12 @@ export function VisaoGeralPanel() {
     return (id?: string) => (id ? (m.get(id) ?? 'Obra desconhecida') : 'Sem obra')
   }, [sites])
 
+  /** A vigência da obra escolhida no filtro — vira o atalho "Contrato" na barra. */
+  const vigencia = useMemo(
+    () => (filter.obraId ? vigenciaDaObra(sites.find((s) => s.id === filter.obraId)) : null),
+    [filter.obraId, sites],
+  )
+
   const filtered = useMemo(() => filterEntries(entries, filter), [entries, filter])
   const monthly = useMemo(() => monthlySeries(filtered), [filtered])
 
@@ -48,7 +55,7 @@ export function VisaoGeralPanel() {
 
   return (
     <div className="p-6 space-y-5 overflow-auto">
-      <FinanceiroFilterBar value={filter} onChange={setFilter} />
+      <FinanceiroFilterBar value={filter} onChange={setFilter} vigencia={vigencia} />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

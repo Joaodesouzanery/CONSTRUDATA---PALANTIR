@@ -52,9 +52,21 @@ export function AbaResumo({ contrato, valores, subtotais, salvar }: {
           <Campo label="Aditivo"          valor={rascunho.numeroAditivo}     onChange={(v) => set({ numeroAditivo: v })} />
           <Campo label="Objeto"           valor={rascunho.objetoAditivo}     onChange={(v) => set({ objetoAditivo: v })} className="sm:col-span-2" />
           <Campo label="Local"            valor={rascunho.local}             onChange={(v) => set({ local: v })} />
-          <Campo label="Vigência"         valor={rascunho.periodoReferencia} onChange={(v) => set({ periodoReferencia: v })} />
+          <Campo label="Período de referência" valor={rascunho.periodoReferencia} onChange={(v) => set({ periodoReferencia: v })} placeholder="texto livre, como sempre foi" />
           <Campo label="Medição nº"       valor={rascunho.numeroMedicao}     onChange={(v) => set({ numeroMedicao: v })} />
+          {/* ⚠️ Vigência em DATA, não em texto.
+              O campo "Vigência" daqui era o `periodoReferencia`, texto livre que nenhuma tela
+              nunca leu. Com estas duas datas, o Financeiro passa a poder recortar entradas e
+              saídas na janela do contrato — que era o buraco por trás de "entrada antiga
+              confrontada com saída de agora". Vazias, o sistema recorre às datas da obra. */}
+          <Campo label="Vigência — início" tipo="date" valor={rascunho.vigenciaInicio} onChange={(v) => set({ vigenciaInicio: v || undefined })} />
+          <Campo label="Vigência — fim"    tipo="date" valor={rascunho.vigenciaFim}    onChange={(v) => set({ vigenciaFim: v || undefined })} />
         </div>
+        <p className="text-[10px] text-[#6b6b6b]">
+          A vigência alimenta o atalho <b>Contrato</b> dos filtros do Financeiro: com ela preenchida,
+          entradas e saídas passam a ser olhadas no mesmo período. Sem ela, o sistema usa as datas de
+          início e fim da obra.
+        </p>
 
         <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-2.5">
           <p className={`mb-2 text-[11px] ${TXT.normal}`}>

@@ -7,6 +7,8 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Settings2, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
 import {
   filterEntries, computeDre, resolveDreLine, monthsOf, monthLabel, fmtBRL, catLabel,
@@ -49,6 +51,13 @@ export function DrePanel() {
 
   // A DRE ignora o filtro de tipo/categoria (precisa de receitas e despesas juntas);
   // respeita período e obra.
+  const sites = useTorreStore((s) => s.sites)
+  /** A vigência da obra escolhida — o atalho "Contrato" da barra. */
+  const vigencia = useMemo(
+    () => (filter.obraId ? vigenciaDaObra(sites.find((s) => s.id === filter.obraId)) : null),
+    [filter.obraId, sites],
+  )
+
   const filtered = useMemo(
     () => filterEntries(entries, { from: filter.from, to: filter.to, obraId: filter.obraId }),
     [entries, filter.from, filter.to, filter.obraId],
@@ -75,7 +84,7 @@ export function DrePanel() {
 
   return (
     <div className="p-6 space-y-4 overflow-auto">
-      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} />
+      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} vigencia={vigencia} />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

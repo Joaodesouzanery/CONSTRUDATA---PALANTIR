@@ -4,7 +4,7 @@
  * bonificação por colaborador = R$/m² × área; bônus diário = total ÷ dias corridos.
  */
 import type { PlanoAtividade, PlanoExecucao, RDO, WorkerAbsence } from '@/types'
-import { parseLocaleNumber } from '@/lib/numberFormat'
+import { areaExecutada } from '@/features/rdo/utils/producaoCompizzo'
 
 export const WEEKDAY_SHORT = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB']
 
@@ -231,8 +231,12 @@ export function m2ExecutadoNoPeriodo(
   rdos: RDO[],
 ): number {
   return rdosDoPlano(p, rdos).reduce((sum, r) => {
-    const linhas = (r.compizzo?.producao ?? []).filter((row) => /m²|m2/i.test(row.servico))
-    return sum + linhas.reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0)
+    /**
+     * ⚠️ Filtrava por REGEX NO NOME do serviço. "Retirada de Piso Epoxi Antigo" — 750 m² de
+     * verdade, com unidade m² lançada — não casava com `/m²|m2/`, e ficava fora do executado, do
+     * progresso, do ritmo E do RUP. O nome do serviço não é a unidade dele.
+     */
+    return sum + areaExecutada(r.compizzo?.producao)
   }, 0)
 }
 
@@ -244,9 +248,7 @@ export function m2ExecutadoEmData(
 ): number {
   return rdosDoPlano(p, rdos)
     .filter((r) => (r as { date?: string }).date === date)
-    .reduce((sum, r) => sum + (r.compizzo?.producao ?? [])
-      .filter((row) => /m²|m2/i.test(row.servico))
-      .reduce((s, row) => s + parseLocaleNumber(row.quantidade), 0), 0)
+    .reduce((sum, r) => sum + areaExecutada(r.compizzo?.producao), 0)
 }
 
 /** Meta de m² do dia = produção diária da atividade cujo nome casa com o texto do dia. */

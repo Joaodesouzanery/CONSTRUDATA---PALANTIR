@@ -17,6 +17,9 @@ import {
   type LocalRdoSabespRecord,
 } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { AlertasRdoHoje } from './AlertasRdoHoje'
+import { formatarMetragem, somarMetragem } from '@/lib/unidadesMedida'
+import { parseLocaleNumber } from '@/lib/numberFormat'
+import { linhasComQuantidade, unidadeDaLinha } from '../utils/producaoCompizzo'
 
 const STATUS_LABEL: Record<RdoTrechoStatus, string> = {
   not_started: 'Não Iniciado',
@@ -315,18 +318,66 @@ export function DashboardPanel() {
     .filter((service) => isLinearMeterUnit(service.unit))
     .reduce((sum, service) => sum + service.quantity, 0)
 
+  /**
+   * ⚠️ A PRODUÇÃO DO COMPIZZO ENTRA AQUI, e antes não entrava.
+   *
+   * Este painel não continha a palavra "compizzo" uma única vez: somava `rdo.trechos[]` e
+   * `rdo.services[]`, que o formulário Compizzo grava VAZIOS de propósito (o dado real vai para
+   * `rdo.compizzo.producao[]`). Resultado: um RDO com 750 m² finalizado no ar, e a tela dizendo
+   * "Metros Executados 0,00 · Serviços Executados 0 · Progresso Geral 0,0%". Outros cinco arquivos
+   * do módulo já liam o lugar certo; só o Dashboard tinha ficado para trás.
+   *
+   * A metragem sai separada por tipo — nunca um total que some metro com metro quadrado.
+   */
+  const producaoCompizzo = useMemo(
+    () => somarMetragem(
+      rdos.flatMap((r) => (r.compizzo?.producao ?? [])
+        .map((linha) => ({ unidade: unidadeDaLinha(linha), quantidade: parseLocaleNumber(linha.quantidade) }))),
+    ),
+    [rdos],
+  )
+  /** Meta lançada nas linhas de produção do Compizzo — é o "previsto" que o Dashboard não via. */
+  const previstoCompizzo = useMemo(
+    () => rdos.reduce((sum, r) => sum + (r.compizzo?.producao ?? [])
+      .reduce((s, linha) => s + (Number(linha.quantidadePrevista) || 0), 0), 0),
+    [rdos],
+  )
+
   const totalPlannedFromPlanning = planejamentoTrechos.reduce((sum, trecho) => sum + (Number(trecho.lengthM) || 0), 0)
   const totalPlannedFromRdo = trechos.reduce((sum, trecho) => sum + trecho.planned, 0)
-  const totalPlanned = totalPlannedFromPlanning > 0 ? totalPlannedFromPlanning : totalPlannedFromRdo
+  const totalPlanned = totalPlannedFromPlanning > 0
+    ? totalPlannedFromPlanning
+    : (totalPlannedFromRdo + previstoCompizzo)
   const regularExecutedMeters = trechos.reduce((sum, trecho) => sum + trecho.executed, 0)
-  const totalExecuted = regularExecutedMeters + sabespLinearMeters
+  const executadoCompizzo = producaoCompizzo.area + producaoCompizzo.linear
+  /** As três origens somadas POR TIPO — trecho e Sabesp são lineares; o Compizzo tem os dois. */
+  const metragemTotal = {
+    area: producaoCompizzo.area,
+    linear: producaoCompizzo.linear + regularExecutedMeters + sabespLinearMeters,
+    outra: producaoCompizzo.outra,
+    verbas: producaoCompizzo.verbas,
+  }
+  const totalExecuted = regularExecutedMeters + sabespLinearMeters + executadoCompizzo
   const progressPct = totalPlanned > 0 ? (totalExecuted / totalPlanned) * 100 : 0
   const sabespSummary = getRdoSabespDashboardMetrics(sabespRdos)
   const totalRdos = rdos.length + sabespSummary.total
   const rdosToday = rdos.filter((r) => r.date === today).length + sabespRdos.filter((r) => r.report_date === today).length
+  /**
+   * ⚠️ O KPI olhava só TRECHO → `planejamentoStore.trechos`. O Compizzo não cria trecho: ele cria
+   * ATIVIDADE no `planejamentoMestreStore` e guarda o id em `producao[].planningActivityId`. Por
+   * isso a tela de detalhe mostrava "Planejamento — 1 vínculo(s)" enquanto o Dashboard dizia
+   * "0/0 trechos". Duas pontas do mesmo vínculo, e o KPI não observava nenhuma das duas.
+   */
+  const linhasCompizzoTotal = rdos.reduce((sum, r) => sum + linhasComQuantidade(r.compizzo?.producao).length, 0)
+  const linhasCompizzoVinculadas = rdos.reduce(
+    (sum, r) => sum + linhasComQuantidade(r.compizzo?.producao).filter((l) => !!l.planningActivityId).length,
+    0,
+  )
   const regularCodes = [...regularTrechoMap.keys()]
   const linkedRegularCodes = regularCodes.filter((code) => planByCode.has(code.toLowerCase())).length
-  const planningLinkPct = regularCodes.length > 0 ? (linkedRegularCodes / regularCodes.length) * 100 : 0
+  const vinculaveis = regularCodes.length + linhasCompizzoTotal
+  const vinculados = linkedRegularCodes + linhasCompizzoVinculadas
+  const planningLinkPct = vinculaveis > 0 ? (vinculados / vinculaveis) * 100 : 0
 
   const counts = {
     completed:   trechos.filter((t) => t.status === 'completed').length,
@@ -390,11 +441,14 @@ export function DashboardPanel() {
       .slice(0, 5)
   }, [rdos, sabespExecutedServices])
   const maxSvc = serviceMap[0]?.quantity ?? 1
-  const totalServiceExecutions = rdos.reduce((sum, rdo) => sum + rdo.services.length, 0) + sabespExecutedServices.length
+  // As linhas de produção do Compizzo contam como serviço executado — só as que têm quantidade.
+  const linhasCompizzo = rdos.reduce((sum, rdo) => sum + linhasComQuantidade(rdo.compizzo?.producao).length, 0)
+  const totalServiceExecutions = rdos.reduce((sum, rdo) => sum + rdo.services.length, 0)
+    + sabespExecutedServices.length + linhasCompizzo
   const totalServiceQuantity = rdos.reduce(
     (sum, rdo) => sum + rdo.services.reduce((serviceSum, service) => serviceSum + (Number(service.quantity) || 0), 0),
     0,
-  ) + sabespSummary.totalExecutedQuantity
+  ) + sabespSummary.totalExecutedQuantity + executadoCompizzo
   const rdoUnitTotals = useMemo(() => {
     const totals = new Map<string, number>()
     for (const rdo of rdos) {
@@ -469,17 +523,25 @@ export function DashboardPanel() {
       {/* Row 1 KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard label="Total de RDOs"    value={String(totalRdos)} />
-        <KpiCard label="Progresso Geral"  value={`${progressPct.toFixed(1)}%`} accent />
-        <KpiCard label="Metros Executados" value={`${totalExecuted.toFixed(2)} m`} accent />
+        {/* Sem previsto, não há progresso — "0,0%" comunicaria "não andou nada". */}
+        <KpiCard label="Progresso Geral" value={totalPlanned > 0 ? `${progressPct.toFixed(1)}%` : '—'} sub={totalPlanned > 0 ? undefined : 'sem previsto cadastrado'} accent={totalPlanned > 0} />
+        {/* ⚠️ Parcelas, não um total. Somar 200 m de faixa com 800 m² de piso dá 1.000 de coisa
+            nenhuma — e era exatamente isso que este cartão fazia, rotulado "m". */}
+        <KpiCard label="Executado no período" value={formatarMetragem(metragemTotal)} accent />
         <KpiCard label="Avanço Diário" value={`${todayAdvance.toFixed(2)} m`} sub={`${rdosToday} RDO(s) hoje`} />
       </div>
 
       {/* Row 2 KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <KpiCard label="Total Planejado" value={`${totalPlanned.toFixed(2)} m`} sub={totalPlannedFromPlanning > 0 ? 'Vem do Planejamento' : 'Fallback dos RDOs'} />
-        <KpiCard label="Total Executado" value={`${totalExecuted.toFixed(2)} m`} sub="RDO novo + Sabesp linear" accent />
+        <KpiCard label="Total Planejado" value={totalPlanned > 0 ? `${totalPlanned.toFixed(2)} m` : '—'} sub={totalPlannedFromPlanning > 0 ? 'Vem do Planejamento' : 'Meta lançada nos RDOs'} />
+        <KpiCard label="Total Executado" value={formatarMetragem(metragemTotal)} sub="RDO padrão + Compizzo + Sabesp" accent />
         <KpiCard label="Serviços Executados" value={String(totalServiceExecutions)} sub={`${totalServiceQuantity.toFixed(2)} qtd. apontada`} />
-        <KpiCard label="Conversa com Planejamento" value={`${planningLinkPct.toFixed(0)}%`} sub={`${linkedRegularCodes}/${regularCodes.length} trechos RDO vinculados`} accent={planningLinkPct < 80 && regularCodes.length > 0} />
+        <KpiCard
+          label="Conversa com Planejamento"
+          value={vinculaveis > 0 ? `${planningLinkPct.toFixed(0)}%` : '—'}
+          sub={vinculaveis > 0 ? `${vinculados}/${vinculaveis} itens de RDO vinculados` : 'nenhum item de RDO para vincular'}
+          accent={planningLinkPct < 80 && vinculaveis > 0}
+        />
       </div>
 
       {/* Row 3 KPIs */}

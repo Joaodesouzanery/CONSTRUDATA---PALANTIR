@@ -55,3 +55,42 @@ export function withTotalBudgetLine(lines: ConstructionBudgetLine[] | undefined,
 export function bacVemDoContrato(site?: ConstructionSite | null): boolean {
   return valoresDoContrato(site?.contrato).total > 0
 }
+
+/**
+ * A VIGÊNCIA da obra — de quando até quando olhar.
+ *
+ * ─── POR QUE ESTA FUNÇÃO EXISTE ───────────────────────────────────────────────
+ * O Financeiro somava entradas e saídas sem janela nenhuma: uma medição de janeiro contra despesas
+ * de agosto, e o resultado parecia bom. Fechar a janela no mês corrente resolve o caso comum, mas
+ * não o que o dono descreveu com todas as letras: *"chegou um contrato de X até Y — as saídas
+ * nesse período que serão olhadas"*.
+ *
+ * Para isso é preciso saber X e Y, e havia **três** lugares onde eles poderiam estar, com um
+ * problema cada: o contrato não tinha datas; `periodoReferencia` é texto livre que ninguém parseia;
+ * e a obra tem `startDate`/`expectedEnd`, que o Financeiro nunca leu.
+ *
+ * A ordem de confiança aqui é a mesma do `obraBacFromSite`: **o contrato manda**, e a obra é o
+ * recurso. Assim, quem preencher a vigência no contrato passa a ter a janela exata; quem não
+ * preencher continua tendo a aproximação do cadastro, em vez de nada.
+ */
+export interface VigenciaDaObra {
+  de: string
+  ate: string
+  /** De onde vieram as datas — vai para a tela, para ninguém confundir exato com aproximado. */
+  origem: 'contrato' | 'obra'
+}
+
+const ehData = (v?: string | null): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
+
+export function vigenciaDaObra(site?: ConstructionSite | null): VigenciaDaObra | null {
+  const c = site?.contrato
+  if (ehData(c?.vigenciaInicio) && ehData(c?.vigenciaFim) && c!.vigenciaInicio! <= c!.vigenciaFim!) {
+    return { de: c!.vigenciaInicio!, ate: c!.vigenciaFim!, origem: 'contrato' }
+  }
+  // ⚠️ Recurso, não equivalente: a data da obra é quando o canteiro abre e fecha, que nem sempre é
+  // a vigência do contrato. A tela precisa dizer qual das duas está usando.
+  if (ehData(site?.startDate) && ehData(site?.expectedEnd) && site!.startDate <= site!.expectedEnd) {
+    return { de: site!.startDate, ate: site!.expectedEnd, origem: 'obra' }
+  }
+  return null
+}

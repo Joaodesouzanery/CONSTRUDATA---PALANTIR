@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X, TrendingUp, ArrowRight } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
-import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
+import { obraBacFromSite, vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
@@ -107,6 +107,11 @@ export function PlanoContasPanel() {
    * com o realizado de todo o tempo. O "% consumido" e o "Saldo" comparavam coisas de janelas
    * diferentes, e o saldo parecia melhor do que é.
    */
+  const vigencia = useMemo(
+    () => (obraFilter ? vigenciaDaObra(sites.find((s) => s.id === obraFilter)) : null),
+    [obraFilter, sites],
+  )
+
   const scopedEntries = useMemo(
     () => filterEntries(entries, { from: periodo.from, to: periodo.to, obraId: obraFilter || undefined }),
     [entries, obraFilter, periodo.from, periodo.to],
@@ -199,7 +204,7 @@ export function PlanoContasPanel() {
       {/* A janela do REALIZADO. O orçado é o do contrato inteiro e não se recorta —
           por isso o aviso abaixo, para ninguém ler "% consumido" como se as duas pontas
           cobrissem o mesmo período. */}
-      <FinanceiroFilterBar value={periodo} onChange={setPeriodo} showTipo={false} showCategoria={false} showObra={false} />
+      <FinanceiroFilterBar value={periodo} onChange={setPeriodo} showTipo={false} showCategoria={false} showObra={false} vigencia={vigencia} />
       <p className="-mt-3 text-[10px] text-[#6b6b6b]">
         O <b>orçado</b> é o valor do contrato, inteiro. O <b>real</b> é o do período selecionado
         acima — para ver o consumo total da obra, escolha “Tudo”.
