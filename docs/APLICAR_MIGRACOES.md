@@ -24,6 +24,28 @@ conforme os argumentos da chamada — a ambiguidade que aquelas migrações exis
 
 O arquivo fica no repositório como histórico do que foi aplicado até 22/07, com o aviso no topo.
 
+
+### `20260904120000_lgpd_titular_mao_de_obra.sql`
+
+Inclui **Mão de Obra** nos direitos do titular (art. 18) e redige o próprio `audit_log`.
+
+Sem ela, cada funcionário importado é um titular que o produto **não consegue** exportar nem
+anonimizar — e a anonimização existente já copia o nome real para o `audit_log`, que ninguém
+anonimiza depois.
+
+Não quebra nada se demorar: a importação funciona sem ela. O que falta é a resposta a um pedido
+do titular.
+
+⚠️ O corpo das duas funções está **por extenso** no arquivo, e tem de continuar assim:
+`create or replace` substitui a função inteira, então rodar um trecho parcial faria as cinco
+fontes antigas (profiles, chamados, OS, laudos, títulos) pararem de ser exportadas sem erro nenhum.
+
+Conferência depois de aplicar — testa COMPORTAMENTO, não existência:
+```sql
+select jsonb_object_keys(export_dados_titular('<org-uuid>', 'um nome que existe'));
+-- tem de listar as 7 chaves, incluindo funcionarios e equipes_como_encarregado
+```
+
 ## Como aplicar hoje
 
 Uma migração por vez, na ordem do nome (que é a data). Todas têm o cabeçalho

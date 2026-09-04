@@ -40,6 +40,7 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 | OP-06 | Chamados via QR público (`/chamado/:slug`) — solicitante anônimo | Legítimo interesse (IX), com teste de proporcionalidade |
 | OP-07 | Logs de acesso e auditoria (`audit_log`) | Obrigação legal (II) · Legítimo interesse — segurança (IX) |
 | OP-08 | Backups gerenciados | Legítimo interesse — continuidade/segurança (IX) |
+| OP-09 | Cadastro de mão de obra própria e terceirizada (Mão de Obra) | Execução de contrato de trabalho (V) · Obrigação legal trabalhista (II) |
 
 ---
 
@@ -172,6 +173,22 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 - **Instruções do controlador** (art. 39): o operador trata os dados somente conforme instruções documentadas e o contrato/DPA.
 
 ---
+
+
+### OP-09 — Cadastro de mão de obra própria e terceirizada
+
+| Campo | Descrição |
+|---|---|
+| **Operação/Finalidade** | Manter o cadastro dos trabalhadores da obra para escalar equipes, apontar horas, calcular custo de mão de obra, controlar jornada (CLT) e produzir a folha. Alimentado pela tela e pela **importação de planilha** (`.xlsx`) do próprio controlador. |
+| **Categorias de titulares** | Trabalhadores próprios e terceirizados do controlador. |
+| **Categorias de dados** | Nome, cargo/função, equipe, frente de trabalho, telefone, e-mail, matrícula, data de admissão, tipo de contrato, salário/valor-hora, benefícios (VA/VT), dependentes para IRRF, **categoria** de habilitação (A/B) e observações operacionais. **Sem dado sensível.** |
+| **⚠️ O que é DELIBERADAMENTE não coletado** | **CPF completo, RG, número da CNH, título de eleitor, CTPS, PIS, conta bancária, antecedentes criminais e resultado de exame ocupacional (ASO).** A importação de planilha **barra esses campos em tempo de execução** (`src/lib/funcionarioImportado.ts`), com teste que falha se algum voltar. O CPF existe no cadastro **manual**, mascarado nos dois últimos dígitos. Antecedentes e ASO seriam dado sensível (art. 11) e exigiriam base própria — não há fluxo que os use. |
+| **Base legal** | Execução do contrato de trabalho e obrigações dele decorrentes (art. 7º, V) e obrigação legal trabalhista/previdenciária (art. 7º, II) — CLT art. 74 §2º (registro de jornada), FGTS e eSocial. |
+| **Compartilhamento/Subprocessadores** | Supabase (Postgres). Sem compartilhamento comercial. |
+| **Transferência internacional** | Conforme a região do projeto Supabase ({{REGIAO_SUPABASE}}). |
+| **Prazo de retenção** | ⚠️ **Assimétrico, de propósito.** Nome, cargo, equipe e datas seguem os prazos trabalhistas/previdenciários aplicáveis ({{RETENCAO_TRABALHISTA}}) e **não são apagados** na anonimização — art. 16, II. Telefone, e-mail, observações e local são apagados a pedido do titular, porque **não têm base de retenção**. |
+| **Direitos do titular** | Atendidos por `export_dados_titular` (chaves `funcionarios` e `equipes_como_encarregado`) e `anonimizar_dados_titular`, que redige os campos sem retenção e **também redige o `audit_log`** — o gatilho de auditoria grava o registro inteiro, então sem essa redação anonimizar espalharia o dado que deveria remover. |
+| **Medidas de segurança** | RLS por `organization_id`, escrita gateada por papel, TLS, criptografia em repouso, soft-delete, `audit_log`. Filtro de campos na importação, com lista exaustiva verificada em compilação. |
 
 ## 5. Lacunas a preencher (decisões do jurídico do controlador / fornecedor)
 
