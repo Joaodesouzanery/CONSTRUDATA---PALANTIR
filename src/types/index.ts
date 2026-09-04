@@ -388,6 +388,35 @@ export interface ObraContrato {
   vigenciaInicio?:   string
   vigenciaFim?:      string
   /**
+   * De-para do RDO WCR: sigla do apontamento → `id` de um `ObraContratoServico` DESTE contrato.
+   *
+   * ⚠️ **Por que vive aqui e não no plano do FCP.** O plano é reimportado todo mês, e
+   * `planoParaGravar` (`fcp/reimportarPlano.ts`) reconstrói o objeto a partir de uma lista FECHADA
+   * de campos — qualquer coisa acrescentada ao plano é descartada na reimportação, sem erro. O
+   * de-para sumiria em silêncio e as siglas voltariam a "não mapeadas" todo mês.
+   *
+   * ⚠️ **E por que é por OBRA, não por organização.** Medido nas duas tabelas de preço do cliente:
+   * 163 códigos de serviço aparecem nas duas cidades e **nenhum tem o mesmo valor** — a ligação de
+   * água mais comum custa R$ 60,95 numa e R$ 56,90 na outra (6,6% de diferença; o pior caso medido
+   * chega a 36,9%). Um de-para global aplicaria o preço da cidade errada sem avisar ninguém.
+   *
+   * Sigla ausente do mapa = ainda não mapeada: a quantidade é gravada e o valor NÃO é calculado.
+   * Nunca se escolhe um item por conta própria.
+   */
+  deParaSiglas?:     Record<string, string>
+  /**
+   * Qual CIDADE do Fluxo de Caixa Projetado esta obra é (`CidadeFcp.id`, ex.: 'bertioga').
+   *
+   * ⚠️ Existe porque `PlanoFcp.obraId` é SINGULAR e `premissas.cidades` é plural: um plano só
+   * cobre Bertioga e Santos ao mesmo tempo, então não dá para descobrir a cidade a partir da obra
+   * sem alguém dizer. Casar por nome pareceria funcionar e quebraria no primeiro "Santos" que for
+   * sobrenome — que é literalmente o caso deste cliente, cuja planilha de caixa tem três
+   * "Santos" e nenhum é a cidade.
+   *
+   * Vazio = esta obra não alimenta o FCP, e a tela diz isso em vez de inventar um destino.
+   */
+  fcpCidadeId?:      string
+  /**
    * @deprecated Abatimento percentual cego sobre o medido — a tentativa antiga de separar
    * material. Fica porque obras já cadastradas usam e removê-lo mudaria contrato existente;
    * para separar material, use `valorMaterial`.

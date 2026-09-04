@@ -19,6 +19,35 @@ de segurança fundamentais do projeto. Leia antes de qualquer commit ou PR.
 O `.gitignore` já bloqueia tudo isso. Se você for adicionar um novo tipo de
 secret, **adicione antes ao `.gitignore`**.
 
+## ⚠️ Risco aceito — planilhas de QA com dado pessoal real (04/09/2026)
+
+Os dois `.xlsx` versionados em `docs/`, que os scripts de QA leem, contêm **dado pessoal real e
+identificado**. Medido, não estimado:
+
+| Arquivo | O que contém |
+|---|---|
+| `docs/FLUXO_CAIXA_PROJETADO_BERTIOGA_SANTOS_v2.xlsx` | abas `CUSTOS BERTIOGA` e `CUSTOS SANTOS`: **14 e 16 pessoas** com nome completo, cargo e **salário, encargos e benefícios individuais** |
+| `docs/CONTROLE DE CAIXA-MODELO.xlsx` | aba `HORAS EXTRAS 08`: **52 nomes completos** com valor de hora extra pago; aba `DESPESAS`: ~16 solicitantes nominais |
+
+Entraram no repositório no commit `1bed17c` e já foram enviados ao remoto.
+
+**Decisão do controlador (o cliente), tomada em 04/09/2026: manter os arquivos como estão por
+enquanto**, com o risco registrado aqui. A remoção efetiva exigiria reescrever o histórico do Git
+(`git filter-repo`), o que invalida todo clone e fork existentes — decisão adiada.
+
+**A regra que passa a valer desde já, e que é obrigatória:**
+
+> ⚠️ **Nenhum script de QA pode imprimir conteúdo de coluna nominal.** Só contagem, soma e nome de
+> coluna. `stdout` de script de QA vai para o terminal de quem roda **e para o log de CI**, que é
+> mais um lugar guardando os mesmos nomes — cada execução multiplica a exposição em vez de apenas
+> mantê-la.
+
+O precedente da casa é `scripts/qa_medicao_xlsx.mjs`, que já faz isso.
+
+Fixture nova **não repete o problema**: a planilha de funcionários do QA é **sintética**
+(`docs/FUNCIONARIOS-MODELO.xlsx`), com nomes fictícios. Além de não expor ninguém, ela prova mais —
+pode conter os casos adversariais que o arquivo real não tem.
+
 ## ✅ O que é seguro commitar
 
 - `.env.example` (apenas com placeholders, nunca valores reais)
