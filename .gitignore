@@ -47,3 +47,6 @@ Microsoft/
 # node_modules, vem da rede, e um build não pode depender do GitHub estar de pé.
 public/ocr/*.wasm.js
 public/ocr/worker.min.js
+
+# Pacote de código gerado para outro projeto — artefato derivado, não versionar.
+PACOTE-RDO-WCR-FCP-CAIXA.md
