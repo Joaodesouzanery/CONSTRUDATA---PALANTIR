@@ -10,7 +10,7 @@
  *  - **FCP (semanal e mensal)** é caixa — eu tenho dinheiro no dia 20?
  * Uma obra pode ter margem excelente e quebrar de caixa. Misturar os dois é o erro.
  */
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import * as XLSX from 'xlsx'
 import { validateFileBeforeParse } from '@/lib/importEngine'
@@ -36,6 +36,7 @@ import {
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import {
   conferirPlano, idDoPlano, planoParaGravar, type ConferenciaDoPlano,
+  premissasComoTexto,
 } from '../utils/fcp/reimportarPlano'
 import { ROTULO_CENARIO, type Cenario, type PremissasFcp } from '../utils/fcp/tipos'
 import {
@@ -1204,6 +1205,66 @@ function ImportarFcpModal({
                 />
               </div>
 
+              {/* ⚠️ O QUE VEIO NA PLANILHA, em contagem.
+                  A tela mostrava quatro números agregados para um arquivo de 11 abas — e o dono do
+                  produto perguntou, com razão, se não estava faltando tudo. Não estava: o leitor
+                  extrai o quadro nominal das duas cidades, os custos gerais e as tabelas de preço.
+                  Só não dizia. Estes números não são detalhe: 511 preços podem mudar inteiros sem
+                  gerar uma linha de "premissa alterada", porque premissa é agregada.
+
+                  ⚠️ O quadro aparece em CONTAGEM, nunca com nome. Ver a seção de risco aceito do
+                  SECURITY.md — o arquivo tem nome e salário individual de gente real. */}
+              {(() => {
+                const pessoas = lido.premissas.cidades.reduce((n, c) => n + c.custos.quadro.length, 0)
+                const gerais = lido.premissas.cidades.reduce((n, c) => n + c.custos.gerais.length, 0)
+                const todosPrecos = Object.values(lido.precos).flat()
+                const aConferir = todosPrecos.filter((x) => x.precisaConferir).length
+                return (
+                  <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-3">
+                    <p className="mb-2 text-xs font-semibold text-[#f5f5f5]">O que veio na planilha</p>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Contagem rotulo="Pessoas na folha" valor={pessoas} detalhe={lido.premissas.cidades.map((c) => `${c.nome}: ${c.custos.quadro.length}`).join(' · ')} />
+                      <Contagem rotulo="Custos gerais" valor={gerais} />
+                      <Contagem rotulo="Preços do contrato" valor={todosPrecos.length} detalhe={Object.entries(lido.precos).map(([k, v]) => `${k}: ${v.length}`).join(' · ')} />
+                      <Contagem
+                        rotulo="Preços a conferir"
+                        valor={aConferir}
+                        alerta={aConferir > 0}
+                        detalhe={aConferir > 0 ? 'transcritos de foto — ficam bloqueados para medição' : 'nenhum'}
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* ⚠️ PLANO NOVO: aqui não existe "antes", então a mesma tabela vira "o que eu li".
+                  Antes deste bloco, a primeira importação mostrava quatro números e um botão —
+                  para uma planilha de 11 abas. A pessoa tinha de confiar sem conferir. */}
+              {lido.plano.ehNovo && (
+                <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
+                  <p className="mb-1 text-xs font-semibold text-[#f5f5f5]">O que eu li da planilha</p>
+                  <p className="mb-2 text-[11px] text-[#6b6b6b]">
+                    Confira antes de criar. Estes são os valores que vão virar o plano — o resto das
+                    abas é <strong>calculado</strong> a partir deles, não importado.
+                  </p>
+                  <div className="max-h-64 overflow-x-auto rounded-lg border border-[#525252]">
+                    <table className={TABELA}>
+                      <thead className="sticky top-0"><tr className={THEAD}>
+                        <th className={TH}>Premissa</th><th className={TH}>Valor lido</th>
+                      </tr></thead>
+                      <tbody className="divide-y divide-[#1f2937]">
+                        {premissasComoTexto(lido.premissas).map((m) => (
+                          <tr key={m.rotulo} className="hover:bg-white/[0.02]">
+                            <td className={`${TD} text-[#a3a3a3]`}>{m.rotulo}</td>
+                            <td className={`${TD} text-[#f5f5f5]`}>{m.valor}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* ⚠️ O que a reimportação faz com o plano que já existe. É a pergunta que importa
                   quando alguém joga a planilha atualizada: vai criar outro, ou atualizar este? */}
               {!lido.plano.ehNovo && (
@@ -1289,9 +1350,12 @@ function ImportarFcpModal({
                     {/* ⚠️ Divergência não é erro — é pergunta. Pode ser fórmula quebrada, célula
                         digitada por cima, ou premissa que mudou e não propagou. */}
                     <p className="text-[10px] text-[#6b6b6b] mb-1.5">
+                      {/* ⚠️ Mostrar só o que FALHOU faz parecer que nada bateu. As conferências que
+                          fecharam no centavo são a maior parte, e são elas que dizem que a leitura
+                          está saudável. */}
                       Divergência não quer dizer erro: pode ser fórmula quebrada, célula digitada
-                      por cima, ou premissa que mudou e não propagou. O sistema mostra os dois
-                      números; quem decide é você.
+                      por cima, ou convenção diferente. O sistema mostra os dois números; quem
+                      decide é você. As demais conferências fecharam no centavo.
                     </p>
                     <div className="overflow-x-auto rounded-xl border border-[#525252]">
                       <table className={TABELA}>
@@ -1303,15 +1367,27 @@ function ImportarFcpModal({
                         </tr></thead>
                         <tbody className="divide-y divide-[#1f2937]">
                           {lido.divergencias.map((d, i) => (
-                            <tr key={i} className="hover:bg-white/[0.02]">
-                              <td className={TD}>{d.aba}</td>
-                              <td className={`${TD} text-[#f5f5f5]`}>{d.oQue}</td>
-                              <td className={`${NUM} text-[#f5f5f5]`}>{fmtBRL(d.calculado)}</td>
-                              <td className={NUM}>{fmtBRL(d.naPlanilha)}</td>
-                              <td className={`${NUM} ${Math.abs(d.proporcao) > 0.05 ? 'text-amber-300 font-semibold' : ''}`}>
-                                {fmtBRL(d.diferenca)} ({pct(d.proporcao)})
-                              </td>
-                            </tr>
+                            <Fragment key={i}>
+                              <tr className="hover:bg-white/[0.02]">
+                                <td className={TD}>{d.aba}</td>
+                                <td className={`${TD} text-[#f5f5f5]`}>{d.oQue}</td>
+                                <td className={`${NUM} text-[#f5f5f5]`}>{fmtBRL(d.calculado)}</td>
+                                <td className={NUM}>{fmtBRL(d.naPlanilha)}</td>
+                                <td className={`${NUM} ${Math.abs(d.proporcao) > 0.05 ? 'text-amber-300 font-semibold' : ''}`}>
+                                  {fmtBRL(d.diferenca)} ({pct(d.proporcao)})
+                                </td>
+                              </tr>
+                              {/* ⚠️ A causa, quando dá para PROVÁ-LA a partir da própria planilha.
+                                  Sem ela, esta tabela mandava a pessoa para a reunião com uma
+                                  pergunta em aberto e nenhum caminho para respondê-la. */}
+                              {d.causaProvavel && (
+                                <tr>
+                                  <td colSpan={5} className="px-3 pb-2 text-[10px] leading-relaxed text-[#a3a3a3]">
+                                    <strong className="text-[#6b6b6b]">Por quê:</strong> {d.causaProvavel}
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
                           ))}
                         </tbody>
                       </table>
@@ -1351,6 +1427,20 @@ function ImportarFcpModal({
 }
 
 // ─── Peças ────────────────────────────────────────────────────────────────────
+
+function Contagem({ rotulo, valor, detalhe, alerta = false }: {
+  rotulo: string; valor: number; detalhe?: string; alerta?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2">
+      <p className="text-[10px] text-[#6b6b6b]">{rotulo}</p>
+      <p className={`text-base font-semibold ${alerta && valor > 0 ? 'text-amber-300' : 'text-[#f5f5f5]'}`}>
+        {valor.toLocaleString('pt-BR')}
+      </p>
+      {detalhe && <p className="mt-0.5 text-[10px] leading-tight text-[#6b6b6b]">{detalhe}</p>}
+    </div>
+  )
+}
 
 function Indicador({ rotulo, valor, nota, icone, variacao }: {
   rotulo: string; valor: string; nota?: string; icone?: React.ReactNode; variacao?: 'boa' | 'ruim'

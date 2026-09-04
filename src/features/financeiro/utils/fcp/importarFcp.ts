@@ -14,6 +14,7 @@ import type {
   BaseDoImposto, BlocoDeCusto, Cenario, CidadeFcp, CustoGeral, PessoaDoQuadro, PremissasFcp,
   QuemPaga,
 } from './tipos'
+import { ROTULO_CENARIO } from './tipos'
 import {
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, custosPorRegime, fluxoEconomico,
   fluxoMensal, ticketDaCidade, totalDaFolha,
@@ -34,6 +35,13 @@ export interface Divergencia {
   diferenca: number
   /** Fração da diferença sobre o valor da planilha. Serve para ordenar pelo que mais importa. */
   proporcao: number
+  /**
+   * O porquê, quando dá para PROVAR a partir da própria planilha.
+   *
+   * ⚠️ Ausente quando não dá. "Não consegui identificar" é resposta melhor que um palpite: quem
+   * lê isto vai decidir se confia no número, e uma causa inventada faria confiar do jeito errado.
+   */
+  causaProvavel?: string
 }
 
 export interface PrecoDoContrato {
@@ -348,6 +356,64 @@ function comparar(
  * quebrada, pode ser célula digitada por cima, pode ser premissa que mudou e não propagou. O
  * sistema aponta e mostra os dois números; quem decide é a pessoa.
  */
+/**
+ * A planilha discorda dela mesma sobre o primeiro mês?
+ *
+ * ─── O QUE ISTO PROVA ─────────────────────────────────────────────────────────
+ * A aba AUX traz a medição do 1º mês em DOIS lugares: a linha "Medição bruta GLOBAL", que aplica
+ * a convenção manual da planilha (agosto = 1 semana inteira), e a linha do cenário adotado dentro
+ * da grade, que rateia por dias. No arquivo real elas dão **R$ 181.947,70 e R$ 207.940,23** para
+ * o mesmo agosto — a razão é 8/7, exatamente os 8 dias de obra de agosto sobre uma semana de 7.
+ *
+ * O motor rateia por dias (ver `diasDaSemanaNoMes`, que documenta a escolha). Por isso ele bate
+ * com a grade e diverge do número em destaque. **A divergência é interna à planilha**, e é isto
+ * que a tela precisa dizer — senão a pessoa leva para a reunião a pergunta errada.
+ *
+ * Devolve `undefined` quando não dá para provar: sem a aba AUX, sem as duas linhas, ou quando elas
+ * concordam. Nada de causa por palpite.
+ */
+export function contradicaoDoPrimeiroMes(p: PremissasFcp, abas: Abas): { manual: number; rateado: number } | null {
+  const aux = abas['AUX']
+  if (!aux) return null
+
+  const primeiroNumero = (linha: Celula[]): number | null => {
+    for (const c of linha) { const v = lerValor(c); if (v !== null && v !== 0) return v }
+    return null
+  }
+  const acharLinha = (teste: (rotulo: string) => boolean): number | null => {
+    for (const linha of aux) {
+      if (!Array.isArray(linha)) continue
+      const rotulo = linha.find((c) => typeof c === 'string')
+      if (typeof rotulo === 'string' && teste(normalizarTexto(rotulo))) return primeiroNumero(linha)
+    }
+    return null
+  }
+
+  const manual = acharLinha((r) => r === 'MEDICAO BRUTA GLOBAL')
+  const doCenario = normalizarTexto(ROTULO_CENARIO[p.cenario])
+  const rateado = acharLinha((r) => r.startsWith(doCenario) && r.includes('MEDICAO BRUTA GLOBAL'))
+
+  if (manual === null || rateado === null) return null
+  if (Math.abs(manual - rateado) < 0.01) return null
+  return { manual, rateado }
+}
+
+const ABAS_AFETADAS_PELA_SEMANA = new Set(['FCP MENSAL', 'ECONÔMICO', 'ECONOMICO'])
+
+/** Escreve a causa nas divergências que ela explica. As demais ficam sem — de propósito. */
+export function explicarDivergencias(p: PremissasFcp, abas: Abas, lista: Divergencia[]): Divergencia[] {
+  const c = contradicaoDoPrimeiroMes(p, abas)
+  if (!c) return lista
+  const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const texto =
+    `A própria planilha traz dois valores para a medição do 1º mês: ${brl(c.manual)} na linha ` +
+    `"Medição bruta GLOBAL" da aba AUX, e ${brl(c.rateado)} na grade do cenário adotado. ` +
+    'A primeira conta o mês como uma semana inteira; a segunda rateia por dias. O sistema rateia ' +
+    'por dias, então ele bate com a grade e diverge do número em destaque. A diferença é de ' +
+    'convenção, e é interna à planilha — não é erro de leitura.'
+  return lista.map((d) => (ABAS_AFETADAS_PELA_SEMANA.has(d.aba) ? { ...d, causaProvavel: texto } : d))
+}
+
 export function conferirContraAPlanilha(p: PremissasFcp, abas: Abas): Divergencia[] {
   const d: Divergencia[] = []
   const premissas = abas['PREMISSAS']
@@ -486,7 +552,8 @@ export function lerPlanilhaFcp(abas: Abas): LeituraFcp {
   }
 
   const divergencias = cidades.length > 0 && inicioObra && fimOperacao
-    ? conferirContraAPlanilha(premissas, abas)
+    // A causa vem junto quando dá para prová-la a partir da própria planilha.
+    ? explicarDivergencias(premissas, abas, conferirContraAPlanilha(premissas, abas))
     : []
 
   return { premissas, realizado, precos, divergencias, problemas }

@@ -60,6 +60,18 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`
 const dia = (s: string) => (s ? s.split('-').reverse().join('/') : '—')
 
+/**
+ * As premissas em pares rótulo → texto.
+ *
+ * ⚠️ Exportada porque serve a DOIS usos, e o segundo faltava: comparar duas versões (reimportação)
+ * **e** listar o que foi lido quando não há versão anterior (primeira importação). A tela mostrava
+ * a tabela só no primeiro caso — então quem importava um plano novo via quatro números e um botão,
+ * e tinha de confiar sem conferir nada. A planilha tem 11 abas.
+ */
+export function premissasComoTexto(p: PremissasFcp): Array<{ rotulo: string; valor: string }> {
+  return comoTexto(p).map(([rotulo, valor]) => ({ rotulo, valor }))
+}
+
 /** As premissas em pares rótulo → texto, para comparar duas versões campo a campo. */
 function comoTexto(p: PremissasFcp): Array<[string, string]> {
   const pares: Array<[string, string]> = [

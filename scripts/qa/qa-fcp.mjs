@@ -77,6 +77,25 @@ if (r.divergencias.length === 0) console.log('  nenhuma.')
 for (const d of r.divergencias) {
   console.log(`  ${d.aba.padEnd(12)} ${d.oQue.padEnd(44)} motor ${n(d.calculado).padStart(14)} | planilha ${n(d.naPlanilha).padStart(14)} | Δ ${n(d.diferenca)} (${(d.proporcao * 100).toFixed(1)}%)`)
 }
+for (const d of r.divergencias) {
+  // ⚠️ Divergência sem causa manda a pessoa para a reunião com uma pergunta em aberto. Quando a
+  // causa é demonstrável a partir da própria planilha, ela tem de vir escrita.
+  conferir(!!d.causaProvavel, `divergência "${d.oQue}" traz a causa`, d.causaProvavel ? '' : 'sem causa')
+}
+
+console.log('\n=== o que o leitor extrai (e a tela precisa mostrar) ===')
+const pessoas = P.cidades.reduce((n2, c) => n2 + c.custos.quadro.length, 0)
+const gerais = P.cidades.reduce((n2, c) => n2 + c.custos.gerais.length, 0)
+const todosPrecos = Object.values(r.precos).flat()
+const aConferir = todosPrecos.filter((x) => x.precisaConferir).length
+// ⚠️ Só CONTAGEM. O arquivo tem nome e salário individual de gente real — ver SECURITY.md.
+console.log(`  quadro nominal: ${pessoas} pessoas · custos gerais: ${gerais} itens`)
+console.log(`  preços: ${todosPrecos.length} itens, dos quais ${aConferir} marcados "conferir"`)
+conferir(pessoas >= 30, 'o quadro das duas cidades foi lido', `${pessoas} pessoas`)
+conferir(gerais >= 18, 'os custos gerais foram lidos', `${gerais} itens`)
+conferir(todosPrecos.length >= 500, 'as tabelas de preço foram lidas', `${todosPrecos.length} itens`)
+conferir(aConferir > 0, 'os itens transcritos de foto continuam marcados', `${aConferir} a conferir`)
+
 if (r.problemas.length) {
   console.log('\n=== problemas de leitura ===')
   for (const p of r.problemas) console.log(`  ${p.aba}: ${p.motivo}`)
