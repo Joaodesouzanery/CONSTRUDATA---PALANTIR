@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { Users, Clock, ShieldCheck, AlertTriangle, MapPin, Upload } from 'lucide-react'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { cn, dataLocalISO, hojeLocalISO } from '@/lib/utils'
+import { toast } from 'sonner'
 import { ImportModal } from '@/components/shared/ImportModal'
 import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useStoreSync } from '@/lib/useStoreSync'
@@ -31,28 +32,22 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'seguranca',     label: 'Segurança'              },
 ]
 
-/** Sem acento, sem caixa, sem espaço dobrado — "EQUIPE  A" casa com "Equipe A". */
-function normalizarNome(v: string): string {
-  return v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
-}
-
 interface Props {
   activeTab: MaoDeObraTab
   onTabChange: (tab: MaoDeObraTab) => void
 }
 
 export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
-  const { workers, shifts, absences, workPosts, violations, crews } = useMaoDeObraStore(
+  const { workers, shifts, absences, workPosts, violations } = useMaoDeObraStore(
     useShallow((s) => ({
       workers:    s.workers,
       shifts:     s.shifts,
       absences:   s.absences,
       workPosts:  s.workPosts,
       violations: s.violations,
-      crews:      s.crews,
     }))
   )
-  const addWorker = useMaoDeObraStore((s) => s.addWorker)
+  const importarFuncionarios = useMaoDeObraStore((s) => s.importarFuncionarios)
   const [importOpen, setImportOpen] = useState(false)
   const sync = useStoreSync(useMaoDeObraStore)
 
@@ -150,19 +145,28 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
         config={WORKER_IMPORT_CONFIG}
         templateFilename="atlantico-funcionarios-template.xlsx"
         commitLabel={(n) => `Importar ${n} ${n === 1 ? 'funcionário' : 'funcionários'}`}
-        onCommit={(rows) => {
-          // A coluna "equipe" da planilha vem como TEXTO ("Equipe A"), e `workers.crew_id` é uuid.
-          // Sem esta tradução o Postgres recusava a linha (22P02) e o funcionário ficava preso na
-          // fila de sincronização para sempre: aparecia na tela de quem importou e não existia
-          // para mais ninguém. Nome que não casa com equipe cadastrada vira "sem equipe" — melhor
-          // do que travar a importação inteira por causa de um nome escrito diferente.
-          const porNome = new Map(crews.map((c) => [normalizarNome(c.name), c.id]))
-          const idsValidos = new Set(crews.map((c) => c.id))
-          rows.forEach((w) => {
-            const bruto = String(w.crewId ?? '').trim()
-            const crewId = idsValidos.has(bruto) ? bruto : (porNome.get(normalizarNome(bruto)) ?? '')
-            addWorker({ ...w, crewId, certifications: [] })
-          })
+        onCommit={(_rows, resultado) => {
+          // ⚠️ A gravação NÃO é um laço de `addWorker`. Vai por `importarFuncionarios`, que
+          // sanitiza cada linha (planilha de RH traz CPF, RG, CNH e antecedentes na mesma linha do
+          // nome, e `workerToRow` grava o objeto inteiro num jsonb) e grava tudo numa vez só.
+          const linhas = resultado.porAba.flatMap(({ aba, linhas: doGrupo }) =>
+            doGrupo.map((w) => ({
+              ...w,
+              // O nome da aba é dado: "Equipes Sidnei" e "Equipes Mauá" são frentes diferentes, e
+              // a "Equipe A" de uma NÃO é a "Equipe A" da outra. Sem isto, as duas se fundiriam.
+              workFront: w.workFront || aba.replace(/^equipes?\s+/i, '').trim() || aba,
+            })),
+          )
+          const r = importarFuncionarios(linhas as Array<Record<string, unknown>>)
+          if (!r.gravou) { toast.error('Seu perfil não pode cadastrar funcionários.'); return }
+          const partes = [`${r.criados} funcionário(s) importado(s)`]
+          if (r.equipesNaoEncontradas.length) {
+            partes.push(`sem equipe: ${r.equipesNaoEncontradas.join(', ')} — cadastre a equipe e importe de novo`)
+          }
+          if (r.camposIgnorados.length) {
+            partes.push(`${r.camposIgnorados.length} coluna(s) ignorada(s) por não entrarem no cadastro`)
+          }
+          toast.success(partes.join(' · '))
         }}
       />
 

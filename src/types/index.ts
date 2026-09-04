@@ -925,6 +925,16 @@ export interface Worker {
   desligamentoData?: string
   /** Motivo, texto livre. Aparece no selo e no cadastro. */
   desligamentoMotivo?: string
+  /**
+   * CATEGORIA da habilitação: 'A', 'B', 'AB'… — **nunca o número da CNH.**
+   *
+   * ⚠️ A distinção é o ponto. A categoria diz o que a pessoa pode dirigir, que é a única coisa que
+   * a operação precisa saber para escalar um motorizado. O número identifica a pessoa e é dado
+   * pessoal sem finalidade aqui. `NSA` na planilha do cliente vira ausente, não string vazia.
+   */
+  tipoCnh?: string
+  /** Observações operacionais sobre o funcionário, texto livre. */
+  observacoes?: string
 }
 
 export interface TimecardEntry {

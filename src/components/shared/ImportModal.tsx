@@ -35,8 +35,14 @@ interface ImportModalProps<T extends Record<string, unknown>> {
   config: ImportConfig<T>
   /** Nome sugerido para o template baixado */
   templateFilename: string
-  /** Callback chamado quando o usuário confirma a importação */
-  onCommit: (rows: T[]) => void
+  /**
+   * Chamado quando a pessoa confirma.
+   *
+   * O segundo argumento traz o resultado inteiro — quem precisa saber DE QUAL ABA cada linha veio
+   * (planilha com uma aba por frente) usa `resultado.porAba`. Quem não precisa ignora, e nenhum
+   * importador existente muda.
+   */
+  onCommit: (rows: T[], resultado: ImportResult<T>) => void
   /** Label do botão final (ex: "Importar 47 trechos") — recebe o count */
   commitLabel?: (count: number) => string
 }
@@ -67,6 +73,7 @@ export function ImportModal<T extends Record<string, unknown>>({
           errors: [{ rowNumber: 0, message: validation.error }],
           totalProcessed: 0,
           fileHash: '',
+          porAba: [],
         })
         return
       }
@@ -84,6 +91,7 @@ export function ImportModal<T extends Record<string, unknown>>({
           }],
           totalProcessed: 0,
           fileHash: '',
+          porAba: [],
         })
       } finally {
         setParsing(false)
@@ -129,7 +137,7 @@ export function ImportModal<T extends Record<string, unknown>>({
     if (!result || result.validRows.length === 0) return
     setCommitting(true)
     try {
-      onCommit(result.validRows)
+      onCommit(result.validRows, result)
       handleClose()
     } catch (e) {
       console.error('[ImportModal] commit failed:', e)

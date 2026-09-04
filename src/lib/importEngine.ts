@@ -49,6 +49,24 @@ export interface ImportConfig<T extends Record<string, unknown>> {
   schema: ZodTypeAny
   /** Mapeamento das colunas */
   columns: ImportColumn<T>[]
+  /**
+   * Quais abas ler. Padrão `'primeira'` — o comportamento de sempre.
+   *
+   * `'todas'` existe porque planilha de cliente costuma ter uma aba por equipe/frente, e o NOME da
+   * aba é dado (na planilha de funcionários deste cliente, "Equipes Sidnei" e "Equipes Mauá" são
+   * duas frentes diferentes: a "Equipe A" de uma NÃO é a "Equipe A" da outra). Quem importa recebe
+   * as linhas agrupadas por aba em `porAba`.
+   */
+  sheets?: 'primeira' | 'todas'
+  /**
+   * Linha do cabeçalho, base 0. Ausente = o comportamento de sempre (o SheetJS decide).
+   *
+   * ⚠️ Só é repassado ao SheetJS quando você define. Passar `range: 0` "por padrão" NÃO é
+   * inofensivo: numa aba cujo `!ref` não começa em A1, `sheet_to_json(ws)` e
+   * `sheet_to_json(ws, { range: 0 })` devolvem coisas diferentes — o segundo lê linhas em branco
+   * acima do dado e transforma o cabeçalho em `__EMPTY`. Foi medido.
+   */
+  headerRow?: number
   /** Templates de exemplo que podem ser baixados pelo usuário (opcional) */
   exampleHeaders?: string[]
   exampleRow?: Record<string, string | number>
@@ -63,6 +81,13 @@ export interface ImportResult<T> {
   totalProcessed: number
   /** Hash SHA-1 simplificado do arquivo (para audit log) */
   fileHash: string
+  /**
+   * As linhas válidas agrupadas pela aba de onde vieram.
+   *
+   * Sempre presente (uma entrada só, no caso comum). `validRows` continua sendo a lista achatada,
+   * para nenhum dos importadores existentes precisar mudar.
+   */
+  porAba: Array<{ aba: string; linhas: T[] }>
 }
 
 export interface ImportError {
@@ -179,17 +204,12 @@ export async function parseAndValidate<T extends Record<string, unknown>>(
   file: File,
   config: ImportConfig<T>,
 ): Promise<ImportResult<T>> {
-  const validation = validateFileBeforeParse(file)
-  if (!validation.ok) {
-    return {
-      validRows: [],
-      errors: [{ rowNumber: 0, message: validation.error }],
-      totalProcessed: 0,
-      fileHash: '',
-    }
-  }
+  const vazio = (errors: ImportError[], totalProcessed = 0, fileHash = ''): ImportResult<T> =>
+    ({ validRows: [], errors, totalProcessed, fileHash, porAba: [] })
 
-  // Lê o arquivo
+  const validation = validateFileBeforeParse(file)
+  if (!validation.ok) return vazio([{ rowNumber: 0, message: validation.error }])
+
   const arrayBuffer = await file.arrayBuffer()
   const fileText = new TextDecoder('utf-8').decode(arrayBuffer.slice(0, 4096))
   const fileHash = quickHash(file.name + file.size + fileText.slice(0, 200))
@@ -198,121 +218,112 @@ export async function parseAndValidate<T extends Record<string, unknown>>(
   try {
     workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: false })
   } catch (e) {
-    return {
-      validRows: [],
-      errors: [{ rowNumber: 0, message: `Falha ao ler arquivo: ${e instanceof Error ? e.message : 'erro desconhecido'}` }],
-      totalProcessed: 0,
-      fileHash,
-    }
+    return vazio(
+      [{ rowNumber: 0, message: `Falha ao ler arquivo: ${e instanceof Error ? e.message : 'erro desconhecido'}` }],
+      0, fileHash,
+    )
   }
 
-  const sheetName = workbook.SheetNames[0]
-  if (!sheetName) {
-    return {
-      validRows: [],
-      errors: [{ rowNumber: 0, message: 'Arquivo sem nenhuma aba.' }],
-      totalProcessed: 0,
-      fileHash,
-    }
-  }
+  const nomes = config.sheets === 'todas' ? workbook.SheetNames : workbook.SheetNames.slice(0, 1)
+  if (!nomes.length) return vazio([{ rowNumber: 0, message: 'Arquivo sem nenhuma aba.' }], 0, fileHash)
 
-  const sheet = workbook.Sheets[sheetName]
-  const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: false })
-
-  if (rows.length === 0) {
-    return {
-      validRows: [],
-      errors: [{ rowNumber: 0, message: 'Arquivo sem nenhuma linha de dados.' }],
-      totalProcessed: 0,
-      fileHash,
-    }
-  }
-
-  if (rows.length > MAX_ROWS) {
-    return {
-      validRows: [],
-      errors: [{ rowNumber: 0, message: `Arquivo com ${rows.length} linhas excede o máximo de ${MAX_ROWS}.` }],
-      totalProcessed: rows.length,
-      fileHash,
-    }
-  }
-
-  // Mapeia headers da planilha → keys do objeto T
-  const firstRow = rows[0]
-  const sheetHeaders = Object.keys(firstRow)
-  const headerMap = new Map<keyof T, string>()
-  const missingRequired: string[] = []
-
-  for (const col of config.columns) {
-    const found = findHeaderKey(sheetHeaders, col.headerAliases)
-    if (found) {
-      headerMap.set(col.key, found)
-    } else if (col.required) {
-      missingRequired.push(col.headerAliases[0] ?? String(col.key))
-    }
-  }
-
-  if (missingRequired.length > 0) {
-    return {
-      validRows: [],
-      errors: [{
-        rowNumber: 1,
-        message: `Cabeçalhos obrigatórios ausentes: ${missingRequired.join(', ')}. Verifique se sua planilha bate com o template.`,
-      }],
-      totalProcessed: 0,
-      fileHash,
-    }
-  }
+  // ⚠️ `range` só é passado quando `headerRow` foi definido. Passá-lo sempre (mesmo como 0) muda o
+  // resultado em aba cujo `!ref` não começa em A1 — o SheetJS passa a ler as linhas vazias acima do
+  // dado e o cabeçalho vira `__EMPTY`. Medido.
+  const opcoesDaAba: XLSX.Sheet2JSONOpts = config.headerRow === undefined
+    ? { defval: '', raw: false }
+    : { defval: '', raw: false, range: config.headerRow }
 
   const validRows: T[] = []
   const errors: ImportError[] = []
+  const porAba: Array<{ aba: string; linhas: T[] }> = []
+  let totalProcessed = 0
+  const varias = nomes.length > 1
+  // Em arquivo de várias abas, o número da linha sozinho não localiza nada.
+  const ondeEsta = (aba: string) => (varias ? `[${aba}] ` : '')
 
-  rows.forEach((row, idx) => {
-    const rowNumber = idx + 2 // +2 porque idx começa em 0 e linha 1 é o header
-    const obj: Partial<T> = {}
+  for (const aba of nomes) {
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[aba], opcoesDaAba)
+    if (rows.length === 0) continue
 
-    let rowError = false
+    totalProcessed += rows.length
+    if (totalProcessed > MAX_ROWS) {
+      return vazio(
+        [{ rowNumber: 0, message: `Arquivo com ${totalProcessed} linhas excede o máximo de ${MAX_ROWS}.` }],
+        totalProcessed, fileHash,
+      )
+    }
+
+    const sheetHeaders = Object.keys(rows[0])
+    const headerMap = new Map<keyof T, string>()
+    const missingRequired: string[] = []
+
     for (const col of config.columns) {
-      const sheetKey = headerMap.get(col.key)
-      const rawValue = sheetKey ? row[sheetKey] : undefined
-      const coerced = coerceValue(rawValue, col)
+      const found = findHeaderKey(sheetHeaders, col.headerAliases)
+      if (found) headerMap.set(col.key, found)
+      else if (col.required) missingRequired.push(col.headerAliases[0] ?? String(col.key))
+    }
 
-      if (coerced === undefined && col.required) {
+    if (missingRequired.length > 0) {
+      // ⚠️ Erro DA ABA, não do arquivo: numa planilha com várias abas, uma delas fora do formato
+      // não pode descartar as outras em silêncio.
+      errors.push({
+        rowNumber: 1,
+        message: `${ondeEsta(aba)}Cabeçalhos obrigatórios ausentes: ${missingRequired.join(', ')}. Verifique se sua planilha bate com o template.`,
+      })
+      continue
+    }
+
+    const linhasDaAba: T[] = []
+
+    rows.forEach((row, idx) => {
+      const rowNumber = idx + 2 + (config.headerRow ?? 0)
+      const obj: Partial<T> = {}
+
+      let rowError = false
+      for (const col of config.columns) {
+        const sheetKey = headerMap.get(col.key)
+        const rawValue = sheetKey ? row[sheetKey] : undefined
+        const coerced = coerceValue(rawValue, col)
+
+        if (coerced === undefined && col.required) {
+          errors.push({
+            rowNumber,
+            column: sheetKey ?? col.headerAliases[0],
+            message: `${ondeEsta(aba)}Campo obrigatório vazio ou inválido: "${col.headerAliases[0]}"`,
+            rawRow: row,
+          })
+          rowError = true
+          break
+        }
+        ;(obj as Record<string, unknown>)[col.key as string] = coerced
+      }
+
+      if (rowError) return
+
+      const result = config.schema.safeParse(obj)
+      if (!result.success) {
+        const firstIssue = result.error.issues[0]
         errors.push({
           rowNumber,
-          column: sheetKey ?? col.headerAliases[0],
-          message: `Campo obrigatório vazio ou inválido: "${col.headerAliases[0]}"`,
+          column: firstIssue?.path[0] ? String(firstIssue.path[0]) : undefined,
+          message: `${ondeEsta(aba)}${firstIssue?.message ?? 'Erro de validação'}`,
           rawRow: row,
         })
-        rowError = true
-        break
+      } else {
+        linhasDaAba.push(result.data as T)
       }
-      ;(obj as Record<string, unknown>)[col.key as string] = coerced
-    }
+    })
 
-    if (rowError) return
-
-    // Valida com Zod
-    const result = config.schema.safeParse(obj)
-    if (!result.success) {
-      const firstIssue = result.error.issues[0]
-      errors.push({
-        rowNumber,
-        column: firstIssue?.path[0] ? String(firstIssue.path[0]) : undefined,
-        message: firstIssue?.message ?? 'Erro de validação',
-        rawRow: row,
-      })
-    } else {
-      validRows.push(result.data as T)
-    }
-  })
-
-  return {
-    validRows,
-    errors,
-    totalProcessed: rows.length,
-    fileHash,
+    validRows.push(...linhasDaAba)
+    porAba.push({ aba, linhas: linhasDaAba })
   }
+
+  if (totalProcessed === 0) {
+    return vazio([{ rowNumber: 0, message: 'Arquivo sem nenhuma linha de dados.' }], 0, fileHash)
+  }
+
+  return { validRows, errors, totalProcessed, fileHash, porAba }
 }
 
 // ─── Geração de template Excel para download ─────────────────────────────────

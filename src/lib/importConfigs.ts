@@ -201,12 +201,11 @@ export const OBRA_IMPORT_CONFIG: ImportConfig<ObraImportRow> = {
 // 4) MÃO DE OBRA — trabalhadores.csv
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WorkerImportRow = Omit<Worker, 'id' | 'certifications' | 'biometricToken'>
+type WorkerImportRow = Omit<Worker, 'id' | 'certifications' | 'biometricToken' | 'cpfMasked'>
 
 const workerSchema = z.object({
   name:               z.string().min(1, 'Nome é obrigatório'),
   role:               z.string().min(1, 'Função é obrigatória'),
-  cpfMasked:          z.string().default('***.***.***-XX'),
   crewId:             z.string().default(''),
   status:             z.enum(['active', 'inactive', 'suspended', 'pending_approval']).default('active'),
   hourlyRate:         z.number().nonnegative().default(0),
@@ -218,24 +217,35 @@ const workerSchema = z.object({
   contractType:       z.enum(['clt', 'pj', 'freelancer', 'apprentice']).optional(),
   scheduleType:       z.enum(['standard', '6x1', '5x2', '12x36', 'daily', 'custom']).optional(),
   workFront:          z.string().optional(),
+  tipoCnh:            z.string().optional(),
+  observacoes:        z.string().optional(),
 })
 
 /**
- * Mascara CPF: aceita "12345678900" / "123.456.789-00" e retorna
- * "***.***.***-00" — só os 2 últimos dígitos visíveis (LGPD).
+ * `NSA` ("não se aplica") vira AUSENTE, não string vazia.
+ *
+ * ⚠️ A planilha do cliente escreve `NSA` para quem não tem habilitação. Guardar `''` diria "campo
+ * em branco, alguém esqueceu"; ausente diz "não se aplica a esta pessoa". A tela mostra os dois
+ * diferente, e a diferença é a mesma que o RDO faz entre vazio e zero.
  */
-function maskCpf(raw: unknown): string {
-  const str = String(raw ?? '').replace(/\D/g, '')
-  if (str.length < 11) return '***.***.***-XX'
-  return `***.***.***-${str.slice(-2)}`
+function categoriaDeCnh(raw: unknown): string | undefined {
+  const t = String(raw ?? '').trim().toUpperCase()
+  if (!t || t === 'NSA' || t === 'N/A' || t === '-') return undefined
+  // ⚠️ Só letras de categoria. Se vier número — e na planilha do cliente a coluna vizinha É o
+  // número da CNH —, o campo é RECUSADO em vez de guardado: é dado pessoal que não pedimos.
+  const so = t.replace(/[^A-E/]/g, '')
+  return so.length && so.length <= 5 ? so.replace(/\//g, '') : undefined
 }
 
 export const WORKER_IMPORT_CONFIG: ImportConfig<WorkerImportRow> = {
   schema: workerSchema,
+  // A planilha do cliente tem uma aba por frente ("Equipes Sidnei", "Equipes Mauá") e um banner
+  // mesclado na linha 1 — o cabeçalho de verdade está na linha 2 (índice 1).
+  sheets: 'todas',
+  headerRow: 1,
   columns: [
     { key: 'name',               headerAliases: ['name', 'nome', 'colaborador'],                       type: 'string', required: true },
     { key: 'role',               headerAliases: ['role', 'função', 'funcao', 'cargo'],                 type: 'string', required: true },
-    { key: 'cpfMasked',          headerAliases: ['cpf', 'cpfmasked', 'cpf mascarado'],                 type: 'string', defaultValue: '***.***.***-XX', transform: maskCpf },
     // O valor desta coluna é o NOME da equipe, não um id. Quem monta a planilha escreve
     // "Equipe A"; a resolução para o uuid acontece no commit, contra as equipes cadastradas.
     // Antes o exemplo do template era `crew-A`, que ia direto para a coluna `crew_id uuid` e
@@ -263,18 +273,22 @@ export const WORKER_IMPORT_CONFIG: ImportConfig<WorkerImportRow> = {
       return undefined as unknown as 'clt'
     }},
     { key: 'workFront',          headerAliases: ['workfront', 'frente', 'frente trabalho'],           type: 'string' },
+    { key: 'tipoCnh',            headerAliases: ['tipo cnh', 'tipocnh', 'categoria cnh', 'categoria'],  type: 'string', transform: categoriaDeCnh },
+    { key: 'observacoes',        headerAliases: ['observacoes', 'observações', 'obs', 'observacao', 'observação'], type: 'string' },
   ],
-  exampleHeaders: ['name', 'role', 'cpf', 'crewId', 'status', 'hourlyRate', 'admissionDate', 'contractType', 'phone'],
+  exampleHeaders: ['nome', 'cargo', 'equipe', 'tipo cnh', 'observacoes', 'status', 'telefone', 'admissão'],
+  // ⚠️ Nenhum documento no exemplo, de propósito. `downloadTemplate` monta o cabeçalho a partir de
+  // `exampleHeaders`, não de `columns` — deixar 'cpf' aqui faria o produto CONTINUAR PEDINDO o CPF
+  // no modelo que o cliente baixa, mesmo com a coluna removida do importador.
   exampleRow: {
-    name: 'Carlos Mendes',
-    role: 'Encarregado',
-    cpf: '12345678900',
-    crewId: 'Equipe A',
+    nome: 'Carlos Mendes',
+    cargo: 'Encarregado',
+    equipe: 'Equipe A',
+    'tipo cnh': 'AB',
+    observacoes: '',
     status: 'active',
-    hourlyRate: 28.50,
-    admissionDate: '2024-03-15',
-    contractType: 'clt',
-    phone: '(11) 99999-9999',
+    telefone: '(11) 99999-9999',
+    'admissão': '2024-03-15',
   },
 }
 

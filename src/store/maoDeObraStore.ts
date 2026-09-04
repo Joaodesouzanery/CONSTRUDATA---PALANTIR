@@ -6,6 +6,8 @@ import { podeEscreverMaoDeObra } from '@/lib/roles'
 import { flushQueue, makeOp, mergePull, pullTable, changedColumns, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { isDemoModeEnabled } from '@/lib/runtimeMode'
+import { sanitizarFuncionarioImportado } from '@/lib/funcionarioImportado'
+import { normalizeName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
   Worker,
@@ -51,6 +53,16 @@ import { entraNaFolha } from '@/lib/funcionarioAtivo'
 const rdoTimecardId = (rdoId: string, workerId: string) => seededUuidLegado(`rdo-tc:${rdoId}:${workerId}`)
 
 /** Dados mínimos que a ponte RDO → timecards precisa (evita acoplar rdoStore). */
+export interface ResultadoDaImportacaoDeFuncionarios {
+  criados: number
+  /** Nomes de coluna barrados pelo filtro, sem repetição — a tela mostra o que foi ignorado. */
+  camposIgnorados: string[]
+  /** Nomes de equipe da planilha que não existem no cadastro. Esses funcionários ficam sem equipe. */
+  equipesNaoEncontradas: string[]
+  /** `false` quando o papel do usuário não pode escrever — nada foi gravado. */
+  gravou: boolean
+}
+
 export interface RdoLaborBridgeInput {
   id: string
   date: string
@@ -127,6 +139,14 @@ interface MaoDeObraState {
 
   // Worker CRUD
   addWorker:    (worker: Omit<Worker, 'id'>) => void
+  /**
+   * A porta da IMPORTAÇÃO de funcionários. Sanitiza, resolve equipe por nome e grava tudo de uma
+   * vez. Ver `importarFuncionarios` abaixo para o porquê de não ser um laço de `addWorker`.
+   */
+  importarFuncionarios: (
+    linhas: Array<Record<string, unknown>>,
+    opcoes?: { siteId?: string | null },
+  ) => ResultadoDaImportacaoDeFuncionarios
   updateWorker: (id: string, updates: Partial<Omit<Worker, 'id'>>) => void
   removeWorker: (id: string) => void
   /** Desliga sem apagar: o rastro (turnos, apontamentos, holerites) continua inteiro. */
@@ -524,6 +544,100 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       pendingSync: [...s.pendingSync, makeOp({ entity: 'worker', type: 'insert', recordId: id, row: workerToRow(newWorker, orgId, userId), table: 'workers' })],
     }))
     void get().flush()
+  },
+
+  /**
+   * Importa funcionários de planilha.
+   *
+   * ⚠️ **Não é um laço de `addWorker`, e há dois motivos.**
+   *
+   * 1. **O filtro.** `workerToRow` grava o objeto inteiro num `jsonb`; um `...spread` de linha de
+   *    planilha de RH levaria CPF, RG, CNH e antecedentes para o servidor. Aqui cada linha passa
+   *    por `sanitizarFuncionarioImportado` antes de virar `Worker`. Fazer isso dentro de
+   *    `addWorker` quebraria o cadastro manual, que grava `cpfMasked` legitimamente.
+   * 2. **Uma gravação só.** `addWorker` faz `set` + `flush()` por chamada. Vinte e seis
+   *    funcionários viravam 26 renderizações e 26 idas à rede, cada uma podendo falhar sozinha e
+   *    deixar a importação pela metade sem ninguém saber qual metade.
+   */
+  importarFuncionarios: (linhas, opcoes) => {
+    const vazio: ResultadoDaImportacaoDeFuncionarios = {
+      criados: 0, camposIgnorados: [], equipesNaoEncontradas: [], gravou: false,
+    }
+    if (!podeEscreverMaoDeObra().pode) return vazio
+
+    const { crews } = get()
+    const porNome = new Map(crews.map((c) => [normalizeName(c.name), c.id]))
+    const idsValidos = new Set(crews.map((c) => c.id))
+
+    const ignorados = new Set<string>()
+    const semEquipe = new Set<string>()
+    const novos: Worker[] = []
+
+    for (const bruta of linhas) {
+      const { limpo, ignorados: barrados } = sanitizarFuncionarioImportado(bruta)
+      barrados.forEach((b) => ignorados.add(b))
+
+      const nome = String(limpo.name ?? '').trim()
+      if (!nome) continue
+
+      // A coluna "equipe" vem como TEXTO ("Equipe A") e `crew_id` é uuid. Sem esta tradução o
+      // Postgres recusa a linha (22P02) e o funcionário fica preso na fila para sempre.
+      const equipeBruta = String(limpo.crewId ?? '').trim()
+      let crewId = ''
+      if (equipeBruta) {
+        // A planilha escreve só a letra ("A", "B", "C"); o cadastro costuma chamar de "Equipe A".
+        // Duas tentativas, nesta ordem, e nenhuma criação automática: equipe é organização da
+        // operação, e inventar uma com nome adivinhado é pior do que dizer que não achei.
+        crewId = idsValidos.has(equipeBruta)
+          ? equipeBruta
+          : (porNome.get(normalizeName(equipeBruta))
+            ?? porNome.get(normalizeName(`Equipe ${equipeBruta}`))
+            ?? '')
+        if (!crewId) semEquipe.add(equipeBruta)
+      }
+
+      const site = opcoes?.siteId === undefined
+        ? (useActiveObraStore.getState().activeObraId ?? undefined)
+        : (opcoes.siteId || undefined)
+
+      novos.push({
+        ...(limpo as Partial<Worker>),
+        id: crypto.randomUUID(),
+        name: nome,
+        role: String(limpo.role ?? '').trim(),
+        // O cadastro manual preenche; a importação nunca traz CPF, e o normalizador põe a máscara.
+        cpfMasked: '',
+        crewId,
+        status: (limpo.status as Worker['status']) ?? 'active',
+        certifications: [],
+        hourlyRate: Number(limpo.hourlyRate ?? 0) || 0,
+        siteId: site,
+      } as Worker)
+    }
+
+    if (!novos.length) {
+      return { criados: 0, camposIgnorados: [...ignorados], equipesNaoEncontradas: [...semEquipe], gravou: true }
+    }
+
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      workers: [...s.workers, ...novos.map(normalizeWorker)],
+      pendingSync: [
+        ...s.pendingSync,
+        ...novos.map((w) => makeOp({
+          entity: 'worker', type: 'insert', recordId: w.id,
+          row: workerToRow(normalizeWorker(w), orgId, userId), table: 'workers',
+        })),
+      ],
+    }))
+    void get().flush()
+
+    return {
+      criados: novos.length,
+      camposIgnorados: [...ignorados],
+      equipesNaoEncontradas: [...semEquipe],
+      gravou: true,
+    }
   },
 
   updateWorker: (id, updates) => {
