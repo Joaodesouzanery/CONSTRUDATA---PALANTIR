@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Plus, Camera, Check, X, ChevronRight, FileEdit, Clock, Send } from 'lucide-react'
+import { Plus, Check, X, ChevronRight, FileEdit, Clock, Send } from 'lucide-react'
 import { useGestao360Store } from '@/store/gestao360Store'
 import { useProjetosStore } from '@/store/projetosStore'
 import type { ChangeOrder, ChangeOrderType } from '@/types'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { mergeProjectsWithSites } from '../utils/siteProjects'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 // ─── Status meta ──────────────────────────────────────────────────────────────
 
@@ -75,7 +76,6 @@ function CODetail({ co }: { co: ChangeOrder }) {
   )
   const meta = STATUS_META[co.status]
   const Icon = meta.icon
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const [reviewNotes, setReviewNotes] = useState('')
   const [reviewer,    setReviewer]    = useState('Gerente de Projeto')
@@ -141,14 +141,16 @@ function CODetail({ co }: { co: ChangeOrder }) {
         <div className="flex items-center justify-between mb-2">
           <p className="text-[#6b6b6b] text-xs font-medium">Fotos ({co.photos.length})</p>
           {(co.status === 'draft' || co.status === 'submitted') && (
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-1 text-[#f97316] text-[10px] font-semibold hover:underline"
-            >
-              <Camera size={11} /> Adicionar
-            </button>
+          <AreaDeSoltar
+            compacto
+            aceita="image/*"
+            titulo="Arraste a foto ou clique"
+            aoEscolher={(arquivos) => {
+              const f = arquivos[0]
+              if (f) handleFileChange({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+            }}
+          />
           )}
-          <input ref={fileRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
         </div>
         {co.photos.length > 0 ? (
           <div className="flex gap-2 flex-wrap">

@@ -6,7 +6,7 @@
  * (e obra opcional). Molde: PagamentosPanel.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, CalendarClock, FileText, Barcode, Paperclip, Copy, FileDown, Image as ImageIcon } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, RotateCcw, X, AlertTriangle, CalendarClock, FileText, Barcode, Copy, FileDown, Image as ImageIcon } from 'lucide-react'
 import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
@@ -20,6 +20,7 @@ import { digitosDe, formatarCodigo, tamanhoValido, separarCodigosColados } from 
 import { BoletosReportModal } from './BoletosReportModal'
 import type { FinanceiroTitulo, TituloTipo, EntradaCategoria, SaidaCategoria, TituloAnexo } from '@/types'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const labelCls = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -696,10 +697,16 @@ function BoletoModal({ edit, onClose }: { edit?: BoletoGroup; onClose: () => voi
           <label className={labelCls}>Fotos do boleto</label>
           <div className="flex flex-wrap items-center gap-2">
             {anexos.map((a) => <BoletoFoto key={a.path} anexo={a} onRemove={() => removeAnexo(a.path)} />)}
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#525252] bg-[#333333] px-3 py-2 text-[11px] font-semibold text-[#e5e5e5] hover:bg-[#3f3f3f]">
-              <Paperclip size={13} /> {uploading ? 'Enviando…' : 'Adicionar foto'}
-              <input type="file" accept="image/*,.pdf" multiple className="hidden" onChange={onFiles} disabled={uploading} />
-            </label>
+            <AreaDeSoltar
+              compacto
+              varios
+              aceita="image/*,.pdf"
+              desabilitado={uploading}
+              titulo={uploading ? 'Enviando…' : 'Arraste a foto do boleto ou clique'}
+              aoEscolher={(arquivos) => {
+                void onFiles({ target: { files: arquivos, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+              }}
+            />
           </div>
         </div>
 

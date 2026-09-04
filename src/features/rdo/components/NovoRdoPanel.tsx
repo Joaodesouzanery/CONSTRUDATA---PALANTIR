@@ -5,11 +5,11 @@
  *           Georreferenciamento, Observações e Ocorrências.
  * Plus: photo upload (base64, max 20 files, 5 MB each).
  */
-import { useState, useRef, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  ChevronDown, ChevronRight, Plus, Trash2, MapPin, Upload, X,
+  ChevronDown, ChevronRight, Plus, Trash2, MapPin, X,
   CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
   ShieldCheck, Info, CheckSquare, Package, Calculator,
 } from 'lucide-react'
@@ -34,6 +34,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { TextParseModal } from './TextParseModal'
 import type { ParsedRdoData } from '../utils/parseRdoText'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -274,8 +275,6 @@ export function NovoRdoPanel() {
     { role: 'Ajudante', outsourced: 0, direct: 0, hoursWorked: 8 },
     { role: 'Operador', outsourced: 0, direct: 0, hoursWorked: 8 },
   ])
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const executablePlanningActivities = useMemo(
     () => planningActivities.filter((activity) => activity.level >= 1 && !activity.isMilestone),
     [planningActivities],
@@ -1771,22 +1770,16 @@ export function NovoRdoPanel() {
             <span className="text-[#6b6b6b] text-xs font-normal">({photos.length}/{MAX_PHOTOS})</span>
           </div>
 
-          {/* Dropzone */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-[#5e5e5e] hover:border-sky-500 rounded-lg p-6 text-center cursor-pointer transition-colors"
-          >
-            <Upload size={24} className="mx-auto text-[#6b6b6b] mb-2" />
-            <p className="text-[#a3a3a3] text-sm">Clique para selecionar fotos</p>
-            <p className="text-gray-600 text-xs mt-1">JPEG, PNG, WebP, GIF · máx. {MAX_SIZE_MB} MB por arquivo · {MAX_PHOTOS} fotos</p>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            multiple
-            className="hidden"
-            onChange={handleFileSelect}
+          {/* ⚠️ Este quadro EXISTIA e era só decorativo: tinha cara de área de soltar e só
+              respondia ao clique. Quem arrastava a foto para cá saía do aplicativo. */}
+          <AreaDeSoltar
+            varios
+            aceita="image/jpeg,image/png,image/webp,image/gif"
+            titulo="Arraste as fotos aqui ou clique para selecionar"
+            ajuda={`JPEG, PNG, WebP, GIF · máx. ${MAX_SIZE_MB} MB por arquivo · ${MAX_PHOTOS} fotos`}
+            aoEscolher={(arquivos) => {
+              handleFileSelect({ target: { files: arquivos, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+            }}
           />
           {photoError && <p className="text-red-400 text-sm">{photoError}</p>}
 

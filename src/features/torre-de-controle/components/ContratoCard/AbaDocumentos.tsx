@@ -12,13 +12,14 @@
  * em uma hora e ninguém trata isso hoje.
  */
 import { useState } from 'react'
-import { Upload, Trash2, FileText, Eye, EyeOff, Download } from 'lucide-react'
+import { Trash2, FileText, Eye, EyeOff, Download } from 'lucide-react'
 import { uploadFile, getSignedUrl, removeFile } from '@/lib/storage'
 import { useAuth } from '@/lib/auth'
 import { fmtDataBR } from '@/lib/utils'
 import type { ObraContrato, ObraDocumento } from '@/types'
 import { TXT } from './formato'
 import { BotaoSec, Aviso } from './ui'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const BUCKET = 'project-documents' as const
 const LIMITE_MB = 15
@@ -102,12 +103,13 @@ export function AbaDocumentos({ contrato, salvar }: {
                 className="rounded border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[11px] text-[#f5f5f5] outline-none">
           {TIPOS.map((t) => <option key={t.v} value={t.v}>{t.label}</option>)}
         </select>
-        <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1
-                          text-[11px] font-semibold text-[#d4d4d4] hover:border-[#f97316]/40 hover:text-[#f97316]">
-          <Upload size={11} /> {enviando ? 'Enviando…' : 'Enviar arquivo'}
-          <input type="file" accept="application/pdf,image/*" className="hidden" disabled={enviando}
-                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void enviar(f); e.target.value = '' }} />
-        </label>
+        <AreaDeSoltar
+          compacto
+          aceita="application/pdf,image/*"
+          desabilitado={enviando}
+          titulo={enviando ? 'Enviando…' : 'Arraste o arquivo ou clique'}
+          aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void enviar(f) }}
+        />
       </div>
 
       {ordenados.length === 0 ? (

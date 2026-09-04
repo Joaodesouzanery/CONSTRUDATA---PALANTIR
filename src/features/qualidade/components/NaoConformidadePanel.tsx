@@ -5,6 +5,7 @@ import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { printQualityNonConformityPDF } from '../utils/nonConformityPdfExport'
 import { compressImage } from '@/lib/imageCompression'
 import type { QualityNonConformity, QualityNonConformityStatus } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -229,18 +230,13 @@ export function NaoConformidadePanel() {
             </div>
           )}
           {draft.evidencePhotos.length < 12 && (
-            <label className="inline-flex items-center gap-2 px-4 py-2 border border-dashed border-[#525252] rounded-lg text-xs text-[#a3a3a3] hover:border-[#f97316]/50 hover:text-[#f97316] cursor-pointer transition-colors">
-              <Camera size={14} />
-              Adicionar evidências
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => addPhotos(e.target.files)}
-                onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
-              />
-            </label>
+            <AreaDeSoltar
+              compacto
+              varios
+              aceita="image/*"
+              titulo="Arraste as evidências ou clique"
+              aoEscolher={(arquivos) => { void addPhotos(arquivos as unknown as FileList) }}
+            />
           )}
         </div>
 

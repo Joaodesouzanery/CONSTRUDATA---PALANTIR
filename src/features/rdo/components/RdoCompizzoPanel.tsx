@@ -4,7 +4,7 @@
  * reaproveita campos do Novo RDO (mão de obra, equipamentos, fotos). Salva no
  * mesmo store de RDO (template 'compizzo') e exporta PDF idêntico ao documento.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
   CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch,
@@ -32,6 +32,7 @@ import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
 import { ehLinhaDeArea, unidadeDaLinha } from '../utils/producaoCompizzo'
 import type { HorasPorOcorrencia, MotivoDeParada } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
@@ -302,7 +303,6 @@ export function RdoCompizzoPanel() {
   // Id do RDO já criado nesta sessão de edição — evita que re-salvar (rascunho)
   // crie um RDO novo a cada clique. Começa com o RDO em edição, se houver.
   const [savedId, setSavedId] = useState<string | null>(editing?.id ?? null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   // Sai do modo edição ao desmontar (reabrir a aba volta a criar novo).
   useEffect(() => () => setEditingRdoId(null), [setEditingRdoId])
@@ -1094,8 +1094,13 @@ export function RdoCompizzoPanel() {
 
         {/* Registro Fotográfico */}
         <Section title={`Registro Fotográfico (${photos.length})`} icon={<Camera size={16} className="text-[#1f6fd1]" />}>
-          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handlePhotos(e.target.files)} />
-          <button type="button" onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar Fotos</button>
+          <AreaDeSoltar
+            compacto
+            varios
+            aceita="image/*"
+            titulo="Arraste as fotos ou clique para adicionar"
+            aoEscolher={(arquivos) => { void handlePhotos(arquivos as unknown as FileList) }}
+          />
           {photos.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
               {photos.map((p, i) => (
