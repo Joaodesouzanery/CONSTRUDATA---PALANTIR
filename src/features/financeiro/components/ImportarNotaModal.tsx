@@ -22,7 +22,7 @@
  * fechar. A ordem é: ler o QR → comprimir → subir.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Camera, CheckCircle2, Loader2, ScanLine, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Loader2, ScanLine, Sparkles, X } from 'lucide-react'
 import type { NotaFiscal, SaidaCategoria } from '@/types'
 import { SAIDA_CAT_LABELS, SAIDA_CATS, fmtBRL } from '@/features/financeiro/lib/financeiroCalc'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -38,6 +38,7 @@ import {
   type RascunhoDeNota,
 } from '../utils/notaFiscalConferencia'
 import { etiquetasUsadas, normalizarEtiqueta, sugerirClassificacao } from '../utils/categoriaAprendida'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const INPUT = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#f97316]/60'
 const LABEL = 'block text-[10px] text-[#6b6b6b] uppercase tracking-wide mb-1'
@@ -250,13 +251,12 @@ export function ImportarNotaModal({ notas, orgId, onSalvar, onClose }: Props) {
           <div>
             <label className={LABEL}>1 · A foto do cupom</label>
             <div className="flex flex-wrap items-center gap-3">
-              <label className={`${BTN_P} inline-flex cursor-pointer items-center gap-2`}>
-                <Camera size={15} /> {foto ? 'Trocar foto' : 'Fotografar ou escolher'}
-                <input
-                  type="file" accept="image/*" capture="environment" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void escolherFoto(f); e.target.value = '' }}
-                />
-              </label>
+              <AreaDeSoltar
+                compacto
+                aceita="image/*"
+                titulo={foto ? 'Arraste outra foto ou clique' : 'Arraste a foto do cupom ou clique'}
+                aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void escolherFoto(f) }}
+              />
               {lendoQr && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-[#a3a3a3]">
                   <Loader2 size={13} className="animate-spin" /> procurando o QR Code…

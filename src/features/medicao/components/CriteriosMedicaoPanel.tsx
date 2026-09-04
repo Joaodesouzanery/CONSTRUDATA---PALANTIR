@@ -3,12 +3,13 @@
  *
  * Search, view and add Sabesp measurement criteria by service code or description.
  */
-import { useState, useCallback, useRef } from 'react'
-import { Search, BookOpen, Plus, Trash2, X as XIcon, Upload, AlertCircle } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Search, BookOpen, Plus, Trash2, X as XIcon, AlertCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { searchCriterios, getAllCriterios, addCustomCriterio, removeCustomCriterio, isCustomCriterio } from '../data/criterios'
 import type { CriterioMedicao } from '../data/criterios'
 import { parseCriterioPdf } from '../utils/criterioPdfParser'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const GRUPO_COLORS: Record<string, string> = {
   '01': 'text-amber-400 bg-amber-400/10 border-amber-500/30',
@@ -199,7 +200,6 @@ export function CriteriosMedicaoPanel() {
   const [importPreview, setImportPreview] = useState<{ items: CriterioMedicao[]; errors: string[] } | null>(null)
   const [importLoading, setImportLoading] = useState(false)
   const [importMessage, setImportMessage] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const results = searchCriterios(query)
   const allCriterios = getAllCriterios()
@@ -230,7 +230,6 @@ export function CriteriosMedicaoPanel() {
       setImportPreview({ items: [], errors: [`Erro ao ler arquivo: ${err instanceof Error ? err.message : 'formato inválido'}`] })
     } finally {
       setImportLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -287,12 +286,16 @@ export function CriteriosMedicaoPanel() {
             </div>
           )}
           <div className="flex flex-col gap-1.5 mt-2">
-            <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv" className="hidden" onChange={handleImportFile} />
-            <button onClick={() => fileRef.current?.click()} disabled={importLoading}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors">
-              <Upload size={13} />
-              {importLoading ? 'Lendo...' : 'Importar PDF / XLSX / CSV'}
-            </button>
+            <AreaDeSoltar
+              compacto
+              aceita=".pdf,.xlsx,.xls,.csv"
+              desabilitado={importLoading}
+              titulo={importLoading ? 'Lendo…' : 'Arraste o PDF ou a planilha'}
+              aoEscolher={(arquivos) => {
+                const f = arquivos[0]
+                if (f) void handleImportFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+              }}
+            />
             <button onClick={() => setAddOpen(true)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-dashed border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
               <Plus size={13} /> Adicionar manualmente
             </button>
@@ -384,10 +387,16 @@ export function CriteriosMedicaoPanel() {
               {allCriterios.length} critérios disponíveis · Contrato 11481051
             </p>
             <div className="flex items-center gap-3 mt-4">
-              <button onClick={() => fileRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-white transition-colors" style={{ backgroundColor: '#f97316' }}>
-                <Upload size={14} /> Importar PDF/XLSX
-              </button>
+              <AreaDeSoltar
+                compacto
+                aceita=".pdf,.xlsx,.xls,.csv"
+                desabilitado={importLoading}
+                titulo={importLoading ? 'Lendo…' : 'Arraste o PDF/XLSX ou clique'}
+                aoEscolher={(arquivos) => {
+                  const f = arquivos[0]
+                  if (f) void handleImportFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }}
+              />
               <button onClick={() => setAddOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-[#f97316] border border-[#f97316]/30 hover:bg-[#f97316]/10 transition-colors">
                 <Plus size={14} /> Adicionar manual

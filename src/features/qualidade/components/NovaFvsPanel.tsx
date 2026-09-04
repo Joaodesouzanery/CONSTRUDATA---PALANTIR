@@ -11,7 +11,7 @@
  *   - Linha de NC (SIM/NÃO + Nº NC)
  *   - Bloco "Fechamento da FVS" (4 campos de assinatura)
  */
-import { Fragment, useState, useRef } from 'react'
+import { Fragment, useState } from 'react'
 import { Save, Plus, Trash2, Printer, Camera, X as XIcon } from 'lucide-react'
 import { useQualidadeStore } from '@/store/qualidadeStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
@@ -160,7 +160,6 @@ export function NovaFvsPanel() {
 
   // Fotos
   const [fotos,             setFotos]             = useState<string[]>([])
-  const fotoInputRef = useRef<HTMLInputElement>(null)
 
   // NC + Closure
   const [ncRequired,        setNcRequired]        = useState(false)
@@ -715,16 +714,16 @@ export function NovaFvsPanel() {
           <span className="text-[10px] text-[#6b6b6b]">{fotos.length}/10 fotos</span>
         </div>
         <div className="p-4">
-          {/* Hidden file input */}
-          <input
-            ref={fotoInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => handleAddFotos(e.target.files)}
-            onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
+          {fotos.length < 10 && (
+          <AreaDeSoltar
+            className="mb-3"
+            varios
+            aceita="image/*"
+            titulo="Arraste as fotos aqui ou clique para selecionar"
+            ajuda={`${fotos.length}/10 fotos`}
+            aoEscolher={(arquivos) => { void handleAddFotos(arquivos as unknown as FileList) }}
           />
+          )}
 
           {/* Photo grid */}
           {fotos.length > 0 && (
@@ -748,17 +747,6 @@ export function NovaFvsPanel() {
             </div>
           )}
 
-          {/* Add button */}
-          {fotos.length < 10 && (
-            <button
-              type="button"
-              onClick={() => fotoInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 border border-dashed border-[#525252] rounded-lg text-xs text-[#a3a3a3] hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors"
-            >
-              <Camera size={14} />
-              {fotos.length === 0 ? 'Adicionar fotos' : 'Adicionar mais fotos'}
-            </button>
-          )}
           {fotos.length === 0 && (
             <p className="text-[10px] text-[#6b6b6b] mt-2">
               Opcional — adicione até 10 fotos para documentar a execução do serviço.

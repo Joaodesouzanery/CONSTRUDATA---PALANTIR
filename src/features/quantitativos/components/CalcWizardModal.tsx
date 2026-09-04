@@ -8,11 +8,12 @@
  * OrcaFascio-style flow: guides the user through cost estimation
  * with transparency at every step.
  */
-import { useState, useRef } from 'react'
-import { X, ChevronRight, ChevronLeft, Calculator, Upload, Check, Database, FileSpreadsheet } from 'lucide-react'
+import { useState } from 'react'
+import { X, ChevronRight, ChevronLeft, Calculator, Check, Database, FileSpreadsheet } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import type { CostBaseSource, OrcamentoItem } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const ACCENT = '#8b5cf6'
 
@@ -51,7 +52,6 @@ function Step1CostBase({
   onSelect: (b: CostBaseSource) => void
   onImportBase: (file: File) => void
 }) {
-  const fileRef = useRef<HTMLInputElement>(null)
 
   return (
     <div className="space-y-3">
@@ -85,19 +85,11 @@ function Step1CostBase({
       </div>
       {selected === 'custom' && (
         <div className="mt-2">
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium border border-dashed border-[#525252] text-[#a3a3a3] hover:border-violet-400 hover:text-violet-300 transition-colors w-full justify-center"
-          >
-            <Upload size={14} />
-            Importar planilha de preços (XLSX / CSV)
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onImportBase(f); if (fileRef.current) fileRef.current.value = '' }}
+          <AreaDeSoltar
+            compacto
+            aceita=".xlsx,.xls,.csv"
+            titulo="Arraste a planilha de preços ou clique"
+            aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) onImportBase(f) }}
           />
           <p className="text-[10px] text-[#6b6b6b] mt-1 text-center">
             Colunas esperadas: código | descrição | unidade | custo unitário

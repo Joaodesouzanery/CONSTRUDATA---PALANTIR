@@ -37,6 +37,7 @@ import { useActiveObra } from '@/hooks/useActiveObra'
 import type { MasterActivity } from '@/types'
 import { readLocalRdoSabesp } from '@/features/rdo-sabesp/lib/rdoSabespLocalStore'
 import { getCriadouroLabel, getRdoSabespExecutedServices } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 type ImportedScheduleActivity = Omit<MasterActivity, 'id'> & {
   resources?: string[]
@@ -459,7 +460,16 @@ export function PlanejamentoMestrePage() {
                 {importError}
               </p>
             )}
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv,.xml,.mpp" className="hidden" onChange={handleImportFile} />
+            <AreaDeSoltar
+              className="mt-3"
+              aceita=".xlsx,.xls,.csv,.xml,.mpp"
+              titulo="Arraste o cronograma aqui ou clique para escolher"
+              ajuda="Aceita .xlsx, .xls, .csv, .xml e .mpp"
+              aoEscolher={(arquivos) => {
+                const f = arquivos[0]
+                if (f) void handleImportFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+              }}
+            />
           </div>
         </div>
 

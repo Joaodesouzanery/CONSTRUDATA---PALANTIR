@@ -12,6 +12,7 @@ import {
   type PlanilhaType,
 } from '../utils/parsePlanilhasConsolidadas'
 import { cn } from '@/lib/utils'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 interface Props {
   onClose: () => void
@@ -80,16 +81,12 @@ function UploadSlot({
         >
           {state.fileName ? 'Trocar' : 'Escolher'}
         </button>
-        <input
-          ref={ref}
-          type="file"
-          accept={info.accept}
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) onPick(type, file)
-            e.currentTarget.value = ''
-          }}
+        <AreaDeSoltar
+          compacto
+          aceita={info.accept}
+          desabilitado={loading}
+          titulo={state.fileName ? 'Arraste para trocar ou clique' : 'Arraste aqui ou clique'}
+          aoEscolher={(arquivos) => { const file = arquivos[0]; if (file) onPick(type, file) }}
         />
       </div>
 

@@ -15,11 +15,12 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Upload,
+  
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { useManutencoesStore } from '@/store/manutencoesStore'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 import {
   buildFracttalSummary,
   emptyFracttalDraft,
@@ -894,17 +895,14 @@ export function AdaptacaoRapidaPage() {
               Este fluxo usa regras programadas e leitura determinística de PDF/XLSX. Imagens entram como evidências e, quando forem documentos conhecidos, recebem o mapeamento cadastrado no módulo.
             </p>
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-xs font-bold uppercase text-white hover:bg-[#ea580c]">
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-            Enviar documentos
-            <input
-              type="file"
-              multiple
-              accept=".pdf,.xlsx,.xls,.csv,image/*"
-              className="hidden"
-              onChange={(event) => void handleFiles(event.target.files)}
-            />
-          </label>
+          <AreaDeSoltar
+            compacto
+            varios
+            aceita=".pdf,.xlsx,.xls,.csv,image/*"
+            desabilitado={loading}
+            titulo={loading ? 'Enviando…' : 'Arraste os documentos ou clique'}
+            aoEscolher={(arquivos) => { void handleFiles(arquivos as unknown as FileList) }}
+          />
         </header>
 
         <section className="grid gap-3 lg:grid-cols-3">

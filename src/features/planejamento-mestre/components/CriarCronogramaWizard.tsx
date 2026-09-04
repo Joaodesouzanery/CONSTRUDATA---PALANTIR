@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as XLSX from 'xlsx'
-import { ChevronLeft, ChevronRight, FileUp, Plus, Sparkles, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Sparkles, Trash2, X } from 'lucide-react'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import type { MasterActivity, PlanServiceType, PlanningNucleus } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 interface Props {
   open: boolean
@@ -148,7 +149,6 @@ function makeActivity(input: {
 
 export function CriarCronogramaWizard({ open, onClose }: Props) {
   const createGuidedPlan = usePlanejamentoMestreStore((s) => s.createGuidedPlan)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState(1)
   const [error, setError] = useState<string | null>(null)
   const [contractName, setContractName] = useState('')
@@ -266,8 +266,12 @@ export function CriarCronogramaWizard({ open, onClose }: Props) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm text-[#a3a3a3]">{activities.length} atividade(s) cadastradas</p>
                 <div className="flex gap-2">
-                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.xml,.mpp" className="hidden" onChange={(e) => void handleFile(e.target.files?.[0])} />
-                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 rounded-lg border border-[#525252] px-3 py-2 text-sm text-[#f5f5f5] hover:bg-[#3d3d3d]"><FileUp size={14} /> Importar XLSX/XML</button>
+                  <AreaDeSoltar
+                    compacto
+                    aceita=".xlsx,.xls,.csv,.xml,.mpp"
+                    titulo="Arraste o cronograma ou clique"
+                    aoEscolher={(arquivos) => { void handleFile(arquivos[0]) }}
+                  />
                   <button onClick={() => setActivities((rows) => [...rows, makeActivity({ wbsCode: `1.${rows.length + 1}`, name: '', start: startDate, end: endDate, serviceType: 'esgoto', nucleusName: nuclei[0]?.name }, rows.length)])} className="flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-sm font-semibold text-white"><Plus size={14} /> Atividade</button>
                 </div>
               </div>
