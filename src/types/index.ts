@@ -1744,7 +1744,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'empreiteiros' | 'previsto-realizado'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'wcr' | 'empreiteiros' | 'previsto-realizado'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
@@ -1913,13 +1913,67 @@ export interface RDO {
   workforceRows?:               RdoWorkforceRow[]
 
   // ── Template / variantes ─────────────────────────────────────────────────────
-  template?:    'padrao' | 'compizzo'
+  template?:    'padrao' | 'compizzo' | 'wcr'
   compizzo?:    RdoCompizzoData
+  wcr?:         RdoWcrData
 
   siteId?:      string | null  // obra (construction_sites.id) — separação por obra
 
   createdAt:    string
   updatedAt:    string
+}
+
+// ─── RDO WCR (saneamento — água e esgoto) ────────────────────────────────────────
+//
+// O apontamento chega colado do WhatsApp ou numa planilha, e `utils/apontamentoWcr.ts` o lê.
+// Aqui fica só o que é GRAVADO.
+
+/**
+ * Uma linha de produção do apontamento WCR.
+ *
+ * ⚠️ **Por que não reusar `RdoCompizzoProducaoRow`**, que tem forma parecida: lá a unidade é
+ * OPCIONAL e precisa ser adivinhada do nome do serviço (`unidadeDaLinha`, `unidadeNoNome`), porque
+ * a planilha da Compizzo escreve "Faixa Branca (m)". Aqui a unidade é CONHECIDA — vem da tabela de
+ * 13 siglas — e é obrigatória. Compartilhar o tipo convidaria alguém a rodar os utilitários de
+ * inferência de m² da Compizzo em cima de metro linear de rede, que é exatamente a classe de erro
+ * que já custou caro neste módulo.
+ */
+export interface RdoWcrProducaoRow {
+  /** A sigla canônica: 'PRA', 'LA', 'Caixa UMA'… Ver `SIGLAS_WCR`. */
+  sigla:      string
+  /**
+   * ⚠️ String, e vazia quer dizer NÃO INFORMADO — não zero.
+   *
+   * No apontamento real a equipe só escreve o que fez; as outras 12 siglas vêm em branco. Guardar
+   * `0` ali seria afirmar que não se produziu nada daquele serviço, o que ninguém disse.
+   */
+  quantidade: string
+  /** 'M' para rede (PRA/PRE), 'UN' para o resto. Decide o que pode ser somado com o quê. */
+  unidade:    'M' | 'UN'
+  /** Item do contrato desta obra, vindo do de-para. Ausente = ainda não mapeado, sem valor. */
+  contractServiceId?: string
+}
+
+export interface RdoWcrData {
+  /** O encarregado que assina o apontamento ('Gilvan'). */
+  equipe?:    string
+  /** Ponto dentro da obra ('Boi Malhado'). ⚠️ Não é cidade nem obra. */
+  nucleo?:    string
+  /** Um por endereço atendido no dia. */
+  imoveis:    string[]
+  producao:   RdoWcrProducaoRow[]
+  observacoes?: string
+  /**
+   * `true` quando o ano da data foi deduzido (o apontamento escreve só "31/08").
+   *
+   * Viaja junto para a tela e o PDF poderem mostrar a data cheia — quem confere precisa ver o ano
+   * que a máquina escolheu, não descobrir depois.
+   */
+  anoInferido?: boolean
+  /** O texto colado, como veio. É a prova do que a máquina leu. */
+  textoOriginal?: string
+  /** Linhas que o leitor não reconheceu, preservadas para conferência. */
+  naoEntendidas?: string[]
 }
 
 // ─── RDO Compizzo (Demarcação e Pintura de Piso Industrial) ──────────────────────

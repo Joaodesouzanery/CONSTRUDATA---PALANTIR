@@ -186,3 +186,84 @@ describe('a diagramação que fazia o texto sair cortado', () => {
     assert.match(h, /table-header-group/)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A trava que impede o próximo template de sair em branco
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('todo template imprime um corpo', () => {
+  const base = {
+    number: 1, status: 'finalizado' as const, date: '2026-08-31', responsible: 'Gilvan',
+    weather: { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 0 } as RDO['weather'],
+    manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 },
+    equipment: [], services: [], trechos: [], materials: [],
+    geolocation: null, observations: '', incidents: '', photos: [],
+    createdAt: '2026-08-31T12:00:00Z', updatedAt: '2026-08-31T12:00:00Z',
+  }
+
+  /**
+   * ⚠️ `Record<NonNullable<RDO['template']>, RDO>` é EXAUSTIVO de propósito: um valor novo na
+   * união faz este arquivo parar de compilar até alguém escrever a fixture. Uma lista literal
+   * (`[rdoPadrao, rdoCompizzo]`) não travaria nada — o template novo simplesmente não seria
+   * testado, que é exatamente como o Compizzo passou meses saindo vazio.
+   */
+  const FIXTURES: Record<NonNullable<RDO['template']>, RDO> = {
+    padrao: {
+      ...base, id: 'p1', title: 'RDO Padrão',
+      services: [{ id: 's1', description: 'Escavação manual de vala', quantity: 12, unit: 'm' }],
+    } as RDO,
+    compizzo: { ...CHEIO },
+    wcr: {
+      ...base, id: 'w1', title: 'RDO WCR', template: 'wcr',
+      wcr: {
+        equipe: 'Gilvan', nucleo: 'Boi Malhado',
+        imoveis: ['rua santa rosa de sul', 'rua um'],
+        producao: [
+          { sigla: 'HM', quantidade: '100', unidade: 'UN' },
+          { sigla: 'PRA', quantidade: '', unidade: 'M' },
+          { sigla: 'PRE', quantidade: '80', unidade: 'M' },
+        ],
+        observacoes: 'sem intercorrência',
+        anoInferido: true,
+      },
+    } as RDO,
+  }
+
+  for (const [template, rdo] of Object.entries(FIXTURES)) {
+    it(`o corpo de '${template}' não sai vazio`, () => {
+      const html = buildRdosReportHtml([{ tipo: 'torre', rdo }], { periodo: 'set/2026' })
+      // ⚠️ A asserção é sobre conteúdo que SÓ o corpo imprime. Não vale checar `RDO #1` nem o
+      // tamanho do HTML: o número do RDO sai no cabeçalho COMPARTILHADO, acima do desvio de
+      // template — então essa asserção passaria com o corpo vazio, que é o defeito que ela
+      // deveria pegar.
+      assert.match(
+        html,
+        /Produção do dia|Serviços executados|Mão de obra/,
+        `o template '${template}' caiu num corpo que não imprime nada dele`,
+      )
+    })
+  }
+
+  it('o RDO WCR imprime as siglas, os imóveis e o aviso do ano deduzido', () => {
+    const html = buildRdosReportHtml([{ tipo: 'torre', rdo: FIXTURES.wcr }], { periodo: 'set/2026' })
+    assert.match(html, /HM/, 'a sigla executada tem de aparecer')
+    assert.match(html, /100/, 'a quantidade tem de aparecer')
+    assert.match(html, /rua santa rosa de sul/, 'os imóveis têm de aparecer')
+    assert.match(html, /rua um/)
+    assert.match(html, /Boi Malhado/, 'o núcleo tem de aparecer')
+    assert.match(html, /sem intercorrência/, 'a observação tem de aparecer')
+    assert.match(html, /ano.*deduzido/i, 'quem assina precisa saber que o ano foi deduzido')
+  })
+
+  it('⚠️ a sigla SEM medida é impressa como "não informado", não some nem vira zero', () => {
+    const html = buildRdosReportHtml([{ tipo: 'torre', rdo: FIXTURES.wcr }], { periodo: 'set/2026' })
+    assert.match(html, /PRA/, 'a sigla sem medida continua na folha')
+    assert.match(html, /não informado/, 'e é rotulada como não informada')
+    assert.match(html, /1 de 3 com medida|2 de 3 com medida/, 'a contagem de medidas aparece')
+  })
+
+  it('o sumário identifica o modelo como WCR', () => {
+    const html = buildRdosReportHtml([{ tipo: 'torre', rdo: FIXTURES.wcr }], { periodo: 'set/2026' })
+    assert.match(html, /WCR/)
+  })
+})

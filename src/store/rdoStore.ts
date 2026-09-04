@@ -116,6 +116,7 @@ function rdoToRow(rdo: RDO, orgId: string, userId: string): Omit<RdoRow, 'create
     workforceRows:             rdo.workforceRows,
     template:                  rdo.template,
     compizzo:                  rdo.compizzo,
+    wcr:                       rdo.wcr,
     siteId:                    rdo.siteId,
   }
   return {
@@ -185,6 +186,7 @@ function rowToRdo(row: RdoRow): RDO {
     workforceRows:               p.workforceRows               as RDO['workforceRows'],
     template:                    p.template                    as RDO['template'],
     compizzo:                    p.compizzo                    as RDO['compizzo'],
+    wcr:                         p.wcr                         as RDO['wcr'],
     siteId:                      row.site_id ?? (p.siteId as string | null) ?? null,
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,

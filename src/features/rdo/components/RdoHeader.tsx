@@ -13,6 +13,7 @@ const TABS: { key: RdoTab; label: string }[] = [
   { key: 'sabesp', label: 'RDO Sabesp' },
   { key: 'novo', label: 'Novo RDO' },
   { key: 'compizzo', label: 'RDO Compizzo' },
+  { key: 'wcr', label: 'RDO WCR' },
   { key: 'previsto-realizado', label: 'Previsto × Realizado' },
   { key: 'empreiteiros', label: 'Empreiteiros' },
 ]
@@ -43,7 +44,7 @@ export function RdoHeader() {
       return
     }
     // Abrir a aba Compizzo pelo menu = criar novo (sai de qualquer edição em curso)
-    if (tab === 'compizzo') setEditingRdoId(null)
+    if (tab === 'compizzo' || tab === 'wcr') setEditingRdoId(null)
     setActiveTab(tab)
     if (location.pathname !== '/app/rdo') navigate('/app/rdo')
   }

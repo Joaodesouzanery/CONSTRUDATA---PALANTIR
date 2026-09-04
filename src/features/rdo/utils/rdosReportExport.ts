@@ -110,6 +110,15 @@ const fmtQtd = (n: number): string => n.toLocaleString('pt-BR', { maximumFractio
 const ehCompizzo = (r: RDO): boolean => r.template === 'compizzo' && !!r.compizzo
 
 /**
+ * ⚠️ Todo template precisa do seu ramo AQUI e nos três lugares abaixo (`contarExecutado`,
+ * `fichaRdo`, `modelo` do sumário). Sem isso o RDO cai no corpo padrão, que lê `services`,
+ * `trechos` e `manpower` — campos que os templates novos deixam vazios de propósito. O resultado é
+ * um PDF impresso com "Nenhum serviço" e "0 pessoas" a partir de um RDO cheio, sem erro nenhum.
+ * Já aconteceu com o Compizzo, e é por isso que existe teste cobrindo os três templates.
+ */
+const ehWcr = (r: RDO): boolean => r.template === 'wcr' && !!r.wcr
+
+/**
  * Classifica a unidade de uma linha de produção.
  *
  * Delega para `@/lib/unidadesMedida`, que é o único lugar do projeto que responde a esta pergunta
@@ -162,6 +171,13 @@ export function contarExecutado(item: ItemRelatorio): Executado {
     }))
   }
   const r = item.rdo
+  if (ehWcr(r)) {
+    // Só a rede (PRA/PRE) tem metragem. Ligação, poço e caixa são contagem, e contagem não entra
+    // em metragem — somar as duas daria um número que não quer dizer nada.
+    return juntar((r.wcr!.producao ?? [])
+      .filter((l) => l.unidade === 'M' && String(l.quantidade ?? '').trim() !== '')
+      .map((l) => ({ tipo: 'linear' as const, valor: num(l.quantidade) })))
+  }
   if (ehCompizzo(r)) {
     return juntar((r.compizzo!.producao ?? []).flatMap((p) => {
       const tipo = classificarUnidade(p.unidade ?? '')
@@ -297,6 +313,62 @@ function corpoCompizzo(r: RDO): string {
         .reduce((sum, m) => sum + (Number(c.horasOcorrencia?.[m]) || 0), 0)
       return total > 0 ? `${fmtNum(total, 1)} h` : undefined
     })()) : '',
+  ].join('')
+}
+
+/**
+ * O corpo do RDO WCR.
+ *
+ * ⚠️ Imprime TODAS as siglas, inclusive as sem número, e escreve "não informado" nelas. Filtrar as
+ * vazias — como o corpo do Compizzo faz — seria certo lá (lá a linha vazia é linha de grade em
+ * branco) e errado aqui: no apontamento da WCR a lista das 13 siglas É o formulário, e uma sigla
+ * que sumiu do papel é indistinguível de uma que ninguém executou. Quem assina precisa ver as duas
+ * colunas: o que foi feito e o que ficou sem resposta.
+ */
+function corpoWcr(r: RDO): string {
+  const w = r.wcr!
+  const linhas = w.producao ?? []
+  const comNumero = linhas.filter((l) => String(l.quantidade ?? '').trim() !== '')
+
+  return [
+    secao('Identificação do dia', tabela(
+      ['Campo', 'Valor'],
+      ([['Equipe', w.equipe], ['Núcleo', w.nucleo]] as [string, string | undefined][])
+        .filter(([, v]) => !!v)
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`),
+      'Sem identificação.',
+    ) + (w.anoInferido
+      ? '<p class="vazio">⚠️ O ano da data não veio no apontamento e foi deduzido pelo sistema.</p>'
+      : '')),
+
+    secao('Imóveis atendidos', tabela(
+      ['#', 'Endereço'],
+      (w.imoveis ?? []).map((im, i) => `<tr><td class="c n">${i + 1}</td><td>${esc(im)}</td></tr>`),
+      'Nenhum imóvel informado.',
+    ), `${(w.imoveis ?? []).length} endereço(s)`),
+
+    secao('Produção do dia', tabela(
+      ['Serviço', 'Quantidade', 'Un.'],
+      linhas.map((l) => {
+        const bruto = String(l.quantidade ?? '').trim()
+        return `<tr>
+          <td>${esc(l.sigla)}</td>
+          <td class="c n">${bruto === '' ? '<span class="vazio">não informado</span>' : esc(fmtQtd(num(bruto)))}</td>
+          <td class="c">${l.unidade === 'M' ? 'm' : 'un'}</td>
+        </tr>`
+      }),
+      'Nenhum serviço no apontamento.',
+    ), `${comNumero.length} de ${linhas.length} com medida`),
+
+    w.observacoes ? secao('Observações', `<p class="texto">${esc(w.observacoes)}</p>`) : '',
+
+    (w.naoEntendidas ?? []).length
+      ? secao('Linhas não reconhecidas', tabela(
+          ['Conteúdo'],
+          (w.naoEntendidas ?? []).map((n) => `<tr><td>${esc(n)}</td></tr>`),
+          '',
+        ), `${(w.naoEntendidas ?? []).length}`)
+      : '',
   ].join('')
 }
 
@@ -439,6 +511,7 @@ function fichaSabesp(r: RdoSabespData, fotos: RdoPhoto[]): string {
 
 function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
   const compizzo = ehCompizzo(r)
+  const wcr = ehWcr(r)
   const clima = compizzo
     ? (CLIMA_LABEL[r.compizzo!.condicaoClimatica] ?? r.compizzo!.condicaoClimatica)
       + (r.compizzo!.condicaoClimaticaOutros ? ` — ${r.compizzo!.condicaoClimaticaOutros}` : '')
@@ -504,7 +577,7 @@ function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
       ].join(''), `${total} pessoa(s)`)
     })()}
 
-    ${compizzo ? corpoCompizzo(r) : corpoPadrao(r)}
+    ${wcr ? corpoWcr(r) : compizzo ? corpoCompizzo(r) : corpoPadrao(r)}
 
     ${secao('Equipamentos', tabela(
       ['Equipamento', 'Qtd.', 'Horas', 'Operador'],
@@ -693,7 +766,7 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
 
   const sumario = ordenados.map((i) => {
     const exec = contarExecutado(i)
-    const modelo = i.tipo === 'sabesp' ? 'Sabesp' : ehCompizzo(i.rdo) ? 'Compizzo' : 'Padrão'
+    const modelo = i.tipo === 'sabesp' ? 'Sabesp' : ehWcr(i.rdo) ? 'WCR' : ehCompizzo(i.rdo) ? 'Compizzo' : 'Padrão'
     return `<tr>
       <td class="c">${i.tipo === 'torre' ? i.rdo.number : '—'}</td>
       <td>${dataBR(dataDoItem(i))}</td>
