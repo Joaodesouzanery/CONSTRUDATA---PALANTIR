@@ -20,6 +20,7 @@ import { AlertasRdoHoje } from './AlertasRdoHoje'
 import { formatarMetragem, somarMetragem } from '@/lib/unidadesMedida'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { linhasComQuantidade, unidadeDaLinha } from '../utils/producaoCompizzo'
+import { fraseDasParadas, resumirParadas } from '../utils/horasParadas'
 
 const STATUS_LABEL: Record<RdoTrechoStatus, string> = {
   not_started: 'Não Iniciado',
@@ -329,6 +330,9 @@ export function DashboardPanel() {
    *
    * A metragem sai separada por tipo — nunca um total que some metro com metro quadrado.
    */
+  /** As horas paradas do período, por motivo — e quantas ocorrências ninguém mediu. */
+  const paradas = useMemo(() => resumirParadas(rdos), [rdos])
+
   const producaoCompizzo = useMemo(
     () => somarMetragem(
       rdos.flatMap((r) => (r.compizzo?.producao ?? [])
@@ -576,6 +580,40 @@ export function DashboardPanel() {
           accent={acceptanceSummary.rework > 0}
         />
       </div>
+
+      {/* ── Horas paradas por motivo ────────────────────────────────────────────
+          Nas 105 obras brasileiras medidas pelo NORIE/UFRGS, ~70% das causas de não cumprimento
+          são INTERNAS e o clima nunca passou de 14%. Sem medir as horas de cada motivo não há como
+          mostrar isso a ninguém — e "foi a chuva" continua sendo a explicação padrão. */}
+      {paradas.ocorrenciasTotais > 0 && (
+        <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-4">
+          <div className="flex flex-wrap items-baseline gap-2 mb-3">
+            <span className="text-white font-medium text-sm">Horas paradas por motivo</span>
+            <span className="text-[11px] text-[#a3a3a3]">{fraseDasParadas(paradas)}</span>
+          </div>
+          <div className="space-y-2.5">
+            {paradas.porMotivo.map((m) => (
+              <div key={m.motivo}>
+                <div className="mb-1 flex items-center justify-between text-[11px]">
+                  <span className="text-white">{m.rotulo}</span>
+                  <span className="tabular-nums text-[#a3a3a3]">
+                    {m.horas > 0 ? `${m.horas.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h` : '—'}
+                    <span className="ml-1.5 text-[#6b6b6b]">
+                      · {m.ocorrencias}×{m.semMedida > 0 ? ` · ${m.semMedida} sem medida` : ''}
+                    </span>
+                  </span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-[#2c2c2c]">
+                  <div
+                    className="h-full rounded-full bg-[#f97316]"
+                    style={{ width: `${paradas.horasTotais > 0 ? (m.horas / paradas.horasTotais) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

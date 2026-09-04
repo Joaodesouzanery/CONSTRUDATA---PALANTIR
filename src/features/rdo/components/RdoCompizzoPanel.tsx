@@ -31,6 +31,7 @@ import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/featu
 import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
 import { ehLinhaDeArea, unidadeDaLinha } from '../utils/producaoCompizzo'
+import type { HorasPorOcorrencia, MotivoDeParada } from '@/types'
 import type {
   RdoCompizzoData, RdoCompizzoServicos, RdoCompizzoOcorrencias,
   RdoCompizzoProducaoRow, RdoCompizzoMaterialRow, RdoCompizzoServicoExtra,
@@ -254,6 +255,7 @@ export function RdoCompizzoPanel() {
   const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
   const [equipment, setEquipment] = useState<Array<Omit<RdoEquipmentEntry, 'id'>>>(editing?.equipment.map(stripEquipId) ?? [])
   const [ocorrencias, setOcorrencias] = useState<RdoCompizzoOcorrencias>(c0?.ocorrencias ?? emptyOcorrencias())
+  const [horasOcorrencia, setHorasOcorrencia] = useState<HorasPorOcorrencia>(c0?.horasOcorrencia ?? {})
   const [observacoes, setObservacoes] = useState(c0?.observacoes ?? editing?.observations ?? '')
   const [planejamento, setPlanejamento] = useState(c0?.planejamentoProximoDia ?? '')
   const [respNome, setRespNome] = useState(c0?.responsavelNome ?? '')
@@ -324,7 +326,7 @@ export function RdoCompizzoPanel() {
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
       descricaoServicos: descricao, producao: prod,
       horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
-      materiais, ocorrencias,
+      materiais, ocorrencias, horasOcorrencia,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
     }
@@ -1050,9 +1052,40 @@ export function RdoCompizzoPanel() {
         <Section title="Ocorrências" icon={<CheckCircle2 size={16} className="text-[#1f6fd1]" />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             {OCORRENCIA_ITEMS.map(([key, lbl]) => (
-              <Checkbox key={key} checked={ocorrencias[key]} label={lbl} onChange={(v) => setOcorrencias((o) => ({ ...o, [key]: v }))} />
+              <div key={key} className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <Checkbox checked={ocorrencias[key]} label={lbl} onChange={(v) => setOcorrencias((o) => ({ ...o, [key]: v }))} />
+                </div>
+                {/* ⚠️ Quantas horas custou. A lista de motivos já era a certa — faltava a
+                    magnitude, e é ela que transforma "teve ocorrência" em "perdemos 14 h
+                    esperando liberação de área". O campo só aparece com a caixa marcada, e
+                    deixá-lo VAZIO é uma resposta legítima: quer dizer "aconteceu, não medimos".
+                    Vazio não é zero — os indicadores contam os dois casos separados. */}
+                {key !== 'semOcorrencias' && ocorrencias[key] && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <input
+                      type="number" min="0" step="0.5" inputMode="decimal"
+                      className="w-16 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white outline-none focus:border-[#f97316]/60"
+                      placeholder="h"
+                      value={horasOcorrencia[key as MotivoDeParada] ?? ''}
+                      onChange={(e) => setHorasOcorrencia((h) => {
+                        const v = e.target.value
+                        const proximo = { ...h }
+                        if (v === '') delete proximo[key as MotivoDeParada]
+                        else proximo[key as MotivoDeParada] = Number(v)
+                        return proximo
+                      })}
+                    />
+                    <span className="text-[10px] text-[#6b6b6b]">h</span>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
+          <p className="mt-1.5 text-[10px] text-[#6b6b6b]">
+            As horas são opcionais — mas é com elas que o painel consegue dizer <b>qual motivo mais
+            custou no mês</b>. Deixar em branco significa “aconteceu, não medimos”, e não zero.
+          </p>
           <div className="mt-3">
             <label className={labelCls}>Observações</label>
             <textarea rows={4} className={inputCls} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Descreva as ocorrências do dia..." />

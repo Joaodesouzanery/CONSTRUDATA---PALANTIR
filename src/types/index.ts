@@ -1972,6 +1972,28 @@ export interface RdoCompizzoOcorrencias {
   outros:                   boolean
 }
 
+/** Os motivos de parada, sem o `semOcorrencias` — que é ausência de motivo, não um motivo. */
+export type MotivoDeParada = Exclude<keyof RdoCompizzoOcorrencias, 'semOcorrencias'>
+
+/**
+ * QUANTAS HORAS cada ocorrência custou.
+ *
+ * ─── POR QUE ESTE CAMPO EXISTE ────────────────────────────────────────────────
+ * A lista de ocorrências acima já era a taxonomia certa: ela bate quase 1:1 com as causas de não
+ * cumprimento medidas em 105 obras brasileiras pelo NORIE/UFRGS (mão de obra, materiais,
+ * equipamentos, projeto, planejamento, cliente, clima). O que faltava era a **magnitude** — sabia-se
+ * que aconteceu, nunca quanto custou.
+ *
+ * Sem isso, o RDO responde *"teve ocorrência"*. Com isso, responde *"perdemos 14 h esta semana
+ * esperando liberação de área do cliente"* — que é uma frase que muda decisão, e que sustenta
+ * pleito de prazo.
+ *
+ * ⚠️ Ausente ≠ zero. Uma ocorrência marcada sem hora preenchida quer dizer "aconteceu, não
+ * mediram"; zero quer dizer "aconteceu e não parou ninguém". A tela e os indicadores tratam os dois
+ * casos separados — somar ausente como zero faria a obra parecer mais eficiente do que é.
+ */
+export type HorasPorOcorrencia = Partial<Record<MotivoDeParada, number>>
+
 export interface RdoCompizzoData {
   obra:                  string
   siteId?:               string | null  // obra da Torre (construction_sites.id) escolhida no dropdown
@@ -1992,6 +2014,8 @@ export interface RdoCompizzoData {
   planningActivityId?:   string   // vínculo com uma atividade do Planejamento (avança o % dela pelo m² do dia)
   materiais:             RdoCompizzoMaterialRow[]
   ocorrencias:           RdoCompizzoOcorrencias
+  /** Horas perdidas por motivo. Ver `HorasPorOcorrencia` — ausente não é zero. */
+  horasOcorrencia?:      HorasPorOcorrencia
   observacoes:           string
   planejamentoProximoDia: string
   responsavelNome:       string

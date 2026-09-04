@@ -37,6 +37,7 @@ import { supabase } from '@/lib/supabase'
 import { brandMarkSvg } from '@/lib/brandMark'
 import { pageFooterCss } from '@/lib/printPageFooter'
 import { areaExecutada } from './producaoCompizzo'
+import { motivosMarcados, ROTULO_MOTIVO } from './horasParadas'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 /**
@@ -282,7 +283,20 @@ function corpoCompizzo(r: RDO): string {
       'Nenhum material.',
     )),
 
-    ocorr.length ? secao('Ocorrências', `<div class="chips alerta">${ocorr.map((o) => `<span>${esc(o)}</span>`).join('')}</div>`) : '',
+    // ⚠️ Com a HORA ao lado de cada motivo. Sem ela o papel dizia só "teve ocorrência", e a folha
+    // não sustentava conversa nenhuma sobre prazo. Motivo sem hora sai declarado como não medido —
+    // ausente não é zero.
+    ocorr.length ? secao('Ocorrências', `<div class="chips alerta">${
+      motivosMarcados(c.ocorrencias).map((m) => {
+        const h = c.horasOcorrencia?.[m]
+        const medida = typeof h === 'number' && Number.isFinite(h) ? `${fmtNum(h, 1)} h` : 'sem medida'
+        return `<span>${esc(ROTULO_MOTIVO[m])} — ${medida}</span>`
+      }).join('')
+    }</div>`, (() => {
+      const total = motivosMarcados(c.ocorrencias)
+        .reduce((sum, m) => sum + (Number(c.horasOcorrencia?.[m]) || 0), 0)
+      return total > 0 ? `${fmtNum(total, 1)} h` : undefined
+    })()) : '',
   ].join('')
 }
 
