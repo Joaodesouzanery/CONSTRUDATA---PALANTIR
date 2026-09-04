@@ -523,6 +523,32 @@ export interface LeituraHorasExtras {
 }
 
 /** "HORAS EXTRAS 08" → 8. É de onde vem o mês, já que a planilha não escreve a data inteira. */
+/**
+ * Quais abas do arquivo são grades de horas extras.
+ *
+ * ⚠️ Devolve TODAS. Aqui havia um `find` — e o cliente tem uma aba por mês ("HORAS EXTRAS 08",
+ * "09"…). Da segunda em diante, hora extra paga não entrava no caixa e a tela não dizia nada.
+ * Está como função pura, e não dentro do componente, exatamente para isto poder ter teste.
+ */
+export function abasDeHorasExtras(nomes: string[]): string[] {
+  return nomes.filter((n) => /HORAS?\s*EXTRAS?/i.test(n))
+}
+
+/**
+ * Qual aba tem os lançamentos.
+ *
+ * O gerador chama de LANÇAMENTOS; a planilha do cliente chama de DESPESAS. Não achando nenhuma,
+ * cai na primeira — recusar por causa do nome seria recusar o arquivo de quem montou a planilha
+ * sozinho. Mas devolve `porPosicao: true` para a tela poder AVISAR: num arquivo com muitas abas,
+ * a primeira pode ser um LEIA-ME, e ler a aba errada em silêncio é pior que reclamar.
+ */
+export function abaDeLancamentos(nomes: string[]): { aba: string; porPosicao: boolean } | null {
+  const porNome = nomes.find((n) => /LAN[ÇC]AMENTOS|DESPESAS|CAIXA/i.test(n))
+  if (porNome) return { aba: porNome, porPosicao: false }
+  if (nomes.length) return { aba: nomes[0], porPosicao: true }
+  return null
+}
+
 export function mesDoNomeDaAba(nome: string): number | undefined {
   const m = /(\d{1,2})\s*$/.exec(normalizarTexto(nome))
   if (!m) return undefined

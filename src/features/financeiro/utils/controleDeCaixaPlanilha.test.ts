@@ -14,6 +14,8 @@ import {
   normalizarTexto, lerData, lerValor, separarSolicitantes, chaveDeConteudo,
   acharCabecalho, lerLancamentos, type Matriz,
   lerHorasExtras, mesDoNomeDaAba, diasDaObservacao, conferirTotaisDeHorasExtras,
+  abasDeHorasExtras,
+  abaDeLancamentos,
 } from './controleDeCaixaPlanilha'
 
 // O cabeçalho real: linha 1 são rótulos de bloco, linha 2 é o cabeçalho de verdade.
@@ -428,4 +430,46 @@ test('reimportar a mesma grade dá as mesmas chaves', () => {
   const b = lerHorasExtras(grade, MES).registros.map((x) => x.chave)
   assert.deepEqual(a, b)
   assert.equal(new Set(a).size, a.length)
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Qual aba ler — a correção do mês que sumia
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('⚠️ TODAS as abas de horas extras são encontradas, não só a primeira', () => {
+  // O cliente tem uma aba por mês. Com o `find` que havia aqui, de agosto em diante a hora extra
+  // paga não entrava no caixa e a tela não dizia nada.
+  const nomes = ['DESPESAS', 'HORAS EXTRAS 08', 'HORAS EXTRAS 09', 'HORAS EXTRAS 10']
+  assert.deepEqual(abasDeHorasExtras(nomes), ['HORAS EXTRAS 08', 'HORAS EXTRAS 09', 'HORAS EXTRAS 10'])
+})
+
+test('arquivo sem grade de horas extras devolve lista vazia, não erro', () => {
+  assert.deepEqual(abasDeHorasExtras(['DESPESAS']), [])
+})
+
+test('variações de escrita da aba de horas extras', () => {
+  assert.equal(abasDeHorasExtras(['hora extra 07']).length, 1)
+  assert.equal(abasDeHorasExtras(['HORASEXTRAS 07']).length, 1)
+  assert.equal(abasDeHorasExtras(['HORAS  EXTRAS  07']).length, 1)
+})
+
+test('a aba de lançamentos é achada pelo nome', () => {
+  assert.deepEqual(abaDeLancamentos(['LEIA-ME', 'LANÇAMENTOS']), { aba: 'LANÇAMENTOS', porPosicao: false })
+  assert.deepEqual(abaDeLancamentos(['DESPESAS', 'HORAS EXTRAS 08']), { aba: 'DESPESAS', porPosicao: false })
+})
+
+test('⚠️ sem aba com nome conhecido, cai na primeira MAS avisa', () => {
+  // Num arquivo fundido a primeira aba pode ser um LEIA-ME. Ler a aba errada calado é pior que
+  // reclamar — por isso `porPosicao` existe e a tela mostra.
+  assert.deepEqual(abaDeLancamentos(['LEIA-ME', 'PREMISSAS']), { aba: 'LEIA-ME', porPosicao: true })
+})
+
+test('arquivo sem aba nenhuma devolve null', () => {
+  assert.equal(abaDeLancamentos([]), null)
+})
+
+test('mesDoNomeDaAba lê o mês de cada aba', () => {
+  assert.equal(mesDoNomeDaAba('HORAS EXTRAS 08'), 8)
+  assert.equal(mesDoNomeDaAba('HORAS EXTRAS 09'), 9)
+  assert.equal(mesDoNomeDaAba('HORAS EXTRAS'), undefined)
 })

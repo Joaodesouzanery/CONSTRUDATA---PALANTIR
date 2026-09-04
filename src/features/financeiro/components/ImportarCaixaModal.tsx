@@ -11,12 +11,15 @@
  */
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
+import { useAuth } from '@/lib/auth'
+import { validateFileBeforeParse } from '@/lib/importEngine'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react'
 import { fmtBRL } from '@/features/financeiro/lib/financeiroCalc'
 import { fmtDataBR } from '@/lib/utils'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 import {
   lerLancamentos, lerHorasExtras, mesDoNomeDaAba, conferirTotaisDeHorasExtras,
+  abasDeHorasExtras, abaDeLancamentos,
   type Matriz, type LeituraHorasExtras,
 } from '../utils/controleDeCaixaPlanilha'
 import {
@@ -47,8 +50,15 @@ interface Props {
 interface Lido {
   nomeArquivo: string
   conferencia: Conferencia
-  horasExtras: LeituraHorasExtras | null
-  abaHorasExtras: string | null
+  /**
+   * ⚠️ LISTA. Era uma aba só, achada com `find` — e o cliente tem uma aba de horas extras POR MÊS
+   * ("HORAS EXTRAS 08", "09"…). Da segunda em diante o dinheiro pago sumia sem erro na tela.
+   */
+  horasExtras: Array<{ aba: string; leitura: LeituraHorasExtras }>
+  /** Abas de horas extras encontradas mas NÃO lidas, com o motivo. Nada some calado. */
+  horasExtrasPuladas: Array<{ aba: string; motivo: string }>
+  /** `true` quando nenhuma aba casou pelo nome e caiu na primeira. */
+  abaPorPosicao: boolean
   ano: number
 }
 
@@ -57,19 +67,29 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
   const [erro, setErro] = useState<string | null>(null)
   const [lendo, setLendo] = useState(false)
   const [mostrarInalterados, setMostrarInalterados] = useState(false)
+  const perfil = useAuth((s) => s.profile)
+  // Quem está importando é quem está conferindo — é o mesmo gesto.
+  const quemConfere = perfil?.full_name ?? perfil?.email ?? undefined
   const travarEnvio = useEnvioUnico()
 
   async function aoEscolherArquivo(file: File) {
     setErro(null)
     setLendo(true)
     try {
+      // ⚠️ O limite existe em `importEngine` desde sempre e este modal nunca o chamou: dava para
+      // soltar um arquivo de 200 MB e travar a aba do navegador antes de qualquer erro útil.
+      const ok = validateFileBeforeParse(file)
+      if (!ok.ok) { setErro(ok.error); setLendo(false); return }
+
       const buf = await file.arrayBuffer()
       const wb = XLSX.read(buf, { type: 'array', cellDates: true })
 
       // A aba de lançamentos é a que o gerador chama de LANÇAMENTOS; a planilha do cliente chama
       // de DESPESAS. Aceita as duas, e cai na primeira aba se não achar nenhuma — recusar por
       // causa do nome seria recusar o arquivo de quem montou a planilha sozinho.
-      const nomeLanc = wb.SheetNames.find((n) => /LAN[ÇC]AMENTOS|DESPESAS|CAIXA/i.test(n)) ?? wb.SheetNames[0]
+      const escolha = abaDeLancamentos(wb.SheetNames)
+      if (!escolha) { setErro('O arquivo não tem nenhuma aba.'); setLendo(false); return }
+      const nomeLanc = escolha.aba
       const matriz = XLSX.utils.sheet_to_json(wb.Sheets[nomeLanc], { header: 1, raw: true, defval: null }) as Matriz
       const leitura = lerLancamentos(matriz)
 
@@ -78,21 +98,31 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
         obraId, agora, totaisDeclarados: leitura.totaisDeclarados,
       })
 
-      // A aba de horas extras é opcional: nem todo mês tem.
-      const abaHE = wb.SheetNames.find((n) => /HORAS?\s*EXTRAS?/i.test(n)) ?? null
-      let horasExtras: LeituraHorasExtras | null = null
+      // ⚠️ TODAS as abas de horas extras, não a primeira. O cliente tem uma por mês; com `find`,
+      // de agosto em diante o dinheiro pago não entrava e ninguém era avisado.
+      const abasHE = abasDeHorasExtras(wb.SheetNames)
+      const horasExtras: Array<{ aba: string; leitura: LeituraHorasExtras }> = []
+      const horasExtrasPuladas: Array<{ aba: string; motivo: string }> = []
       const ano = leitura.lancamentos[0]?.data
         ? Number(leitura.lancamentos[0].data.slice(0, 4))
         : new Date().getFullYear()
-      if (abaHE) {
-        const mes = mesDoNomeDaAba(abaHE)
-        if (mes) {
-          const mHE = XLSX.utils.sheet_to_json(wb.Sheets[abaHE], { header: 1, raw: true, defval: null }) as Matriz
-          horasExtras = lerHorasExtras(mHE, { mes, ano, nomeDaAba: abaHE })
+
+      for (const aba of abasHE) {
+        const mes = mesDoNomeDaAba(aba)
+        if (!mes) {
+          // ⚠️ Antes isto era um `if (mes)` sem `else`: a aba existia, não era lida, e a tela não
+          // dizia nada. Agora a pessoa sabe que precisa pôr o mês no nome.
+          horasExtrasPuladas.push({ aba, motivo: 'não consegui achar o mês no nome da aba (ex.: "HORAS EXTRAS 08")' })
+          continue
         }
+        const mHE = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, raw: true, defval: null }) as Matriz
+        horasExtras.push({ aba, leitura: lerHorasExtras(mHE, { mes, ano, nomeDaAba: aba }) })
       }
 
-      setLido({ nomeArquivo: file.name, conferencia, horasExtras, abaHorasExtras: abaHE, ano })
+      setLido({
+        nomeArquivo: file.name, conferencia, horasExtras, horasExtrasPuladas, ano,
+        abaPorPosicao: escolha.porPosicao,
+      })
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não consegui ler este arquivo. Ele é mesmo .xlsx?')
     } finally {
@@ -104,17 +134,17 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
     if (!lido) return []
     const agora = new Date().toISOString()
     const daPlanilha = linhasAGravar(lido.conferencia)
-      .map((l) => lancamentoDaLinha(l.lida, orgId, { obraId, agora }))
+      .map((l) => lancamentoDaLinha(l.lida, orgId, { obraId, agora, conferidoPor: quemConfere }))
     const daGrade = lido.horasExtras
-      ? horasExtrasQueViramDespesa(lido.horasExtras.registros)
-          .map((r) => lancamentoDaHoraExtra(r, orgId, { obraId, agora }))
-          // Só as que ainda não existem — reprocessar a grade não pode reescrever o que já está lá.
-          .filter((e) => !entries.some((x) => x.id === e.id))
-      : []
+      .flatMap(({ leitura }) => horasExtrasQueViramDespesa(leitura.registros))
+      .map((r) => lancamentoDaHoraExtra(r, orgId, { obraId, agora }))
+      // Só as que ainda não existem — reprocessar a grade não pode reescrever o que já está lá.
+      .filter((e) => !entries.some((x) => x.id === e.id))
     return [...daPlanilha, ...daGrade]
-  }, [lido, orgId, obraId, entries])
+  }, [lido, orgId, obraId, entries, quemConfere])
 
-  const divergenciasHE = lido?.horasExtras ? conferirTotaisDeHorasExtras(lido.horasExtras) : []
+  const divergenciasHE = (lido?.horasExtras ?? []).flatMap(({ aba, leitura }) =>
+    conferirTotaisDeHorasExtras(leitura).map((d) => ({ ...d, aba })))
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
@@ -198,7 +228,8 @@ function Conferido({
   lido, divergenciasHE, mostrarInalterados, onAlternarInalterados,
 }: {
   lido: Lido
-  divergenciasHE: Array<{ dia: number; calculado: number; declarado: number }>
+  /** `aba` viaja junto porque agora há uma grade de horas extras por mês. */
+  divergenciasHE: Array<{ dia: number; calculado: number; declarado: number; aba: string }>
   mostrarInalterados: boolean
   onAlternarInalterados: () => void
 }) {
@@ -333,39 +364,64 @@ function Conferido({
         </p>
       )}
 
-      {/* Horas extras */}
-      {lido.horasExtras && (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold text-[#a3a3a3]">
-            Horas extras — aba “{lido.abaHorasExtras}”
-          </p>
-          <p className="text-[11px] text-[#6b6b6b]">
-            {lido.horasExtras.registros.length} lançamento(s) na grade;{' '}
-            <strong className="text-[#a3a3a3]">
-              {horasExtrasQueViramDespesa(lido.horasExtras.registros).length} marcados como pagos (PG)
-            </strong>{' '}
-            viram despesa no caixa. Os demais ficam registrados como previstos e não entram no caixa.
-          </p>
-          {divergenciasHE.length > 0 && (
-            <Aviso titulo="A soma por dia não bate com a linha TOTAIS da grade">
-              {divergenciasHE.map((d) => (
-                <p key={d.dia}>
-                  Dia {String(d.dia).padStart(2, '0')}: as linhas somam <strong>{fmtBRL(d.calculado)}</strong>,
-                  {' '}o rodapé diz <strong>{fmtBRL(d.declarado)}</strong>.
-                </p>
-              ))}
-            </Aviso>
-          )}
-          {lido.horasExtras.problemas.length > 0 && (
-            <Aviso titulo={`${lido.horasExtras.problemas.length} célula(s) da grade não foram lidas`}>
-              <ul className="space-y-0.5">
-                {lido.horasExtras.problemas.slice(0, 8).map((p, i) => (
-                  <li key={i}>Linha {p.linha} · {p.coluna}: {p.motivo}</li>
+      {/* Horas extras — uma seção por aba, porque o cliente tem uma aba por mês */}
+      {lido.horasExtras.map(({ aba, leitura }) => {
+        const divergencias = divergenciasHE.filter((d) => d.aba === aba)
+        return (
+          <div key={aba} className="flex flex-col gap-2">
+            <p className="text-xs font-semibold text-[#a3a3a3]">
+              Horas extras — aba “{aba}”
+            </p>
+            <p className="text-[11px] text-[#6b6b6b]">
+              {leitura.registros.length} lançamento(s) na grade;{' '}
+              <strong className="text-[#a3a3a3]">
+                {horasExtrasQueViramDespesa(leitura.registros).length} marcados como pagos (PG)
+              </strong>{' '}
+              viram despesa no caixa. Os demais ficam registrados como previstos e não entram no caixa.
+            </p>
+            {divergencias.length > 0 && (
+              <Aviso titulo="A soma por dia não bate com a linha TOTAIS da grade">
+                {divergencias.map((d) => (
+                  <p key={d.dia}>
+                    Dia {String(d.dia).padStart(2, '0')}: as linhas somam <strong>{fmtBRL(d.calculado)}</strong>,
+                    {' '}o rodapé diz <strong>{fmtBRL(d.declarado)}</strong>.
+                  </p>
                 ))}
-              </ul>
-            </Aviso>
-          )}
-        </div>
+              </Aviso>
+            )}
+            {leitura.problemas.length > 0 && (
+              <Aviso titulo={`${leitura.problemas.length} célula(s) da grade não foram lidas`}>
+                <ul className="space-y-0.5">
+                  {leitura.problemas.slice(0, 8).map((p, i) => (
+                    <li key={i}>Linha {p.linha} · {p.coluna}: {p.motivo}</li>
+                  ))}
+                </ul>
+              </Aviso>
+            )}
+          </div>
+        )
+      })}
+
+      {/* ⚠️ Aba que existe e NÃO foi lida precisa aparecer. Antes ela sumia calada. */}
+      {lido.horasExtrasPuladas.length > 0 && (
+        <Aviso titulo={`${lido.horasExtrasPuladas.length} aba(s) de horas extras não foram lidas`}>
+          <ul className="space-y-0.5">
+            {lido.horasExtrasPuladas.map((h) => (
+              <li key={h.aba}>“{h.aba}”: {h.motivo}</li>
+            ))}
+          </ul>
+        </Aviso>
+      )}
+
+      {/* ⚠️ Nenhuma aba casou pelo nome — foi lida a primeira. Num arquivo com muitas abas isso
+          pode ser a aba errada, e é melhor a pessoa saber antes de gravar. */}
+      {lido.abaPorPosicao && (
+        <Aviso titulo="Nenhuma aba com nome de lançamentos foi encontrada">
+          <p>
+            Li a primeira aba do arquivo. Se ela não for a dos lançamentos, renomeie-a para
+            “LANÇAMENTOS” ou “DESPESAS” e importe de novo.
+          </p>
+        </Aviso>
       )}
     </div>
   )

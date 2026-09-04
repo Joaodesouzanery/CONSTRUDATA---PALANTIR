@@ -113,7 +113,7 @@ export function lerCategoria(bruta: string | undefined, tipo: 'entrada' | 'saida
 export function lancamentoDaLinha(
   l: LinhaLida,
   orgId: string | null | undefined,
-  opcoes: { obraId?: string; agora: string },
+  opcoes: { obraId?: string; agora: string; conferidoPor?: string },
 ): FinanceiroEntry {
   return {
     id: l.idExterno || idDoLancamento(orgId, l.chave),
@@ -126,6 +126,11 @@ export function lancamentoDaLinha(
     obraId: opcoes.obraId,
     solicitantes: l.solicitantes.length > 0 ? l.solicitantes : undefined,
     conferido: l.conferido || undefined,
+    // ⚠️ Quem e quando, junto do "sim". Os campos existiam e só a sub-aba Conferência os
+    // preenchia; vindo da planilha, o lançamento ficava marcado como conferido sem nenhum rastro
+    // de quem conferiu — que é o mesmo que não estar conferido, com a aparência de estar.
+    conferidoPor: l.conferido ? (opcoes.conferidoPor || undefined) : undefined,
+    conferidoEm: l.conferido ? opcoes.agora : undefined,
     origem: 'planilha',
     chavePlanilha: l.chave,
     createdAt: opcoes.agora,

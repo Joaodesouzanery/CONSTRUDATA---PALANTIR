@@ -13,6 +13,7 @@
 import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import * as XLSX from 'xlsx'
+import { validateFileBeforeParse } from '@/lib/importEngine'
 import {
   AlertTriangle, ArrowLeftRight, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X,
 } from 'lucide-react'
@@ -1001,6 +1002,9 @@ function ImportarFcpModal({
 
   async function aoEscolher(file: File) {
     setErro(null)
+    // ⚠️ Mesmo limite do importador genérico, que este painel também nunca chamou.
+    const ok = validateFileBeforeParse(file)
+    if (!ok.ok) { setErro(ok.error); return }
     try {
       const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true })
       const abas: Record<string, Matriz> = {}
