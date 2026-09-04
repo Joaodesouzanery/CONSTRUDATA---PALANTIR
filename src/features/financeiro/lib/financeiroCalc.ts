@@ -44,6 +44,54 @@ export const SAIDA_CAT_LABELS: Record<SaidaCategoria, string> = {
   administrativo: 'Administrativo',
   outro: 'Outro',
 }
+/**
+ * Percentual para a tela, com "—" quando não há denominador.
+ *
+ * Existe para que nenhuma tela precise decidir sozinha o que fazer com `null` — e para que a
+ * decisão seja a mesma em todas.
+ */
+// Formata em yyyy-MM-dd usando o fuso LOCAL (toISOString usaria UTC e poderia
+// deslocar o dia/mês nos limites do preset).
+function ym(d: Date) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/**
+ * O intervalo de cada atalho.
+ *
+ * ⚠️ **Exportado de propósito.** As telas do Financeiro nasciam com `useState({})` — ou seja, no
+ * atalho "Tudo" — e somavam o histórico inteiro sem ninguém pedir: uma receita de janeiro contra
+ * despesas de agosto, e o resultado parecia bom. Agora elas nascem com `presetDePeriodo('mes')`.
+ */
+export function presetDePeriodo(kind: 'mes' | 'ano' | '12m' | 'tudo'): { from?: string; to?: string } {
+  const now = new Date()
+  if (kind === 'tudo') return { from: undefined, to: undefined }
+  if (kind === 'mes') {
+    const first = new Date(now.getFullYear(), now.getMonth(), 1)
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    return { from: ym(first), to: ym(last) }
+  }
+  if (kind === 'ano') {
+    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` }
+  }
+  // 12m
+  const from = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+  return { from: ym(from), to: ym(now) }
+}
+
+export function fmtPct(v: number | null | undefined, casas = 1): string {
+  return v === null || v === undefined || !Number.isFinite(v) ? '—' : `${v.toFixed(casas)}%`
+}
+
+/** A cor de uma margem: cinza quando não há dado, e só então verde ou vermelho. */
+export function corDaMargem(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return 'text-[#6b6b6b]'
+  return v >= 0 ? 'text-emerald-400' : 'text-red-400'
+}
+
 export function catLabel(c: FinanceiroCategoria): string {
   return (ENTRADA_CAT_LABELS as Record<string, string>)[c] ?? (SAIDA_CAT_LABELS as Record<string, string>)[c] ?? c
 }
@@ -187,8 +235,17 @@ export interface DreResult {
   despesaAdm: number
   despesaOutra: number
   resultado: number
-  margemBruta: number    // lucroBruto / receitaBruta
-  margemLiquida: number  // resultado / receitaBruta
+  /**
+   * ⚠️ `null` quando NÃO HÁ RECEITA — não zero.
+   *
+   * Um mês só com saídas e nenhuma receita é prejuízo puro. Devolvendo 0, a tela caía em
+   * `margem >= 0` e pintava **"0.0%" de verde esmeralda** sobre o pior mês possível. Ausência de
+   * denominador não é desempenho neutro: é "não dá para calcular", e a tela precisa poder dizer
+   * isso. É a mesma regra que `indicadores.ts` já declara — "dado ausente é cinza com '—', nunca
+   * verde".
+   */
+  margemBruta: number | null    // lucroBruto / receitaBruta
+  margemLiquida: number | null  // resultado / receitaBruta
   /** Detalhamento por categoria dentro de cada linha (para expandir). */
   byLine: Record<DreLineKey, { categoria: FinanceiroCategoria; valor: number }[]>
 }
@@ -246,8 +303,8 @@ export function computeDre(entries: FinanceiroEntry[], config: DreConfig, deduca
   return {
     receitaBruta, deducoes, receitaLiquida, custos, lucroBruto,
     despesaAdm, despesaOutra, resultado,
-    margemBruta: receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : 0,
-    margemLiquida: receitaBruta > 0 ? (resultado / receitaBruta) * 100 : 0,
+    margemBruta: receitaBruta > 0 ? (lucroBruto / receitaBruta) * 100 : null,
+    margemLiquida: receitaBruta > 0 ? (resultado / receitaBruta) * 100 : null,
     byLine,
   }
 }

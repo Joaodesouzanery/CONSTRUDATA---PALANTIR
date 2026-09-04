@@ -30,26 +30,41 @@ const TABS: { key: CombinedTab; label: string }[] = [
   { key: 'distribuicao', label: 'Distribuição' },
 ]
 
+/**
+ * ⚠️ `value` aceita `null`, e é isso que separa "não dá para calcular" de "vale zero".
+ *
+ * Antes o tipo era `number` puro: sem orçamento e sem apontamento, CPI e SPI apareciam como
+ * `0.00` — que um índice de desempenho comunica como "péssimo", não como "sem base". A regra vem
+ * do `indicadores.ts`: *dado ausente é cinza com "—", nunca colorido*.
+ */
 function KpiCard({
   label,
   value,
   isCurrency = false,
   isIndex = false,
+  sub,
 }: {
   label: string
-  value: number
+  value: number | null
   isCurrency?: boolean
   isIndex?: boolean
+  sub?: string
 }) {
-  const formatted = isCurrency
-    ? formatCurrency(value)
-    : value.toFixed(2)
+  const semDado = value === null || !Number.isFinite(value)
 
-  const color = isIndex
-    ? value >= 1
-      ? '#22c55e'
-      : '#ef4444'
-    : '#f5f5f5'
+  const formatted = semDado
+    ? '—'
+    : isCurrency
+      ? formatCurrency(value)
+      : value.toFixed(2)
+
+  const color = semDado
+    ? '#6b6b6b'
+    : isIndex
+      ? value >= 1
+        ? '#22c55e'
+        : '#ef4444'
+      : '#f5f5f5'
 
   return (
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 min-w-[140px]">
@@ -57,8 +72,14 @@ function KpiCard({
       <p className="font-mono text-lg font-semibold" style={{ color }}>
         {formatted}
       </p>
+      {semDado && sub && <p className="mt-0.5 text-[10px] text-[#6b6b6b]">{sub}</p>}
     </div>
   )
+}
+
+/** Um índice só existe quando há base para ele. Sem base, `null` — nunca 0. */
+function indiceOuNada(valor: number, base: number): number | null {
+  return base > 0 && Number.isFinite(valor) ? valor : null
 }
 
 interface EvmHeaderProps {
@@ -70,7 +91,7 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
   const isDemoMode = useAppModeStore((s) => s.isDemoMode)
   const residuoDemoRemovido = useEvmStore((s) => s.residuoDemoRemovido)
-  const { CPI, SPI, BAC, EAC, VAC } = evmMetrics
+  const { CPI, SPI, BAC, EAC, VAC, AC, PV } = evmMetrics
   const sync = useStoreSync(useFinanceiroStore)
   // Títulos (abas "Pagamentos e Cobranças" e "Boletos") vivem noutro store e não
   // sincronizavam ao abrir o módulo — o que o colega cadastrou só aparecia no próximo
@@ -133,11 +154,12 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
 
       {/* KPI cards */}
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
-        <KpiCard label="CPI" value={CPI} isIndex />
-        <KpiCard label="SPI" value={SPI} isIndex />
-        <KpiCard label="Orçamento planejado" value={BAC} isCurrency />
-        <KpiCard label="EAC (R$)" value={EAC} isCurrency />
-        <KpiCard label="VAC (R$)" value={VAC} isCurrency />
+        {/* CPI precisa de custo real; SPI, de valor planejado. Sem a base, "—" e o motivo. */}
+        <KpiCard label="CPI" value={indiceOuNada(CPI, AC)} isIndex sub="sem custo apontado" />
+        <KpiCard label="SPI" value={indiceOuNada(SPI, PV)} isIndex sub="sem plano de valor" />
+        <KpiCard label="Orçamento planejado" value={BAC > 0 ? BAC : null} isCurrency sub="obra sem orçamento" />
+        <KpiCard label="EAC (R$)" value={indiceOuNada(EAC, BAC)} isCurrency sub="depende do orçamento" />
+        <KpiCard label="VAC (R$)" value={indiceOuNada(VAC, BAC)} isCurrency sub="depende do orçamento" />
       </div>
 
       {/* Tab bar */}

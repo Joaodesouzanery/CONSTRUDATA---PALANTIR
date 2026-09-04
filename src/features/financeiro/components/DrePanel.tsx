@@ -10,7 +10,7 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
 import {
   filterEntries, computeDre, resolveDreLine, monthsOf, monthLabel, fmtBRL, catLabel,
-  DRE_LINE_LABELS, ENTRADA_CATS, SAIDA_CATS, defaultDreLine, dreKey,
+  DRE_LINE_LABELS, ENTRADA_CATS, SAIDA_CATS, defaultDreLine, dreKey, fmtPct, corDaMargem, presetDePeriodo,
 } from '../lib/financeiroCalc'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 import type { DreLineKey, DreConfig, FinanceiroCategoria } from '@/types'
@@ -35,7 +35,15 @@ export function DrePanel() {
   const entries = useFinanceiroStore((s) => s.entries)
   const dreConfig = useFinanceiroStore((s) => s.dreConfig)
   const setDreConfig = useFinanceiroStore((s) => s.setDreConfig)
-  const [filter, setFilter] = useState<FinanceiroFilter>({})
+  /**
+   * ⚠️ 12 meses, não `{}`.
+   *
+   * As COLUNAS da DRE já confrontam receita e custo dentro do mesmo mês — essa parte estava certa.
+   * O que estava errado é a coluna **Total**, que somava o intervalo inteiro: com `{}` ela era o
+   * histórico desde o primeiro lançamento. E o eixo de meses é derivado do dado, então uma receita
+   * solta de 2025 fazia a tabela nascer em 2025 com uma coluna de receita sem custo nenhum ao lado.
+   */
+  const [filter, setFilter] = useState<FinanceiroFilter>(() => presetDePeriodo('12m'))
   const [showConfig, setShowConfig] = useState(false)
   const [expanded, setExpanded] = useState<Set<DreLineKey>>(new Set())
 
@@ -139,13 +147,16 @@ export function DrePanel() {
               {/* Margens */}
               <tr className="bg-[#1f1f1f] text-[#a3a3a3] text-[11px]">
                 <td className="px-4 py-2 sticky left-0 bg-[#1f1f1f] z-10">Margem bruta</td>
-                {perMonth.map((c) => <td key={c.ym} className="px-4 py-2 text-right tabular-nums">{c.dre.margemBruta.toFixed(1)}%</td>)}
-                <td className="px-4 py-2 text-right tabular-nums bg-[#252525]">{totalDre.margemBruta.toFixed(1)}%</td>
+                {perMonth.map((c) => <td key={c.ym} className="px-4 py-2 text-right tabular-nums">{fmtPct(c.dre.margemBruta)}</td>)}
+                <td className="px-4 py-2 text-right tabular-nums bg-[#252525]">{fmtPct(totalDre.margemBruta)}</td>
               </tr>
               <tr className="bg-[#1f1f1f] text-[#a3a3a3] text-[11px]">
                 <td className="px-4 py-2 sticky left-0 bg-[#1f1f1f] z-10">Margem líquida</td>
-                {perMonth.map((c) => <td key={c.ym} className={`px-4 py-2 text-right tabular-nums ${c.dre.margemLiquida >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{c.dre.margemLiquida.toFixed(1)}%</td>)}
-                <td className={`px-4 py-2 text-right tabular-nums bg-[#252525] font-semibold ${totalDre.margemLiquida >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{totalDre.margemLiquida.toFixed(1)}%</td>
+                {/* ⚠️ A cor vem de `corDaMargem`, não de `>= 0`. Com o teste antigo, um mês só com
+                    saídas e nenhuma receita caía em `0 >= 0` e saía **verde esmeralda** — o pior
+                    mês possível pintado como o melhor. */}
+                {perMonth.map((c) => <td key={c.ym} className={`px-4 py-2 text-right tabular-nums ${corDaMargem(c.dre.margemLiquida)}`}>{fmtPct(c.dre.margemLiquida)}</td>)}
+                <td className={`px-4 py-2 text-right tabular-nums bg-[#252525] font-semibold ${corDaMargem(totalDre.margemLiquida)}`}>{fmtPct(totalDre.margemLiquida)}</td>
               </tr>
             </tbody>
           </table>

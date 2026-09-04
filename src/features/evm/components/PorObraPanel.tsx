@@ -1,13 +1,24 @@
 /**
  * PorObraPanel — Financeiro por Obra. Lista as obras cadastradas no Torre de
- * Controle e mostra, para cada uma: orçamento (do Torre de Controle), entradas,
- * saídas e saldo (dos lançamentos do Financeiro marcados com a obra).
+ * Controle e mostra, para cada uma: orçamento, entradas, saídas e saldo.
  * Lançamentos sem obra aparecem em "Não atribuído".
+ *
+ * ⚠️ Duas correções de 04/09/2026, e as duas eram números errados na tela:
+ *
+ *  1. o orçamento vinha da SOMA CRUA das `budgetLines`, que conta em dobro quando existe a linha
+ *     'Total' junto das categorias — e ignorava o contrato. Passa por `obraBacFromSite`, a mesma
+ *     fonte do Plano de Contas;
+ *  2. não havia filtro de data NENHUM: o saldo era o acumulado desde sempre. Agora tem janela, e
+ *     ela nasce no mês corrente.
  */
 import { useMemo, useState } from 'react'
 import { Building2, ArrowDownCircle, ArrowUpCircle, Wallet, PiggyBank } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useFinanceiroStore } from '@/store/financeiroStore'
+import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
+import { FinanceiroFilterBar } from '@/features/financeiro/components/FinanceiroFilterBar'
+import { filterEntries, presetDePeriodo } from '@/features/financeiro/lib/financeiroCalc'
+import type { FinanceiroFilter } from '@/features/financeiro/lib/financeiroCalc'
 import { formatCurrency } from '@/lib/utils'
 
 interface ObraFin {
@@ -24,18 +35,39 @@ export function PorObraPanel() {
   const sites = useTorreStore((s) => s.sites)
   const entries = useFinanceiroStore((s) => s.entries)
   const [selectedId, setSelectedId] = useState<string>('') // '' = todas
+  /**
+   * ⚠️ Esta tela não tinha filtro de data NENHUM.
+   *
+   * O "Saldo (Ent. − Saí.)" era o acumulado histórico integral: uma medição de janeiro confrontada
+   * com despesas de agosto. Agora nasce no mês corrente, como as outras.
+   */
+  const [filter, setFilter] = useState<FinanceiroFilter>(() => presetDePeriodo('mes'))
+
+  const noPeriodo = useMemo(
+    () => filterEntries(entries, { from: filter.from, to: filter.to }),
+    [entries, filter.from, filter.to],
+  )
 
   const obras: ObraFin[] = useMemo(() => {
     const byObra: ObraFin[] = sites.map((o) => {
-      const orcamento = (o.budgetLines ?? []).reduce((sum, b) => sum + (b.amount || 0), 0)
+      /**
+       * ⚠️ `obraBacFromSite` em vez de somar as `budgetLines` cruas.
+       *
+       * Somar todas as linhas conta DUAS VEZES: `withTotalBudgetLine` grava a linha 'Total' JUNTO
+       * com as categorias, então uma obra com as duas coisas aparecia com aproximadamente o dobro.
+       * E o contrato — que é quem manda no valor da obra — era ignorado. Era a mesma divergência
+       * que o Plano de Contas já tinha corrigido, e o cabeçalho do módulo ainda usa uma terceira
+       * fonte (a soma de `bacAlocado` dos núcleos do EVM).
+       */
+      const orcamento = obraBacFromSite(o)
       const projetado = (o.budgetLines ?? []).reduce((sum, b) => sum + (b.projected || 0), 0)
-      const ent = entries.filter((e) => e.obraId === o.id)
+      const ent = noPeriodo.filter((e) => e.obraId === o.id)
       const entradas = ent.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + (e.valor || 0), 0)
       const saidas = ent.filter((e) => e.tipo === 'saida').reduce((s, e) => s + (e.valor || 0), 0)
       return { id: o.id, label: o.code ? `${o.code} — ${o.name}` : o.name, status: o.status, orcamento, projetado, entradas, saidas }
     })
     // "Não atribuído" — lançamentos sem obra
-    const semObra = entries.filter((e) => !e.obraId)
+    const semObra = noPeriodo.filter((e) => !e.obraId)
     if (semObra.length > 0) {
       byObra.push({
         id: '__none__',
@@ -47,7 +79,7 @@ export function PorObraPanel() {
       })
     }
     return byObra
-  }, [sites, entries])
+  }, [sites, noPeriodo])
 
   const scoped = selectedId ? obras.filter((o) => o.id === selectedId) : obras
 
@@ -64,6 +96,7 @@ export function PorObraPanel() {
 
   return (
     <div className="p-4 sm:p-6 space-y-5">
+      <FinanceiroFilterBar value={filter} onChange={setFilter} showTipo={false} showCategoria={false} showObra={false} />
       {/* Header + filtro */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
@@ -138,7 +171,7 @@ export function PorObraPanel() {
         </div>
       )}
       <p className="text-[10px] text-[#6b6b6b]">
-        Marque cada lançamento com a obra nas abas <b>Entradas</b> / <b>Saídas</b>. O orçamento vem das linhas de orçamento da obra no Torre de Controle.
+        Marque cada lançamento com a obra nas abas <b>Entradas</b> / <b>Saídas</b>. O orçamento é o do <b>contrato</b> quando existe; sem contrato, cai para o orçamento cadastrado na Torre de Controle. Entradas e saídas são as do período selecionado acima.
       </p>
     </div>
   )

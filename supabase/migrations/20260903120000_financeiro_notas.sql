@@ -102,27 +102,20 @@ comment on table public.financeiro_notas is
 
 -- ── Rede de segurança: um lançamento por nota ─────────────────────────────────
 --
--- O `id` do lançamento também é determinístico, então a duplicata já é impossível pelo caminho
--- normal. Este índice existe pela mesma razão do `20260814120000_idempotencia_financeira`: se
--- algum caminho futuro escrever direto, o banco recusa. Em bloco `do $$` que conta antes e nunca
--- aborta a migração — um índice que falha não pode impedir a tabela de nascer.
-do $$
-declare duplicadas int;
-begin
-  select count(*) into duplicadas from (
-    select organization_id, payload->>'sourceNotaId' as nota
-    from public.financeiro_entries
-    where deleted_at is null and coalesce(payload->>'sourceNotaId','') <> ''
-    group by 1, 2 having count(*) > 1
-  ) d;
-  if duplicadas > 0 then
-    raise notice 'Ha % nota(s) com lancamento duplicado. Indice unico NAO criado; limpe antes.', duplicadas;
-  else
-    create unique index if not exists uniq_fin_entries_source_nota
-      on public.financeiro_entries (organization_id, (payload->>'sourceNotaId'))
-      where deleted_at is null and coalesce(payload->>'sourceNotaId','') <> '';
-  end if;
-end $$;
+-- O `id` do lançamento também é determinístico (`seededId(org,'nota-fiscal-lancamento',notaId)`),
+-- então a duplicata já é impossível pelo caminho normal. Este índice existe pela mesma razão do
+-- `20260814120000_idempotencia_financeira`: se algum caminho futuro escrever direto, o banco
+-- recusa.
+--
+-- ⚠️ Aqui havia um bloco `do $$` que contava duplicatas antes de criar o índice, no molde daquela
+-- migração. Ele falhou no editor do Supabase com `42P01: relation "duplicadas" does not exist` e
+-- travou a migração inteira. Foi removido em vez de consertado, e o motivo é simples: `sourceNotaId`
+-- nasceu nesta mesma migração, então NENHUMA linha do banco pode tê-lo preenchido — não existe
+-- duplicata possível para contar. Era cerimônia defensiva que criou um modo de falha em algo que
+-- não podia falhar.
+create unique index if not exists uniq_fin_entries_source_nota
+  on public.financeiro_entries (organization_id, (payload->>'sourceNotaId'))
+  where deleted_at is null and coalesce(payload->>'sourceNotaId','') <> '';
 
 -- ── Conferência ───────────────────────────────────────────────────────────────
 select

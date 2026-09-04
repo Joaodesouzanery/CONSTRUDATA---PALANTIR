@@ -102,9 +102,16 @@ mesmo fato. A chave só vira id depois de passar pelo dígito verificador.
 Repete os três da auditoria (`updated_by`, `trg_updated_by`, `trg_auditoria`), como toda tabela
 nova precisa, e a policy de SELECT vai **sem** `deleted_at is null`.
 
-Traz também `uniq_fin_entries_source_nota` — um lançamento por nota —, dentro de um bloco `do $$`
-que conta duplicatas antes e **não aborta** a migração se houver: um índice que falha não pode
-impedir a tabela de nascer.
+Traz também `uniq_fin_entries_source_nota` — um lançamento por nota.
+
+⚠️ **Correção de 04/09/2026.** A primeira versão criava esse índice dentro de um bloco `do $$` que
+contava duplicatas antes, no molde da `20260814120000`. **O editor do Supabase recusou com
+`42P01: relation "duplicadas" does not exist` e travou a migração inteira.** O bloco foi removido em
+vez de consertado: `sourceNotaId` nasce nesta mesma migração, então nenhuma linha pode tê-lo
+preenchido — não havia duplicata possível para contar. Hoje é um `create unique index if not exists`
+solto, sem variável, sem `$$` e sem string. Se você já tentou colar a versão antiga e ela falhou,
+**cole a atual inteira de novo**: tudo é `if not exists` / `drop policy if exists`, então rodar duas
+vezes é inofensivo.
 
 ⚠️ Enquanto não for aplicada, a aba **funciona inteira no aparelho** (é local-first) e a fila fica
 em backoff — `42P01` está em `CODIGOS_AGUARDANDO_SERVIDOR` (`storeSync.ts`), então nada é

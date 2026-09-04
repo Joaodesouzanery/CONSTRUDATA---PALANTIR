@@ -4,44 +4,21 @@
  */
 import { Filter, X } from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
-import { ENTRADA_CATS, SAIDA_CATS, catLabel } from '../lib/financeiroCalc'
+import { ENTRADA_CATS, SAIDA_CATS, catLabel, presetDePeriodo } from '../lib/financeiroCalc'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 
 const inputCls = 'bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60'
-
-// Formata em yyyy-MM-dd usando o fuso LOCAL (toISOString usaria UTC e poderia
-// deslocar o dia/mês nos limites do preset).
-function ym(d: Date) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function preset(kind: 'mes' | 'ano' | '12m' | 'tudo'): { from?: string; to?: string } {
-  const now = new Date()
-  if (kind === 'tudo') return { from: undefined, to: undefined }
-  if (kind === 'mes') {
-    const first = new Date(now.getFullYear(), now.getMonth(), 1)
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return { from: ym(first), to: ym(last) }
-  }
-  if (kind === 'ano') {
-    return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` }
-  }
-  // 12m
-  const from = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-  return { from: ym(from), to: ym(now) }
-}
 
 interface Props {
   value: FinanceiroFilter
   onChange: (next: FinanceiroFilter) => void
   showTipo?: boolean
   showCategoria?: boolean
+  /** A tela "Por Obra" tem seletor de obra próprio — dois na mesma barra confundem. */
+  showObra?: boolean
 }
 
-export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCategoria = true }: Props) {
+export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCategoria = true, showObra = true }: Props) {
   const sites = useTorreStore((s) => s.sites)
   const set = (patch: Partial<FinanceiroFilter>) => onChange({ ...value, ...patch })
   const cats = [
@@ -62,7 +39,7 @@ export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCate
           <button
             key={k}
             type="button"
-            onClick={() => set(preset(k))}
+            onClick={() => set(presetDePeriodo(k))}
             className="px-2 py-1 rounded-md text-[11px] font-medium text-[#a3a3a3] bg-[#2c2c2c] border border-[#525252] hover:text-white hover:border-[#f97316]/50 transition-colors"
           >
             {label}
@@ -78,10 +55,12 @@ export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCate
       </div>
 
       {/* Obra */}
-      <select value={value.obraId ?? ''} onChange={(e) => set({ obraId: e.target.value || undefined })} className={inputCls} aria-label="Obra">
-        <option value="">Todas as obras</option>
-        {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
-      </select>
+      {showObra && (
+        <select value={value.obraId ?? ''} onChange={(e) => set({ obraId: e.target.value || undefined })} className={inputCls} aria-label="Obra">
+          <option value="">Todas as obras</option>
+          {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
+        </select>
+      )}
 
       {/* Categoria */}
       {showCategoria && (
@@ -107,13 +86,22 @@ export function FinanceiroFilterBar({ value, onChange, showTipo = true, showCate
         </div>
       )}
 
+      {/* ⚠️ Sem janela, entrada antiga é confrontada com saída de agora e o resultado engana.
+          O atalho "Tudo" continua existindo — mas quando está ligado, a barra DIZ o que está
+          fazendo, em vez de deixar o número falar sozinho. */}
+      {!value.from && !value.to && (
+        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
+          somando o histórico inteiro — sem recorte de período
+        </span>
+      )}
+
       {hasActive && (
         <button
           type="button"
-          onClick={() => onChange({})}
+          onClick={() => onChange(presetDePeriodo('mes'))}
           className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-[#a3a3a3] hover:text-white transition-colors"
         >
-          <X size={12} /> Limpar
+          <X size={12} /> Voltar ao mês
         </button>
       )}
     </div>

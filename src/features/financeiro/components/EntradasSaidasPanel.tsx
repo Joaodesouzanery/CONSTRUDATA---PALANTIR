@@ -5,6 +5,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatarCodigo } from '../utils/boletoCodigo'
+import { catLabel } from '../lib/financeiroCalc'
 import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 import { hojeLocalISO } from '@/lib/utils'
@@ -92,7 +93,10 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
                 <tr key={e.id} className="hover:bg-white/[0.02] group">
                   <td className="px-3 py-2 text-[#a3a3a3] tabular-nums">{e.data}</td>
                   <td className="px-3 py-2 text-white">{e.descricao}</td>
-                  <td className="px-3 py-2 text-[#a3a3a3] capitalize">{e.categoria.replace('_', ' ')}</td>
+                  {/* ⚠️ `catLabel`, não `.replace('_',' ')`. Sem a flag /g o replace troca só o
+                      PRIMEIRO underscore, e `mao_de_obra` saía na tela como "Mao De_obra". Os
+                      rótulos certos estavam neste mesmo arquivo, oitenta linhas acima, sem uso. */}
+                  <td className="px-3 py-2 text-[#a3a3a3]">{catLabel(e.categoria)}</td>
                   {/* Baixa de boleto traz a linha digitável (47/48 dígitos) como referência:
                       formatada e truncada para não espremer as outras colunas. */}
                   <td className="px-3 py-2 text-[#6b6b6b]">

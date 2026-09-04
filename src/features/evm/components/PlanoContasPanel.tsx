@@ -13,7 +13,9 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { filterEntries, catLabel, DRE_LINE_LABELS, num } from '@/features/financeiro/lib/financeiroCalc'
+import { filterEntries, catLabel, DRE_LINE_LABELS, num, presetDePeriodo } from '@/features/financeiro/lib/financeiroCalc'
+import type { FinanceiroFilter } from '@/features/financeiro/lib/financeiroCalc'
+import { FinanceiroFilterBar } from '@/features/financeiro/components/FinanceiroFilterBar'
 import type { ConstructionSite, CostPillar, ImpostoNF, DreLineKey, SaidaCategoria, EntradaCategoria } from '@/types'
 import { valoresDoContrato } from '@/features/torre-de-controle/utils/obraMedicao'
 
@@ -82,6 +84,8 @@ export function PlanoContasPanel() {
   const sites = useTorreStore((s) => s.sites)
 
   const [obraFilter, setObraFilter] = useState('')
+  /** A janela do realizado. Nasce no mês, como as outras telas do módulo. */
+  const [periodo, setPeriodo] = useState<FinanceiroFilter>(() => presetDePeriodo('mes'))
   const [addingPillar, setAddingPillar] = useState<CostPillar | null>(null)
   const [form, setForm] = useState<NewEntryForm>({ ...EMPTY_FORM })
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -98,7 +102,15 @@ export function PlanoContasPanel() {
     () => (obraFilter ? costAccounts.filter((ca) => (ca.obraId ?? '') === obraFilter) : costAccounts),
     [costAccounts, obraFilter],
   )
-  const scopedEntries = useMemo(() => filterEntries(entries, { obraId: obraFilter || undefined }), [entries, obraFilter])
+  /**
+   * ⚠️ Havia `filterEntries` SEM `from`/`to`: o orçado (valor cheio do contrato) era confrontado
+   * com o realizado de todo o tempo. O "% consumido" e o "Saldo" comparavam coisas de janelas
+   * diferentes, e o saldo parecia melhor do que é.
+   */
+  const scopedEntries = useMemo(
+    () => filterEntries(entries, { from: periodo.from, to: periodo.to, obraId: obraFilter || undefined }),
+    [entries, obraFilter, periodo.from, periodo.to],
+  )
   const saidas = useMemo(() => scopedEntries.filter((e) => e.tipo === 'saida'), [scopedEntries])
   const entradas = useMemo(() => scopedEntries.filter((e) => e.tipo === 'entrada'), [scopedEntries])
 
@@ -183,6 +195,15 @@ export function PlanoContasPanel() {
           {sites.map((o) => <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>)}
         </select>
       </div>
+
+      {/* A janela do REALIZADO. O orçado é o do contrato inteiro e não se recorta —
+          por isso o aviso abaixo, para ninguém ler "% consumido" como se as duas pontas
+          cobrissem o mesmo período. */}
+      <FinanceiroFilterBar value={periodo} onChange={setPeriodo} showTipo={false} showCategoria={false} showObra={false} />
+      <p className="-mt-3 text-[10px] text-[#6b6b6b]">
+        O <b>orçado</b> é o valor do contrato, inteiro. O <b>real</b> é o do período selecionado
+        acima — para ver o consumo total da obra, escolha “Tudo”.
+      </p>
 
       {/* Resumo geral */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

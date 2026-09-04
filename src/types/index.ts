@@ -2769,7 +2769,14 @@ export interface EvmMetrics {
   eacScenarios: EacScenarios
   pillarDeviations: PillarDeviation[]
   stockAlerts: StockAlert[]
-  healthStatus: 'blue' | 'yellow' | 'red'
+  /**
+   * ⚠️ `'sem-dado'` existe porque a ausência não é um estado de saúde.
+   *
+   * Antes, a base zerada nascia `'blue'`, e `'blue'` significa "Obra Eficiente — IDP > 1 e IDC > 1".
+   * Resultado: uma obra sem orçamento e sem apontamento aparecia com ícone de check e o rótulo de
+   * melhor cenário, com a legenda logo abaixo dizendo `CPI = 0.00`. O card desmentia a si mesmo.
+   */
+  healthStatus: 'sem-dado' | 'blue' | 'yellow' | 'red'
 }
 
 export interface CostBreakdown {

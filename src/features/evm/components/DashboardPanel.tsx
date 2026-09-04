@@ -2,7 +2,7 @@
  * DashboardPanel — Health semaphore, S-Curve chart (4 lines), root cause analysis,
  * EAC scenario cards, stock alerts, and alert cards for the EVM module.
  */
-import { AlertTriangle, CheckCircle, TrendingDown, Package, Activity, ShieldAlert, Target, BarChart3 } from 'lucide-react'
+import { AlertTriangle, CheckCircle, HelpCircle, TrendingDown, Package, Activity, ShieldAlert, Target, BarChart3 } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
 import { formatCurrency } from '@/lib/utils'
 
@@ -42,6 +42,13 @@ const PILLAR_LABELS_SHORT: Record<string, string> = {
 }
 
 const HEALTH_CONFIG = {
+  'sem-dado': {
+    color: '#6b6b6b',
+    bgColor: '#6b6b6b',
+    label: 'Sem dados suficientes para avaliar',
+    icon: HelpCircle,
+    iconColor: 'text-[#6b6b6b]',
+  },
   blue: {
     color: '#38bdf8',
     bgColor: '#38bdf8',
@@ -95,7 +102,7 @@ export function DashboardPanel() {
   const scheduleAlert = SPI < 1
   const allGood = CPI >= 1 && SPI >= 1
 
-  const health = HEALTH_CONFIG[healthStatus] ?? HEALTH_CONFIG.blue
+  const health = HEALTH_CONFIG[healthStatus] ?? HEALTH_CONFIG['sem-dado']
   const HealthIcon = health.icon
 
   /* EAC trend overshoot percentage */

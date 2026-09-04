@@ -140,7 +140,8 @@ const EMPTY_METRICS: EvmMetrics = {
   eacScenarios: { optimistic: 0, trend: 0, pessimistic: 0 },
   pillarDeviations: [],
   stockAlerts: [],
-  healthStatus: 'blue' as const,
+  // Sem núcleo, sem orçamento e sem apontamento não é obra eficiente — é obra sem dado.
+  healthStatus: 'sem-dado' as const,
 }
 
 const PILLAR_LABELS: Record<CostPillar, string> = {

@@ -10,8 +10,9 @@ import { useMemo, useState } from 'react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useManejoFinanceiroStore } from '@/store/manejoFinanceiroStore'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
+import { useFinanceiroTitulosStore } from '@/store/financeiroTitulosStore'
 import {
-  filterEntries, monthlySeries, monthLabel, monthsRange, spreadValue, addMonthsYM, fmtBRL, num,
+  filterEntries, monthlySeries, monthLabel, monthsRange, spreadValue, addMonthsYM, fmtBRL, num, presetDePeriodo,
 } from '../lib/financeiroCalc'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 
@@ -36,7 +37,9 @@ function currentYM(): string {
 export function FluxoCaixaPanel() {
   const entries = useFinanceiroStore((s) => s.entries)
   const contratos = useManejoFinanceiroStore((s) => s.contratos)
-  const [filter, setFilter] = useState<FinanceiroFilter>({})
+  /** 12 meses por padrão: com `{}` o saldo acumulado começava no primeiro registro que existisse. */
+  const [filter, setFilter] = useState<FinanceiroFilter>(() => presetDePeriodo('12m'))
+  const titulos = useFinanceiroTitulosStore((s) => s.titulos)
 
   // Realizado respeita período + obra (não filtra por categoria/tipo).
   const filtered = useMemo(
@@ -72,9 +75,37 @@ export function FluxoCaixaPanel() {
     return saidaByMonth
   }, [contratos, nowYM, showForecast])
 
+  /**
+   * Os títulos em aberto, no mês do VENCIMENTO — e é aqui que a tela para de mentir.
+   *
+   * ⚠️ O texto no rodapé sempre prometeu: *"Títulos a pagar/receber entram nesta projeção"*. Não
+   * entravam — `entradaPrev` era a constante `0` e o painel nem importava o store de títulos. O
+   * saldo projetado ignorava toda a carteira de contas a pagar, que é justamente o que faz ele
+   * significar alguma coisa.
+   *
+   * Título vencido e não baixado cai no mês corrente: a obrigação não desapareceu por estar
+   * atrasada — ela é ainda mais urgente.
+   */
+  const titulosPrevistos = useMemo(() => {
+    const pagar = new Map<string, number>()
+    const receber = new Map<string, number>()
+    if (!showForecast) return { pagar, receber }
+    for (const t of titulos) {
+      if (t.status !== 'pendente') continue
+      const valor = num(t.valor)
+      if (valor <= 0) continue
+      const venc = (t.vencimento ?? '').slice(0, 7)
+      if (!venc) continue
+      const mes = venc < nowYM ? nowYM : venc
+      const alvo = t.tipo === 'pagar' ? pagar : receber
+      alvo.set(mes, (alvo.get(mes) ?? 0) + valor)
+    }
+    return { pagar, receber }
+  }, [titulos, nowYM, showForecast])
+
   const rows: FluxoRow[] = useMemo(() => {
     const realMonths = realized.map((r) => r.month)
-    const fcMonths = [...forecast.keys()]
+    const fcMonths = [...forecast.keys(), ...titulosPrevistos.pagar.keys(), ...titulosPrevistos.receber.keys()]
     const all = [...new Set([...realMonths, ...fcMonths])].sort()
     if (all.length === 0) return []
     // eixo contínuo do primeiro ao último mês
@@ -88,8 +119,8 @@ export function FluxoCaixaPanel() {
       const saidasReal = r?.saidas ?? 0
       const resultadoReal = entradasReal - saidasReal
       saldoReal += resultadoReal
-      const saidaPrev = forecast.get(month) ?? 0
-      const entradaPrev = 0 // Fase C: títulos a receber
+      const saidaPrev = (forecast.get(month) ?? 0) + (titulosPrevistos.pagar.get(month) ?? 0)
+      const entradaPrev = titulosPrevistos.receber.get(month) ?? 0
       saldoProj += resultadoReal + (entradaPrev - saidaPrev)
       return {
         month, entradasReal, saidasReal, resultadoReal, saldoReal,
@@ -97,7 +128,7 @@ export function FluxoCaixaPanel() {
         isFuture: month > nowYM,
       }
     })
-  }, [realized, forecast, nowYM])
+  }, [realized, forecast, titulosPrevistos, nowYM])
 
   const totalPrev = [...forecast.values()].reduce((s, v) => s + v, 0)
 
@@ -134,6 +165,7 @@ export function FluxoCaixaPanel() {
               <th className="px-4 py-2 text-right">Saídas</th>
               <th className="px-4 py-2 text-right">Resultado</th>
               <th className="px-4 py-2 text-right">Saldo {showForecast ? 'realizado' : 'acumulado'}</th>
+              {showForecast && <th className="px-4 py-2 text-right text-emerald-400/70">Entrada prevista</th>}
               {showForecast && <th className="px-4 py-2 text-right text-amber-400/80">Saída prevista</th>}
               {showForecast && <th className="px-4 py-2 text-right">Saldo projetado</th>}
             </tr>
@@ -151,6 +183,7 @@ export function FluxoCaixaPanel() {
                   {m.entradasReal || m.saidasReal ? fmtBRL(m.resultadoReal) : '—'}
                 </td>
                 <td className={`px-4 py-2.5 text-right tabular-nums ${m.saldoReal >= 0 ? 'text-cyan-400' : 'text-red-400'}`}>{fmtBRL(m.saldoReal)}</td>
+                {showForecast && <td className="px-4 py-2.5 text-right tabular-nums text-emerald-400/80">{m.entradaPrev ? fmtBRL(m.entradaPrev) : '—'}</td>}
                 {showForecast && <td className="px-4 py-2.5 text-right tabular-nums text-amber-400/90">{m.saidaPrev ? fmtBRL(m.saidaPrev) : '—'}</td>}
                 {showForecast && <td className={`px-4 py-2.5 text-right font-bold tabular-nums ${m.saldoProjetado >= 0 ? 'text-cyan-300' : 'text-red-400'}`}>{fmtBRL(m.saldoProjetado)}</td>}
               </tr>
@@ -161,9 +194,11 @@ export function FluxoCaixaPanel() {
 
       {showForecast && (
         <p className="text-[10px] text-[#6b6b6b]">
-          Saldo projetado = saldo realizado acumulado − saídas previstas das obrigações em aberto (Manejo Financeiro),
-          distribuídas do mês atual até o fim do período de execução (obrigações sem fim definido são espalhadas em 12 meses).
-          Títulos a pagar/receber entram nesta projeção na aba <strong>Pagamentos e Cobranças</strong>.
+          Saldo projetado = saldo realizado acumulado + entradas previstas − saídas previstas.
+          As saídas juntam as <strong>obrigações em aberto</strong> do Manejo Financeiro (distribuídas do mês atual
+          até o fim do período de execução; sem fim definido, espalhadas em 12 meses) e os <strong>títulos a pagar</strong>
+          ainda sem baixa, no mês do vencimento. As entradas são os <strong>títulos a receber</strong> em aberto.
+          Título vencido e não baixado entra no mês corrente — atrasado não quer dizer que sumiu.
         </p>
       )}
     </div>

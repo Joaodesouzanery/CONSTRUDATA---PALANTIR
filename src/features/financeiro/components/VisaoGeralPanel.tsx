@@ -10,7 +10,7 @@ import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
 import {
-  filterEntries, monthlySeries, catLabel, fmtBRL, fmtBRLcompact, monthLabel, num,
+  filterEntries, monthlySeries, catLabel, fmtBRL, fmtBRLcompact, fmtPct, monthLabel, num, presetDePeriodo,
 } from '../lib/financeiroCalc'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 import type { FinanceiroEntry } from '@/types'
@@ -18,7 +18,14 @@ import type { FinanceiroEntry } from '@/types'
 export function VisaoGeralPanel() {
   const entries = useFinanceiroStore((s) => s.entries)
   const sites = useTorreStore((s) => s.sites)
-  const [filter, setFilter] = useState<FinanceiroFilter>({})
+  /**
+   * ⚠️ Nasce no MÊS CORRENTE, não em `{}`.
+   *
+   * Com `{}` a tela abria no atalho "Tudo" e os cartões Resultado e Margem — que são o que a
+   * diretoria olha — somavam o histórico inteiro: medição de janeiro contra despesa de agosto.
+   * "Tudo" continua a um clique, e quando está ligado a barra avisa.
+   */
+  const [filter, setFilter] = useState<FinanceiroFilter>(() => presetDePeriodo('mes'))
 
   const siteName = useMemo(() => {
     const m = new Map(sites.map((s) => [s.id, s.code ? `${s.code} — ${s.name}` : s.name]))
@@ -31,7 +38,8 @@ export function VisaoGeralPanel() {
   const totEntradas = filtered.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + num(e.valor), 0)
   const totSaidas = filtered.filter((e) => e.tipo === 'saida').reduce((s, e) => s + num(e.valor), 0)
   const resultado = totEntradas - totSaidas
-  const margem = totEntradas > 0 ? (resultado / totEntradas) * 100 : 0
+  // `null` = não há receita no período. Zero seria lido como "margem neutra".
+  const margem = totEntradas > 0 ? (resultado / totEntradas) * 100 : null
 
   // Quebra por categoria (separando entrada/saída)
   const porCatEntrada = aggregate(filtered.filter((e) => e.tipo === 'entrada'), (e) => e.categoria)
@@ -47,7 +55,15 @@ export function VisaoGeralPanel() {
         <KpiCard icon={<TrendingUp size={18} className="text-emerald-400" />} label="Entradas" value={fmtBRL(totEntradas)} color="text-emerald-400" />
         <KpiCard icon={<TrendingDown size={18} className="text-red-400" />} label="Saídas" value={fmtBRL(totSaidas)} color="text-red-400" />
         <KpiCard icon={<DollarSign size={18} className={resultado >= 0 ? 'text-emerald-400' : 'text-red-400'} />} label="Resultado" value={fmtBRL(resultado)} color={resultado >= 0 ? 'text-emerald-400' : 'text-red-400'} />
-        <KpiCard icon={<BarChart3 size={18} className="text-cyan-400" />} label="Margem" value={`${margem.toFixed(1)}%`} color="text-cyan-400" />
+        {/* ⚠️ Cinza quando não há receita. Antes mostrava "0.0%" em ciano logo acima da frase
+            "Nenhum lançamento no filtro selecionado" — dois estados contraditórios na mesma tela. */}
+        <KpiCard
+          icon={<BarChart3 size={18} className={margem === null ? 'text-[#6b6b6b]' : 'text-cyan-400'} />}
+          label="Margem"
+          value={fmtPct(margem)}
+          color={margem === null ? 'text-[#6b6b6b]' : 'text-cyan-400'}
+          sub={margem === null ? 'sem receita no período' : undefined}
+        />
       </div>
 
       {filtered.length === 0 ? (
@@ -167,11 +183,13 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color?: string }) {
+function KpiCard({ icon, label, value, color, sub }: { icon: React.ReactNode; label: string; value: string; color?: string; sub?: string }) {
   return (
     <div className="bg-[#2c2c2c] border border-[#525252] rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">{icon}<p className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">{label}</p></div>
       <p className={`text-xl font-bold tabular-nums ${color || 'text-white'}`}>{value}</p>
+      {/* O motivo da ausência, quando há um. Um "—" sozinho não diz o que falta. */}
+      {sub && <p className="mt-0.5 text-[10px] text-[#6b6b6b]">{sub}</p>}
     </div>
   )
 }
