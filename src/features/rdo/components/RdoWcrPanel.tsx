@@ -11,9 +11,9 @@
  * A leitura mora em `utils/apontamentoWcr.ts` (texto) e `utils/apontamentoWcrPlanilha.ts`
  * (planilha), as duas puras e testadas. Aqui só tem tela.
  */
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  ClipboardList, FileSpreadsheet, Save, Printer, CheckCircle2, AlertTriangle,
+  ClipboardList, Save, Printer, CheckCircle2, AlertTriangle,
   Building2, ScanText, Trash2,
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
@@ -28,6 +28,7 @@ import {
 } from '../utils/apontamentoWcr'
 import { lerPlanilhaWcr, type MatrizWcr } from '../utils/apontamentoWcrPlanilha'
 import type { RdoWcrData, RdoWcrProducaoRow } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const MODELO = `📋 APONTAMENTO DIÁRIO — MODELO
 
@@ -78,7 +79,6 @@ export function RdoWcrPanel() {
   const [savedId, setSavedId] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [problemasDaPlanilha, setProblemasDaPlanilha] = useState<string[]>([])
-  const inputArquivo = useRef<HTMLInputElement>(null)
 
   const site = useMemo(() => (obraSiteId ? sites.find((s) => s.id === obraSiteId) ?? null : null), [sites, obraSiteId])
   const resumo = useMemo(() => (lido ? resumirApontamento(lido) : null), [lido])
@@ -91,10 +91,7 @@ export function RdoWcrPanel() {
     setAviso(null)
   }
 
-  async function aoEscolherArquivo(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = ''
-    if (!f) return
+  async function lerArquivo(f: File) {
     setAviso(null)
     try {
       const buf = await f.arrayBuffer()
@@ -201,10 +198,12 @@ export function RdoWcrPanel() {
           >
             <ScanText size={14} /> Analisar texto
           </button>
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#a3a3a3] hover:border-[#f97316]/40 hover:text-[#f5f5f5]">
-            <FileSpreadsheet size={14} /> Escolher planilha (.xlsx)
-            <input ref={inputArquivo} type="file" accept=".xlsx,.xls" className="hidden" onChange={aoEscolherArquivo} />
-          </label>
+          <AreaDeSoltar
+            compacto
+            aceita=".xlsx,.xls"
+            titulo="Arraste a planilha ou clique"
+            aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void lerArquivo(f) }}
+          />
           {(lido || texto) && (
             <button
               onClick={() => { setTexto(''); setLido(null); setSavedId(null); setAviso(null); setProblemasDaPlanilha([]) }}

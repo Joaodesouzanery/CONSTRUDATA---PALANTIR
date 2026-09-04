@@ -1,13 +1,14 @@
 /**
  * BancoDadosPanel — cost base selector (SINAPI/SEINFRA/Custom) with import and CRUD.
  */
-import { useState, useRef } from 'react'
-import { AlertTriangle, Plus, Trash2, Upload, Download, Search, X, Check } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Plus, Trash2, Download, Search, X, Check } from 'lucide-react'
 import { useQuantitativosStore } from '@/store/quantitativosStore'
 import { exportCustomBaseToCsv, exportCustomBaseToXlsx, parseExcelToCustomBase } from '../utils/exportEngine'
 import { mockSinapi } from '@/data/mockSinapi'
 import { mockSeinfra } from '@/data/mockSeinfra'
 import type { CostBaseSource, CustomBaseEntry } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const ACCENT = '#8b5cf6'
 
@@ -105,7 +106,6 @@ export function BancoDadosPanel() {
   const [search, setSearch] = useState('')
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const BASE_OPTIONS: { value: CostBaseSource; label: string; desc: string; count: number }[] = [
     { value: 'sinapi',  label: 'SINAPI',  desc: 'Sistema Nacional de Pesquisa de Custos e Índices da Construção Civil — CAIXA/CEF', count: mockSinapi.length },
@@ -216,15 +216,16 @@ export function BancoDadosPanel() {
         <div className="bg-[#3d3d3d] rounded-xl border border-[#525252] p-5 space-y-3">
           <h3 className="text-[#f5f5f5] font-medium text-sm">Importar Base de Custos</h3>
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={importing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors disabled:opacity-50"
-            >
-              <Upload size={14} />
-              {importing ? 'Importando...' : 'Importar Excel / CSV'}
-            </button>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
+            <AreaDeSoltar
+              compacto
+              aceita=".xlsx,.xls,.csv"
+              desabilitado={importing}
+              titulo={importing ? 'Importando…' : 'Arraste a planilha ou clique'}
+              aoEscolher={(arquivos) => {
+                const f = arquivos[0]
+                if (f) void handleFileChange({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+              }}
+            />
             <button
               onClick={() => exportCustomBaseToCsv(customBase)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] transition-colors"

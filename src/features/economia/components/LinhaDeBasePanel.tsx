@@ -13,7 +13,7 @@
  */
 import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { AlertTriangle, CheckCircle2, Download, Ruler, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, Ruler } from 'lucide-react'
 import { hojeLocalISO } from '@/lib/utils'
 import type { AjusteAcordado, LinhaDeBaseMedida, MesDaLinhaDeBase } from '@/types'
 import type { Matriz } from '@/features/financeiro/utils/controleDeCaixaPlanilha'
@@ -22,6 +22,7 @@ import {
   compararComALinhaDeBase, fraseDoResultado, indicadoresDaLinhaDeBase,
 } from '../utils/linhaDeBaseMedida'
 import { indicadoresDaProducao, type ProducaoDaPlataforma } from '../utils/producaoDaPlataforma'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const INPUT = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const LABEL = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -205,13 +206,12 @@ export function LinhaDeBasePanel({
             <button type="button" onClick={baixarModelo} className={BTN_S}>
               <Download size={13} /> Baixar modelo
             </button>
-            <label className={`${BTN_P} inline-flex cursor-pointer items-center gap-1.5`}>
-              <Upload size={13} /> Importar planilha
-              <input
-                type="file" accept=".xlsx,.xls" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) void importar(f); e.target.value = '' }}
-              />
-            </label>
+            <AreaDeSoltar
+              compacto
+              aceita=".xlsx,.xls"
+              titulo="Arraste a planilha ou clique"
+              aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void importar(f) }}
+            />
           </div>
         </div>
         <p className="mb-3 text-[11px] text-[#6b6b6b]">

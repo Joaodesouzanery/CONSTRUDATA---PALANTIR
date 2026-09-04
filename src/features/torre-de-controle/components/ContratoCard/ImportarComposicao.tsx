@@ -10,7 +10,7 @@
  * erra número sem avisar, que é o pior tipo de erro num contrato.
  */
 import { useState } from 'react'
-import { X, ClipboardPaste, FileSpreadsheet, AlertTriangle } from 'lucide-react'
+import { X, ClipboardPaste, AlertTriangle } from 'lucide-react'
 import { previewExcel } from '@/features/suprimentos/utils/parseExcelEstoque'
 import {
   mapearAutomatico, aplicarMapeamento, detectarConflitos, lerTabelaColada,
@@ -20,6 +20,7 @@ import { subtotaisComposicao } from '@/features/torre-de-controle/utils/obraMedi
 import type { ObraContratoServico } from '@/types'
 import { TXT, brl, num, inputCls } from './formato'
 import { Th, BotaoSec, Aviso } from './ui'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const CAMPOS = Object.keys(ROTULO_CAMPO) as CampoComposicao[]
 
@@ -93,12 +94,12 @@ export function ImportarComposicao({ onImportar, onCancelar }: {
         ) : (
           <>
             <div className="flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#525252] px-2.5 py-1
-                                text-[11px] font-semibold text-[#d4d4d4] hover:border-[#f97316]/40 hover:text-[#f97316]">
-                <FileSpreadsheet size={11} /> Escolher planilha
-                <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
-                       onChange={(e) => { const f = e.target.files?.[0]; if (f) void aoEscolherArquivo(f) }} />
-              </label>
+              <AreaDeSoltar
+                compacto
+                aceita=".xlsx,.xls,.csv"
+                titulo="Arraste a planilha ou clique"
+                aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void aoEscolherArquivo(f) }}
+              />
               <BotaoSec onClick={() => setColando(true)}><ClipboardPaste size={11} /> Colar do Excel</BotaoSec>
               <BotaoSec onClick={onCancelar}><X size={11} /> Cancelar</BotaoSec>
             </div>

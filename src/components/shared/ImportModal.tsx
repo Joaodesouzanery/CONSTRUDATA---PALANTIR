@@ -11,11 +11,11 @@
  *  4. Clica "Importar X linhas" → onCommit é chamado com as linhas válidas
  *  5. Modal fecha e o módulo recebe os dados
  */
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import {
-  X, Upload, FileSpreadsheet, Download, AlertTriangle,
-  CheckCircle2, Loader2, ArrowRight,
+  X, FileSpreadsheet, Download, AlertTriangle, CheckCircle2, Loader2, ArrowRight,
 } from 'lucide-react'
+import { AreaDeSoltar } from './AreaDeSoltar'
 import {
   parseAndValidate,
   validateFileBeforeParse,
@@ -57,12 +57,10 @@ export function ImportModal<T extends Record<string, unknown>>({
   onCommit,
   commitLabel,
 }: ImportModalProps<T>) {
-  const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [parsing, setParsing] = useState(false)
   const [result, setResult] = useState<ImportResult<T> | null>(null)
   const [committing, setCommitting] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
 
   const handleFile = useCallback(
     async (f: File) => {
@@ -100,22 +98,8 @@ export function ImportModal<T extends Record<string, unknown>>({
     [config],
   )
 
-  function handleSelectClick() {
-    inputRef.current?.click()
-  }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (f) handleFile(f)
-    e.target.value = ''
-  }
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault()
-    setDragOver(false)
-    const f = e.dataTransfer.files?.[0]
-    if (f) handleFile(f)
-  }
 
   function handleDownloadTemplate() {
     downloadTemplate(config, templateFilename)
@@ -185,32 +169,11 @@ export function ImportModal<T extends Record<string, unknown>>({
           {/* ── Estado 1: nenhum arquivo selecionado ─────────────────── */}
           {!file && !parsing && (
             <>
-              <div
-                onClick={handleSelectClick}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
-                  dragOver
-                    ? 'border-[#f97316] bg-[#f97316]/10'
-                    : 'border-[#525252] hover:border-[#6b6b6b] bg-[#3a3a3a]/40'
-                }`}
-              >
-                <Upload size={40} className="mx-auto text-[#a3a3a3] mb-3" />
-                <div className="text-[#f5f5f5] text-base font-semibold mb-2">
-                  Arraste um arquivo aqui ou clique para selecionar
-                </div>
-                <div className="text-[#a3a3a3] text-xs">
-                  Aceita .xlsx, .xls ou .csv até 5 MB
-                </div>
-                <input
-                  ref={inputRef}
-                  type="file"
-                  accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  onChange={handleInputChange}
-                  className="hidden"
-                />
-              </div>
+              <AreaDeSoltar
+                aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void handleFile(f) }}
+                aceita=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ajuda="Aceita .xlsx, .xls ou .csv até 5 MB"
+              />
 
               <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-[10px] text-[#6b6b6b]">

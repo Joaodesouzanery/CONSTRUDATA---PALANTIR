@@ -6,7 +6,7 @@
  *   2. Auto-detected column mapping with dropdowns for user correction
  *   3. Confirm → creates POs or stock items in the store
  */
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Upload, X, AlertCircle, CheckCircle, FileSpreadsheet, ChevronDown } from 'lucide-react'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import {
@@ -15,6 +15,7 @@ import {
   applyConsolidadoMapping,
 } from '../utils/parseSuprimentosConsolidado'
 import type { ConsolidadoPreview } from '../utils/parseSuprimentosConsolidado'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const FIELD_OPTIONS = [
   { value: 'ignorar',       label: '— ignorar —' },
@@ -40,7 +41,6 @@ interface Props {
 
 export function ImportConsolidadoModal({ onClose }: Props) {
   const { importConsolidado } = useSuprimentosStore()
-  const fileRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<'upload' | 'mapping' | 'done'>('upload')
   const [loading, setLoading] = useState(false)
@@ -55,7 +55,6 @@ export function ImportConsolidadoModal({ onClose }: Props) {
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (fileRef.current) fileRef.current.value = ''
     setError(null)
     setLoading(true)
     try {
@@ -131,20 +130,15 @@ export function ImportConsolidadoModal({ onClose }: Props) {
                   <span>{error}</span>
                 </div>
               )}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={loading}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#f97316' }}
-              >
-                {loading ? 'Lendo arquivo…' : 'Selecionar Arquivo'}
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                className="hidden"
-                onChange={handleFile}
+              <AreaDeSoltar
+                className="mt-4 w-full"
+                aceita=".xlsx,.xls,.csv"
+                desabilitado={loading}
+                titulo={loading ? 'Lendo arquivo…' : 'Arraste a planilha aqui ou clique para escolher'}
+                aoEscolher={(arquivos) => {
+                  const f = arquivos[0]
+                  if (f) void handleFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }}
               />
             </div>
           )}

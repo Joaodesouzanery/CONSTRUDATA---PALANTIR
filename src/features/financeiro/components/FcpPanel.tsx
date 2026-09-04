@@ -43,6 +43,7 @@ import {
   type MudancaVindaDoLps,
 } from '../utils/fcp/fcpParaLps'
 import type { Matriz } from '../utils/controleDeCaixaPlanilha'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const BTN_P = 'px-3 py-2 rounded-lg text-xs font-semibold text-white bg-[#f97316] hover:bg-[#ea580c] transition-colors disabled:opacity-40'
 const BTN_S = 'inline-flex items-center gap-1.5 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-xs font-semibold text-[#e5e5e5] hover:border-[#f97316]/50 hover:text-[#f97316] transition-colors disabled:opacity-40'
@@ -1179,11 +1180,12 @@ function ImportarFcpModal({
           {!lido ? (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <FileSpreadsheet size={40} className="text-[#525252]" />
-              <label className={`${BTN_P} inline-flex cursor-pointer items-center gap-1.5`}>
-                <Upload size={13} /> Escolher arquivo
-                <input type="file" accept=".xlsx,.xls" className="hidden"
-                       onChange={(e) => { const f = e.target.files?.[0]; if (f) void aoEscolher(f) }} />
-              </label>
+              <AreaDeSoltar
+                className="w-full max-w-md"
+                aceita=".xlsx,.xls"
+                ajuda="Aceita .xlsx e .xls"
+                aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void aoEscolher(f) }}
+              />
               <p className="text-[11px] text-[#6b6b6b] max-w-md text-center">
                 Precisa ter a aba <strong>PREMISSAS</strong> e uma aba <strong>CUSTOS &lt;cidade&gt;</strong>
                 {' '}por cidade. As abas calculadas não são importadas — são conferidas.

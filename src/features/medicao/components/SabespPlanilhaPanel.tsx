@@ -4,8 +4,8 @@
  * Allows entering/editing contract items (itens de contrato) for the
  * active boletim. Groups items by 01/02/03 (Canteiros, Esgoto, Água).
  */
-import { useState, useRef, useCallback } from 'react'
-import { Plus, Trash2, ChevronDown, ChevronRight, Upload, AlertCircle, X as XIcon, FileDown, Save, CheckCircle, Download } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronRight, AlertCircle, X as XIcon, FileDown, Save, CheckCircle, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import { getAllCriterios } from '../data/criterios'
@@ -13,6 +13,7 @@ import type { ItemContrato } from '@/store/medicaoBillingStore'
 import { readWorkbook, parseSabespSheet } from '../utils/xlsxParsers'
 import type { SabespParseResult } from '../utils/xlsxParsers'
 import { exportSabespPdf } from '../utils/exportPdf'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 /** Export current boletim items as XLSX for backup/sharing */
 function exportSabespXlsx(itens: ItemContrato[], periodo: string, contrato: string) {
@@ -241,7 +242,6 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
 function XlsxImportSabesp() {
   const { getActiveBoletim, importItensContrato } = useMedicaoBillingStore()
   const boletim = getActiveBoletim()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<SabespParseResult | null>(null)
   const [previewFileName, setPreviewFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -256,7 +256,6 @@ function XlsxImportSabesp() {
       setPreviewFileName(file.name)
     } finally {
       setLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -276,17 +275,18 @@ function XlsxImportSabesp() {
 
   return (
     <div>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFile} />
+      <AreaDeSoltar
+        compacto
+        className="mb-2"
+        aceita=".xlsx,.xls,.csv"
+        desabilitado={loading}
+        titulo={loading ? 'Lendo…' : 'Arraste a planilha ou clique'}
+        aoEscolher={(arquivos) => {
+          const f = arquivos[0]
+          if (f) void handleFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+        }}
+      />
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] disabled:opacity-50 transition-colors"
-        >
-          <Upload size={13} />
-          {loading ? 'Lendo...' : 'Importar XLSX / CSV'}
-        </button>
         {hasItems && (
           <span className="text-[10px] text-[#6b6b6b]">Re-importar irá substituir todos os itens.</span>
         )}

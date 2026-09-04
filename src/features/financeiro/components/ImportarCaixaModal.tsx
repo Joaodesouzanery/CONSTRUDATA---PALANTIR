@@ -13,7 +13,7 @@ import { useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '@/lib/auth'
 import { validateFileBeforeParse } from '@/lib/importEngine'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, X } from 'lucide-react'
 import { fmtBRL } from '@/features/financeiro/lib/financeiroCalc'
 import { fmtDataBR } from '@/lib/utils'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
@@ -27,6 +27,7 @@ import {
   linhasAGravar, ROTULO_SITUACAO, type Conferencia, type Situacao,
 } from '../utils/controleDeCaixaImport'
 import type { FinanceiroEntry } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const COR_SITUACAO: Record<Situacao, string> = {
   'novo':              'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -168,17 +169,14 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
             <div className="flex flex-col items-center justify-center py-16 gap-4">
               <FileSpreadsheet size={40} className="text-[#525252]" />
               <p className="text-sm text-[#a3a3a3]">Escolha a planilha preenchida.</p>
-              <label className={`${BTN_PRIMARIO} inline-flex cursor-pointer items-center gap-1.5`}>
-                <Upload size={13} />
-                {lendo ? 'Lendo…' : 'Escolher arquivo'}
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  disabled={lendo}
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void aoEscolherArquivo(f) }}
-                />
-              </label>
+              <AreaDeSoltar
+                className="w-full max-w-md"
+                aceita=".xlsx,.xls"
+                desabilitado={lendo}
+                titulo={lendo ? 'Lendo…' : 'Arraste a planilha aqui ou clique para escolher'}
+                ajuda="Aceita .xlsx e .xls"
+                aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void aoEscolherArquivo(f) }}
+              />
               <p className="text-[11px] text-[#6b6b6b] max-w-md text-center">
                 Serve a planilha que o sistema gera e também a que a equipe já mantém. O sistema
                 reconhece as colunas pelo nome.
