@@ -17,7 +17,6 @@ import { supabase } from '@/lib/supabase'
 import { dataLocalISO } from '@/lib/utils'
 import { printRdoPDF } from '../utils/rdoPdfExport'
 import { abrirJanelaRelatorio, imprimirRelatorioRdos, type ItemRelatorio } from '../utils/rdosReportExport'
-import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { RdoDetalhe } from './RdoDetalhe'
 import { RdoIntegracaoStatus } from './RdoIntegracaoStatus'
@@ -276,9 +275,30 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
     ? (rdo.compizzo!.materiais ?? []).filter((m) => (m.quantidade ?? '').trim() !== '').length
     : 0
 
+  /**
+   * ⚠️ A impressão do Compizzo passou a usar `imprimirRelatorioRdos`, o mesmo gerador do relatório
+   * em lote — e não mais o `printCompizzoPdf`, que foi removido.
+   *
+   * Aquele gerador tinha 166 linhas contra 850 deste, e o resultado aparecia no papel: `body
+   * { margin: 0 }` sem padding nem largura máxima (texto colado na borda), ZERO regras de quebra
+   * de página (seções cortadas ao meio), produção impressa SEM filtrar as seis linhas padrão em
+   * branco (a quantidade real se perdia no meio), mão de obra lida só de `employeeNames`
+   * ("Total de colaboradores: 0"), e nada de contrato, HH, RUP, unidade, previsto, custo de
+   * material ou status de rascunho. Além de nunca chamar `print()` nem esperar as fotos.
+   *
+   * Este aqui já trata Compizzo corretamente e herda o CSS de impressão dos boletos. A janela é
+   * aberta SÍNCRONA no clique: depois de um `await` o navegador bloqueia o pop-up.
+   */
   function handlePrint() {
-    if (rdo.template === 'compizzo' && rdo.compizzo) void printCompizzoPdf(rdo)
-    else void printRdoPDF(rdo)
+    if (rdo.template === 'compizzo' && rdo.compizzo) {
+      const janela = abrirJanelaRelatorio()
+      void imprimirRelatorioRdos(
+        [{ tipo: 'torre', rdo }],
+        `RDO #${rdo.number} · ${rdo.date.split('-').reverse().join('/')}`,
+        rdo.compizzo.obra ?? null,
+        janela,
+      )
+    } else void printRdoPDF(rdo)
   }
 
   return (

@@ -26,7 +26,7 @@ import { hojeLocalISO } from '@/lib/utils'
 import { uploadRdoPhoto, blobToDataUrl, leanPhotosForPersist, removeRdoPhoto } from '../utils/rdoPhotoStorage'
 import { RdoPhotoImg } from './RdoPhotoImg'
 import { parseCompizzoText } from '../utils/parseCompizzoText'
-import { printCompizzoPdf } from '../utils/rdoCompizzoPdf'
+import { abrirJanelaRelatorio, imprimirRelatorioRdos } from '../utils/rdosReportExport'
 import { precoEfetivo, medidoAutoPorServico, saldoQtd, qtdMedida } from '@/features/torre-de-controle/utils/obraMedicao'
 import { obraBacFromSite } from '@/features/torre-de-controle/utils/obraBudget'
 import { ehVerba, ROTULO_UNIDADE, classificarUnidade } from '@/lib/unidadesMedida'
@@ -474,10 +474,14 @@ export function RdoCompizzoPanel() {
     const now = new Date().toISOString()
     // `photos` (state da tela) tem base64 → preview imprime sem ir à rede; o gerador
     // resolve pra base64 quando a foto só tiver storagePath (ex.: RDO em edição).
-    void printCompizzoPdf({
-      id: 'preview', number: 0, createdAt: now, updatedAt: now,
-      ...buildRdoPayload(), photos,
-    })
+    // A janela abre SÍNCRONA no clique — depois de um await o navegador bloqueia o pop-up.
+    const janela = abrirJanelaRelatorio()
+    void imprimirRelatorioRdos(
+      [{ tipo: 'torre', rdo: { id: 'preview', number: 0, createdAt: now, updatedAt: now, ...buildRdoPayload(), photos } }],
+      'Pré-visualização',
+      obra || null,
+      janela,
+    )
   }
 
   const totalColab = employeeNames.length

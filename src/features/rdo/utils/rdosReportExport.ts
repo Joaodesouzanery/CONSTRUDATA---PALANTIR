@@ -36,6 +36,7 @@ import { resolvePhotosForPdf, blobToDataUrl } from './rdoPhotoStorage'
 import { supabase } from '@/lib/supabase'
 import { brandMarkSvg } from '@/lib/brandMark'
 import { pageFooterCss } from '@/lib/printPageFooter'
+import { areaExecutada } from './producaoCompizzo'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
 
 /**
@@ -258,15 +259,25 @@ function corpoCompizzo(r: RDO): string {
         <td class="c">${esc(p.unidade ?? '—')}</td>
       </tr>`),
       'Nenhuma produção lançada.',
-    ) + (c.horasTrabalhadas ? `<p class="rodape-sec">Homem-hora no dia: <strong>${fmtNum(c.horasTrabalhadas, 1)} HH</strong></p>` : ''),
+    ) + (() => {
+      if (!c.horasTrabalhadas) return ''
+      // ⚠️ RUP é HH por metro QUADRADO. Num dia só de faixa linear ela não existe — dividir horas
+      // por metro e chamar de RUP seria inventar produtividade de área onde não houve área.
+      const area = areaExecutada(c.producao)
+      const rup = area > 0 ? c.horasTrabalhadas / area : null
+      return `<p class="rodape-sec">Homem-hora no dia: <strong>${fmtNum(c.horasTrabalhadas, 1)} HH</strong>`
+        + (rup !== null ? ` · RUP <strong>${fmtNum(rup, 2)} HH/m²</strong>` : ' · RUP não se aplica (sem produção em m² no dia)')
+        + '</p>'
+    })(),
     producao.length ? `${producao.length}` : undefined),
 
     secao('Materiais', tabela(
-      ['Material', 'Quantidade', 'Custo unit.'],
+      ['Material', 'Quantidade', 'Custo unit.', 'Origem'],
       (c.materiais ?? []).filter((m) => m.material?.trim()).map((m) => `<tr>
         <td>${esc(m.material)}</td>
         <td class="r n">${esc(m.quantidade)}</td>
         <td class="r n">${m.custoUnitario != null ? 'R$ ' + fmtNum(m.custoUnitario) : '—'}</td>
+        <td class="c">${m.stockItemId ? 'estoque' : 'fora do estoque'}</td>
       </tr>`),
       'Nenhum material.',
     )),
@@ -427,7 +438,11 @@ function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
   return `<article class="rdo">
     <header class="rdo-h">
       <div>
-        <div class="rdo-num">RDO #${r.number}${compizzo ? ' · Compizzo' : ''}</div>
+        <div class="rdo-num">RDO #${r.number}${compizzo ? ' · Compizzo' : ''}${
+          // ⚠️ Um rascunho impresso era IDÊNTICO a um finalizado. O número ainda vai mudar, e
+          // alguém pode levar a folha para uma reunião achando que é o documento fechado.
+          r.status === 'rascunho' ? '<span class="selo-rascunho">RASCUNHO</span>' : ''
+        }</div>
         <h3>${esc(r.title || `RDO de ${dataBR(r.date)}`)}</h3>
       </div>
       <div class="rdo-h-right">
@@ -449,9 +464,31 @@ function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
       ['EPI utilizado', r.epiUtilizado === undefined ? '' : r.epiUtilizado ? 'Sim' : 'Não'],
       ['Jornada', r.activityHours?.dayStart ? `${r.activityHours.dayStart}–${r.activityHours.dayEnd ?? ''}` : ''],
       ['Geolocalização', r.geolocation ? `${r.geolocation.lat}, ${r.geolocation.lng}` : ''],
+      // O snapshot de contrato que a TELA mostra e o papel não mostrava.
+      ['Serviço contratado', r.compizzo?.servicoContratado],
+      ['Faturamento previsto (BAC)', r.compizzo?.bacOrcamentoBRL ? 'R$ ' + fmtNum(r.compizzo.bacOrcamentoBRL) : ''],
+      ['Preço por m²', r.compizzo?.precoM2 ? 'R$ ' + fmtNum(r.compizzo.precoM2) : ''],
+      ['Período do contrato', r.compizzo?.periodoInicio || r.compizzo?.periodoFim
+        ? `${r.compizzo?.periodoInicio ? dataBR(r.compizzo.periodoInicio) : '—'} a ${r.compizzo?.periodoFim ? dataBR(r.compizzo.periodoFim) : '—'}`
+        : ''],
+      ['Dia da obra', r.compizzo?.diaObra],
     ])}
 
-    ${nomes.length ? secao(`Equipe presente`, `<div class="chips">${nomes.map((n) => `<span>${esc(n)}</span>`).join('')}</div>`, `${nomes.length} pessoa(s)`) : ''}
+    ${(() => {
+      // ⚠️ A impressão antiga lia SÓ `employeeNames` e imprimia "Total de colaboradores: 0" para
+      // qualquer RDO que contasse a equipe por função. Aqui as duas formas entram.
+      const m = r.manpower
+      const porFuncao = [
+        ['Encarregados', m.foremanCount], ['Oficiais', m.officialCount],
+        ['Ajudantes', m.helperCount], ['Operadores', m.operatorCount],
+      ].filter(([, n]) => Number(n) > 0) as [string, number][]
+      const total = contarPessoas({ tipo: 'torre', rdo: r })
+      if (!nomes.length && !porFuncao.length) return ''
+      return secao('Equipe presente', [
+        porFuncao.length ? `<div class="chips">${porFuncao.map(([rot, n]) => `<span>${esc(rot)}: ${n}</span>`).join('')}</div>` : '',
+        nomes.length ? `<div class="chips">${nomes.map((n) => `<span>${esc(n)}</span>`).join('')}</div>` : '',
+      ].join(''), `${total} pessoa(s)`)
+    })()}
 
     ${compizzo ? corpoCompizzo(r) : corpoPadrao(r)}
 
@@ -512,6 +549,8 @@ function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
 // ver os comentários lá para o raciocínio completo de cada um.
 
 const CSS = `
+.selo-rascunho { margin-left: 6px; padding: 1px 6px; border: 1px solid #b45309; border-radius: 3px;
+  font-size: 8pt; font-weight: 700; letter-spacing: .06em; color: #b45309; background: #fef3c7; }
 :root { color-scheme: light only; forced-color-adjust: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 * { margin:0; padding:0; box-sizing:border-box; forced-color-adjust:none; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 html, body { background:#fff !important; color:#0f172a !important; }
