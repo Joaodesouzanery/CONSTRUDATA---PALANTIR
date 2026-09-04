@@ -50,7 +50,11 @@ test('1ª importação: tudo é novo', () => {
   assert.equal(c.resumo.novo, 4, '3 despesas + 1 receita')
   assert.equal(c.resumo.inalterado, 0)
   assert.equal(c.ausentes.length, 0)
-  assert.equal(c.problemas.length, 0)
+  // ⚠️ Um aviso, e ele é esperado: a 1ª linha da fixture tem receita E despesa, e nessa forma a
+  // coluna DESCRIÇÃO é da despesa — a receita fica sem descrição própria e a tela pede que se
+  // preencha. Antes o leitor copiava a descrição da despesa para a receita e não avisava nada.
+  assert.equal(c.problemas.length, 1)
+  assert.match(c.problemas[0].motivo, /Receita sem descrição própria/)
 })
 
 test('⚠️ O TESTE QUE DECIDE — reimportar o MESMO arquivo: zero novo, zero duplicado', () => {

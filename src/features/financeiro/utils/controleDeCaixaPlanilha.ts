@@ -393,6 +393,30 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
     const categoria = String(celula(linha, 'categoria') ?? '').trim() || undefined
     const obra = String(celula(linha, 'obra') ?? '').trim() || undefined
 
+    /**
+     * ⚠️ A LINHA COM OS DOIS BLOCOS — e a regra que o resto desta função depende.
+     *
+     * As colunas DESCRIÇÃO, ID, CATEGORIA, OBRA e CONFERIDO são **compartilhadas** pelos dois
+     * blocos: existe uma só de cada por linha. No modelo que o sistema gera isso é inofensivo,
+     * porque lá cada linha tem UM lançamento — a descrição na coluna D é dele, seja receita ou
+     * despesa, e é isso que faz a ida-e-volta fechar.
+     *
+     * No arquivo que a equipe monta à mão, não. Ali receita e despesa coincidem na mesma linha
+     * por acaso — só porque alguém digitou assim. Medido no arquivo real: as 9 receitas dividem
+     * linha com uma despesa, e ZERO estão sozinhas. Lendo a coluna D para as duas, a receita de
+     * R$ 2.000 virava "CONSERTO DE 2 PNEUS DA RETRO", que é a despesa da vizinha.
+     *
+     * A regra: **com os dois blocos, o que é compartilhado é da DESPESA.** Ela é quem tem
+     * descrição obrigatória; a receita naquele layout não tem nenhuma.
+     *
+     * ⚠️ E o `idExterno` importa mais do que parece: `addEntry` é upsert por id, então dar o
+     * mesmo id aos dois faria **um apagar o outro** — em silêncio. Hoje é latente (o arquivo do
+     * cliente não tem coluna ID), mas basta preencher o modelo com os dois na mesma linha.
+     */
+    const temReceita = (() => { const v = lerValor(celula(linha, 'entrada')); return v !== null && v !== 0 })()
+    const temDespesa = (() => { const v = lerValor(celula(linha, 'valor')); return v !== null && v !== 0 })()
+    const compartilhadoEhDaDespesa = temReceita && temDespesa
+
     // ── bloco de RECEITA ──
     const valorEntrada = lerValor(celula(linha, 'entrada'))
     if (valorEntrada !== null && valorEntrada !== 0) {
@@ -404,10 +428,28 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
           conteudo: String(celula(linha, 'dataEntrada') ?? ''),
         })
       } else {
+        const descricaoDaReceita = compartilhadoEhDaDespesa
+          ? ''
+          : String(celula(linha, 'descricao') ?? '').trim()
+
+        if (!descricaoDaReceita) {
+          // Não inventa e não cala: a tela pede a descrição em vez de fabricar uma.
+          problemas.push({
+            linha: numeroDaLinha, coluna: 'DESCRIÇÃO',
+            motivo: compartilhadoEhDaDespesa
+              ? 'Receita sem descrição própria — nesta linha a coluna DESCRIÇÃO é da despesa. Escreva a receita numa linha só dela, ou preencha a descrição.'
+              : 'Receita sem descrição — não dá para conferir depois de onde veio o dinheiro.',
+          })
+        }
+
         lancamentos.push(montarLinha({
-          idExterno, tipo: 'receita',
-          descricao: String(celula(linha, 'descricao') ?? '').trim() || 'Entrada',
-          valor: valorEntrada, periodo: p, solicitantes: [], categoria, obra, conferido,
+          idExterno: compartilhadoEhDaDespesa ? undefined : idExterno,
+          tipo: 'receita',
+          descricao: descricaoDaReceita || 'Entrada',
+          valor: valorEntrada, periodo: p, solicitantes: [],
+          categoria: compartilhadoEhDaDespesa ? undefined : categoria,
+          obra: compartilhadoEhDaDespesa ? undefined : obra,
+          conferido: compartilhadoEhDaDespesa ? false : conferido,
           linha: numeroDaLinha, ocorrencias,
         }))
       }

@@ -32,6 +32,24 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[UnhandledPromise]', event.reason)
 })
 
+/**
+ * ⚠️ A guarda que faltava: soltar arquivo FORA de uma área de soltar não pode matar a sessão.
+ *
+ * O padrão do navegador para um arquivo solto numa página é NAVEGAR PARA ELE. Sem estes dois
+ * listeners, errar a mira por alguns pixels — ou soltar a planilha no meio da tela achando que
+ * "o sistema vê" — descarta a aplicação inteira: formulário aberto, RDO em digitação, fila de
+ * sincronização ainda não gravada. Tudo perdido, sem confirmação e sem volta.
+ *
+ * É pré-requisito de qualquer área de soltar: sem isto, ampliar as zonas só diminui a chance do
+ * acidente.
+ *
+ * E não atrapalha as zonas de verdade: o React ouve no elemento raiz, então o handler da zona roda
+ * enquanto o evento sobe, ANTES de chegar ao `window`. Quando chega aqui, o arquivo já foi lido —
+ * o `preventDefault` só repete o que a própria zona já faz.
+ */
+window.addEventListener('dragover', (event) => { event.preventDefault() })
+window.addEventListener('drop', (event) => { event.preventDefault() })
+
 const container = document.getElementById('root')!
 
 const tree = (

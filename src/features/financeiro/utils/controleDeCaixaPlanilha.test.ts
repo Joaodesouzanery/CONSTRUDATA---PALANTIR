@@ -174,12 +174,18 @@ test('planilha sem cabeçalho reconhecível avisa em vez de importar lixo', () =
 test('lê receita e despesa da MESMA linha como dois lançamentos', () => {
   // É a forma da planilha: dois blocos lado a lado. A linha 3 real tem entrada 2000 E despesa 1000.
   const r = lerLancamentos([...CAB, [2000, d('2026-07-06'), 'CONSERTO DE 2 PNEUS DA RETRO', 1000, d('2026-07-06'), 'ÉDER', 'Conferido']])
-  assert.equal(r.problemas.length, 0)
   assert.equal(r.lancamentos.length, 2)
+
+  // ⚠️ Este teste exigia `problemas.length === 0` — e era essa exigência de SILÊNCIO que sustentava
+  // o defeito: a receita ficava com a descrição da despesa e ninguém era avisado. Agora a linha
+  // com os dois blocos gera exatamente um aviso, pedindo a descrição da receita.
+  assert.equal(r.problemas.length, 1)
+  assert.match(r.problemas[0].motivo, /Receita sem descrição própria/)
 
   const receita = r.lancamentos.find((l) => l.tipo === 'receita')!
   assert.equal(receita.valor, 2000)
   assert.equal(receita.data, '2026-07-06')
+  assert.notEqual(receita.descricao, 'CONSERTO DE 2 PNEUS DA RETRO')
 
   const despesa = r.lancamentos.find((l) => l.tipo === 'despesa')!
   assert.equal(despesa.valor, 1000)
@@ -472,4 +478,96 @@ test('mesDoNomeDaAba lê o mês de cada aba', () => {
   assert.equal(mesDoNomeDaAba('HORAS EXTRAS 08'), 8)
   assert.equal(mesDoNomeDaAba('HORAS EXTRAS 09'), 9)
   assert.equal(mesDoNomeDaAba('HORAS EXTRAS'), undefined)
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A coluna compartilhada — o defeito que fazia a receita roubar a descrição
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cabeçalho igual ao do arquivo real: banner na linha 1, cabeçalho na 2. */
+const CAB_REAL = [
+  ['RECEITAS', null, 'DESPESAS', null, null, null, null],
+  ['ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE', null],
+]
+
+test('⚠️ linha com os DOIS blocos: a descrição é da despesa, e a receita NÃO a herda', () => {
+  // É a linha 3 do arquivo real: receita de 2.000 e despesa de 1.000 de "CONSERTO DE 2 PNEUS".
+  // Elas coincidem na linha só porque alguém digitou assim — não têm relação nenhuma.
+  const m: Matriz = [...CAB_REAL, [2000, '06/07/2026', 'CONSERTO DE 2 PNEUS DA RETRO', 1000, '06/07/2026', 'ÉDER', 'OK']]
+  const r = lerLancamentos(m)
+
+  const receita = r.lancamentos.find((l) => l.tipo === 'receita')
+  const despesa = r.lancamentos.find((l) => l.tipo === 'despesa')
+  assert.ok(receita && despesa)
+  assert.equal(despesa.descricao, 'CONSERTO DE 2 PNEUS DA RETRO')
+  assert.notEqual(receita.descricao, despesa.descricao, 'a receita não pode herdar a descrição da despesa')
+  assert.equal(receita.descricao, 'Entrada')
+})
+
+test('e a receita sem descrição própria vira um AVISO, não um lançamento inventado', () => {
+  const m: Matriz = [...CAB_REAL, [2000, '06/07/2026', 'CONSERTO DE 2 PNEUS DA RETRO', 1000, '06/07/2026', 'ÉDER', 'OK']]
+  const r = lerLancamentos(m)
+  const aviso = r.problemas.find((p) => p.coluna === 'DESCRIÇÃO' && /Receita/.test(p.motivo))
+  assert.ok(aviso, 'a tela precisa pedir a descrição em vez de fabricar uma')
+  assert.equal(aviso.linha, 3)
+})
+
+test('⚠️ e o ID compartilhado não vai para os dois — um apagaria o outro', () => {
+  // `addEntry` é upsert por id. Dois lançamentos com o mesmo id = um some, em silêncio.
+  const cab: Matriz = [
+    ['ID', 'ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE'],
+  ]
+  const m: Matriz = [...cab, ['abc-123', 2000, '06/07/2026', 'ALUGUEL', 1000, '06/07/2026', 'ÉDER']]
+  const r = lerLancamentos(m)
+  const receita = r.lancamentos.find((l) => l.tipo === 'receita')
+  const despesa = r.lancamentos.find((l) => l.tipo === 'despesa')
+  assert.equal(despesa?.idExterno, 'abc-123', 'o ID fica com a despesa, que é dona da linha')
+  assert.equal(receita?.idExterno, undefined, 'a receita usa a chave de conteúdo, e não colide')
+  assert.notEqual(receita?.chave, despesa?.chave)
+})
+
+test('linha com SÓ receita: a descrição é dela — é a ida-e-volta do modelo gerado', () => {
+  // O modelo que o sistema gera escreve um lançamento por linha, e a descrição da receita vai na
+  // mesma coluna D. Se esta regra quebrar, a reimportação do próprio modelo passa a criar linha
+  // nova toda vez.
+  const m: Matriz = [...CAB_REAL, [5000, '10/07/2026', 'MEDIÇÃO 03', null, null, null, null]]
+  const r = lerLancamentos(m)
+  assert.equal(r.lancamentos.length, 1)
+  assert.equal(r.lancamentos[0].tipo, 'receita')
+  assert.equal(r.lancamentos[0].descricao, 'MEDIÇÃO 03', 'sozinha na linha, a descrição é da receita')
+  assert.equal(r.problemas.filter((p) => /Receita sem descrição/.test(p.motivo)).length, 0)
+})
+
+test('linha com só receita preserva ID, categoria e conferido', () => {
+  const cab: Matriz = [
+    ['ID', 'ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE', 'CATEGORIA', 'CONFERIDO'],
+  ]
+  const m: Matriz = [...cab, ['id-9', 5000, '10/07/2026', 'MEDIÇÃO 03', null, null, null, 'Medição', 'Conferido']]
+  const l = lerLancamentos(m).lancamentos[0]
+  assert.equal(l.idExterno, 'id-9')
+  assert.equal(l.categoria, 'Medição')
+  assert.equal(l.conferido, true)
+})
+
+test('linha só com despesa continua igual', () => {
+  const m: Matriz = [...CAB_REAL, [null, null, 'UBER', 80, '10/07/2026', 'MARCOS', 'OK']]
+  const r = lerLancamentos(m)
+  assert.equal(r.lancamentos.length, 1)
+  assert.equal(r.lancamentos[0].tipo, 'despesa')
+  assert.equal(r.lancamentos[0].descricao, 'UBER')
+  assert.deepEqual(r.lancamentos[0].solicitantes, ['MARCOS'])
+  // `conferido` fica falso aqui de propósito: a coluna de status não tem cabeçalho e é achada
+  // pelo CONTEÚDO, exigindo várias marcas. Uma linha só não é evidência de coluna de status.
+  assert.equal(r.lancamentos[0].conferido, false)
+})
+
+test('as duas receitas em linhas diferentes com a mesma data ganham chaves distintas', () => {
+  const m: Matriz = [
+    ...CAB_REAL,
+    [2000, '06/07/2026', 'ALUGUEL', 1000, '06/07/2026', 'ÉDER', null],
+    [3000, '06/07/2026', 'DIESEL', 500, '06/07/2026', 'MARCOS', null],
+  ]
+  const rec = lerLancamentos(m).lancamentos.filter((l) => l.tipo === 'receita')
+  assert.equal(rec.length, 2)
+  assert.notEqual(rec[0].chave, rec[1].chave, 'o desempate por ocorrência tem de separá-las')
 })

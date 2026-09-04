@@ -47,6 +47,36 @@ conferir(new Set(chaves).size === chaves.length, 'nenhuma chave colide', `${new 
 const r2 = lerLancamentos(matriz)
 conferir(r2.lancamentos.every((l, i) => l.chave === chaves[i]), 'reimportar o mesmo arquivo dá as mesmas chaves')
 
+console.log('\n=== a coluna DESCRIÇÃO é compartilhada — e não pode vazar ===')
+// ⚠️ Esta asserção FALHAVA antes do conserto: as 9 receitas do arquivo recebiam a descrição da
+// despesa que dividia a linha com elas. O QA não pegava porque só conferia SOMAS — e as somas
+// sempre estiveram certas. O valor nunca esteve errado; a descrição esteve.
+const herdadas = rec.filter((rr) => des.some((dd) => dd.linha === rr.linha && dd.descricao === rr.descricao))
+conferir(
+  herdadas.length === 0,
+  'nenhuma receita herdou a descrição da despesa da mesma linha',
+  herdadas.length ? `${herdadas.length} herdaram` : `${rec.length} receitas conferidas`,
+)
+
+// E a contraprova: se as receitas sumissem, a asserção acima passaria vazia.
+conferir(rec.length > 0, 'as receitas continuam sendo lidas', `${rec.length} receitas`)
+
+// Linha com os dois blocos tem de avisar que a receita ficou sem descrição própria.
+const avisosDeReceita = r.problemas.filter((p) => p.coluna === 'DESCRIÇÃO' && /Receita/.test(p.motivo))
+conferir(
+  avisosDeReceita.length === rec.length,
+  'toda receita sem descrição própria gera aviso na tela',
+  `${avisosDeReceita.length} avisos para ${rec.length} receitas`,
+)
+
+// E o id externo não pode ser dado aos dois: addEntry é upsert, um apagaria o outro.
+const idsExternos = r.lancamentos.map((l) => l.idExterno).filter(Boolean)
+conferir(
+  new Set(idsExternos).size === idsExternos.length,
+  'nenhum ID externo foi dado a dois lançamentos',
+  `${idsExternos.length} ids`,
+)
+
 console.log('\n=== as irregularidades do arquivo real ===')
 for (const l of des.filter((l) => l.dataFim)) console.log(`  período: ${l.data} -> ${l.dataFim} | ${l.descricao.slice(0, 42)}`)
 for (const l of des.filter((l) => l.solicitantes.length > 1)) console.log(`  vários solicitantes: ${l.solicitantes.join(' + ')}`)
