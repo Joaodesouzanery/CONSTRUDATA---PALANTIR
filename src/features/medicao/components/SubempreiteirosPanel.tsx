@@ -23,6 +23,7 @@ import { getCriadouroLabel, getRdoSabespExecutedServices } from '@/features/rdo-
 import { SabespPlanilhaPanel } from './SabespPlanilhaPanel'
 import { useContractorStore } from '@/store/contractorStore'
 import { promoteSubempreiteiroImportToUnified } from '../utils/unifiedImportPromotion'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 type CostKey =
   | 'agregados'
@@ -329,7 +330,6 @@ function LegacyImportSubBtn({ subId, periodo }: { subId?: string; periodo: strin
       setPreview(parseSubempreiteiroSheet(wb))
     } finally {
       setLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -422,7 +422,6 @@ type ImportPreview = SubempreiteiroParseResult & { fileName: string }
 
 function ImportSubBtn({ subId, periodo }: { subId?: string; periodo: string }) {
   const { addSubempreiteiro, importSubempreiteiroDetalhado, getActiveBoletim } = useMedicaoBillingStore()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [previews, setPreviews] = useState<ImportPreview[]>([])
   const [loading, setLoading] = useState(false)
   const boletim = getActiveBoletim()
@@ -439,7 +438,6 @@ function ImportSubBtn({ subId, periodo }: { subId?: string; periodo: string }) {
       setPreviews(parsed)
     } finally {
       setLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -513,10 +511,16 @@ function ImportSubBtn({ subId, periodo }: { subId?: string; periodo: string }) {
 
   return (
     <>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" multiple className="hidden" onChange={handleFile} />
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={loading} className={btnMuted}>
-        <Upload size={13} /> {loading ? 'Lendo...' : subId ? 'Importação XLSX' : 'Importação XLSX em lote'}
-      </button>
+      <AreaDeSoltar
+        compacto
+        varios
+        aceita=".xlsx,.xls,.csv"
+        desabilitado={loading}
+        titulo={loading ? 'Lendo…' : subId ? 'Arraste a planilha ou clique' : 'Arraste as planilhas ou clique'}
+        aoEscolher={(arquivos) => {
+          void handleFile({ target: { files: arquivos, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+        }}
+      />
       {previews.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setPreviews([])}>
           <div className="max-h-[86vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[#525252] bg-[#2c2c2c] shadow-2xl" onClick={(event) => event.stopPropagation()}>

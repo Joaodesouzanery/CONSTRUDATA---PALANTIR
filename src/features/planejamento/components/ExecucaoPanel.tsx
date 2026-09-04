@@ -4,8 +4,8 @@
  * bonificação, condições). Cálculos automáticos + export PDF branded.
  * Edição por papel; demais em modo visualização. Inputs de texto/número commitam no blur.
  */
-import { useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X, Share2, Paperclip, FileText, Upload, ExternalLink } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, Plus, Trash2, FileDown, Copy, CalendarRange, AlertTriangle, Send, CheckCircle2, Activity, Target, Settings, X, Share2, Paperclip, FileText, ExternalLink } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { uploadFile, getSignedUrl, removeFile } from '@/lib/storage'
 import { useStoreSync } from '@/lib/useStoreSync'
@@ -31,6 +31,7 @@ import {
   m2ExecutadoEmData, metaDiaM2,
 } from '../utils/planoExecucao'
 import { printPlanoExecucaoPdf } from '../utils/planoExecucaoPdf'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const EDIT_ROLES = ['owner', 'diretor', 'gerente', 'engenheiro', 'planejador']
 
@@ -699,7 +700,6 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
 // ─── Anexos (PDF do planejamento) — binário no Storage, metadata no payload ──
 function AnexosSection({ plano, canEdit, onChange }: { plano: PlanoExecucao; canEdit: boolean; onChange: (anexos: PlanoAnexo[]) => void }) {
   const anexos = plano.anexos ?? []
-  const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -715,7 +715,6 @@ function AnexosSection({ plano, canEdit, onChange }: { plano: PlanoExecucao; can
     }
     if (novos.length) onChange([...anexos, ...novos])
     setBusy(false)
-    if (fileRef.current) fileRef.current.value = ''
   }
 
   async function abrir(a: PlanoAnexo) {
@@ -737,11 +736,14 @@ function AnexosSection({ plano, canEdit, onChange }: { plano: PlanoExecucao; can
       <div className="p-4">
         {canEdit && (
           <div className="mb-3">
-            <input ref={fileRef} type="file" accept="application/pdf,image/*" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-            <button onClick={() => fileRef.current?.click()} disabled={busy}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[#484848] hover:bg-[#525252] text-[#f5f5f5] disabled:opacity-50">
-              <Upload size={14} /> {busy ? 'Enviando…' : 'Anexar PDF do planejamento'}
-            </button>
+            <AreaDeSoltar
+              varios
+              aceita="application/pdf,image/*"
+              desabilitado={busy}
+              titulo={busy ? 'Enviando…' : 'Arraste o PDF do planejamento ou clique'}
+              ajuda="PDF ou imagem"
+              aoEscolher={(arquivos) => { void handleFiles(arquivos as unknown as FileList) }}
+            />
             <p className="mt-1 text-[10px] text-[#7a7a7a]">PDF ou imagem, até 15 MB. Guardado com segurança na nuvem (link expira ao abrir).</p>
           </div>
         )}

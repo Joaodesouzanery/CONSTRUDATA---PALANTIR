@@ -5,7 +5,7 @@
  * 60/30/7 é fase 2. Documento anexo reusa o bucket `predial-ativos`.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileText, Paperclip, Pencil, Plus, RefreshCcw, ShieldCheck, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileText, Pencil, Plus, RefreshCcw, ShieldCheck, Trash2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -14,6 +14,7 @@ import { useLaudosStore, type Laudo } from '@/store/laudosStore'
 import { LAUDO_TIPOS, LAUDO_PERIODICIDADE_PADRAO, laudoStatus, laudoDiasRestantes, addMonthsISO, type LaudoStatusCor } from '../utils/laudos'
 import { AvisoLaudos } from './AvisoLaudos'
 import { removePredialAtivoFile, signedPredialAtivoUrl, uploadPredialAtivoFile } from '@/features/manutencoes/utils/predialAtivoStorage'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const inputClass = 'w-full rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#737373] focus:border-[#f97316]/70'
 const labelClass = 'text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]'
@@ -322,10 +323,15 @@ function LaudoModal({ item, sites, defaultSiteId, onClose }: { item?: Laudo; sit
             <div className="flex items-center gap-2">
               {documentoPath && <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] bg-[#333] px-2.5 py-1.5 text-sm text-[#e5e5e5]"><FileText size={14} className="text-[#a3a3a3]" />{docNome ?? 'documento'} {documentoPath && <button type="button" onClick={() => { if (documentoPath) trashRef.current.push(documentoPath); setDocumentoPath(undefined); setDocNome(undefined) }} className="text-[#a3a3a3] hover:text-[#f87171]"><X size={13} /></button>}</span>}
               {documentoPath && <DocLink path={documentoPath} />}
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-1.5 text-xs font-semibold text-[#e5e5e5] hover:bg-[#464646]">
-                {documentoPath ? <Upload size={14} /> : <Paperclip size={14} />} {busy ? 'Enviando...' : documentoPath ? 'Trocar' : 'Anexar documento'}
-                <input type="file" className="hidden" onChange={onDoc} disabled={busy} />
-              </label>
+              <AreaDeSoltar
+                compacto
+                desabilitado={busy}
+                titulo={busy ? 'Enviando…' : documentoPath ? 'Arraste para trocar ou clique' : 'Arraste o documento ou clique'}
+                aoEscolher={(arquivos) => {
+                  const f = arquivos[0]
+                  if (f) void onDoc({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+                }}
+              />
             </div>
           </div>
 

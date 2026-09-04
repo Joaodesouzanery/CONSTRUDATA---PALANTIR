@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { AlertCircle, Download, Edit2, FileDown, Package, Plus, Trash2, Upload, X as XIcon } from 'lucide-react'
+import { AlertCircle, Download, Edit2, FileDown, Package, Plus, Trash2, X as XIcon } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { useMedicaoBillingStore } from '@/store/medicaoBillingStore'
 import type { Fornecedor, FornecedorMedicaoItem, SupplierMeasurementControlRow } from '@/store/medicaoBillingStore'
@@ -9,6 +9,7 @@ import { readWorkbook, parseFornecedorSheet } from '../utils/xlsxParsers'
 import type { FornecedorParseResult } from '../utils/xlsxParsers'
 import { exportFornecedoresPdf } from '../utils/exportPdf'
 import { promoteFornecedorImportToUnified } from '../utils/unifiedImportPromotion'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const fieldClass = 'w-full rounded border border-[#525252] bg-[#1f1f1f] px-2 py-1.5 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]'
 const btnMuted = 'inline-flex items-center gap-2 rounded-lg border border-[#525252] bg-[#484848] px-3 py-2 text-xs font-medium text-[#f5f5f5] hover:bg-[#525252]'
@@ -286,7 +287,6 @@ function emptySupplier(periodo: string): Omit<Fornecedor, 'id'> {
 
 function XlsxImportFornecedor({ periodo }: { periodo: string }) {
   const { importFornecedores } = useMedicaoBillingStore()
-  const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<FornecedorParseResult | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -309,7 +309,6 @@ function XlsxImportFornecedor({ periodo }: { periodo: string }) {
       setPreview(merged)
     } finally {
       setLoading(false)
-      if (fileRef.current) fileRef.current.value = ''
     }
   }
 
@@ -323,11 +322,16 @@ function XlsxImportFornecedor({ periodo }: { periodo: string }) {
 
   return (
     <>
-      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" multiple onChange={handleFile} />
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={loading} className={btnMuted}>
-        <Upload size={13} />
-        {loading ? 'Lendo...' : 'Importação XLSX / CSV'}
-      </button>
+      <AreaDeSoltar
+        compacto
+        varios
+        aceita=".xlsx,.xls,.csv"
+        desabilitado={loading}
+        titulo={loading ? 'Lendo…' : 'Arraste a planilha de fornecedores ou clique'}
+        aoEscolher={(arquivos) => {
+          void handleFile({ target: { files: arquivos, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+        }}
+      />
 
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setPreview(null)}>

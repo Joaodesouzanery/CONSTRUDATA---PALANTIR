@@ -19,6 +19,7 @@ import { FVS_ITEMS_TEMPLATE } from '../schemas'
 import { printFvsPDF } from '../utils/fvsPdfExport'
 import { compressImage } from '@/lib/imageCompression'
 import type { FVS, FvsItem, FvsConformity, FvsProblemAction } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -592,18 +593,13 @@ export function NovaFvsPanel() {
                           </div>
                         ))}
                         {(p.photos ?? []).length < 6 && (
-                          <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-[#525252] rounded-lg text-xs text-[#a3a3a3] hover:border-[#f97316]/50 hover:text-[#f97316] cursor-pointer transition-colors">
-                            <Camera size={14} />
-                            Adicionar fotos do problema
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              className="hidden"
-                              onChange={(e) => handleAddProblemPhotos(idx, e.target.files)}
-                              onClick={(e) => { (e.target as HTMLInputElement).value = '' }}
-                            />
-                          </label>
+                          <AreaDeSoltar
+                            compacto
+                            varios
+                            aceita="image/*"
+                            titulo="Arraste as fotos do problema ou clique"
+                            aoEscolher={(arquivos) => { void handleAddProblemPhotos(idx, arquivos as unknown as FileList) }}
+                          />
                         )}
                         <span className="text-[10px] text-[#6b6b6b]">{(p.photos ?? []).length}/6</span>
                       </div>

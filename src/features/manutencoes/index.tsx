@@ -15,7 +15,7 @@ import {
   LayoutDashboard,
   Link2,
   ListChecks,
-  Paperclip,
+  
   Plus,
   QrCode,
   RefreshCcw,
@@ -23,7 +23,7 @@ import {
   Settings2,
   SlidersHorizontal,
   Trash2,
-  Upload,
+  
   Wrench,
   X,
   Zap,
@@ -60,6 +60,7 @@ import {
   uploadPredialAtivoImage,
 } from './utils/predialAtivoStorage'
 import type { ConstructionSite, Project } from '@/types'
+import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 type MaintenanceTab = 'painel' | 'ativos' | 'monitoramento' | 'tarefas' | 'ordens' | 'kanban' | 'calendario'
 type ModalState =
@@ -409,10 +410,16 @@ function PlaquetaUploader({ path, onChange, onTrash }: { path?: string; onChange
         ? <img src={url} alt="plaqueta" className="h-16 w-16 rounded-lg border border-[#525252] object-cover" />
         : <div className="grid h-16 w-16 place-items-center rounded-lg border border-dashed border-[#525252] bg-[#333]"><ImageIcon size={20} className="text-[#666]" /></div>}
       <div className="flex flex-col gap-1.5">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-1.5 text-xs font-semibold text-[#e5e5e5] hover:bg-[#464646]">
-          <Upload size={14} /> {busy ? 'Enviando...' : path ? 'Trocar foto' : 'Enviar foto'}
-          <input type="file" accept="image/*" className="hidden" onChange={onFile} disabled={busy} />
-        </label>
+        <AreaDeSoltar
+          compacto
+          aceita="image/*"
+          desabilitado={busy}
+          titulo={busy ? 'Enviando…' : path ? 'Arraste para trocar ou clique' : 'Arraste a foto ou clique'}
+          aoEscolher={(arquivos) => {
+            const f = arquivos[0]
+            if (f) void onFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+          }}
+        />
         {path && <button type="button" onClick={() => { onTrash(path); onChange(undefined) }} className="text-left text-xs text-[#a3a3a3] hover:text-[#f87171]">Remover</button>}
       </div>
     </div>
@@ -459,10 +466,15 @@ function AnexosManager({ anexos, onChange, onTrash }: { anexos: MaintenanceAsset
           ))}
         </ul>
       )}
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#525252] bg-[#3a3a3a] px-3 py-1.5 text-xs font-semibold text-[#e5e5e5] hover:bg-[#464646]">
-        <Paperclip size={14} /> {busy ? 'Enviando...' : 'Adicionar anexo'}
-        <input type="file" className="hidden" onChange={onFile} disabled={busy} />
-      </label>
+      <AreaDeSoltar
+        compacto
+        desabilitado={busy}
+        titulo={busy ? 'Enviando…' : 'Arraste o anexo ou clique'}
+        aoEscolher={(arquivos) => {
+          const f = arquivos[0]
+          if (f) void onFile({ target: { files: [f], value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+        }}
+      />
     </div>
   )
 }
