@@ -15,9 +15,12 @@ import { useShallow } from 'zustand/react/shallow'
 import * as XLSX from 'xlsx'
 import { validateFileBeforeParse } from '@/lib/importEngine'
 import {
-  AlertTriangle, ArrowLeftRight, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X,
+  AlertTriangle, ArrowLeftRight, CheckCircle2, FileSpreadsheet, Lock, TrendingUp, Upload, Wallet, X, ClipboardList,
 } from 'lucide-react'
 import { SubTabHost } from '@/components/shared/SubTabHost'
+import { useRdoStore } from '@/store/rdoStore'
+import { useTorreStore } from '@/store/torreDeControleStore'
+import { vinculosDeObra, divergenciasDoPlano, type DivergenciaDaSemana } from '@/features/rdo/utils/wcrParaFcp'
 import { useFcpStore, type PlanoFcp, type StatusDoPlano } from '@/store/fcpStore'
 import { useLpsStore } from '@/store/lpsStore'
 import { useAuth } from '@/lib/auth'
@@ -28,7 +31,7 @@ import { fmtDataBR } from '@/lib/utils'
 import {
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, custosPorRegime, fluxoEconomico,
   fluxoMensal, fluxoSemanal, sensibilidade, ticketDaCidade, totalDaFolha,
-  viabilidadeDaCidade, viabilidadeGlobal,
+  viabilidadeDaCidade, viabilidadeGlobal, semanasDoFluxo, producaoPrevistaSemanal,
 } from '../utils/fcp/motor'
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import {
@@ -133,6 +136,7 @@ export function FcpPanel() {
       />
 
       <PonteComOLps plano={plano!} />
+      <PonteComOsRdos plano={plano!} />
 
       <ResumoDoPlano premissas={P} realizado={realizado} />
 
@@ -277,6 +281,135 @@ function FluxoDeAprovacao({
  * Puxar do LPS mexe na medição projetada, que mexe no capital necessário: é dinheiro, não é
  * sincronização de calendário.
  */
+/**
+ * O que os RDOs WCR dizem sobre a produção — e o botão que decide se aquilo vira plano.
+ *
+ * ⚠️ **Nada aqui é automático.** A conta roda sozinha; a gravação só acontece no clique. O capital
+ * recomendado deste plano é o número que decide quanto dinheiro a obra precisa — se ele mudasse a
+ * cada RDO salvo no campo, mudaria entre uma reunião e outra sem ninguém saber por quê.
+ *
+ * ⚠️ **Só conta o que é UN.** Metro de rede (PRA/PRE) volta à parte: a medição multiplica a
+ * produção pelo ticket POR LIGAÇÃO, e jogar metro nessa conta inflaria o faturamento projetado.
+ */
+function PonteComOsRdos({ plano }: { plano: PlanoFcp }) {
+  const rdos = useRdoStore((s) => s.rdos)
+  const sites = useTorreStore((s) => s.sites)
+  const lancarProducao = useFcpStore((s) => s.lancarProducao)
+  const [conferindo, setConferindo] = useState<DivergenciaDaSemana[] | null>(null)
+
+  const vinculos = useMemo(() => vinculosDeObra(sites), [sites])
+  const semanas = useMemo(() => semanasDoFluxo(plano.premissas, 12), [plano.premissas])
+
+  const divergencias = useMemo(() => {
+    const previsto = (cidadeId: string) => {
+      const c = plano.premissas.cidades.find((x) => x.id === cidadeId)
+      return c ? producaoPrevistaSemanal(plano.premissas, c) : 0
+    }
+    return divergenciasDoPlano(plano, rdos, vinculos, semanas, (cidadeId) => previsto(cidadeId))
+  }, [plano, rdos, vinculos, semanas])
+
+  // Só vale mostrar o que MUDA alguma coisa.
+  const pendentes = useMemo(
+    () => divergencias.filter((d) => Math.abs(d.diferenca) > 0.005),
+    [divergencias],
+  )
+
+  const nomeDaCidade = (id: string) => plano.premissas.cidades.find((c) => c.id === id)?.nome ?? id
+  const emReais = (d: DivergenciaDaSemana) => {
+    const c = plano.premissas.cidades.find((x) => x.id === d.cidadeId)
+    return c ? d.diferenca * ticketDaCidade(c) : 0
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
+        <ClipboardList size={14} className="text-[#f97316] shrink-0" />
+        <span className="text-[11px] text-[#6b6b6b]">
+          RDO WCR:{' '}
+          {vinculos.length === 0
+            ? <>nenhuma obra diz a que cidade deste plano pertence — preencha em <strong className="text-[#a3a3a3]">Contrato → RDO WCR</strong></>
+            : divergencias.length === 0
+              ? <>nenhum RDO finalizado nas 12 semanas do plano</>
+              : <>
+                  <strong className="text-[#a3a3a3]">{divergencias.length} semana(s)</strong> com apontamento
+                  {pendentes.length > 0 && <> · <strong className="text-amber-300">{pendentes.length} diferente(s) do plano</strong></>}
+                </>}
+        </span>
+        <div className="ml-auto">
+          <button
+            type="button" disabled={pendentes.length === 0}
+            onClick={() => setConferindo(pendentes)}
+            className={pendentes.length > 0 ? BTN_P : BTN_S}
+          >
+            Conferir com os RDOs
+          </button>
+        </div>
+      </div>
+
+      {conferindo && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+          <div className="w-full max-w-3xl overflow-hidden rounded-xl border border-[#525252] bg-[#2c2c2c]">
+            <div className="flex items-center gap-2 border-b border-[#525252] px-5 py-3">
+              <h3 className="text-sm font-semibold text-[#f5f5f5]">O que os RDOs dizem</h3>
+              <button type="button" onClick={() => setConferindo(null)} className="ml-auto text-[#6b6b6b] hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto px-5 py-4">
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="border-b border-[#525252] text-left text-[#6b6b6b]">
+                    <th className="py-1.5 pr-3 font-medium">Semana</th>
+                    <th className="py-1.5 pr-3 font-medium">Cidade</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">No plano</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">Nos RDOs</th>
+                    <th className="py-1.5 pr-3 text-right font-medium">Impacto</th>
+                    <th className="py-1.5 font-medium">Fora da conta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {conferindo.map((d) => (
+                    <tr key={`${d.cidadeId}-${d.semana}`} className="hover:bg-white/[0.02]">
+                      <td className={`${TD} text-[#f5f5f5]`}>S{d.semana}</td>
+                      <td className={TD}>{nomeDaCidade(d.cidadeId)}</td>
+                      <td className={NUM}>{d.noPlano !== undefined ? un(d.noPlano) : '—'}</td>
+                      <td className={`${NUM} text-[#f5f5f5] font-semibold`}>{un(d.dosRdos)}</td>
+                      <td className={`${NUM} ${emReais(d) < 0 ? 'text-red-300' : 'text-emerald-300'}`}>{fmtBRL(emReais(d))}</td>
+                      <td className="py-1.5 text-[10px] text-[#6b6b6b]">
+                        {/* ⚠️ Metro de rede e sigla sem medida aparecem, mas NÃO entram no número
+                            adotado — somá-los ao ticket por ligação inflaria a medição. */}
+                        {d.metros > 0 && <>{un(d.metros)} m de rede</>}
+                        {d.metros > 0 && d.semMedida > 0 && ' · '}
+                        {d.semMedida > 0 && <>{d.semMedida} sem medida</>}
+                        {d.metros === 0 && d.semMedida === 0 && '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-[11px] text-[#6b6b6b]">
+                {conferindo.reduce((s, d) => s + d.rdos, 0)} RDO(s) finalizado(s) entraram nesta conta.
+                Rascunho não conta.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 border-t border-[#525252] px-5 py-4">
+              <button type="button" onClick={() => setConferindo(null)} className={BTN_S}>Cancelar</button>
+              <button
+                type="button"
+                onClick={() => {
+                  for (const d of conferindo) lancarProducao(plano.id, d.cidadeId, d.semana, d.dosRdos)
+                  setConferindo(null)
+                }}
+                className={`${BTN_P} ml-auto`}
+              >
+                Adotar {conferindo.length} semana(s)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function PonteComOLps({ plano }: { plano: PlanoFcp }) {
   const { atividades, addActivity } = useLpsStore(
     useShallow((s) => ({ atividades: s.activities, addActivity: s.addActivity })),

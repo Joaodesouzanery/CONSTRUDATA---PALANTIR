@@ -23,7 +23,7 @@
  * acusava uma divergência de R$ 607.643,54 que não existia — era o material caindo no lado errado.
  */
 import { useState } from 'react'
-import { FileSpreadsheet, LayoutList, Receipt, Paperclip, Wallet } from 'lucide-react'
+import { FileSpreadsheet, LayoutList, Receipt, Paperclip, Wallet, Link2} from 'lucide-react'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { hojeLocalISO } from '@/lib/utils'
@@ -45,14 +45,16 @@ import { AbaResumo } from './AbaResumo'
 import { AbaComposicao } from './AbaComposicao'
 import { AbaMedicoes } from './AbaMedicoes'
 import { AbaDocumentos } from './AbaDocumentos'
+import { AbaDeParaWcr } from './AbaDeParaWcr'
 
-type Aba = 'resumo' | 'composicao' | 'medicoes' | 'documentos'
+type Aba = 'resumo' | 'composicao' | 'medicoes' | 'documentos' | 'depara'
 
 const ABAS: { key: Aba; label: string; icon: typeof Wallet }[] = [
   { key: 'resumo',     label: 'Resumo',     icon: Wallet },
   { key: 'composicao', label: 'Composição', icon: LayoutList },
   { key: 'medicoes',   label: 'Medições',   icon: Receipt },
   { key: 'documentos', label: 'Documentos', icon: Paperclip },
+  { key: 'depara',     label: 'RDO WCR',    icon: Link2 },
 ]
 
 export function ContratoCard({ site }: { site: ConstructionSite }) {
@@ -191,6 +193,7 @@ export function ContratoCard({ site }: { site: ConstructionSite }) {
       {aba === 'composicao' && <AbaComposicao contrato={contrato} medidoAuto={medidoAuto} salvar={salvar} />}
       {aba === 'medicoes'   && <AbaMedicoes contrato={contrato} resumo={fat} hoje={hoje} salvar={salvar} />}
       {aba === 'documentos' && <AbaDocumentos contrato={contrato} salvar={salvar} />}
+      {aba === 'depara'     && <AbaDeParaWcr contrato={contrato} salvar={salvar} />}
     </div>
   )
 }
