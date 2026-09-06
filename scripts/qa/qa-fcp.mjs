@@ -83,6 +83,31 @@ for (const d of r.divergencias) {
   conferir(!!d.causaProvavel, `divergência "${d.oQue}" traz a causa`, d.causaProvavel ? '' : 'sem causa')
 }
 
+console.log('\n=== a conferência mês a mês ===')
+if (!r.grade) {
+  conferir(false, 'a grade foi conferida', 'r.grade veio null')
+} else {
+  const g = r.grade
+  console.log(`  ${g.total} conferências · ${g.fecham} fecham ao centavo · ${g.divergem} divergem`)
+  for (const c of g.causas) {
+    console.log(`  causa: ${c.id.padEnd(24)} ${String(c.celulas).padStart(3)} células · move o resultado em ${n(c.impactoNoResultado)}`)
+  }
+  // ⚠️ A asserção que dá sentido a todas as outras. Uma conferência que atribui causa a tudo é
+  // indistinguível de uma que CARIMBA causa em tudo — que foi o defeito da versão anterior. Se
+  // um dia o arquivo trouxer uma divergência nova, ela tem de aparecer aqui, e não ser absorvida.
+  conferir(g.semExplicacao === 0, 'nenhuma divergência ficou sem explicação',
+    `${g.semExplicacao} sem causa`)
+  conferir(g.total >= 200, 'a grade inteira foi comparada, não só os totais', `${g.total} células`)
+  conferir(g.fecham > g.divergem, 'a maior parte das células fecha ao centavo',
+    `${g.fecham} × ${g.divergem}`)
+  const soma = g.causas.reduce((a, c) => a + c.celulas, 0)
+  conferir(soma === g.divergem, 'as causas somam exatamente as divergências', `${soma} × ${g.divergem}`)
+  for (const gr of g.grades) {
+    conferir(gr.rotulosNaoEncontrados.length === 0,
+      `todos os rótulos de ${gr.aba} foram achados`, gr.rotulosNaoEncontrados.join(', '))
+  }
+}
+
 console.log('\n=== o que o leitor extrai (e a tela precisa mostrar) ===')
 const pessoas = P.cidades.reduce((n2, c) => n2 + c.custos.quadro.length, 0)
 const gerais = P.cidades.reduce((n2, c) => n2 + c.custos.gerais.length, 0)

@@ -35,6 +35,8 @@ import {
   VERSAO_DO_MOTOR,
 } from '../utils/fcp/motor'
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
+import type { ConferenciaDaGrade } from '../utils/fcp/conferirGrade'
+import { ConferenciaFcp } from './ConferenciaFcp'
 import {
   conferirPlano, idDoPlano, planoParaGravar, type ConferenciaDoPlano,
   premissasComoTexto,
@@ -1113,8 +1115,10 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
             {aConferir > 0 && (
               <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
                 <AlertTriangle size={12} className="inline mr-1" />
-                <strong>{aConferir}</strong> itens foram transcritos de foto com dígito cortado e
-                precisam ser conferidos contra o contrato antes de virar preço de medição.
+                <strong>{aConferir}</strong> {aConferir === 1 ? 'item foi transcrito' : 'itens foram transcritos'} de
+                foto com dígito cortado. <b>O sistema não trava o uso deles</b> — confira contra o
+                contrato antes de usar como preço. Para tirar a marca, corrija a coluna OBS da
+                planilha e importe de novo.
               </p>
             )}
             <div className="overflow-x-auto rounded-xl border border-[#525252] max-h-[520px]">
@@ -1127,12 +1131,22 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
                 </tr></thead>
                 <tbody className="divide-y divide-[#1f2937]">
                   {lista.map((p, i) => (
-                    <tr key={`${p.numeroPreco ?? p.descricao}-${i}`} className={p.precisaConferir ? 'bg-amber-500/5' : 'hover:bg-white/[0.02]'}>
+                    // `bg-amber-500/5` sobre `#2c2c2c` é invisível — e eram 299 linhas para varrer.
+                    // A borda à esquerda marca sem transformar a tabela em carnaval.
+                    <tr
+                      key={`${p.numeroPreco ?? p.descricao}-${i}`}
+                      className={p.precisaConferir
+                        ? 'bg-amber-500/10 border-l-2 border-l-amber-400'
+                        : 'hover:bg-white/[0.02]'}
+                    >
                       {precos[cidade].some((x) => x.item) && <td className={TD}>{p.item ?? '—'}</td>}
                       <td className={`${TD} text-[#f5f5f5]`}>{p.descricao}</td>
                       <td className={TD}>{p.numeroPreco ?? '—'}</td>
                       <td className={TD}>{p.unidade ?? '—'}</td>
-                      <td className={`${NUM} text-[#f5f5f5]`}>{fmtBRL(p.valorUnitario)}</td>
+                      <td className={`${NUM} ${p.precisaConferir ? 'text-amber-300' : 'text-[#f5f5f5]'}`}>
+                        {p.precisaConferir && <AlertTriangle size={10} className="inline mr-1 -mt-0.5" />}
+                        {fmtBRL(p.valorUnitario)}
+                      </td>
                       <td className={`${TD} text-[10px] ${p.precisaConferir ? 'text-amber-300' : 'text-[#6b6b6b]'}`}>
                         {p.observacao ?? '—'}
                       </td>
@@ -1166,6 +1180,7 @@ function ImportarFcpModal({
     realizado: PlanoFcp['realizado']
     precos: Record<string, PrecoDoContrato[]>
     divergencias: Divergencia[]
+    grade: ConferenciaDaGrade | null
     problemas: Array<{ aba: string; motivo: string }>
     plano: ConferenciaDoPlano
   } | null>(null)
@@ -1192,7 +1207,7 @@ function ImportarFcpModal({
         id,
         nome: file.name.replace(/\.xlsx?$/i, ''),
         premissas: r.premissas, realizado: r.realizado, precos: r.precos,
-        divergencias: r.divergencias, problemas: r.problemas,
+        divergencias: r.divergencias, grade: r.grade, problemas: r.problemas,
         plano: conferirPlano({ premissas: r.premissas, nome: file.name }, existente),
       })
     } catch (e) {
@@ -1266,7 +1281,11 @@ function ImportarFcpModal({
                         rotulo="Preços a conferir"
                         valor={aConferir}
                         alerta={aConferir > 0}
-                        detalhe={aConferir > 0 ? 'transcritos de foto — ficam bloqueados para medição' : 'nenhum'}
+                        // ⚠️ Aqui dizia "ficam bloqueados para medição". Era falso: `plano.precos` é
+                        // lido só pela aba de consulta — nenhum módulo de medição, orçamento ou
+                        // faturamento o enxerga, e não há o que bloquear. Prometer um mecanismo que
+                        // não existe é pior que não prometer nada: quem lê para de conferir.
+                        detalhe={aConferir > 0 ? 'transcritos de foto — confira antes de usar' : 'nenhum'}
                       />
                     </div>
                   </div>
@@ -1376,24 +1395,24 @@ function ImportarFcpModal({
                 <p className="text-xs font-semibold text-[#a3a3a3] mb-1.5">
                   Conferência — o que o sistema calcula × o que está na planilha
                 </p>
-                {lido.divergencias.length === 0 ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-200">
-                    <CheckCircle2 size={12} className="inline mr-1" />
-                    Tudo bate. As contas da planilha e as do sistema chegam no mesmo número.
-                  </p>
-                ) : (
-                  <>
-                    {/* ⚠️ Divergência não é erro — é pergunta. Pode ser fórmula quebrada, célula
-                        digitada por cima, ou premissa que mudou e não propagou. */}
-                    <p className="text-[10px] text-[#6b6b6b] mb-1.5">
-                      {/* ⚠️ Mostrar só o que FALHOU faz parecer que nada bateu. As conferências que
-                          fecharam no centavo são a maior parte, e são elas que dizem que a leitura
-                          está saudável. */}
-                      Divergência não quer dizer erro: pode ser fórmula quebrada, célula digitada
-                      por cima, ou convenção diferente. O sistema mostra os dois números; quem
-                      decide é você. As demais conferências fecharam no centavo.
+                {/* ⚠️ Antes aqui havia 3 números para uma planilha de 11 abas, e a causa era colada
+                    igual nos três. Agora são 249 conferências, cada divergência com causa provada
+                    ou declarada como inexplicada. A lista de valor único continua embaixo: ela
+                    responde outra pergunta — "os totais em destaque da planilha batem?". */}
+                {lido.grade
+                  ? <ConferenciaFcp grade={lido.grade} />
+                  : (
+                    <p className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-[11px] text-[#a3a3a3]">
+                      Sem premissas suficientes para conferir as contas.
                     </p>
-                    <div className="overflow-x-auto rounded-xl border border-[#525252]">
+                  )}
+
+                {lido.divergencias.length > 0 && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-[11px] text-[#f97316] hover:underline">
+                      Ver os totais em destaque da planilha ({lido.divergencias.length} não fecham)
+                    </summary>
+                    <div className="mt-2 overflow-x-auto rounded-xl border border-[#525252]">
                       <table className={TABELA}>
                         <thead><tr className={THEAD}>
                           <th className={TH}>Aba</th><th className={TH}>O quê</th>
@@ -1413,9 +1432,6 @@ function ImportarFcpModal({
                                   {fmtBRL(d.diferenca)} ({pct(d.proporcao)})
                                 </td>
                               </tr>
-                              {/* ⚠️ A causa, quando dá para PROVÁ-LA a partir da própria planilha.
-                                  Sem ela, esta tabela mandava a pessoa para a reunião com uma
-                                  pergunta em aberto e nenhum caminho para respondê-la. */}
                               {d.causaProvavel && (
                                 <tr>
                                   <td colSpan={5} className="px-3 pb-2 text-[10px] leading-relaxed text-[#a3a3a3]">
@@ -1428,7 +1444,7 @@ function ImportarFcpModal({
                         </tbody>
                       </table>
                     </div>
-                  </>
+                  </details>
                 )}
               </div>
             </div>

@@ -14,6 +14,7 @@ import type {
   BaseDoImposto, BlocoDeCusto, Cenario, CidadeFcp, CustoGeral, PessoaDoQuadro, PremissasFcp,
   QuemPaga,
 } from './tipos'
+import { conferirGrade, type ConferenciaDaGrade } from './conferirGrade'
 import { ROTULO_CENARIO } from './tipos'
 import {
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, custosPorRegime, fluxoEconomico,
@@ -62,6 +63,14 @@ export interface LeituraFcp {
   precos: Record<string, PrecoDoContrato[]>
   divergencias: Divergencia[]
   problemas: ProblemaDeLeitura[]
+  /**
+   * A conferência **mês a mês** — 249 células contra as 12 de `divergencias`.
+   *
+   * `null` quando não há premissa para calcular. Ver `conferirGrade.ts` para por que ela existe
+   * separada: a conferência escalar responde "os totais fecham?", esta responde "onde é que não
+   * fecha, e por quê".
+   */
+  grade: ConferenciaDaGrade | null
 }
 
 /** Uma aba já extraída do arquivo. Quem abre o .xlsx é o chamador — aqui tudo é puro. */
@@ -400,18 +409,44 @@ export function contradicaoDoPrimeiroMes(p: PremissasFcp, abas: Abas): { manual:
 
 const ABAS_AFETADAS_PELA_SEMANA = new Set(['FCP MENSAL', 'ECONÔMICO', 'ECONOMICO'])
 
-/** Escreve a causa nas divergências que ela explica. As demais ficam sem — de propósito. */
+/**
+ * Escreve a causa nas divergências que ela explica. As demais ficam sem — de propósito.
+ *
+ * ⚠️ **Este texto explicava 12,5% do que ele parecia explicar, e era colado igual nas três
+ * divergências.** A contradição do 1º mês vale R$ 20.274,17; aplicada à divergência de
+ * R$ 162.193,38 do resultado no horizonte, ela cobria um oitavo e dava a impressão de cobrir tudo.
+ * Agora cada divergência recebe o texto que cabe NO SEU número, e a que a contradição do 1º mês
+ * não explica sozinha diz isso e aponta para a conferência mês a mês, que explica.
+ *
+ * A conferência de grade (`conferirGrade.ts`) é quem faz o trabalho completo. Esta função continua
+ * existindo porque a lista de valor único responde outra pergunta: "os totais em DESTAQUE da
+ * planilha batem?".
+ */
 export function explicarDivergencias(p: PremissasFcp, abas: Abas, lista: Divergencia[]): Divergencia[] {
   const c = contradicaoDoPrimeiroMes(p, abas)
   if (!c) return lista
   const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  const texto =
+  const doPrimeiroMes = Math.abs((c.rateado - c.manual) * (1 - p.imposto))
+
+  const origem =
     `A própria planilha traz dois valores para a medição do 1º mês: ${brl(c.manual)} na linha ` +
     `"Medição bruta GLOBAL" da aba AUX, e ${brl(c.rateado)} na grade do cenário adotado. ` +
     'A primeira conta o mês como uma semana inteira; a segunda rateia por dias. O sistema rateia ' +
-    'por dias, então ele bate com a grade e diverge do número em destaque. A diferença é de ' +
-    'convenção, e é interna à planilha — não é erro de leitura.'
-  return lista.map((d) => (ABAS_AFETADAS_PELA_SEMANA.has(d.aba) ? { ...d, causaProvavel: texto } : d))
+    'por dias, então bate com a grade e diverge do número em destaque. A diferença é de convenção, ' +
+    'e é interna à planilha — não é erro de leitura.'
+
+  return lista.map((d) => {
+    if (!ABAS_AFETADAS_PELA_SEMANA.has(d.aba)) return d
+    // Cabe inteiro? Então o texto do 1º mês É a explicação.
+    const cabe = Math.abs(Math.abs(d.diferenca) - doPrimeiroMes) < 1
+      || Math.abs(Math.abs(d.diferenca) - doPrimeiroMes * (1 + p.contingencia)) < 1
+    return {
+      ...d,
+      causaProvavel: cabe ? origem : `${origem} ⚠️ Atenção: isto explica ${brl(doPrimeiroMes)} dos `
+        + `${brl(Math.abs(d.diferenca))} desta linha. O resto vem dos outros meses em que a planilha `
+        + 'usa a mesma convenção — a conferência mês a mês acima mostra quais são, e fecha a conta.',
+    }
+  })
 }
 
 export function conferirContraAPlanilha(p: PremissasFcp, abas: Abas): Divergencia[] {
@@ -476,7 +511,7 @@ export function lerPlanilhaFcp(abas: Abas): LeituraFcp {
   const premissasAba = abas['PREMISSAS']
   if (!premissasAba) {
     return {
-      premissas: null, realizado: {}, precos: {}, divergencias: [],
+      premissas: null, realizado: {}, precos: {}, divergencias: [], grade: null,
       problemas: [{ aba: '—', motivo: 'A planilha não tem a aba PREMISSAS. Sem ela não há o que calcular.' }],
     }
   }
@@ -551,10 +586,17 @@ export function lerPlanilhaFcp(abas: Abas): LeituraFcp {
     if (lidos.length > 0) precos[nomeAba.replace(/^preços?\s+/i, '').trim()] = lidos
   }
 
-  const divergencias = cidades.length > 0 && inicioObra && fimOperacao
+  const daPara = cidades.length > 0 && inicioObra && fimOperacao
+  const divergencias = daPara
     // A causa vem junto quando dá para prová-la a partir da própria planilha.
     ? explicarDivergencias(premissas, abas, conferirContraAPlanilha(premissas, abas))
     : []
 
-  return { premissas, realizado, precos, divergencias, problemas }
+  // ⚠️ O `realizado` VAI junto. A conferência escalar não o passa, e por isso compara uma planilha
+  // COM produção lançada contra um motor SEM ela. Hoje não aparece porque o bloco PLANEJADO ×
+  // REALIZADO do arquivo do cliente está vazio — no dia em que preencherem, apareceria como
+  // divergência inexplicável.
+  const grade = daPara ? conferirGrade(premissas, abas, realizado) : null
+
+  return { premissas, realizado, precos, divergencias, problemas, grade }
 }
