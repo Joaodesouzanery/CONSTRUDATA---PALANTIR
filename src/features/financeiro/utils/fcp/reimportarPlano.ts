@@ -14,7 +14,7 @@ import { seededId } from '@/lib/seededId'
 import type { PlanoFcp } from '@/store/fcpStore'
 import type { PremissasFcp } from './tipos'
 import { ROTULO_CENARIO } from './tipos'
-import { capitalNecessario, custoMensalDaCidade, custoMensalGlobal, fluxoMensal, ticketDaCidade } from './motor'
+import { capitalNecessario, custoMensalDaCidade, custoMensalGlobal, fluxoMensal, ticketDaCidade, VERSAO_DO_MOTOR } from './motor'
 import type { PrecoDoContrato } from './importarFcp'
 
 /**
@@ -177,6 +177,8 @@ export function planoParaGravar(
     realizado: mesclarRealizado(novo.realizadoDaPlanilha, existente?.realizado),
     precos: novo.precos,
     criadoEm: existente?.criadoEm ?? new Date().toISOString(),
+    // Reimportar recalcula tudo com o motor de agora — então a versão é sempre a de agora.
+    versaoDoMotor: VERSAO_DO_MOTOR,
     enviadoPor: existente?.enviadoPor,
     enviadoEm: existente?.enviadoEm,
     aprovadoPor: existente?.aprovadoPor,

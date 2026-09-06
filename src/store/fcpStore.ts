@@ -35,6 +35,13 @@ export interface PlanoFcp {
    */
   precos?: Record<string, PrecoDoContrato[]>
   criadoEm: string
+  /**
+   * Com que versão do motor este plano foi calculado. Ausente = 1 (antes de a versão existir).
+   *
+   * Não muda a conta: a projeção é sempre recalculada com o motor de agora. Existe para a tela
+   * poder dizer que o número mudou desde a aprovação — ver `VERSAO_DO_MOTOR`.
+   */
+  versaoDoMotor?: number
   /** Quem enviou e quem aprovou — o log tem o resto, isto é o que a tela mostra. */
   enviadoPor?: string
   enviadoEm?: string

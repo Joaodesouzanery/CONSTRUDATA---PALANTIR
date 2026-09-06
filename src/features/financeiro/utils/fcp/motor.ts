@@ -177,6 +177,21 @@ export function viabilidadeGlobal(p: PremissasFcp): LinhaViabilidade[] {
   })
 }
 
+/**
+ * Muda quando o motor passa a produzir NÚMERO diferente para a MESMA premissa.
+ *
+ * Serve para uma coisa só, e ela é de governança: um plano aprovado guarda a versão com que foi
+ * calculado, e a tela avisa quando o número que ela mostra não é mais o número que a diretoria
+ * aprovou. `reimportarPlano` não pega isso sozinho — ele compara premissas, e aqui nenhuma
+ * premissa mudou.
+ *
+ * - **1** → o horizonte de caixa terminava junto com a obra, e o último recebimento do contrato
+ *   não existia na projeção.
+ * - **2** → caixa e competência têm calendários separados (`mesesDeCaixa`). Para a obra de
+ *   Bertioga/Santos isso move o caixa acumulado final de R$ 905.891,95 para R$ 1.010.641,84.
+ */
+export const VERSAO_DO_MOTOR = 2
+
 // ─── Calendário ───────────────────────────────────────────────────────────────
 
 /** As semanas do horizonte, a partir da segunda-feira de início. `FCP SEMANAL!D6:O8`. */
@@ -189,11 +204,26 @@ export function semanasDoFluxo(p: PremissasFcp, quantidade = 12): Semana[] {
   return semanas
 }
 
-/** Os meses do horizonte, com dias de obra, dias equivalentes e data de pagamento. `AUX!C3:Q9`. */
-export function mesesDoFluxo(p: PremissasFcp): MesDoFluxo[] {
+/**
+ * ⚠️ **Competência e caixa têm horizontes DIFERENTES, e confundi-los custou R$ 805.768,41.**
+ *
+ * A obra acaba em `fimOperacao`, mas a medição do último mês só é paga `defasagemDias` depois — em
+ * outro mês. Enquanto os dois fluxos usavam o mesmo calendário, o **último recebimento do contrato
+ * não existia em lugar nenhum do sistema**: 9,1% de tudo que a obra fatura ficava fora da projeção,
+ * e o caixa acumulado final divergia do resultado econômico do próprio motor em R$ 104.749,89 — a
+ * identidade que a planilha afirma em `FCP MENSAL!B44` ("Confere com o resultado ECONÔMICO
+ * acumulado") não fechava.
+ *
+ * Nenhuma conferência agregada acha isso: o capital olha o pior ponto (que é no meio da obra) e o
+ * econômico usa um acumulado que de fato termina em `fimOperacao`. Só a comparação mês a mês pega.
+ *
+ * ⚠️ O mês extra **não** tem custo zero. A planilha paga o custo do último mês de obra no mês
+ * seguinte, e a regra de `diasEquivalentes` do mês anterior já faz essa conta sozinha. Zerar o
+ * custo do mês extra reabriria um furo de R$ 41.333,33 entre caixa e econômico.
+ */
+function mesesAte(p: PremissasFcp, limite: string): MesDoFluxo[] {
   const meses: MesDoFluxo[] = []
   const primeiro = primeiroDiaDoMes(p.inicioObra)
-  const limite = primeiroDiaDoMes(p.fimOperacao)
 
   for (let i = 0; ; i++) {
     const mes = primeiroDiaDoMes(somarMeses(primeiro, i))
@@ -216,6 +246,28 @@ export function mesesDoFluxo(p: PremissasFcp): MesDoFluxo[] {
     if (i > 240) break // trava de segurança
   }
   return meses
+}
+
+/**
+ * O calendário de **COMPETÊNCIA**: os meses em que a obra produz. `AUX!C3:Q9`.
+ *
+ * É este que o resultado econômico usa — receita e custo no mês em que acontecem, não no mês em
+ * que o dinheiro anda. Termina em `fimOperacao`, e é isso que ele deve fazer.
+ */
+export function mesesDoFluxo(p: PremissasFcp): MesDoFluxo[] {
+  return mesesAte(p, primeiroDiaDoMes(p.fimOperacao))
+}
+
+/**
+ * O calendário de **CAIXA**: vai até o mês em que o último recebimento cai.
+ *
+ * Um mês a mais que a competência quando a defasagem empurra o pagamento para o mês seguinte —
+ * e igual a ela quando `defasagemDias` é 0. O mês extra nasce com `diasDeObra = 0` (o próprio
+ * clamp de `ate` cuida disso): não há produção nele, só o dinheiro do mês anterior entrando.
+ */
+export function mesesDeCaixa(p: PremissasFcp): MesDoFluxo[] {
+  const ultimoPagamento = somarDias(ultimoDiaDoMes(primeiroDiaDoMes(p.fimOperacao)), p.defasagemDias)
+  return mesesAte(p, primeiroDiaDoMes(ultimoPagamento))
 }
 
 // ─── Produção e medição ───────────────────────────────────────────────────────
@@ -304,7 +356,7 @@ export function impostoDaNota(p: PremissasFcp, recebimento: number, desconto: nu
  * do começo da obra, e é o buraco que define o capital recomendado.
  */
 export function fluxoMensal(p: PremissasFcp, realizado: ProducaoRealizada = {}): ColunaMensal[] {
-  const meses = mesesDoFluxo(p)
+  const meses = mesesDeCaixa(p)   // caixa: inclui o mês em que o último recebimento cai
   const semanas = semanasDoFluxo(p, Math.max(12, meses.length * 5))
   const mob = mobilizacaoPorRegime(p)
 
@@ -416,7 +468,7 @@ export function fluxoSemanal(
   p: PremissasFcp, realizado: ProducaoRealizada = {}, quantidade = 12,
 ): ColunaSemanal[] {
   const semanas = semanasDoFluxo(p, quantidade)
-  const meses = mesesDoFluxo(p)
+  const meses = mesesDeCaixa(p)   // caixa: inclui o mês em que o último recebimento cai
   const mob = mobilizacaoPorRegime(p)
   const totalMob = Math.max(1, p.cidades.reduce((s, x) => s + x.mobilizacao, 0))
 
@@ -504,7 +556,7 @@ export function piorPontoSemanal(semanas: ColunaSemanal[]): number {
  * que compensa em seguida.
  */
 export function fluxoEconomico(p: PremissasFcp, realizado: ProducaoRealizada = {}): LinhaEconomica[] {
-  const meses = mesesDoFluxo(p)
+  const meses = mesesDoFluxo(p)  // competência: termina quando a obra termina
   const semanas = semanasDoFluxo(p, Math.max(12, meses.length * 5))
 
   const porCidade = medicaoPorMesPorCidade(p, meses, semanas, realizado)

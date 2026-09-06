@@ -17,6 +17,7 @@ import {
   diasDaSemanaNoMes, fluxoEconomico, fluxoMensal, fluxoSemanal, impostoDaNota, mesesDoFluxo,
   piorPontoSemanal, primeiroDiaDoMes, producaoPrevistaSemanal, semanasDoFluxo, sensibilidade,
   somarDias, ticketDaCidade, totalDaFolha, ultimoDiaDoMes, viabilidadeDaCidade, viabilidadeGlobal,
+  mesesDeCaixa,
 } from './motor'
 import type { PremissasFcp } from './tipos'
 
@@ -363,6 +364,50 @@ test('obra de um mês só não quebra o calendário', () => {
   assert.equal(m.length, 1)
   assert.equal(m[0].diasDeObra, 29)
   assert.doesNotThrow(() => fluxoMensal(curta))
+})
+
+test('⚠️ a obra de um mês precisa de DOIS meses de caixa — o pagamento cai no mês seguinte', () => {
+  // Este é o caso que denunciava o defeito e ninguém leu assim: obra de 03 a 31/08, medição paga
+  // 20 dias depois = 20/09. Um calendário só, terminando em agosto, joga fora o único recebimento
+  // da obra inteira.
+  const curta: PremissasFcp = { ...P, inicioObra: '2026-08-03', fimOperacao: '2026-08-31' }
+  assert.equal(mesesDoFluxo(curta).length, 1, 'competência: a obra dura um mês')
+  const caixa = mesesDeCaixa(curta)
+  assert.equal(caixa.length, 2, 'caixa: o dinheiro entra em setembro')
+  assert.equal(caixa[1].mes, '2026-09-01')
+  assert.equal(caixa[1].diasDeObra, 0, 'no mês extra não há produção — só a entrada')
+})
+
+test('sem defasagem, caixa e competência são o MESMO calendário', () => {
+  const semDefasagem: PremissasFcp = { ...P, defasagemDias: 0 }
+  assert.equal(mesesDeCaixa(semDefasagem).length, mesesDoFluxo(semDefasagem).length)
+})
+
+test('🔴 o caixa acumulado final fecha com o resultado econômico — é a assinatura do conserto', () => {
+  // A própria planilha afirma esta identidade em `FCP MENSAL!B44` ("Confere com o resultado
+  // ECONÔMICO acumulado"). Antes de `mesesDeCaixa` ela falhava por R$ 104.749,89: o último
+  // recebimento do contrato — 9,1% de tudo que a obra fatura — não existia na projeção.
+  const m = fluxoMensal(P)
+  const e = fluxoEconomico(P)
+  const caixaFinal = m[m.length - 1].acumuladoDepois
+  const econFinal = e[e.length - 1].resultadoAcumulado
+  assert.ok(
+    Math.abs(caixaFinal - econFinal) < 0.01,
+    `caixa ${caixaFinal.toFixed(2)} != econômico ${econFinal.toFixed(2)}`,
+  )
+  // E o mês que passou a existir traz o dinheiro que faltava.
+  const extra = m[m.length - 1]
+  assert.equal(extra.mes.mes, '2027-08-01')
+  assert.equal(extra.mes.diasDeObra, 0)
+  assert.ok(extra.recebimento > 800_000, 'o último recebimento do contrato')
+})
+
+test('estender o caixa NÃO mexe no capital nem na sensibilidade', () => {
+  // O pior ponto é no meio da obra, então acrescentar um mês de entrada no fim não o move. É esta
+  // invariante que permitiu o conserto sem renegociar nenhum número já aprovado.
+  const c = capitalNecessario(P, fluxoMensal(P))
+  assert.ok(Math.abs(c.necessidadeMaxima - 157_953.78) < 1)
+  assert.equal(c.mesDoPiorPonto, '2026-10-01')
 })
 
 test('sem cidade nenhuma o motor devolve zeros, não NaN', () => {

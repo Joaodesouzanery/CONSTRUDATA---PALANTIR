@@ -32,6 +32,7 @@ import {
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, custosPorRegime, fluxoEconomico,
   fluxoMensal, fluxoSemanal, sensibilidade, ticketDaCidade, totalDaFolha,
   viabilidadeDaCidade, viabilidadeGlobal, semanasDoFluxo, producaoPrevistaSemanal,
+  VERSAO_DO_MOTOR,
 } from '../utils/fcp/motor'
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import {
@@ -141,6 +142,23 @@ export function FcpPanel() {
       <PonteComOsRdos plano={plano!} />
 
       <ResumoDoPlano premissas={P} realizado={realizado} />
+
+      {/* ⚠️ O motor mudou depois deste plano ter sido aprovado. A tela tem de dizer — a diretoria
+          aprovou um número e está vendo outro, sem ter feito nada. O mesmo princípio que faz
+          `planoParaGravar` devolver o plano a rascunho quando uma premissa muda. */}
+      {plano!.status === 'aprovado' && (plano!.versaoDoMotor ?? 1) < VERSAO_DO_MOTOR && (
+        <div className="mx-1 rounded-xl border border-[#eab308]/40 bg-[#eab308]/[0.08] p-3">
+          <p className="text-[11px] font-semibold text-[#fbbf24]">
+            O cálculo mudou depois que este plano foi aprovado
+          </p>
+          <p className="mt-1 text-[11px] leading-5 text-[#d4d4d4]">
+            A projeção passou a incluir o <b>último recebimento do contrato</b> — a medição do mês
+            final, que é paga já depois de a obra acabar e antes ficava de fora. Os números desta
+            tela estão certos, mas <b>não são mais os que foram aprovados</b>. Reimporte a planilha
+            ou reabra e aprove de novo para o registro voltar a bater com a tela.
+          </p>
+        </div>
+      )}
 
       <SubTabHost
         key={plano!.id}
@@ -814,8 +832,16 @@ function SubMensal({ premissas: P, realizado }: { premissas: PremissasFcp; reali
           </tr></thead>
           <tbody className="divide-y divide-[#1f2937]">
             {meses.map((m) => (
-              <tr key={m.mes.mes} className="hover:bg-white/[0.02]">
-                <td className={`${TD} text-[#f5f5f5] whitespace-nowrap`}>{fmtDataBR(m.mes.mes).slice(3)}</td>
+              <tr key={m.mes.mes} className={`hover:bg-white/[0.02] ${m.mes.diasDeObra === 0 ? 'bg-[#f97316]/[0.06]' : ''}`}>
+                <td className={`${TD} text-[#f5f5f5] whitespace-nowrap`}>
+                  {fmtDataBR(m.mes.mes).slice(3)}
+                  {/* Sem esta legenda, uma linha com 0 dia e medição zerada ao lado de um
+                      recebimento de seis dígitos parece defeito — e é o contrário: é o último
+                      dinheiro do contrato, que antes não aparecia em lugar nenhum. */}
+                  {m.mes.diasDeObra === 0 && (
+                    <span className="ml-1.5 text-[10px] text-[#f97316]">obra encerrada · só recebimento</span>
+                  )}
+                </td>
                 <td className={NUM}>{m.mes.diasDeObra}</td>
                 <td className={NUM}>{fmtBRL(m.medicaoBruta)}</td>
                 <td className={`${NUM} ${m.recebimento > 0 ? 'text-emerald-300' : 'text-[#6b6b6b]'}`}>{m.recebimento > 0 ? fmtBRL(m.recebimento) : '—'}</td>
@@ -830,6 +856,16 @@ function SubMensal({ premissas: P, realizado }: { premissas: PremissasFcp; reali
           </tbody>
         </table>
       </div>
+
+      {meses.some((m) => m.mes.diasDeObra === 0) && (
+        <p className="text-[11px] leading-5 text-[#a3a3a3]">
+          <b className="text-[#d4d4d4]">Por que há um mês depois do fim da obra.</b>{' '}
+          A medição do último mês é paga {P.defasagemDias} dias depois de fechar, o que cai no mês
+          seguinte. Esse mês não tem produção — só a entrada do dinheiro. Sem ele, o último
+          recebimento do contrato ficaria de fora da projeção, e o caixa acumulado não fecharia com
+          o resultado econômico.
+        </p>
+      )}
 
       <div className="rounded-xl border border-[#f97316]/30 bg-[#f97316]/10 p-4">
         <p className="text-xs font-semibold text-[#f5f5f5] mb-1">Capital necessário</p>
