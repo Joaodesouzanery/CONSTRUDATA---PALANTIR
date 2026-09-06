@@ -70,6 +70,9 @@ export function ControleDeCaixaPanel() {
   function baixarModelo() {
     baixarPlanilhaModelo({
       entries: doCaixa,
+      // Sem as obras, a coluna OBRA sai em branco — e reimportar o próprio modelo apagaria a obra
+      // de todo lançamento. Ver o comentário em `OpcoesDoModelo.sites`.
+      sites,
       pessoas: workers
         .filter((w) => w.status !== 'inactive')
         .map((w) => ({ nome: w.name, cargo: w.role })),
@@ -134,6 +137,7 @@ export function ControleDeCaixaPanel() {
           entries={entries}
           orgId={profile?.organization_id}
           obraId={activeObraId ?? undefined}
+          sites={sites}
           onGravar={gravarImportados}
           onClose={() => setImportando(false)}
         />

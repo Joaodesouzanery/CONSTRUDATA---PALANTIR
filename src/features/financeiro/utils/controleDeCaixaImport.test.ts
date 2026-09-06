@@ -8,8 +8,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  conferir, lancamentoDaLinha, idDoLancamento, lerCategoria, linhasAGravar,
+  conferir, lancamentoDaLinha, lancamentoParaGravar, idDoLancamento, lerCategoria, linhasAGravar,
   lancamentoDaHoraExtra, horasExtrasQueViramDespesa, CATEGORIA_PADRAO,
+  acharObra, camposNaoInformados, type ObraParaCasar,
 } from './controleDeCaixaImport'
 import { lerLancamentos, lerHorasExtras, type Matriz } from './controleDeCaixaPlanilha'
 import type { FinanceiroEntry } from '@/types'
@@ -24,17 +25,36 @@ const CAB: Matriz = [
 ]
 const d = (s: string) => new Date(`${s}T00:00:00`)
 
-/** Roda o caminho inteiro: planilha → leitura → conferência. */
-function importar(linhas: Matriz, existentes: FinanceiroEntry[] = []) {
+/**
+ * Roda o caminho inteiro: planilha → leitura → conferência.
+ *
+ * ⚠️ Passa `colunas` e `obras` porque é o que o modal passa. Um ajudante que omitisse os dois
+ * testaria um caminho que ninguém executa — e foi justamente a ausência dessa fidelidade que
+ * deixou o apagamento de obra passar despercebido.
+ */
+function importar(
+  linhas: Matriz,
+  existentes: FinanceiroEntry[] = [],
+  extra: { obraId?: string; obras?: readonly ObraParaCasar[] } = {},
+) {
   const leitura = lerLancamentos(linhas)
-  return conferir(leitura.lancamentos, existentes, leitura.problemas, ORG, {
-    ...OPC, totaisDeclarados: leitura.totaisDeclarados,
-  })
+  return {
+    ...conferir(leitura.lancamentos, existentes, leitura.problemas, ORG, {
+      ...OPC, totaisDeclarados: leitura.totaisDeclarados,
+      colunas: leitura.colunas, obras: extra.obras ?? [], obraId: extra.obraId,
+    }),
+    colunas: leitura.colunas,
+  }
 }
 
 /** O que o "confirmar" gravaria. */
-function gravar(c: ReturnType<typeof importar>): FinanceiroEntry[] {
-  return linhasAGravar(c).map((l) => lancamentoDaLinha(l.lida, ORG, OPC))
+function gravar(
+  c: ReturnType<typeof importar>,
+  extra: { obraId?: string; obras?: readonly ObraParaCasar[] } = {},
+): FinanceiroEntry[] {
+  return linhasAGravar(c).map((l) => lancamentoParaGravar(l, ORG, {
+    ...OPC, colunas: c.colunas, obras: extra.obras ?? [], obraId: extra.obraId,
+  }))
 }
 
 const PLANILHA: Matriz = [...CAB,
@@ -335,4 +355,119 @@ test('o inalterado NÃO é gravado — reescrever geraria linha de auditoria vaz
   const c = importar(PLANILHA, antes)
   assert.equal(c.resumo.inalterado, 4)
   assert.equal(linhasAGravar(c).length, 0)
+})
+
+// ─── A obra ───────────────────────────────────────────────────────────────────
+//
+// Até aqui não havia UM teste sobre obra na importação — e era exatamente onde o sistema estava
+// apagando dado do cliente em silêncio. Os dois testes marcados 🔴 falham na versão anterior.
+
+const BERTIOGA: ObraParaCasar = { id: 'obra-bertioga', name: 'Bertioga', code: 'OBR-001' }
+const SANTOS: ObraParaCasar = { id: 'obra-santos', name: 'Santos', code: 'OBR-002' }
+const OBRAS = [BERTIOGA, SANTOS]
+
+/** Cabeçalho com a coluna OBRA — o modelo que o sistema gera. */
+const CAB_OBRA: Matriz = [
+  ['RECEITAS', null, 'DESPESAS', null, null, null, null, null],
+  ['ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE', 'CONFERIDO', 'OBRA'],
+]
+/** Cabeçalho SEM obra e SEM conferido — o arquivo que a equipe do cliente monta sozinha. */
+const CAB_CRU: Matriz = [
+  ['RECEITAS', null, 'DESPESAS', null, null, null],
+  ['ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE'],
+]
+
+test('a obra vem da coluna OBRA — e casa por nome e por código', () => {
+  const c = importar([...CAB_OBRA,
+    [0, null, 'AREIA', 500, d('2026-07-06'), 'X', null, 'Bertioga'],
+    [0, null, 'BRITA', 700, d('2026-07-07'), 'X', null, 'OBR-002'],
+  ], [], { obras: OBRAS })
+  const gravados = gravar(c, { obras: OBRAS })
+  assert.equal(gravados.find((e) => e.descricao === 'AREIA')?.obraId, 'obra-bertioga')
+  assert.equal(gravados.find((e) => e.descricao === 'BRITA')?.obraId, 'obra-santos')
+  assert.equal(c.avisos.length, 0)
+})
+
+test('a coluna OBRA vence a obra ativa da barra lateral — ela é fallback, não carimbo', () => {
+  const c = importar([...CAB_OBRA, [0, null, 'AREIA', 500, d('2026-07-06'), 'X', null, 'Santos']],
+    [], { obras: OBRAS, obraId: 'obra-bertioga' })
+  assert.equal(gravar(c, { obras: OBRAS, obraId: 'obra-bertioga' })[0].obraId, 'obra-santos')
+})
+
+test('sem coluna OBRA, o lançamento NOVO herda a obra ativa — é a única que alguém afirmou', () => {
+  const c = importar([...CAB_CRU, [0, null, 'AREIA', 500, d('2026-07-06'), 'X']],
+    [], { obras: OBRAS, obraId: 'obra-santos' })
+  assert.equal(gravar(c, { obras: OBRAS, obraId: 'obra-santos' })[0].obraId, 'obra-santos')
+})
+
+test('⚠️ texto que não casa com obra nenhuma vira AVISO, nunca palpite', () => {
+  const c = importar([...CAB_OBRA,
+    [0, null, 'AREIA', 500, d('2026-07-06'), 'X', null, 'Bertioga Norte'],
+    [0, null, 'BRITA', 700, d('2026-07-07'), 'X', null, 'Bertioga Norte'],
+  ], [], { obras: OBRAS })
+  assert.equal(gravar(c, { obras: OBRAS })[0].obraId, undefined, 'não pode chutar a obra parecida')
+  assert.equal(c.avisos.length, 1)
+  assert.match(c.avisos[0], /Bertioga Norte/)
+  assert.match(c.avisos[0], /2 linhas/)
+})
+
+test('🔴 reimportar SEM a coluna OBRA não apaga a obra que já estava lá', () => {
+  // O gesto real: a equipe manda o arquivo dela, que não tem coluna OBRA, e a barra lateral está
+  // em "Todas as obras" (o padrão). Antes deste conserto isto gerava `obraId: <a que havia> →
+  // undefined` e GRAVAVA, porque `cadastro-alterado` está em SITUACOES_QUE_GRAVAM.
+  const linha: Matriz = [...CAB_CRU, [0, null, 'AREIA', 500, d('2026-07-06'), 'X']]
+  const jaGravado = gravar(importar(linha, [], { obras: OBRAS, obraId: 'obra-bertioga' }),
+    { obras: OBRAS, obraId: 'obra-bertioga' })
+  assert.equal(jaGravado[0].obraId, 'obra-bertioga')
+
+  const c = importar(linha, jaGravado, { obras: OBRAS })   // sem obra ativa
+  assert.equal(c.resumo.inalterado, 1, 'nada mudou: o arquivo não fala de obra')
+  assert.equal(c.linhas[0].mudancas.length, 0)
+  assert.equal(linhasAGravar(c).length, 0)
+})
+
+test('🔴 reimportar SEM a coluna CONFERIDO não apaga o conferido marcado à mão', () => {
+  const linha: Matriz = [...CAB_CRU, [0, null, 'AREIA', 500, d('2026-07-06'), 'X']]
+  const base = gravar(importar(linha), {})
+  // Alguém conferiu na sub-aba Conferência, à mão.
+  const conferidoAMao: FinanceiroEntry[] = [{
+    ...base[0], conferido: true, conferidoPor: 'Fulano', conferidoEm: AGORA,
+  }]
+
+  const c = importar(linha, conferidoAMao)
+  assert.equal(c.resumo.inalterado, 1, 'o arquivo não tem coluna CONFERIDO — não há o que mudar')
+
+  // E, mesmo que a linha fosse gravada por outro motivo, o "conferido" tem de sobreviver.
+  const comValorNovo = importar([...CAB_CRU, [0, null, 'AREIA', 900, d('2026-07-06'), 'X']], conferidoAMao)
+  const regravado = gravar(comValorNovo)
+  assert.equal(regravado[0].valor, 900)
+  assert.equal(regravado[0].conferido, true, 'mudar o valor não pode desmarcar o conferido')
+  assert.equal(regravado[0].conferidoPor, 'Fulano', 'quem conferiu viaja junto com o sim')
+})
+
+test('trocar a obra NÃO muda o id — corrigir a obra dos lançamentos é limpo', () => {
+  // É isto que garante que ligar a coluna OBRA não gere 147 "sumiram" + 147 "novos".
+  const [l] = lerLancamentos([...CAB_OBRA,
+    [0, null, 'AREIA', 500, d('2026-07-06'), 'X', null, 'Bertioga']]).lancamentos
+  const a = lancamentoDaLinha(l, ORG, { ...OPC, obras: OBRAS })
+  const b = lancamentoDaLinha(l, ORG, { ...OPC, obras: [{ ...BERTIOGA, id: 'outra' }] })
+  assert.notEqual(a.obraId, b.obraId)
+  assert.equal(a.id, b.id, 'a obra não pode entrar na identidade')
+})
+
+test('obra arquivada casa, mas a ativa com o mesmo nome tem precedência', () => {
+  const arquivada: ObraParaCasar = { id: 'velha', name: 'Bertioga', ativa: false }
+  assert.equal(acharObra('Bertioga', [arquivada]), 'velha', 'lançamento antigo continua sendo dela')
+  assert.equal(acharObra('Bertioga', [arquivada, BERTIOGA]), 'obra-bertioga')
+  assert.equal(acharObra('BERTIOGA', [BERTIOGA]), 'obra-bertioga', 'a caixa não importa')
+  assert.equal(acharObra('', OBRAS), undefined)
+  assert.equal(acharObra('Bertiog', OBRAS), undefined, 'prefixo não é casamento')
+})
+
+test('camposNaoInformados distingue "não disse" de "disse vazio"', () => {
+  assert.deepEqual([...camposNaoInformados(['descricao', 'valor'])].sort(),
+    ['categoria', 'conferido', 'obraId'])
+  assert.equal(camposNaoInformados(['categoria', 'obra', 'conferido']).size, 0)
+  // Sem informação nenhuma, o comportamento antigo: não preserva nada.
+  assert.equal(camposNaoInformados(undefined).size, 0)
 })

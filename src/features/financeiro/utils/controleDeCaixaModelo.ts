@@ -86,7 +86,7 @@ function abaComoUsar(): XLSX.WorkSheet {
 }
 
 /** Uma entry vira a linha da planilha. */
-function linhaDaEntry(e: FinanceiroEntry): Linha {
+function linhaDaEntry(e: FinanceiroEntry, nomeDaObra: (id?: string) => string): Linha {
   const ehEntrada = e.tipo === 'entrada'
   return [
     e.id,
@@ -97,15 +97,21 @@ function linhaDaEntry(e: FinanceiroEntry): Linha {
     ehEntrada ? '' : (e.dataFim ? `${fmtDataBR(e.data).slice(0, 2)} A ${fmtDataBR(e.dataFim)}` : fmtDataBR(e.data)),
     (e.solicitantes ?? []).join('/'),
     rotuloDaCategoria(e.categoria),
-    '',
+    nomeDaObra(e.obraId),
     e.conferido ? 'Conferido' : '',
   ]
 }
 
-function abaLancamentos(entries: FinanceiroEntry[]): XLSX.WorkSheet {
+function abaLancamentos(
+  entries: FinanceiroEntry[],
+  sites: Array<{ id: string; name: string }>,
+): XLSX.WorkSheet {
+  // Obra que saiu do cadastro deixa a célula vazia em vez de escrever um id: um UUID na planilha
+  // não casaria com obra nenhuma na volta, e viraria um aviso confuso para quem abre o arquivo.
+  const nomeDaObra = (id?: string) => (id ? sites.find((s) => s.id === id)?.name ?? '' : '')
   const corpo = [...entries]
     .sort((a, b) => a.data.localeCompare(b.data) || a.descricao.localeCompare(b.descricao, 'pt-BR'))
-    .map(linhaDaEntry)
+    .map((e) => linhaDaEntry(e, nomeDaObra))
 
   // Linhas em branco para a equipe continuar preenchendo, com o ID vazio — é o que sinaliza
   // "linha nova" na próxima importação.
@@ -179,6 +185,14 @@ function abaHorasExtras(
 export interface OpcoesDoModelo {
   /** Lançamentos já no sistema. Vazio gera o modelo em branco. */
   entries?: FinanceiroEntry[]
+  /**
+   * As obras, para a coluna OBRA sair **preenchida**.
+   *
+   * ⚠️ Sem isto o modelo escreve OBRA em branco, e como o leitor passou a levar essa coluna a
+   * sério, baixar a planilha e reimportá-la **apagaria a obra de todos os lançamentos** — o
+   * contrário do que a coluna existe para fazer.
+   */
+  sites?: Array<{ id: string; name: string }>
   /** Quadro de pessoal, para a grade de horas extras já vir com os nomes. */
   pessoas?: Array<{ nome: string; cargo?: string }>
   mes: number
@@ -190,7 +204,7 @@ export interface OpcoesDoModelo {
 export function montarPlanilhaModelo(o: OpcoesDoModelo): XLSX.WorkBook {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, abaComoUsar(), 'COMO USAR')
-  XLSX.utils.book_append_sheet(wb, abaLancamentos(o.entries ?? []), 'LANÇAMENTOS')
+  XLSX.utils.book_append_sheet(wb, abaLancamentos(o.entries ?? [], o.sites ?? []), 'LANÇAMENTOS')
   XLSX.utils.book_append_sheet(
     wb,
     abaHorasExtras(o.pessoas ?? [], o.mes, o.ano),

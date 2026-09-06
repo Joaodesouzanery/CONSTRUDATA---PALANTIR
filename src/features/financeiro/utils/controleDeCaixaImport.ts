@@ -57,6 +57,13 @@ export interface Conferencia {
   periodo: { de: string; ate: string } | null
   /** A soma do sistema contra a que a planilha declara no rodapé. */
   divergenciaDeTotais: Array<{ oQue: string; calculado: number; declarado: number }>
+  /**
+   * O que a pessoa precisa saber e que não é erro de linha.
+   *
+   * Hoje: texto na coluna OBRA que não casa com obra cadastrada. Não bloqueia a importação e não
+   * vira palpite — o lançamento entra sem obra, e a frase diz qual texto e quantas linhas.
+   */
+  avisos: string[]
 }
 
 /**
@@ -78,6 +85,70 @@ const CAMPOS_DE_CADASTRO: Array<[keyof FinanceiroEntry, string]> = [
   ['obraId', 'Obra'],
   ['conferido', 'Conferido'],
 ]
+
+/**
+ * Qual coluna da planilha alimenta cada campo de cadastro.
+ *
+ * ⚠️ **Este mapa conserta um defeito que estava apagando dado em produção.** A comparação abaixo
+ * confrontava `existente[campo]` com `novo[campo]` sem perguntar se o arquivo trazia aquela coluna.
+ * Como o arquivo do cliente **não tem** OBRA nem CONFERIDO, toda reimportação gerava a mudança
+ * `{ obraId: <a que havia> → undefined }` e gravava — porque `cadastro-alterado` está em
+ * `SITUACOES_QUE_GRAVAM`. Medido: com a barra em "Todas as obras" (o padrão do `ObraSwitcher`), a
+ * obra era **apagada** de todos os lançamentos, e junto com ela o `conferido` marcado à mão na
+ * sub-aba Conferência.
+ *
+ * Os campos de fora deste mapa (descrição, data) vêm de colunas obrigatórias — sem elas o
+ * cabeçalho nem é reconhecido, então não há o que preservar.
+ */
+const COLUNA_DO_CAMPO: Partial<Record<keyof FinanceiroEntry, string>> = {
+  categoria: 'categoria',
+  obraId:    'obra',
+  conferido: 'conferido',
+}
+
+/**
+ * Os campos que este arquivo **não informou** — e que portanto têm de ser preservados como estão.
+ *
+ * Sem `colunas` (chamada antiga), devolve vazio: o comportamento é o de antes, e nenhum chamador
+ * quebra por não ter sido atualizado.
+ */
+export function camposNaoInformados(colunas?: readonly string[]): Set<keyof FinanceiroEntry> {
+  const fora = new Set<keyof FinanceiroEntry>()
+  if (!colunas) return fora
+  const tem = new Set(colunas)
+  for (const [campo, coluna] of Object.entries(COLUNA_DO_CAMPO)) {
+    if (!tem.has(coluna)) fora.add(campo as keyof FinanceiroEntry)
+  }
+  return fora
+}
+
+/** O mínimo que este módulo precisa saber de uma obra. Evita depender do tipo inteiro. */
+export interface ObraParaCasar {
+  id: string
+  name: string
+  code?: string
+  /** Ausente = ativa, como manda `obraEstaAtiva`. */
+  ativa?: boolean
+}
+
+/**
+ * O texto da coluna OBRA vira a obra do cadastro — ou não vira nada.
+ *
+ * ⚠️ **Casamento exato, nunca aproximado.** A tentação de casar "parecido" é grande e o preço é
+ * dinheiro na obra errada: no arquivo deste cliente a palavra "SANTOS" aparece três vezes na
+ * coluna DESCRIÇÃO e **nenhuma** delas é a cidade. Aqui só casa `name` ou `code` idênticos depois
+ * de normalizar; qualquer outra coisa devolve `undefined` e a tela avisa.
+ *
+ * A obra ativa tem precedência sobre a arquivada com o mesmo nome — mas a arquivada casa, porque
+ * lançamento antigo de obra encerrada continua sendo daquela obra.
+ */
+export function acharObra(texto: string | undefined, obras: readonly ObraParaCasar[]): string | undefined {
+  const alvo = normalizarTexto(texto ?? '')
+  if (!alvo) return undefined
+  const casa = (o: ObraParaCasar) =>
+    normalizarTexto(o.name) === alvo || (o.code ? normalizarTexto(o.code) === alvo : false)
+  return (obras.find((o) => o.ativa !== false && casa(o)) ?? obras.find(casa))?.id
+}
 
 /** Categoria padrão de quem chega sem classificação — e ela diz "não classificado", não chuta. */
 export const CATEGORIA_PADRAO: { entrada: EntradaCategoria; saida: SaidaCategoria } = {
@@ -109,11 +180,28 @@ export function lerCategoria(bruta: string | undefined, tipo: 'entrada' | 'saida
   return alvo as EntradaCategoria | SaidaCategoria
 }
 
+/** O que a conversão precisa saber além da linha. */
+export interface OpcoesDoLancamento {
+  /**
+   * A obra de quem **não veio identificada na planilha**.
+   *
+   * ⚠️ É *fallback declarado*, não carimbo. Antes este valor era aplicado a TODAS as linhas, o que
+   * fazia os 147 lançamentos herdarem a obra que por acaso estava selecionada na barra lateral no
+   * momento do clique — e nenhuma obra, quando a barra estava em "Todas as obras". A obra de
+   * verdade vem da coluna OBRA; esta só preenche o silêncio.
+   */
+  obraId?: string
+  agora: string
+  conferidoPor?: string
+  /** Para resolver a coluna OBRA. Passada por parâmetro: util puro não lê store. */
+  obras?: readonly ObraParaCasar[]
+}
+
 /** Converte a linha lida no lançamento que será gravado. */
 export function lancamentoDaLinha(
   l: LinhaLida,
   orgId: string | null | undefined,
-  opcoes: { obraId?: string; agora: string; conferidoPor?: string },
+  opcoes: OpcoesDoLancamento,
 ): FinanceiroEntry {
   return {
     id: l.idExterno || idDoLancamento(orgId, l.chave),
@@ -123,7 +211,7 @@ export function lancamentoDaLinha(
     data: l.data,
     dataFim: l.dataFim,
     categoria: lerCategoria(l.categoria, l.tipo === 'receita' ? 'entrada' : 'saida'),
-    obraId: opcoes.obraId,
+    obraId: acharObra(l.obra, opcoes.obras ?? []) ?? opcoes.obraId,
     solicitantes: l.solicitantes.length > 0 ? l.solicitantes : undefined,
     conferido: l.conferido || undefined,
     // ⚠️ Quem e quando, junto do "sim". Os campos existiam e só a sub-aba Conferência os
@@ -156,13 +244,23 @@ export function conferir(
   existentes: FinanceiroEntry[],
   problemas: ProblemaNaLinha[],
   orgId: string | null | undefined,
-  opcoes: { obraId?: string; agora: string; totaisDeclarados?: { receitas?: number; despesas?: number } | null },
+  opcoes: {
+    obraId?: string
+    agora: string
+    totaisDeclarados?: { receitas?: number; despesas?: number } | null
+    obras?: readonly ObraParaCasar[]
+    /** As colunas que o arquivo trouxe — ver `camposNaoInformados`. */
+    colunas?: readonly string[]
+  },
 ): Conferencia {
   const porId = new Map(existentes.map((e) => [e.id, e]))
   const porChave = new Map(existentes.filter((e) => e.chavePlanilha).map((e) => [e.chavePlanilha!, e]))
 
   const linhas: LinhaConferida[] = []
   const vistos = new Set<string>()
+  const naoInformados = camposNaoInformados(opcoes.colunas)
+  /** Texto da coluna OBRA que não casou → quantas linhas. Vira aviso no fim. */
+  const obrasNaoCasadas = new Map<string, number>()
 
   for (const l of lidas) {
     const novo = lancamentoDaLinha(l, orgId, opcoes)
@@ -176,6 +274,11 @@ export function conferir(
     }
     vistos.add(novo.id)
 
+    // A coluna trouxe um texto e ele não virou obra nenhuma. Não é erro de linha — é aviso.
+    if (l.obra && !acharObra(l.obra, opcoes.obras ?? [])) {
+      obrasNaoCasadas.set(l.obra, (obrasNaoCasadas.get(l.obra) ?? 0) + 1)
+    }
+
     const existente = porId.get(novo.id) ?? (l.idExterno ? undefined : porChave.get(l.chave))
     if (!existente) {
       linhas.push({ situacao: 'novo', id: novo.id, lida: l, mudancas: [] })
@@ -187,6 +290,8 @@ export function conferir(
       mudancas.push({ campo: 'valor', rotulo: 'Valor', antes: existente.valor, depois: novo.valor })
     }
     for (const [campo, rotulo] of CAMPOS_DE_CADASTRO) {
+      // A planilha não trouxe a coluna: não há mudança a propor, e o valor atual fica de pé.
+      if (naoInformados.has(campo)) continue
       if (comparavel(existente[campo]) !== comparavel(novo[campo])) {
         mudancas.push({ campo, rotulo, antes: existente[campo], depois: novo[campo] })
       }
@@ -241,7 +346,16 @@ export function conferir(
   }
   for (const l of linhas) resumo[l.situacao]++
 
-  return { linhas, ausentes, problemas, resumo, periodo, divergenciaDeTotais }
+  const avisos: string[] = []
+  for (const [texto, quantas] of obrasNaoCasadas) {
+    avisos.push(
+      `A coluna OBRA diz "${texto}" em ${quantas} ${quantas === 1 ? 'linha' : 'linhas'}, e não existe `
+      + 'obra cadastrada com esse nome nem com esse código. Estas linhas entram sem obra — '
+      + 'cadastre a obra ou corrija o texto na planilha e importe de novo.',
+    )
+  }
+
+  return { linhas, ausentes, problemas, resumo, periodo, divergenciaDeTotais, avisos }
 }
 
 /**
@@ -256,6 +370,45 @@ export const SITUACOES_QUE_GRAVAM: readonly Situacao[] = ['novo', 'valor-alterad
 export function linhasAGravar(c: Conferencia): LinhaConferida[] {
   const grava = new Set<Situacao>(SITUACOES_QUE_GRAVAM)
   return c.linhas.filter((l) => grava.has(l.situacao))
+}
+
+/**
+ * O lançamento como ele vai para o banco — **preservando o que a planilha não disse**.
+ *
+ * ⚠️ Esta função é a outra metade do conserto. Pular a COMPARAÇÃO de um campo ausente evita
+ * mostrar uma mudança falsa na tela, mas não evita nada na gravação: `addEntry` é upsert do objeto
+ * inteiro (`financeiroStore.ts:130`), então um `obraId: undefined` construído a partir de uma
+ * planilha sem coluna OBRA **sobrescreveria** a obra que já estava lá. É preciso copiar de volta,
+ * do que existe, todo campo que o arquivo não informou.
+ *
+ * Para lançamento novo não há de onde copiar, e aí o fallback declarado (`opcoes.obraId`) é
+ * legítimo: é a única obra que alguém afirmou.
+ */
+export function lancamentoParaGravar(
+  linha: LinhaConferida,
+  orgId: string | null | undefined,
+  opcoes: OpcoesDoLancamento & { colunas?: readonly string[] },
+): FinanceiroEntry {
+  const novo = lancamentoDaLinha(linha.lida, orgId, opcoes)
+  const existente = linha.existente
+  if (!existente) return novo
+
+  const preservar = camposNaoInformados(opcoes.colunas)
+  if (preservar.size === 0) return novo
+
+  const saida: FinanceiroEntry = { ...novo }
+  for (const campo of preservar) {
+    // O `as` é inevitável num laço sobre chaves heterogêneas; `preservar` só contém chaves de
+    // `COLUNA_DO_CAMPO`, que são campos reais de `FinanceiroEntry`.
+    ;(saida as unknown as Record<string, unknown>)[campo] = existente[campo]
+  }
+  // `conferidoPor`/`conferidoEm` andam junto com `conferido` — restaurar um sem os outros deixaria
+  // um "conferido por ninguém", que é o estado que o comentário de `lancamentoDaLinha` já recusa.
+  if (preservar.has('conferido')) {
+    saida.conferidoPor = existente.conferidoPor
+    saida.conferidoEm = existente.conferidoEm
+  }
+  return saida
 }
 
 // ─── Horas extras ─────────────────────────────────────────────────────────────

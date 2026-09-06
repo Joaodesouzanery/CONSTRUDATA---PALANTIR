@@ -23,8 +23,8 @@ import {
   type Matriz, type LeituraHorasExtras,
 } from '../utils/controleDeCaixaPlanilha'
 import {
-  conferir, lancamentoDaLinha, lancamentoDaHoraExtra, horasExtrasQueViramDespesa,
-  linhasAGravar, ROTULO_SITUACAO, type Conferencia, type Situacao,
+  conferir, lancamentoParaGravar, lancamentoDaHoraExtra, horasExtrasQueViramDespesa,
+  linhasAGravar, ROTULO_SITUACAO, type Conferencia, type Situacao, type ObraParaCasar,
 } from '../utils/controleDeCaixaImport'
 import type { FinanceiroEntry } from '@/types'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
@@ -43,7 +43,10 @@ const BTN_SECUNDARIO = 'rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-
 interface Props {
   entries: FinanceiroEntry[]
   orgId: string | null | undefined
+  /** A obra de quem não vier identificado na planilha. Fallback, não carimbo. */
   obraId?: string
+  /** Para resolver a coluna OBRA e para mostrar NOME em vez de UUID no diff. */
+  sites: ObraParaCasar[]
   onGravar: (lancamentos: FinanceiroEntry[]) => void
   onClose: () => void
 }
@@ -61,13 +64,22 @@ interface Lido {
   /** `true` quando nenhuma aba casou pelo nome e caiu na primeira. */
   abaPorPosicao: boolean
   ano: number
+  /** As colunas que o arquivo trouxe — a gravação precisa saber o que NÃO preencher. */
+  colunas: readonly string[]
 }
 
-export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }: Props) {
+export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, onClose }: Props) {
   const [lido, setLido] = useState<Lido | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [lendo, setLendo] = useState(false)
   const [mostrarInalterados, setMostrarInalterados] = useState(false)
+  /**
+   * Obra escolhida à mão, por linha. Vazio é o caso normal.
+   *
+   * Fica aqui, e não no `Conferido`, porque é o `paraGravar` deste componente que precisa dela —
+   * e porque escolher a obra é decisão que sobrevive a rolar a tabela.
+   */
+  const [obraPorLinha, setObraPorLinha] = useState<Record<string, string>>({})
   const perfil = useAuth((s) => s.profile)
   // Quem está importando é quem está conferindo — é o mesmo gesto.
   const quemConfere = perfil?.full_name ?? perfil?.email ?? undefined
@@ -97,6 +109,7 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
       const agora = new Date().toISOString()
       const conferencia = conferir(leitura.lancamentos, entries, leitura.problemas, orgId, {
         obraId, agora, totaisDeclarados: leitura.totaisDeclarados,
+        obras: sites, colunas: leitura.colunas,
       })
 
       // ⚠️ TODAS as abas de horas extras, não a primeira. O cliente tem uma por mês; com `find`,
@@ -122,7 +135,7 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
 
       setLido({
         nomeArquivo: file.name, conferencia, horasExtras, horasExtrasPuladas, ano,
-        abaPorPosicao: escolha.porPosicao,
+        abaPorPosicao: escolha.porPosicao, colunas: leitura.colunas,
       })
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não consegui ler este arquivo. Ele é mesmo .xlsx?')
@@ -135,14 +148,45 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
     if (!lido) return []
     const agora = new Date().toISOString()
     const daPlanilha = linhasAGravar(lido.conferencia)
-      .map((l) => lancamentoDaLinha(l.lida, orgId, { obraId, agora, conferidoPor: quemConfere }))
+      // ⚠️ `lancamentoParaGravar`, não `lancamentoDaLinha`: é ele que devolve ao lançamento os
+      // campos que ESTE arquivo não trouxe. Com `lancamentoDaLinha` puro, importar uma planilha
+      // sem a coluna OBRA apagava a obra de todo lançamento que já tinha uma.
+      .map((l) => {
+        const e = lancamentoParaGravar(l, orgId, {
+          obraId, agora, conferidoPor: quemConfere, obras: sites, colunas: lido.colunas,
+        })
+        // A escolha da pessoa na tela vence a planilha e o fallback — foi ela quem olhou a linha.
+        const escolhida = obraPorLinha[l.id]
+        return escolhida ? { ...e, obraId: escolhida } : e
+      })
     const daGrade = lido.horasExtras
       .flatMap(({ leitura }) => horasExtrasQueViramDespesa(leitura.registros))
       .map((r) => lancamentoDaHoraExtra(r, orgId, { obraId, agora }))
       // Só as que ainda não existem — reprocessar a grade não pode reescrever o que já está lá.
       .filter((e) => !entries.some((x) => x.id === e.id))
     return [...daPlanilha, ...daGrade]
-  }, [lido, orgId, obraId, entries, quemConfere])
+  }, [lido, orgId, obraId, entries, quemConfere, sites, obraPorLinha])
+
+  /** A obra que ESTA linha vai receber se gravada agora. `undefined` = vai entrar sem obra. */
+  const obraDaLinha = useMemo(() => {
+    const porId = new Map(paraGravar.map((e) => [e.id, e.obraId]))
+    return (idLinha: string) => porId.get(idLinha)
+  }, [paraGravar])
+
+  const semObra = useMemo(
+    () => (lido ? linhasAGravar(lido.conferencia).filter((l) => !obraDaLinha(l.id)) : []),
+    [lido, obraDaLinha],
+  )
+
+  /** "Todas as linhas sem obra vão para X." Só mexe nas que estão sem — nunca sobrescreve. */
+  function atribuirEmMassa(idObra: string) {
+    if (!idObra) return
+    setObraPorLinha((atual) => {
+      const novo = { ...atual }
+      for (const l of semObra) novo[l.id] = idObra
+      return novo
+    })
+  }
 
   const divergenciasHE = (lido?.horasExtras ?? []).flatMap(({ aba, leitura }) =>
     conferirTotaisDeHorasExtras(leitura).map((d) => ({ ...d, aba })))
@@ -191,6 +235,17 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
               divergenciasHE={divergenciasHE}
               mostrarInalterados={mostrarInalterados}
               onAlternarInalterados={() => setMostrarInalterados((v) => !v)}
+              sites={sites}
+              obraDaLinha={obraDaLinha}
+              obraEscolhida={obraPorLinha}
+              semObra={semObra.length}
+              onAtribuirEmMassa={atribuirEmMassa}
+              onEscolherObra={(idLinha, idObra) => setObraPorLinha((a) => {
+                const novo = { ...a }
+                if (idObra) novo[idLinha] = idObra
+                else delete novo[idLinha]
+                return novo
+              })}
             />
           )}
         </div>
@@ -223,15 +278,33 @@ export function ImportarCaixaModal({ entries, orgId, obraId, onGravar, onClose }
 // ─── O que vai mudar ──────────────────────────────────────────────────────────
 
 function Conferido({
-  lido, divergenciasHE, mostrarInalterados, onAlternarInalterados,
+  lido, divergenciasHE, mostrarInalterados, onAlternarInalterados, sites,
+  obraDaLinha, obraEscolhida, semObra, onAtribuirEmMassa, onEscolherObra,
 }: {
   lido: Lido
   /** `aba` viaja junto porque agora há uma grade de horas extras por mês. */
   divergenciasHE: Array<{ dia: number; calculado: number; declarado: number; aba: string }>
   mostrarInalterados: boolean
   onAlternarInalterados: () => void
+  /** Para o diff dizer o NOME da obra em vez do id. */
+  sites: ObraParaCasar[]
+  /** A obra que a linha vai receber — da coluna, do fallback ou da escolha à mão. */
+  obraDaLinha: (idLinha: string) => string | undefined
+  /** Só as escolhidas na tela. Separadas porque escolha à mão precisa poder ser desfeita. */
+  obraEscolhida: Record<string, string>
+  /** Quantas linhas gravariam sem obra nenhuma. */
+  semObra: number
+  onAtribuirEmMassa: (idObra: string) => void
+  onEscolherObra: (idLinha: string, idObra: string) => void
 }) {
   const c = lido.conferencia
+  const temHoraExtraNova = lido.horasExtras.length > 0
+  // Arquivada em `optgroup`, como no `ObraSwitcher`: ela casa e é escolhível (lançamento antigo é
+  // dela mesmo), mas oferecê-la sem rótulo junto das ativas confunde quem escolhe.
+  const opcoesDeObra = {
+    ativas: sites.filter((o) => o.ativa !== false),
+    arquivadas: sites.filter((o) => o.ativa === false),
+  }
   const visiveis = mostrarInalterados ? c.linhas : c.linhas.filter((l) => l.situacao !== 'inalterado')
   const nadaMudou = c.resumo.novo === 0 && c.resumo['valor-alterado'] === 0 && c.resumo['cadastro-alterado'] === 0
 
@@ -302,6 +375,55 @@ function Conferido({
         </Aviso>
       )}
 
+      {/* Texto na coluna OBRA que não virou obra nenhuma */}
+      {c.avisos.length > 0 && (
+        <Aviso titulo="A coluna OBRA trouxe um nome que não existe no cadastro">
+          <ul className="space-y-1">
+            {c.avisos.map((a, i) => <li key={i}>{a}</li>)}
+          </ul>
+        </Aviso>
+      )}
+
+      {/* ⚠️ A hora extra não é corrigida por reimportação — e a pessoa precisa saber, senão o
+          relatório "Por obra" fica meio certo e meio errado, que é o pior estado possível. */}
+      {temHoraExtraNova && (
+        <Aviso titulo="As horas extras entram só uma vez">
+          <p>
+            Hora extra que já virou despesa não é reescrita numa nova importação — nem para
+            corrigir a obra. Se precisar mudar a obra de uma hora extra já lançada, faça pela tela
+            de Lançamentos.
+          </p>
+        </Aviso>
+      )}
+
+      {/* Atribuir a obra de uma vez — 147 selects abertos não seriam conferência, seriam digitação */}
+      {semObra > 0 && sites.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2">
+          <span className="text-[11px] text-[#d4d4d4]">
+            <b>{semObra}</b> {semObra === 1 ? 'linha entra' : 'linhas entram'} sem obra.
+          </span>
+          <label className="flex items-center gap-1.5 text-[11px] text-[#a3a3a3]">
+            Atribuir {semObra === 1 ? 'ela' : 'todas'} a:
+            <select
+              defaultValue=""
+              onChange={(e) => { onAtribuirEmMassa(e.target.value); e.currentTarget.value = '' }}
+              className="rounded border border-[#525252] bg-[#3a3a3a] px-2 py-1 text-[11px] text-[#f5f5f5]"
+            >
+              <option value="">escolha uma obra…</option>
+              {opcoesDeObra.ativas.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {opcoesDeObra.arquivadas.length > 0 && (
+                <optgroup label="Arquivadas">
+                  {opcoesDeObra.arquivadas.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </optgroup>
+              )}
+            </select>
+          </label>
+          <span className="text-[10px] text-[#6b6b6b]">
+            Só as que estão sem — nenhuma escolha já feita é sobrescrita.
+          </span>
+        </div>
+      )}
+
       {/* Linha a linha */}
       <div className="flex items-center gap-2">
         <p className="text-xs font-semibold text-[#a3a3a3]">O que vai mudar</p>
@@ -319,12 +441,13 @@ function Conferido({
               <th className="px-3 py-2 text-left">Descrição</th>
               <th className="px-3 py-2 text-right">Valor</th>
               <th className="px-3 py-2 text-left">Solicitante</th>
+              <th className="px-3 py-2 text-left">Obra</th>
               <th className="px-3 py-2 text-left">O que mudou</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#1f2937]">
             {visiveis.length === 0 ? (
-              <tr><td colSpan={6} className="px-3 py-8 text-center text-[#6b6b6b]">Nenhuma mudança.</td></tr>
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-[#6b6b6b]">Nenhuma mudança.</td></tr>
             ) : visiveis.slice(0, 300).map((l, i) => (
               <tr key={`${l.id}-${i}`} className="hover:bg-white/[0.02]">
                 <td className="px-3 py-2">
@@ -339,15 +462,42 @@ function Conferido({
                 <td className="px-3 py-2 text-[#f5f5f5] max-w-md truncate">{l.lida.descricao}</td>
                 <td className="px-3 py-2 text-right tabular-nums text-[#f5f5f5]">{fmtBRL(l.lida.valor)}</td>
                 <td className="px-3 py-2 text-[#a3a3a3]">{l.lida.solicitantes.join(' + ') || '—'}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {/* Resolvida pela planilha: mostra e pronto. Sem obra: deixa escolher aqui
+                      mesmo, que é onde a pessoa está olhando a linha. */}
+                  {obraDaLinha(l.id) && !obraEscolhida[l.id] ? (
+                    <span className="text-[#a3a3a3]">
+                      {sites.find((o) => o.id === obraDaLinha(l.id))?.name ?? '—'}
+                    </span>
+                  ) : sites.length === 0 ? (
+                    <span className="text-[#6b6b6b]">—</span>
+                  ) : (
+                    <select
+                      // ⚠️ Controlado pela escolha, não por `value=""`: sem isto a pessoa escolhia
+                      // a obra, a célula virava texto e não havia como desfazer o engano.
+                      value={obraEscolhida[l.id] ?? ''}
+                      onChange={(e) => onEscolherObra(l.id, e.target.value)}
+                      className="rounded border border-[#525252] bg-[#3a3a3a] px-1.5 py-0.5 text-[11px] text-[#a3a3a3]"
+                    >
+                      <option value="">sem obra</option>
+                      {opcoesDeObra.ativas.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                      {opcoesDeObra.arquivadas.length > 0 && (
+                        <optgroup label="Arquivadas">
+                          {opcoesDeObra.arquivadas.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                        </optgroup>
+                      )}
+                    </select>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-[11px]">
                   {l.mudancas.length === 0 ? (
                     <span className="text-[#6b6b6b]">—</span>
                   ) : l.mudancas.map((m) => (
                     <span key={m.campo} className="block">
                       <span className="text-[#6b6b6b]">{m.rotulo}:</span>{' '}
-                      <span className="text-[#6b6b6b] line-through">{textoDoValor(m.antes)}</span>
+                      <span className="text-[#6b6b6b] line-through">{textoDoValor(m.antes, m.campo, sites)}</span>
                       {' → '}
-                      <span className="text-[#f5f5f5]">{textoDoValor(m.depois)}</span>
+                      <span className="text-[#f5f5f5]">{textoDoValor(m.depois, m.campo, sites)}</span>
                     </span>
                   ))}
                 </td>
@@ -436,7 +586,18 @@ function Aviso({ titulo, children }: { titulo: string; children: React.ReactNode
   )
 }
 
-function textoDoValor(v: unknown): string {
+/**
+ * O valor como a pessoa lê na conferência.
+ *
+ * ⚠️ O `campo` e as obras não são enfeite. Sem eles a coluna "O que mudou" mostrava
+ * `Obra: 7f3a-… → 9b2c-…` — e pedir para alguém aprovar 147 linhas de UUID não é conferência
+ * nenhuma: a pessoa clica "Gravar" sem ler, e a tela perde a razão de existir.
+ */
+function textoDoValor(v: unknown, campo?: string, sites?: ObraParaCasar[]): string {
+  if (campo === 'obraId') {
+    if (!v) return 'sem obra'
+    return sites?.find((o) => o.id === v)?.name ?? `obra removida (${String(v).slice(0, 8)})`
+  }
   if (v === null || v === undefined || v === '') return '—'
   if (typeof v === 'number') return fmtBRL(v)
   if (typeof v === 'boolean') return v ? 'sim' : 'não'

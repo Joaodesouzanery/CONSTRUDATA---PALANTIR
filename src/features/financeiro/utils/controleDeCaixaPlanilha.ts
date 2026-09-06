@@ -197,6 +197,15 @@ export interface LeituraDeCaixa {
   problemas: ProblemaNaLinha[]
   /** Totais que a própria planilha declara, quando ela traz linha de TOTAIS/SALDO. */
   totaisDeclarados: { receitas?: number; despesas?: number; saldo?: number } | null
+  /**
+   * Os campos de `CABECALHOS` cujas colunas o arquivo REALMENTE trouxe.
+   *
+   * ⚠️ Existe para separar **"a planilha não disse"** de **"a planilha disse vazio"** — e essa
+   * distinção não é teórica: sem ela, reimportar um arquivo sem a coluna OBRA **apaga** a obra de
+   * todo lançamento que já tinha uma, e o mesmo vale para CONFERIDO marcado à mão. Quem consome é
+   * `camposNaoInformados` em `controleDeCaixaImport.ts`.
+   */
+  colunas: readonly string[]
 }
 
 /**
@@ -361,6 +370,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
         motivo: 'Não encontrei o cabeçalho. A planilha precisa ter as colunas DESCRIÇÃO e VALOR, ou ENTRADA.',
       }],
       totaisDeclarados: null,
+      colunas: [],
     }
   }
 
@@ -501,7 +511,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
     }
   }
 
-  return { lancamentos, problemas, totaisDeclarados }
+  return { lancamentos, problemas, totaisDeclarados, colunas: Object.keys(mapa) }
 }
 
 function montarLinha(a: {
