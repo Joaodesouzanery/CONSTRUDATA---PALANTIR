@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import { useAppModeStore } from '@/store/appModeStore'
 import type { FinanceiroEvmTab } from '@/types'
+import { OQueE } from '@/components/shared/OQueE'
+import type { Explicacao } from '@/components/shared/explicacao'
 
 export type CombinedTab = FinanceiroEvmTab
 
@@ -43,12 +45,15 @@ function KpiCard({
   isCurrency = false,
   isIndex = false,
   sub,
+  explicacao,
 }: {
   label: string
   value: number | null
   isCurrency?: boolean
   isIndex?: boolean
   sub?: string
+  /** O `?` ao lado do rótulo. Quem abre esta tela não é obrigado a saber o que é EVM. */
+  explicacao?: Explicacao
 }) {
   const semDado = value === null || !Number.isFinite(value)
 
@@ -68,7 +73,10 @@ function KpiCard({
 
   return (
     <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4 min-w-[140px]">
-      <p className="text-[#a3a3a3] text-xs mb-1">{label}</p>
+      <div className="mb-1 flex items-center justify-between gap-1">
+        <p className="text-[#a3a3a3] text-xs">{label}</p>
+        {explicacao && <OQueE titulo={label} explicacao={explicacao} />}
+      </div>
       <p className="font-mono text-lg font-semibold" style={{ color }}>
         {formatted}
       </p>
@@ -77,9 +85,58 @@ function KpiCard({
   )
 }
 
-/** Um índice só existe quando há base para ele. Sem base, `null` — nunca 0. */
-function indiceOuNada(valor: number, base: number): number | null {
-  return base > 0 && Number.isFinite(valor) ? valor : null
+/**
+ * O que cada sigla quer dizer, para quem nunca ouviu falar de EVM.
+ *
+ * ⚠️ Nenhum destes textos traduz a sigla. "EAC é Estimate At Completion" não ajuda ninguém — a
+ * pessoa continua sem saber o que fazer com o número. O que ajuda é dizer que pergunta ele
+ * responde e o que preencher quando ele não existe.
+ */
+const EXPLICA: Record<'cpi' | 'spi' | 'bac' | 'eac' | 'vac', Explicacao> = {
+  cpi: {
+    oQueE: 'Cada real gasto virou quanto de serviço. Acima de 1,00 a obra entrega mais do que '
+      + 'gasta; abaixo, gasta mais do que entrega.',
+    deOndeVem: 'Serviço entregue ÷ custo real. O custo vem dos lançamentos e das ordens de compra.',
+    oQueFalta: 'Falta medir o serviço entregue por pacote de trabalho. Sem isso o sistema sabe '
+      + 'quanto saiu do caixa, mas não sabe o que aquilo comprou.',
+  },
+  spi: {
+    oQueE: 'A obra andou o quanto devia andar até hoje. Abaixo de 1,00 está atrasada em relação '
+      + 'ao plano — o que não é a mesma coisa que estar cara.',
+    deOndeVem: 'Serviço entregue ÷ serviço previsto para a data de hoje.',
+    oQueFalta: 'Falta o plano de valor: quanto de serviço deveria estar pronto a cada mês. Sem a '
+      + 'curva planejada não há com o que comparar.',
+  },
+  bac: {
+    oQueE: 'Quanto a obra inteira foi orçada para custar. É a régua de todo o resto desta tela.',
+    deOndeVem: 'Da soma das contas de custo lançadas no Plano de Contas.',
+    oQueFalta: 'Nenhuma conta de custo foi cadastrada para esta obra.',
+  },
+  eac: {
+    oQueE: 'Se a obra continuar no ritmo de gasto de hoje, quanto ela vai custar no total. É o '
+      + 'orçamento corrigido pela realidade.',
+    deOndeVem: 'Orçamento ÷ CPI. Depende, portanto, do serviço entregue.',
+    oQueFalta: 'Depende do CPI, que precisa do serviço entregue por pacote.',
+  },
+  vac: {
+    oQueE: 'Quanto vai sobrar ou faltar no fim, comparado ao orçado. Negativo é estouro previsto.',
+    deOndeVem: 'Orçamento − custo estimado no fim (EAC).',
+    oQueFalta: 'Depende do EAC, que depende do serviço entregue por pacote.',
+  },
+}
+
+/**
+ * Um índice só existe quando há base para ele. Sem base, `null` — nunca 0.
+ *
+ * ⚠️ `bases` é plural e isso conserta um defeito real. O CPI é `EV / AC`: olhar só o AC dizia que
+ * havia base assim que alguém cadastrasse um centavo de custo, e o cartão passava a exibir
+ * **`0.00` em VERMELHO** — que um índice de desempenho comunica como "péssimo", quando a verdade é
+ * "não sei". O que falta ali é o EV, não o AC.
+ *
+ * A regra: **todas** as pernas da conta precisam existir. Falta uma, o índice não existe.
+ */
+function indiceOuNada(valor: number, ...bases: number[]): number | null {
+  return bases.every((b) => b > 0) && Number.isFinite(valor) ? valor : null
 }
 
 interface EvmHeaderProps {
@@ -91,7 +148,7 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
   const { evmMetrics, loadDemoData, recalculateMetrics } = useEvmStore()
   const isDemoMode = useAppModeStore((s) => s.isDemoMode)
   const residuoDemoRemovido = useEvmStore((s) => s.residuoDemoRemovido)
-  const { CPI, SPI, BAC, EAC, VAC, AC, PV } = evmMetrics
+  const { CPI, SPI, BAC, EAC, VAC, AC, PV, EV } = evmMetrics
   const sync = useStoreSync(useFinanceiroStore)
   // Títulos (abas "Pagamentos e Cobranças" e "Boletos") vivem noutro store e não
   // sincronizavam ao abrir o módulo — o que o colega cadastrou só aparecia no próximo
@@ -154,12 +211,17 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
 
       {/* KPI cards */}
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
-        {/* CPI precisa de custo real; SPI, de valor planejado. Sem a base, "—" e o motivo. */}
-        <KpiCard label="CPI" value={indiceOuNada(CPI, AC)} isIndex sub="sem custo apontado" />
-        <KpiCard label="SPI" value={indiceOuNada(SPI, PV)} isIndex sub="sem plano de valor" />
-        <KpiCard label="Orçamento planejado" value={BAC > 0 ? BAC : null} isCurrency sub="obra sem orçamento" />
-        <KpiCard label="EAC (R$)" value={indiceOuNada(EAC, BAC)} isCurrency sub="depende do orçamento" />
-        <KpiCard label="VAC (R$)" value={indiceOuNada(VAC, BAC)} isCurrency sub="depende do orçamento" />
+        {/* Cada índice declara TODAS as pernas de que depende. Sem uma delas, "—" e o motivo. */}
+        <KpiCard label="CPI" value={indiceOuNada(CPI, AC, EV)} isIndex
+          sub="falta o serviço entregue" explicacao={EXPLICA.cpi} />
+        <KpiCard label="SPI" value={indiceOuNada(SPI, PV, EV)} isIndex
+          sub="falta o plano de valor" explicacao={EXPLICA.spi} />
+        <KpiCard label="Orçamento planejado" value={BAC > 0 ? BAC : null} isCurrency
+          sub="obra sem orçamento" explicacao={EXPLICA.bac} />
+        <KpiCard label="EAC (R$)" value={indiceOuNada(EAC, BAC, EV)} isCurrency
+          sub="depende do orçamento e do avanço" explicacao={EXPLICA.eac} />
+        <KpiCard label="VAC (R$)" value={indiceOuNada(VAC, BAC, EV)} isCurrency
+          sub="depende do orçamento e do avanço" explicacao={EXPLICA.vac} />
       </div>
 
       {/* Tab bar */}

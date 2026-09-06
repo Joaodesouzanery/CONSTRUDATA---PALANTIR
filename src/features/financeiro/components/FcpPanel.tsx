@@ -37,6 +37,37 @@ import {
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import type { ConferenciaDaGrade } from '../utils/fcp/conferirGrade'
 import { ConferenciaFcp } from './ConferenciaFcp'
+import { OQueE } from '@/components/shared/OQueE'
+import type { Explicacao } from '@/components/shared/explicacao'
+
+/**
+ * O jargão do FCP, em português de obra.
+ *
+ * Estes três números são os que vão para a reunião de diretoria, e são os que mais confundem: quem
+ * nunca montou um fluxo de caixa lê "necessidade máxima" como "quanto a obra custa", que é outra
+ * coisa completamente.
+ */
+const EXPLICA_FCP: Record<'capital' | 'sensibilidade' | 'defasagem', Explicacao> = {
+  capital: {
+    oQueE: 'Quanto dinheiro precisa estar no bolso da empresa no pior dia da obra — aquele em que '
+      + 'a folha vence e a medição ainda não caiu. Não é o custo da obra: é o buraco temporário '
+      + 'entre pagar e receber, que some quando o cliente paga.',
+    deOndeVem: 'Do pior saldo acumulado ANTES do recebimento do mês, mais a contingência das '
+      + 'premissas. O mês do pior ponto vem escrito ao lado.',
+  },
+  sensibilidade: {
+    oQueE: 'A mesma obra, calculada em quatro ritmos de produção. Serve para responder "e se a '
+      + 'equipe render menos do que o combinado?" antes de assinar, não depois.',
+    deOndeVem: 'Das quatro margens declaradas nas premissas. O cenário adotado é o que alimenta '
+      + 'todas as outras abas.',
+  },
+  defasagem: {
+    oQueE: 'Quantos dias levam entre a medição fechar e o dinheiro entrar. É esse intervalo que '
+      + 'cria a necessidade de capital: a obra gasta todo mês e recebe com atraso.',
+    deOndeVem: 'Da premissa "Defasagem de recebimento". Vale a pena conferir contra o que o '
+      + 'contrato diz e contra o que o cliente vem pagando de fato.',
+  },
+}
 import {
   conferirPlano, idDoPlano, planoParaGravar, type ConferenciaDoPlano,
   premissasComoTexto,
@@ -870,7 +901,10 @@ function SubMensal({ premissas: P, realizado }: { premissas: PremissasFcp; reali
       )}
 
       <div className="rounded-xl border border-[#f97316]/30 bg-[#f97316]/10 p-4">
-        <p className="text-xs font-semibold text-[#f5f5f5] mb-1">Capital necessário</p>
+        <div className="mb-1 flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-[#f5f5f5]">Capital necessário</p>
+          <OQueE titulo="Capital necessário" explicacao={EXPLICA_FCP.capital} />
+        </div>
         {/* ⚠️ É o pior ponto ANTES do recebimento, não o pior saldo do mês: é o dinheiro que precisa
             estar no bolso no dia em que a folha vence e a medição ainda não caiu. */}
         <p className="text-[11px] text-[#a3a3a3]">
@@ -882,7 +916,10 @@ function SubMensal({ premissas: P, realizado }: { premissas: PremissasFcp; reali
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <p className="text-xs font-semibold text-[#a3a3a3]">Sensibilidade — a mesma conta nos quatro cenários</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-[#a3a3a3]">Sensibilidade — a mesma conta nos quatro cenários</p>
+          <OQueE titulo="Sensibilidade" explicacao={EXPLICA_FCP.sensibilidade} />
+        </div>
         <div className="overflow-x-auto rounded-xl border border-[#525252]">
           <table className={TABELA}>
             <thead><tr className={THEAD}>

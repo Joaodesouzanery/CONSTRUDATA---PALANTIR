@@ -17,6 +17,7 @@
  * data é o chamador, com `hojeLocalISO()` — `toISOString()` faria uma nota que vence hoje aparecer
  * vencida a partir das 21h no Brasil.
  */
+import type { Explicacao } from '@/components/shared/explicacao'
 import type { ConstructionSite, RDO, PlanHoliday, WorkWeekMode } from '@/types'
 import type { Rotina, RotinaExecucao } from '@/store/rotinasStore'
 import { valoresDoContrato, resumoFaturamento, pctServicoFaturado } from '@/features/torre-de-controle/utils/obraMedicao'
@@ -276,12 +277,8 @@ export interface Indicador {
   valor: string
   detalhe: string
   tom: TomIndicador
-  explicacao: {
-    oQueE: string
-    deOndeVem: string
-    /** Obrigatório sempre que `tom === 'sem-dado'`: o cartão precisa dizer o que preencher. */
-    oQueFalta?: string
-  }
+  /** Ver `@/components/shared/explicacao`. `oQueFalta` é obrigatório quando `tom === 'sem-dado'`. */
+  explicacao: Explicacao
   /** Para onde o clique leva. */
   destino: string
 }
