@@ -166,6 +166,11 @@ export const useFinanceiroStore = create<FinanceiroState>()(
         // Medição/Execução (não duplica aqui). Por categoria é add XOR remove — nunca
         // delete+insert do mesmo id no mesmo tick (não colide com o coalescing).
         syncRdoToFinanceiro: (rdo) => {
+          // ⚠️ O RDO WCR NÃO lança custo. O custo de mão de obra da WCR entra pelo Controle de
+          // Caixa (a planilha que a equipe mantém), e a lista de presença que agora vai no RDO
+          // existe para dizer QUEM estava na obra — não para virar lançamento. Deixar este ramo
+          // rodar contaria a mesma folha duas vezes: uma pelo RDO, outra pela planilha.
+          if (rdo.template === 'wcr') return
           const finalizado = rdo.status !== 'rascunho'
           const nowIso = new Date().toISOString()
           const base = { data: rdo.date, obraId: rdo.siteId ?? undefined, referencia: `RDO #${rdo.number}`, sourceRdoId: rdo.id }

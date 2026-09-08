@@ -1993,8 +1993,45 @@ export interface RdoWcrProducaoRow {
   contractServiceId?: string
 }
 
+/**
+ * UM apontamento — uma mensagem do WhatsApp. O dia pode ter vários (uma por equipe/núcleo), e
+ * cada um viaja inteiro: quem confere precisa ver o que cada equipe disse, não só a soma.
+ */
+export interface RdoWcrApontamento {
+  equipe?:    string
+  nucleo?:    string
+  imoveis:    string[]
+  producao:   RdoWcrProducaoRow[]
+  observacoes?: string
+  anoInferido?: boolean
+  textoOriginal?: string
+  naoEntendidas?: string[]
+}
+
+export interface RdoWcrPresente {
+  nome: string
+  /** Como veio escrito ('líder', 'ajudante', 'encanador'). A contagem canônica vai em `manpower`. */
+  funcao?: string
+}
+
+/** A "LISTA DE PRESENÇA" de uma equipe — a mensagem que chega separada do apontamento. */
+export interface RdoWcrPresenca {
+  equipe?: string
+  pessoas: RdoWcrPresente[]
+  textoOriginal?: string
+}
+
 export interface RdoWcrData {
-  /** O encarregado que assina o apontamento ('Gilvan'). */
+  /**
+   * ⚠️ Quando há mais de um apontamento no dia, os campos de cima (`equipe`, `nucleo`, `imoveis`,
+   * `producao`) são a SOMA/união — é o que a ponte com o FCP, a listagem e o resumo leem. O detalhe
+   * por equipe está em `apontamentos`. Um RDO antigo, de um apontamento só, não tem a lista e
+   * continua válido.
+   */
+  apontamentos?: RdoWcrApontamento[]
+  /** Quem estava na obra, por equipe. Também preenche `RDO.manpower`. */
+  presencas?: RdoWcrPresenca[]
+  /** O encarregado que assina o apontamento ('Gilvan'). Com vários: 'Juan · Gilvan'. */
   equipe?:    string
   /** Ponto dentro da obra ('Boi Malhado'). ⚠️ Não é cidade nem obra. */
   nucleo?:    string

@@ -8,6 +8,15 @@
  * cheia com o ano que foi deduzido, marca cada sigla vazia como "não informado" (e não zero) e
  * lista o que não foi entendido em vez de engolir.
  *
+ * ─── VÁRIOS APONTAMENTOS NO MESMO DIA, E A LISTA DE PRESENÇA ──────────────────
+ * Numa noite chegam dois apontamentos (equipe Juan, equipe Gilvan — mesmo dia, núcleos e imóveis
+ * diferentes) e quatro "LISTA DE PRESENÇA". O RDO é do DIA: cada texto colado entra como um bloco
+ * separado, a tela mostra cada bloco e o TOTAL somado, e a presença vira "quem estava na obra",
+ * como nos outros RDOs. A soma e a leitura da presença moram em `utils/apontamentoWcrDia.ts`.
+ *
+ * ⚠️ A presença NÃO vira custo. O custo de mão de obra da WCR entra pelo Controle de Caixa;
+ * `syncRdoToFinanceiro` pula o template `wcr` de propósito, senão a folha contaria duas vezes.
+ *
  * A leitura mora em `utils/apontamentoWcr.ts` (texto) e `utils/apontamentoWcrPlanilha.ts`
  * (planilha), as duas puras e testadas. Aqui só tem tela.
  */
@@ -27,7 +36,11 @@ import {
   type ApontamentoWcr,
 } from '../utils/apontamentoWcr'
 import { lerPlanilhaWcr, type MatrizWcr } from '../utils/apontamentoWcrPlanilha'
-import type { RdoWcrData, RdoWcrProducaoRow } from '@/types'
+import {
+  apontamentoParaRdo, resumoDoDia, ehListaDePresenca, parseListaDePresenca, presencaParaRdo,
+  manpowerDaPresenca, funcaoCanonica, type PresencaLida,
+} from '../utils/apontamentoWcrDia'
+import type { RdoWcrData } from '@/types'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 
 const MODELO = `📋 APONTAMENTO DIÁRIO — MODELO
@@ -56,15 +69,6 @@ CI -
 
 obs: qualquer coisa fora da lista escreve aqui`
 
-function producaoDoApontamento(a: ApontamentoWcr): RdoWcrProducaoRow[] {
-  return a.linhas.map((l) => ({
-    sigla: l.sigla,
-    // ⚠️ String vazia, NÃO '0'. Ver o docblock de RdoWcrProducaoRow.
-    quantidade: l.quantidade === undefined ? '' : String(l.quantidade),
-    unidade: l.unidade,
-  }))
-}
-
 export function RdoWcrPanel() {
   const addRdo    = useRdoStore((s) => s.addRdo)
   const updateRdo = useRdoStore((s) => s.updateRdo)
@@ -73,7 +77,10 @@ export function RdoWcrPanel() {
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
 
   const [texto, setTexto] = useState('')
-  const [lido, setLido] = useState<ApontamentoWcr | null>(null)
+  /** Um bloco por texto colado. O RDO é do dia; cada apontamento é de uma equipe. */
+  const [apontamentos, setApontamentos] = useState<Array<{ lido: ApontamentoWcr; texto: string }>>([])
+  const [presencas, setPresencas] = useState<Array<{ lida: PresencaLida; texto: string }>>([])
+  const lido = apontamentos[0]?.lido ?? null
   const [obraSiteId, setObraSiteId] = useState<string | null>(activeObraId ?? null)
   const [responsavel, setResponsavel] = useState('')
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -81,14 +88,28 @@ export function RdoWcrPanel() {
   const [problemasDaPlanilha, setProblemasDaPlanilha] = useState<string[]>([])
 
   const site = useMemo(() => (obraSiteId ? sites.find((s) => s.id === obraSiteId) ?? null : null), [sites, obraSiteId])
-  const resumo = useMemo(() => (lido ? resumirApontamento(lido) : null), [lido])
+  const blocos = useMemo(() => apontamentos.map((a) => apontamentoParaRdo(a.lido, limitarTextoOriginal(a.texto))), [apontamentos])
+  const dia = useMemo(() => (blocos.length ? resumoDoDia(blocos) : null), [blocos])
+  const manpower = useMemo(() => manpowerDaPresenca(presencas.map((p) => presencaParaRdo(p.lida, limitarTextoOriginal(p.texto)))), [presencas])
+  // ⚠️ Datas diferentes no mesmo RDO é erro de colagem — a tela avisa, não silencia.
+  const datas = useMemo(() => [...new Set([...apontamentos.map((a) => a.lido.data), ...presencas.map((p) => p.lida.data)].filter(Boolean))], [apontamentos, presencas])
 
   function analisar() {
-    setProblemasDaPlanilha([])
-    const a = parseApontamentoWcr(texto)
-    setLido(a)
-    setSavedId(null)
+    const t = texto.trim()
+    if (!t) return
     setAviso(null)
+    // A lista de presença chega como mensagem separada. O mesmo botão lê as duas — o texto diz o que é.
+    if (ehListaDePresenca(t)) {
+      const lida = parseListaDePresenca(t, { hoje: hojeLocalISO() })
+      setPresencas((ps) => [...ps, { lida, texto: t }])
+      setTexto('')
+      setAviso(`Lista de presença lida: ${lida.pessoas.length} pessoa(s)${lida.equipe ? ` da equipe ${lida.equipe}` : ''}. Cole o próximo texto, ou salve.`)
+      return
+    }
+    const a = parseApontamentoWcr(t, { hoje: hojeLocalISO() })
+    setApontamentos((as) => [...as, { lido: a, texto: t }])
+    setTexto('')
+    if (apontamentos.length > 0) setAviso(`Apontamento ${apontamentos.length + 1} adicionado ao dia. O total é a soma; cada equipe fica separada.`)
   }
 
   async function lerArquivo(f: File) {
@@ -101,11 +122,11 @@ export function RdoWcrPanel() {
       const matriz = XLSX.utils.sheet_to_json(wb.Sheets[aba], { header: 1, defval: null }) as MatrizWcr
       const r = lerPlanilhaWcr(matriz)
       setProblemasDaPlanilha(r.problemas)
-      if (!r.apontamentos.length) { setLido(null); return }
+      if (!r.apontamentos.length) { setApontamentos([]); return }
       // ⚠️ Uma linha por vez, de propósito: cada apontamento vira UM RDO, e quem salva precisa
       // conferir cada um. Importar 30 RDOs de uma vez sem ninguém olhar é como o dado errado entra.
       const primeiro = r.apontamentos[0]
-      setLido(primeiro)
+      setApontamentos([{ lido: primeiro, texto: '' }])
       setTexto('')
       if (r.apontamentos.length > 1) {
         setAviso(`A planilha tem ${r.apontamentos.length} apontamentos. Estou mostrando o da linha ${primeiro.linhaDaPlanilha}; salve e volte para o próximo.`)
@@ -116,29 +137,28 @@ export function RdoWcrPanel() {
   }
 
   function montarPayload(status: 'rascunho' | 'finalizado') {
-    if (!lido) return null
+    if (!lido || !dia) return null
+    const presencasRdo = presencas.map((p) => presencaParaRdo(p.lida, limitarTextoOriginal(p.texto)))
     const wcr: RdoWcrData = {
-      equipe: lido.equipe,
-      nucleo: lido.nucleo,
-      imoveis: lido.imoveis,
-      producao: producaoDoApontamento(lido),
-      observacoes: lido.observacoes,
-      anoInferido: lido.anoInferido,
-      textoOriginal: limitarTextoOriginal(texto || ''),
-      naoEntendidas: lido.naoEntendidas.length ? lido.naoEntendidas : undefined,
+      ...dia,
+      // Um apontamento só: o RDO continua com o formato antigo, sem lista — nada muda para quem lê.
+      apontamentos: blocos.length > 1 ? blocos : undefined,
+      presencas: presencasRdo.length ? presencasRdo : undefined,
+      textoOriginal: blocos.length === 1 ? blocos[0].textoOriginal : undefined,
     }
     const nomeObra = site?.name ?? ''
     return {
-      title: `RDO WCR${nomeObra ? ' — ' + nomeObra : ''}${lido.nucleo ? ' · ' + lido.nucleo : ''}`,
+      title: `RDO WCR${nomeObra ? ' — ' + nomeObra : ''}${dia.nucleo ? ' · ' + dia.nucleo : ''}`,
       date: lido.data || hojeLocalISO(),
-      responsible: responsavel || lido.equipe || '',
+      responsible: responsavel || dia.equipe || '',
       weather: { morning: 'good' as const, afternoon: 'good' as const, night: 'good' as const, temperatureC: 0 },
-      manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0, employeeNames: [] },
+      // Quem estava na obra, pela lista de presença. ⚠️ Não vira custo — ver o docblock.
+      manpower,
       equipment: [],
       services: [],
       trechos: [],
       geolocation: null,
-      observations: lido.observacoes ?? '',
+      observations: dia.observacoes ?? '',
       incidents: '',
       photos: [],
       siteId: obraSiteId,
@@ -204,13 +224,18 @@ export function RdoWcrPanel() {
             titulo="Arraste a planilha ou clique"
             aoEscolher={(arquivos) => { const f = arquivos[0]; if (f) void lerArquivo(f) }}
           />
-          {(lido || texto) && (
+          {(lido || presencas.length > 0 || texto) && (
             <button
-              onClick={() => { setTexto(''); setLido(null); setSavedId(null); setAviso(null); setProblemasDaPlanilha([]) }}
+              onClick={() => { setTexto(''); setApontamentos([]); setPresencas([]); setSavedId(null); setAviso(null); setProblemasDaPlanilha([]) }}
               className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#6b6b6b] hover:text-[#f5f5f5]"
             >
-              <Trash2 size={14} /> Limpar
+              <Trash2 size={14} /> Limpar o dia
             </button>
+          )}
+          {(apontamentos.length + presencas.length) > 0 && (
+            <span className="text-[11px] text-[#6b6b6b]">
+              {apontamentos.length} apontamento(s) · {presencas.length} lista(s) de presença
+            </span>
           )}
         </div>
         {problemasDaPlanilha.map((p, i) => (
@@ -219,88 +244,45 @@ export function RdoWcrPanel() {
       </section>
 
       {/* ── Conferência ─────────────────────────────────────────────────────── */}
-      {lido && (
+      {(lido || presencas.length > 0) && (
         <section className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-4 space-y-4">
           <h3 className="text-sm font-semibold text-[#f5f5f5]">Confira antes de salvar</h3>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Campo rotulo="Data">
-              {lido.data ? (
-                <span className="text-[#f5f5f5]">
-                  {lido.data.split('-').reverse().join('/')}
-                  {/* ⚠️ O apontamento escreve "31/08" sem ano. Quem confere precisa VER o ano
-                      que a máquina escolheu — senão descobre meses depois, no relatório. */}
-                  {lido.anoInferido && <span className="ml-1 text-[#fbbf24]">· ano deduzido</span>}
-                </span>
-              ) : (
-                <span className="text-[#fbbf24]">não veio no texto</span>
-              )}
-            </Campo>
-            <Campo rotulo="Equipe">{lido.equipe ?? <Ausente />}</Campo>
-            <Campo rotulo="Núcleo">{lido.nucleo ?? <Ausente />}</Campo>
-            <Campo rotulo="Imóveis">
-              {lido.imoveis.length ? `${lido.imoveis.length} endereço${lido.imoveis.length > 1 ? 's' : ''}` : <Ausente />}
-            </Campo>
-          </div>
-
-          {lido.imoveis.length > 0 && (
-            <ul className="space-y-0.5 text-xs text-[#a3a3a3]">
-              {lido.imoveis.map((im, i) => <li key={i}>· {im}</li>)}
-            </ul>
-          )}
-
-          {/* Produção */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-[#525252] text-left text-[#6b6b6b]">
-                  <th className="py-1.5 pr-3 font-medium">Serviço</th>
-                  <th className="py-1.5 pr-3 font-medium">Sigla</th>
-                  <th className="py-1.5 pr-3 text-right font-medium">Quantidade</th>
-                  <th className="py-1.5 font-medium">Un.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lido.linhas.map((l) => (
-                  <tr key={l.sigla} className="border-b border-[#3d3d3d]">
-                    <td className="py-1.5 pr-3 text-[#a3a3a3]">{l.rotulo}</td>
-                    <td className="py-1.5 pr-3 text-[#f5f5f5]">{l.sigla}</td>
-                    <td className="py-1.5 pr-3 text-right">
-                      {l.quantidade === undefined
-                        // ⚠️ "não informado" e "zero" são coisas diferentes, e a tela diz qual é.
-                        ? <span className="text-[#6b6b6b]">não informado</span>
-                        : <span className="font-medium text-[#f5f5f5]">{l.quantidade.toLocaleString('pt-BR')}</span>}
-                    </td>
-                    <td className="py-1.5 text-[#6b6b6b]">{l.unidade === 'M' ? 'm' : 'un'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {resumo && (
-            <p className="text-xs text-[#a3a3a3]">
-              {/* ⚠️ Metro e unidade aparecem SEPARADOS. Somá-los daria um número que não
-                  significa nada — é a mesma regra do `somarMetragem`. */}
-              <strong className="text-[#f5f5f5]">{resumo.unidades.toLocaleString('pt-BR')}</strong> serviço(s)
-              {resumo.metros > 0 && <> · <strong className="text-[#f5f5f5]">{resumo.metros.toLocaleString('pt-BR')}</strong> m de rede</>}
-              {resumo.semMedida > 0 && <span className="text-[#6b6b6b]"> · {resumo.semMedida} sem medida</span>}
+          {datas.length > 1 && (
+            <p className="rounded-lg border border-[#fbbf24]/40 bg-[#fbbf24]/5 p-2 text-xs text-[#fbbf24]">
+              <AlertTriangle size={12} className="mr-1 inline" />
+              Os textos colados são de datas diferentes ({datas.map((d) => d!.split('-').reverse().join('/')).join(', ')}).
+              Um RDO é de um dia só — o RDO vai ficar com a data do primeiro apontamento.
             </p>
           )}
 
-          {lido.observacoes && (
-            <Campo rotulo="Observações"><span className="whitespace-pre-wrap text-[#a3a3a3]">{lido.observacoes}</span></Campo>
+          {apontamentos.map((a, i) => (
+            <BlocoApontamento
+              key={i} indice={i} total={apontamentos.length} lido={a.lido}
+              onRemover={() => setApontamentos((as) => as.filter((_, k) => k !== i))}
+            />
+          ))}
+
+          {dia && blocos.length > 1 && <TotalDoDia producao={dia.producao} imoveis={dia.imoveis.length} />}
+
+          {presencas.map((p, i) => (
+            <BlocoPresenca
+              key={i} lida={p.lida}
+              onRemover={() => setPresencas((ps) => ps.filter((_, k) => k !== i))}
+            />
+          ))}
+
+          {presencas.length > 0 && (
+            <p className="text-xs text-[#a3a3a3]">
+              Na obra: <strong className="text-[#f5f5f5]">{manpower.employeeNames?.length ?? 0}</strong> pessoa(s) —{' '}
+              {manpower.foremanCount} encarregado(s) · {manpower.officialCount} oficial(is) · {manpower.helperCount} ajudante(s)
+              {manpower.operatorCount > 0 && <> · {manpower.operatorCount} operador(es)</>}
+              <span className="text-[#6b6b6b]"> · a presença não vira custo: o custo da WCR entra pelo Controle de Caixa</span>
+            </p>
           )}
 
-          {lido.naoEntendidas.length > 0 && (
-            <div className="rounded-lg border border-[#fbbf24]/40 bg-[#fbbf24]/5 p-3">
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-[#fbbf24]">
-                <AlertTriangle size={14} /> Não entendi {lido.naoEntendidas.length} linha(s)
-              </p>
-              <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-[#a3a3a3]">
-                {lido.naoEntendidas.map((n, i) => <li key={i}>{n}</li>)}
-              </ul>
-            </div>
+          {!lido && presencas.length > 0 && (
+            <p className="text-xs text-[#fbbf24]">Só lista de presença até agora — cole também o apontamento do dia para salvar o RDO.</p>
           )}
         </section>
       )}
@@ -371,4 +353,114 @@ function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode
 
 function Ausente() {
   return <span className="text-[#6b6b6b]">não informado</span>
+}
+
+/** Um apontamento — uma equipe. Com vários no dia, cada um aparece inteiro, e o total vem depois. */
+function BlocoApontamento({ indice, total, lido, onRemover }: { indice: number; total: number; lido: ApontamentoWcr; onRemover: () => void }) {
+  const resumo = resumirApontamento(lido)
+  return (
+    <div className={`space-y-3 ${total > 1 ? 'rounded-lg border border-[#3d3d3d] p-3' : ''}`}>
+      {total > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-[#f97316]">Apontamento {indice + 1} de {total}{lido.equipe ? ` — ${lido.equipe}` : ''}</p>
+          <button type="button" onClick={onRemover} className="text-[11px] text-[#6b6b6b] hover:text-[#f5f5f5]">remover</button>
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Campo rotulo="Data">
+          {lido.data ? (
+            <span className="text-[#f5f5f5]">
+              {lido.data.split('-').reverse().join('/')}
+              {/* ⚠️ O apontamento escreve "31/08" sem ano. Quem confere precisa VER o ano que a
+                  máquina escolheu — senão descobre meses depois, no relatório. */}
+              {lido.anoInferido && <span className="ml-1 text-[#fbbf24]">· ano deduzido</span>}
+            </span>
+          ) : <span className="text-[#fbbf24]">não veio no texto</span>}
+        </Campo>
+        <Campo rotulo="Equipe">{lido.equipe ?? <Ausente />}</Campo>
+        <Campo rotulo="Núcleo">{lido.nucleo ?? <Ausente />}</Campo>
+        <Campo rotulo="Imóveis">{lido.imoveis.length ? `${lido.imoveis.length} endereço${lido.imoveis.length > 1 ? 's' : ''}` : <Ausente />}</Campo>
+      </div>
+      {lido.imoveis.length > 0 && (
+        <ul className="space-y-0.5 text-xs text-[#a3a3a3]">{lido.imoveis.map((im, i) => <li key={i}>· {im}</li>)}</ul>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-[#525252] text-left text-[#6b6b6b]">
+            <th className="py-1.5 pr-3 font-medium">Serviço</th><th className="py-1.5 pr-3 font-medium">Sigla</th>
+            <th className="py-1.5 pr-3 text-right font-medium">Quantidade</th><th className="py-1.5 font-medium">Un.</th>
+          </tr></thead>
+          <tbody>
+            {lido.linhas.map((l) => (
+              <tr key={l.sigla} className="border-b border-[#3d3d3d]">
+                <td className="py-1.5 pr-3 text-[#a3a3a3]">{l.rotulo}</td>
+                <td className="py-1.5 pr-3 text-[#f5f5f5]">{l.sigla}</td>
+                <td className="py-1.5 pr-3 text-right">
+                  {l.quantidade === undefined
+                    // ⚠️ "não informado" e "zero" são coisas diferentes, e a tela diz qual é.
+                    ? <span className="text-[#6b6b6b]">não informado</span>
+                    : <span className="font-medium text-[#f5f5f5]">{l.quantidade.toLocaleString('pt-BR')}</span>}
+                </td>
+                <td className="py-1.5 text-[#6b6b6b]">{l.unidade === 'M' ? 'm' : 'un'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-[#a3a3a3]">
+        {/* ⚠️ Metro e unidade aparecem SEPARADOS. Somá-los daria um número que não significa nada. */}
+        <strong className="text-[#f5f5f5]">{resumo.unidades.toLocaleString('pt-BR')}</strong> serviço(s)
+        {resumo.metros > 0 && <> · <strong className="text-[#f5f5f5]">{resumo.metros.toLocaleString('pt-BR')}</strong> m de rede</>}
+        {resumo.semMedida > 0 && <span className="text-[#6b6b6b]"> · {resumo.semMedida} sem medida</span>}
+      </p>
+      {lido.observacoes && <Campo rotulo="Observações"><span className="whitespace-pre-wrap text-[#a3a3a3]">{lido.observacoes}</span></Campo>}
+      {lido.naoEntendidas.length > 0 && (
+        <div className="rounded-lg border border-[#fbbf24]/40 bg-[#fbbf24]/5 p-3">
+          <p className="flex items-center gap-1.5 text-xs font-semibold text-[#fbbf24]"><AlertTriangle size={14} /> Não entendi {lido.naoEntendidas.length} linha(s)</p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-[#a3a3a3]">{lido.naoEntendidas.map((n, i) => <li key={i}>{n}</li>)}</ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A soma do dia. Sigla que ninguém informou continua "não informado" — não vira zero. */
+function TotalDoDia({ producao, imoveis }: { producao: RdoWcrData['producao']; imoveis: number }) {
+  const com = producao.filter((l) => l.quantidade !== '')
+  return (
+    <div className="rounded-lg border border-[#f97316]/40 bg-[#f97316]/5 p-3 space-y-2">
+      <p className="text-xs font-semibold text-[#f97316]">Total do dia — {imoveis} endereço(s) · {com.length} serviço(s) com medida</p>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {com.map((l) => (
+          <span key={l.sigla} className="text-[#a3a3a3]">{l.sigla} <strong className="text-[#f5f5f5]">{Number(l.quantidade).toLocaleString('pt-BR')}</strong> {l.unidade === 'M' ? 'm' : 'un'}</span>
+        ))}
+        {com.length === 0 && <span className="text-[#6b6b6b]">nenhuma sigla com medida</span>}
+      </div>
+    </div>
+  )
+}
+
+function BlocoPresenca({ lida, onRemover }: { lida: PresencaLida; onRemover: () => void }) {
+  return (
+    <div className="rounded-lg border border-[#3d3d3d] p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-[#f5f5f5]">
+          Lista de presença{lida.equipe ? ` — ${lida.equipe}` : ''}
+          {lida.data && <span className="ml-2 font-normal text-[#6b6b6b]">{lida.data.split('-').reverse().join('/')}{lida.anoInferido ? ' · ano deduzido' : ''}</span>}
+        </p>
+        <button type="button" onClick={onRemover} className="text-[11px] text-[#6b6b6b] hover:text-[#f5f5f5]">remover</button>
+      </div>
+      <ul className="grid gap-x-4 gap-y-0.5 text-xs sm:grid-cols-2">
+        {lida.pessoas.map((p, i) => (
+          <li key={i} className="text-[#a3a3a3]">
+            <span className="text-[#f5f5f5]">{p.nome}</span>{p.funcao && <> — {p.funcao}</>}
+            <span className="ml-1 text-[#6b6b6b]">({funcaoCanonica(p.funcao)})</span>
+          </li>
+        ))}
+      </ul>
+      {lida.naoEntendidas.length > 0 && (
+        <p className="text-[11px] text-[#fbbf24]"><AlertTriangle size={12} className="mr-1 inline" />Não entendi: {lida.naoEntendidas.join(' · ')}</p>
+      )}
+    </div>
+  )
 }

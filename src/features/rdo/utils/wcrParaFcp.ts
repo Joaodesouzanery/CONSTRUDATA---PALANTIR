@@ -17,6 +17,7 @@
  * rede nessa conta inflaria o faturamento projetado e, com ele, o capital recomendado. Os metros
  * voltam num campo próprio, para a tela poder mostrá-los sem somá-los.
  */
+import { quantidadeGuardada } from './apontamentoWcrDia'
 import type { RDO, ConstructionSite } from '@/types'
 import type { PlanoFcp } from '@/store/fcpStore'
 import type { Semana } from '@/features/financeiro/utils/fcp/tipos'
@@ -84,8 +85,10 @@ export function producaoDosRdos(rdos: RDO[]): ProducaoDosRdos {
     for (const l of r.wcr?.producao ?? []) {
       const bruto = String(l.quantidade ?? '').trim()
       if (bruto === '') { semMedida += 1; continue }
-      const n = Number(bruto.replace(/\./g, '').replace(',', '.'))
-      if (!Number.isFinite(n)) { semMedida += 1; continue }
+      // ⚠️ `quantidadeGuardada`, não a regra pt-BR: o RDO grava `String(número)`, e "tirar o
+      // ponto" lia 12,5 m de rede como 125 m. Achado em 08/09/2026 ao somar apontamentos.
+      const n = quantidadeGuardada(bruto)
+      if (n === undefined) { semMedida += 1; continue }
       if (l.unidade === 'M') metros += n
       else unidades += n
     }

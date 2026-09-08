@@ -111,9 +111,18 @@ test('dois RDOs na mesma semana SOMAM', () => {
   assert.equal(producaoDosRdos(achados).unidades, 7)
 })
 
-test('quantidade em pt-BR na produção', () => {
-  const r = rdoWcr({ producao: [{ sigla: 'LA', quantidade: '1.234', unidade: 'UN' }] })
-  assert.equal(producaoDosRdos([r]).unidades, 1234)
+test('a quantidade guardada é String(número): 12.5 são doze e meio, não cento e vinte e cinco', () => {
+  // ⚠️ Este teste dizia o contrário ('1.234' → 1234, milhar pt-BR) — e descrevia um dado que o
+  // app nunca grava: o painel e a planilha guardam `String(número)`. Com a regra antiga, 12,5 m
+  // de rede viravam 125 m na ponte com o FCP. A vírgula continua aceita, para texto digitado.
+  const r = rdoWcr({ producao: [
+    { sigla: 'PRA', quantidade: '12.5', unidade: 'M' },
+    { sigla: 'LA', quantidade: '1234', unidade: 'UN' },
+    { sigla: 'LE', quantidade: '1,5', unidade: 'UN' },
+  ] })
+  const p = producaoDosRdos([r])
+  assert.equal(p.metros, 12.5)
+  assert.equal(p.unidades, 1235.5)
 })
 
 // ─── divergências ────────────────────────────────────────────────────────────

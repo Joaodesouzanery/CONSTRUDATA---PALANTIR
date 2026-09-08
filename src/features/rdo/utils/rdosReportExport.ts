@@ -325,10 +325,49 @@ function corpoCompizzo(r: RDO): string {
  * que sumiu do papel é indistinguível de uma que ninguém executou. Quem assina precisa ver as duas
  * colunas: o que foi feito e o que ficou sem resposta.
  */
+function tabelaProducaoWcr(linhas: NonNullable<RDO['wcr']>['producao']): string {
+  return tabela(
+    ['Serviço', 'Quantidade', 'Un.'],
+    linhas.map((l) => {
+      const bruto = String(l.quantidade ?? '').trim()
+      return `<tr>
+        <td>${esc(l.sigla)}</td>
+        <td class="c n">${bruto === '' ? '<span class="vazio">não informado</span>' : esc(fmtQtd(num(bruto)))}</td>
+        <td class="c">${l.unidade === 'M' ? 'm' : 'un'}</td>
+      </tr>`
+    }),
+    'Nenhum serviço no apontamento.',
+  )
+}
+
+function tabelaImoveisWcr(imoveis: string[]): string {
+  return tabela(['#', 'Endereço'], imoveis.map((im, i) => `<tr><td class="c n">${i + 1}</td><td>${esc(im)}</td></tr>`), 'Nenhum imóvel informado.')
+}
+
 function corpoWcr(r: RDO): string {
   const w = r.wcr!
   const linhas = w.producao ?? []
   const comNumero = linhas.filter((l) => String(l.quantidade ?? '').trim() !== '')
+  const varios = (w.apontamentos ?? []).length > 1
+  const presencas = w.presencas ?? []
+
+  // Vários apontamentos: cada equipe inteira, e depois o total. Quem assina precisa ver quem fez o
+  // quê — a soma sozinha não diz.
+  const porEquipe = varios
+    ? (w.apontamentos ?? []).map((a, i) => secao(
+        `Apontamento ${i + 1} — ${[a.equipe, a.nucleo].filter(Boolean).map(esc).join(' · ') || 'sem identificação'}`,
+        tabelaImoveisWcr(a.imoveis ?? []) + tabelaProducaoWcr(a.producao ?? []) + (a.observacoes ? `<p class="texto">${esc(a.observacoes)}</p>` : ''),
+        `${(a.imoveis ?? []).length} endereço(s) · ${(a.producao ?? []).filter((l) => String(l.quantidade ?? '').trim() !== '').length} com medida`,
+      )).join('')
+    : ''
+
+  const presenca = presencas.length
+    ? secao('Quem estava na obra', tabela(
+        ['Equipe', 'Nome', 'Função'],
+        presencas.flatMap((p) => p.pessoas.map((x) => `<tr><td>${esc(p.equipe ?? '—')}</td><td>${esc(x.nome)}</td><td>${esc(x.funcao ?? '—')}</td></tr>`)),
+        'Nenhuma lista de presença.',
+      ), `${presencas.reduce((a, p) => a + p.pessoas.length, 0)} pessoa(s) · ${r.manpower.foremanCount} encarregado(s), ${r.manpower.officialCount} oficial(is), ${r.manpower.helperCount} ajudante(s)`)
+    : ''
 
   return [
     secao('Identificação do dia', tabela(
@@ -341,24 +380,13 @@ function corpoWcr(r: RDO): string {
       ? '<p class="vazio">⚠️ O ano da data não veio no apontamento e foi deduzido pelo sistema.</p>'
       : '')),
 
-    secao('Imóveis atendidos', tabela(
-      ['#', 'Endereço'],
-      (w.imoveis ?? []).map((im, i) => `<tr><td class="c n">${i + 1}</td><td>${esc(im)}</td></tr>`),
-      'Nenhum imóvel informado.',
-    ), `${(w.imoveis ?? []).length} endereço(s)`),
+    porEquipe,
 
-    secao('Produção do dia', tabela(
-      ['Serviço', 'Quantidade', 'Un.'],
-      linhas.map((l) => {
-        const bruto = String(l.quantidade ?? '').trim()
-        return `<tr>
-          <td>${esc(l.sigla)}</td>
-          <td class="c n">${bruto === '' ? '<span class="vazio">não informado</span>' : esc(fmtQtd(num(bruto)))}</td>
-          <td class="c">${l.unidade === 'M' ? 'm' : 'un'}</td>
-        </tr>`
-      }),
-      'Nenhum serviço no apontamento.',
-    ), `${comNumero.length} de ${linhas.length} com medida`),
+    secao(varios ? 'Imóveis atendidos — todas as equipes' : 'Imóveis atendidos', tabelaImoveisWcr(w.imoveis ?? []), `${(w.imoveis ?? []).length} endereço(s)`),
+
+    secao(varios ? 'Produção do dia — TOTAL das equipes' : 'Produção do dia', tabelaProducaoWcr(linhas), `${comNumero.length} de ${linhas.length} com medida`),
+
+    presenca,
 
     w.observacoes ? secao('Observações', `<p class="texto">${esc(w.observacoes)}</p>`) : '',
 
