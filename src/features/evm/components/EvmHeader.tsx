@@ -209,18 +209,19 @@ export function EvmHeader({ activeTab, setActiveTab }: EvmHeaderProps) {
         </div>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards — sigla SEMPRE com a descrição ao lado. Quem abre esta tela não é obrigado a
+          saber o que é EVM; o `?` traz o texto longo, mas o rótulo já tem de dizer o essencial. */}
       <div className="px-6 pb-4 flex gap-3 overflow-x-auto scrollbar-hide">
         {/* Cada índice declara TODAS as pernas de que depende. Sem uma delas, "—" e o motivo. */}
-        <KpiCard label="CPI" value={indiceOuNada(CPI, AC, EV)} isIndex
+        <KpiCard label="CPI · real gasto virou serviço" value={indiceOuNada(CPI, AC, EV)} isIndex
           sub="falta o serviço entregue" explicacao={EXPLICA.cpi} />
-        <KpiCard label="SPI" value={indiceOuNada(SPI, PV, EV)} isIndex
+        <KpiCard label="SPI · andou o que devia" value={indiceOuNada(SPI, PV, EV)} isIndex
           sub="falta o plano de valor" explicacao={EXPLICA.spi} />
-        <KpiCard label="Orçamento planejado" value={BAC > 0 ? BAC : null} isCurrency
+        <KpiCard label="BAC · orçamento da obra" value={BAC > 0 ? BAC : null} isCurrency
           sub="obra sem orçamento" explicacao={EXPLICA.bac} />
-        <KpiCard label="EAC (R$)" value={indiceOuNada(EAC, BAC, EV)} isCurrency
+        <KpiCard label="EAC · custo estimado no fim" value={indiceOuNada(EAC, BAC, EV)} isCurrency
           sub="depende do orçamento e do avanço" explicacao={EXPLICA.eac} />
-        <KpiCard label="VAC (R$)" value={indiceOuNada(VAC, BAC, EV)} isCurrency
+        <KpiCard label="VAC · sobra ou falta no fim" value={indiceOuNada(VAC, BAC, EV)} isCurrency
           sub="depende do orçamento e do avanço" explicacao={EXPLICA.vac} />
       </div>
 

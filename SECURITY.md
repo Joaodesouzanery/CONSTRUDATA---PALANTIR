@@ -158,3 +158,25 @@ Não dá para versionar em código: `supabase/config.toml` governa o ambiente **
 ## 📞 Contato
 
 Para reportar vulnerabilidade: abrir issue privada ou contatar o owner.
+
+## Quadro nominal do FCP na tela — só diretoria (08/09/2026)
+
+A aba **Custos** do Fluxo de Caixa Projetado renderizava nome, cargo e salário individual das
+~30 pessoas do quadro para **qualquer papel da organização** — inclusive `visualizador`,
+`comprador` e os papéis prediais. A decisão de 04/09 acima era sobre os **arquivos** no Git, não
+sobre a tela; as duas coisas não tinham sido decididas juntas.
+
+**Decisão do controlador em 08/09/2026: o quadro nominal aparece só para `owner` e `diretor`** — o
+mesmo gate que já protege a Auditoria e a aprovação do plano. Os demais veem o quadro por equipe,
+com contagem e total.
+
+⚠️ É gate de **tela**. A policy de `fcp_planos` filtra só por `organization_id`, então o payload
+com o quadro continua sendo entregue a qualquer usuário autenticado da org que chame a API
+diretamente. Restringir isso no banco exigiria separar o quadro nominal do payload do plano (ou
+uma policy que leia o papel), e ficou registrado como pendência.
+
+**Restrição por usuário** (limitar uma pessoa a alguns módulos) **não existe em camada nenhuma**
+— nem coluna, nem policy, nem guarda de rota. Decisão de 08/09/2026: controle **só por papel, por
+enquanto**. Quando for feita, são três camadas obrigatórias: coluna em `memberships` protegida no
+trigger `guard_profile_self_privilege`, filtro no menu, guarda por rota — e, para valer de
+verdade, as policies de SELECT lendo a coluna.

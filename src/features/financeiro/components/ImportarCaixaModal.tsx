@@ -79,7 +79,10 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
    * Fica aqui, e não no `Conferido`, porque é o `paraGravar` deste componente que precisa dela —
    * e porque escolher a obra é decisão que sobrevive a rolar a tabela.
    */
-  const [obraPorLinha, setObraPorLinha] = useState<Record<string, string>>({})
+  // ⚠️ `Map`, não objeto: a chave é o id da linha, que numa planilha com coluna ID é o texto cru
+  // da célula. Num objeto, um id `__proto__` devolveria `Object.prototype` (truthy) e a linha
+  // ganharia um objeto como obra. Achado na revisão de segurança de 08/09/2026.
+  const [obraPorLinha, setObraPorLinha] = useState<ReadonlyMap<string, string>>(() => new Map())
   const perfil = useAuth((s) => s.profile)
   // Quem está importando é quem está conferindo — é o mesmo gesto.
   const quemConfere = perfil?.full_name ?? perfil?.email ?? undefined
@@ -156,7 +159,7 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
           obraId, agora, conferidoPor: quemConfere, obras: sites, colunas: lido.colunas,
         })
         // A escolha da pessoa na tela vence a planilha e o fallback — foi ela quem olhou a linha.
-        const escolhida = obraPorLinha[l.id]
+        const escolhida = obraPorLinha.get(l.id)
         return escolhida ? { ...e, obraId: escolhida } : e
       })
     const daGrade = lido.horasExtras
@@ -182,8 +185,8 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
   function atribuirEmMassa(idObra: string) {
     if (!idObra) return
     setObraPorLinha((atual) => {
-      const novo = { ...atual }
-      for (const l of semObra) novo[l.id] = idObra
+      const novo = new Map(atual)
+      for (const l of semObra) novo.set(l.id, idObra)
       return novo
     })
   }
@@ -241,9 +244,9 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
               semObra={semObra.length}
               onAtribuirEmMassa={atribuirEmMassa}
               onEscolherObra={(idLinha, idObra) => setObraPorLinha((a) => {
-                const novo = { ...a }
-                if (idObra) novo[idLinha] = idObra
-                else delete novo[idLinha]
+                const novo = new Map(a)
+                if (idObra) novo.set(idLinha, idObra)
+                else novo.delete(idLinha)
                 return novo
               })}
             />
@@ -291,7 +294,7 @@ function Conferido({
   /** A obra que a linha vai receber — da coluna, do fallback ou da escolha à mão. */
   obraDaLinha: (idLinha: string) => string | undefined
   /** Só as escolhidas na tela. Separadas porque escolha à mão precisa poder ser desfeita. */
-  obraEscolhida: Record<string, string>
+  obraEscolhida: ReadonlyMap<string, string>
   /** Quantas linhas gravariam sem obra nenhuma. */
   semObra: number
   onAtribuirEmMassa: (idObra: string) => void
@@ -465,7 +468,7 @@ function Conferido({
                 <td className="px-3 py-2 whitespace-nowrap">
                   {/* Resolvida pela planilha: mostra e pronto. Sem obra: deixa escolher aqui
                       mesmo, que é onde a pessoa está olhando a linha. */}
-                  {obraDaLinha(l.id) && !obraEscolhida[l.id] ? (
+                  {obraDaLinha(l.id) && !obraEscolhida.get(l.id) ? (
                     <span className="text-[#a3a3a3]">
                       {sites.find((o) => o.id === obraDaLinha(l.id))?.name ?? '—'}
                     </span>
@@ -475,7 +478,7 @@ function Conferido({
                     <select
                       // ⚠️ Controlado pela escolha, não por `value=""`: sem isto a pessoa escolhia
                       // a obra, a célula virava texto e não havia como desfazer o engano.
-                      value={obraEscolhida[l.id] ?? ''}
+                      value={obraEscolhida.get(l.id) ?? ''}
                       onChange={(e) => onEscolherObra(l.id, e.target.value)}
                       className="rounded border border-[#525252] bg-[#3a3a3a] px-1.5 py-0.5 text-[11px] text-[#a3a3a3]"
                     >
