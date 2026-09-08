@@ -17,7 +17,7 @@ import {
   diasDaSemanaNoMes, fluxoEconomico, fluxoMensal, fluxoSemanal, impostoDaNota, mesesDoFluxo,
   piorPontoSemanal, primeiroDiaDoMes, producaoPrevistaSemanal, semanasDoFluxo, sensibilidade,
   somarDias, ticketDaCidade, totalDaFolha, ultimoDiaDoMes, viabilidadeDaCidade, viabilidadeGlobal,
-  mesesDeCaixa,
+  mesesDeCaixa, semanaDoFcp,
 } from './motor'
 import type { PremissasFcp } from './tipos'
 
@@ -57,6 +57,15 @@ test('os meses do horizonte, com dias de obra e data de pagamento — AUX!C3:Q9'
   assert.equal(m[1].diasEquivalentes, 30, 'do 2º mês em diante, dias equivalentes = dias de obra')
   assert.equal(m[11].mes, '2027-07-01')
   assert.equal(m.reduce((s, x) => s + x.diasDeObra, 0), 342, 'ECONÔMICO!Q6')
+})
+
+test('semanaDoFcp: a régua do plano, relativa ao início da obra', () => {
+  // inicioObra = 2026-08-24 (segunda). Dia 7 ainda é semana 1; dia 8 é semana 2.
+  assert.equal(semanaDoFcp('2026-08-23', P), null, 'antes do início não há semana')
+  assert.equal(semanaDoFcp('2026-08-24', P), 1)
+  assert.equal(semanaDoFcp('2026-08-30', P), 1)
+  assert.equal(semanaDoFcp('2026-08-31', P), 2)
+  assert.equal(semanaDoFcp('2026-11-15', P), 12)
 })
 
 // ─── Custos ───────────────────────────────────────────────────────────────────

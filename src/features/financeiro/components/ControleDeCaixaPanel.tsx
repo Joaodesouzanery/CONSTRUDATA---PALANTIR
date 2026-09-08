@@ -28,6 +28,7 @@ import { Autoria } from '@/components/shared/Autoria'
 import { ImportarCaixaModal } from './ImportarCaixaModal'
 import { baixarPlanilhaModelo, rotuloDaCategoria, CATEGORIAS_DA_PLANILHA } from '../utils/controleDeCaixaModelo'
 import type { EntradaCategoria, FinanceiroEntry, SaidaCategoria } from '@/types'
+import { ehDoCaixa, agruparCaixa, type GrupoCaixa } from '../utils/caixaAgrupar'
 
 const INPUT = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const LABEL = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -40,10 +41,6 @@ const ROTULO_ORIGEM: Record<string, string> = {
   'horas-extras': 'Hora extra',
 }
 
-/** Só o que passou pelo Controle de Caixa. O resto do Financeiro tem suas próprias telas. */
-function ehDoCaixa(e: FinanceiroEntry): boolean {
-  return e.origem === 'planilha' || e.origem === 'manual' || e.origem === 'horas-extras'
-}
 
 export function ControleDeCaixaPanel() {
   const { entries, addEntry, updateEntry, removeEntry } = useFinanceiroStore(
@@ -626,18 +623,9 @@ function RelatoriosSub({ doCaixa, sites }: { doCaixa: FinanceiroEntry[]; sites: 
     return true
   }), [doCaixa, de, ate])
 
-  const agrupar = (chave: (e: FinanceiroEntry) => string[]) => {
-    const m = new Map<string, { receitas: number; despesas: number; n: number }>()
-    for (const e of noPeriodo) {
-      for (const k of chave(e)) {
-        const v = m.get(k) ?? { receitas: 0, despesas: 0, n: 0 }
-        if (e.tipo === 'entrada') v.receitas += e.valor; else v.despesas += e.valor
-        v.n++
-        m.set(k, v)
-      }
-    }
-    return [...m.entries()].sort((a, b) => (b[1].despesas + b[1].receitas) - (a[1].despesas + a[1].receitas))
-  }
+  // A mesma régua do Projetado × Realizado e dos indicadores — ver `caixaAgrupar.ts`.
+  const agrupar = (chave: (e: FinanceiroEntry) => string[]) =>
+    agruparCaixa(noPeriodo, chave).map((g) => [g.chave, g] as [string, GrupoCaixa])
 
   const porCategoria = agrupar((e) => [rotuloDaCategoria(e.categoria)])
   const porObra = agrupar((e) => [sites.find((s) => s.id === e.obraId)?.name ?? 'Sem obra'])

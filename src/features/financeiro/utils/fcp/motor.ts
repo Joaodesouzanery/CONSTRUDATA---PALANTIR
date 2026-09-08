@@ -48,7 +48,7 @@ export function somarMeses(isoData: string, n: number): string {
   return iso(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate())))
 }
 
-function diferencaEmDias(a: string, b: string): number {
+export function diferencaEmDias(a: string, b: string): number {
   return Math.round((dia(b).getTime() - dia(a).getTime()) / MS_DIA)
 }
 
@@ -193,6 +193,18 @@ export function viabilidadeGlobal(p: PremissasFcp): LinhaViabilidade[] {
 export const VERSAO_DO_MOTOR = 2
 
 // ─── Calendário ───────────────────────────────────────────────────────────────
+
+/**
+ * Em que semana do FCP cai uma data. `null` antes de `inicioObra`.
+ *
+ * ⚠️ É a régua do PLANO, relativa a `inicioObra` — não a semana ISO do calendário. `lib/periodo.ts`
+ * tem um `semanaDe` que é segunda-a-domingo do calendário, em fuso local; hoje as duas coincidem
+ * porque o cliente começou numa segunda, por acaso. Misturá-las ganha um dia de erro na virada.
+ */
+export function semanaDoFcp(dataISO: string, p: Pick<PremissasFcp, 'inicioObra'>): number | null {
+  const d = diferencaEmDias(p.inicioObra, dataISO)
+  return d < 0 ? null : Math.floor(d / 7) + 1
+}
 
 /** As semanas do horizonte, a partir da segunda-feira de início. `FCP SEMANAL!D6:O8`. */
 export function semanasDoFluxo(p: PremissasFcp, quantidade = 12): Semana[] {

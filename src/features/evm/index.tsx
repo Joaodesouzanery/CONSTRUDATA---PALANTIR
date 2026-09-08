@@ -20,6 +20,7 @@ import { VisaoGeralPanel } from '@/features/financeiro/components/VisaoGeralPane
 import { EntradasPanel, SaidasPanel } from '@/features/financeiro/components/EntradasSaidasPanel'
 import { DrePanel } from '@/features/financeiro/components/DrePanel'
 import { FluxoCaixaPanel } from '@/features/financeiro/components/FluxoCaixaPanel'
+import { ProjetadoRealizadoPanel } from '@/features/financeiro/components/ProjetadoRealizadoPanel'
 import { ControleDeCaixaPanel } from '@/features/financeiro/components/ControleDeCaixaPanel'
 import { FcpPanel } from '@/features/financeiro/components/FcpPanel'
 import { PagamentosPanel } from '@/features/financeiro/components/PagamentosPanel'
@@ -51,6 +52,8 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
           // diz qual é qual — é a mesma distinção entre medido e estimado que o Economia faz.
           { key: 'fluxo',    label: 'Fluxo de Caixa', render: () => <FluxoCaixaPanel /> },
           { key: 'fcp',      label: 'Fluxo de Caixa Projetado', render: () => <FcpPanel /> },
+          // O cruzamento dos dois: "a obra está gastando o que a gente planejou?", total e por obra.
+          { key: 'projetado-realizado', label: 'Projetado × Realizado', render: () => <ProjetadoRealizadoPanel /> },
           { key: 'caixa',    label: 'Controle de Caixa', render: () => <ControleDeCaixaPanel /> },
         ]} />
       )
