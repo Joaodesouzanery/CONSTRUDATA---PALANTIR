@@ -15,6 +15,7 @@ import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStat
 import { getTenantMarker } from '@/lib/tenantCache'
 import type { PremissasFcp } from '@/features/financeiro/utils/fcp/tipos'
 import type { PrecoDoContrato } from '@/features/financeiro/utils/fcp/importarFcp'
+import type { PrecosConfirmados } from '@/features/financeiro/utils/fcp/precosConfirmados'
 
 /** rascunho → enviado → aprovado. A tela trava a edição a partir de 'aprovado'. */
 export type StatusDoPlano = 'rascunho' | 'enviado' | 'aprovado'
@@ -34,6 +35,12 @@ export interface PlanoFcp {
    * foto vêm marcados "conferir", e essa marca não pode se perder na importação.
    */
   precos?: Record<string, PrecoDoContrato[]>
+  /**
+   * Confirmações dos preços "a conferir", por chave composta — À PARTE dos preços, porque a
+   * reimportação sobrescreve `precos` inteiro. Ver `precosConfirmados.ts`. Vive no `payload jsonb`:
+   * campo novo, sem migração.
+   */
+  precosConfirmados?: PrecosConfirmados
   criadoEm: string
   /**
    * Com que versão do motor este plano foi calculado. Ausente = 1 (antes de a versão existir).

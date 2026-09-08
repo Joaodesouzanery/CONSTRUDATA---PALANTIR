@@ -16,6 +16,7 @@ import type { PremissasFcp } from './tipos'
 import { ROTULO_CENARIO } from './tipos'
 import { capitalNecessario, custoMensalDaCidade, custoMensalGlobal, fluxoMensal, ticketDaCidade, VERSAO_DO_MOTOR } from './motor'
 import type { PrecoDoContrato } from './importarFcp'
+import { reconciliarConfirmacoes } from './precosConfirmados'
 
 /**
  * O id do plano.
@@ -176,6 +177,9 @@ export function planoParaGravar(
     // vindo do Last Planner depois da última exportação. O da planilha só entra onde não há nada.
     realizado: mesclarRealizado(novo.realizadoDaPlanilha, existente?.realizado),
     precos: novo.precos,
+    // As confirmações sobrevivem — só as que ainda apontam para uma chave existente com o MESMO
+    // valor. O resto caduca, e é isso que se quer: confirmar R$ 247,93 não confirma R$ 274,93.
+    precosConfirmados: reconciliarConfirmacoes(existente?.precosConfirmados, novo.precos).mantidas,
     criadoEm: existente?.criadoEm ?? new Date().toISOString(),
     // Reimportar recalcula tudo com o motor de agora — então a versão é sempre a de agora.
     versaoDoMotor: VERSAO_DO_MOTOR,

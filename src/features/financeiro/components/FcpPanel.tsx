@@ -37,6 +37,7 @@ import {
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import type { ConferenciaDaGrade } from '../utils/fcp/conferirGrade'
 import { ConferenciaFcp } from './ConferenciaFcp'
+import { chavesDosPrecos, estaConfirmado, type PrecosConfirmados } from '../utils/fcp/precosConfirmados'
 import { OQueE } from '@/components/shared/OQueE'
 import type { Explicacao } from '@/components/shared/explicacao'
 
@@ -197,7 +198,13 @@ export function FcpPanel() {
         key={plano!.id}
         tabs={[
           { key: 'premissas',   label: 'Premissas',   render: () => <SubPremissas premissas={P} travado={travado} /> },
-          { key: 'custos',      label: 'Custos',      render: () => <SubCustos premissas={P} /> },
+          // ⚠️ Nome e salário individual só para a diretoria — o mesmo gate que protege a Auditoria e a
+          // aprovação do plano. Os demais veem o quadro por EQUIPE, com contagem e total. É gate de
+          // tela: a RLS de `fcp_planos` continua entregando o payload a quem chamar a API. Decisão do
+          // controlador em 08/09/2026 (SECURITY.md).
+          { key: 'custos',      label: 'Custos',      render: () => (
+            <SubCustos premissas={P} podeVerNominal={profile?.role === 'owner' || profile?.role === 'diretor'} />
+          ) },
           { key: 'semanal',     label: 'FCP Semanal', render: () => (
             <SubSemanal
               premissas={P} realizado={realizado} travado={travado}
@@ -207,7 +214,21 @@ export function FcpPanel() {
           { key: 'mensal',      label: 'FCP Mensal',  render: () => <SubMensal premissas={P} realizado={realizado} /> },
           { key: 'economico',   label: 'Econômico',   render: () => <SubEconomico premissas={P} realizado={realizado} /> },
           { key: 'viabilidade', label: 'Viabilidade', render: () => <SubViabilidade premissas={P} /> },
-          { key: 'precos',      label: 'Preços do Contrato', render: () => <SubPrecos precos={plano!.precos ?? {}} /> },
+          { key: 'precos',      label: 'Preços do Contrato', render: () => (
+            <SubPrecos
+              precos={plano!.precos ?? {}}
+              confirmados={plano!.precosConfirmados ?? {}}
+              // Gate de tela, como o de aprovar: só diretoria confirma. A policy de `fcp_planos` não
+              // olha papel — está dito no SECURITY.md.
+              podeConfirmar={profile?.role === 'owner' || profile?.role === 'diretor'}
+              onConfirmar={(chave, valor, desfazer) => {
+                const atual = { ...(plano!.precosConfirmados ?? {}) }
+                if (desfazer) delete atual[chave]
+                else atual[chave] = { confirmadoEm: new Date().toISOString(), confirmadoPor: profile?.full_name ?? profile?.email ?? 'diretoria', valorConfirmado: valor }
+                updatePlano(plano!.id, { precosConfirmados: atual })
+              }}
+            />
+          ) },
         ]}
       />
 
@@ -687,7 +708,25 @@ const ROTULO_BLOCO: Record<string, string> = {
 
 // ─── 2. Custos ────────────────────────────────────────────────────────────────
 
-function SubCustos({ premissas: P }: { premissas: PremissasFcp }) {
+/**
+ * O quadro por equipe, para quem NÃO pode ver nome e salário.
+ *
+ * Contagem e total por `equipe` — é o suficiente para conferir se o custo mensal fecha, que é a
+ * pergunta que um engenheiro ou visualizador faz nesta aba. Quem precisa do nominal é a diretoria.
+ */
+function quadroPorEquipe(quadro: PremissasFcp['cidades'][number]['custos']['quadro']) {
+  const m = new Map<string, { pessoas: number; total: number }>()
+  for (const p of quadro) {
+    const k = p.equipe ?? 'Sem equipe'
+    const v = m.get(k) ?? { pessoas: 0, total: 0 }
+    v.pessoas++
+    v.total += p.salario + p.encargos + p.beneficios
+    m.set(k, v)
+  }
+  return [...m.entries()].sort((a, b) => b[1].total - a[1].total)
+}
+
+function SubCustos({ premissas: P, podeVerNominal }: { premissas: PremissasFcp; podeVerNominal: boolean }) {
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-5">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -707,7 +746,33 @@ function SubCustos({ premissas: P }: { premissas: PremissasFcp }) {
               {P.consorcioDescontaDaMedicao && ' · e o que o consórcio banca é descontado da medição'}
             </p>
 
-            <div className="overflow-x-auto rounded-xl border border-[#525252]">
+            {!podeVerNominal && (
+              <div className="overflow-x-auto rounded-xl border border-[#525252]">
+                <table className={TABELA}>
+                  <thead><tr className={THEAD}>
+                    <th className={TH}>Equipe</th><th className="px-3 py-2 text-right">Pessoas</th>
+                    <th className="px-3 py-2 text-right">Total/mês</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-[#1f2937]">
+                    {quadroPorEquipe(c.custos.quadro).map(([equipe, v]) => (
+                      <tr key={equipe} className="hover:bg-white/[0.02]">
+                        <td className={`${TD} text-[#f5f5f5]`}>{equipe}</td>
+                        <td className={NUM}>{v.pessoas}</td>
+                        <td className={`${NUM} text-[#f5f5f5] font-semibold`}>{fmtBRL(v.total)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-[#1f1f1f]">
+                      <td className={`${TD} font-semibold text-[#a3a3a3]`} colSpan={2}>
+                        TOTAL — {c.custos.quadro.length} pessoa(s) · só diretoria vê o quadro nominal
+                      </td>
+                      <td className={`${NUM} text-[#f5f5f5] font-bold`}>{fmtBRL(totalDaFolha(c.custos))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {podeVerNominal && <div className="overflow-x-auto rounded-xl border border-[#525252]">
               <table className={TABELA}>
                 <thead><tr className={THEAD}>
                   <th className={TH}>Equipe</th><th className={TH}>Nome</th><th className={TH}>Cargo</th>
@@ -734,7 +799,7 @@ function SubCustos({ premissas: P }: { premissas: PremissasFcp }) {
                   </tr>
                 </tbody>
               </table>
-            </div>
+            </div>}
 
             <div className="overflow-x-auto rounded-xl border border-[#525252]">
               <table className={TABELA}>
@@ -1108,10 +1173,17 @@ function SubViabilidade({ premissas: P }: { premissas: PremissasFcp }) {
 
 // ─── 7. Preços do contrato ────────────────────────────────────────────────────
 
-function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
+function SubPrecos({ precos, confirmados, podeConfirmar, onConfirmar }: {
+  precos: Record<string, PrecoDoContrato[]>
+  confirmados: PrecosConfirmados
+  podeConfirmar: boolean
+  onConfirmar: (chave: string, valor: number, desfazer: boolean) => void
+}) {
   const [busca, setBusca] = useState('')
   const [soConferir, setSoConferir] = useState(false)
   const cidades = Object.keys(precos)
+  // As chaves são por posição na lista ORIGINAL — o filtro de busca não pode mudá-las.
+  const chaves = useMemo(() => Object.fromEntries(cidades.map((c) => [c, chavesDosPrecos(c, precos[c])])), [precos, cidades])
 
   if (cidades.length === 0) {
     return (
@@ -1135,13 +1207,14 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
       </div>
 
       {cidades.map((cidade) => {
-        const lista = precos[cidade].filter((p) => {
+        const lista = precos[cidade].map((p, i) => ({ p, chave: chaves[cidade][i] })).filter(({ p }) => {
           if (soConferir && !p.precisaConferir) return false
           if (!busca) return true
           const alvo = `${p.item ?? ''} ${p.descricao} ${p.numeroPreco ?? ''}`.toLowerCase()
           return alvo.includes(busca.toLowerCase())
         })
         const aConferir = precos[cidade].filter((p) => p.precisaConferir).length
+        const confirmadosAqui = precos[cidade].filter((p, i) => p.precisaConferir && estaConfirmado(confirmados, chaves[cidade][i], p.valorUnitario)).length
 
         return (
           <div key={cidade} className="flex flex-col gap-1.5">
@@ -1153,9 +1226,11 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
               <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
                 <AlertTriangle size={12} className="inline mr-1" />
                 <strong>{aConferir}</strong> {aConferir === 1 ? 'item foi transcrito' : 'itens foram transcritos'} de
-                foto com dígito cortado. <b>O sistema não trava o uso deles</b> — confira contra o
-                contrato antes de usar como preço. Para tirar a marca, corrija a coluna OBS da
-                planilha e importe de novo.
+                foto com dígito cortado · <strong>{confirmadosAqui}</strong> já confirmado(s).
+                {' '}<b>O sistema não trava o uso deles</b> — confira contra o contrato e marque
+                "Confirmei". A confirmação vale para o valor conferido: se a próxima planilha trouxer
+                outro, ela caduca sozinha.
+                {!podeConfirmar && ' Só a diretoria confirma.'}
               </p>
             )}
             <div className="overflow-x-auto rounded-xl border border-[#525252] max-h-[520px]">
@@ -1165,30 +1240,59 @@ function SubPrecos({ precos }: { precos: Record<string, PrecoDoContrato[]> }) {
                   <th className={TH}>Descrição</th><th className={TH}>N. preço</th>
                   <th className={TH}>Un</th><th className="px-3 py-2 text-right">R$ unit.</th>
                   <th className={TH}>Obs</th>
+                  {aConferir > 0 && <th className={TH}>Conferência</th>}
                 </tr></thead>
                 <tbody className="divide-y divide-[#1f2937]">
-                  {lista.map((p, i) => (
+                  {lista.map(({ p, chave }) => {
+                    const confirmacao = estaConfirmado(confirmados, chave, p.valorUnitario)
+                    const pendente = p.precisaConferir && !confirmacao
+                    return (
                     // `bg-amber-500/5` sobre `#2c2c2c` é invisível — e eram 299 linhas para varrer.
-                    // A borda à esquerda marca sem transformar a tabela em carnaval.
+                    // A borda à esquerda marca sem transformar a tabela em carnaval. Confirmado
+                    // fica verde: a marca saiu porque alguém olhou, não porque a planilha mudou.
                     <tr
-                      key={`${p.numeroPreco ?? p.descricao}-${i}`}
-                      className={p.precisaConferir
+                      key={chave}
+                      className={pendente
                         ? 'bg-amber-500/10 border-l-2 border-l-amber-400'
-                        : 'hover:bg-white/[0.02]'}
+                        : confirmacao ? 'border-l-2 border-l-emerald-500/60 hover:bg-white/[0.02]' : 'hover:bg-white/[0.02]'}
                     >
                       {precos[cidade].some((x) => x.item) && <td className={TD}>{p.item ?? '—'}</td>}
                       <td className={`${TD} text-[#f5f5f5]`}>{p.descricao}</td>
                       <td className={TD}>{p.numeroPreco ?? '—'}</td>
                       <td className={TD}>{p.unidade ?? '—'}</td>
-                      <td className={`${NUM} ${p.precisaConferir ? 'text-amber-300' : 'text-[#f5f5f5]'}`}>
-                        {p.precisaConferir && <AlertTriangle size={10} className="inline mr-1 -mt-0.5" />}
+                      <td className={`${NUM} ${pendente ? 'text-amber-300' : 'text-[#f5f5f5]'}`}>
+                        {pendente && <AlertTriangle size={10} className="inline mr-1 -mt-0.5" />}
                         {fmtBRL(p.valorUnitario)}
                       </td>
-                      <td className={`${TD} text-[10px] ${p.precisaConferir ? 'text-amber-300' : 'text-[#6b6b6b]'}`}>
+                      <td className={`${TD} text-[10px] ${pendente ? 'text-amber-300' : 'text-[#6b6b6b]'}`}>
                         {p.observacao ?? '—'}
                       </td>
+                      {aConferir > 0 && (
+                        <td className={`${TD} whitespace-nowrap`}>
+                          {!p.precisaConferir ? null : confirmacao ? (
+                            <span className="text-[10px] text-emerald-300">
+                              <CheckCircle2 size={10} className="inline mr-1 -mt-0.5" />
+                              {confirmacao.confirmadoPor} · {fmtDataBR(confirmacao.confirmadoEm.slice(0, 10))}
+                              {podeConfirmar && (
+                                <button type="button" onClick={() => onConfirmar(chave, p.valorUnitario, true)}
+                                  className="ml-2 text-[#6b6b6b] hover:text-[#f5f5f5] hover:underline">desfazer</button>
+                              )}
+                            </span>
+                          ) : (
+                            <button
+                              type="button" disabled={!podeConfirmar}
+                              title={podeConfirmar ? 'Conferi este valor contra o contrato' : 'Só diretoria confirma'}
+                              onClick={() => onConfirmar(chave, p.valorUnitario, false)}
+                              className="rounded border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              Confirmei
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -6,6 +6,7 @@
  *   node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-fcp.mjs
  */
 import xlsx from 'xlsx'
+import { chavesDosPrecos } from '../../src/features/financeiro/utils/fcp/precosConfirmados.ts'
 import { lerPlanilhaFcp } from '../../src/features/financeiro/utils/fcp/importarFcp.ts'
 import {
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, fluxoMensal, fluxoEconomico,
@@ -120,6 +121,11 @@ conferir(pessoas >= 30, 'o quadro das duas cidades foi lido', `${pessoas} pessoa
 conferir(gerais >= 18, 'os custos gerais foram lidos', `${gerais} itens`)
 conferir(todosPrecos.length >= 500, 'as tabelas de preço foram lidas', `${todosPrecos.length} itens`)
 conferir(aConferir > 0, 'os itens transcritos de foto continuam marcados', `${aConferir} a conferir`)
+// ⚠️ `numeroPreco` NÃO é único (colide 25×). A chave composta com ocorrência tem de ser — senão a
+// confirmação de um preço "confirma" o gêmeo dele sem ninguém olhar.
+const chavesUnicas = new Set(Object.entries(r.precos).flatMap(([cidade, lista]) => chavesDosPrecos(cidade, lista)))
+conferir(chavesUnicas.size === todosPrecos.length, 'cada preço tem chave própria (gêmeos separados pela ocorrência)',
+  `${chavesUnicas.size} chaves para ${todosPrecos.length} itens`)
 
 if (r.problemas.length) {
   console.log('\n=== problemas de leitura ===')
