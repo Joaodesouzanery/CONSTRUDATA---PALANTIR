@@ -36,7 +36,8 @@
     "video:render:launch:vertical": "npm.cmd --prefix videos run render:launch:vertical",
     "video:publish:hero": "powershell -NoProfile -Command \"npm.cmd --prefix videos run render:hero; New-Item -ItemType Directory -Force public/videos | Out-Null; Copy-Item -LiteralPath videos/out/hero-loop.mp4 -Destination public/videos/hero-loop.mp4 -Force\"",
     "ocr:preparar": "node scripts/copiar-ocr.mjs",
-    "prebuild": "node scripts/copiar-ocr.mjs"
+    "prebuild": "node scripts/copiar-ocr.mjs",
+    "qa:isolamento": "node scripts/qa/qa-isolamento.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
