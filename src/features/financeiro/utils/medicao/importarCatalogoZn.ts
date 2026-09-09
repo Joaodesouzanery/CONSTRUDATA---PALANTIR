@@ -149,6 +149,92 @@ function lerBase(m: Matriz | undefined): { porChave: Map<string, DaBase>; subtot
   return { porChave, subtotais, total }
 }
 
+// ─── Quantidades medidas, por obra ────────────────────────────────────────────
+
+export interface QuantidadeMedida {
+  servicoCatalogoId: string
+  /** A obra como o cabeçalho da planilha a nomeia ('SAKURA', 'BOI MALHADO'). */
+  obra: string
+  quantidade: number
+}
+
+export interface LeituraDasQuantidades {
+  quantidades: QuantidadeMedida[]
+  /** As obras encontradas nas colunas "QTD. MEDIDA <OBRA>", na ordem. */
+  obras: string[]
+  problemas: string[]
+  /** O que a planilha declara na coluna VALOR MEDIÇÃO, por obra — para conferir contra o motor. */
+  valorDeclarado: number
+}
+
+/**
+ * Lê as quantidades medidas da BASE MEDIÇÃO.
+ *
+ * As obras são descobertas pelo CABEÇALHO (`QTD. MEDIDA SAKURA`, `QTD. MEDIDA BOI MALHADO`) —
+ * não são lista fixa no código, senão uma obra nova exigiria recompilar.
+ *
+ * ⚠️ O casamento com o catálogo usa `descrição|unidade#ocorrência`, a mesma chave da categoria.
+ * Medido no arquivo real: casa 284 de 284.
+ */
+export function lerQuantidadesZn(abas: AbasDaMedicao, catalogo: CatalogoDoContrato): LeituraDasQuantidades {
+  const problemas: string[] = []
+  const base = acharAba(abas, 'BASE MEDICAO')
+  if (!base) return { quantidades: [], obras: [], problemas: ['Não achei a aba "BASE MEDIÇÃO" — sem ela não há quantidade.'], valorDeclarado: 0 }
+
+  // Cabeçalho: a linha que tem DESCRIÇÃO DO SERVIÇO. As colunas "QTD. MEDIDA X" vêm depois.
+  let iCab = -1
+  for (let i = 0; i < Math.min(base.length, 12); i++) {
+    if ((base[i] ?? []).some((c) => normalizarTexto(c).startsWith('DESCRICAO DO SERVICO'))) { iCab = i; break }
+  }
+  if (iCab < 0) return { quantidades: [], obras: [], problemas: ['Não achei o cabeçalho da BASE MEDIÇÃO.'], valorDeclarado: 0 }
+
+  const colunasDeObra: Array<{ col: number; obra: string }> = []
+  let colValor = -1
+  ;(base[iCab] ?? []).forEach((c, col) => {
+    const t = normalizarTexto(c)
+    if (t.startsWith('QTD. MEDIDA') || t.startsWith('QTD MEDIDA')) {
+      colunasDeObra.push({ col, obra: texto(c).replace(/^QTD\.?\s*MEDIDA\s*/i, '').trim() })
+    } else if (t.startsWith('VALOR MEDICAO')) colValor = col
+  })
+  if (colunasDeObra.length === 0) problemas.push('Nenhuma coluna "QTD. MEDIDA <obra>" na BASE MEDIÇÃO.')
+
+  // O catálogo, indexado pela mesma chave que o casou com a BASE.
+  const porChave = new Map<string, string>()
+  const vistosCat = new Map<string, number>()
+  for (const sv of catalogo.servicos) {
+    const b = `${normalizarTexto(sv.descricao)}|${normalizarTexto(sv.unidade)}`
+    const n = vistosCat.get(b) ?? 0
+    vistosCat.set(b, n + 1)
+    porChave.set(`${b}#${n}`, sv.id)
+  }
+
+  const quantidades: QuantidadeMedida[] = []
+  const vistos = new Map<string, number>()
+  let valorDeclarado = 0
+  let semCasar = 0
+
+  for (const linha of base) {
+    if (!linha || ehSecao(linha)) continue
+    const descricao = texto(linha[2])
+    const unidade = texto(linha[3])
+    if (!descricao || numero(linha[4]) == null) continue
+    const b = `${normalizarTexto(descricao)}|${normalizarTexto(unidade)}`
+    const n = vistos.get(b) ?? 0
+    vistos.set(b, n + 1)
+    const id = porChave.get(`${b}#${n}`)
+    if (colValor >= 0) valorDeclarado += numero(linha[colValor]) ?? 0
+    if (!id) { semCasar++; continue }
+    for (const { col, obra } of colunasDeObra) {
+      const q = numero(linha[col])
+      if (q == null || q === 0) continue     // ⚠️ vazio e zero não são medição
+      quantidades.push({ servicoCatalogoId: id, obra, quantidade: q })
+    }
+  }
+  if (semCasar > 0) problemas.push(`${semCasar} linha(s) da BASE não casaram com nenhum serviço do catálogo.`)
+
+  return { quantidades, obras: colunasDeObra.map((c) => c.obra), problemas, valorDeclarado: Math.round(valorDeclarado * 100) / 100 }
+}
+
 interface Divergencia { codigo: string; descricao: string; unidade: string; precoProprio: number | null; precoDemais: number | null }
 
 /** Lê uma das tabelas de divergência da aba NOTAS. `tituloComeca` casa "TABELA A" / "TABELA B". */

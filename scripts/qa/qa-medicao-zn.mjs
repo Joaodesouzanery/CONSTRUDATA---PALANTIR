@@ -11,6 +11,8 @@ import { existsSync } from 'node:fs'
 import xlsx from 'xlsx'
 import { lerCatalogoZn } from '../../src/features/financeiro/utils/medicao/importarCatalogoZn.ts'
 import { precoDoServico, projetarParaObra } from '../../src/features/financeiro/utils/medicao/catalogoContrato.ts'
+import { lerQuantidadesZn } from '../../src/features/financeiro/utils/medicao/importarCatalogoZn.ts'
+import { calcularMedicao, cadeiaDeRepasse, porCategoria } from '../../src/features/financeiro/utils/medicao/motorDaMedicao.ts'
 
 const XLSX = xlsx.default ?? xlsx
 const CAMINHO = 'docs/Base_Medicao_60pct_ZN.xlsx'
@@ -107,6 +109,62 @@ if (mairipora) {
   conferir(em09.precoCheio !== em01.precoCheio, 'Mairiporã cobra preço diferente das demais regiões',
     `09: ${brl(em09.precoCheio)} · 01: ${brl(em01.precoCheio)}`)
 }
+
+console.log('\nMEDIÇÃO — o motor contra o que a planilha declara')
+const q = lerQuantidadesZn(abas, r.catalogo)
+conferir(q.problemas.length === 0, 'quantidades lidas sem problema', q.problemas.join(' · '))
+conferir(q.obras.length === 2, 'obras achadas pelo cabeçalho', q.obras.join(' · '))
+
+const boi = calcularMedicao(r.catalogo, 'BOI MALHADO', '02', q.quantidades)
+const sakura = calcularMedicao(r.catalogo, 'SAKURA', '02', q.quantidades)
+
+// ⚠️ ESTE É O RESULTADO QUE JUSTIFICA O MOTOR.
+// A planilha declara R$ 3.264.706,87. O motor chega ao mesmo número — mas SEPARADO em duas
+// partes, e é a separação que interessa: tudo que está no apostilamento e tem quantidade é
+// exatamente o que a própria planilha marca como "bloco deslocado no PDF, conferir com a
+// fiscalização". Ou seja: R$ 339.210,56 (10,4% da medição) estão sendo faturados sobre preços
+// que o documento de origem diz não serem confiáveis.
+conferir(Math.abs(boi.total - 2925496.31) < 0.02,
+  'o que pode ser medido com preço confirmado', brl(boi.total))
+conferir(Math.abs(boi.totalPendente - 339210.56) < 0.02,
+  '⚠️ o que está barrado, esperando a fiscalização', brl(boi.totalPendente))
+conferir(Math.abs((boi.total + boi.totalPendente) - q.valorDeclarado) < 0.02,
+  'e os dois somados reproduzem o total da planilha', `${brl(boi.total + boi.totalPendente)} = ${brl(q.valorDeclarado)}`)
+conferir(Math.abs(q.valorDeclarado - 3264706.87) < 0.02, 'que é o total do rodapé', brl(q.valorDeclarado))
+conferir(boi.pendentes.length === 3 && boi.pendentes.every((l) => l.pendencia === 'preco_a_conferir'),
+  'as 3 pendências são de preço a conferir, não de região errada', `${boi.pendentes.length} pendente(s)`)
+conferir(!boi.podeFechar, 'com pendência, a medição NÃO pode fechar')
+
+// ⚠️ O ACHADO: Sakura tem quantidade lançada e a planilha nunca a multiplica.
+conferir(Math.abs(sakura.total - 245850) < 0.02,
+  '⚠️ Sakura tem valor medido que a planilha NÃO soma', `${brl(sakura.total)} em ${sakura.linhas.length} linha(s)`)
+
+console.log('\nA REGRA QUE NÃO PODE CAIR: item barrado não vira dinheiro')
+// Barra à força um item que HOJE conta, e confere que ele sai do total pelo valor exato.
+const alvo = r.catalogo.servicos.find((s) => boi.linhas.some((l) => l.servicoCatalogoId === s.id))
+const linhaBarrada = boi.linhas.find((l) => l.servicoCatalogoId === alvo.id)
+const adulterado = {
+  ...r.catalogo,
+  servicos: r.catalogo.servicos.map((s) => (s.id === alvo.id
+    ? { ...s, bloqueadoParaMedicao: true, flag: 'bloco_deslocado_pdf', motivoFlag: 'teste' } : s)),
+}
+const comBarrado = calcularMedicao(adulterado, 'BOI MALHADO', '02', q.quantidades)
+conferir(comBarrado.pendentes.length === boi.pendentes.length + 1, 'o item barrado foi para as pendências')
+conferir(Math.abs(comBarrado.total - (boi.total - linhaBarrada.valor)) < 0.02,
+  'e saiu do total, exatamente no valor dele', `−${brl(linhaBarrada.valor)}`)
+conferir(Math.abs(comBarrado.totalPendente - (boi.totalPendente + linhaBarrada.valor)) < 0.02,
+  'o valor que ele TERIA aparece à parte, somado às pendências que já havia')
+
+console.log('\nCADEIA SABESP → CONSÓRCIO → EXECUTORA')
+const cadeia = cadeiaDeRepasse(boi.total, r.catalogo.fatorPadrao)
+conferir(cadeia !== null && Math.abs(cadeia.brutoConsorcio * r.catalogo.fatorPadrao - boi.total) < 0.02,
+  'o bruto do consórcio é o medido ÷ fator', `${brl(cadeia.brutoConsorcio)} × 0,6 = ${brl(boi.total)}`)
+conferir(cadeiaDeRepasse(100, 0) === null, 'fator zero não vira divisão por zero na tela')
+
+const cats = porCategoria(boi)
+conferir(Math.abs(cats.reduce((a, c) => a + c.valor, 0) - boi.total) < 0.02,
+  'a quebra por categoria fecha com o total', `${cats.length} categorias`)
+console.log('   maiores:', cats.slice(0, 3).map((c) => `${c.categoria} ${brl(c.valor)}`).join(' · '))
 
 console.log(`\n${falhas === 0 ? 'Tudo conferido.' : `${falhas} falha(s).`}\n`)
 process.exit(falhas === 0 ? 0 : 1)
