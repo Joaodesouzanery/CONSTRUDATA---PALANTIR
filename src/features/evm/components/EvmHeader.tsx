@@ -24,12 +24,22 @@ const TABS: { key: CombinedTab; label: string }[] = [
   // Renomeada de "Resultados": ela já continha o DRE, e uma aba nova para o mesmo assunto
   // deixaria DOIS DREs no módulo respondendo a mesma pergunta com números diferentes.
   { key: 'resultados',   label: 'DRE e Resultado' },
+  // O boletim do contrato. Fica junto do DRE porque é dele que a receita nasce.
+  { key: 'medicao',      label: 'Medição' },
   { key: 'pagamentos',   label: 'Pagamentos e Cobranças' },
-  { key: 'boletos',      label: 'Boletos' },
-  { key: 'notas-fiscais', label: 'Nota Fiscal' },
-  { key: 'medicao',      label: 'Medição Ponderada' },
-  { key: 'plano-contas', label: 'Plano de Contas' },
+  // Boletos e Nota Fiscal eram duas abas. São o mesmo assunto — o papel que comprova o
+  // dinheiro — e já eram gêmeas no código ("Molde: BoletosPanel", diz o topo do
+  // NotasFiscaisPanel). ⚠️ As LISTAS continuam separadas de propósito: boleto é 1→N
+  // parcelas a vencer, nota já nasce paga, e misturá-las poluiria os KPIs de "a vencer".
+  { key: 'documentos',   label: 'Documentos' },
+  // Era "Medição Ponderada", e o nome fazia crer que era o boletim. É a matriz de peso do
+  // EVM: 0,30·financeiro + 0,25·duração + 0,30·econômico + 0,15·específico.
+  { key: 'avanco-ponderado', label: 'Avanço Ponderado' },
   { key: 'distribuicao', label: 'Distribuição' },
+  // As duas telas de CONFIGURAR do módulo, que estavam em lugares diferentes: o Plano de
+  // Contas (aba própria) e o mapeamento categoria → linha da DRE (escondido atrás de um
+  // botão dentro do DRE). Mexe-se nelas uma vez; ficam no fim.
+  { key: 'configuracao', label: 'Configuração' },
 ]
 
 /**

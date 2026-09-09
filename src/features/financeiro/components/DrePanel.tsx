@@ -185,7 +185,13 @@ function cellColor(row: RowSpec, v: number): string {
 // ─── Config da DRE ────────────────────────────────────────────────────────────
 const ALL_LINES: DreLineKey[] = ['receita_bruta', 'deducao', 'custo', 'despesa_adm', 'despesa_outra']
 
-function DreConfigPanel({ config, onChange }: { config: DreConfig; onChange: (patch: Partial<DreConfig>) => void }) {
+/**
+ * ⚠️ Exportado para a aba **Configuração** também renderizar ESTE componente — não uma cópia.
+ * Duas portas para a mesma sala: aqui, contextual (você está vendo a DRE que o mapa produz), e
+ * lá, junto do Plano de Contas, onde se procura o que é configuração. Como é o mesmo componente
+ * sobre o mesmo `dreConfig` do store, não existe como as duas divergirem.
+ */
+export function DreConfigPanel({ config, onChange }: { config: DreConfig; onChange: (patch: Partial<DreConfig>) => void }) {
   const cats: { cat: FinanceiroCategoria; tipo: 'entrada' | 'saida' }[] = [
     ...ENTRADA_CATS.map((c) => ({ cat: c as FinanceiroCategoria, tipo: 'entrada' as const })),
     ...SAIDA_CATS.map((c) => ({ cat: c as FinanceiroCategoria, tipo: 'saida' as const })),

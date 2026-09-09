@@ -1,9 +1,13 @@
 /**
- * EvmPage — módulo Financeiro (EVM). Estrutura em 8 abas:
- *   Visão Geral · Por Obra · DRE e Resultado · Pagamentos e Cobranças · Boletos ·
- *   Medição Ponderada · Plano de Contas · Distribuição
- * Painéis legados viraram sub-abas (SubTabHost) dentro das abas acima —
- * nenhum store/tabela foi alterado, só a navegação.
+ * EvmPage — módulo Financeiro (a rota é `/app/evm`; `/app/financeiro` redireciona para cá).
+ *
+ * Nove abas: Visão Geral · Por Obra · DRE e Resultado · **Medição** · Pagamentos e Cobranças ·
+ * **Documentos** · **Avanço Ponderado** · Distribuição · **Configuração**.
+ * Painéis legados são sub-abas (`SubTabHost`) — nenhum store nem tabela mudou, só a navegação.
+ *
+ * ⚠️ Continuam sendo NOVE, não oito: Boletos + Nota Fiscal viraram uma (−1), mas Medição entrou
+ * (+1). O ganho não é o número — é que dois assuntos pararam de disputar a barra e o nome
+ * "Medição" parou de apontar para a matriz de peso do EVM.
  */
 import { useState } from 'react'
 import { EvmHeader } from './components/EvmHeader'
@@ -29,6 +33,26 @@ import { NotasFiscaisPanel } from '@/features/financeiro/components/NotasFiscais
 import { NotasPainelPanel } from '@/features/financeiro/components/NotasPainelPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
 import { ManejoOrcamentoPanel } from '@/features/financeiro/components/ManejoOrcamentoPanel'
+import { MedicaoPanel } from '@/features/financeiro/components/MedicaoPanel'
+import { DreConfigPanel } from '@/features/financeiro/components/DrePanel'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+
+/**
+ * O mapeamento categoria → linha da DRE, na aba Configuração.
+ *
+ * ⚠️ Dois seletores separados, nunca um objeto literal: seletor que devolve objeto novo a cada
+ * render sem `useShallow` re-renderiza sem parar e derruba a rota inteira — já aconteceu neste
+ * repositório.
+ */
+function ConfiguracaoDaDre() {
+  const dreConfig = useFinanceiroStore((s) => s.dreConfig)
+  const setDreConfig = useFinanceiroStore((s) => s.setDreConfig)
+  return (
+    <div className="p-4 sm:p-6">
+      <DreConfigPanel config={dreConfig} onChange={setDreConfig} />
+    </div>
+  )
+}
 
 function renderPanel(tab: CombinedTab): React.ReactNode {
   switch (tab) {
@@ -57,26 +81,33 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
           { key: 'caixa',    label: 'Controle de Caixa', render: () => <ControleDeCaixaPanel /> },
         ]} />
       )
+    case 'medicao':
+      return <MedicaoPanel />
     case 'pagamentos':
       return <PagamentosPanel />
-    case 'boletos':
-      return <BoletosPanel />
-    case 'notas-fiscais':
+    case 'documentos':
       return (
         <SubTabHost tabs={[
-          { key: 'notas',  label: 'Notas',  render: () => <NotasFiscaisPanel /> },
-          { key: 'painel', label: 'Painel', render: () => <NotasPainelPanel /> },
+          { key: 'boletos', label: 'Boletos', render: () => <BoletosPanel /> },
+          { key: 'notas',   label: 'Notas',   render: () => <NotasFiscaisPanel /> },
+          { key: 'painel',  label: 'Painel',  render: () => <NotasPainelPanel /> },
         ]} />
       )
-    case 'medicao':
+    case 'avanco-ponderado':
       return (
         <SubTabHost tabs={[
-          { key: 'medicao', label: 'Medição', render: () => <MedicaoPonderadaPanel /> },
-          { key: 'indices', label: 'Índices', render: () => <IndicesPanel /> },
+          // A sub-aba não pode se chamar "Medição": é justamente a confusão que o rename desfaz.
+          { key: 'matriz',  label: 'Matriz de pesos', render: () => <MedicaoPonderadaPanel /> },
+          { key: 'indices', label: 'Índices',         render: () => <IndicesPanel /> },
         ]} />
       )
-    case 'plano-contas':
-      return <PlanoContasPanel />
+    case 'configuracao':
+      return (
+        <SubTabHost tabs={[
+          { key: 'plano-contas', label: 'Plano de Contas', render: () => <PlanoContasPanel /> },
+          { key: 'dre',          label: 'Categorias da DRE', render: () => <ConfiguracaoDaDre /> },
+        ]} />
+      )
     case 'distribuicao':
       return (
         <SubTabHost tabs={[

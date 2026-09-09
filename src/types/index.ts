@@ -2784,20 +2784,24 @@ export interface TrendPoint {
 
 export type EvmTab = 'dashboard' | 'medicao' | 'plano-contas' | 'work-packages' | 'indices'
 /**
- * Abas do módulo Financeiro (página EVM). Estrutura reorganizada (7 abas):
- * cada painel legado virou sub-aba dentro de uma dessas (ver evm/index.tsx).
- * `EvmTab`/`FinanceiroTab` seguem existindo para o `activeTab` interno dos stores.
+ * Abas do módulo Financeiro (página EVM). Cada painel legado é sub-aba de uma destas
+ * (ver `evm/index.tsx`). `EvmTab`/`FinanceiroTab` seguem existindo para o `activeTab`
+ * interno dos stores — não confundir.
+ *
+ * ⚠️ `medicao` é o BOLETIM DO CONTRATO (quanto foi executado × quanto vale).
+ * `avanco-ponderado` é a matriz de peso do EVM, que até 09/09/2026 se chamava
+ * "Medição Ponderada" — nome que a fazia parecer a mesma coisa e não é.
  */
 export type FinanceiroEvmTab =
   | 'visao-geral'
   | 'por-obra'
   | 'resultados'
-  | 'pagamentos'
-  | 'boletos'
-  | 'notas-fiscais'
   | 'medicao'
-  | 'plano-contas'
+  | 'pagamentos'
+  | 'documentos'
+  | 'avanco-ponderado'
   | 'distribuicao'
+  | 'configuracao'
 
 export type CostPillar = 'material' | 'equipamento' | 'mao_de_obra' | 'impostos_indiretos'
 
