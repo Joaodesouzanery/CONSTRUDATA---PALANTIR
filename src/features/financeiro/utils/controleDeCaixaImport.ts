@@ -84,6 +84,7 @@ const CAMPOS_DE_CADASTRO: Array<[keyof FinanceiroEntry, string]> = [
   ['categoria', 'Categoria'],
   ['obraId', 'Obra'],
   ['conferido', 'Conferido'],
+  ['fornecedor', 'Fornecedor'],
 ]
 
 /**
@@ -101,9 +102,10 @@ const CAMPOS_DE_CADASTRO: Array<[keyof FinanceiroEntry, string]> = [
  * cabeçalho nem é reconhecido, então não há o que preservar.
  */
 const COLUNA_DO_CAMPO: Partial<Record<keyof FinanceiroEntry, string>> = {
-  categoria: 'categoria',
-  obraId:    'obra',
-  conferido: 'conferido',
+  categoria:  'categoria',
+  obraId:     'obra',
+  conferido:  'conferido',
+  fornecedor: 'fornecedor',
 }
 
 /**
@@ -212,6 +214,7 @@ export function lancamentoDaLinha(
     dataFim: l.dataFim,
     categoria: lerCategoria(l.categoria, l.tipo === 'receita' ? 'entrada' : 'saida'),
     obraId: acharObra(l.obra, opcoes.obras ?? []) ?? opcoes.obraId,
+    fornecedor: l.fornecedor,
     solicitantes: l.solicitantes.length > 0 ? l.solicitantes : undefined,
     conferido: l.conferido || undefined,
     // ⚠️ Quem e quando, junto do "sim". Os campos existiam e só a sub-aba Conferência os
@@ -435,6 +438,7 @@ export function lancamentoDaHoraExtra(
     valor: r.valor,
     data: r.data,
     categoria: 'mao_de_obra',
+    subcategoria: 'horas_extras',
     obraId: opcoes.obraId,
     origem: 'horas-extras',
     chavePlanilha: r.chave,

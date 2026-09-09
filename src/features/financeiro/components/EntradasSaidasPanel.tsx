@@ -5,8 +5,8 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatarCodigo } from '../utils/boletoCodigo'
-import { catLabel } from '../lib/financeiroCalc'
-import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria } from '@/types'
+import { catLabel, catLabelCompleto, SUBCATEGORIAS_POR_CATEGORIA } from '../lib/financeiroCalc'
+import type { FinanceiroEntry, EntradaCategoria, SaidaCategoria, SubcategoriaSaida } from '@/types'
 import { useEnvioUnico } from '@/hooks/useEnvioUnico'
 import { hojeLocalISO } from '@/lib/utils'
 
@@ -96,7 +96,7 @@ function LancamentosPanel({ tipo }: { tipo: 'entrada' | 'saida' }) {
                   {/* ⚠️ `catLabel`, não `.replace('_',' ')`. Sem a flag /g o replace troca só o
                       PRIMEIRO underscore, e `mao_de_obra` saía na tela como "Mao De_obra". Os
                       rótulos certos estavam neste mesmo arquivo, oitenta linhas acima, sem uso. */}
-                  <td className="px-3 py-2 text-[#a3a3a3]">{catLabel(e.categoria)}</td>
+                  <td className="px-3 py-2 text-[#a3a3a3]">{catLabelCompleto(e)}</td>
                   {/* Baixa de boleto traz a linha digitável (47/48 dígitos) como referência:
                       formatada e truncada para não espremer as outras colunas. */}
                   <td className="px-3 py-2 text-[#6b6b6b]">
@@ -152,6 +152,8 @@ function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' 
   // Data local: lançado depois das 21h, o UTC já é amanhã — e na virada de mês cai no mês errado.
   const [data, setData] = useState(initial?.data ?? hojeLocalISO())
   const [categoria, setCategoria] = useState(initial?.categoria ?? cats[0].key)
+  const [subcategoria, setSubcategoria] = useState<string>(initial?.subcategoria ?? '')
+  const subcategorias = tipo === 'saida' ? (SUBCATEGORIAS_POR_CATEGORIA[categoria as SaidaCategoria] ?? []) : []
   const [referencia, setReferencia] = useState(initial?.referencia ?? '')
   const [obraId, setObraId] = useState((initial as { obraId?: string } | undefined)?.obraId ?? '')
   const sites = useTorreStore((s) => s.sites)
@@ -166,6 +168,7 @@ function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' 
     onSave({
       id: initial?.id ?? crypto.randomUUID(), tipo, descricao, valor: parseFloat(valor.replace(',', '.')) || 0,
       data, categoria: categoria as EntradaCategoria & SaidaCategoria, referencia: referencia || undefined,
+      subcategoria: (subcategoria || undefined) as SubcategoriaSaida | undefined,
       obraId: obraId || undefined, createdAt: initial?.createdAt ?? new Date().toISOString(),
     })
     onClose()
@@ -204,6 +207,16 @@ function EntryModal({ tipo, cats, initial, onClose, onSave }: { tipo: 'entrada' 
                 {cats.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </div>
+            {subcategorias.length > 0 && (
+              <div>
+                <label className="block text-[10px] text-[#6b6b6b] uppercase mb-1">Tipo de {catLabel(categoria as SaidaCategoria)}</label>
+                <select value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)}
+                  className="w-full bg-[#2c2c2c] border border-[#525252] rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+                  <option value="">— não informado —</option>
+                  {subcategorias.map((sc) => <option key={sc.key} value={sc.key}>{sc.label}</option>)}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-[10px] text-[#6b6b6b] uppercase mb-1">Referência</label>
               <input value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="NF-001, Med-03"

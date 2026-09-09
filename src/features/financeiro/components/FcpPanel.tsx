@@ -37,6 +37,7 @@ import {
 import { lerPlanilhaFcp, type Divergencia, type PrecoDoContrato } from '../utils/fcp/importarFcp'
 import type { ConferenciaDaGrade } from '../utils/fcp/conferirGrade'
 import { ConferenciaFcp } from './ConferenciaFcp'
+import { registrarImportacao } from '../utils/importacoes'
 import { chavesDosPrecos, estaConfirmado, type PrecosConfirmados } from '../utils/fcp/precosConfirmados'
 import { OQueE } from '@/components/shared/OQueE'
 import type { Explicacao } from '@/components/shared/explicacao'
@@ -1314,6 +1315,8 @@ function ImportarFcpModal({
   onGravar: (plano: PlanoFcp) => void
   onClose: () => void
 }) {
+  const perfilImporta = useAuth((s) => s.profile)
+  const quemImporta = perfilImporta?.full_name ?? perfilImporta?.email ?? 'alguém'
   const [lido, setLido] = useState<{
     id: string
     nome: string
@@ -1606,6 +1609,7 @@ function ImportarFcpModal({
                   lido.id,
                   obraId,
                 ))
+                void registrarImportacao('fcp', { por: quemImporta, arquivo: lido.nome })
                 onClose()
               }}
               className={`${BTN_P} ml-auto`}

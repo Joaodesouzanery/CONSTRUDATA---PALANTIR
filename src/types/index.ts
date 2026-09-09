@@ -3116,7 +3116,22 @@ export interface FinanceiroEntry {
   /** Horas extras: de quem é o lançamento. O cargo é informativo — o valor NÃO sai dele. */
   funcionarioNome?: string
   cargo?: string
+  /**
+   * Segundo nível da categoria — hoje só Mão de Obra tem: `horas_extras` | `salario` | `diaria`.
+   *
+   * ⚠️ Não é `origem`. `origem` diz POR ONDE o lançamento entrou (planilha, tela, grade de HE);
+   * isto diz O QUE ELE É. Uma hora extra digitada à mão tem `origem: 'manual'` e
+   * `subcategoria: 'horas_extras'` — e é a subcategoria que o relatório agrupa. A DRE continua
+   * olhando só `categoria`; o segundo nível é leitura, não contabilidade.
+   */
+  subcategoria?: SubcategoriaSaida
+  /** Para quem foi pago — separado de quem pediu (`solicitantes`). Coluna FORNECEDOR da planilha. */
+  fornecedor?: string
 }
+
+export type SubcategoriaSaida = 'horas_extras' | 'salario' | 'diaria'
+// ⚠️ A lista com rótulos vive em `financeiro/lib/financeiroCalc.ts` (`SUBCATEGORIAS_POR_CATEGORIA`):
+// este arquivo é só de tipos, e um VALOR aqui quebra quem o importa fora do bundle (os testes).
 
 // ─── DRE simplificada (auto-calculada a partir das entradas/saídas) ───────────
 /** Linhas da DRE nas quais cada categoria de lançamento é somada. */

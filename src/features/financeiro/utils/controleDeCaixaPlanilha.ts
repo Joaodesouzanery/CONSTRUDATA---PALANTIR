@@ -177,6 +177,7 @@ export interface LinhaLida {
   solicitantes: string[]
   categoria?: string
   obra?: string
+  fornecedor?: string
   conferido: boolean
   /** Linha do arquivo, 1-based. Só para a conferência apontar onde está o problema. */
   linha: number
@@ -253,6 +254,7 @@ const CABECALHOS: Record<string, string[]> = {
   conferido:   ['CONFERIDO', 'STATUS', 'SITUACAO'],
   categoria:   ['CATEGORIA', 'CLASSIFICACAO'],
   obra:        ['OBRA', 'CENTRO DE CUSTO'],
+  fornecedor:  ['FORNECEDOR', 'BENEFICIARIO', 'PAGO A', 'FAVORECIDO'],
 }
 
 export interface MapaDeColunas { [campo: string]: number }
@@ -402,6 +404,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
     const conferido = MARCAS_DE_CONFERIDO.has(normalizarTexto(celula(linha, 'conferido')))
     const categoria = String(celula(linha, 'categoria') ?? '').trim() || undefined
     const obra = String(celula(linha, 'obra') ?? '').trim() || undefined
+    const fornecedor = String(celula(linha, 'fornecedor') ?? '').trim() || undefined
 
     /**
      * ⚠️ A LINHA COM OS DOIS BLOCOS — e a regra que o resto desta função depende.
@@ -459,6 +462,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
           valor: valorEntrada, periodo: p, solicitantes: [],
           categoria: compartilhadoEhDaDespesa ? undefined : categoria,
           obra: compartilhadoEhDaDespesa ? undefined : obra,
+          fornecedor: compartilhadoEhDaDespesa ? undefined : fornecedor,
           conferido: compartilhadoEhDaDespesa ? false : conferido,
           linha: numeroDaLinha, ocorrencias,
         }))
@@ -499,7 +503,7 @@ export function lerLancamentos(matriz: Matriz): LeituraDeCaixa {
           lancamentos.push(montarLinha({
             idExterno, tipo: 'despesa', descricao, valor: Math.abs(valorDespesa), periodo: p,
             solicitantes: separarSolicitantes(celula(linha, 'solicitante')),
-            categoria, obra, conferido, linha: numeroDaLinha, ocorrencias,
+            categoria, obra, fornecedor, conferido, linha: numeroDaLinha, ocorrencias,
           }))
         }
       }
@@ -523,6 +527,7 @@ function montarLinha(a: {
   solicitantes: string[]
   categoria?: string
   obra?: string
+  fornecedor?: string
   conferido: boolean
   linha: number
   ocorrencias: Map<string, number>
@@ -542,6 +547,7 @@ function montarLinha(a: {
     solicitantes: a.solicitantes,
     categoria: a.categoria,
     obra: a.obra,
+    fornecedor: a.fornecedor,
     conferido: a.conferido,
     linha: a.linha,
     chave: chaveDeConteudo(base, n),

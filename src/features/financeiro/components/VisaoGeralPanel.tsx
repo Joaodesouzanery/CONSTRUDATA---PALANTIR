@@ -4,7 +4,7 @@
  * quebra por categoria e por obra, e tabela mensal. Tudo derivado de
  * `financeiroStore.entries` (não altera nenhum dado).
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Building2 } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
@@ -15,6 +15,11 @@ import {
 } from '../lib/financeiroCalc'
 import type { FinanceiroFilter } from '../lib/financeiroCalc'
 import type { FinanceiroEntry } from '@/types'
+import { useEntradaIndicadores } from '../hooks/useEntradaIndicadores'
+import { CartaoIndicador } from './ProjetadoRealizadoPanel'
+import { lerImportacoes, tomDaImportacao, type RegistroDeImportacoes } from '../utils/importacoes'
+import { diasAtras, fraseHaDias } from '@/lib/diasAtras'
+import { OQueE } from '@/components/shared/OQueE'
 
 export function VisaoGeralPanel() {
   const entries = useFinanceiroStore((s) => s.entries)
@@ -40,6 +45,15 @@ export function VisaoGeralPanel() {
   )
 
   const filtered = useMemo(() => filterEntries(entries, filter), [entries, filter])
+
+  // Os mesmos indicadores do Projetado × Realizado, na altitude dos KPIs — o dono esperava vê-los
+  // aqui, e a coleta é o mesmo hook, para os dois lugares nunca discordarem.
+  const periodoIndicadores = useMemo(() => ({ from: filter.from, to: filter.to }), [filter.from, filter.to])
+  const indicadores = useEntradaIndicadores(periodoIndicadores, filter.obraId || null)
+
+  // "Importado há X dias por Fulano" — lido do servidor, visível a toda a empresa.
+  const [importacoes, setImportacoes] = useState<RegistroDeImportacoes | null>(null)
+  useEffect(() => { void lerImportacoes().then(setImportacoes) }, [entries.length])
   const monthly = useMemo(() => monthlySeries(filtered), [filtered])
 
   const totEntradas = filtered.filter((e) => e.tipo === 'entrada').reduce((s, e) => s + num(e.valor), 0)
@@ -71,6 +85,26 @@ export function VisaoGeralPanel() {
           color={margem === null ? 'text-[#6b6b6b]' : 'text-cyan-400'}
           sub={margem === null ? 'sem receita no período' : undefined}
         />
+      </div>
+
+      {/* As duas planilhas: quando chegaram, por quem. Igual às Rotinas — o que envelhece avisa. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <CardImportacao titulo="Controle de Caixa" registro={importacoes?.caixa} />
+        <CardImportacao titulo="Fluxo de Caixa Projetado" registro={importacoes?.fcp} />
+      </div>
+
+      {/* Indicadores RDO × Caixa × FCP. Cinza com "o que falta" quando não há base — nunca zero. */}
+      <div>
+        <div className="mb-2 flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-[#a3a3a3]">Indicadores</p>
+          <OQueE titulo="Indicadores" explicacao={{
+            oQueE: 'Os cruzamentos entre o RDO (produção), o Controle de Caixa (dinheiro real) e o Fluxo de Caixa Projetado (o plano). Cada card tem total e a abertura por obra.',
+            deOndeVem: 'Do período e da obra escolhidos na barra de filtro acima. Card cinza diz exatamente o que falta preencher para ele existir.',
+          }} />
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {indicadores.map((i) => <CartaoIndicador key={i.id} i={i} />)}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -310,6 +344,31 @@ function SemReceita() {
         O caminho: <span className="text-[#a3a3a3]">Torre de Controle → Obras → Detalhe →
         Contrato &amp; Medição</span>, lance a nota no extrato de faturamento. Ela vira título em
         Pagamentos e Cobranças, e a baixa do título vira a entrada.
+      </p>
+    </div>
+  )
+}
+
+const TOM_IMPORTACAO = {
+  ok:         { borda: 'border-[#525252]',    fundo: 'bg-[#333333]',        valor: 'text-[#4ade80]' },
+  atencao:    { borda: 'border-[#eab308]/40', fundo: 'bg-[#eab308]/[0.06]', valor: 'text-[#fbbf24]' },
+  grave:      { borda: 'border-[#ef4444]/40', fundo: 'bg-[#ef4444]/[0.06]', valor: 'text-[#fca5a5]' },
+  'sem-dado': { borda: 'border-[#525252]',    fundo: 'bg-[#2c2c2c]',        valor: 'text-[#a3a3a3]' },
+} as const
+
+function CardImportacao({ titulo, registro }: { titulo: string; registro?: { em: string; por: string; linhas?: number; arquivo?: string } }) {
+  const dias = diasAtras(registro?.em)
+  const tom = TOM_IMPORTACAO[tomDaImportacao(dias)]
+  return (
+    <div className={`rounded-xl border p-3.5 ${tom.borda} ${tom.fundo}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a3a3a3]">{titulo}</p>
+      <p className={`mt-1 text-lg font-bold ${tom.valor}`}>
+        {registro ? `importado ${fraseHaDias(dias)}` : 'nenhuma planilha importada'}
+      </p>
+      <p className="mt-0.5 text-[11px] text-[#d4d4d4]">
+        {registro
+          ? `por ${registro.por}${registro.linhas !== undefined ? ` · ${registro.linhas} linha(s) gravada(s)` : ''}${registro.arquivo ? ` · ${registro.arquivo}` : ''}`
+          : 'importe na aba DRE e Resultado'}
       </p>
     </div>
   )

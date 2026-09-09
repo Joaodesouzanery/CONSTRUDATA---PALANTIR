@@ -29,6 +29,7 @@ import { ImportarCaixaModal } from './ImportarCaixaModal'
 import { baixarPlanilhaModelo, rotuloDaCategoria, CATEGORIAS_DA_PLANILHA } from '../utils/controleDeCaixaModelo'
 import type { EntradaCategoria, FinanceiroEntry, SaidaCategoria } from '@/types'
 import { ehDoCaixa, agruparCaixa, type GrupoCaixa } from '../utils/caixaAgrupar'
+import { registrarImportacao } from '../utils/importacoes'
 
 const INPUT = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-[#f97316]/60'
 const LABEL = 'block text-[10px] text-[#6b6b6b] uppercase mb-1'
@@ -49,6 +50,8 @@ export function ControleDeCaixaPanel() {
     })),
   )
   const sites = useTorreStore((s) => s.sites)
+  const perfilImporta = useAuth((s) => s.profile)
+  const quemImporta = perfilImporta?.full_name ?? perfilImporta?.email ?? 'alguém'
   const workers = useMaoDeObraStore((s) => s.workers)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
   const profile = useAuth((s) => s.profile)
@@ -81,6 +84,9 @@ export function ControleDeCaixaPanel() {
   function gravarImportados(lancamentos: FinanceiroEntry[]) {
     // `addEntry` é UPSERT por id — reimportar substitui, não duplica.
     for (const l of lancamentos) addEntry(l, { respectObra: true })
+    // "Importado há X dias por Fulano" na Visão Geral. Registra mesmo com zero linha gravada —
+    // reimportar um arquivo sem mudança TAMBÉM é "trouxe a planilha".
+    void registrarImportacao('caixa', { por: quemImporta, linhas: lancamentos.length })
   }
 
   return (

@@ -21,9 +21,13 @@ import type { FinanceiroEntry } from '@/types'
 export const COLUNAS_LANCAMENTOS = [
   'ID', 'ENTRADA', 'DATA', 'DESCRIÇÃO', 'VALOR', 'DATA DA DESPESA', 'SOLICITANTE',
   'CATEGORIA', 'OBRA', 'CONFERIDO',
+  // ⚠️ Novas em 08/09/2026, OPCIONAIS — o leitor aceita a planilha sem elas. FORNECEDOR separa
+  // "para quem foi pago" de "quem pediu" (SOLICITANTE): é o que destrava o indicador de
+  // concentração de locador. Ver docs/PLANILHAS_O_QUE_FALTA.md.
+  'FORNECEDOR',
 ] as const
 
-const LARGURAS = [38, 12, 12, 48, 12, 16, 22, 18, 24, 12]
+const LARGURAS = [38, 12, 12, 48, 12, 16, 22, 18, 24, 12, 24]
 
 /** As categorias que a DRE sabe somar. Fora desta lista, o lançamento cai em "Outro". */
 export const CATEGORIAS_DA_PLANILHA = {
@@ -99,6 +103,7 @@ function linhaDaEntry(e: FinanceiroEntry, nomeDaObra: (id?: string) => string): 
     rotuloDaCategoria(e.categoria),
     nomeDaObra(e.obraId),
     e.conferido ? 'Conferido' : '',
+    e.fornecedor ?? '',
   ]
 }
 

@@ -466,8 +466,8 @@ test('obra arquivada casa, mas a ativa com o mesmo nome tem precedência', () =>
 
 test('camposNaoInformados distingue "não disse" de "disse vazio"', () => {
   assert.deepEqual([...camposNaoInformados(['descricao', 'valor'])].sort(),
-    ['categoria', 'conferido', 'obraId'])
-  assert.equal(camposNaoInformados(['categoria', 'obra', 'conferido']).size, 0)
+    ['categoria', 'conferido', 'fornecedor', 'obraId'])
+  assert.equal(camposNaoInformados(['categoria', 'obra', 'conferido', 'fornecedor']).size, 0)
   // Sem informação nenhuma, o comportamento antigo: não preserva nada.
   assert.equal(camposNaoInformados(undefined).size, 0)
 })

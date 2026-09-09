@@ -354,7 +354,7 @@ function Indicadores({ lista }: { lista: IndicadorFinanceiro[] }) {
   )
 }
 
-function CartaoIndicador({ i }: { i: IndicadorFinanceiro }) {
+export function CartaoIndicador({ i }: { i: IndicadorFinanceiro }) {
   const [aberto, setAberto] = useState(false)
   const tom = TOM[i.tom]
   return (

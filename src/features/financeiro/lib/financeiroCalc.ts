@@ -3,6 +3,7 @@
  * Usado por Visão Geral (análise filtrada), DRE simplificada e Fluxo de Caixa.
  * Nada aqui muta store — só lê `FinanceiroEntry[]` + `DreConfig`.
  */
+import type { SubcategoriaSaida } from '@/types'
 import type {
   FinanceiroEntry,
   DreConfig,
@@ -94,6 +95,23 @@ export function corDaMargem(v: number | null | undefined): string {
 
 export function catLabel(c: FinanceiroCategoria): string {
   return (ENTRADA_CAT_LABELS as Record<string, string>)[c] ?? (SAIDA_CAT_LABELS as Record<string, string>)[c] ?? c
+}
+
+/** O segundo nível, só para as categorias que têm. Hoje: Mão de Obra. */
+export const SUBCATEGORIAS_POR_CATEGORIA: Partial<Record<SaidaCategoria, Array<{ key: SubcategoriaSaida; label: string }>>> = {
+  mao_de_obra: [
+    { key: 'salario',      label: 'Salário' },
+    { key: 'horas_extras', label: 'Horas extras' },
+    { key: 'diaria',       label: 'Diária' },
+  ],
+}
+
+/** "Mão de Obra · Horas extras" — a categoria com o segundo nível, quando ele existe. */
+export function catLabelCompleto(e: Pick<FinanceiroEntry, 'categoria' | 'subcategoria'>): string {
+  const base = catLabel(e.categoria)
+  if (!e.subcategoria) return base
+  const sub = SUBCATEGORIAS_POR_CATEGORIA[e.categoria as SaidaCategoria]?.find((s) => s.key === e.subcategoria)
+  return sub ? `${base} · ${sub.label}` : base
 }
 
 export const ENTRADA_CATS = Object.keys(ENTRADA_CAT_LABELS) as EntradaCategoria[]
