@@ -65,27 +65,9 @@ Confirmadas como **aplicadas** pelo João: `20260623120000_security_role_guard`,
 `20260808120000_boletos_bucket`, `20260808130000_predial_chamados_publicos`,
 `20260817140000_work_posts_occurrences`, `20260820120000_obra_dias_sem_producao`,
 `20260821120000_worker_absences_site_id_insurance`, `20260822120000_estoque_ficha_de_retirada`,
-`20260823120000_rotinas_da_empresa`, `20260824130000_desfazer_exclusao`.
-
-### 🔴 `20260710130000_app_state.sql` — a tabela que ninguém sabia que faltava
-
-Descoberta em 09/09/2026, na auditoria de pré-voo do deploy das cinco fatias. A migração é de
-**julho** e mesmo assim ficou fora das duas listas: não está no bundle `APPLY_PENDENTE_20260722`
-(conferido, zero ocorrências) nem entre as confirmadas pelo João.
-
-⚠️ **Por que passou tanto tempo despercebida:** `src/lib/blobSync.ts` existia sem **um único
-consumidor** — nenhuma tela tocava `app_state`, então nada podia falhar. A partir do deploy de
-09/09 ela passa a ser usada pelos cards *"Controle de Caixa — importado há X dias por Fulano"*
-da Visão Geral do Financeiro.
-
-**O que acontece sem ela — medido, não suposto:** nada trava. `pushBlob` faz `upsert` direto e
-**não passa pela fila de sincronização**, então não existe op presa retentando para sempre (que é
-o estrago do PGRST205 nas outras tabelas). No erro ele escreve um aviso no console e devolve
-`false`. O sintoma único: importar a planilha e o card continuar dizendo "nenhuma planilha
-importada". Parece defeito da tela; é tabela faltando.
-
-Para aplicar: `docs/COLAR_NO_SQL_EDITOR.sql` traz a tabela + as 4 policies e termina numa consulta
-única de conferência (`OK` / `FALTA` por item). Idempotente — serve de diagnóstico se já existir.
+`20260823120000_rotinas_da_empresa`, `20260824130000_desfazer_exclusao`,
+`20260710130000_app_state` (conferida no SQL Editor em 09/09/2026: tabela, RLS forçada, as
+4 policies e a chave única, tudo OK).
 
 ### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
 
