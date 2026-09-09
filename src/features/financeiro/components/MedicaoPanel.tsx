@@ -17,15 +17,18 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { Ruler, AlertTriangle, CheckCircle2, Upload, X, RefreshCw, Building2 } from 'lucide-react'
-import type { CatalogoDoContrato, MedicaoImportada } from '@/types'
+import { Ruler, AlertTriangle, CheckCircle2, Upload, X, Building2, ArrowRightCircle } from 'lucide-react'
+import type { CatalogoDoContrato, ConstructionSite, MedicaoImportada } from '@/types'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { useAuth } from '@/lib/auth'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
 import { validateFileBeforeParse } from '@/lib/importEngine'
 import { lerCatalogoZn, lerQuantidadesZn, type LeituraDoCatalogo, type LeituraDasQuantidades } from '../utils/medicao/importarCatalogoZn'
 import { lerCatalogo, gravarCatalogo, lerMedicao, gravarMedicao } from '../utils/medicao/catalogoStorage'
 import { calcularMedicao, cadeiaDeRepasse, porCategoria, type ResultadoDaMedicao } from '../utils/medicao/motorDaMedicao'
+import { entradaDaMedicao, idDaEntradaDaMedicao, podeGerarEntrada } from '../utils/medicao/medicaoParaFinanceiro'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
@@ -40,6 +43,8 @@ interface Lido { catalogo: LeituraDoCatalogo; quantidades: LeituraDasQuantidades
 
 export function MedicaoPanel() {
   const sites = useTorreStore((s) => s.sites)
+  const addEntry = useFinanceiroStore((s) => s.addEntry)
+  const entries = useFinanceiroStore((s) => s.entries)
   const profile = useAuth((s) => s.profile)
   const quem = profile?.full_name ?? profile?.email ?? 'alguém'
 
@@ -111,11 +116,35 @@ export function MedicaoPanel() {
     } finally { setGravando(false) }
   }
 
-  async function escolherRegiao(obra: string, regiao: string) {
-    if (!medicao) return
-    const atualizada = { ...medicao, regiaoPorObra: { ...medicao.regiaoPorObra, [obra]: regiao } }
+  async function salvarMedicao(atualizada: MedicaoImportada, oQue: string) {
     setMedicao(atualizada)
-    if (!(await gravarMedicao(atualizada))) setAviso('A região foi trocada na tela, mas não consegui salvar.')
+    if (!(await gravarMedicao(atualizada))) setAviso(`${oQue} mudou na tela, mas não consegui salvar.`)
+  }
+
+  const escolherRegiao = (obra: string, regiao: string) =>
+    medicao && salvarMedicao({ ...medicao, regiaoPorObra: { ...medicao.regiaoPorObra, [obra]: regiao } }, 'A região')
+
+  const escolherObra = (obra: string, obraId: string) =>
+    medicao && salvarMedicao({ ...medicao, obraIdPorObra: { ...(medicao.obraIdPorObra ?? {}), [obra]: obraId } }, 'A obra')
+
+  const escolherCompetencia = (competencia: string) =>
+    medicao && salvarMedicao({ ...medicao, competencia }, 'A competência')
+
+  /**
+   * ⚠️ Botão, nunca automático — e nunca com pendência. `addEntry` é upsert por id, e o id é
+   * determinístico por (contrato, obra, competência): gerar de novo ATUALIZA em vez de duplicar.
+   */
+  function gerarEntrada(r: ResultadoDaMedicao) {
+    if (!medicao) return
+    const obraId = medicao.obraIdPorObra?.[r.obra]
+    const competencia = medicao.competencia ?? ''
+    const p = podeGerarEntrada(r, obraId, competencia)
+    if (!p.pode) { setAviso(p.motivo ?? 'Não dá para gerar ainda.'); return }
+    addEntry(
+      entradaDaMedicao(r, { orgId: profile?.organization_id, numeroContrato, obraId: obraId!, competencia, data: `${competencia}-01` }),
+      { respectObra: true },
+    )
+    setAviso(`Entrada de ${brl(r.total)} lançada no Financeiro para ${r.obra}.`)
   }
 
   const resultados = useMemo<ResultadoDaMedicao[]>(() => {
@@ -189,16 +218,40 @@ export function MedicaoPanel() {
 
       {catalogo && <CardDoCatalogo catalogo={catalogo} />}
 
-      {catalogo && medicao && medicao.obras.map((obra) => (
-        <MedicaoDaObra
-          key={obra}
-          obra={obra}
-          catalogo={catalogo}
-          regiao={medicao.regiaoPorObra[obra]}
-          resultado={resultados.find((r) => r.obra === obra)}
-          onEscolherRegiao={(r) => void escolherRegiao(obra, r)}
-        />
-      ))}
+      {catalogo && medicao && (
+        <label className="flex items-center gap-2 self-start text-[11px] text-[#a3a3a3]">
+          Competência da medição
+          <input
+            type="month"
+            value={medicao.competencia ?? ''}
+            onChange={(e) => void escolherCompetencia(e.target.value)}
+            className="rounded-lg border border-[#525252] bg-[#1f1f1f] px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/50"
+          />
+          <span className="text-[10px] text-[#6b6b6b]">entra no lançamento — regerar a mesma competência atualiza, não duplica</span>
+        </label>
+      )}
+
+      {catalogo && medicao && medicao.obras.map((obra) => {
+        const r = resultados.find((x) => x.obra === obra)
+        const obraId = medicao.obraIdPorObra?.[obra]
+        const idEsperado = idDaEntradaDaMedicao(profile?.organization_id, numeroContrato, obra, medicao.competencia ?? '')
+        return (
+          <MedicaoDaObra
+            key={obra}
+            obra={obra}
+            catalogo={catalogo}
+            regiao={medicao.regiaoPorObra[obra]}
+            resultado={r}
+            obras={sites}
+            obraId={obraId}
+            lancamento={entries.find((e) => e.id === idEsperado) ?? null}
+            gerar={podeGerarEntrada(r, obraId, medicao.competencia ?? '')}
+            onEscolherRegiao={(x) => void escolherRegiao(obra, x)}
+            onEscolherObra={(x) => void escolherObra(obra, x)}
+            onGerar={() => r && gerarEntrada(r)}
+          />
+        )
+      })}
 
       {catalogo && medicao && (
         <p className="text-[11px] text-[#6b6b6b]">
@@ -345,12 +398,21 @@ function CardDoCatalogo({ catalogo }: { catalogo: CatalogoDoContrato }) {
 
 // ─── A medição de uma obra ────────────────────────────────────────────────────
 
-function MedicaoDaObra({ obra, catalogo, regiao, resultado, onEscolherRegiao }: {
+function MedicaoDaObra({
+  obra, catalogo, regiao, resultado, obras, obraId, lancamento, gerar,
+  onEscolherRegiao, onEscolherObra, onGerar,
+}: {
   obra: string
   catalogo: CatalogoDoContrato
   regiao?: string
   resultado?: ResultadoDaMedicao
+  obras: ConstructionSite[]
+  obraId?: string
+  lancamento: import('@/types').FinanceiroEntry | null
+  gerar: { pode: boolean; motivo?: string }
   onEscolherRegiao: (regiao: string) => void
+  onEscolherObra: (obraId: string) => void
+  onGerar: () => void
 }) {
   const cadeia = resultado ? cadeiaDeRepasse(resultado.total, catalogo.fatorPadrao) : null
   const cats = resultado ? porCategoria(resultado) : []
@@ -445,11 +507,52 @@ function MedicaoDaObra({ obra, catalogo, regiao, resultado, onEscolherRegiao }: 
             </div>
           )}
 
-          <p className="mt-3 flex items-center gap-1.5 text-[10px] text-[#6b6b6b]">
-            <RefreshCw size={11} />
-            Este número é calculado item a item, não digitado. Gerar a Entrada no Financeiro a
-            partir dele é o próximo passo — e só vai ser oferecido com a medição sem pendência.
-          </p>
+          {/* ── Fechar o ciclo: a medição vira Entrada no Financeiro ────────── */}
+          <div className="mt-4 rounded-lg border border-[#525252] bg-[#2c2c2c] p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <ArrowRightCircle size={14} className="text-[#f97316]" />
+              <p className="text-[11px] font-semibold text-[#f5f5f5]">Lançar no Financeiro</p>
+              <label className="ml-auto flex items-center gap-2 text-[11px] text-[#a3a3a3]">
+                Obra cadastrada
+                <select
+                  value={obraId ?? ''}
+                  onChange={(e) => onEscolherObra(e.target.value)}
+                  className="rounded-lg border border-[#525252] bg-[#1f1f1f] px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/50"
+                >
+                  <option value="">— escolha —</option>
+                  {obras.filter(obraEstaAtiva).map((o) => (
+                    <option key={o.id} value={o.id}>{o.code ? `${o.code} — ` : ''}{o.name}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {lancamento ? (
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-emerald-300">
+                <CheckCircle2 size={12} />
+                Já lançado: <strong>{brl(lancamento.valor)}</strong> em {lancamento.data.split('-').reverse().join('/')}.
+                <span className="text-[#6b6b6b]">Gerar de novo atualiza este mesmo lançamento.</span>
+              </p>
+            ) : null}
+
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button" onClick={onGerar} disabled={!gerar.pode}
+                className="rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                {lancamento ? 'Atualizar Entrada' : 'Gerar Entrada'}
+              </button>
+              {!gerar.pode && gerar.motivo && (
+                <span className="text-[11px] text-[#fbbf24]">{gerar.motivo}</span>
+              )}
+            </div>
+
+            <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+              O valor vai calculado item a item, não digitado — e a Entrada guarda de onde veio,
+              então dá para voltar dela ao item de contrato. É botão de propósito: medição vira
+              nota, e número que muda sozinho entre uma reunião e outra ninguém confere.
+            </p>
+          </div>
         </>
       )}
     </section>

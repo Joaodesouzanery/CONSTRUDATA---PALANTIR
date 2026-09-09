@@ -397,6 +397,10 @@ export interface MedicaoImportada {
   /** Região escolhida para cada obra — é ela que decide código e preço. */
   regiaoPorObra: Record<string, string>
   quantidades: Array<{ servicoCatalogoId: string; obra: string; quantidade: number }>
+  /** Obra cadastrada (`ConstructionSite.id`) de cada obra da planilha. Sem ela não há lançamento. */
+  obraIdPorObra?: Record<string, string>
+  /** Competência da medição (`yyyy-MM`). Entra no id da Entrada: regerar atualiza, não duplica. */
+  competencia?: string
   /** O que a planilha declara na coluna VALOR MEDIÇÃO, para a tela conferir contra o motor. */
   valorDeclarado: number
   importadaEm: string
@@ -3253,6 +3257,12 @@ export interface FinanceiroEntry {
   sourceRdoId?: string  // origem: RDO que gerou este lançamento (idempotência RDO→Financeiro)
   sourceTituloId?: string // origem: título cuja baixa gerou este lançamento (idempotência + rastreio)
   sourceNotaId?: string   // origem: nota fiscal lançada. Mesmo papel do acima, outra porta.
+  /**
+   * Origem: medição do contrato fechada. O quarto marcador de procedência, e o único cujo valor
+   * é CALCULADO item a item em vez de digitado — por isso ele importa: dá para voltar da Entrada
+   * ao item de contrato que a produziu.
+   */
+  sourceMedicaoId?: string
   createdAt:   string
 
   // ── Controle de Caixa ──────────────────────────────────────────────────────
