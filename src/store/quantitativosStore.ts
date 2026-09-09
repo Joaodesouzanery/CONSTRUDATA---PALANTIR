@@ -488,8 +488,11 @@ export const useQuantitativosStore = create<QuantitativosState>()(
   },
 
   pull: async () => {
-    const budgets = await pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets')
-    const cb      = await pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base')
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [budgets, cb] = await Promise.all([
+      pullTable<{ payload: OrcamentoBudget }>('quantitativos_budgets'),
+      pullTable<{ payload: CustomBaseEntry }>('quantitativos_custom_base'),
+    ])
     set((s) => ({ savedBudgets: mergePull(budgets?.map((r) => r.payload) ?? null, s.savedBudgets, s.pendingSync, 'quantitativos_budgets') }))
     set((s) => ({ customBase:   mergePull(cb?.map((r) => r.payload) ?? null, s.customBase, s.pendingSync, 'quantitativos_custom_base') }))
     set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

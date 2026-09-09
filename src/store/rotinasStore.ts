@@ -289,8 +289,11 @@ export const useRotinasStore = create<RotinasState>()(
       },
 
       pull: async () => {
-        const rs = await pullTable<Record<string, unknown>>('rotinas')
-        const es = await pullTable<Record<string, unknown>>('rotina_execucoes')
+        // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+        const [rs, es] = await Promise.all([
+          pullTable<Record<string, unknown>>('rotinas'),
+          pullTable<Record<string, unknown>>('rotina_execucoes'),
+        ])
         set((s) => ({
           rotinas: mergePull(
             rs?.map((r) => ({

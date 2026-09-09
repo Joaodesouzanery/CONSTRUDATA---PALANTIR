@@ -251,8 +251,11 @@ export const useAgendaStore = create<AgendaState>()(
         },
 
         pull: async () => {
-          const ts = await pullTable<{ payload: AgendaTask }>('agenda_tasks')
-          const rs = await pullTable<{ payload: AgendaResource }>('agenda_resources')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [ts, rs] = await Promise.all([
+            pullTable<{ payload: AgendaTask }>('agenda_tasks'),
+            pullTable<{ payload: AgendaResource }>('agenda_resources'),
+          ])
           set((s) => ({ tasks: mergePull(ts?.map((r) => safeTask(r.payload)).filter((t): t is AgendaTask => Boolean(t)) ?? null, s.tasks, s.pendingSync, 'agenda_tasks') }))
           set((s) => ({ resources: mergePull(rs?.map((r) => safeResource(r.payload)).filter((r): r is AgendaResource => Boolean(r)) ?? null, s.resources, s.pendingSync, 'agenda_resources') }))
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

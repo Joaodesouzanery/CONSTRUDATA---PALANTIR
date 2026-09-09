@@ -626,9 +626,12 @@ export const usePlanejamentoMestreStore = create<PlanejamentoMestreState>()(
         },
 
         pull: async () => {
-          const acts = await pullTable<{ payload: MasterActivity }>('master_activities')
-          const bls  = await pullTable<{ payload: MasterBaseline }>('master_baselines')
-          const lds  = await pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [acts, bls, lds] = await Promise.all([
+            pullTable<{ payload: MasterActivity }>('master_activities'),
+            pullTable<{ payload: MasterBaseline }>('master_baselines'),
+            pullTable<{ payload: LookaheadDerivedActivity }>('lookahead_derived_activities'),
+          ])
           set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'master_activities') }))
           set((s) => ({ baselines: mergePull(bls?.map((r) => r.payload) ?? null, s.baselines, s.pendingSync, 'master_baselines') }))
           set((s) => ({ derivedActivities: mergePull(lds?.map((r) => r.payload) ?? null, s.derivedActivities, s.pendingSync, 'lookahead_derived_activities') }))

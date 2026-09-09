@@ -38,6 +38,14 @@ export interface StoreSyncInfo {
   demo: boolean
 }
 
+const TTL_DO_PULL_MS = 30_000
+
+export function sincronizouHaPouco(lastSyncedAt: string | null | undefined, agora = Date.now()): boolean {
+  if (!lastSyncedAt) return false
+  const t = new Date(lastSyncedAt).getTime()
+  return Number.isFinite(t) && agora - t < TTL_DO_PULL_MS
+}
+
 export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<StoreApi<T>>): StoreSyncInfo {
   const orgId = useAuth((s) => s.profile?.organization_id ?? null)
   const syncStatus = useStore((s) => s.syncStatus)
@@ -67,6 +75,11 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
       // resto). Esperar a fila esvaziar — a política antiga — fazia UMA op presa congelar
       // o pull daquela tabela para sempre, e o painel envelhecia em silêncio.
       const after = useStore.getState()
+      // ⚠️ TTL: o boot já puxou tudo (`syncAllTenantStores`); cada componente que monta puxava a
+      // tabela inteira DE NOVO — dois painéis do mesmo store na mesma tela = dois pulls de 9
+      // tabelas. Sincronizado há menos de 30 s = já está fresco. O realtime continua avisando
+      // mudanças de colegas por fora, e o `flush` acima sempre roda.
+      if (sincronizouHaPouco(after.lastSyncedAt)) return
       try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
     })()
     return () => { cancelled = true }

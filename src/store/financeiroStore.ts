@@ -316,8 +316,11 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           // Puxa cada tabela e MESCLA com o local via mergePull: registros com op
           // pendente ficam com a versão local (não-sincronizada) e o resto vem do
           // servidor — evita "congelar" a tabela inteira quando UMA op fica presa.
-          const es = await pullTable<{ payload: FinanceiroEntry }>('financeiro_entries')
-          const ds = await pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [es, ds] = await Promise.all([
+            pullTable<{ payload: FinanceiroEntry }>('financeiro_entries'),
+            pullTable<{ payload: Distribuicao }>('financeiro_distribuicoes'),
+          ])
           set((s) => ({ entries: mergePull(es?.map((r) => r.payload) ?? null, s.entries, s.pendingSync, 'financeiro_entries') }))
           set((s) => ({ distribuicoes: mergePull(ds?.map((r) => r.payload) ?? null, s.distribuicoes, s.pendingSync, 'financeiro_distribuicoes') }))
           // Preserva o diagnóstico do flush enquanto sobrar op na fila: o pull vem logo depois

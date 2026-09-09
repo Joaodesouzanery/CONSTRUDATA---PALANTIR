@@ -239,8 +239,11 @@ export const useRede360Store = create<Rede360State>()(
         },
 
         pull: async () => {
-          const ativos = await pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos')
-          const sos    = await pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [ativos, sos] = await Promise.all([
+            pullTable<{ asset_type: string; payload: NetworkAsset }>('rede_ativos'),
+            pullTable<{ payload: Rede360ServiceOrder }>('rede_service_orders'),
+          ])
           // Por enquanto remapeia só os de asset_type='network' para o array assets[].
           set((s) => ({ assets: mergePull(ativos?.filter((r) => r.asset_type === 'network').map((r) => r.payload) ?? null, s.assets, s.pendingSync, 'rede_ativos') }))
           set((s) => ({ serviceOrders: mergePull(sos?.map((r) => r.payload) ?? null, s.serviceOrders, s.pendingSync, 'rede_service_orders') }))

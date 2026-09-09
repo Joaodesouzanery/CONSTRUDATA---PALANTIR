@@ -956,10 +956,13 @@ export const useEvmStore = create<EvmState>()(
   pull: async () => {
     // Fase 5: puxa SEMPRE cada tabela e mescla com mergePull (preserva registros com op
     // pendente, atualiza o resto com o servidor). Nada mais congela a tabela inteira.
-    const wps  = await pullTable<{ payload: WorkPackage }>('evm_work_packages')
-    const cas  = await pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts')
-    const ms   = await pullTable<{ payload: WeightedMeasurement }>('evm_measurements')
-    const imps = await pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf')
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [wps, cas, ms, imps] = await Promise.all([
+      pullTable<{ payload: WorkPackage }>('evm_work_packages'),
+      pullTable<{ payload: CostAccountEntry }>('evm_cost_accounts'),
+      pullTable<{ payload: WeightedMeasurement }>('evm_measurements'),
+      pullTable<{ payload: ImpostoNF }>('financeiro_impostos_nf'),
+    ])
     set((s) => ({
       workPackages: mergePull(wps?.map((r) => r.payload) ?? null, s.workPackages, s.pendingSync, 'evm_work_packages'),
       costAccounts: mergePull(cas?.map((r) => r.payload) ?? null, s.costAccounts, s.pendingSync, 'evm_cost_accounts'),

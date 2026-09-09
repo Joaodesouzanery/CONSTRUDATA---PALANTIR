@@ -497,15 +497,18 @@ export const useFrotaVeicularStore = create<FrotaVeicularState>()(
         },
 
         pull: async () => {
-          const v   = await pullTable<{ payload: Vehicle }>('veiculos')
-          const fr  = await pullTable<{ payload: FuelRecord }>('fleet_fuel_records')
-          const m   = await pullTable<{ payload: VehicleMaintenanceRecord }>('fleet_vehicle_maintenance')
-          const dr  = await pullTable<{ payload: VehicleDriver }>('fleet_drivers')
-          const ro  = await pullTable<{ payload: VehicleRoute }>('fleet_routes')
-          const so  = await pullTable<{ payload: VehicleServiceOrder }>('fleet_service_orders')
-          const fi  = await pullTable<{ payload: VehicleFine }>('fleet_fines')
-          const al  = await pullTable<{ payload: FleetMaintenanceAlert }>('fleet_alerts')
-          const sc  = await pullTable<{ payload: FleetScheduleEntry }>('fleet_schedules')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [v, fr, m, dr, ro, so, fi, al, sc] = await Promise.all([
+            pullTable<{ payload: Vehicle }>('veiculos'),
+            pullTable<{ payload: FuelRecord }>('fleet_fuel_records'),
+            pullTable<{ payload: VehicleMaintenanceRecord }>('fleet_vehicle_maintenance'),
+            pullTable<{ payload: VehicleDriver }>('fleet_drivers'),
+            pullTable<{ payload: VehicleRoute }>('fleet_routes'),
+            pullTable<{ payload: VehicleServiceOrder }>('fleet_service_orders'),
+            pullTable<{ payload: VehicleFine }>('fleet_fines'),
+            pullTable<{ payload: FleetMaintenanceAlert }>('fleet_alerts'),
+            pullTable<{ payload: FleetScheduleEntry }>('fleet_schedules'),
+          ])
           set((s) => ({
             vehicles:    mergePull(v?.map((r) => r.payload) ?? null,  s.vehicles,    s.pendingSync, 'veiculos'),
             fuelRecords: mergePull(fr?.map((r) => r.payload) ?? null, s.fuelRecords, s.pendingSync, 'fleet_fuel_records'),

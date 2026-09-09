@@ -1496,15 +1496,18 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // Sempre puxa cada tabela e MESCLA com mergePull: preserva os registros com op
     // pendente (local não-sincronizado) e atualiza o resto com o servidor — assim uma
     // op presa nunca mais congela a tabela inteira e o local não diverge em silêncio.
-    const ws = await pullTable<{ payload: Worker }>('workers')
-    const cs = await pullTable<{ payload: LaborCrew }>('labor_crews')
-    const ts = await pullTable<{ payload: TimecardEntry }>('timecards')
-    const ss = await pullTable<{ payload: Shift }>('shifts')
-    const as_ = await pullTable<{ payload: WorkerAbsence }>('worker_absences')
-    const asmt = await pullTable<{ payload: WorkerAssessment }>('worker_assessments')
-    const clt = await pullTable<{ payload: CLTSettings }>('clt_settings')
-    const wps = await pullTable<{ payload: WorkPost }>('work_posts')
-    const occ = await pullTable<{ payload: LaborOccurrence }>('labor_occurrences')
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [ws, cs, ts, ss, as_, asmt, clt, wps, occ] = await Promise.all([
+      pullTable<{ payload: Worker }>('workers'),
+      pullTable<{ payload: LaborCrew }>('labor_crews'),
+      pullTable<{ payload: TimecardEntry }>('timecards'),
+      pullTable<{ payload: Shift }>('shifts'),
+      pullTable<{ payload: WorkerAbsence }>('worker_absences'),
+      pullTable<{ payload: WorkerAssessment }>('worker_assessments'),
+      pullTable<{ payload: CLTSettings }>('clt_settings'),
+      pullTable<{ payload: WorkPost }>('work_posts'),
+      pullTable<{ payload: LaborOccurrence }>('labor_occurrences'),
+    ])
 
     // ── Subida única do que já existia só no navegador ─────────────────────────────
     //

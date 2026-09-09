@@ -603,9 +603,12 @@ export const useLpsStore = create<LpsState>()(
         },
 
         pull: async () => {
-          const acts = await pullTable<{ payload: LpsActivity }>('lps_activities')
-          const restrs = await pullTable<{ payload: LpsRestriction }>('lps_restrictions')
-          const zones = await pullTable<{ payload: TaktZone }>('lps_takt_zones')
+          // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+          const [acts, restrs, zones] = await Promise.all([
+            pullTable<{ payload: LpsActivity }>('lps_activities'),
+            pullTable<{ payload: LpsRestriction }>('lps_restrictions'),
+            pullTable<{ payload: TaktZone }>('lps_takt_zones'),
+          ])
           set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'lps_activities') }))
           set((s) => ({ restrictions: mergePull(restrs?.map((r) => r.payload) ?? null, s.restrictions, s.pendingSync, 'lps_restrictions') }))
           set((s) => ({ taktZones: mergePull(zones?.map((r) => r.payload) ?? null, s.taktZones, s.pendingSync, 'lps_takt_zones') }))

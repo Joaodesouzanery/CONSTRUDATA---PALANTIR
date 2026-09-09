@@ -159,8 +159,11 @@ export const useOperacaoCampoStore = create<OperacaoCampoState>()(
         // operacao_campo_days tem chave composta (`date_activityId`, ver `dayToRow`), a mesma que
         // vira `recordId` ao enfileirar. Antes a tabela inteira era pulada quando havia qualquer
         // op pendente — uma marcação sua no calendário fazia você parar de ver as dos colegas.
-        const acts = await pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities')
-        const days = await pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days')
+        // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+        const [acts, days] = await Promise.all([
+          pullTable<{ payload: FieldCalendarActivity }>('operacao_campo_activities'),
+          pullTable<{ payload: FieldCalendarDay }>('operacao_campo_days'),
+        ])
         set((s) => ({ activities: mergePull(acts?.map((r) => r.payload) ?? null, s.activities, s.pendingSync, 'operacao_campo_activities') }))
         set((s) => ({
           calendarDays: mergePullPorChave(

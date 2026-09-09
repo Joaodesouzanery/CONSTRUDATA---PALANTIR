@@ -241,8 +241,11 @@ export const useManejoFinanceiroStore = create<ManejoFinanceiroState>()(
       },
 
       pull: async () => {
-        const cs = await pullTable<{ payload: ManejoContrato }>('financeiro_contratos')
-        const os = await pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos')
+        // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+        const [cs, os] = await Promise.all([
+          pullTable<{ payload: ManejoContrato }>('financeiro_contratos'),
+          pullTable<{ payload: ManejoOrcamentoItem }>('financeiro_orcamentos'),
+        ])
         set((s) => ({ contratos: mergePull(cs?.map((r) => r.payload) ?? null, s.contratos, s.pendingSync, 'financeiro_contratos') }))
         set((s) => ({ orcamentos: mergePull(os?.map((r) => r.payload) ?? null, s.orcamentos, s.pendingSync, 'financeiro_orcamentos') }))
         set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })

@@ -1511,13 +1511,16 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     // Fase 5 (mergePull): sempre puxa; o merge preserva os registros com op pendente e
     // atualiza o resto com o servidor. Os filtros pendingDeleted* abaixo continuam para o
     // caso CROSS-tabela (excluir um depósito esconde seus itens/movimentações).
-    const pos          = await pullTable<Record<string, unknown>>('purchase_orders')
-    const receipts     = await pullTable<Record<string, unknown>>('goods_receipts')
-    const invoices     = await pullTable<Record<string, unknown>>('invoices')
-    const suppliers    = await pullTable<Record<string, unknown>>('suppliers')
-    const depositos    = await pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true })
-    const estoqueItens = await pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true })
-    const movimentos   = await pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes')
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [pos, receipts, invoices, suppliers, depositos, estoqueItens, movimentos] = await Promise.all([
+      pullTable<Record<string, unknown>>('purchase_orders'),
+      pullTable<Record<string, unknown>>('goods_receipts'),
+      pullTable<Record<string, unknown>>('invoices'),
+      pullTable<Record<string, unknown>>('suppliers'),
+      pullTable<Record<string, unknown>>('suprimentos_depositos', { column: 'frente', ascending: true }),
+      pullTable<Record<string, unknown>>('suprimentos_estoque_itens', { column: 'descricao', ascending: true }),
+      pullTable<Record<string, unknown>>('suprimentos_estoque_movimentacoes'),
+    ])
     const pendingDeleteIds = (table: string) => new Set(
       get().pendingSync
         .filter((op) =>

@@ -500,9 +500,12 @@ export const useOtimizacaoFrotaStore = create<OtimizacaoFrotaState>()(
     // exatamente o `recordId` usado ao enfileirar. Antes isso obrigava a pular a tabela inteira
     // enquanto houvesse qualquer op pendente, e o módulo parava de receber dados novos em
     // silêncio; agora o `mergePullPorChave` casa registro e op pela chave certa.
-    const rr = await pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations')
-    const hs = await pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores')
-    const bl = await pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses')
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [rr, hs, bl] = await Promise.all([
+      pullTable<{ payload: RoutingRecommendation }>('otimizacao_routing_recommendations'),
+      pullTable<{ payload: PredictiveHealth }>('otimizacao_health_scores'),
+      pullTable<{ payload: BuyLeaseAnalysis }>('otimizacao_buy_lease_analyses'),
+    ])
     set((s) => ({
       routingRecs:      mergePull(rr?.map((r) => r.payload) ?? null, s.routingRecs, s.pendingSync, 'otimizacao_routing_recommendations'),
       buyLeaseAnalyses: mergePull(bl?.map((r) => r.payload) ?? null, s.buyLeaseAnalyses, s.pendingSync, 'otimizacao_buy_lease_analyses'),

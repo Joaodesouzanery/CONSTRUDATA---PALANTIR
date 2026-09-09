@@ -158,8 +158,16 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
 
       // Listener para mudanças (login/logout/refresh do JWT)
-      supabase.auth.onAuthStateChange((_event, newSession) => {
+      //
+      // ⚠️ O boot rodava DUAS VEZES. O auth-js emite `INITIAL_SESSION` para todo listener recém
+      // inscrito — e este listener chamava `refreshProfile()` de novo, que disparava de novo o
+      // pull de 41 stores. Medido: ~170 requisições no boot, metade repetida. E `TOKEN_REFRESHED`
+      // (o JWT renova sozinho, a aba volta do fundo) também re-puxava o banco inteiro.
+      // Agora: `INITIAL_SESSION` é ignorado (o `init` acima já cuidou), `TOKEN_REFRESHED` só
+      // atualiza a sessão, e o perfil só é relido quando a identidade de fato muda.
+      supabase.auth.onAuthStateChange((event, newSession) => {
         set({ session: newSession, user: newSession?.user ?? null })
+        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') return
         if (newSession?.user) {
           void get().refreshProfile()
         } else {
@@ -174,16 +182,67 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   refreshProfile: async () => {
+    // Lock de "em voo": duas chamadas simultâneas (login + listener, ou duas abas do app
+    // montando) esperam a mesma leitura em vez de dobrar as requisições.
+    if (refreshEmVoo) return refreshEmVoo
+    refreshEmVoo = refreshProfileInterno(get, set).finally(() => { refreshEmVoo = null })
+    return refreshEmVoo
+  },
+
+  switchOrganization: async (organizationId) => {
+    const current = get().profile?.organization_id
+    if (!organizationId || organizationId === current) return
+
+    const allowed = get().memberships.some((membership) => membership.organization_id === organizationId)
+    if (!allowed) {
+      throw new Error('Voce nao tem acesso ativo a esta empresa.')
+    }
+
+    // Sobe as pendências da empresa ATUAL antes de trocar (evita perda ao limpar caches).
+    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
+
+    const { error } = await supabase.rpc('set_default_organization', { p_org_id: organizationId })
+    if (error) {
+      set({ error: error.message })
+      throw error
+    }
+
+    clearTenantScopedCaches(organizationId)
+    await resetTenantScopedRuntimeStores(organizationId)
+    await get().refreshProfile()
+  },
+
+  signOut: async () => {
+    // Sobe as pendências antes de sair (não perder trabalho não sincronizado).
+    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
+    await supabase.auth.signOut()
+    clearTenantScopedCaches()
+    await resetTenantScopedRuntimeStores()
+    set({ session: null, user: null, profile: null, memberships: [], isGlobalAdmin: false })
+  },
+
+  setSession: (s) => set({ session: s, user: s?.user ?? null }),
+}))
+
+let refreshEmVoo: Promise<void> | null = null
+
+async function refreshProfileInterno(get: () => AuthState, set: (p: Partial<AuthState>) => void): Promise<void> {
     const user = get().user
     if (!user) {
       set({ profile: null, memberships: [], isGlobalAdmin: false })
       return
     }
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, organization_id, full_name, email, role, job_title, mfa_enrolled')
-      .eq('id', user.id)
-      .maybeSingle()
+    // As três leituras não dependem uma da outra — em série custavam três idas ao servidor
+    // antes de a tela liberar. `is_global_admin` falha para `false` de propósito (ver abaixo).
+    const [{ data, error }, rpc, admin] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, organization_id, full_name, email, role, job_title, mfa_enrolled')
+        .eq('id', user.id)
+        .maybeSingle(),
+      supabase.rpc('get_my_org_memberships'),
+      supabase.rpc('is_global_admin').then((r) => r, () => ({ data: null })),
+    ])
 
     if (error) {
       console.warn('[auth] failed to load profile', error)
@@ -192,7 +251,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
 
     let memberships: OrgMembership[] = []
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_org_memberships')
+    const { data: rpcData, error: rpcError } = rpc
     if (!rpcError && rpcData) {
       memberships = (rpcData as OrgMembershipRpcRow[]).map((row) => ({
         id: row.membership_id,
@@ -271,13 +330,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     // perguntou e nunca lista ninguém — a tabela `platform_admins` tem RLS sem policy alguma.
     // Se a chamada falhar, o padrão é `false`: perder o menu de administração é um
     // inconveniente; mostrá-lo por engano seria vazar a existência do papel.
-    let isGlobalAdmin = false
-    try {
-      const { data: ehAdmin } = await supabase.rpc('is_global_admin')
-      isGlobalAdmin = ehAdmin === true
-    } catch {
-      // Sem rede ou RPC ausente: segue como usuário comum.
-    }
+    const isGlobalAdmin = admin.data === true
 
     set({ profile: nextProfile, memberships, isGlobalAdmin, error: null })
 
@@ -288,42 +341,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (nextOrgId) {
       void import('@/store/appModeStore').then((m) => m.syncAllTenantStores())
     }
-  },
-
-  switchOrganization: async (organizationId) => {
-    const current = get().profile?.organization_id
-    if (!organizationId || organizationId === current) return
-
-    const allowed = get().memberships.some((membership) => membership.organization_id === organizationId)
-    if (!allowed) {
-      throw new Error('Voce nao tem acesso ativo a esta empresa.')
-    }
-
-    // Sobe as pendências da empresa ATUAL antes de trocar (evita perda ao limpar caches).
-    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
-
-    const { error } = await supabase.rpc('set_default_organization', { p_org_id: organizationId })
-    if (error) {
-      set({ error: error.message })
-      throw error
-    }
-
-    clearTenantScopedCaches(organizationId)
-    await resetTenantScopedRuntimeStores(organizationId)
-    await get().refreshProfile()
-  },
-
-  signOut: async () => {
-    // Sobe as pendências antes de sair (não perder trabalho não sincronizado).
-    try { await (await import('@/store/appModeStore')).flushAllTenantStores() } catch { /* offline: segue */ }
-    await supabase.auth.signOut()
-    clearTenantScopedCaches()
-    await resetTenantScopedRuntimeStores()
-    set({ session: null, user: null, profile: null, memberships: [], isGlobalAdmin: false })
-  },
-
-  setSession: (s) => set({ session: s, user: s?.user ?? null }),
-}))
+}
 
 /** Helper síncrono: lança se o usuário não tiver um dos roles. */
 export function requireRole(...allowed: UserRole[]): void {

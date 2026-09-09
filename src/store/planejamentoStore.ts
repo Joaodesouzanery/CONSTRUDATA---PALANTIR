@@ -1022,9 +1022,12 @@ export const usePlanejamentoStore = create<PlanejamentoState>()(
   pull: async () => {
     // Fase 5 (mergePull): sempre puxa; o merge preserva os registros com op pendente e
     // atualiza o resto com o servidor (uma op presa não congela mais a tabela nem apaga local).
-    const trechos = await pullTable<Record<string, unknown>>('plan_trechos')
-    const teams   = await pullTable<Record<string, unknown>>('plan_teams')
-    const hols    = await pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true })
+    // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
+    const [trechos, teams, hols] = await Promise.all([
+      pullTable<Record<string, unknown>>('plan_trechos'),
+      pullTable<Record<string, unknown>>('plan_teams'),
+      pullTable<Record<string, unknown>>('plan_holidays', { column: 'date', ascending: true }),
+    ])
     if (trechos) {
       set((s) => ({
         trechos: mergePull(trechos.map((r) => ({
