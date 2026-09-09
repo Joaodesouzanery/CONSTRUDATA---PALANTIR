@@ -567,6 +567,17 @@ export function piorPontoSemanal(semanas: ColunaSemanal[]): number {
  * desconto pode superar a medição parcial, e o resultado negativo é saldo devido ao consórcio,
  * que compensa em seguida.
  */
+export const ENCARGOS_SOBRE_PROVISAO_PADRAO = 0.348
+
+/**
+ * Quanto de cada R$ 1 de folha vira provisão: 1/12 de 13º + 1/12 de férias × 4/3 (o terço), tudo
+ * com encargos por cima. Com 34,8% de encargos, ≈ 26,2% da folha.
+ */
+export function fatorDeProvisao13Ferias(encargos = ENCARGOS_SOBRE_PROVISAO_PADRAO): number {
+  const e = Number.isFinite(encargos) && encargos >= 0 ? encargos : ENCARGOS_SOBRE_PROVISAO_PADRAO
+  return (1 / 12 + (1 / 12) * (4 / 3)) * (1 + e)
+}
+
 export function fluxoEconomico(p: PremissasFcp, realizado: ProducaoRealizada = {}): LinhaEconomica[] {
   const meses = mesesDoFluxo(p)  // competência: termina quando a obra termina
   const semanas = semanasDoFluxo(p, Math.max(12, meses.length * 5))
@@ -583,6 +594,7 @@ export function fluxoEconomico(p: PremissasFcp, realizado: ProducaoRealizada = {
   const indiretosGlobal = bloco('indiretos')
   const mobGlobal = p.cidades.reduce((s, c) => s + c.mobilizacao, 0)
   const descontoGlobal = p.cidades.reduce((s, c) => s + descontoMensal(p, c), 0)
+  const fatorProvisao = p.provisionar13Ferias ? fatorDeProvisao13Ferias(p.encargosSobreProvisao) : 0
 
   let acumulado = 0
   return meses.map((m, i) => {
@@ -596,13 +608,15 @@ export function fluxoEconomico(p: PremissasFcp, realizado: ProducaoRealizada = {
     const estrutura = estruturaGlobal * proporcao
     const indiretos = indiretosGlobal * proporcao
     const mobilizacao = i === 0 ? mobGlobal : 0
+    // Provisão sobre a folha das equipes — é o bloco que é salário. Engenheiro e estrutura não.
+    const provisao13Ferias = folha * fatorProvisao
 
-    const resultado = medicaoLiquida - folha - engenheiro - estrutura - indiretos - mobilizacao
+    const resultado = medicaoLiquida - folha - engenheiro - estrutura - indiretos - mobilizacao - provisao13Ferias
     acumulado += resultado
 
     return {
       mes: m, medicaoBruta, imposto, medicaoLiquida,
-      folha, engenheiro, estrutura, indiretos, mobilizacao,
+      folha, engenheiro, estrutura, indiretos, mobilizacao, provisao13Ferias,
       resultado, resultadoAcumulado: acumulado,
       margem: medicaoBruta > 0 ? resultado / medicaoBruta : 0,
     }

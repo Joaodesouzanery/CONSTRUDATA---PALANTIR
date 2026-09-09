@@ -111,6 +111,20 @@ export interface PremissasFcp {
   consorcioDescontaDaMedicao: boolean
   baseDoImposto: BaseDoImposto
 
+  // ── 8. Provisões (só no Econômico) ─────────────────────────────────────────
+  /**
+   * Provisionar 13º e férias sobre a folha, mês a mês. NÃO está na planilha do cliente — por
+   * isso nasce desligado, para a conferência continuar batendo ao centavo. Ligado, o Econômico
+   * ganha a linha "(–) Provisão 13º e férias" e o resultado mensal cai de propósito: sem a
+   * provisão, dez meses parecem melhores e dois piores do que são.
+   */
+  provisionar13Ferias?: boolean
+  /**
+   * Encargos sobre a provisão (FGTS + patronal + RAT + terceiros), fração. Padrão 0,348 —
+   * "confira com o contador". Só é lido com `provisionar13Ferias` ligado.
+   */
+  encargosSobreProvisao?: number
+
   cidades: CidadeFcp[]
 }
 
@@ -217,6 +231,8 @@ export interface LinhaEconomica {
   estrutura: number
   indiretos: number
   mobilizacao: number
+  /** 13º + férias (+1/3) + encargos, rateados no mês. Zero com a premissa desligada. */
+  provisao13Ferias: number
   resultado: number
   resultadoAcumulado: number
   margem: number

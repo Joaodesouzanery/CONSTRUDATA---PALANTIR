@@ -10,15 +10,21 @@ import { useState } from 'react'
 import { LayoutGrid, Plus, X } from 'lucide-react'
 import { AcoesDaLinha } from './AcoesDaLinha'
 
+type ObraOption = { id: string; code: string; name: string }
+
 interface EquipesSectionProps {
   crews: import('@/types').LaborCrew[]
   workers: import('@/types').Worker[]
+  /** Obras da Torre de Controle — a equipe aponta para uma por id, não por texto. */
+  sites: ObraOption[]
   addCrew: (crew: Omit<import('@/types').LaborCrew, 'id'>) => void
   updateCrew: (id: string, updates: Partial<Omit<import('@/types').LaborCrew, 'id'>>) => void
   removeCrew: (id: string) => void
 }
 
-export function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew }: EquipesSectionProps) {
+export function EquipesSection({ crews, workers, sites, addCrew, updateCrew, removeCrew }: EquipesSectionProps) {
+  const nomeDaObra = (c: import('@/types').LaborCrew) =>
+    (c.siteId && sites.find((s) => s.id === c.siteId)?.name) || c.projectRef || 'Sem obra vinculada'
   const [open, setOpen] = useState(crews.length > 0)
   const [editing, setEditing] = useState<import('@/types').LaborCrew | null>(null)
   const [creating, setCreating] = useState(false)
@@ -46,7 +52,7 @@ export function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#f5f5f5]">{crew.name}</p>
-                    <p className="text-[11px] text-[#adadad]">{crew.projectRef || 'Sem obra vinculada'}{crew.specialty ? ` · ${crew.specialty}` : ''}</p>
+                    <p className="text-[11px] text-[#adadad]">{nomeDaObra(crew)}{crew.specialty ? ` · ${crew.specialty}` : ''}</p>
                   </div>
                   {/* Estes dois eram `opacity-0` até o hover — em tablet no canteiro NÃO existe
                       hover, então editar e excluir equipe eram inalcançáveis. E usavam engrenagem
@@ -78,6 +84,7 @@ export function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew
         <EquipeDialog
           initial={editing}
           workers={workers}
+          sites={sites}
           onClose={() => { setCreating(false); setEditing(null) }}
           onSave={(values) => {
             if (editing) updateCrew(editing.id, values)
@@ -92,15 +99,18 @@ export function EquipesSection({ crews, workers, addCrew, updateCrew, removeCrew
 }
 
 function EquipeDialog({
-  initial, workers, onClose, onSave,
+  initial, workers, sites, onClose, onSave,
 }: {
   initial: import('@/types').LaborCrew | null
   workers: import('@/types').Worker[]
+  sites: ObraOption[]
   onClose: () => void
   onSave: (values: Omit<import('@/types').LaborCrew, 'id'>) => void
 }) {
   const [name, setName] = useState(initial?.name ?? '')
-  const [projectRef, setProjectRef] = useState(initial?.projectRef ?? '')
+  const [siteId, setSiteId] = useState(initial?.siteId ?? '')
+  // Equipe antiga com texto livre e sem obra casada mantém o rótulo até alguém escolher a obra.
+  const projectRef = initial?.projectRef ?? ''
   const [specialty, setSpecialty] = useState(initial?.specialty ?? '')
   const [foreman, setForeman] = useState(initial?.foreman ?? '')
   const [memberIds, setMemberIds] = useState<string[]>(initial?.workerIds ?? [])
@@ -121,8 +131,12 @@ function EquipeDialog({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={label}>Obra</label>
-            <input value={projectRef} onChange={(e) => setProjectRef(e.target.value)} className={input} placeholder="Ex.: Obra Geely - 509 Norte" />
+            <label className={label}>Obra (da Torre de Controle)</label>
+            <select value={siteId} onChange={(e) => setSiteId(e.target.value)} className={input}>
+              <option value="">— Selecione a obra —</option>
+              {sites.map((p) => <option key={p.id} value={p.id}>{p.code ? `${p.code} — ` : ''}{p.name}</option>)}
+            </select>
+            {!siteId && projectRef && <p className="mt-1 text-[10px] text-[#adadad]">Cadastro antigo: "{projectRef}". Escolha a obra para o vínculo valer.</p>}
           </div>
           <div>
             <label className={label}>Especialidade</label>
@@ -162,7 +176,7 @@ function EquipeDialog({
           <button
             type="button"
             disabled={!name.trim()}
-            onClick={() => onSave({ name: name.trim(), projectRef: projectRef.trim(), specialty: specialty.trim(), foreman: foreman.trim(), workerIds: memberIds })}
+            onClick={() => onSave({ name: name.trim(), projectRef: siteId ? (sites.find((p) => p.id === siteId)?.name ?? projectRef) : projectRef, siteId: siteId || undefined, specialty: specialty.trim(), foreman: foreman.trim(), workerIds: memberIds })}
             className="rounded-lg bg-[#f97316] px-4 py-2 text-sm font-medium text-white hover:bg-[#ea580c] disabled:opacity-50"
           >
             {initial ? 'Salvar' : 'Criar equipe'}

@@ -439,3 +439,14 @@ test('o pior ponto semanal é o menor acumulado da série', () => {
   assert.ok(pior <= 0)
   assert.equal(pior, Math.min(0, ...s.map((x) => x.saldoAcumulado)))
 })
+
+test('provisão de 13º e férias: desligada é zero; ligada vale 1/12 + 1/12×4/3 da folha, com encargos', () => {
+  const sem = fluxoEconomico(P)
+  assert.ok(sem.every((l) => l.provisao13Ferias === 0))
+  const com = fluxoEconomico({ ...P, provisionar13Ferias: true, encargosSobreProvisao: 0.348 })
+  const fator = (1 / 12 + (1 / 12) * (4 / 3)) * 1.348
+  for (let i = 0; i < com.length; i++) {
+    assert.ok(Math.abs(com[i].provisao13Ferias - sem[i].folha * fator) < 1e-6)
+    assert.ok(Math.abs((sem[i].resultado - com[i].resultado) - com[i].provisao13Ferias) < 1e-6, 'o resultado cai exatamente a provisão')
+  }
+})

@@ -28,7 +28,7 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import { Autoria } from '@/components/shared/Autoria'
 import { fmtBRL } from '@/features/financeiro/lib/financeiroCalc'
 import { fmtDataBR } from '@/lib/utils'
-import {
+import { fatorDeProvisao13Ferias, ENCARGOS_SOBRE_PROVISAO_PADRAO,
   capitalNecessario, custoMensalDaCidade, custoMensalGlobal, custosPorRegime, fluxoEconomico,
   fluxoMensal, fluxoSemanal, sensibilidade, ticketDaCidade, totalDaFolha,
   viabilidadeDaCidade, viabilidadeGlobal, semanasDoFluxo, producaoPrevistaSemanal,
@@ -49,7 +49,7 @@ import type { Explicacao } from '@/components/shared/explicacao'
  * nunca montou um fluxo de caixa lê "necessidade máxima" como "quanto a obra custa", que é outra
  * coisa completamente.
  */
-const EXPLICA_FCP: Record<'capital' | 'sensibilidade' | 'defasagem', Explicacao> = {
+const EXPLICA_FCP: Record<'capital' | 'sensibilidade' | 'defasagem' | 'provisao', Explicacao> = {
   capital: {
     oQueE: 'Quanto dinheiro precisa estar no bolso da empresa no pior dia da obra — aquele em que '
       + 'a folha vence e a medição ainda não caiu. Não é o custo da obra: é o buraco temporário '
@@ -68,6 +68,15 @@ const EXPLICA_FCP: Record<'capital' | 'sensibilidade' | 'defasagem', Explicacao>
       + 'cria a necessidade de capital: a obra gasta todo mês e recebe com atraso.',
     deOndeVem: 'Da premissa "Defasagem de recebimento". Vale a pena conferir contra o que o '
       + 'contrato diz e contra o que o cliente vem pagando de fato.',
+  },
+  provisao: {
+    oQueE: 'Reserva, todo mês, o pedaço do 13º e das férias que aquele mês de trabalho já gerou. '
+      + 'Sem a provisão, dez meses parecem melhores e dois piores do que são — e a margem que a '
+      + 'diretoria aprova é a dos dez.',
+    deOndeVem: 'Da folha das equipes do mês: 1/12 de 13º + 1/12 de férias com o terço, mais os '
+      + 'encargos por cima. Só existe no Econômico (competência); o caixa paga quando paga.',
+    oQueFalta: 'A planilha do cliente não provisiona. Ligada, a conferência mês a mês vai apontar a '
+      + 'diferença com a causa "provisão" — é esperado. O % de encargos é do contador.',
   },
 }
 import {
@@ -198,7 +207,7 @@ export function FcpPanel() {
       <SubTabHost
         key={plano!.id}
         tabs={[
-          { key: 'premissas',   label: 'Premissas',   render: () => <SubPremissas premissas={P} travado={travado} /> },
+          { key: 'premissas',   label: 'Premissas',   render: () => <SubPremissas premissas={P} travado={travado} onAlterar={(patch) => updatePlano(plano!.id, { premissas: { ...P, ...patch } })} /> },
           // ⚠️ Nome e salário individual só para a diretoria — o mesmo gate que protege a Auditoria e a
           // aprovação do plano. Os demais veem o quadro por EQUIPE, com contagem e total. É gate de
           // tela: a RLS de `fcp_planos` continua entregando o payload a quem chamar a API. Decisão do
@@ -647,7 +656,11 @@ function ResumoDoPlano({ premissas, realizado }: { premissas: PremissasFcp; real
 
 // ─── 1. Premissas ─────────────────────────────────────────────────────────────
 
-function SubPremissas({ premissas: P, travado }: { premissas: PremissasFcp; travado: boolean }) {
+function SubPremissas({ premissas: P, travado, onAlterar }: {
+  premissas: PremissasFcp
+  travado: boolean
+  onAlterar: (patch: Partial<PremissasFcp>) => void
+}) {
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       {travado && (
@@ -697,6 +710,38 @@ function SubPremissas({ premissas: P, travado }: { premissas: PremissasFcp; trav
         <Item rotulo="Base do imposto"
               valor={P.baseDoImposto === 'CHEIA' ? 'Medição cheia' : 'Líquida do desconto'}
               nota="⚠️ premissa crítica — confirme com o contador" destaque />
+      </Bloco>
+
+      {/* A única premissa que NÃO vem da planilha — por isso é a única editável aqui. Nasce
+          desligada para a conferência continuar batendo ao centavo. */}
+      <Bloco titulo="Provisões (só no Econômico)">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Provisionar 13º e férias</p>
+            <OQueE titulo="Provisão de 13º e férias" explicacao={EXPLICA_FCP.provisao} />
+          </div>
+          <label className="mt-1 flex items-center gap-2 text-sm text-[#f5f5f5]">
+            <input type="checkbox" className="h-4 w-4 accent-[#f97316]" disabled={travado}
+                   checked={P.provisionar13Ferias ?? false}
+                   onChange={(e) => onAlterar({ provisionar13Ferias: e.target.checked })} />
+            {P.provisionar13Ferias ? 'Sim' : 'Não'}
+          </label>
+          <p className="text-[10px] text-[#6b6b6b] mt-0.5">
+            {P.provisionar13Ferias
+              ? `${(fatorDeProvisao13Ferias(P.encargosSobreProvisao) * 100).toFixed(1)}% da folha por mês`
+              : 'a planilha do cliente não provisiona — igual a ela'}
+          </p>
+        </div>
+        {P.provisionar13Ferias && (
+          <div>
+            <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Encargos sobre a provisão (%)</p>
+            <input type="number" step="0.1" min={0} disabled={travado}
+                   className="mt-1 w-24 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-right text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]"
+                   defaultValue={((P.encargosSobreProvisao ?? ENCARGOS_SOBRE_PROVISAO_PADRAO) * 100).toFixed(1)}
+                   onBlur={(e) => { const v = Number(String(e.target.value).replace(',', '.')); if (Number.isFinite(v) && v >= 0) onAlterar({ encargosSobreProvisao: v / 100 }) }} />
+            <p className="text-[10px] text-[#6b6b6b] mt-0.5">FGTS + patronal + RAT + terceiros — confira com o contador</p>
+          </div>
+        )}
       </Bloco>
     </div>
   )
@@ -1041,6 +1086,7 @@ function SubEconomico({ premissas: P, realizado }: { premissas: PremissasFcp; re
             <th className="px-3 py-2 text-right">(–) Estrutura</th>
             <th className="px-3 py-2 text-right">(–) Indiretos</th>
             <th className="px-3 py-2 text-right">(–) Mobilização</th>
+            {P.provisionar13Ferias && <th className="px-3 py-2 text-right">(–) 13º/férias</th>}
             <th className="px-3 py-2 text-right">Resultado</th>
             <th className="px-3 py-2 text-right">Acumulado</th>
             <th className="px-3 py-2 text-right">Margem</th>
@@ -1058,6 +1104,7 @@ function SubEconomico({ premissas: P, realizado }: { premissas: PremissasFcp; re
                 <td className={NUM}>{fmtBRL(l.estrutura)}</td>
                 <td className={NUM}>{fmtBRL(l.indiretos)}</td>
                 <td className={NUM}>{l.mobilizacao > 0 ? fmtBRL(l.mobilizacao) : '—'}</td>
+                {P.provisionar13Ferias && <td className={NUM}>{fmtBRL(l.provisao13Ferias)}</td>}
                 <td className={`${NUM} font-semibold ${l.resultado < 0 ? 'text-red-300' : 'text-emerald-300'}`}>{fmtBRL(l.resultado)}</td>
                 <td className={`${NUM} ${l.resultadoAcumulado < 0 ? 'text-red-300' : 'text-[#f5f5f5]'}`}>{fmtBRL(l.resultadoAcumulado)}</td>
                 <td className={NUM}>{pct(l.margem)}</td>

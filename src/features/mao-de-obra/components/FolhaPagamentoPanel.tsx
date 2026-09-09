@@ -3,10 +3,13 @@ import { useShallow } from 'zustand/react/shallow'
 import { Printer } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import type { WorkerPayslip } from '@/types'
-import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO } from '@/features/mao-de-obra/utils/payrollEngine'
+import { payrollToCSV, COMPETENCIA_TABELAS_PADRAO, COMPETENCIA_TABELAS_2026, TABELAS_2026, ENCARGOS_PADRAO, tetoINSS } from '@/features/mao-de-obra/utils/payrollEngine'
 import { reconciliarFolhas, reconciliacaoParaCSV } from '@/features/mao-de-obra/utils/reconciliacaoFolha'
 import { conferirDiasDeRdo, turnosQueFaltam } from '@/features/mao-de-obra/utils/diasDeRdoNaFolha'
 import { hojeLocalISO } from '@/lib/utils'
+import { useFinanceiroStore } from '@/store/financeiroStore'
+import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { conferirHorasExtras } from '@/features/mao-de-obra/utils/conferenciaHorasExtras'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -97,15 +100,171 @@ function PayslipExpanded({ payslip }: { payslip: WorkerPayslip }) {
   )
 }
 
+// ─── HE paga (Caixa) × CLT teórico ────────────────────────────────────────────
+//
+// ALERTA, nunca correção. O Caixa traz valor por pessoa e dia, sem horas; a CLT dá a hora extra
+// (salário ÷ 220 × 1,5 ou 2,0). O que dá para mostrar é quantas horas o valor pago compraria e
+// quanto isso desvia de 2h/dia — o limite legal. Ver `conferenciaHorasExtras.ts`.
+
+function HorasExtrasContraClt({ workers, maxOvertimeHours }: { workers: import('@/types').Worker[]; maxOvertimeHours: number }) {
+  const entries = useFinanceiroStore((s) => s.entries)
+  const holidays = usePlanejamentoStore((s) => s.holidays)
+  const [aberto, setAberto] = useState(false)
+  const conf = useMemo(
+    () => conferirHorasExtras(entries, workers, holidays.map((h) => h.date), { maxOvertimeHours }),
+    [entries, workers, holidays, maxOvertimeHours],
+  )
+  if (conf.linhas.length === 0 && conf.pendencias.length === 0) return null
+
+  const tom = (d: number) => Math.abs(d) > 0.3 ? 'text-[#fbbf24]' : 'text-[var(--color-text-primary)]'
+  const pct = (d: number) => `${d > 0 ? '+' : ''}${(d * 100).toFixed(0)}%`
+  const fmtComp = (c: string) => `${c.slice(5, 7)}/${c.slice(0, 4)}`
+
+  return (
+    <div className="mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold text-[var(--color-text-primary)]">Horas extras pagas pelo Caixa × CLT teórico</p>
+          <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
+            {fmt(conf.totalConferido)} conferidos de {fmt(conf.totalPago)} pagos
+            {conf.pendencias.length > 0 && <> · <span className="text-[#fbbf24]">{conf.pendencias.length} nome(s) sem conferência</span></>}
+          </p>
+        </div>
+        <button type="button" onClick={() => setAberto((v) => !v)}
+                className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[#ffa055]">
+          {aberto ? 'Ocultar' : 'Ver detalhe'}
+        </button>
+      </div>
+
+      {aberto && (
+        <>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] text-left text-[var(--color-text-muted)]">
+                  <th className="px-2 py-1.5">Competência</th><th className="px-2 py-1.5">Funcionário</th>
+                  <th className="px-2 py-1.5 text-right">Lançtos</th><th className="px-2 py-1.5 text-right">Pago</th>
+                  <th className="px-2 py-1.5 text-right">HE CLT/h</th><th className="px-2 py-1.5 text-right">Horas implícitas</th>
+                  <th className="px-2 py-1.5 text-right">Ref. {maxOvertimeHours}h/dia</th><th className="px-2 py-1.5 text-right">Desvio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conf.linhas.map((l) => (
+                  <tr key={`${l.workerId}|${l.competencia}`} className="border-b border-[var(--color-border)]/60">
+                    <td className="px-2 py-1.5 font-mono">{fmtComp(l.competencia)}</td>
+                    <td className="px-2 py-1.5 text-[var(--color-text-primary)]">
+                      {l.workerName}
+                      {l.casamento === 'provavel' && <span className="ml-1 rounded bg-[#fbbf24]/15 px-1 text-[10px] text-[#fbbf24]">casamento provável — confirme</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-right">{l.lancamentos}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{fmt(l.pago)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{fmt(l.horaClt)}</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{l.horasImplicitas.toFixed(1)} h</td>
+                    <td className="px-2 py-1.5 text-right font-mono">{fmt(l.referencia)}</td>
+                    <td className={`px-2 py-1.5 text-right font-mono font-semibold ${l.casamento === 'provavel' ? 'text-[var(--color-text-muted)]' : tom(l.desvio)}`}>{pct(l.desvio)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {conf.pendencias.length > 0 && (
+            <ul className="mt-3 space-y-1 text-[11px] text-[#fbbf24]">
+              {conf.pendencias.map((p) => (
+                <li key={p.nome}>
+                  {p.motivo === 'ambiguo' && <>{p.candidatos?.length} candidatos para "{p.nome}" ({p.candidatos?.join(', ')}) — resolva no cadastro</>}
+                  {p.motivo === 'sem-cadastro' && <>"{p.nome}" não está entre os funcionários ativos</>}
+                  {p.motivo === 'sem-salario' && <>"{p.nome}" está sem salário bruto no cadastro</>}
+                  {' · '}{p.lancamentos} lançamento(s), {fmt(p.pago)}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-3 text-[11px] leading-5 text-[var(--color-text-muted)]">
+            Isto é alerta, não correção. A hora CLT é salário ÷ 220 × 1,5 (2,0 em domingo e feriado do
+            Planejamento); o Caixa não traz horas, então o desvio compara o pago com o que {maxOvertimeHours}h/dia
+            valeriam nos dias lançados — acima de ±30% fica amarelo. Homônimo não entra na conta.
+            <strong className="text-[var(--color-text-secondary)]"> Pergunta para o contador:</strong> a diária paga pelo
+            Caixa é complemento sobre HE que já está na folha, ou é o pagamento inteiro da hora extra?
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Tabelas fiscais e encargos ───────────────────────────────────────────────
+//
+// As tabelas eram "editáveis por organização" só no comentário do tipo: nenhuma tela gravava
+// `tabelaInss`. Este bloco é a porta. Um botão aplica as de 2026 (datadas), e os três encargos
+// que variam por empresa ficam à mão — com o aviso de que quem decide é o contador.
+
+function TabelasEEncargos({ cltSettings, onSalvar }: {
+  cltSettings: import('@/types').CLTSettings
+  onSalvar: (patch: Partial<import('@/types').CLTSettings>) => void
+}) {
+  const vigencia = cltSettings.tabelasVigenciaEm ?? COMPETENCIA_TABELAS_PADRAO
+  const em2026 = vigencia >= COMPETENCIA_TABELAS_2026
+  const campo = 'w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right text-xs text-[var(--color-text-primary)] outline-none focus:border-[#f97316]'
+  const num = (chave: 'ratPct' | 'sistemaSPct', padrao: number) => (e: React.FocusEvent<HTMLInputElement>) => {
+    const v = Number(String(e.target.value).replace(',', '.'))
+    onSalvar({ [chave]: Number.isFinite(v) && v >= 0 ? v : padrao })
+  }
+  return (
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-bold text-[var(--color-text-primary)]">Tabelas fiscais e encargos</p>
+        {!em2026 && (
+          <button type="button" onClick={() => onSalvar(TABELAS_2026)}
+                  className="rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#ea580c]">
+            Usar tabelas de 2026
+          </button>
+        )}
+      </div>
+      <p className="mt-1 text-[11px] leading-5 text-[var(--color-text-muted)]">
+        Vigência <strong className="text-[var(--color-text-primary)]">{vigencia}</strong>
+        {' · '}INSS até {fmt(tetoINSS(cltSettings.tabelaInss))} de desconto
+        {cltSettings.irrfRedutor
+          ? <> · IRRF com redutor (isento até {fmt(cltSettings.irrfRedutor.isentoAte)}, parcial até {fmt(cltSettings.irrfRedutor.parcialAte)})</>
+          : <> · IRRF sem o redutor de 2026</>}
+      </p>
+      {em2026 && (
+        <p className="mt-1 text-[11px] text-[#fbbf24]">
+          ⚠️ Tabelas de 2026 — entraram como foram informadas. Confira com o contador antes de fechar a folha.
+        </p>
+      )}
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <label className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-text-secondary)]">
+          <span>RAT × FAP (%)<br /><span className="text-[10px] text-[var(--color-text-muted)]">{cltSettings.ratPct == null ? 'padrão — confirme com o contador' : 'informado'}</span></span>
+          <input type="number" step="0.01" min={0} className={campo} defaultValue={cltSettings.ratPct ?? ENCARGOS_PADRAO.ratPct} onBlur={num('ratPct', ENCARGOS_PADRAO.ratPct)} />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-text-secondary)]">
+          <span>Sistema S / terceiros (%)<br /><span className="text-[10px] text-[var(--color-text-muted)]">SESI, SENAI, SEBRAE, INCRA, sal.-educação</span></span>
+          <input type="number" step="0.01" min={0} className={campo} defaultValue={cltSettings.sistemaSPct ?? ENCARGOS_PADRAO.sistemaSPct} onBlur={num('sistemaSPct', ENCARGOS_PADRAO.sistemaSPct)} />
+        </label>
+        <label className="flex items-center justify-between gap-2 text-[11px] text-[var(--color-text-secondary)]">
+          <span>CPRB (desoneração)<br /><span className="text-[10px] text-[var(--color-text-muted)]">tira os 20% patronais; recolhe sobre a receita</span></span>
+          <input type="checkbox" className="h-4 w-4 accent-[#f97316]" checked={cltSettings.regimeCprb ?? false} onChange={(e) => onSalvar({ regimeCprb: e.target.checked })} />
+        </label>
+      </div>
+      <p className="mt-2 text-[11px] text-[var(--color-text-muted)]">
+        Custo-empregador = bruto + FGTS 8% + {cltSettings.regimeCprb ? '0' : ENCARGOS_PADRAO.inssPatronalPct}% patronal + RAT + terceiros. Ligar a CPRB é decisão contábil, não do sistema.
+      </p>
+    </div>
+  )
+}
+
 // ─── FolhaPagamentoPanel ──────────────────────────────────────────────────────
 
 export function FolhaPagamentoPanel() {
-  const { workers, payrollHistory, generatePayroll, cltSettings, shifts, timecards, addShift } = useMaoDeObraStore(
+  const { workers, payrollHistory, generatePayroll, cltSettings, updateCLTSettings, shifts, timecards, addShift } = useMaoDeObraStore(
     useShallow(s => ({
       workers:         s.workers,
       payrollHistory:  s.payrollHistory,
       generatePayroll: s.generatePayroll,
       cltSettings:     s.cltSettings,
+      updateCLTSettings: s.updateCLTSettings,
       shifts:          s.shifts,
       timecards:       s.timecards,
       addShift:        s.addShift,
@@ -466,6 +625,8 @@ export function FolhaPagamentoPanel() {
             )}
           </p>
 
+          <TabelasEEncargos cltSettings={cltSettings} onSalvar={updateCLTSettings} />
+
           {/* Com a folha em uso para pagamento, o que ela é e o que ela não é precisa estar
               escrito onde a pessoa lê, não só no código. */}
           <div className="rounded-lg border border-[#f59e0b]/30 bg-[#f59e0b]/[0.07] p-3 text-xs leading-5 text-[#fbbf24]">
@@ -478,6 +639,8 @@ export function FolhaPagamentoPanel() {
           </div>
         </>
       )}
+
+      <HorasExtrasContraClt workers={workers} maxOvertimeHours={cltSettings.maxOvertimeHours} />
 
       {/* Print-only layout */}
       {currentPayroll && (

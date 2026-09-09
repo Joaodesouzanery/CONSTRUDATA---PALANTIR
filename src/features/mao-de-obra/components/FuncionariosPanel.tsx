@@ -288,9 +288,10 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
 
 // ─── Worker table row ─────────────────────────────────────────────────────────
 
-function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete, onDesligar, onReativar }: {
+function WorkerRow({ worker: w, crews, sites, expandedId, onToggle, onEdit, onDelete, onDesligar, onReativar }: {
   worker: Worker
   crews: { id: string; name: string }[]
+  sites: ObraOption[]
   expandedId: string | null
   onToggle: (id: string | null) => void
   onEdit: (w: Worker) => void
@@ -301,6 +302,8 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete, o
   const isExpanded = expandedId === w.id
   const sc = STATUS_COLOR[w.status]
   const crewName = crews.find((c) => c.id === w.crewId)?.name
+  // A obra é vínculo de cadastro (`Worker.siteId`), não texto: o nome sai da Torre pelo id.
+  const obra = w.siteId ? sites.find((s) => s.id === w.siteId) : undefined
   // Desligado NÃO some da lista (escolha do cliente: "sempre visível, apagado e com selo"). Some
   // da folha, do custo e da escala — mas continua no holerite antigo e no histórico da obra.
   const ativo = funcionarioEstaAtivo(w)
@@ -317,6 +320,9 @@ function WorkerRow({ worker: w, crews, expandedId, onToggle, onEdit, onDelete, o
           {crewName
             ? <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-[#f97316]/15 text-[#ffa055]">{crewName}</span>
             : <span className="text-[#adadad] italic text-[11px]">Sem equipe</span>}
+        </td>
+        <td className="px-3 py-2.5 text-[#c9c9c9] max-w-[160px] truncate" title={obra ? `${obra.code ? `${obra.code} — ` : ''}${obra.name}` : undefined}>
+          {obra ? obra.name : (w.locationNote || <span className="text-[#adadad] italic text-[11px]">Sem obra</span>)}
         </td>
         <td className="px-3 py-2.5 text-[#adadad] hidden md:table-cell">{w.department ?? '—'}</td>
         <td className="px-3 py-2.5 text-[#f5f5f5] font-mono hidden md:table-cell">R${w.hourlyRate.toFixed(2)}</td>
@@ -526,6 +532,7 @@ export function FuncionariosPanel() {
       <EquipesSection
         crews={crews}
         workers={workers}
+        sites={sites}
         addCrew={addCrew}
         updateCrew={updateCrew}
         removeCrew={removeCrew}
@@ -626,7 +633,7 @@ export function FuncionariosPanel() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[#525252]">
-                {['Matrícula', 'Nome', 'Função', 'Equipe', 'Departamento', 'Taxa/h', 'Status', ''].map((h) => (
+                {['Matrícula', 'Nome', 'Função', 'Equipe', 'Obra', 'Departamento', 'Taxa/h', 'Status', ''].map((h) => (
                   <th key={h} className="px-3 py-2.5 text-left text-[#adadad] font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -636,7 +643,7 @@ export function FuncionariosPanel() {
                 groupedByCrew.map((group) => (
                   <>{/* Crew group header */}
                     <tr key={`grp-${group.crew?.id ?? 'none'}`} className="bg-[#0d1f3c]">
-                      <td colSpan={8} className="px-4 py-2">
+                      <td colSpan={9} className="px-4 py-2">
                         <div className="flex items-center gap-2">
                           <span className={`w-2 h-2 rounded-full ${group.crew ? 'bg-[#f97316]' : 'bg-[#6b6b6b]'}`} />
                           <span className="text-[#f5f5f5] text-xs font-semibold">
@@ -647,18 +654,18 @@ export function FuncionariosPanel() {
                       </td>
                     </tr>
                     {group.workers.map((w) => (
-                      <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
+                      <WorkerRow key={w.id} worker={w} crews={crews} sites={sites} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
                     ))}
                   </>
                 ))
               ) : (
                 filtered.map((w) => (
-                  <WorkerRow key={w.id} worker={w} crews={crews} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
+                  <WorkerRow key={w.id} worker={w} crews={crews} sites={sites} expandedId={expandedId} onToggle={setExpandedId} onEdit={handleEdit} onDelete={handleDelete} onDesligar={handleDesligar} onReativar={handleReativar} />
                 ))
               )}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[#adadad]">Nenhum colaborador encontrado</td>
+                  <td colSpan={9} className="px-4 py-8 text-center text-[#adadad]">Nenhum colaborador encontrado</td>
                 </tr>
               )}
             </tbody>

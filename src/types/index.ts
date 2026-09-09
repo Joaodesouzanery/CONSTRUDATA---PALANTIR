@@ -969,7 +969,10 @@ export interface LaborCrew {
   foreman: string
   specialty: string
   workerIds: string[]
+  /** Rótulo legado, texto livre. Equipes antigas só têm isto; as novas têm `siteId`. */
   projectRef: string
+  /** Obra da Torre de Controle (`ConstructionSite.id`). Vai no payload — sem migração. */
+  siteId?: string
 }
 
 export interface LaborOccurrence {
@@ -1209,6 +1212,18 @@ export interface FaixaTributaria {
   deduzir?: number    // só IRRF (parcela a deduzir)
 }
 
+/** Redutor do IRRF (Lei 15.270/2025). `reducao = constante − coeficiente × rendimento` no trecho parcial. */
+export interface RedutorIrrf {
+  /** Rendimento mensal até o qual o imposto é zerado (R$). */
+  isentoAte: number
+  /** Rendimento mensal até o qual há redução parcial (R$). Acima, tabela cheia. */
+  parcialAte: number
+  /** Parcela fixa da fórmula do trecho parcial (R$). */
+  constante: number
+  /** Coeficiente sobre o rendimento no trecho parcial (0.133145 = 13,3145%). */
+  coeficiente: number
+}
+
 export interface CLTSettings {
   maxDailyHours: number      // default 8
   maxOvertimeHours: number   // default 2
@@ -1230,6 +1245,23 @@ export interface CLTSettings {
   tabelasVigenciaEm?: string
   /** Dedução por dependente no IRRF (R$). */
   irrfDeducaoPorDependente?: number
+  /**
+   * Redutor do IRRF da Lei 15.270/2025 (vigência 2026): isenção até `isentoAte` de rendimento
+   * mensal e redução decrescente até `parcialAte`. Ausente = não aplica (tabelas anteriores a 2026).
+   * ⚠️ Os quatro números são do contador, não do produto — entram como foram informados.
+   */
+  irrfRedutor?: RedutorIrrf
+
+  // ── Encargos do empregador ─────────────────────────────────────────────────
+  // O custo-empregador era "bruto + 8% + 20%" fixo no código. RAT/FAP e Sistema S variam por
+  // empresa (o FAP é da GFIP), e a CPRB troca o patronal sobre a folha por % da receita. São
+  // decisões do contador — aqui só há o campo, com padrão declarado na tela.
+  /** RAT × FAP, em %. Padrão 1 — "confirme com o contador". */
+  ratPct?: number
+  /** Terceiros / Sistema S (SESI, SENAI, SEBRAE, INCRA, salário-educação), em %. Padrão 5,8. */
+  sistemaSPct?: number
+  /** Desoneração (CPRB): recolhe % da receita e NÃO paga os 20% patronais sobre a folha. */
+  regimeCprb?: boolean
 
   // ── Benefícios ─────────────────────────────────────────────────────────────
   // O código descontava R$ 35/dia de VA de TODO mundo e 6% de VT sem teto, sem

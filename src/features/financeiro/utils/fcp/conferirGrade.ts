@@ -25,7 +25,7 @@
 import { normalizarTexto } from '../controleDeCaixaPlanilha'
 import type { Matriz, Celula } from '../controleDeCaixaPlanilha'
 import type { PremissasFcp, ColunaMensal, LinhaEconomica } from './tipos'
-import { fluxoMensal, fluxoEconomico } from './motor'
+import { fluxoMensal, fluxoEconomico, fatorDeProvisao13Ferias } from './motor'
 import type { ProducaoRealizada } from './motor'
 import type { Abas } from './importarFcp'
 
@@ -34,7 +34,7 @@ export type UnidadeDaCelula = 'BRL' | 'FRACAO'
 
 const TOLERANCIA: Record<UnidadeDaCelula, number> = { BRL: 0.005, FRACAO: 5e-7 }
 
-export type IdDaCausa = 'convencao-da-semana' | 'arraste-do-acumulado' | 'classificacao-de-custo'
+export type IdDaCausa = 'convencao-da-semana' | 'arraste-do-acumulado' | 'classificacao-de-custo' | 'provisao-13-ferias'
 
 export interface CelulaDaGrade {
   /** `YYYY-MM-01`. */
@@ -160,6 +160,8 @@ interface Spec<T> {
    * das diferenças da linha de origem.
    */
   acumulaDe?: { campo: string; atraso: 0 | 1 }
+  /** Linha que só existe sob uma premissa. Ausente = sempre. */
+  soSe?: (p: PremissasFcp) => boolean
 }
 
 const FCP_MENSAL: Array<Spec<ColunaMensal>> = [
@@ -184,6 +186,9 @@ const ECONOMICO: Array<Spec<LinhaEconomica>> = [
   { trecho: 'Estrutura e locações',          campo: 'estrutura' },
   { trecho: 'Custos indiretos',              campo: 'indiretos' },
   { trecho: 'Mobilização',                   campo: 'mobilizacao' },
+  // A provisão só entra na comparação quando a premissa está ligada — a planilha do cliente não
+  // tem essa linha, e reportá-la como "não encontrada" em toda conferência seria ruído.
+  { trecho: 'Provisão 13º e férias',         campo: 'provisao13Ferias', soSe: (p) => !!p.provisionar13Ferias },
   { trecho: 'RESULTADO ECONÔMICO DO MÊS',    campo: 'resultado' },
   { trecho: 'RESULTADO ACUMULADO', campo: 'resultadoAcumulado', acumulaDe: { campo: 'resultado', atraso: 0 } },
   { trecho: 'Margem do mês',                 campo: 'margem', unidade: 'FRACAO' },
@@ -196,8 +201,10 @@ function conferirAba<T extends { mes: { mes: string } }>(
   linhasDoMotor: T[],
   specs: Array<Spec<T>>,
   tituloDoBloco: string,
+  premissas: PremissasFcp,
 ): GradeDaAba | null {
   if (!matriz) return null
+  specs = specs.filter((sp) => !sp.soSe || sp.soSe(premissas))
   const cab = acharMeses(matriz)
   if (!cab) return null
 
@@ -330,11 +337,54 @@ const mesCurto = (iso: string) => {
  * específico (a soma de duas linhas). O que não casa em teste nenhum fica **sem causa**, e é isso
  * que a tela precisa gritar.
  */
-function atribuirCausas(grades: GradeDaAba[], premissas: PremissasFcp): {
+function atribuirCausas(grades: GradeDaAba[], premissas: PremissasFcp, economico: LinhaEconomica[]): {
   causas: CausaDaDivergencia[]
   semExplicacao: number
 } {
   const causas: CausaDaDivergencia[] = []
+
+  // ── provisão de 13º e férias ───────────────────────────────────────────────
+  // Premissa que a planilha NÃO tem. Ligada, o resultado do mês cai exatamente na provisão do
+  // mês e a margem cai provisão ÷ medição. O teste é a identidade; o acumulado vem por arraste.
+  if (premissas.provisionar13Ferias) {
+    const provisaoDoMes = new Map(economico.map((l) => [l.mes.mes, l]))
+    let celulasDeProvisao = 0
+    let totalProvisionado = 0
+    for (const g of grades) {
+      for (const linha of g.linhas) {
+        if (linha.campo !== 'resultado' && linha.campo !== 'margem') continue
+        for (const c of linha.celulas) {
+          if (c.fecha || c.causa) continue
+          const l = provisaoDoMes.get(c.mes)
+          if (!l || l.provisao13Ferias <= 0) continue
+          const esperado = linha.campo === 'resultado'
+            ? -l.provisao13Ferias
+            : (l.medicaoBruta > 0 ? -l.provisao13Ferias / l.medicaoBruta : 0)
+          if (Math.abs(c.diferenca - esperado) <= TOLERANCIA[linha.unidade]) {
+            c.causa = 'provisao-13-ferias'; celulasDeProvisao++
+            if (linha.campo === 'resultado') totalProvisionado += l.provisao13Ferias
+          }
+        }
+      }
+    }
+    if (celulasDeProvisao > 0) {
+      causas.push({
+        id: 'provisao-13-ferias',
+        titulo: 'O sistema provisiona 13º e férias; a planilha não',
+        explicacao:
+          `A premissa "provisionar 13º e férias" está ligada neste plano. Cada mês desconta `
+          + `${(fatorDeProvisao13Ferias(premissas.encargosSobreProvisao) * 100).toFixed(1)}% da folha `
+          + `(1/12 de 13º + 1/12 de férias com o terço, mais encargos). A planilha não tem essa linha, `
+          + `então o resultado dela é maior exatamente nesse valor. Desligue a premissa para conferir `
+          + `a planilha como ela é.`,
+        prova:
+          `Em cada mês, a diferença do resultado é igual à provisão daquele mês, ao centavo; a da `
+          + `margem é a provisão dividida pela medição.`,
+        celulas: celulasDeProvisao,
+        impactoNoResultado: totalProvisionado,
+      })
+    }
+  }
 
   // ── rubrica trocada ────────────────────────────────────────────────────────
   let celulasDeRubrica = 0
@@ -446,8 +496,6 @@ function atribuirCausas(grades: GradeDaAba[], premissas: PremissasFcp): {
   for (const g of grades) {
     for (const l of g.linhas) for (const c of l.celulas) if (!c.fecha && !c.causa) semExplicacao++
   }
-  // `premissas` fica na assinatura porque as causas futuras (defasagem, imposto) vão precisar.
-  void premissas
   return { causas, semExplicacao }
 }
 
@@ -463,12 +511,13 @@ export function conferirGrade(
   abas: Abas,
   realizado: ProducaoRealizada = {},
 ): ConferenciaDaGrade {
+  const economico = fluxoEconomico(premissas, realizado)
   const grades = [
-    conferirAba('FCP MENSAL', abas['FCP MENSAL'], fluxoMensal(premissas, realizado), FCP_MENSAL, 'GLOBAL'),
-    conferirAba('ECONÔMICO', abas['ECONÔMICO'], fluxoEconomico(premissas, realizado), ECONOMICO, 'ECONÔMICO'),
+    conferirAba('FCP MENSAL', abas['FCP MENSAL'], fluxoMensal(premissas, realizado), FCP_MENSAL, 'GLOBAL', premissas),
+    conferirAba('ECONÔMICO', abas['ECONÔMICO'], economico, ECONOMICO, 'ECONÔMICO', premissas),
   ].filter((g): g is GradeDaAba => g !== null)
 
-  const { causas, semExplicacao } = atribuirCausas(grades, premissas)
+  const { causas, semExplicacao } = atribuirCausas(grades, premissas, economico)
 
   let total = 0
   let fecham = 0

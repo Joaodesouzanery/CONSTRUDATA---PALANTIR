@@ -22,6 +22,7 @@ import type {
   Shift,
   CLTSettings,
   FaixaTributaria,
+  RedutorIrrf,
   WorkerPayslip,
   PayrollMonth,
   PayslipAllowance,
@@ -66,6 +67,57 @@ export const TABELA_IRRF_PADRAO: FaixaTributaria[] = [
 
 export const COMPETENCIA_TABELAS_PADRAO = '2024-02'
 export const IRRF_DEDUCAO_DEPENDENTE_PADRAO = 189.59
+
+// ─── Tabelas de 2026 ──────────────────────────────────────────────────────────
+//
+// ⚠️ Estas alíquotas entraram como o cliente as passou (08/09/2026), DATADAS e editáveis. Ninguém
+// aqui é a fonte da verdade tributária: a tela avisa "confira com o contador antes de fechar a
+// folha" enquanto a vigência for esta. Se o contador discordar de um número, muda-se na tela.
+//
+// INSS progressivo, competência 2026: 7,5% até 1.621,00 · 9% até 2.902,84 · 12% até 4.354,27 ·
+// 14% até 8.475,55 (teto). Desconto máximo = R$ 988,09 — `tetoINSS(TABELA_INSS_2026)` confere.
+export const TABELA_INSS_2026: FaixaTributaria[] = [
+  { ate: 1_621.00, aliquota: 0.075 },
+  { ate: 2_902.84, aliquota: 0.090 },
+  { ate: 4_354.27, aliquota: 0.120 },
+  { ate: 8_475.55, aliquota: 0.140 },
+]
+
+// IRRF: a tabela progressiva vigente (maio/2025), sobre a qual a Lei 15.270/2025 aplica o REDUTOR
+// abaixo — a lei não trocou as faixas, criou um desconto sobre o imposto calculado.
+export const TABELA_IRRF_2026: FaixaTributaria[] = [
+  { ate: 2_428.80, aliquota: 0.000, deduzir: 0.00 },
+  { ate: 2_826.65, aliquota: 0.075, deduzir: 182.16 },
+  { ate: 3_751.05, aliquota: 0.150, deduzir: 394.16 },
+  { ate: 4_664.68, aliquota: 0.225, deduzir: 675.49 },
+  { ate: Infinity, aliquota: 0.275, deduzir: 908.73 },
+]
+
+/**
+ * Redutor da Lei 15.270/2025: rendimento mensal até R$ 5.000 fica ISENTO; entre 5.000,01 e
+ * 7.350 a redução é `978,62 − 13,3145% × rendimento` (limitada ao próprio imposto); acima de
+ * 7.350, tabela cheia. ⚠️ Fórmula do trecho parcial como publicada — confirme com o contador.
+ */
+export const REDUTOR_IRRF_2026: RedutorIrrf = {
+  isentoAte: 5_000,
+  parcialAte: 7_350,
+  constante: 978.62,
+  coeficiente: 0.133145,
+}
+
+export const COMPETENCIA_TABELAS_2026 = '2026-01'
+
+/** Encargos do empregador sobre a folha, em %. RAT padrão 1 até o contador informar o FAP. */
+export const ENCARGOS_PADRAO = { inssPatronalPct: 20, ratPct: 1, sistemaSPct: 5.8 } as const
+
+/** Tudo que a tela precisa gravar para "usar as tabelas de 2026". */
+export const TABELAS_2026: Pick<CLTSettings, 'tabelaInss' | 'tabelaIrrf' | 'tabelasVigenciaEm' | 'irrfRedutor' | 'irrfDeducaoPorDependente'> = {
+  tabelaInss: TABELA_INSS_2026,
+  tabelaIrrf: TABELA_IRRF_2026,
+  tabelasVigenciaEm: COMPETENCIA_TABELAS_2026,
+  irrfRedutor: REDUTOR_IRRF_2026,
+  irrfDeducaoPorDependente: IRRF_DEDUCAO_DEPENDENTE_PADRAO,
+}
 
 /**
  * INSS progressivo do trabalhador — COM TETO.
@@ -118,6 +170,21 @@ export function calcIRRF(
   return 0
 }
 
+/**
+ * O desconto do redutor (Lei 15.270/2025) sobre um imposto já calculado.
+ *
+ * ⚠️ O redutor olha o RENDIMENTO BRUTO mensal, não a base após INSS: é assim que a lei define
+ * quem é isento. Devolve quanto ABATER do imposto — nunca mais que o próprio imposto.
+ */
+export function reducaoDoIRRF(imposto: number, rendimentoBruto: number, redutor?: RedutorIrrf): number {
+  if (!redutor || imposto <= 0) return 0
+  const r = clamp(rendimentoBruto, 0, 1_000_000)
+  if (r <= redutor.isentoAte) return r2(imposto)
+  if (r > redutor.parcialAte) return 0
+  const reducao = redutor.constante - redutor.coeficiente * r
+  return r2(clamp(reducao, 0, imposto))
+}
+
 /** FGTS employer contribution: 8% of gross */
 export function calcFGTS(gross: number): number {
   return r2(clamp(gross, 0, 1_000_000) * 0.08)
@@ -126,6 +193,21 @@ export function calcFGTS(gross: number): number {
 /** Employer INSS (simplified / MEI regime): 20% of gross */
 export function calcEmployerINSS(gross: number): number {
   return r2(clamp(gross, 0, 1_000_000) * 0.20)
+}
+
+/**
+ * Encargos do empregador sobre o bruto — o que a empresa paga ALÉM do salário e do FGTS.
+ *
+ * Patronal 20% + RAT×FAP + Sistema S. Na CPRB (desoneração) os 20% patronais saem — a empresa
+ * recolhe sobre a receita, fora desta conta — mas RAT e terceiros continuam. ⚠️ Ligar a CPRB é
+ * decisão contábil; aqui só se obedece ao campo.
+ */
+export function calcEncargosPatronais(gross: number, settings?: Pick<CLTSettings, 'ratPct' | 'sistemaSPct' | 'regimeCprb'>): number {
+  const g = clamp(gross, 0, 1_000_000)
+  const patronal = settings?.regimeCprb ? 0 : ENCARGOS_PADRAO.inssPatronalPct
+  const rat = clamp(settings?.ratPct ?? ENCARGOS_PADRAO.ratPct, 0, 10)
+  const terceiros = clamp(settings?.sistemaSPct ?? ENCARGOS_PADRAO.sistemaSPct, 0, 20)
+  return r2(g * (patronal + rat + terceiros) / 100)
 }
 
 // ─── Payslip generator ────────────────────────────────────────────────────────
@@ -292,15 +374,20 @@ export function generatePayslip(
 
   // IRRF sobre o bruto menos INSS, com dedução por dependente.
   const irrfBase   = Math.max(0, grossTotal - inssAmount)
-  const irrfAmount = calcIRRF(
+  const irrfCheio = calcIRRF(
     irrfBase,
     settings.tabelaIrrf ?? TABELA_IRRF_PADRAO,
     worker.dependentesIRRF ?? 0,
     settings.irrfDeducaoPorDependente ?? IRRF_DEDUCAO_DEPENDENTE_PADRAO,
   )
+  // Lei 15.270/2025: quem ganha até 5.000 fica isento; até 7.350, desconto parcial. Só existe
+  // quando a organização configurou o redutor (tabelas de 2026 em diante).
+  const reducao = reducaoDoIRRF(irrfCheio, grossTotal, settings.irrfRedutor)
+  const irrfAmount = r2(irrfCheio - reducao)
   if (irrfAmount > 0) {
     const comDep = (worker.dependentesIRRF ?? 0) > 0 ? ` · ${worker.dependentesIRRF} dep.` : ''
-    deductions.push({ type: 'irrf', description: `IRRF${comDep}`, amount: irrfAmount, workerPays: true })
+    const comRed = reducao > 0 ? ` · redutor −${reducao.toFixed(2)}` : ''
+    deductions.push({ type: 'irrf', description: `IRRF${comDep}${comRed}`, amount: irrfAmount, workerPays: true })
   }
 
   // VALE-TRANSPORTE — só para quem optou, com o teto legal de 6%.
@@ -339,7 +426,7 @@ export function generatePayslip(
   // e a flag `descontosExcedemBruto` deixa a tela avisar.
   const netBruto = r2(grossTotal - workerDeductions)
   const netTotal = Math.max(0, netBruto)
-  const employerCost = r2(grossTotal + fgtsAmount + calcEmployerINSS(grossTotal))
+  const employerCost = r2(grossTotal + fgtsAmount + calcEncargosPatronais(grossTotal, settings))
 
   return {
     id:           crypto.randomUUID(),

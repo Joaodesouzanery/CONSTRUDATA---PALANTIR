@@ -158,3 +158,28 @@ test('a diferença do acumulado é a soma corrida da linha que o alimenta', () =
     'toda divergência do acumulado é explicada pela soma corrida',
   )
 })
+
+test('provisão de 13º/férias LIGADA: a grade sem a linha diverge com causa própria, e nada sem explicação', () => {
+  // A planilha do cliente não provisiona. Ligar a premissa muda o resultado DE PROPÓSITO — e a
+  // conferência precisa dizer isso com nome, não deixar 24 células órfãs.
+  const abas = abasQueEspelhamOMotor()
+  const g = conferirGrade({ ...P, provisionar13Ferias: true }, abas)
+  assert.ok(g.divergem > 0)
+  assert.equal(g.semExplicacao, 0)
+  const causa = g.causas.find((c) => c.id === 'provisao-13-ferias')
+  assert.ok(causa, 'a causa da provisão tem de aparecer')
+  assert.ok(causa!.impactoNoResultado > 0)
+  const econ = g.grades.find((x) => x.aba === 'ECONÔMICO')!
+  assert.deepEqual(econ.rotulosNaoEncontrados, ['Provisão 13º e férias'], 'a linha que a planilha não tem é reportada')
+  assert.ok(
+    econ.linhas.find((l) => l.campo === 'resultadoAcumulado')!.celulas.filter((c) => !c.fecha).every((c) => c.causa === 'arraste-do-acumulado'),
+    'o acumulado explica-se pelo arraste da provisão',
+  )
+})
+
+test('provisão DESLIGADA (padrão): a linha não é procurada, e a grade fecha', () => {
+  const g = conferirGrade(P, abasQueEspelhamOMotor())
+  const econ = g.grades.find((x) => x.aba === 'ECONÔMICO')!
+  assert.deepEqual(econ.rotulosNaoEncontrados, [])
+  assert.equal(g.divergem, 0)
+})
