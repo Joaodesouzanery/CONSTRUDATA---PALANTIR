@@ -222,3 +222,26 @@ test('o ciclo inteiro: importar, importar de novo, mexer e importar — sempre U
   assert.equal(terceira.premissas.cenario, 'BOA')
   assert.equal(terceira.realizado.bertioga[1], 90, 'com a produção lançada intacta')
 })
+
+test('🔴 a provisão de 13º/férias SOBREVIVE à reimportação — a planilha não a tem', () => {
+  // `provisionar13Ferias` é a única premissa que não vem do arquivo: nasce do interruptor em
+  // Premissas. Sem preservá-la, o gesto mais repetido do módulo (jogar a planilha do mês) a
+  // desligava em silêncio — o Econômico parava de descontar ~19,5% da folha e a margem subia
+  // sozinha, sem nada na tela de "o que vai mudar". Mesmo defeito de d12e440, outro módulo.
+  const existente = plano({ premissas: { ...P, provisionar13Ferias: true, encargosSobreProvisao: 0.35 } })
+  const gravado = planoParaGravar(
+    { nome: 'F', premissas: { ...P, cenario: 'BOA' }, precos: {}, realizadoDaPlanilha: {} },
+    existente, 'plano-1', 'obra-1',
+  )
+  assert.equal(gravado.premissas.provisionar13Ferias, true)
+  assert.equal(gravado.premissas.encargosSobreProvisao, 0.35)
+  assert.equal(gravado.premissas.cenario, 'BOA', 'e o que a planilha manda continua entrando')
+})
+
+test('plano novo (sem existente) fica com a provisão como veio — desligada', () => {
+  const g = planoParaGravar(
+    { nome: 'F', premissas: P, precos: {}, realizadoDaPlanilha: {} },
+    null, 'plano-1', 'obra-1',
+  )
+  assert.ok(!g.premissas.provisionar13Ferias, 'padrão desligado: a planilha do cliente não provisiona')
+})

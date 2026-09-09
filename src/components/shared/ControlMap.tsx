@@ -479,9 +479,17 @@ function SelecaoPorArea({ ativa, onSelecionar }: { ativa: boolean; onSelecionar:
       }
       onSelecionar(bounds)
     }
+    // ⚠️ O `mouseup` TAMBÉM no documento: o Leaflet só escuta no próprio container, e o painel
+    // de Legenda fica POR CIMA do mapa. Soltar o botão sobre o painel (ou fora da janela) nunca
+    // disparava `aoSoltar`, o `inicio` do closure continuava preenchido, e ao voltar o ponteiro
+    // o retângulo seguia o cursor sem botão nenhum apertado — cara de ferramenta travada.
+    const aoSoltarNoDocumento = () => { if (inicio) { inicio = null; onSelecionar(retangulo.current ? retangulo.current.getBounds() : null) } }
     map.on('mousedown', aoIniciar); map.on('mousemove', aoMover); map.on('mouseup', aoSoltar)
+    const doc = container.ownerDocument
+    doc.addEventListener('mouseup', aoSoltarNoDocumento)
     return () => {
       map.off('mousedown', aoIniciar); map.off('mousemove', aoMover); map.off('mouseup', aoSoltar)
+      doc.removeEventListener('mouseup', aoSoltarNoDocumento)
       map.dragging.enable()
       container.style.cursor = ''
     }
@@ -525,7 +533,10 @@ function BuscaAoRedor({ ativa, centro, raioKm, onCentro }: {
 /** Norte para cima, sempre — o Leaflet não gira o mapa; a bússola é referência, não controle. */
 function Bussola() {
   return (
-    <div className="pointer-events-none absolute bottom-24 left-3 z-[1000] flex h-11 w-11 items-center justify-center rounded-full border border-[#525252] bg-[#333333]/90 shadow-lg" title="Norte">
+    // ⚠️ À DIREITA: o painel de Legenda ocupa a esquerda inteira e é opaco — bússola à esquerda
+    // ficava coberta. O zoom continua embaixo à esquerda (tem 36px de altura e o painel para
+    // antes dele), que é onde a referência o coloca.
+    <div className="pointer-events-none absolute bottom-6 right-4 z-[1000] flex h-11 w-11 items-center justify-center rounded-full border border-[#525252] bg-[#333333]/90 shadow-lg" title="Norte">
       <svg viewBox="0 0 24 24" width="26" height="26">
         <polygon points="12,3 15,12 12,10.5 9,12" fill="#f97316" />
         <polygon points="12,21 15,12 12,13.5 9,12" fill="#6b6b6b" />
@@ -742,7 +753,7 @@ export function ControlMap({
         <Bussola />
 
         {/* ── Painel Legenda (esquerda) ─────────────────────────────────────── */}
-        <div className={`absolute left-3 top-3 z-[1000] flex max-h-[calc(100%-1.5rem)] flex-col rounded-lg border border-[#525252] bg-[#333333]/95 shadow-xl backdrop-blur-sm transition-all ${painelAberto ? 'w-64' : 'w-10'}`}>
+        <div className={`absolute left-3 top-3 z-[1000] flex max-h-[calc(100%-4.5rem)] flex-col rounded-lg border border-[#525252] bg-[#333333]/95 shadow-xl backdrop-blur-sm transition-all ${painelAberto ? 'w-64' : 'w-10'}`}>
           <div className="flex items-center gap-2 border-b border-[#525252] px-2 py-2">
             <button onClick={() => setPainelAberto((v) => !v)} className="text-[#a3a3a3] hover:text-[#f5f5f5]" title={painelAberto ? 'Recolher' : 'Legenda'}>
               {painelAberto ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}

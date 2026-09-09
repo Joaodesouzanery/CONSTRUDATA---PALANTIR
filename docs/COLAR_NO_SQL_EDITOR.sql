@@ -1,111 +1,111 @@
 -- ═══════════════════════════════════════════════════════════════════════════════
--- COLAR NO SUPABASE → SQL EDITOR, rodar, e me mandar o resultado das consultas.
+-- COLAR NO SUPABASE → SQL EDITOR, rodar, e me mandar o resultado.
 --
--- Dois blocos. O BLOCO 1 grava (os quatro diretores da WCR). O BLOCO 2 só lê: é a
--- prova, do lado do servidor, de que WCR e Compizzo estão separadas e sem dado
--- perdido. ⚠️ O SQL Editor mostra SÓ o resultado da última consulta — por isso o
--- Bloco 2 é uma consulta única, e tudo sai numa tabela só (consulta · item · valor).
--- Idempotente — rodar duas vezes não muda nada.
+-- (O conteúdo anterior deste arquivo — os quatro diretores da WCR — foi cumprido
+--  em 08/09/2026 e está no histórico do git. Isto aqui é o próximo bloco.)
+--
+-- ⚠️ POR QUE: a tabela `app_state` tem migração no repositório desde 10/07/2026
+-- (`20260710130000_app_state.sql`), mas ela NÃO está no bundle já aplicado
+-- (`APPLY_PENDENTE_20260722.sql`) nem na lista de "confirmadas como aplicadas" do
+-- `docs/APLICAR_MIGRACOES.md`. E até o deploy de hoje NENHUMA tela usava essa
+-- tabela — `blobSync.ts` existia sem um único consumidor. Ou seja: ninguém nunca
+-- descobriria que ela falta, porque nada a tocava.
+--
+-- A partir de hoje ela é usada pelos cards "Controle de Caixa — importado há X
+-- dias por Fulano" da Visão Geral do Financeiro.
+--
+-- O QUE ACONTECE SE ELA NÃO EXISTIR: nada quebra e nada trava. `pushBlob` faz um
+-- upsert direto (não passa pela fila de sincronização, então não há op preso
+-- retentando para sempre); no erro ele só escreve um aviso no console e devolve
+-- false. O efeito visível é UM só: você importa a planilha e o card continua
+-- dizendo que nunca foi importada. Parece defeito, e é tabela faltando.
+--
+-- ⚠️ Idempotente: `CREATE TABLE IF NOT EXISTS` + `DROP POLICY IF EXISTS`. Se a
+-- tabela já existir, este bloco não muda nada — serve de diagnóstico do mesmo
+-- jeito. Rodar duas vezes não dói.
+--
+-- ⚠️ O SQL Editor mostra SÓ o resultado da ÚLTIMA consulta — por isso a
+-- conferência no fim é uma consulta única, e tudo sai numa tabela só.
 -- ═══════════════════════════════════════════════════════════════════════════════
 
--- ─── BLOCO 1 · Os quatro diretores da WCR Saneamento ─────────────────────────
--- Conta criada no painel do Auth NÃO vira usuário do sistema (o gatilho é no-op
--- desde a migração 0049). Aqui: membership `diretor` ativa para os 4; perfil só
--- para quem ainda não tem — quem já tem perfil noutra empresa recebe só o vínculo
--- e troca de empresa pelo app.
 
-insert into public.memberships (organization_id, user_id, role, status, joined_at)
-select o.id, u.id, 'diretor'::public.user_role, 'active', now()
-from public.organizations o
-join auth.users u on lower(u.email) in (
-  'felipe.nery2@gmail.com',
-  'williansrezende@wcrsaneamento.com.br',
-  'bruno.guimaraes@wcrsaneamento.com.br',
-  'sergio@wcrsaneamento.com.br'
-)
-where o.slug = 'wcr-saneamento' and o.deleted_at is null
-on conflict (organization_id, user_id) where deleted_at is null
-do update set role = 'diretor'::public.user_role, status = 'active',
-              blocked_at = null, blocked_by = null, updated_at = now();
+-- ─── BLOCO 1 · A tabela app_state (cópia fiel da migração 20260710130000) ─────
+-- Um blob jsonb por (organização, store_key). Serve de guarda-chuva para dados
+-- que hoje vivem só no navegador. Conflito: last-write-wins por updated_at.
 
-insert into public.profiles (id, organization_id, full_name, email, role, activated_at)
-select u.id, o.id,
-  coalesce(nullif(trim(u.raw_user_meta_data->>'full_name'), ''), split_part(u.email, '@', 1)),
-  u.email::citext, 'diretor'::public.user_role, now()
-from public.organizations o
-join auth.users u on lower(u.email) in (
-  'felipe.nery2@gmail.com',
-  'williansrezende@wcrsaneamento.com.br',
-  'bruno.guimaraes@wcrsaneamento.com.br',
-  'sergio@wcrsaneamento.com.br'
-)
-where o.slug = 'wcr-saneamento' and o.deleted_at is null
-  and not exists (select 1 from public.profiles p where p.id = u.id)
-on conflict (id) do nothing;
+CREATE TABLE IF NOT EXISTS public.app_state (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  store_key        text NOT NULL,
+  payload          jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  created_by       uuid,
+  UNIQUE (organization_id, store_key)
+);
 
--- ═══════════════════════════════════════════════════════════════════════════════
--- BLOCO 2 · A CONFERÊNCIA — UMA consulta só, porque o SQL Editor mostra apenas o
--- resultado da última. Tudo vem numa tabela: (consulta, item, valor). Só contagens.
--- ═══════════════════════════════════════════════════════════════════════════════
-with emails(email) as (values
-  ('felipe.nery2@gmail.com'), ('williansrezende@wcrsaneamento.com.br'),
-  ('bruno.guimaraes@wcrsaneamento.com.br'), ('sergio@wcrsaneamento.com.br')),
-wcr as (select id from public.organizations where slug = 'wcr-saneamento' and deleted_at is null)
+ALTER TABLE public.app_state ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_state FORCE ROW LEVEL SECURITY;
 
--- 1.R · esperado: 4 linhas "diretor · active · perfil sim". E-mail ausente = não existe em auth.users.
-select '1.R diretor WCR' as consulta, e.email as item,
-  coalesce(m.role::text || ' · ' || m.status || ' · perfil ' || case when p.id is null then 'NÃO' else 'sim' end
-           || ' · ativa na WCR ' || case when p.organization_id = (select id from wcr) then 'sim' else 'não' end,
-           'SEM CONTA em auth.users') as valor
-from emails e
-left join auth.users u on lower(u.email) = e.email
-left join public.memberships m on m.user_id = u.id and m.organization_id = (select id from wcr) and m.deleted_at is null
-left join public.profiles p on p.id = u.id and p.deleted_at is null
+-- Isolamento por empresa, igual ao resto do schema: só enxerga e só grava na
+-- própria organização. DELETE é bloqueado — blob se sobrescreve, não se apaga.
+DROP POLICY IF EXISTS app_state_select_own_org ON public.app_state;
+CREATE POLICY app_state_select_own_org ON public.app_state
+  FOR SELECT TO authenticated
+  USING (organization_id = public.user_org());
+
+DROP POLICY IF EXISTS app_state_insert_own_org ON public.app_state;
+CREATE POLICY app_state_insert_own_org ON public.app_state
+  FOR INSERT TO authenticated
+  WITH CHECK (organization_id = public.user_org());
+
+DROP POLICY IF EXISTS app_state_update_own_org ON public.app_state;
+CREATE POLICY app_state_update_own_org ON public.app_state
+  FOR UPDATE TO authenticated
+  USING (organization_id = public.user_org())
+  WITH CHECK (organization_id = public.user_org());
+
+DROP POLICY IF EXISTS app_state_delete_blocked ON public.app_state;
+CREATE POLICY app_state_delete_blocked ON public.app_state
+  FOR DELETE TO authenticated USING (false);
+
+
+-- ─── BLOCO 2 · A conferência (consulta única — é o que aparece na tela) ───────
+-- Lê e não escreve. Tudo que der "OK" está pronto; qualquer "FALTA" me mande.
+
+select 1 as ordem, 'Tabela app_state existe' as item,
+       case when to_regclass('public.app_state') is not null then 'OK' else 'FALTA' end as situacao
 
 union all
--- 2.A · quais empresas existem (preciso saber qual é a Compizzo real)
-select '2.A empresa', o.slug, o.name || ' · criada ' || o.created_at::date || ' · ' ||
-  (select count(*) from public.memberships m where m.organization_id = o.id and m.deleted_at is null and m.status = 'active') || ' membro(s) ativo(s)'
-from public.organizations o where o.deleted_at is null
+select 2, 'RLS ligada (e forçada)',
+       case when (select relrowsecurity and relforcerowsecurity
+                  from pg_class where oid = 'public.app_state'::regclass)
+            then 'OK' else 'FALTA' end
 
 union all
--- 2.B · contagem por empresa (a foto de hoje)
-select '2.B contagem', o.slug,
-  'caixa ' || (select count(*) from public.financeiro_entries x where x.organization_id = o.id and x.deleted_at is null)
-  || ' · rdo ' || (select count(*) from public.rdo x where x.organization_id = o.id and x.deleted_at is null)
-  || ' · fcp ' || (select count(*) from public.fcp_planos x where x.organization_id = o.id and x.deleted_at is null)
-  || ' · obras ' || (select count(*) from public.construction_sites x where x.organization_id = o.id and x.deleted_at is null)
-  || ' · funcionários ' || (select count(*) from public.workers x where x.organization_id = o.id and x.deleted_at is null)
-  || ' · auditoria ' || (select count(*) from public.audit_log x where x.organization_id = o.id)
-from public.organizations o where o.deleted_at is null
+select 3, 'As 4 policies (select/insert/update/delete-bloqueado)',
+       case when (select count(*) from pg_policies
+                  where schemaname = 'public' and tablename = 'app_state') = 4
+            then 'OK' else 'FALTA — tem ' ||
+                 (select count(*)::text from pg_policies
+                  where schemaname = 'public' and tablename = 'app_state') end
 
 union all
--- 2.C · dado sem dono — esperado 0 em todas
-select '2.C sem organization_id', 'financeiro_entries', count(*)::text from public.financeiro_entries where organization_id is null
-union all select '2.C sem organization_id', 'rdo',                count(*)::text from public.rdo where organization_id is null
-union all select '2.C sem organization_id', 'fcp_planos',         count(*)::text from public.fcp_planos where organization_id is null
-union all select '2.C sem organization_id', 'construction_sites', count(*)::text from public.construction_sites where organization_id is null
-union all select '2.C sem organization_id', 'workers',            count(*)::text from public.workers where organization_id is null
+select 4, 'Chave única (organization_id, store_key)',
+       case when exists (
+              select 1 from pg_constraint
+              where conrelid = 'public.app_state'::regclass and contype = 'u')
+            then 'OK' else 'FALTA' end
+
+-- Estas duas últimas são o estado do DADO, não do schema. Antes da primeira
+-- importação feita com o código de hoje, "0 registro(s)" é o esperado.
+union all
+select 5, 'Registros de importação já gravados',
+       coalesce((select count(*)::text from public.app_state
+                 where store_key = 'financeiro-importacoes'), '0') || ' registro(s)'
 
 union all
--- 2.D · dado apontando para obra de OUTRA empresa — esperado 0 em todas (é o vazamento clássico)
-select '2.D cruzado', 'financeiro_entries → obra de outra empresa', count(*)::text
-  from public.financeiro_entries f join public.construction_sites s on s.id = f.obra_id where f.organization_id <> s.organization_id
-union all select '2.D cruzado', 'rdo → obra de outra empresa', count(*)::text
-  from public.rdo r join public.construction_sites s on s.id = r.site_id where r.organization_id <> s.organization_id
-union all select '2.D cruzado', 'fcp_planos → obra de outra empresa', count(*)::text
-  from public.fcp_planos p join public.construction_sites s on s.id = p.obra_id where p.organization_id <> s.organization_id
-union all select '2.D cruzado', 'profiles → empresa ativa sem membership', count(*)::text
-  from public.profiles p where p.deleted_at is null and not exists (
-    select 1 from public.memberships m where m.user_id = p.id and m.organization_id = p.organization_id and m.status = 'active' and m.deleted_at is null)
+select 6, 'Última gravação em app_state (qualquer chave)',
+       coalesce((select to_char(max(updated_at), 'DD/MM/YYYY HH24:MI')
+                 from public.app_state), 'nenhuma ainda')
 
-union all
--- 2.E · RLS ligada e com policy de SELECT — esperado "rls true · policies ≥ 1"
-select '2.E RLS', c.relname,
-  'rls ' || c.relrowsecurity || ' · policies ' ||
-  (select count(*) from pg_policies p where p.schemaname = 'public' and p.tablename = c.relname and p.cmd in ('SELECT', 'ALL'))
-from pg_class c join pg_namespace n on n.oid = c.relnamespace
-where n.nspname = 'public' and c.relkind = 'r'
-  and c.relname in ('financeiro_entries', 'rdo', 'fcp_planos', 'construction_sites', 'workers', 'obra_dias_sem_producao', 'audit_log', 'memberships', 'profiles')
-
-order by 1, 2;
+order by ordem;

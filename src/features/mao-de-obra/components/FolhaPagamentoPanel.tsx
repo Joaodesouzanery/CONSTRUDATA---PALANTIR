@@ -207,8 +207,14 @@ function TabelasEEncargos({ cltSettings, onSalvar }: {
   const vigencia = cltSettings.tabelasVigenciaEm ?? COMPETENCIA_TABELAS_PADRAO
   const em2026 = vigencia >= COMPETENCIA_TABELAS_2026
   const campo = 'w-20 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-right text-xs text-[var(--color-text-primary)] outline-none focus:border-[#f97316]'
+  // ⚠️ Campo VAZIO é "não informado", não zero. `Number('')` é 0 — finito e >= 0 — então a
+  // versão anterior gravava RAT 0% quando alguém apagava o "1" para digitar "1,5" e era
+  // interrompido: o rótulo virava "informado", o campo continuava vazio e o custo-empregador
+  // caía 1% em silêncio.
   const num = (chave: 'ratPct' | 'sistemaSPct', padrao: number) => (e: React.FocusEvent<HTMLInputElement>) => {
-    const v = Number(String(e.target.value).replace(',', '.'))
+    const bruto = String(e.target.value).trim()
+    if (!bruto) { onSalvar({ [chave]: undefined }); e.target.value = String(padrao); return }
+    const v = Number(bruto.replace(',', '.'))
     onSalvar({ [chave]: Number.isFinite(v) && v >= 0 ? v : padrao })
   }
   return (
@@ -303,8 +309,8 @@ export function FolhaPagamentoPanel() {
    * nada muda de valor até a pessoa clicar. Mexer em folha sem avisar seria inaceitável.
    */
   const conferenciaRdo = useMemo(
-    () => conferirDiasDeRdo(workers, shifts, timecards, yearMonth),
-    [workers, shifts, timecards, yearMonth],
+    () => conferirDiasDeRdo(workers, shifts, timecards, yearMonth, cltSettings),
+    [workers, shifts, timecards, yearMonth, cltSettings],
   )
 
   function aplicarDiasDeRdo() {

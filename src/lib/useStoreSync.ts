@@ -67,6 +67,13 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
         const marker = getTenantMarker()
         if (marker && marker !== orgId) st.clearData?.()
       }
+      // ⚠️ O carimbo do TTL É LIDO AQUI, ANTES DO FLUSH — e a ordem é o conserto.
+      // `flush()` grava `lastSyncedAt` sempre que a fila NÃO está vazia, mesmo tendo apenas
+      // EMPURRADO, sem ler nada do servidor. Lendo depois, o TTL enxergava "sincronizou agora"
+      // e pulava o pull; com uma op PRESA (papel sem permissão para aquela tabela, o caso que o
+      // próprio auth.ts descreve) a tela parava de receber o que os colegas gravavam pelo resto
+      // da sessão — o efeito só re-dispara em [orgId, useStore].
+      const carimboAntesDoFlush = useStore.getState().lastSyncedAt
       // flush primeiro: sobe o que é local-only (re-carimbando org pendente)
       try { await st.flush?.() } catch { /* mantém na fila; será re-tentado */ }
       if (cancelled) return
@@ -79,7 +86,7 @@ export function useStoreSync<T extends SyncableState>(useStore: UseBoundStore<St
       // tabela inteira DE NOVO — dois painéis do mesmo store na mesma tela = dois pulls de 9
       // tabelas. Sincronizado há menos de 30 s = já está fresco. O realtime continua avisando
       // mudanças de colegas por fora, e o `flush` acima sempre roda.
-      if (sincronizouHaPouco(after.lastSyncedAt)) return
+      if (sincronizouHaPouco(carimboAntesDoFlush)) return
       try { await after.pull?.() } catch { /* preserva local em caso de erro */ }
     })()
     return () => { cancelled = true }

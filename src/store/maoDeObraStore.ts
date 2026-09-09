@@ -893,7 +893,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         unit: 'h',
         sourceRdoId: rdo.id,
         siteId: w.siteId ?? rdo.siteId ?? null,
-        laborCostBRL: custoDiaWorker(w, { diasMes: rdo.diasMes }),
+        // `settings` explícito: sem ele este custo GRAVADO usaria os encargos padrão enquanto
+        // o holerite usa os configurados (RAT/Sistema S/CPRB) — dois números para o mesmo
+        // funcionário, e este fica persistido.
+        laborCostBRL: custoDiaWorker(w, { diasMes: rdo.diasMes, settings: get().cltSettings }),
       }))
       const novosIds = new Set(novos.map((t) => t.id))
       // Só soft-deleta os que SAÍRAM do RDO (id não regerado). Os que continuam são

@@ -26,6 +26,8 @@ import {
   Building2, ScanText, Trash2, Copy, Users,
 } from 'lucide-react'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { entraNaFolha } from '@/lib/funcionarioAtivo'
 import * as XLSX from 'xlsx'
 import { useRdoStore } from '@/store/rdoStore'
@@ -88,8 +90,16 @@ export function RdoWcrPanel() {
   const [savedId, setSavedId] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [problemasDaPlanilha, setProblemasDaPlanilha] = useState<string[]>([])
+  // ⚠️ Esta tela LÊ o cadastro de funcionários para montar a presença e decidir falta. Sem
+  // sincronizar, um cadastro que ainda não chegou vira "nenhum ativo" — e "nenhum ativo" é
+  // indistinguível de "ninguém faltou". O RdoCompizzoPanel já fazia isto.
+  useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
   const registerAbsence = useMaoDeObraStore((s) => s.registerAbsence)
+  // ⚠️ `ROLES_RDO_WRITE` inclui `qualidade`; `ROLES_MAO_DE_OBRA_WRITE` não — e é este que espelha
+  // a RLS de `worker_absences`. Sem esta checagem, o perfil de qualidade confirmava as faltas no
+  // diálogo, `registerAbsence` devolvia '' em todas, e a tela dizia só "RDO salvo.".
+  const podeFalta = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
   /**
    * O que a pessoa decidiu à mão sobre cada funcionário (marcado/desmarcado). Fica SEPARADO do que
    * a máquina pré-marcou: assim colar outra lista de presença não desfaz um clique, e desmarcar
@@ -120,6 +130,14 @@ export function RdoWcrPanel() {
   const marcados = useMemo(() => ativosDaObra.filter((w) => estaMarcado(w.id)), [ativosDaObra, decisoes, preMarcados]) // eslint-disable-line react-hooks/exhaustive-deps
   const faltantes = useMemo(() => ativosDaObra.filter((w) => !estaMarcado(w.id)), [ativosDaObra, decisoes, preMarcados]) // eslint-disable-line react-hooks/exhaustive-deps
   const ambiguos = useMemo(() => casadas.filter((c) => c.veredito.tipo === 'ambiguo'), [casadas])
+  /**
+   * ⚠️ Houve ALGUMA fonte de presença? Colar só o apontamento (sem a lista de presença, que chega
+   * como outra mensagem) é fluxo normal. Sem esta guarda, `faltantes` virava "todos os ativos da
+   * obra", o diálogo abria com os 20 já marcados e o botão em destaque era "Gravar RDO e 20
+   * falta(s)" — um clique de reflexo lançava 20 faltas injustificadas E marcava os turnos como
+   * ausentes, que é o campo que a folha lê para descontar o dia.
+   */
+  const houveFonteDePresenca = presencas.length > 0 || decisoes.size > 0
 
   /** Quem foi marcado na tela e NÃO veio de lista colada entra como presença própria. */
   const presencaDaTela = useMemo<RdoWcrPresenca | null>(() => {
@@ -220,7 +238,13 @@ export function RdoWcrPanel() {
    * sozinha. Rascunho não passa por aqui: rascunho não afirma nada.
    */
   function salvar(status: 'rascunho' | 'finalizado') {
-    if (status === 'finalizado' && obraSiteId && faltantes.length > 0 && ambiguos.length === 0) {
+    const podeConferir = status === 'finalizado'
+      && obraSiteId
+      && podeFalta.pode          // sem permissão, pedir confirmação do que não se pode gravar é pior que não pedir
+      && houveFonteDePresenca    // sem presença lida, ninguém é faltante
+      && faltantes.length > 0
+      && ambiguos.length === 0
+    if (podeConferir) {
       setConferindoFaltas(faltantes)
       return
     }
@@ -229,20 +253,23 @@ export function RdoWcrPanel() {
 
   function gravarComFaltas(ids: string[]) {
     const data = lido?.data || hojeLocalISO()
-    let gravadas = 0
+    // ⚠️ Contar por `if (r)` mentia duas vezes: `registerAbsence` devolve o id da falta que JÁ
+    // EXISTIA (dedup por pessoa+dia, deliberado), e devolve '' quando o papel não pode gravar.
+    // O tamanho da lista antes e depois conta só o que nasceu agora.
+    const antes = useMaoDeObraStore.getState().absences.length
     for (const id of ids) {
-      const r = registerAbsence({
+      registerAbsence({
         workerId: id, date: data, type: 'unjustified', status: 'open',
         description: `RDO WCR ${data.split('-').reverse().join('/')} — conferido na tela`,
         siteId: obraSiteId,
       })
-      if (r) gravadas++
     }
+    const criadas = useMaoDeObraStore.getState().absences.length - antes
     setConferindoFaltas(null)
-    gravar('finalizado', gravadas)
+    gravar('finalizado', criadas, ids.length)
   }
 
-  function gravar(status: 'rascunho' | 'finalizado', faltasGravadas = 0) {
+  function gravar(status: 'rascunho' | 'finalizado', faltasGravadas = 0, faltasPedidas = 0) {
     const payload = montarPayload(status)
     if (!payload) return
     const id = savedId ? (updateRdo(savedId, payload), savedId) : addRdo(payload)
@@ -250,7 +277,14 @@ export function RdoWcrPanel() {
     if (!savedId) setSavedId(id)
     setAviso(status === 'rascunho'
       ? 'Rascunho salvo. Rascunho não alimenta produção nem custo.'
-      : `RDO salvo.${faltasGravadas > 0 ? ` ${faltasGravadas} falta(s) registrada(s) — edite em Mão de Obra › Faltas/Subs.` : ''}`)
+      : `RDO salvo.${
+          faltasGravadas > 0
+            ? ` ${faltasGravadas} falta(s) registrada(s) — edite em Mão de Obra › Faltas/Subs.`
+            : faltasPedidas > 0
+              // Pedidas e nenhuma criada: ou já existiam, ou o papel não escreve em Mão de Obra.
+              ? ` Nenhuma falta nova: ${faltasPedidas} já estava(m) lançada(s) para este dia.`
+              : ''
+        }`)
     if (status === 'finalizado') setActiveTab('historico')
   }
 
@@ -296,7 +330,16 @@ export function RdoWcrPanel() {
           </button>
           <button
             type="button"
-            onClick={() => { void navigator.clipboard?.writeText(MODELO_WHATSAPP); setAviso('Modelo copiado — cole no grupo do WhatsApp. O leitor aceita este formato e o antigo.') }}
+            onClick={() => {
+              // ⚠️ No tablet do canteiro aberto por IP (http), `navigator.clipboard` é undefined:
+              // o `?.` devolvia undefined, nada era copiado, e a tela afirmava que copiou.
+              const p = navigator.clipboard?.writeText(MODELO_WHATSAPP)
+              if (!p) { setAviso('Não consegui copiar aqui (a área de transferência exige HTTPS) — selecione o texto do modelo à mão.'); return }
+              p.then(
+                () => setAviso('Modelo copiado — cole no grupo do WhatsApp. O leitor aceita este formato e o antigo.'),
+                () => setAviso('Não consegui copiar — selecione o texto do modelo à mão.'),
+              )
+            }}
             className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#a3a3a3] hover:text-[#f5f5f5]"
             title="Copia a mensagem-modelo (CAMPO=valor) para mandar ao encarregado"
           >
@@ -363,6 +406,13 @@ export function RdoWcrPanel() {
               casadas={casadas}
               estaMarcado={estaMarcado}
               onMarcar={(id, v) => setDecisoes((d) => new Map(d).set(id, v))}
+              motivoSemConferencia={
+                !obraSiteId ? 'escolha a obra abaixo'
+                : !podeFalta.pode ? 'seu perfil salva RDO mas não registra falta (quem registra é planejador, engenheiro, gerente, diretor ou owner)'
+                : ativosDaObra.length === 0 ? 'nenhum funcionário ativo vinculado a esta obra'
+                : !houveFonteDePresenca ? 'nenhuma lista de presença lida e ninguém marcado à mão'
+                : null
+              }
             />
           )}
 
@@ -452,12 +502,14 @@ export function RdoWcrPanel() {
 // obra com um checkbox, pré-marcado quando a lista o trouxe (exato ou provável), e os ambíguos
 // como pergunta. É daqui que sai a conferência de faltas — nunca da igualdade de texto.
 
-function ListaDeAtivos({ obraEscolhida, ativos, casadas, estaMarcado, onMarcar }: {
+function ListaDeAtivos({ obraEscolhida, ativos, casadas, estaMarcado, onMarcar, motivoSemConferencia }: {
   obraEscolhida: boolean
   ativos: Worker[]
   casadas: PresencaCasada[]
   estaMarcado: (id: string) => boolean
   onMarcar: (id: string, marcado: boolean) => void
+  /** Por que a conferência de faltas NÃO vai acontecer ao salvar. `null` = vai acontecer. */
+  motivoSemConferencia: string | null
 }) {
   const provaveis = new Map<string, string>()
   for (const c of casadas) if (c.veredito.tipo === 'provavel') provaveis.set(c.veredito.worker.id, c.nome)
@@ -513,7 +565,9 @@ function ListaDeAtivos({ obraEscolhida, ativos, casadas, estaMarcado, onMarcar }
           Na lista e fora do cadastro desta obra: {semCadastro.map((c) => c.nome).join(', ')} — contam na presença, não geram falta.
         </p>
       )}
-      <p className="text-[11px] text-[#6b6b6b]">Ao salvar o RDO, quem ficar desmarcado aparece para conferência como falta injustificada. A presença não vira custo.</p>
+      {motivoSemConferencia
+        ? <p className="text-[11px] text-[#fbbf24]">Ao salvar, <strong>nenhuma falta será conferida</strong> — {motivoSemConferencia}. A presença não vira custo.</p>
+        : <p className="text-[11px] text-[#6b6b6b]">Ao salvar o RDO, quem ficar desmarcado aparece para conferência como falta injustificada. A presença não vira custo.</p>}
     </div>
   )
 }

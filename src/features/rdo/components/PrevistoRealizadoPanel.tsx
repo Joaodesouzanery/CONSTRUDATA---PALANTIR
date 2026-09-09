@@ -48,6 +48,7 @@ export function PrevistoRealizadoPanel() {
   const rdos = useRdoStore((s) => s.rdos)
   const activities = usePlanejamentoMestreStore((s) => s.activities)
   const workers = useMaoDeObraStore((s) => s.workers)
+  const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const reservas = useSuprimentosStore((s) => s.reservas)
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
 
@@ -81,7 +82,7 @@ export function PrevistoRealizadoPanel() {
   const custoMoPrev = custoTotalEstimado(plano)
   const custoMoReal = plano.equipe.reduce((s, m) => {
     const w = m.workerId ? workers.find((x) => x.id === m.workerId) : undefined
-    return s + (m.diasTrabalhados?.length ?? 0) * (w ? custoDiaWorker(w) : 0)
+    return s + (m.diasTrabalhados?.length ?? 0) * (w ? custoDiaWorker(w, { settings: cltSettings }) : 0)
   }, 0)
   const ritmoMeta = ritmoDiarioMeta(plano)
 

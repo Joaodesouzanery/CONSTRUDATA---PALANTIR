@@ -206,9 +206,9 @@ export function CMOPanel() {
     const scopedWorkers = activeObraId ? naFolha.filter((w) => (w.siteId ?? null) === activeObraId) : naFolha
     return scopedWorkers.reduce((s, w) => {
       const { unjustified } = countAbsencesInPeriod(absences, w.id, start, end)
-      return s + unjustified * custoDiaWorker(w)
+      return s + unjustified * custoDiaWorker(w, { settings: cltSettings })
     }, 0)
-  }, [workers, absences, yearMonth, activeObraId])
+  }, [workers, absences, yearMonth, activeObraId, cltSettings])
 
   const custoLiquidoRdo = Math.max(0, rdoLabor.custoRealizado - descontoFaltas)
 

@@ -13,7 +13,7 @@
  * Isto muda valor de folha. Nada aqui altera nada sozinho: estas funções só **descrevem** a
  * diferença, para a tela mostrar a conferência e a pessoa aprovar. É a tela que decide aplicar.
  */
-import type { Shift, TimecardEntry, Worker } from '@/types'
+import type { CLTSettings, Shift, TimecardEntry, Worker } from '@/types'
 import { custoDiaWorker } from './custoMaoObra'
 
 /** Turno que não conta como dia trabalhado — mesma regra do `payrollEngine`. */
@@ -53,6 +53,8 @@ export function conferirDiasDeRdo(
   shifts: Shift[],
   timecards: TimecardEntry[],
   month: string,
+  /** Encargos configurados. Sem eles o valor desta conferência discorda do holerite ao lado. */
+  settings?: Pick<CLTSettings, 'ratPct' | 'sistemaSPct' | 'regimeCprb'>,
 ): ConferenciaDaFolha {
   const doMes = (d: string) => d.startsWith(month)
 
@@ -93,7 +95,7 @@ export function conferirDiasDeRdo(
     const w = porNome.get(d.workerId)!
     const atual = agrupado.get(d.workerId) ?? { workerName: d.workerName, dias: 0, valorBRL: 0 }
     atual.dias += 1
-    atual.valorBRL += custoDiaWorker(w)
+    atual.valorBRL += custoDiaWorker(w, { settings })
     agrupado.set(d.workerId, atual)
   }
 

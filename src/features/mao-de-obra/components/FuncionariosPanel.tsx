@@ -358,7 +358,7 @@ function WorkerRow({ worker: w, crews, sites, expandedId, onToggle, onEdit, onDe
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="p-0">
+          <td colSpan={9} className="p-0">
             <ExpandedRow worker={w} crews={crews} />
           </td>
         </tr>

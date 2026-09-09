@@ -32,6 +32,9 @@ function Cartao({ rotulo, valor, detalhe, cor }: {
 }
 
 export function FaixaDeCusto() {
+  // ⚠️ Sem os encargos configurados, o card "Projetado" desta tela usaria o padrão enquanto o
+  // card "Folha" ao lado usa o que o contador configurou — dois custos lado a lado.
+  const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const { workers, payrollHistory, absences, occurrences, timecards } = useMaoDeObraStore(
     useShallow((s) => ({
       workers: s.workers, payrollHistory: s.payrollHistory, absences: s.absences,
@@ -46,7 +49,7 @@ export function FaixaDeCusto() {
     const ativos = workers.filter((w) => w.status === 'active')
 
     // Projetado: o custo mensal de quem está ativo. É o mesmo cálculo do Custo Mensal (CMO).
-    const projetado = ativos.reduce((s, w) => s + custoMesWorker(w), 0)
+    const projetado = ativos.reduce((s, w) => s + custoMesWorker(w, cltSettings), 0)
 
     // Realizado: o que os apontamentos do mês registraram de custo de mão de obra.
     const realizado = timecards
@@ -71,7 +74,7 @@ export function FaixaDeCusto() {
     const ocorrenciasDoMes = (occurrences ?? []).filter((o) => o.date.startsWith(mes))
 
     return { projetado, realizado, folha, deFerias, descobertas, ocorrenciasDoMes, ativos: ativos.length }
-  }, [workers, payrollHistory, absences, occurrences, timecards, mes, hoje])
+  }, [workers, payrollHistory, absences, occurrences, timecards, mes, hoje, cltSettings])
 
   const desvio = dados.projetado > 0 ? ((dados.realizado - dados.projetado) / dados.projetado) * 100 : 0
 

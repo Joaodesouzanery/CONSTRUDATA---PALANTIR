@@ -129,6 +129,7 @@ export function RdoCompizzoPanel() {
   useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
   const crews = useMaoDeObraStore((s) => s.crews)
+  const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   // Suprimentos: estoque + reservas/requisições/previsão (filtrados pela obra do RDO).
   const estoqueItens = useSuprimentosStore((s) => s.estoqueItens)
   const reservas = useSuprimentosStore((s) => s.reservas)
@@ -587,8 +588,8 @@ export function RdoCompizzoPanel() {
   }, [producao, selectedSite, todosRdos, editing])
   // Custo de mão de obra do dia = Σ custo/dia dos presentes (match normalizado, igual à ponte de apontamentos).
   const custoMaoObraDia = useMemo(
-    () => employeeNames.reduce((s, name) => { const w = matchWorkerByName(name, workers); return s + (w ? custoDiaWorker(w) : 0) }, 0),
-    [employeeNames, workers],
+    () => employeeNames.reduce((s, name) => { const w = matchWorkerByName(name, workers); return s + (w ? custoDiaWorker(w, { settings: cltSettings }) : 0) }, 0),
+    [employeeNames, workers, cltSettings],
   )
   const updateMaterial = (i: number, patch: Partial<RdoCompizzoMaterialRow>) =>
     setMateriais((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
@@ -796,7 +797,7 @@ export function RdoCompizzoPanel() {
             <div className="flex flex-wrap gap-2 mt-2">
               {employeeNames.map((nme, i) => {
                 const w = matchWorkerByName(nme, workers)
-                const custo = w ? custoDiaWorker(w) : 0
+                const custo = w ? custoDiaWorker(w, { settings: cltSettings }) : 0
                 return (
                   <span key={`${nme}-${i}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#3d3d3d] text-[#f5f5f5] text-xs">
                     <span>{nme}

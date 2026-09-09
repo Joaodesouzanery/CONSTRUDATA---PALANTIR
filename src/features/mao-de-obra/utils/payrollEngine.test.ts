@@ -10,6 +10,7 @@ import {
   calcINSS, tetoINSS, calcIRRF, reducaoDoIRRF, calcEncargosPatronais,
   TABELA_INSS_2026, TABELA_IRRF_2026, REDUTOR_IRRF_2026,
 } from './payrollEngine'
+import { custoMesWorker, custoDiaWorker } from './custoMaoObra'
 
 test('INSS 2026: teto de R$ 988,09 e faixas progressivas', () => {
   assert.equal(tetoINSS(TABELA_INSS_2026), 988.09)
@@ -42,4 +43,15 @@ test('encargos patronais: 20% + RAT + Sistema S; a CPRB tira só os 20%', () => 
   assert.equal(calcEncargosPatronais(1_000), 268, 'padrão: 20 + 1 + 5,8')
   assert.equal(calcEncargosPatronais(1_000, { ratPct: 3, sistemaSPct: 5.8 }), 288)
   assert.equal(calcEncargosPatronais(1_000, { regimeCprb: true }), 68, 'CPRB: RAT e terceiros continuam')
+})
+
+test('🔴 custoMesWorker respeita os encargos configurados — senão a tela discorda da folha', () => {
+  // O defeito que isto trava: `custoMesWorker` sem `settings` usava o padrão (20+1+5,8) enquanto
+  // `generatePayslip` usava o que o contador configurou. Ligada a CPRB, o mesmo funcionário
+  // custava 26,8% numa tela e 6,8% na outra — e um dos dois números ia para o Financeiro.
+  const w = { grossSalary: 1_000, hourlyRate: 0 }
+  assert.equal(custoMesWorker(w), 1_000 + 80 + 268, 'padrão: FGTS 8% + 26,8%')
+  assert.equal(custoMesWorker(w, { regimeCprb: true }), 1_000 + 80 + 68, 'CPRB tira os 20% patronais')
+  assert.equal(custoMesWorker(w, { ratPct: 3 }), 1_000 + 80 + 288, 'RAT informado pelo contador entra')
+  assert.equal(custoDiaWorker(w, { diasMes: 20, settings: { regimeCprb: true } }), (1_000 + 80 + 68) / 20)
 })

@@ -189,10 +189,13 @@ export const useFinanceiroStore = create<FinanceiroState>()(
           }
 
           // Mão de obra: custo/dia por funcionário presente (mesma base dos apontamentos).
-          const workers = useMaoDeObraStore.getState().workers
+          const mdo = useMaoDeObraStore.getState()
+          const workers = mdo.workers
           const mo = (rdo.manpower?.employeeNames ?? []).reduce((s, name) => {
             const w = matchWorkerByName(name, workers)
-            return s + (w ? custoDiaWorker(w) : 0)
+            // Mesmos encargos do holerite (RAT/Sistema S/CPRB), senão o lançamento no Financeiro
+            // discorda da folha para a mesma pessoa.
+            return s + (w ? custoDiaWorker(w, { settings: mdo.cltSettings }) : 0)
           }, 0)
           const moId = rdoEntryId(rdo.id, 'mao_de_obra')
           if (finalizado && mo > 0) {

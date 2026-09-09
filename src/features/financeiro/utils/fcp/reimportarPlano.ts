@@ -172,7 +172,16 @@ export function planoParaGravar(
     // Plano já aprovado que recebe premissa nova volta para rascunho: o número que a diretoria
     // aprovou deixou de ser o número da tela, e fingir que continua aprovado seria mentira.
     status: existente && !mudou(existente, novo.premissas) ? existente.status : 'rascunho',
-    premissas: novo.premissas,
+    // ⚠️ `provisionar13Ferias`/`encargosSobreProvisao` NÃO vêm da planilha — nascem do
+    // interruptor em Premissas. Sem preservá-las, reimportar o arquivo (o gesto mais repetido
+    // deste módulo) desligava a provisão em silêncio: o Econômico parava de descontar ~19,5% da
+    // folha e a margem subia sozinha. É o mesmo defeito de "a planilha não disse ≠ a planilha
+    // disse não" que o conserto d12e440 documentou para o Controle de Caixa.
+    premissas: {
+      ...novo.premissas,
+      provisionar13Ferias: existente?.premissas.provisionar13Ferias ?? novo.premissas.provisionar13Ferias,
+      encargosSobreProvisao: existente?.premissas.encargosSobreProvisao ?? novo.premissas.encargosSobreProvisao,
+    },
     // ⚠️ O realizado do plano existente VENCE o da planilha: ele pode ter sido lançado na tela ou
     // vindo do Last Planner depois da última exportação. O da planilha só entra onde não há nada.
     realizado: mesclarRealizado(novo.realizadoDaPlanilha, existente?.realizado),

@@ -148,6 +148,8 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   // ── Fase 2/3: integrações ──
   const workers = useMaoDeObraStore((s) => s.workers)
   const absences = useMaoDeObraStore((s) => s.absences)
+  // Encargos configurados (RAT/Sistema S/CPRB): o custo desta tela tem de bater com a folha.
+  const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const rdos = useRdoStore((s) => s.rdos)
   const addEntry = useFinanceiroStore((s) => s.addEntry)
   const orgIdAtual = useAuth((st) => st.profile?.organization_id)
@@ -192,7 +194,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
   const setEquipe = (eq: PlanoExecucaoMembro[]) => set({ equipe: eq })
   const custoDiaDoMembro = (m: PlanoExecucaoMembro) => {
     const w = m.workerId ? workers.find((x) => x.id === m.workerId) : undefined
-    return w ? custoDiaWorker(w) : 0
+    return w ? custoDiaWorker(w, { settings: cltSettings }) : 0
   }
   const custoMaoObraReal = plano.equipe.reduce((s, m) => s + (m.diasTrabalhados?.length ?? 0) * custoDiaDoMembro(m), 0)
   const toggleDiaMembro = (mi: number, data: string) => {
@@ -212,7 +214,7 @@ function PlanoEditor({ plano, canEdit, onBack }: { plano: PlanoExecucao; canEdit
     .filter((a) => a.type === 'unjustified' && plano.periodoInicio && plano.periodoFim
       && a.date >= plano.periodoInicio && a.date <= plano.periodoFim
       && plano.equipe.some((m) => m.workerId && m.workerId === a.workerId))
-    .reduce((s, a) => { const w = workers.find((x) => x.id === a.workerId); return s + (w ? custoDiaWorker(w) : 0) }, 0)
+    .reduce((s, a) => { const w = workers.find((x) => x.id === a.workerId); return s + (w ? custoDiaWorker(w, { settings: cltSettings }) : 0) }, 0)
   const margem = fat - custoMaoObraReal - total
 
   // Medição: lança o valor do executado (m² × preço) como entrada no Financeiro da obra.
