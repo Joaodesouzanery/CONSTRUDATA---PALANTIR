@@ -382,6 +382,28 @@ export interface ServicoDoCatalogo {
   porRegiao: Record<string, PrecoRegional>
 }
 
+/**
+ * A última medição importada de um contrato.
+ *
+ * ⚠️ Documento SEPARADO do catálogo, com chave própria em `app_state`. Catálogo é preço (muda
+ * quando o contrato muda); medição é quantidade executada (muda todo mês). Juntar os dois num
+ * documento só faria a reimportação de um sobrescrever o outro — que é exatamente o defeito que
+ * `planoParaGravar` teve com os preços do FCP.
+ */
+export interface MedicaoImportada {
+  numeroContrato: string
+  /** As obras como o cabeçalho da planilha as nomeia. */
+  obras: string[]
+  /** Região escolhida para cada obra — é ela que decide código e preço. */
+  regiaoPorObra: Record<string, string>
+  quantidades: Array<{ servicoCatalogoId: string; obra: string; quantidade: number }>
+  /** O que a planilha declara na coluna VALOR MEDIÇÃO, para a tela conferir contra o motor. */
+  valorDeclarado: number
+  importadaEm: string
+  importadaPor?: string
+  arquivo?: string
+}
+
 export interface CatalogoDoContrato {
   numeroContrato: string
   /** Nome do consórcio/cliente, só para a tela. */

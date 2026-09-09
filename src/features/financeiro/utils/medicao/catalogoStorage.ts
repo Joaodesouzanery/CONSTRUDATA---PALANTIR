@@ -14,7 +14,7 @@
  * enfileirar. Quem chama tem de olhar o retorno — falha aqui é silenciosa por natureza, e o
  * caminho certo é a tela dizer "não consegui salvar", não fingir que salvou.
  */
-import type { CatalogoDoContrato } from '@/types'
+import type { CatalogoDoContrato, MedicaoImportada } from '@/types'
 import { pushBlob, pullBlob } from '@/lib/blobSync'
 import { chaveDoCatalogo } from './catalogoContrato'
 
@@ -28,4 +28,18 @@ export async function lerCatalogo(numeroContrato: string): Promise<CatalogoDoCon
 /** Grava o catálogo. Devolve `false` quando não salvou — a tela precisa dizer isso. */
 export async function gravarCatalogo(catalogo: CatalogoDoContrato): Promise<boolean> {
   return pushBlob(chaveDoCatalogo(catalogo.numeroContrato), catalogo)
+}
+
+/** A medição fica num documento à parte — ver o docblock de `MedicaoImportada`. */
+export function chaveDaMedicao(numeroContrato: string): string {
+  return chaveDoCatalogo(numeroContrato).replace('catalogo-contrato:', 'medicao-contrato:')
+}
+
+export async function lerMedicao(numeroContrato: string): Promise<MedicaoImportada | null> {
+  const r = await pullBlob<MedicaoImportada>(chaveDaMedicao(numeroContrato))
+  return r?.payload?.numeroContrato ? r.payload : null
+}
+
+export async function gravarMedicao(medicao: MedicaoImportada): Promise<boolean> {
+  return pushBlob(chaveDaMedicao(medicao.numeroContrato), medicao)
 }
