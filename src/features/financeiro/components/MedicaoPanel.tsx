@@ -29,6 +29,7 @@ import { lerCatalogoZn, lerQuantidadesZn, type LeituraDoCatalogo, type LeituraDa
 import { lerCatalogo, gravarCatalogo, lerMedicao, gravarMedicao } from '../utils/medicao/catalogoStorage'
 import { calcularMedicao, cadeiaDeRepasse, porCategoria, type ResultadoDaMedicao } from '../utils/medicao/motorDaMedicao'
 import { entradaDaMedicao, idDaEntradaDaMedicao, podeGerarEntrada } from '../utils/medicao/medicaoParaFinanceiro'
+import { SaldoContratualPanel } from './SaldoContratualPanel'
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const num = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
@@ -59,6 +60,12 @@ export function MedicaoPanel() {
   const [lido, setLido] = useState<Lido | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [gravando, setGravando] = useState(false)
+  /**
+   * ⚠️ Duas visões, UMA carga. Não são sub-abas do `SubTabHost` porque as duas leem o MESMO
+   * catálogo e a MESMA medição: como sub-abas irmãs, cada troca refaria a leitura do `app_state`
+   * e as duas telas poderiam divergir por um instante.
+   */
+  const [visao, setVisao] = useState<'medicao' | 'saldo'>('medicao')
 
   useEffect(() => { if (!numeroContrato && contratos.length > 0) setNumeroContrato(contratos[0]) }, [contratos, numeroContrato])
 
@@ -172,6 +179,16 @@ export function MedicaoPanel() {
         </label>
       </header>
 
+      <div className="flex gap-1">
+        {([['medicao', 'Medição'], ['saldo', 'Saldo Contratual']] as const).map(([k, rotulo]) => (
+          <button key={k} type="button" onClick={() => setVisao(k)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${visao === k
+              ? 'bg-[#3d3d3d] text-white' : 'text-[#a3a3a3] hover:text-[#f5f5f5]'}`}>
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
       {aviso && (
         <p className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs ${aviso.startsWith('Não')
           ? 'border-[#ef4444]/40 bg-[#ef4444]/10 text-[#fca5a5]'
@@ -180,8 +197,10 @@ export function MedicaoPanel() {
         </p>
       )}
 
+      {visao === 'saldo' && <SaldoContratualPanel catalogo={catalogo} medicao={medicao} />}
+
       {/* ── Importação ────────────────────────────────────────────────────── */}
-      {!lido && (
+      {visao === 'medicao' && !lido && (
         <section className="rounded-xl border border-[#525252] bg-[#333333] p-4">
           <p className="text-xs font-semibold text-[#f5f5f5]">
             {catalogo ? 'Atualizar com uma planilha nova' : 'Importar a planilha de medição'}
@@ -201,24 +220,24 @@ export function MedicaoPanel() {
         </section>
       )}
 
-      {lido && (
+      {visao === 'medicao' && lido && (
         <ConferenciaDaImportacao
           lido={lido} gravando={gravando}
           onCancelar={() => setLido(null)} onGravar={() => void gravar()}
         />
       )}
 
-      {carregando && <p className="text-xs text-[#6b6b6b]">Carregando…</p>}
+      {visao === 'medicao' && carregando && <p className="text-xs text-[#6b6b6b]">Carregando…</p>}
 
-      {!carregando && !catalogo && !lido && (
+      {visao === 'medicao' && !carregando && !catalogo && !lido && (
         <p className="rounded-xl border border-dashed border-[#525252] p-6 text-center text-xs text-[#6b6b6b]">
           Nenhum catálogo importado para este contrato ainda.
         </p>
       )}
 
-      {catalogo && <CardDoCatalogo catalogo={catalogo} />}
+      {visao === 'medicao' && catalogo && <CardDoCatalogo catalogo={catalogo} />}
 
-      {catalogo && medicao && (
+      {visao === 'medicao' && catalogo && medicao && (
         <label className="flex items-center gap-2 self-start text-[11px] text-[#a3a3a3]">
           Competência da medição
           <input
@@ -231,7 +250,7 @@ export function MedicaoPanel() {
         </label>
       )}
 
-      {catalogo && medicao && medicao.obras.map((obra) => {
+      {visao === 'medicao' && catalogo && medicao && medicao.obras.map((obra) => {
         const r = resultados.find((x) => x.obra === obra)
         const obraId = medicao.obraIdPorObra?.[obra]
         const idEsperado = idDaEntradaDaMedicao(profile?.organization_id, numeroContrato, obra, medicao.competencia ?? '')
@@ -253,7 +272,7 @@ export function MedicaoPanel() {
         )
       })}
 
-      {catalogo && medicao && (
+      {visao === 'medicao' && catalogo && medicao && (
         <p className="text-[11px] text-[#6b6b6b]">
           Medição importada em {new Date(medicao.importadaEm).toLocaleString('pt-BR')}
           {medicao.importadaPor && <> por {medicao.importadaPor}</>}
