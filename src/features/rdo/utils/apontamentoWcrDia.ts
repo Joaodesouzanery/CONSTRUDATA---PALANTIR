@@ -11,8 +11,10 @@
  * ⚠️ "Não informado" continua não informado. Se nenhum apontamento pôs número numa sigla, a soma
  * fica vazia — não vira zero. Se um pôs 100 e o outro deixou em branco, a soma é 100.
  */
-import type { RdoManpower, RdoWcrApontamento, RdoWcrPresenca, RdoWcrProducaoRow } from '@/types'
+import type { RdoManpower, RdoWcrApontamento, RdoWcrPresenca, RdoWcrProducaoRow, RdoWeatherCondition, Worker } from '@/types'
 import { SIGLAS_WCR, completarAno, type ApontamentoWcr } from './apontamentoWcr'
+import { casarNome, type Casamento } from '@/features/mao-de-obra/utils/casarNome'
+import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
 // ─── Somar apontamentos ───────────────────────────────────────────────────────
 
@@ -31,7 +33,17 @@ export function apontamentoParaRdo(a: ApontamentoWcr, textoOriginal?: string): R
     anoInferido: a.anoInferido,
     textoOriginal,
     naoEntendidas: a.naoEntendidas.length ? a.naoEntendidas : undefined,
+    clima: a.clima,
+    horas: a.horas,
   }
+}
+
+/** chuva > tempestade > nublado > sol: o dia é tão ruim quanto o pior apontamento. */
+const PESO_CLIMA: Record<RdoWeatherCondition, number> = { good: 0, cloudy: 1, rain: 2, storm: 3 }
+export function piorClima(climas: Array<RdoWeatherCondition | undefined>): RdoWeatherCondition | undefined {
+  let pior: RdoWeatherCondition | undefined
+  for (const c of climas) if (c && (pior === undefined || PESO_CLIMA[c] > PESO_CLIMA[pior])) pior = c
+  return pior
 }
 
 /**
@@ -65,7 +77,7 @@ export function somarProducao(apontamentos: RdoWcrApontamento[]): RdoWcrProducao
 const unicos = (xs: (string | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x && x.trim() !== ''))]
 
 /** O que vai nos campos de cima do `RdoWcrData` quando há vários apontamentos. */
-export function resumoDoDia(apontamentos: RdoWcrApontamento[]): Pick<RdoWcrData_, 'equipe' | 'nucleo' | 'imoveis' | 'producao' | 'observacoes' | 'anoInferido' | 'naoEntendidas'> {
+export function resumoDoDia(apontamentos: RdoWcrApontamento[]): Pick<RdoWcrData_, 'equipe' | 'nucleo' | 'imoveis' | 'producao' | 'observacoes' | 'anoInferido' | 'naoEntendidas' | 'clima' | 'horas'> {
   const equipes = unicos(apontamentos.map((a) => a.equipe))
   const nucleos = unicos(apontamentos.map((a) => a.nucleo))
   const obs = unicos(apontamentos.map((a) => a.observacoes))
@@ -78,6 +90,11 @@ export function resumoDoDia(apontamentos: RdoWcrApontamento[]): Pick<RdoWcrData_
     observacoes: obs.length ? obs.join('\n') : undefined,
     anoInferido: apontamentos.some((a) => a.anoInferido),
     naoEntendidas: naoEntendidas.length ? naoEntendidas : undefined,
+    clima: piorClima(apontamentos.map((a) => a.clima)),
+    // ⚠️ Só soma o que foi informado. Nenhum apontamento com horas → ausente, não zero.
+    horas: apontamentos.some((a) => a.horas !== undefined)
+      ? apontamentos.reduce((s, a) => s + (a.horas ?? 0), 0)
+      : undefined,
   }
 }
 type RdoWcrData_ = import('@/types').RdoWcrData
@@ -177,4 +194,35 @@ export function manpowerDaPresenca(presencas: RdoWcrPresenca[]): RdoManpower {
     }
   }
   return m
+}
+
+// ─── Presença colada × cadastro ───────────────────────────────────────────────
+
+export interface PresencaCasada<T extends { id: string; name: string } = Worker> {
+  nome: string
+  funcao?: string
+  veredito: Casamento<T>
+}
+
+/**
+ * Cada nome colado, contra os funcionários ATIVOS da obra.
+ *
+ * ⚠️ Quem decide é `casarNome` (exato / provável / ambíguo). A tela pré-marca exato e provável
+ * (o provável com a pergunta "Felipe → Felipe Sobrenome?"); ambíguo NUNCA é marcado pela máquina —
+ * dois candidatos aparecem lado a lado para a pessoa escolher. É esta função que impede a "falta
+ * automática cega" que uma igualdade exata produziria.
+ */
+export function casarPresenca<T extends { id: string; name: string; status: Worker['status'] }>(
+  pessoas: Array<{ nome: string; funcao?: string }>,
+  workers: T[],
+): PresencaCasada<T>[] {
+  const ativos = workers.filter(entraNaFolha)
+  return pessoas.map((p) => ({ nome: p.nome, funcao: p.funcao, veredito: casarNome(p.nome, ativos) }))
+}
+
+/** Os ids que a máquina tem confiança para pré-marcar: exato e provável. Ambíguo fica de fora. */
+export function idsPreMarcados<T extends { id: string; name: string }>(casadas: PresencaCasada<T>[]): Set<string> {
+  const ids = new Set<string>()
+  for (const c of casadas) if (c.veredito.tipo === 'exato' || c.veredito.tipo === 'provavel') ids.add(c.veredito.worker.id)
+  return ids
 }

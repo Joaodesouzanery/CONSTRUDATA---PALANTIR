@@ -133,3 +133,33 @@ test('🔴 12,5 m de rede são 12,5 — não 125 (a ponte com o FCP lia o ponto 
   assert.equal(p.metros, 12.5)
   assert.equal(p.unidades, 1002.5)
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Presença colada × cadastro (nomes fictícios)
+// ─────────────────────────────────────────────────────────────────────────────
+import { casarPresenca, idsPreMarcados, piorClima } from './apontamentoWcrDia.ts'
+
+const CADASTRO = [
+  { id: 'a', name: 'Mario Teixeira', status: 'active' as const },
+  { id: 'b', name: 'Mario Teixeira Neto', status: 'active' as const },
+  { id: 'c', name: 'Renata Prado', status: 'active' as const },
+  { id: 'd', name: 'Cristiano Alves', status: 'inactive' as const },
+]
+
+test('presença: exato e provável pré-marcam; ambíguo NUNCA', () => {
+  const casadas = casarPresenca(
+    [{ nome: 'Renata Prado', funcao: 'líder' }, { nome: 'Mario', funcao: 'ajudante' }, { nome: 'Mario Teixeira Neto' }, { nome: 'Cristiano Alves' }],
+    CADASTRO,
+  )
+  assert.equal(casadas[0].veredito.tipo, 'exato')
+  assert.equal(casadas[1].veredito.tipo, 'ambiguo', 'dois Marios: a máquina não escolhe')
+  assert.equal(casadas[2].veredito.tipo, 'exato')
+  assert.equal(casadas[3].veredito.tipo, 'nenhum', 'desligado não é candidato')
+  assert.deepEqual([...idsPreMarcados(casadas)].sort(), ['b', 'c'])
+})
+
+test('o dia é tão ruim quanto o pior apontamento', () => {
+  assert.equal(piorClima(['good', 'rain', 'cloudy']), 'rain')
+  assert.equal(piorClima([undefined, undefined]), undefined)
+  assert.equal(piorClima(['good', undefined]), 'good')
+})

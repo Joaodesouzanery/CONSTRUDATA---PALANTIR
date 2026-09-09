@@ -80,6 +80,11 @@ export interface ApontamentoWcr {
   anoInferido: boolean
   equipe?: string
   nucleo?: string
+  /** `Clima:` — sol / nublado / chuva, já traduzido para o RDO. Ausente quando não veio. */
+  clima?: ClimaWcr
+  climaBruto?: string
+  /** `Horas:` — horas trabalhadas estimadas pelo encarregado. Ausente ≠ zero. */
+  horas?: number
   /** ⚠️ Lista: "Imóvel" aparece uma vez por endereço e todas contam. */
   imoveis: string[]
   linhas: LinhaWcrLida[]
@@ -91,6 +96,23 @@ export interface ApontamentoWcr {
    * que não reconhece ensina a equipe a confiar num resultado incompleto.
    */
   naoEntendidas: string[]
+}
+
+/** O que o RDO entende de tempo. É o `RdoWeatherCondition`, com os nomes de quem escreve. */
+export type ClimaWcr = 'good' | 'cloudy' | 'rain' | 'storm'
+
+/**
+ * "sol", "nublado", "chuva", "tempestade"… → o clima do RDO. `undefined` para o que não é clima —
+ * a tela mostra o bruto e não inventa "bom".
+ */
+export function climaDeTexto(bruto: string): ClimaWcr | undefined {
+  const t = normalizarChave(bruto)
+  if (!t) return undefined
+  if (/tempest|temporal|vendaval/.test(t)) return 'storm'
+  if (/chuv|garoa|molhad/.test(t)) return 'rain'
+  if (/nubl|encober|fechad/.test(t)) return 'cloudy'
+  if (/sol|bom|limpo|aberto|ensolar|ok/.test(t)) return 'good'
+  return undefined
 }
 
 /** Sem acento, sem caixa, sem espaço dobrado. */
@@ -181,6 +203,8 @@ const CHAVE_EQUIPE = new Set(['equipe', 'time'].map(normalizarChave))
 const CHAVE_NUCLEO = new Set(['nucleo', 'núcleo', 'setor'].map(normalizarChave))
 const CHAVE_IMOVEL = new Set(['imovel', 'imóvel', 'endereco', 'endereço', 'rua'].map(normalizarChave))
 const CHAVE_OBS    = new Set(['obs', 'observacao', 'observação', 'observacoes', 'observações'].map(normalizarChave))
+const CHAVE_CLIMA  = new Set(['clima', 'tempo'].map(normalizarChave))
+const CHAVE_HORAS  = new Set(['horas', 'horas trabalhadas', 'hs'].map(normalizarChave))
 
 /**
  * Separa "chave - valor" e "chave: valor".
@@ -190,9 +214,29 @@ const CHAVE_OBS    = new Set(['obs', 'observacao', 'observação', 'observacoes'
  * traço no meio ("Rua X - Fundos") não perder o resto.
  */
 function separar(linha: string): { chave: string; valor: string } | null {
+  // Formato novo: "CAMPO=valor". O "=" não aparece em endereço nem em observação, então é o corte
+  // mais seguro dos três — testado primeiro.
+  const igual = linha.match(/^\s*([^=]+?)\s*=\s*(.*)$/)
+  if (igual) return { chave: igual[1].trim(), valor: igual[2].trim() }
   const m = linha.match(/^\s*([^:\-–—]+?)\s*[:\-–—]\s*(.*)$/)
   if (!m) return null
   return { chave: m[1].trim(), valor: m[2].trim() }
+}
+
+/**
+ * O formato novo põe vários campos na mesma linha: `PRA=0 | LA=2 | HM=100`. Cada pedaço vira uma
+ * linha lógica. O formato antigo (um campo por linha) passa por aqui sem mudar.
+ *
+ * ⚠️ Só divide no " | " com espaços ou no "|" colado quando a linha tem "=": um endereço antigo
+ * com barra vertical no meio (raro, mas possível) não é cortado.
+ */
+export function linhasLogicas(texto: string): string[] {
+  const out: string[] = []
+  for (const cru of texto.split(/\r?\n/)) {
+    if (cru.includes('=') && cru.includes('|')) out.push(...cru.split('|'))
+    else out.push(cru)
+  }
+  return out
 }
 
 export interface OpcoesDoApontamento {
@@ -216,16 +260,17 @@ export function parseApontamentoWcr(texto: string, opcoes: OpcoesDoApontamento =
   let coletandoObs = false
   const obs: string[] = []
 
-  for (const cru of texto.split(/\r?\n/)) {
-    const linha = cru.trim()
+  for (const cru of linhasLogicas(texto)) {
+    const linha = cru.replace(/[\u200b\u2060]/g, '').trim()
     if (!linha || ehDecoracao(linha)) continue
 
     const chaveNorm = normalizarChave(linha)
     if (ehTitulo(chaveNorm)) continue
 
     // Cabeçalhos de bloco trocam o contexto das siglas seguintes.
-    if (/^servico agua|^servicos agua/.test(chaveNorm)) { bloco = 'agua';   coletandoObs = false; continue }
-    if (/^servico esgoto|^servicos esgoto/.test(chaveNorm)) { bloco = 'esgoto'; coletandoObs = false; continue }
+    // "SERVIÇO ÁGUA" (antigo) ou só "ÁGUA" (modelo novo). A linha inteira tem de ser o título.
+    if (/^(servicos? )?agua$/.test(chaveNorm)) { bloco = 'agua';   coletandoObs = false; continue }
+    if (/^(servicos? )?esgoto$/.test(chaveNorm)) { bloco = 'esgoto'; coletandoObs = false; continue }
 
     const par = separar(linha)
 
@@ -244,6 +289,21 @@ export function parseApontamentoWcr(texto: string, opcoes: OpcoesDoApontamento =
       }
       if (CHAVE_EQUIPE.has(k)) { if (par.valor) out.equipe = par.valor; continue }
       if (CHAVE_NUCLEO.has(k)) { if (par.valor) out.nucleo = par.valor; continue }
+      if (CHAVE_CLIMA.has(k)) {
+        if (par.valor) {
+          out.climaBruto = par.valor
+          const c = climaDeTexto(par.valor)
+          if (c) out.clima = c; else out.naoEntendidas.push(linha)
+        }
+        continue
+      }
+      if (CHAVE_HORAS.has(k)) {
+        if (par.valor) {
+          const h = quantidadeDeTexto(par.valor)
+          if (h !== undefined && h >= 0 && h <= 24) out.horas = h; else out.naoEntendidas.push(linha)
+        }
+        continue
+      }
       // ⚠️ acumula: "Imóvel" repete uma vez por endereço.
       if (CHAVE_IMOVEL.has(k)) { if (par.valor) out.imoveis.push(par.valor); continue }
 
@@ -310,3 +370,27 @@ export function resumirApontamento(a: Pick<ApontamentoWcr, 'linhas'>): ResumoWcr
   }
   return { unidades, metros, semMedida }
 }
+
+// ─── O modelo para o grupo ────────────────────────────────────────────────────
+
+/**
+ * A mensagem pronta para o encarregado copiar e preencher.
+ *
+ * ⚠️ As regras que o formato carrega: `0` é zero (não fez); campo em branco é "não informado";
+ * um `Imóvel=` por endereço; `Clima` e `Horas` são novos e opcionais. O leitor aceita este formato
+ * E o antigo ("PRA - 100"), então ninguém precisa reaprender no mesmo dia.
+ * `docs/APONTAMENTO_WHATSAPP_MODELO.md` explica cada sigla para a equipe confirmar.
+ */
+export const MODELO_WHATSAPP = `📋 APONTAMENTO DIÁRIO
+Data=DD/MM | Equipe=NOME | Núcleo=LOCAL
+Clima=sol/nublado/chuva | Horas=8
+Imóvel=RUA E NÚMERO
+Imóvel=
+
+ÁGUA
+PRA=0 | LA=0 | LIA=0 | Caixa UMA=0 | HM=0 | Interligação=0 | Válvula=0
+
+ESGOTO
+PRE=0 | LE=0 | LIE=0 | PV=0 | PI=0 | CI=0
+
+Obs=`

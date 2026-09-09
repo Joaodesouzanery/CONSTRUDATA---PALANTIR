@@ -2030,6 +2030,10 @@ export interface RdoWcrProducaoRow {
  * cada um viaja inteiro: quem confere precisa ver o que cada equipe disse, não só a soma.
  */
 export interface RdoWcrApontamento {
+  /** Campo `Clima:` do apontamento novo. Alimenta o tempo do RDO e o dia parado. */
+  clima?: RdoWeatherCondition
+  /** Campo `Horas:` — estimado pelo encarregado. Destrava custo/hora; ausente quando não veio. */
+  horas?: number
   equipe?:    string
   nucleo?:    string
   imoveis:    string[]
@@ -2082,6 +2086,10 @@ export interface RdoWcrData {
   textoOriginal?: string
   /** Linhas que o leitor não reconheceu, preservadas para conferência. */
   naoEntendidas?: string[]
+  /** O pior clima entre os apontamentos do dia (chuva > nublado > sol). */
+  clima?: RdoWeatherCondition
+  /** Soma das horas informadas. Só existe quando alguém informou. */
+  horas?: number
 }
 
 // ─── RDO Compizzo (Demarcação e Pintura de Piso Industrial) ──────────────────────

@@ -9,6 +9,7 @@ import {
   SIGLAS_WCR,
   limitarTextoOriginal,
   LIMITE_TEXTO_ORIGINAL,
+  MODELO_WHATSAPP,
 } from './apontamentoWcr.ts'
 
 /** O apontamento REAL que o cliente mandou, letra por letra — inclusive os espaços sobrando. */
@@ -242,4 +243,66 @@ test('⚠️ texto colado gigante é cortado antes de virar campo do RDO', () =>
   assert.match(cortado, /texto cortado/)
   // o tamanho normal passa intacto
   assert.equal(limitarTextoOriginal('Produção - 31/08'), 'Produção - 31/08')
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// O formato novo (CAMPO=valor | CAMPO=valor), lado a lado com o antigo
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NOVO = `📋 APONTAMENTO DIÁRIO
+Data=31/08 | Equipe=Gilvan | Núcleo=Boi Malhado
+Clima=chuva | Horas=6,5
+Imóvel=rua santa rosa de sul
+Imóvel=Rua Santa Rosa do Tocantins
+Imóvel=rua um
+
+ÁGUA
+PRA=0 | LA= | LIA=0 | Caixa UMA=0 | HM=100 | Interligação=0 | Válvula=0
+
+ESGOTO
+PRE=0 | LE=0 | LIE=0 | PV=0 | PI=0 | CI=0
+
+Obs=qualquer coisa fora da lista escreve aqui`
+
+test('formato novo: os mesmos campos do antigo saem iguais', () => {
+  const novo = parseApontamentoWcr(NOVO, { hoje: HOJE })
+  const antigo = parseApontamentoWcr(APONTAMENTO_REAL, { hoje: HOJE })
+  assert.equal(novo.data, antigo.data)
+  assert.equal(novo.equipe, antigo.equipe?.trim())
+  assert.equal(novo.nucleo, antigo.nucleo)
+  assert.equal(novo.imoveis.length, 3)
+  assert.equal(novo.linhas.find((l) => l.sigla === 'HM')?.quantidade, 100)
+  assert.equal(novo.observacoes, antigo.observacoes)
+  assert.deepEqual(novo.naoEntendidas, [])
+})
+
+test('⚠️ no formato novo, "=0" é ZERO e "=" vazio continua AUSENTE', () => {
+  const a = parseApontamentoWcr(NOVO, { hoje: HOJE })
+  assert.equal(a.linhas.find((l) => l.sigla === 'PRA')?.quantidade, 0, 'PRA=0 é zero explícito')
+  assert.equal(a.linhas.find((l) => l.sigla === 'LA')?.quantidade, undefined, 'LA= é não informado')
+  assert.equal(a.linhas.length, 13)
+})
+
+test('Clima e Horas: novos, opcionais, traduzidos', () => {
+  const a = parseApontamentoWcr(NOVO, { hoje: HOJE })
+  assert.equal(a.clima, 'rain')
+  assert.equal(a.climaBruto, 'chuva')
+  assert.equal(a.horas, 6.5)
+  const antigo = parseApontamentoWcr(APONTAMENTO_REAL, { hoje: HOJE })
+  assert.equal(antigo.clima, undefined)
+  assert.equal(antigo.horas, undefined)
+})
+
+test('clima que não é clima e horas impossíveis vão para naoEntendidas — não viram "bom" nem 0', () => {
+  const a = parseApontamentoWcr('Clima=talvez\nHoras=30\nHM=1', { hoje: HOJE })
+  assert.equal(a.clima, undefined)
+  assert.equal(a.horas, undefined)
+  assert.equal(a.naoEntendidas.length, 2)
+})
+
+test('o modelo novo é lido pelo próprio parser sem nenhuma linha "não entendida"', () => {
+  const a = parseApontamentoWcr(MODELO_WHATSAPP, { hoje: HOJE })
+  assert.deepEqual(a.naoEntendidas.filter((l) => !/^Data|^Clima|^Horas/.test(l)), [])
+  assert.equal(a.linhas.length, 13)
+  assert.ok(a.linhas.every((l) => l.quantidade === 0), 'o modelo vem com zeros explícitos')
 })

@@ -229,12 +229,13 @@ function AbsenceDialog({ onClose }: AbsenceDialogProps) {
 
 export function FaltasSubsPanel() {
   const permissao = usePermissaoEscrita(ROLES_MAO_DE_OBRA_WRITE)
-  const { absences, workers, resolveAbsence, removeAbsence } = useMaoDeObraStore(
+  const { absences, workers, resolveAbsence, removeAbsence, updateAbsence } = useMaoDeObraStore(
     useShallow(s => ({
       absences:      s.absences,
       workers:       s.workers,
       resolveAbsence: s.resolveAbsence,
       removeAbsence:  s.removeAbsence,
+      updateAbsence:  s.updateAbsence,
     }))
   )
 
@@ -425,8 +426,17 @@ export function FaltasSubsPanel() {
                   <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">
                     {getWorkerName(absence.workerId)}
                   </td>
-                  <td className="px-4 py-3">
-                    <TypeBadge type={absence.type} />
+                  <td className="px-4 py-3" title={absence.description}>
+                    {/* O RDO WCR grava "injustificada — conferido na tela". Se era atestado ou
+                        folga, muda-se AQUI, sem apagar e relançar. */}
+                    {permissao.pode ? (
+                      <select value={absence.type}
+                              onChange={e => updateAbsence(absence.id, { type: e.target.value as AbsenceType })}
+                              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)]">
+                        {(Object.keys(ABSENCE_LABELS) as AbsenceType[]).map(t => <option key={t} value={t}>{ABSENCE_LABELS[t]}</option>)}
+                      </select>
+                    ) : <TypeBadge type={absence.type} />}
+                    {absence.description && <p className="mt-0.5 max-w-[220px] truncate text-[10px] text-[var(--color-text-muted)]">{absence.description}</p>}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={absence.status} />
