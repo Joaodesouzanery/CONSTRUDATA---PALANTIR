@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BASE } from '@/lib/basemaps'
 import { MapContainer, TileLayer, CircleMarker, Polyline, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useShallow } from 'zustand/react/shallow'
@@ -24,10 +25,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 }
 
 const BASEMAPS: Record<string, { url: string; label: string; attribution: string }> = {
-  dark:      { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',             label: 'Dark',      attribution: 'Tiles © Esri' },
-  streets:   { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',  label: 'Ruas',      attribution: 'Tiles © Esri' },
-  satellite: { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', label: 'Satélite', attribution: '© Esri' },
-  light:     { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',            label: 'Light',     attribution: 'Tiles © Esri' },
+  dark:      { url: BASE.escuro.url,             label: 'Dark',      attribution: 'Tiles © Esri' },
+  streets:   { url: BASE.ruas.url,  label: 'Ruas',      attribution: 'Tiles © Esri' },
+  satellite: { url: BASE.satelite.url, label: 'Satélite', attribution: '© Esri' },
+  light:     { url: BASE.claro.url,            label: 'Light',     attribution: 'Tiles © Esri' },
 }
 
 export function MapaOperacionalPanel() {

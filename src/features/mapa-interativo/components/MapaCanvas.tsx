@@ -3,6 +3,7 @@
  * Supports: addNode, connect, deleteNode, deleteSegment, measure, structure tools.
  */
 import { useEffect, useRef } from 'react'
+import { BASE } from '@/lib/basemaps'
 import { MapContainer, TileLayer, CircleMarker, Polyline, useMapEvents, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useMapaInterativoStore } from '@/store/mapaInterativoStore'
@@ -27,19 +28,21 @@ const NETWORK_COLORS: Record<MapNetworkType, string> = {
 // ─── Tile layers ──────────────────────────────────────────────────────────────
 
 const TILE_URLS: Record<string, string> = {
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  streets:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-  dark:      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  light:     'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  outdoors:  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+  satellite: BASE.satelite.url,
+  streets:   BASE.ruas.url,
+  dark:      BASE.escuro.url,
+  light:     BASE.claro.url,
+  outdoors:  BASE.relevo.url,
 }
 
+// A atribuição vem do mesmo lugar que a URL. O escuro dizia "© OpenStreetMap © CARTO" sobre um
+// tile do Esri — sobrou da troca de provedor.
 const TILE_ATTRS: Record<string, string> = {
-  satellite: '© Esri',
-  streets:   'Tiles © Esri',
-  dark:      '© OpenStreetMap © CARTO',
-  light:     'Tiles © Esri',
-  outdoors:  'Tiles © Esri',
+  satellite: BASE.satelite.attribution,
+  streets:   BASE.ruas.attribution,
+  dark:      BASE.escuro.attribution,
+  light:     BASE.claro.attribution,
+  outdoors:  BASE.relevo.attribution,
 }
 
 // ─── Haversine distance (meters) ─────────────────────────────────────────────

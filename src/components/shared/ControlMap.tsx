@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, ZoomControl, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { Image, MapPin, X } from 'lucide-react'
+import { Image, MapPin, X, Search, BoxSelect, Radar, ChevronLeft, ChevronRight, Layers } from 'lucide-react'
 import { useRelatorio360Store } from '@/store/relatorio360Store'
 import { useShallow } from 'zustand/react/shallow'
 import type { ConstructionSite, Project, ProjectPhase } from '@/types'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
-import { FALLBACK, OSM } from '@/lib/basemaps'
+import { BASE, ROTULOS, OSM } from '@/lib/basemaps'
 
 type Severity = 'critical' | 'high' | 'medium' | 'ok'
 type Filter = 'all' | Severity
@@ -41,14 +41,20 @@ const SITE_STATUS_LABEL: Record<ConstructionSite['status'], string> = {
 }
 
 /**
- * ⚠️ O mapa é ESCURO, e só.
+ * ⚠️ O mapa é ESCURO, e só — o visual da imagem de referência, em Leaflet.
+ *
+ * São DUAS camadas do Esri: a base cinza-escura sem texto e, por cima, `ROTULOS.escuro` com os
+ * nomes de cidade e bairro. A camada de rótulos existia em `basemaps.ts` e NÃO era renderizada
+ * aqui — era isso que fazia o mapa parecer vazio ("não íamos deixar igual à referência?").
  *
  * Antes havia quatro estilos num seletor no canto. Foram embora por dois motivos: o CARTO passou a
  * exigir chave e carimbava "API KEY REQUIRED" dentro do tile (por isso o aviso de falha nunca
  * disparava — o tile volta 200, com a marca d'água pintada), e a escolha entre quatro fundos não
  * mudava decisão nenhuma de quem olha obra num mapa. Uma tela a menos para poluir.
  *
- * As camadas vivem em `@/lib/basemaps`, com os outros mapas do sistema.
+ * O que a referência tem e está aqui: painel de legenda à esquerda (camadas, cor por status,
+ * busca), nome sempre visível ao lado do pino, **Selecionar** por área, **Buscar ao redor** por
+ * raio, bússola e zoom no canto inferior esquerdo. Sem Mapbox: tudo é Leaflet e Esri sem chave.
  */
 function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;')
@@ -106,53 +112,40 @@ const SVG_CAPACETE =
   + '<path d="M2 18h20"/><path d="M4 18v-3a8 8 0 0 1 16 0v3"/><path d="M10 18V7.5a2 2 0 0 1 4 0V18"/></svg>'
 
 /**
- * Marcador de obra: ícone de capacete, com o nome logo abaixo.
+ * Marcador de obra: capacete com o nome AO LADO, sempre visível.
  *
- * O marcador anterior era uma pílula com o nome DENTRO e `min-width: 118px`. Oito obras em
- * Brasília viravam uma mancha só, com rótulos sobrepostos — foi o que o cliente viu no mapa. O
- * ícone tem 28px: **quatro vezes menos largura**. O nome vai embaixo, numa linha estreita, e só
- * aparece quando há zoom suficiente para ele não colidir com o vizinho (`mostrarNome`).
+ * O nome ficava embaixo e só aparecia a partir do zoom 11, porque oito obras em Brasília viravam
+ * uma mancha. A referência mostra o rótulo sempre — e ao lado do pino ele colide menos do que
+ * embaixo (os pinos se empilham na vertical quando estão na mesma rua). O chip escuro com borda na
+ * cor do status é o que deixa o texto legível sobre qualquer fundo.
  */
-/** Largura do balão do nome. O ícone continua com 28px; quem tem largura é o rótulo. */
 const LARGURA_ROTULO = 150
 const LARGURA_ICONE = 28
 
-function makeSiteIcon(site: ConstructionSite, selected: boolean, mostrarNome: boolean) {
+function makeSiteIcon(site: ConstructionSite, selected: boolean) {
   const color = SITE_STATUS_COLOR[site.status]
-  const label = site.name.length > 20 ? `${site.name.slice(0, 19)}…` : site.name
+  const label = site.name.length > 22 ? `${site.name.slice(0, 21)}…` : site.name
   const glow = selected ? `0 0 0 3px ${color}55, 0 0 12px ${color}90` : '0 2px 6px rgba(0,0,0,0.6)'
 
-  // ⚠️ O nome QUEBRAVA LETRA A LETRA — "BAS / E - / Parq / ue". Três causas somadas: o container
-  // flex tinha `width:28px` (a largura do capacete), o `max-width:96px` do span não expande nada
-  // (só limita, e o pai já era 28px), e faltava `white-space:nowrap`. Com 28px e fonte 11px cabem
-  // quatro caracteres por linha, e `overflow-wrap:anywhere` autorizava partir no meio da palavra.
-  //
-  // Agora a largura fica no ROTULO, o capacete tem a sua própria, e o texto não quebra nunca. O
-  // corte em 20 caracteres é o freio; a elipse diz que foi cortado.
-  const nome = mostrarNome
-    ? `<span style="margin-top:4px;width:${LARGURA_ROTULO}px;text-align:center;color:#f5f5f5;font-size:11px;`
-      + `font-weight:600;font-family:system-ui,sans-serif;line-height:1.2;`
-      + `white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`
-      + `text-shadow:0 1px 3px #000,0 0 6px #000,0 0 10px #000;">${escapeHtml(label)}</span>`
-    : ''
-
-  const altura = mostrarNome ? 30 + 18 : 30
+  // ⚠️ `white-space:nowrap` + largura no ROTULO (não no capacete): sem isso o nome quebrava letra a
+  // letra — "BAS / E - / Parq / ue". O corte em 22 caracteres é o freio; a elipse diz que cortou.
   return L.divIcon({
     className: '',
-    // ⚠️ `iconSize` declarado: sem ele o Leaflet aplica o default [12,12] no wrapper, e o conteúdo
-    // transborda de um retângulo que não corresponde a nada. Com o rótulo largo, a âncora tem de
-    // ficar no CENTRO horizontal — senão o capacete desloca do ponto ao ligar o nome.
-    iconSize: [LARGURA_ROTULO, altura],
-    // Âncora na base do capacete: a ponta é que aponta o lugar, não o meio do rótulo.
-    iconAnchor: [LARGURA_ROTULO / 2, 30],
+    // `iconSize` declarado: sem ele o Leaflet aplica [12,12] e o conteúdo transborda. A âncora fica
+    // na BASE DO CAPACETE — a ponta é que aponta o lugar, não o meio do rótulo.
+    iconSize: [LARGURA_ICONE + 6 + LARGURA_ROTULO, 30],
+    iconAnchor: [LARGURA_ICONE / 2, 30],
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;width:${LARGURA_ROTULO}px;pointer-events:none;">
+      <div style="display:flex;align-items:center;gap:6px;pointer-events:none;height:30px;">
         <div style="width:${LARGURA_ICONE}px;height:${LARGURA_ICONE}px;border-radius:50%;background:#1f2937ee;border:2px solid ${color};
                     box-shadow:${glow};display:flex;align-items:center;justify-content:center;color:${color};
-                    pointer-events:auto;cursor:pointer;">
+                    pointer-events:auto;cursor:pointer;flex-shrink:0;">
           ${SVG_CAPACETE}
         </div>
-        ${nome}
+        <span title="${escapeHtml(site.name)}" style="max-width:${LARGURA_ROTULO}px;padding:2px 7px;border-radius:6px;background:#111827dd;
+                     border:1px solid ${color}88;color:#f5f5f5;font-size:11px;font-weight:600;font-family:system-ui,sans-serif;line-height:1.3;
+                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer;
+                     box-shadow:0 1px 4px rgba(0,0,0,0.6);">${escapeHtml(label)}</span>
       </div>
     `,
   })
@@ -343,6 +336,7 @@ function MarkerLayer({
   selectedSiteId,
   showProjects,
   showSites,
+  destacados,
   onProjectSelect,
   onSiteSelect,
 }: {
@@ -352,26 +346,14 @@ function MarkerLayer({
   selectedSiteId: string | null
   showProjects: boolean
   showSites: boolean
+  /** Obras dentro da área selecionada / do raio — ganham o mesmo brilho da selecionada. */
+  destacados: Set<string>
   onProjectSelect: (id: string) => void
   onSiteSelect?: (id: string | null) => void
 }) {
   const map = useMap()
   const projectMarkers = useRef<Map<string, L.Marker>>(new Map())
   const siteMarkers = useRef<Map<string, L.Marker>>(new Map())
-
-  /**
-   * O nome só aparece com zoom suficiente para caber.
-   *
-   * Abaixo de 11 as obras de uma mesma cidade ficam a poucos pixels uma da outra e os nomes se
-   * empilham — foi exatamente o que o cliente viu, com dois rótulos sobrepostos. Aí fica só o
-   * capacete, que tem 28px.
-   */
-  const [mostrarNome, setMostrarNome] = useState(map.getZoom() >= 11)
-  useEffect(() => {
-    const aoMudarZoom = () => setMostrarNome(map.getZoom() >= 11)
-    map.on('zoomend', aoMudarZoom)
-    return () => { map.off('zoomend', aoMudarZoom) }
-  }, [map])
 
   /**
    * ⚠️ O AGRUPAMENTO SAIU.
@@ -420,8 +402,8 @@ function MarkerLayer({
     }
 
     sync(projectMarkers.current, showProjects ? projects : [], (p) => makeProjectIcon(p, p.id === selectedProjectId), onProjectSelect)
-    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId, mostrarNome), (id) => onSiteSelect?.(id))
-  }, [map, mostrarNome, onProjectSelect, onSiteSelect, projects, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
+    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId || destacados.has(s.id)), (id) => onSiteSelect?.(id))
+  }, [map, destacados, onProjectSelect, onSiteSelect, projects, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
 
   useEffect(() => {
     const targetProject = projects.find((p) => p.id === selectedProjectId)
@@ -444,6 +426,113 @@ function MarkerLayer({
   }, [])
 
   return null
+}
+
+/** Distância em km entre dois pontos. Basta para "a 3,2 km" — não precisa de geodésia. */
+function distanciaKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371
+  const dLat = ((bLat - aLat) * Math.PI) / 180
+  const dLng = ((bLng - aLng) * Math.PI) / 180
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+/**
+ * Selecionar por área: arrasta um retângulo sobre o mapa, e as obras dentro dele viram lista.
+ *
+ * Enquanto a ferramenta está ligada o arrasto do mapa é desligado — senão o gesto move o mapa em
+ * vez de desenhar. O retângulo fica desenhado até a ferramenta ser desligada ou outro ser feito,
+ * para a pessoa ver o que selecionou.
+ */
+function SelecaoPorArea({ ativa, onSelecionar }: { ativa: boolean; onSelecionar: (bounds: L.LatLngBounds | null) => void }) {
+  const map = useMap()
+  const retangulo = useRef<L.Rectangle | null>(null)
+
+  useEffect(() => {
+    if (!ativa) {
+      retangulo.current?.remove(); retangulo.current = null
+      return
+    }
+    map.dragging.disable()
+    const container = map.getContainer()
+    container.style.cursor = 'crosshair'
+    let inicio: L.LatLng | null = null
+
+    const aoIniciar = (e: L.LeafletMouseEvent) => {
+      inicio = e.latlng
+      retangulo.current?.remove()
+      retangulo.current = L.rectangle(L.latLngBounds(inicio, inicio), { color: '#f97316', weight: 1.5, dashArray: '4 3', fillOpacity: 0.08 }).addTo(map)
+    }
+    const aoMover = (e: L.LeafletMouseEvent) => {
+      if (!inicio || !retangulo.current) return
+      retangulo.current.setBounds(L.latLngBounds(inicio, e.latlng))
+    }
+    const aoSoltar = (e: L.LeafletMouseEvent) => {
+      if (!inicio) return
+      const bounds = L.latLngBounds(inicio, e.latlng)
+      inicio = null
+      // Um clique sem arrasto não é seleção — limpa em vez de selecionar "nada" com cara de algo.
+      if (bounds.getNorth() === bounds.getSouth() && bounds.getEast() === bounds.getWest()) {
+        retangulo.current?.remove(); retangulo.current = null
+        onSelecionar(null)
+        return
+      }
+      onSelecionar(bounds)
+    }
+    map.on('mousedown', aoIniciar); map.on('mousemove', aoMover); map.on('mouseup', aoSoltar)
+    return () => {
+      map.off('mousedown', aoIniciar); map.off('mousemove', aoMover); map.off('mouseup', aoSoltar)
+      map.dragging.enable()
+      container.style.cursor = ''
+    }
+  }, [map, ativa, onSelecionar])
+
+  return null
+}
+
+/**
+ * Buscar ao redor: um clique define o centro; o raio (km) vem do painel. O círculo acompanha o
+ * raio ao vivo — é como a pessoa acha "quantas obras a 5 km do escritório".
+ */
+function BuscaAoRedor({ ativa, centro, raioKm, onCentro }: {
+  ativa: boolean
+  centro: L.LatLng | null
+  raioKm: number
+  onCentro: (c: L.LatLng) => void
+}) {
+  const map = useMap()
+  const circulo = useRef<L.Circle | null>(null)
+
+  useEffect(() => {
+    if (!ativa) return
+    const container = map.getContainer()
+    container.style.cursor = 'crosshair'
+    const aoClicar = (e: L.LeafletMouseEvent) => onCentro(e.latlng)
+    map.on('click', aoClicar)
+    return () => { map.off('click', aoClicar); container.style.cursor = '' }
+  }, [map, ativa, onCentro])
+
+  useEffect(() => {
+    circulo.current?.remove(); circulo.current = null
+    if (!ativa || !centro) return
+    circulo.current = L.circle(centro, { radius: raioKm * 1000, color: '#38bdf8', weight: 1.5, fillOpacity: 0.07 }).addTo(map)
+    return () => { circulo.current?.remove(); circulo.current = null }
+  }, [map, ativa, centro, raioKm])
+
+  return null
+}
+
+/** Norte para cima, sempre — o Leaflet não gira o mapa; a bússola é referência, não controle. */
+function Bussola() {
+  return (
+    <div className="pointer-events-none absolute bottom-24 left-3 z-[1000] flex h-11 w-11 items-center justify-center rounded-full border border-[#525252] bg-[#333333]/90 shadow-lg" title="Norte">
+      <svg viewBox="0 0 24 24" width="26" height="26">
+        <polygon points="12,3 15,12 12,10.5 9,12" fill="#f97316" />
+        <polygon points="12,21 15,12 12,13.5 9,12" fill="#6b6b6b" />
+        <text x="12" y="2.6" textAnchor="middle" fontSize="5" fill="#f5f5f5" fontFamily="system-ui" fontWeight="700">N</text>
+      </svg>
+    </div>
+  )
 }
 
 function MapResizeHandler() {
@@ -516,18 +605,23 @@ export function ControlMap({
   // pessoa desligar.
   const [showSites, setShowSites] = useState(true)
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
+  /** Status de obra que a pessoa escondeu clicando na legenda. */
+  const [statusOcultos, setStatusOcultos] = useState<Set<ConstructionSite['status']>>(new Set())
+  const [painelAberto, setPainelAberto] = useState(true)
+  const [busca, setBusca] = useState('')
+  const [ferramenta, setFerramenta] = useState<'nenhuma' | 'area' | 'raio'>('nenhuma')
+  const [areaBounds, setAreaBounds] = useState<L.LatLngBounds | null>(null)
+  const [centroRaio, setCentroRaio] = useState<L.LatLng | null>(null)
+  const [raioKm, setRaioKm] = useState(5)
   /**
    * ⚠️ O mapa base cai no reserva sozinho.
    *
-   * O OpenStreetMap foi escolhido pelo visual, e a política dele diz textualmente que o acesso a
-   * serviço comercial **pode ser cortado a qualquer momento, sem aviso**. Sem esta troca, o dia em
-   * que isso acontecer é o dia em que o mapa da Torre fica branco na tela do cliente.
-   *
-   * Três tiles com erro bastam: um tile solto falha por rede, três seguidos é o provedor.
+   * Três tiles com erro bastam: um tile solto falha por rede, três seguidos é o provedor. O
+   * principal é o escuro do Esri (duas camadas); o reserva é o OpenStreetMap — feio no escuro, mas
+   * melhor do que o mapa em branco na tela do cliente.
    */
   const [tilesComErro, setTilesComErro] = useState(0)
   const usandoReserva = tilesComErro >= 3
-  const camada = usandoReserva ? FALLBACK : OSM
 
   // Derivações memoizadas: props/deps estáveis evitam o re-render em cascata que
   // fazia o mapa "piscar" (MarkerLayer re-sincronizava markers a cada render).
@@ -542,13 +636,19 @@ export function ControlMap({
   // lateral conseguir resolvê-la se ela estiver selecionada — senão, ao arquivar a obra aberta,
   // o card sumiria junto e não haveria caminho de volta.
   const sitesVisiveis = useMemo(
-    () => (mostrarArquivadas ? sitesWithCoords : sitesWithCoords.filter(obraEstaAtiva)),
-    [sitesWithCoords, mostrarArquivadas],
+    () => (mostrarArquivadas ? sitesWithCoords : sitesWithCoords.filter(obraEstaAtiva)).filter((s) => !statusOcultos.has(s.status)),
+    [sitesWithCoords, mostrarArquivadas, statusOcultos],
   )
   const totalArquivadas = useMemo(
     () => sitesWithCoords.length - sitesWithCoords.filter(obraEstaAtiva).length,
     [sitesWithCoords],
   )
+  const contagemPorStatus = useMemo(() => {
+    const base = mostrarArquivadas ? sitesWithCoords : sitesWithCoords.filter(obraEstaAtiva)
+    const c: Record<ConstructionSite['status'], number> = { active: 0, planning: 0, paused: 0, completed: 0 }
+    for (const s of base) c[s.status]++
+    return c
+  }, [sitesWithCoords, mostrarArquivadas])
   const filteredProjects = useMemo(
     () => (filter === 'all' ? projectsWithCoords : projectsWithCoords.filter((p) => calcSeverity(p) === filter)),
     [filter, projectsWithCoords],
@@ -561,13 +661,38 @@ export function ControlMap({
     medium: projectsWithCoords.filter((p) => calcSeverity(p) === 'medium').length,
     ok: projectsWithCoords.filter((p) => calcSeverity(p) === 'ok').length,
   }), [projectsWithCoords])
-  const filters: Array<{ id: Filter; label: string }> = useMemo(() => [
-    { id: 'all', label: `Todos (${projectsWithCoords.length})` },
-    { id: 'critical', label: `Crítico (${counts.critical})` },
-    { id: 'high', label: `Alto (${counts.high})` },
-    { id: 'medium', label: `Médio (${counts.medium})` },
-    { id: 'ok', label: `OK (${counts.ok})` },
-  ], [projectsWithCoords, counts])
+
+  // ── Busca por nome ──────────────────────────────────────────────────────────
+  const resultadosBusca = useMemo(() => {
+    const q = busca.trim().toLowerCase()
+    if (!q) return []
+    const obras = sitesWithCoords.filter((s) => `${s.code} ${s.name} ${s.city}`.toLowerCase().includes(q)).map((s) => ({ tipo: 'obra' as const, id: s.id, nome: s.name, sub: `${s.code} · ${s.city}/${s.state}`, cor: SITE_STATUS_COLOR[s.status] }))
+    const projs = projectsWithCoords.filter((p) => p.name.toLowerCase().includes(q)).map((p) => ({ tipo: 'projeto' as const, id: p.id, nome: p.name, sub: 'projeto', cor: SEVERITY_COLOR[calcSeverity(p)] }))
+    return [...obras, ...projs].slice(0, 8)
+  }, [busca, sitesWithCoords, projectsWithCoords])
+
+  // ── Selecionar por área / buscar ao redor ───────────────────────────────────
+  const dentroDaArea = useMemo(
+    () => (areaBounds ? sitesVisiveis.filter((s) => areaBounds.contains([s.lat!, s.lng!])) : []),
+    [areaBounds, sitesVisiveis],
+  )
+  const aoRedor = useMemo(() => {
+    if (!centroRaio) return []
+    return sitesVisiveis
+      .map((s) => ({ site: s, km: distanciaKm(centroRaio.lat, centroRaio.lng, s.lat!, s.lng!) }))
+      .filter((x) => x.km <= raioKm)
+      .sort((a, b) => a.km - b.km)
+  }, [centroRaio, raioKm, sitesVisiveis])
+  const destacados = useMemo(
+    () => new Set([...dentroDaArea.map((s) => s.id), ...aoRedor.map((x) => x.site.id)]),
+    [dentroDaArea, aoRedor],
+  )
+  const trocarFerramenta = (f: 'area' | 'raio') => {
+    setFerramenta((atual) => (atual === f ? 'nenhuma' : f))
+    setAreaBounds(null); setCentroRaio(null)
+  }
+  const aoSelecionarArea = useCallback((b: L.LatLngBounds | null) => setAreaBounds(b), [])
+  const aoDefinirCentro = useCallback((c: L.LatLng) => setCentroRaio(c), [])
 
   const tileEventHandlers = useMemo(() => ({
     // Um lote que carrega inteiro zera a contagem: falha passageira não derruba o provedor bom.
@@ -577,55 +702,25 @@ export function ControlMap({
   const handleProjectSelect = useCallback((id: string) => setSelectedProjectId((prev) => (prev === id ? null : id)), [])
   const handleSiteSelect = useCallback((id: string | null) => onSiteSelect?.(id), [onSiteSelect])
 
+  const totalMarcadores = (showProjects ? filteredProjects.length : 0) + (showSites ? sitesVisiveis.length : 0)
+  const linhaLegenda = 'flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] hover:bg-white/5'
+
   return (
     <div className="flex h-full min-h-[480px] flex-1 flex-col overflow-hidden bg-[#2c2c2c]">
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-[#525252] bg-[#2c2c2c] flex-wrap">
-        {filters.map((f) => (
-          <button key={f.id} onClick={() => setFilter(f.id)} className="px-3 py-1 rounded-full text-xs font-medium transition-colors" style={{
-            background: filter === f.id ? (f.id === 'all' ? '#f9731620' : `${SEVERITY_COLOR[f.id as Severity]}25`) : 'transparent',
-            color: filter === f.id ? (f.id === 'all' ? '#f97316' : SEVERITY_COLOR[f.id as Severity]) : '#6b6b6b',
-            border: `1px solid ${filter === f.id ? (f.id === 'all' ? '#f9731650' : `${SEVERITY_COLOR[f.id as Severity]}50`) : '#525252'}`,
-          }}>{f.label}</button>
-        ))}
-        <button onClick={() => setShowProjects((v) => !v)} className={`px-3 py-1 rounded-full text-xs font-medium border ${showProjects ? 'text-[#f97316] border-[#f97316]/50 bg-[#f97316]/10' : 'text-[#6b6b6b] border-[#525252]'}`}>Projetos</button>
-        <button onClick={() => setShowSites((v) => !v)} className={`px-3 py-1 rounded-full text-xs font-medium border ${showSites ? 'text-[#3b82f6] border-[#3b82f6]/50 bg-[#3b82f6]/10' : 'text-[#6b6b6b] border-[#525252]'}`}>Obras ({sitesVisiveis.length})</button>
-        {/* Só aparece se houver arquivada — um botão que nunca faz nada é ruído na barra. */}
-        {totalArquivadas > 0 && (
-          <button
-            onClick={() => setMostrarArquivadas((v) => !v)}
-            title="Obras arquivadas continuam com todo o histórico; ficam fora do mapa só para não poluir"
-            className={`px-3 py-1 rounded-full text-xs font-medium border ${mostrarArquivadas ? 'text-[#a3a3a3] border-[#a3a3a3]/50 bg-[#a3a3a3]/10' : 'text-[#6b6b6b] border-[#525252]'}`}
-          >
-            Arquivadas ({totalArquivadas})
-          </button>
-        )}
-        <div className="ml-auto flex items-center gap-1.5 text-[#a3a3a3] text-xs">
-          <MapPin size={11} />
-          <span>{(showProjects ? filteredProjects.length : 0) + (showSites ? sitesVisiveis.length : 0)} marcador(es)</span>
-          {/* A obra sem endereço não aparece no mapa. Antes sumia calada — a lista dizia "9
-              canteiros" e o mapa "8 marcador(es)", e nada explicava o nono. */}
-          {sitesSemCoordenada.length > 0 && (
-            <span
-              className="rounded border border-[#eab308]/40 bg-[#eab308]/10 px-1.5 py-0.5 text-[11px] text-[#fbbf24]"
-              title={`Sem endereço no cadastro, então não aparece(m) no mapa: ${sitesSemCoordenada.map((s) => s.name).join(', ')}. Abra a obra em Detalhes → Editar e preencha as coordenadas.`}
-            >
-              {sitesSemCoordenada.length} sem endereço
-            </span>
-          )}
-        </div>
-      </div>
       <div className="relative min-h-[360px] flex-1 overflow-hidden bg-[#1f1f1f]">
-        <MapContainer center={[-15.0, -52.0]} zoom={5} style={{ height: '100%', width: '100%', background: '#2c2c2c' }} zoomControl>
+        <MapContainer center={[-15.0, -52.0]} zoom={5} style={{ height: '100%', width: '100%', background: '#1f1f1f' }} zoomControl={false}>
           <MapResizeHandler />
-          {/* ⚠️ A atribuição é EXIGÊNCIA da política do OpenStreetMap, não cortesia: ela tem de
-              estar visível e não pode ficar escondida atrás de UI. O Leaflet a desenha no canto. */}
-          <TileLayer
-            key={usandoReserva ? 'reserva' : 'principal'}
-            url={camada.url}
-            attribution={camada.attribution}
-            maxZoom={camada.maxZoom}
-            eventHandlers={tileEventHandlers}
-          />
+          {/* A atribuição do provedor fica visível no canto — exigência de uso, não cortesia. */}
+          {usandoReserva ? (
+            <TileLayer key="reserva" url={OSM.url} attribution={OSM.attribution} maxZoom={OSM.maxZoom} eventHandlers={tileEventHandlers} />
+          ) : (
+            <>
+              <TileLayer key="base" url={BASE.escuro.url} attribution={BASE.escuro.attribution} maxZoom={BASE.escuro.maxZoom} eventHandlers={tileEventHandlers} />
+              {/* ⚠️ É esta camada que dá nome às cidades. Sem ela o escuro é um breu sem referência. */}
+              <TileLayer key="rotulos" url={ROTULOS.escuro!.url} attribution="" maxZoom={ROTULOS.escuro!.maxZoom} pane="overlayPane" />
+            </>
+          )}
+          <ZoomControl position="bottomleft" />
           <EnquadrarAoAbrir
             pontos={[...(showSites ? sitesVisiveis : []), ...(showProjects ? filteredProjects : [])]}
             selecionado={selectedSiteId ?? selectedProjectId}
@@ -637,13 +732,165 @@ export function ControlMap({
             selectedSiteId={selectedSiteId}
             showProjects={showProjects}
             showSites={showSites}
+            destacados={destacados}
             onProjectSelect={handleProjectSelect}
             onSiteSelect={handleSiteSelect}
           />
+          <SelecaoPorArea ativa={ferramenta === 'area'} onSelecionar={aoSelecionarArea} />
+          <BuscaAoRedor ativa={ferramenta === 'raio'} centro={centroRaio} raioKm={raioKm} onCentro={aoDefinirCentro} />
         </MapContainer>
+        <Bussola />
+
+        {/* ── Painel Legenda (esquerda) ─────────────────────────────────────── */}
+        <div className={`absolute left-3 top-3 z-[1000] flex max-h-[calc(100%-1.5rem)] flex-col rounded-lg border border-[#525252] bg-[#333333]/95 shadow-xl backdrop-blur-sm transition-all ${painelAberto ? 'w-64' : 'w-10'}`}>
+          <div className="flex items-center gap-2 border-b border-[#525252] px-2 py-2">
+            <button onClick={() => setPainelAberto((v) => !v)} className="text-[#a3a3a3] hover:text-[#f5f5f5]" title={painelAberto ? 'Recolher' : 'Legenda'}>
+              {painelAberto ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            </button>
+            {painelAberto && (
+              <>
+                <Layers size={13} className="text-[#f97316]" />
+                <span className="text-xs font-semibold text-[#f5f5f5]">Legenda</span>
+                <span className="ml-auto flex items-center gap-1 text-[10px] text-[#a3a3a3]"><MapPin size={10} />{totalMarcadores}</span>
+              </>
+            )}
+          </div>
+          {painelAberto && (
+            <div className="flex-1 overflow-y-auto p-2 space-y-3">
+              {/* Busca */}
+              <div>
+                <div className="flex items-center gap-1.5 rounded-md border border-[#525252] bg-[#1f1f1f] px-2 py-1">
+                  <Search size={12} className="text-[#6b6b6b]" />
+                  <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar obra ou projeto"
+                         className="w-full bg-transparent text-[11px] text-[#f5f5f5] placeholder:text-[#525252] focus:outline-none" />
+                  {busca && <button onClick={() => setBusca('')} className="text-[#6b6b6b] hover:text-[#f5f5f5]"><X size={11} /></button>}
+                </div>
+                {resultadosBusca.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {resultadosBusca.map((r) => (
+                      <li key={`${r.tipo}-${r.id}`}>
+                        <button className={linhaLegenda} onClick={() => { if (r.tipo === 'obra') onSiteSelect?.(r.id); else handleProjectSelect(r.id); setBusca('') }}>
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.cor }} />
+                          <span className="truncate text-[#f5f5f5]">{r.nome}</span>
+                          <span className="ml-auto shrink-0 text-[10px] text-[#6b6b6b]">{r.sub}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {busca && resultadosBusca.length === 0 && <p className="mt-1 px-1 text-[10px] text-[#6b6b6b]">Nada com esse nome no mapa.</p>}
+              </div>
+
+              {/* Obras por status */}
+              <div>
+                <label className="flex cursor-pointer items-center gap-2 px-1 text-[11px] font-semibold text-[#f5f5f5]">
+                  <input type="checkbox" className="h-3.5 w-3.5 accent-[#3b82f6]" checked={showSites} onChange={(e) => setShowSites(e.target.checked)} />
+                  Obras <span className="font-normal text-[#6b6b6b]">({sitesVisiveis.length})</span>
+                </label>
+                <ul className="mt-1">
+                  {(Object.keys(SITE_STATUS_LABEL) as ConstructionSite['status'][]).map((st) => {
+                    const oculto = statusOcultos.has(st)
+                    return (
+                      <li key={st}>
+                        <button className={`${linhaLegenda} ${oculto ? 'opacity-40' : ''}`} title={oculto ? 'Mostrar' : 'Ocultar'}
+                                onClick={() => setStatusOcultos((atual) => { const n = new Set(atual); if (n.has(st)) n.delete(st); else n.add(st); return n })}>
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SITE_STATUS_COLOR[st], boxShadow: `0 0 5px ${SITE_STATUS_COLOR[st]}aa` }} />
+                          <span className="text-[#c9c9c9]">{SITE_STATUS_LABEL[st]}</span>
+                          <span className="ml-auto text-[10px] text-[#6b6b6b]">{contagemPorStatus[st]}</span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {totalArquivadas > 0 && (
+                  <label className="mt-1 flex cursor-pointer items-center gap-2 px-1 text-[11px] text-[#a3a3a3]" title="Obras arquivadas continuam com todo o histórico; ficam fora do mapa só para não poluir">
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-[#a3a3a3]" checked={mostrarArquivadas} onChange={(e) => setMostrarArquivadas(e.target.checked)} />
+                    Arquivadas ({totalArquivadas})
+                  </label>
+                )}
+                {sitesSemCoordenada.length > 0 && (
+                  <p className="mt-1 rounded border border-[#eab308]/40 bg-[#eab308]/10 px-1.5 py-1 text-[10px] text-[#fbbf24]"
+                     title={`Sem endereço no cadastro: ${sitesSemCoordenada.map((s) => s.name).join(', ')}. Abra a obra em Detalhes → Editar e preencha as coordenadas.`}>
+                    {sitesSemCoordenada.length} obra(s) sem endereço — fora do mapa
+                  </p>
+                )}
+              </div>
+
+              {/* Projetos por severidade */}
+              {projectsWithCoords.length > 0 && (
+                <div>
+                  <label className="flex cursor-pointer items-center gap-2 px-1 text-[11px] font-semibold text-[#f5f5f5]">
+                    <input type="checkbox" className="h-3.5 w-3.5 accent-[#f97316]" checked={showProjects} onChange={(e) => setShowProjects(e.target.checked)} />
+                    Projetos <span className="font-normal text-[#6b6b6b]">({filteredProjects.length})</span>
+                  </label>
+                  <ul className="mt-1">
+                    {(['critical', 'high', 'medium', 'ok'] as Severity[]).map((sev) => (
+                      <li key={sev}>
+                        <button className={`${linhaLegenda} ${filter !== 'all' && filter !== sev ? 'opacity-40' : ''}`}
+                                onClick={() => setFilter((f) => (f === sev ? 'all' : sev))} title="Clique para ver só este nível">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SEVERITY_COLOR[sev] }} />
+                          <span className="text-[#c9c9c9]">{SEVERITY_LABEL[sev]}</span>
+                          <span className="ml-auto text-[10px] text-[#6b6b6b]">{counts[sev]}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Ferramentas */}
+              <div>
+                <p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-[#6b6b6b]">Ferramentas</p>
+                <div className="mt-1 grid grid-cols-2 gap-1">
+                  <button onClick={() => trocarFerramenta('area')} title="Arraste um retângulo sobre o mapa"
+                          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[11px] ${ferramenta === 'area' ? 'border-[#f97316] bg-[#f97316]/15 text-[#f97316]' : 'border-[#525252] text-[#c9c9c9] hover:text-[#f5f5f5]'}`}>
+                    <BoxSelect size={12} /> Selecionar
+                  </button>
+                  <button onClick={() => trocarFerramenta('raio')} title="Clique no mapa para o centro; ajuste o raio"
+                          className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[11px] ${ferramenta === 'raio' ? 'border-[#38bdf8] bg-[#38bdf8]/15 text-[#38bdf8]' : 'border-[#525252] text-[#c9c9c9] hover:text-[#f5f5f5]'}`}>
+                    <Radar size={12} /> Ao redor
+                  </button>
+                </div>
+                {ferramenta === 'area' && (
+                  <div className="mt-2">
+                    <p className="px-1 text-[10px] text-[#a3a3a3]">{areaBounds ? `${dentroDaArea.length} obra(s) na área` : 'Arraste um retângulo sobre o mapa.'}</p>
+                    <ul className="mt-1 max-h-40 overflow-y-auto">
+                      {dentroDaArea.map((s) => (
+                        <li key={s.id}><button className={linhaLegenda} onClick={() => onSiteSelect?.(s.id)}>
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: SITE_STATUS_COLOR[s.status] }} />
+                          <span className="truncate text-[#f5f5f5]">{s.name}</span>
+                        </button></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {ferramenta === 'raio' && (
+                  <div className="mt-2">
+                    <label className="flex items-center gap-2 px-1 text-[10px] text-[#a3a3a3]">
+                      Raio
+                      <input type="range" min={0.5} max={50} step={0.5} value={raioKm} onChange={(e) => setRaioKm(Number(e.target.value))} className="flex-1 accent-[#38bdf8]" />
+                      <span className="w-12 text-right tabular-nums text-[#f5f5f5]">{raioKm} km</span>
+                    </label>
+                    <p className="mt-1 px-1 text-[10px] text-[#a3a3a3]">{centroRaio ? `${aoRedor.length} obra(s) a até ${raioKm} km` : 'Clique no mapa para marcar o centro.'}</p>
+                    <ul className="mt-1 max-h-40 overflow-y-auto">
+                      {aoRedor.map(({ site: s, km }) => (
+                        <li key={s.id}><button className={linhaLegenda} onClick={() => onSiteSelect?.(s.id)}>
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: SITE_STATUS_COLOR[s.status] }} />
+                          <span className="truncate text-[#f5f5f5]">{s.name}</span>
+                          <span className="ml-auto shrink-0 text-[10px] tabular-nums text-[#6b6b6b]">{km < 10 ? km.toFixed(1) : km.toFixed(0)} km</span>
+                        </button></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {usandoReserva && (
-          <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-lg border border-[#525252] bg-[#2c2c2c]/90 px-3 py-2 text-xs text-[#d4d4d4] shadow-lg">
-            O mapa do OpenStreetMap não respondeu — usando o mapa reserva. As obras continuam no lugar.
+          <div className="pointer-events-none absolute bottom-3 right-3 z-[1000] rounded-lg border border-[#525252] bg-[#2c2c2c]/90 px-3 py-2 text-xs text-[#d4d4d4] shadow-lg">
+            O mapa escuro não respondeu — usando o mapa reserva. As obras continuam no lugar.
           </div>
         )}
         {selectedSite && (
@@ -666,6 +913,8 @@ export function ControlMap({
       <style>{`
         .leaflet-control-zoom a { background: #333333 !important; color: #a3a3a3 !important; border-color: #525252 !important; }
         .leaflet-control-zoom a:hover { background: #3d3d3d !important; color: #f97316 !important; }
+        .leaflet-control-attribution { background: rgba(31,31,31,0.8) !important; color: #6b6b6b !important; font-size: 9px !important; }
+        .leaflet-control-attribution a { color: #a3a3a3 !important; }
       `}</style>
     </div>
   )

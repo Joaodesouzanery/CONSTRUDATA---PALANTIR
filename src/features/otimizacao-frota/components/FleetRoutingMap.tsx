@@ -1,4 +1,5 @@
 import 'leaflet/dist/leaflet.css'
+import { BASE } from '@/lib/basemaps'
 import { useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, LayersControl, ScaleControl } from 'react-leaflet'
 import * as L from 'leaflet'
@@ -11,9 +12,9 @@ import type { ObraStatus } from '@/types'
 // ─── Tile URLs ────────────────────────────────────────────────────────────────
 
 const TILES = {
-  voyager:   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-  dark:      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  voyager:   BASE.ruas.url,
+  dark:      BASE.escuro.url,
+  satellite: BASE.satelite.url,
 } as const
 
 const STATUS_COLOR: Record<ObraStatus, string> = {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BASE } from '@/lib/basemaps'
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useShallow } from 'zustand/react/shallow'
@@ -17,8 +18,8 @@ export function LiveOutagePanel() {
     .reduce((acc, o) => acc + (o.affectedCustomers ?? 0), 0)
 
   const BASEMAP_URL: Record<string, string> = {
-    dark:    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-    streets: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    dark:    BASE.escuro.url,
+    streets: BASE.ruas.url,
   }
 
   function fmtTime(iso: string) {

@@ -14,7 +14,7 @@
  * texto ilegível sobre o fundo.
  */
 
-export type EstiloDeMapa = 'escuro' | 'ruas' | 'satelite' | 'relevo'
+export type EstiloDeMapa = 'escuro' | 'claro' | 'ruas' | 'satelite' | 'relevo'
 
 export interface CamadaDeMapa {
   url: string
@@ -30,6 +30,7 @@ const CREDITO_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">Op
 /** A base de cada estilo. */
 export const BASE: Record<EstiloDeMapa, CamadaDeMapa> = {
   escuro:   { url: `${ESRI}/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`,  attribution: CREDITO_ESRI, maxZoom: 16 },
+  claro:    { url: `${ESRI}/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, attribution: CREDITO_ESRI, maxZoom: 16 },
   ruas:     { url: `${ESRI}/World_Street_Map/MapServer/tile/{z}/{y}/{x}`,             attribution: CREDITO_ESRI, maxZoom: 19 },
   satelite: { url: `${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`,                attribution: CREDITO_ESRI, maxZoom: 19 },
   relevo:   { url: `${ESRI}/World_Topo_Map/MapServer/tile/{z}/{y}/{x}`,               attribution: CREDITO_ESRI, maxZoom: 19 },
@@ -43,11 +44,12 @@ export const BASE: Record<EstiloDeMapa, CamadaDeMapa> = {
  */
 export const ROTULOS: Partial<Record<EstiloDeMapa, CamadaDeMapa>> = {
   escuro:   { url: `${ESRI}/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,        attribution: '', maxZoom: 16 },
+  claro:    { url: `${ESRI}/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,       attribution: '', maxZoom: 16 },
   satelite: { url: `${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`,   attribution: '', maxZoom: 19 },
 }
 
 export const ROTULO_ESTILO: Record<EstiloDeMapa, string> = {
-  escuro: 'Escuro', ruas: 'Ruas', satelite: 'Satélite', relevo: 'Relevo',
+  escuro: 'Escuro', claro: 'Claro', ruas: 'Ruas', satelite: 'Satélite', relevo: 'Relevo',
 }
 
 /**
