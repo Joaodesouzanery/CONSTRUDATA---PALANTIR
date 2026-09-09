@@ -226,6 +226,12 @@ export interface ConstructionSite {
   publicSlug?: string   // (predial) slug do QR público de chamados — também gravado na coluna real public_slug
   serviceScope?: string  // escopo genérico: saneamento, água, esgoto, drenagem, edificação etc.
   numeroContrato?: string // nº do contrato da obra (origem oficial p/ RDO/medição)
+  /**
+   * Região do contrato a que esta obra pertence ('02' = Freguesia). É ela que decide o CÓDIGO e o
+   * PREÇO de cada serviço medido aqui — o mesmo serviço custa diferente em Mairiporã.
+   * Ausente = obra de contrato sem regiões (a maioria); nada muda para ela.
+   */
+  regiao?: string
   orcamentoBRL?: number   // orçamento/BAC contratado da obra (R$) — fallback do BAC no RDO/planejamento
   startDate: string     // yyyy-MM-dd
   expectedEnd: string   // yyyy-MM-dd
@@ -298,8 +304,98 @@ export interface ObraContratoServico {
   qtdAnterior?: number        // medido em períodos anteriores (manual)
   qtdMedidaOverride?: number  // sobrepõe a qtd medida AUTO (dos RDOs) quando preenchido
   nPreco?: string
+  /**
+   * ⚠️ O VÍNCULO COM O CATÁLOGO DO CONTRATO — e a direção de propriedade.
+   *
+   * Preenchido = esta linha é **projeção** de um `ServicoDoCatalogo` para a região desta obra:
+   * é gerada na importação do catálogo e NÃO se edita aqui (edita-se no catálogo, e desce para
+   * todas as obras do contrato). Ausente = linha cadastrada à mão (composição colada do Excel),
+   * que continua editável exatamente como sempre foi.
+   *
+   * Existir os dois não é duplicação, é escopo: o catálogo é do CONTRATO (176 serviços × 9
+   * regiões, servindo várias obras) e esta lista é da OBRA — e é ela que o de-para de siglas,
+   * a medição, o faturamento e os títulos já enxergam. Guardar o catálogo dentro da obra o
+   * duplicaria em cada uma.
+   */
+  servicoCatalogoId?: string
+  /** O código do serviço NA REGIÃO desta obra (o mesmo serviço tem código diferente em cada). */
+  codigoRegional?: string
   // COMPUTADOS: precoEfetivo = valorUnitario × (pctAplicado/100); medido = Σ produção dos RDOs
   // finalizados dessa obra (por contractServiceId) OU qtdMedidaOverride; saldo = contrato − anterior − medido.
+}
+
+// ─── Catálogo de preços do CONTRATO ───────────────────────────────────────────
+//
+// ⚠️ POR QUE ELE NÃO MORA NA OBRA. Um contrato serve várias obras (o ZN serve Boi Malhado e
+// Sakura) e repete cada serviço uma vez por região. Guardar o catálogo dentro de `ObraContrato`
+// o copiaria em cada obra — e cópia de preço é exatamente o que o domínio proíbe: medido nas duas
+// cidades do contrato Bertioga/Santos, 163 códigos aparecem nas duas e NENHUM tem o mesmo valor.
+// Vive em `app_state`, um documento por contrato (ver `utils/medicao/catalogoStorage.ts`).
+
+/** Por que um serviço está marcado para conferência. `ok` = nada a conferir. */
+export type FlagDoServico =
+  | 'ok'
+  /** Uma região tem preço próprio, diferente das demais (Mairiporã, 96 itens). */
+  | 'preco_regional_divergente'
+  /** O bloco desta região veio deslocado no PDF do apostilamento (Caieiras, 7 itens). */
+  | 'bloco_deslocado_pdf'
+  /** Descrição truncada em 40 caracteres pelo SAP pode esconder dois serviços diferentes. */
+  | 'descricao_truncada_ambigua'
+
+export interface RegiaoDoContrato {
+  /** Como aparece no contrato: '01', '02'… É a chave usada em `porRegiao`. */
+  codigo: string
+  nome: string
+  /** Repasse próprio desta região. Ausente = usa o `fatorPadrao` do contrato. */
+  fator?: number
+}
+
+export interface PrecoRegional {
+  /** O código do serviço nesta região ('01030101'). */
+  codigo: string
+  /** Preço próprio da região. Ausente = usa o `precoZn` do serviço (01–08 são idênticas). */
+  precoOverride?: number
+}
+
+export interface ServicoDoCatalogo {
+  /** Estável e determinístico — ver `idDoServicoDoCatalogo`. */
+  id: string
+  descricao: string
+  unidade: string
+  /** Preço cheio do contrato, antes do repasse. */
+  precoZn: number
+  categoria?: string
+  /**
+   * Quantidade contratada. ⚠️ Nasce `null`: ela vem da planilha de balanceamento, que ainda não
+   * chegou. `null` é "não sei", e a tela mostra "—"; zero seria uma afirmação que ninguém fez.
+   */
+  qtdContratada: number | null
+  flag: FlagDoServico
+  /** O texto que explica a flag, para a tela mostrar em vez de um código. */
+  motivoFlag?: string
+  /**
+   * ⚠️ Item marcado assim NUNCA entra na soma da medição — vai para a fila de conferência.
+   * É a regra que impede preço não confirmado de virar dinheiro por descuido.
+   */
+  bloqueadoParaMedicao: boolean
+  /** Código (e preço próprio, quando houver) em cada região. Região ausente = não disponível. */
+  porRegiao: Record<string, PrecoRegional>
+}
+
+export interface CatalogoDoContrato {
+  numeroContrato: string
+  /** Nome do consórcio/cliente, só para a tela. */
+  consorcio?: string
+  /**
+   * Repasse padrão do contrato. No ZN é 0,6 — a Sabesp paga o consórcio pelo preço cheio e a
+   * executora recebe 60%. ⚠️ Não é status de aceite: não existe "parcial 60% → aceito 100%".
+   */
+  fatorPadrao: number
+  regioes: RegiaoDoContrato[]
+  servicos: ServicoDoCatalogo[]
+  importadoEm?: string
+  importadoPor?: string
+  arquivo?: string
 }
 
 /** Contrato & medição por obra (payload da obra) — espelha a planilha "Solicitação de Medição". */
