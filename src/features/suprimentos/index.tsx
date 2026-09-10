@@ -10,6 +10,7 @@ import { MateriaisOverviewPanel } from './components/MateriaisOverviewPanel'
 import { ContractPanel }        from './components/ContractPanel'
 import { MapaEstoquePanel }     from './components/MapaEstoquePanel'
 import { AlmoxarifadoPanel }    from './components/AlmoxarifadoPanel'
+import { EstoqueParadoPanel }   from './components/EstoqueParadoPanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { BomPendentePanel }    from './components/BomPendentePanel'
@@ -176,6 +177,7 @@ export function SuprimentosPage() {
       />
 
       {activeTab === 'fluxo' && <DashboardSuprimentosPanel onNavigate={navigateFlow} onRegistrarRetirada={() => setShowRetirada(true)} />}
+      {activeTab === 'parado'      && <EstoqueParadoPanel />}
       {activeTab === 'conciliacao' && <ConciliacaoPanel />}
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
       {activeTab === 'previsao'    && <PrevisaoDemandaPanel />}

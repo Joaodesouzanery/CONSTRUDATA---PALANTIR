@@ -5,7 +5,7 @@ import { useSuprimentosStore } from '@/store/suprimentosStore'
 
 export type SuprimentosTab =
   | 'fluxo' | 'conciliacao' | 'excecoes' | 'previsao' | 'inteligencia' | 'requisicoes' | 'bom'
-  | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif'
+  | 'materiais' | 'contratos' | 'estoque' | 'almoxarifado' | 'semaforo' | 'whatif' | 'parado'
   | 'entrada_dados' | 'resumo_nucleo' | 'consolidado_trechos' | 'materiais_pendentes'
   | 'cadeia_rede' | 'cadeia_alertas' | 'cadeia_planejamento'
 
@@ -29,6 +29,7 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'fluxo', label: 'Dashboard', section: 'suprimentos' },
   { key: 'almoxarifado', label: 'Estoque / Almoxarifado', section: 'suprimentos' },
   { key: 'estoque', label: 'Mapa de Estoques', section: 'suprimentos' },
+  { key: 'parado', label: 'Estoque Parado', section: 'suprimentos' },
   { key: 'contratos', label: 'Pedidos / Contratos', section: 'suprimentos' },
   { key: 'conciliacao', label: 'Conciliação', section: 'suprimentos' },
   { key: 'materiais', label: 'Materiais & Fornecedores', section: 'suprimentos' },
