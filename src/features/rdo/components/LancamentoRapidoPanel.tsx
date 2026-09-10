@@ -21,7 +21,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Plus, Trash2, MessageSquareText, AlertTriangle, CheckCircle2, CalendarOff } from 'lucide-react'
-import type { ConstructionSite, RdoWcrData } from '@/types'
+import type { ConstructionSite, RdoOrdemServico, RdoWcrData } from '@/types'
 import { useRdoStore } from '@/store/rdoStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -31,7 +31,7 @@ import { usePermissaoEscrita, ROLES_RDO_WRITE } from '@/lib/roles'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { hojeLocalISO } from '@/lib/utils'
 import { SIGLAS_WCR } from '../utils/apontamentoWcr'
-import { producaoDasQuantidades, horasInformadas, linhaTemConteudo } from '../utils/lancamentoRapido'
+import { producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto } from '../utils/lancamentoRapido'
 
 interface Linha {
   /** Só na tela — o id do RDO é gerado na gravação. */
@@ -48,12 +48,20 @@ interface Linha {
   semProducao: boolean
   motivoSemProducao: MotivoSemProducao
   motivoTexto: string
+  // ── Ordem de serviço (obras com `tipoApontamento: 'ordem-servico'`) ──────────
+  endereco: string
+  servico: string
+  /** Uma peça por linha, como foram escritas. Ver `pecasDoTexto`. */
+  pecas: string
+  vala: string
+  reposicaoPendente: boolean
 }
 
 const linhaNova = (base?: Partial<Linha>): Linha => ({
   id: crypto.randomUUID(),
   obraId: '', equipe: '', nucleo: '', quantidades: {}, horas: '', observacoes: '',
   textoOriginal: '', semProducao: false, motivoSemProducao: 'chuva', motivoTexto: '',
+  endereco: '', servico: '', pecas: '', vala: '', reposicaoPendente: false,
   ...base,
 })
 
@@ -108,6 +116,34 @@ export function LancamentoRapidoPanel() {
             motivo: l.motivoTexto.trim() || undefined,
           })
           if (r) paradas++; else recusadas.push(obra?.name ?? l.obraId)
+          continue
+        }
+
+        // ⚠️ Ordem de serviço é outro RDO: sem siglas, sem produção medida. Template próprio.
+        if (obra?.tipoApontamento === 'ordem-servico') {
+          const os: RdoOrdemServico = {
+            endereco: l.endereco.trim(),
+            servico: l.servico.trim(),
+            pecas: pecasDoTexto(l.pecas),
+            vala: l.vala.trim() || undefined,
+            reposicaoPendente: l.reposicaoPendente || undefined,
+            observacoes: l.observacoes.trim() || undefined,
+            textoOriginal: l.textoOriginal.trim() || undefined,
+          }
+          const idOs = addRdo({
+            title: `OS${obra ? ' — ' + obra.name : ''}${os.endereco ? ' · ' + os.endereco : ''}`,
+            date: data,
+            responsible: l.equipe.trim(),
+            weather: { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 0 },
+            manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 },
+            equipment: [], services: [], trechos: [], geolocation: null,
+            observations: l.observacoes.trim(), incidents: '', photos: [],
+            siteId: l.obraId,
+            template: 'ordem-servico' as const,
+            ordemServico: os,
+            status: 'finalizado' as const,
+          })
+          if (idOs) rdos++; else recusadas.push(obra?.name ?? l.obraId)
           continue
         }
 
@@ -200,6 +236,9 @@ export function LancamentoRapidoPanel() {
               <th className={`${th} sticky left-0 z-10 bg-[#2c2c2c] min-w-[150px]`}>Obra</th>
               <th className={`${th} min-w-[110px]`}>Equipe</th>
               <th className={`${th} min-w-[110px]`}>Núcleo</th>
+              {/* As colunas de sigla e as de ordem de serviço dividem o mesmo espaço: cada LINHA
+                  mostra as suas, conforme o tipo declarado na obra. O cabeçalho fica com as siglas,
+                  e a linha de OS traz o rótulo no `placeholder` de cada campo. */}
               {SIGLAS_WCR.map((s) => (
                 <th key={s.sigla} className={`${th} text-center`} title={`${s.rotulo} (${s.unidade})`}>
                   {s.sigla}
@@ -234,7 +273,7 @@ export function LancamentoRapidoPanel() {
                         placeholder="Boi Malhado" className={inputBase} />
                     </td>
 
-                    {l.semProducao || ehOs || semTipo ? (
+                    {l.semProducao || semTipo ? (
                       <td colSpan={SIGLAS_WCR.length + 2} className="px-2 py-1">
                         {l.semProducao ? (
                           <div className="flex flex-wrap items-center gap-2">
@@ -245,7 +284,7 @@ export function LancamentoRapidoPanel() {
                             <input value={l.motivoTexto} onChange={(e) => mexer(l.id, { motivoTexto: e.target.value })}
                               placeholder="detalhe (opcional)" className={`${inputBase} max-w-[240px]`} />
                           </div>
-                        ) : semTipo ? (
+                        ) : (
                           // ⚠️ PERGUNTA em vez de adivinhar. Deduzir o gênero pelo texto seria chute.
                           <div className="flex flex-wrap items-center gap-2 text-[11px] text-[#fbbf24]">
                             <AlertTriangle size={12} />
@@ -259,14 +298,38 @@ export function LancamentoRapidoPanel() {
                               Ordem de serviço
                             </button>
                           </div>
-                        ) : (
-                          <p className="text-[11px] text-[#a3a3a3]">
-                            Esta obra é de <strong className="text-[#f5f5f5]">ordem de serviço</strong> — endereço, peças e
-                            dimensão da vala. Essas colunas ainda não existem aqui; por enquanto use o campo de
-                            observações e o texto da mensagem.
-                          </p>
                         )}
                       </td>
+                    ) : ehOs ? (
+                      <>
+                        <td colSpan={4} className="px-1.5 py-1">
+                          <input value={l.endereco} onChange={(e) => mexer(l.id, { endereco: e.target.value })}
+                            placeholder="Rua Manoel Gago, 1426" className={inputBase} />
+                        </td>
+                        <td colSpan={4} className="px-1.5 py-1">
+                          <input value={l.servico} onChange={(e) => mexer(l.id, { servico: e.target.value })}
+                            placeholder="troca de ramal · conserto de rede · vazamento" className={inputBase} />
+                        </td>
+                        <td colSpan={3} className="px-1.5 py-1">
+                          <textarea value={l.pecas} onChange={(e) => mexer(l.id, { pecas: e.target.value })}
+                            rows={1} placeholder={'2 tubetes\n1 registro'}
+                            className={`${inputBase} resize-y font-mono`} />
+                        </td>
+                        <td colSpan={2} className="px-1.5 py-1">
+                          <input value={l.vala} onChange={(e) => mexer(l.id, { vala: e.target.value })}
+                            placeholder="3m por 60" className={inputBase} />
+                        </td>
+                        <td colSpan={2} className="px-1.5 py-1">
+                          <label className="flex items-center gap-1 text-[10px] text-[#c9c9c9]">
+                            <input type="checkbox" className="h-3 w-3 accent-[#f97316]"
+                              checked={l.reposicaoPendente}
+                              onChange={(e) => mexer(l.id, { reposicaoPendente: e.target.checked })} />
+                            reposição pendente
+                          </label>
+                          <input value={l.observacoes} onChange={(e) => mexer(l.id, { observacoes: e.target.value })}
+                            placeholder="obs" className={`${inputBase} mt-1`} />
+                        </td>
+                      </>
                     ) : (
                       <>
                         {SIGLAS_WCR.map((s) => (

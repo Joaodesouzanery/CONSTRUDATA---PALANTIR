@@ -2121,9 +2121,15 @@ export interface RDO {
   workforceRows?:               RdoWorkforceRow[]
 
   // ── Template / variantes ─────────────────────────────────────────────────────
-  template?:    'padrao' | 'compizzo' | 'wcr'
+  /**
+   * Que variante de RDO é esta. ⚠️ Também decide pontes: `wcr` NÃO lança custo no Financeiro
+   * (ele entra pelo Controle de Caixa) — ver `syncRdoToFinanceiro`.
+   */
+  template?:    'padrao' | 'compizzo' | 'wcr' | 'ordem-servico'
   compizzo?:    RdoCompizzoData
   wcr?:         RdoWcrData
+  /** Atendimento pontual: endereço, peças e a vala. Ver `RdoOrdemServico`. */
+  ordemServico?: RdoOrdemServico
 
   siteId?:      string | null  // obra (construction_sites.id) — separação por obra
 
@@ -2179,6 +2185,43 @@ export interface RdoWcrApontamento {
   anoInferido?: boolean
   textoOriginal?: string
   naoEntendidas?: string[]
+}
+
+// ─── Ordem de serviço ─────────────────────────────────────────────────────────
+//
+// O outro gênero de apontamento, e ele é MESMO outro. O de produção diz "LA - 15": quantidade por
+// sigla, medida contra o contrato. Este diz "Rua tal 455, troca de ramal, 2 tubetes, 3m por 60 de
+// abertura": um endereço, um serviço pontual, as peças que entraram e o buraco que ficou.
+//
+// ⚠️ Nada aqui é interpretado pela máquina. Os campos são digitados por quem lê a mensagem, e o
+// texto original fica junto como prova da origem.
+
+export interface RdoOrdemServico {
+  /** O endereço atendido, como a mensagem escreve. É a identidade do atendimento. */
+  endereco: string
+  /** O que foi feito: "troca de ramal", "conserto de rede", "vazamento no pé do cavalete". */
+  servico: string
+  /**
+   * As peças usadas, uma por linha, como vieram escritas ("2 tubetes", "25 metros de PEAD 20").
+   *
+   * ⚠️ Texto, não item de estoque. Casar "tubete" com um `stockItemId` é decisão que exige
+   * cadastro e confirmação humana — gravar aqui um vínculo adivinhado daria baixa de estoque
+   * errada. Fica como lista legível até alguém decidir o de-para.
+   */
+  pecas: string[]
+  /** A vala, como veio: "3m por 60", "40 por 2,30", "profundidade 60 cm". Medida bruta, sem converter. */
+  vala?: string
+  /**
+   * Ficou reposição de pavimento/passeio para fazer.
+   *
+   * É a frase que hoje só existe dentro do WhatsApp e some: *"Precisa fazer a reposição na rua e
+   * no passeio"*. Vira campo porque é pendência que alguém tem de voltar para fechar.
+   */
+  reposicaoPendente?: boolean
+  reposicaoObs?: string
+  observacoes?: string
+  /** A mensagem como chegou. Não foi interpretada — foi lida por uma pessoa. */
+  textoOriginal?: string
 }
 
 export interface RdoWcrPresente {

@@ -213,6 +213,18 @@ describe('todo template imprime um corpo', () => {
       services: [{ id: 's1', description: 'Escavação manual de vala', quantity: 12, unit: 'm' }],
     } as RDO,
     compizzo: { ...CHEIO },
+    'ordem-servico': {
+      ...base, id: 'os1', title: 'RDO Ordem de Serviço', template: 'ordem-servico',
+      ordemServico: {
+        endereco: 'Rua Exemplo, 455',
+        servico: 'Troca de ramal',
+        pecas: ['1 cavalete', '25 metros de PEAD 20', '1 registro'],
+        vala: '3m por 60',
+        reposicaoPendente: true,
+        reposicaoObs: 'na rua e no passeio',
+        observacoes: 'cliente ciente',
+      },
+    } as RDO,
     wcr: {
       ...base, id: 'w1', title: 'RDO WCR', template: 'wcr',
       wcr: {
@@ -229,20 +241,40 @@ describe('todo template imprime um corpo', () => {
     } as RDO,
   }
 
+  /**
+   * ⚠️ Um marcador POR TEMPLATE, e também exaustivo — template novo não compila sem o seu.
+   *
+   * Antes isto era um `OR` único (`/Produção do dia|Serviços executados|Mão de obra/`), e ele era
+   * fraco por dois motivos: "Mão de obra" sai da seção COMPARTILHADA, acima do desvio de template,
+   * então um corpo vazio passaria; e, à medida que templates fossem entrando, bastava um deles
+   * casar para todos passarem. Cada marcador aqui é um título que SÓ aquele corpo imprime.
+   */
+  const MARCADOR: Record<NonNullable<RDO['template']>, RegExp> = {
+    padrao: /Serviços executados/,
+    compizzo: /Produção do dia/,
+    wcr: /Produção do dia|Imóveis atendidos/,
+    'ordem-servico': /Peças usadas/,
+  }
+
   for (const [template, rdo] of Object.entries(FIXTURES)) {
     it(`o corpo de '${template}' não sai vazio`, () => {
       const html = buildRdosReportHtml([{ tipo: 'torre', rdo }], { periodo: 'set/2026' })
-      // ⚠️ A asserção é sobre conteúdo que SÓ o corpo imprime. Não vale checar `RDO #1` nem o
-      // tamanho do HTML: o número do RDO sai no cabeçalho COMPARTILHADO, acima do desvio de
-      // template — então essa asserção passaria com o corpo vazio, que é o defeito que ela
-      // deveria pegar.
       assert.match(
         html,
-        /Produção do dia|Serviços executados|Mão de obra/,
+        MARCADOR[template as NonNullable<RDO['template']>],
         `o template '${template}' caiu num corpo que não imprime nada dele`,
       )
     })
   }
+
+  it('a ordem de serviço imprime o endereço, as peças e a reposição pendente', () => {
+    const html = buildRdosReportHtml([{ tipo: 'torre', rdo: FIXTURES['ordem-servico'] }], { periodo: 'set/2026' })
+    assert.match(html, /Rua Exemplo, 455/, 'o endereço é a identidade do atendimento')
+    assert.match(html, /Troca de ramal/)
+    assert.match(html, /25 metros de PEAD 20/, 'as peças saem uma a uma, como foram escritas')
+    assert.match(html, /3m por 60/, 'a vala sai como medida bruta, sem converter')
+    assert.match(html, /Reposição pendente/, '⚠️ a pendência que hoje só existe dentro do WhatsApp')
+  })
 
   it('o RDO WCR imprime as siglas, os imóveis e o aviso do ano deduzido', () => {
     const html = buildRdosReportHtml([{ tipo: 'torre', rdo: FIXTURES.wcr }], { periodo: 'set/2026' })

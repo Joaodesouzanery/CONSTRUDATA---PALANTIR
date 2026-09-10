@@ -39,6 +39,14 @@ export function horasInformadas(texto: string): number | undefined {
   return n
 }
 
+/** As peças da ordem de serviço, uma por linha do texto. */
+export function pecasDoTexto(texto: string): string[] {
+  return String(texto ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l !== '')
+}
+
 /** O que a grade precisa saber de uma linha para decidir se ela vira lançamento. */
 export interface LinhaConferivel {
   obraId: string
@@ -46,6 +54,10 @@ export interface LinhaConferivel {
   observacoes: string
   textoOriginal: string
   semProducao: boolean
+  /** Campos da ordem de serviço — vazios nas linhas de produção. */
+  endereco?: string
+  servico?: string
+  pecas?: string
 }
 
 /**
@@ -59,6 +71,10 @@ export function linhaTemConteudo(l: LinhaConferivel): boolean {
   if (!l.obraId) return false
   if (l.semProducao) return true    // "não houve produção" é uma afirmação, e ela basta
   return Object.values(l.quantidades).some((v) => String(v ?? '').trim() !== '')
+    // Ordem de serviço: o endereço é a identidade do atendimento; serviço e peças também contam.
+    || String(l.endereco ?? '').trim() !== ''
+    || String(l.servico ?? '').trim() !== ''
+    || pecasDoTexto(l.pecas ?? '').length > 0
     || String(l.observacoes ?? '').trim() !== ''
     || String(l.textoOriginal ?? '').trim() !== ''
 }

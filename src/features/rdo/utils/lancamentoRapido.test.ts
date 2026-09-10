@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { producaoDasQuantidades, horasInformadas, linhaTemConteudo } from './lancamentoRapido'
+import { producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto } from './lancamentoRapido'
 
 const linha = (p: Partial<Parameters<typeof linhaTemConteudo>[0]> = {}) => ({
   obraId: 'obra-1', quantidades: {}, observacoes: '', textoOriginal: '', semProducao: false, ...p,
@@ -71,4 +71,18 @@ test('quantidade, observação OU o texto colado bastam para a linha valer', () 
 
 test('"não houve produção" basta sozinho — é uma afirmação', () => {
   assert.equal(linhaTemConteudo(linha({ semProducao: true })), true)
+})
+
+test('as peças da OS saem uma por linha, sem linha em branco', () => {
+  assert.deepEqual(pecasDoTexto('2 tubetes\n 1 registro \n\n1 cotovelo de metal\n'),
+    ['2 tubetes', '1 registro', '1 cotovelo de metal'])
+  assert.deepEqual(pecasDoTexto(''), [])
+  assert.deepEqual(pecasDoTexto('   \n  '), [])
+})
+
+test('linha de ordem de serviço vale pelo endereço, pelo serviço ou pelas peças', () => {
+  assert.equal(linhaTemConteudo(linha({ endereco: 'Rua Manoel Gago, 1426' })), true)
+  assert.equal(linhaTemConteudo(linha({ servico: 'troca de ramal' })), true)
+  assert.equal(linhaTemConteudo(linha({ pecas: '2 tubetes' })), true)
+  assert.equal(linhaTemConteudo(linha({ pecas: '   ' })), false, 'espaço em branco não é peça')
 })

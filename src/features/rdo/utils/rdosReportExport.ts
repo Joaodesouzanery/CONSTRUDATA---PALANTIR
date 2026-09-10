@@ -118,6 +118,9 @@ const ehCompizzo = (r: RDO): boolean => r.template === 'compizzo' && !!r.compizz
  */
 const ehWcr = (r: RDO): boolean => r.template === 'wcr' && !!r.wcr
 
+/** Atendimento pontual: endereço, peças e vala. Ver o aviso acima — precisa dos 4 ramos. */
+const ehOrdemServico = (r: RDO): boolean => r.template === 'ordem-servico' && !!r.ordemServico
+
 /**
  * Classifica a unidade de uma linha de produção.
  *
@@ -177,6 +180,11 @@ export function contarExecutado(item: ItemRelatorio): Executado {
     return juntar((r.wcr!.producao ?? [])
       .filter((l) => l.unidade === 'M' && String(l.quantidade ?? '').trim() !== '')
       .map((l) => ({ tipo: 'linear' as const, valor: num(l.quantidade) })))
+  }
+  if (ehOrdemServico(r)) {
+    // ⚠️ Ordem de serviço NÃO tem metragem executada. A vala é medida bruta em texto ("3m por 60")
+    // e transformá-la em metro linear seria inventar: 3×0,60 é área de abertura, não rede assentada.
+    return juntar([])
   }
   if (ehCompizzo(r)) {
     return juntar((r.compizzo!.producao ?? []).flatMap((p) => {
@@ -400,6 +408,33 @@ function corpoWcr(r: RDO): string {
   ].join('')
 }
 
+function corpoOrdemServico(r: RDO): string {
+  const o = r.ordemServico!
+  return [
+    secao('Atendimento', tabela(
+      ['Campo', 'Valor'],
+      ([['Endereço', o.endereco], ['Serviço executado', o.servico], ['Vala', o.vala]] as [string, string | undefined][])
+        .filter(([, v]) => !!String(v ?? '').trim())
+        .map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`),
+      'Sem identificação do atendimento.',
+    )),
+
+    secao('Peças usadas', tabela(
+      ['Peça'],
+      (o.pecas ?? []).map((x) => `<tr><td>${esc(x)}</td></tr>`),
+      'Nenhuma peça registrada.',
+    ), `${(o.pecas ?? []).length} item(ns)`),
+
+    // ⚠️ A pendência que hoje só existe dentro do WhatsApp e some.
+    o.reposicaoPendente
+      ? secao('Reposição pendente',
+          `<p class="texto">⚠️ Ficou reposição de pavimento/passeio para fazer neste endereço.${o.reposicaoObs ? ' ' + esc(o.reposicaoObs) : ''}</p>`)
+      : '',
+
+    o.observacoes ? secao('Observações', `<p class="texto">${esc(o.observacoes)}</p>`) : '',
+  ].join('')
+}
+
 function corpoPadrao(r: RDO): string {
   return [
     secao('Mão de obra', tabela(
@@ -540,6 +575,7 @@ function fichaSabesp(r: RdoSabespData, fotos: RdoPhoto[]): string {
 function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
   const compizzo = ehCompizzo(r)
   const wcr = ehWcr(r)
+  const os = ehOrdemServico(r)
   const clima = compizzo
     ? (CLIMA_LABEL[r.compizzo!.condicaoClimatica] ?? r.compizzo!.condicaoClimatica)
       + (r.compizzo!.condicaoClimaticaOutros ? ` — ${r.compizzo!.condicaoClimaticaOutros}` : '')
@@ -605,7 +641,7 @@ function fichaRdo(r: RDO, fotos: RdoPhoto[]): string {
       ].join(''), `${total} pessoa(s)`)
     })()}
 
-    ${wcr ? corpoWcr(r) : compizzo ? corpoCompizzo(r) : corpoPadrao(r)}
+    ${wcr ? corpoWcr(r) : compizzo ? corpoCompizzo(r) : os ? corpoOrdemServico(r) : corpoPadrao(r)}
 
     ${secao('Equipamentos', tabela(
       ['Equipamento', 'Qtd.', 'Horas', 'Operador'],
@@ -794,7 +830,7 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
 
   const sumario = ordenados.map((i) => {
     const exec = contarExecutado(i)
-    const modelo = i.tipo === 'sabesp' ? 'Sabesp' : ehWcr(i.rdo) ? 'WCR' : ehCompizzo(i.rdo) ? 'Compizzo' : 'Padrão'
+    const modelo = i.tipo === 'sabesp' ? 'Sabesp' : ehWcr(i.rdo) ? 'WCR' : ehCompizzo(i.rdo) ? 'Compizzo' : ehOrdemServico(i.rdo) ? 'Ordem de serviço' : 'Padrão'
     return `<tr>
       <td class="c">${i.tipo === 'torre' ? i.rdo.number : '—'}</td>
       <td>${dataBR(dataDoItem(i))}</td>
