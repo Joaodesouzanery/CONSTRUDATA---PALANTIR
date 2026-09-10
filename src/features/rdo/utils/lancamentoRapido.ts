@@ -78,3 +78,44 @@ export function linhaTemConteudo(l: LinhaConferivel): boolean {
     || String(l.observacoes ?? '').trim() !== ''
     || String(l.textoOriginal ?? '').trim() !== ''
 }
+
+// ─── O rascunho local da grade ────────────────────────────────────────────────
+//
+// ⚠️ Isto NÃO é rascunho de RDO. A grade grava direto como `finalizado` de propósito — ela é para
+// quem fecha o dia, e meio-RDO no servidor é pior que nenhum. O que isto resolve é outra coisa: a
+// pessoa digita 9 mensagens olhando para o WhatsApp, o telefone toca, a aba fecha, e o trabalho de
+// digitação some. O rascunho vive **só neste navegador** e morre na gravação.
+
+export const CHAVE_RASCUNHO = 'cdata-lancamento-rapido'
+
+export interface RascunhoDaGrade<T> {
+  data: string
+  linhas: T[]
+}
+
+/**
+ * ⚠️ Todo acesso é envolvido em try/catch: em aba anônima, com cookies bloqueados ou com a cota
+ * estourada, `localStorage` **lança** em vez de devolver null — e uma exceção aqui derrubaria a
+ * tela inteira por causa de uma conveniência.
+ */
+export function lerRascunho<T>(hoje: string): RascunhoDaGrade<T> | null {
+  try {
+    const cru = localStorage.getItem(CHAVE_RASCUNHO)
+    if (!cru) return null
+    const r = JSON.parse(cru) as RascunhoDaGrade<T>
+    if (!r || typeof r.data !== 'string' || !Array.isArray(r.linhas)) return null
+    // Rascunho de outro dia não volta: reabrir amanhã e ver o lançamento de ontem meio digitado é
+    // convite a gravar data errada.
+    if (r.data !== hoje) return null
+    return r
+  } catch { return null }
+}
+
+export function gravarRascunho<T>(r: RascunhoDaGrade<T>): void {
+  try { localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(r)) } catch { /* sem espaço ou sem permissão: segue sem rascunho */ }
+}
+
+/** ⚠️ Chamado DEPOIS de gravar. Rascunho que sobrevive viraria lançamento em dobro na próxima abertura. */
+export function limparRascunho(): void {
+  try { localStorage.removeItem(CHAVE_RASCUNHO) } catch { /* idem */ }
+}

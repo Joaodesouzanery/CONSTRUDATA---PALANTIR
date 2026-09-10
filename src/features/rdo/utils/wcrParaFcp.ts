@@ -82,6 +82,8 @@ export function producaoDosRdos(rdos: RDO[]): ProducaoDosRdos {
   let metros = 0
   let semMedida = 0
   for (const r of rdos) {
+    // ⚠️ Só `producao` (a soma), nunca `apontamentos[].producao` (o detalhe que a compõe):
+    // iterar os dois conta em dobro. Ver `docs/ARMADILHAS_CONHECIDAS.md`, item 1.
     for (const l of r.wcr?.producao ?? []) {
       const bruto = String(l.quantidade ?? '').trim()
       if (bruto === '') { semMedida += 1; continue }

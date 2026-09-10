@@ -19,7 +19,7 @@
  * escreve o que fez, e gravar `0` nas outras 12 siglas afirmaria que não se produziu nada delas —
  * o que ninguém disse.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, MessageSquareText, AlertTriangle, CheckCircle2, CalendarOff } from 'lucide-react'
 import type { ConstructionSite, RdoOrdemServico, RdoWcrData } from '@/types'
 import { useRdoStore } from '@/store/rdoStore'
@@ -31,7 +31,10 @@ import { usePermissaoEscrita, ROLES_RDO_WRITE } from '@/lib/roles'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { hojeLocalISO } from '@/lib/utils'
 import { SIGLAS_WCR } from '../utils/apontamentoWcr'
-import { producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto } from '../utils/lancamentoRapido'
+import {
+  producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto,
+  lerRascunho, gravarRascunho, limparRascunho,
+} from '../utils/lancamentoRapido'
 
 interface Linha {
   /** Só na tela — o id do RDO é gerado na gravação. */
@@ -75,10 +78,18 @@ export function LancamentoRapidoPanel() {
   const podeEscrever = usePermissaoEscrita(ROLES_RDO_WRITE)
 
   const [data, setData] = useState(hojeLocalISO())
-  const [linhas, setLinhas] = useState<Linha[]>([linhaNova()])
+  // ⚠️ O rascunho volta na PRIMEIRA renderização, não num efeito: restaurar depois faria a tela
+  // piscar com a grade vazia e, pior, um `onChange` no meio do caminho gravaria por cima dele.
+  const [linhas, setLinhas] = useState<Linha[]>(
+    () => lerRascunho<Linha>(hojeLocalISO())?.linhas ?? [linhaNova()],
+  )
   const [textoAberto, setTextoAberto] = useState<string | null>(null)
   const [aviso, setAviso] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
   const [gravando, setGravando] = useState(false)
+
+  // Guarda o que foi digitado, só neste navegador. Não é rascunho de RDO — ver o docblock de
+  // `lerRascunho`. Some na gravação.
+  useEffect(() => { gravarRascunho({ data, linhas }) }, [data, linhas])
 
   const obras = useMemo(() => sites.filter(obraEstaAtiva), [sites])
   const porId = useMemo(() => new Map(obras.map((o) => [o.id, o])), [obras])
@@ -184,6 +195,9 @@ export function LancamentoRapidoPanel() {
         setAviso({ tom: 'erro', texto: `Não consegui gravar ${recusadas.length} linha(s): ${[...new Set(recusadas)].join(', ')}. Verifique a permissão do seu perfil.` })
         return
       }
+      // ⚠️ Só some o rascunho quando TUDO gravou. Limpar com linha recusada apagaria digitação
+      // que ainda não virou RDO nenhum.
+      limparRascunho()
       const partes = [rdos > 0 && `${rdos} RDO(s)`, paradas > 0 && `${paradas} dia(s) sem produção`].filter(Boolean)
       setAviso({ tom: 'ok', texto: `${partes.join(' e ')} gravado(s). As linhas seguem na tela para você conferir.` })
     } finally { setGravando(false) }
@@ -413,6 +427,8 @@ export function LancamentoRapidoPanel() {
         </button>
         <span className="text-[10px] text-[#6b6b6b]">
           Linha em branco é ignorada. Campo de sigla vazio quer dizer <strong>não informado</strong>, não zero.
+          {' '}O que você digita fica guardado <strong>neste navegador</strong> até gravar — se a aba fechar,
+          volta. Não é dado salvo nem chega a ninguém.
         </span>
       </div>
     </div>

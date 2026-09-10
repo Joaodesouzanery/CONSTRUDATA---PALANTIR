@@ -2243,6 +2243,11 @@ export interface RdoWcrData {
    * `producao`) são a SOMA/união — é o que a ponte com o FCP, a listagem e o resumo leem. O detalhe
    * por equipe está em `apontamentos`. Um RDO antigo, de um apontamento só, não tem a lista e
    * continua válido.
+   *
+   * 🔴 **ARMADILHA: a produção está aqui DUAS VEZES.** `producao` é a soma e
+   * `apontamentos[].producao` é o detalhe que a compõe. Iterar os dois conta cada metro em dobro
+   * dentro de um único RDO, sem erro nenhum. Ao ler produção, use `producao`.
+   * Ver `docs/ARMADILHAS_CONHECIDAS.md`, item 1.
    */
   apontamentos?: RdoWcrApontamento[]
   /** Quem estava na obra, por equipe. Também preenche `RDO.manpower`. */

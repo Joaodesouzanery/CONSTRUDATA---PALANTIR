@@ -177,6 +177,8 @@ export function contarExecutado(item: ItemRelatorio): Executado {
   if (ehWcr(r)) {
     // Só a rede (PRA/PRE) tem metragem. Ligação, poço e caixa são contagem, e contagem não entra
     // em metragem — somar as duas daria um número que não quer dizer nada.
+    // ⚠️ Só `producao` (a soma), nunca `apontamentos[].producao` (o detalhe que a compõe): iterar
+    // os dois conta em dobro. Ver `docs/ARMADILHAS_CONHECIDAS.md`, item 1.
     return juntar((r.wcr!.producao ?? [])
       .filter((l) => l.unidade === 'M' && String(l.quantidade ?? '').trim() !== '')
       .map((l) => ({ tipo: 'linear' as const, valor: num(l.quantidade) })))

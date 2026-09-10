@@ -7,7 +7,10 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto } from './lancamentoRapido'
+import {
+  producaoDasQuantidades, horasInformadas, linhaTemConteudo, pecasDoTexto,
+  lerRascunho, gravarRascunho, limparRascunho, CHAVE_RASCUNHO,
+} from './lancamentoRapido'
 
 const linha = (p: Partial<Parameters<typeof linhaTemConteudo>[0]> = {}) => ({
   obraId: 'obra-1', quantidades: {}, observacoes: '', textoOriginal: '', semProducao: false, ...p,
@@ -85,4 +88,32 @@ test('linha de ordem de serviço vale pelo endereço, pelo serviço ou pelas pe�
   assert.equal(linhaTemConteudo(linha({ servico: 'troca de ramal' })), true)
   assert.equal(linhaTemConteudo(linha({ pecas: '2 tubetes' })), true)
   assert.equal(linhaTemConteudo(linha({ pecas: '   ' })), false, 'espaço em branco não é peça')
+})
+
+// ─── O rascunho local ─────────────────────────────────────────────────────────
+
+test('🔴 o rascunho volta no mesmo dia, e some depois de gravar', () => {
+  limparRascunho()
+  gravarRascunho({ data: '2026-09-10', linhas: [{ obraId: 'o1', equipe: 'Gilvan' }] })
+  const r = lerRascunho<{ obraId: string; equipe: string }>('2026-09-10')
+  assert.equal(r?.linhas[0].equipe, 'Gilvan', 'telefone tocou, aba fechou — a digitação está lá')
+
+  limparRascunho()
+  assert.equal(lerRascunho('2026-09-10'), null,
+    'rascunho que sobrevive à gravação viraria lançamento em dobro na próxima abertura')
+})
+
+test('⚠️ rascunho de OUTRO dia não volta', () => {
+  limparRascunho()
+  gravarRascunho({ data: '2026-09-09', linhas: [{ obraId: 'o1' }] })
+  assert.equal(lerRascunho('2026-09-10'), null, 'ver o lançamento de ontem meio digitado convida a gravar data errada')
+  limparRascunho()
+})
+
+test('lixo no localStorage não derruba a tela', () => {
+  localStorage.setItem(CHAVE_RASCUNHO, 'isto não é json')
+  assert.equal(lerRascunho('2026-09-10'), null)
+  localStorage.setItem(CHAVE_RASCUNHO, '{"data":"2026-09-10"}')   // sem `linhas`
+  assert.equal(lerRascunho('2026-09-10'), null)
+  limparRascunho()
 })
