@@ -2361,6 +2361,18 @@ export interface RdoCompizzoData {
   descricaoServicos:     string
   producao:              RdoCompizzoProducaoRow[]
   horasTrabalhadas?:     number   // HH total do dia (nº colab × jornada) p/ RUP real = HH ÷ m²
+  /**
+   * As horas do dia que NÃO produziram nada mensurável: deslocamento, montagem e desmontagem de
+   * canteiro, isolamento da área. Elas existem, custam, e não são de serviço nenhum.
+   *
+   * ⚠️ Sem isto, o rateio do custo por serviço empurra o indireto para dentro de quem por acaso
+   * produziu naquele dia — e num dia de serviço único a margem dele vira ficção.
+   *
+   * ⚠️ E NÃO reaproveitar `horasOcorrencia` para isto: aquilo é *parada por causa externa* (chuva,
+   * área não liberada), o `horasParadas.ts` depende do contrato "ausente ≠ zero" dela, e misturar
+   * as duas contaminaria o indicador de paradas.
+   */
+  indiretoDoDia?:        { horas?: number; motivo?: string }
   planningActivityId?:   string   // vínculo com uma atividade do Planejamento (avança o % dela pelo m² do dia)
   materiais:             RdoCompizzoMaterialRow[]
   ocorrencias:           RdoCompizzoOcorrencias

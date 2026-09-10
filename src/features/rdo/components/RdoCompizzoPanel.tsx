@@ -19,6 +19,7 @@ import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
 import { useStoreSync } from '@/lib/useStoreSync'
+import { margemPorServico } from '../utils/margemPorServico'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 import { compressImageToBlob } from '@/lib/imageCompression'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
@@ -252,6 +253,8 @@ export function RdoCompizzoPanel() {
     return base
   })
   const [horasTrabalhadas, setHorasTrabalhadas] = useState<string>(c0?.horasTrabalhadas != null ? String(c0.horasTrabalhadas) : '')
+  const [horasIndiretas, setHorasIndiretas] = useState<string>(c0?.indiretoDoDia?.horas != null ? String(c0.indiretoDoDia.horas) : '')
+  const [motivoIndireto, setMotivoIndireto] = useState<string>(c0?.indiretoDoDia?.motivo ?? '')
   const updateProducao = (i: number, patch: Partial<RdoCompizzoProducaoRow>) =>
     setProducao((rows) => rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   const [materiais, setMateriais] = useState<RdoCompizzoMaterialRow[]>(c0?.materiais ?? DEFAULT_MATERIAIS)
@@ -327,6 +330,9 @@ export function RdoCompizzoPanel() {
       servicos, servicosExtra: servicosExtra.filter((s) => s.nome.trim()),
       descricaoServicos: descricao, producao: prod,
       horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
+      indiretoDoDia: parseLocaleNumber(horasIndiretas) > 0
+        ? { horas: parseLocaleNumber(horasIndiretas), motivo: motivoIndireto.trim() || undefined }
+        : undefined,
       materiais, ocorrencias, horasOcorrencia,
       observacoes, planejamentoProximoDia: planejamento,
       responsavelNome: respNome || responsavel, responsavelData: respData,
@@ -613,6 +619,24 @@ export function RdoCompizzoPanel() {
     [materiaisComQtd],
   )
 
+  // ⚠️ Margem DERIVADA EM TELA, nunca lançamento. Uma saída por serviço exigiria uma família de
+  // ids por `contractServiceId`, e `removeRdoEntries` apaga exatamente dois ids conhecidos —
+  // despromover o RDO para rascunho deixaria lançamentos órfãos no Financeiro.
+  const margem = useMemo(
+    () => margemPorServico(
+      avancoPorServico.map((a) => ({
+        id: a.id, descricao: a.descricao, unidade: a.unidade, qtdHoje: a.qtdHoje, valorHoje: a.valorHoje,
+      })),
+      {
+        materiais: custoMateriaisDia,
+        maoDeObra: custoMaoObraDia,
+        horasIndiretas: parseLocaleNumber(horasIndiretas) || undefined,
+        horasTrabalhadas: parseLocaleNumber(horasTrabalhadas) || undefined,
+      },
+    ),
+    [avancoPorServico, custoMateriaisDia, custoMaoObraDia, horasIndiretas, horasTrabalhadas],
+  )
+
   return (
     <div className="max-w-4xl mx-auto p-3 sm:p-6">
       {/* Header */}
@@ -702,6 +726,21 @@ export function RdoCompizzoPanel() {
                           +{a.qtdHoje.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {a.unidade}
                         </span>
                         <span className="tabular-nums text-[#fdba74]">{brl(a.valorHoje)}</span>
+                        {(() => {
+                          const m = margem.linhas.find((x) => x.id === a.id)
+                          if (!m) return null
+                          if (m.foraDoRateio) {
+                            return <span className="text-[10px] text-[#9a9a9a]">· sem preço no contrato, fora do rateio</span>
+                          }
+                          return (
+                            <>
+                              <span className="tabular-nums text-[#9a9a9a]">− {brl(m.custo)} de custo</span>
+                              <span className={`tabular-nums font-semibold ${m.margem < 0 ? 'text-[#f87171]' : 'text-[#4ade80]'}`}>
+                                = {brl(m.margem)}{m.margemPct != null && ` (${m.margemPct.toFixed(0)}%)`}
+                              </span>
+                            </>
+                          )
+                        })()}
                         {!a.semMetragem && a.contratada > 0 && (
                           <span className={`tabular-nums ${a.saldo < 0 ? 'text-[#f87171]' : 'text-[#9a9a9a]'}`}>
                             · {a.saldo < 0 ? 'passou em ' : 'faltam '}
@@ -712,6 +751,27 @@ export function RdoCompizzoPanel() {
                       </li>
                     ))}
                   </ul>
+
+                  <div className="mt-2 border-t border-[#3d3d3d] pt-1.5 text-[10px] leading-4 text-[#9a9a9a]">
+                    <p>
+                      Custo do dia <span className="tabular-nums text-[#c9c9c9]">{brl(margem.custoTotal)}</span>
+                      {' '}(materiais {brl(custoMateriaisDia)} + mão de obra {brl(custoMaoObraDia)}), rateado
+                      entre os serviços <b>pelo valor produzido</b> — não pela quantidade, que não soma
+                      entre m², metro e unidade.
+                    </p>
+                    <p className="mt-0.5">
+                      Sem produzir nada mensurável:{' '}
+                      {/* ⚠️ "—" e não zero: zero diria "o dia inteiro produziu". */}
+                      {margem.custoIndireto == null
+                        ? <span className="text-[#fbbf24]">— (informe as horas do dia para separar)</span>
+                        : <span className="tabular-nums text-[#c9c9c9]">{brl(margem.custoIndireto)}</span>}
+                    </p>
+                    {/* ⚠️ A nota fixa: sem ela, "margem de 40%" lê-se como número completo. */}
+                    <p className="mt-0.5 text-[#fbbf24]">
+                      ⚠️ Custo de equipamento não incluso — não há tarifa cadastrada no produto.
+                      A margem acima é otimista nessa medida.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -918,6 +978,33 @@ export function RdoCompizzoPanel() {
               </button>
             )}
           </div>
+
+          {/* ⚠️ As horas que não produziram nada mensurável. Sem elas, o rateio do custo empurra o
+              deslocamento e a montagem de canteiro para dentro de quem por acaso produziu no dia —
+              e num dia de serviço único a margem dele vira ficção. */}
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2 items-end">
+            <div>
+              <label className={labelCls}>Horas sem produção</label>
+              <input
+                className={inputCls} value={horasIndiretas} inputMode="decimal"
+                onChange={(e) => setHorasIndiretas(e.target.value)} placeholder="ex.: 2"
+              />
+            </div>
+            <div>
+              <label className={labelCls}>O que ocupou essas horas (deslocamento, canteiro…)</label>
+              <input
+                className={inputCls} value={motivoIndireto}
+                onChange={(e) => setMotivoIndireto(e.target.value)} placeholder="opcional"
+              />
+            </div>
+          </div>
+          <p className="mt-1 text-[10px] leading-4 text-[#6b6b6b]">
+            Estas horas saem do rateio do custo por serviço e aparecem à parte.
+            {parseLocaleNumber(horasIndiretas) > 0 && parseLocaleNumber(horasTrabalhadas) <= 0 && (
+              <span className="text-[#fbbf24]"> ⚠️ Informe também as horas do dia acima — sem o total,
+                não dá para saber que fração do dia foi indireta, e o custo inteiro continua rateado.</span>
+            )}
+          </p>
         </Section>
 
         {/* Materiais */}
