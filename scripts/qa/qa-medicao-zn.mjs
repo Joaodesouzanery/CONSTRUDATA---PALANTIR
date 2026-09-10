@@ -6,6 +6,13 @@
  *
  * ⚠️ Diferente do `qa:medicao-xlsx`, que aponta para um drive `F:\` que não existe e por isso
  * passa há meses com 17 fixtures "não encontradas": aqui, arquivo ausente é FALHA.
+ *
+ * ⚠️ **TROQUE O ARQUIVO QUANDO O CONTRATO TIVER ADITIVO.** Este QA confere contra os números que
+ * a planilha de HOJE declara (284 serviços, R$ 3.264.706,87). Com um apostilamento novo, ele
+ * continuaria passando — validando uma versão morta do contrato e dando a impressão de que está
+ * tudo certo. É exatamente como o `qa:medicao-xlsx` envelheceu apontando para um drive que não
+ * existe mais. Substituir `docs/Base_Medicao_60pct_ZN.xlsx` e ajustar os totais esperados abaixo
+ * faz parte de receber um aditivo, não é tarefa separada.
  */
 import { existsSync } from 'node:fs'
 import xlsx from 'xlsx'

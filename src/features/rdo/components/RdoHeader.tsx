@@ -12,6 +12,9 @@ const TABS: { key: RdoTab; label: string }[] = [
   { key: 'historico', label: 'Historico de RDOs' },
   { key: 'sabesp', label: 'RDO Sabesp' },
   { key: 'novo', label: 'Novo RDO' },
+  // Entrada rápida: várias obras e equipes de uma vez, no ritmo de planilha. Não substitui as
+  // outras — é a via para quem centraliza as mensagens do dia inteiro.
+  { key: 'rapido', label: 'Lançamento Rápido' },
   { key: 'compizzo', label: 'RDO Compizzo' },
   { key: 'wcr', label: 'RDO WCR' },
   { key: 'previsto-realizado', label: 'Previsto × Realizado' },

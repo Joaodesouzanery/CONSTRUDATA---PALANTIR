@@ -5,6 +5,7 @@ import { useRdoStore } from '@/store/rdoStore'
 import { RdoHeader }      from './components/RdoHeader'
 import { DashboardPanel } from './components/DashboardPanel'
 import { NovoRdoPanel }   from './components/NovoRdoPanel'
+import { LancamentoRapidoPanel } from './components/LancamentoRapidoPanel'
 import { RdoCompizzoPanel } from './components/RdoCompizzoPanel'
 import { RdoWcrPanel } from './components/RdoWcrPanel'
 import { PrevistoRealizadoPanel } from './components/PrevistoRealizadoPanel'
@@ -18,6 +19,7 @@ export function RdoPage() {
     switch (activeTab) {
       case 'dashboard':  return <DashboardPanel />
       case 'novo':       return <NovoRdoPanel />
+      case 'rapido':     return <LancamentoRapidoPanel />
       case 'compizzo':   return <RdoCompizzoPanel />
       case 'wcr':        return <RdoWcrPanel />
       case 'previsto-realizado': return <PrevistoRealizadoPanel />

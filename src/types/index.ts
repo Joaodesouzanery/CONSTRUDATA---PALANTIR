@@ -232,6 +232,21 @@ export interface ConstructionSite {
    * Ausente = obra de contrato sem regiões (a maioria); nada muda para ela.
    */
   regiao?: string
+  /**
+   * Que GÊNERO de apontamento esta obra produz. É o que decide as colunas do Lançamento Rápido.
+   *
+   * ⚠️ Não é o mesmo que o catálogo. As 13 siglas do WCR são fixas no código (`SIGLAS_WCR`) e o
+   * que varia por obra é só para qual item de contrato cada uma aponta. O que Boi Malhado e
+   * Bertioga têm de REALMENTE diferente é o gênero da mensagem que chega do campo:
+   *
+   *  - `producao`      — "LA - 15", quantidade por sigla, medida contra o contrato;
+   *  - `ordem-servico` — "Rua tal 455, troca de ramal, 2 tubetes, 3m por 60 de abertura":
+   *                      endereço, peças usadas e dimensão da vala.
+   *
+   * Ausente = ainda não declarado. A tela PERGUNTA em vez de adivinhar — deduzir o gênero pelo
+   * texto seria exatamente o tipo de chute que este produto não faz.
+   */
+  tipoApontamento?: 'producao' | 'ordem-servico'
   orcamentoBRL?: number   // orçamento/BAC contratado da obra (R$) — fallback do BAC no RDO/planejamento
   startDate: string     // yyyy-MM-dd
   expectedEnd: string   // yyyy-MM-dd
@@ -1937,7 +1952,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'wcr' | 'empreiteiros' | 'previsto-realizado'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'rapido' | 'compizzo' | 'wcr' | 'empreiteiros' | 'previsto-realizado'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
