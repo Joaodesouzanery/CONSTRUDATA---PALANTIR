@@ -58,13 +58,20 @@ export function EstoqueParadoPanel() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-3">
+        {/* ⚠️ A ressalva ENCOSTA no número, e não mora depois da tabela. Quem lê só o card levaria
+            R$ X como total, sem saber que N itens estão fora da soma por não terem preço — e
+            decidiria em cima de um número subestimado sem saber que era subestimado. */}
         <div className="rounded-xl border border-[#f97316]/40 bg-[#f97316]/5 p-3">
-          <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Dinheiro parado</p>
-          <p className="text-lg font-bold text-[#ffa055]">{brl(r.valorParado)}</p>
-          <p className="text-[10px] text-[#6b6b6b]">
-            {r.fila.length} item(ns) de {r.total} no estoque
-            {r.semCusto > 0 && <> · <span className="text-[#fbbf24]">{r.semCusto} sem custo cadastrado</span></>}
+          <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">
+            Dinheiro parado{r.semCusto > 0 && ' (mínimo)'}
           </p>
+          <p className="text-lg font-bold text-[#ffa055]">{brl(r.valorParado)}</p>
+          <p className="text-[10px] text-[#6b6b6b]">{r.fila.length} item(ns) de {r.total} no estoque</p>
+          {r.semCusto > 0 && (
+            <p className="mt-0.5 text-[10px] font-semibold text-[#fbbf24]">
+              + {r.semCusto} sem custo cadastrado, fora desta soma
+            </p>
+          )}
         </div>
         <div className="rounded-xl border border-[#525252] p-3">
           <p className="text-[10px] uppercase tracking-wide text-[#6b6b6b]">Parados há mais de {dias} dias</p>

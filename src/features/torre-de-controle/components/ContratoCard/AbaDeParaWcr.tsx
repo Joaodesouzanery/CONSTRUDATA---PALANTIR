@@ -14,19 +14,35 @@
  * duas cidades e nenhum tem o mesmo valor — a ligação de água mais comum custa R$ 60,95 numa e
  * R$ 56,90 na outra. Um mapa global aplicaria o preço da cidade errada sem avisar ninguém.
  */
-import { AlertTriangle, Link2 } from 'lucide-react'
+import { Fragment, useMemo } from 'react'
+import { AlertTriangle, Link2, Calculator } from 'lucide-react'
 import { SIGLAS_WCR } from '@/features/rdo/utils/apontamentoWcr'
+import { conferirDeParaSiglas, previaDoDePara } from '@/features/rdo/utils/servicoDaSigla'
+import { useRdoStore } from '@/store/rdoStore'
 import type { ObraContrato } from '@/types'
 import { TXT, brl } from './formato'
 
-export function AbaDeParaWcr({ contrato, salvar }: {
+export function AbaDeParaWcr({ contrato, salvar, siteId }: {
   contrato: ObraContrato
   salvar: (patch: Partial<ObraContrato>) => void
+  /** A obra dona deste contrato — a prévia só olha os RDOs dela. */
+  siteId?: string
 }) {
+  const rdos = useRdoStore((s) => s.rdos)
   const servicos = contrato.services ?? []
   const mapa = contrato.deParaSiglas ?? {}
   const mapeadas = SIGLAS_WCR.filter((s) => mapa[s.sigla]).length
   const faltam = SIGLAS_WCR.length - mapeadas
+
+  // ⚠️ A conferência de unidade fecha uma armadilha cara: o `<select>` abaixo lista TODOS os itens
+  // do contrato sem filtro, e `precoEfetivo × quantidade` multiplica sem olhar unidade. Ver o
+  // docblock de `conferirDeParaSiglas`.
+  const divergencias = useMemo(() => conferirDeParaSiglas(contrato), [contrato])
+  const porSigla = useMemo(() => new Map(divergencias.map((d) => [d.sigla, d])), [divergencias])
+  const previa = useMemo(
+    () => (siteId ? previaDoDePara(rdos, siteId, contrato) : null),
+    [rdos, siteId, contrato],
+  )
 
   function definir(sigla: string, servicoId: string) {
     // Relê do contrato corrente a cada gravação: o mapa inteiro viaja no payload da obra, e montar
@@ -63,6 +79,16 @@ export function AbaDeParaWcr({ contrato, salvar }: {
             RDO — só não viram valor.
           </p>
         )}
+        {divergencias.length > 0 && (
+          <p className="mt-1.5 flex items-start gap-1.5 rounded border border-[#ef4444]/40 bg-[#ef4444]/10 px-2 py-1.5 text-[11px] text-[#fca5a5]">
+            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+            <span>
+              <b>{divergencias.length} mapeamento(s) com unidade incompatível.</b> Confira as linhas
+              marcadas abaixo — a unidade da sigla e a do item não combinam, e a conta multiplicaria
+              uma pela outra sem avisar.
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="overflow-x-auto">
@@ -80,8 +106,10 @@ export function AbaDeParaWcr({ contrato, salvar }: {
             {SIGLAS_WCR.map((s) => {
               const id = mapa[s.sigla] ?? ''
               const servico = servicos.find((x) => x.id === id) ?? null
+              const divergente = porSigla.get(s.sigla)
               return (
-                <tr key={s.sigla} className="border-b border-[#3d3d3d]">
+                <Fragment key={s.sigla}>
+                <tr className={`border-b border-[#3d3d3d]${divergente ? ' bg-[#ef4444]/5' : ''}`}>
                   <td className="py-1.5 pr-3 font-semibold text-[#f5f5f5]">{s.sigla}</td>
                   <td className="py-1.5 pr-3 text-[#a3a3a3]">{s.rotulo}</td>
                   <td className="py-1.5 pr-3 text-[#6b6b6b]">{s.unidade === 'M' ? 'm' : 'un'}</td>
@@ -101,15 +129,71 @@ export function AbaDeParaWcr({ contrato, salvar }: {
                   </td>
                   <td className="py-1.5 text-right">
                     {servico
-                      ? <span className="text-[#f5f5f5]">{brl(servico.valorUnitario)}</span>
+                      ? <span className={divergente ? 'text-[#fca5a5]' : 'text-[#f5f5f5]'}>{brl(servico.valorUnitario)}</span>
                       : <span className="text-[#6b6b6b]">—</span>}
                   </td>
                 </tr>
+                {divergente && (
+                  <tr className="border-b border-[#3d3d3d] bg-[#ef4444]/5">
+                    <td />
+                    <td colSpan={4} className="pb-1.5 pr-3 text-[10px] leading-4 text-[#fca5a5]">
+                      ⚠️ {divergente.explicacao}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             })}
           </tbody>
         </table>
       </div>
+
+      {/* ── A prévia: o que este de-para produziria. NÃO lança nada. ─────────── */}
+      {previa && previa.linhas.length > 0 && (
+        <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-2.5">
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#f5f5f5]">
+            <Calculator size={12} /> Com este de-para, a produção já lançada valeria
+          </p>
+          <p className="text-lg font-bold text-[#ffa055]">{brl(previa.valorTotal)}</p>
+          <p className="text-[10px] text-[#6b6b6b]">
+            sobre {previa.rdos} RDO(s) WCR finalizado(s) desta obra
+            {previa.siglasSemMapa > 0 && (
+              <> · <span className="text-[#fbbf24]">{previa.siglasSemMapa} sigla(s) com produção e sem item</span></>
+            )}
+          </p>
+
+          <table className="mt-2 w-full text-[11px]">
+            <tbody>
+              {previa.linhas.map((l) => (
+                <tr key={l.sigla} className="border-t border-[#3d3d3d]">
+                  <td className="py-1 pr-2 font-semibold text-[#f5f5f5]">{l.sigla}</td>
+                  <td className="py-1 pr-2 text-right font-mono text-[#c9c9c9]">
+                    {l.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} {l.unidade === 'M' ? 'm' : 'un'}
+                  </td>
+                  <td className="py-1 pr-2 text-[#6b6b6b]">
+                    {l.servico?.descricao ?? <span className="text-[#fbbf24]">falta mapear</span>}
+                  </td>
+                  <td className="py-1 text-right font-mono">
+                    {l.divergente
+                      ? <span className="text-[#fca5a5]">unidade incompatível</span>
+                      : l.servico
+                        ? <span className="text-[#f5f5f5]">{brl(l.valor)}</span>
+                        : <span className="text-[#6b6b6b]">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* ⚠️ A frase que impede a prévia de ser confundida com medição. */}
+          <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+            <b>Este número não é lançado em lugar nenhum</b> — nem na medição, nem no Financeiro,
+            nem no Fluxo de Caixa Projetado. Ele existe para você conferir o mapeamento antes de o
+            mapeamento valer alguma coisa. Sigla com unidade incompatível fica sem valor de
+            propósito: mostrar o número seria convidar a confiar nele.
+          </p>
+        </div>
+      )}
 
       {/* O vínculo com o Fluxo de Caixa Projetado */}
       <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] p-2.5">

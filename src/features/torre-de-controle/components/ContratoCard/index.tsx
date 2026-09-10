@@ -193,7 +193,7 @@ export function ContratoCard({ site }: { site: ConstructionSite }) {
       {aba === 'composicao' && <AbaComposicao contrato={contrato} medidoAuto={medidoAuto} salvar={salvar} />}
       {aba === 'medicoes'   && <AbaMedicoes contrato={contrato} resumo={fat} hoje={hoje} salvar={salvar} />}
       {aba === 'documentos' && <AbaDocumentos contrato={contrato} salvar={salvar} />}
-      {aba === 'depara'     && <AbaDeParaWcr contrato={contrato} salvar={salvar} />}
+      {aba === 'depara'     && <AbaDeParaWcr contrato={contrato} salvar={salvar} siteId={site?.id} />}
     </div>
   )
 }
