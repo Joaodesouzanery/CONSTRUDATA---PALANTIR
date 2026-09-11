@@ -7,6 +7,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { changedColumns, flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { proximaSelecao } from '@/features/torre-de-controle/utils/selecaoDeObra'
 import { MOCK_OBRAS } from '@/data/mockTorreDeControle'
 import { predialDemoSite } from '@/data/mockPredial'
 import type { ConstructionSite, ConstructionRisk } from '@/types'
@@ -275,7 +276,23 @@ export const useTorreStore = create<TorreState & TorreActions>()(
           const rows = await pullTable<{ payload: ConstructionSite }>('construction_sites')
           set((s) => {
             const sites = mergePull(rows?.map((r) => r.payload) ?? null, s.sites, s.pendingSync, 'construction_sites')
-            return rows ? { sites, selectedId: sites[0]?.id ?? null } : { sites }
+            if (!rows) return { sites }
+            // 🔴 SINCRONIZAR NÃO É ESCOLHER. Aqui havia `selectedId: sites[0]?.id ?? null`,
+            // incondicional — todo `pull()` jogava fora a obra que a pessoa tinha clicado e punha
+            // a primeira da lista no lugar. E `sites[0]` é GARANTIDAMENTE outra: `pullTable`
+            // ordena por `created_at DESC` (é a obra cadastrada mais recentemente) e `mergePull`
+            // empurra para o FIM os registros com op pendente — ou seja, justamente a obra que
+            // acabou de ser editada.
+            //
+            // O estrago não era visual. Com o `pull()` disparando sozinho o tempo todo (realtime
+            // em seis tabelas, montagem da Torre e do Gestão 360, TTL de 30 s, telas do Predial,
+            // boot), a seleção trocava no meio da digitação; o `ContratoCard` não remontava; e o
+            // "Salvar" gravava o contrato da obra A dentro da obra B — contrato inteiro, com
+            // serviços, faturamentos e de-para junto. Ver o teste 🔴 em `torreSelecao.test.ts`.
+            //
+            // A pré-seleção inicial fica (útil para quem tem uma obra só): só se reseleciona
+            // quando não há seleção, ou quando a obra selecionada sumiu da lista.
+            return { sites, selectedId: proximaSelecao(s.selectedId, sites) }
           })
           set({ syncStatus: 'idle', lastSyncedAt: new Date().toISOString() })
         },

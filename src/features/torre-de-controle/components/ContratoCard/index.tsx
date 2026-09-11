@@ -189,9 +189,9 @@ export function ContratoCard({ site }: { site: ConstructionSite }) {
         ))}
       </div>
 
-      {aba === 'resumo'     && <AbaResumo contrato={contrato} valores={valores} subtotais={sub} salvar={salvar} />}
-      {aba === 'composicao' && <AbaComposicao contrato={contrato} medidoAuto={medidoAuto} salvar={salvar} />}
-      {aba === 'medicoes'   && <AbaMedicoes contrato={contrato} resumo={fat} hoje={hoje} salvar={salvar} />}
+      {aba === 'resumo'     && <AbaResumo contrato={contrato} obraId={site.id} valores={valores} subtotais={sub} salvar={salvar} />}
+      {aba === 'composicao' && <AbaComposicao contrato={contrato} obraId={site.id} medidoAuto={medidoAuto} salvar={salvar} />}
+      {aba === 'medicoes'   && <AbaMedicoes contrato={contrato} obraId={site.id} resumo={fat} hoje={hoje} salvar={salvar} />}
       {aba === 'documentos' && <AbaDocumentos contrato={contrato} salvar={salvar} />}
       {aba === 'depara'     && <AbaDeParaWcr contrato={contrato} salvar={salvar} siteId={site?.id} />}
     </div>

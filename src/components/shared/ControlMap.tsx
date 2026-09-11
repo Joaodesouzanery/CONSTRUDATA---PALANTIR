@@ -122,9 +122,24 @@ const SVG_CAPACETE =
 const LARGURA_ROTULO = 150
 const LARGURA_ICONE = 28
 
-function makeSiteIcon(site: ConstructionSite, selected: boolean) {
+/** O zoom a partir do qual cabe o nome inteiro. Abaixo dele os rótulos se empilham. */
+export const ZOOM_ROTULO_INTEIRO = 11
+
+/**
+ * ⚠️ O nome continua SEMPRE visível — foi pedido explícito, e é o que faz o mapa não parecer vazio.
+ * O que muda com o zoom é o TAMANHO do rótulo: enquadrando obras distantes, quatro chips de 150px
+ * viram uma pilha ilegível. Longe mostra o código da obra (ou a primeira palavra do nome); perto,
+ * o nome inteiro. Nenhum pino fica anônimo em zoom nenhum.
+ */
+function rotuloDaObra(site: ConstructionSite, compacto: boolean): string {
+  if (!compacto) return site.name.length > 22 ? `${site.name.slice(0, 21)}…` : site.name
+  const curto = site.code?.trim() || site.name.trim().split(/\s+/)[0] || site.name
+  return curto.length > 12 ? `${curto.slice(0, 11)}…` : curto
+}
+
+function makeSiteIcon(site: ConstructionSite, selected: boolean, compacto = false) {
   const color = SITE_STATUS_COLOR[site.status]
-  const label = site.name.length > 22 ? `${site.name.slice(0, 21)}…` : site.name
+  const label = rotuloDaObra(site, compacto)
   const glow = selected ? `0 0 0 3px ${color}55, 0 0 12px ${color}90` : '0 2px 6px rgba(0,0,0,0.6)'
 
   // ⚠️ `white-space:nowrap` + largura no ROTULO (não no capacete): sem isso o nome quebrava letra a
@@ -299,22 +314,35 @@ function temCoordenada(r: { lat?: number | null; lng?: number | null }): boolean
  *  - **não enquadra se já há obra selecionada** — quem abriu numa obra quer ficar nela;
  *  - **obra única vai a zoom 15**, não ao máximo: `fitBounds` de um ponto só aproxima até a calçada.
  */
-function EnquadrarAoAbrir({ pontos, selecionado }: {
+/**
+ * 🔴 Aqui havia `if (jaEnquadrou.current || selecionado) return`, e esse `|| selecionado` era o
+ * motivo de o mapa da Torre abrir mostrando um ícone só.
+ *
+ * O store marca a primeira obra da lista como selecionada sozinho, sem ninguém clicar. Com isso o
+ * `fitBounds` NUNCA rodava na Torre, e quem enquadrava era o `setView(..., zoom 11)` do
+ * `MarkerLayer` — 15 km de raio em cima da primeira obra. No Gestão 360, que não passa
+ * `selectedSiteId`, o enquadramento sempre funcionou: foi o que denunciou o gatilho.
+ *
+ * ⚠️ Seleção automática do store não é escolha do usuário, e não pode suprimir o enquadramento.
+ * Quem quiser focar numa obra clica nela — e aí é o `MarkerLayer` que centraliza, só quando a
+ * seleção MUDA de verdade.
+ */
+function EnquadrarAoAbrir({ pontos }: {
   pontos: Array<{ lat?: number | null; lng?: number | null }>
-  selecionado: string | null
 }) {
   const map = useMap()
   const jaEnquadrou = useRef(false)
 
   useEffect(() => {
-    if (jaEnquadrou.current || selecionado) return
+    if (jaEnquadrou.current) return
     const validos = pontos.filter(temCoordenada)
     if (validos.length === 0) return
     jaEnquadrou.current = true
     try {
       map.invalidateSize()
       if (validos.length === 1) {
-        map.setView([validos[0].lat!, validos[0].lng!], 15)
+        // 15 é calçada — mostra a esquina e nada em volta. 14 dá o bairro, que é o que orienta.
+        map.setView([validos[0].lat!, validos[0].lng!], 14)
       } else {
         map.fitBounds(
           L.latLngBounds(validos.map((p) => [p.lat!, p.lng!] as [number, number])),
@@ -324,7 +352,7 @@ function EnquadrarAoAbrir({ pontos, selecionado }: {
     } catch (err) {
       console.warn('[ControlMap] enquadramento inicial falhou:', err)
     }
-  }, [map, pontos, selecionado])
+  }, [map, pontos])
 
   return null
 }
@@ -355,6 +383,16 @@ function MarkerLayer({
   const projectMarkers = useRef<Map<string, L.Marker>>(new Map())
   const siteMarkers = useRef<Map<string, L.Marker>>(new Map())
 
+  // O zoom corrente, para o rótulo encurtar quando afasta. `zoomend` e não `zoom`: durante a
+  // animação o valor muda dezenas de vezes e recriar o ícone a cada quadro trava o mapa.
+  const [zoom, setZoom] = useState(() => { try { return map.getZoom() } catch { return 5 } })
+  useEffect(() => {
+    const aoTerminar = () => setZoom(map.getZoom())
+    map.on('zoomend', aoTerminar)
+    return () => { map.off('zoomend', aoTerminar) }
+  }, [map])
+  const rotuloCompacto = zoom < ZOOM_ROTULO_INTEIRO
+
   /**
    * ⚠️ O AGRUPAMENTO SAIU.
    *
@@ -362,8 +400,10 @@ function MarkerLayer({
    * oito obras de Brasília em zoom baixo. Foi removido a pedido: ele escondia justamente o que a
    * tela existe para mostrar — quais obras, e onde.
    *
-   * O que continua resolvendo a sobreposição: `EnquadrarAoAbrir` já abre o mapa com `fitBounds`
-   * nas obras, num zoom em que elas se separam, e o nome só aparece a partir do zoom 11.
+   * O que continua resolvendo a sobreposição: `EnquadrarAoAbrir` abre o mapa com `fitBounds` nas
+   * obras, e o rótulo ENCURTA abaixo do zoom 11 (`rotuloDaObra`) — mostra o código da obra em vez
+   * do nome inteiro. ⚠️ Aqui dizia "o nome só aparece a partir do zoom 11"; isso deixou de ser
+   * verdade quando o rótulo passou a ser sempre visível, e o comentário ficou mentindo.
    *
    * O marcador vai direto ao mapa (`marker.addTo(map)`) — o caminho alternativo já existia.
    */
@@ -402,19 +442,28 @@ function MarkerLayer({
     }
 
     sync(projectMarkers.current, showProjects ? projects : [], (p) => makeProjectIcon(p, p.id === selectedProjectId), onProjectSelect)
-    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId || destacados.has(s.id)), (id) => onSiteSelect?.(id))
-  }, [map, destacados, onProjectSelect, onSiteSelect, projects, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
+    sync(siteMarkers.current, showSites ? sites : [], (s) => makeSiteIcon(s, s.id === selectedSiteId || destacados.has(s.id), rotuloCompacto), (id) => onSiteSelect?.(id))
+  }, [map, destacados, onProjectSelect, onSiteSelect, projects, rotuloCompacto, selectedProjectId, selectedSiteId, showProjects, showSites, sites])
 
+  /**
+   * ⚠️ Centraliza SÓ quando a seleção muda — a guarda `prevId` que o `EquipmentMap` já usa.
+   *
+   * Sem ela este efeito dependia de `projects`/`sites`, que trocam de identidade a cada `pull()`.
+   * Resultado: ele recentralizava no boot e a cada sincronização, atropelando o enquadramento
+   * inicial e qualquer zoom que a pessoa tivesse dado.
+   */
+  const ultimaSelecao = useRef<string | null>(null)
   useEffect(() => {
-    const targetProject = projects.find((p) => p.id === selectedProjectId)
-    const targetSite = sites.find((s) => s.id === selectedSiteId)
-    const target = targetProject ?? targetSite
-    if (target?.lat != null && target.lng != null) {
-      try {
-        map.setView([target.lat, target.lng], Math.max(map.getZoom(), 11), { animate: true })
-      } catch (error) {
-        console.warn('[ControlMap] setView ignored', error)
-      }
+    const id = selectedProjectId ?? selectedSiteId
+    if (id === ultimaSelecao.current) return
+    ultimaSelecao.current = id
+    if (!id) return
+    const target = projects.find((p) => p.id === selectedProjectId) ?? sites.find((s) => s.id === selectedSiteId)
+    if (target?.lat == null || target.lng == null) return
+    try {
+      map.setView([target.lat, target.lng], Math.max(map.getZoom(), 11), { animate: true })
+    } catch (error) {
+      console.warn('[ControlMap] setView ignored', error)
     }
   }, [map, projects, selectedProjectId, selectedSiteId, sites])
 
@@ -734,7 +783,6 @@ export function ControlMap({
           <ZoomControl position="bottomleft" />
           <EnquadrarAoAbrir
             pontos={[...(showSites ? sitesVisiveis : []), ...(showProjects ? filteredProjects : [])]}
-            selecionado={selectedSiteId ?? selectedProjectId}
           />
           <MarkerLayer
             projects={filteredProjects}

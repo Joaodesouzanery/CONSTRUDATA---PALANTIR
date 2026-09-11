@@ -27,7 +27,9 @@ const CATEGORIAS: { v: ObraItemCategoria; label: string }[] = [
   { v: 'equipamento', label: 'Equipamento' },
 ]
 
-export function AbaComposicao({ contrato, medidoAuto, salvar }: {
+export function AbaComposicao({ contrato, medidoAuto, salvar, obraId }: {
+  /** A obra dona deste contrato. Só serve de gatilho para o reset acima. */
+  obraId: string
   contrato: ObraContrato
   medidoAuto: Map<string, number>
   salvar: (patch: Partial<ObraContrato>) => void
@@ -35,6 +37,29 @@ export function AbaComposicao({ contrato, medidoAuto, salvar }: {
   const [editando, setEditando] = useState(false)
   const [importando, setImportando] = useState(false)
   const [linhas, setLinhas] = useState<ObraContratoServico[]>([])
+
+  /**
+   * ⚠️ CINTO E SUSPENSÓRIO, e o suspensório é este.
+   *
+   * O `ContratoCard` é montado com `key={site.id}`, então trocar de obra já remonta esta aba. Isto
+   * existe porque `key` é fácil de alguém remover num refactor sem entender o que segurava — e o
+   * preço do descuido aqui é o contrato de um cliente gravado dentro do de outro.
+   *
+   * ⚠️ Ajuste DURANTE O RENDER, não num `useEffect`. Com efeito, o rascunho da obra antiga chega a
+   * renderizar um quadro antes de ser limpo — e um quadro basta para alguém clicar em Salvar.
+   * Este é o padrão que o próprio React documenta para redefinir estado quando uma prop muda.
+   *
+   * ⚠️ E o gatilho é o ID DA OBRA, não o objeto `contrato`: em obra sem contrato o pai monta
+   * `site.contrato ?? { services: [] }`, objeto novo a cada render — vigiar a identidade dele
+   * cancelaria a edição a cada tecla.
+   */
+  const [obraDoRascunho, setObraDoRascunho] = useState(obraId)
+  if (obraId !== obraDoRascunho) {
+    setObraDoRascunho(obraId)
+    setEditando(false)
+    setImportando(false)
+    setLinhas([])
+  }
 
   const itens = itensOrdenados(contrato.services ?? [])
   const sub = subtotaisComposicao(contrato.services ?? [])

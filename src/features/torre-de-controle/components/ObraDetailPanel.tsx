@@ -362,7 +362,12 @@ export function ObraDetailPanel() {
               contratado, preço por m², um editor de valor e a tabela de linhas — e logo abaixo a
               seção "Contrato & Medição". Eram o mesmo objeto em três níveis: o teto, como o teto
               foi formado, e o que já virou nota. Agora são abas de um card só. */}
-          <ContratoCard site={site} />
+          {/* ⚠️ `key` OBRIGATÓRIA, e ela segura dado de cliente. Sem ela o card NÃO remonta ao
+              trocar de obra: as abas guardam o rascunho em `useState` semeado só ao abrir, então o
+              formulário continua na tela com os números da obra anterior enquanto a prop já é
+              outra — e o "Salvar" grava o contrato de uma dentro da outra. Ver
+              `torreDeControleStore.pull`. */}
+          <ContratoCard key={site.id} site={site} />
 
           {/* Marcos */}
           {(site.planningMilestones?.length || site.executionMilestones?.length) ? (
