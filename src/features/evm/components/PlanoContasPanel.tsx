@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Pencil, Plus, Receipt, Trash2, Package, Wrench, Users, FileText, X, TrendingUp, ArrowRight } from 'lucide-react'
 import { useEvmStore } from '@/store/evmStore'
-import { obraBacFromSite, vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
+import { ehLinhaTotal, obraBacFromSite, vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { formatCurrency } from '@/lib/utils'
@@ -621,10 +621,16 @@ const ROTULO_ORIGEM: Record<string, string> = {
   cadastro: 'Campo “Orçamento” do cadastro — sem contrato',
 }
 
-/** A mesma cascata de `obraBacFromSite`, só que dizendo QUAL degrau respondeu. */
+/**
+ * A mesma cascata de `obraBacFromSite`, só que dizendo QUAL degrau respondeu.
+ *
+ * Reaproveita `ehLinhaTotal` de `obraBudget.ts` em vez de duplicar o regex — uma cópia solta
+ * aqui já tinha ficado dessincronizada da exclusão de linha derivada (Saldo/Resultado) que o
+ * `obraBacFromSite` ganhou.
+ */
 function origemDoBac(site: ConstructionSite): keyof typeof ROTULO_ORIGEM {
   if (valoresDoContrato(site.contrato).total > 0) return 'contrato'
   const lines = site.budgetLines ?? []
-  if (lines.length) return lines.some((l) => /^\s*total\s*(geral)?\s*$/i.test(l.label ?? '')) ? 'total' : 'linhas'
+  if (lines.length) return lines.some((l) => ehLinhaTotal(l.label)) ? 'total' : 'linhas'
   return 'cadastro'
 }

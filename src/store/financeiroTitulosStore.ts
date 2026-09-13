@@ -13,8 +13,8 @@ import { useAuth } from '@/lib/auth'
 import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { hojeLocalISO } from '@/lib/utils'
-import { seededId } from '@/lib/seededId'
-import type { FinanceiroTitulo, FinanceiroEntry, EntradaCategoria, SaidaCategoria, TituloTipo, TituloAnexo } from '@/types'
+import { baixaCategoria, criarEntryDaBaixa } from '@/features/financeiro/utils/criarEntryDaBaixa'
+import type { FinanceiroTitulo, EntradaCategoria, SaidaCategoria, TituloTipo, TituloAnexo } from '@/types'
 
 /** Entrada do cadastro de um boleto (a aba "Boletos" cria N títulos-parcela a partir disto). */
 export interface BoletoInput {
@@ -46,12 +46,6 @@ function tituloToRow(t: FinanceiroTitulo, orgId: string, userId: string) {
     payload:         t as unknown as Record<string, unknown>,
     created_by:      userId,
   }
-}
-
-/** Categoria default do lançamento gerado na baixa, por tipo. */
-function baixaCategoria(t: FinanceiroTitulo): EntradaCategoria | SaidaCategoria {
-  if (t.categoria) return t.categoria
-  return t.tipo === 'receber' ? 'medicao' : 'outro'
 }
 
 interface FinanceiroTitulosState {
@@ -204,7 +198,8 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         },
 
         // Upsert idempotente por id — local replace-or-add + insert op (que é upsert
-        // onConflict id no servidor). Usado p/ cobranças de rateio (ids aleatórios novos).
+        // onConflict id no servidor). Usado p/ cobranças de rateio (ids aleatórios novos) e pelo
+        // extrato de faturamento da obra (nota "Recebido" vira título já `pago`).
         upsertTitulos: (titulos) => {
           if (titulos.length === 0) return
           const ids = new Set(titulos.map((t) => t.id))
@@ -213,6 +208,10 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
             pendingSync: [...s.pendingSync, ...titulos.map(enqueueInsert)],
           }))
           void get().flush()
+          // Reparo automático: título que chega já `pago` mas sem lançamento (nota que nasceu
+          // "Recebido") não pode ficar órfão — a mesma lógica da baixa manual, sem depender de
+          // ninguém clicar em nada. `baixarTitulo` é idempotente por `entryId`.
+          for (const t of titulos) if (t.status === 'pago' && !t.entryId) get().baixarTitulo(t.id, { dataPagamento: t.dataPagamento })
         },
 
         // ── Boletos ──────────────────────────────────────────────────────
@@ -297,34 +296,21 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
 
         baixarTitulo: (id, opts) => {
           const t = get().titulos.find((x) => x.id === id)
-          if (!t || t.status === 'pago') return
+          // A guarda é por LANÇAMENTO existente, não por status: um título que já nasceu
+          // `pago` (nota do extrato marcada "Recebido" — ver `titulosDoFaturamento`) mas sem
+          // `entryId` não foi baixado ainda, é órfão. Bloquear por `status === 'pago'` escondia
+          // esse caso para sempre — a receita nunca chegava ao Fluxo/DRE.
+          if (!t || t.entryId) return
           // Data LOCAL: com toISOString (UTC), uma baixa às 22h do dia 31 caía no mês
           // seguinte — e é essa data que define a competência do lançamento na DRE.
-          const dataPagamento = opts?.dataPagamento ?? hojeLocalISO()
-          // Id DERIVADO do título, não sorteado. Com `crypto.randomUUID()`, dar baixa no mesmo
-          // título em dois dispositivos criava DOIS lançamentos no Fluxo/DRE — e como o payload
-          // do título é último-a-escrever-vence, só um `entryId` sobrevivia: o outro lançamento
-          // virava fantasma somando para sempre, sem nenhuma forma de removê-lo pela interface.
-          // Derivado, os dois lados chegam ao mesmo id e o segundo upsert regrava a mesma linha.
-          const entryId = seededId(ctxAuth().orgId, 'baixa-titulo', id)
-          const entry: FinanceiroEntry = {
-            id: entryId,
-            tipo: t.tipo === 'pagar' ? 'saida' : 'entrada',
-            descricao: t.descricao,
-            valor: t.valor,
-            data: dataPagamento,
-            categoria: baixaCategoria(t),
-            referencia: t.numeroDoc,
-            obraId: t.obraId,
-            // Vínculo explícito com o título de origem: sem ele um lançamento órfão é
-            // irrastreável, e é o que permite a rede de segurança (índice único) no banco.
-            sourceTituloId: id,
-            createdAt: new Date().toISOString(),
-          }
+          // Título que já tem `dataPagamento` própria (nasceu pago) preserva a dele — é
+          // a competência real do recebimento, não a data em que o reparo rodou.
+          const dataPagamento = opts?.dataPagamento ?? t.dataPagamento ?? hojeLocalISO()
+          const entry = criarEntryDaBaixa(t, ctxAuth().orgId, dataPagamento)
           // respectObra: a baixa reflete a obra do TÍTULO (inclusive "sem obra") —
           // não deve herdar a obra ativa do contexto.
           useFinanceiroStore.getState().addEntry(entry, { respectObra: true })
-          get().updateTitulo(id, { status: 'pago', dataPagamento, entryId })
+          get().updateTitulo(id, { status: 'pago', dataPagamento, entryId: entry.id })
         },
 
         desfazerBaixa: (id) => {
@@ -376,14 +362,18 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
 
         pull: async () => {
           const rows = await pullTable<{ payload: FinanceiroTitulo }>(TABLE)
+          const merged = mergePull(rows?.map((r) => r.payload) ?? null, get().titulos, get().pendingSync, TABLE)
           set((s) => ({
-            titulos: mergePull(rows?.map((r) => r.payload) ?? null, s.titulos, s.pendingSync, TABLE),
+            titulos: merged,
             // O pull roda logo depois do flush e agora roda SEMPRE (inclusive com fila cheia).
             // Zerar o status aqui apagaria o diagnóstico do flush que acabou de falhar — e é
             // justamente com op presa que o usuário precisa ver o motivo. Mantém enquanto sobrar fila.
             syncStatus:   s.pendingSync.length > 0 && (s.syncStatus === 'error' || s.syncStatus === 'offline') ? s.syncStatus : 'idle',
             lastSyncedAt: new Date().toISOString(),
           }))
+          // Repara título já corrompido em produção (pago sem entryId) assim que ele chega por
+          // sync — sem isso, um caso anterior ao conserto nunca sararia sozinho neste aparelho.
+          for (const t of merged) if (t.status === 'pago' && !t.entryId) get().baixarTitulo(t.id, { dataPagamento: t.dataPagamento })
         },
       }
     },

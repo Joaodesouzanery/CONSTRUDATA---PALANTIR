@@ -8,7 +8,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, Building2 } from 'lucide-react'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useRdoStore } from '@/store/rdoStore'
 import { vigenciaDaObra } from '@/features/torre-de-controle/utils/obraBudget'
+import { producaoDaObra } from '../utils/producaoPorObra'
 import { FinanceiroFilterBar } from './FinanceiroFilterBar'
 import {
   filterEntries, monthlySeries, catLabel, fmtBRL, fmtBRLcompact, fmtPct, monthLabel, num, presetDePeriodo,
@@ -24,6 +26,7 @@ import { OQueE } from '@/components/shared/OQueE'
 export function VisaoGeralPanel() {
   const entries = useFinanceiroStore((s) => s.entries)
   const sites = useTorreStore((s) => s.sites)
+  const rdos = useRdoStore((s) => s.rdos)
   /**
    * ⚠️ Nasce no MÊS CORRENTE, não em `{}`.
    *
@@ -65,7 +68,25 @@ export function VisaoGeralPanel() {
   // Quebra por categoria (separando entrada/saída)
   const porCatEntrada = aggregate(filtered.filter((e) => e.tipo === 'entrada'), (e) => e.categoria)
   const porCatSaida = aggregate(filtered.filter((e) => e.tipo === 'saida'), (e) => e.categoria)
-  const porObra = aggregateObra(filtered)
+
+  /**
+   * "Produzido" (valor medido contra o contrato, esteja faturado ou não) é ACUMULADO — não tem
+   * como recortar pelo período da tela, porque `qtdMedidaOverride` não carrega data nenhuma. Por
+   * isso o custo que ele compara também é o TOTAL da obra (todo o histórico), não o do filtro —
+   * misturar um número acumulado com um custo recortado inflaria o resultado artificialmente
+   * conforme o período escolhido encolhesse.
+   */
+  const custoTotalPorObra = new Map<string, number>()
+  for (const e of entries) {
+    if (e.tipo !== 'saida') continue
+    const k = e.obraId ?? '__none__'
+    custoTotalPorObra.set(k, (custoTotalPorObra.get(k) ?? 0) + num(e.valor))
+  }
+  const porObra = aggregateObra(filtered).map((o) => {
+    const { produzido } = producaoDaObra(sites.find((s) => s.id === o.obraId), rdos)
+    const custoTotal = custoTotalPorObra.get(o.obraId ?? '__none__') ?? 0
+    return { ...o, produzido, resultadoProduzido: produzido == null ? null : produzido - custoTotal }
+  })
 
   return (
     <div className="p-6 space-y-5 overflow-auto">
@@ -133,19 +154,29 @@ export function VisaoGeralPanel() {
             </Card>
           </div>
 
-          {/* Resultado por obra */}
+          {/* Resultado por obra — faturado (período do filtro) e produzido (total do contrato) lado a lado. */}
           {porObra.length > 0 && (
             <Card title="Resultado por obra">
-              <div className="space-y-2.5">
+              <div className="mb-3 flex items-center gap-1.5">
+                <p className="text-[10px] text-[#6b6b6b]">Faturado × Produzido, por obra</p>
+                <OQueE titulo="Faturado × Produzido" explicacao={{
+                  oQueE: '"Faturado − custo" é o que já virou nota, no período escolhido acima. "Produzido − custo" é o quanto do contrato já foi MEDIDO, esteja faturado ou não — o trabalho feito e ainda não cobrado.',
+                  deOndeVem: 'Faturado vem dos lançamentos de Entradas/Saídas, recortado pelo período do filtro. Produzido vem da mesma conta da aba Contrato → Medições, acumulado desde o início — por isso o custo ao lado dele também é o total da obra, não o do período.',
+                  oQueFalta: 'Obra sem contrato ou sem serviço cadastrado mostra "—" em Produzido: não há preço nenhum para calcular contra, e zero seria lido como "não produziu nada".',
+                }} />
+              </div>
+              <div className="space-y-3.5">
                 {porObra.map((o) => {
                   const max = Math.max(...porObra.map((x) => Math.abs(x.resultado)), 1)
                   const pct = (Math.abs(o.resultado) / max) * 100
                   const positive = o.resultado >= 0
+                  const temProducao = o.produzido != null
+                  const positiveProduzido = temProducao && o.resultadoProduzido! >= 0
                   return (
-                    <div key={o.obraId ?? 'none'}>
+                    <div key={o.obraId ?? 'none'} className="border-b border-[#3d3d3d] pb-3 last:border-0 last:pb-0">
                       <div className="flex items-center justify-between text-[11px] mb-1">
                         <span className="text-white flex items-center gap-1.5"><Building2 size={11} className="text-[#6b6b6b]" />{siteName(o.obraId)}</span>
-                        <span className={positive ? 'text-emerald-400' : 'text-red-400'}>{fmtBRL(o.resultado)}</span>
+                        <span className={positive ? 'text-emerald-400' : 'text-red-400'}>Faturado {fmtBRL(o.resultado)}</span>
                       </div>
                       <div className="h-2.5 bg-[#2c2c2c] rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: positive ? '#22c55e' : '#ef4444' }} />
@@ -154,6 +185,21 @@ export function VisaoGeralPanel() {
                         <span>Entradas {fmtBRLcompact(o.entradas)}</span>
                         <span>Saídas {fmtBRLcompact(o.saidas)}</span>
                       </div>
+
+                      <div className="mt-2 flex items-center justify-between text-[11px]">
+                        <span className="text-[#6b6b6b]">Produzido (total do contrato)</span>
+                        {temProducao ? (
+                          <span className={positiveProduzido ? 'text-emerald-400' : 'text-red-400'}>{fmtBRL(o.resultadoProduzido!)}</span>
+                        ) : (
+                          <span className="text-[#6b6b6b]" title="Obra sem contrato ou sem serviço cadastrado">— sem contrato cadastrado</span>
+                        )}
+                      </div>
+                      {temProducao && (
+                        <div className="flex justify-between text-[10px] text-[#6b6b6b] mt-0.5">
+                          <span>Medido {fmtBRLcompact(o.produzido!)}</span>
+                          <span>Custo total {fmtBRLcompact(custoTotalPorObra.get(o.obraId ?? '__none__') ?? 0)}</span>
+                        </div>
+                      )}
                     </div>
                   )
                 })}

@@ -198,7 +198,16 @@ export function PagamentosPanel() {
                       {podeEscrever && (
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                           {isPago ? (
-                            <button onClick={() => desfazerBaixa(t.id)} title="Desfazer baixa" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-amber-400"><RotateCcw size={13} /></button>
+                            <>
+                              {/* Reparo manual: título nasceu "pago" (ex.: nota do extrato marcada
+                                  Recebido) mas o lançamento não foi gerado. O reparo automático já
+                                  cobre isso ao sincronizar — este botão é a rede de segurança para
+                                  o caso que escapar dele. */}
+                              {!t.entryId && (
+                                <button onClick={() => baixarTitulo(t.id)} title="Lançamento ausente — clique para gerar" className="p-1 rounded text-amber-400 hover:bg-amber-500/20"><AlertTriangle size={13} /></button>
+                              )}
+                              <button onClick={() => desfazerBaixa(t.id)} title="Desfazer baixa" className="p-1 rounded text-[#a3a3a3] hover:bg-white/10 hover:text-amber-400"><RotateCcw size={13} /></button>
+                            </>
                           ) : (
                             <button onClick={() => setBaixaId(t.id)} title="Dar baixa (registrar pagamento)" className="p-1 rounded text-emerald-400 hover:bg-emerald-500/20"><Check size={14} /></button>
                           )}

@@ -30,7 +30,12 @@ export function obraBacFromSite(site?: ConstructionSite | null): number {
   const lines = site?.budgetLines ?? []
   if (lines.length) {
     const total = lines.find((l) => ehLinhaTotal(l.label))
-    return total ? (total.amount || 0) : lines.reduce((s, l) => s + (l.amount || 0), 0)
+    if (total) return total.amount || 0
+    // Sem linha 'Total': soma as categorias, mas NUNCA uma linha derivada (Saldo/Resultado) —
+    // ela já é a diferença de outras linhas, e somá-la junto conta o mesmo dinheiro duas vezes.
+    // Foi assim que uma obra com "Faturamento previsto" + "Despesas previstas" + "Saldo líquido
+    // de referência" (sem linha Total) virou um BAC de R$ 667 mil sem sentido nenhum.
+    return lines.reduce((s, l) => (ehLinhaDerivada(l.label) ? s : s + (l.amount || 0)), 0)
   }
   return Number(site?.orcamentoBRL) || 0
 }
@@ -41,8 +46,17 @@ export function obraBacFromSite(site?: ConstructionSite | null): number {
  * Com o teste antigo, uma linha "Total de materiais" seria confundida com o total geral e
  * sequestraria o BAC da obra: o Planejamento passaria a planejar contra o valor do material.
  */
-function ehLinhaTotal(label: string): boolean {
+export function ehLinhaTotal(label: string): boolean {
   return /^\s*total\s*(geral)?\s*$/i.test(label ?? '')
+}
+
+/**
+ * Linha cujo valor É a diferença/consequência de outras linhas (Saldo, Resultado, Lucro,
+ * Margem) — não uma categoria de custo/receita a somar. Some-a junto com as que a compõem e o
+ * total dobra a conta.
+ */
+export function ehLinhaDerivada(label: string): boolean {
+  return /saldo|resultado|lucro|margem/i.test(label ?? '')
 }
 
 /** Atualiza (ou cria) a linha 'Total' do orçamento, preservando as demais categorias. */

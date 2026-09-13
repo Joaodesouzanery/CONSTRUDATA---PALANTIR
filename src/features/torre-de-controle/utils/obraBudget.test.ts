@@ -105,4 +105,20 @@ describe('obraBacFromSite — a fonte única do orçamento', () => {
     }))
     assert.equal(bac, 100000, 'senão o BAC da obra viraria o valor do material')
   })
+
+  /**
+   * 🔴 O defeito real, medido na obra Brasal Inc24 (Compizzo): sem linha Total, a soma cega
+   * incluía "Saldo líquido de referência" — que já É Faturamento − Despesas — dando
+   * R$ 667.299,36 em vez de um BAC com sentido.
+   */
+  it('linha derivada (Saldo/Resultado/Lucro/Margem) não entra na soma', () => {
+    const bac = obraBacFromSite(obra({
+      budgetLines: [
+        { label: 'Faturamento total previsto', amount: 489586.06, projected: 489586.06 },
+        { label: 'Despesas totais previstas', amount: 143089.07, projected: 143089.07 },
+        { label: 'Saldo líquido de referência', amount: 34624.23, projected: 34624.23 },
+      ],
+    }))
+    assert.equal(bac, 632675.13, 'somar as três dá 667.299,36 — Saldo já é a diferença das outras duas')
+  })
 })
