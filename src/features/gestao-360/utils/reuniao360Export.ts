@@ -194,7 +194,7 @@ export function buildReuniao360Html(d: Reuniao360Data): string {
   ].filter(Boolean)
 
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8" />
-<title>Pauta da Reunião 360 — ${esc(d.obraLabel)}</title>
+<title>Informações da Reunião 360 — ${esc(d.obraLabel)}</title>
 <style>${CSS}</style>
 <!-- Depois do CSS principal: a @page daqui precisa vencer a margem declarada lá. -->
 <style>${pageFooterCss(`Reunião 360 · ${d.obraLabel} · ${d.periodoRotulo} · ${d.empresa}${d.demo ? ' · DEMONSTRAÇÃO' : ''}`)}</style></head><body>
@@ -204,7 +204,7 @@ ${d.demo ? '<div class="demo-wm"><span>DEMONSTRAÇÃO</span></div>' : ''}
 <header class="head">
   <div class="head-mark">${marca}</div>
   <div>
-    <h1>Pauta da Reunião 360</h1>
+    <h1>Informações da Reunião 360</h1>
     <div class="head-sub">${esc(d.obraLabel)} · ${esc(d.periodoRotulo)}</div>
   </div>
   <div class="head-right">
@@ -255,7 +255,7 @@ export function openReuniaoWindow(): Window | null {
   const win = window.open('', '_blank')
   if (!win) return null
   win.document.open()
-  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Gerando a pauta…</title></head><body style="font:14px -apple-system,Segoe UI,Roboto,sans-serif;color:#334155;padding:32px">Gerando a pauta da reunião…</body></html>')
+  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Gerando as informações…</title></head><body style="font:14px -apple-system,Segoe UI,Roboto,sans-serif;color:#334155;padding:32px">Gerando as informações da reunião…</body></html>')
   win.document.close()
   return win
 }

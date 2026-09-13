@@ -74,7 +74,14 @@ export function Gestao360Page() {
 
       {/* Tab content */}
       {activeTab === 'dashboard' ? (
-        <Gestao360MapDashboard />
+        // ⚠️ Precisa do MESMO wrapper `flex-1 overflow-y-auto` que as outras abas têm: a raiz da
+        // página está travada em `overflow-hidden` (:69) para cada aba controlar seu próprio
+        // scroll. Sem este `<div>`, a aba padrão (dashboard, ver gestao360Store.ts) ficava sem
+        // NENHUMA rota de scroll — nem a página rolava (raiz travada), nem a aba (sem wrapper
+        // próprio) — e quem abria a Gestão 360 não conseguia descer a tela.
+        <div className="flex-1 overflow-y-auto">
+          <Gestao360MapDashboard />
+        </div>
       ) : activeTab === 'gestao-a-vista' ? (
         // Gestão à Vista traz o próprio cabeçalho (obra, período, botão de imprimir), então
         // renderiza full-bleed no seu próprio container de scroll.

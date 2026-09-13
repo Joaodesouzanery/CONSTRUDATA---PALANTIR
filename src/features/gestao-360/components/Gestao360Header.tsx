@@ -66,7 +66,7 @@ export function Gestao360Header() {
     (co) => co.status === 'submitted' && (!selectedProjectId || co.projectId === selectedProjectId),
   ).length
 
-  // ── Exportar a pauta ─────────────────────────────────────────────────────────
+  // ── Exportar Informações ─────────────────────────────────────────────────────
   // Os MESMOS sinais da tela: o hook é a única fonte, então o papel não pode discordar do que a
   // reunião está vendo.
   const { sinais } = useSinais360({ periodo, siteId: activeObraId })
@@ -112,7 +112,7 @@ export function Gestao360Header() {
     }
   }
 
-  function exportarPauta() {
+  function exportarInformacoes() {
     // A janela precisa abrir SÍNCRONA no clique — depois de um `await` o browser bloqueia.
     const win = openReuniaoWindow()
     const dados = montarDados()
@@ -151,11 +151,11 @@ export function Gestao360Header() {
       <div className="flex flex-wrap items-center gap-2">
         <PeriodoSelector valor={periodo} onChange={setPeriodo} />
         <button
-          onClick={exportarPauta}
+          onClick={exportarInformacoes}
           className="ml-auto flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5]"
-          title="Gera a pauta do período em A4, para imprimir ou salvar em PDF"
+          title="Gera as informações do período em A4, para imprimir ou salvar em PDF"
         >
-          <Printer size={13} /> Exportar pauta
+          <Printer size={13} /> Exportar Informações
         </button>
       </div>
 
