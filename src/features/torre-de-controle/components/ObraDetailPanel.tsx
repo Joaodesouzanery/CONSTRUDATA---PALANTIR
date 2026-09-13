@@ -1,9 +1,14 @@
 import { useState } from 'react'
-import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, CalendarDays, CheckCircle2, Circle, Clock, Archive, ArchiveRestore } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Pencil, Plus, Trash2, AlertTriangle, MapPin, Building2, Users, Calendar, FileText, CalendarDays, CheckCircle2, Circle, Clock, Archive, ArchiveRestore, FileDown, Braces } from 'lucide-react'
+import { cn, hojeLocalISO } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { useRdoStore } from '@/store/rdoStore'
+import { useAuth } from '@/lib/auth'
 import { ContratoCard } from './ContratoCard'
 import { metragemContratada, precoMedioM2 } from '@/features/torre-de-controle/utils/obraMedicao'
+import {
+  openObraDetailWindow, printObraDetailInto, printObraDetailViaIframe, baixarObraDetailJson,
+} from '@/features/torre-de-controle/utils/obraDetailExport'
 import { formatarMetragem, temUnidadesMistas } from '@/lib/unidadesMedida'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import type { ConstructionRisk, ConstructionSite, ObraStatus, RiskLevel, RiskStatus, MilestoneStatus, ConstructionMilestone } from '@/types'
@@ -238,6 +243,8 @@ export function ObraDetailPanel() {
   const selectedId     = useTorreStore((s) => s.selectedId)
   const setEditing     = useTorreStore((s) => s.setEditing)
   const setEditingRisk = useTorreStore((s) => s.setEditingRisk)
+  const rdos           = useRdoStore((s) => s.rdos)
+  const profile        = useAuth((s) => s.profile)
 
   const updateSiteTopo = useTorreStore((s) => s.updateSite)
 
@@ -262,6 +269,33 @@ export function ObraDetailPanel() {
 
   const activeRisks   = site.risks.filter((r) => r.status === 'active').length
   const criticalRisks = site.risks.filter((r) => r.level === 'critical').length
+
+  const contextoExportacao = { hoje: hojeLocalISO(), emitidoPor: profile?.full_name || profile?.email || undefined }
+
+  /**
+   * `window.open` precisa ser SÍNCRONO no clique — depois de um `await` o navegador bloqueia.
+   * Aqui não há nada assíncrono para esperar (nenhuma foto embutida, ver `obraDetailExport.ts`),
+   * então o pop-up praticamente nunca é bloqueado; ainda assim o plano B via iframe cobre o caso
+   * de um bloqueador de terceiros mais agressivo.
+   */
+  function exportarPdf() {
+    // TS não carrega a narrowing do `if (!site) return` acima para dentro de uma closure — daí
+    // a checagem de novo aqui. Na prática nunca é `null`: os dois botões só existem depois dele.
+    if (!site) return
+    const win = openObraDetailWindow()
+    try {
+      if (win && !win.closed) printObraDetailInto(win, site, rdos, contextoExportacao)
+      else printObraDetailViaIframe(site, rdos, contextoExportacao)
+    } catch (e) {
+      win?.close()
+      alert(e instanceof Error ? e.message : 'Não foi possível gerar o relatório.')
+    }
+  }
+
+  function exportarJson() {
+    if (!site) return
+    baixarObraDetailJson(site, contextoExportacao)
+  }
 
   return (
     <div
@@ -303,6 +337,22 @@ export function ObraDetailPanel() {
           >
             {ativa ? <Archive size={11} /> : <ArchiveRestore size={11} />}
             {ativa ? 'Arquivar' : 'Reativar'}
+          </button>
+          <button
+            onClick={exportarJson}
+            title="Baixa os dados desta obra em JSON — o dado cru, sem formatação"
+            className="flex items-center gap-1 text-[11px] text-[#a3a3a3] hover:text-[#f97316] transition-colors border border-[#525252] hover:border-[#f97316]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
+          >
+            <Braces size={11} />
+            JSON
+          </button>
+          <button
+            onClick={exportarPdf}
+            title="Gera o dossiê da obra (identificação, resumo, composição, medições e documentos) para imprimir ou salvar em PDF"
+            className="flex items-center gap-1 text-[11px] text-[#a3a3a3] hover:text-[#f97316] transition-colors border border-[#525252] hover:border-[#f97316]/30 rounded-lg px-2.5 py-1.5 whitespace-nowrap"
+          >
+            <FileDown size={11} />
+            Exportar PDF
           </button>
           <button
             onClick={() => setEditing(site.id)}

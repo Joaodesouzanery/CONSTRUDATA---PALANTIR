@@ -31,6 +31,7 @@ const brl = (v: number) => (Number.isFinite(v) ? v : 0).toLocaleString('pt-BR', 
 export function CarteiraObrasPanel({ onAbrirObra }: { onAbrirObra?: (siteId: string) => void } = {}) {
   const sites = useTorreStore((s) => s.sites)
   const selectSite = useTorreStore((s) => s.selectSite)
+  const selectedId = useTorreStore((s) => s.selectedId)
   const [mostrarArquivadas, setMostrarArquivadas] = useState(false)
 
   const hoje = hojeLocalISO()
@@ -64,6 +65,18 @@ export function CarteiraObrasPanel({ onAbrirObra }: { onAbrirObra?: (siteId: str
   }, [sites, mostrarArquivadas, hoje])
 
   const semContrato = linhas.filter((l) => !l.temContrato)
+  const comContrato = linhas.filter((l) => l.temContrato)
+
+  /**
+   * A obra selecionada na Torre entra destacada, com o total dela sozinha; as demais ficam
+   * abaixo de uma linha divisória, para comparação — não é mais "a carteira inteira misturada".
+   * Sem seleção válida (nada selecionado, ou a selecionada não tem contrato — e por isso não
+   * aparece aqui), cai de volta no comportamento antigo: uma lista só, com "TOTAL" geral.
+   */
+  const linhaSelecionada = comContrato.find((l) => l.siteId === selectedId)
+  const outrasLinhas = linhaSelecionada ? comContrato.filter((l) => l.siteId !== selectedId) : comContrato
+  const totaisSelecionada = linhaSelecionada ? totaisCarteira([linhaSelecionada]) : null
+  const totaisOutras = totaisCarteira(outrasLinhas)
 
   function exportarCsv() {
     const cab = ['Obra', 'Servico', 'Material', 'Entrada', 'Faturado', 'Saldo do servico', 'Retencao tecnica', 'A receber']
@@ -139,7 +152,47 @@ export function CarteiraObrasPanel({ onAbrirObra }: { onAbrirObra?: (siteId: str
               </tr>
             </thead>
             <tbody>
-              {linhas.filter((l) => l.temContrato).map((l) => (
+              {/* A obra selecionada na Torre entra destacada, com o total dela sozinha — não
+                  misturada com as demais. */}
+              {linhaSelecionada && totaisSelecionada && (
+                <>
+                  <tr>
+                    <td colSpan={7} className="pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-[#f97316]">
+                      Obra selecionada
+                    </td>
+                  </tr>
+                  <tr onClick={() => { selectSite(linhaSelecionada.siteId); onAbrirObra?.(linhaSelecionada.siteId) }}
+                    className="cursor-pointer border-t border-[#f97316]/40 bg-[#f97316]/5 hover:bg-[#f97316]/10">
+                    <td className="py-1.5 pr-2 font-semibold text-[#f5f5f5]">{linhaSelecionada.nome}</td>
+                    <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{brl(linhaSelecionada.servico)}</td>
+                    <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{linhaSelecionada.material > 0 ? brl(linhaSelecionada.material) : '—'}</td>
+                    <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{linhaSelecionada.entrada != null ? brl(linhaSelecionada.entrada) : '—'}</td>
+                    <td className="py-1.5 text-right font-mono text-[#f59e0b]">{brl(linhaSelecionada.faturado)}</td>
+                    <td className={`py-1.5 text-right font-mono font-bold ${linhaSelecionada.saldo < 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>{brl(linhaSelecionada.saldo)}</td>
+                    <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{linhaSelecionada.retencao > 0 ? brl(linhaSelecionada.retencao) : '—'}</td>
+                  </tr>
+                  <tr className="border-t border-[#f97316]/30 text-[11px] font-semibold">
+                    <td className="py-1.5 text-[#f97316]">Total (obra selecionada)</td>
+                    <td className="py-1.5 text-right font-mono text-[#f5f5f5]">{brl(totaisSelecionada.servico)}</td>
+                    <td className="py-1.5 text-right font-mono text-[#f5f5f5]">{brl(totaisSelecionada.material)}</td>
+                    <td className="py-1.5" />
+                    <td className="py-1.5 text-right font-mono text-[#f59e0b]">{brl(totaisSelecionada.faturado)}</td>
+                    <td className="py-1.5 text-right font-mono text-[#22c55e]">{brl(totaisSelecionada.saldo)}</td>
+                    <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{brl(totaisSelecionada.retencao)}</td>
+                  </tr>
+                </>
+              )}
+
+              {/* As demais — só para comparação/visão geral. Sem seleção válida, esta é a lista
+                  inteira, e o rótulo do total volta a ser "TOTAL" (comportamento antigo). */}
+              {linhaSelecionada && outrasLinhas.length > 0 && (
+                <tr>
+                  <td colSpan={7} className="pb-1 pt-4 text-[10px] uppercase tracking-wide text-[#6b6b6b]">
+                    Outras obras — somente para comparação/visão geral
+                  </td>
+                </tr>
+              )}
+              {outrasLinhas.map((l) => (
                 <tr key={l.siteId} onClick={() => { selectSite(l.siteId); onAbrirObra?.(l.siteId) }}
                   className="cursor-pointer border-t border-[#3d3d3d] hover:bg-[#333333]">
                   <td className="py-1.5 pr-2 font-semibold text-[#f5f5f5]">{l.nome}</td>
@@ -151,20 +204,24 @@ export function CarteiraObrasPanel({ onAbrirObra }: { onAbrirObra?: (siteId: str
                   <td className="py-1.5 text-right font-mono text-[#a3a3a3]">{l.retencao > 0 ? brl(l.retencao) : '—'}</td>
                 </tr>
               ))}
-              <tr className="border-t-2 border-[#525252] font-bold">
-                <td className="py-2 text-[#f5f5f5]">TOTAL</td>
-                <td className="py-2 text-right font-mono text-[#f5f5f5]">{brl(totais.servico)}</td>
-                <td className="py-2 text-right font-mono text-[#f5f5f5]">{brl(totais.material)}</td>
-                <td className="py-2" />
-                <td className="py-2 text-right font-mono text-[#f59e0b]">{brl(totais.faturado)}</td>
-                <td className="py-2 text-right font-mono text-[#22c55e]">{brl(totais.saldo)}</td>
-                <td className="py-2 text-right font-mono text-[#a3a3a3]">{brl(totais.retencao)}</td>
-              </tr>
-              <tr className="text-[11px] text-[#a3a3a3]">
-                <td className="pt-1" colSpan={5}>Valor Serviço Restante</td>
-                <td className="pt-1 text-right font-mono">{brl(totais.saldo)}</td>
-                <td className="pt-1 text-right font-mono" title="Garantia retida pelo cliente — dinheiro seu, liberado depois da entrega">{brl(totais.retencao)}</td>
-              </tr>
+              {(!linhaSelecionada || outrasLinhas.length > 0) && (
+                <>
+                  <tr className="border-t-2 border-[#525252] font-bold">
+                    <td className="py-2 text-[#f5f5f5]">{linhaSelecionada ? 'TOTAL (outras obras)' : 'TOTAL'}</td>
+                    <td className="py-2 text-right font-mono text-[#f5f5f5]">{brl(totaisOutras.servico)}</td>
+                    <td className="py-2 text-right font-mono text-[#f5f5f5]">{brl(totaisOutras.material)}</td>
+                    <td className="py-2" />
+                    <td className="py-2 text-right font-mono text-[#f59e0b]">{brl(totaisOutras.faturado)}</td>
+                    <td className="py-2 text-right font-mono text-[#22c55e]">{brl(totaisOutras.saldo)}</td>
+                    <td className="py-2 text-right font-mono text-[#a3a3a3]">{brl(totaisOutras.retencao)}</td>
+                  </tr>
+                  <tr className="text-[11px] text-[#a3a3a3]">
+                    <td className="pt-1" colSpan={5}>Valor Serviço Restante</td>
+                    <td className="pt-1 text-right font-mono">{brl(totaisOutras.saldo)}</td>
+                    <td className="pt-1 text-right font-mono" title="Garantia retida pelo cliente — dinheiro seu, liberado depois da entrega">{brl(totaisOutras.retencao)}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
           </table>
         )}
