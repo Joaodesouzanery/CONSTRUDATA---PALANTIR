@@ -104,3 +104,37 @@ por decisão, porque existe caso legítimo de unidade escrita solta.
 **O que acontece se alguém não souber.** Medido com item real deste cliente: `PRA` (rede de água,
 metro) mapeada em "Poço de visita pré-moldado D=1000mm", R$ 3.250,00 **por unidade**. Um dia de
 120 m vira **R$ 390.000**. Quem ignorar o aviso vermelho leva esse número adiante.
+
+---
+
+## 5. 🔴 Só DOIS caminhos fazem um título "pago" nascer com lançamento — os outros três não
+
+**O que é.** Um `FinanceiroTitulo` com `status: 'pago'` só é seguro quando também tem `entryId` —
+sem ele, a receita/despesa nunca chega ao `FinanceiroEntry`, e some do Fluxo/DRE em silêncio (foi
+exatamente o bug da nota "Recebido" que nunca virava lançamento). Hoje só **dois** dos cinco
+caminhos de escrita do store cuidam disso:
+
+- `baixarTitulo` — cria o título já com `entryId`, sempre;
+- `upsertTitulos` e `pull()` — varrem o lote recebido e REPARAM qualquer `pago` sem `entryId`
+  (chamando `baixarTitulo` de novo, que agora é idempotente por `entryId`, não por status).
+
+`addTitulo`, `addTitulos` e `updateTitulo` **não passam por esse reparo**. Nenhum deles impede
+`{ status: 'pago' }` sem `entryId` — e um título assim nasce órfão do mesmo jeito que o da nota
+"Recebido" nascia antes do conserto.
+
+**Onde mora.** `src/store/financeiroTitulosStore.ts` — a checagem boa está em `upsertTitulos` e em
+`pull()`; `addTitulo`, `addTitulos` e `updateTitulo` não têm nada parecido.
+
+**Quem hoje escapa.** Nenhum chamador atual passa `status: 'pago'` para `addTitulo`/`addTitulos`
+(todos nascem `pendente` e são baixados depois, via `baixarTitulo`). `updateTitulo` também não é
+chamado hoje com `{ status: 'pago' }` fora do próprio `baixarTitulo`/`desfazerBaixa`. É por isso que
+o bug ficou invisível até a nota "Recebido" (que passa por um caminho DIFERENTE, `upsertTitulos`)
+expor o padrão.
+
+**O que acontece se alguém não souber.** Um novo caminho de gravação (import de outra planilha,
+integração nova, edição em lote) que crie ou edite título com `status: 'pago'` direto — sem passar
+por `baixarTitulo` nem pelo reparo de `upsertTitulos`/`pull` — reabre exatamente o mesmo bug: receita
+ou despesa que a tela mostra como "paga", mas nunca vira lançamento no Fluxo/DRE. **A regra:** todo
+título que nasce ou é editado para `pago` tem que sair com `entryId` no mesmo passo — reaproveite
+`baixarTitulo`/a lógica de `upsertTitulos`, nunca grave `status: 'pago'` direto num `addTitulo*` ou
+`updateTitulo`.

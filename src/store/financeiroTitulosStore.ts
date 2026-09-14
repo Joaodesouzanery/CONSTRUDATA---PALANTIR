@@ -159,6 +159,11 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
       return {
         titulos: [],
 
+        // ⚠️ ARMADILHA #5 (docs/ARMADILHAS_CONHECIDAS.md) — `addTitulo`, `addTitulos` e
+        // `updateTitulo` NÃO reparam título que nasça/vire `status: 'pago'` sem `entryId`. Só
+        // `baixarTitulo` (sempre) e `upsertTitulos`/`pull` (reparo automático) garantem isso hoje.
+        // Se algum caminho novo aqui vier a gravar `pago` direto, reaproveite um dos dois — nunca
+        // grave `status: 'pago'` sem passar por eles.
         addTitulo: (input) => {
           const t: FinanceiroTitulo = { ...input, id: crypto.randomUUID(), status: input.status ?? 'pendente', createdAt: new Date().toISOString() }
           set((s) => ({ titulos: [t, ...s.titulos], pendingSync: [...s.pendingSync, enqueueInsert(t)] }))
