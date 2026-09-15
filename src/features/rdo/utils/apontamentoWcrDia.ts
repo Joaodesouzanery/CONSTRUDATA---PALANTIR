@@ -212,12 +212,12 @@ export interface PresencaCasada<T extends { id: string; name: string } = Worker>
  * dois candidatos aparecem lado a lado para a pessoa escolher. É esta função que impede a "falta
  * automática cega" que uma igualdade exata produziria.
  */
-export function casarPresenca<T extends { id: string; name: string; status: Worker['status'] }>(
+export function casarPresenca<T extends { id: string; name: string; role?: string; status: Worker['status'] }>(
   pessoas: Array<{ nome: string; funcao?: string }>,
   workers: T[],
 ): PresencaCasada<T>[] {
   const ativos = workers.filter(entraNaFolha)
-  return pessoas.map((p) => ({ nome: p.nome, funcao: p.funcao, veredito: casarNome(p.nome, ativos) }))
+  return pessoas.map((p) => ({ nome: p.nome, funcao: p.funcao, veredito: casarNome(p.nome, ativos, p.funcao) }))
 }
 
 /** Os ids que a máquina tem confiança para pré-marcar: exato e provável. Ambíguo fica de fora. */

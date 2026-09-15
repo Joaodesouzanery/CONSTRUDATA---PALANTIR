@@ -21,8 +21,8 @@
 import { normalizeName } from './custoMaoObra'
 
 export type Casamento<T> =
-  | { tipo: 'exato'; worker: T }
-  | { tipo: 'provavel'; worker: T }
+  | { tipo: 'exato'; worker: T; aviso?: string }
+  | { tipo: 'provavel'; worker: T; motivo?: 'nome' | 'nome-cargo' }
   | { tipo: 'ambiguo'; candidatos: T[] }
   | { tipo: 'nenhum' }
 
@@ -55,17 +55,41 @@ function cabeEm(informado: string[], cadastro: string[]): boolean {
   return true
 }
 
-export function casarNome<T extends { name: string }>(nome: string, workers: T[]): Casamento<T> {
+function familiaCargo(cargo?: string): string {
+  const c = normalizeName(cargo ?? '')
+  if (/encarreg|lider/.test(c)) return 'encarregado'
+  if (/pedreiro/.test(c)) return 'pedreiro'
+  if (/ajud|auxiliar|servente/.test(c)) return 'ajudante'
+  if (/encanador/.test(c)) return 'encanador'
+  if (/operador|motorista/.test(c)) return 'operador'
+  if (/soldador/.test(c)) return 'soldador'
+  return c.split(' ')[0] ?? ''
+}
+
+export function cargosCompativeis(informado?: string, cadastrado?: string): boolean {
+  const a = familiaCargo(informado), b = familiaCargo(cadastrado)
+  return !!a && !!b && a === b
+}
+
+export function casarNome<T extends { name: string; role?: string }>(nome: string, workers: T[], cargo?: string): Casamento<T> {
   const alvo = normalizeName(nome)
   if (!alvo) return { tipo: 'nenhum' }
 
   const exatos = workers.filter((w) => normalizeName(w.name) === alvo)
-  if (exatos.length === 1) return { tipo: 'exato', worker: exatos[0] }
+  if (exatos.length === 1) return {
+    tipo: 'exato', worker: exatos[0],
+    aviso: cargo && exatos[0].role && !cargosCompativeis(cargo, exatos[0].role)
+      ? `Cargo informado (${cargo}) diverge do cadastro (${exatos[0].role}).` : undefined,
+  }
   if (exatos.length > 1) return { tipo: 'ambiguo', candidatos: exatos }
 
   const pedacos = pedacosDoNome(nome)
   const provaveis = workers.filter((w) => cabeEm(pedacos, pedacosDoNome(w.name)))
-  if (provaveis.length === 1) return { tipo: 'provavel', worker: provaveis[0] }
+  if (provaveis.length === 1) return { tipo: 'provavel', worker: provaveis[0], motivo: 'nome' }
+  if (provaveis.length > 1 && cargo) {
+    const peloCargo = provaveis.filter((w) => cargosCompativeis(cargo, w.role))
+    if (peloCargo.length === 1) return { tipo: 'provavel', worker: peloCargo[0], motivo: 'nome-cargo' }
+  }
   if (provaveis.length > 1) return { tipo: 'ambiguo', candidatos: provaveis }
   return { tipo: 'nenhum' }
 }

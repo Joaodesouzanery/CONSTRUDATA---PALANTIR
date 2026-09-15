@@ -20,7 +20,7 @@
  * A leitura mora em `utils/apontamentoWcr.ts` (texto) e `utils/apontamentoWcrPlanilha.ts`
  * (planilha), as duas puras e testadas. Aqui só tem tela.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Save, Printer, CheckCircle2, AlertTriangle,
   Building2, ScanText, Trash2, Copy, Users,
@@ -42,10 +42,13 @@ import {
 import { lerPlanilhaWcr, type MatrizWcr } from '../utils/apontamentoWcrPlanilha'
 import {
   apontamentoParaRdo, resumoDoDia, ehListaDePresenca, parseListaDePresenca, presencaParaRdo,
-  manpowerDaPresenca, funcaoCanonica, casarPresenca, idsPreMarcados, type PresencaLida, type PresencaCasada,
+  manpowerDaPresenca, funcaoCanonica, casarPresenca, idsPreMarcados, quantidadeGuardada, type PresencaLida, type PresencaCasada,
 } from '../utils/apontamentoWcrDia'
 import type { RdoWcrData, RdoWcrPresenca, Worker } from '@/types'
 import { AreaDeSoltar } from '@/components/shared/AreaDeSoltar'
+import { LancamentoRapidoPanel } from './LancamentoRapidoPanel'
+import { casarEquipe } from '../utils/casarEquipe'
+import { tituloWcr } from '../utils/apresentacaoRdo'
 
 const MODELO = `📋 APONTAMENTO DIÁRIO — MODELO
 
@@ -74,8 +77,12 @@ CI -
 obs: qualquer coisa fora da lista escreve aqui`
 
 export function RdoWcrPanel() {
+  const [modo, setModo] = useState<'assistido' | 'rapido'>('assistido')
   const addRdo    = useRdoStore((s) => s.addRdo)
   const updateRdo = useRdoStore((s) => s.updateRdo)
+  const editingRdoId = useRdoStore((s) => s.editingRdoId)
+  const editingRdo = useRdoStore((s) => s.rdos.find((r) => r.id === s.editingRdoId))
+  const setEditingRdoId = useRdoStore((s) => s.setEditingRdoId)
   const setActiveTab = useRdoStore((s) => s.setActiveTab)
   const sites = useTorreStore((s) => s.sites)
   const activeObraId = useActiveObraStore((s) => s.activeObraId)
@@ -95,6 +102,7 @@ export function RdoWcrPanel() {
   // indistinguível de "ninguém faltou". O RdoCompizzoPanel já fazia isto.
   useStoreSync(useMaoDeObraStore)
   const workers = useMaoDeObraStore((s) => s.workers)
+  const crews = useMaoDeObraStore((s) => s.crews)
   const registerAbsence = useMaoDeObraStore((s) => s.registerAbsence)
   // ⚠️ `ROLES_RDO_WRITE` inclui `qualidade`; `ROLES_MAO_DE_OBRA_WRITE` não — e é este que espelha
   // a RLS de `worker_absences`. Sem esta checagem, o perfil de qualidade confirmava as faltas no
@@ -106,7 +114,35 @@ export function RdoWcrPanel() {
    * alguém que a lista trouxe também não some quando a lista muda.
    */
   const [decisoes, setDecisoes] = useState<Map<string, boolean>>(new Map())
+  const [equipesConfirmadas, setEquipesConfirmadas] = useState<Set<string>>(new Set())
   const [conferindoFaltas, setConferindoFaltas] = useState<Worker[] | null>(null)
+
+  useEffect(() => {
+    if (!editingRdoId || !editingRdo?.wcr) return
+    const fontes = editingRdo.wcr.apontamentos?.length ? editingRdo.wcr.apontamentos : [editingRdo.wcr]
+    setApontamentos(fontes.map((a) => ({
+      texto: a.textoOriginal ?? '',
+      lido: {
+        data: editingRdo.date, anoInferido: !!a.anoInferido, equipe: a.equipe, nucleo: a.nucleo,
+        clima: a.clima, horas: a.horas, imoveis: a.imoveis ?? [], observacoes: a.observacoes,
+        naoEntendidas: a.naoEntendidas ?? [],
+        linhas: (a.producao ?? []).map((p) => ({
+          sigla: p.sigla, unidade: p.unidade, rotulo: p.sigla,
+          bloco: ['PRE', 'LE', 'LIE', 'PV', 'PI', 'CI'].includes(p.sigla) ? 'esgoto' as const : 'agua' as const,
+          quantidade: quantidadeGuardada(p.quantidade), bruto: p.quantidade,
+        })),
+      },
+    })))
+    setPresencas((editingRdo.wcr.presencas ?? []).map((p) => ({
+      texto: p.textoOriginal ?? '',
+      lida: { data: editingRdo.date, anoInferido: false, equipe: p.equipe, pessoas: p.pessoas, naoEntendidas: [] },
+    })))
+    setObraSiteId(editingRdo.siteId ?? null)
+    setResponsavel(editingRdo.responsible)
+    setSavedId(editingRdo.id)
+  }, [editingRdoId, editingRdo])
+
+  useEffect(() => () => setEditingRdoId(null), [setEditingRdoId])
 
   const site = useMemo(() => (obraSiteId ? sites.find((s) => s.id === obraSiteId) ?? null : null), [sites, obraSiteId])
   const blocos = useMemo(() => apontamentos.map((a) => apontamentoParaRdo(a.lido, limitarTextoOriginal(a.texto))), [apontamentos])
@@ -138,6 +174,18 @@ export function RdoWcrPanel() {
    * ausentes, que é o campo que a folha lê para descontar o dia.
    */
   const houveFonteDePresenca = presencas.length > 0 || decisoes.size > 0
+  const equipesDaObra = useMemo(() => crews.filter((c) => !!obraSiteId && c.siteId === obraSiteId), [crews, obraSiteId])
+  const nomesDeEquipe = useMemo(() => [...new Set([
+    ...apontamentos.map((a) => a.lido.equipe), ...presencas.map((p) => p.lida.equipe),
+  ].filter((x): x is string => !!x?.trim()))], [apontamentos, presencas])
+  const casamentoEquipes = useMemo(() => nomesDeEquipe.map((nome) => ({ nome, resultado: casarEquipe(nome, equipesDaObra) })), [nomesDeEquipe, equipesDaObra])
+  const equipePendente = casamentoEquipes.some(({ nome, resultado }) => resultado.tipo !== 'exato' && !equipesConfirmadas.has(nome))
+  const equipeCanonica = (nome?: string) => {
+    if (!nome) return nome
+    const c = casamentoEquipes.find((x) => x.nome === nome)
+    return c?.resultado.tipo === 'exato' || (c?.resultado.tipo === 'provavel' && equipesConfirmadas.has(nome))
+      ? c.resultado.equipe.name : nome
+  }
 
   /** Quem foi marcado na tela e NÃO veio de lista colada entra como presença própria. */
   const presencaDaTela = useMemo<RdoWcrPresenca | null>(() => {
@@ -202,16 +250,20 @@ export function RdoWcrPanel() {
 
   function montarPayload(status: 'rascunho' | 'finalizado') {
     if (!lido || !dia) return null
+    const apontamentosNormalizados = blocos.map((b) => ({ ...b, equipe: equipeCanonica(b.equipe) }))
+    const presencasNormalizadas = presencasRdo.map((p) => ({ ...p, equipe: equipeCanonica(p.equipe) }))
     const wcr: RdoWcrData = {
       ...dia,
+      equipe: [...new Set(apontamentosNormalizados.map((a) => a.equipe).filter(Boolean))].join(' · ') || dia.equipe,
+      equipePendente,
       // Um apontamento só: o RDO continua com o formato antigo, sem lista — nada muda para quem lê.
-      apontamentos: blocos.length > 1 ? blocos : undefined,
-      presencas: presencasRdo.length ? presencasRdo : undefined,
+      apontamentos: apontamentosNormalizados.length > 1 ? apontamentosNormalizados : undefined,
+      presencas: presencasNormalizadas.length ? presencasNormalizadas : undefined,
       textoOriginal: blocos.length === 1 ? blocos[0].textoOriginal : undefined,
     }
     const nomeObra = site?.name ?? ''
     return {
-      title: `RDO WCR${nomeObra ? ' — ' + nomeObra : ''}${dia.nucleo ? ' · ' + dia.nucleo : ''}`,
+      title: tituloWcr([nomeObra, dia.nucleo]),
       date: lido.data || hojeLocalISO(),
       responsible: responsavel || dia.equipe || '',
       // O `Clima:` do apontamento novo alimenta o tempo do RDO (e o dia parado). Sem ele, "bom".
@@ -238,6 +290,11 @@ export function RdoWcrPanel() {
    * sozinha. Rascunho não passa por aqui: rascunho não afirma nada.
    */
   function salvar(status: 'rascunho' | 'finalizado') {
+    if (status === 'finalizado' && equipePendente) {
+      gravar('rascunho')
+      setAviso('Rascunho preservado. Confirme ou corrija todas as equipes antes de finalizar.')
+      return
+    }
     const podeConferir = status === 'finalizado'
       && obraSiteId
       && podeFalta.pode          // sem permissão, pedir confirmação do que não se pode gravar é pior que não pedir
@@ -303,8 +360,22 @@ export function RdoWcrPanel() {
     )
   }
 
+  if (modo === 'rapido') return (
+    <div>
+      <div className="flex gap-1 px-6 pt-5">
+        <button onClick={() => setModo('assistido')} className="rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#a3a3a3]">Texto / planilha</button>
+        <button className="rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white">Lançamento rápido</button>
+      </div>
+      <LancamentoRapidoPanel />
+    </div>
+  )
+
   return (
     <div className="p-6 space-y-4">
+      <div className="flex gap-1">
+        <button className="rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white">Texto / planilha</button>
+        <button onClick={() => setModo('rapido')} className="rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#a3a3a3]">Lançamento rápido</button>
+      </div>
       <header className="flex items-center gap-2">
         <ClipboardList size={20} className="text-[#f97316]" />
         <h2 className="text-lg font-semibold text-[#f5f5f5]">RDO WCR</h2>
@@ -391,6 +462,36 @@ export function RdoWcrPanel() {
           ))}
 
           {dia && blocos.length > 1 && <TotalDoDia producao={dia.producao} imoveis={dia.imoveis.length} />}
+
+          {casamentoEquipes.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-[#525252] p-3 text-xs">
+              <p className="font-semibold text-[#f5f5f5]">Conferência das equipes</p>
+              {casamentoEquipes.map(({ nome, resultado }) => (
+                <div key={nome} className="flex flex-wrap items-center gap-2 text-[#a3a3a3]">
+                  <span>“{nome}”</span>
+                  {resultado.tipo === 'exato' ? <span className="text-[#34d399]">cadastro exato</span>
+                    : resultado.tipo === 'provavel' ? <>
+                      <span className="text-[#fbbf24]">→ {resultado.equipe.name}?</span>
+                      <button type="button" onClick={() => setEquipesConfirmadas((s) => new Set(s).add(nome))} className="rounded border border-[#f97316] px-2 py-0.5 text-[#f97316]">
+                        {equipesConfirmadas.has(nome) ? 'Confirmada' : 'Confirmar'}
+                      </button>
+                    </> : <>
+                      <span className="text-[#ef4444]">{resultado.tipo === 'ambiguo' ? `ambígua: ${resultado.candidatas.map((c) => c.name).join(', ')}` : 'não cadastrada nesta obra'}</span>
+                      <select defaultValue="" onChange={(e) => {
+                        const corrigida = e.target.value
+                        if (!corrigida) return
+                        setApontamentos((xs) => xs.map((x) => x.lido.equipe === nome ? { ...x, lido: { ...x.lido, equipe: corrigida } } : x))
+                        setPresencas((xs) => xs.map((x) => x.lida.equipe === nome ? { ...x, lida: { ...x.lida, equipe: corrigida } } : x))
+                      }} className="rounded border border-[#525252] bg-[#1f1f1f] px-2 py-1 text-[#f5f5f5]">
+                        <option value="">Corrigir para…</option>
+                        {equipesDaObra.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </>}
+                </div>
+              ))}
+              {equipePendente && <p className="text-[#fbbf24]">É possível salvar rascunho, mas não finalizar até resolver as equipes.</p>}
+            </div>
+          )}
 
           {presencas.map((p, i) => (
             <BlocoPresenca

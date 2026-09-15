@@ -60,6 +60,7 @@ const NAV_GROUPS = [
       { label: 'RDO',             icon: FileText,         to: '/app/rdo'                 },
       { label: 'Qualidade',       icon: ShieldCheck,      to: '/app/qualidade'           },
       { label: 'Mão de Obra',     icon: Users,            to: '/app/mao-de-obra'         },
+      { label: 'Operacional',     icon: Wrench,           to: '/app/operacional'         },
     ],
   },
   {

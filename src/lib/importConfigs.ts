@@ -242,7 +242,8 @@ export const WORKER_IMPORT_CONFIG: ImportConfig<WorkerImportRow> = {
   // A planilha do cliente tem uma aba por frente ("Equipes Sidnei", "Equipes Mauá") e um banner
   // mesclado na linha 1 — o cabeçalho de verdade está na linha 2 (índice 1).
   sheets: 'todas',
-  headerRow: 1,
+  headerRow: 'auto',
+  preferredSheets: ['HORAS EXTRAS AGOSTO'],
   columns: [
     { key: 'name',               headerAliases: ['name', 'nome', 'colaborador'],                       type: 'string', required: true },
     { key: 'role',               headerAliases: ['role', 'função', 'funcao', 'cargo'],                 type: 'string', required: true },

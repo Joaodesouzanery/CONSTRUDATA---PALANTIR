@@ -1952,7 +1952,7 @@ export interface PlanScenario {
 
 export type RdoWeatherCondition = 'good' | 'rain' | 'cloudy' | 'storm'
 export type RdoTrechoStatus     = 'not_started' | 'in_progress' | 'completed'
-export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'rapido' | 'compizzo' | 'wcr' | 'empreiteiros' | 'previsto-realizado'
+export type RdoTab = 'dashboard' | 'historico' | 'sabesp' | 'novo' | 'compizzo' | 'wcr' | 'empreiteiros' | 'previsto-realizado'
 
 export interface RdoWeather {
   morning:      RdoWeatherCondition
@@ -2238,6 +2238,8 @@ export interface RdoWcrPresenca {
 }
 
 export interface RdoWcrData {
+  /** Rascunho preservado enquanto a equipe ainda não foi confirmada contra o cadastro da obra. */
+  equipePendente?: boolean
   /**
    * ⚠️ Quando há mais de um apontamento no dia, os campos de cima (`equipe`, `nucleo`, `imoveis`,
    * `producao`) são a SOMA/união — é o que a ponte com o FCP, a listagem e o resumo leem. O detalhe

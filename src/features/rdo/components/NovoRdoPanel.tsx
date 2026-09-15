@@ -5,7 +5,7 @@
  *           Georreferenciamento, Observações e Ocorrências.
  * Plus: photo upload (base64, max 20 files, 5 MB each).
  */
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -195,7 +195,8 @@ function FvsIntegrationBanner({ date }: { date: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function NovoRdoPanel() {
-  const { rdos, addRdo, setActiveTab, loadTrechosFromPlanejamento } = useRdoStore()
+  const { rdos, addRdo, updateRdo, setActiveTab, loadTrechosFromPlanejamento, editingRdoId, setEditingRdoId } = useRdoStore()
+  const editing = editingRdoId ? rdos.find((r) => r.id === editingRdoId && (r.template === 'padrao' || !r.template)) ?? null : null
   const planningActivities = usePlanejamentoMestreStore((s) => s.activities)
   const logos = useCompanySettingsStore((s) => s.logos)
   const equipamentosCadastrados = useEquipamentosStore((s) => s.equipamentos)
@@ -275,6 +276,35 @@ export function NovoRdoPanel() {
     { role: 'Ajudante', outsourced: 0, direct: 0, hoursWorked: 8 },
     { role: 'Operador', outsourced: 0, direct: 0, hoursWorked: 8 },
   ])
+  useEffect(() => {
+    if (!editing) return
+    reset({ date: editing.date, responsible: editing.responsible, weather: editing.weather, manpower: editing.manpower, observations: editing.observations, incidents: editing.incidents })
+    const semId = <T extends { id: string }>(x: T): Omit<T, 'id'> => {
+      const copia: Partial<T> = { ...x }
+      delete copia.id
+      return copia as Omit<T, 'id'>
+    }
+    setEquipment(editing.equipment.map(semId))
+    setServices(editing.services.map(semId))
+    setMaterials((editing.materials ?? []).map(semId))
+    setTrechos(editing.trechos.map(semId))
+    setPhotos(editing.photos.map(semId))
+    setEmployeeNames(editing.manpower.employeeNames ?? [])
+    setGeolocation(editing.geolocation ? { lat: String(editing.geolocation.lat), lng: String(editing.geolocation.lng) } : null)
+    setRdoNumber(editing.number); setRdoTitle(editing.title ?? ''); setSelectedLogoId(editing.logoId)
+    setObraSiteId(editing.siteId ?? null); setRdoLocal(editing.local ?? ''); setRdoGerenteContrato(editing.gerenteContrato ?? '')
+    setRdoTecnicoSeg(editing.tecnicoSeguranca ?? ''); setRdoEmpreiteira(editing.nomeEmpreiteira ?? ''); setRdoServico(editing.servicoExecutar ?? '')
+    setRdoOcorrencias(editing.ocorrencias ?? ''); setRdoFuncDiretos(editing.funcionariosDiretos ?? 0); setRdoFuncIndiretos(editing.funcionariosIndiretos ?? 0)
+    setRdoQtdEquip(editing.qtdEquipamentosFerramentas ?? 0); setRdoNumeroOS(editing.numeroOS ?? ''); setRdoContrato(editing.numeroContrato ?? '')
+    setRdoClimaManha(editing.climaManha ?? ''); setRdoClimaTarde(editing.climaTarde ?? ''); setRdoClimaNoite(editing.climaNoite ?? '')
+    setRdoLocalTipo(editing.localTipo ?? 'Frente principal'); setEpiUtilizado(editing.epiUtilizado ?? null)
+    if (editing.qualityChecklist) setQualityChecklist({ ordemServico: editing.qualityChecklist.ordemServico, bandeirola: editing.qualityChecklist.bandeirola, projeto: editing.qualityChecklist.projeto, obs: editing.qualityChecklist.obs ?? '' })
+    if (editing.stoppages) setStoppages(editing.stoppages)
+    if (editing.activityHours) setActivityHours({ dayStart: editing.activityHours.dayStart ?? '', dayEnd: editing.activityHours.dayEnd ?? '', nightStart: editing.activityHours.nightStart ?? '', nightEnd: editing.activityHours.nightEnd ?? '' })
+    if (editing.workforceRows) setWorkforceRows(editing.workforceRows.map(semId))
+  }, [editing, reset])
+
+  useEffect(() => () => setEditingRdoId(null), [setEditingRdoId])
   const executablePlanningActivities = useMemo(
     () => planningActivities.filter((activity) => activity.level >= 1 && !activity.isMilestone),
     [planningActivities],
@@ -624,11 +654,11 @@ export function NovoRdoPanel() {
   function onValid(data: RdoFormData) {
     setSubmitError(null)
     const savedTitle = rdoTitle.trim()
-    addRdo({
+    const payload = {
       // Status EXPLÍCITO: o cliente trata ausência como finalizado (isRdoFinalized), mas o
       // trigger de estoque no servidor exige payload->>'status' = 'finalizado' EXATO — sem
       // isto, RDO regular com material de almoxarifado nunca baixava estoque.
-      status:      'finalizado',
+      status:      editing?.status ?? 'finalizado' as const,
       title:       savedTitle || undefined,
       date:        data.date,
       responsible: data.responsible,
@@ -669,7 +699,9 @@ export function NovoRdoPanel() {
       stoppages,
       activityHours,
       workforceRows:              workforceRows.map((row) => ({ ...row, id: crypto.randomUUID() })),
-    })
+    }
+    if (editing) updateRdo(editing.id, payload)
+    else addRdo(payload)
     // A baixa de estoque agora é feita no SERVIDOR (trigger trg_rdo_to_estoque),
     // de forma idempotente por rdo_id — não consumir no cliente para não duplicar.
     // (Requer a migration 20260625120000_rdo_estoque_integration.sql aplicada.)

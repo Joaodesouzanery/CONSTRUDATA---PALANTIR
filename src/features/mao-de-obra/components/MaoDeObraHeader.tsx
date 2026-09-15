@@ -9,6 +9,7 @@ import { WORKER_IMPORT_CONFIG } from '@/lib/importConfigs'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { SyncBadge } from '@/components/shared/SyncBadge'
 import { postosDescobertos } from '@/features/mao-de-obra/utils/coberturaDePostos'
+import { useTorreStore } from '@/store/torreDeControleStore'
 
 // Re-export so index.tsx can keep using this import path
 export type { MaoDeObraTab } from '@/store/maoDeObraStore'
@@ -49,6 +50,8 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
   )
   const importarFuncionarios = useMaoDeObraStore((s) => s.importarFuncionarios)
   const [importOpen, setImportOpen] = useState(false)
+  const [importSiteId, setImportSiteId] = useState('')
+  const sites = useTorreStore((s) => s.sites)
   const sync = useStoreSync(useMaoDeObraStore)
 
   const kpis = useMemo(() => {
@@ -126,9 +129,14 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <SyncBadge {...sync} />
+          <select value={importSiteId} onChange={(e) => setImportSiteId(e.target.value)} aria-label="Obra da importação de funcionários"
+            className="max-w-48 rounded-lg border border-[#525252] bg-[#484848] px-2 py-2 text-xs text-[#f5f5f5]">
+            <option value="">Obra da importação…</option>
+            {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
           <button
-            onClick={() => setImportOpen(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors"
+            onClick={() => setImportOpen(true)} disabled={!importSiteId}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border border-[#525252] bg-[#484848] text-[#f5f5f5] hover:bg-[#525252] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             title="Importar funcionários de Excel/CSV"
           >
             <Upload size={14} />
@@ -157,9 +165,15 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
               workFront: w.workFront || aba.replace(/^equipes?\s+/i, '').trim() || aba,
             })),
           )
-          const r = importarFuncionarios(linhas as Array<Record<string, unknown>>)
-          if (!r.gravou) { toast.error('Seu perfil não pode cadastrar funcionários.'); return }
-          const partes = [`${r.criados} funcionário(s) importado(s)`]
+          const previa = importarFuncionarios(linhas as Array<Record<string, unknown>>, { siteId: importSiteId })
+          if (previa.pendentesAtualizacao.length) {
+            const detalhes = previa.pendentesAtualizacao.map((p) => `${p.nome}: ${p.cargoAtual || 'sem cargo'} → ${p.cargoNovo}`).join('\n')
+            if (!confirm(`Revise as atualizações antes de continuar:\n\n${detalhes}\n\nConfirmar estas alterações?`)) return false
+          }
+          const r = importarFuncionarios(linhas as Array<Record<string, unknown>>, { siteId: importSiteId, confirmarAtualizacoes: true })
+          if (!r.gravou) { toast.error('Seu perfil não pode cadastrar funcionários.'); return false }
+          const partes = [`${r.criados} criado(s)`, `${r.atualizados} atualizado(s)`, `${r.inalterados} inalterado(s)`]
+          if (r.rejeitados.length) partes.push(`${r.rejeitados.length} rejeitado(s): ${r.rejeitados.join(', ')}`)
           if (r.equipesNaoEncontradas.length) {
             partes.push(`sem equipe: ${r.equipesNaoEncontradas.join(', ')} — cadastre a equipe e importe de novo`)
           }
@@ -167,6 +181,7 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
             partes.push(`${r.camposIgnorados.length} coluna(s) ignorada(s) por não entrarem no cadastro`)
           }
           toast.success(partes.join(' · '))
+          return true
         }}
       />
 

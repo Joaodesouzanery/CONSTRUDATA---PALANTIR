@@ -42,7 +42,7 @@ interface ImportModalProps<T extends Record<string, unknown>> {
    * (planilha com uma aba por frente) usa `resultado.porAba`. Quem não precisa ignora, e nenhum
    * importador existente muda.
    */
-  onCommit: (rows: T[], resultado: ImportResult<T>) => void
+  onCommit: (rows: T[], resultado: ImportResult<T>) => void | boolean
   /** Label do botão final (ex: "Importar 47 trechos") — recebe o count */
   commitLabel?: (count: number) => string
 }
@@ -121,7 +121,8 @@ export function ImportModal<T extends Record<string, unknown>>({
     if (!result || result.validRows.length === 0) return
     setCommitting(true)
     try {
-      onCommit(result.validRows, result)
+      const podeFechar = onCommit(result.validRows, result)
+      if (podeFechar === false) { setCommitting(false); return }
       handleClose()
     } catch (e) {
       console.error('[ImportModal] commit failed:', e)

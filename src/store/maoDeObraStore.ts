@@ -55,6 +55,10 @@ const rdoTimecardId = (rdoId: string, workerId: string) => seededUuidLegado(`rdo
 /** Dados mínimos que a ponte RDO → timecards precisa (evita acoplar rdoStore). */
 export interface ResultadoDaImportacaoDeFuncionarios {
   criados: number
+  atualizados: number
+  inalterados: number
+  rejeitados: string[]
+  pendentesAtualizacao: Array<{ nome: string; cargoAtual: string; cargoNovo: string }>
   /** Nomes de coluna barrados pelo filtro, sem repetição — a tela mostra o que foi ignorado. */
   camposIgnorados: string[]
   /** Nomes de equipe da planilha que não existem no cadastro. Esses funcionários ficam sem equipe. */
@@ -145,7 +149,7 @@ interface MaoDeObraState {
    */
   importarFuncionarios: (
     linhas: Array<Record<string, unknown>>,
-    opcoes?: { siteId?: string | null },
+    opcoes?: { siteId?: string | null; confirmarAtualizacoes?: boolean },
   ) => ResultadoDaImportacaoDeFuncionarios
   updateWorker: (id: string, updates: Partial<Omit<Worker, 'id'>>) => void
   removeWorker: (id: string) => void
@@ -561,7 +565,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
    */
   importarFuncionarios: (linhas, opcoes) => {
     const vazio: ResultadoDaImportacaoDeFuncionarios = {
-      criados: 0, camposIgnorados: [], equipesNaoEncontradas: [], gravou: false,
+      criados: 0, atualizados: 0, inalterados: 0, rejeitados: [], pendentesAtualizacao: [], camposIgnorados: [], equipesNaoEncontradas: [], gravou: false,
     }
     if (!podeEscreverMaoDeObra().pode) return vazio
 
@@ -572,6 +576,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const ignorados = new Set<string>()
     const semEquipe = new Set<string>()
     const novos: Worker[] = []
+    const atualizacoes: Array<{ atual: Worker; role: string; siteId?: string }> = []
+    const rejeitados: string[] = []
+    let inalterados = 0
+    const existentes = new Map(get().workers.map((w) => [normalizeName(w.name), w]))
 
     for (const bruta of linhas) {
       const { limpo, ignorados: barrados } = sanitizarFuncionarioImportado(bruta)
@@ -579,6 +587,11 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
 
       const nome = String(limpo.name ?? '').trim()
       if (!nome) continue
+      const role = String(limpo.role ?? '').trim()
+      if (/^totais?$/i.test(nome) || /^morador\b/i.test(nome) || !role || role === '-') {
+        rejeitados.push(nome || '(sem nome)')
+        continue
+      }
 
       // A coluna "equipe" vem como TEXTO ("Equipe A") e `crew_id` é uuid. Sem esta tradução o
       // Postgres recusa a linha (22P02) e o funcionário fica preso na fila para sempre.
@@ -600,11 +613,18 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         ? (useActiveObraStore.getState().activeObraId ?? undefined)
         : (opcoes.siteId || undefined)
 
+      const existente = existentes.get(normalizeName(nome))
+      if (existente) {
+        if (normalizeName(existente.role ?? '') === normalizeName(role) && (existente.siteId ?? '') === (site ?? '')) inalterados++
+        else atualizacoes.push({ atual: existente, role, siteId: site })
+        continue
+      }
+
       novos.push({
         ...(limpo as Partial<Worker>),
         id: crypto.randomUUID(),
         name: nome,
-        role: String(limpo.role ?? '').trim(),
+        role,
         // O cadastro manual preenche; a importação nunca traz CPF, e o normalizador põe a máscara.
         cpfMasked: '',
         crewId,
@@ -615,25 +635,36 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       } as Worker)
     }
 
-    if (!novos.length) {
-      return { criados: 0, camposIgnorados: [...ignorados], equipesNaoEncontradas: [...semEquipe], gravou: true }
+    const pendentesAtualizacao = atualizacoes.map((a) => ({ nome: a.atual.name, cargoAtual: a.atual.role ?? '', cargoNovo: a.role }))
+    if (!opcoes?.confirmarAtualizacoes) {
+      return { criados: novos.length, atualizados: 0, inalterados, rejeitados, pendentesAtualizacao, camposIgnorados: [...ignorados], equipesNaoEncontradas: [...semEquipe], gravou: false }
     }
 
     const { orgId, userId } = ctxAuth()
+    const atualizados = atualizacoes.map(({ atual, role, siteId }) => normalizeWorker({ ...atual, role, siteId }))
     set((s) => ({
-      workers: [...s.workers, ...novos.map(normalizeWorker)],
+      workers: [...s.workers.map((w) => atualizados.find((a) => a.id === w.id) ?? w), ...novos.map(normalizeWorker)],
       pendingSync: [
         ...s.pendingSync,
         ...novos.map((w) => makeOp({
           entity: 'worker', type: 'insert', recordId: w.id,
           row: workerToRow(normalizeWorker(w), orgId, userId), table: 'workers',
         })),
+        ...atualizados.map((w) => {
+          const row = workerToRow(w, orgId, userId)
+          const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id', 'organization_id', 'created_by'].includes(k)))
+          return makeOp({ entity: 'worker', type: 'update', recordId: w.id, patch, table: 'workers' })
+        }),
       ],
     }))
     void get().flush()
 
     return {
       criados: novos.length,
+      atualizados: atualizados.length,
+      inalterados,
+      rejeitados,
+      pendentesAtualizacao,
       camposIgnorados: [...ignorados],
       equipesNaoEncontradas: [...semEquipe],
       gravou: true,

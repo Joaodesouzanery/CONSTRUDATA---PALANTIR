@@ -28,6 +28,8 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { useDiasSemProducaoStore, MOTIVOS_SEM_PRODUCAO, type MotivoSemProducao } from '@/store/diasSemProducaoStore'
 import { useStoreSync } from '@/lib/useStoreSync'
 import { usePermissaoEscrita, ROLES_RDO_WRITE } from '@/lib/roles'
+import { tituloWcr } from '../utils/apresentacaoRdo'
+import { casarEquipe } from '../utils/casarEquipe'
 import { obraEstaAtiva } from '@/lib/obraAtiva'
 import { hojeLocalISO } from '@/lib/utils'
 import { SIGLAS_WCR } from '../utils/apontamentoWcr'
@@ -112,6 +114,20 @@ export function LancamentoRapidoPanel() {
       setAviso({ tom: 'erro', texto: 'Seu perfil não pode salvar RDO. Quem pode: engenheiro, qualidade, gerente, diretor e owner.' })
       return
     }
+    const equipesResolvidas = new Map<string, string>()
+    for (const l of prontas.filter((x) => !x.semProducao)) {
+      const candidatas = crews.filter((c) => c.siteId === l.obraId)
+      const casamento = casarEquipe(l.equipe, candidatas)
+      if (casamento.tipo === 'nenhum' || casamento.tipo === 'ambiguo') {
+        setAviso({ tom: 'erro', texto: `Equipe “${l.equipe || '(vazia)'}” não foi identificada com segurança na obra. O rascunho local foi preservado.` })
+        return
+      }
+      if (casamento.tipo === 'provavel' && !confirm(`A equipe “${l.equipe}” corresponde a “${casamento.equipe.name}”?`)) {
+        setAviso({ tom: 'erro', texto: 'Finalização cancelada. O rascunho local foi preservado para correção.' })
+        return
+      }
+      equipesResolvidas.set(l.id, casamento.equipe.name)
+    }
     setGravando(true)
     try {
       let rdos = 0
@@ -120,6 +136,7 @@ export function LancamentoRapidoPanel() {
 
       for (const l of prontas) {
         const obra = porId.get(l.obraId)
+        const equipeResolvida = equipesResolvidas.get(l.id) ?? l.equipe.trim()
         if (l.semProducao) {
           const r = marcarSemProducao({
             siteId: l.obraId, data,
@@ -144,7 +161,7 @@ export function LancamentoRapidoPanel() {
           const idOs = addRdo({
             title: `OS${obra ? ' — ' + obra.name : ''}${os.endereco ? ' · ' + os.endereco : ''}`,
             date: data,
-            responsible: l.equipe.trim(),
+            responsible: equipeResolvida,
             weather: { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 0 },
             manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 },
             equipment: [], services: [], trechos: [], geolocation: null,
@@ -161,7 +178,7 @@ export function LancamentoRapidoPanel() {
         const producao = producaoDasQuantidades(l.quantidades)
         const horas = horasInformadas(l.horas)
         const wcr: RdoWcrData = {
-          equipe: l.equipe.trim() || undefined,
+          equipe: equipeResolvida || undefined,
           nucleo: l.nucleo.trim() || undefined,
           imoveis: [],
           producao,
@@ -171,9 +188,9 @@ export function LancamentoRapidoPanel() {
           textoOriginal: l.textoOriginal.trim() || undefined,
         }
         const id = addRdo({
-          title: `RDO${obra ? ' — ' + obra.name : ''}${l.nucleo ? ' · ' + l.nucleo : ''}`,
+          title: tituloWcr([obra?.name, l.nucleo]),
           date: data,
-          responsible: l.equipe.trim(),
+          responsible: equipeResolvida,
           weather: { morning: 'good', afternoon: 'good', night: 'good', temperatureC: 0 },
           manpower: { foremanCount: 0, officialCount: 0, helperCount: 0, operatorCount: 0 },
           equipment: [], services: [], trechos: [], geolocation: null,

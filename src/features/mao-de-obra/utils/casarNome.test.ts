@@ -44,3 +44,26 @@ test('nenhum: nome que não cabe em ninguém, e vazio', () => {
   assert.equal(casarNome('', W).tipo, 'nenhum')
   assert.equal(casarNome('Andrade', W).tipo, 'nenhum', 'sobrenome sozinho não casa: o primeiro nome manda')
 })
+
+test('cargo desempata os dois Damião, e sem cargo continua ambíguo', () => {
+  const pessoas = [
+    { name: 'DAMIÃO ALVES DA SILVA', role: 'ENCARREGADO DE OBRA I' },
+    { name: 'DAMIÃO FIRMINO DOS SANTOS', role: 'PEDREIRO I' },
+  ]
+  const encarregado = casarNome('Damião', pessoas, 'encarregado')
+  const pedreiro = casarNome('Damião', pessoas, 'pedreiro')
+  assert.equal(encarregado.tipo === 'provavel' && encarregado.worker.name, pessoas[0].name)
+  assert.equal(pedreiro.tipo === 'provavel' && pedreiro.worker.name, pessoas[1].name)
+  assert.equal(casarNome('Damião', pessoas).tipo, 'ambiguo')
+})
+
+test('Cristian e Cristiano permanecem pessoas distintas', () => {
+  const pessoas = [
+    { name: 'CRISTIAN RICHARD SIMONETO DE ARAUJO', role: 'ENCANADOR DE ESGOTO I' },
+    { name: 'CRISTIANO DOS SANTOS', role: 'AJUDANTE GERAL I' },
+  ]
+  const cristian = casarNome('Cristian', pessoas, 'encanador')
+  const cristiano = casarNome('Cristiano', pessoas, 'ajudante')
+  assert.equal(cristian.tipo === 'provavel' && cristian.worker.name, pessoas[0].name)
+  assert.equal(cristiano.tipo === 'provavel' && cristiano.worker.name, pessoas[1].name)
+})

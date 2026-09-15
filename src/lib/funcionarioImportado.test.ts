@@ -103,9 +103,10 @@ test('⚠️ o TEMPLATE baixável não pede documento nenhum', () => {
   }
 })
 
-test('a planilha do cliente é lida das DUAS abas, com cabeçalho na linha 2', () => {
+test('o importador detecta o cabeçalho e prioriza a aba oficial', () => {
   assert.equal(WORKER_IMPORT_CONFIG.sheets, 'todas')
-  assert.equal(WORKER_IMPORT_CONFIG.headerRow, 1)
+  assert.equal(WORKER_IMPORT_CONFIG.headerRow, 'auto')
+  assert.deepEqual(WORKER_IMPORT_CONFIG.preferredSheets, ['HORAS EXTRAS AGOSTO'])
 })
 
 test('⚠️ "Tipo CNH" guarda a categoria e RECUSA número', () => {

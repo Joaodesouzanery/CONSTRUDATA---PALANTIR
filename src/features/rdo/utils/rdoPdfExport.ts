@@ -6,6 +6,7 @@
 import type { RDO } from '@/types'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { resolvePhotosForPdf } from './rdoPhotoStorage'
+import { tituloExibicaoRdo } from './apresentacaoRdo'
 
 const WEATHER_ICON: Record<string, string> = {
   good:   '☀️',
@@ -40,7 +41,7 @@ function fmtDate(d: string) {
 }
 
 function getRdoTitle(rdo: RDO) {
-  return rdo.title?.trim() || `RDO #${rdo.number}`
+  return tituloExibicaoRdo(rdo)
 }
 
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] as string))

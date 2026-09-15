@@ -21,6 +21,7 @@ import { RdoPhotoImg } from './RdoPhotoImg'
 import { RdoDetalhe } from './RdoDetalhe'
 import { RdoIntegracaoStatus } from './RdoIntegracaoStatus'
 import type { RDO, RdoWeatherCondition } from '@/types'
+import { resumoProducaoWcr, tituloExibicaoRdo, totalTrabalhadores } from '../utils/apresentacaoRdo'
 import type { RdoSabespData } from '@/features/rdo-sabesp/lib/rdoSabespPdfGenerator'
 import { getCriadouroLabel, getExecutedActivities, getRdoSabespExecutedServices, sumExecutedQuantities } from '@/features/rdo-sabesp/lib/rdoSabespUtils'
 import {
@@ -37,7 +38,7 @@ function fmtDate(iso: string) {
 }
 
 function rdoTitle(rdo: RDO) {
-  return rdo.title?.trim() || `RDO #${rdo.number}`
+  return tituloExibicaoRdo(rdo)
 }
 
 function isLinearMeterUnit(unit: string) {
@@ -74,8 +75,7 @@ type SabespHistoryRecord = RdoSabespData & {
 // ─── Print layout (hidden on screen, visible when printing) ──────────────────
 
 function PrintLayout({ rdo }: { rdo: RDO }) {
-  const totalWorkers = rdo.manpower.foremanCount + rdo.manpower.officialCount
-    + rdo.manpower.helperCount + rdo.manpower.operatorCount
+  const totalWorkers = totalTrabalhadores(rdo)
   const totalMeters = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
 
   return (
@@ -258,9 +258,7 @@ function rdoMissingForFinalize(rdo: RDO): string[] {
 function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: () => void; onEdit: () => void; onFinalize?: () => void }) {
   const [expanded, setExpanded] = useState(false)
   // Colaboradores nominais (RDO Compizzo) também contam como trabalhadores.
-  const totalWorkers = rdo.manpower.foremanCount + rdo.manpower.officialCount
-    + rdo.manpower.helperCount + rdo.manpower.operatorCount
-    + (rdo.manpower.employeeNames?.length ?? 0)
+  const totalWorkers = totalTrabalhadores(rdo)
   const totalMeters = rdo.trechos.reduce((s, t) => s + t.executedMeters, 0)
   // O Compizzo guarda os dados em campos próprios (serviços/produção/materiais),
   // não em trechos — o resumo do card precisa ler de lá.
@@ -274,6 +272,7 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
   const compizzoMateriais = isCompizzo
     ? (rdo.compizzo!.materiais ?? []).filter((m) => (m.quantidade ?? '').trim() !== '').length
     : 0
+  const wcrResumo = rdo.template === 'wcr' ? resumoProducaoWcr(rdo.wcr) : null
 
   /**
    * ⚠️ A impressão do Compizzo passou a usar `imprimirRelatorioRdos`, o mesmo gerador do relatório
@@ -333,6 +332,14 @@ function RdoCard({ rdo, onDelete, onEdit, onFinalize }: { rdo: RDO; onDelete: ()
                 <span>{compizzoProducao} item{compizzoProducao !== 1 ? 'ns' : ''} de produção</span>
                 <span className="text-gray-600">·</span>
                 <span>{compizzoMateriais} materia{compizzoMateriais !== 1 ? 'is' : 'l'}</span>
+              </>
+            ) : wcrResumo ? (
+              <>
+                <span>{wcrResumo.itens} item{wcrResumo.itens !== 1 ? 'ns' : ''} de produção</span>
+                <span className="text-gray-600">·</span>
+                <span>{wcrResumo.metros.toLocaleString('pt-BR')} m</span>
+                <span className="text-gray-600">·</span>
+                <span>{wcrResumo.unidades.toLocaleString('pt-BR')} un</span>
               </>
             ) : (
               <>
@@ -856,6 +863,12 @@ export function HistoricoPanel() {
                 if (item.rdo.template === 'compizzo') {
                   setEditingRdoId(item.rdo.id)
                   setActiveTab('compizzo')
+                } else if (item.rdo.template === 'wcr') {
+                  setEditingRdoId(item.rdo.id)
+                  setActiveTab('wcr')
+                } else if (item.rdo.template === 'padrao' || !item.rdo.template) {
+                  setEditingRdoId(item.rdo.id)
+                  setActiveTab('novo')
                 } else {
                   setEditingRdo(item.rdo)
                   setEditForm({ ...item.rdo })
@@ -866,7 +879,7 @@ export function HistoricoPanel() {
             <SabespRdoCard
               key={`sabesp-${item.id}`}
               rdo={item.rdo}
-              onOpen={() => navigate('/app/rdo-sabesp')}
+              onOpen={() => navigate(`/app/rdo-sabesp?rdo=${encodeURIComponent(item.rdo.id)}`)}
             />
           )
         ))}
@@ -948,6 +961,21 @@ export function HistoricoPanel() {
                   </div>
                 </div>
               </div>
+              {editingRdo.template === 'ordem-servico' && editingRdo.ordemServico && (() => {
+                const os = editForm.ordemServico ?? editingRdo.ordemServico
+                const patchOs = (patch: Partial<typeof os>) => setEditForm((f) => ({ ...f, ordemServico: { ...os, ...patch } }))
+                return (
+                  <div className="space-y-3 rounded-lg border border-[#525252] p-3">
+                    <p className="text-xs font-semibold text-[#f5f5f5]">Ordem de Serviço</p>
+                    <input value={os.endereco} onChange={(e) => patchOs({ endereco: e.target.value })} placeholder="Endereço" className="w-full rounded bg-[#484848] px-3 py-2 text-sm text-white" />
+                    <textarea value={os.servico} onChange={(e) => patchOs({ servico: e.target.value })} placeholder="Serviço executado" className="w-full rounded bg-[#484848] px-3 py-2 text-sm text-white" />
+                    <textarea value={os.pecas.join('\n')} onChange={(e) => patchOs({ pecas: e.target.value.split('\n').filter(Boolean) })} placeholder="Peças, uma por linha" className="w-full rounded bg-[#484848] px-3 py-2 text-sm text-white" />
+                    <input value={os.vala ?? ''} onChange={(e) => patchOs({ vala: e.target.value || undefined })} placeholder="Medidas da vala" className="w-full rounded bg-[#484848] px-3 py-2 text-sm text-white" />
+                    <label className="flex items-center gap-2 text-xs text-[#a3a3a3]"><input type="checkbox" checked={!!os.reposicaoPendente} onChange={(e) => patchOs({ reposicaoPendente: e.target.checked })} /> Reposição pendente</label>
+                    <textarea value={os.observacoes ?? ''} onChange={(e) => patchOs({ observacoes: e.target.value || undefined })} placeholder="Observações da OS" className="w-full rounded bg-[#484848] px-3 py-2 text-sm text-white" />
+                  </div>
+                )
+              })()}
               {/* Manpower */}
               <div>
                 <label className="block text-[#a3a3a3] text-xs mb-2">Mão de Obra</label>

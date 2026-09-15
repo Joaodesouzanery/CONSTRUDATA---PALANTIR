@@ -17,6 +17,7 @@ const AuthGuard  = lazy(() => import('@/lib/AuthGuard').then((m) => ({ default: 
 const AgendaPage            = lazy(() => import('@/features/agenda/index').then((m) => ({ default: m.AgendaPage })))
 const TorreDeControlePage   = lazy(() => import('@/features/torre-de-controle/index').then((m) => ({ default: m.TorreDeControlePage })))
 const PredialPage           = lazy(() => import('@/features/predial/index').then((m) => ({ default: m.PredialPage })))
+const OperacionalPage       = lazy(() => import('@/features/operacional/index').then((m) => ({ default: m.OperacionalPage })))
 const ChamadoPublicoPage    = lazy(() => import('@/features/predial/ChamadoPublicoPage').then((m) => ({ default: m.ChamadoPublicoPage })))
 const GestaoEquipamentosPage = lazy(() => import('@/features/gestao-equipamentos/index').then((m) => ({ default: m.GestaoEquipamentosPage })))
 const SuprimentosPage       = lazy(() => import('@/features/suprimentos/index').then((m) => ({ default: m.SuprimentosPage })))
@@ -152,6 +153,7 @@ function App() {
           <Route path="agenda"              element={<LazyRoute><AgendaPage /></LazyRoute>} />
           {/* Manutenções e Gestão de Equipamentos viraram abas do módulo Predial. */}
           <Route path="predial"             element={<LazyRoute><PredialPage /></LazyRoute>} />
+          <Route path="operacional"         element={<LazyRoute><OperacionalPage /></LazyRoute>} />
           {/* Chamados virou aba do Predial. A rota fica como atalho — está no menu lateral e
               em links já compartilhados. O QR impresso aponta para /chamado/:slug, rota pública
               separada, e não passa por aqui. */}
@@ -166,7 +168,7 @@ function App() {
           <Route path="economia"            element={<LazyRoute><EconomiaPage /></LazyRoute>} />
           <Route path="pre-construcao"      element={<Navigate to="/app/torre-de-controle?aba=projetos" replace />} />
           <Route path="suprimentos"         element={<LazyRoute><SuprimentosPage /></LazyRoute>} />
-          <Route path="manutencoes"         element={<Navigate to="/app/predial?tab=manutencoes" replace />} />
+          <Route path="manutencoes"         element={<Navigate to="/app/operacional" replace />} />
           <Route path="mao-de-obra"         element={<LazyRoute><MaoDeObraPage /></LazyRoute>} />
           <Route path="otimizacao-frota"    element={<LazyRoute><OtimizacaoFrotaPage /></LazyRoute>} />
           <Route path="gestao-360"          element={<LazyRoute><Gestao360Page /></LazyRoute>} />

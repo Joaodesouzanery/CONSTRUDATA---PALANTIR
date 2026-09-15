@@ -116,6 +116,7 @@ const CLIMA_LABEL: Record<string, string> = { sol: 'Sol', nublado: 'Nublado', ch
 export function RdoDetalhe({ rdo }: { rdo: RDO }) {
   const [lightbox, setLightbox] = useState<number | null>(null)
   const isCompizzo = rdo.template === 'compizzo' && !!rdo.compizzo
+  const isWcr = rdo.template === 'wcr' && !!rdo.wcr
   const cz = rdo.compizzo
 
   // Identificação/contrato (campos do RDO padrão)
@@ -135,7 +136,7 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
           <Meta label="RDO" value={`#${rdo.number}`} />
           <Meta label="Data" value={fmtDate(rdo.date)} />
           <Meta label="Responsável" value={rdo.responsible || '—'} />
-          <Meta label="Template" value={isCompizzo ? 'Compizzo' : 'Padrão'} />
+          <Meta label="Template" value={isCompizzo ? 'Compizzo' : isWcr ? 'WCR' : rdo.template === 'ordem-servico' ? 'Ordem de Serviço' : 'Padrão'} />
           {rdo.local && <Meta label="Local" value={rdo.local} />}
           {rdo.nomeEmpreiteira && <Meta label="Empreiteira" value={rdo.nomeEmpreiteira} />}
           {rdo.gerenteContrato && <Meta label="Gerente do contrato" value={rdo.gerenteContrato} />}
@@ -206,6 +207,21 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
       </Section>
 
       {/* ══════════════════ Corpo específico do template ══════════════════ */}
+      {isWcr && rdo.wcr && (
+        <>
+          <Section title="Produção WCR" icon={<Factory size={15} className="text-[#f97316]" />}>
+            <div className="space-y-1">
+              {rdo.wcr.producao.filter((p) => p.quantidade.trim() !== '').map((p) => (
+                <div key={p.sigla} className="flex justify-between text-sm"><span className="text-[#f5f5f5]">{p.sigla}</span><span className="text-[#f97316]">{p.quantidade} {p.unidade}</span></div>
+              ))}
+            </div>
+            {rdo.wcr.equipePendente && <p className="mt-2 text-xs text-[#fbbf24]">Equipe pendente de confirmação — este RDO deve permanecer como rascunho.</p>}
+          </Section>
+          {(rdo.wcr.apontamentos?.length ?? 0) > 0 && <Section title="Apontamentos por equipe" icon={<ClipboardCheck size={15} className="text-[#f97316]" />}>
+            {rdo.wcr.apontamentos?.map((a, i) => <div key={i} className="mb-2 text-xs text-[#a3a3a3]"><strong className="text-[#f5f5f5]">{a.equipe || 'Sem equipe'}</strong>{a.nucleo ? ` · ${a.nucleo}` : ''}{a.textoOriginal && <pre className="mt-1 whitespace-pre-wrap rounded bg-[#262626] p-2">{a.textoOriginal}</pre>}</div>)}
+          </Section>}
+        </>
+      )}
       {isCompizzo && cz ? (
         <>
           {/* Contrato / preço (snapshot do Plano de Execução) */}

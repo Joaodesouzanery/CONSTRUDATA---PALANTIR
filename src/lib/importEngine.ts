@@ -66,7 +66,9 @@ export interface ImportConfig<T extends Record<string, unknown>> {
    * `sheet_to_json(ws, { range: 0 })` devolvem coisas diferentes — o segundo lê linhas em branco
    * acima do dado e transforma o cabeçalho em `__EMPTY`. Foi medido.
    */
-  headerRow?: number
+  headerRow?: number | 'auto'
+  /** Abas preferidas quando presentes; mantém o fallback genérico para outros arquivos. */
+  preferredSheets?: string[]
   /** Templates de exemplo que podem ser baixados pelo usuário (opcional) */
   exampleHeaders?: string[]
   exampleRow?: Record<string, string | number>
@@ -224,16 +226,13 @@ export async function parseAndValidate<T extends Record<string, unknown>>(
     )
   }
 
-  const nomes = config.sheets === 'todas' ? workbook.SheetNames : workbook.SheetNames.slice(0, 1)
+  const preferidas = (config.preferredSheets ?? []).filter((n) => workbook.SheetNames.includes(n))
+  const nomes = preferidas.length ? preferidas : (config.sheets === 'todas' ? workbook.SheetNames : workbook.SheetNames.slice(0, 1))
   if (!nomes.length) return vazio([{ rowNumber: 0, message: 'Arquivo sem nenhuma aba.' }], 0, fileHash)
 
   // ⚠️ `range` só é passado quando `headerRow` foi definido. Passá-lo sempre (mesmo como 0) muda o
   // resultado em aba cujo `!ref` não começa em A1 — o SheetJS passa a ler as linhas vazias acima do
   // dado e o cabeçalho vira `__EMPTY`. Medido.
-  const opcoesDaAba: XLSX.Sheet2JSONOpts = config.headerRow === undefined
-    ? { defval: '', raw: false }
-    : { defval: '', raw: false, range: config.headerRow }
-
   const validRows: T[] = []
   const errors: ImportError[] = []
   const porAba: Array<{ aba: string; linhas: T[] }> = []
@@ -243,6 +242,19 @@ export async function parseAndValidate<T extends Record<string, unknown>>(
   const ondeEsta = (aba: string) => (varias ? `[${aba}] ` : '')
 
   for (const aba of nomes) {
+    let headerRow = config.headerRow
+    if (headerRow === 'auto') {
+      const matriz = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[aba], { header: 1, defval: '', raw: false })
+      const gruposObrigatorios = config.columns.filter((c) => c.required).map((c) => c.headerAliases.map((a) => a.toLowerCase().trim()))
+      const achada = matriz.slice(0, 20).findIndex((r) => {
+        const celulas = r.map((v) => String(v).toLowerCase().trim())
+        return gruposObrigatorios.every((aliases) => aliases.some((a) => celulas.includes(a)))
+      })
+      headerRow = achada >= 0 ? achada : 0
+    }
+    const opcoesDaAba: XLSX.Sheet2JSONOpts = headerRow === undefined
+      ? { defval: '', raw: false }
+      : { defval: '', raw: false, range: headerRow }
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[aba], opcoesDaAba)
     if (rows.length === 0) continue
 
@@ -277,7 +289,7 @@ export async function parseAndValidate<T extends Record<string, unknown>>(
     const linhasDaAba: T[] = []
 
     rows.forEach((row, idx) => {
-      const rowNumber = idx + 2 + (config.headerRow ?? 0)
+      const rowNumber = idx + 2 + (typeof headerRow === 'number' ? headerRow : 0)
       const obj: Partial<T> = {}
 
       let rowError = false

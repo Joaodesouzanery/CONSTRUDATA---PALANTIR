@@ -39,6 +39,7 @@ import { pageFooterCss } from '@/lib/printPageFooter'
 import { areaExecutada } from './producaoCompizzo'
 import { motivosMarcados, ROTULO_MOTIVO } from './horasParadas'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { tituloExibicaoRdo } from './apresentacaoRdo'
 
 /**
  * O histórico mistura dois formatos que não têm tipo em comum: o RDO da Torre (`RDO`, com os
@@ -836,7 +837,7 @@ export function buildRdosReportHtml(itens: ItemRelatorio[], op: OpcoesRelatorioR
     return `<tr>
       <td class="c">${i.tipo === 'torre' ? i.rdo.number : '—'}</td>
       <td>${dataBR(dataDoItem(i))}</td>
-      <td>${esc(i.tipo === 'torre' ? (i.rdo.title || '—') : (i.rdo.rua_beco || '—'))}</td>
+      <td>${esc(i.tipo === 'torre' ? tituloExibicaoRdo(i.rdo) : (i.rdo.rua_beco || '—'))}</td>
       <td class="c">${modelo}</td>
       <td class="r n">${contarPessoas(i) || '—'}</td>
       <td class="r n">${exec.valor ? `${fmtNum(exec.valor, 0)} ${exec.unidade}` : '—'}</td>
