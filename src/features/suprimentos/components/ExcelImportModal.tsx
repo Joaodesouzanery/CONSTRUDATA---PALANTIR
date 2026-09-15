@@ -12,7 +12,7 @@ import { useState, useRef } from 'react'
 import { Upload, X, ChevronRight, CheckCircle2, FileSpreadsheet, AlertTriangle, FileImage, Plus, Trash2, Copy } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
-import { previewExcel, autoSuggestField, refinarPorConteudo, applyColumnMapping, detectarConflitos } from '../utils/parseExcelEstoque'
+import { previewExcel, selecionarAbaExcel, autoSuggestField, refinarPorConteudo, applyColumnMapping, detectarConflitos } from '../utils/parseExcelEstoque'
 import type { ExcelPreview } from '../utils/parseExcelEstoque'
 import { compararComEstoque, chaveDoItem, ultimaConferencia, retiradasComFicha, MARCA_CONFERENCIA } from '../utils/diffEstoque'
 import type { ItemEstoque, MovimentacaoEstoque } from '@/types'
@@ -102,17 +102,27 @@ export function ExcelImportModal({ onClose }: Props) {
       }
       setFilename(file.name)
       setPreview(p)
-      // Palpite pelo nome da coluna, corrigido pelo que ela contém: coluna inteira de sim/não
-      // é caixa de seleção, mesmo que o nome diga "quantidade".
-      const suggested: Record<string, string> = {}
-      for (const h of p.headers) {
-        suggested[h] = refinarPorConteudo(autoSuggestField(h), p.rows.map((r) => r[h] ?? ''))
-      }
-      setMapping(suggested)
+      setMapping(criarMapeamento(p))
       setStep('mapping')
     } catch {
       setError('Não foi possível ler o arquivo. Certifique-se que é um Excel (.xlsx/.xls) ou CSV válido.')
     }
+  }
+
+  function criarMapeamento(p: ExcelPreview): Record<string, string> {
+    // Palpite pelo nome da coluna, corrigido pelo que ela contém: coluna inteira de sim/não
+    // é caixa de seleção, mesmo que o nome diga "quantidade".
+    return Object.fromEntries(p.headers.map((h) => [
+      h,
+      refinarPorConteudo(autoSuggestField(h), p.rows.map((r) => r[h] ?? '')),
+    ]))
+  }
+
+  function trocarAba(sheetName: string) {
+    if (!preview) return
+    const next = selecionarAbaExcel(preview, sheetName)
+    setPreview(next)
+    setMapping(criarMapeamento(next))
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -398,13 +408,13 @@ export function ExcelImportModal({ onClose }: Props) {
                 <div className="text-center">
                   <p className="text-sm font-medium text-[#f5f5f5]">Arraste um arquivo aqui</p>
                   <p className="text-xs text-[#6b6b6b] mt-1">ou clique para selecionar</p>
-                  <p className="text-[10px] text-[#3f3f3f] mt-2">.xlsx · .xls · .csv</p>
+                  <p className="text-[10px] text-[#3f3f3f] mt-2">Excel .xlsx/.xls/.ods · CSV (inclusive exportado do Google Sheets)</p>
                 </div>
               </div>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".xlsx,.xls,.csv,image/*"
+                accept=".xlsx,.xls,.ods,.csv,text/csv,application/vnd.oasis.opendocument.spreadsheet,image/*"
                 className="hidden"
                 onChange={handleInputChange}
               />
@@ -422,9 +432,25 @@ export function ExcelImportModal({ onClose }: Props) {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-[#6b6b6b]">
-                  <span className="text-[#f97316] font-medium">{filename}</span> — {preview.rows.length} linhas detectadas
+                  <span className="text-[#f97316] font-medium">{filename}</span> — {preview.rows.length} linhas detectadas na aba <b>{preview.sheetName}</b>
                 </p>
               </div>
+
+              {preview.sheets.length > 1 && (
+                <div className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-3 py-2.5">
+                  <label className="mb-1 block text-[10px] text-[#a3a3a3]">Aba do arquivo</label>
+                  <select
+                    value={preview.sheetName}
+                    onChange={(e) => trocarAba(e.target.value)}
+                    className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
+                  >
+                    {preview.sheets.map((sheet) => (
+                      <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.rows.length} linhas</option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-[10px] text-[#6b6b6b]">A aba de estoque foi selecionada automaticamente. Escolha outra somente se ela também representar saldo de materiais.</p>
+                </div>
+              )}
 
               {/* Deposito target */}
               <div>

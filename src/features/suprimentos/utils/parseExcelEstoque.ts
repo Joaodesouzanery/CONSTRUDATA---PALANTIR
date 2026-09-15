@@ -7,6 +7,8 @@ import type { ItemEstoque } from '@/types'
 import { parseLocaleNumber } from '@/lib/numberFormat'
 
 export interface ExcelPreview {
+  /** Aba escolhida no arquivo. CSVs sempre chegam como uma única aba. */
+  sheetName: string
   headers: string[]
   /**
    * TODAS as linhas da planilha, como texto cru.
@@ -16,6 +18,14 @@ export interface ExcelPreview {
    * então nem dava para perceber que faltava. Quem precisa de amostra visual corta na hora de
    * renderizar (o modal já corta em 5).
    */
+  rows: Record<string, string>[]
+  /** Todas as abas com dados, para que o usuário não importe a aba errada sem perceber. */
+  sheets: ExcelSheetPreview[]
+}
+
+export interface ExcelSheetPreview {
+  name: string
+  headers: string[]
   rows: Record<string, string>[]
 }
 
@@ -241,6 +251,25 @@ function dataParaTexto(v: unknown): string {
   return String(v ?? '')
 }
 
+/** Escolhe a aba mais provável de ser o saldo do almoxarifado. */
+function pontuacaoAbaEstoque(sheet: ExcelSheetPreview): number {
+  const nome = normalize(sheet.name)
+  const campos = new Set(sheet.headers.map(autoSuggestField))
+  let pontos = 0
+  if (nome.includes('estoque') || nome.includes('almoxarifado')) pontos += 100
+  if (campos.has('descricao')) pontos += 20
+  if (campos.has('qtdDisponivel')) pontos += 20
+  if (campos.has('codigoReferencia')) pontos += 10
+  if (campos.has('estoqueMinimo')) pontos += 5
+  return pontos
+}
+
+/** Troca a aba ativa preservando todas as abas lidas do mesmo arquivo. */
+export function selecionarAbaExcel(preview: ExcelPreview, sheetName: string): ExcelPreview {
+  const sheet = preview.sheets.find((candidate) => candidate.name === sheetName)
+  return sheet ? { ...preview, sheetName: sheet.name, headers: sheet.headers, rows: sheet.rows } : preview
+}
+
 export function previewExcel(file: File): Promise<ExcelPreview> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -263,22 +292,25 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
         // `cellDates: true` — em contrapartida, a célula de data DE VERDADE do .xlsx viraria um
         //   número de série (45961.99). Com isto ela chega como `Date` e é normalizada abaixo.
         const wb   = XLSX.read(data, { type: 'array', codepage: 65001, raw: true, cellDates: true })
-        const ws   = wb.Sheets[wb.SheetNames[0]]
-        const raw  = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', raw: true })
+        const sheets = wb.SheetNames.map((name) => {
+          const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[name], { defval: '', raw: true })
+          const headers = [...new Set(raw.flatMap((r) => Object.keys(r)))]
+          return {
+            name,
+            headers,
+            rows: raw.map((r) => Object.fromEntries(headers.map((h) => [h, dataParaTexto(r[h])]))),
+          }
+        }).filter((sheet) => sheet.rows.length > 0)
 
-        if (raw.length === 0) {
-          resolve({ headers: [], rows: [] })
+        if (sheets.length === 0) {
+          resolve({ sheetName: '', headers: [], rows: [], sheets: [] })
           return
         }
-
-        // `Object.keys(raw[0])` não bastava: o `sheet_to_json` omite a chave quando a célula está
-        // vazia, então uma coluna preenchida só a partir da linha 30 ficava invisível no
-        // mapeamento. Varrer todas as linhas resolve.
-        const headers = [...new Set(raw.flatMap((r) => Object.keys(r)))]
-        const rows    = raw.map((r) =>
-          Object.fromEntries(headers.map((h) => [h, dataParaTexto(r[h])]))
-        )
-        resolve({ headers, rows })
+        // Arquivos como o Controle de Estoque trazem uma segunda aba de pedidos. Ela não é saldo
+        // e não pode ser escolhida por acidente: a aba de estoque é selecionada automaticamente,
+        // mas todas permanecem disponíveis para conferência e escolha explícita.
+        const selected = [...sheets].sort((a, b) => pontuacaoAbaEstoque(b) - pontuacaoAbaEstoque(a))[0]
+        resolve({ sheetName: selected.name, headers: selected.headers, rows: selected.rows, sheets })
       } catch (err) {
         reject(err)
       }

@@ -17,7 +17,8 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { autoSuggestField, refinarPorConteudo, applyColumnMapping } from './parseExcelEstoque'
+import { autoSuggestField, refinarPorConteudo, applyColumnMapping, selecionarAbaExcel } from './parseExcelEstoque'
+import type { ExcelPreview } from './parseExcelEstoque'
 
 /** Os 8 cabeçalhos exatos do arquivo dele — repare na quebra de linha no sexto. */
 const CABECALHOS = [
@@ -185,4 +186,22 @@ test('campo de texto nunca é refinado, mesmo contendo sim/não', () => {
 test('SIM/NAO e VERDADEIRO/FALSO também são reconhecidos', () => {
   assert.equal(refinarPorConteudo('qtdDisponivel', ['Sim', 'Não', 'sim']), 'realizarPedido')
   assert.equal(refinarPorConteudo('estoqueMinimo', ['VERDADEIRO', 'FALSO']), 'realizarPedido')
+})
+
+test('arquivo com abas preserva todas e só troca a aba escolhida', () => {
+  const arquivo: ExcelPreview = {
+    sheetName: 'Controle de Estoque',
+    headers: ['Produto', 'Quantidade'],
+    rows: [{ Produto: 'Thinner 18L', Quantidade: '0' }],
+    sheets: [
+      { name: 'Controle de Estoque', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Thinner 18L', Quantidade: '0' }] },
+      { name: 'Controle de Pedidos', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Lona', Quantidade: '5' }] },
+    ],
+  }
+
+  const pedidos = selecionarAbaExcel(arquivo, 'Controle de Pedidos')
+  assert.equal(pedidos.sheetName, 'Controle de Pedidos')
+  assert.deepEqual(pedidos.rows, [{ Produto: 'Lona', Quantidade: '5' }])
+  assert.equal(pedidos.sheets.length, 2, 'as outras abas não são descartadas')
+  assert.equal(selecionarAbaExcel(arquivo, 'não existe'), arquivo, 'nome desconhecido não apaga a prévia atual')
 })
