@@ -138,3 +138,59 @@ ou despesa que a tela mostra como "paga", mas nunca vira lançamento no Fluxo/DR
 título que nasce ou é editado para `pago` tem que sair com `entryId` no mesmo passo — reaproveite
 `baixarTitulo`/a lógica de `upsertTitulos`, nunca grave `status: 'pago'` direto num `addTitulo*` ou
 `updateTitulo`.
+
+---
+
+## 6. 🔴 "Horas do dia" quer dizer duas coisas diferentes no Compizzo e no WCR
+
+**O que é.** Os dois templates guardam horas num campo de nome parecido, com **unidade
+diferente**:
+
+- `compizzo.horasTrabalhadas` — **homem-hora do dia** (o próprio tipo diz: "HH total do dia
+  (nº colab × jornada)"). 19 pessoas × 8 h = 152.
+- `wcr.apontamentos[].horas` — **a duração da jornada daquela equipe**, validada entre 0 e 24
+  (`apontamentoWcr.ts`). `wcr.horas` é a soma desse campo entre as equipes do dia: duas equipes de
+  8 h dão 16, não 152.
+
+**Onde mora.** `src/types/index.ts` (`RdoCompizzoData.horasTrabalhadas`, `RdoWcrApontamento.horas`,
+`RdoWcrData.horas`). A conversão de um para o outro está em
+`src/features/rdo/utils/horasHomemWcr.ts`.
+
+**Quem hoje escapa.** `sincronizarApontamentos` (`src/store/rdoStore.ts`), que alimenta a ponte
+`syncRdoToTimecards` — ela **divide `totalHoras` pelo efetivo**, o que só faz sentido com
+homem-hora. Por isso o WCR passa por `horasHomemDoWcr` antes.
+
+**O que acontece se alguém não souber.** Passar `wcr.horas` direto para qualquer conta que divida
+pelo efetivo dá 16 ÷ 19 = **0,84 h por pessoa num dia de 8 h** — 10% do real, sem erro nenhum na
+tela. E o caminho inverso (tratar `horasTrabalhadas` como jornada) multiplicaria por 19.
+
+**A regra:** ao ler horas do WCR para qualquer coisa por pessoa, use `horasHomemDoWcr`. Nunca
+`wcr.horas` cru.
+
+---
+
+## 7. O custo de mão de obra do RDO WCR é gravado no apontamento, e isso NÃO é contagem dupla
+
+**O que é.** Existe uma assimetria deliberada que parece defeito:
+
+- `syncRdoToFinanceiro` (`src/store/financeiroStore.ts`) **pula o WCR**, com o motivo escrito no
+  código: o custo da WCR entra pelo Controle de Caixa, e lançar aqui contaria a folha duas vezes.
+- `syncRdoToTimecards` (`src/store/maoDeObraStore.ts`) **não pula**: grava `laborCostBRL` do dia
+  cheio para cada presente que esteja na folha.
+
+**Onde mora.** Os dois arquivos acima. Os únicos leitores de `timecards[].laborCostBRL` são
+`CMOPanel.tsx`, `FaixaDeCusto.tsx` e `RdoIntegracaoStatus.tsx`.
+
+**Quem hoje escapa.** Foi medido: **nenhuma tela soma `timecards[].laborCostBRL` com os
+`FinanceiroEntry` de `categoria: 'mao_de_obra'`**. No CMO o número do RDO aparece como KPI próprio
+("Custo realizado"), ao lado do total da folha — nunca dentro dele. São duas perguntas diferentes
+("quanto a folha custa" × "quanto de folha os RDOs registraram"), em dois módulos diferentes.
+
+**O que acontece se alguém não souber.** Duas direções de erro:
+
+1. Quem achar que é contagem dupla e **pular o WCR também nos apontamentos** apaga a presença e o
+   custo realizado da WCR do módulo de Mão de Obra inteiro — e a WCR é a maior operação do cliente.
+2. Quem criar uma tela nova somando as duas fontes **cria** a contagem dupla que hoje não existe.
+
+**A regra:** o custo do apontamento é do módulo de Mão de Obra; o do Financeiro é do Financeiro.
+Antes de somar os dois, decida — e escreva aqui — qual manda.

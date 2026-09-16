@@ -17,6 +17,7 @@ import { AvaliacoesPanel }       from './components/AvaliacoesPanel'
 import { FolhaPagamentoPanel }   from './components/FolhaPagamentoPanel'
 import { RHFinanceiroPanel }     from './components/RHFinanceiroPanel'
 import { AusenciasCalendarioPanel } from './components/AusenciasCalendarioPanel'
+import { HorasExtrasPanel }      from './components/HorasExtrasPanel'
 
 class MaoDeObraPanelBoundary extends Component<{ children: ReactNode; activeTab: MaoDeObraTab }, { hasError: boolean }> {
   state = { hasError: false }
@@ -86,6 +87,7 @@ export function MaoDeObraPage() {
       case 'folha':         return <FolhaPagamentoPanel />
       case 'rh-financeiro': return <RHFinanceiroPanel />
       case 'ausencias':     return <AusenciasCalendarioPanel />
+      case 'horas-extras':  return <HorasExtrasPanel />
       case 'apontamentos':  return <ApontamentosPanel />
       case 'escalamento':   return <EscalamentoPanel />
       case 'seguranca':     return <SegurancaPanel />

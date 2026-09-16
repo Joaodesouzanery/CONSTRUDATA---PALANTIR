@@ -39,7 +39,12 @@ conferir(r.validRows.length === 8, 'as 8 linhas entraram', `linhas=${r.validRows
 conferir(r.errors.length === 0, 'nenhum erro de leitura', r.errors.map((e) => e.message).join(' | '))
 
 console.log('\n-- cabeçalho na linha 2 (banner na linha 1) --')
-conferir(WORKER_IMPORT_CONFIG.headerRow === 1, 'o config aponta o cabeçalho para a linha 2')
+// ⚠️ A conferência era `headerRow === 1` — o literal. Quando o config passou para 'auto'
+// (detecção por conteúdo, que resolve a mesma linha 2 E as planilhas com banner de outro tamanho)
+// este QA caiu sem que nada tivesse quebrado de verdade. Agora confere o COMPORTAMENTO: o valor
+// tem que ser uma linha fixa OU a detecção automática, e a prova de que acertou é a linha abaixo.
+conferir(WORKER_IMPORT_CONFIG.headerRow === 1 || WORKER_IMPORT_CONFIG.headerRow === 'auto',
+  'o config acha o cabeçalho (linha fixa ou detecção automática)', `headerRow=${WORKER_IMPORT_CONFIG.headerRow}`)
 conferir(r.validRows.every((l) => typeof l.name === 'string' && l.name.length > 0),
   'toda linha tem nome — se o banner tivesse sido lido como cabeçalho, viriam vazias')
 

@@ -12,6 +12,7 @@ import { funcionarioEstaAtivo, contarHistoricoDoFuncionario, decidirExclusao } f
 import type { HistoricoDoFuncionario, DecisaoDeExclusao } from '@/lib/funcionarioAtivo'
 import { Autoria } from '@/components/shared/Autoria'
 import { EquipesSection } from './EquipesSection'
+import { CargosSection } from './CargosSection'
 
 type ObraOption = { id: string; code: string; name: string }
 
@@ -188,6 +189,24 @@ function WorkerFormModal({ initial, crews, projects, onSave, onClose }: WorkerFo
           <div>
             <label className={labelClass}>Salário Bruto (R$)</label>
             <input type="number" step="0.01" min="0" className={fieldClass} value={form.grossSalary ?? 0} onChange={(e) => set('grossSalary', parseFloat(e.target.value) || 0)} />
+          </div>
+          {/* Exceção de diária de HE desta pessoa. Vazio = usa o valor do cargo; ver a
+              precedência inteira em `diariaSugerida` (utils/cargosPadrao.ts).
+              ⚠️ Vazio e zero são coisas diferentes: `0` significa "esta pessoa não recebe", e é
+              por isso que o campo não tem valor padrão nem cai para 0 ao ser limpo. */}
+          <div>
+            <label className={labelClass}>HE sábado — exceção (R$)</label>
+            <input type="number" step="0.01" min="0" className={fieldClass}
+                   value={form.heSabadoOverride ?? ''}
+                   onChange={(e) => set('heSabadoOverride', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                   placeholder="vazio = usa o cargo" />
+          </div>
+          <div>
+            <label className={labelClass}>HE domingo — exceção (R$)</label>
+            <input type="number" step="0.01" min="0" className={fieldClass}
+                   value={form.heDomingoOverride ?? ''}
+                   onChange={(e) => set('heDomingoOverride', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                   placeholder="vazio = usa o cargo" />
           </div>
           <div>
             <label className={labelClass}>CPF (mascarado)</label>
@@ -374,6 +393,7 @@ export function FuncionariosPanel() {
     workers, crews, shifts, timecards, absences, assessments,
     addWorker, updateWorker, removeWorker, inativarWorker, reativarWorker, restaurarWorker,
     addCrew, updateCrew, removeCrew,
+    cargos, addCargo, updateCargo, removeCargo,
   } = useMaoDeObraStore(
     useShallow((s) => ({
       workers: s.workers, crews: s.crews,
@@ -384,6 +404,8 @@ export function FuncionariosPanel() {
       inativarWorker: s.inativarWorker, reativarWorker: s.reativarWorker,
       restaurarWorker: s.restaurarWorker,
       addCrew: s.addCrew, updateCrew: s.updateCrew, removeCrew: s.removeCrew,
+      cargos: s.cargos,
+      addCargo: s.addCargo, updateCargo: s.updateCargo, removeCargo: s.removeCargo,
     }))
   )
   const sites = useTorreStore((s) => s.sites)
@@ -536,6 +558,18 @@ export function FuncionariosPanel() {
         addCrew={addCrew}
         updateCrew={updateCrew}
         removeCrew={removeCrew}
+      />
+
+      {/* Cargos — logo abaixo de Equipes porque é o mesmo assunto visto por outro eixo: equipe
+          agrupa PESSOAS, cargo descreve a FUNÇÃO. Nasce recolhida: é cadastro de configuração,
+          não rotina diária. */}
+      <CargosSection
+        cargos={cargos}
+        workers={workers}
+        addCargo={addCargo}
+        updateCargo={updateCargo}
+        removeCargo={removeCargo}
+        podeEscrever={permissao.pode}
       />
 
       {/* O desfazer. Antes desta faixa, excluir pela interface era irreversível: a função de

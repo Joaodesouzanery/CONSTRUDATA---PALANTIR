@@ -36,6 +36,7 @@ import { attachBlobSync } from '@/lib/blobSync'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
 import { uploadRdoPhoto, leanPhotosForPersist } from '@/features/rdo/utils/rdoPhotoStorage'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { horasHomemDoWcr } from '@/features/rdo/utils/horasHomemWcr'
 
 // Sincroniza as entradas financeiras do RDO (local-only) via app_state.
 let pullRdoFinBlob: (() => Promise<void>) | null = null
@@ -266,7 +267,8 @@ function sincronizarApontamentos(rdo: RDO) {
     // lançado precisa sair.
     if (!isRdoFinalized(rdo)) { mo.removeRdoTimecards(rdo.id); return }
 
-    // RDO padrão: horas por linha de mão de obra. Compizzo: total do dia dividido pelo efetivo.
+    // RDO padrão: horas por linha de mão de obra. Compizzo e WCR: total do dia (HH) dividido pelo
+    // efetivo — ver `horasHomemDoWcr` para por que o WCR precisa converter antes.
     const entradas = (rdo.workforceRows ?? []).flatMap((linha) =>
       (linha.workerIds ?? []).map((workerId) => ({
         workerId,
@@ -283,7 +285,15 @@ function sincronizarApontamentos(rdo: RDO) {
       date: rdo.date,
       siteId: rdo.siteId ?? null,
       employeeNames: nomes,
-      totalHoras: rdo.compizzo?.horasTrabalhadas ?? 0,
+      // ⚠️ O WCR ficava de fora: só `compizzo.horasTrabalhadas` era lido, e `wcr.horas` (que o
+      // apontamento traz desde o modelo novo) não era lido por ninguém. O apontamento nascia com
+      // `hoursWorked: 0` — e `frequencia.ts` usa `hoursWorked > 0` para dizer quem esteve
+      // presente, então a pessoa aparecia AUSENTE no dia em que a lista de presença a nomeia,
+      // enquanto o `laborCostBRL` do dia cheio era gravado do mesmo jeito. Custo sem presença.
+      //
+      // Não dá para passar `wcr.horas` cru: no WCR ele é a jornada da equipe (0-24 por
+      // apontamento), não homem-hora como no Compizzo. `horasHomemDoWcr` faz a conversão.
+      totalHoras: rdo.compizzo?.horasTrabalhadas ?? horasHomemDoWcr(rdo.wcr, nomes.length) ?? 0,
       activityLabel: rdo.title || rdo.local || 'RDO',
       entradas: entradas.length ? entradas : undefined,
     })

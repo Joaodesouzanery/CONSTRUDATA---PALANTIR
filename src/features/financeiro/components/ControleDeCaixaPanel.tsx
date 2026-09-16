@@ -433,6 +433,11 @@ function FormularioDeCorrecao({
 
 function HorasExtrasSub({ doCaixa, mes, ano }: { doCaixa: FinanceiroEntry[]; mes: number; ano: number }) {
   const [periodo, setPeriodo] = useState(`${ano}-${String(mes).padStart(2, '0')}`)
+  // ⚠️ ESPELHO DE LEITURA, e só. A hora extra é cadastrada em Mão de Obra; aqui o Financeiro
+  // enxerga o que vem pela frente sem poder mexer — dois lugares editando o mesmo número é como
+  // nasce a divergência que ninguém consegue explicar depois. A PAGA já aparece na grade abaixo
+  // por caminho próprio: ela virou `FinanceiroEntry` com `origem: 'horas-extras'`.
+  const horasExtrasNativas = useMaoDeObraStore((s) => s.horasExtras)
 
   const doMes = useMemo(
     () => doCaixa.filter((e) => e.origem === 'horas-extras' && e.data.startsWith(periodo)),
@@ -456,6 +461,12 @@ function HorasExtrasSub({ doCaixa, mes, ano }: { doCaixa: FinanceiroEntry[]; mes
 
   const total = doMes.reduce((s, e) => s + e.valor, 0)
 
+  const aPagar = useMemo(
+    () => horasExtrasNativas.filter((h) => !h.pago && h.data.startsWith(periodo)),
+    [horasExtrasNativas, periodo],
+  )
+  const totalAPagar = aPagar.reduce((s, h) => s + h.valor, 0)
+
   return (
     <div className="flex flex-col gap-3 p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
@@ -474,9 +485,21 @@ function HorasExtrasSub({ doCaixa, mes, ano }: { doCaixa: FinanceiroEntry[]; mes
         cargo aparece com valores diferentes.
       </p>
 
+      {aPagar.length > 0 && (
+        <div className="rounded-xl border border-[#eab308]/40 bg-[#eab308]/[0.07] px-3 py-2 text-[11px] leading-5 text-[#fbbf24]">
+          <strong className="tabular-nums">{fmtBRL(totalAPagar)}</strong> em {aPagar.length} hora(s)
+          extra(s) lançada(s) em <strong>Mão de Obra</strong> e ainda <strong>não paga(s)</strong> neste
+          mês. Não estão no caixa — e não devem estar: só o pagamento move dinheiro. Marcar Pago lá
+          cria a despesa aqui.
+        </div>
+      )}
+
       {pessoas.length === 0 ? (
         <div className="text-center py-16 text-[#6b6b6b] text-sm rounded-xl border border-dashed border-[#525252]">
-          Nenhuma hora extra paga neste mês. Importe a planilha com a aba de horas extras preenchida.
+          Nenhuma hora extra paga neste mês.
+          {aPagar.length > 0
+            ? ' O que está lançado aparece na faixa acima, e entra aqui quando for marcado como pago.'
+            : ' Lance em Mão de Obra › Horas Extras, ou importe a planilha com a aba de horas extras preenchida.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[#525252]">

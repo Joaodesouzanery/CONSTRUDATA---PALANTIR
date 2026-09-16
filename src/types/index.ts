@@ -1058,6 +1058,16 @@ export interface Worker {
   // Vão no `payload` jsonb da tabela `workers`, sem migração. Só fazem sentido com
   // `status: 'inactive'`; desligar é preferível a excluir porque o rastro da pessoa (turnos,
   // apontamentos, faltas, holerites) não tem chave estrangeira e vira órfão silencioso.
+  // ── Diária de hora extra: a exceção desta pessoa ─────────────────────────────
+  // Também no `payload` jsonb, sem migração. Vencem o valor do cargo (ver `diariaSugerida` em
+  // `mao-de-obra/utils/cargosPadrao.ts`). Existem porque o arquivo real do cliente tem gente do
+  // mesmo cargo recebendo valores diferentes — Edson Olímpio (Ajudante Geral I) recebeu 250 e 200
+  // em sábados distintos, enquanto o cargo sugere 300. Sem o override, ou o cadastro por cargo
+  // mente para todo mundo, ou não serve para ninguém.
+  /** Diária de HE no sábado desta pessoa. Ausente = usa o valor do cargo. */
+  heSabadoOverride?: number
+  /** Diária de HE no domingo/feriado desta pessoa. Ausente = usa o valor do cargo. */
+  heDomingoOverride?: number
   /** Data do desligamento, `yyyy-MM-dd`. */
   desligamentoData?: string
   /** Motivo, texto livre. Aparece no selo e no cadastro. */
@@ -1110,6 +1120,96 @@ export interface LaborCrew {
   projectRef: string
   /** Obra da Torre de Controle (`ConstructionSite.id`). Vai no payload — sem migração. */
   siteId?: string
+}
+
+/**
+ * Cargo (função) com a diária de hora extra que ele costuma pagar no fim de semana.
+ *
+ * ⚠️ Os dois valores são **sugestão, nunca a verdade**. Medido no arquivo real do cliente: o mesmo
+ * "AJUDANTE GERAL I" recebeu R$ 300 no sábado 01/08 e R$ 200 no sábado 08/08; "ENCANADOR DE ESGOTO
+ * III" recebeu 350, 250, 300 e até 400 em sábados diferentes. O valor pago é o da célula daquele
+ * dia — o cargo só dá o ponto de partida para quem está digitando. É a mesma regra que
+ * `controleDeCaixaPlanilha.ts` já registra: derivar a folha do cargo mudaria pagamento de gente
+ * de verdade.
+ *
+ * Ausente ≠ zero: cargo sem valor configurado faz a tela pedir o número, nunca preencher R$ 0,00.
+ */
+export interface Cargo {
+  id: string
+  nome: string
+  /** Diária de HE no sábado. */
+  valorSabado?: number
+  /** Diária de HE no domingo — e em feriado, que paga como domingo. */
+  valorDomingo?: number
+}
+
+/** Como a hora extra foi apurada — são duas contas diferentes, e as duas continuam valendo. */
+export type HoraExtraTipo = 'fim-de-semana' | 'ponto-saida'
+
+/**
+ * O detalhe da aba "Ausência ponto saída": a conta que devolve hora descontada por engano.
+ *
+ * ⚠️ Esta aba **não desconta nada** — ela devolve. Quem não bate o ponto na saída tem horas
+ * descontadas pelo relógio; a empresa confere, e paga de volta essas horas SOMADAS à hora extra
+ * que a pessoa de fato fez no mesmo dia. Por isso `TOTAL = valor das extras + valor das
+ * descontadas`, e não a subtração que o nome sugere. Conferido ao centavo nas 10 linhas do
+ * arquivo real (Renan: 130,91 + 72,73 = 203,64).
+ */
+export interface HoraExtraPontoSaida {
+  /** Horas que o relógio descontou e que serão devolvidas (pagas pelo valor-hora simples). */
+  horasDescontadas: number
+  /** Horas extras do mesmo dia (pagas pelo valor-hora COM o adicional). */
+  horasExtras: number
+  /** Salário no momento do cálculo — congelado, para aumento futuro não reescrever o histórico. */
+  salario: number
+  /** Multiplicador do adicional aplicado (1,6 = 60%). Congelado pelo mesmo motivo. */
+  fatorAdicional: number
+  /**
+   * Os dias que esta linha cobre, como a planilha escreve ("13 e 20/08").
+   *
+   * Existe porque o arquivo real agrega dois dias numa linha só, com as horas já somadas — e
+   * não há como repartir sem inventar. `data` guarda o primeiro dia (para ordenar e filtrar);
+   * este texto guarda o que a linha de fato representa.
+   */
+  diasTexto?: string
+}
+
+/**
+ * Uma hora extra — **antes** de ser paga.
+ *
+ * ─── POR QUE ESTA ENTIDADE EXISTE ─────────────────────────────────────────────
+ * Até aqui a hora extra só existia DEPOIS de paga: o único registro era o `FinanceiroEntry` que a
+ * importação da planilha criava, e a regra "só o que está pago vira despesa"
+ * (`controleDeCaixaImport.ts`) significava que o estado "lançado, ainda não pago" não tinha onde
+ * morar. A grade da planilha tem exatamente esse estado — a célula preenchida sem o "PG" ao lado.
+ *
+ * O valor é o da célula daquele dia. O cargo e o override do funcionário só sugerem o número na
+ * hora de digitar (ver `diariaSugerida`); nada aqui é derivado deles depois de gravado.
+ */
+export interface HoraExtra {
+  id: string
+  /** Vínculo com o cadastro, quando conhecido. Ausente = veio de planilha e o nome não casou. */
+  workerId?: string
+  /** Nome como aparece na origem — preservado mesmo quando `workerId` existe. */
+  workerNome: string
+  /** Cargo no momento do lançamento. Informativo: o valor NÃO é derivado dele. */
+  cargo?: string
+  /** yyyy-MM-dd. No ponto-saída agregado, é o primeiro dia (ver `detalhe.diasTexto`). */
+  data: string
+  tipo: HoraExtraTipo
+  /** O que será pago. Fim de semana: a diária. Ponto-saída: o TOTAL já calculado. */
+  valor: number
+  obraId?: string
+  pago: boolean
+  /** yyyy-MM-dd do pagamento. */
+  pagoEm?: string
+  /** Quem marcou como pago — mesmo par `conferidoPor`/`conferidoEm` do Controle de Caixa. */
+  pagoPor?: string
+  /** `FinanceiroEntry` gerado ao marcar Pago. É por ele que o estorno encontra o lançamento. */
+  entryId?: string
+  origem: 'manual' | 'rdo' | 'planilha'
+  detalhe?: HoraExtraPontoSaida
+  createdAt: string
 }
 
 export interface LaborOccurrence {
@@ -2228,6 +2328,15 @@ export interface RdoWcrPresente {
   nome: string
   /** Como veio escrito ('líder', 'ajudante', 'encanador'). A contagem canônica vai em `manpower`. */
   funcao?: string
+  /**
+   * O funcionário do cadastro, quando a tela soube dizer QUEM é.
+   *
+   * ⚠️ Só é gravado com veredito `exato` ou `provavel` confirmado na tela — nome ambíguo ou sem
+   * cadastro fica sem vínculo de propósito, porque inventar o vínculo aqui coloca dinheiro (hora
+   * extra, custo do dia) no CPF errado. Sem isso, quem lê o RDO depois só tem o nome escrito e
+   * precisa casar de novo, com menos informação do que a tela tinha na hora.
+   */
+  workerId?: string
 }
 
 /** A "LISTA DE PRESENÇA" de uma equipe — a mensagem que chega separada do apontamento. */

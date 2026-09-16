@@ -12,6 +12,8 @@ import { useActiveObraStore } from '@/store/activeObraStore'
 import type {
   Worker,
   LaborCrew,
+  Cargo,
+  HoraExtra,
   TimecardEntry,
   PhysicalProgress,
   LaborOccurrence,
@@ -45,6 +47,7 @@ import {
 import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { seededUuidLegado } from '@/lib/seededId'
+import { lancamentoDaHoraExtra } from '@/features/mao-de-obra/utils/horaExtraFinanceiro'
 import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
 /** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
@@ -113,6 +116,7 @@ export type MaoDeObraTab =
   | 'folha'
   | 'rh-financeiro'
   | 'ausencias'
+  | 'horas-extras'
   | 'apontamentos'
   | 'escalamento'
   | 'seguranca'
@@ -122,6 +126,8 @@ export type MaoDeObraTab =
 interface MaoDeObraState {
   workers:     Worker[]
   crews:       LaborCrew[]
+  cargos:      Cargo[]
+  horasExtras: HoraExtra[]
   timecards:   TimecardEntry[]
   progress:    PhysicalProgress[]
   occurrences: LaborOccurrence[]
@@ -165,6 +171,18 @@ interface MaoDeObraState {
   addCrew:    (crew: Omit<LaborCrew, 'id'>) => void
   updateCrew: (id: string, updates: Partial<Omit<LaborCrew, 'id'>>) => void
   removeCrew: (id: string) => void
+
+  // Cargo CRUD — a diária de HE de cada função. Ver `Cargo` em types: valor é sugestão.
+  addCargo:    (cargo: Omit<Cargo, 'id'>) => void
+  updateCargo: (id: string, updates: Partial<Omit<Cargo, 'id'>>) => void
+  removeCargo: (id: string) => void
+
+  // Hora extra — lançada antes de paga. `marcarHoraExtraPaga` é o único caminho que gera a
+  // despesa no Financeiro; desmarcar estorna. Ver `horaExtraFinanceiro.ts`.
+  upsertHoraExtra:  (he: HoraExtra) => void
+  removeHoraExtra:  (id: string) => void
+  marcarHoraExtraPaga:   (id: string, opcoes?: { pagoEm?: string; pagoPor?: string }) => void
+  desmarcarHoraExtraPaga: (id: string) => void
 
   // Timecard actions
   addTimecard:     (entry: Omit<TimecardEntry, 'id'>) => void
@@ -267,6 +285,30 @@ function crewToRow(c: LaborCrew, orgId: string, userId: string) {
     created_by:      userId,
   }
 }
+function horaExtraToRow(h: HoraExtra, orgId: string, userId: string) {
+  return {
+    id:              h.id,
+    organization_id: orgId,
+    // `worker_id` é uuid no banco: hora extra de planilha que não casou com ninguém fica null em
+    // vez de gravar o nome numa coluna tipada — o nome já viaja no payload.
+    worker_id:       h.workerId ?? null,
+    data:            h.data,
+    pago:            h.pago,
+    payload:         h as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+
+function cargoToRow(c: Cargo, orgId: string, userId: string) {
+  return {
+    id:              c.id,
+    organization_id: orgId,
+    nome:            c.nome,
+    payload:         c as unknown as Record<string, unknown>,
+    created_by:      userId,
+  }
+}
+
 function timecardToRow(t: TimecardEntry, orgId: string, userId: string) {
   return {
     id:              t.id,
@@ -363,6 +405,15 @@ function normalizeWorker(worker: Worker): Worker {
   }
 }
 
+/** Cargo sem nome não existe; valor ausente continua ausente (≠ zero, ver o tipo). */
+function normalizeCargo(cargo: Cargo): Cargo {
+  return {
+    ...cargo,
+    id: cargo.id || crypto.randomUUID(),
+    nome: cargo.nome || 'Cargo sem nome',
+  }
+}
+
 function normalizeCrew(crew: LaborCrew): LaborCrew {
   return {
     ...crew,
@@ -402,6 +453,8 @@ function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObr
     ...persisted,
     workers:        list(persisted.workers).map(normalizeWorker),
     crews:          list(persisted.crews).map(normalizeCrew),
+    cargos:         list(persisted.cargos).map(normalizeCargo),
+    horasExtras:    list(persisted.horasExtras),
     timecards:      list(persisted.timecards),
     progress:       list(persisted.progress),
     occurrences:    list(persisted.occurrences),
@@ -502,6 +555,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
   // configuração padrão real (parâmetros CLT), não é dado fake.
   workers:     [],
   crews:       [],
+  cargos:      [],
+  horasExtras: [],
   timecards:   [],
   progress:    [],
   occurrences: [],
@@ -785,6 +840,129 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       pendingSync: [...s.pendingSync, makeOp({ entity: 'labor_crew', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'labor_crews' })],
     }))
     void get().flush()
+  },
+
+  // ── Cargo CRUD ──────────────────────────────────────────────────────────────
+  // Mesmo molde de `addCrew`/`updateCrew`/`removeCrew` logo acima, inclusive o gate de papel e o
+  // soft delete por UPDATE (ver o comentário longo em `removeCrew`: `type: 'delete'` chama o RPC
+  // de aprovação e NÃO apaga — o registro volta no pull seguinte).
+
+  addCargo: (cargo) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    const id = crypto.randomUUID()
+    const novo: Cargo = { ...cargo, id }
+    const { orgId, userId } = ctxAuth()
+    set((s) => ({
+      cargos: [...s.cargos, novo],
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'cargo', type: 'insert', recordId: id, row: cargoToRow(novo, orgId, userId), table: 'cargos' })],
+    }))
+    void get().flush()
+  },
+
+  updateCargo: (id, updates) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    set((s) => ({ cargos: s.cargos.map((c) => (c.id === id ? { ...c, ...updates } : c)) }))
+    const target = get().cargos.find((c) => c.id === id)
+    if (target) {
+      const { orgId, userId } = ctxAuth()
+      const row = cargoToRow(target, orgId, userId)
+      const patch = Object.fromEntries(Object.entries(row).filter(([k]) => !['id','organization_id','created_by'].includes(k)))
+      set((s) => ({ pendingSync: [...s.pendingSync, makeOp({ entity: 'cargo', type: 'update', recordId: id, patch, table: 'cargos' })] }))
+      void get().flush()
+    }
+  },
+
+  removeCargo: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    set((s) => ({
+      cargos: s.cargos.filter((c) => c.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'cargo', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'cargos' })],
+    }))
+    void get().flush()
+  },
+
+  // ── Hora extra ──────────────────────────────────────────────────────────────
+  // A hora extra existe ANTES de ser paga — esse era o buraco. Antes disso o único registro de HE
+  // no sistema era o próprio `FinanceiroEntry` da planilha do caixa, ou seja: HE lançada e ainda
+  // não paga não tinha onde morar. `pago` é o que liga o registro ao dinheiro, e só por aqui.
+
+  upsertHoraExtra: (he) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    const { orgId, userId } = ctxAuth()
+    const jaExiste = get().horasExtras.some((h) => h.id === he.id)
+    set((s) => ({
+      horasExtras: jaExiste ? s.horasExtras.map((h) => (h.id === he.id ? he : h)) : [...s.horasExtras, he],
+      pendingSync: [...s.pendingSync, makeOp({
+        entity: 'hora_extra',
+        // Id determinístico (`idDaHoraExtra`): o mesmo dia da mesma pessoa reaberto em outro
+        // aparelho gera o MESMO id, então `insert` aqui é upsert por id — nunca duplica a linha.
+        type: jaExiste ? 'update' : 'insert',
+        recordId: he.id,
+        ...(jaExiste
+          ? { patch: Object.fromEntries(Object.entries(horaExtraToRow(he, orgId, userId)).filter(([k]) => !['id','organization_id','created_by'].includes(k))) }
+          : { row: horaExtraToRow(he, orgId, userId) }),
+        table: 'horas_extras',
+      })],
+    }))
+    void get().flush()
+  },
+
+  removeHoraExtra: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    // Apagar HE paga leva a despesa junto — senão fica lançamento no caixa sem origem nenhuma.
+    const alvo = get().horasExtras.find((h) => h.id === id)
+    if (alvo?.entryId) get().desmarcarHoraExtraPaga(id)
+    set((s) => ({
+      horasExtras: s.horasExtras.filter((h) => h.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'hora_extra', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'horas_extras' })],
+    }))
+    void get().flush()
+  },
+
+  marcarHoraExtraPaga: (id, opcoes) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    const he = get().horasExtras.find((h) => h.id === id)
+    if (!he) return
+    // ⚠️ ARMADILHA #5 (docs/ARMADILHAS_CONHECIDAS.md): a guarda é por `entryId`, NÃO por `pago`.
+    // Guardar por `pago` trava para sempre o registro que ficou pago-sem-lançamento — foi
+    // exatamente o bug do título "Recebido" que nunca virava despesa/receita.
+    if (he.entryId) return
+    if (typeof he.valor !== 'number' || !Number.isFinite(he.valor)) return
+
+    const { orgId } = ctxAuth()
+    const { profile } = useAuth.getState()
+    const agora = new Date().toISOString()
+    const pagoEm = opcoes?.pagoEm ?? he.pagoEm ?? he.data
+    const pagoPor = opcoes?.pagoPor ?? profile?.full_name ?? profile?.email ?? 'alguém'
+
+    const lancamento = lancamentoDaHoraExtra({ ...he, pagoEm }, orgId, { agora, pagoEm })
+    const pago: HoraExtra = { ...he, pago: true, pagoEm, pagoPor, entryId: lancamento.id }
+    get().upsertHoraExtra(pago)
+
+    // Import dinâmico: `financeiroStore` já importa ESTE store no topo (linha 7 de lá). Import
+    // estático aqui fecharia o ciclo. Mesmo recurso que `rdoStore` usa para chamar o Financeiro.
+    void import('./financeiroStore').then(({ useFinanceiroStore }) => {
+      // `respectObra: true` — HE sem obra tem que continuar sem obra; sem isso a barra lateral
+      // carimbaria a obra ativa num gasto que não é dela.
+      useFinanceiroStore.getState().addEntry(lancamento, { respectObra: true })
+    })
+  },
+
+  desmarcarHoraExtraPaga: (id) => {
+    if (!podeEscreverMaoDeObra().pode) return
+    const he = get().horasExtras.find((h) => h.id === id)
+    if (!he) return
+    const entryId = he.entryId
+    get().upsertHoraExtra({ ...he, pago: false, pagoEm: undefined, pagoPor: undefined, entryId: undefined })
+    // Estorno explícito, no molde de `desfazerBaixa` (financeiroTitulosStore): desmarcar Pago
+    // APAGA a despesa gerada. Deixá-la para trás faria o caixa pagar duas vezes na remarcação.
+    if (entryId) {
+      void import('./financeiroStore').then(({ useFinanceiroStore }) => {
+        if (useFinanceiroStore.getState().entries.some((e) => e.id === entryId)) {
+          useFinanceiroStore.getState().removeEntry(entryId)
+        }
+      })
+    }
   },
 
   // ── Timecards ───────────────────────────────────────────────────────────────
@@ -1491,6 +1669,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     set({
       workers:     [],
       crews:       [],
+      cargos:      [],
+      horasExtras: [],
       timecards:   [],
       progress:    [],
       occurrences: [],
@@ -1531,7 +1711,7 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // pendente (local não-sincronizado) e atualiza o resto com o servidor — assim uma
     // op presa nunca mais congela a tabela inteira e o local não diverge em silêncio.
     // Em paralelo: as tabelas não dependem uma da outra, e em série cada uma esperava a anterior.
-    const [ws, cs, ts, ss, as_, asmt, clt, wps, occ] = await Promise.all([
+    const [ws, cs, ts, ss, as_, asmt, clt, wps, occ, cgs, hes] = await Promise.all([
       pullTable<{ payload: Worker }>('workers'),
       pullTable<{ payload: LaborCrew }>('labor_crews'),
       pullTable<{ payload: TimecardEntry }>('timecards'),
@@ -1541,6 +1721,11 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       pullTable<{ payload: CLTSettings }>('clt_settings'),
       pullTable<{ payload: WorkPost }>('work_posts'),
       pullTable<{ payload: LaborOccurrence }>('labor_occurrences'),
+      // Tabela nova (migration 20260916120000). Enquanto ela não for aplicada, `pullTable`
+      // devolve null e o `mergePull` preserva o local — o cadastro segue funcionando offline.
+      pullTable<{ payload: Cargo }>('cargos'),
+      // Idem (migration 20260916130000).
+      pullTable<{ payload: HoraExtra }>('horas_extras'),
     ])
 
     // ── Subida única do que já existia só no navegador ─────────────────────────────
@@ -1579,6 +1764,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     set((s) => ({
       workers:     mergePull(ws?.map((r) => normalizeWorker(r.payload)) ?? null, s.workers, s.pendingSync, 'workers'),
       crews:       mergePull(cs?.map((r) => normalizeCrew(r.payload)) ?? null, s.crews, s.pendingSync, 'labor_crews'),
+      cargos:      mergePull(cgs?.map((r) => normalizeCargo(r.payload)) ?? null, s.cargos, s.pendingSync, 'cargos'),
+      horasExtras: mergePull(hes?.map((r) => r.payload) ?? null, s.horasExtras, s.pendingSync, 'horas_extras'),
       timecards:   mergePull(ts?.map((r) => r.payload) ?? null, s.timecards, s.pendingSync, 'timecards'),
       shifts:      mergePull(ss?.map((r) => r.payload) ?? null, s.shifts, s.pendingSync, 'shifts'),
       absences:    mergePull(as_?.map((r) => r.payload) ?? null, s.absences, s.pendingSync, 'worker_absences'),
@@ -1613,6 +1800,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
             Array.isArray(arr) ? arr.filter((item) => isUuid(item?.id)) : []
           state.workers     = keepReal(state.workers)
           state.crews       = keepReal(state.crews)
+          state.cargos      = keepReal(state.cargos)
+          state.horasExtras = keepReal(state.horasExtras)
           state.timecards   = keepReal(state.timecards)
           state.progress    = keepReal(state.progress)
           state.occurrences = keepReal(state.occurrences)
@@ -1630,6 +1819,8 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         activeOrgId:    s.activeOrgId,
         workers:        s.workers,
         crews:          s.crews,
+        cargos:         s.cargos,
+        horasExtras:    s.horasExtras,
         timecards:      s.timecards,
         shifts:         s.shifts,
         absences:       s.absences,

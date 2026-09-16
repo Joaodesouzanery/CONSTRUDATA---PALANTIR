@@ -190,17 +190,22 @@ export function RdoWcrPanel() {
   /** Quem foi marcado na tela e NÃO veio de lista colada entra como presença própria. */
   const presencaDaTela = useMemo<RdoWcrPresenca | null>(() => {
     const soDaTela = marcados.filter((w) => !preMarcados.has(w.id))
-    return soDaTela.length ? { equipe: 'Conferido na tela', pessoas: soDaTela.map((w) => ({ nome: w.name, funcao: w.role })) } : null
+    // O `w.id` estava em mãos e era descartado aqui. Guardá-lo é o que permite ao sistema, depois,
+    // sugerir a hora extra do sábado para a pessoa certa em vez de casar o nome de novo.
+    return soDaTela.length ? { equipe: 'Conferido na tela', pessoas: soDaTela.map((w) => ({ workerId: w.id, nome: w.name, funcao: w.role })) } : null
   }, [marcados, preMarcados])
   const presencasRdo = useMemo(() => {
     const coladas = presencas.map((p) => presencaParaRdo(p.lida, limitarTextoOriginal(p.texto)))
     // Quem foi desmarcado na tela sai da presença colada — a decisão da pessoa vence o texto.
     const desmarcados = new Set([...decisoes].filter(([, v]) => v === false).map(([id]) => id))
     const nomesDesmarcados = new Set(ativosDaObra.filter((w) => desmarcados.has(w.id)).map((w) => w.name))
-    const semDesmarcados = coladas.map((p) => ({ ...p, pessoas: p.pessoas.filter((x) => {
+    const semDesmarcados = coladas.map((p) => ({ ...p, pessoas: p.pessoas.flatMap((x) => {
       const c = casadas.find((k) => k.nome === x.nome)
       const w = c && (c.veredito.tipo === 'exato' || c.veredito.tipo === 'provavel') ? c.veredito.worker : null
-      return !w || !nomesDesmarcados.has(w.name)
+      if (w && nomesDesmarcados.has(w.name)) return []
+      // Carimba o vínculo quando a tela soube quem é. `ambiguo`/`nenhum` seguem sem workerId —
+      // é o mesmo princípio de `casarNome`: a máquina não decide ambiguidade sozinha.
+      return [w ? { ...x, workerId: w.id } : x]
     }) }))
     return presencaDaTela ? [...semDesmarcados, presencaDaTela] : semDesmarcados
   }, [presencas, presencaDaTela, decisoes, ativosDaObra, casadas])

@@ -53,6 +53,14 @@ const PERMITIDO_NA_IMPORTACAO: Record<keyof Worker, boolean> = {
   tipoCnh: true,
 
   // Bloqueados.
+  /**
+   * A diária de HE desta pessoa é exceção negociada, decidida na tela de Cargos / Horas Extras —
+   * não vem no cadastro de pessoal. A planilha de HE do cliente tem valor por DIA, não um padrão
+   * por pessoa: importar dali confundiria "o que ele recebeu no sábado 08" com "o que ele sempre
+   * recebe". Se um dia a planilha de funcionários ganhar essas colunas, é decisão para tomar aqui.
+   */
+  heSabadoOverride: false,
+  heDomingoOverride: false,
   /** O id é do sistema, não da planilha. */
   id: false,
   /** ⚠️ Existe no cadastro manual, mascarado. Não se importa CPF de planilha. */
