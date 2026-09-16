@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FileSpreadsheet, Plus, PackageMinus } from 'lucide-react'
+import { FileSpreadsheet } from 'lucide-react'
 import { SuprimentosHeader }    from './components/SuprimentosHeader'
 import { ConciliacaoPanel }     from './components/ConciliacaoPanel'
 import { ExcecoesPanel }        from './components/ExcecoesPanel'
@@ -14,10 +14,6 @@ import { EstoqueParadoPanel }   from './components/EstoqueParadoPanel'
 import { SemaforoProntidaoPanel } from './components/SemaforoProntidaoPanel'
 import { WhatIfLogisticoPanel } from './components/WhatIfLogisticoPanel'
 import { BomPendentePanel }    from './components/BomPendentePanel'
-import { ExcelImportModal }          from './components/ExcelImportModal'
-import { FichaRetiradaModal }        from './components/FichaRetiradaModal'
-import { NovoMaterialModal }         from './components/NovoMaterialModal'
-import { ImportConsolidadoModal }    from './components/ImportConsolidadoModal'
 import { ImportPlanilhasModal }      from './components/ImportPlanilhasModal'
 import { ResumoNucleoPanel }         from './components/ResumoNucleoPanel'
 import { ConsolidadoTrechosPanel }   from './components/ConsolidadoTrechosPanel'
@@ -40,11 +36,7 @@ function defaultTabForSection(section: SuprimentosSection): SuprimentosTab {
 export function SuprimentosPage() {
   const [activeSection, setActiveSection] = useState<SuprimentosSection>('suprimentos')
   const [activeTab, setActiveTab] = useState<SuprimentosTab>('fluxo')
-  const [showImport, setShowImport] = useState(false)
-  const [showNovoMaterial, setShowNovoMaterial] = useState(false)
-  const [showConsolidado, setShowConsolidado] = useState(false)
   const [showPlanilhas, setShowPlanilhas] = useState(false)
-  const [showRetirada, setShowRetirada] = useState(false)
   const pullPlanilhasSupabase = useSuprimentosStore((s) => s.pullPlanilhasSupabase)
   const profileOrgId = useAuth((s) => s.profile?.organization_id)
   const loadDemoData = useSuprimentosStore((s) => s.loadDemoData)
@@ -132,31 +124,6 @@ export function SuprimentosPage() {
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
-          {activeSection === 'suprimentos' && (
-            <>
-              <button
-                onClick={() => setShowRetirada(true)}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#f97316] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#ea580c] sm:flex-none"
-              >
-                <PackageMinus size={13} />
-                Registrar Retirada
-              </button>
-              <button
-                onClick={() => setShowNovoMaterial(true)}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5] sm:flex-none"
-              >
-                <Plus size={13} />
-                Adicionar Material
-              </button>
-              <button
-                onClick={() => setShowConsolidado(true)}
-                className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs font-medium text-[#a3a3a3] transition-colors hover:border-[#f97316]/40 hover:text-[#f5f5f5] sm:flex-none"
-              >
-                <FileSpreadsheet size={13} />
-                Importar Consolidado
-              </button>
-            </>
-          )}
           {activeSection === 'planilhas' && (
             <button
               onClick={() => setShowPlanilhas(true)}
@@ -173,10 +140,9 @@ export function SuprimentosPage() {
         section={activeSection}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onImportMaterials={() => setShowImport(true)}
       />
 
-      {activeTab === 'fluxo' && <DashboardSuprimentosPanel onNavigate={navigateFlow} onRegistrarRetirada={() => setShowRetirada(true)} />}
+      {activeTab === 'fluxo' && <DashboardSuprimentosPanel onNavigate={navigateFlow} onRegistrarRetirada={() => navigateFlow('almoxarifado')} />}
       {activeTab === 'parado'      && <EstoqueParadoPanel />}
       {activeTab === 'conciliacao' && <ConciliacaoPanel />}
       {activeTab === 'excecoes'    && <ExcecoesPanel />}
@@ -198,11 +164,7 @@ export function SuprimentosPage() {
         <CadeiaSuprimentosPanel activeTab={activeTab} />
       )}
 
-      {showImport        && <ExcelImportModal onClose={() => setShowImport(false)} />}
-      {showNovoMaterial  && <NovoMaterialModal onClose={() => setShowNovoMaterial(false)} />}
-      {showConsolidado   && <ImportConsolidadoModal onClose={() => setShowConsolidado(false)} />}
       {showPlanilhas     && <ImportPlanilhasModal onClose={() => setShowPlanilhas(false)} />}
-      {showRetirada      && <FichaRetiradaModal onClose={() => setShowRetirada(false)} />}
     </div>
   )
 }

@@ -1,4 +1,3 @@
-import { Upload } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { cn } from '@/lib/utils'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -20,7 +19,6 @@ interface Props {
   section: SuprimentosSection
   activeTab: SuprimentosTab
   onTabChange: (tab: SuprimentosTab) => void
-  onImportMaterials?: () => void
 }
 
 // A ordem das cinco primeiras é a ordem em que a operação usa o módulo: olhar o painel, conferir
@@ -49,7 +47,7 @@ const ALL_TABS: { key: SuprimentosTab; label: string; section: SuprimentosSectio
   { key: 'cadeia_planejamento', label: 'Planos de Contingência', section: 'cadeia' },
 ]
 
-export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMaterials }: Props) {
+export function SuprimentosHeader({ section, activeTab, onTabChange }: Props) {
   const {
     purchaseOrders,
     exceptions,
@@ -149,14 +147,6 @@ export function SuprimentosHeader({ section, activeTab, onTabChange, onImportMat
           </span>
         )}
 
-        <button
-          onClick={onImportMaterials}
-          className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#525252] bg-[#484848] px-3 py-1.5 text-xs font-medium text-[#f5f5f5] transition-colors hover:bg-[#525252] sm:w-auto lg:ml-auto"
-          title="Importar materiais por planilha ou imagem guiada"
-        >
-          <Upload size={13} />
-          Importar Materiais
-        </button>
       </div>
     </div>
   )

@@ -27,6 +27,8 @@ export interface ExcelSheetPreview {
   name: string
   headers: string[]
   rows: Record<string, string>[]
+  /** Pedido é demanda de compra, nunca saldo físico. */
+  kind: 'estoque' | 'pedidos' | 'generica'
 }
 
 // Known field names for auto-suggest mapping
@@ -264,6 +266,14 @@ function pontuacaoAbaEstoque(sheet: ExcelSheetPreview): number {
   return pontos
 }
 
+function tipoDaAba(name: string, headers: string[]): ExcelSheetPreview['kind'] {
+  const n = normalize(name)
+  const hs = headers.map(normalize)
+  if (n.includes('pedido') || (hs.some((h) => h === 'obs' || h.includes('observacao')) && !hs.some((h) => h.includes('codigo de referencia')))) return 'pedidos'
+  if (n.includes('estoque') || n.includes('almoxarifado') || hs.some((h) => h.includes('codigo de referencia'))) return 'estoque'
+  return 'generica'
+}
+
 /** Troca a aba ativa preservando todas as abas lidas do mesmo arquivo. */
 export function selecionarAbaExcel(preview: ExcelPreview, sheetName: string): ExcelPreview {
   const sheet = preview.sheets.find((candidate) => candidate.name === sheetName)
@@ -299,6 +309,7 @@ export function previewExcel(file: File): Promise<ExcelPreview> {
             name,
             headers,
             rows: raw.map((r) => Object.fromEntries(headers.map((h) => [h, dataParaTexto(r[h])]))),
+            kind: tipoDaAba(name, headers),
           }
         }).filter((sheet) => sheet.rows.length > 0)
 
@@ -399,7 +410,12 @@ export function applyColumnMapping(
       // Unidade base: só sobrescreve com a de dentro dos parênteses quando a embalagem veio da STRING
       // ("9 cx (24un)"). Se veio de colunas dedicadas, respeita a coluna "Unidade" mapeada.
       const embFromString = colPorEmb === 0 && (embStr.porEmb ?? 0) > 0
-      const unidadeBase = embFromString ? (embStr.unidadeInterna || 'un') : (str('unidade') || embStr.unidadeExterna || '')
+      // "20M" precisa manter metro mesmo quando a coluna Unidade herdada diz "un". A unidade
+      // embutida na própria quantidade é mais específica; já a embalagem "4 cx (24un)" cai na
+      // regra acima e continua em unidades-base.
+      const quantidadeComUnidade = /[a-zç²]/i.test(str('qtdDisponivel'))
+      const unidadeBase = embFromString ? (embStr.unidadeInterna || 'un')
+        : (quantidadeComUnidade && embStr.unidadeExterna ? embStr.unidadeExterna : (str('unidade') || embStr.unidadeExterna || ''))
       const unidadeEmb = str('unidadeEmbalagem') || (embFromString ? embStr.unidadeExterna : undefined) || undefined
 
       return {

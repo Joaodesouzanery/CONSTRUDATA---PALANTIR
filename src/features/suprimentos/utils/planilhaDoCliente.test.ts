@@ -119,6 +119,15 @@ test('a planilha dizendo "0" é diferente de não dizer nada', () => {
   assert.equal(por('Lona 110M').unidade, 'rolos')
 })
 
+test('quantidade com unidade colada preserva a unidade específica', () => {
+  const [velcro] = applyColumnMapping(
+    [{ Produto: 'Velcro Preto', Quantidade: '20M', Unidade: 'un' }],
+    { Produto: 'descricao', Quantidade: 'qtdDisponivel', Unidade: 'unidade' },
+  )
+  assert.equal(velcro.qtdDisponivel, 20)
+  assert.equal(velcro.unidade, 'm')
+})
+
 // ── Acentos ───────────────────────────────────────────────────────────────────
 
 test('⚠️ (a) os acentos chegam inteiros — senão vira tudo material novo', () => {
@@ -194,8 +203,8 @@ test('arquivo com abas preserva todas e só troca a aba escolhida', () => {
     headers: ['Produto', 'Quantidade'],
     rows: [{ Produto: 'Thinner 18L', Quantidade: '0' }],
     sheets: [
-      { name: 'Controle de Estoque', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Thinner 18L', Quantidade: '0' }] },
-      { name: 'Controle de Pedidos', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Lona', Quantidade: '5' }] },
+      { name: 'Controle de Estoque', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Thinner 18L', Quantidade: '0' }], kind: 'estoque' },
+      { name: 'Controle de Pedidos', headers: ['Produto', 'Quantidade'], rows: [{ Produto: 'Lona', Quantidade: '5' }], kind: 'pedidos' },
     ],
   }
 

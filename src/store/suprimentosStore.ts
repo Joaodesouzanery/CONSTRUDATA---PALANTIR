@@ -345,7 +345,8 @@ interface SuprimentosState {
   addItemEstoque:       (item: Omit<ItemEstoque, 'id'>) => string
   updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
   removeItemEstoque:    (id: string) => void
-  addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => void
+  addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => string
+  removeMovimentacao:   (id: string) => void
   addReserva:           (r: Omit<ReservaMaterial, 'id' | 'criadoEm'>) => void
   updateReserva:        (id: string, patch: Partial<ReservaMaterial>) => void
   consumirMaterial:     (itemId: string, qty: number, opts?: FichaRetirada) => void
@@ -1020,7 +1021,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     // `sup_est_mov_insert_with_role`. As demais mutações de estoque (update de item, de depósito e
     // os soft deletes) NÃO ganham gate de propósito: a policy de UPDATE pede só a organização, e
     // um gate mais rígido que a RLS esconderia botão de quem o servidor aceita.
-    if (!podeEscreverSuprimentos().pode) return
+    if (!podeEscreverSuprimentos().pode) return ''
     const id = crypto.randomUUID()
     const row = { ...mov, id, siteId: mov.siteId ?? useActiveObraStore.getState().activeObraId ?? null }
     const { orgId, userId } = currentSyncContext()
@@ -1030,6 +1031,15 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         ...s.pendingSync,
         makeOp({ entity: 'estoque_movimentacao', type: 'insert', recordId: id, row: movimentacaoToRow(row, orgId, userId), table: 'suprimentos_estoque_movimentacoes' }),
       ],
+    }))
+    void get().flush()
+    return id
+  },
+
+  removeMovimentacao: (id) => {
+    set((s) => ({
+      movimentacoes: s.movimentacoes.filter((mov) => mov.id !== id),
+      pendingSync: [...s.pendingSync, makeOp({ entity: 'estoque_movimentacao', type: 'update', recordId: id, patch: { deleted_at: new Date().toISOString() }, table: 'suprimentos_estoque_movimentacoes' })],
     }))
     void get().flush()
   },

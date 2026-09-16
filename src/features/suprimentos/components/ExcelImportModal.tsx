@@ -20,6 +20,7 @@ import { hojeLocalISO, horaLocalHHMM } from '@/lib/utils'
 import { cn, formatCurrency } from '@/lib/utils'
 import { usePermissaoEscrita, ROLES_SUPRIMENTOS_WRITE } from '@/lib/roles'
 import { parseLocaleNumber } from '@/lib/numberFormat'
+import { createEstoqueImportBatch, loadEstoqueImportBatches, saveEstoqueImportBatches } from '../utils/importHistory'
 
 const KNOWN_FIELDS: { value: string; label: string }[] = [
   { value: 'ignorar',           label: '— Ignorar —'           },
@@ -43,6 +44,7 @@ const KNOWN_FIELDS: { value: string; label: string }[] = [
 
 interface Props {
   onClose: () => void
+  onImported?: () => void
 }
 
 type Step = 'upload' | 'mapping' | 'preview' | 'image' | 'done'
@@ -58,7 +60,7 @@ type ImageMaterialRow = {
 const EMPTY_IMAGE_ROW: ImageMaterialRow = { descricao: '', unidade: '', qtdDisponivel: '', custoUnitario: '', categoria: '' }
 
 
-export function ExcelImportModal({ onClose }: Props) {
+export function ExcelImportModal({ onClose, onImported }: Props) {
   const { depositos, selectedDepositoId, estoqueItens, movimentacoes, addItemEstoque, updateItemEstoque, addMovimentacao } = useSuprimentosStore(
     useShallow((s) => ({
       depositos:          s.depositos,
@@ -76,7 +78,9 @@ export function ExcelImportModal({ onClose }: Props) {
   const [preview, setPreview]     = useState<ExcelPreview | null>(null)
   const [filename, setFilename]   = useState('')
   const [mapping, setMapping]     = useState<Record<string, string>>({})
-  const [targetDeposito, setTargetDeposito] = useState(selectedDepositoId ?? depositos[0]?.id ?? '')
+  // Não há fallback para "primeiro depósito": importar no depósito errado é pior que exigir
+  // uma escolha. A ausência era a causa do diff "comparado com o estoque de .".
+  const [targetDeposito, setTargetDeposito] = useState(selectedDepositoId ?? '')
   const [error, setError]         = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [imageUrl, setImageUrl]   = useState('')
@@ -149,6 +153,7 @@ export function ExcelImportModal({ onClose }: Props) {
     // número conferido.
     const jaGravadas = new Set<string>()
     const movimentosNovos: Omit<MovimentacaoEstoque, 'id'>[] = []
+    const changes: Parameters<typeof createEstoqueImportBatch>[0]['changes'] = []
     const hoje = hojeLocalISO()
     let criados = 0
     let atualizados = 0
@@ -172,6 +177,8 @@ export function ExcelImportModal({ onClose }: Props) {
           if (v !== undefined && v !== '' && v !== null) (patch as Record<string, unknown>)[k] = v
         }
         updateItemEstoque(linha.itemId, patch)
+        const before = estoqueItens.find((existing) => existing.id === linha.itemId)
+        if (before) changes.push({ itemId: linha.itemId, before, after: { ...before, ...patch }, created: false })
         atualizados++
 
         // ─── A MOVIMENTAÇÃO ─────────────────────────────────────────────────
@@ -196,7 +203,7 @@ export function ExcelImportModal({ onClose }: Props) {
         }
       } else {
         // Item novo: aqui "não informado" só pode virar zero mesmo — não existe saldo anterior.
-        addItemEstoque({
+        const createdId = addItemEstoque({
           ...item,
           qtdDisponivel: item.qtdDisponivel ?? 0,
           estoqueMinimo: item.estoqueMinimo ?? 0,
@@ -204,13 +211,20 @@ export function ExcelImportModal({ onClose }: Props) {
           qtdReservada: 0,
           qtdTransito: 0,
         })
+        changes.push({ itemId: createdId, after: { ...item, id: createdId, qtdDisponivel: item.qtdDisponivel ?? 0, estoqueMinimo: item.estoqueMinimo ?? 0, depositoId: targetDeposito, qtdReservada: 0, qtdTransito: 0 }, created: true })
         criados++
       }
     }
 
     // As movimentações vão DEPOIS de todos os saldos: se alguma falhar, o saldo já está certo e o
     // que falta é o histórico. Na ordem inversa, perderia-se o número que o almoxarife conferiu.
-    for (const mov of movimentosNovos) addMovimentacao(mov)
+    const movementIds = movimentosNovos.map((mov) => addMovimentacao(mov)).filter(Boolean)
+    if (changes.length > 0) {
+      void loadEstoqueImportBatches().then((batches) => saveEstoqueImportBatches([
+        createEstoqueImportBatch({ filename, depositoId: targetDeposito, changes, movementIds }),
+        ...batches,
+      ])).then(() => onImported?.())
+    }
 
     setResultado({ criados, atualizados, movimentos: movimentosNovos.length })
     setStep('done')
@@ -326,6 +340,8 @@ export function ExcelImportModal({ onClose }: Props) {
   const imageTotalItems = imageRows.filter((row) => row.descricao.trim()).length
   const importedCount = resultado ? resultado.criados + resultado.atualizados : imageTotalItems
   const deposito     = depositos.find((d) => d.id === targetDeposito)
+  const abaDePedidos = preview?.sheets.find((sheet) => sheet.name === preview.sheetName)?.kind === 'pedidos'
+  const depositoValido = Boolean(targetDeposito && deposito)
 
   return (
     <div
@@ -445,10 +461,16 @@ export function ExcelImportModal({ onClose }: Props) {
                     className="w-full bg-[#3d3d3d] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                   >
                     {preview.sheets.map((sheet) => (
-                      <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.rows.length} linhas</option>
+                      <option key={sheet.name} value={sheet.name}>{sheet.name} · {sheet.rows.length} linhas{sheet.kind === 'pedidos' ? ' · lista de compras' : ''}</option>
                     ))}
                   </select>
-                  <p className="mt-1.5 text-[10px] text-[#6b6b6b]">A aba de estoque foi selecionada automaticamente. Escolha outra somente se ela também representar saldo de materiais.</p>
+                  <p className="mt-1.5 text-[10px] text-[#6b6b6b]">A aba de estoque foi selecionada automaticamente. Abas de pedido são reconhecidas como demanda de compra e não alteram saldo.</p>
+                </div>
+              )}
+
+              {abaDePedidos && (
+                <div className="rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/[0.08] px-3 py-2.5 text-[11px] text-[#fbbf24]">
+                  <strong>Esta é uma lista de pedidos, não um saldo de estoque.</strong> As {preview.rows.length} linhas foram reconhecidas, mas não podem ser importadas como quantidade disponível. Volte para a aba de estoque para atualizar o almoxarifado.
                 </div>
               )}
 
@@ -460,10 +482,12 @@ export function ExcelImportModal({ onClose }: Props) {
                   onChange={(e) => setTargetDeposito(e.target.value)}
                   className="bg-[#2c2c2c] border border-[#525252] rounded-lg px-2.5 py-1.5 text-xs text-[#f5f5f5] focus:outline-none focus:border-[#f97316]/50"
                 >
+                  <option value="">Selecione o depósito obrigatório</option>
                   {depositos.filter((d) => d.ativo).map((d) => (
                     <option key={d.id} value={d.id}>{d.frente}</option>
                   ))}
                 </select>
+                {!depositoValido && <p className="mt-1 text-[10px] text-[#fbbf24]">Escolha o depósito antes de conferir as mudanças.</p>}
               </div>
 
               {conflitos.length > 0 && (
@@ -505,7 +529,7 @@ export function ExcelImportModal({ onClose }: Props) {
           )}
 
           {/* Passo 3: conferência — o que a planilha muda no estoque */}
-          {step === 'preview' && preview && (
+            {step === 'preview' && preview && (
             <div className="flex flex-col gap-4">
               {/* Placar */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -803,6 +827,7 @@ export function ExcelImportModal({ onClose }: Props) {
             {step === 'mapping' && (
               <button
                 onClick={() => setStep('preview')}
+                disabled={!depositoValido || abaDePedidos}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#f97316] text-white hover:bg-[#f97316]/80 transition-colors"
               >
                 Conferir mudanças <ChevronRight size={12} />
@@ -818,7 +843,7 @@ export function ExcelImportModal({ onClose }: Props) {
                 </button>
                 <button
                   onClick={handleImport}
-                  disabled={importing || totalItems === 0 || !permissao.pode}
+                  disabled={importing || totalItems === 0 || !permissao.pode || !depositoValido || abaDePedidos}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-[#22c55e] text-white hover:bg-[#22c55e]/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {importing ? 'Aplicando...'

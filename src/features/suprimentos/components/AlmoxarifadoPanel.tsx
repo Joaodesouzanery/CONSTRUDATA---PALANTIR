@@ -1,9 +1,8 @@
-import { Fragment, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowDownToLine,
   ArrowUpDown,
-  Box,
   Edit2,
   Filter,
   Package,
@@ -11,11 +10,11 @@ import {
   Save,
   Search,
   Trash2,
-  TrendingUp,
   X,
   FileSpreadsheet,
   PackageMinus,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -27,6 +26,7 @@ import { formatDecimalInput, formatMoneyInput, parseLocaleNumber } from '@/lib/n
 import { buildFrenteOptions, resolveFrenteDeposito } from '../utils/frentes'
 import { ExcelImportModal } from './ExcelImportModal'
 import { FichaRetiradaModal } from './FichaRetiradaModal'
+import { importRollbackConflicts, loadEstoqueImportBatches, saveEstoqueImportBatches, type EstoqueImportBatch } from '../utils/importHistory'
 
 type MovementType = 'entrada' | 'saida'
 
@@ -60,10 +60,6 @@ interface ItemForm {
   realizarPedido: boolean
 }
 
-interface DepositoForm {
-  frente: string
-  descricao: string
-}
 
 const inputClass = 'w-full rounded-lg border border-[#525252] bg-[#3d3d3d] px-3 py-2 text-sm text-[#f5f5f5] outline-none placeholder:text-[#6b6b6b] focus:border-[#f97316]/60'
 
@@ -87,11 +83,6 @@ const emptyForm: ItemForm = {
   realizarPedido: false,
 }
 
-const emptyDepositoForm: DepositoForm = {
-  frente: '',
-  descricao: '',
-}
-
 function brl(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -100,14 +91,12 @@ export function AlmoxarifadoPanel() {
   const {
     depositos,
     estoqueItens,
-    movimentacoes,
     addDeposito,
-    updateDeposito,
-    removeDeposito,
     addItemEstoque,
     updateItemEstoque,
     removeItemEstoque,
     addMovimentacao,
+    removeMovimentacao,
     consumirMaterial,
     pendingSync,
     syncStatus,
@@ -116,14 +105,12 @@ export function AlmoxarifadoPanel() {
     useShallow((s) => ({
       depositos: s.depositos,
       estoqueItens: s.estoqueItens,
-      movimentacoes: s.movimentacoes,
       addDeposito: s.addDeposito,
-      updateDeposito: s.updateDeposito,
-      removeDeposito: s.removeDeposito,
       addItemEstoque: s.addItemEstoque,
       updateItemEstoque: s.updateItemEstoque,
       removeItemEstoque: s.removeItemEstoque,
       addMovimentacao: s.addMovimentacao,
+      removeMovimentacao: s.removeMovimentacao,
       consumirMaterial: s.consumirMaterial,
       pendingSync: s.pendingSync,
       syncStatus: s.syncStatus,
@@ -141,13 +128,30 @@ export function AlmoxarifadoPanel() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [movement, setMovement] = useState<MovementForm | null>(null)
   const [form, setForm] = useState<ItemForm>(emptyForm)
-  const [depositoForm, setDepositoForm] = useState<DepositoForm>(emptyDepositoForm)
-  const [editingDepositoId, setEditingDepositoId] = useState<string | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [importBatches, setImportBatches] = useState<EstoqueImportBatch[]>([])
   // A ficha pode abrir vazia (pelo botão do topo) ou já com o item da linha — que é de onde faz
   // sentido: "dar baixa NESTE aqui". A prop `itemInicial` existia e nenhum chamador usava.
   const [retiradaOpen, setRetiradaOpen] = useState<boolean | ItemEstoque>(false)
   const itemFormRef = useRef<HTMLDivElement | null>(null)
+
+  const refreshImportHistory = () => { void loadEstoqueImportBatches().then(setImportBatches) }
+  useEffect(() => { refreshImportHistory() }, [])
+
+  function undoImport(batch: EstoqueImportBatch) {
+    const conflicts = importRollbackConflicts(batch, estoqueItens)
+    const conflictText = conflicts.length ? `\n\n${conflicts.length} item(ns) sofreram edição posterior. Confirmar restaura o estado anterior desses itens também.` : ''
+    if (!window.confirm(`Desfazer o lote “${batch.filename}” (${batch.changes.length} item(ns))?${conflictText}`)) return
+    for (const change of batch.changes) {
+      if (change.created) removeItemEstoque(change.itemId)
+      else if (change.before) updateItemEstoque(change.itemId, change.before)
+    }
+    for (const movementId of batch.movementIds) removeMovimentacao(movementId)
+    const next = importBatches.map((item) => item.id === batch.id ? { ...item, revertedAt: new Date().toISOString() } : item)
+    setImportBatches(next)
+    void saveEstoqueImportBatches(next)
+  }
 
   const categories = useMemo(
     () => ['Todas', ...Array.from(new Set(estoqueItens.map((item) => item.categoria || 'Sem categoria')))],
@@ -191,7 +195,6 @@ export function AlmoxarifadoPanel() {
     })
   }, [category, depositoId, depositos, estoqueItens, lowOnly, search, activeObraId])
 
-  const totalValue = estoqueItens.reduce((sum, item) => sum + item.qtdDisponivel * (item.custoUnitario ?? 0), 0)
   const formQuantity = parseLocaleNumber(form.qtdDisponivel)
   const formUnitValue = parseLocaleNumber(form.custoUnitario)
   // Resultado RECONCILIADO — uma conta só: embalagem → unidades; e Valor total ÷ unidades → unitário.
@@ -208,19 +211,6 @@ export function AlmoxarifadoPanel() {
   const formTemResumo = formQtdUn > 0 || formTotalCalc > 0
   const estoquePendingSync = pendingSync.filter((op) => op.table.startsWith('suprimentos_'))
   const lowItems = estoqueItens.filter((item) => item.qtdDisponivel < item.estoqueMinimo)
-  const activeCategories = new Set(estoqueItens.map((item) => item.categoria || 'Sem categoria')).size
-  const depositoStats = useMemo(() => depositos.map((dep) => {
-    const items = estoqueItens.filter((item) => item.depositoId === dep.id)
-    const low = items.filter((item) => item.qtdDisponivel < item.estoqueMinimo).length
-    const value = items.reduce((sum, item) => sum + item.qtdDisponivel * (item.custoUnitario ?? 0), 0)
-    return { dep, items: items.length, low, value }
-  }), [depositos, estoqueItens])
-
-  function depositoLabel(item: ItemEstoque, field: 'frente' | 'descricao') {
-    const deposito = depositos.find((dep) => dep.id === item.depositoId)
-    if (field === 'descricao') return deposito?.descricao || 'Almoxarifado Central'
-    return deposito?.frente || 'Projeto não informado'
-  }
 
   function openNewItemForm() {
     setEditingItemId(null)
@@ -394,41 +384,35 @@ export function AlmoxarifadoPanel() {
     removeItemEstoque(item.id)
   }
 
-  function handleEditDeposito(id: string) {
-    const deposito = depositos.find((dep) => dep.id === id)
-    if (!deposito) return
-    setEditingDepositoId(id)
-    setDepositoForm({ frente: deposito.frente, descricao: deposito.descricao ?? '' })
+  function toggleItemSelection(id: string) {
+    setSelectedItemIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
-  function handleCancelDeposito() {
-    setEditingDepositoId(null)
-    setDepositoForm(emptyDepositoForm)
+  function toggleVisibleSelection() {
+    const visibleIds = filtered.map((item) => item.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedItemIds.has(id))
+    setSelectedItemIds((current) => {
+      const next = new Set(current)
+      for (const id of visibleIds) allSelected ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
-  function handleSaveDeposito() {
-    const frente = depositoForm.frente.trim()
-    if (!frente) return
-    const payload = {
-      frente,
-      descricao: depositoForm.descricao.trim() || undefined,
-      ativo: true,
-    }
-    if (editingDepositoId) {
-      updateDeposito(editingDepositoId, payload)
-    } else {
-      addDeposito(payload)
-    }
-    handleCancelDeposito()
+  function handleBulkDelete() {
+    const selected = estoqueItens.filter((item) => selectedItemIds.has(item.id))
+    if (selected.length === 0) return
+    const nomes = selected.slice(0, 5).map((item) => item.descricao).join(', ')
+    const resto = selected.length > 5 ? ` e mais ${selected.length - 5}` : ''
+    if (!window.confirm(`Excluir ${selected.length} material(is)?\n\n${nomes}${resto}\n\nA exclusão poderá ser auditada e não remove o histórico físico.`)) return
+    for (const item of selected) removeItemEstoque(item.id)
+    setSelectedItemIds(new Set())
   }
 
-  function handleDeleteDeposito(id: string) {
-    const deposito = depositos.find((dep) => dep.id === id)
-    const itemsCount = estoqueItens.filter((item) => item.depositoId === id).length
-    const ok = window.confirm(`Excluir "${deposito?.frente ?? 'esta frente'}"${itemsCount > 0 ? ` e ${itemsCount} item(ns) vinculados` : ''}?`)
-    if (!ok) return
-    removeDeposito(id)
-  }
 
   function handleMovementSave() {
     if (!movement) return
@@ -471,12 +455,6 @@ export function AlmoxarifadoPanel() {
 
   // "Usado" por item = Σ saídas (inclui baixas de RDO, que chegam como tipo='saida').
   // Chaveado por itemId (id único) → 0 quando não há saída.
-  const consumidoPorItem = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const mov of movimentacoes) if (mov.tipo === 'saida') m.set(mov.itemId, (m.get(mov.itemId) ?? 0) + mov.quantidade)
-    return m
-  }, [movimentacoes])
-
   function itemRow(item: ItemEstoque) {
     const missing = Math.max(0, item.estoqueMinimo - item.qtdDisponivel)
     const low = missing > 0
@@ -484,7 +462,10 @@ export function AlmoxarifadoPanel() {
     // Rótulo da embalagem sem o número (o campo às vezes guarda "10 caixas"); a contagem já é calculada.
     const embLabel = (item.unidadeEmbalagem || 'emb.').replace(/^\s*[\d.,]+\s*/, '') || 'emb.'
     return (
-      <tr key={item.id} className="hover:bg-[#3d3d3d] align-top">
+      <tr key={item.id} className={cn('hover:bg-[#3d3d3d] align-top even:bg-[#2f2f2f]/70', selectedItemIds.has(item.id) && 'bg-[#f97316]/10')}>
+        <td className="px-3 py-3">
+          <input type="checkbox" aria-label={`Selecionar ${item.descricao}`} checked={selectedItemIds.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="h-4 w-4 accent-[#f97316]" />
+        </td>
         {/* Material — nome em destaque + código e categoria como subtexto */}
         <td className="px-3 py-3 min-w-[220px]">
           <div className="font-semibold text-[#f5f5f5] leading-snug">{item.descricao}</div>
@@ -513,8 +494,6 @@ export function AlmoxarifadoPanel() {
             )}
           </div>
         </td>
-        {/* Frente */}
-        <td className="px-3 py-3 whitespace-nowrap text-[#e5e5e5]">{depositoLabel(item, 'frente')}</td>
         {/* Qtd. — com unidade e equivalência em embalagem */}
         <td className={cn('px-3 py-3 text-right whitespace-nowrap tabular-nums', low ? 'font-semibold text-[#f87171]' : 'text-[#f5f5f5]')}>
           {item.qtdDisponivel}{item.unidade ? ` ${item.unidade}` : ''}
@@ -524,14 +503,10 @@ export function AlmoxarifadoPanel() {
             </span>
           )}
         </td>
-        {/* Usado — Σ saídas (inclui baixas de RDO), 0 quando não houver */}
-        <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#a3a3a3]" title="Total consumido (saídas, inclui baixas de RDO)">
-          {consumidoPorItem.get(item.id) ?? 0}{item.unidade ? ` ${item.unidade}` : ''}
-        </td>
-        {/* Unitário */}
-        <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#e5e5e5]">{brl(item.custoUnitario ?? 0)}</td>
-        {/* Total */}
-        <td className="px-3 py-3 text-right whitespace-nowrap font-semibold tabular-nums text-[#f5f5f5]">{brl(item.qtdDisponivel * (item.custoUnitario ?? 0))}</td>
+        <td className="px-3 py-3 whitespace-nowrap text-[#e5e5e5]">{item.fornecedorPrincipal || '—'}</td>
+        <td className="px-3 py-3 whitespace-nowrap font-mono text-[#d4d4d4]">{item.codigoReferencia || '—'}</td>
+        <td className="px-3 py-3 text-right whitespace-nowrap tabular-nums text-[#a3a3a3]">{item.estoqueMinimo || '—'}</td>
+        <td className="px-3 py-3 whitespace-nowrap text-[#a3a3a3]">{item.dataUltimoPedido ? item.dataUltimoPedido.split('-').reverse().join('/') : '—'}</td>
         {/* Status (+ quanto comprar) */}
         <td className="px-3 py-3 whitespace-nowrap">
           <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold', low ? 'bg-[#dc2626]/20 text-[#f87171]' : 'bg-[#16a34a]/15 text-[#4ade80]')}>
@@ -579,8 +554,25 @@ export function AlmoxarifadoPanel() {
           >
             <PackageMinus size={13} /> Registrar retirada
           </button>
+          {importBatches.some((batch) => !batch.revertedAt) && (
+            <button type="button" onClick={() => document.getElementById('historico-importacoes')?.scrollIntoView({ behavior: 'smooth' })} className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-2 text-xs font-medium text-[#a3a3a3] hover:text-white">
+              <RotateCcw size={13} /> Histórico
+            </button>
+          )}
         </div>
       </div>
+
+      {importBatches.length > 0 && (
+        <section id="historico-importacoes" className="mb-5 rounded-xl border border-[#525252] bg-[#333333] p-3">
+          <p className="text-xs font-semibold text-[#f5f5f5]">Histórico de importações</p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {importBatches.slice(0, 5).map((batch) => <div key={batch.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#2c2c2c] px-3 py-2 text-[11px] text-[#a3a3a3]">
+              <span><b className="text-[#e5e5e5]">{batch.filename}</b> · {batch.changes.length} item(ns) · {new Date(batch.createdAt).toLocaleString('pt-BR')}</span>
+              {batch.revertedAt ? <span className="text-[#6b6b6b]">Desfeito</span> : <button type="button" onClick={() => undoImport(batch)} className="inline-flex items-center gap-1 text-[#fbbf24] hover:text-white"><RotateCcw size={13} /> Desfazer lote</button>}
+            </div>)}
+          </div>
+        </section>
+      )}
 
       {(syncStatus === 'error' || estoquePendingSync.length > 0) && (
         <div className={cn(
@@ -593,106 +585,6 @@ export function AlmoxarifadoPanel() {
             : `${estoquePendingSync.length} alteração(ões) aguardando confirmação do banco.`}
         </div>
       )}
-
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total de Itens', value: estoqueItens.length, icon: Box, tone: 'text-[#38bdf8]' },
-          { label: 'Estoque Baixo', value: lowItems.length, icon: AlertTriangle, tone: 'text-[#f87171]' },
-          { label: 'Valor Total', value: brl(totalValue), icon: TrendingUp, tone: 'text-[#4ade80]' },
-          { label: 'Categorias', value: activeCategories, icon: Package, tone: 'text-[#fbbf24]' },
-        ].map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#a3a3a3]">{label}</span>
-              <Icon size={18} className={tone} />
-            </div>
-            <div className={cn('text-2xl font-bold tabular-nums', label === 'Estoque Baixo' && lowItems.length > 0 ? 'text-[#f87171]' : 'text-[#f5f5f5]')}>
-              {value}
-            </div>
-            {label === 'Estoque Baixo' && <p className="mt-2 text-xs text-[#6b6b6b]">Itens abaixo do estoque minimo</p>}
-          </div>
-        ))}
-      </div>
-
-      <div className="mb-5 rounded-xl border border-[#525252] bg-[#333333] p-4">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold text-[#f5f5f5]">Frentes e depósitos</h3>
-            <p className="text-sm text-[#a3a3a3]">Cadastre e acompanhe o status do estoque por frente da obra.</p>
-          </div>
-          {editingDepositoId && (
-            <button type="button" onClick={handleCancelDeposito} className="rounded-lg px-3 py-2 text-xs font-semibold text-[#a3a3a3] hover:bg-[#3d3d3d]">
-              Cancelar edição
-            </button>
-          )}
-        </div>
-        <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
-          <input
-            value={depositoForm.frente}
-            onChange={(event) => setDepositoForm((current) => ({ ...current, frente: event.target.value }))}
-            placeholder="Frente / núcleo / depósito"
-            className={inputClass}
-          />
-          <input
-            value={depositoForm.descricao}
-            onChange={(event) => setDepositoForm((current) => ({ ...current, descricao: event.target.value }))}
-            placeholder="Descrição ou localização"
-            className={inputClass}
-          />
-          <button
-            type="button"
-            onClick={handleSaveDeposito}
-            disabled={!depositoForm.frente.trim()}
-            title={!depositoForm.frente.trim() ? 'Digite o nome da frente para adicionar' : undefined}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Save size={15} />
-            {editingDepositoId ? 'Salvar frente' : 'Adicionar frente'}
-          </button>
-        </div>
-        {!depositoForm.frente.trim() && (
-          <p className="mt-1.5 text-xs text-[#6b6b6b]">Digite o nome da frente (ex.: Área A, Área B) e clique em "Adicionar frente".</p>
-        )}
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {depositoStats.map(({ dep, items, low, value }) => (
-            <div key={dep.id} className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#f5f5f5]">{dep.frente}</p>
-                  <p className="truncate text-xs text-[#a3a3a3]">{dep.descricao || 'Sem descrição'}</p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <button type="button" onClick={() => handleEditDeposito(dep.id)} className="rounded-lg p-1.5 text-[#a3a3a3] hover:bg-[#484848] hover:text-white" title="Editar frente">
-                    <Edit2 size={14} />
-                  </button>
-                  <button type="button" onClick={() => handleDeleteDeposito(dep.id)} className="rounded-lg p-1.5 text-[#a3a3a3] hover:bg-[#dc2626]/20 hover:text-[#f87171]" title="Excluir frente">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                <div className="rounded-lg border border-[#525252] bg-[#2f2f2f] p-2">
-                  <p className="text-[#a3a3a3]">Itens</p>
-                  <p className="mt-1 font-bold text-[#f5f5f5]">{items}</p>
-                </div>
-                <div className="rounded-lg border border-[#525252] bg-[#2f2f2f] p-2">
-                  <p className="text-[#a3a3a3]">Baixo</p>
-                  <p className={cn('mt-1 font-bold', low > 0 ? 'text-[#f87171]' : 'text-[#4ade80]')}>{low}</p>
-                </div>
-                <div className="rounded-lg border border-[#525252] bg-[#2f2f2f] p-2">
-                  <p className="text-[#a3a3a3]">Valor</p>
-                  <p className="mt-1 truncate font-bold text-[#f5f5f5]">{brl(value)}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-          {depositoStats.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[#525252] bg-[#3d3d3d] p-4 text-sm text-[#a3a3a3]">
-              Nenhuma frente cadastrada. Crie uma frente para começar a organizar o almoxarifado.
-            </div>
-          )}
-        </div>
-      </div>
 
       <div className="mb-5 rounded-xl border border-[#525252] bg-[#333333] p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -856,21 +748,18 @@ export function AlmoxarifadoPanel() {
           <h3 className="text-lg font-bold text-[#f5f5f5]">Materiais em Estoque</h3>
           <p className="text-sm text-[#a3a3a3]">Gerencie materiais disponíveis, faltantes e movimentações do almoxarifado.</p>
           </div>
-          <button
-            type="button"
-            onClick={openNewItemForm}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"
-          >
-            <Plus size={16} />
-            Adicionar Material
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {selectedItemIds.size > 0 && <button type="button" onClick={handleBulkDelete} className="inline-flex items-center gap-2 rounded-lg border border-[#dc2626]/50 px-4 py-2 text-sm font-semibold text-[#f87171] hover:bg-[#dc2626]/15"><Trash2 size={16} /> Excluir {selectedItemIds.size}</button>}
+            <button type="button" onClick={openNewItemForm} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ea580c]"><Plus size={16} /> Adicionar Material</button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs xl:text-sm min-w-[720px]">
+          <table className="w-full text-xs xl:text-sm min-w-[980px]">
             <thead>
-              <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
-                {[['Material', 'w-auto'], ['Frente', ''], ['Qtd.', 'text-right'], ['Usado', 'text-right'], ['Unitário', 'text-right'], ['Total', 'text-right'], ['Status', ''], ['Ações', 'text-right']].map(([head, cls]) => (
+              <tr className="sticky top-0 z-10 border-b border-[#525252] bg-[#3d3d3d] text-left text-[#a3a3a3]">
+                <th className="px-3 py-3"><input type="checkbox" aria-label="Selecionar todos os materiais filtrados" checked={filtered.length > 0 && filtered.every((item) => selectedItemIds.has(item.id))} onChange={toggleVisibleSelection} className="h-4 w-4 accent-[#f97316]" /></th>
+                {[['Produto', 'w-auto'], ['Quantidade', 'text-right'], ['Fornecedor', ''], ['Código', ''], ['Crítico', 'text-right'], ['Último pedido', ''], ['Status', ''], ['Ações', 'text-right']].map(([head, cls]) => (
                   <th key={head} className={cn('px-3 py-3 font-semibold whitespace-nowrap', cls)}>{head}</th>
                 ))}
               </tr>
@@ -881,25 +770,25 @@ export function AlmoxarifadoPanel() {
                   {supplierGroups.map((g) => (
                     <Fragment key={g.fornecedor}>
                       <tr className="bg-[#2b2c6b]/30 border-b border-[#525252]">
-                        <td colSpan={5} className="px-3 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
-                        <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
+                        <td colSpan={7} className="px-3 py-2 font-bold text-[#f5f5f5]">{g.fornecedor} <span className="text-[10px] font-normal text-[#a3a3a3]">({g.items.length} item{g.items.length !== 1 ? 's' : ''})</span></td>
+                        <td colSpan={2} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(g.subtotal)}</td>
                       </tr>
                       {g.items.map(itemRow)}
                     </Fragment>
                   ))}
                   <tr className="border-t-2 border-[#f97316] bg-[#2c2c2c]">
-                    <td colSpan={5} className="px-3 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
-                    <td colSpan={3} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
+                    <td colSpan={7} className="px-3 py-2 font-bold text-[#f59e0b]">TOTAL GERAL</td>
+                    <td colSpan={2} className="px-3 py-2 text-right font-bold text-[#f59e0b]">{brl(grandTotalFiltered)}</td>
                   </tr>
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               ) : (
                 <>
                   {filtered.map(itemRow)}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-[#a3a3a3]">Nenhum material encontrado.</td></tr>
                   )}
                 </>
               )}
@@ -940,7 +829,7 @@ export function AlmoxarifadoPanel() {
         </div>
       )}
 
-      {importOpen && <ExcelImportModal onClose={() => setImportOpen(false)} />}
+      {importOpen && <ExcelImportModal onClose={() => setImportOpen(false)} onImported={refreshImportHistory} />}
       {retiradaOpen && (
         <FichaRetiradaModal
           itemInicial={typeof retiradaOpen === 'object' ? retiradaOpen : undefined}
