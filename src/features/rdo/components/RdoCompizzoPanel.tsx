@@ -4,12 +4,13 @@
  * reaproveita campos do Novo RDO (mão de obra, equipamentos, fotos). Salva no
  * mesmo store de RDO (template 'compizzo') e exporta PDF idêntico ao documento.
  */
+import { toast } from 'sonner'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Plus, Trash2, Printer, Save, FileText, Sun, Cloud,
   CloudRain, Wrench, Camera, X, ScanText, CheckCircle2, Users, Building2, PackageSearch,
 } from 'lucide-react'
-import { useRdoStore } from '@/store/rdoStore'
+import { useRdoStore, AVISO_SEM_PERMISSAO } from '@/store/rdoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { useSuprimentosStore } from '@/store/suprimentosStore'
@@ -468,6 +469,9 @@ export function RdoCompizzoPanel() {
     const payload = { ...buildRdoPayload(producaoFinal), status }
     // Já salvo nesta sessão? Atualiza. Senão cria e guarda o id (rascunho não duplica).
     const rdoId = savedId ? (updateRdo(savedId, payload), savedId) : addRdo(payload)
+    // ⚠️ `addRdo` devolve '' quando o papel não pode gravar (o gate espelha a policy do servidor).
+    // Ignorar isso fazia a tela dizer "salvo" e mandar o usuário para um histórico sem o RDO.
+    if (!rdoId) { toast.error(AVISO_SEM_PERMISSAO); return }
     if (!savedId) setSavedId(rdoId)
     // A ponte RDO → Mão de Obra saiu daqui: agora ela roda dentro do `addRdo`/`updateRdo` do
     // rdoStore, junto das outras três. Enquanto morava neste botão, editar o RDO pelo Histórico

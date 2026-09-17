@@ -300,6 +300,18 @@ function sincronizarApontamentos(rdo: RDO) {
   })
 }
 
+/**
+ * O aviso de quando `addRdo` devolve `''`.
+ *
+ * ⚠️ `addRdo` devolve string vazia quando o papel não pode gravar — o gate espelha a policy
+ * `rdo_insert_with_role`, e sem ele a criação viraria op presa no `pendingSync`. Mas três telas
+ * ignoravam o retorno: mostravam "salvo" e navegavam para um histórico onde o RDO não estava.
+ * A mensagem mora aqui para as três dizerem a mesma coisa.
+ */
+export const AVISO_SEM_PERMISSAO =
+  'O RDO não foi salvo: o seu perfil não tem permissão para criar RDO. '
+  + 'Peça a alguém com papel de engenheiro, planejador, gerente ou diretor.'
+
 export const useRdoStore = create<RdoState>()(
   persist(
     (set, get) => ({
@@ -402,6 +414,10 @@ export const useRdoStore = create<RdoState>()(
       },
 
       updateRdo: (id, updates) => {
+        // Mesmo gate do `addRdo`: a policy `rdo_update_*` exige papel, e sem esta checagem a tela
+        // dizia "salvo", o servidor devolvia 42501 e a op ficava presa para sempre na fila.
+        // Só a CRIAÇÃO tinha o gate — editar e excluir passavam direto.
+        if (!canWriteRdo(useAuth.getState().profile?.role)) return
         set((s) => {
           const updatedRdos = s.rdos.map((r) =>
             r.id === id ? { ...r, ...updates, updatedAt: new Date().toISOString() } : r,
@@ -450,6 +466,7 @@ export const useRdoStore = create<RdoState>()(
       },
 
       removeRdo: (id) => {
+        if (!canWriteRdo(useAuth.getState().profile?.role)) return
         set((s) => ({
           rdos: s.rdos.filter((r) => r.id !== id),
           // Era `type: 'delete'` com `approvalActionType: 'delete_rdo'`, que chama o RPC
@@ -714,7 +731,25 @@ export const useRdoStore = create<RdoState>()(
         // lançamentos que ele gerou no Financeiro e na M.O., aqui e nos outros dispositivos;
         // (b) um RDO que reapareceu (restaurado no servidor) → re-sincroniza o Planejamento
         // (recompute total a partir da lista mesclada).
+        //
+        // ⚠️ A PODA SÓ RODA COM PROVA DE QUE O PULL VEIO INTEIRO.
+        //
+        // Este reconcile APAGA lançamento financeiro (hard delete em `financeiro_entries`) e
+        // soft-deleta apontamento de M.O. a partir de uma única premissa: "o RDO não veio no
+        // SELECT, logo foi excluído". Quando o SELECT devolve menos do que existe — e ele devolvia,
+        // porque o `pullTable` não paginava e o PostgREST corta em 1000 linhas sem erro — a
+        // premissa é falsa e o reconcile destrói custo de RDO válido, sem volta.
+        //
+        // A paginação (`storeSync.pullTable`) resolve o caso do teto. Esta guarda cobre o resto:
+        // um servidor que responde uma lista vazia ou muito menor que a local não é prova de
+        // exclusão em massa — é sinal de que algo deu errado na leitura. Nesse caso NÃO se poda.
+        const local = get().rdos.length
+        const podeP = rows.length > 0 || local === 0
+        if (!podeP) {
+          console.warn('[rdo] pull veio vazio com RDOs locais — reconcile adiado para não apagar custo')
+        }
         setTimeout(() => {
+          if (!podeP) { get().syncExecutionToPlanejamento(); return }
           const ids = new Set(get().rdos.map((r) => r.id))
           void import('./financeiroStore').then(({ useFinanceiroStore }) => {
             const fin = useFinanceiroStore.getState()

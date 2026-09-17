@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { enviarLinhaRdoSabesp } from "../lib/rdoSabespEnvio";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1366,65 +1367,10 @@ export function RdoSabespForm({ initialData, initialStep = "import", onSaved }: 
         status: nextStatus,
         finalized_at: finalizedAt,
       });
-      let response;
-      const removeDurableAssetColumns = (record: Record<string, any>) => {
-        const legacy = { ...record };
-        delete legacy.audit_attachments;
-        delete legacy.planilha_foto_path;
-        delete legacy.assinatura_empreiteira_path;
-        delete legacy.assinatura_consorcio_path;
-        delete legacy.include_planilha_foto_no_pdf;
-        delete legacy.review_requested_at;
-        delete legacy.review_delay_justification;
-        delete legacy.review_status;
-        delete legacy.parser_status;
-        delete legacy.parser_provider;
-        delete legacy.parser_model;
-        delete legacy.parser_result;
-        delete legacy.parser_error;
-        delete legacy.parser_ran_at;
-        return legacy;
-      };
-      const isMissingDurableAssetColumnError = (error: any) => {
-        const message = String(error?.message || error?.details || "");
-        return /planilha_foto_path|assinatura_empreiteira_path|assinatura_consorcio_path|include_planilha_foto_no_pdf|parser_status|parser_provider|parser_model|parser_result|parser_error|parser_ran_at/i.test(message);
-      };
-
-      if (localRecord.id && !isLocalRdoSabespId(localRecord.id)) {
-        const rest = { ...payload };
-        delete rest.id;
-        delete rest.created_at;
-        delete rest.updated_at;
-        delete rest.created_by;
-        delete rest.organization_id;
-        delete rest.audit_attachments;
-        delete rest.review_requested_at;
-        delete rest.review_delay_justification;
-        delete rest.review_status;
-        response = await supabase.from("rdo_sabesp" as any).update(rest).eq("id", localRecord.id).select("*").single();
-        if (response.error && isMissingDurableAssetColumnError(response.error)) {
-          response = await supabase
-            .from("rdo_sabesp" as any)
-            .update(removeDurableAssetColumns(rest))
-            .eq("id", localRecord.id)
-            .select("*")
-            .single();
-        }
-      } else {
-        const rest = { ...payload };
-        delete rest.id;
-        delete rest.created_at;
-        delete rest.updated_at;
-        delete rest.audit_attachments;
-        delete rest.review_requested_at;
-        delete rest.review_delay_justification;
-        delete rest.review_status;
-        response = await supabase.from("rdo_sabesp" as any).insert(rest).select("*").single();
-        if (response.error && isMissingDurableAssetColumnError(response.error)) {
-          response = await supabase.from("rdo_sabesp" as any).insert(removeDurableAssetColumns(rest)).select("*").single();
-        }
-      }
-
+      // O envio da LINHA mora em `rdoSabespEnvio.ts` — é o mesmo caminho que o reenvio automático
+      // usa. Duas cópias da regra de "quais colunas o servidor pode não ter" divergiriam na
+      // primeira migração aplicada.
+      const response = await enviarLinhaRdoSabesp(payload, localRecord.id);
       if (response.error) throw response.error;
       const savedRecord = response.data || {
         ...localRecord,

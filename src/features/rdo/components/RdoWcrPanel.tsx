@@ -20,6 +20,7 @@
  * A leitura mora em `utils/apontamentoWcr.ts` (texto) e `utils/apontamentoWcrPlanilha.ts`
  * (planilha), as duas puras e testadas. Aqui só tem tela.
  */
+import { toast } from 'sonner'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ClipboardList, Save, Printer, CheckCircle2, AlertTriangle,
@@ -30,7 +31,7 @@ import { useStoreSync } from '@/lib/useStoreSync'
 import { usePermissaoEscrita, ROLES_MAO_DE_OBRA_WRITE } from '@/lib/roles'
 import { entraNaFolha } from '@/lib/funcionarioAtivo'
 import * as XLSX from 'xlsx'
-import { useRdoStore } from '@/store/rdoStore'
+import { useRdoStore, AVISO_SEM_PERMISSAO } from '@/store/rdoStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { hojeLocalISO } from '@/lib/utils'
@@ -335,6 +336,8 @@ export function RdoWcrPanel() {
     const payload = montarPayload(status)
     if (!payload) return
     const id = savedId ? (updateRdo(savedId, payload), savedId) : addRdo(payload)
+    // Ver AVISO_SEM_PERMISSAO: '' significa que o gate de papel barrou — não é sucesso.
+    if (!id) { toast.error(AVISO_SEM_PERMISSAO); return }
     if (!id) { setAviso('Seu perfil não tem permissão para salvar RDO.'); return }
     if (!savedId) setSavedId(id)
     setAviso(status === 'rascunho'

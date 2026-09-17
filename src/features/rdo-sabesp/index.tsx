@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { reenviarRdoSabespPendentes } from "./lib/rdoSabespEnvio";
 import { supabase } from "@/lib/supabase";
 import { isNonProductionDataMode } from "@/lib/runtimeMode";
 import { withTimeout } from "@/lib/withTimeout";
@@ -35,6 +36,7 @@ import {
   isLocalRdoSabespId,
   mergeRdoSabespRemoteWithLocal,
   readLocalRdoSabesp,
+  upsertLocalRdoSabesp,
   removeLocalRdoSabesp,
   writeLocalRdoSabesp,
 } from "./lib/rdoSabespLocalStore";
@@ -137,6 +139,31 @@ export function RdoSabespPage() {
 
   useEffect(() => {
     load();
+  }, [load]);
+
+  /**
+   * Reenvia o que ficou preso no navegador.
+   *
+   * ⚠️ Antes disto, um envio que falhava gravava o RDO em localStorage com `_localOnly: true`, o
+   * usuário via "RDO salvo localmente" — e **nada nunca mais tentava de novo**. O aviso era
+   * literal: ficava ali até limpar o cache, trocar de aparelho, ou nunca. Todo o resto do sistema
+   * tem retry por desenho; este módulo era a exceção.
+   *
+   * Roda ao abrir e quando a rede volta. `reenviarRdoSabespPendentes` é idempotente e não faz nada
+   * quando não há pendência — nunca é preciso perguntar antes.
+   */
+  useEffect(() => {
+    if (isNonProductionDataMode()) return;
+    let vivo = true;
+    const tentar = async () => {
+      const r = await reenviarRdoSabespPendentes();
+      if (!vivo || r.enviados === 0) return;
+      toast.success(`${r.enviados} RDO(s) que estavam só neste navegador foram enviados.`);
+      void load();
+    };
+    void tentar();
+    window.addEventListener("online", tentar);
+    return () => { vivo = false; window.removeEventListener("online", tentar); };
   }, [load]);
 
   useEffect(() => {
@@ -261,6 +288,28 @@ export function RdoSabespPage() {
       .eq("id", rdo.id);
     if (error) {
       toast.warning("RDO removido localmente. O Supabase nao respondeu para concluir a exclusao remota.");
+      return;
+    }
+
+    // ⚠️ SEM ERRO NÃO É SUCESSO. Quando o `USING` da policy de UPDATE não casa — papel sem
+    // permissão, registro de outra organização — o Postgres devolve "0 linhas atualizadas" e
+    // NENHUM erro. O RDO sumia da tela, continuava intacto no servidor, e voltava no próximo
+    // pull sem ninguém entender por quê. É a mesma conferência que o `storeSync` faz no soft
+    // delete das outras tabelas: olhar o `deleted_at`, não a ausência de erro.
+    const { data: conferido } = await supabase
+      .from("rdo_sabesp" as any)
+      .select("deleted_at")
+      .eq("id", rdo.id);
+    const linhas = Array.isArray(conferido) ? conferido : conferido ? [conferido] : [];
+    // Nenhuma linha = apagada de vez, ou invisível porque a policy de SELECT filtra apagado: os
+    // dois são sucesso. Linha com `deleted_at` nulo é o único caso em que não pegou.
+    if (linhas.some((r: any) => r?.deleted_at == null)) {
+      upsertLocalRdoSabesp(rdo);
+      setList(readLocalRdoSabesp());
+      toast.error(
+        "A exclusão não foi aceita pelo servidor: o RDO continua lá. Normalmente é permissão — "
+        + "o seu perfil não autoriza excluir RDO Sabesp.",
+      );
       return;
     }
 

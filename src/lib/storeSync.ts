@@ -743,26 +743,59 @@ export async function pullTable<TRow = unknown>(
   if (!profile) return null
 
   const activeOnly = orderBy.activeOnly ?? true
-  let query = supabase
-    .from(table)
-    .select('*')
-    .eq('organization_id', profile.organization_id)
-  if (activeOnly) query = query.is('deleted_at', null)
+  const montar = () => {
+    let q = supabase.from(table).select('*').eq('organization_id', profile.organization_id)
+    if (activeOnly) q = q.is('deleted_at', null)
+    return q.order(orderBy.column, { ascending: orderBy.ascending ?? false })
+  }
 
-  const { data, error } = await query.order(orderBy.column, { ascending: orderBy.ascending ?? false })
+  // ⚠️ PAGINA. Sem isto o PostgREST corta em `max_rows` (1000 por padrão) e devolve a página
+  // truncada SEM ERRO NENHUM — o chamador não tem como distinguir "a empresa tem 1000 registros"
+  // de "a empresa tem 4000 e você recebeu os 1000 primeiros".
+  //
+  // Não é perda teórica: o `pull` do RDO usa o que volta daqui para decidir quais RDOs
+  // "não existem mais" e APAGAR os lançamentos financeiros deles (hard delete em
+  // `financeiro_entries`). Com a lista truncada, materiais e mão de obra de RDOs perfeitamente
+  // válidos sumiam do Fluxo e da DRE. Este cliente chega a ~176 RDOs/mês no Lançamento Rápido.
+  const paginado: unknown[] = []
+  for (let inicio = 0; ; inicio += PAGINA_DO_PULL) {
+    const { data, error } = await montar().range(inicio, inicio + PAGINA_DO_PULL - 1)
+    if (error) return await pullComFallback<TRow>(table, orderBy, activeOnly, profile.organization_id, error)
+    const lote = data ?? []
+    paginado.push(...lote)
+    if (lote.length < PAGINA_DO_PULL) break
+    // Cinto de segurança: uma tabela absurdamente grande não pode travar o app num laço infinito.
+    if (paginado.length >= TETO_DO_PULL) {
+      console.warn(`[sync:${table}] pull parou em ${TETO_DO_PULL} linhas — há mais no servidor`)
+      break
+    }
+  }
+  return paginado as TRow[]
+}
 
-  if (error) {
+/** Tamanho da página. Igual ao `max_rows` padrão do PostgREST: pedir mais não adianta. */
+const PAGINA_DO_PULL = 1000
+/** Teto absoluto, só para o laço não ser infinito se o servidor mentir sobre o tamanho do lote. */
+const TETO_DO_PULL = 50_000
+
+async function pullComFallback<TRow>(
+  table: string,
+  orderBy: { column: string; ascending?: boolean },
+  activeOnly: boolean,
+  organizationId: string,
+  error: { message?: string; details?: string },
+): Promise<TRow[] | null> {
+  {
     const message = `${error.message ?? ''} ${error.details ?? ''}`.toLowerCase()
     if (activeOnly && message.includes('deleted_at')) {
       const { data: fallbackData, error: fallbackError } = await supabase
         .from(table)
         .select('*')
-        .eq('organization_id', profile.organization_id)
+        .eq('organization_id', organizationId)
         .order(orderBy.column, { ascending: orderBy.ascending ?? false })
       if (!fallbackError) return (fallbackData ?? []) as TRow[]
     }
     console.warn(`[sync:${table}] pull failed`, error)
     return null
   }
-  return (data ?? []) as TRow[]
 }

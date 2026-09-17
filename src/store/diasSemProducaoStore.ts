@@ -210,8 +210,14 @@ export const useDiasSemProducaoStore = create<Estado>()(
               // usuário alterou (o anti-clobber que o storeSync oferece).
               ? makeOp({ entity: 'dia_sem_producao', type: 'update', recordId: id,
                          patch: changedColumns(linha(anterior, orgId, userId), linha(item, orgId, userId)), table: TABLE })
+              // ⚠️ `deleted_at: null` EXPLÍCITO. O id é determinístico (obra + dia), então remarcar
+              // um dia que já foi desmarcado cai aqui com uma linha que EXISTE no servidor e está
+              // soft-deletada. O `insert` da fila é um upsert por id — sem este campo ele regrava
+              // tudo menos o `deleted_at`, o registro continua apagado lá, o RETURNING volta vazio
+              // (a policy de SELECT filtra apagado) e a op fica presa para sempre. Mesmo cuidado
+              // que a ponte RDO→apontamentos já tomava em `syncRdoToTimecards`.
               : makeOp({ entity: 'dia_sem_producao', type: 'insert', recordId: id,
-                         row: linha(item, orgId, userId), table: TABLE }),
+                         row: { ...linha(item, orgId, userId), deleted_at: null }, table: TABLE }),
           ],
         }))
         void get().flush()

@@ -5,6 +5,7 @@
  *           Georreferenciamento, Observações e Ocorrências.
  * Plus: photo upload (base64, max 20 files, 5 MB each).
  */
+import { toast } from 'sonner'
 import { useEffect, useState, useMemo } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,7 +14,7 @@ import {
   CloudSun, Users, Wrench, ClipboardList, Route, Camera, Pencil, ClipboardPaste, FileText,
   ShieldCheck, Info, CheckSquare, Package, Calculator,
 } from 'lucide-react'
-import { useRdoStore } from '@/store/rdoStore'
+import { useRdoStore, AVISO_SEM_PERMISSAO } from '@/store/rdoStore'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { useCompanySettingsStore } from '@/store/companySettingsStore'
 import { useQualidadeStore } from '@/store/qualidadeStore'
@@ -701,7 +702,7 @@ export function NovoRdoPanel() {
       workforceRows:              workforceRows.map((row) => ({ ...row, id: crypto.randomUUID() })),
     }
     if (editing) updateRdo(editing.id, payload)
-    else addRdo(payload)
+    else if (!addRdo(payload)) { toast.error(AVISO_SEM_PERMISSAO); return }
     // A baixa de estoque agora é feita no SERVIDOR (trigger trg_rdo_to_estoque),
     // de forma idempotente por rdo_id — não consumir no cliente para não duplicar.
     // (Requer a migration 20260625120000_rdo_estoque_integration.sql aplicada.)
