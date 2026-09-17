@@ -10,14 +10,16 @@ export const SABESP_SHEETS: SabespSheetDefinition[] = [
 ]
 export interface SabespRow { key: string; values: Record<string, string | number | boolean | null>; active: boolean; importedAt: string }
 export interface SabespSheetData { headers: string[]; rows: SabespRow[]; sourceName: string }
-export interface SabespImportBatch { id: string; filename: string; createdAt: string; recognized: string[]; created: number; updated: number; unchanged: number; archived: number; rejected: string[] }
-interface State { sheets: Partial<Record<SabespSheetId, SabespSheetData>>; imports: SabespImportBatch[]; applyWorkbook: (input: { filename: string; sheets: Partial<Record<SabespSheetId, SabespSheetData>>; rejected: string[] }) => SabespImportBatch; setSlice: (patch: Partial<State>) => void }
+export interface SabespGuide { title: string; lines: string[] }
+export interface SabespDropdown { sheet: string; range: string; listName: string; options: string[]; message?: string; required: boolean }
+export interface SabespImportBatch { id: string; filename: string; createdAt: string; recognized: string[]; created: number; updated: number; unchanged: number; archived: number; rejected: string[]; formulas: number; dropdowns: number }
+interface State { sheets: Partial<Record<SabespSheetId, SabespSheetData>>; guides: { quick?: SabespGuide; readme?: SabespGuide }; dropdowns: SabespDropdown[]; imports: SabespImportBatch[]; applyWorkbook: (input: { filename: string; sheets: Partial<Record<SabespSheetId, SabespSheetData>>; rejected: string[]; guides?: State['guides']; dropdowns?: SabespDropdown[]; formulas?: number }) => SabespImportBatch; setSlice: (patch: Partial<State>) => void }
 const same = (a: SabespRow, b: SabespRow) => JSON.stringify(a.values) === JSON.stringify(b.values)
 export const useSabespStore = create<State>((set, get) => ({
-  sheets: {}, imports: [],
-  applyWorkbook: ({ filename, sheets, rejected }) => { let created = 0, updated = 0, unchanged = 0, archived = 0; const now = new Date().toISOString(); const next: Partial<Record<SabespSheetId, SabespSheetData>> = { ...get().sheets }
+  sheets: {}, guides: {}, dropdowns: [], imports: [],
+  applyWorkbook: ({ filename, sheets, rejected, guides, dropdowns, formulas = 0 }) => { let created = 0, updated = 0, unchanged = 0, archived = 0; const now = new Date().toISOString(); const next: Partial<Record<SabespSheetId, SabespSheetData>> = { ...get().sheets }
     for (const definition of SABESP_SHEETS) { const incoming = sheets[definition.id]; if (!incoming) continue; const old = get().sheets[definition.id]; const oldByKey = new Map(old?.rows.map((row) => [row.key, row]) ?? []); const incomingKeys = new Set(incoming.rows.map((row) => row.key)); const rows = incoming.rows.map((row) => { const prior = oldByKey.get(row.key); if (!prior) { created++; return { ...row, active: true, importedAt: now } }; if (same(prior, row) && prior.active) { unchanged++; return prior }; updated++; return { ...row, active: true, importedAt: now } }); for (const prior of old?.rows ?? []) if (!incomingKeys.has(prior.key) && prior.active) { rows.push({ ...prior, active: false, importedAt: now }); archived++ }; next[definition.id] = { ...incoming, rows } }
-    const batch: SabespImportBatch = { id: crypto.randomUUID(), filename, createdAt: now, recognized: Object.keys(sheets), created, updated, unchanged, archived, rejected }; set({ sheets: next, imports: [batch, ...get().imports].slice(0, 50) }); return batch },
+    const batch: SabespImportBatch = { id: crypto.randomUUID(), filename, createdAt: now, recognized: Object.keys(sheets), created, updated, unchanged, archived, rejected, formulas, dropdowns: dropdowns?.length ?? 0 }; set({ sheets: next, guides: guides ?? get().guides, dropdowns: dropdowns ?? get().dropdowns, imports: [batch, ...get().imports].slice(0, 50) }); return batch },
   setSlice: (patch) => set(patch),
 }))
-attachBlobSync(useSabespStore, { key: 'operacional-sabesp-rev15', getSlice: (s) => ({ sheets: s.sheets, imports: s.imports }), applySlice: (slice) => useSabespStore.getState().setSlice(slice as Partial<State>) })
+attachBlobSync(useSabespStore, { key: 'operacional-sabesp-rev15', getSlice: (s) => ({ sheets: s.sheets, guides: s.guides, dropdowns: s.dropdowns, imports: s.imports }), applySlice: (slice) => useSabespStore.getState().setSlice(slice as Partial<State>) })
