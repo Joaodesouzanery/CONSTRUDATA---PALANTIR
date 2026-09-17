@@ -86,7 +86,18 @@ export function ObraDialog() {
     } else if (isNew) {
       reset(blankDefaults())
     }
-  }, [editingId, existing, isNew, reset])
+    // ⚠️ A dependência é o `editingId`, NÃO o objeto `existing`.
+    //
+    // `existing` sai de `sites.find(...)` — um objeto NOVO a cada pull. Com ele na lista, qualquer
+    // sincronização (a periódica, ou a de um colega salvando outra obra) reexecutava o `reset` e
+    // jogava fora o que o usuário estava digitando, no meio da digitação. Quem preenche uma obra
+    // com 25 campos perde tudo sem entender o motivo.
+    //
+    // Semear o formulário UMA vez por registro é o correto: `existing` continua sendo lido dentro
+    // do efeito, então o valor não fica velho — só não dispara de novo. É o mesmo padrão que o
+    // `ContratoCard` usa com `obraId`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, isNew, reset])
 
   const close = useCallback(() => {
     setEditing(null)

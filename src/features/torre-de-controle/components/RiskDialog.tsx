@@ -61,7 +61,10 @@ export function RiskDialog() {
     } else if (isNew) {
       reset(blankDefaults())
     }
-  }, [editingRisk, existing, isNew, reset])
+    // Mesma correção do `ObraDialog`: a dependência é a IDENTIDADE do risco em edição, não o
+    // objeto `existing`, que é recriado a cada pull e reexecutava o `reset` durante a digitação.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingRisk?.siteId, editingRisk?.riskId, isNew, reset])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }

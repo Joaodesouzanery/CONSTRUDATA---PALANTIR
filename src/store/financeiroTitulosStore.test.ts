@@ -95,7 +95,7 @@ test('upsertTitulos: repara automaticamente título que chega pago sem entryId',
   const s = await codigoDoStore()
   // ⚠️ `addBoleto:` sozinho casaria primeiro com a INTERFACE (bem antes da implementação) —
   // por isso a assinatura completa da implementação (`addBoleto: (input) => {`) como fim do corte.
-  const corpo = s.slice(s.indexOf('upsertTitulos: (titulos)'), s.indexOf('addBoleto: (input) => {'))
+  const corpo = s.slice(s.indexOf('upsertTitulos: (titulos0)'), s.indexOf('addBoleto: (input) => {'))
   assert.match(
     corpo,
     /for \(const t of titulos\) if \(t\.status === 'pago' && !t\.entryId\) get\(\)\.baixarTitulo/,
@@ -113,4 +113,33 @@ test('pull: repara título já corrompido em produção ao sincronizar', async (
     'pull precisa reparar título pago-sem-entryId vindo do servidor — senão um caso anterior ao ' +
       'conserto nunca sara neste aparelho',
   )
+})
+
+test('upsertTitulos MESCLA: o extrato de faturamento não rebaixa um título já pago', async () => {
+  const s = await codigoDoStore()
+  const corpo = s.slice(s.indexOf('upsertTitulos: (titulos0)'), s.indexOf('addBoleto: (input) => {'))
+  assert.match(
+    corpo,
+    /if \(!anterior\?\.entryId\) return novo/,
+    'o `entryId` é a prova de que o dinheiro andou — onde ele existe, o pagamento vence o extrato',
+  )
+  assert.match(
+    corpo,
+    /status: 'pago' as const,\s*\n\s*entryId: anterior\.entryId/,
+    'preservar o entryId sem restaurar o status deixaria um "pendente" com lançamento — o inverso ' +
+      'do bug, e igualmente incoerente',
+  )
+  assert.doesNotMatch(
+    corpo,
+    /titulos: \[\.\.\.titulos0,/,
+    'gravar a lista recebida crua é exatamente o que revertia a baixa feita em Cobranças',
+  )
+})
+
+test('upsertTitulos: quem NUNCA foi baixado continua vindo inteiro do extrato', async () => {
+  const s = await codigoDoStore()
+  const corpo = s.slice(s.indexOf('upsertTitulos: (titulos0)'), s.indexOf('addBoleto: (input) => {'))
+  // Sem `entryId` anterior, o título novo passa direto: valor, vencimento e nº do documento têm de
+  // continuar saindo da NOTA, que é a fonte certa para o lado comercial.
+  assert.match(corpo, /const anterior = anteriores\.get\(novo\.id\)/)
 })

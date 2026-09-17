@@ -83,6 +83,17 @@ export function canWriteMaoDeObra(role?: string | null): boolean {
  * criados" na tela, e cada insert voltava 42501. Depois de cinco tentativas a fila estacionava, e
  * o único botão oferecido era "Descartar" — que apagaria o trabalho.
  */
+/**
+ * Quem pode cadastrar e editar OBRA (Torre de Controle).
+ *
+ * Espelho de `sites_insert_with_role` / `sites_update_role` (`0033_sprint6_rls.sql`). Sem este
+ * gate, 6 dos 11 papéis viam "obra salva" na tela e o servidor devolvia 42501 — a op ficava presa
+ * para sempre na fila, e a obra nunca existia para ninguém além daquele navegador.
+ *
+ * ⚠️ Inclui `planejador` e NÃO inclui `qualidade` — não é a mesma lista do RDO.
+ */
+export const ROLES_TORRE_WRITE: readonly UserRole[] = ['engenheiro', 'planejador', 'gerente', 'diretor', 'owner']
+
 export const ROLES_SUPRIMENTOS_WRITE: readonly UserRole[] = ['comprador', 'engenheiro', 'gerente', 'diretor', 'owner']
 export function canWriteSuprimentos(role?: string | null): boolean {
   return ROLES_SUPRIMENTOS_WRITE.includes((role ?? '') as UserRole)
@@ -189,3 +200,4 @@ export const podeEscreverMaoDeObra   = () => podeEscrever(ROLES_MAO_DE_OBRA_WRIT
 export const podeEscreverRdo         = () => podeEscrever(ROLES_RDO_WRITE)
 export const podeEscreverTitulos     = () => podeEscrever(ROLES_TITULOS_WRITE)
 export const podeEscreverSuprimentos = () => podeEscrever(ROLES_SUPRIMENTOS_WRITE)
+export const podeEscreverTorre        = () => podeEscrever(ROLES_TORRE_WRITE)

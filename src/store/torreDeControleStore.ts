@@ -4,6 +4,7 @@
  * Excluir obra é soft delete (`deleted_at`) — ver `deleteSite`.
  */
 import { create } from 'zustand'
+import { podeEscreverTorre } from '@/lib/roles'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { changedColumns, flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
@@ -130,6 +131,11 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         addSite: (payload) => {
+          // ⚠️ Gate espelhando `sites_insert_with_role`/`sites_update_role`
+          // (`0033_sprint6_rls.sql`). A Torre inteira não tinha nenhum: 6 dos 11 papéis viam
+          // "obra salva" na tela, o servidor devolvia 42501 e a op ficava presa PARA SEMPRE na
+          // fila — a obra não existia para mais ninguém, e o dono do navegador não sabia.
+          if (!podeEscreverTorre().pode) return
           const id = crypto.randomUUID()
           const newSite = { ...payload, id } as ConstructionSite
           const { orgId, userId } = ctxAuth()
@@ -142,6 +148,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         updateSite: (id, patch) => {
+          if (!podeEscreverTorre().pode) return
           const prev = get().sites.find((s) => s.id === id)
           set((s) => ({ sites: s.sites.map((site) => (site.id === id ? { ...site, ...patch } : site)) }))
           const target = get().sites.find((s) => s.id === id)
@@ -166,6 +173,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         deleteSite: (id) => {
+          if (!podeEscreverTorre().pode) return
           set((s) => {
             const remaining = s.sites.filter((site) => site.id !== id)
             return {
@@ -188,6 +196,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         updateLocation: (id, lat, lng) => {
+          if (!podeEscreverTorre().pode) return
           set((s) => ({ sites: s.sites.map((site) => (site.id === id ? { ...site, lat, lng } : site)) }))
           enqueueUpdateOf(id)
         },
@@ -197,6 +206,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         setEditingRisk: (args) => set({ editingRisk: args }),
 
         addRisk: (siteId, risk) => {
+          if (!podeEscreverTorre().pode) return
           set((s) => ({
             sites: s.sites.map((site) =>
               site.id === siteId
@@ -208,6 +218,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         updateRisk: (siteId, riskId, patch) => {
+          if (!podeEscreverTorre().pode) return
           set((s) => ({
             sites: s.sites.map((site) =>
               site.id === siteId
@@ -219,6 +230,7 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         },
 
         deleteRisk: (siteId, riskId) => {
+          if (!podeEscreverTorre().pode) return
           set((s) => ({
             sites: s.sites.map((site) =>
               site.id === siteId
@@ -233,13 +245,24 @@ export const useTorreStore = create<TorreState & TorreActions>()(
         // ativa atual — cura obras que nunca subiram ao Supabase ou foram carimbadas
         // com a org errada. Basta rodar logado na empresa correta.
         resyncSites: () => {
+          if (!podeEscreverTorre().pode) return
           const { orgId, userId } = ctxAuth()
           if (orgId === 'pending') return
           const ops = get().sites.map((site) => makeOp({ entity: 'site', type: 'insert', recordId: site.id, row: siteToRow(site, orgId, userId), table: 'construction_sites' }))
           if (ops.length === 0) return
           // Descarta ops antigas de construction_sites (possivelmente malformadas/travadas)
           // e reenfileira upserts limpos das obras atuais.
-          set((s) => ({ pendingSync: [...s.pendingSync.filter((op) => op.table !== 'construction_sites'), ...ops] }))
+          //
+          // ⚠️ MENOS AS EXCLUSÕES. Uma op de soft delete NÃO é reproduzível a partir de
+          // `get().sites`: `deleteSite` já tirou a obra da lista e deixou a exclusão só na fila.
+          // Descartá-la aqui fazia a obra excluída **voltar** no pull seguinte — e "Ressincronizar
+          // obras" é justamente o botão que alguém aperta quando a sincronização parece travada,
+          // ou seja, o gesto de socorro desfazia uma exclusão legítima.
+          const ehExclusao = (op: PendingOp) => op.type === 'update' && op.patch?.deleted_at != null
+          set((s) => ({ pendingSync: [
+            ...s.pendingSync.filter((op) => op.table !== 'construction_sites' || ehExclusao(op)),
+            ...ops,
+          ] }))
           void get().flush()
         },
 

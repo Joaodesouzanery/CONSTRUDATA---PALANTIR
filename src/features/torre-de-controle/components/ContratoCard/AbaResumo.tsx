@@ -50,10 +50,34 @@ export function AbaResumo({ contrato, valores, subtotais, salvar, obraId }: {
   }
 
   function abrir() { setRascunho(structuredClone(contrato)); setEditando(true) }
+  /**
+   * Os campos que ESTA aba edita. Tudo que não está aqui — `services`, `faturamentos`,
+   * `deParaSiglas`, `medicoes` — pertence a outras abas e não pode viajar neste patch.
+   */
+  const CAMPOS_DO_RESUMO = [
+    'contratanteRazao', 'contratanteCnpj', 'contratadoRazao', 'contratadoCnpj', 'contratadoContato',
+    'numeroContrato', 'numeroAditivo', 'objetoAditivo', 'local', 'periodoReferencia',
+    'numeroMedicao', 'vigenciaInicio', 'vigenciaFim', 'valorServico', 'valorMaterial',
+  ] as const
+
   function confirmar() {
+    // ⚠️ PATCH, não o rascunho inteiro.
+    //
+    // `abrir()` tira um `structuredClone` do contrato, e gravar esse clone devolvia ao servidor o
+    // contrato como ele estava quando a edição COMEÇOU. Tudo que chegou no meio — a composição que
+    // um colega importou, um faturamento novo, o de-para editado na outra aba — era sobrescrito
+    // pela versão velha, sem aviso. Quanto mais tempo a tela ficava aberta, maior o estrago.
+    //
+    // Mandando só os campos desta aba, o store mescla sobre o contrato ATUAL e o resto sobrevive.
+    const patch: Partial<ObraContrato> = { valorTotal: undefined }
+    for (const campo of CAMPOS_DO_RESUMO) {
+      // `campo` é `keyof ObraContrato` por construção (a lista é `as const`), mas o TypeScript não
+      // consegue casar a atribuição genérica — daí o assign campo a campo.
+      Object.assign(patch, { [campo]: rascunho[campo] })
+    }
     // Ao gravar o valor de serviço no campo novo, o `valorTotal` antigo sai de cena — senão
     // ficariam dois números respondendo a mesma pergunta, que é o problema que este card resolve.
-    salvar({ ...rascunho, valorTotal: undefined })
+    salvar(patch)
     setEditando(false)
   }
   const set = (patch: Partial<ObraContrato>) => setRascunho((d) => ({ ...d, ...patch }))

@@ -10,6 +10,7 @@
  * erra número sem avisar, que é o pior tipo de erro num contrato.
  */
 import { useState } from 'react'
+import { idDoItemDeComposicao } from '../../utils/idDoItemDeComposicao'
 import { X, ClipboardPaste, AlertTriangle } from 'lucide-react'
 import { previewExcel } from '@/features/suprimentos/utils/parseExcelEstoque'
 import {
@@ -63,7 +64,19 @@ export function ImportarComposicao({ onImportar, onCancelar }: {
     onImportar(itens.map((i, idx) => {
       const { aviso: _aviso, ...item } = i
       void _aviso   // o aviso é só da tela de conferência; não vai para o contrato
-      return { ...item, id: crypto.randomUUID(), ordem: item.ordem ?? idx + 1 }
+      const ordem = item.ordem ?? idx + 1
+      // ⚠️ Id DERIVADO do conteúdo, nunca sorteado.
+      //
+      // Importar SUBSTITUI a composição inteira. Com `crypto.randomUUID()`, reimportar a MESMA
+      // planilha — para corrigir um preço, para acrescentar uma linha — trocava o id de todos os
+      // itens, e tudo que aponta para eles ficava órfão em silêncio: o `deParaSiglas` do WCR
+      // (sigla → item do contrato) e o `contractServiceId` das linhas de produção dos RDOs, ou
+      // seja, o "Medido" da obra voltava a zero. É a mesma lição do catálogo da Medição.
+      //
+      // A chave é o que identifica a linha na proposta: ordem + descrição + unidade. Preço e
+      // quantidade ficam de FORA de propósito — corrigir um valor é editar a mesma linha, não
+      // criar outra.
+      return { ...item, id: idDoItemDeComposicao(ordem, item.descricao, item.unidade), ordem }
     }))
   }
 

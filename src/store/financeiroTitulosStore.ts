@@ -205,8 +205,29 @@ export const useFinanceiroTitulosStore = create<FinanceiroTitulosState>()(
         // Upsert idempotente por id — local replace-or-add + insert op (que é upsert
         // onConflict id no servidor). Usado p/ cobranças de rateio (ids aleatórios novos) e pelo
         // extrato de faturamento da obra (nota "Recebido" vira título já `pago`).
-        upsertTitulos: (titulos) => {
-          if (titulos.length === 0) return
+        upsertTitulos: (titulos0) => {
+          if (titulos0.length === 0) return
+          // ⚠️ MESCLA — não substitui. O chamador principal é o extrato de faturamento da obra, que
+          // remonta o título a partir da NOTA a cada gravação do ContratoCard (qualquer aba: resumo,
+          // composição, de-para…). E a nota não sabe de baixa: quem deu baixa em Cobranças fez isso
+          // em outra tela. Substituir o título inteiro rebaixava para "pendente" algo já pago, e o
+          // `FinanceiroEntry` da baixa ficava órfão no Fluxo/DRE — dinheiro recebido voltando a
+          // aparecer como a receber.
+          //
+          // `entryId` é a prova de que o dinheiro andou: onde ele existe, o pagamento vence o que o
+          // extrato diz. O resto do título (valor, vencimento, nº do documento) continua vindo da
+          // nota, que é a fonte correta para o lado comercial.
+          const anteriores = new Map(get().titulos.map((t) => [t.id, t]))
+          const titulos = titulos0.map((novo) => {
+            const anterior = anteriores.get(novo.id)
+            if (!anterior?.entryId) return novo
+            return {
+              ...novo,
+              status: 'pago' as const,
+              entryId: anterior.entryId,
+              dataPagamento: novo.dataPagamento ?? anterior.dataPagamento,
+            }
+          })
           const ids = new Set(titulos.map((t) => t.id))
           set((s) => ({
             titulos: [...titulos, ...s.titulos.filter((t) => !ids.has(t.id))],
