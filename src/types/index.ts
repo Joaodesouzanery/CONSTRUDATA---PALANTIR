@@ -3473,6 +3473,19 @@ export interface FinanceiroEntry {
   funcionarioNome?: string
   cargo?: string
   /**
+   * A MESMA hora extra, venha de onde vier: `<nome normalizado>|<dia TRABALHADO>`.
+   *
+   * ⚠️ Existe porque as duas origens não conseguem compartilhar o `id`. A planilha deriva o dele de
+   * `nome|data|valor#ocorrência` (`controleDeCaixaImport.idDaHoraExtra`); a tela de Mão de Obra
+   * deriva do id do registro `HoraExtra`. São chaves diferentes para o mesmo pagamento — e este
+   * cliente usa os DOIS caminhos, então o caixa pagava em dobro sem ninguém ver.
+   *
+   * ⚠️ E não dá para casar por `data`: a planilha grava o dia TRABALHADO e a tela grava o dia do
+   * PAGAMENTO, de propósito (é quando o dinheiro sai). Por isso a chave é um campo próprio, sempre
+   * com o dia trabalhado, e não uma comparação de `data`.
+   */
+  chaveHoraExtra?: string
+  /**
    * Segundo nível da categoria — hoje só Mão de Obra tem: `horas_extras` | `salario` | `diaria`.
    *
    * ⚠️ Não é `origem`. `origem` diz POR ONDE o lançamento entrou (planilha, tela, grade de HE);

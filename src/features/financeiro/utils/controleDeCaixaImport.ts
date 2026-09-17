@@ -426,6 +426,41 @@ export function idDaHoraExtra(orgId: string | null | undefined, chave: string): 
   return seededId(orgId, 'caixa-hora-extra', chave)
 }
 
+/**
+ * A chave natural de uma hora extra: **a mesma pessoa, no mesmo dia trabalhado.**
+ *
+ * ⚠️ É o que impede o caixa de pagar duas vezes. Existem dois caminhos até a mesma despesa —
+ * importar a planilha com o "PG" marcado, e clicar "Pago" na grade de Mão de Obra — e eles derivam
+ * o `id` de jeitos diferentes (`nome|data|valor#n` aqui; o id do registro `HoraExtra` lá). Ids
+ * diferentes para o mesmo pagamento = duas linhas de despesa, sem erro nenhum na tela.
+ *
+ * ⚠️ O valor NÃO entra na chave: corrigir R$ 300 para R$ 250 é a mesma hora extra, não outra.
+ * E o dia é sempre o TRABALHADO, nunca o do pagamento — ver o docblock de `chaveHoraExtra`.
+ */
+export function chaveNaturalDaHoraExtra(nome: string, dataTrabalhada: string): string {
+  return `${normalizarTexto(nome)}|${dataTrabalhada.slice(0, 10)}`
+}
+
+/**
+ * A despesa que já existe para esta hora extra, tenha vindo da planilha ou da tela.
+ *
+ * Casa por `chaveHoraExtra`. Para os lançamentos ANTERIORES a este campo (só os da planilha
+ * existiam), reconstrói a chave a partir de `funcionarioNome` + `data` — o que é correto ali,
+ * porque a planilha grava o dia trabalhado em `data`.
+ */
+export function despesaDaHoraExtra(
+  entries: readonly FinanceiroEntry[],
+  nome: string,
+  dataTrabalhada: string,
+): FinanceiroEntry | undefined {
+  const alvo = chaveNaturalDaHoraExtra(nome, dataTrabalhada)
+  return entries.find((e) => {
+    if (e.origem !== 'horas-extras') return false
+    const dela = e.chaveHoraExtra ?? chaveNaturalDaHoraExtra(e.funcionarioNome ?? '', e.data)
+    return dela === alvo
+  })
+}
+
 export function lancamentoDaHoraExtra(
   r: HoraExtraLida,
   orgId: string | null | undefined,
@@ -442,6 +477,7 @@ export function lancamentoDaHoraExtra(
     obraId: opcoes.obraId,
     origem: 'horas-extras',
     chavePlanilha: r.chave,
+    chaveHoraExtra: chaveNaturalDaHoraExtra(r.nome, r.data),
     funcionarioNome: r.nome,
     cargo: r.cargo,
     conferido: true,

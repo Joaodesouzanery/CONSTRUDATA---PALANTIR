@@ -16,6 +16,7 @@
  * lançamento existir, nunca o status dizer que existe.
  */
 import { seededId } from '@/lib/seededId'
+import { chaveNaturalDaHoraExtra } from '@/features/financeiro/utils/controleDeCaixaImport'
 import type { FinanceiroEntry, HoraExtra } from '@/types'
 
 export function idDoLancamentoDaHoraExtra(orgId: string | null | undefined, heId: string): string {
@@ -57,6 +58,9 @@ export function lancamentoDaHoraExtra(
     subcategoria: 'horas_extras',
     obraId: he.obraId,
     origem: 'horas-extras',
+    // ⚠️ A chave que impede o pagamento em dobro. Sempre o dia TRABALHADO (`he.data`), nunca
+    // `data` acima — que aqui é o dia do pagamento. Ver `chaveNaturalDaHoraExtra`.
+    chaveHoraExtra: chaveNaturalDaHoraExtra(he.workerNome, he.data),
     funcionarioNome: he.workerNome,
     cargo: he.cargo,
     createdAt: opcoes.agora,

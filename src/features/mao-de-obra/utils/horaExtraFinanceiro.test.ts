@@ -9,7 +9,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { lancamentoDaHoraExtra, descricaoDaHoraExtra, idDoLancamentoDaHoraExtra } from '@/features/mao-de-obra/utils/horaExtraFinanceiro'
-import type { HoraExtra } from '@/types'
+import { lancamentoDaHoraExtra as lancamentoDaHoraExtraPlanilha, despesaDaHoraExtra } from '@/features/financeiro/utils/controleDeCaixaImport'
+import type { FinanceiroEntry, HoraExtra } from '@/types'
 
 const base: HoraExtra = {
   id: 'he-1',
@@ -113,4 +114,103 @@ test('removeHoraExtra: apagar uma HE paga leva a despesa junto', async () => {
   const s = await codigoDoStore()
   const corpo = corpoDaAcao(s, 'removeHoraExtra: (id) => {', 'marcarHoraExtraPaga: (id, opcoes) => {')
   assert.match(corpo, /desmarcarHoraExtraPaga\(id\)/, 'senão fica lançamento no caixa sem origem nenhuma')
+})
+
+// ─── O pagamento em dobro ─────────────────────────────────────────────────────
+//
+// ⚠️ Este bloco existe por um defeito que eu mesmo introduzi na rodada anterior. Há DOIS caminhos
+// até a mesma despesa de hora extra — importar a planilha com o "PG" marcado, e clicar "Pago" na
+// grade de Mão de Obra — e cada um deriva o `id` do `FinanceiroEntry` de um jeito. Como `addEntry`
+// é upsert POR ID, ids diferentes não colidem: o caixa ficava com duas despesas para o mesmo
+// pagamento, sem erro nenhum na tela. Este cliente usa os dois caminhos.
+
+test('os dois caminhos produzem ids DIFERENTES — é esta a causa do pagamento em dobro', () => {
+  const daTela = lancamentoDaHoraExtra(base, 'org-1', { agora: '2026-08-05T12:00:00.000Z' })
+  const daPlanilha = lancamentoDaHoraExtraPlanilha(
+    { nome: 'ANDERSON DE ASSIS', cargo: 'ENCANADOR DE ÁGUA I', dia: 1, data: '2026-08-01', valor: 350, pago: true, linha: 7, chave: 'he|anderson de assis|2026-08-01|350.00#1' },
+    'org-1', { agora: '2026-08-05T12:00:00.000Z' },
+  )
+  assert.notEqual(daTela.id, daPlanilha.id,
+    'se um dia passarem a ser iguais, ótimo — mas o conserto NÃO depende disso, e o teste abaixo é ' +
+    'que garante o comportamento')
+})
+
+test('a chave natural é a MESMA nos dois caminhos — pessoa + dia trabalhado', () => {
+  const daTela = lancamentoDaHoraExtra(base, 'org-1', { agora: '2026-08-05T12:00:00.000Z' })
+  const daPlanilha = lancamentoDaHoraExtraPlanilha(
+    { nome: 'Anderson de Assis', dia: 1, data: '2026-08-01', valor: 350, pago: true, linha: 7, chave: 'x#1' },
+    'org-1', { agora: '2026-08-05T12:00:00.000Z' },
+  )
+  assert.equal(daTela.chaveHoraExtra, daPlanilha.chaveHoraExtra,
+    'grafia diferente do nome não pode gerar chaves diferentes')
+})
+
+test('a chave usa o dia TRABALHADO, não o do pagamento', () => {
+  // `base` trabalhou em 01/08 e foi pago em 05/08. O lançamento vai para 05/08 (é quando o dinheiro
+  // saiu), mas a chave tem de apontar para 01/08 — senão as duas origens nunca se encontram.
+  const e = lancamentoDaHoraExtra(base, 'org-1', { agora: '2026-08-05T12:00:00.000Z' })
+  assert.equal(e.data, '2026-08-05')
+  assert.equal(e.chaveHoraExtra, 'ANDERSON DE ASSIS|2026-08-01')
+})
+
+test('despesaDaHoraExtra acha a despesa da planilha quando a tela vai marcar Pago', () => {
+  const daPlanilha = lancamentoDaHoraExtraPlanilha(
+    { nome: 'ANDERSON DE ASSIS', dia: 1, data: '2026-08-01', valor: 350, pago: true, linha: 7, chave: 'x#1' },
+    'org-1', { agora: '2026-08-05T12:00:00.000Z' },
+  )
+  const achada = despesaDaHoraExtra([daPlanilha], base.workerNome, base.data)
+  assert.ok(achada, 'sem isto, marcar Pago criaria uma SEGUNDA despesa para o mesmo pagamento')
+  assert.equal(achada.id, daPlanilha.id)
+})
+
+test('despesaDaHoraExtra acha a despesa da tela quando a planilha vai ser importada', () => {
+  const daTela = lancamentoDaHoraExtra(base, 'org-1', { agora: '2026-08-05T12:00:00.000Z' })
+  const achada = despesaDaHoraExtra([daTela], 'anderson de assis', '2026-08-01')
+  assert.ok(achada, 'o conserto tem de valer nos DOIS sentidos')
+  assert.equal(achada.id, daTela.id)
+})
+
+test('despesaDaHoraExtra acha lançamento ANTIGO, anterior ao campo chaveHoraExtra', () => {
+  // Quem já importou a planilha antes deste conserto tem despesas sem `chaveHoraExtra`. Elas
+  // precisam continuar sendo encontradas, senão o conserto não vale para a base existente.
+  const antigo = lancamentoDaHoraExtraPlanilha(
+    { nome: 'ANDERSON DE ASSIS', dia: 1, data: '2026-08-01', valor: 350, pago: true, linha: 7, chave: 'x#1' },
+    'org-1', { agora: '2026-08-05T12:00:00.000Z' },
+  )
+  delete (antigo as { chaveHoraExtra?: string }).chaveHoraExtra
+  assert.ok(despesaDaHoraExtra([antigo], base.workerNome, base.data))
+})
+
+test('pessoa diferente ou dia diferente NÃO casa — o dedupe não pode comer pagamento legítimo', () => {
+  const daTela = lancamentoDaHoraExtra(base, 'org-1', { agora: '2026-08-05T12:00:00.000Z' })
+  assert.equal(despesaDaHoraExtra([daTela], 'OUTRA PESSOA', '2026-08-01'), undefined)
+  assert.equal(despesaDaHoraExtra([daTela], base.workerNome, '2026-08-02'), undefined)
+})
+
+test('despesa que não é hora extra nunca é adotada', () => {
+  const aluguel: FinanceiroEntry = {
+    id: 'x', tipo: 'saida', descricao: 'Aluguel', valor: 350, data: '2026-08-01',
+    categoria: 'mao_de_obra', origem: 'planilha', funcionarioNome: 'ANDERSON DE ASSIS',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  }
+  assert.equal(despesaDaHoraExtra([aluguel], 'ANDERSON DE ASSIS', '2026-08-01'), undefined)
+})
+
+test('marcarHoraExtraPaga procura a despesa existente ANTES de criar outra', async () => {
+  const s = await codigoDoStore()
+  const corpo = corpoDaAcao(s, 'marcarHoraExtraPaga: (id, opcoes) => {', 'desmarcarHoraExtraPaga: (id) => {')
+  assert.match(corpo, /despesaDaHoraExtra\(fin\.entries, he\.workerNome, he\.data\)/)
+  assert.match(corpo, /if \(!existente\) \{[\s\S]*?addEntry/,
+    'addEntry só pode ser chamado quando a despesa NÃO existe — senão duplica')
+})
+
+test('desmarcarHoraExtraPaga NÃO solta o vínculo quando a despesa não foi removida', async () => {
+  const s = await codigoDoStore()
+  const corpo = corpoDaAcao(s, 'desmarcarHoraExtraPaga: (id) => {', 'addTimecard: (entry) => {')
+  assert.match(corpo, /if \(!fin\.entries\.some\(\(e\) => e\.id === entryId\)\)/)
+  assert.match(corpo, /syncError/,
+    'não achar a despesa tem de AVISAR — sumir calado deixa despesa órfã no servidor')
+  // A limpeza do vínculo precisa vir DEPOIS do removeEntry, nunca antes.
+  assert.ok(corpo.indexOf('removeEntry(entryId)') < corpo.indexOf('entryId: undefined'),
+    'limpar o entryId antes de remover a despesa é exatamente o defeito que estamos consertando')
 })

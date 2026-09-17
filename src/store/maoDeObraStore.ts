@@ -48,6 +48,7 @@ import { generateMonthPayroll } from '@/features/mao-de-obra/utils/payrollEngine
 import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/custoMaoObra'
 import { seededUuidLegado } from '@/lib/seededId'
 import { lancamentoDaHoraExtra } from '@/features/mao-de-obra/utils/horaExtraFinanceiro'
+import { despesaDaHoraExtra } from '@/features/financeiro/utils/controleDeCaixaImport'
 import { entraNaFolha } from '@/lib/funcionarioAtivo'
 
 /** UUID determinístico (hash cyrb128 → forma de uuid; o tipo uuid do Postgres aceita).
@@ -381,6 +382,12 @@ function cltSettingsToRow(settings: CLTSettings, orgId: string, userId: string) 
     created_by:      userId,
   }
 }
+
+/**
+ * Horas extras com o "Pago" em voo — a despesa é criada de forma assíncrona (o Financeiro chega
+ * por import dinâmico), então a guarda por `entryId` ainda não vale nesse intervalo.
+ */
+const marcandoHoraExtra = new Set<string>()
 
 function ctxAuth() {
   const { profile, user } = useAuth.getState()
@@ -928,6 +935,10 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     // exatamente o bug do título "Recebido" que nunca virava despesa/receita.
     if (he.entryId) return
     if (typeof he.valor !== 'number' || !Number.isFinite(he.valor)) return
+    // O `entryId` só é gravado depois que o Financeiro responde (é lá que se descobre se a despesa
+    // já existe). Até lá a guarda acima não protege, e dois cliques rápidos gerariam duas despesas.
+    if (marcandoHoraExtra.has(id)) return
+    marcandoHoraExtra.add(id)
 
     const { orgId } = ctxAuth()
     const { profile } = useAuth.getState()
@@ -935,17 +946,35 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const pagoEm = opcoes?.pagoEm ?? he.pagoEm ?? he.data
     const pagoPor = opcoes?.pagoPor ?? profile?.full_name ?? profile?.email ?? 'alguém'
 
-    const lancamento = lancamentoDaHoraExtra({ ...he, pagoEm }, orgId, { agora, pagoEm })
-    const pago: HoraExtra = { ...he, pago: true, pagoEm, pagoPor, entryId: lancamento.id }
-    get().upsertHoraExtra(pago)
-
     // Import dinâmico: `financeiroStore` já importa ESTE store no topo (linha 7 de lá). Import
     // estático aqui fecharia o ciclo. Mesmo recurso que `rdoStore` usa para chamar o Financeiro.
     void import('./financeiroStore').then(({ useFinanceiroStore }) => {
-      // `respectObra: true` — HE sem obra tem que continuar sem obra; sem isso a barra lateral
-      // carimbaria a obra ativa num gasto que não é dela.
-      useFinanceiroStore.getState().addEntry(lancamento, { respectObra: true })
-    })
+      try {
+        const fin = useFinanceiroStore.getState()
+        // ⚠️ ANTES de criar: esta hora extra já virou despesa por outro caminho?
+        //
+        // O cliente usa os DOIS — importa a planilha com o "PG" marcado E clica Pago aqui. Os dois
+        // caminhos derivam o id de jeitos diferentes, então o `addEntry` (que é upsert por id) NÃO
+        // reconhecia a duplicata: o caixa ficava com duas despesas para o mesmo pagamento, sem
+        // erro nenhum na tela. `despesaDaHoraExtra` casa pela chave natural (pessoa + dia
+        // trabalhado), que é a única coisa que as duas origens têm em comum.
+        const existente = despesaDaHoraExtra(fin.entries, he.workerNome, he.data)
+        const lancamento = existente ?? lancamentoDaHoraExtra({ ...he, pagoEm }, orgId, { agora, pagoEm })
+        // Só grava quando é nova. Adotar a da planilha sem reescrevê-la preserva o que veio de lá
+        // (a obra escolhida na importação, o `conferido`, o `chavePlanilha`).
+        if (!existente) {
+          // `respectObra: true` — HE sem obra tem que continuar sem obra; sem isso a barra lateral
+          // carimbaria a obra ativa num gasto que não é dela.
+          fin.addEntry(lancamento, { respectObra: true })
+        }
+        const atual = get().horasExtras.find((h) => h.id === id)
+        if (atual && !atual.entryId) {
+          get().upsertHoraExtra({ ...atual, pago: true, pagoEm, pagoPor, entryId: lancamento.id })
+        }
+      } finally {
+        marcandoHoraExtra.delete(id)
+      }
+    }, () => { marcandoHoraExtra.delete(id) })
   },
 
   desmarcarHoraExtraPaga: (id) => {
@@ -953,16 +982,29 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
     const he = get().horasExtras.find((h) => h.id === id)
     if (!he) return
     const entryId = he.entryId
-    get().upsertHoraExtra({ ...he, pago: false, pagoEm: undefined, pagoPor: undefined, entryId: undefined })
+    if (!entryId) {
+      get().upsertHoraExtra({ ...he, pago: false, pagoEm: undefined, pagoPor: undefined })
+      return
+    }
     // Estorno explícito, no molde de `desfazerBaixa` (financeiroTitulosStore): desmarcar Pago
     // APAGA a despesa gerada. Deixá-la para trás faria o caixa pagar duas vezes na remarcação.
-    if (entryId) {
-      void import('./financeiroStore').then(({ useFinanceiroStore }) => {
-        if (useFinanceiroStore.getState().entries.some((e) => e.id === entryId)) {
-          useFinanceiroStore.getState().removeEntry(entryId)
-        }
-      })
-    }
+    //
+    // ⚠️ O vínculo só é solto se a despesa for MESMO removida. A versão anterior limpava o
+    // `entryId` antes de saber disso: quando o lançamento não estava carregado neste aparelho
+    // (outra empresa, outro dia, pull ainda não veio), a despesa ficava no servidor sem dono e
+    // nunca mais era encontrável — e remarcar Pago criava outra.
+    void import('./financeiroStore').then(({ useFinanceiroStore }) => {
+      const fin = useFinanceiroStore.getState()
+      const atual = get().horasExtras.find((h) => h.id === id)
+      if (!atual) return
+      if (!fin.entries.some((e) => e.id === entryId)) {
+        set({ syncError: `A hora extra de ${atual.workerNome} continua marcada como paga: a despesa `
+          + 'gerada não está carregada neste aparelho. Sincronize o Financeiro e tente de novo.' })
+        return
+      }
+      fin.removeEntry(entryId)
+      get().upsertHoraExtra({ ...atual, pago: false, pagoEm: undefined, pagoPor: undefined, entryId: undefined })
+    })
   },
 
   // ── Timecards ───────────────────────────────────────────────────────────────

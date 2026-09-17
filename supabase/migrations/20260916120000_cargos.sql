@@ -45,8 +45,13 @@ alter table public.cargos enable row level security;
 alter table public.cargos force  row level security;
 
 drop policy if exists cargos_select_own_org on public.cargos;
+-- ⚠️ SELECT SEM `deleted_at is null`, de propósito — é o padrão adotado em
+-- `20260824130000_desfazer_exclusao.sql` (seção 5, "A CAUSA RAIZ"). Com o filtro aqui, a linha
+-- apagada fica invisível para a própria policy e **desfazer a exclusão é impossível a partir do
+-- cliente**. Quem esconde o registro apagado é o `pullTable`, que já filtra `deleted_at is null`
+-- no cliente por padrão (`activeOnly`).
 create policy cargos_select_own_org on public.cargos for select to authenticated
-  using (organization_id = public.user_org() and deleted_at is null);
+  using (organization_id = public.user_org());
 
 drop policy if exists cargos_insert_with_role on public.cargos;
 create policy cargos_insert_with_role on public.cargos for insert to authenticated
@@ -54,8 +59,10 @@ create policy cargos_insert_with_role on public.cargos for insert to authenticat
     and public.has_role(array['planejador','engenheiro','gerente','diretor','owner']::public.user_role[]));
 
 drop policy if exists cargos_update_role on public.cargos;
+-- `using` sem `deleted_at is null` pelo mesmo motivo: com ele, reexcluir ou restaurar a linha
+-- não casaria com regra nenhuma.
 create policy cargos_update_role on public.cargos for update to authenticated
-  using (organization_id = public.user_org() and deleted_at is null
+  using (organization_id = public.user_org()
     and public.has_role(array['planejador','engenheiro','gerente','diretor','owner']::public.user_role[]))
   with check (organization_id = public.user_org());
 

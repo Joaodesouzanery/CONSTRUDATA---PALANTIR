@@ -23,7 +23,7 @@ import {
   type Matriz, type LeituraHorasExtras,
 } from '../utils/controleDeCaixaPlanilha'
 import {
-  conferir, lancamentoParaGravar, lancamentoDaHoraExtra, horasExtrasQueViramDespesa,
+  conferir, lancamentoParaGravar, lancamentoDaHoraExtra, horasExtrasQueViramDespesa, despesaDaHoraExtra,
   linhasAGravar, ROTULO_SITUACAO, type Conferencia, type Situacao, type ObraParaCasar,
 } from '../utils/controleDeCaixaImport'
 import type { FinanceiroEntry } from '@/types'
@@ -166,7 +166,14 @@ export function ImportarCaixaModal({ entries, orgId, obraId, sites, onGravar, on
       .flatMap(({ leitura }) => horasExtrasQueViramDespesa(leitura.registros))
       .map((r) => lancamentoDaHoraExtra(r, orgId, { obraId, agora }))
       // Só as que ainda não existem — reprocessar a grade não pode reescrever o que já está lá.
+      //
+      // ⚠️ São DUAS conferências, e cada uma pega um caso. Por `id`: a mesma linha da mesma
+      // planilha, reimportada. Por `chaveHoraExtra`: a MESMA hora extra que já virou despesa pelo
+      // botão "Pago" da grade de Mão de Obra — que deriva o id de outro jeito e por isso passava
+      // despercebida aqui, fazendo o caixa pagar duas vezes.
       .filter((e) => !entries.some((x) => x.id === e.id))
+      // (aqui `e.data` É o dia trabalhado — é a planilha que manda nesse caminho)
+      .filter((e) => !despesaDaHoraExtra(entries, e.funcionarioNome ?? '', e.data))
     return [...daPlanilha, ...daGrade]
   }, [lido, orgId, obraId, entries, quemConfere, sites, obraPorLinha])
 
