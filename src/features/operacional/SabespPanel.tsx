@@ -24,6 +24,7 @@ import {
 } from './sabespStore'
 import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
+import { alertasDaOperacao } from './alertasOperacionais'
 import { CelulaEditavel } from './components/CelulaEditavel'
 import { ConferenciaImportacao } from './components/ConferenciaImportacao'
 
@@ -113,6 +114,8 @@ export function SabespPanel() {
         </p>
       )}
 
+      <PainelDeAlertas />
+
       <div className="min-h-0 flex-1">
         <SubTabHost
           tabs={GRUPOS.map((g) => ({
@@ -129,6 +132,50 @@ export function SabespPanel() {
       {(configuracoes.length > 0 || guias.rapido || guias.leiaMe) && (
         <PainelDeConfiguracao configuracoes={configuracoes} guias={guias} />
       )}
+    </div>
+  )
+}
+
+// ─── Os alertas que a planilha gera ───────────────────────────────────────────
+
+/**
+ * ⚠️ Os alertas saem do DADO IMPORTADO, é o que o cliente pediu ("a planilha vai gerar alertas e
+ * atividades desses dados"). A conta mora em `alertasOperacionais.ts`, pura e testada — na versão
+ * anterior ela vivia dentro de um `useMemo` do painel, sem teste, e uma das regras acusava
+ * "NÃO HÁ RESTRIÇÃO" de ser uma restrição pendente.
+ */
+function PainelDeAlertas() {
+  const linhas = useSabespStore((s) => s.linhas)
+  const alertas = useMemo(() => alertasDaOperacao(linhas), [linhas])
+  const [aberto, setAberto] = useState(false)
+  if (alertas.length === 0) return null
+
+  const altos = alertas.filter((a) => a.gravidade === 'alta').length
+  const mostrar = aberto ? alertas : alertas.slice(0, 4)
+
+  return (
+    <div className="border-b border-[#525252] bg-[#eab308]/[0.07] px-6 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <AlertTriangle size={14} className="text-[#fbbf24]" />
+        <span className="text-xs font-semibold text-[#fbbf24]">
+          {alertas.length} pendência(s) na planilha
+          {altos > 0 && <span className="ml-1 font-normal text-[#fca5a5]">· {altos} de prioridade alta</span>}
+        </span>
+        {alertas.length > 4 && (
+          <button type="button" onClick={() => setAberto((v) => !v)} className="text-[11px] text-[#d1a54a] underline-offset-2 hover:underline">
+            {aberto ? 'ver menos' : `ver todas as ${alertas.length}`}
+          </button>
+        )}
+      </div>
+      <ul className="mt-1.5 flex flex-col gap-0.5">
+        {mostrar.map((a) => (
+          <li key={a.id} className="flex items-start gap-2 text-[11px] leading-5">
+            <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', a.gravidade === 'alta' ? 'bg-[#ef4444]' : 'bg-[#eab308]')} />
+            <span className="text-[#e5e5e5]">{a.titulo}</span>
+            <span className="text-[#8a8a8a]">— {definicaoDaAba(a.aba).label} · {a.chave}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
