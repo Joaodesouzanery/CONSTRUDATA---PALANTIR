@@ -11,7 +11,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
-import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
 import { getTenantMarker } from '@/lib/tenantCache'
 import type { PremissasFcp } from '@/features/financeiro/utils/fcp/tipos'
 import type { PrecoDoContrato } from '@/features/financeiro/utils/fcp/importarFcp'
@@ -98,6 +98,11 @@ interface FcpState {
 export const useFcpStore = create<FcpState>()(
   persist(
     (set, get) => {
+      // ⚠️ Uma drenagem por vez. Lançar produção semana a semana dispara um `flush` por lançamento,
+      // e sem isto eles rodavam concorrentes sobre a MESMA fila: o `set` do primeiro a terminar
+      // reescrevia `pendingSync` a partir de um retrato já velho, ressuscitando op já enviada e
+      // perdendo op recém-enfileirada. É o mesmo serializador que o `financeiroStore` usa.
+      const serializarFlush = makeFlushSerializer()
       const enqueueUpdate = (id: string) => {
         const alvo = get().planos.find((x) => x.id === id)
         if (!alvo) return
@@ -179,7 +184,7 @@ export const useFcpStore = create<FcpState>()(
 
         clearData: () => set({ planos: [], pendingSync: [], syncError: null }),
 
-        flush: async () => {
+        flush: async () => serializarFlush(async () => {
           const queue = get().pendingSync
           if (queue.length === 0) return
           if (typeof navigator !== 'undefined' && !navigator.onLine) { set({ syncStatus: 'offline' }); return }
@@ -195,7 +200,7 @@ export const useFcpStore = create<FcpState>()(
             lastSyncedAt: new Date().toISOString(),
             syncError:    result.lastError ?? null,
           }))
-        },
+        }, () => get().pendingSync.length),
 
         pull: async () => {
           const rows = await pullTable<{ payload: PlanoFcp }>('fcp_planos')

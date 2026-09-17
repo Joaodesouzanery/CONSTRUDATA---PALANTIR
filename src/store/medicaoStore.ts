@@ -180,6 +180,19 @@ export const useMedicaoStore = create<MedicaoState>()(
     {
       name: 'cdata-medicao',
       version: 3,
+      /**
+       * ⚠️ `version` SEM `migrate` DESCARTA O ESTADO INTEIRO.
+       *
+       * Conferido no zustand (`node_modules/zustand/esm/middleware.mjs`): quando a versão gravada
+       * difere de `options.version` e não há `migrate`, ele faz um `console.error` e devolve
+       * `[false, undefined]` — o estado persistido não é migrado, é JOGADO FORA. E `pendingSync`
+       * está no `partialize`, então a fila de trabalho não sincronizado vai junto, em silêncio.
+       *
+       * Este store já esteve em versões anteriores, e o próximo `version++` que alguém fizer sem
+       * este `migrate` apagaria a fila de todo mundo. Agora existe: não transforma nada (não há o
+       * que transformar), só devolve o estado e impede o descarte.
+       */
+      migrate: (persisted) => (persisted ?? {}) as never,
     },
   ),
 )

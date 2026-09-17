@@ -132,12 +132,16 @@ export const useNotasFiscaisStore = create<NotasFiscaisState>()(
         notas: [],
 
         salvarNota: (nota) => {
-          if (!podeEscreverTitulos()) return
+          // ⚠️ `.pode`. `podeEscreverTitulos()` devolve um OBJETO (`PermissaoEscrita`), e `!objeto`
+          // é SEMPRE false — o gate nunca disparou em nenhuma das cinco escritas deste arquivo.
+          // Quem não podia gravar via "salvo" na tela, e a op voltava 42501 e entupia a fila.
+          // Era o único arquivo do projeto com esse erro; os outros stores já usavam `.pode`.
+          if (!podeEscreverTitulos().pode) return
           get().salvarNotas([nota])
         },
 
         salvarNotas: (novas) => {
-          if (!podeEscreverTitulos() || !novas.length) return
+          if (!podeEscreverTitulos().pode || !novas.length) return
           set((s) => {
             const porId = new Map(s.notas.map((n) => [n.id, n]))
             for (const n of novas) porId.set(n.id, n)
@@ -153,7 +157,7 @@ export const useNotasFiscaisStore = create<NotasFiscaisState>()(
         },
 
         atualizarNota: (id, patch) => {
-          if (!podeEscreverTitulos()) return
+          if (!podeEscreverTitulos().pode) return
           const atual = get().notas.find((n) => n.id === id)
           if (!atual) return
           const atualizada = { ...atual, ...patch }
@@ -166,7 +170,7 @@ export const useNotasFiscaisStore = create<NotasFiscaisState>()(
 
         /** Soft delete: nunca `delete`, sempre `deleted_at`. */
         removerNota: (id) => {
-          if (!podeEscreverTitulos()) return
+          if (!podeEscreverTitulos().pode) return
           const alvo = get().notas.find((n) => n.id === id)
           // Apagar a nota tem de apagar junto o lançamento que ela gerou, senão a
           // despesa fica órfã na DRE sem nada que explique de onde veio.
@@ -183,7 +187,7 @@ export const useNotasFiscaisStore = create<NotasFiscaisState>()(
         },
 
         lancarNoFinanceiro: (id) => {
-          if (!podeEscreverTitulos()) return
+          if (!podeEscreverTitulos().pode) return
           const nota = get().notas.find((n) => n.id === id)
           if (!nota || nota.status === 'lancada') return
           const { orgId, userId } = ctxAuth()
@@ -200,7 +204,7 @@ export const useNotasFiscaisStore = create<NotasFiscaisState>()(
         },
 
         desfazerLancamento: (id) => {
-          if (!podeEscreverTitulos()) return
+          if (!podeEscreverTitulos().pode) return
           const nota = get().notas.find((n) => n.id === id)
           if (!nota || nota.status !== 'lancada') return
           if (nota.entryId) useFinanceiroStore.getState().removeEntry(nota.entryId)

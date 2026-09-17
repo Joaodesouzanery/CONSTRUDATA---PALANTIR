@@ -194,3 +194,46 @@ tela. E o caminho inverso (tratar `horasTrabalhadas` como jornada) multiplicaria
 
 **A regra:** o custo do apontamento é do módulo de Mão de Obra; o do Financeiro é do Financeiro.
 Antes de somar os dois, decida — e escreva aqui — qual manda.
+
+---
+
+## 8. 🔴 Cinco consumidores vivos leem um store que nenhuma tela alcançável consegue preencher
+
+**O que é.** `medicaoStore.segments` alimenta cinco lugares que estão em produção:
+
+- `src/features/relatorio360/utils/sinais360.ts` (`getGlobalKpis`);
+- `src/features/gestao-360/utils/custoLedger.ts` (entra no livro razão do Job Costing);
+- `src/features/gestao-360/components/JobCostingPanel.tsx`;
+- `src/features/suprimentos/components/BomPendentePanel.tsx`;
+- `src/features/suprimentos/components/InteligenciaSuprimentosPanel.tsx`.
+
+**O único escritor é `ConsolidadoPanel.tsx`** (`addSegments`, `addSegment`, `updateSegment`,
+`removeSegment`) — e esse arquivo **não tem nenhum importador**. `MedicaoHeader`,
+`MedicaoDashboard` e `ResumoNucleoPanel` também não têm. São telas mortas: nenhuma rota chega
+nelas, nenhum componente as monta.
+
+**Onde mora.** `src/store/medicaoStore.ts` + `src/features/medicao/components/ConsolidadoPanel.tsx`.
+Mesma situação em `src/store/medicaoAssistidaStore.ts`, cujo único consumidor
+(`MedicaoAssistidaPanel.tsx`) também está órfão.
+
+**Quem hoje escapa.** Ninguém reclama porque o resultado é silencioso: os cinco consumidores leem
+uma lista vazia e simplesmente não mostram nada. Não há erro, não há número errado — há uma seção
+que nunca acende.
+
+**O que acontece se alguém não souber.** Duas armadilhas opostas:
+
+1. Quem vir "medicaoStore não sincroniza" e **construir tabela + fila para ele** estará dando
+   infraestrutura a uma tela que ninguém consegue abrir. (Foi o que uma auditoria automática
+   recomendou aqui — a recomendação estava certa sobre o sync e errada sobre a prioridade.)
+2. Quem **religar** `ConsolidadoPanel` numa rota vai descobrir, só então, que o dado gravado ali
+   nunca sai do navegador: o store não tem `pendingSync`, não tem `pull`, não fala com o Supabase.
+   Religar a tela e sincronizar o store são a MESMA tarefa; fazer só a primeira cria perda de dado
+   real onde hoje só há silêncio.
+
+⚠️ E não confunda com `medicaoBillingStore`: **esse sincroniza**. Não pela fila genérica, mas por
+`upsertBoletimRemote` + `_syncError` + um `flush()` que reenvia tudo que falhou, chamado pelo
+listener de `online` e pelo `flushAllTenantStores()`. É um caminho diferente, e é um caminho
+completo — não mexa nele achando que é local-only.
+
+**A regra:** antes de dar sync a um store de Medição, confira se a tela que escreve nele tem
+importador. Se não tiver, a decisão é de produto (religar ou apagar), não de infraestrutura.
