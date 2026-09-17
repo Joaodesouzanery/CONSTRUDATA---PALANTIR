@@ -260,6 +260,33 @@ export interface FichaRetirada {
   siteId?: string | null
 }
 
+/** Uma retirada que já saiu do almoxarifado mas ainda não foi confirmada pelo servidor. */
+export interface RetiradaPendente {
+  movId: string
+  itemId: string
+  quantidade: number
+  siteId: string | null
+  data: string
+  hora: string
+  lpsActivityId?: string
+  observacoes?: string
+  retiradoPor?: string
+  entreguePor?: string
+  erro?: string
+}
+
+/**
+ * Esta falha é definitiva, ou vale a pena tentar de novo?
+ *
+ * ⚠️ O padrão é TRANSITÓRIO. Errar para "transitório" mantém a retirada de pé e ela é reenviada;
+ * errar para "definitivo" APAGA uma retirada que já aconteceu de verdade. Só entra na lista de
+ * definitivas o que o servidor disse explicitamente que recusa.
+ */
+export function ehFalhaDefinitivaDeBaixa(motivo: string): boolean {
+  const m = motivo.toLowerCase()
+  return /42501|permission denied|row-level security|violates|not found|não encontrado|nao encontrado|quantidade|insufficient|negativ/.test(m)
+}
+
 interface SuprimentosState {
   purchaseOrders:     PurchaseOrder[]
   receipts:           GoodsReceipt[]
@@ -346,6 +373,26 @@ interface SuprimentosState {
   updateItemEstoque:    (id: string, patch: Partial<ItemEstoque>) => void
   removeItemEstoque:    (id: string) => void
   addMovimentacao:      (mov: Omit<MovimentacaoEstoque, 'id'>) => string
+  /**
+   * Retiradas cuja RPC atômica ainda não foi aceita pelo servidor (offline, rede caiu).
+   *
+   * ⚠️ NÃO entram no `pendingSync` comum: a baixa de estoque é uma RPC
+   * (`qtd_disponivel = qtd_disponivel - qty`), e é ela que evita last-write-wins entre dois
+   * almoxarifes baixando o mesmo item. Enfileirar um UPDATE de saldo no lugar da RPC traria de
+   * volta exatamente o problema que a RPC existe para resolver.
+   */
+  retiradasPendentes:   RetiradaPendente[]
+  /** Retenta as retiradas pendentes. Idempotente; roda ao voltar a rede e no flush. */
+  reenviarRetiradas:    () => Promise<void>
+  /**
+   * Entrada de material: soma o saldo E registra a movimentação, numa ação só.
+   *
+   * ⚠️ Existe porque as duas telas faziam a conta por fora e uma delas esquecia metade — o Mapa
+   * de Estoque registrava a movimentação e NÃO somava o `qtdDisponivel`, então cada entrada por
+   * ali deixava o saldo menor do que a realidade. A saída sempre teve ação própria
+   * (`consumirMaterial`); a entrada, não.
+   */
+  entradaMaterial:      (itemId: string, quantidade: number, dados?: Partial<Omit<MovimentacaoEstoque, 'id' | 'itemId' | 'tipo' | 'quantidade'>>) => void
   removeMovimentacao:   (id: string) => void
   addReserva:           (r: Omit<ReservaMaterial, 'id' | 'criadoEm'>) => void
   updateReserva:        (id: string, patch: Partial<ReservaMaterial>) => void
@@ -1017,6 +1064,61 @@ export const useSuprimentosStore = create<SuprimentosState>()(
     void get().flush()
   },
 
+  entradaMaterial: (itemId, quantidade, dados) => {
+    if (!podeEscreverSuprimentos().pode) return
+    const item = get().estoqueItens.find((i) => i.id === itemId)
+    if (!item) return
+    const qty = Number(quantidade)
+    if (!Number.isFinite(qty) || qty <= 0) return
+    // As DUAS metades, sempre juntas: o saldo e o histórico.
+    get().updateItemEstoque(itemId, { qtdDisponivel: item.qtdDisponivel + qty })
+    get().addMovimentacao({
+      itemId,
+      depositoId: dados?.depositoId ?? item.depositoId,
+      tipo: 'entrada',
+      quantidade: qty,
+      // ⚠️ `hojeLocalISO`, nunca `new Date().toISOString().slice(0,10)`: o segundo é UTC, e depois
+      // das 21h no Brasil a entrada nascia com a data do dia SEGUINTE.
+      dataMovimento: dados?.dataMovimento ?? hojeLocalISO(),
+      siteId: dados?.siteId ?? item.siteId ?? null,
+      ...dados,
+    })
+  },
+
+  retiradasPendentes: [],
+
+  reenviarRetiradas: async () => {
+    const fila = get().retiradasPendentes
+    if (fila.length === 0) return
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return
+    for (const r of fila) {
+      try {
+        const novoQtd = await baixarEstoqueItem(r.itemId, r.quantidade, {
+          lpsActivityId: r.lpsActivityId, observacoes: r.observacoes, siteId: r.siteId,
+          retiradoPor: r.retiradoPor, entreguePor: r.entreguePor, hora: r.hora, data: r.data,
+        })
+        set((st) => ({
+          estoqueItens: st.estoqueItens.map((i) => (i.id === r.itemId ? { ...i, qtdDisponivel: novoQtd } : i)),
+          retiradasPendentes: st.retiradasPendentes.filter((x) => x.movId !== r.movId),
+          syncError: null,
+        }))
+      } catch (e) {
+        const motivo = e instanceof Error ? e.message : String(e)
+        if (ehFalhaDefinitivaDeBaixa(motivo)) {
+          // Definitivo: agora sim desfaz, e diz por quê. Deixar de pé seria mentir sobre o saldo.
+          set((st) => ({
+            estoqueItens: st.estoqueItens.map((i) => (i.id === r.itemId ? { ...i, qtdDisponivel: i.qtdDisponivel + r.quantidade } : i)),
+            movimentacoes: st.movimentacoes.filter((m) => m.id !== r.movId),
+            retiradasPendentes: st.retiradasPendentes.filter((x) => x.movId !== r.movId),
+            syncError: `A retirada foi desfeita: ${motivo}`,
+          }))
+        } else {
+          set((st) => ({ retiradasPendentes: st.retiradasPendentes.map((x) => (x.movId === r.movId ? { ...x, erro: motivo } : x)) }))
+        }
+      }
+    }
+  },
+
   addMovimentacao: (mov) => {
     // `sup_est_mov_insert_with_role`. As demais mutações de estoque (update de item, de depósito e
     // os soft deletes) NÃO ganham gate de propósito: a policy de UPDATE pede só a organização, e
@@ -1115,6 +1217,30 @@ export const useSuprimentosStore = create<SuprimentosState>()(
           syncError: null,
         }))
       } catch (e) {
+        const motivo = e instanceof Error ? e.message : String(e)
+        // ⚠️ REDE CAINDO NÃO DESFAZ RETIRADA.
+        //
+        // Antes, QUALQUER erro revertia o saldo e apagava a movimentação. Só que a pessoa já saiu
+        // do almoxarifado com o material na mão: desfazer por causa de wi-fi ruim faz o sistema
+        // discordar da prateleira, e ninguém fica sabendo (o modal já fechou, e o aviso ia só para
+        // `syncError`). Em obra, rede instável é o normal.
+        //
+        // Falha transitória: a retirada FICA de pé e entra na fila própria, que retenta a RPC
+        // atômica quando a rede voltar. Não dá para usar o `pendingSync` comum aqui — a baixa é
+        // uma RPC (`qtd_disponivel = qtd_disponivel - qty`) e é ela que evita last-write-wins
+        // entre dois almoxarifes; trocá-la por um UPDATE de saldo traria o problema de volta.
+        if (!ehFalhaDefinitivaDeBaixa(motivo)) {
+          set((s) => ({
+            retiradasPendentes: [...s.retiradasPendentes, {
+              movId: mov.id, itemId, quantidade: qty, siteId, data, hora,
+              lpsActivityId: opts?.lpsActivityId, observacoes: opts?.observacoes,
+              retiradoPor: opts?.retiradoPor, entreguePor: opts?.entreguePor, erro: motivo,
+            }],
+            syncError: `A retirada ficou pendente de envio: ${motivo}`,
+          }))
+          return
+        }
+        // Definitiva (permissão, item inexistente, quantidade inválida): aí sim desfaz.
         // Reverte por DELTA (soma a qty de volta), não por snapshot: assim, se houver
         // outra baixa concorrente do mesmo item, o revert desfaz só esta sem clobrar a outra.
         set((s) => ({
@@ -1122,7 +1248,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
             i.id === itemId ? { ...i, qtdDisponivel: i.qtdDisponivel + qty } : i
           ),
           movimentacoes: s.movimentacoes.filter((m) => m.id !== mov.id),
-          syncError: e instanceof Error ? e.message : 'Falha ao baixar estoque',
+          syncError: `A retirada foi desfeita: ${motivo}`,
         }))
       }
     })()
@@ -1679,7 +1805,24 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         suppliers:      s.suppliers,
         pendingSync:    s.pendingSync,
         lastSyncedAt:   s.lastSyncedAt,
-        // Estoque continua só local-cache até Sprint 3
+        // ⚠️ O estoque PRECISA ser persistido, e o comentário que dizia "só local-cache até
+        // Sprint 3" ficou para trás: `addDeposito`, `addItemEstoque` e `addMovimentacao` já
+        // enfileiram op, e o `pull` já passa as três tabelas por `mergePull`.
+        //
+        // Enquanto ficaram de fora, o reload produzia a pior combinação possível: a FILA era
+        // persistida e o DADO não. O usuário recarregava e via "N a caminho" no indicador de
+        // sincronização com o almoxarifado vazio na tela — exatamente o print que o cliente
+        // mandou. Offline, o módulo abria sem nada.
+        //
+        // Persistir é seguro: o `mergePull` do pull protege registro com op pendente de ser
+        // sobrescrito pelo servidor.
+        // A fila de retiradas TEM de sobreviver ao reload — ela existe justamente porque a rede
+        // caiu, e quem está sem rede costuma fechar a aba antes de voltar.
+        retiradasPendentes: s.retiradasPendentes,
+        depositos:          s.depositos,
+        selectedDepositoId: s.selectedDepositoId,
+        estoqueItens:       s.estoqueItens,
+        movimentacoes:      s.movimentacoes,
         // Planilhas Consolidadas persisted
         planilhaResumo:    s.planilhaResumo,
         planilhaTrechos:   s.planilhaTrechos,
@@ -1689,14 +1832,13 @@ export const useSuprimentosStore = create<SuprimentosState>()(
         planilhaMetadata:  s.planilhaMetadata,
         activeOrgId:       s.activeOrgId,
       }),
-      version: 2,
+      version: 3,
+      // ⚠️ A migração só descarta o que ainda NÃO sincroniza — persistir uma coleção que o pull não
+      // conhece deixaria dado velho para sempre na tela. Estoque saiu desta lista quando passou a
+      // ter fila e `mergePull` (ver o partialize acima).
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== 'object') return persisted
         const state = persisted as Partial<SuprimentosState>
-        delete state.depositos
-        delete state.selectedDepositoId
-        delete state.estoqueItens
-        delete state.movimentacoes
         delete state.reservas
         delete state.leadTimeRecords
         delete state.supplyChainNodes
@@ -1711,6 +1853,7 @@ export const useSuprimentosStore = create<SuprimentosState>()(
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     void useSuprimentosStore.getState().flush()
+    void useSuprimentosStore.getState().reenviarRetiradas()
   })
 }
 

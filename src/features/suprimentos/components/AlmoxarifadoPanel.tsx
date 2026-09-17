@@ -95,7 +95,7 @@ export function AlmoxarifadoPanel() {
     addItemEstoque,
     updateItemEstoque,
     removeItemEstoque,
-    addMovimentacao,
+    entradaMaterial,
     removeMovimentacao,
     consumirMaterial,
     pendingSync,
@@ -109,7 +109,7 @@ export function AlmoxarifadoPanel() {
       addItemEstoque: s.addItemEstoque,
       updateItemEstoque: s.updateItemEstoque,
       removeItemEstoque: s.removeItemEstoque,
-      addMovimentacao: s.addMovimentacao,
+      entradaMaterial: s.entradaMaterial,
       removeMovimentacao: s.removeMovimentacao,
       consumirMaterial: s.consumirMaterial,
       pendingSync: s.pendingSync,
@@ -422,15 +422,10 @@ export function AlmoxarifadoPanel() {
     if (movement.tipo === 'saida') {
       consumirMaterial(movement.item.id, qty, { observacoes: `Almoxarifado - NF: ${movement.nf || '-'}` })
     } else {
-      updateItemEstoque(movement.item.id, {
-        qtdDisponivel: movement.item.qtdDisponivel + qty,
-      })
-      addMovimentacao({
-        itemId: movement.item.id,
+      // A conta (saldo + histórico) e a data local vivem em `entradaMaterial`. Aqui a data saía de
+      // `new Date().toISOString()`, que é UTC: depois das 21h a entrada nascia no dia seguinte.
+      entradaMaterial(movement.item.id, qty, {
         depositoId: movement.item.depositoId,
-        tipo: 'entrada',
-        quantidade: qty,
-        dataMovimento: new Date().toISOString().slice(0, 10),
         fornecedor: movement.fornecedor || undefined,
         nf: movement.nf || undefined,
       })

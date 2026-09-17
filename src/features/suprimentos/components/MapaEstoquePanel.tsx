@@ -46,7 +46,7 @@ export function MapaEstoquePanel() {
     depositos, estoqueItens, movimentacoes,
     selectedDepositoId, setSelectedDeposito,
     addDeposito,
-    addItemEstoque, addMovimentacao, consumirMaterial,
+    addItemEstoque, entradaMaterial, consumirMaterial,
   } = useSuprimentosStore(
     useShallow((s) => ({
       depositos:           s.depositos,
@@ -56,7 +56,7 @@ export function MapaEstoquePanel() {
       setSelectedDeposito: s.setSelectedDeposito,
       addDeposito:         s.addDeposito,
       addItemEstoque:      s.addItemEstoque,
-      addMovimentacao:     s.addMovimentacao,
+      entradaMaterial:     s.entradaMaterial,
       consumirMaterial:    s.consumirMaterial,
     }))
   )
@@ -142,11 +142,11 @@ export function MapaEstoquePanel() {
     if (movForm.tipo === 'saida') {
       consumirMaterial(movForm.itemId, qty, { observacoes: `Saída manual — NF: ${movForm.nf || '—'}` })
     } else {
-      addMovimentacao({
-        itemId:        movForm.itemId,
+      // ⚠️ `entradaMaterial`, não `addMovimentacao` sozinho. Este ramo registrava a movimentação e
+      // NÃO somava o `qtdDisponivel` — cada entrada feita por esta tela deixava o saldo menor do
+      // que a realidade, sem erro nenhum. A ação do store faz as duas metades juntas.
+      entradaMaterial(movForm.itemId, qty, {
         depositoId:    depId,
-        tipo:          'entrada',
-        quantidade:    qty,
         dataMovimento: movForm.dataMovimento,
         dataCompra:    movForm.dataCompra || undefined,
         fornecedor:    movForm.fornecedor || undefined,
