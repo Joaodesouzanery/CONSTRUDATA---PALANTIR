@@ -5,6 +5,7 @@
  * (1 row por user, RLS por user_id). Mantém persist localStorage como cache offline.
  */
 import { create } from 'zustand'
+import { isDemoModeEnabled } from '@/lib/runtimeMode'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -219,6 +220,10 @@ export const useUserRoutineStore = create<UserRoutineState>()(
       }),
 
       flush: async () => {
+        // ⚠️ Modo Demonstração NÃO escreve na tabela real. Fixar um atalho durante uma
+        // demonstração gravava em `user_routines` do cliente — o resto do projeto trata isso como
+        // regra (ver o comentário do efeito em `minha-rotina/index.tsx`), e este store escapava.
+        if (isDemoModeEnabled()) return
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           set({ syncStatus: 'offline' }); return
         }
@@ -249,6 +254,7 @@ export const useUserRoutineStore = create<UserRoutineState>()(
       },
 
       pull: async () => {
+        if (isDemoModeEnabled()) return
         const { profile, user } = useAuth.getState()
         if (!profile || !user) return
         const { data, error } = await supabase

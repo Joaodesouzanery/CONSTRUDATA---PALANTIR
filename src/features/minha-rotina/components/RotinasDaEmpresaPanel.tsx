@@ -138,18 +138,27 @@ export function RotinasDaEmpresaPanel() {
 
   // Placar por pessoa, do ciclo corrente de cada rotina. É o que faz olhar a lista e saber de quem
   // cobrar sem ler linha por linha.
-  const porPessoa = new Map<string, { feitas: number; total: number; atrasadas: number }>()
+  //
+  // ⚠️ Agrupa por nome NORMALIZADO (sem acento, sem caixa, sem espaço duplicado). O responsável é
+  // texto digitado à mão em cada rotina: "João Silva", "joão silva" e "JOAO SILVA" são a mesma
+  // pessoa, e agrupar pelo texto cru partia o placar dela em três linhas — cada uma mostrando
+  // menos atraso do que a realidade, que é o erro que faz ninguém ser cobrado.
+  // O nome EXIBIDO é a primeira grafia vista, não a normalizada: ninguém quer se ver em CAIXA ALTA.
+  const chaveDaPessoa = (n: string) =>
+    n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
+  const porPessoa = new Map<string, { nome: string; feitas: number; total: number; atrasadas: number }>()
   for (const r of ativas) {
     const nome = r.responsavel?.trim()
     if (!nome) continue
-    const atual = porPessoa.get(nome) ?? { feitas: 0, total: 0, atrasadas: 0 }
+    const chave = chaveDaPessoa(nome)
+    const atual = porPessoa.get(chave) ?? { nome, feitas: 0, total: 0, atrasadas: 0 }
     atual.total++
     if (feitaEm.has(`${r.id}|${cicloDe(r.frequencia, hoje)}`)) atual.feitas++
     if (atrasos.has(r.id)) atual.atrasadas++
-    porPessoa.set(nome, atual)
+    porPessoa.set(chave, atual)
   }
-  const pessoas = [...porPessoa.entries()]
-    .map(([nome, n]) => ({ nome, ...n }))
+  const pessoas = [...porPessoa.values()]
+    .map((n) => ({ ...n }))
     .sort((a, b) => b.atrasadas - a.atrasadas || a.nome.localeCompare(b.nome))
 
   const podeCarregarModelo = ehAOrganizacaoDoModelo(nomeDaOrg)

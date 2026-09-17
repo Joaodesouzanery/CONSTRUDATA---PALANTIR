@@ -455,10 +455,17 @@ function normalizeCrew(crew: LaborCrew): LaborCrew {
  * estão no `partialize` — são derivados/efêmeros e o fallback só os mantinha vivos vindos do demo.
  */
 function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObraState): MaoDeObraState {
+  // ⚠️ `violations` é DERIVADO de (workers × shifts × cltSettings) e NÃO está no `partialize` —
+  // então chegava sempre vazio na reidratação, e a aba Escala afirmava "zero violações CLT" depois
+  // de todo F5. Só voltava a valer quando alguém mexia num turno e o `revalidateCLT` disparava.
+  // Zero violação é uma afirmação forte; ela tem de ser recalculada, não assumida.
+  const workers = list(persisted.workers).map(normalizeWorker)
+  const shifts = list(persisted.shifts)
+  const cltSettings = persisted.cltSettings ?? current.cltSettings
   return {
     ...current,
     ...persisted,
-    workers:        list(persisted.workers).map(normalizeWorker),
+    workers,
     crews:          list(persisted.crews).map(normalizeCrew),
     cargos:         list(persisted.cargos).map(normalizeCargo),
     horasExtras:    list(persisted.horasExtras),
@@ -467,12 +474,12 @@ function normalizeMaoState(persisted: Partial<MaoDeObraState>, current: MaoDeObr
     occurrences:    list(persisted.occurrences),
     riskAreas:      list(persisted.riskAreas),
     suggestions:    list(persisted.suggestions),
-    shifts:         list(persisted.shifts),
-    violations:     list(persisted.violations),
+    shifts,
+    violations:     runAllCLTChecks(workers, shifts, cltSettings),
     workPosts:      list(persisted.workPosts),
     absences:       list(persisted.absences),
     assessments:    list(persisted.assessments),
-    cltSettings:    persisted.cltSettings ?? current.cltSettings,
+    cltSettings,
     payrollHistory: list(persisted.payrollHistory),
     // Sem preservar as flags, a subida única do que era local rodaria a cada recarga.
     workPostsMigrados:   persisted.workPostsMigrados ?? current.workPostsMigrados,
@@ -1522,7 +1529,17 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
         ...s.pendingSync,
         ...alvos.map((sh) => makeOp({
           entity: 'shift', type: 'update', recordId: sh.id,
-          patch: { payload: { ...sh, status: ausente ? 'absent' : 'scheduled' } as unknown as Record<string, unknown> },
+          // ⚠️ A coluna `status` vai JUNTO do payload.
+          //
+          // `status` é coluna promovida em `shifts` (ver `shiftToRow`). O patch mandava só o
+          // `payload`, então no servidor o turno de quem faltou continuava dizendo `scheduled` na
+          // coluna. Quem lê o jsonb via o correto; quem filtra pela coluna — uma consulta SQL, um
+          // relatório, uma view futura — contava a pessoa como escalada no dia em que ela faltou.
+          // Duas verdades para o mesmo turno, e a errada é a mais fácil de consultar.
+          patch: {
+            status: ausente ? 'absent' : 'scheduled',
+            payload: { ...sh, status: ausente ? 'absent' : 'scheduled' } as unknown as Record<string, unknown>,
+          },
           table: 'shifts',
         })),
       ],
@@ -1687,6 +1704,18 @@ export const useMaoDeObraStore = create<MaoDeObraState>()(
       workPosts:   MOCK_WORK_POSTS,
       absences:    MOCK_ABSENCES,
       cltSettings: MOCK_CLT_SETTINGS,
+      // ⚠️ ZERAR o que a demonstração não tem mock.
+      //
+      // `clearData` lista as 14 coleções; este `set` listava 10. As quatro que faltavam —
+      // `cargos`, `horasExtras`, `assessments`, `payrollHistory` — ficavam de pé, com o dado REAL
+      // do cliente, misturadas aos mocks. Duas delas são salário: hora extra e histórico de folha.
+      // Ligar o Modo Demonstração para mostrar o sistema a um terceiro exibia a folha de verdade.
+      //
+      // Não ter mock não é motivo para deixar o dado real: vazio é a resposta honesta.
+      cargos:         [],
+      horasExtras:    [],
+      assessments:    [],
+      payrollHistory: [],
     })
   },
 

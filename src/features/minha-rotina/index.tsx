@@ -263,6 +263,7 @@ export function MinhaRotinaPage() {
   const ensureRotinasScope = useRotinasStore((s) => s.ensureTenantScope)
   const pullRotinas = useRotinasStore((s) => s.pull)
   const flushRotinas = useRotinasStore((s) => s.flush)
+  const pullAtalhos = useUserRoutineStore((s) => s.pull)
 
   useEffect(() => {
     if (!profileOrgId) return
@@ -273,8 +274,14 @@ export function MinhaRotinaPage() {
     void (async () => {
       await flushRotinas().catch(() => undefined)
       await pullRotinas().catch(() => undefined)
+      // ⚠️ Os atalhos fixados também precisam ser PUXADOS. `userRoutineStore.pull()` não tinha
+      // nenhum chamador no projeto: a sincronização era só de ida (o `flush` roda ao fixar), então
+      // o servidor guardava a rotina do usuário e ninguém nunca a lia de volta. Em aparelho novo a
+      // tela nascia com o preset do cargo, e na troca de empresa o `clearData` apagava os atalhos
+      // para sempre — havia cópia no servidor, e ela era inalcançável.
+      await pullAtalhos().catch(() => undefined)
     })()
-  }, [ensureRotinasScope, flushRotinas, profileOrgId, pullRotinas])
+  }, [ensureRotinasScope, flushRotinas, profileOrgId, pullRotinas, pullAtalhos])
 
   function unpin(path: string) {
     const freq = useUserRoutineStore.getState().isPinned(path)
