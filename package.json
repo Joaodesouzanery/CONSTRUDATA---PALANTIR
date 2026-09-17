@@ -22,6 +22,7 @@
     "qa:controle-caixa": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-controle-caixa.mjs",
     "qa:fcp": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-fcp.mjs",
     "qa:funcionarios": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-funcionarios.mjs",
+    "qa:operacional": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-operacional.mjs",
     "qa:rdo-wcr": "node --import ./scripts/testes/resolver-ts.mjs scripts/qa/qa-rdo-wcr.mjs",
     "fixture:funcionarios": "node scripts/gerar-fixture-funcionarios.mjs",
     "preview": "vite preview",

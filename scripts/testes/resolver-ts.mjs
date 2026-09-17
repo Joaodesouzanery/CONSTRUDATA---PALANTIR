@@ -16,7 +16,7 @@
  * (ver os scripts `test:*` do package.json).
  */
 import { registerHooks } from 'node:module'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve as resolvePath } from 'node:path'
 
@@ -37,11 +37,20 @@ registerHooks({
     let alvo = null
     if (spec.startsWith('@/')) alvo = resolvePath(RAIZ, spec.slice(2))
     else if (spec.startsWith('.') && ctx.parentURL?.startsWith('file:')) {
-      alvo = resolvePath(dirname(fileURLToPath(ctx.parentURL)), spec)
+      const pai = fileURLToPath(ctx.parentURL)
+      // ⚠️ NÃO sequestrar os imports internos de pacote.
+      //
+      // Este ramo existe para resolver os imports relativos SEM EXTENSÃO do nosso código. Aplicá-lo
+      // dentro de `node_modules` quebra pacotes que fazem `require('./generate')` tendo um
+      // DIRETÓRIO com esse nome — foi o que aconteceu com o `jszip` (`lib/generate`, `lib/stream`,
+      // `lib/reader`): o gancho devolvia a pasta como se fosse módulo e o Node estourava
+      // `EISDIR: illegal operation on a directory, read`, sem dizer de quem era a culpa.
+      if (!pai.includes('node_modules')) alvo = resolvePath(dirname(pai), spec)
     }
     if (alvo) {
       for (const t of [alvo, `${alvo}.ts`, `${alvo}.tsx`, `${alvo}/index.ts`]) {
-        if (existsSync(t) && !t.endsWith('/')) return { url: pathToFileURL(t).href, shortCircuit: true }
+        // `isFile()` e não `existsSync`: diretório existe e não é módulo.
+        if (existsSync(t) && statSync(t).isFile()) return { url: pathToFileURL(t).href, shortCircuit: true }
       }
     }
     return next(spec, ctx)
