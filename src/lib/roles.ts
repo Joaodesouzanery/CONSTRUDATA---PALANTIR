@@ -94,6 +94,14 @@ export function canWriteMaoDeObra(role?: string | null): boolean {
  */
 export const ROLES_TORRE_WRITE: readonly UserRole[] = ['engenheiro', 'planejador', 'gerente', 'diretor', 'owner']
 
+/**
+ * Quem pode criar, submeter, revisar e excluir ORDEM DE MUDANÇA (Gestão 360).
+ *
+ * Espelho de `co_insert_with_role` / `co_update_role` (`0033_sprint6_rls.sql`). Nenhuma das quatro
+ * escritas tinha gate: a tela dizia "salvo", o servidor devolvia 42501 e a op entupia a fila.
+ */
+export const ROLES_CHANGE_ORDER_WRITE: readonly UserRole[] = ['engenheiro', 'planejador', 'gerente', 'diretor', 'owner']
+
 export const ROLES_SUPRIMENTOS_WRITE: readonly UserRole[] = ['comprador', 'engenheiro', 'gerente', 'diretor', 'owner']
 export function canWriteSuprimentos(role?: string | null): boolean {
   return ROLES_SUPRIMENTOS_WRITE.includes((role ?? '') as UserRole)
@@ -201,3 +209,4 @@ export const podeEscreverRdo         = () => podeEscrever(ROLES_RDO_WRITE)
 export const podeEscreverTitulos     = () => podeEscrever(ROLES_TITULOS_WRITE)
 export const podeEscreverSuprimentos = () => podeEscrever(ROLES_SUPRIMENTOS_WRITE)
 export const podeEscreverTorre        = () => podeEscrever(ROLES_TORRE_WRITE)
+export const podeEscreverChangeOrder  = () => podeEscrever(ROLES_CHANGE_ORDER_WRITE)

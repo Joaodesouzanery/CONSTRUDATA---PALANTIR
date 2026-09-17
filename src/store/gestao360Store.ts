@@ -7,6 +7,7 @@
  * abria um pedido e não apagava nada — a OM voltava no pull seguinte.
  */
 import { create } from 'zustand'
+import { podeEscreverChangeOrder } from '@/lib/roles'
 import { persist } from 'zustand/middleware'
 import { useAuth } from '@/lib/auth'
 import { flushQueue, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
@@ -133,7 +134,10 @@ export const useGestao360Store = create<Gestao360State>()(
             activeOrgId: organizationId,
             changeOrders: [],
             selectedProjectId: null,
-            pendingSync: [],
+            // ⚠️ `pendingSync` NÃO é zerado aqui, de propósito — era, e Ordem de Mudança criada
+            // offline nunca chegava ao servidor. O padrão do projeto é preservar (ver o comentário
+            // do `ensureTenantScope` da Torre): o `flushQueue` estaciona op de outra organização
+            // sozinho, e a limpeza por tenant já está garantida por `changeOrders: []`.
             syncStatus: 'idle',
             syncError: null,
           })
@@ -144,6 +148,14 @@ export const useGestao360Store = create<Gestao360State>()(
         setActiveTab:  (tab) => set({ activeTab: tab }),
 
         addChangeOrder: (payload) => {
+          // ⚠️ Gate espelhando `co_insert_with_role`/`co_update_role`
+          // (`0033_sprint6_rls.sql`). Nenhuma das quatro escritas tinha: a tela dizia "salvo",
+          // o servidor devolvia 42501 e a op entupia a fila — a OM não existia para ninguém.
+          if (!podeEscreverChangeOrder().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para alterar Ordem de Mudança.' })
+            // `''` e não `undefined`: é o mesmo contrato do `addRdo`, e quem chama pode conferir.
+            return ''
+          }
           const id = crypto.randomUUID()
           const now = new Date().toISOString()
           const co: ChangeOrder = {
@@ -163,6 +175,10 @@ export const useGestao360Store = create<Gestao360State>()(
         },
 
         submitChangeOrder: (id) => {
+          if (!podeEscreverChangeOrder().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para alterar Ordem de Mudança.' })
+            return
+          }
           set((s) => ({
             changeOrders: s.changeOrders.map((co) =>
               co.id === id ? { ...co, status: 'submitted' } : co
@@ -172,6 +188,10 @@ export const useGestao360Store = create<Gestao360State>()(
         },
 
         reviewChangeOrder: (id, decision, reviewer, notes) => {
+          if (!podeEscreverChangeOrder().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para alterar Ordem de Mudança.' })
+            return
+          }
           const now = new Date().toISOString()
           set((s) => ({
             changeOrders: s.changeOrders.map((co) =>
@@ -233,6 +253,10 @@ export const useGestao360Store = create<Gestao360State>()(
         },
 
         deleteChangeOrder: (id) => {
+          if (!podeEscreverChangeOrder().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para alterar Ordem de Mudança.' })
+            return
+          }
           // Limpa fotos do Storage best-effort
           const target = get().changeOrders.find((co) => co.id === id)
           if (target) {

@@ -207,8 +207,20 @@ export function JobCostingPanel() {
 
   const lines = aggregateBudgetLines(scopeProjects)
   const budgeted = lines.reduce((s, l) => s + l.budgeted, 0)
-  const actualCost = ledger.filter((e) => e.type === 'actual').reduce((sum, item) => sum + item.amountBRL, 0)
-  const committedCost = ledger.filter((e) => e.type === 'committed').reduce((sum, item) => sum + item.amountBRL, 0)
+
+  /**
+   * ⚠️ EAC, Variação e CPI saem do razão COMPLETO — nunca do recortado pelo período.
+   *
+   * O `budgeted` é o orçamento inteiro do projeto e não tem como ser recortado por semana (a linha
+   * de baseline é datada no início). Enquanto o numerador vinha filtrado e o denominador não, os
+   * três índices comparavam o gasto de uma semana com o orçamento de uma obra: escolher "Hoje" no
+   * filtro fazia o EAC despencar e o CPI disparar, já na abertura da tela, sem nada ter mudado.
+   *
+   * Índice é do projeto. O filtro de período vale para a TABELA de eventos e para os totais que
+   * dizem "no período" — não para a régua.
+   */
+  const actualCost = ledgerCompleto.filter((e) => e.type === 'actual').reduce((sum, item) => sum + item.amountBRL, 0)
+  const committedCost = ledgerCompleto.filter((e) => e.type === 'committed').reduce((sum, item) => sum + item.amountBRL, 0)
   const earnedEvents = ledger.filter((e) => e.type === 'earned').length
   const spent = actualCost > 0 ? actualCost : lines.reduce((s, l) => s + l.spent, 0)
   const remainingBudget = Math.max(0, budgeted - spent)
@@ -270,17 +282,22 @@ export function JobCostingPanel() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Orçamento planejado', value: `R$${(budgeted / 1_000_000).toFixed(2)}M`, color: '#6b6b6b' },
-          { label: 'Realizado (AC)', value: `R$${(spent / 1_000_000).toFixed(2)}M`, color: '#3b82f6' },
+          { label: 'Realizado (AC) · projeto', value: `R$${(spent / 1_000_000).toFixed(2)}M`, color: '#3b82f6' },
           { label: 'Comprometido', value: `R$${(committedCost / 1_000_000).toFixed(2)}M`, color: '#f97316' },
           {
             label: 'EAC / Variacao',
             value: `${(eac / 1_000_000).toFixed(2)}M (${variancePct > 0 ? '+' : ''}${variancePct.toFixed(1)}%)`,
             color: Math.abs(variancePct) <= 5 ? '#22c55e' : Math.abs(variancePct) <= 15 ? '#eab308' : '#ef4444',
+            // ⚠️ O comentário de `FATOR_PROJECAO_EAC` prometia que o fator "fica declarado na tela,
+            // abaixo do número" — e não ficava em lugar nenhum. Um EAC carrega uma ESCOLHA
+            // ("do orçamento ainda não gasto, assuma que 35% vira custo"), e quem lê precisa saber.
+            nota: `projeção de ${Math.round(FATOR_PROJECAO_EAC * 100)}% sobre o saldo não gasto`,
           },
         ].map((kpi) => (
           <div key={kpi.label} className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3">
             <p className="text-[#6b6b6b] text-xs">{kpi.label}</p>
             <p className="text-xl font-bold leading-tight mt-0.5" style={{ color: kpi.color }}>{kpi.value}</p>
+            {'nota' in kpi && kpi.nota && <p className="mt-1 text-[10px] leading-snug text-[#6b6b6b]">{kpi.nota}</p>}
           </div>
         ))}
       </div>

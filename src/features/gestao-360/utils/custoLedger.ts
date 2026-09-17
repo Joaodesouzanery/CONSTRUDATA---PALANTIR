@@ -146,6 +146,22 @@ export function buildLedger(
     })
   }
 
+  // ⚠️ CONTAGEM DUPLA: os RDOs que já viraram apontamento.
+  //
+  // Quando um RDO é finalizado, a ponte `syncRdoToTimecards` cria um apontamento por pessoa
+  // presente, carimbado com `sourceRdoId`. O razão contava esse custo DUAS vezes: uma pelos
+  // apontamentos, outra pelo bloco `rdo-labor-*` que soma a equipe do mesmo RDO. Toda mão de obra
+  // de RDO finalizado aparecia dobrada no Job Costing.
+  //
+  // O apontamento é a fonte melhor — é por pessoa e usa o `hourlyRate` do cadastro, enquanto
+  // `custoDaEquipeDoRdo` cai para tarifa de referência e se marca como `estimado`. Então o
+  // apontamento fica e a estimativa do RDO sai, mas SÓ para os RDOs que de fato geraram
+  // apontamento: quando a ponte não produziu nada (nome que não casou, papel sem permissão), a
+  // estimativa continua sendo a única notícia que o razão tem daquele dia.
+  const rdosComApontamento = new Set(
+    mao.timecards.map((t) => t.sourceRdoId).filter((id): id is string => !!id),
+  )
+
   for (const timecard of mao.timecards) {
     if (!matchesProject(project, timecard.projectRef, includeUnscoped)) continue
     const worker = workersById.get(timecard.workerId)
@@ -264,7 +280,7 @@ export function buildLedger(
     // tela, e iam para o PDF da reunião misturados com valor de nota fiscal. Agora `tarifaDoRdo`
     // usa o cadastro quando ele existe e MARCA o que sobrou como referência.
     const equipe = custoDaEquipeDoRdo(report.manpower, mao.workers)
-    if (equipe.valorBRL > 0) {
+    if (equipe.valorBRL > 0 && !rdosComApontamento.has(report.id)) {
       addEntry(entries, {
         id: `rdo-labor-${report.id}`,
         date: report.date,

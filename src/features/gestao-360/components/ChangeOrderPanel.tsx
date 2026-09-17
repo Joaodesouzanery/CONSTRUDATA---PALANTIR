@@ -67,11 +67,11 @@ function COListItem({
 // ─── Detail / form panel ──────────────────────────────────────────────────────
 
 function CODetail({ co }: { co: ChangeOrder }) {
-  const { submitChangeOrder, reviewChangeOrder, addPhoto } = useGestao360Store(
+  const { submitChangeOrder, reviewChangeOrder, uploadPhoto } = useGestao360Store(
     useShallow((s) => ({
       submitChangeOrder: s.submitChangeOrder,
       reviewChangeOrder: s.reviewChangeOrder,
-      addPhoto:          s.addPhoto,
+      uploadPhoto:       s.uploadPhoto,
     }))
   )
   const meta = STATUS_META[co.status]
@@ -83,16 +83,15 @@ function CODetail({ co }: { co: ChangeOrder }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !file.type.startsWith('image/')) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const base64 = ev.target?.result as string
-      addPhoto(co.id, {
-        base64,
-        label: file.name,
-        capturedAt: new Date().toISOString(),
-      })
-    }
-    reader.readAsDataURL(file)
+    // ⚠️ `uploadPhoto`, não `addPhoto`.
+    //
+    // `addPhoto` é o caminho LEGADO: guarda o base64 só no estado, sem subir ao Storage e sem
+    // enfileirar nada. Como esta era a única forma de anexar foto numa Ordem de Mudança, toda foto
+    // ficava presa no aparelho — e o próximo `pull` reescrevia `changeOrders` e a apagava. Quem
+    // fotografou a divergência em campo perdia a prova sem nunca saber.
+    //
+    // `uploadPhoto` já existia, sobe para o Storage e enfileira em `change_order_photos`.
+    void uploadPhoto(co.id, file, file.name)
     e.target.value = ''
   }
 
