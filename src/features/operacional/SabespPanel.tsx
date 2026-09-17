@@ -1,40 +1,340 @@
+/**
+ * O Operacional — a planilha SABESP como módulo.
+ *
+ * ─── O QUE MUDOU NO DESENHO, E POR QUÊ ────────────────────────────────────────
+ * A versão anterior era uma tira horizontal com as 20 abas em fila, uma tabela que renderizava
+ * TODAS as colunas (198 das 513 não têm título na planilha: 40% da largura era vazio), sem busca
+ * em abas de 523 linhas, sem indicador de sincronização — justamente no único módulo que não
+ * sincronizava — e com `bg-gray-950`, uma paleta que o resto do app não usa.
+ *
+ * Agora: grupos (Cadastros · Execução · Medição · Gestão) com `SubTabHost`, colunas sem título
+ * escondidas por padrão, busca por linha, `SyncBadge`, e a paleta do app.
+ */
 import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, HelpCircle, Upload } from 'lucide-react'
-import * as XLSX from 'xlsx'
-import JSZip from 'jszip'
-import { SABESP_SHEETS, type SabespDropdown, type SabespGuide, type SabespSheetData, type SabespSheetId, useSabespStore } from './sabespStore'
+import { useShallow } from 'zustand/react/shallow'
+import { AlertTriangle, Eye, EyeOff, HelpCircle, Search, Upload } from 'lucide-react'
+import { toast } from 'sonner'
+import { SubTabHost } from '@/components/shared/SubTabHost'
+import { SyncBadge } from '@/components/shared/SyncBadge'
+import { useStoreSync } from '@/lib/useStoreSync'
+import { podeEscreverTorre } from '@/lib/roles'
+import { cn } from '@/lib/utils'
+import {
+  useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba, type SabespSheetId,
+} from './sabespStore'
+import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
+import { chaveDaColuna } from './leitorPlanilha'
+import { CelulaEditavel } from './components/CelulaEditavel'
+import { ConferenciaImportacao } from './components/ConferenciaImportacao'
 
-const norm = (v: unknown) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
-const scalar = (v: unknown) => v instanceof Date ? v.toISOString().slice(0, 10) : (typeof v === 'string' ? v.trim() : v as string | number | boolean | null)
-function parseSheet(sheet: XLSX.WorkSheet, id: SabespSheetId): SabespSheetData | null {
-  const cfg = SABESP_SHEETS.find((item) => item.id === id)!; const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', raw: false })
-  let best = -1; let score = 0
-  matrix.slice(0, 20).forEach((row, index) => { const cells = row.map(norm); const candidate = cfg.keyColumns.reduce((sum, key) => { const wanted = norm(key); return sum + (cells.some((cell) => cell === wanted || cell.startsWith(wanted)) ? 1 : 0) }, 0); if (candidate > score) { score = candidate; best = index } })
-  if (best < 0 || score === 0) return null
-  const headers = matrix[best].map((cell, i) => String(cell || `Coluna ${i + 1}`).trim()); const rows = matrix.slice(best + 1).map((raw) => Object.fromEntries(headers.map((header, i) => [header, scalar(raw[i])]))).filter((row) => Object.values(row).some((v) => String(v ?? '').trim()))
-  const seen = new Map<string, number>(); const parsed = rows.map((values) => { const base = cfg.keyColumns.map((key) => String(values[key] ?? '')).join('|').trim() || JSON.stringify(values); const n = seen.get(base) ?? 0; seen.set(base, n + 1); return { key: `${base}#${n}`, values, active: true, importedAt: '' } })
-  return { headers, rows: parsed, sourceName: cfg.sheetName }
-}
-type Candidate = { filename: string; sheets: Partial<Record<SabespSheetId, SabespSheetData>>; rejected: string[] }
-const textOf = (matrix: unknown[][], title: string): SabespGuide => ({ title, lines: matrix.flatMap((row) => row.map((cell) => String(cell ?? '').trim()).filter(Boolean)).filter((line, index, lines) => lines.indexOf(line) === index) })
-function namedList(wb: XLSX.WorkBook, name: string) { const ref = wb.Workbook?.Names?.find((item) => item.Name === name)?.Ref; const match = ref?.match(/^'?(.*?)'?\!\$([A-Z]+)\$(\d+):\$([A-Z]+)\$(\d+)$/); if (!match) return []; const sheet = wb.Sheets[match[1]]; if (!sheet) return []; const range = XLSX.utils.decode_range(`${match[2]}${match[3]}:${match[4]}${match[5]}`); const values: string[] = []; for (let r = range.s.r; r <= range.e.r; r++) { const value = sheet[XLSX.utils.encode_cell({ r, c: range.s.c })]?.v; if (value != null && String(value).trim()) values.push(String(value).trim()) } return [...new Set(values)] }
-async function dropdownsFromXlsx(buffer: ArrayBuffer, wb: XLSX.WorkBook): Promise<SabespDropdown[]> { const zip = await JSZip.loadAsync(buffer); const out: SabespDropdown[] = []; for (let index = 0; index < wb.SheetNames.length; index++) { const xml = await zip.file(`xl/worksheets/sheet${index + 1}.xml`)?.async('text'); if (!xml) continue; for (const match of xml.matchAll(/<dataValidation\s+([^>]*)>([\s\S]*?)<\/dataValidation>/g)) { const attrs = match[1]; const body = match[2]; const listName = body.match(/<formula1>([^<]+)<\/formula1>/)?.[1] ?? ''; if (!listName) continue; const message = attrs.match(/(?:prompt|error)="([^"]+)"/)?.[1]; const range = attrs.match(/sqref="([^"]+)"/)?.[1] ?? ''; out.push({ sheet: wb.SheetNames[index], range, listName, options: namedList(wb, listName), message, required: !/allowBlank="1"/.test(attrs) }) } } return out }
 export function SabespPanel() {
-  const { sheets, guides, dropdowns, imports, applyWorkbook } = useSabespStore(); const [active, setActive] = useState<SabespSheetId>('cadastro_servicos'); const [candidate, setCandidate] = useState<(Candidate & { guides: { quick?: SabespGuide; readme?: SabespGuide }; dropdowns: SabespDropdown[]; formulas: number; missingOperational: string[] }) | null>(null); const [configView, setConfigView] = useState<'dados' | 'guia' | 'leia' | 'listas'>('dados'); const input = useRef<HTMLInputElement>(null)
-  const data = sheets[active]; const activeRows = data?.rows.filter((row) => row.active) ?? []
-  const metrics = useMemo(() => ({ chamados: sheets.cadastro_servicos?.rows.filter((x) => x.active).length ?? 0, os: sheets.ordens_servico?.rows.filter((x) => x.active).length ?? 0, pendencias: sheets.ocorrencias?.rows.filter((x) => x.active && /ABERTA|PENDENTE/i.test(String(x.values.STATUS ?? ''))).length ?? 0, valor: (sheets.medicao?.rows ?? []).filter((x) => x.active).reduce((sum, x) => sum + Number(String(x.values['VALOR APROVADO'] ?? x.values.VALOR ?? 0).replace('.', '').replace(',', '.')), 0) }), [sheets])
-  const alerts = useMemo(() => { const out: string[] = []; for (const row of sheets.ordens_servico?.rows ?? []) if (row.active && /CONCLU/i.test(String(row.values['STATUS DA OS'] ?? '')) && (!row.values['FOTO ANTES'] || !row.values['FOTO DEPOIS'] || !/SIM/i.test(String(row.values['PAVIMENTO REPOSTO?'] ?? '')))) out.push(`OS ${row.values['ID DO SERVIÇO'] ?? row.key}: evidência ou pavimento pendente`); for (const row of sheets.ocorrencias?.rows ?? []) if (row.active && /ABERTA|PENDENTE/i.test(String(row.values.STATUS ?? ''))) out.push(`Ocorrência ${row.values.Nº ?? row.key}: pendente`); for (const row of sheets.lookahead?.rows ?? []) if (row.active && /RESTRI|NÃO|NAO/i.test(String(row.values.SITUAÇÃO ?? row.values['RESTRIÇÕES PENDENTES'] ?? ''))) out.push(`Lookahead ${row.values['ID DO SERVIÇO'] ?? row.key}: restrição pendente`); for (const row of sheets.equipe?.rows ?? []) if (row.active && /VENC|ALERTA/i.test(String(row.values.ALERTA ?? ''))) out.push(`Equipe ${row.values.NOME ?? row.key}: validade a conferir`); return out }, [sheets])
-  async function selectFile(file: File) { try { const buffer = await file.arrayBuffer(); const wb = XLSX.read(buffer, { type: 'array', cellDates: true, cellFormula: true }); const found: Candidate['sheets'] = {}; const rejected: string[] = []; let formulas = 0; for (const definition of SABESP_SHEETS) { const exact = wb.Sheets[definition.sheetName] ?? Object.entries(wb.Sheets).find(([name]) => norm(name).includes(norm(definition.sheetName).replace(/^\d+[A-Z]?\.\s*/, '')))?.[1]; if (!exact) { rejected.push(`${definition.label}: aba não encontrada`); continue }; const parsed = parseSheet(exact, definition.id); if (!parsed) rejected.push(`${definition.label}: cabeçalho não reconhecido`); else found[definition.id] = parsed; Object.values(exact).forEach((cell) => { if (typeof cell === 'object' && cell && 'f' in cell) formulas++ }) }; const guide = wb.Sheets['GUIA RÁPIDO']; const readme = wb.Sheets['00. LEIA-ME']; if (!guide) rejected.push('Guia Rápido: aba opcional não encontrada'); if (!readme) rejected.push('Leia-me: aba opcional não encontrada'); const missingOperational = SABESP_SHEETS.filter((definition) => !found[definition.id]).map((definition) => definition.label); const ds = file.name.toLowerCase().endsWith('.xlsx') ? await dropdownsFromXlsx(buffer, wb) : []; setCandidate({ filename: file.name, sheets: found, rejected, guides: { quick: guide ? textOf(XLSX.utils.sheet_to_json(guide, { header: 1, defval: '' }), 'Guia Rápido') : undefined, readme: readme ? textOf(XLSX.utils.sheet_to_json(readme, { header: 1, defval: '' }), 'Leia-me') : undefined }, dropdowns: ds, formulas, missingOperational }) } catch { setCandidate({ filename: file.name, sheets: {}, rejected: ['Não foi possível ler o arquivo. Use Excel, ODS ou CSV exportado.'], guides: {}, dropdowns: [], formulas: 0, missingOperational: SABESP_SHEETS.map((x) => x.label) }) } }
-  const predicted = candidate && Object.values(candidate.sheets).reduce((sum, sheet) => sum + (sheet?.rows.length ?? 0), 0)
-  return <section className="min-h-0 flex-1 overflow-auto bg-[#1f1f1f] p-5 text-white"><div className="mb-5 flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-xl font-bold">Operacional Sabesp</h2><p className="text-sm text-[#a3a3a3]">A cópia operacional da planilha: importação, acompanhamento e fechamento do contrato.</p></div><div><input ref={input} type="file" accept=".xlsx,.xls,.ods,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && void selectFile(e.target.files[0])}/><button onClick={() => input.current?.click()} className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-4 py-2 text-sm font-semibold hover:bg-[#ea580c]"><Upload size={16}/>Importar planilha atualizada</button></div></div>
-    <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">{[['Chamados', metrics.chamados], ['OS', metrics.os], ['Ocorrências abertas', metrics.pendencias], ['Medição aprovada', metrics.valor ? `R$ ${metrics.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—']].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-[#525252] bg-[#2c2c2c] p-3"><p className="text-[11px] text-[#a3a3a3]">{label}</p><p className="mt-1 text-lg font-bold">{value}</p></div>)}</div>
-    {alerts.length > 0 && <div className="mb-4 rounded-xl border border-[#f59e0b]/40 bg-[#f59e0b]/10 p-3"><p className="text-xs font-semibold text-[#fbbf24]">{alerts.length} alerta(s) gerado(s) pelos dados importados</p><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">{alerts.slice(0, 6).map((alert) => <span key={alert} className="text-[11px] text-[#e5e5e5]">{alert}</span>)}</div></div>}
-    <div className="mb-4 flex gap-2 overflow-x-auto border-b border-[#525252] pb-2">{SABESP_SHEETS.map((item) => <button key={item.id} onClick={() => setActive(item.id)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs ${active === item.id ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#333]'}`}>{item.label}</button>)}</div>
-    {active === 'configuracoes' && <div className="mb-4 rounded-xl border border-[#525252] bg-[#2c2c2c] p-3"><div className="mb-3 flex flex-wrap gap-2">{([['dados', 'Parâmetros e listas'], ['guia', 'Guia Rápido'], ['leia', 'Leia-me'], ['listas', `Dropdowns (${dropdowns.length})`]] as const).map(([key, label]) => <button key={key} onClick={() => setConfigView(key)} className={`rounded-lg px-3 py-1.5 text-xs ${configView === key ? 'bg-[#f97316] text-white' : 'bg-[#3d3d3d] text-[#a3a3a3]'}`}>{label}</button>)}</div>{configView === 'guia' && <Guide guide={guides.quick}/>} {configView === 'leia' && <Guide guide={guides.readme}/>} {configView === 'listas' && <div className="max-h-52 overflow-auto text-xs">{dropdowns.map((drop, i) => <div key={`${drop.sheet}-${drop.range}-${i}`} className="border-b border-[#525252] py-2"><b>{drop.sheet}</b> · {drop.range} → <span className="text-[#f97316]">{drop.listName}</span><span className="ml-2 text-[#a3a3a3]">{drop.options.join(' · ') || 'lista sem opções resolvidas'}</span></div>)}{!dropdowns.length && <p className="text-[#a3a3a3]">Importe um arquivo .xlsx para carregar as validações de seleção.</p>}</div>}</div>}
-    <div className="rounded-xl border border-[#525252] bg-[#2c2c2c]"><div className="flex items-center justify-between border-b border-[#525252] px-4 py-3"><div><h3 className="font-semibold">{SABESP_SHEETS.find((item) => item.id === active)?.label}</h3><p className="text-xs text-[#a3a3a3]">{activeRows.length} registro(s) ativo(s) importado(s)</p></div><span className="inline-flex items-center gap-1 text-xs text-[#a3a3a3]"><HelpCircle size={13}/>Dados completos da planilha</span></div><div className="max-h-[55vh] overflow-auto"><table className="min-w-full text-left text-xs"><thead className="sticky top-0 bg-[#3d3d3d] text-[#a3a3a3]"><tr>{(data?.headers ?? ['Importe a planilha para carregar esta aba']).map((header) => <th key={header} className="whitespace-nowrap px-3 py-2.5 font-medium">{header}</th>)}</tr></thead><tbody>{activeRows.map((row) => <tr key={row.key} className="border-t border-[#525252] even:bg-white/[.03]">{(data?.headers ?? []).map((header) => <td key={header} className="max-w-64 whitespace-nowrap px-3 py-2" title={String(row.values[header] ?? '')}>{String(row.values[header] ?? '—')}</td>)}</tr>)}{!activeRows.length && <tr><td className="px-4 py-12 text-center text-[#a3a3a3]">Nenhum dado importado nesta aba.</td></tr>}</tbody></table></div></div>
-    {candidate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><div className="w-full max-w-2xl rounded-2xl border border-[#525252] bg-[#2c2c2c] p-5 shadow-2xl"><div className="flex items-center gap-2"><FileSpreadsheet className="text-[#f97316]" size={20}/><div><h3 className="font-bold">Conferir importação</h3><p className="text-xs text-[#a3a3a3]">{candidate.filename}</p></div></div><div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4"><Stat label="Abas operacionais" value={`${Object.keys(candidate.sheets).length}/20`}/><Stat label="Linhas lidas" value={predicted ?? 0}/><Stat label="Fórmulas" value={candidate.formulas}/><Stat label="Dropdowns" value={candidate.dropdowns.length}/></div>{candidate.rejected.length > 0 && <div className="mt-4 rounded-lg border border-[#f59e0b]/40 bg-[#f59e0b]/10 p-3 text-xs text-[#fbbf24]"><AlertTriangle className="mr-1 inline" size={13}/>{candidate.rejected.join(' · ')}</div>}{candidate.missingOperational.length > 0 && <p className="mt-3 text-xs text-[#f87171]">Importação bloqueada: faltam abas obrigatórias: {candidate.missingOperational.join(', ')}.</p>}<p className="mt-4 text-xs text-[#a3a3a3]">Guias, fórmulas, listas e validações serão sincronizados junto com os dados. A planilha continua sendo a fonte oficial.</p><div className="mt-5 flex justify-end gap-2"><button onClick={() => setCandidate(null)} className="rounded-lg px-4 py-2 text-sm text-[#a3a3a3]">Cancelar</button><button onClick={() => { applyWorkbook(candidate); setCandidate(null) }} disabled={candidate.missingOperational.length > 0} className="inline-flex items-center gap-2 rounded-lg bg-[#22c55e] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"><CheckCircle2 size={16}/>Aplicar atualização</button></div></div></div>}
-    {imports[0] && <p className="mt-3 text-xs text-[#6b6b6b]">Última importação: {imports[0].filename} · {imports[0].created} novos · {imports[0].updated} atualizados · {imports[0].unchanged} inalterados · {imports[0].archived} arquivados.</p>}
-  </section>
+  const { linhas, abas, configuracoes, guias, imports } = useSabespStore(
+    useShallow((s) => ({
+      linhas: s.linhas, abas: s.abas, configuracoes: s.configuracoes, guias: s.guias, imports: s.imports,
+    })),
+  )
+  const gravarLinhas = useSabespStore((s) => s.gravarLinhas)
+  const editarCelula = useSabespStore((s) => s.editarCelula)
+  const registrarImportacao = useSabespStore((s) => s.registrarImportacao)
+  const activeOrgId = useSabespStore((s) => s.activeOrgId)
+  const sync = useStoreSync(useSabespStore)
+
+  const [previa, setPrevia] = useState<PreviaDaImportacao | null>(null)
+  const [lendo, setLendo] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const podeEscrever = useMemo(() => podeEscreverTorre().pode, [])
+
+  async function escolherArquivo(arquivo: File) {
+    setLendo(true)
+    try {
+      setPrevia(await prepararImportacao(arquivo, activeOrgId, linhas))
+    } catch (e) {
+      toast.error(`Não consegui ler o arquivo: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setLendo(false)
+    }
+  }
+
+  function aplicar() {
+    if (!previa) return
+    gravarLinhas(previa.paraGravar)
+    registrarImportacao({
+      id: crypto.randomUUID(),
+      arquivo: previa.arquivo,
+      criadoEm: new Date().toISOString(),
+      ...previa.resumo,
+      abasLidas: Object.keys(previa.abas).length,
+      listas: previa.listas,
+      regras: previa.regras,
+    }, { abas: previa.abas, configuracoes: previa.configuracoes, guias: previa.guias })
+    toast.success(
+      `${previa.resumo.novas} nova(s), ${previa.resumo.atualizadas} atualizada(s)`
+      + (previa.resumo.conflitos ? `, ${previa.resumo.conflitos} edição(ões) sua(s) sobrescrita(s)` : ''),
+    )
+    setPrevia(null)
+  }
+
+  const ultima = imports[0]
+  const semDado = linhas.length === 0
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-[#1f1f1f]">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#525252] px-6 py-3">
+        <div>
+          <h2 className="text-sm font-semibold text-[#f5f5f5]">Controle Operacional SABESP</h2>
+          <p className="text-xs text-[#a3a3a3]">
+            {semDado
+              ? 'Importe a planilha para começar.'
+              : `${linhas.filter((l) => l.ativa).length} linha(s) · ${Object.keys(abas).length} aba(s)`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <SyncBadge {...sync} />
+          <input
+            ref={input} type="file" accept=".xlsx,.xls,.ods,.csv" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void escolherArquivo(f) }}
+          />
+          <button
+            type="button" onClick={() => input.current?.click()} disabled={lendo || !podeEscrever}
+            title={podeEscrever ? undefined : 'O seu perfil não pode gravar no Operacional'}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Upload size={14} />
+            {lendo ? 'Lendo…' : 'Importar planilha'}
+          </button>
+        </div>
+      </div>
+
+      {ultima && (
+        <p className="border-b border-[#525252] px-6 py-1.5 text-[11px] text-[#6b6b6b]">
+          Última importação: {ultima.arquivo} · {ultima.novas} nova(s) · {ultima.atualizadas} atualizada(s)
+          {ultima.conflitos > 0 && ` · ${ultima.conflitos} edição(ões) sobrescrita(s)`}
+          {' · '}{ultima.listas} lista(s) e {ultima.regras} regra(s) de preenchimento
+        </p>
+      )}
+
+      <div className="min-h-0 flex-1">
+        <SubTabHost
+          tabs={GRUPOS.map((g) => ({
+            key: g,
+            label: g,
+            render: () => <GrupoDeAbas grupo={g} podeEscrever={podeEscrever} onEditar={editarCelula} />,
+          }))}
+        />
+      </div>
+
+      {previa && <ConferenciaImportacao previa={previa} onCancelar={() => setPrevia(null)} onConfirmar={aplicar} />}
+
+      {/* Configurações, Guia Rápido e Leia-me viajam junto e ficam aqui, como pedido. */}
+      {(configuracoes.length > 0 || guias.rapido || guias.leiaMe) && (
+        <PainelDeConfiguracao configuracoes={configuracoes} guias={guias} />
+      )}
+    </div>
+  )
 }
-function Stat({ label, value }: { label: string; value: string | number }) { return <div className="rounded-lg border border-[#525252] bg-[#333] p-2.5"><p className="text-[10px] text-[#a3a3a3]">{label}</p><p className="mt-1 font-bold text-[#f5f5f5]">{value}</p></div> }
-function Guide({ guide }: { guide?: SabespGuide }) { return <div className="max-h-52 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-[#d4d4d4]">{guide?.lines.map((line, index) => <p key={`${line}-${index}`} className="mb-1">{line}</p>) ?? <p className="text-[#a3a3a3]">Este guia será carregado na próxima importação.</p>}</div> }
+
+// ─── Um grupo de abas ─────────────────────────────────────────────────────────
+
+function GrupoDeAbas({ grupo, podeEscrever, onEditar }: {
+  grupo: string
+  podeEscrever: boolean
+  onEditar: (id: string, campo: string, valor: string) => void
+}) {
+  const doGrupo = SABESP_SHEETS.filter((d) => d.grupo === grupo)
+  const [ativa, setAtiva] = useState<SabespSheetId>(doGrupo[0].id)
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-3">
+      <div className="flex flex-wrap gap-1">
+        {doGrupo.map((d) => (
+          <button
+            key={d.id} type="button" onClick={() => setAtiva(d.id)}
+            className={cn(
+              'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+              ativa === d.id ? 'bg-[#f97316]/15 text-[#ffa055] ring-1 ring-[#f97316]/40' : 'text-[#a3a3a3] hover:bg-[#3a3a3a]',
+            )}
+          >
+            {d.label}
+            {d.readonly && <span className="ml-1 text-[9px] text-[#6b6b6b]">fórmula</span>}
+          </button>
+        ))}
+      </div>
+      <GradeDaAba aba={ativa} podeEscrever={podeEscrever} onEditar={onEditar} />
+    </div>
+  )
+}
+
+// ─── A grade ──────────────────────────────────────────────────────────────────
+
+function GradeDaAba({ aba, podeEscrever, onEditar }: {
+  aba: SabespSheetId
+  podeEscrever: boolean
+  onEditar: (id: string, campo: string, valor: string) => void
+}) {
+  const def = definicaoDaAba(aba)
+  const linhas = useSabespStore(useShallow((s) => s.linhas.filter((l) => l.aba === aba)))
+  const meta = useSabespStore((s) => s.abas[aba])
+  const [busca, setBusca] = useState('')
+  const [mostrarSemTitulo, setMostrarSemTitulo] = useState(false)
+
+  const colunas = useMemo(
+    () => (meta?.colunas ?? []).filter((c) => mostrarSemTitulo || c.temTitulo),
+    [meta, mostrarSemTitulo],
+  )
+  const escondidas = (meta?.colunas.length ?? 0) - (meta?.colunas.filter((c) => c.temTitulo).length ?? 0)
+
+  const visiveis = useMemo(() => {
+    const t = busca.trim().toLowerCase()
+    if (!t) return linhas
+    return linhas.filter((l) => Object.values(l.valores).some((v) => String(v).toLowerCase().includes(t)))
+  }, [linhas, busca])
+
+  if (!meta) {
+    return (
+      <div className="rounded-xl border border-dashed border-[#525252] px-4 py-12 text-center text-xs text-[#a3a3a3]">
+        Esta aba ainda não foi importada.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
+          <input
+            value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Filtrar linhas…"
+            aria-label="Filtrar linhas"
+            className="w-56 rounded-lg border border-[#525252] bg-[#2c2c2c] py-1.5 pl-7 pr-2 text-xs text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+          />
+        </div>
+        <span className="text-[11px] text-[#6b6b6b]">{visiveis.length} de {linhas.length}</span>
+        {escondidas > 0 && (
+          // ⚠️ 198 das 513 colunas da planilha não têm título — são espaçadoras. Renderizá-las
+          // fazia 40% da largura da tabela ser vazio. Ficam escondidas, mas alcançáveis.
+          <button
+            type="button" onClick={() => setMostrarSemTitulo((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3] hover:text-[#f5f5f5]"
+          >
+            {mostrarSemTitulo ? <EyeOff size={12} /> : <Eye size={12} />}
+            {mostrarSemTitulo ? 'Ocultar' : 'Mostrar'} {escondidas} coluna(s) sem título
+          </button>
+        )}
+        {def.readonly && (
+          <span className="inline-flex items-center gap-1 text-[11px] text-[#6b6b6b]" title="Na planilha esta aba é fórmula; editar aqui seria discordar da fonte.">
+            <HelpCircle size={12} /> só leitura — é calculada na planilha
+          </span>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-[#525252]">
+        <table className="min-w-max text-left text-xs">
+          <thead className="sticky top-0 z-10 bg-[#3d3d3d] text-[#a3a3a3]">
+            <tr>
+              {colunas.map((c) => (
+                <th key={c.indice} className="whitespace-nowrap px-3 py-2 font-medium" title={c.regra?.mensagem}>
+                  {c.temTitulo ? c.titulo : <span className="text-[#6b6b6b]">col. {c.indice + 1}</span>}
+                  {c.regra?.tipo === 'lista' && <span className="ml-1 text-[9px] text-[#f97316]">lista</span>}
+                  {c.regra?.tipo === 'data' && <span className="ml-1 text-[9px] text-[#60a5fa]">data</span>}
+                  {c.regra?.tipo === 'numero' && <span className="ml-1 text-[9px] text-[#a78bfa]">nº</span>}
+                  {c.regra?.obrigatorio && <span className="ml-0.5 text-[#fca5a5]">*</span>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visiveis.map((l) => (
+              <tr key={l.id} className={cn('border-t border-[#525252]', !l.ativa && 'opacity-50')}>
+                {colunas.map((c) => {
+                  const campo = chaveDaColuna(c)
+                  return (
+                    <td key={c.indice} className="max-w-64 px-1 py-0.5">
+                      <CelulaEditavel
+                        valor={l.valores[campo] ?? ''}
+                        regra={c.regra}
+                        somenteLeitura={!podeEscrever || !!def.readonly || !l.ativa}
+                        onGravar={(v) => onEditar(l.id, campo, v)}
+                      />
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+            {visiveis.length === 0 && (
+              <tr><td colSpan={Math.max(1, colunas.length)} className="px-4 py-10 text-center text-[#a3a3a3]">
+                {linhas.length ? 'Nenhuma linha bate com o filtro.' : 'Nenhuma linha nesta aba.'}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {linhas.some((l) => !l.ativa) && (
+        <p className="text-[11px] text-[#6b6b6b]">
+          <AlertTriangle size={11} className="mr-1 inline text-[#fbbf24]" />
+          As linhas esmaecidas não vieram na última planilha. Continuam aqui, marcadas — não foram apagadas.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Configurações + guias ────────────────────────────────────────────────────
+
+function PainelDeConfiguracao({ configuracoes, guias }: {
+  configuracoes: Array<{ secao?: string; rotulo: string; valor: string }>
+  guias: { rapido?: { titulo: string; linhas: string[] }; leiaMe?: { titulo: string; linhas: string[] } }
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [vista, setVista] = useState<'parametros' | 'rapido' | 'leiaMe'>('parametros')
+
+  return (
+    <div className="border-t border-[#525252]">
+      <button type="button" onClick={() => setAberto((v) => !v)} className="flex w-full items-center justify-between px-6 py-2.5 text-left">
+        <span className="text-xs font-semibold text-[#f5f5f5]">
+          Configurações, Guia Rápido e Leia-me
+          <span className="ml-2 text-[11px] font-normal text-[#a3a3a3]">— tudo que a planilha explica sobre ela mesma</span>
+        </span>
+        <span className="text-[11px] text-[#a3a3a3]">{aberto ? 'Recolher' : 'Abrir'}</span>
+      </button>
+      {aberto && (
+        <div className="border-t border-[#525252] px-6 py-3">
+          <div className="mb-3 flex gap-1">
+            {([['parametros', `Parâmetros (${configuracoes.length})`], ['rapido', 'Guia Rápido'], ['leiaMe', 'Leia-me']] as const).map(([k, rot]) => (
+              <button
+                key={k} type="button" onClick={() => setVista(k)}
+                className={cn('rounded-lg px-3 py-1 text-[11px]', vista === k ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:bg-[#3a3a3a]')}
+              >{rot}</button>
+            ))}
+          </div>
+          <div className="max-h-56 overflow-auto text-xs">
+            {vista === 'parametros' && (
+              configuracoes.length ? (
+                <table className="w-full">
+                  <tbody>
+                    {configuracoes.map((p, i) => (
+                      <tr key={`${p.rotulo}-${i}`} className="border-b border-[#3d3d3d]">
+                        <td className="w-1/3 py-1 pr-3 text-[#a3a3a3]">{p.rotulo}</td>
+                        <td className="py-1 text-[#f5f5f5]">{p.valor || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <p className="text-[#a3a3a3]">Importe a planilha para carregar os parâmetros.</p>
+            )}
+            {vista === 'rapido' && <Guia guia={guias.rapido} />}
+            {vista === 'leiaMe' && <Guia guia={guias.leiaMe} />}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Guia({ guia }: { guia?: { titulo: string; linhas: string[] } }) {
+  if (!guia) return <p className="text-[#a3a3a3]">Esta aba não veio na última planilha importada.</p>
+  return (
+    <div className="whitespace-pre-wrap leading-relaxed text-[#d4d4d4]">
+      {guia.linhas.map((l, i) => <p key={`${l}-${i}`} className="mb-1">{l}</p>)}
+    </div>
+  )
+}

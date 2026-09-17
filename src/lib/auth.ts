@@ -96,6 +96,9 @@ async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<
     import('@/store/medicaoAssistidaStore').then((m) => m.useMedicaoAssistidaStore),
     import('@/store/medicaoBillingStore').then((m) => m.useMedicaoBillingStore),
     import('@/store/medicaoStore').then((m) => m.useMedicaoStore),
+    // ⚠️ Este mora em `features/`, não em `store/` — e por isso ficou de fora desta lista desde
+    // sempre: a planilha da empresa A continuava na tela depois de trocar de empresa.
+    import('@/features/operacional/sabespStore').then((m) => m.useSabespStore),
     import('@/store/operacaoCampoStore').then((m) => m.useOperacaoCampoStore),
     import('@/store/otimizacaoFrotaStore').then((m) => m.useOtimizacaoFrotaStore),
     import('@/store/planejamentoMestreStore').then((m) => m.usePlanejamentoMestreStore),
