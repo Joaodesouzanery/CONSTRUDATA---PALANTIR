@@ -3096,15 +3096,13 @@ export type EvmTab = 'dashboard' | 'medicao' | 'plano-contas' | 'work-packages' 
  * (ver `evm/index.tsx`). `EvmTab`/`FinanceiroTab` seguem existindo para o `activeTab`
  * interno dos stores — não confundir.
  *
- * ⚠️ `medicao` é o BOLETIM DO CONTRATO (quanto foi executado × quanto vale).
- * `avanco-ponderado` é a matriz de peso do EVM, que até 09/09/2026 se chamava
+ * A medição contratual Sabesp vive em Operacional. `avanco-ponderado` é a matriz de peso do EVM, que até 09/09/2026 se chamava
  * "Medição Ponderada" — nome que a fazia parecer a mesma coisa e não é.
  */
 export type FinanceiroEvmTab =
   | 'visao-geral'
   | 'por-obra'
   | 'resultados'
-  | 'medicao'
   | 'pagamentos'
   | 'documentos'
   | 'avanco-ponderado'

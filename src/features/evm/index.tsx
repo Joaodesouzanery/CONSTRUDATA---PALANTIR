@@ -33,7 +33,6 @@ import { NotasFiscaisPanel } from '@/features/financeiro/components/NotasFiscais
 import { NotasPainelPanel } from '@/features/financeiro/components/NotasPainelPanel'
 import { ManejoFinanceiroPanel } from '@/features/financeiro/components/ManejoFinanceiroPanel'
 import { ManejoOrcamentoPanel } from '@/features/financeiro/components/ManejoOrcamentoPanel'
-import { MedicaoPanel } from '@/features/financeiro/components/MedicaoPanel'
 import { DreConfigPanel } from '@/features/financeiro/components/DrePanel'
 import { useFinanceiroStore } from '@/store/financeiroStore'
 
@@ -81,8 +80,6 @@ function renderPanel(tab: CombinedTab): React.ReactNode {
           { key: 'caixa',    label: 'Controle de Caixa', render: () => <ControleDeCaixaPanel /> },
         ]} />
       )
-    case 'medicao':
-      return <MedicaoPanel />
     case 'pagamentos':
       return <PagamentosPanel />
     case 'documentos':

@@ -18,6 +18,7 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'dashboard',     label: 'Dashboard'             },
   { id: 'produtividade', label: 'Produtividade'          },
   { id: 'funcionarios',  label: 'Funcionários'           },
+  { id: 'horas-extras',  label: 'Horas Extras'           },
   // Escala e Postos eram duas abas: a demanda (que cargo, quantos) e a oferta (quem, quando).
   // "Gerar Escala Automática" já era alimentado 100% pelos Postos — eram entrada e saída do
   // mesmo motor, em telas separadas.
@@ -28,7 +29,6 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'folha',         label: 'Folha de Pagamento'     },
   { id: 'rh-financeiro', label: 'RH Financeiro'          },
   { id: 'ausencias',     label: 'Calendário de Ausências'},
-  { id: 'horas-extras',  label: 'Horas Extras'           },
   { id: 'apontamentos',  label: 'Apontamentos'           },
   { id: 'escalamento',   label: 'Escalamento'            },
   { id: 'seguranca',     label: 'Segurança'              },

@@ -24,8 +24,6 @@ const TABS: { key: CombinedTab; label: string }[] = [
   // Renomeada de "Resultados": ela já continha o DRE, e uma aba nova para o mesmo assunto
   // deixaria DOIS DREs no módulo respondendo a mesma pergunta com números diferentes.
   { key: 'resultados',   label: 'DRE e Resultado' },
-  // O boletim do contrato. Fica junto do DRE porque é dele que a receita nasce.
-  { key: 'medicao',      label: 'Medição' },
   { key: 'pagamentos',   label: 'Pagamentos e Cobranças' },
   // Boletos e Nota Fiscal eram duas abas. São o mesmo assunto — o papel que comprova o
   // dinheiro — e já eram gêmeas no código ("Molde: BoletosPanel", diz o topo do
