@@ -25,6 +25,7 @@ import {
 import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
 import { alertasDaOperacao } from './alertasOperacionais'
+import { PainelIndicadores } from './components/PainelIndicadores'
 import { CelulaEditavel } from './components/CelulaEditavel'
 import { ConferenciaImportacao } from './components/ConferenciaImportacao'
 import { baixarArquivoOriginal, enviarArquivoOperacional, exportarAba, exportarWorkbookCompleto } from './arquivoOperacional'
@@ -139,7 +140,8 @@ export function SabespPanel() {
 
       <PainelDeAlertas />
 
-      {!semDado && <ResumoExecutivo linhas={linhas} />}
+      {!semDado &&
+      <PainelIndicadores />}
 
       {!semDado && (
         <div className="flex flex-wrap justify-end gap-2 border-b border-[#525252] px-6 py-2">
@@ -287,7 +289,9 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   const alternarLinha = useSabespStore((s) => s.alternarLinha)
   const desfazer = useSabespStore((s) => s.desfazer)
 
-  const todasAsColunas = meta?.colunas ?? []
+  // `meta?.colunas ?? []` cria um array NOVO a cada render, e isso invalidava os três `useMemo`
+  // abaixo toda vez — inclusive o cálculo de largura, que percorre todas as linhas.
+  const todasAsColunas = useMemo(() => meta?.colunas ?? [], [meta])
   const colunaTemConteudo = useMemo(() => {
     const m = new Map<number, boolean>()
     for (const c of todasAsColunas) m.set(c.indice, linhas.some((l) => !!l.valores[chaveDaColuna(c)]))
@@ -485,57 +489,6 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   )
 }
 
-function normalizarCampo(s: string) {
-  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim()
-}
-
-function valor(l: { valores: Record<string, string> }, ...nomes: string[]) {
-  const alvos = nomes.map(normalizarCampo)
-  const achado = Object.entries(l.valores).find(([k]) => alvos.includes(normalizarCampo(k)))
-  return achado?.[1] ?? ''
-}
-
-function numero(v: string) {
-  let limpo = v.replace(/R\$\s?/g, '').replace(/%/g, '').replace(/\s/g, '')
-  const ultimaVirgula = limpo.lastIndexOf(',')
-  const ultimoPonto = limpo.lastIndexOf('.')
-  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
-    limpo = ultimaVirgula > ultimoPonto ? limpo.replace(/\./g, '').replace(',', '.') : limpo.replace(/,/g, '')
-  } else if (ultimaVirgula >= 0) limpo = limpo.replace(/\./g, '').replace(',', '.')
-  const n = Number(limpo)
-  return Number.isFinite(n) ? n : 0
-}
-
-function ResumoExecutivo({ linhas }: { linhas: ReturnType<typeof useSabespStore.getState>['linhas'] }) {
-  const [contrato, setContrato] = useState('TODOS')
-  const [equipe, setEquipe] = useState('TODAS')
-  const [status, setStatus] = useState('TODOS')
-  const equipes = useMemo(() => [...new Set(linhas.map((l) => valor(l, 'EQUIPE')).filter(Boolean))].sort(), [linhas])
-  const statuses = useMemo(() => [...new Set(linhas.map((l) => valor(l, 'STATUS DA OS', 'STATUS')).filter(Boolean))].sort(), [linhas])
-  const ativas = useMemo(() => linhas.filter((l) => l.ativa
-    && (contrato === 'TODOS' || normalizarCampo(valor(l, 'CONTRATO')) === contrato)
-    && (equipe === 'TODAS' || valor(l, 'EQUIPE') === equipe)
-    && (status === 'TODOS' || valor(l, 'STATUS DA OS', 'STATUS') === status)), [linhas, contrato, equipe, status])
-  const servicos = ativas.filter((l) => l.aba === 'cadastro_servicos')
-  const os = ativas.filter((l) => l.aba === 'ordens_servico')
-  const ocorrencias = ativas.filter((l) => l.aba === 'ocorrencias')
-  const medicoes = ativas.filter((l) => l.aba === 'medicao')
-  const executados = os.filter((l) => /CONCLU|EXECUT/.test(normalizarCampo(valor(l, 'STATUS DA OS', 'STATUS')))).length
-  const atrasados = servicos.filter((l) => /VENC|ATRAS/.test(normalizarCampo(valor(l, 'SITUAÇÃO DO PRAZO', 'PENDÊNCIA', 'STATUS')))).length
-  const abertos = ocorrencias.filter((l) => /ABERT|PENDENTE|ANDAMENTO/.test(normalizarCampo(valor(l, 'STATUS')))).length
-  const medido = medicoes.reduce((s, l) => s + numero(valor(l, 'VALOR MEDIDO', 'VALOR BRUTO', 'VALOR')), 0)
-  const cards = [
-    ['Serviços', servicos.length.toLocaleString('pt-BR')], ['Executados', executados.toLocaleString('pt-BR')],
-    ['Atrasados', atrasados.toLocaleString('pt-BR')], ['Ocorrências abertas', abertos.toLocaleString('pt-BR')],
-    ['Valor medido', medido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })],
-  ]
-  const totalStatus = Math.max(1, os.length)
-  return <div className="border-b border-[#525252] px-6 py-3">
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-semibold text-[#f5f5f5]">Visão executiva</p><div className="flex flex-wrap gap-2"><select value={contrato} onChange={(e) => setContrato(e.target.value)} className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODOS">Todos os contratos</option><option value="BERTIOGA">Bertioga</option><option value="SANTOS">Santos</option></select><select value={equipe} onChange={(e) => setEquipe(e.target.value)} className="max-w-44 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODAS">Todas as equipes</option>{equipes.map((x) => <option key={x}>{x}</option>)}</select><select value={status} onChange={(e) => setStatus(e.target.value)} className="max-w-48 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODOS">Todos os status</option>{statuses.map((x) => <option key={x}>{x}</option>)}</select></div></div>
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">{cards.map(([r, v]) => <div key={r} className="rounded-xl border border-[#525252] bg-[#292929] px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-[#8a8a8a]">{r}</p><p className="mt-1 text-lg font-semibold text-[#f5f5f5]">{v}</p></div>)}</div>
-    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#333]" title={`${executados} de ${os.length} OS executadas`}><div className="h-full bg-[#22c55e] transition-all" style={{ width: `${Math.min(100, executados / totalStatus * 100)}%` }} /></div>
-  </div>
-}
 
 function ConfiguracoesEstruturadas() {
   const parametros = useSabespStore((s) => s.configuracoes)
