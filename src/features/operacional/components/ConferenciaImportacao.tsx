@@ -41,6 +41,13 @@ export function ConferenciaImportacao({ previa, onCancelar, onConfirmar }: {
           <Contador rotulo="Sumiram" valor={previa.resumo.ausentes} tom={previa.resumo.ausentes ? '#fca5a5' : undefined} />
         </div>
 
+        <div className="flex flex-wrap gap-x-5 gap-y-1 border-b border-[#525252] px-4 py-2 text-[11px] text-[#a3a3a3]">
+          <span><b className="text-[#f5f5f5]">{previa.diagnostico.abasReconhecidas}/22</b> abas reconhecidas</span>
+          <span><b className="text-[#f5f5f5]">{previa.diagnostico.registros}</b> registros reais</span>
+          <span><b className="text-[#f5f5f5]">{previa.diagnostico.estruturais}</b> linhas estruturais preservadas</span>
+          <span><b className="text-[#f5f5f5]">{previa.diagnostico.formulas}</b> fórmulas detectadas</span>
+        </div>
+
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {conflitos.length > 0 ? (
             <>

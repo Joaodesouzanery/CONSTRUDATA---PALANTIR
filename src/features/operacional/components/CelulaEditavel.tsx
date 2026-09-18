@@ -11,17 +11,18 @@ import type { RegraDeCampo } from '../leitorPlanilha'
 
 const BASE = 'w-full bg-transparent px-2 py-1 text-xs text-[#f5f5f5] outline-none focus:bg-[#1f1f1f] focus:ring-1 focus:ring-[#f97316]/60 rounded'
 
-export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar }: {
+export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar, onColarBloco }: {
   valor: string
   regra?: RegraDeCampo
   somenteLeitura: boolean
   onGravar: (novo: string) => void
+  onColarBloco?: (texto: string) => void
 }) {
   const [rascunho, setRascunho] = useState<string | null>(null)
   const atual = rascunho ?? valor
 
   if (somenteLeitura) {
-    return <span className="block truncate px-2 py-1 text-xs text-[#a3a3a3]" title={valor}>{valor || '—'}</span>
+    return <span className="block min-w-24 whitespace-normal break-words px-2 py-1 text-xs leading-5 text-[#d4d4d4]" title={valor}>{valor || '—'}</span>
   }
 
   const confirmar = (v: string) => { setRascunho(null); if (v !== valor) onGravar(v) }
@@ -32,6 +33,7 @@ export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar }: {
         value={valor} onChange={(e) => confirmar(e.target.value)}
         title={regra.mensagem} aria-label="Valor da célula"
         className={`${BASE} cursor-pointer`}
+        onPaste={(e) => { if (onColarBloco && /[\t\n]/.test(e.clipboardData.getData('text'))) { e.preventDefault(); onColarBloco(e.clipboardData.getData('text')) } }}
       >
         {/* A opção vazia só existe quando a planilha permite branco — `allowBlank`. */}
         {!regra.obrigatorio && <option value="">—</option>}
@@ -49,6 +51,7 @@ export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar }: {
       type={tipo} value={atual} title={regra?.mensagem} aria-label="Valor da célula"
       min={regra?.min} max={regra?.max}
       onChange={(e) => setRascunho(e.target.value)}
+      onPaste={(e) => { if (onColarBloco && /[\t\n]/.test(e.clipboardData.getData('text'))) { e.preventDefault(); onColarBloco(e.clipboardData.getData('text')) } }}
       onBlur={() => confirmar(atual)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()

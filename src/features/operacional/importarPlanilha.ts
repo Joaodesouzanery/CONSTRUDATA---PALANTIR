@@ -35,6 +35,7 @@ export interface PreviaDaImportacao {
   naoLidas: string[]
   listas: number
   regras: number
+  diagnostico: { abasReconhecidas: number; registros: number; estruturais: number; formulas: number; rejeitadas: number }
 }
 
 const textoDaAba = (ws: XLSX.WorkSheet | undefined, titulo: string): SabespGuide | undefined => {
@@ -47,9 +48,60 @@ const textoDaAba = (ws: XLSX.WorkSheet | undefined, titulo: string): SabespGuide
   return linhas.length ? { titulo, linhas } : undefined
 }
 
+const matrizDaAba = (ws: XLSX.WorkSheet): string[][] =>
+  XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '', raw: false })
+    .map((linha) => (linha ?? []).map((c) => String(c ?? '').trim()))
+
+const colunasBancoCustos: ColunaLida[] = ['Contrato', 'Item', 'Quantidade', 'Valor unitário', 'Total mensal', 'Fonte']
+  .map((titulo, indice) => ({ titulo, indice, temTitulo: true }))
+
+export function lerBancoCustos(matriz: string[][]): Array<Record<string, string>> {
+  let contrato = ''
+  const out: Array<Record<string, string>> = []
+  for (const linha of matriz) {
+    const titulo = linha[0]?.toUpperCase() ?? ''
+    if (titulo.includes('CUSTO MENSAL') && titulo.includes('BERTIOGA')) { contrato = 'BERTIOGA'; continue }
+    if (titulo.includes('CUSTO MENSAL') && titulo.includes('SANTOS')) { contrato = 'SANTOS'; continue }
+    const item = linha[1]?.trim()
+    if (!contrato || !item || item === 'ITEM' || item.startsWith('TOTAL MENSAL')) continue
+    out.push({ Contrato: contrato, Item: item, Quantidade: linha[2] ?? '', 'Valor unitário': linha[3] ?? '', 'Total mensal': linha[4] ?? '', Fonte: linha[5] ?? '' })
+  }
+  return out
+}
+
+export function ehRegistroReal(aba: SabespSheetId, valores: Record<string, string>): boolean {
+  const tem = (...nomes: string[]) => nomes.every((nome) => !!valorPorRotulo(valores, nome))
+  if (aba === 'configuracoes' || aba === 'carteira_ticket' || aba === 'resumo' || aba === 'dashboard' || aba === 'planejado_realizado') return false
+  if (aba === 'tabela_precos') return /^(BER|SAN)-\d+$/i.test(valorPorRotulo(valores, 'CHAVE'))
+  if (aba === 'cadastro_servicos') return tem('ID', 'CONTRATO')
+  if (aba === 'programacao') return tem('DATA', 'CONTRATO', 'ID DO SERVIÇO')
+  if (aba === 'ordens_servico') return tem('ID DO SERVIÇO', 'CONTRATO', 'Nº OS SABESP')
+  if (aba === 'apontamento') return tem('DATA', 'CONTRATO')
+  if (aba === 'materiais') return tem('DATA', 'ID DO SERVIÇO / OS', 'MATERIAL', 'MOVIMENTO')
+  if (aba === 'equipe') return tem('MATRÍCULA', 'CONTRATO')
+  if (aba === 'medicao') return tem('ID DO SERVIÇO', 'CÓD. PREÇO (CHAVE)')
+  if (aba === 'diario_obra') return tem('Nº DO RDO', 'CONTRATO')
+  if (aba === 'ocorrencias') return tem('Nº', 'CONTRATO')
+  if (aba === 'faturamento') return tem('MÊS', 'CONTRATO')
+  if (aba === 'atas') return tem('Nº DA ATA', 'PENDÊNCIA / AÇÃO')
+  if (aba === 'lookahead' || aba === 'plano_semanal') return tem('SEMANA (2ª FEIRA)', 'CONTRATO', 'ID DO SERVIÇO')
+  return true
+}
+
+const normalizarRotulo = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
+
+function valorPorRotulo(valores: Record<string, string>, procurado: string): string {
+  const alvo = normalizarRotulo(procurado)
+  for (const [k, v] of Object.entries(valores)) {
+    const nk = normalizarRotulo(k)
+    if (nk === alvo || nk.startsWith(alvo)) return String(v ?? '').trim()
+  }
+  return ''
+}
+
 /** A chave de identidade da linha: as colunas-chave da aba, na ordem, mais um contador. */
 function chaveDaLinha(valores: Record<string, string>, colunasChave: readonly string[], jaVistas: Map<string, number>): string {
-  const base = colunasChave.map((c) => (valores[c] ?? '').trim()).filter(Boolean).join('|')
+  const base = colunasChave.map((c) => valorPorRotulo(valores, c)).filter(Boolean).join('|')
   // ⚠️ Sem coluna-chave preenchida, a identidade cai no conteúdo inteiro da linha — e aí editar
   // qualquer campo criaria "outra" linha. Duas das 20 abas estão nesse caso (01A e 13), e por isso
   // a tela marca essas linhas como "identidade fraca" em vez de fingir que está tudo bem.
@@ -78,6 +130,9 @@ export async function prepararImportacao(
   const conferencia: LinhaConferida[] = []
   const paraGravar: LinhaOperacional[] = []
   const naoLidas: string[] = []
+  let totalRegistros = 0
+  let totalEstruturais = 0
+  let totalFormulas = 0
   const porAbaExistente = new Map<SabespSheetId, LinhaOperacional[]>()
   for (const l of existentes) {
     const lista = porAbaExistente.get(l.aba)
@@ -90,13 +145,25 @@ export async function prepararImportacao(
     const lida = lerAba(ws, def.sheetName, def.keyColumns, validacoes)
     if (!lida) { naoLidas.push(`${def.label}: cabeçalho não reconhecido`); continue }
 
-    const colunas: ColunaLida[] = lida.colunas
-    abas[def.id] = { colunas, ordemDasChaves: [] }
+    const matriz = matrizDaAba(ws)
+    totalFormulas += Object.keys(ws).filter((k) => !k.startsWith('!') && !!ws[k]?.f).length
+    let colunas: ColunaLida[] = lida.colunas
+    let linhasLidas = lida.linhas
+    if (def.id === 'configuracoes' || def.id === 'carteira_ticket' || def.id === 'resumo' || def.id === 'dashboard' || def.id === 'planejado_realizado') linhasLidas = []
+    if (def.id === 'banco_custos') { colunas = colunasBancoCustos; linhasLidas = lerBancoCustos(matriz) }
+    const registros = linhasLidas.filter((valores) => ehRegistroReal(def.id, valores))
+    totalRegistros += registros.length
+    totalEstruturais += Math.max(0, lida.linhas.length - registros.length)
+    abas[def.id] = {
+      colunas, ordemDasChaves: [], matriz, linhaDoCabecalho: lida.linhaDoCabecalho,
+      registros: registros.length, estruturais: Math.max(0, lida.linhas.length - registros.length),
+    }
 
     const jaVistas = new Map<string, number>()
     const doArquivo = colunas.map(chaveDaColuna)
-    const daPlanilha = lida.linhas.map((valores) => ({
-      chave: chaveDaLinha(valores, def.keyColumns, jaVistas),
+    const colunasChave = def.id === 'banco_custos' ? ['Contrato', 'Item'] : def.keyColumns
+    const daPlanilha = registros.map((valores) => ({
+      chave: chaveDaLinha(valores, colunasChave, jaVistas),
       valores,
     }))
 
@@ -147,5 +214,9 @@ export async function prepararImportacao(
     naoLidas,
     listas: validacoes.filter((v) => v.tipo === 'lista').length,
     regras: validacoes.filter((v) => v.tipo !== 'lista').length,
+    diagnostico: {
+      abasReconhecidas: Object.keys(abas).length + (wb.Sheets['GUIA RÁPIDO'] ? 1 : 0) + (wb.Sheets['00. LEIA-ME'] ? 1 : 0),
+      registros: totalRegistros, estruturais: totalEstruturais, formulas: totalFormulas, rejeitadas: naoLidas.length,
+    },
   }
 }

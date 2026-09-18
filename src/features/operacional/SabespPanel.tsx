@@ -12,7 +12,7 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertTriangle, Eye, EyeOff, HelpCircle, Search, Upload } from 'lucide-react'
+import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubTabHost } from '@/components/shared/SubTabHost'
 import { SyncBadge } from '@/components/shared/SyncBadge'
@@ -20,13 +20,14 @@ import { useStoreSync } from '@/lib/useStoreSync'
 import { podeEscreverTorre } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import {
-  useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba, type SabespSheetId,
+  useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba, type SabespSheetId, type AbaNoSistema,
 } from './sabespStore'
 import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
 import { alertasDaOperacao } from './alertasOperacionais'
 import { CelulaEditavel } from './components/CelulaEditavel'
 import { ConferenciaImportacao } from './components/ConferenciaImportacao'
+import { baixarArquivoOriginal, enviarArquivoOperacional, exportarAba, exportarWorkbookCompleto } from './arquivoOperacional'
 
 export function SabespPanel() {
   const { linhas, abas, configuracoes, guias, imports } = useSabespStore(
@@ -43,11 +44,13 @@ export function SabespPanel() {
   const [previa, setPrevia] = useState<PreviaDaImportacao | null>(null)
   const [lendo, setLendo] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  const arquivoPendente = useRef<File | null>(null)
   const podeEscrever = useMemo(() => podeEscreverTorre().pode, [])
 
   async function escolherArquivo(arquivo: File) {
     setLendo(true)
     try {
+      arquivoPendente.current = arquivo
       setPrevia(await prepararImportacao(arquivo, activeOrgId, linhas))
     } catch (e) {
       toast.error(`Não consegui ler o arquivo: ${e instanceof Error ? e.message : String(e)}`)
@@ -56,8 +59,16 @@ export function SabespPanel() {
     }
   }
 
-  function aplicar() {
+  async function aplicar() {
     if (!previa) return
+    let arquivoPath: string | undefined
+    try {
+      if (arquivoPendente.current && activeOrgId) arquivoPath = await enviarArquivoOperacional(arquivoPendente.current, activeOrgId)
+    } catch (e) {
+      // A importação continua local-first. Falha de rede/bucket não pode perder o trabalho;
+      // o dado e o lote entram na fila, e a tela deixa claro que só o anexo original faltou.
+      toast.warning(`Dados importados, mas o arquivo original não subiu: ${e instanceof Error ? e.message : String(e)}`)
+    }
     gravarLinhas(previa.paraGravar)
     registrarImportacao({
       id: crypto.randomUUID(),
@@ -67,12 +78,14 @@ export function SabespPanel() {
       abasLidas: Object.keys(previa.abas).length,
       listas: previa.listas,
       regras: previa.regras,
+      arquivoPath,
     }, { abas: previa.abas, configuracoes: previa.configuracoes, guias: previa.guias })
     toast.success(
       `${previa.resumo.novas} nova(s), ${previa.resumo.atualizadas} atualizada(s)`
       + (previa.resumo.conflitos ? `, ${previa.resumo.conflitos} edição(ões) sua(s) sobrescrita(s)` : ''),
     )
     setPrevia(null)
+    arquivoPendente.current = null
   }
 
   const ultima = imports[0]
@@ -115,6 +128,24 @@ export function SabespPanel() {
       )}
 
       <PainelDeAlertas />
+
+      {!semDado && <ResumoExecutivo linhas={linhas} />}
+
+      {!semDado && (
+        <div className="flex flex-wrap justify-end gap-2 border-b border-[#525252] px-6 py-2">
+          {useSabespStore.getState().arquivoOriginal && (
+            <button type="button" onClick={() => { const a = useSabespStore.getState().arquivoOriginal!; void baixarArquivoOriginal(a.path, a.nome).catch(() => toast.error('Não foi possível baixar o arquivo original.')) }} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
+              <Download size={13} /> Arquivo original
+            </button>
+          )}
+          <button type="button" onClick={() => exportarWorkbookCompleto(abas, linhas, guias)} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
+            <FileDown size={13} /> Exportar tudo
+          </button>
+          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
+            <FileDown size={13} /> Imprimir / PDF
+          </button>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1">
         <SubTabHost
@@ -221,19 +252,31 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   const linhas = useSabespStore(useShallow((s) => s.linhas.filter((l) => l.aba === aba)))
   const meta = useSabespStore((s) => s.abas[aba])
   const [busca, setBusca] = useState('')
-  const [mostrarSemTitulo, setMostrarSemTitulo] = useState(false)
+  const [telaCheia, setTelaCheia] = useState(false)
+  const [quebrarTexto, setQuebrarTexto] = useState(false)
+  const criarLinha = useSabespStore((s) => s.criarLinha)
+  const duplicarLinha = useSabespStore((s) => s.duplicarLinha)
+  const alternarLinha = useSabespStore((s) => s.alternarLinha)
+  const desfazer = useSabespStore((s) => s.desfazer)
 
-  const colunas = useMemo(
-    () => (meta?.colunas ?? []).filter((c) => mostrarSemTitulo || c.temTitulo),
-    [meta, mostrarSemTitulo],
-  )
-  const escondidas = (meta?.colunas.length ?? 0) - (meta?.colunas.filter((c) => c.temTitulo).length ?? 0)
+  const colunas = useMemo(() => (meta?.colunas ?? []).filter((c) =>
+    c.temTitulo || linhas.some((l) => !!l.valores[chaveDaColuna(c)])), [meta, linhas])
 
   const visiveis = useMemo(() => {
     const t = busca.trim().toLowerCase()
     if (!t) return linhas
     return linhas.filter((l) => Object.values(l.valores).some((v) => String(v).toLowerCase().includes(t)))
   }, [linhas, busca])
+
+  const colarBloco = (linhaInicial: number, colunaInicial: number, texto: string) => {
+    const grade = texto.replace(/\r/g, '').split('\n').filter((r, i, a) => r || i < a.length - 1).map((r) => r.split('\t'))
+    grade.forEach((valores, dr) => valores.forEach((v, dc) => {
+      const linha = visiveis[linhaInicial + dr]
+      const coluna = colunas[colunaInicial + dc]
+      if (linha && coluna) onEditar(linha.id, chaveDaColuna(coluna), v)
+    }))
+    toast.success(`${grade.reduce((n, r) => n + r.length, 0)} célula(s) colada(s)`)
+  }
 
   if (!meta) {
     return (
@@ -243,8 +286,11 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
     )
   }
 
+  if (aba === 'configuracoes') return <ConfiguracoesEstruturadas />
+  if (aba === 'carteira_ticket' || aba === 'resumo' || aba === 'dashboard' || aba === 'planejado_realizado') return <PainelMatriz meta={meta} titulo={def.label} />
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className={cn('flex min-h-0 flex-1 flex-col gap-2', telaCheia && 'fixed inset-4 z-50 rounded-xl border border-[#525252] bg-[#1f1f1f] p-4 shadow-2xl')}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
@@ -255,17 +301,12 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           />
         </div>
         <span className="text-[11px] text-[#6b6b6b]">{visiveis.length} de {linhas.length}</span>
-        {escondidas > 0 && (
-          // ⚠️ 198 das 513 colunas da planilha não têm título — são espaçadoras. Renderizá-las
-          // fazia 40% da largura da tabela ser vazio. Ficam escondidas, mas alcançáveis.
-          <button
-            type="button" onClick={() => setMostrarSemTitulo((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3] hover:text-[#f5f5f5]"
-          >
-            {mostrarSemTitulo ? <EyeOff size={12} /> : <Eye size={12} />}
-            {mostrarSemTitulo ? 'Ocultar' : 'Mostrar'} {escondidas} coluna(s) sem título
-          </button>
-        )}
+        <button type="button" onClick={() => setQuebrarTexto((v) => !v)} className="rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]">{quebrarTexto ? 'Texto compacto' : 'Mostrar texto completo'}</button>
+        <button type="button" onClick={() => setTelaCheia((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><Expand size={12} /> {telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</button>
+        <button type="button" onClick={() => exportarAba(aba, meta, visiveis, 'xlsx')} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><FileDown size={12} /> Excel</button>
+        <button type="button" onClick={() => exportarAba(aba, meta, visiveis, 'csv')} className="rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]">CSV</button>
+        {!def.readonly && podeEscrever && <button type="button" onClick={() => criarLinha(aba)} className="inline-flex items-center gap-1 rounded-lg bg-[#f97316] px-2 py-1 text-[11px] font-semibold text-white"><Plus size={12} /> Linha</button>}
+        <button type="button" onClick={desfazer} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><RotateCcw size={12} /> Desfazer</button>
         {def.readonly && (
           <span className="inline-flex items-center gap-1 text-[11px] text-[#6b6b6b]" title="Na planilha esta aba é fórmula; editar aqui seria discordar da fonte.">
             <HelpCircle size={12} /> só leitura — é calculada na planilha
@@ -278,32 +319,35 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           <thead className="sticky top-0 z-10 bg-[#3d3d3d] text-[#a3a3a3]">
             <tr>
               {colunas.map((c) => (
-                <th key={c.indice} className="whitespace-nowrap px-3 py-2 font-medium" title={c.regra?.mensagem}>
-                  {c.temTitulo ? c.titulo : <span className="text-[#6b6b6b]">col. {c.indice + 1}</span>}
+                <th key={c.indice} className="min-w-32 resize-x overflow-auto whitespace-nowrap px-3 py-2 font-medium" title={c.regra?.mensagem}>
+                  {c.temTitulo ? c.titulo : <span className="text-[#a3a3a3]">Campo auxiliar {c.indice + 1}</span>}
                   {c.regra?.tipo === 'lista' && <span className="ml-1 text-[9px] text-[#f97316]">lista</span>}
                   {c.regra?.tipo === 'data' && <span className="ml-1 text-[9px] text-[#60a5fa]">data</span>}
                   {c.regra?.tipo === 'numero' && <span className="ml-1 text-[9px] text-[#a78bfa]">nº</span>}
                   {c.regra?.obrigatorio && <span className="ml-0.5 text-[#fca5a5]">*</span>}
                 </th>
               ))}
+              {!def.readonly && <th className="sticky right-0 min-w-20 bg-[#3d3d3d] px-3 py-2">Ações</th>}
             </tr>
           </thead>
           <tbody>
-            {visiveis.map((l) => (
-              <tr key={l.id} className={cn('border-t border-[#525252]', !l.ativa && 'opacity-50')}>
-                {colunas.map((c) => {
+            {visiveis.map((l, linhaIndex) => (
+              <tr key={l.id} className={cn('border-t border-[#525252] odd:bg-white/[0.015] hover:bg-white/[0.035]', !l.ativa && 'opacity-50')}>
+                {colunas.map((c, colunaIndex) => {
                   const campo = chaveDaColuna(c)
                   return (
-                    <td key={c.indice} className="max-w-64 px-1 py-0.5">
+                    <td key={c.indice} className={cn('px-1 py-0.5 align-top', quebrarTexto ? 'max-w-96 whitespace-normal' : 'max-w-64')}>
                       <CelulaEditavel
                         valor={l.valores[campo] ?? ''}
                         regra={c.regra}
                         somenteLeitura={!podeEscrever || !!def.readonly || !l.ativa}
                         onGravar={(v) => onEditar(l.id, campo, v)}
+                        onColarBloco={(texto) => colarBloco(linhaIndex, colunaIndex, texto)}
                       />
                     </td>
                   )
                 })}
+                {!def.readonly && <td className="sticky right-0 bg-[#252525] px-2"><div className="flex gap-1"><button title="Duplicar" onClick={() => duplicarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Copy size={12} /></button><button title={l.ativa ? 'Arquivar' : 'Restaurar'} onClick={() => alternarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Archive size={12} /></button></div></td>}
               </tr>
             ))}
             {visiveis.length === 0 && (
@@ -323,6 +367,80 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
       )}
     </div>
   )
+}
+
+function normalizarCampo(s: string) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim()
+}
+
+function valor(l: { valores: Record<string, string> }, ...nomes: string[]) {
+  const alvos = nomes.map(normalizarCampo)
+  const achado = Object.entries(l.valores).find(([k]) => alvos.includes(normalizarCampo(k)))
+  return achado?.[1] ?? ''
+}
+
+function numero(v: string) {
+  let limpo = v.replace(/R\$\s?/g, '').replace(/%/g, '').replace(/\s/g, '')
+  const ultimaVirgula = limpo.lastIndexOf(',')
+  const ultimoPonto = limpo.lastIndexOf('.')
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    limpo = ultimaVirgula > ultimoPonto ? limpo.replace(/\./g, '').replace(',', '.') : limpo.replace(/,/g, '')
+  } else if (ultimaVirgula >= 0) limpo = limpo.replace(/\./g, '').replace(',', '.')
+  const n = Number(limpo)
+  return Number.isFinite(n) ? n : 0
+}
+
+function ResumoExecutivo({ linhas }: { linhas: ReturnType<typeof useSabespStore.getState>['linhas'] }) {
+  const [contrato, setContrato] = useState('TODOS')
+  const [equipe, setEquipe] = useState('TODAS')
+  const [status, setStatus] = useState('TODOS')
+  const equipes = useMemo(() => [...new Set(linhas.map((l) => valor(l, 'EQUIPE')).filter(Boolean))].sort(), [linhas])
+  const statuses = useMemo(() => [...new Set(linhas.map((l) => valor(l, 'STATUS DA OS', 'STATUS')).filter(Boolean))].sort(), [linhas])
+  const ativas = useMemo(() => linhas.filter((l) => l.ativa
+    && (contrato === 'TODOS' || normalizarCampo(valor(l, 'CONTRATO')) === contrato)
+    && (equipe === 'TODAS' || valor(l, 'EQUIPE') === equipe)
+    && (status === 'TODOS' || valor(l, 'STATUS DA OS', 'STATUS') === status)), [linhas, contrato, equipe, status])
+  const servicos = ativas.filter((l) => l.aba === 'cadastro_servicos')
+  const os = ativas.filter((l) => l.aba === 'ordens_servico')
+  const ocorrencias = ativas.filter((l) => l.aba === 'ocorrencias')
+  const medicoes = ativas.filter((l) => l.aba === 'medicao')
+  const executados = os.filter((l) => /CONCLU|EXECUT/.test(normalizarCampo(valor(l, 'STATUS DA OS', 'STATUS')))).length
+  const atrasados = servicos.filter((l) => /VENC|ATRAS/.test(normalizarCampo(valor(l, 'SITUAÇÃO DO PRAZO', 'PENDÊNCIA', 'STATUS')))).length
+  const abertos = ocorrencias.filter((l) => /ABERT|PENDENTE|ANDAMENTO/.test(normalizarCampo(valor(l, 'STATUS')))).length
+  const medido = medicoes.reduce((s, l) => s + numero(valor(l, 'VALOR MEDIDO', 'VALOR BRUTO', 'VALOR')), 0)
+  const cards = [
+    ['Serviços', servicos.length.toLocaleString('pt-BR')], ['Executados', executados.toLocaleString('pt-BR')],
+    ['Atrasados', atrasados.toLocaleString('pt-BR')], ['Ocorrências abertas', abertos.toLocaleString('pt-BR')],
+    ['Valor medido', medido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })],
+  ]
+  const totalStatus = Math.max(1, os.length)
+  return <div className="border-b border-[#525252] px-6 py-3">
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-3"><p className="text-xs font-semibold text-[#f5f5f5]">Visão executiva</p><div className="flex flex-wrap gap-2"><select value={contrato} onChange={(e) => setContrato(e.target.value)} className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODOS">Todos os contratos</option><option value="BERTIOGA">Bertioga</option><option value="SANTOS">Santos</option></select><select value={equipe} onChange={(e) => setEquipe(e.target.value)} className="max-w-44 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODAS">Todas as equipes</option>{equipes.map((x) => <option key={x}>{x}</option>)}</select><select value={status} onChange={(e) => setStatus(e.target.value)} className="max-w-48 rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-xs text-white"><option value="TODOS">Todos os status</option>{statuses.map((x) => <option key={x}>{x}</option>)}</select></div></div>
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-5">{cards.map(([r, v]) => <div key={r} className="rounded-xl border border-[#525252] bg-[#292929] px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-[#8a8a8a]">{r}</p><p className="mt-1 text-lg font-semibold text-[#f5f5f5]">{v}</p></div>)}</div>
+    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#333]" title={`${executados} de ${os.length} OS executadas`}><div className="h-full bg-[#22c55e] transition-all" style={{ width: `${Math.min(100, executados / totalStatus * 100)}%` }} /></div>
+  </div>
+}
+
+function ConfiguracoesEstruturadas() {
+  const parametros = useSabespStore((s) => s.configuracoes)
+  const porSecao = useMemo(() => {
+    const m = new Map<string, typeof parametros>()
+    for (const p of parametros) { const k = p.secao || 'Parâmetros gerais'; m.set(k, [...(m.get(k) ?? []), p]) }
+    return [...m.entries()]
+  }, [parametros])
+  return <div className="min-h-0 flex-1 overflow-auto"><div className="grid gap-3 lg:grid-cols-2">{porSecao.map(([secao, itens]) => <section key={secao} className="rounded-xl border border-[#525252] bg-[#292929]"><h3 className="border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{secao}</h3><dl>{itens.map((p) => <div key={p.celula} className="grid grid-cols-[minmax(12rem,1fr)_1fr] gap-3 border-b border-[#3d3d3d] px-4 py-2 text-xs last:border-0"><dt className="text-[#a3a3a3]">{p.rotulo}</dt><dd className="break-words text-[#f5f5f5]">{p.valor || '—'}</dd></div>)}</dl></section>)}</div></div>
+}
+
+function PainelMatriz({ meta, titulo }: { meta: AbaNoSistema; titulo: string }) {
+  const linhas = (meta.matriz ?? []).filter((r) => r.some(Boolean))
+  const blocos: Array<{ titulo: string; linhas: string[][] }> = []
+  let atual = { titulo, linhas: [] as string[][] }; blocos.push(atual)
+  for (const linha of linhas) {
+    const primeiro = linha.find(Boolean) ?? ''
+    if (/^[A-Z]\s*[·—-]|DASHBOARD|RESUMO|PLANEJADO/i.test(primeiro) && linha.filter(Boolean).length === 1) { atual = { titulo: primeiro, linhas: [] }; blocos.push(atual) }
+    else atual.linhas.push(linha)
+  }
+  return <div className="min-h-0 flex-1 overflow-auto"><div className="grid gap-3 xl:grid-cols-2">{blocos.filter((b) => b.linhas.length).map((b, i) => <section key={`${b.titulo}-${i}`} className="overflow-auto rounded-xl border border-[#525252] bg-[#292929]"><h3 className="sticky left-0 border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{b.titulo}</h3><table className="min-w-full text-xs"><tbody>{b.linhas.map((r, ri) => <tr key={ri} className="border-b border-[#3d3d3d] odd:bg-white/[0.015]">{r.filter((v, ci) => v || r.some((x, xi) => xi > ci && x)).map((v, ci) => <td key={ci} className="min-w-28 whitespace-normal break-words px-3 py-2 text-[#d4d4d4]">{v || '—'}</td>)}</tr>)}</tbody></table></section>)}</div></div>
 }
 
 // ─── Configurações + guias ────────────────────────────────────────────────────

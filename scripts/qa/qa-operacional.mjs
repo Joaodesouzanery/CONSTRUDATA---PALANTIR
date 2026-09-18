@@ -15,9 +15,10 @@ import xlsx from 'xlsx'
 import JSZip from 'jszip'
 import { mapaDasAbas, validacoesDoXml, lerConfiguracoes, lerAba } from '../../src/features/operacional/leitorPlanilha.ts'
 import { SABESP_SHEETS } from '../../src/features/operacional/sabespStore.ts'
+import { ehRegistroReal, lerBancoCustos } from '../../src/features/operacional/importarPlanilha.ts'
 
 const XLSX = xlsx.default ?? xlsx
-const CAMINHO = 'CONTROLE OPERACIONAL SABESP - BERTIOGA GUARUJA E SANTOS - WCR-rev15-PLANEJADOxREALIZADO.xlsx'
+const CAMINHO = process.argv[2] ?? 'CONTROLE OPERACIONAL SABESP - BERTIOGA GUARUJA E SANTOS - WCR-rev15-PLANEJADOxREALIZADO.xlsx'
 
 let falhas = 0
 function conferir(ok, titulo, detalhe = '') {
@@ -95,6 +96,22 @@ for (const def of SABESP_SHEETS) {
 conferir(lidas === SABESP_SHEETS.length, `as ${SABESP_SHEETS.length} abas operacionais foram lidas`, `lidas ${lidas}`)
 conferir(semTitulo > 0, 'as colunas sem título estão MARCADAS (não viram "Coluna N")', `${semTitulo} colunas`)
 conferir(comRegra > 0, 'as colunas com dropdown/regra carregam a regra', `${comRegra} colunas`)
+
+// ── semântica: título/ajuda não pode virar registro ──────────────────────────
+console.log('\n-- registros de negócio, não linhas visuais --')
+const precos = lerAba(wb.Sheets['02. TABELA DE PREÇOS'], '02. TABELA DE PREÇOS', ['CHAVE'], validacoes)
+const precosReais = precos?.linhas.filter((l) => ehRegistroReal('tabela_precos', l)) ?? []
+conferir(precosReais.length === 511, 'Tabela de Preços tem exatamente 511 preços', `achou ${precosReais.length}`)
+const bancoMatriz = XLSX.utils.sheet_to_json(wb.Sheets['01A. BANCO DE CUSTOS'], { header: 1, defval: '', raw: false })
+const custos = lerBancoCustos(bancoMatriz)
+conferir(custos.some((l) => l.Contrato === 'BERTIOGA'), 'Banco de Custos identifica Bertioga')
+conferir(custos.some((l) => l.Contrato === 'SANTOS'), 'Banco de Custos identifica Santos')
+for (const [id, esperado] of [['equipe', 31], ['medicao', 53], ['ocorrencias', 7], ['materiais', 0], ['lookahead', 0], ['plano_semanal', 0]]) {
+  const def = SABESP_SHEETS.find((d) => d.id === id)
+  const lida = lerAba(wb.Sheets[def.sheetName], def.sheetName, def.keyColumns, validacoes)
+  const reais = lida?.linhas.filter((l) => ehRegistroReal(id, l)) ?? []
+  conferir(reais.length === esperado, `${def.label}: só registros preenchidos`, `achou ${reais.length}`)
+}
 
 console.log(falhas === 0 ? '\nTUDO CONFERE.\n' : `\n${falhas} FALHA(S).\n`)
 process.exit(falhas === 0 ? 0 : 1)

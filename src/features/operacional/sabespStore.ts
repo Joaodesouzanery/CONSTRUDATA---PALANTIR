@@ -97,6 +97,11 @@ export interface LinhaOperacional {
 export interface AbaNoSistema {
   colunas: ColunaLida[]
   ordemDasChaves: string[]
+  /** Matriz fiel da aba. Mantém títulos, blocos e notas que não são registros de negócio. */
+  matriz?: string[][]
+  linhaDoCabecalho?: number
+  registros?: number
+  estruturais?: number
 }
 
 export interface SabespGuide { titulo: string; linhas: string[] }
@@ -113,6 +118,18 @@ export interface SabespImportBatch {
   abasLidas: number
   listas: number
   regras: number
+  arquivoPath?: string
+}
+
+export interface AlteracaoOperacional {
+  id: string
+  linhaId: string
+  aba: SabespSheetId
+  chave: string
+  acao: 'editar' | 'criar' | 'duplicar' | 'arquivar' | 'restaurar' | 'importar'
+  antes?: Record<string, string>
+  depois?: Record<string, string>
+  criadoEm: string
 }
 
 interface Estado {
@@ -122,6 +139,8 @@ interface Estado {
   configuracoes: ParametroDeConfiguracao[]
   guias: { rapido?: SabespGuide; leiaMe?: SabespGuide }
   imports: SabespImportBatch[]
+  historico: AlteracaoOperacional[]
+  arquivoOriginal?: { nome: string; path: string }
 
   pendingSync: PendingOp[]
   syncStatus: SyncStatus
@@ -130,6 +149,10 @@ interface Estado {
 
   gravarLinhas: (linhas: LinhaOperacional[]) => void
   editarCelula: (id: string, campo: string, valor: string) => void
+  criarLinha: (aba: SabespSheetId, valores?: Record<string, string>) => void
+  duplicarLinha: (id: string) => void
+  alternarLinha: (id: string) => void
+  desfazer: () => void
   registrarImportacao: (batch: SabespImportBatch, meta: {
     abas: Partial<Record<SabespSheetId, AbaNoSistema>>
     configuracoes: ParametroDeConfiguracao[]
@@ -181,12 +204,20 @@ interface RowLida {
   payload: { valores?: Record<string, string>; ativa?: boolean } | null
 }
 
+interface EstadoRow {
+  payload: Partial<Pick<Estado, 'abas' | 'configuracoes' | 'guias' | 'imports'>> | null
+  arquivo_original_path: string | null
+  arquivo_original_nome: string | null
+}
+
 const vazio = () => ({
   linhas: [] as LinhaOperacional[],
   abas: {} as Partial<Record<SabespSheetId, AbaNoSistema>>,
   configuracoes: [] as ParametroDeConfiguracao[],
   guias: {} as Estado['guias'],
   imports: [] as SabespImportBatch[],
+  historico: [] as AlteracaoOperacional[],
+  arquivoOriginal: undefined as Estado['arquivoOriginal'],
 })
 
 export const useSabespStore = create<Estado>()(
@@ -247,17 +278,65 @@ export const useSabespStore = create<Estado>()(
             editadoPor: nome,
             editadoEm: new Date().toISOString(),
           }
+          const alteracao: AlteracaoOperacional = {
+            id: crypto.randomUUID(), linhaId: id, aba: atual.aba, chave: atual.chave, acao: 'editar',
+            antes: atual.valores, depois: editada.valores, criadoEm: new Date().toISOString(),
+          }
           set((s) => ({
             linhas: s.linhas.map((l) => (l.id === id ? editada : l)),
+            historico: [alteracao, ...s.historico].slice(0, 500),
             pendingSync: [...s.pendingSync, makeOp({
               entity: 'operacional_linha', type: 'insert', recordId: id,
               row: linhaParaRow(editada, orgId, userId), table: 'operacional_linhas',
-            })],
+            }), makeOp({ entity: 'operacional_historico', type: 'insert', recordId: alteracao.id, table: 'operacional_historico', row: { id: alteracao.id, organization_id: orgId, linha_id: id, aba: atual.aba, chave: atual.chave, acao: 'editar', antes: atual.valores, depois: editada.valores, created_by: userId } })],
           }))
           void get().flush()
         },
 
+        criarLinha: (aba, valores = {}) => {
+          const { orgId, userId, nome } = ctx()
+          const chave = `LOCAL-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+          const linha: LinhaOperacional = { id: idDaLinha(orgId, aba, chave), aba, chave, valores, origem: 'sistema', editadoPor: nome, editadoEm: new Date().toISOString(), ativa: true }
+          const h: AlteracaoOperacional = { id: crypto.randomUUID(), linhaId: linha.id, aba, chave, acao: 'criar', depois: valores, criadoEm: new Date().toISOString() }
+          set((s) => ({ linhas: [...s.linhas, linha], historico: [h, ...s.historico].slice(0, 500), pendingSync: [...s.pendingSync, makeOp({ entity: 'operacional_linha', type: 'insert', recordId: linha.id, row: linhaParaRow(linha, orgId, userId), table: 'operacional_linhas' }), makeOp({ entity: 'operacional_historico', type: 'insert', recordId: h.id, table: 'operacional_historico', row: { id: h.id, organization_id: orgId, linha_id: linha.id, aba, chave, acao: 'criar', depois: valores, created_by: userId } })] }))
+          void get().flush()
+        },
+
+        duplicarLinha: (id) => {
+          const original = get().linhas.find((l) => l.id === id)
+          if (original) get().criarLinha(original.aba, { ...original.valores })
+        },
+
+        alternarLinha: (id) => {
+          const atual = get().linhas.find((l) => l.id === id)
+          if (!atual) return
+          const { orgId, userId, nome } = ctx()
+          const linha = { ...atual, ativa: !atual.ativa, origem: 'sistema' as const, editadoPor: nome, editadoEm: new Date().toISOString() }
+          const h: AlteracaoOperacional = { id: crypto.randomUUID(), linhaId: id, aba: linha.aba, chave: linha.chave, acao: linha.ativa ? 'restaurar' : 'arquivar', antes: atual.valores, depois: linha.valores, criadoEm: new Date().toISOString() }
+          set((s) => ({ linhas: s.linhas.map((l) => l.id === id ? linha : l), historico: [h, ...s.historico].slice(0, 500), pendingSync: [...s.pendingSync, makeOp({ entity: 'operacional_linha', type: 'insert', recordId: id, row: linhaParaRow(linha, orgId, userId), table: 'operacional_linhas' }), makeOp({ entity: 'operacional_historico', type: 'insert', recordId: h.id, table: 'operacional_historico', row: { id: h.id, organization_id: orgId, linha_id: id, aba: linha.aba, chave: linha.chave, acao: h.acao, antes: atual.valores, depois: linha.valores, created_by: userId } })] }))
+          void get().flush()
+        },
+
+        desfazer: () => {
+          const h = get().historico[0]
+          if (!h) return
+          const linha = get().linhas.find((l) => l.id === h.linhaId)
+          if (!linha) return
+          if (h.acao === 'criar' || h.acao === 'duplicar') get().alternarLinha(h.linhaId)
+          else if (h.antes) {
+            for (const [campo, valor] of Object.entries(h.antes)) if (linha.valores[campo] !== valor) get().editarCelula(linha.id, campo, valor)
+          }
+          set((s) => ({ historico: s.historico.filter((x) => x.id !== h.id) }))
+        },
+
         registrarImportacao: (batch, meta) => {
+          const { orgId, userId } = ctx()
+          const estadoPayload = {
+            abas: { ...get().abas, ...meta.abas },
+            configuracoes: meta.configuracoes.length ? meta.configuracoes : get().configuracoes,
+            guias: { rapido: meta.guias.rapido ?? get().guias.rapido, leiaMe: meta.guias.leiaMe ?? get().guias.leiaMe },
+            imports: [batch, ...get().imports].slice(0, 50),
+          }
           set((s) => ({
             abas: { ...s.abas, ...meta.abas },
             configuracoes: meta.configuracoes.length ? meta.configuracoes : s.configuracoes,
@@ -269,7 +348,13 @@ export const useSabespStore = create<Estado>()(
               leiaMe: meta.guias.leiaMe ?? s.guias.leiaMe,
             },
             imports: [batch, ...s.imports].slice(0, 50),
+            arquivoOriginal: batch.arquivoPath ? { nome: batch.arquivo, path: batch.arquivoPath } : s.arquivoOriginal,
+            pendingSync: [...s.pendingSync,
+              makeOp({ entity: 'operacional_estado', type: 'insert', recordId: orgId, table: 'operacional_estado', row: { id: orgId, organization_id: orgId, payload: estadoPayload, arquivo_original_path: batch.arquivoPath ?? null, arquivo_original_nome: batch.arquivo, updated_by: userId, updated_at: new Date().toISOString() } }),
+              makeOp({ entity: 'operacional_importacao', type: 'insert', recordId: batch.id, table: 'operacional_importacoes', row: { id: batch.id, organization_id: orgId, arquivo: batch.arquivo, arquivo_path: batch.arquivoPath ?? null, resumo: batch, metadados: { abas: meta.abas, configuracoes: meta.configuracoes, guias: meta.guias }, created_by: userId } }),
+            ],
           }))
+          void get().flush()
         },
 
         ensureTenantScope: (organizationId) => {
@@ -306,7 +391,10 @@ export const useSabespStore = create<Estado>()(
         }, () => get().pendingSync.length),
 
         pull: async () => {
-          const rows = await pullTable<RowLida>('operacional_linhas', { column: 'aba', ascending: true })
+          const [rows, estados] = await Promise.all([
+            pullTable<RowLida>('operacional_linhas', { column: 'aba', ascending: true }),
+            pullTable<EstadoRow>('operacional_estado', { column: 'updated_at', ascending: false, activeOnly: false }),
+          ])
           if (!rows) return
           const doServidor: LinhaOperacional[] = rows.map((r) => ({
             id: r.id,
@@ -318,8 +406,16 @@ export const useSabespStore = create<Estado>()(
             editadoEm: r.editado_em ?? undefined,
             ativa: r.payload?.ativa !== false,
           }))
+          const meta = estados?.[0]
           set((s) => ({
             linhas: mergePull(doServidor, s.linhas, s.pendingSync, 'operacional_linhas'),
+            abas: meta?.payload?.abas ?? s.abas,
+            configuracoes: meta?.payload?.configuracoes ?? s.configuracoes,
+            guias: meta?.payload?.guias ?? s.guias,
+            imports: meta?.payload?.imports ?? s.imports,
+            arquivoOriginal: meta?.arquivo_original_path && meta.arquivo_original_nome
+              ? { path: meta.arquivo_original_path, nome: meta.arquivo_original_nome }
+              : s.arquivoOriginal,
             syncStatus: 'idle',
             lastSyncedAt: new Date().toISOString(),
           }))
@@ -328,7 +424,7 @@ export const useSabespStore = create<Estado>()(
     },
     {
       name: 'cdata-operacional',
-      version: 1,
+      version: 2,
       // O store nasceu sem `persist` nenhum; o `migrate` existe desde a v1 porque `version` sem
       // `migrate` faz o zustand DESCARTAR o estado inteiro — inclusive a fila. Ver `financeiroStore`.
       migrate: (persisted) => (persisted ?? {}) as never,
@@ -338,7 +434,9 @@ export const useSabespStore = create<Estado>()(
         abas: s.abas,
         configuracoes: s.configuracoes,
         guias: s.guias,
-        imports: s.imports,
+            imports: s.imports,
+            historico: s.historico,
+            arquivoOriginal: s.arquivoOriginal,
         pendingSync: s.pendingSync,
         lastSyncedAt: s.lastSyncedAt,
       }),
