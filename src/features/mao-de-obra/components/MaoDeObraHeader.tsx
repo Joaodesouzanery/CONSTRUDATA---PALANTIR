@@ -15,23 +15,18 @@ import { useTorreStore } from '@/store/torreDeControleStore'
 export type { MaoDeObraTab } from '@/store/maoDeObraStore'
 
 const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
-  { id: 'dashboard',     label: 'Dashboard'             },
-  { id: 'produtividade', label: 'Produtividade'          },
-  { id: 'funcionarios',  label: 'Funcionários'           },
-  { id: 'horas-extras',  label: 'Horas Extras'           },
-  // Escala e Postos eram duas abas: a demanda (que cargo, quantos) e a oferta (quem, quando).
-  // "Gerar Escala Automática" já era alimentado 100% pelos Postos — eram entrada e saída do
-  // mesmo motor, em telas separadas.
-  { id: 'escala',        label: 'Escala e Postos'        },
-  { id: 'cmo',           label: 'Custo Mensal'           },
-  { id: 'faltas',        label: 'Faltas / Subs'          },
-  { id: 'avaliacoes',    label: 'Avaliações'             },
-  { id: 'folha',         label: 'Folha de Pagamento'     },
-  { id: 'rh-financeiro', label: 'RH Financeiro'          },
-  { id: 'ausencias',     label: 'Calendário de Ausências'},
-  { id: 'apontamentos',  label: 'Apontamentos'           },
-  { id: 'escalamento',   label: 'Escalamento'            },
-  { id: 'seguranca',     label: 'Segurança'              },
+  { id: 'dashboard',     label: 'Dashboard'                 },
+  { id: 'funcionarios',  label: 'Funcionários'              },
+  // Fundidas em 18/09/2026. Cada uma abre em sub-abas — ver o painel correspondente, que explica
+  // por que não viraram tela única (escopos diferentes, semânticas diferentes).
+  { id: 'produtividade', label: 'Produtividade e Avaliações' },
+  { id: 'escala',        label: 'Escala e Postos'           },
+  { id: 'apontamentos',  label: 'Apontamentos'              },
+  { id: 'horas-extras',  label: 'Horas Extras'              },
+  { id: 'faltas',        label: 'Faltas e Ausências'        },
+  { id: 'cmo',           label: 'Custo Mensal'              },
+  { id: 'folha',         label: 'Folha e RH Financeiro'     },
+  { id: 'seguranca',     label: 'Segurança'                 },
 ]
 
 interface Props {

@@ -88,18 +88,24 @@ function DonutChart({ data }: { data: Array<{ label: string; value: number; colo
 // ─── RHFinanceiroPanel ────────────────────────────────────────────────────────
 
 export function RHFinanceiroPanel() {
-  const { workers, shifts, cltSettings, violations, workPosts, absences, payrollHistory } =
+  const { workers, shifts, cltSettings, violations, workPosts, absences, payrollHistory, updateCLTSettings } =
     useMaoDeObraStore(useShallow(s => ({
       workers:        s.workers,
       shifts:         s.shifts,
       cltSettings:    s.cltSettings,
+      updateCLTSettings: s.updateCLTSettings,
       violations:     s.violations,
       workPosts:      s.workPosts,
       absences:       s.absences,
       payrollHistory: s.payrollHistory,
     })))
 
-  const [budgetCap, setBudgetCap] = useState<number>(100_000)
+  /**
+   * ⚠️ O teto vem do `cltSettings`, que é persistido — era `useState(100_000)` e sumia no F5,
+   * levando junto o alerta de estouro (que seguia calculando contra um teto que ninguém escolheu).
+   */
+  const budgetCap = cltSettings.tetoCustoRhMensal ?? 100_000
+  const setBudgetCap = (v: number) => updateCLTSettings({ tetoCustoRhMensal: v })
   const [editBudget, setEditBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState(String(budgetCap))
   const [trendPeriod, setTrendPeriod] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal')

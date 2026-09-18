@@ -1509,6 +1509,15 @@ export interface CLTSettings {
   vaCoparticipacaoPct?: number
   /** % de desconto do VT sobre o salário base. A lei limita a 6%. */
   vtDescontoPct?: number
+
+  /**
+   * Teto de custo mensal de RH que dispara o alerta de estouro no RH Financeiro.
+   *
+   * ⚠️ Antes isto era `useState(100_000)` dentro do painel: o número que o usuário definia **sumia
+   * no primeiro F5**, e junto com ele todo o alerta de estouro — que continuava sendo calculado,
+   * mas contra um teto que ninguém escolheu. Aqui ele é da organização e persiste.
+   */
+  tetoCustoRhMensal?: number
 }
 
 export interface CMORoleItem {

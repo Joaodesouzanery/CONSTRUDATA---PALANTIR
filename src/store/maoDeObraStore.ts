@@ -105,6 +105,7 @@ export interface AccessCheckResult {
 
 export type MaoDeObraTab =
   | 'dashboard'
+  /** Produtividade e Avaliações, em sub-abas — escopos diferentes, ver o painel. */
   | 'produtividade'
   | 'funcionarios'
   /** Escala e Postos são a MESMA aba desde 25/08/2026 — demanda (posto) e oferta (turno). */
@@ -112,13 +113,23 @@ export type MaoDeObraTab =
   /** @deprecated Virou parte de 'escala'. Mantido só para redirecionar quem tinha isto salvo. */
   | 'postos'
   | 'cmo'
+  /** Faltas, Calendário de Ausências e Ocorrências, em sub-abas (fundidas em 18/09/2026). */
   | 'faltas'
-  | 'avaliacoes'
-  | 'folha'
-  | 'rh-financeiro'
+  /** @deprecated Virou parte de 'faltas'. */
   | 'ausencias'
+  /** @deprecated Virou sub-aba de 'produtividade'. */
+  | 'avaliacoes'
+  /** Folha de Pagamento e RH Financeiro, em sub-abas. */
+  | 'folha'
+  /** @deprecated Virou parte de 'folha'. */
+  | 'rh-financeiro'
   | 'horas-extras'
   | 'apontamentos'
+  /**
+   * @deprecated Aba REMOVIDA em 18/09/2026. O motor de realocação (`suggestions`) morreu junto — e
+   * sem consequência, porque nem no `partialize` estava. O cadastro de OCORRÊNCIAS, que só existia
+   * aqui e que o card de custo do Dashboard lê, mudou para 'faltas'.
+   */
   | 'escalamento'
   | 'seguranca'
 

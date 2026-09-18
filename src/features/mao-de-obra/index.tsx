@@ -5,18 +5,14 @@ import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { MaoDeObraHeader }       from './components/MaoDeObraHeader'
 import type { MaoDeObraTab }     from './components/MaoDeObraHeader'
 import { DashboardPanel }        from './components/DashboardPanel'
-import { ProdutividadePanel }    from './components/ProdutividadePanel'
+import { ProdutividadeEAvaliacoesPanel } from './components/ProdutividadeEAvaliacoesPanel'
 import { ApontamentosPanel }     from './components/ApontamentosPanel'
-import { EscalamentoPanel }      from './components/EscalamentoPanel'
 import { SegurancaPanel }        from './components/SegurancaPanel'
 import { FuncionariosPanel }     from './components/FuncionariosPanel'
 import { EscalaInteligentePanel } from './components/EscalaInteligentePanel'
 import { CMOPanel }              from './components/CMOPanel'
-import { FaltasSubsPanel }       from './components/FaltasSubsPanel'
-import { AvaliacoesPanel }       from './components/AvaliacoesPanel'
-import { FolhaPagamentoPanel }   from './components/FolhaPagamentoPanel'
-import { RHFinanceiroPanel }     from './components/RHFinanceiroPanel'
-import { AusenciasCalendarioPanel } from './components/AusenciasCalendarioPanel'
+import { FaltasEAusenciasPanel } from './components/FaltasEAusenciasPanel'
+import { FolhaERHFinanceiroPanel } from './components/FolhaERHFinanceiroPanel'
 import { HorasExtrasPanel }      from './components/HorasExtrasPanel'
 
 class MaoDeObraPanelBoundary extends Component<{ children: ReactNode; activeTab: MaoDeObraTab }, { hasError: boolean }> {
@@ -76,20 +72,22 @@ export function MaoDeObraPage() {
   function renderPanel() {
     switch (activeTab) {
       case 'dashboard':     return <DashboardPanel />
-      case 'produtividade': return <ProdutividadePanel onNavigate={setActiveTab} />
+      case 'produtividade': return <ProdutividadeEAvaliacoesPanel onNavigate={setActiveTab} />
+      // As abas abaixo foram fundidas; quem tinha o id antigo cai na tela nova, não em branco.
+      case 'avaliacoes':    return <ProdutividadeEAvaliacoesPanel onNavigate={setActiveTab} />
       case 'funcionarios':  return <FuncionariosPanel />
       // 'postos' cai aqui: a aba foi fundida e quem tinha a antiga salva não fica na tela em branco.
       case 'postos':
       case 'escala':        return <EscalaInteligentePanel />
       case 'cmo':           return <CMOPanel />
-      case 'faltas':        return <FaltasSubsPanel />
-      case 'avaliacoes':    return <AvaliacoesPanel />
-      case 'folha':         return <FolhaPagamentoPanel />
-      case 'rh-financeiro': return <RHFinanceiroPanel />
-      case 'ausencias':     return <AusenciasCalendarioPanel />
+      case 'ausencias':
+      case 'faltas':        return <FaltasEAusenciasPanel />
+      case 'rh-financeiro':
+      case 'folha':         return <FolhaERHFinanceiroPanel />
       case 'horas-extras':  return <HorasExtrasPanel />
       case 'apontamentos':  return <ApontamentosPanel />
-      case 'escalamento':   return <EscalamentoPanel />
+      // Escalamento saiu. O que ele tinha de útil (ocorrências) foi para 'faltas'.
+      case 'escalamento':   return <FaltasEAusenciasPanel />
       case 'seguranca':     return <SegurancaPanel />
       default:              return <DashboardPanel />
     }
