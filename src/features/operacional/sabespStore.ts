@@ -294,6 +294,15 @@ export const useSabespStore = create<Estado>()(
         },
 
         criarLinha: (aba, valores = {}) => {
+          // ⚠️ O gate faltava nas QUATRO ações de linha (criar, duplicar, alternar, desfazer) —
+          // só `gravarLinhas` e `editarCelula` tinham. A policy `op_linhas_insert_with_role` exige
+          // papel: 6 dos 11 clicavam, viam a linha mudar na tela, e a op voltava 42501 — que é
+          // classe BLOQUEANTE, ou seja, fila travada. É o mesmo incidente que Torre, RDO e
+          // Suprimentos já corrigiram.
+          if (!podeEscreverTorre().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para criar linhas no Operacional.' })
+            return
+          }
           const { orgId, userId, nome } = ctx()
           const chave = `LOCAL-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
           const linha: LinhaOperacional = { id: idDaLinha(orgId, aba, chave), aba, chave, valores, origem: 'sistema', editadoPor: nome, editadoEm: new Date().toISOString(), ativa: true }
@@ -303,11 +312,16 @@ export const useSabespStore = create<Estado>()(
         },
 
         duplicarLinha: (id) => {
+          // Sem gate próprio: delega a `criarLinha`, que já barra. Fica explícito para quem ler.
           const original = get().linhas.find((l) => l.id === id)
           if (original) get().criarLinha(original.aba, { ...original.valores })
         },
 
         alternarLinha: (id) => {
+          if (!podeEscreverTorre().pode) {
+            set({ syncError: 'O seu perfil não tem permissão para arquivar ou restaurar linhas.' })
+            return
+          }
           const atual = get().linhas.find((l) => l.id === id)
           if (!atual) return
           const { orgId, userId, nome } = ctx()
@@ -318,6 +332,10 @@ export const useSabespStore = create<Estado>()(
         },
 
         desfazer: () => {
+          // Desfazer reescreve dado: passa pelo mesmo gate. As ações que ele chama
+          // (`alternarLinha`, `editarCelula`) também barram, mas sair aqui evita consumir o
+          // histórico sem ter desfeito nada.
+          if (!podeEscreverTorre().pode) return
           const h = get().historico[0]
           if (!h) return
           const linha = get().linhas.find((l) => l.id === h.linhaId)

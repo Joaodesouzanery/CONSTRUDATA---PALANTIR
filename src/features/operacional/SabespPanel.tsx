@@ -12,12 +12,12 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload } from 'lucide-react'
+import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubTabHost } from '@/components/shared/SubTabHost'
 import { SyncBadge } from '@/components/shared/SyncBadge'
 import { useStoreSync } from '@/lib/useStoreSync'
-import { podeEscreverTorre } from '@/lib/roles'
+import { usePermissaoEscrita, ROLES_TORRE_WRITE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import {
   useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba, type SabespSheetId, type AbaNoSistema,
@@ -45,7 +45,17 @@ export function SabespPanel() {
   const [lendo, setLendo] = useState(false)
   const input = useRef<HTMLInputElement>(null)
   const arquivoPendente = useRef<File | null>(null)
-  const podeEscrever = useMemo(() => podeEscreverTorre().pode, [])
+  // ⚠️ REATIVO, e não um retrato do mount.
+  //
+  // Era `useMemo(() => podeEscreverTorre().pode, [])` — avaliado uma vez, com deps vazias. As
+  // memberships chegam do servidor DEPOIS do primeiro render (`get_my_org_memberships`), e até lá
+  // `avaliarPermissao` devolve `false`. O painel congelava esse `false` e a tela inteira ficava
+  // só-leitura para sempre, inclusive para um `owner`. É a explicação mais provável do
+  // "a planilha só serve para visualizar, não consigo alterar".
+  //
+  // `usePermissaoEscrita` observa `profile`/`memberships`/`isGlobalAdmin` e reavalia sozinho.
+  const permissao = usePermissaoEscrita(ROLES_TORRE_WRITE)
+  const podeEscrever = permissao.pode
 
   async function escolherArquivo(arquivo: File) {
     setLendo(true)
@@ -110,7 +120,7 @@ export function SabespPanel() {
           />
           <button
             type="button" onClick={() => input.current?.click()} disabled={lendo || !podeEscrever}
-            title={podeEscrever ? undefined : 'O seu perfil não pode gravar no Operacional'}
+            title={podeEscrever ? undefined : permissao.explicacao ?? 'O seu perfil não pode gravar no Operacional'}
             className="inline-flex items-center gap-2 rounded-lg bg-[#f97316] px-3 py-2 text-xs font-semibold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Upload size={14} />
@@ -145,6 +155,16 @@ export function SabespPanel() {
             <FileDown size={13} /> Imprimir / PDF
           </button>
         </div>
+      )}
+
+      {/* ⚠️ Por que está travado. Sem esta faixa, a grade simplesmente não respondia ao clique e
+          não havia nada na tela dizendo o motivo — o usuário concluía que o módulo "só visualiza". */}
+      {!podeEscrever && (
+        <p className="border-b border-[#525252] bg-[#3b82f6]/[0.07] px-6 py-2 text-[11px] leading-5 text-[#93c5fd]">
+          <Lock size={12} className="mr-1 inline" />
+          <b>Modo leitura.</b>{' '}
+          {permissao.explicacao ?? 'O seu perfil não tem permissão para alterar o Operacional.'}
+        </p>
       )}
 
       <div className="min-h-0 flex-1">
@@ -254,19 +274,76 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   const [busca, setBusca] = useState('')
   const [telaCheia, setTelaCheia] = useState(false)
   const [quebrarTexto, setQuebrarTexto] = useState(false)
+  /**
+   * ⚠️ O padrão é TODAS — decisão do cliente, com o número na mão.
+   *
+   * Medido no arquivo real: das 206 colunas sem título, 149 estão completamente vazias
+   * (espaçadoras da planilha) e 57 têm conteúdo. Ele escolheu ver tudo mesmo assim, para a tela
+   * não esconder nada dele. "Só as preenchidas" fica a um clique, para quando a largura atrapalhar.
+   */
+  const [modoColunas, setModoColunas] = useState<'todas' | 'preenchidas'>('todas')
   const criarLinha = useSabespStore((s) => s.criarLinha)
   const duplicarLinha = useSabespStore((s) => s.duplicarLinha)
   const alternarLinha = useSabespStore((s) => s.alternarLinha)
   const desfazer = useSabespStore((s) => s.desfazer)
 
-  const colunas = useMemo(() => (meta?.colunas ?? []).filter((c) =>
-    c.temTitulo || linhas.some((l) => !!l.valores[chaveDaColuna(c)])), [meta, linhas])
+  const todasAsColunas = meta?.colunas ?? []
+  const colunaTemConteudo = useMemo(() => {
+    const m = new Map<number, boolean>()
+    for (const c of todasAsColunas) m.set(c.indice, linhas.some((l) => !!l.valores[chaveDaColuna(c)]))
+    return m
+  }, [todasAsColunas, linhas])
+  const colunas = useMemo(
+    () => (modoColunas === 'todas'
+      ? todasAsColunas
+      : todasAsColunas.filter((c) => c.temTitulo || colunaTemConteudo.get(c.indice))),
+    [todasAsColunas, modoColunas, colunaTemConteudo],
+  )
+  const vaziasEscondidas = todasAsColunas.filter((c) => !c.temTitulo && !colunaTemConteudo.get(c.indice)).length
+
+  /**
+   * Largura por CONTEÚDO, não uma medida só para todas.
+   *
+   * ⚠️ `min-w-32` em tudo era a causa do "está cortando": a coluna FONTE do Banco de Custos tem
+   * frases de 60+ caracteres e ficava do mesmo tamanho da coluna QTD, que tem um dígito. Aqui a
+   * largura sai do maior conteúdo real da coluna (com teto, senão uma observação longa empurra a
+   * tabela inteira) e as curtas encolhem, sobrando espaço para as que precisam.
+   */
+  const larguraDaColuna = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const c of colunas) {
+      const campo = chaveDaColuna(c)
+      let maior = (c.temTitulo ? c.titulo.length : 10)
+      for (const l of linhas) {
+        const n = String(l.valores[campo] ?? '').length
+        if (n > maior) maior = n
+      }
+      // ~7,2px por caractere no tamanho de fonte da grade; piso de 72px, teto de 420px.
+      m.set(c.indice, Math.min(420, Math.max(72, Math.round(maior * 7.2) + 26)))
+    }
+    return m
+  }, [colunas, linhas])
+
+  const [ordem, setOrdem] = useState<{ campo: string; desc: boolean } | null>(null)
+  function alternarOrdem(campo: string) {
+    setOrdem((o) => (o?.campo === campo ? (o.desc ? null : { campo, desc: true }) : { campo, desc: false }))
+  }
 
   const visiveis = useMemo(() => {
     const t = busca.trim().toLowerCase()
-    if (!t) return linhas
-    return linhas.filter((l) => Object.values(l.valores).some((v) => String(v).toLowerCase().includes(t)))
-  }, [linhas, busca])
+    const filtradas = t
+      ? linhas.filter((l) => Object.values(l.valores).some((v) => String(v).toLowerCase().includes(t)))
+      : linhas
+    if (!ordem) return filtradas
+    // Ordena numericamente quando os dois lados são número — senão "10" viria antes de "9".
+    const num = (v: string) => { const n = Number(String(v).replace(/[^\d.,-]/g, '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : null }
+    return [...filtradas].sort((a, b) => {
+      const va = String(a.valores[ordem.campo] ?? ''), vb = String(b.valores[ordem.campo] ?? '')
+      const na = num(va), nb = num(vb)
+      const r = na !== null && nb !== null ? na - nb : va.localeCompare(vb, 'pt-BR')
+      return ordem.desc ? -r : r
+    })
+  }, [linhas, busca, ordem])
 
   const colarBloco = (linhaInicial: number, colunaInicial: number, texto: string) => {
     const grade = texto.replace(/\r/g, '').split('\n').filter((r, i, a) => r || i < a.length - 1).map((r) => r.split('\t'))
@@ -301,6 +378,19 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           />
         </div>
         <span className="text-[11px] text-[#6b6b6b]">{visiveis.length} de {linhas.length}</span>
+        {vaziasEscondidas > 0 && (
+          // Não é mais "Ocultar N colunas sem título" como ação obrigatória: a grade já nasce com
+          // TODAS. Isto é o escape para enxugar quando a largura atrapalhar.
+          <select
+            value={modoColunas} onChange={(e) => setModoColunas(e.target.value as 'todas' | 'preenchidas')}
+            aria-label="Quais colunas mostrar"
+            title="A planilha tem colunas usadas só como espaçamento; aqui você decide se elas aparecem"
+            className="rounded-lg border border-[#525252] bg-[#2c2c2c] px-2 py-1 text-[11px] text-[#a3a3a3] outline-none focus:border-[#f97316]/60"
+          >
+            <option value="todas">Todas as colunas ({todasAsColunas.length})</option>
+            <option value="preenchidas">Só as preenchidas (−{vaziasEscondidas} vazias)</option>
+          </select>
+        )}
         <button type="button" onClick={() => setQuebrarTexto((v) => !v)} className="rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]">{quebrarTexto ? 'Texto compacto' : 'Mostrar texto completo'}</button>
         <button type="button" onClick={() => setTelaCheia((v) => !v)} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><Expand size={12} /> {telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</button>
         <button type="button" onClick={() => exportarAba(aba, meta, visiveis, 'xlsx')} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><FileDown size={12} /> Excel</button>
@@ -319,8 +409,29 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           <thead className="sticky top-0 z-10 bg-[#3d3d3d] text-[#a3a3a3]">
             <tr>
               {colunas.map((c) => (
-                <th key={c.indice} className="min-w-32 resize-x overflow-auto whitespace-nowrap px-3 py-2 font-medium" title={c.regra?.mensagem}>
-                  {c.temTitulo ? c.titulo : <span className="text-[#a3a3a3]">Campo auxiliar {c.indice + 1}</span>}
+                <th
+                  key={c.indice}
+                  // Largura por conteúdo (ver `larguraDaColuna`) e ainda redimensionável à mão.
+                  style={{ minWidth: larguraDaColuna.get(c.indice) }}
+                  className="resize-x overflow-auto whitespace-nowrap px-3 py-2.5 font-medium"
+                  title={c.regra?.mensagem}
+                >
+                  <button
+                    type="button" onClick={() => alternarOrdem(chaveDaColuna(c))}
+                    className="inline-flex items-center gap-1 text-left hover:text-[#f5f5f5]"
+                    title="Ordenar por esta coluna"
+                  >
+                  {c.temTitulo
+                    ? c.titulo
+                    // ⚠️ MESMO rótulo da exportação (`arquivoOperacional.ts`), que dizia "Campo N"
+                    // enquanto a tela dizia "Campo auxiliar N" — duas palavras para a mesma coluna.
+                    // Coluna vazia ganha tom mais apagado: ela está aqui porque você pediu para ver
+                    // tudo, não porque tem dado.
+                    : <span className={colunaTemConteudo.get(c.indice) ? 'text-[#a3a3a3]' : 'text-[#6b6b6b] italic'}>
+                        Campo {c.indice + 1}
+                      </span>}
+                  {ordem?.campo === chaveDaColuna(c) && <span className="text-[9px] text-[#f97316]">{ordem.desc ? '▼' : '▲'}</span>}
+                  </button>
                   {c.regra?.tipo === 'lista' && <span className="ml-1 text-[9px] text-[#f97316]">lista</span>}
                   {c.regra?.tipo === 'data' && <span className="ml-1 text-[9px] text-[#60a5fa]">data</span>}
                   {c.regra?.tipo === 'numero' && <span className="ml-1 text-[9px] text-[#a78bfa]">nº</span>}
@@ -332,11 +443,16 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           </thead>
           <tbody>
             {visiveis.map((l, linhaIndex) => (
-              <tr key={l.id} className={cn('border-t border-[#525252] odd:bg-white/[0.015] hover:bg-white/[0.035]', !l.ativa && 'opacity-50')}>
+              // Zebra, hover e `align-top` do Almoxarifado — é o padrão do app para tabela longa.
+              <tr key={l.id} className={cn('border-t border-[#525252] align-top even:bg-[#2f2f2f]/70 hover:bg-[#3d3d3d]', !l.ativa && 'opacity-50')}>
                 {colunas.map((c, colunaIndex) => {
                   const campo = chaveDaColuna(c)
                   return (
-                    <td key={c.indice} className={cn('px-1 py-0.5 align-top', quebrarTexto ? 'max-w-96 whitespace-normal' : 'max-w-64')}>
+                    <td
+                      key={c.indice}
+                      style={{ maxWidth: quebrarTexto ? 420 : larguraDaColuna.get(c.indice) }}
+                      className={cn('px-2 py-1.5 align-top', quebrarTexto && 'whitespace-normal')}
+                    >
                       <CelulaEditavel
                         valor={l.valores[campo] ?? ''}
                         regra={c.regra}
