@@ -12,7 +12,7 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload, Lock } from 'lucide-react'
+import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload, Lock, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubTabHost } from '@/components/shared/SubTabHost'
 import { SyncBadge } from '@/components/shared/SyncBadge'
@@ -26,6 +26,7 @@ import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
 import { alertasDaOperacao } from './alertasOperacionais'
 import { PainelIndicadores } from './components/PainelIndicadores'
+import { HistoricoDaLinha } from './components/HistoricoDaLinha'
 import { CelulaEditavel } from './components/CelulaEditavel'
 import { ConferenciaImportacao } from './components/ConferenciaImportacao'
 import { baixarArquivoOriginal, enviarArquivoOperacional, exportarAba, exportarWorkbookCompleto } from './arquivoOperacional'
@@ -103,7 +104,7 @@ export function SabespPanel() {
   const semDado = linhas.length === 0
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-[#1f1f1f]">
+    <div className="operacional-impressao flex min-h-0 flex-1 flex-col bg-[#1f1f1f]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#525252] px-6 py-3">
         <div>
           <h2 className="text-sm font-semibold text-[#f5f5f5]">Controle Operacional SABESP</h2>
@@ -329,6 +330,7 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   }, [colunas, linhas])
 
   const [ordem, setOrdem] = useState<{ campo: string; desc: boolean } | null>(null)
+  const [historicoDe, setHistoricoDe] = useState<string | null>(null)
   function alternarOrdem(campo: string) {
     setOrdem((o) => (o?.campo === campo ? (o.desc ? null : { campo, desc: true }) : { campo, desc: false }))
   }
@@ -400,7 +402,7 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
         <button type="button" onClick={() => exportarAba(aba, meta, visiveis, 'xlsx')} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><FileDown size={12} /> Excel</button>
         <button type="button" onClick={() => exportarAba(aba, meta, visiveis, 'csv')} className="rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]">CSV</button>
         {!def.readonly && podeEscrever && <button type="button" onClick={() => criarLinha(aba)} className="inline-flex items-center gap-1 rounded-lg bg-[#f97316] px-2 py-1 text-[11px] font-semibold text-white"><Plus size={12} /> Linha</button>}
-        <button type="button" onClick={desfazer} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><RotateCcw size={12} /> Desfazer</button>
+        {podeEscrever && <button type="button" onClick={desfazer} className="inline-flex items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#a3a3a3]"><RotateCcw size={12} /> Desfazer</button>}
         {def.readonly && (
           <span className="inline-flex items-center gap-1 text-[11px] text-[#6b6b6b]" title="Na planilha esta aba é fórmula; editar aqui seria discordar da fonte.">
             <HelpCircle size={12} /> só leitura — é calculada na planilha
@@ -467,7 +469,21 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
                     </td>
                   )
                 })}
-                {!def.readonly && <td className="sticky right-0 bg-[#252525] px-2"><div className="flex gap-1"><button title="Duplicar" onClick={() => duplicarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Copy size={12} /></button><button title={l.ativa ? 'Arquivar' : 'Restaurar'} onClick={() => alternarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Archive size={12} /></button></div></td>}
+                {!def.readonly && (
+                  <td className="sticky right-0 bg-[#252525] px-2">
+                    <div className="flex gap-1">
+                      {/* ⚠️ Os botões de escrita só aparecem com permissão. Renderizá-los para
+                          quem não pode fazia a linha mudar na tela e a op travar em 42501. */}
+                      {podeEscrever && (
+                        <>
+                          <button type="button" title="Duplicar" onClick={() => duplicarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Copy size={12} /></button>
+                          <button type="button" title={l.ativa ? 'Arquivar' : 'Restaurar'} onClick={() => alternarLinha(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><Archive size={12} /></button>
+                        </>
+                      )}
+                      <button type="button" title="Histórico desta linha" onClick={() => setHistoricoDe(l.id)} className="p-1 text-[#a3a3a3] hover:text-white"><History size={12} /></button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
             {visiveis.length === 0 && (
@@ -478,6 +494,8 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
           </tbody>
         </table>
       </div>
+
+      {historicoDe && <HistoricoDaLinha linhaId={historicoDe} onFechar={() => setHistoricoDe(null)} />}
 
       {linhas.some((l) => !l.ativa) && (
         <p className="text-[11px] text-[#6b6b6b]">

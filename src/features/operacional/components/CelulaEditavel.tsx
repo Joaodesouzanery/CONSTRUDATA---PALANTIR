@@ -27,8 +27,19 @@ export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar, onColar
 
   const confirmar = (v: string) => { setRascunho(null); if (v !== valor) onGravar(v) }
 
+  /**
+   * O valor para o PAPEL.
+   *
+   * ⚠️ Na impressão o CSS esconde `input` e `select` (controle não é documento) — e, sem isto, a
+   * célula editável sairia VAZIA no PDF. O usuário imprimiria uma planilha de colunas em branco.
+   * Fica oculto na tela (`hidden`) e visível só no `@media print`.
+   */
+  const paraImpressao = <span className="celula-valor hidden">{valor}</span>
+
   if (regra?.tipo === 'lista' && regra.opcoes?.length) {
     return (
+      <>
+      {paraImpressao}
       <select
         value={valor} onChange={(e) => confirmar(e.target.value)}
         title={regra.mensagem} aria-label="Valor da célula"
@@ -42,11 +53,14 @@ export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar, onColar
         {!regra.opcoes.includes(valor) && valor && <option value={valor}>{valor} (fora da lista)</option>}
         {regra.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
+      </>
     )
   }
 
   const tipo = regra?.tipo === 'data' ? 'date' : regra?.tipo === 'numero' ? 'number' : 'text'
   return (
+    <>
+    {paraImpressao}
     <input
       type={tipo} value={atual} title={regra?.mensagem} aria-label="Valor da célula"
       min={regra?.min} max={regra?.max}
@@ -59,5 +73,6 @@ export function CelulaEditavel({ valor, regra, somenteLeitura, onGravar, onColar
       }}
       className={BASE}
     />
+    </>
   )
 }
