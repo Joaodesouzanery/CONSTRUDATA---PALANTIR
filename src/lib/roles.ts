@@ -19,6 +19,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   sindico: 'Síndico',
   zelador: 'Zelador',
   morador: 'Morador',
+  colaborador:  'Colaborador (ponto)',
 }
 
 /** Rótulo amigável de um papel (aceita string crua/desconhecida com fallback). */

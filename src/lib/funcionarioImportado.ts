@@ -69,6 +69,15 @@ const PERMITIDO_NA_IMPORTACAO: Record<keyof Worker, boolean> = {
   certifications: false,
   /** Referência opaca de biometria — nunca vem de arquivo. */
   biometricToken: false,
+  /**
+   * A conta de login do funcionário (`auth.users.id`).
+   *
+   * ⚠️ NUNCA de planilha, e este é o caso mais grave da lista. Uma coluna `authUserId` num arquivo
+   * do RH permitiria apontar o cadastro de uma pessoa para a conta de OUTRA — e é essa ligação que
+   * diz de quem é cada batida do ponto eletrônico. Amarrar conta a funcionário é gesto de gestor
+   * na tela, com as duas pontas à vista, nunca importação em lote.
+   */
+  authUserId: false,
 }
 
 /**

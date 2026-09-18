@@ -30,6 +30,14 @@ export type UserRole =
   | 'sindico'
   | 'zelador'
   | 'morador'
+  /**
+   * Funcionário de obra que só bate o ponto (migração 20260918140000_user_role_colaborador.sql).
+   *
+   * ⚠️ É o único papel do sistema restrito a UMA tela. Ele NÃO deve entrar em nenhuma lista
+   * `ROLES_*_WRITE` de `roles.ts` — o único lugar onde ele escreve é o registro de ponto, que tem
+   * a sua própria lista e a sua própria policy.
+   */
+  | 'colaborador'
 
 export type ActionStatus = 'pending' | 'approved' | 'rejected' | 'expired'
 export type OrgPlan      = 'free' | 'pro' | 'team' | 'enterprise'

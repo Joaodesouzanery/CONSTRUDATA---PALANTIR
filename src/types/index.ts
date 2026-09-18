@@ -1039,6 +1039,22 @@ export interface Worker {
   registrationNumber?: string   // matrícula
   department?: string
   email?: string
+  /**
+   * A conta de login deste funcionário — `auth.users.id`.
+   *
+   * ⚠️ Existe por causa do ponto eletrônico, e é INDISPENSÁVEL lá. Até aqui o único casamento
+   * entre uma pessoa de carne e osso e um registro do sistema era o NOME
+   * (`matchWorkerByName`, igualdade exata depois de normalizar). Para apontamento de produção isso
+   * passa; para registro de jornada, não: dois homônimos no canteiro — comum em construção —
+   * produziriam cartão de ponto de um atribuído ao outro.
+   *
+   * ⚠️ E não dá para usar `created_by` da linha: o `fixOrg` do `storeSync` REESCREVE esse campo
+   * para quem está sincronizando, de propósito (para não perder o registro). Num celular
+   * compartilhado no canteiro, a batida de um sairia com a autoria de outro.
+   *
+   * Vai no payload jsonb, sem migração — mesmo padrão de `heSabadoOverride` e `desligamentoData`.
+   */
+  authUserId?: string
   phone?: string
   admissionDate?: string        // yyyy-MM-dd
   contractType?: ContractType
