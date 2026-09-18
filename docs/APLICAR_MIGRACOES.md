@@ -69,6 +69,40 @@ Confirmadas como **aplicadas** pelo João: `20260623120000_security_role_guard`,
 `20260710130000_app_state` (conferida no SQL Editor em 09/09/2026: tabela, RLS forçada, as
 4 policies e a chave única, tudo OK).
 
+### 🆕 Setembro/2026 — Mão de Obra e Operacional
+
+Quatro migrações novas, nenhuma delas estava neste documento até 18/09.
+
+| Arquivo | O que cria | Sem ela |
+|---|---|---|
+| `20260916120000_cargos` | tabela `cargos` (diária de HE por cargo) | o cadastro funciona só no navegador |
+| `20260916130000_horas_extras` | tabela `horas_extras` (a HE antes de ser paga) | idem |
+| `20260917120000_operacional_linhas` | as linhas das 20 abas do Operacional | o módulo não sincroniza |
+| `20260918113625_operacional_importacoes_metadados` | `operacional_estado`, `operacional_importacoes`, `operacional_historico` + bucket `operacional-planilhas` | 🔴 ver abaixo |
+
+⚠️ **As duas de 16/09 mudaram em 17/09** — a policy de SELECT perdeu o
+`deleted_at is null`, que é justamente o filtro que a `20260824130000` remove de 18 tabelas por ser
+"A CAUSA RAIZ" de o soft delete não funcionar. Se você aplicou a versão antiga, **rode de novo**:
+as policies são `drop/create`, então é seguro.
+
+⚠️ **A de 18/09 mudou em 18/09, e é a mais importante da lista.** A versão inicial de
+`operacional_estado` não tinha `created_by`. Isso parece detalhe e não é: o `fixOrg`
+(`src/lib/storeSync.ts`) repara a autoria de TODA op antes de enviar e, como o reparo dispara
+quando o campo é nulo, ele **injeta** `created_by` em qualquer linha que não o tenha. Numa tabela
+sem essa coluna, o PostgREST devolve `PGRST204` — que o `storeSync` classifica como
+"aguardando-servidor": **retry infinito, silencioso, sem nada na tela.**
+
+O efeito era desconcertante: as linhas do Operacional sincronizavam, os metadados (colunas, guias,
+configurações) não. Em outro aparelho as 20 abas diziam "ainda não foi importada" enquanto os
+indicadores mostravam números reais — porque esses leem só as linhas.
+
+A versão corrigida tem `created_by`, um `alter table ... add column if not exists` para quem já
+aplicou, e `drop policy if exists` nas 10 policies (a versão inicial não tinha, e rodar o arquivo
+duas vezes quebrava). **Reaplique.**
+
+> **A regra que fica:** toda tabela nova que a fila de sincronização toca precisa de `created_by`,
+> mesmo que a policy dela use outra coluna para autoria. É contrato implícito do `fixOrg`.
+
 ### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
 
 Liga a auditoria em **toda tabela de negócio**: gatilho genérico gravando na `audit_log` (que já
