@@ -125,6 +125,8 @@ export type MaoDeObraTab =
   | 'rh-financeiro'
   | 'horas-extras'
   | 'apontamentos'
+  /** Espelho, conferência e relatórios do Ponto Eletrônico — a metade do gestor. */
+  | 'ponto'
   /**
    * @deprecated Aba REMOVIDA em 18/09/2026. O motor de realocação (`suggestions`) morreu junto — e
    * sem consequência, porque nem no `partialize` estava. O cadastro de OCORRÊNCIAS, que só existia

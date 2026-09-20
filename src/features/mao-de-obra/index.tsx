@@ -6,6 +6,7 @@ import { MaoDeObraHeader }       from './components/MaoDeObraHeader'
 import type { MaoDeObraTab }     from './components/MaoDeObraHeader'
 import { DashboardPanel }        from './components/DashboardPanel'
 import { ProdutividadeEAvaliacoesPanel } from './components/ProdutividadeEAvaliacoesPanel'
+import { PontoEletronicoPanel } from './components/PontoEletronicoPanel'
 import { ApontamentosPanel }     from './components/ApontamentosPanel'
 import { SegurancaPanel }        from './components/SegurancaPanel'
 import { FuncionariosPanel }     from './components/FuncionariosPanel'
@@ -86,6 +87,7 @@ export function MaoDeObraPage() {
       case 'folha':         return <FolhaERHFinanceiroPanel />
       case 'horas-extras':  return <HorasExtrasPanel />
       case 'apontamentos':  return <ApontamentosPanel />
+      case 'ponto':         return <PontoEletronicoPanel />
       // Escalamento saiu. O que ele tinha de útil (ocorrências) foi para 'faltas'.
       case 'escalamento':   return <FaltasEAusenciasPanel />
       case 'seguranca':     return <SegurancaPanel />

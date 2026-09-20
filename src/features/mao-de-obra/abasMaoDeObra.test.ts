@@ -46,13 +46,19 @@ test('os ids antigos caem em tela real, nunca no default', async () => {
   }
 })
 
-test('a barra tem 10 abas, e nenhuma das fundidas sobrou solta', async () => {
+test('a barra tem 11 abas, e nenhuma das fundidas sobrou solta', async () => {
   const header = await ler('./components/MaoDeObraHeader.tsx')
   const ids = [...header.matchAll(/\{ id: '([^']+)'/g)].map((m) => m[1])
-  assert.equal(ids.length, 10, `esperava 10 abas, achei ${ids.length}: ${ids.join(', ')}`)
+  // Eram 10 depois das fusões de 18/09. A 11ª é 'ponto', acrescentada em 20/09 com a metade do
+  // gestor do Ponto Eletrônico — não é aba fundida voltando, é módulo novo.
+  assert.equal(ids.length, 11, `esperava 11 abas, achei ${ids.length}: ${ids.join(', ')}`)
   for (const sumiu of ['ausencias', 'avaliacoes', 'rh-financeiro', 'escalamento']) {
     assert.ok(!ids.includes(sumiu), `'${sumiu}' foi fundida e não pode estar na barra`)
   }
+  assert.ok(ids.includes('ponto'), 'a aba do gestor do ponto precisa estar na barra')
+  // ⚠️ A ordem importa: escala → apontamento → ponto → hora extra é a ordem cronológica do dado.
+  assert.ok(ids.indexOf('ponto') > ids.indexOf('apontamentos'))
+  assert.ok(ids.indexOf('ponto') < ids.indexOf('horas-extras'))
 })
 
 test('🔴 Produtividade e Avaliações ficam em SUB-ABAS — escopos diferentes', async () => {

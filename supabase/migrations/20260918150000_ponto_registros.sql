@@ -242,8 +242,12 @@ from information_schema.tables
 where table_schema = 'public' and table_name = 'ponto_registros'
 union all
 select
-  case when count(*) = 4 then '  OK  ' else '❌ FALTA' end,
-  count(*) || ' de 4 gatilhos (NSR, congelar a prova, autor, auditoria)'
+  -- ⚠️ `count(DISTINCT trigger_name)`, não `count(*)`. `information_schema.triggers` devolve UMA
+  -- LINHA POR EVENTO: `trg_updated_by` (insert ou update) conta 2 e `trg_auditoria` (insert, update
+  -- ou delete) conta 3 — os quatro gatilhos somam SETE linhas. A primeira versão desta conferência
+  -- dizia "❌ FALTA — 7 de 4" num banco perfeitamente correto.
+  case when count(distinct trigger_name) = 4 then '  OK  ' else '❌ FALTA' end,
+  count(distinct trigger_name) || ' de 4 gatilhos (NSR, congelar a prova, autor, auditoria)'
 from information_schema.triggers
 where event_object_table = 'ponto_registros'
   and trigger_name in ('trg_ponto_nsr','trg_ponto_congelar','trg_updated_by','trg_auditoria')

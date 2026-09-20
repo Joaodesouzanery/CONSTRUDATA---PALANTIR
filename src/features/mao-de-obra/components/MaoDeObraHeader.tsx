@@ -22,6 +22,10 @@ const TABS: Array<{ id: MaoDeObraTab; label: string }> = [
   { id: 'produtividade', label: 'Produtividade e Avaliações' },
   { id: 'escala',        label: 'Escala e Postos'           },
   { id: 'apontamentos',  label: 'Apontamentos'              },
+  // Entre Apontamentos e Horas Extras porque é a ordem cronológica do dado: escala → apontamento
+  // → ponto → hora extra. A outra metade do módulo, a do funcionário, mora fora do menu, em
+  // /app/ponto — o colaborador não alcança esta tela.
+  { id: 'ponto',         label: 'Ponto Eletrônico'          },
   { id: 'horas-extras',  label: 'Horas Extras'              },
   { id: 'faltas',        label: 'Faltas e Ausências'        },
   { id: 'cmo',           label: 'Custo Mensal'              },
