@@ -16,6 +16,9 @@ import { custoDiaWorker, matchWorkerByName } from '@/features/mao-de-obra/utils/
 import { useSuprimentosStore } from '@/store/suprimentosStore'
 import { useActiveObraStore } from '@/store/activeObraStore'
 import { useTorreStore } from '@/store/torreDeControleStore'
+import { FASES_PADRAO } from '../data/fasesPadrao'
+import type { FaseDaObra } from '@/types'
+import { idDaFasePadrao } from '../data/idDaFase'
 import { usePlanejamentoMestreStore } from '@/store/planejamentoMestreStore'
 import { usePlanoExecucaoStore } from '@/store/planoExecucaoStore'
 import { faturamento } from '@/features/planejamento/utils/planoExecucao'
@@ -51,19 +54,6 @@ function stripEquipId(e: RdoEquipmentEntry): Omit<RdoEquipmentEntry, 'id'> {
 const inputCls = 'w-full bg-[#2c2c2c] border border-[#525252] rounded-lg px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60 placeholder:text-[#525252]'
 const labelCls = 'block text-[#a3a3a3] text-xs mb-1'
 
-const SERVICO_ITEMS: Array<[keyof RdoCompizzoServicos, string]> = [
-  ['limpezaArea', 'Limpeza da área'],
-  ['isolamentoArea', 'Isolamento da área'],
-  ['preparacaoPiso', 'Preparação do piso'],
-  ['tintaVermelha', 'Aplicação de tinta vermelha'],
-  ['tintaAmarela', 'Aplicação de tinta amarela'],
-  ['faixaBranca', 'Demarcação faixa branca'],
-  ['faixaAmarela', 'Demarcação faixa amarela'],
-  ['faixaVermelha', 'Demarcação faixa vermelha'],
-  ['vagasPCD', 'Pintura de vagas PCD'],
-  ['retoques', 'Retoques'],
-  ['limpezaFinal', 'Limpeza final'],
-]
 
 const OCORRENCIA_ITEMS: Array<[keyof RdoCompizzoOcorrencias, string]> = [
   ['semOcorrencias', 'Sem ocorrências'],
@@ -162,6 +152,23 @@ export function RdoCompizzoPanel() {
       ?? (c0?.obra ? (useTorreStore.getState().sites.find((s) => s.name === c0.obra)?.id ?? null) : null),
   )
   const selectedSite = useMemo(() => (obraSiteId ? sites.find((s) => s.id === obraSiteId) ?? null : null), [sites, obraSiteId])
+
+  /**
+   * As fases que esta obra oferece.
+   *
+   * ⚠️ Obra sem catálogo cai nas oito padrão — mas com `id` derivado do NOME, não aleatório. Se
+   * fosse `crypto.randomUUID()`, cada abertura da tela geraria ids novos e o `faseId` gravado ontem
+   * não casaria com o de hoje: a meta da Torre veria zero para sempre, sem erro nenhum na tela.
+   */
+  const fasesDaObra = useMemo<FaseDaObra[]>(() => {
+    const doCadastro = selectedSite?.fases?.filter((f) => f.ativa)
+    if (doCadastro && doCadastro.length > 0) return [...doCadastro].sort((a, b) => a.ordem - b.ordem)
+    return FASES_PADRAO.map((f, i) => ({
+      id: idDaFasePadrao(f.nome), nome: f.nome, unidade: f.unidade,
+      ordem: i + 1, ativa: true, pesoPct: f.pesoPct,
+    }))
+  }, [selectedSite])
+
   // Plano de execução da obra (ativo, senão o mais recente) → serviço/preço/período/BAC.
   const activePlano = useMemo(() => {
     const list = planos.filter((p) => (p.siteId ?? null) === obraSiteId)
@@ -238,8 +245,11 @@ export function RdoCompizzoPanel() {
   const [employeeNames, setEmployeeNames] = useState<string[]>(editing?.manpower.employeeNames ?? [])
   const [employeeInput, setEmployeeInput] = useState('')
   const [workerPick, setWorkerPick] = useState('')
-  const [servicos, setServicos] = useState<RdoCompizzoServicos>(c0?.servicos ?? emptyServicos())
-  const [servicosExtra, setServicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
+  const [servicos] = useState<RdoCompizzoServicos>(c0?.servicos ?? emptyServicos())
+  // Legado: o RDO antigo tem estes campos e o PDF/detalhe ainda os lê. A tela não os EDITA
+  // mais (viraram fases), mas o valor que veio é preservado ao salvar — editar um RDO de
+  // agosto não pode apagar o que foi apontado nele.
+  const [servicosExtra] = useState<RdoCompizzoServicoExtra[]>(c0?.servicosExtra ?? [])
   const [descricao, setDescricao] = useState(c0?.descricaoServicos ?? '')
   const [producao, setProducao] = useState<RdoCompizzoProducaoRow[]>(() => {
     const base = c0?.producao ?? DEFAULT_PRODUCAO
@@ -253,6 +263,12 @@ export function RdoCompizzoPanel() {
     }
     return base
   })
+
+  /** A próxima fase da ordem que ainda não foi apontada hoje — o atalho de um toque. */
+  const faseNaoApontada = useMemo(
+    () => fasesDaObra.find((f) => !producao.some((r) => r.faseId === f.id)),
+    [fasesDaObra, producao],
+  )
   const [horasTrabalhadas, setHorasTrabalhadas] = useState<string>(c0?.horasTrabalhadas != null ? String(c0.horasTrabalhadas) : '')
   const [horasIndiretas, setHorasIndiretas] = useState<string>(c0?.indiretoDoDia?.horas != null ? String(c0.indiretoDoDia.horas) : '')
   const [motivoIndireto, setMotivoIndireto] = useState<string>(c0?.indiretoDoDia?.motivo ?? '')
@@ -370,7 +386,8 @@ export function RdoCompizzoPanel() {
     if (p.responsavelNome) { setResponsavel(p.responsavelNome); setRespNome(p.responsavelNome) }
     if (p.responsavelData) setRespData(p.responsavelData)
     if (p.condicaoClimatica) setCondicao(p.condicaoClimatica)
-    if (Object.keys(p.servicos).length) setServicos((s) => ({ ...s, ...p.servicos }))
+    // O checklist virou fases em 20/09/2026: o que o parser reconhece de serviço já vem em
+    // `p.producao`, que é lido logo abaixo. Nada se perde.
     if (p.descricaoServicos) setDescricao(p.descricaoServicos)
     if (p.producao.length) setProducao(p.producao)
     if (p.materiais.length) setMateriais(p.materiais)
@@ -883,44 +900,20 @@ export function RdoCompizzoPanel() {
           )}
         </Section>
 
-        {/* Serviços Executados */}
-        <Section title="Serviços Executados no Dia" icon={<CheckCircle2 size={16} className="text-[#1f6fd1]" />}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            {SERVICO_ITEMS.map(([key, lbl]) => (
-              <Checkbox key={key} checked={servicos[key]} label={lbl} onChange={(v) => setServicos((s) => ({ ...s, [key]: v }))} />
-            ))}
-          </div>
+        {/* ─── Fases do Dia ────────────────────────────────────────────────────────────
+            Substituiu o checklist "Serviços Executados no Dia" em 20/09/2026, e ABSORVEU a antiga
+            "Produção do Dia". Eram duas seções descrevendo o mesmo trabalho: uma com onze
+            caixinhas sem número nenhum, outra com a metragem que de fato alimenta a medição, o
+            planejamento e agora a meta da obra. Ter as duas significava digitar o mesmo serviço
+            duas vezes, e só uma das digitações contava.
 
-          {/* Serviços adicionais (livres) com quantidade/unidade opcional */}
-          <div className="mt-3 rounded-lg border border-[#525252] bg-[#1f1f1f]/60 p-3">
-            <p className="text-[#a3a3a3] text-xs mb-2">Outros serviços (quantidade e unidade são opcionais)</p>
-            <div className="space-y-2">
-              {servicosExtra.map((row, i) => (
-                <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_90px_90px_32px] gap-2">
-                  <input className={inputCls} value={row.nome} placeholder="Serviço executado" onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, nome: e.target.value } : r))} />
-                  <input className={inputCls} value={row.quantidade ?? ''} placeholder="Qtd." onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, quantidade: e.target.value } : r))} />
-                  <input className={inputCls} value={row.unidade ?? ''} placeholder="Unid. (m, m², un…)" list="compizzo-unidades" onChange={(e) => setServicosExtra((arr) => arr.map((r, idx) => idx === i ? { ...r, unidade: e.target.value } : r))} />
-                  <button type="button" onClick={() => setServicosExtra((arr) => arr.filter((_, idx) => idx !== i))} className="text-red-400 hover:text-red-300 flex items-center justify-center"><Trash2 size={14} /></button>
-                </div>
-              ))}
-            </div>
-            <datalist id="compizzo-unidades">
-              {['m', 'm²', 'm³', 'un', 'kg', 'L', 'h'].map((u) => <option key={u} value={u} />)}
-            </datalist>
-            <button type="button" onClick={() => setServicosExtra((arr) => [...arr, { nome: '', quantidade: '', unidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm mt-2"><Plus size={14} /> Adicionar serviço</button>
-          </div>
-
-          <div className="mt-3">
-            <label className={labelCls}>Descrição dos serviços executados</label>
-            <textarea rows={2} className={inputCls} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Foi dado início ao serviço com a demarcação do piso." />
-          </div>
-        </Section>
-
-        {/* Produção do Dia — cada linha pode avançar uma atividade do Planejamento */}
-        <Section title="Produção do Dia" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
+            ⚠️ As fases são a produção INTEIRA, em ordem, ao longo de semanas — não um checklist
+            diário. Por isso a tela abre só com o que foi apontado e um "+ fase" que oferece o
+            catálogo da obra: ninguém digita zero em sete linhas todo dia. */}
+        <Section title="Fases do Dia" icon={<ClipboardList size={16} className="text-[#1f6fd1]" />}>
           <div className="space-y-2">
             <div className="hidden sm:grid gap-2 px-1" style={{ gridTemplateColumns: 'minmax(0,1.3fr) 72px 56px 76px minmax(0,1.3fr) 32px' }}>
-              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Serviço</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Fase / serviço</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Qtd. dia</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Un.</span>
               <span className="text-[10px] uppercase tracking-widest text-[#6b6b6b]">Meta</span>
@@ -931,7 +924,32 @@ export function RdoCompizzoPanel() {
               const act = row.planningActivityId ? obraAtividades.find((a) => a.id === row.planningActivityId) : undefined
               return (
                 <div key={i} className="grid gap-2 items-start" style={{ gridTemplateColumns: 'minmax(0,1.3fr) 72px 56px 76px minmax(0,1.3fr) 32px' }}>
-                  <input className={inputCls} value={row.servico} placeholder="Serviço" onChange={(e) => updateProducao(i, { servico: e.target.value })} />
+                  <div>
+                    <select
+                      className={inputCls}
+                      value={row.faseId ?? ''}
+                      onChange={(e) => {
+                        const id = e.target.value || undefined
+                        const f = id ? fasesDaObra.find((x) => x.id === id) : undefined
+                        // A unidade vem da FASE, não é digitada: é ela que decide se a metragem é
+                        // área, comprimento ou contagem — e daí depende a meta e o preço.
+                        updateProducao(i, f
+                          ? { faseId: f.id, servico: f.nome, unidade: f.unidade }
+                          : { faseId: undefined })
+                      }}
+                    >
+                      <option value="">— serviço avulso (digite abaixo) —</option>
+                      {fasesDaObra.map((f) => (
+                        <option key={f.id} value={f.id}>{f.ordem}. {f.nome} ({f.unidade})</option>
+                      ))}
+                    </select>
+                    {!row.faseId && (
+                      <input
+                        className={`${inputCls} mt-1`} value={row.servico} placeholder="Serviço avulso"
+                        onChange={(e) => updateProducao(i, { servico: e.target.value })}
+                      />
+                    )}
+                  </div>
                   <input className={inputCls} value={row.quantidade} placeholder="Qtd" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidade: e.target.value })} />
                   <input className={inputCls} value={row.unidade ?? ''} placeholder="m²" list="compizzo-unidades" onChange={(e) => updateProducao(i, { unidade: e.target.value })} />
                   <input className={inputCls} value={row.quantidadePrevista != null ? String(row.quantidadePrevista) : ''} placeholder="meta" inputMode="decimal" onChange={(e) => updateProducao(i, { quantidadePrevista: parseLocaleNumber(e.target.value) || undefined })} />
@@ -958,9 +976,42 @@ export function RdoCompizzoPanel() {
                 </div>
               )
             })}
-            <button type="button" onClick={() => setProducao((rows) => [...rows, { servico: '', quantidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar linha</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setProducao((rows) => [...rows, { servico: '', quantidade: '' }])} className="flex items-center gap-1.5 text-[#1f6fd1] hover:text-[#1a5cb0] text-sm"><Plus size={14} /> Adicionar fase</button>
+              {faseNaoApontada && (
+                <button
+                  type="button"
+                  onClick={() => setProducao((rows) => [...rows, { faseId: faseNaoApontada.id, servico: faseNaoApontada.nome, unidade: faseNaoApontada.unidade, quantidade: '' }])}
+                  className="flex items-center gap-1.5 rounded-lg border border-[#525252] px-2 py-1 text-xs text-[#a3a3a3] hover:border-[#1f6fd1]/50 hover:text-[#f5f5f5]"
+                >
+                  <Plus size={12} /> {faseNaoApontada.ordem}. {faseNaoApontada.nome}
+                </button>
+              )}
+            </div>
           </div>
-          <p className="mt-2 text-[10px] text-[#6b6b6b]">Ao salvar, cada linha com serviço e <strong>sem vínculo</strong> cria a atividade no Planejamento da obra (com unidade e meta) e passa a avançar o % (Previsto × Realizado). A quantidade do dia soma no executado. Precisa de uma obra selecionada.</p>
+          <p className="mt-2 text-[10px] leading-4 text-[#6b6b6b]">
+            A linha com <strong>fase</strong> alimenta a meta da obra na Torre de Controle. A linha
+            com serviço avulso continua valendo para o dia, mas não entra na meta — o sistema não
+            tem como saber a que fase ela pertence.
+            {' '}Ao salvar, linha <strong>sem vínculo de atividade</strong> cria a atividade no
+            Planejamento (com unidade e meta) e passa a avançar o Previsto × Realizado. Precisa de
+            uma obra selecionada.
+          </p>
+          {fasesDaObra.length === 0 && (
+            <p className="mt-2 rounded-lg border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2 text-[10px] leading-4 text-[#fbbf24]">
+              ⚠️ Esta obra ainda não tem fases cadastradas — a lista acima está usando as oito
+              padrão de piso industrial. Para a meta funcionar, cadastre as fases em
+              <strong> Torre de Controle › a obra › Fases</strong>.
+            </p>
+          )}
+
+          <div className="mt-3">
+            <label className={labelCls}>Descrição do que foi executado</label>
+            <textarea rows={2} className={inputCls} value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Foi dado início ao serviço com a demarcação do piso." />
+          </div>
+          <datalist id="compizzo-unidades">
+            {['m', 'm²', 'm³', 'un', 'kg', 'L', 'h'].map((u) => <option key={u} value={u} />)}
+          </datalist>
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
             <div>
               <label className={labelCls}>Horas trabalhadas (HH do dia) — usado na produtividade (RUP = HH ÷ m²)</label>

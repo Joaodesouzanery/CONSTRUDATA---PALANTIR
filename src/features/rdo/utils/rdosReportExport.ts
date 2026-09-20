@@ -270,16 +270,25 @@ function corpoCompizzo(r: RDO): string {
     .filter(([, v]) => v)
     .map(([k]) => OCORRENCIAS_COMPIZZO[k] ?? k)
 
-  return [
-    secao('Serviços executados', [
-      marcados.length ? `<div class="chips">${marcados.map((s) => `<span>✓ ${esc(s)}</span>`).join('')}</div>` : '',
-      extras.length ? `<div class="chips extras">${extras.map((s) => `<span>+ ${esc(s)}</span>`).join('')}</div>` : '',
-      c.descricaoServicos ? `<p class="texto">${esc(c.descricaoServicos)}</p>` : '',
-      (!marcados.length && !extras.length && !c.descricaoServicos) ? '<p class="vazio">Nenhum serviço registrado.</p>' : '',
-    ].join(''), marcados.length + extras.length ? `${marcados.length + extras.length}` : undefined),
+  // ⚠️ O checklist de onze caixinhas virou Fases em 20/09/2026. A seção antiga só sai no papel
+  // quando o RDO em questão TEM aquele dado — RDO novo não tem, e imprimir "Nenhum serviço
+  // registrado" em todo documento faria o leitor parar de ler as seções.
+  const temLegado = marcados.length > 0 || extras.length > 0
+  const ehPorFase = producao.some((p) => !!p.faseId)
 
-    secao('Produção do dia', tabela(
-      ['Serviço', 'Executado', 'Previsto', 'Unidade'],
+  return [
+    temLegado
+      ? secao('Serviços executados', [
+          marcados.length ? `<div class="chips">${marcados.map((s) => `<span>✓ ${esc(s)}</span>`).join('')}</div>` : '',
+          extras.length ? `<div class="chips extras">${extras.map((s) => `<span>+ ${esc(s)}</span>`).join('')}</div>` : '',
+        ].join(''), `${marcados.length + extras.length}`)
+      : '',
+    c.descricaoServicos
+      ? secao('Descrição do dia', `<p class="texto">${esc(c.descricaoServicos)}</p>`)
+      : '',
+
+    secao(ehPorFase ? 'Fases do dia' : 'Produção do dia', tabela(
+      [ehPorFase ? 'Fase' : 'Serviço', 'Executado', 'Previsto', 'Unidade'],
       producao.map((p) => `<tr>
         <td>${esc(p.servico)}</td>
         <td class="r n">${esc(p.quantidade)}</td>

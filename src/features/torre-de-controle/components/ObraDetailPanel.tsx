@@ -4,6 +4,7 @@ import { cn, hojeLocalISO } from '@/lib/utils'
 import { useTorreStore } from '@/store/torreDeControleStore'
 import { useRdoStore } from '@/store/rdoStore'
 import { useAuth } from '@/lib/auth'
+import { MetasDaObraSection } from './MetasDaObraSection'
 import { ContratoCard } from './ContratoCard'
 import { metragemContratada, precoMedioM2 } from '@/features/torre-de-controle/utils/obraMedicao'
 import {
@@ -417,6 +418,9 @@ export function ObraDetailPanel() {
               formulário continua na tela com os números da obra anterior enquanto a prop já é
               outra — e o "Salvar" grava o contrato de uma dentro da outra. Ver
               `torreDeControleStore.pull`. */}
+          {/* Metas vêm ANTES do contrato: meta é prazo e produção; contrato é dinheiro. */}
+          <MetasDaObraSection key={`metas-${site.id}`} site={site} />
+
           <ContratoCard key={site.id} site={site} />
 
           {/* Marcos */}

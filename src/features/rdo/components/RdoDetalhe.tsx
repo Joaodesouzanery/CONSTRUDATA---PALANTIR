@@ -118,6 +118,7 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
   const isCompizzo = rdo.template === 'compizzo' && !!rdo.compizzo
   const isWcr = rdo.template === 'wcr' && !!rdo.wcr
   const cz = rdo.compizzo
+  const temChecklistLegado = Object.values(cz?.servicos ?? {}).some(Boolean)
 
   // Identificação/contrato (campos do RDO padrão)
   const contrato = [
@@ -236,13 +237,15 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
             </div>
           </Section>
 
-          {/* Serviços do dia (checklist + extras + descrição) */}
-          <Section title="Serviços Executados no Dia" icon={<ListChecks size={15} className="text-[#f97316]" />}>
-            {(() => {
+          {/* ⚠️ LEGADO. O checklist de onze caixinhas foi substituído pelas Fases em 20/09/2026, e a
+              seção só aparece quando o RDO em questão TEM esse dado — RDO novo não tem, e um bloco
+              dizendo "nenhum serviço marcado" em todo documento novo seria ruído que ensina a
+              pular a leitura. O que o RDO novo mostra é a seção de Produção, logo abaixo. */}
+          {(temChecklistLegado || (cz.servicosExtra?.length ?? 0) > 0 || !!cz.descricaoServicos?.trim()) && (
+          <Section title={temChecklistLegado ? 'Serviços Executados no Dia' : 'Descrição dos serviços'} icon={<ListChecks size={15} className="text-[#f97316]" />}>
+            {temChecklistLegado && (() => {
               const marcados = Object.entries(cz.servicos ?? {}).filter(([, v]) => v).map(([k]) => COMPIZZO_SERVICOS[k] ?? k)
-              return marcados.length > 0
-                ? <div className="flex flex-wrap gap-1.5">{marcados.map((s) => <Chip key={s} tone="on">{s}</Chip>)}</div>
-                : <Empty>Nenhum serviço do checklist marcado.</Empty>
+              return <div className="flex flex-wrap gap-1.5">{marcados.map((s) => <Chip key={s} tone="on">{s}</Chip>)}</div>
             })()}
             {(cz.servicosExtra?.length ?? 0) > 0 && (
               <div className="mt-2 space-y-1">
@@ -256,6 +259,7 @@ export function RdoDetalhe({ rdo }: { rdo: RDO }) {
             )}
             {cz.descricaoServicos?.trim() && <p className="mt-2 text-sm text-[#a3a3a3] whitespace-pre-wrap">{cz.descricaoServicos}</p>}
           </Section>
+          )}
 
           {/* Produção + RUP */}
           {(() => {

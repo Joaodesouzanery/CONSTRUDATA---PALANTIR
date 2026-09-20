@@ -202,6 +202,56 @@ export interface ConstructionRisk {
   notes?: string
 }
 
+/**
+ * Uma fase do processo produtivo da obra — o catálogo que o RDO oferece e a meta acompanha.
+ *
+ * ⚠️ **Fase não é serviço de contrato.** O contrato diz "18.605 m² de piso epóxi por R$ 45,00";
+ * a fase diz COMO aqueles metros são entregues — lixamento, primer, pintura. Um serviço de
+ * contrato atravessa várias fases. Confundir os dois faria o mesmo metro ser faturado seis vezes.
+ *
+ * Viaja no payload jsonb da obra, sem migração (mesmo padrão de `contrato` e `raioPontoM`).
+ */
+export interface FaseDaObra {
+  id: string
+  nome: string
+  /** ⚠️ Piso é m², demarcação é METRO LINEAR, sinalização é unidade. Nunca se somam. */
+  unidade: 'm²' | 'm' | 'un'
+  ordem: number
+  ativa: boolean
+  /** Fatia do preço do piso pronto, no modo `peso`. A soma das ativas tem de dar 100. */
+  pesoPct?: number
+  /** Preço próprio da fase, no modo `preco-proprio`. R$ por unidade DELA. */
+  precoUnitario?: number
+}
+
+/**
+ * Como a metragem das fases vira dinheiro. Escolha por obra, e a tela diz por extenso qual vale.
+ *
+ * ⚠️ `peso` só funciona para fase de ÁREA: ele multiplica pelo `precoM2` da obra, e R$/m² aplicado
+ * a metro linear é exatamente o erro que `producaoCompizzo.ts` documenta. Fase de `m` ou `un`
+ * exige `preco-proprio`.
+ */
+export type ModoPrecoFases = 'peso' | 'preco-proprio'
+
+/**
+ * A meta de produção de um período — a metade que o contrato nunca teve.
+ *
+ * `obraMedicao.ts` já dizia por escrito: "o contrato guarda quantidade e preço, **não distribuição
+ * no tempo**". Isto é a distribuição no tempo.
+ *
+ * ⚠️ `de`/`ate` são explícitos, não um mês civil: medição de obra costuma fechar de 21 a 20, e
+ * forçar o calendário deixaria a meta e o faturamento falando de períodos diferentes.
+ */
+export interface MetaDoPeriodo {
+  id: string
+  /** `yyyy-MM-dd`, inclusivos. */
+  de: string
+  ate: string
+  rotulo?: string
+  /** Quantidade prevista por fase, na unidade DA FASE. Chave = `FaseDaObra.id`. */
+  porFase: Record<string, number>
+}
+
 export interface ConstructionSite {
   id: string
   projectId?: string | null  // vínculo opcional a um Project (bridge p/ EVM/Change Orders/Agenda)
@@ -288,6 +338,18 @@ export interface ConstructionSite {
    * sobrescrever por período — é o plano que conhece o recorte, a obra que conhece o contrato.
    */
   precoM2?: number
+
+  /**
+   * As fases do processo desta obra. Ausente = a obra ainda não configurou; o RDO oferece as
+   * padrão (`FASES_PADRAO`) e a Torre oferece criar o catálogo.
+   *
+   * Payload jsonb, sem migração.
+   */
+  fases?: FaseDaObra[]
+  /** Como a metragem das fases vira dinheiro. Padrão: `peso`. */
+  modoPrecoFases?: ModoPrecoFases
+  /** As metas de produção por período. Payload jsonb, sem migração. */
+  metas?: MetaDoPeriodo[]
 }
 
 /**
@@ -2522,6 +2584,13 @@ export interface RdoWcrData {
 // ─── RDO Compizzo (Demarcação e Pintura de Piso Industrial) ──────────────────────
 
 export interface RdoCompizzoProducaoRow {
+  /**
+   * A fase do catálogo da obra que esta linha avança (`FaseDaObra.id`).
+   *
+   * ⚠️ Opcional de propósito: RDO antigo não tem, e linha de serviço avulso ("outros") também
+   * não precisa ter. Quando existe, é por ela que a meta da Torre enxerga o realizado.
+   */
+  faseId?:    string
   servico:    string
   quantidade: string
   planningActivityId?:  string   // atividade-mestre que ESTA linha avança (várias atividades por RDO)
