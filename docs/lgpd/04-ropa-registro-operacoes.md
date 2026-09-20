@@ -41,6 +41,7 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 | OP-07 | Logs de acesso e auditoria (`audit_log`) | Obrigação legal (II) · Legítimo interesse — segurança (IX) |
 | OP-08 | Backups gerenciados | Legítimo interesse — continuidade/segurança (IX) |
 | OP-09 | Cadastro de mão de obra própria e terceirizada (Mão de Obra) | Execução de contrato de trabalho (V) · Obrigação legal trabalhista (II) |
+| OP-10 | Registro eletrônico de jornada com geolocalização (Ponto Eletrônico) | Obrigação legal trabalhista (II) — CLT art. 74 §2º |
 
 ---
 
@@ -190,6 +191,23 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 | **Direitos do titular** | Atendidos por `export_dados_titular` (chaves `funcionarios` e `equipes_como_encarregado`) e `anonimizar_dados_titular`, que redige os campos sem retenção e **também redige o `audit_log`** — o gatilho de auditoria grava o registro inteiro, então sem essa redação anonimizar espalharia o dado que deveria remover. |
 | **Medidas de segurança** | RLS por `organization_id`, escrita gateada por papel, TLS, criptografia em repouso, soft-delete, `audit_log`. Filtro de campos na importação, com lista exaustiva verificada em compilação. |
 
+### OP-10 — Registro eletrônico de jornada com geolocalização (Ponto Eletrônico)
+
+| Campo | Descrição |
+|---|---|
+| **Operação/Finalidade** | Registrar a jornada de trabalho (entrada, intervalo e saída) em sistema eletrônico, como exige o **CLT art. 74 §2º**, e comprovar que a marcação foi feita no local de trabalho. A posição do aparelho é usada para uma única decisão: a batida está dentro do raio da obra ou não. |
+| **Categorias de titulares** | Trabalhadores do controlador que registram ponto pelo aplicativo. |
+| **Categorias de dados** | Identificação do trabalhador (`worker_id`) e da conta que bateu (`auth_user_id`), tipo e instante da batida (hora do aparelho **e** hora do servidor), obra, **latitude, longitude e precisão do GPS no instante da marcação**, distância até a obra, resultado da cerca, justificativa escrita pelo próprio trabalhador quando a localização não pôde ser confirmada, e NSR (número sequencial de registro). |
+| **⚠️ O que é DELIBERADAMENTE não coletado** | **Rastreamento contínuo.** A posição é lida **apenas no toque do botão de bater ponto** — não há `watchPosition`, não há coleta em segundo plano, não há histórico de deslocamento. Fora desse instante o sistema não sabe onde o trabalhador está, e não tem como saber. Também **não** há biometria, foto, reconhecimento facial nem captura de rede/Wi-Fi. |
+| **Base legal** | **Obrigação legal** (art. 7º, II) — CLT art. 74 §2º e Portaria MTP 671/2021, que impõem o controle de jornada e a inalterabilidade do registro. A geolocalização apoia essa mesma obrigação (comprovação do local da marcação) e é **minimizada ao instante do evento** (art. 6º, III). |
+| **⚠️ Decisão do controlador registrada aqui** | O controlador optou por **bloquear** a marcação fora do raio configurado (padrão 5 km, ajustável por obra). O sistema **nunca bloqueia quando não sabe onde a pessoa está**: GPS negado, posição indisponível, precisão pior que o raio ou obra sem coordenada **registram a batida**, marcada para conferência e com justificativa do trabalhador. Bloquear nesses casos criaria buraco no registro de jornada — o oposto do que o art. 74 exige. |
+| **Compartilhamento/Subprocessadores** | Supabase (Postgres). Os relatórios de jornada são exportados **pelo controlador** (PDF/Excel) e por ele encaminhados à contabilidade; a plataforma não envia nada a terceiros por conta própria. |
+| **Transferência internacional** | Conforme a região do projeto Supabase ({{REGIAO_SUPABASE}}). |
+| **Prazo de retenção** | O registro de jornada segue o prazo trabalhista aplicável ({{RETENCAO_TRABALHISTA}}; a referência usual é **5 anos**, art. 7º XXIX da CF c/c CLT art. 11). ⚠️ **Retenção assimétrica:** a batida (quem, quando, onde-sim/onde-não) é prova e **não é apagada** a pedido — art. 16, II. A **coordenada bruta** (lat/lng/precisão) não é exigida pela lei trabalhista e pode ser eliminada antes, mantendo-se o resultado da cerca; essa política é decisão do controlador (ver §5). |
+| **Direitos do titular** | O trabalhador vê o próprio espelho de ponto no aplicativo (a policy de SELECT recorta pelas batidas dele) e pode **solicitar ajuste**, que nunca apaga a marcação original: o ajuste entra como registro novo, marcado, com autor e motivo. Acesso e portabilidade pelos mesmos canais das demais operações. |
+| **Medidas de segurança** | RLS por `organization_id` **e por titular**: o papel `colaborador` só insere batida com `auth_user_id = auth.uid()` **e** `worker_id` igual ao cadastro vinculado àquela conta, e só lê as próprias marcações. **DELETE bloqueado por policy**; UPDATE passa por gatilho que congela identidade, tipo e horas — nem o gestor reescreve a prova. NSR sequencial atribuído **pelo servidor**; hora do servidor gravada pelo Postgres no `insert` ao lado da hora do aparelho, com a diferença entre as duas registrada em coluna própria. `audit_log`, TLS e criptografia em repouso. |
+| **⚠️ Minimização, aplicada no banco** | O `colaborador` é a primeira conta do sistema que não é da gestão, e o padrão de leitura do projeto é amplo (policy de SELECT só por organização). Por isso existe uma **cerca de leitura** própria (`20260918160000_colaborador_so_o_ponto.sql`): policies restritivas fecham toda tabela com RLS para esse papel, menos as que ele precisa para trabalhar — e em `workers`, que carrega salário e valor-hora de toda a empresa, ele enxerga **apenas o próprio cadastro**. Sem isso, abrir a tela do ponto copiaria a base da empresa para o `localStorage` de um celular de canteiro, muitas vezes compartilhado. |
+
 ## 5. Lacunas a preencher (decisões do jurídico do controlador / fornecedor)
 
 **Placeholders a completar:**
@@ -209,5 +227,6 @@ Cada operação abaixo é uma **tabela** com os campos: **Operação/Finalidade 
 6. **Direitos por titular individual**: definir o processo interino (manual) enquanto export/exclusão/anonimização por titular estiver no roadmap; alinhar SLAs de atendimento entre controlador e operador.
 7. **Dado sensível**: reforçar por contrato/orientação que a plataforma **não** se destina a dado sensível; tratar exceções caso o controlador decida usá-las.
 8. **Lista de subprocessadores**: manter anexo atualizado no DPA e o fluxo de aprovação/comunicação de alterações.
-9. **Alinhar este ROPA do operador com o ROPA de cada controlador**, evitando duplicidade ou contradição de responsabilidades.
+9. **Geolocalização no ponto (OP-10)**: (a) confirmar a retenção da **coordenada bruta** — se ela cai antes dos 5 anos da batida, fixar o prazo e o rotineiro de eliminação; (b) aprovar o **aviso ao trabalhador** e, se o controlador entender aplicável, colher ciência formal (a base é obrigação legal, não consentimento — mas a transparência do art. 9º continua devida); (c) decidir se a política de **bloqueio fora do raio** consta do regulamento interno, já que ela pode impedir a marcação de quem trabalha legitimamente fora do canteiro.
+10. **Alinhar este ROPA do operador com o ROPA de cada controlador**, evitando duplicidade ou contradição de responsabilidades.
 

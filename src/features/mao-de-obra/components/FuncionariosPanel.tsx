@@ -13,6 +13,7 @@ import type { HistoricoDoFuncionario, DecisaoDeExclusao } from '@/lib/funcionari
 import { Autoria } from '@/components/shared/Autoria'
 import { EquipesSection } from './EquipesSection'
 import { CargosSection } from './CargosSection'
+import { VinculoContasSection } from './VinculoContasSection'
 
 type ObraOption = { id: string; code: string; name: string }
 
@@ -282,6 +283,15 @@ function ExpandedRow({ worker, crews }: { worker: Worker; crews: { id: string; n
       <div>
         <p className="text-[#adadad] mb-0.5">Local</p>
         <p className="text-[#f5f5f5]">{worker.locationNote || '—'}</p>
+      </div>
+      <div>
+        <p className="text-[#adadad] mb-0.5">Conta do ponto</p>
+        {/* Só sim/não: o e-mail da conta está na seção "Contas do Ponto Eletrônico", e repeti-lo
+            aqui faria a linha expandida virar o segundo lugar onde se confere um dado que só tem
+            um dono. O que importa nesta tela é se a pessoa CONSEGUE bater. */}
+        <p className={worker.authUserId ? 'text-[#4ade80]' : 'text-[#fbbf24]'}>
+          {worker.authUserId ? 'Vinculada' : 'Sem vínculo — não bate ponto'}
+        </p>
       </div>
       {worker.certifications.length > 0 && (
         <div className="col-span-2 md:col-span-4">
@@ -569,6 +579,15 @@ export function FuncionariosPanel() {
         addCargo={addCargo}
         updateCargo={updateCargo}
         removeCargo={removeCargo}
+        podeEscrever={permissao.pode}
+      />
+
+      {/* Contas do Ponto Eletrônico — o vínculo login ↔ cadastro. Fica aqui, e não numa aba
+          própria, porque é cadastro DA PESSOA: quem abre "Funcionários" para cadastrar alguém é
+          quem precisa lembrar de dar-lhe a conta do ponto. */}
+      <VinculoContasSection
+        workers={workers}
+        updateWorker={updateWorker}
         podeEscrever={permissao.pode}
       />
 

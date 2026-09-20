@@ -85,6 +85,36 @@ test('precisão ausente não impede a avaliação', () => {
   assert.equal(avaliarCerca({ lat: BERTIOGA.lat, lng: BERTIOGA.lng }, BERTIOGA, 300).dentro, true)
 })
 
+// ─── A precisão ENTRA NA CONTA, não serve só de veto ──────────────────────────
+// Um ponto a `m` metros ao norte de Bertioga (1 grau de latitude ≈ 111.320 m).
+const aoNorte = (m: number) => ({ lat: BERTIOGA.lat + m / 111_320, lng: BERTIOGA.lng })
+
+test('🔴 fora do raio, mas DENTRO da margem de erro: não bloqueia — o sistema não sabe', () => {
+  // 5,19 km medidos com 800 m de incerteza, cerca de 5 km. A pessoa pode estar a 4,4 km, dentro.
+  // Bloquear aqui é recusar a batida de quem está trabalhando na obra.
+  const r = avaliarCerca({ ...aoNorte(5200), precisaoM: 800 }, BERTIOGA, 5000)
+  assert.equal(r.dentro, null, 'nem dentro nem fora: incerto')
+  assert.equal(r.motivo, 'precisao-insuficiente')
+})
+
+test('🔴 fora do raio ALÉM da margem: aí sim bloqueia', () => {
+  // 6,49 km com 800 m de erro: mesmo no cenário mais favorável, 5,69 km — fora dos 5 km.
+  const r = avaliarCerca({ ...aoNorte(6500), precisaoM: 800 }, BERTIOGA, 5000)
+  assert.equal(r.dentro, false)
+  assert.ok((r.distanciaM ?? 0) > 6000, 'a distância medida vai junto, para a tela mostrar')
+})
+
+test('dentro do raio continua sendo "dentro", mesmo com precisão mediana', () => {
+  // 4,79 km com 800 m de erro. Exigir `distância + precisão <= raio` jogaria quem está no canteiro
+  // na justificativa obrigatória todo dia — e campo obrigatório diário vira "aaaaa" numa semana.
+  const r = avaliarCerca({ ...aoNorte(4800), precisaoM: 800 }, BERTIOGA, 5000)
+  assert.equal(r.dentro, true)
+})
+
+test('sem precisão informada, a borda não ganha margem nenhuma', () => {
+  assert.equal(avaliarCerca(aoNorte(5200), BERTIOGA, 5000).dentro, false)
+})
+
 // ─── Tradução do erro do navegador ────────────────────────────────────────────
 
 test('o erro do navegador vira motivo — os três códigos do padrão W3C', () => {

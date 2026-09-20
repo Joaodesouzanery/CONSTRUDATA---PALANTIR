@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import type { UserRole } from '@/types/database'
 import { LandingPage }       from '@/features/landing/LandingPage'
 import { Component, lazy, Suspense, type ReactNode } from 'react'
 
@@ -33,6 +34,7 @@ const QuantitativosPage     = lazy(() => import('@/features/quantitativos/index'
 const EvmPage               = lazy(() => import('@/features/evm/index').then((m) => ({ default: m.EvmPage })))
 const MinhaRotinaPage       = lazy(() => import('@/features/minha-rotina/index').then((m) => ({ default: m.MinhaRotinaPage })))
 const ComandoCentralPage    = lazy(() => import('@/features/comando-central/index').then((m) => ({ default: m.ComandoCentralPage })))
+const PontoPage             = lazy(() => import('@/features/ponto/index').then((m) => ({ default: m.PontoPage })))
 const MedicaoPage           = lazy(() => import('@/features/medicao/index').then((m) => ({ default: m.MedicaoPage })))
 const EconomiaPage          = lazy(() => import('@/features/economia/index').then((m) => ({ default: m.EconomiaPage })))
 const ProcessosPage         = lazy(() => import('@/features/processos/index').then((m) => ({ default: m.ProcessosPage })))
@@ -96,10 +98,25 @@ class ModuleErrorBoundary extends Component<{ children: ReactNode }, { hasError:
    começaria a baixar DEPOIS do round-trip do Supabase. Disparar o import aqui (no render, não
    em efeito — a subárvore suspende e os efeitos não commitam) paraleliza os dois downloads.
    O import é deduplicado pelo registry de módulos. */
+/**
+ * Os papéis que enxergam o sistema.
+ *
+ * ⚠️ `colaborador` NÃO está aqui: ele só alcança `/app/ponto`. É o primeiro uso da prop `roles` do
+ * `AuthGuard` — ela existia, implementada e testável, e nunca tinha sido passada por ninguém.
+ *
+ * ⚠️ E o redirecionamento do guard precisa levar o colaborador para `/app/ponto`, não para
+ * `minha-rotina`: mandá-lo para uma tela que ele também não pode ver faria o guard redirecionar de
+ * novo, em laço.
+ */
+const PAPEIS_DO_SISTEMA: UserRole[] = [
+  'owner', 'diretor', 'gerente', 'engenheiro', 'qualidade', 'planejador',
+  'comprador', 'visualizador', 'sindico', 'zelador', 'morador',
+]
+
 function AppShellRoute() {
   void importAppShell()
   return (
-    <AuthGuard>
+    <AuthGuard roles={PAPEIS_DO_SISTEMA} redirecionarPara="/app/ponto">
       <AppShell />
     </AuthGuard>
   )
@@ -135,6 +152,11 @@ function App() {
         {/* QR público de chamado — SEM AuthGuard/AppShell (rota anônima, morador abre chamado). */}
         <Route path="/chamado/:slug" element={<LazyRoute><ChamadoPublicoPage /></LazyRoute>} />
         <Route path="/mfa/ativar"   element={<LazyRoute><AuthGuard><AuthPage mode="mfa-setup" /></AuthGuard></LazyRoute>} />
+
+        {/* ⚠️ O PONTO fica FORA do AppShell, no modelo do /chamado/:slug: é a única tela feita para
+            quem NÃO usa o sistema. O funcionário abre, bate e fecha — sem menu, sem 24 módulos
+            para esconder. O gestor vê o espelho dentro de Mão de Obra. */}
+        <Route path="/app/ponto" element={<LazyRoute><AuthGuard><PontoPage /></AuthGuard></LazyRoute>} />
 
         {/* App shell with all dashboard routes prefixed by /app - protegido por AuthGuard */}
         <Route path="/app" element={<LazyRoute><AppShellRoute /></LazyRoute>}>

@@ -15,6 +15,7 @@ import { LINKEDIN_URL, INSTAGRAM_URL } from '@/lib/socialLinks'
 import { useAppModeStore } from '@/store/appModeStore'
 import { useSidebarPinsStore } from '@/store/sidebarPinsStore'
 import { useAuth } from '@/lib/auth'
+import { usePapelDaOrgAtiva } from '@/lib/roles'
 import { useAlertCounts } from '@/hooks/useAlertCounts'
 import { FeedbackModal } from './FeedbackModal'
 import { OrganizationSwitcher } from './OrganizationSwitcher'
@@ -105,7 +106,6 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const alertCounts = useAlertCounts()
   const { pinnedPaths, togglePin, isPinned, movePin } = useSidebarPinsStore()
-  const profile = useAuth((state) => state.profile)
 
   const [isOpen, setIsOpen] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_KEY) !== 'false' } catch { return true }
@@ -116,8 +116,14 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   // Resolve pinned items from NAV_GROUPS
   const canUseGlobalAdmin = useAuth((state) => state.isGlobalAdmin)
+  // ⚠️ O papel vem da MEMBERSHIP da empresa ativa, não de `profile.role`. Os dois divergem para
+  // quem trabalha em duas empresas: `profiles.role` é a sombra do papel na empresa ativa daquela
+  // pessoa, e é o que `podeEscrever()` deixou de consultar justamente por isso. Com o campo antigo,
+  // um diretor da WCR que também é visualizador noutra empresa perdia "Auditoria" ao trocar — e o
+  // contrário também acontecia.
+  const papel = usePapelDaOrgAtiva()
   const visibleGroups = NAV_GROUPS
-    .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || profile?.role === 'owner') && (!('diretoriaOnly' in item) || profile?.role === 'owner' || profile?.role === 'diretor')) }))
+    .map((group) => ({ ...group, items: group.items.filter((item) => (!('adminOnly' in item) || canUseGlobalAdmin) && (!('ownerOnly' in item) || papel === 'owner') && (!('diretoriaOnly' in item) || papel === 'owner' || papel === 'diretor')) }))
     .filter((group) => group.items.length > 0)
   const allItems = visibleGroups.flatMap((g) => g.items)
   const pinnedItems = pinnedPaths

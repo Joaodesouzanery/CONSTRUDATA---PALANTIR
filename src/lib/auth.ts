@@ -101,6 +101,9 @@ async function resetTenantScopedRuntimeStores(organizationId?: string): Promise<
     import('@/features/operacional/sabespStore').then((m) => m.useSabespStore),
     import('@/store/operacaoCampoStore').then((m) => m.useOperacaoCampoStore),
     import('@/store/otimizacaoFrotaStore').then((m) => m.useOtimizacaoFrotaStore),
+    // ⚠️ Sem estar aqui, trocar de empresa deixaria a batida da empresa anterior na tela do
+    // funcionário — e o `clearData` do ponto preserva a fila de propósito.
+    import('@/store/pontoStore').then((m) => m.usePontoStore),
     import('@/store/planejamentoMestreStore').then((m) => m.usePlanejamentoMestreStore),
     import('@/store/planejamentoRestricoesStore').then((m) => m.usePlanejamentoRestricoesStore),
     import('@/store/planejamentoStore').then((m) => m.usePlanejamentoStore),
@@ -365,7 +368,16 @@ export function hasRole(...allowed: UserRole[]): boolean {
  * então uma criação vira op presa para sempre no pendingSync. Use para esconder/guardar
  * ações de criação e edição (evita a armadilha de onboarding). Sem perfil = não escreve.
  */
+/**
+ * ⚠️ Lista de EXCLUSÃO, e por isso ela precisa crescer junto com os papéis.
+ *
+ * `colaborador` (o do ponto eletrônico) passaria despercebido: ele não está em nenhuma lista
+ * `ROLES_*_WRITE`, então toda escrita do app o barra — menos esta função, que pergunta ao contrário
+ * e deixa passar quem não foi lembrado. Papel novo que não escreve entra AQUI também.
+ */
+const PAPEIS_SEM_ESCRITA: readonly string[] = ['visualizador', 'colaborador']
+
 export function canWrite(): boolean {
   const profile = useAuth.getState().profile
-  return !!profile && profile.role !== 'visualizador'
+  return !!profile && !PAPEIS_SEM_ESCRITA.includes(profile.role)
 }

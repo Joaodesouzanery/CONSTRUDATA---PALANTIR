@@ -103,6 +103,49 @@ duas vezes quebrava). **Reaplique.**
 > **A regra que fica:** toda tabela nova que a fila de sincronização toca precisa de `created_by`,
 > mesmo que a policy dela use outra coluna para autoria. É contrato implícito do `fixOrg`.
 
+### 🆕 19/09/2026 — Ponto Eletrônico (três, **nesta ordem**)
+
+⚠️ **A ordem não é preferência, é exigência do Postgres.** A primeira acrescenta o valor
+`colaborador` ao enum `user_role`; as outras duas USAM esse valor. O Postgres recusa usar um valor
+de enum na mesma transação em que ele foi criado — rodar as três coladas falha na segunda.
+
+| # | Arquivo | O que cria | Sem ela |
+|---|---|---|---|
+| 1 | `20260918140000_user_role_colaborador` | o papel `colaborador` no enum | as outras duas nem rodam |
+| 2 | `20260918150000_ponto_registros` | a tabela das batidas, NSR, RLS, gatilhos | 🔴 a batida fica presa na fila para sempre (PGRST205, silencioso) |
+| 3 | `20260918160000_colaborador_so_o_ponto` | a **cerca de leitura** do colaborador | 🔴 o celular do canteiro baixa a empresa inteira — salário dos colegas incluído |
+
+**Depois das três**, o caminho continua fora do SQL Editor: criar a conta de cada funcionário no
+painel do Auth e rodar **`docs/PONTO_CRIAR_COLABORADORES.sql`** (receita pronta, idempotente) para
+dar-lhes a membership; por fim, amarrar conta ↔ cadastro em **Mão de Obra › Funcionários › Contas
+do Ponto Eletrônico**. Sem esse último passo a pessoa abre a tela e lê *"sua conta ainda não está
+ligada a um cadastro de funcionário"*.
+
+⚠️ **A número 3 é a que não dá para pular.** Assim que qualquer conta entra, o `refreshProfile`
+dispara `syncAllTenantStores()` e todos os stores baixam a empresa para o `localStorage` do
+aparelho. O cliente já recorta isso por papel (`defsDoPapel`, em `appModeStore.ts`), mas quem
+precisa segurar é a RLS: o padrão do projeto é **leitura ampla** — quase toda policy de SELECT diz
+só `organization_id = public.user_org()`, sem olhar papel. Para os onze papéis que administram a
+obra isso é intencional; o `colaborador` é a primeira conta do sistema que **não é da gestão**.
+
+A migração resolve com policy **restritiva** (somada com `AND` a tudo que já existe, sem reescrever
+policy nenhuma), aplicada por varredura a toda tabela com RLS menos sete exceções. `workers` é a
+exceção interessante: o colaborador vê **a própria linha e mais nenhuma**, porque é essa tabela que
+carrega `grossSalary` e `hourlyRate` de todo mundo dentro do `payload`.
+
+⚠️ **Rode a 3 de novo depois de criar tabelas novas.** Ela varre o schema no momento em que roda;
+tabela criada depois nasce liberada — é o preço consciente de não reescrever 40 migrações.
+
+⚠️ **Se você aplicou a `20260918150000` antes de 19/09, reaplique.** A primeira versão tinha um
+gatilho de NSR que **não roda**: `select max(nsr) ... for update` é recusado pelo Postgres
+("FOR UPDATE is not allowed with aggregate functions"), então **todo insert de batida falharia**.
+A versão corrigida serializa com `pg_advisory_xact_lock` por organização. Junto vieram: a amarra de
+`worker_id` ao vínculo da conta (sem ela, `auth_user_id` sozinho deixa a batida sair com a conta
+certa e o funcionário errado), o gatilho que congela hora/tipo/dono em qualquer UPDATE, a policy de
+UPDATE do autor — sem a qual o reenvio de uma batida cujo ACK se perdeu devolve 42501 para sempre,
+porque todo insert do `storeSync` é `upsert` —, e a coluna `divergencia_relogio_s`. Tudo com
+`if not exists` / `drop ... if exists`: reaplicar é seguro.
+
 ### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
 
 Liga a auditoria em **toda tabela de negócio**: gatilho genérico gravando na `audit_log` (que já

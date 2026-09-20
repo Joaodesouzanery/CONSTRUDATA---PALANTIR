@@ -74,6 +74,25 @@ export interface LeituraDeLocal {
  * Só devolve `dentro: false` quando o sistema **sabe** que está fora: obra com coordenada, leitura
  * existente e precisa o bastante, e distância acima do raio. Em qualquer outro caso devolve `null`
  * com o motivo — e quem chama decide (a regra do projeto é registrar marcado, nunca recusar).
+ *
+ * ─── A PRECISÃO ENTRA NA CONTA, NÃO SÓ NO VETO ────────────────────────────────
+ * ⚠️ `precisaoM` é o raio de incerteza que o próprio aparelho declara: a posição verdadeira está
+ * em algum ponto dentro dele. Usá-la só para desistir quando é grande demais, e depois comparar a
+ * distância como se fosse exata, produz os dois erros que a cerca não pode cometer:
+ *
+ *  · **bloquear quem está na obra** — 5,2 km medidos com 800 m de erro numa cerca de 5 km. Pode
+ *    perfeitamente estar a 4,4 km, dentro. Bloquear é recusar a batida de quem está trabalhando.
+ *  · **carimbar "dentro" sem base** — 4,8 km com o mesmo erro. Pode estar a 5,6 km, fora.
+ *
+ * As duas bordas são tratadas de forma DIFERENTE, de propósito, porque erram para lados diferentes:
+ *
+ *  · `false` (bloqueia) exige certeza: só quando nem o cenário mais favorável salva a pessoa —
+ *    `distância − precisão > raio`.
+ *  · `true` continua generoso (`distância <= raio`): exigir `distância + precisão <= raio` faria
+ *    quem está no canteiro com GPS mediano cair todo dia na justificativa obrigatória, e campo
+ *    obrigatório que se preenche todo dia vira "aaaaa" numa semana.
+ *  · no meio — fora do raio mas dentro da margem de erro — o sistema **não sabe**, e dizer isso é
+ *    a resposta certa: registra marcado para conferência.
  */
 export function avaliarCerca(
   leitura: LeituraDeLocal | null,
@@ -91,7 +110,14 @@ export function avaliarCerca(
     return { dentro: null, distanciaM: distancia, motivo: 'precisao-insuficiente' }
   }
 
-  return { dentro: distancia <= raioM, distanciaM: distancia }
+  if (distancia <= raioM) return { dentro: true, distanciaM: distancia }
+
+  const margem = leitura.precisaoM ?? 0
+  if (distancia - margem <= raioM) {
+    return { dentro: null, distanciaM: distancia, motivo: 'precisao-insuficiente' }
+  }
+
+  return { dentro: false, distanciaM: distancia }
 }
 
 /** Erro do `navigator.geolocation` → motivo nosso. O código 1/2/3 é do padrão W3C. */

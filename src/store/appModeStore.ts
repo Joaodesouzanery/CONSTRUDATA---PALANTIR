@@ -7,6 +7,8 @@
  */
 import { create } from 'zustand'
 import { isNonProductionDataMode } from '@/lib/runtimeMode'
+import { useAuth } from '@/lib/auth'
+import { papelDaOrgAtiva } from '@/lib/roles'
 import {
   destravarAgenda, proximoVencimento, opsQuePedemAtencao, agendamentoDaOp,
   opsEstacionadas, opsEsperando,
@@ -106,6 +108,8 @@ const STORE_KEYS = [
   'cdata-manutencoes', 'cdata-laudos', 'cdata-dias-sem-producao', 'cdata-user-routine', 'cdata-plano-execucao', 'cdata-servicos',
   'cdata-manejo-financeiro', 'cdata-rotinas', 'cdata-rateio-consumo',
   'cdata-fcp',
+  // A batida de ponto é registro de jornada: ligar o Modo Demo não pode apagá-la.
+  'cdata-ponto',
   // A obra SELECIONADA também é dado do usuário. Ela entra aqui ANTES de o store ser zerado na
   // cascata abaixo — a ordem é a mesma lição do `cd9e7a3`: sem a chave no snapshot, zerar na
   // cascata perderia a seleção para sempre.
@@ -222,6 +226,7 @@ async function restoreUserData() {
       import('./laudosStore').then(m => m.useLaudosStore),
       import('./diasSemProducaoStore').then(m => m.useDiasSemProducaoStore),
       import('./rotinasStore').then(m => m.useRotinasStore),
+      import('./pontoStore').then(m => m.usePontoStore),
     ])
     // Passo 2: zerar a memória. Isto grava vazio no localStorage de cada store — de propósito,
     // porque o passo 3 sobrescreve logo em seguida com o dado real.
@@ -307,10 +312,33 @@ const TENANT_STORE_DEFS: Array<{ key: string; label: string; load: () => Promise
   // não as encontrava. E os rótulos `rotinas` / `rotinas concluídas` já tinham sido adicionados ao
   // indicador — rótulos que nunca podiam aparecer, porque o store não era consultado.
   { key: 'rotinas', label: 'Rotinas da Empresa', load: () => import('./rotinasStore').then(m => m.useRotinasStore as unknown as TenantStoreApi) },
+  // ⚠️ Estar aqui é o que faz a batida feita sem rede EXISTIR para o resto do sistema: é esta
+  // lista que o indicador de sincronização conta, que o "Tentar novamente" reenvia, que o
+  // `flushAllTenantStores()` sobe antes de limpar cache e que o `pullRealData()` baixa no login.
+  { key: 'ponto', label: 'Ponto Eletrônico', load: () => import('./pontoStore').then(m => m.usePontoStore as unknown as TenantStoreApi) },
 ]
 
 async function getAllTenantStores(): Promise<Array<{ getState: () => TenantSyncState }>> {
-  return Promise.all(TENANT_STORE_DEFS.map((d) => d.load()))
+  return Promise.all(defsDoPapel().map((d) => d.load()))
+}
+
+/**
+ * Quais stores este papel sincroniza.
+ *
+ * ⚠️ O `colaborador` sincroniza UM: o ponto. Sem este recorte, abrir a tela de bater ponto no
+ * celular do canteiro puxava a empresa inteira para o `localStorage` do aparelho — cadastro dos
+ * colegas com salário, financeiro, medições. O gatilho é o `refreshProfile`, que chama
+ * `syncAllTenantStores()` para qualquer conta com organização ativa, sem olhar papel.
+ *
+ * A trava de verdade é a RLS (`20260918160000_colaborador_so_o_ponto.sql`, policies restritivas
+ * que devolvem vazio para esse papel). Esta lista é a metade do cliente: com a RLS aplicada, sem
+ * ela, seriam ~40 consultas por login para receber 40 listas vazias num aparelho de canteiro.
+ */
+function defsDoPapel(): typeof TENANT_STORE_DEFS {
+  const { profile, memberships } = useAuth.getState()
+  const papel = papelDaOrgAtiva({ profile, memberships })
+  if (papel !== 'colaborador') return TENANT_STORE_DEFS
+  return TENANT_STORE_DEFS.filter((d) => d.key === 'ponto')
 }
 
 /** Diagnóstico por módulo: só os que têm pendências ou erro, com a mensagem real. */
@@ -545,8 +573,11 @@ export async function pendenciasQuePedemAtencao(): Promise<PendenciaBloqueada[]>
 async function pullRealData() {
   const stores = await getAllTenantStores()
   await Promise.allSettled(stores.map((store) => store.getState().pull?.()))
-  const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
-  await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+  // Fora de TENANT_STORE_DEFS: tem carga própria. Segue o mesmo recorte de papel.
+  if (defsDoPapel().length === TENANT_STORE_DEFS.length) {
+    const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
+    await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+  }
 }
 
 /**
@@ -581,8 +612,11 @@ export async function syncAllTenantStores(): Promise<void> {
   //    fazia UMA op presa congelar o pull daquela tabela para sempre — o usuário nunca
   //    mais via o que os colegas cadastravam, sem sintoma nenhum.
   await Promise.allSettled(stores.map((s) => s.getState().pull?.()))
-  const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
-  await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+  // Fora de TENANT_STORE_DEFS: tem carga própria. Segue o mesmo recorte de papel.
+  if (defsDoPapel().length === TENANT_STORE_DEFS.length) {
+    const { useMedicaoBillingStore } = await import('./medicaoBillingStore')
+    await useMedicaoBillingStore.getState().loadRemote().catch(() => undefined)
+  }
 }
 
 const savedRaw = localStorage.getItem(STORAGE_KEY)

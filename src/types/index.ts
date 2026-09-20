@@ -252,6 +252,15 @@ export interface ConstructionSite {
   expectedEnd: string   // yyyy-MM-dd
   lat: number | null
   lng: number | null
+  /**
+   * Raio da cerca virtual do ponto eletrônico, em metros. Ausente = usa o padrão da organização
+   * (`CLTSettings.raioPontoPadraoM`, 5 km).
+   *
+   * ⚠️ 5 km é grande de propósito: as equipes deste cliente rodam a cidade inteira fazendo
+   * manutenção de rede, e a "obra" não é um canteiro fixo. Onde for canteiro, baixe para algumas
+   * centenas de metros — aí a cerca passa a valer de verdade. Payload jsonb, sem migração.
+   */
+  raioPontoM?: number
   risks: ConstructionRisk[]
   budgetLines?: ConstructionBudgetLine[]
   planningMilestones?: ConstructionMilestone[]
@@ -1228,6 +1237,90 @@ export interface HoraExtra {
   createdAt: string
 }
 
+/** Os quatro momentos de uma jornada. A ordem importa: é dela que sai o intervalo. */
+export type TipoDeBatida = 'entrada' | 'inicio_intervalo' | 'fim_intervalo' | 'saida'
+
+/** Por que a cerca não pôde ser avaliada nesta batida. Espelha `MotivoSemCerca` de `lib/geo.ts`. */
+export type MotivoSemCercaNaBatida =
+  | 'permissao-negada' | 'posicao-indisponivel' | 'tempo-esgotado'
+  | 'precisao-insuficiente' | 'obra-sem-coordenada'
+
+/**
+ * UMA batida de ponto — o instante em que alguém registrou entrada, intervalo ou saída.
+ *
+ * ─── POR QUE UMA ENTIDADE NOVA ────────────────────────────────────────────────
+ * Nem `Shift` nem `TimecardEntry` servem, e a diferença não é de campo, é de natureza:
+ *
+ *  · `Shift` é a escala **planejada** — `startTime`/`endTime` são um intervalo previsto e o
+ *    `status` nasce `scheduled`. Sobrescrevê-lo com o realizado apagaria o planejado, e é da
+ *    comparação entre os dois que saem atraso, hora extra e aderência.
+ *  · `TimecardEntry` é **produção** — quantas horas numa atividade e quanto rendeu. Não tem
+ *    instante nenhum.
+ *
+ * ⚠️ E este registro tem peso jurídico (CLT art. 74, Portaria 671). Três cuidados que o resto do
+ * sistema não precisava ter:
+ *
+ * 1. **A identidade mora aqui, não em `created_by`.** O `fixOrg` do `storeSync` reescreve
+ *    `created_by` para quem está sincronizando — num celular compartilhado no canteiro, a batida
+ *    de um sairia atribuída a outro. Para cartão de ponto isso é falsificação.
+ * 2. **Duas horas, sempre.** A do aparelho é falsificável (basta mudar o relógio); a do servidor é
+ *    gravada pelo Postgres no insert. Guardar as duas deixa a divergência visível.
+ * 3. **NSR sequencial por organização**, atribuído por gatilho no servidor — não dá para numerar
+ *    offline sem dois aparelhos colidirem.
+ */
+export interface RegistroDePonto {
+  id: string
+  /** O funcionário. Sai do `Worker.authUserId` de quem está logado — nunca de nome. */
+  workerId: string
+  /** A conta logada no momento da batida. Redundante de propósito: é a prova. */
+  authUserId: string
+  siteId: string | null
+  tipo: TipoDeBatida
+  /** `yyyy-MM-dd` local — o dia a que a batida pertence. */
+  data: string
+  /** ISO do relógio do APARELHO. Falsificável; por isso nunca anda sozinho. */
+  momentoDispositivo: string
+  /** ISO gravado pelo SERVIDOR no insert. Ausente enquanto a batida está só na fila. */
+  momentoServidor?: string
+  /**
+   * Segundos entre a hora do servidor e a do aparelho, calculados pelo gatilho no insert.
+   *
+   * ⚠️ Guardar as duas horas e nunca compará-las é o mesmo que não ter a segunda. POSITIVO é
+   * normal — a batida ficou na fila e subiu depois. NEGATIVO é o sinal: o aparelho afirma ter
+   * batido no FUTURO do servidor, e isso só acontece com relógio adulterado.
+   */
+  divergenciaRelogioS?: number
+  lat?: number
+  lng?: number
+  /** Raio de incerteza informado pelo aparelho, em metros. */
+  precisaoM?: number
+  /** Metros até o centro da obra. Ausente quando não deu para medir. */
+  distanciaM?: number
+  /** `true` dentro, `false` fora; ausente quando não deu para avaliar (ver `motivoSemCerca`). */
+  dentroDaCerca?: boolean
+  motivoSemCerca?: MotivoSemCercaNaBatida
+  /** Obrigatória quando a cerca não pôde ser avaliada — é o que o gestor lê ao conferir. */
+  justificativa?: string
+  /** Sequencial por organização, do servidor (Portaria 671). Ausente até sincronizar. */
+  nsr?: number
+  /** `app` = a pessoa bateu; `ajuste` = o gestor corrigiu ou incluiu depois. */
+  origem: 'app' | 'ajuste'
+  ajustadoPor?: string
+  ajustadoEm?: string
+  motivoAjuste?: string
+  /**
+   * Qual batida este ajuste corrige. Ausente quando o ajuste INCLUI uma marcação que nunca houve
+   * (o caso mais comum: esqueceu de bater a saída).
+   *
+   * ⚠️ Sem este campo, "o ajuste preserva a original" é verdade no banco e mentira na leitura: as
+   * duas linhas apareceriam lado a lado no espelho sem nada dizendo qual substitui qual, e a
+   * conferência viraria adivinhação. Ele nasce aqui, e não depois, porque mudar a forma de um
+   * registro que já é prova é bem pior do que acertá-la antes da primeira linha existir.
+   */
+  corrigeId?: string
+  createdAt: string
+}
+
 export interface LaborOccurrence {
   id: string
   date: string           // yyyy-MM-dd
@@ -1525,6 +1618,11 @@ export interface CLTSettings {
   vaCoparticipacaoPct?: number
   /** % de desconto do VT sobre o salário base. A lei limita a 6%. */
   vtDescontoPct?: number
+
+  /** Raio padrão da cerca do ponto, em metros, para obra que não define o seu. Padrão 5000. */
+  raioPontoPadraoM?: number
+  /** Minutos de tolerância ao comparar a batida com o turno previsto (art. 58 §1º: 5 + 5). */
+  toleranciaPontoMin?: number
 
   /**
    * Teto de custo mensal de RH que dispara o alerta de estouro no RH Financeiro.

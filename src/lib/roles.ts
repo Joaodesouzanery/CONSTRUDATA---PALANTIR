@@ -204,6 +204,35 @@ function avaliarPermissao(
   return { pode: true }
 }
 
+/**
+ * O papel que vale NESTA empresa — o mesmo que `podeEscrever` consulta, e o mesmo que a RLS lê.
+ *
+ * ⚠️ Não é `profile.role`. Os dois divergem de verdade: `profiles.role` é a sombra do papel na
+ * empresa ATIVA daquela pessoa, e quem trabalha em duas empresas carrega o papel da outra até
+ * trocar. A receita de SQL que cria colaborador (`docs/PONTO_CRIAR_COLABORADORES.sql`) sequer
+ * mexe no perfil de quem já tem um — de propósito, para não arrancar alguém da empresa onde está.
+ * Um guard de rota lendo o campo errado deixa entrar quem devia barrar, e barra quem devia entrar.
+ *
+ * Devolve `null` quando não dá para saber (sem perfil). A membership sintética (`profile-…`) conta:
+ * ela É o `profiles.role`, e para NAVEGAR isso basta — quem não pode deixar passar suposição é a
+ * escrita, e essa já é tratada em `avaliarPermissao`.
+ */
+export function papelDaOrgAtiva(
+  estado: { profile: Profile | null; memberships: OrgMembership[] },
+): UserRole | null {
+  const { profile, memberships } = estado
+  if (!profile) return null
+  const daOrg = memberships.find((m) => m.organization_id === profile.organization_id)
+  return daOrg?.role ?? profile.role ?? null
+}
+
+/** Versão reativa, para componentes e guards de rota. */
+export function usePapelDaOrgAtiva(): UserRole | null {
+  const profile = useAuth((s) => s.profile)
+  const memberships = useAuth((s) => s.memberships)
+  return papelDaOrgAtiva({ profile, memberships })
+}
+
 /** Atalhos por módulo, para o chamador não repetir a lista de papéis. */
 export const podeEscreverMaoDeObra   = () => podeEscrever(ROLES_MAO_DE_OBRA_WRITE)
 export const podeEscreverRdo         = () => podeEscrever(ROLES_RDO_WRITE)
