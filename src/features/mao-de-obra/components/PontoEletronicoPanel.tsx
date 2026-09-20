@@ -11,7 +11,7 @@
  */
 import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Clock, AlertTriangle, MapPin, CheckCircle2, Users } from 'lucide-react'
+import { Clock, AlertTriangle, MapPin, CheckCircle2, Users, PencilLine } from 'lucide-react'
 import { usePontoStore } from '@/store/pontoStore'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
 import { usePlanejamentoStore } from '@/store/planejamentoStore'
@@ -19,14 +19,18 @@ import {
   jornadasDoPeriodo, conferirJornadasCLT, TEXTO_DA_PENDENCIA,
   type Jornada, type PendenciaDaJornada,
 } from '@/features/ponto/jornada'
+import { RelatoriosDoPontoPanel } from './RelatoriosDoPontoPanel'
+import { AjusteDeBatidaDialog } from './AjusteDeBatidaDialog'
 import { cn, hojeLocalISO } from '@/lib/utils'
-import type { Worker } from '@/types'
+import { saldoDoPeriodo } from '../utils/bancoDeHoras'
+import type { CLTSettings, Worker, WorkerAbsence } from '@/types'
 
-type Visao = 'espelho' | 'conferencia'
+type Visao = 'espelho' | 'conferencia' | 'relatorios'
 
 const VISOES: Array<{ id: Visao; rotulo: string; ajuda: string }> = [
   { id: 'espelho',     rotulo: 'Espelho do mês', ajuda: 'Uma pessoa, um mês — o documento do art. 74' },
   { id: 'conferencia', rotulo: 'Conferência',    ajuda: 'O que precisa de decisão do gestor, na obra inteira' },
+  { id: 'relatorios',  rotulo: 'Relatórios',     ajuda: 'Espelho e banco de horas em PDF e Excel' },
 ]
 
 /** `yyyy-MM` → primeiro e último dia. */
@@ -52,8 +56,8 @@ export function PontoEletronicoPanel() {
   const [workerId, setWorkerId] = useState('')
 
   const registros = usePontoStore(useShallow((s) => s.registros))
-  const { workers, cltSettings } = useMaoDeObraStore(
-    useShallow((s) => ({ workers: s.workers, cltSettings: s.cltSettings })),
+  const { workers, cltSettings, absences } = useMaoDeObraStore(
+    useShallow((s) => ({ workers: s.workers, cltSettings: s.cltSettings, absences: s.absences })),
   )
   const holidays = usePlanejamentoStore(useShallow((s) => s.holidays))
 
@@ -101,8 +105,13 @@ export function PontoEletronicoPanel() {
           workers={comPonto} workerId={workerId} setWorkerId={setWorkerId}
           jornadas={jornadas} de={de} ate={ate}
         />
+      ) : visao === 'conferencia' ? (
+        <Conferencia
+          workers={comPonto} jornadas={jornadas} violacoes={violacoes} absences={absences}
+          cltSettings={cltSettings} feriados={feriados} de={de} ate={ate}
+        />
       ) : (
-        <Conferencia workers={comPonto} jornadas={jornadas} violacoes={violacoes} />
+        <RelatoriosDoPontoPanel jornadas={jornadas} workers={comPonto} de={de} ate={ate} />
       )}
     </div>
   )
@@ -244,19 +253,61 @@ function Pendencias({ lista }: { lista: PendenciaDaJornada[] }) {
 
 // ─── Conferência ──────────────────────────────────────────────────────────────
 
-function Conferencia({ workers, jornadas, violacoes }: {
+function Conferencia({ workers, jornadas, violacoes, absences, cltSettings, feriados, de, ate }: {
   workers: Worker[]
   jornadas: Jornada[]
   violacoes: ReturnType<typeof conferirJornadasCLT>
+  absences: WorkerAbsence[]
+  cltSettings: CLTSettings
+  feriados: ReadonlySet<string>
+  de: string
+  ate: string
 }) {
+  const [ajustando, setAjustando] = useState<Jornada | null>(null)
   const nome = useMemo(() => new Map(workers.map((w) => [w.id, w.name])), [workers])
   const pendentes = useMemo(
     () => jornadas.filter((j) => j.pendencias.length > 0),
     [jornadas],
   )
 
+  // ⚠️ O LEMBRETE possível sem PWA. Jornada aberta de um dia que já passou é alguém que foi embora
+  // sem bater a saída — e cada dia que passa torna mais difícil lembrar a hora certa. Notificação
+  // com o aplicativo fechado exigiria service worker, que foi decidido ficar de fora; este aviso
+  // na tela de quem confere é o que dá para prometer e cumprir.
+  const abertasDeOntem = useMemo(
+    () => pendentes.filter((j) => j.pendencias.includes('sem-saida') && j.data < hojeLocalISO()),
+    [pendentes],
+  )
+
+  /** Dia em que a pessoa devia trabalhar, não bateu nada, e ninguém registrou ausência. */
+  const semJustificativa = useMemo(() => {
+    const comAusencia = new Set(absences.map((a) => `${a.workerId}|${a.date}`))
+    const out: Array<{ workerId: string; data: string; previstoMin: number }> = []
+    for (const w of workers) {
+      const minhas = jornadas.filter((j) => j.workerId === w.id)
+      const saldo = saldoDoPeriodo(w, minhas, de, ate, cltSettings, feriados)
+      for (const d of saldo.dias) {
+        if (d.foraDaConta || d.previstoMin === 0 || d.trabalhadoMin > 0) continue
+        if (comAusencia.has(`${w.id}|${d.data}`)) continue
+        if (d.data > hojeLocalISO()) continue  // o futuro ainda não faltou
+        out.push({ workerId: w.id, data: d.data, previstoMin: d.previstoMin })
+      }
+    }
+    return out.sort((a, b) => a.data.localeCompare(b.data))
+  }, [workers, jornadas, absences, cltSettings, feriados, de, ate])
+
   return (
     <div className="flex flex-col gap-4">
+      {abertasDeOntem.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-[#ef4444]/40 bg-[#ef4444]/10 px-4 py-3 text-xs leading-5 text-[#fca5a5]">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>
+            <b>{abertasDeOntem.length} jornada(s) de dias anteriores sem saída registrada.</b>{' '}
+            Quanto mais tempo passa, menos alguém lembra a hora certa — e jornada sem saída não
+            entra na folha nem no banco de horas. Ajuste abaixo, com o motivo.
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi icone={Users} rotulo="Pessoas com batida" valor={new Set(jornadas.map((j) => j.workerId)).size} />
         <Kpi icone={Clock} rotulo="Jornadas no mês" valor={jornadas.length} />
@@ -276,9 +327,51 @@ function Conferencia({ workers, jornadas, violacoes }: {
                 <span className="w-24 shrink-0 text-[#adadad]">{diaBR(j.data)} {diaDaSemana(j.data)}</span>
                 <span className="min-w-[140px] flex-1 font-medium text-[#f5f5f5]">{nome.get(j.workerId) ?? j.workerId}</span>
                 <Pendencias lista={j.pendencias} />
+                <button
+                  type="button" onClick={() => setAjustando(j)}
+                  className="flex shrink-0 items-center gap-1 rounded-lg border border-[#525252] px-2 py-1 text-[11px] text-[#adadad] hover:border-[#f97316]/50 hover:text-[#ffa055]"
+                >
+                  <PencilLine size={11} /> ajustar
+                </button>
               </li>
             ))}
           </ul>
+        )}
+      </Bloco>
+
+      <Bloco titulo={`Dias sem batida e sem justificativa (${semJustificativa.length})`}>
+        {/* ⚠️ Este bloco é a única coisa no sistema que cruza "devia trabalhar" com "não bateu nem
+            tem ausência registrada". A aba Faltas mostra as ausências CADASTRADAS; ninguém mostrava
+            as que faltam cadastrar. O previsto vem do regime contratual (`bancoDeHoras`), e dia de
+            regime sem jornada definida — diarista, personalizado — não entra: o sistema não sabe se
+            aquela pessoa devia trabalhar, e acusar falta sem saber é pior que não acusar. */}
+        {semJustificativa.length === 0 ? (
+          <p className="px-3 py-4 text-center text-xs text-[#adadad]">
+            Nenhum dia útil sem batida e sem ausência registrada no período.
+          </p>
+        ) : (
+          <>
+            <ul className="divide-y divide-[#525252]/60">
+              {semJustificativa.slice(0, 30).map((f) => (
+                <li key={`${f.workerId}|${f.data}`} className="flex flex-wrap items-center gap-2 px-3 py-2 text-xs">
+                  <span className="w-24 shrink-0 text-[#adadad]">{diaBR(f.data)} {diaDaSemana(f.data)}</span>
+                  <span className="min-w-[140px] flex-1 font-medium text-[#f5f5f5]">{nome.get(f.workerId) ?? f.workerId}</span>
+                  <span className="text-[11px] text-[#fbbf24]">{horas(f.previstoMin)} previstos, nada batido</span>
+                </li>
+              ))}
+            </ul>
+            {semJustificativa.length > 30 && (
+              <p className="px-3 py-2 text-[11px] text-[#adadad]">
+                …e mais {semJustificativa.length - 30}. Se a lista está enorme, provavelmente o
+                regime de alguém está cadastrado errado — confira em Funcionários.
+              </p>
+            )}
+            <p className="border-t border-[#525252] px-3 py-2 text-[11px] leading-5 text-[#adadad]">
+              Para registrar atestado, férias ou falta justificada, use <b>Faltas e Ausências</b> —
+              é lá que a ausência é cadastrada, e não aqui, para não existirem dois lugares
+              gravando a mesma coisa.
+            </p>
+          </>
         )}
       </Bloco>
 
@@ -307,6 +400,14 @@ function Conferencia({ workers, jornadas, violacoes }: {
           </ul>
         )}
       </Bloco>
+
+      {ajustando && (
+        <AjusteDeBatidaDialog
+          jornada={ajustando}
+          nomeDoTrabalhador={nome.get(ajustando.workerId) ?? ajustando.workerId}
+          onClose={() => setAjustando(null)}
+        />
+      )}
     </div>
   )
 }

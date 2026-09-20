@@ -23,6 +23,7 @@ import { avaliarCerca, distanciaLegivel, TEXTO_DO_MOTIVO } from '@/lib/geo'
 import { cn, hojeLocalISO } from '@/lib/utils'
 import { useLocalizacao } from './useLocalizacao'
 import { jornadaAberta, proximaBatida, ROTULO_DA_BATIDA } from './batida'
+import { jornadasDoPeriodo } from './jornada'
 import type { TipoDeBatida } from '@/types'
 
 const RAIO_PADRAO_M = 5000
@@ -99,6 +100,22 @@ export function PontoPage() {
   )
   const proxima = proximaBatida(doDia)
   const IconeDoBotao = ICONE[proxima]
+
+  // ⚠️ O LEMBRETE que dá para cumprir sem PWA. Sem service worker não existe notificação com o
+  // aplicativo fechado — isso foi decidido e está escrito no rodapé desta tela. O que existe é
+  // avisar quem ABRE o aplicativo que ficou uma jornada sem saída para trás: é o erro mais comum,
+  // o que mais dá trabalho para corrigir depois, e o que some do banco de horas se ninguém mexer.
+  const abertasAnteriores = useMemo(() => {
+    if (!eu) return []
+    const trintaDiasAtras = new Date()
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
+    return jornadasDoPeriodo(
+      registros.filter((r) => r.workerId === eu.id),
+      trintaDiasAtras.toISOString().slice(0, 10),
+      hojeLocalISO(),
+    ).filter((j) => j.pendencias.includes('sem-saida') && j.data < (doDia[0]?.data ?? hojeLocalISO()))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registros, eu, minuto])
 
   // ⚠️ Só BLOQUEIA quando o sistema SABE que está fora. Não saber onde a pessoa está é diferente
   // de saber que está longe — recusar aí criaria buraco no registro sem provar nada.
@@ -280,6 +297,16 @@ export function PontoPage() {
           </>
         )}
       </div>
+
+      {abertasAnteriores.length > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2.5 text-[11px] leading-5 text-[#fbbf24]">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+          <span>
+            <b>Faltou registrar a saída {abertasAnteriores.length > 1 ? 'em dias anteriores' : `no dia ${abertasAnteriores[0].data.slice(8, 10)}/${abertasAnteriores[0].data.slice(5, 7)}`}.</b>{' '}
+            Avise o responsável para corrigir — dia sem saída não entra no seu banco de horas.
+          </span>
+        </div>
+      )}
 
       {/* O botão. */}
       <button

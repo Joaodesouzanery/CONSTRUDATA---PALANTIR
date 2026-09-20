@@ -1623,6 +1623,14 @@ export interface CLTSettings {
   raioPontoPadraoM?: number
   /** Minutos de tolerância ao comparar a batida com o turno previsto (art. 58 §1º: 5 + 5). */
   toleranciaPontoMin?: number
+  /**
+   * Meses para compensar o crédito do banco de horas. Padrão 6 — CLT art. 59 §5º, acordo
+   * individual escrito. Acordo coletivo permite até 12; por isso é configurável e não constante.
+   *
+   * ⚠️ Passado o prazo, a hora não compensada NÃO evapora: vira hora extra a pagar, com adicional.
+   * É por isso que o relatório avisa antes de vencer, em vez de só acumular.
+   */
+  bancoHorasMeses?: number
 
   /**
    * Teto de custo mensal de RH que dispara o alerta de estouro no RH Financeiro.

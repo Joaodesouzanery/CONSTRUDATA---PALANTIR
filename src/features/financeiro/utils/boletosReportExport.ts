@@ -14,6 +14,7 @@
  * `printViaIframe` imprime sem abrir aba.
  */
 import { formatarCodigo, tamanhoValido, digitosDe } from './boletoCodigo'
+import { printHtmlInto, printViaIframe as printViaIframeHtml } from '@/lib/printReport'
 import { brandMarkSvg } from '@/lib/brandMark'
 import { pageFooterCss } from '@/lib/printPageFooter'
 import { fmtDataBR } from '@/lib/utils'
@@ -570,57 +571,20 @@ ${rodape}
 }
 
 // ─── Impressão ────────────────────────────────────────────────────────────────
+//
+// A mecânica (abrir janela, esperar imagem, imprimir, plano B do pop-up bloqueado) mudou para
+// `src/lib/printReport.ts` quando o espelho de ponto precisou dela — sem isso Mão de Obra passaria
+// a importar Financeiro só para chamar `window.print()`. Os dois wrappers abaixo ficam porque
+// carregam o que é DESTE domínio: qual HTML imprimir.
 
-/**
- * Abre a janela do relatório. **Chame SÍNCRONA no clique**, antes de qualquer `await` —
- * o browser bloqueia `window.open` disparado depois de uma promessa. Devolve `null` se
- * o bloqueador de pop-up barrou; nesse caso use `printViaIframe`.
- */
-export function openReportWindow(): Window | null {
-  const win = window.open('', '_blank')
-  if (!win) return null
-  win.document.open()
-  win.document.write('<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Gerando relatório…</title></head><body style="font:14px -apple-system,Segoe UI,Roboto,sans-serif;color:#334155;padding:32px">Gerando o relatório…</body></html>')
-  win.document.close()
-  return win
-}
+export { openReportWindow } from '@/lib/printReport'
 
-/** Espera as imagens decodificarem — sem isso o print pode sair com molduras vazias. */
-async function aguardarImagens(doc: Document): Promise<void> {
-  await Promise.all([...doc.images].map((img) => img.decode().catch(() => undefined)))
-}
-
-/** Escreve o relatório na janela já aberta e manda imprimir. */
+/** Escreve o relatório de boletos na janela já aberta e manda imprimir. */
 export async function printBoletosReportInto(win: Window, d: BoletosReportData): Promise<void> {
-  const html = buildBoletosReportHtml(d)
-  win.document.open()
-  win.document.write(html)
-  win.document.close()
-  await aguardarImagens(win.document)
-  win.focus()
-  win.print()
+  await printHtmlInto(win, buildBoletosReportHtml(d))
 }
 
-/**
- * Plano B para quando o pop-up é bloqueado: imprime de um iframe oculto, sem abrir aba.
- * (Nenhum outro export do repo tem isso — todos só avisam "permita pop-ups".)
- */
+/** Plano B quando o pop-up é bloqueado. */
 export async function printViaIframe(d: BoletosReportData): Promise<void> {
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('aria-hidden', 'true')
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;'
-  document.body.appendChild(iframe)
-  const doc = iframe.contentDocument
-  const win = iframe.contentWindow
-  if (!doc || !win) { iframe.remove(); throw new Error('Não foi possível preparar a impressão.') }
-  doc.open()
-  doc.write(buildBoletosReportHtml(d))
-  doc.close()
-  await aguardarImagens(doc)
-  const limpar = () => setTimeout(() => iframe.remove(), 1000)
-  win.addEventListener('afterprint', limpar, { once: true })
-  win.focus()
-  win.print()
-  // Safari não dispara afterprint de iframe: rede de segurança para não deixar lixo no DOM.
-  setTimeout(limpar, 60_000)
+  await printViaIframeHtml(buildBoletosReportHtml(d))
 }
