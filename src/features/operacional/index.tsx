@@ -22,7 +22,14 @@ export function OperacionalPage() {
   }, [ensureTenantScope, flush, profileOrgId, pull])
 
   return (
-    <div className="flex h-full flex-col bg-[#1f1f1f]">
+    // ⚠️ `min-h-full`, NUNCA `h-full`. Com `h-full` a página fica exatamente da altura do
+    // `<main class="app-main">` do AppShell — que é quem rola no app inteiro — e aí o main não tem
+    // o que rolar: a rolagem cai num pane interno e a planilha fica presa numa janelinha de 300px
+    // no meio da tela. É o padrão do `relatorio360`, o único módulo que já rolava a página.
+    <div className="flex min-h-full flex-col bg-[#1f1f1f]">
+      {/* ⚠️ NÃO é sticky, de propósito. Quem precisa grudar é o cabeçalho da TABELA — e dois
+          elementos grudados no topo brigam: o `<thead sticky top-0>` ficaria escondido atrás deste.
+          Deixando este rolar, a planilha ganha a tela inteira, que é o que o módulo precisa. */}
       <header className="flex shrink-0 items-center gap-3 border-b border-[#525252] bg-[#2c2c2c] px-6 py-4">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f97316] text-white">
           <Wrench size={20} />

@@ -20,10 +20,19 @@ export type SubTab = { key: string; label: string; render: () => ReactNode }
  *
  * Sem as duas props, o host continua guardando a aba sozinho — que é o uso da maioria.
  */
-export function SubTabHost({ tabs, ativa, onTrocar }: {
+export function SubTabHost({ tabs, ativa, onTrocar, rolagemDaPagina }: {
   tabs: SubTab[]
   ativa?: string
   onTrocar?: (key: string) => void
+  /**
+   * Não criar scroller próprio — deixar a PÁGINA rolar.
+   *
+   * ⚠️ Opcional, e desligado por padrão, porque EVM, Torre e Financeiro dependem do pane interno:
+   * eles travam a raiz da página em `h-full`/`overflow-hidden` e cada aba controla a própria
+   * rolagem (a convenção está escrita em `gestao-360/index.tsx:77`). Ligar isto para todo mundo
+   * quebraria os três. Quem passa `true` é o módulo cuja raiz usa `min-h-full`.
+   */
+  rolagemDaPagina?: boolean
 }) {
   const [interna, setInterna] = useState(tabs[0]?.key)
   const active = ativa ?? interna
@@ -31,7 +40,7 @@ export function SubTabHost({ tabs, ativa, onTrocar }: {
   const current = tabs.find((t) => t.key === active) ?? tabs[0]
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={rolagemDaPagina ? 'flex flex-col' : 'flex flex-col h-full'}>
       <div className="px-6 pt-4 shrink-0">
         <div className="inline-flex self-start flex-wrap gap-1 rounded-lg border border-[#525252] bg-[#1f1f1f] p-1">
           {tabs.map((t) => (
@@ -50,7 +59,7 @@ export function SubTabHost({ tabs, ativa, onTrocar }: {
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-auto">{current?.render()}</div>
+      <div className={rolagemDaPagina ? undefined : 'flex-1 overflow-auto'}>{current?.render()}</div>
     </div>
   )
 }

@@ -21,14 +21,17 @@ export async function baixarArquivoOriginal(path: string, nome: string): Promise
 }
 
 export function exportarAba(aba: SabespSheetId, meta: AbaNoSistema, linhas: LinhaOperacional[], formato: 'xlsx' | 'csv'): void {
+  // ⚠️ O nome SABESP da aba, não o id interno. O arquivo saía com a guia chamada
+  // "cadastro_servicos" — um nome que só existe dentro do código e que ninguém reconhece ao abrir.
+  const nomeDaAba = SABESP_SHEETS.find((d) => d.id === aba)?.sheetName ?? aba
   const colunas = meta.colunas.filter((c) => c.temTitulo || linhas.some((l) => l.valores[chaveDaColuna(c)]))
   const aoa = [colunas.map((c) => c.titulo || `Campo ${c.indice + 1}`), ...linhas.filter((l) => l.ativa).map((l) => colunas.map((c) => l.valores[chaveDaColuna(c)] ?? ''))]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   if (formato === 'csv') {
-    baixarBlob(new Blob(['\ufeff', XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }), `${aba}.csv`)
+    baixarBlob(new Blob(['\ufeff', XLSX.utils.sheet_to_csv(ws)], { type: 'text/csv;charset=utf-8' }), `${nomeDaAba}.csv`)
     return
   }
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, aba.slice(0, 31)); XLSX.writeFile(wb, `${aba}.xlsx`)
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, nomeDaAba.slice(0, 31)); XLSX.writeFile(wb, `${nomeDaAba}.xlsx`)
 }
 
 export function exportarWorkbookCompleto(

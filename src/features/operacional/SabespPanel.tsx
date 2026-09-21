@@ -12,7 +12,7 @@
  */
 import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, HelpCircle, Plus, RotateCcw, Search, Upload, Lock, History } from 'lucide-react'
+import { AlertTriangle, Archive, Copy, Download, Expand, FileDown, FileSpreadsheet, HelpCircle, Plus, Printer, RotateCcw, Search, Upload, Lock, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { SubTabHost } from '@/components/shared/SubTabHost'
 import { SyncBadge } from '@/components/shared/SyncBadge'
@@ -20,7 +20,8 @@ import { useStoreSync } from '@/lib/useStoreSync'
 import { usePermissaoEscrita, ROLES_TORRE_WRITE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import {
-  useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba, type SabespSheetId, type AbaNoSistema,
+  useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba,
+  type SabespSheetId, type AbaNoSistema, type LinhaOperacional, type SabespGuide,
 } from './sabespStore'
 import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
@@ -104,7 +105,7 @@ export function SabespPanel() {
   const semDado = linhas.length === 0
 
   return (
-    <div className="operacional-impressao flex min-h-0 flex-1 flex-col bg-[#1f1f1f]">
+    <div className="operacional-impressao flex flex-col bg-[#1f1f1f]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#525252] px-6 py-3">
         <div>
           <h2 className="text-sm font-semibold text-[#f5f5f5]">Controle Operacional SABESP</h2>
@@ -144,21 +145,7 @@ export function SabespPanel() {
       {!semDado &&
       <PainelIndicadores />}
 
-      {!semDado && (
-        <div className="flex flex-wrap justify-end gap-2 border-b border-[#525252] px-6 py-2">
-          {useSabespStore.getState().arquivoOriginal && (
-            <button type="button" onClick={() => { const a = useSabespStore.getState().arquivoOriginal!; void baixarArquivoOriginal(a.path, a.nome).catch(() => toast.error('Não foi possível baixar o arquivo original.')) }} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
-              <Download size={13} /> Arquivo original
-            </button>
-          )}
-          <button type="button" onClick={() => exportarWorkbookCompleto(abas, linhas, guias)} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
-            <FileDown size={13} /> Exportar tudo
-          </button>
-          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]">
-            <FileDown size={13} /> Imprimir / PDF
-          </button>
-        </div>
-      )}
+      {!semDado && <BarraDeExportacao abas={abas} linhas={linhas} guias={guias} />}
 
       {/* ⚠️ Por que está travado. Sem esta faixa, a grade simplesmente não respondia ao clique e
           não havia nada na tela dizendo o motivo — o usuário concluía que o módulo "só visualiza". */}
@@ -170,21 +157,101 @@ export function SabespPanel() {
         </p>
       )}
 
-      <div className="min-h-0 flex-1">
-        <SubTabHost
-          tabs={GRUPOS.map((g) => ({
-            key: g,
-            label: g,
-            render: () => <GrupoDeAbas grupo={g} podeEscrever={podeEscrever} onEditar={editarCelula} />,
-          }))}
-        />
-      </div>
+      <SubTabHost
+        rolagemDaPagina
+        tabs={GRUPOS.map((g) => ({
+          key: g,
+          label: g,
+          /* ⚠️ `key={g}` é OBRIGATÓRIO. O SubTabHost renderiza este componente sempre na mesma
+             posição, então sem key o React reconcilia o MESMO fiber e preserva o `useState` da
+             sub-aba. Indo de Cadastros para Execução, `ativa` continuava valendo 'configuracoes' —
+             que não existe em Execução: nenhuma pill acendia e a grade seguia mostrando a tela de
+             Cadastros sob as abas de Execução. É o mesmo remendo que o EVM já documenta. */
+          render: () => <GrupoDeAbas key={g} grupo={g} podeEscrever={podeEscrever} onEditar={editarCelula} />,
+        }))}
+      />
 
       {previa && <ConferenciaImportacao previa={previa} onCancelar={() => setPrevia(null)} onConfirmar={aplicar} />}
 
       {/* Configurações, Guia Rápido e Leia-me viajam junto e ficam aqui, como pedido. */}
       {(configuracoes.length > 0 || guias.rapido || guias.leiaMe) && (
         <PainelDeConfiguracao configuracoes={configuracoes} guias={guias} />
+      )}
+    </div>
+  )
+}
+
+// ─── A exportação, com o nome certo de cada coisa ─────────────────────────────
+
+/**
+ * Três formatos, e cada um diz o que é.
+ *
+ * ⚠️ O botão único "Exportar tudo" era a origem de um mal-entendido caro: ele produz uma planilha
+ * RECONSTRUÍDA a partir do dado normalizado — sem as 50.838 fórmulas, sem as colunas sem título e
+ * sem as linhas estruturais —, e o nome dava a entender que era a planilha de volta. O cliente
+ * comparou os dois arquivos e achou a diferença. Agora cada saída carrega, na própria tela, o que
+ * ela preserva e o que ela não preserva.
+ */
+function BarraDeExportacao({ abas, linhas, guias }: {
+  abas: Partial<Record<SabespSheetId, AbaNoSistema>>
+  linhas: LinhaOperacional[]
+  guias: { rapido?: SabespGuide; leiaMe?: SabespGuide }
+}) {
+  // ⚠️ Assinatura REATIVA. Antes isto era `useSabespStore.getState().arquivoOriginal` lido dentro
+  // do JSX: quando o `pull` trazia o ponteiro sem mexer em `linhas`/`abas`, o componente não
+  // re-renderizava e o botão do arquivo original simplesmente não aparecia.
+  const arquivoOriginal = useSabespStore((s) => s.arquivoOriginal)
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#525252] px-6 py-2">
+      <span className="text-[11px] text-[#6b6b6b]">Exportar:</span>
+
+      <button
+        type="button"
+        disabled={!arquivoOriginal}
+        title={arquivoOriginal
+          ? 'Cópia exata do arquivo que você importou — com fórmulas, listas e formatação'
+          : 'O arquivo original desta importação não está guardado. Importe a planilha de novo para que ele fique disponível.'}
+        onClick={() => {
+          if (!arquivoOriginal) return
+          void baixarArquivoOriginal(arquivoOriginal.path, arquivoOriginal.nome)
+            .catch(() => toast.error('Não foi possível baixar o arquivo original.'))
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Download size={13} /> Arquivo original
+        <span className="text-[10px] text-[#6b6b6b]">cópia fiel</span>
+      </button>
+
+      <button
+        type="button" disabled
+        title="Em construção: a planilha original com os seus dados atualizados, preservando fórmulas, listas e formatação. Por enquanto, use o Arquivo original."
+        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-[#525252] px-3 py-1.5 text-xs text-[#6b6b6b] opacity-60"
+      >
+        <FileSpreadsheet size={13} /> Planilha atual
+        <span className="text-[10px]">em construção</span>
+      </button>
+
+      <button
+        type="button" onClick={() => exportarWorkbookCompleto(abas, linhas, guias)}
+        title="Versão derivada, para análise: só os registros ativos, sem fórmulas e sem formatação. NÃO substitui a planilha."
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]"
+      >
+        <FileDown size={13} /> Dados para análise
+        <span className="text-[10px] text-[#6b6b6b]">derivado</span>
+      </button>
+
+      <button
+        type="button" onClick={() => window.print()}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333]"
+      >
+        <Printer size={13} /> Imprimir / PDF
+      </button>
+
+      {!arquivoOriginal && (
+        <span className="text-[10px] leading-4 text-[#fbbf24]">
+          ⚠️ O arquivo original desta importação não ficou guardado — sem ele não há cópia fiel.
+        </span>
       )}
     </div>
   )
@@ -244,7 +311,7 @@ function GrupoDeAbas({ grupo, podeEscrever, onEditar }: {
   const doGrupo = SABESP_SHEETS.filter((d) => d.grupo === grupo)
   const [ativa, setAtiva] = useState<SabespSheetId>(doGrupo[0].id)
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-3">
+    <div className="flex flex-col gap-3 px-6 py-3">
       <div className="flex flex-wrap gap-1">
         {doGrupo.map((d) => (
           <button
@@ -373,7 +440,7 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
   if (aba === 'carteira_ticket' || aba === 'resumo' || aba === 'dashboard' || aba === 'planejado_realizado') return <PainelMatriz meta={meta} titulo={def.label} />
 
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col gap-2', telaCheia && 'fixed inset-4 z-50 rounded-xl border border-[#525252] bg-[#1f1f1f] p-4 shadow-2xl')}>
+    <div className={cn('flex flex-col gap-2', telaCheia && 'fixed inset-4 z-50 min-h-0 flex-1 rounded-xl border border-[#525252] bg-[#1f1f1f] p-4 shadow-2xl')}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#6b6b6b]" />
@@ -410,16 +477,25 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-[#525252]">
+      {/* ⚠️ `overflow-x-auto`, não `overflow-auto`. A rolagem HORIZONTAL é da tabela — ela tem 30
+          colunas e precisa dela. A VERTICAL é da página: era o `overflow-auto` aqui que prendia a
+          planilha numa janelinha. Em tela cheia o pane volta, porque aí o contêiner é que manda. */}
+      <div className={cn('rounded-xl border border-[#525252]', telaCheia ? 'min-h-0 flex-1 overflow-auto' : 'overflow-x-auto')}>
         <table className="min-w-max text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-[#3d3d3d] text-[#a3a3a3]">
+          {/* Com a página rolando, este `sticky` gruda no `<main>` do AppShell — que é o scroller
+              de verdade. É por isso que o cabeçalho do módulo NÃO é sticky: dois competindo pelo
+              topo fariam este sumir atrás daquele. */}
+          <thead className="sticky top-0 z-10 bg-[#3d3d3d] text-[#a3a3a3] shadow-[0_1px_0_#525252]">
             <tr>
               {colunas.map((c) => (
                 <th
                   key={c.indice}
-                  // Largura por conteúdo (ver `larguraDaColuna`) e ainda redimensionável à mão.
+                  // Largura por conteúdo — ver `larguraDaColuna`.
+                  // ⚠️ Saiu o `resize-x overflow-auto`: ele punha um puxador E uma barra de rolagem
+                  // DENTRO de cada célula de cabeçalho. Com 30 colunas eram 30 barrinhas, e a
+                  // largura já vem do maior conteúdo real da coluna.
                   style={{ minWidth: larguraDaColuna.get(c.indice) }}
-                  className="resize-x overflow-auto whitespace-nowrap px-3 py-2.5 font-medium"
+                  className="whitespace-nowrap px-3 py-2.5 font-medium"
                   title={c.regra?.mensagem}
                 >
                   <button
@@ -456,8 +532,11 @@ function GradeDaAba({ aba, podeEscrever, onEditar }: {
                   return (
                     <td
                       key={c.indice}
+                      // ⚠️ `overflow-hidden` junto do `maxWidth`: sem ele o texto longo ignorava
+                      // o limite e vazava por cima da coluna vizinha em modo compacto — era parte
+                      // do "está cortando" que a grade parecia ter.
                       style={{ maxWidth: quebrarTexto ? 420 : larguraDaColuna.get(c.indice) }}
-                      className={cn('px-2 py-1.5 align-top', quebrarTexto && 'whitespace-normal')}
+                      className={cn('overflow-hidden px-2 py-1.5 align-top', quebrarTexto && 'whitespace-normal')}
                     >
                       <CelulaEditavel
                         valor={l.valores[campo] ?? ''}
@@ -515,7 +594,7 @@ function ConfiguracoesEstruturadas() {
     for (const p of parametros) { const k = p.secao || 'Parâmetros gerais'; m.set(k, [...(m.get(k) ?? []), p]) }
     return [...m.entries()]
   }, [parametros])
-  return <div className="min-h-0 flex-1 overflow-auto"><div className="grid gap-3 lg:grid-cols-2">{porSecao.map(([secao, itens]) => <section key={secao} className="rounded-xl border border-[#525252] bg-[#292929]"><h3 className="border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{secao}</h3><dl>{itens.map((p) => <div key={p.celula} className="grid grid-cols-[minmax(12rem,1fr)_1fr] gap-3 border-b border-[#3d3d3d] px-4 py-2 text-xs last:border-0"><dt className="text-[#a3a3a3]">{p.rotulo}</dt><dd className="break-words text-[#f5f5f5]">{p.valor || '—'}</dd></div>)}</dl></section>)}</div></div>
+  return <div><div className="grid gap-3 lg:grid-cols-2">{porSecao.map(([secao, itens]) => <section key={secao} className="rounded-xl border border-[#525252] bg-[#292929]"><h3 className="border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{secao}</h3><dl>{itens.map((p) => <div key={p.celula} className="grid grid-cols-[minmax(12rem,1fr)_1fr] gap-3 border-b border-[#3d3d3d] px-4 py-2 text-xs last:border-0"><dt className="text-[#a3a3a3]">{p.rotulo}</dt><dd className="break-words text-[#f5f5f5]">{p.valor || '—'}</dd></div>)}</dl></section>)}</div></div>
 }
 
 function PainelMatriz({ meta, titulo }: { meta: AbaNoSistema; titulo: string }) {
@@ -527,7 +606,7 @@ function PainelMatriz({ meta, titulo }: { meta: AbaNoSistema; titulo: string }) 
     if (/^[A-Z]\s*[·—-]|DASHBOARD|RESUMO|PLANEJADO/i.test(primeiro) && linha.filter(Boolean).length === 1) { atual = { titulo: primeiro, linhas: [] }; blocos.push(atual) }
     else atual.linhas.push(linha)
   }
-  return <div className="min-h-0 flex-1 overflow-auto"><div className="grid gap-3 xl:grid-cols-2">{blocos.filter((b) => b.linhas.length).map((b, i) => <section key={`${b.titulo}-${i}`} className="overflow-auto rounded-xl border border-[#525252] bg-[#292929]"><h3 className="sticky left-0 border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{b.titulo}</h3><table className="min-w-full text-xs"><tbody>{b.linhas.map((r, ri) => <tr key={ri} className="border-b border-[#3d3d3d] odd:bg-white/[0.015]">{r.filter((v, ci) => v || r.some((x, xi) => xi > ci && x)).map((v, ci) => <td key={ci} className="min-w-28 whitespace-normal break-words px-3 py-2 text-[#d4d4d4]">{v || '—'}</td>)}</tr>)}</tbody></table></section>)}</div></div>
+  return <div><div className="grid gap-3 xl:grid-cols-2">{blocos.filter((b) => b.linhas.length).map((b, i) => <section key={`${b.titulo}-${i}`} className="overflow-x-auto rounded-xl border border-[#525252] bg-[#292929]"><h3 className="sticky left-0 border-b border-[#525252] px-4 py-2 text-xs font-semibold text-[#ffa055]">{b.titulo}</h3><table className="min-w-full text-xs"><tbody>{b.linhas.map((r, ri) => <tr key={ri} className="border-b border-[#3d3d3d] odd:bg-white/[0.015]">{r.filter((v, ci) => v || r.some((x, xi) => xi > ci && x)).map((v, ci) => <td key={ci} className="min-w-28 whitespace-normal break-words px-3 py-2 text-[#d4d4d4]">{v || '—'}</td>)}</tr>)}</tbody></table></section>)}</div></div>
 }
 
 // ─── Configurações + guias ────────────────────────────────────────────────────
@@ -558,7 +637,7 @@ function PainelDeConfiguracao({ configuracoes, guias }: {
               >{rot}</button>
             ))}
           </div>
-          <div className="max-h-56 overflow-auto text-xs">
+          <div className="max-h-[70vh] overflow-auto text-xs">
             {vista === 'parametros' && (
               configuracoes.length ? (
                 <table className="w-full">
