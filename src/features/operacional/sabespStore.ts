@@ -35,7 +35,18 @@ export interface SabespSheetDefinition {
   id: SabespSheetId
   sheetName: string
   label: string
-  keyColumns: string[]
+  /**
+   * Rótulos usados para ACHAR A LINHA DO CABEÇALHO na aba — e nada mais.
+   *
+   * ⚠️ Isto **não é a identidade da linha**. Chamava-se `keyColumns`, e o nome fez o projeto
+   * carregar duas verdades sobre o que identifica um registro: esta lista e as exigências de
+   * `ehRegistroReal`. Para a Programação uma pedia `EQUIPE` e a outra não; para a Medição uma pedia
+   * `Nº BOLETIM` e a outra não. Foi assim que uma troca de chave passou sem nada acusar.
+   *
+   * A identidade mora em `COLUNAS_DE_IDENTIDADE` (`chaveDaLinha.ts`), fonte única. Aqui quanto mais
+   * rótulos, melhor: `lerAba` pontua a linha candidata por quantos deles ela contém.
+   */
+  colunasDoCabecalho: string[]
   /**
    * Aba DERIVADA: na planilha ela é fórmula. Não se edita aqui — editar seria discordar da fonte.
    */
@@ -45,29 +56,29 @@ export interface SabespSheetDefinition {
 }
 
 export const SABESP_SHEETS: SabespSheetDefinition[] = [
-  { id: 'configuracoes',       sheetName: '01. CONFIGURAÇÕES',        label: 'Configurações',        grupo: 'Cadastros', keyColumns: ['Empresa executante'] },
-  { id: 'banco_custos',        sheetName: '01A. BANCO DE CUSTOS',     label: 'Banco de Custos',      grupo: 'Cadastros', keyColumns: ['ITEM', 'CUSTO MENSAL'] },
-  { id: 'carteira_ticket',     sheetName: '01B. CARTEIRA E TICKET',   label: 'Carteira e Ticket',    grupo: 'Cadastros', keyColumns: ['TIPO DE SERVIÇO', 'CONTRATO'] },
-  { id: 'tabela_precos',       sheetName: '02. TABELA DE PREÇOS',     label: 'Tabela de Preços',     grupo: 'Cadastros', keyColumns: ['CHAVE'], readonly: true },
-  { id: 'cadastro_servicos',   sheetName: '03. CADASTRO DE SERVIÇOS', label: 'Cadastro de Serviços', grupo: 'Cadastros', keyColumns: ['ID', 'CONTRATO'] },
-  { id: 'equipe',              sheetName: '08. EQUIPE',               label: 'Equipe',               grupo: 'Cadastros', keyColumns: ['MATRÍCULA', 'CONTRATO'] },
+  { id: 'configuracoes',       sheetName: '01. CONFIGURAÇÕES',        label: 'Configurações',        grupo: 'Cadastros', colunasDoCabecalho: ['Empresa executante'] },
+  { id: 'banco_custos',        sheetName: '01A. BANCO DE CUSTOS',     label: 'Banco de Custos',      grupo: 'Cadastros', colunasDoCabecalho: ['ITEM', 'CUSTO MENSAL'] },
+  { id: 'carteira_ticket',     sheetName: '01B. CARTEIRA E TICKET',   label: 'Carteira e Ticket',    grupo: 'Cadastros', colunasDoCabecalho: ['TIPO DE SERVIÇO', 'CONTRATO'] },
+  { id: 'tabela_precos',       sheetName: '02. TABELA DE PREÇOS',     label: 'Tabela de Preços',     grupo: 'Cadastros', colunasDoCabecalho: ['CHAVE'], readonly: true },
+  { id: 'cadastro_servicos',   sheetName: '03. CADASTRO DE SERVIÇOS', label: 'Cadastro de Serviços', grupo: 'Cadastros', colunasDoCabecalho: ['ID', 'CONTRATO'] },
+  { id: 'equipe',              sheetName: '08. EQUIPE',               label: 'Equipe',               grupo: 'Cadastros', colunasDoCabecalho: ['MATRÍCULA', 'CONTRATO'] },
 
-  { id: 'programacao',         sheetName: '04. PROGRAMAÇÃO DIÁRIA',   label: 'Programação Diária',   grupo: 'Execução', keyColumns: ['DATA', 'CONTRATO', 'EQUIPE', 'ID DO SERVIÇO'] },
-  { id: 'ordens_servico',      sheetName: '05. ORDENS DE SERVIÇO',    label: 'Ordens de Serviço',    grupo: 'Execução', keyColumns: ['ID DO SERVIÇO', 'CONTRATO', 'Nº OS SABESP'] },
-  { id: 'apontamento',         sheetName: '06. APONTAMENTO DIÁRIO',   label: 'Apontamento Diário',   grupo: 'Execução', keyColumns: ['DATA', 'CONTRATO', 'EQUIPE'] },
-  { id: 'materiais',           sheetName: '07. MATERIAIS',            label: 'Materiais',            grupo: 'Execução', keyColumns: ['DATA', 'ID DO SERVIÇO / OS', 'MATERIAL', 'MOVIMENTO'] },
-  { id: 'diario_obra',         sheetName: '10. DIÁRIO DE OBRA',       label: 'Diário de Obra',       grupo: 'Execução', keyColumns: ['Nº DO RDO', 'CONTRATO'] },
+  { id: 'programacao',         sheetName: '04. PROGRAMAÇÃO DIÁRIA',   label: 'Programação Diária',   grupo: 'Execução', colunasDoCabecalho: ['DATA', 'CONTRATO', 'EQUIPE', 'ID DO SERVIÇO'] },
+  { id: 'ordens_servico',      sheetName: '05. ORDENS DE SERVIÇO',    label: 'Ordens de Serviço',    grupo: 'Execução', colunasDoCabecalho: ['ID DO SERVIÇO', 'CONTRATO', 'Nº OS SABESP'] },
+  { id: 'apontamento',         sheetName: '06. APONTAMENTO DIÁRIO',   label: 'Apontamento Diário',   grupo: 'Execução', colunasDoCabecalho: ['DATA', 'CONTRATO', 'EQUIPE'] },
+  { id: 'materiais',           sheetName: '07. MATERIAIS',            label: 'Materiais',            grupo: 'Execução', colunasDoCabecalho: ['DATA', 'ID DO SERVIÇO / OS', 'MATERIAL', 'MOVIMENTO'] },
+  { id: 'diario_obra',         sheetName: '10. DIÁRIO DE OBRA',       label: 'Diário de Obra',       grupo: 'Execução', colunasDoCabecalho: ['Nº DO RDO', 'CONTRATO'] },
 
-  { id: 'medicao',             sheetName: '09. MEDIÇÃO',              label: 'Medição',              grupo: 'Medição', keyColumns: ['Nº BOLETIM', 'ID DO SERVIÇO', 'CÓD. PREÇO (CHAVE)'] },
-  { id: 'faturamento',         sheetName: '12. FATURAMENTO',          label: 'Faturamento',          grupo: 'Medição', keyColumns: ['MÊS', 'CONTRATO'] },
+  { id: 'medicao',             sheetName: '09. MEDIÇÃO',              label: 'Medição',              grupo: 'Medição', colunasDoCabecalho: ['Nº BOLETIM', 'ID DO SERVIÇO', 'CÓD. PREÇO (CHAVE)'] },
+  { id: 'faturamento',         sheetName: '12. FATURAMENTO',          label: 'Faturamento',          grupo: 'Medição', colunasDoCabecalho: ['MÊS', 'CONTRATO'] },
 
-  { id: 'ocorrencias',         sheetName: '11. OCORRÊNCIAS',          label: 'Ocorrências',          grupo: 'Gestão', keyColumns: ['Nº', 'CONTRATO'] },
-  { id: 'atas',                sheetName: '15. ATAS DE REUNIÃO',      label: 'Atas de Reunião',      grupo: 'Gestão', keyColumns: ['Nº DA ATA', 'PENDÊNCIA / AÇÃO'] },
-  { id: 'lookahead',           sheetName: '16. LOOKAHEAD E RESTRIÇÕES', label: 'Lookahead',          grupo: 'Gestão', keyColumns: ['SEMANA (2ª feira)', 'CONTRATO', 'ID DO SERVIÇO'] },
-  { id: 'plano_semanal',       sheetName: '17. PLANO SEMANAL E PPC',  label: 'Plano Semanal e PPC',  grupo: 'Gestão', keyColumns: ['SEMANA (2ª feira)', 'CONTRATO', 'ID DO SERVIÇO'] },
-  { id: 'resumo',              sheetName: '13. RESUMO GERENCIAL',     label: 'Resumo Gerencial',     grupo: 'Gestão', keyColumns: ['MÊS DE REFERÊNCIA'], readonly: true },
-  { id: 'dashboard',           sheetName: '14. DASHBOARD',            label: 'Dashboard',            grupo: 'Gestão', keyColumns: ['SERVIÇOS EXECUTADOS NO MÊS'], readonly: true },
-  { id: 'planejado_realizado', sheetName: '18. PLANEJADO x REALIZADO', label: 'Planejado × Realizado', grupo: 'Gestão', keyColumns: ['SEMANA (2ª feira)'], readonly: true },
+  { id: 'ocorrencias',         sheetName: '11. OCORRÊNCIAS',          label: 'Ocorrências',          grupo: 'Gestão', colunasDoCabecalho: ['Nº', 'CONTRATO'] },
+  { id: 'atas',                sheetName: '15. ATAS DE REUNIÃO',      label: 'Atas de Reunião',      grupo: 'Gestão', colunasDoCabecalho: ['Nº DA ATA', 'PENDÊNCIA / AÇÃO'] },
+  { id: 'lookahead',           sheetName: '16. LOOKAHEAD E RESTRIÇÕES', label: 'Lookahead',          grupo: 'Gestão', colunasDoCabecalho: ['SEMANA (2ª feira)', 'CONTRATO', 'ID DO SERVIÇO'] },
+  { id: 'plano_semanal',       sheetName: '17. PLANO SEMANAL E PPC',  label: 'Plano Semanal e PPC',  grupo: 'Gestão', colunasDoCabecalho: ['SEMANA (2ª feira)', 'CONTRATO', 'ID DO SERVIÇO'] },
+  { id: 'resumo',              sheetName: '13. RESUMO GERENCIAL',     label: 'Resumo Gerencial',     grupo: 'Gestão', colunasDoCabecalho: ['MÊS DE REFERÊNCIA'], readonly: true },
+  { id: 'dashboard',           sheetName: '14. DASHBOARD',            label: 'Dashboard',            grupo: 'Gestão', colunasDoCabecalho: ['SERVIÇOS EXECUTADOS NO MÊS'], readonly: true },
+  { id: 'planejado_realizado', sheetName: '18. PLANEJADO x REALIZADO', label: 'Planejado × Realizado', grupo: 'Gestão', colunasDoCabecalho: ['SEMANA (2ª feira)'], readonly: true },
 ]
 
 export const GRUPOS = ['Cadastros', 'Execução', 'Medição', 'Gestão'] as const
@@ -147,7 +158,15 @@ interface Estado {
   lastSyncedAt: string | null
   syncError: string | null
 
-  gravarLinhas: (linhas: LinhaOperacional[]) => void
+  /**
+   * Grava o lote da importação. O `rastro` é o histórico por linha da ação `importar`.
+   *
+   * ⚠️ `importar` está no `check` da migração desde o primeiro dia e **nunca era gravada**: a
+   * importação sobrescrevia linha por linha sem deixar um único registro de que tinha sido ela. A
+   * tabela de lotes diz "aconteceu uma importação"; só o rastro diz "e ela mudou ESTA linha, de X
+   * para Y".
+   */
+  gravarLinhas: (linhas: LinhaOperacional[], rastro?: AlteracaoOperacional[]) => void
   editarCelula: (id: string, campo: string, valor: string) => void
   criarLinha: (aba: SabespSheetId, valores?: Record<string, string>) => void
   duplicarLinha: (id: string) => void
@@ -232,7 +251,7 @@ export const useSabespStore = create<Estado>()(
         lastSyncedAt: null,
         syncError: null,
 
-        gravarLinhas: (novas) => {
+        gravarLinhas: (novas, rastro = []) => {
           // Gate espelhando a policy `op_linhas_insert_with_role`. Sem ele a tela diria "importado"
           // e cada op voltaria 42501, entupindo a fila — o erro que a Torre tinha em 8 escritas.
           if (!podeEscreverTorre().pode) {
@@ -244,11 +263,16 @@ export const useSabespStore = create<Estado>()(
           const ids = new Set(novas.map((l) => l.id))
           set((s) => ({
             linhas: [...s.linhas.filter((l) => !ids.has(l.id)), ...novas],
+            historico: [...rastro, ...s.historico].slice(0, 500),
             pendingSync: [
               ...s.pendingSync,
               ...novas.map((l) => makeOp({
                 entity: 'operacional_linha', type: 'insert', recordId: l.id,
                 row: linhaParaRow(l, orgId, userId), table: 'operacional_linhas',
+              })),
+              ...rastro.map((h) => makeOp({
+                entity: 'operacional_historico', type: 'insert', recordId: h.id, table: 'operacional_historico',
+                row: { id: h.id, organization_id: orgId, linha_id: h.linhaId, aba: h.aba, chave: h.chave, acao: h.acao, antes: h.antes, depois: h.depois, created_by: userId },
               })),
             ],
           }))

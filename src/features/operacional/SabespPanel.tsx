@@ -21,7 +21,7 @@ import { usePermissaoEscrita, ROLES_TORRE_WRITE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import {
   useSabespStore, SABESP_SHEETS, GRUPOS, definicaoDaAba,
-  type SabespSheetId, type AbaNoSistema, type LinhaOperacional, type SabespGuide,
+  type SabespSheetId, type AbaNoSistema, type LinhaOperacional, type SabespGuide, type AlteracaoOperacional,
 } from './sabespStore'
 import { prepararImportacao, type PreviaDaImportacao } from './importarPlanilha'
 import { chaveDaColuna } from './leitorPlanilha'
@@ -30,7 +30,7 @@ import { PainelIndicadores } from './components/PainelIndicadores'
 import { HistoricoDaLinha } from './components/HistoricoDaLinha'
 import { CelulaEditavel } from './components/CelulaEditavel'
 import { ConferenciaImportacao } from './components/ConferenciaImportacao'
-import { baixarArquivoOriginal, enviarArquivoOperacional, exportarAba, exportarWorkbookCompleto } from './arquivoOperacional'
+import { baixarArquivoOriginal, enviarArquivoOperacional, exportarAba, exportarPlanilhaAtual, exportarWorkbookCompleto } from './arquivoOperacional'
 
 export function SabespPanel() {
   const { linhas, abas, configuracoes, guias, imports } = useSabespStore(
@@ -82,7 +82,27 @@ export function SabespPanel() {
       // o dado e o lote entram na fila, e a tela deixa claro que só o anexo original faltou.
       toast.warning(`Dados importados, mas o arquivo original não subiu: ${e instanceof Error ? e.message : String(e)}`)
     }
-    gravarLinhas(previa.paraGravar)
+    // ⚠️ O rastro por linha da ação `importar`, que existia no banco e nunca era gravado. Só as
+    // linhas que a planilha REALMENTE mudou entram: numa primeira importação isso dá zero (tudo é
+    // nova, não há "antes"), e numa reimportação normal dá um punhado. É o que impede o rastro de
+    // varrer a pilha de desfazer, que tem 500 posições.
+    const porChave = new Map(previa.paraGravar.map((l) => [`${l.aba}|${l.chave}`, l]))
+    const daAba = new Map(SABESP_SHEETS.map((d) => [d.label, d.id]))
+    const rastro: AlteracaoOperacional[] = previa.conferencia
+      .filter((l) => l.divergencias.length > 0)
+      .flatMap((l) => {
+        const id = daAba.get(l.aba)
+        const linha = id ? porChave.get(`${id}|${l.chave}`) : undefined
+        if (!id || !linha) return []
+        return [{
+          id: crypto.randomUUID(), linhaId: linha.id, aba: id, chave: l.chave, acao: 'importar' as const,
+          antes: Object.fromEntries(l.divergencias.map((d) => [d.campo, d.noSistema])),
+          depois: Object.fromEntries(l.divergencias.map((d) => [d.campo, d.naPlanilha])),
+          criadoEm: new Date().toISOString(),
+        }]
+      })
+
+    gravarLinhas(previa.paraGravar, rastro)
     registrarImportacao({
       id: crypto.randomUUID(),
       arquivo: previa.arquivo,
@@ -95,7 +115,8 @@ export function SabespPanel() {
     }, { abas: previa.abas, configuracoes: previa.configuracoes, guias: previa.guias })
     toast.success(
       `${previa.resumo.novas} nova(s), ${previa.resumo.atualizadas} atualizada(s)`
-      + (previa.resumo.conflitos ? `, ${previa.resumo.conflitos} edição(ões) sua(s) sobrescrita(s)` : ''),
+      + (previa.resumo.conflitos ? `, ${previa.resumo.conflitos} edição(ões) sua(s) sobrescrita(s)` : '')
+      + (previa.resumo.reidentificadas ? `, ${previa.resumo.reidentificadas} reconhecida(s) pelo conteúdo` : ''),
     )
     setPrevia(null)
     arquivoPendente.current = null
@@ -201,6 +222,7 @@ function BarraDeExportacao({ abas, linhas, guias }: {
   // do JSX: quando o `pull` trazia o ponteiro sem mexer em `linhas`/`abas`, o componente não
   // re-renderizava e o botão do arquivo original simplesmente não aparecia.
   const arquivoOriginal = useSabespStore((s) => s.arquivoOriginal)
+  const [gerando, setGerando] = useState(false)
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-[#525252] px-6 py-2">
@@ -224,12 +246,31 @@ function BarraDeExportacao({ abas, linhas, guias }: {
       </button>
 
       <button
-        type="button" disabled
-        title="Em construção: a planilha original com os seus dados atualizados, preservando fórmulas, listas e formatação. Por enquanto, use o Arquivo original."
-        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-[#525252] px-3 py-1.5 text-xs text-[#6b6b6b] opacity-60"
+        type="button"
+        disabled={!arquivoOriginal || gerando}
+        title={arquivoOriginal
+          ? 'O SEU arquivo, com os dados de hoje: a cirurgia reescreve só as células alteradas e preserva fórmulas, listas, formatação e a ordem das abas'
+          : 'Sem o arquivo original guardado não há o que reescrever. Importe a planilha de novo para que ele fique disponível.'}
+        onClick={() => {
+          if (!arquivoOriginal) return
+          setGerando(true)
+          void exportarPlanilhaAtual(arquivoOriginal.path, abas, linhas)
+            .then((r) => {
+              // ⚠️ O que NÃO entrou é dito na hora. Uma exportação "fiel" que engole a edição do
+              // usuário em silêncio é pior que uma que avisa: ele só descobriria abrindo o arquivo.
+              const partes = [`${r.escritas} célula(s) atualizada(s) no seu arquivo`]
+              if (r.formulas.length) partes.push(`${r.formulas.length} não entrou porque lá é fórmula`)
+              if (r.semLugar.length) partes.push(`${r.semLugar.length} sem linha correspondente`)
+              if (r.formulas.length || r.semLugar.length) toast.warning(partes.join(' · '))
+              else toast.success(partes[0])
+            })
+            .catch(() => toast.error('Não foi possível gerar a planilha atual. O arquivo original pode não estar mais no armazenamento.'))
+            .finally(() => setGerando(false))
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <FileSpreadsheet size={13} /> Planilha atual
-        <span className="text-[10px]">em construção</span>
+        <FileSpreadsheet size={13} /> {gerando ? 'Gerando…' : 'Planilha atual'}
+        <span className="text-[10px] text-[#6b6b6b]">seu arquivo, com os dados de hoje</span>
       </button>
 
       <button

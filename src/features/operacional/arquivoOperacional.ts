@@ -2,6 +2,8 @@ import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
 import { SABESP_SHEETS, type AbaNoSistema, type LinhaOperacional, type SabespGuide, type SabespSheetId } from './sabespStore'
 import { chaveDaColuna } from './leitorPlanilha'
+import { celulasAlteradas } from './planilhaFiel'
+import { gerarPlanilhaAtual, type ResultadoDaPlanilhaAtual } from './planilhaFielZip'
 
 const BUCKET = 'operacional-planilhas'
 
@@ -18,6 +20,39 @@ export async function baixarArquivoOriginal(path: string, nome: string): Promise
   const { data, error } = await supabase.storage.from(BUCKET).download(path)
   if (error) throw error
   baixarBlob(data, nome)
+}
+
+/**
+ * "Exportar planilha atual": o arquivo do cliente de volta, com os dados de hoje.
+ *
+ * ⚠️ É CIRURGIA, não reconstrução. Baixa o `.xlsx` original guardado no bucket e reescreve nele
+ * apenas as células que o sistema tem diferentes. As 50.838 fórmulas, as 55 listas, as 13 regras,
+ * a ordem das abas, as colunas sem título e as linhas estruturais continuam onde estavam — porque
+ * ninguém as tocou. `exportarWorkbookCompleto`, logo abaixo, faz o oposto e por isso se chama
+ * "dados para análise": ele monta um arquivo novo, e monta menos do que o original tem.
+ *
+ * ⚠️ Sem o original guardado não existe planilha fiel — e é por isso que a tela desabilita o botão
+ * com o motivo escrito em vez de entregar um arquivo pior fingindo ser este.
+ */
+export async function exportarPlanilhaAtual(
+  path: string,
+  abas: Partial<Record<SabespSheetId, AbaNoSistema>>,
+  linhas: LinhaOperacional[],
+): Promise<ResultadoDaPlanilhaAtual> {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path)
+  if (error) throw error
+  const buffer = await data.arrayBuffer()
+
+  const paraEscrever = SABESP_SHEETS.flatMap((def) => {
+    const meta = abas[def.id]
+    if (!meta) return []
+    const celulas = celulasAlteradas(def.id, meta, linhas.filter((l) => l.aba === def.id && l.ativa))
+    return celulas.length ? [{ sheetName: def.sheetName, celulas }] : []
+  })
+
+  const r = await gerarPlanilhaAtual(buffer, paraEscrever)
+  baixarBlob(r.blob, `Planilha-atual-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  return r
 }
 
 export function exportarAba(aba: SabespSheetId, meta: AbaNoSistema, linhas: LinhaOperacional[], formato: 'xlsx' | 'csv'): void {

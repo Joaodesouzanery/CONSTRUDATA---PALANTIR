@@ -12,9 +12,10 @@ import {
 } from './leitorPlanilha'
 import { lerValidacoes } from './leitorPlanilhaZip'
 import {
-  conferirAba, valorFinalDaLinha, resumir,
+  conferirAba, casarPorSemelhanca, valorFinalDaLinha, resumir,
   type LinhaConferida, type LinhaExistente, type ResumoDaConferencia,
 } from './conferenciaOperacional'
+import { COLUNAS_DE_IDENTIDADE, chaveDaLinha, valorPorRotulo } from './chaveDaLinha'
 import {
   SABESP_SHEETS, idDaLinha, type SabespSheetId, type AbaNoSistema, type LinhaOperacional,
   type SabespGuide,
@@ -69,46 +70,34 @@ export function lerBancoCustos(matriz: string[][]): Array<Record<string, string>
   return out
 }
 
+/**
+ * A linha é um REGISTRO de negócio, ou é estrutura da planilha (título, total, legenda, nota)?
+ *
+ * ─── A REGRA: A COLUNA-ÂNCORA ─────────────────────────────────────────────────
+ * Basta a **primeira** coluna de identidade estar preenchida. Ela é a que nomeia a linha; as
+ * outras completam a identidade e podem chegar depois.
+ *
+ * ⚠️ Antes exigia-se **todas** as colunas juntas, e isso engolia dado. Medido no arquivo real
+ * (rev15), aba por aba, a diferença entre "todas" e "a âncora" é de exatamente duas abas:
+ *
+ * | aba | com todas | com a âncora | o que são as linhas da diferença |
+ * |---|---|---|---|
+ * | Medição | 53 | **70** | 17 medições reais (boletim, mês, ID, contrato) **sem `CÓD. PREÇO` ainda** |
+ * | Faturamento | 48 | 49 | a linha `TOTAL DO CONTRATO`, que tem `MÊS` vazio — a âncora a rejeita |
+ *
+ * Nas outras 12 abas com registro o número é **idêntico** nas duas regras. Materiais, Lookahead e
+ * Plano Semanal continuam em 0 registros — o que parecia dado comido é bloco lateral
+ * ("RESUMO DE SALDO POR MATERIAL", "PPC POR SEMANA") e legenda ("A = segunda-feira da semana").
+ * Verificado linha a linha antes de afrouxar; a suspeita anterior estava errada.
+ */
 export function ehRegistroReal(aba: SabespSheetId, valores: Record<string, string>): boolean {
-  const tem = (...nomes: string[]) => nomes.every((nome) => !!valorPorRotulo(valores, nome))
-  if (aba === 'configuracoes' || aba === 'carteira_ticket' || aba === 'resumo' || aba === 'dashboard' || aba === 'planejado_realizado') return false
+  // A Tabela de Preços tem regra própria porque a âncora sozinha não basta: `CHAVE` também é
+  // preenchida nos blocos de legenda. O formato BER-#### / SAN-#### é o que separa preço de nota.
   if (aba === 'tabela_precos') return /^(BER|SAN)-\d+$/i.test(valorPorRotulo(valores, 'CHAVE'))
-  if (aba === 'cadastro_servicos') return tem('ID', 'CONTRATO')
-  if (aba === 'programacao') return tem('DATA', 'CONTRATO', 'ID DO SERVIÇO')
-  if (aba === 'ordens_servico') return tem('ID DO SERVIÇO', 'CONTRATO', 'Nº OS SABESP')
-  if (aba === 'apontamento') return tem('DATA', 'CONTRATO')
-  if (aba === 'materiais') return tem('DATA', 'ID DO SERVIÇO / OS', 'MATERIAL', 'MOVIMENTO')
-  if (aba === 'equipe') return tem('MATRÍCULA', 'CONTRATO')
-  if (aba === 'medicao') return tem('ID DO SERVIÇO', 'CÓD. PREÇO (CHAVE)')
-  if (aba === 'diario_obra') return tem('Nº DO RDO', 'CONTRATO')
-  if (aba === 'ocorrencias') return tem('Nº', 'CONTRATO')
-  if (aba === 'faturamento') return tem('MÊS', 'CONTRATO')
-  if (aba === 'atas') return tem('Nº DA ATA', 'PENDÊNCIA / AÇÃO')
-  if (aba === 'lookahead' || aba === 'plano_semanal') return tem('SEMANA (2ª FEIRA)', 'CONTRATO', 'ID DO SERVIÇO')
-  return true
-}
-
-const normalizarRotulo = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
-
-function valorPorRotulo(valores: Record<string, string>, procurado: string): string {
-  const alvo = normalizarRotulo(procurado)
-  for (const [k, v] of Object.entries(valores)) {
-    const nk = normalizarRotulo(k)
-    if (nk === alvo || nk.startsWith(alvo)) return String(v ?? '').trim()
-  }
-  return ''
-}
-
-/** A chave de identidade da linha: as colunas-chave da aba, na ordem, mais um contador. */
-function chaveDaLinha(valores: Record<string, string>, colunasChave: readonly string[], jaVistas: Map<string, number>): string {
-  const base = colunasChave.map((c) => valorPorRotulo(valores, c)).filter(Boolean).join('|')
-  // ⚠️ Sem coluna-chave preenchida, a identidade cai no conteúdo inteiro da linha — e aí editar
-  // qualquer campo criaria "outra" linha. Duas das 20 abas estão nesse caso (01A e 13), e por isso
-  // a tela marca essas linhas como "identidade fraca" em vez de fingir que está tudo bem.
-  const semiChave = base || JSON.stringify(valores)
-  const n = (jaVistas.get(semiChave) ?? 0) + 1
-  jaVistas.set(semiChave, n)
-  return n === 1 ? semiChave : `${semiChave}#${n}`
+  const identidade = COLUNAS_DE_IDENTIDADE[aba]
+  // Lista vazia = aba derivada (fórmula na planilha). Não produz registro, por definição.
+  if (identidade.length === 0) return false
+  return !!valorPorRotulo(valores, identidade[0])
 }
 
 export async function prepararImportacao(
@@ -142,7 +131,7 @@ export async function prepararImportacao(
   for (const def of SABESP_SHEETS) {
     const ws = wb.Sheets[def.sheetName]
     if (!ws) { naoLidas.push(`${def.label}: aba não encontrada`); continue }
-    const lida = lerAba(ws, def.sheetName, def.keyColumns, validacoes)
+    const lida = lerAba(ws, def.sheetName, def.colunasDoCabecalho, validacoes)
     if (!lida) { naoLidas.push(`${def.label}: cabeçalho não reconhecido`); continue }
 
     const matriz = matrizDaAba(ws)
@@ -161,7 +150,9 @@ export async function prepararImportacao(
 
     const jaVistas = new Map<string, number>()
     const doArquivo = colunas.map(chaveDaColuna)
-    const colunasChave = def.id === 'banco_custos' ? ['Contrato', 'Item'] : def.keyColumns
+    // ⚠️ A identidade vem de `COLUNAS_DE_IDENTIDADE`, nunca de `def.colunasDoCabecalho` — aquela
+    // lista existe só para o leitor achar a linha do cabeçalho.
+    const colunasChave = COLUNAS_DE_IDENTIDADE[def.id]
     const daPlanilha = registros.map((valores) => ({
       chave: chaveDaLinha(valores, colunasChave, jaVistas),
       valores,
@@ -172,31 +163,53 @@ export async function prepararImportacao(
       chave: l.chave, valores: l.valores, origem: l.origem,
       editadoPor: l.editadoPor, editadoEm: l.editadoEm,
     }))
-    const conferidas = conferirAba(def.label, daPlanilha, comoExistente, doArquivo)
+    // Duas passadas: a chave primeiro, o conteúdo depois. É a segunda que transforma
+    // "linha nova + linha sumida" em "linha atualizada" quando a identidade muda — e é ela que
+    // migra sozinha o que já estava gravado com a chave antiga.
+    const conferidas = casarPorSemelhanca(
+      conferirAba(def.label, daPlanilha, comoExistente, doArquivo),
+      daPlanilha, comoExistente, doArquivo,
+    )
     conferencia.push(...conferidas)
     abas[def.id]!.ordemDasChaves = daPlanilha.map((l) => l.chave)
 
     const porChave = new Map(existentesDaAba.map((l) => [l.chave, l]))
+    const conferidaPorChave = new Map(conferidas.filter((l) => l.situacao !== 'ausente').map((l) => [l.chave, l]))
+    /** As chaves antigas que a segunda passada reconheceu — não sumiram, mudaram de nome. */
+    const reconhecidas = new Set(conferidas.map((l) => l.chaveAnterior).filter(Boolean) as string[])
+
     for (const nova of daPlanilha) {
+      const conferida = conferidaPorChave.get(nova.chave)
+      // Pela chave; e, quando a identidade mudou, pela linha que a segunda passada reconheceu.
       const antiga = porChave.get(nova.chave)
+        ?? (conferida?.chaveAnterior ? porChave.get(conferida.chaveAnterior) : undefined)
+      // ⚠️ Reaproveitar o `id` da linha reconhecida é o que faz a gravação SUBSTITUIR em vez de
+      // criar uma paralela: `gravarLinhas` casa por id. Com um id novo, a linha antiga continuaria
+      // viva ao lado da nova, com o mesmo conteúdo e outra chave.
+      const id = antiga?.id ?? idDaLinha(orgId, def.id, nova.chave)
+      // A planilha não mudou nada nesta linha — então ela não venceu nada, e não há por que apagar
+      // o carimbo de quem editou no sistema. Zerar aqui era o motivo de "suas edições" aparecer
+      // uma vez só: a reimportação seguinte já não sabia que a linha tinha sido editada.
+      const inalterada = conferida?.situacao === 'inalterada'
       paraGravar.push({
-        id: idDaLinha(orgId, def.id, nova.chave),
+        id,
         aba: def.id,
         chave: nova.chave,
         valores: valorFinalDaLinha(nova.valores, antiga?.valores, doArquivo),
-        // ⚠️ Volta a ser 'planilha': a planilha venceu esta linha, e a PRÓXIMA reimportação não
-        // deve chamá-la de conflito de novo. O conflito é sempre sobre a edição que ainda está
-        // por resolver.
-        origem: 'planilha',
-        editadoPor: undefined,
-        editadoEm: undefined,
+        // Fora do caso inalterado, volta a ser 'planilha': a planilha venceu esta linha, e a
+        // PRÓXIMA reimportação não deve chamá-la de conflito de novo. O conflito é sempre sobre a
+        // edição que ainda está por resolver.
+        origem: inalterada ? (antiga?.origem ?? 'planilha') : 'planilha',
+        editadoPor: inalterada ? antiga?.editadoPor : undefined,
+        editadoEm: inalterada ? antiga?.editadoEm : undefined,
         ativa: true,
       })
     }
     // A linha que sumiu da planilha não é apagada: fica marcada como inativa, visível na tela.
+    const chavesDaPlanilha = new Set(daPlanilha.map((l) => l.chave))
     for (const l of existentesDaAba) {
-      const aindaExiste = daPlanilha.some((x) => x.chave === l.chave)
-      if (!aindaExiste && l.ativa) paraGravar.push({ ...l, ativa: false })
+      if (chavesDaPlanilha.has(l.chave) || reconhecidas.has(l.chave)) continue
+      if (l.ativa) paraGravar.push({ ...l, ativa: false })
     }
   }
 
