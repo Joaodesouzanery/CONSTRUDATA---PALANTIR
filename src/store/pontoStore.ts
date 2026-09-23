@@ -12,12 +12,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { flushQueue, makeFlushSerializer, makeOp, mergePull, pullTable, type PendingOp, type SyncStatus } from '@/lib/storeSync'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import { podeEscrever } from '@/lib/roles'
 import { getTenantMarker } from '@/lib/tenantCache'
 import { hojeLocalISO } from '@/lib/utils'
 import { batidaParaRow, dataDaJornada, jornadaAberta, montarAjuste, montarBatida, type DadosDaBatida } from '@/features/ponto/batida'
-import type { RegistroDePonto, TipoDeBatida } from '@/types'
+import type { RegistroDePonto, TipoDeBatida, Worker } from '@/types'
 import type { UserRole } from '@/types/database'
 
 /**
@@ -36,9 +37,65 @@ export const ROLES_PONTO_GERIR: readonly UserRole[] =
 export const podeRegistrarPonto = () => podeEscrever(ROLES_PONTO_REGISTRAR)
 export const podeGerirPonto     = () => podeEscrever(ROLES_PONTO_GERIR)
 
+/**
+ * O cadastro do titular desta conta — o mínimo para a tela saber de quem é a batida.
+ *
+ * ⚠️ Campos nomeados, nunca o `Worker` inteiro. A RLS já recorta `workers` para a própria linha,
+ * mas o `localStorage` de um celular de canteiro não é lugar para `grossSalary` nem `hourlyRate`
+ * viajarem sem necessidade — e a regra da casa é que o cliente peça só o que usa.
+ */
+export interface MeuCadastro {
+  workerId: string
+  nome: string
+  siteId: string | null
+  /** A jornada contratual — é dela que sai o previsto do banco de horas. */
+  scheduleType?: string
+  admissionDate?: string
+  matricula?: string
+}
+
+/** A obra, com o que a cerca precisa. Sem o `payload`: o contrato fica no servidor. */
+export interface ObraDoPonto {
+  id: string
+  nome: string
+  lat: number | null
+  lng: number | null
+  /** `raioPontoM` da obra, quando ela define o seu. `null` = usa o padrão da empresa. */
+  raioM: number | null
+}
+
+/**
+ * Por que não há cadastro — e é metade do conserto.
+ *
+ * ⚠️ A tela tratava QUALQUER ausência como "o gestor não fez o vínculo", inclusive "ainda estou
+ * carregando" e "estou sem rede". Acusar o gestor de não ter feito um vínculo que ele fez é trocar
+ * um defeito por outro: a pessoa liga para o escritório, e lá está tudo certo.
+ */
+export type MotivoSemCadastro = 'carregando' | 'sem-rede' | 'sem-vinculo' | 'erro'
+
 interface Estado {
   activeOrgId: string | null
   registros: RegistroDePonto[]
+
+  /**
+   * O cadastro e a obra do titular, buscados pelo próprio store.
+   *
+   * ⚠️ **Existem porque o `colaborador` sincroniza UM store só.** `defsDoPapel`
+   * (`appModeStore.ts:337`) recorta a lista para `['ponto']` — de propósito, para o celular do
+   * canteiro não baixar a empresa inteira. Só que `PontoPage` procurava a pessoa dentro de
+   * `useMaoDeObraStore.workers` e a obra dentro de `useTorreStore.sites`, que aquele recorte não
+   * baixa: `eu` ficava `undefined` e a tela acusava "sua conta não está ligada a um cadastro",
+   * **com o vínculo perfeitamente feito no banco**. Para gerente e diretor funcionava, porque
+   * esses sincronizam tudo — foi por isso que passou sem ninguém ver.
+   *
+   * ⚠️ E moram AQUI, não dentro do componente: depois de um F5 sem sinal — o cenário do canteiro —
+   * um estado de componente se perde e a cerca voltaria a `obra-sem-coordenada`.
+   */
+  meuCadastro: MeuCadastro | null
+  minhaObra: ObraDoPonto | null
+  /** As obras da empresa, projetadas. Serve à conferência da cerca pelo gestor. */
+  obrasDaEmpresa: ObraDoPonto[]
+  motivoSemCadastro: MotivoSemCadastro | null
 
   pendingSync: PendingOp[]
   syncStatus: SyncStatus
@@ -47,6 +104,7 @@ interface Estado {
 
   registrar: (dados: DadosDaBatida) => string
   ajustar: (dados: Parameters<typeof montarAjuste>[0]) => string
+  puxarMeuContexto: () => Promise<void>
 
   ensureTenantScope: (organizationId: string) => void
   clearData: () => void
@@ -97,6 +155,10 @@ export const usePontoStore = create<Estado>()(
       return {
         activeOrgId: null,
         registros: [],
+        meuCadastro: null,
+        minhaObra: null,
+        obrasDaEmpresa: [],
+        motivoSemCadastro: 'carregando',
         pendingSync: [],
         syncStatus: 'idle',
         lastSyncedAt: null,
@@ -189,9 +251,96 @@ export const usePontoStore = create<Estado>()(
           set({ activeOrgId: organizationId })
         },
 
+        /**
+         * Busca o cadastro do titular e as obras — as duas coisas que a tela precisa e que o
+         * recorte de sincronização do `colaborador` não traz.
+         *
+         * ⚠️ **Duas consultas nomeadas, e não ligar `mao-de-obra`/`torre` no `defsDoPapel`.**
+         * Ligar os dois stores faz 12 requisições por login num aparelho de canteiro, das quais
+         * 10 voltam vazias pela RLS — e, pior, passa a depender SÓ dela. O próprio
+         * `docs/APLICAR_MIGRACOES.md` avisa que a varredura de `20260918160000` é um retrato:
+         * **tabela criada depois nasce liberada**. Uma tabela nova de folha, e o celular do
+         * canteiro volta a baixar salário. Duas consultas nomeadas não têm esse risco.
+         *
+         * ⚠️ O filtro por `authUserId` é repetido aqui de propósito, mesmo com a policy restritiva
+         * já garantindo a mesma coisa. Defesa em profundidade: no dia em que a varredura da cerca
+         * ficar desatualizada, este `.eq` continua devolvendo uma linha só.
+         */
+        puxarMeuContexto: async () => {
+          const { user, profile } = useAuth.getState()
+          const orgId = profile?.organization_id
+          if (!user?.id || !orgId) { set({ motivoSemCadastro: 'carregando' }); return }
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            // ⚠️ Sem rede NÃO limpa o que já está guardado: é exatamente o caso em que o cadastro
+            // persistido é a única coisa que deixa a pessoa bater o ponto.
+            set((s) => ({ motivoSemCadastro: s.meuCadastro ? null : 'sem-rede' }))
+            return
+          }
+
+          try {
+            const [{ data: eu, error: erroWorker }, { data: obras, error: erroObras }] = await Promise.all([
+              supabase.from('workers')
+                .select('id,name,payload')
+                .eq('organization_id', orgId)
+                .eq('payload->>authUserId', user.id)
+                .is('deleted_at', null)
+                .limit(1)
+                .maybeSingle(),
+              // ⚠️ SEM `payload`. Ele carrega contrato, orçamento, medições e riscos de cada obra;
+              // a cerca precisa de quatro campos. `raioPontoM` vem por caminho de json, só ele.
+              supabase.from('construction_sites')
+                .select('id,name,lat,lng,raioPontoM:payload->>raioPontoM')
+                .eq('organization_id', orgId)
+                .is('deleted_at', null),
+            ])
+            if (erroWorker || erroObras) { set({ motivoSemCadastro: 'erro' }); return }
+
+            const lista: ObraDoPonto[] = (obras ?? []).map((o) => {
+              const r = Number((o as { raioPontoM?: string | null }).raioPontoM)
+              return {
+                id: String(o.id),
+                nome: String(o.name ?? ''),
+                lat: o.lat == null ? null : Number(o.lat),
+                lng: o.lng == null ? null : Number(o.lng),
+                raioM: Number.isFinite(r) && r > 0 ? r : null,
+              }
+            })
+
+            if (!eu) {
+              set({ meuCadastro: null, minhaObra: null, obrasDaEmpresa: lista, motivoSemCadastro: 'sem-vinculo' })
+              return
+            }
+
+            const pl = (eu.payload ?? {}) as Partial<Worker>
+            const cadastro: MeuCadastro = {
+              workerId: String(eu.id),
+              nome: String(eu.name ?? pl.name ?? ''),
+              siteId: pl.siteId ?? null,
+              scheduleType: pl.scheduleType,
+              admissionDate: pl.admissionDate,
+              matricula: pl.registrationNumber,
+            }
+            set({
+              meuCadastro: cadastro,
+              minhaObra: lista.find((o) => o.id === cadastro.siteId) ?? null,
+              obrasDaEmpresa: lista,
+              motivoSemCadastro: null,
+            })
+          } catch {
+            set({ motivoSemCadastro: 'erro' })
+          }
+        },
+
         // ⚠️ `pendingSync` NÃO é zerado: batida feita offline não pode morrer numa troca de
         // empresa. O `flushQueue` estaciona op de outra organização sozinho.
-        clearData: () => set({ registros: [], activeOrgId: null, syncError: null }),
+        //
+        // ⚠️ Mas o CADASTRO é zerado, e tem de ser: ele é de outra empresa. Note a tensão com o
+        // `partialize`, que o guarda de propósito — as duas regras são certas e falam de momentos
+        // diferentes (trocar de empresa × recarregar a página sem sinal).
+        clearData: () => set({
+          registros: [], activeOrgId: null, syncError: null,
+          meuCadastro: null, minhaObra: null, obrasDaEmpresa: [], motivoSemCadastro: 'carregando',
+        }),
 
         flush: async () => serializarFlush(async () => {
           const fila = get().pendingSync
@@ -211,6 +360,8 @@ export const usePontoStore = create<Estado>()(
         }, () => get().pendingSync.length),
 
         pull: async () => {
+          // O contexto vem junto: é a mesma viagem, e sem ele a tela não sabe de quem é a batida.
+          await get().puxarMeuContexto()
           // ⚠️ Ordena por `nsr`, não por `data`. O `pullTable` pagina de 1000 em 1000 com `.range()` e UMA
           // só cláusula de ordenação: numa coluna `date`, as dezenas de batidas do mesmo dia empatam, o
           // Postgres não promete ordem estável entre páginas, e linha repete numa página enquanto outra
@@ -260,6 +411,11 @@ export const usePontoStore = create<Estado>()(
           registros: s.registros.filter((r) => pendentes.has(r.id) || r.data >= limiteDaMemoria()),
           pendingSync: s.pendingSync,
           lastSyncedAt: s.lastSyncedAt,
+          // ⚠️ O cadastro e a obra ficam guardados. Sem isto, abrir a tela sem sinal — o canteiro —
+          // perderia o vínculo e a cerca cairia em `obra-sem-coordenada`. São ~200 bytes.
+          meuCadastro: s.meuCadastro,
+          minhaObra: s.minhaObra,
+          obrasDaEmpresa: s.obrasDaEmpresa,
         }
       },
     },

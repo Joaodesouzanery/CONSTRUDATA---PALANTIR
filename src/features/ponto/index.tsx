@@ -16,7 +16,6 @@ import { Clock, MapPin, AlertTriangle, Check, WifiOff, LogIn, LogOut, Coffee, Po
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
-import { useTorreStore } from '@/store/torreDeControleStore'
 import { usePontoStore, ROLES_PONTO_REGISTRAR } from '@/store/pontoStore'
 import { usePermissaoEscrita } from '@/lib/roles'
 import { avaliarCerca, distanciaLegivel, TEXTO_DO_MOTIVO } from '@/lib/geo'
@@ -37,15 +36,21 @@ const ICONE: Record<TipoDeBatida, typeof LogIn> = {
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 export function PontoPage() {
-  const user = useAuth((s) => s.user)
-  const workers = useMaoDeObraStore(useShallow((s) => s.workers))
-  const sites = useTorreStore(useShallow((s) => s.sites))
+  // ⚠️ `cltSettings` é o ÚNICO uso de outro store aqui, e para o `colaborador` ele não chega:
+  // `clt_settings` está dentro da cerca restritiva de `20260918160000` e volta vazia. Na prática o
+  // raio cai no padrão de 5 km. O conserto é uma RPC que devolve só os quatro parâmetros do ponto —
+  // até lá, isto está escrito em vez de escondido.
   const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
-  const { registros, registrar, pendingSync, syncError, ensureTenantScope, flush, pull } = usePontoStore(
+  const {
+    registros, registrar, pendingSync, syncError, ensureTenantScope, flush, pull,
+    meuCadastro, minhaObra, motivoSemCadastro, puxarMeuContexto,
+  } = usePontoStore(
     useShallow((s) => ({
       registros: s.registros, registrar: s.registrar, pendingSync: s.pendingSync,
       syncError: s.syncError,
       ensureTenantScope: s.ensureTenantScope, flush: s.flush, pull: s.pull,
+      meuCadastro: s.meuCadastro, minhaObra: s.minhaObra,
+      motivoSemCadastro: s.motivoSemCadastro, puxarMeuContexto: s.puxarMeuContexto,
     })),
   )
   const orgId = useAuth((s) => s.profile?.organization_id)
@@ -66,16 +71,27 @@ export function PontoPage() {
   useEffect(() => {
     if (!orgId) return
     ensureTenantScope(orgId)
-    void (async () => { await flush(); await pull() })()
-  }, [orgId, ensureTenantScope, flush, pull])
+    // ⚠️ O contexto é pedido ANTES do flush. `flush` e `pull` saem cedo quando não há rede, e sem
+    // esta chamada própria um aparelho offline nunca sairia de 'carregando' — mostrando um spinner
+    // eterno para quem tem o cadastro guardado no próprio aparelho e poderia bater o ponto.
+    void (async () => { await puxarMeuContexto(); await flush(); await pull() })()
+  }, [orgId, ensureTenantScope, flush, pull, puxarMeuContexto])
 
   // Lê a posição ao abrir — o funcionário não deveria precisar apertar nada para isso.
   useEffect(() => { void geo.ler() }, [geo.ler]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** ⚠️ Pelo VÍNCULO, nunca por nome. Ver o docblock de `Worker.authUserId`. */
-  const eu = useMemo(() => workers.find((w) => w.authUserId && w.authUserId === user?.id), [workers, user])
-  const obra = useMemo(() => sites.find((s) => s.id === eu?.siteId) ?? null, [sites, eu])
-  const raioM = obra?.raioPontoM ?? cltSettings.raioPontoPadraoM ?? RAIO_PADRAO_M
+  /**
+   * ⚠️ Pelo VÍNCULO, nunca por nome. Ver o docblock de `Worker.authUserId`.
+   *
+   * ⚠️ E vem do `pontoStore`, não de `useMaoDeObraStore.workers`. Aquele store NÃO é sincronizado
+   * para o papel `colaborador` (`appModeStore.defsDoPapel`), então `workers` chegava vazio no
+   * celular do canteiro e esta tela acusava "sua conta não está ligada a um cadastro" com o
+   * vínculo perfeitamente feito no banco. Para gerente e diretor funcionava — foi por isso que
+   * passou sem ninguém ver. O `pontoStore` busca as duas coisas por conta própria.
+   */
+  const eu = meuCadastro
+  const obra = minhaObra
+  const raioM = obra?.raioM ?? cltSettings.raioPontoPadraoM ?? RAIO_PADRAO_M
 
   const cerca = useMemo(
     () => avaliarCerca(
@@ -94,7 +110,7 @@ export function PontoPage() {
   // Só recalcula por minuto (e não a cada tique do relógio) para não refazer a conta 60× por minuto.
   const minuto = agora.toISOString().slice(0, 16)
   const doDia = useMemo(
-    () => jornadaAberta(registros.filter((r) => r.workerId === eu?.id), new Date().toISOString()),
+    () => jornadaAberta(registros.filter((r) => r.workerId === eu?.workerId), new Date().toISOString()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [registros, eu, minuto],
   )
@@ -110,7 +126,7 @@ export function PontoPage() {
     const trintaDiasAtras = new Date()
     trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30)
     return jornadasDoPeriodo(
-      registros.filter((r) => r.workerId === eu.id),
+      registros.filter((r) => r.workerId === eu.workerId),
       trintaDiasAtras.toISOString().slice(0, 10),
       hojeLocalISO(),
     ).filter((j) => j.pendencias.includes('sem-saida') && j.data < (doDia[0]?.data ?? hojeLocalISO()))
@@ -160,7 +176,7 @@ export function PontoPage() {
         return
       }
       const id = registrar({
-        workerId: eu.id,
+        workerId: eu.workerId,
         siteId: obra?.id ?? null,
         tipo: proxima,
         lat: atual.leitura?.lat,
@@ -203,17 +219,57 @@ export function PontoPage() {
   }
 
   // ── Quem não está vinculado não bate ─────────────────────────────────────────
+  //
+  // ⚠️ E o MOTIVO importa. Antes, qualquer ausência de cadastro virava "o gestor não fez o
+  // vínculo" — inclusive "ainda estou carregando" e "estou sem rede". A pessoa ligava para o
+  // escritório, e lá estava tudo certo. Acusar alguém de um erro que não cometeu é um defeito,
+  // não um detalhe de texto.
   if (!eu) {
     return (
       <Moldura>
-        <div className="rounded-xl border border-[#f59e0b]/40 bg-[#f59e0b]/10 p-4 text-center">
-          <AlertTriangle className="mx-auto mb-2 text-[#fbbf24]" size={22} />
-          <p className="text-sm font-semibold text-[#fbbf24]">Sua conta ainda não está ligada a um cadastro de funcionário.</p>
-          <p className="mt-1 text-xs leading-5 text-[#d1a54a]">
-            Sem essa ligação o sistema não sabe de quem é a batida — e um cartão de ponto não pode
-            ser atribuído por semelhança de nome. Peça ao responsável para fazer o vínculo em
-            Mão de Obra › Funcionários.
-          </p>
+        <div className={cn(
+          'rounded-xl border p-4 text-center',
+          motivoSemCadastro === 'sem-vinculo'
+            ? 'border-[#f59e0b]/40 bg-[#f59e0b]/10'
+            : 'border-[#525252] bg-[#333]',
+        )}>
+          {motivoSemCadastro === 'carregando' ? (
+            <>
+              <Clock className="mx-auto mb-2 animate-pulse text-[#a3a3a3]" size={22} />
+              <p className="text-sm font-semibold text-[#d4d4d4]">Carregando o seu cadastro…</p>
+            </>
+          ) : motivoSemCadastro === 'sem-rede' ? (
+            <>
+              <WifiOff className="mx-auto mb-2 text-[#a3a3a3]" size={22} />
+              <p className="text-sm font-semibold text-[#d4d4d4]">Sem internet, e o seu cadastro ainda não está neste aparelho.</p>
+              <p className="mt-1 text-xs leading-5 text-[#a3a3a3]">
+                Conecte-se uma vez para o aparelho guardar o seu vínculo. Depois disso, dá para
+                bater o ponto mesmo sem sinal.
+              </p>
+            </>
+          ) : motivoSemCadastro === 'erro' ? (
+            <>
+              <CloudOff className="mx-auto mb-2 text-[#fca5a5]" size={22} />
+              <p className="text-sm font-semibold text-[#fca5a5]">Não consegui consultar o seu cadastro agora.</p>
+              <p className="mt-1 text-xs leading-5 text-[#d1a54a]">
+                Tente de novo em instantes. Se continuar, mostre esta tela ao responsável.
+              </p>
+              <button type="button" onClick={() => { void puxarMeuContexto() }}
+                      className="mx-auto mt-3 rounded-lg border border-[#525252] px-3 py-1.5 text-xs text-[#d4d4d4] hover:bg-[#3d3d3d]">
+                Tentar de novo
+              </button>
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="mx-auto mb-2 text-[#fbbf24]" size={22} />
+              <p className="text-sm font-semibold text-[#fbbf24]">Sua conta ainda não está ligada a um cadastro de funcionário.</p>
+              <p className="mt-1 text-xs leading-5 text-[#d1a54a]">
+                Sem essa ligação o sistema não sabe de quem é a batida — e um cartão de ponto não
+                pode ser atribuído por semelhança de nome. Peça ao responsável para fazer o vínculo
+                em Mão de Obra › Funcionários.
+              </p>
+            </>
+          )}
         </div>
         {/* ⚠️ Sair TAMBÉM aqui. Quem cai nesta tela é justamente quem entrou com a conta errada no
             celular do canteiro — sem este botão, o aparelho fica preso numa conta que não bate
@@ -236,7 +292,7 @@ export function PontoPage() {
           compartilhado do canteiro — o cenário que a própria migração cita — fica preso na conta da
           primeira pessoa que entrou, e todo mundo depois bateria o ponto no nome dela. */}
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs font-semibold text-[#d4d4d4]">{eu.name}</span>
+        <span className="truncate text-xs font-semibold text-[#d4d4d4]">{eu.nome}</span>
         <button
           type="button"
           onClick={() => { void sair() }}
@@ -269,10 +325,10 @@ export function PontoPage() {
         <p className="flex items-center gap-1.5 font-semibold">
           <MapPin size={13} />
           {geo.lendo ? 'Localizando…'
-            : foraDaCerca ? `Você está a ${distanciaLegivel(cerca.distanciaM ?? 0)} de ${obra?.name ?? 'obra'}`
+            : foraDaCerca ? `Você está a ${distanciaLegivel(cerca.distanciaM ?? 0)} de ${obra?.nome ?? 'obra'}`
             : precisaJustificar ? (motivo ? TEXTO_DO_MOTIVO[motivo] : 'Localização indisponível')
             : semCercaCadastrada ? 'Sem cerca cadastrada para esta obra'
-            : `Na obra${obra ? ` — ${obra.name}` : ''}`}
+            : `Na obra${obra ? ` — ${obra.nome}` : ''}`}
         </p>
         {foraDaCerca && (
           <p className="mt-0.5">O ponto só pode ser registrado a até {distanciaLegivel(raioM)} da obra.</p>
@@ -280,7 +336,7 @@ export function PontoPage() {
         {semCercaCadastrada && (
           <p className="mt-0.5">
             Pode bater normalmente — a batida fica marcada para conferência. Avise o responsável
-            para cadastrar a localização {obra ? `de ${obra.name}` : 'da sua obra'}.
+            para cadastrar a localização {obra ? `de ${obra.nome}` : 'da sua obra'}.
           </p>
         )}
         {precisaJustificar && (

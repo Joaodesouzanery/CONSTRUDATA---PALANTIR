@@ -130,3 +130,34 @@ test('a distância na tela troca de unidade no quilômetro', () => {
   assert.equal(distanciaLegivel(1000), '1 km')
   assert.equal(distanciaLegivel(7240), '7,2 km')
 })
+
+// ─── 🔴 O header que desligava a cerca inteira ────────────────────────────────
+
+test('🔴 o Permissions-Policy NÃO pode bloquear geolocation — a cerca morre em produção', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const vercel = JSON.parse(await readFile(new URL('../../vercel.json', import.meta.url), 'utf8')) as {
+    headers?: Array<{ source: string; headers: Array<{ key: string; value: string }> }>
+  }
+  const politica = (vercel.headers ?? [])
+    .flatMap((h) => h.headers)
+    .find((h) => h.key.toLowerCase() === 'permissions-policy')
+
+  assert.ok(politica, 'o header existe e é onde este defeito mora')
+
+  // ⚠️ `geolocation=()` é allowlist VAZIA: o navegador recusa `getCurrentPosition` no próprio
+  // site, com o código 1 — o mesmo de "o usuário negou". O caminho inteiro do estrago:
+  // `motivoDoErroDeGeo(1)` → 'permissao-negada' → `cerca.dentro === null` → `precisaJustificar`.
+  // Ou seja: a cerca NUNCA avalia nada, `dentroDaCerca` nunca é `true`, e TODA batida nasce
+  // "a conferir" pedindo cinco letras de justificativa — que em uma semana viram "aaaaa".
+  //
+  // O projeto já tinha aprendido isto com a câmera e escrito por extenso em
+  // `ImportarNotaModal.tsx`: "o vercel.json manda `camera=()`, então `getUserMedia()` está
+  // bloqueado em produção". É o mesmo header, a diretiva seguinte.
+  assert.doesNotMatch(politica!.value, /geolocation=\(\s*\)/,
+    'allowlist vazia desliga a cerca virtual em produção — use `geolocation=(self)`')
+
+  // ⚠️ `(self)`, não `*`. Com `*`, um iframe de terceiro embutido numa página nossa herdaria a
+  // permissão de ler a localização de quem está com a tela aberta.
+  assert.match(politica!.value, /geolocation=\(self\)/)
+  assert.doesNotMatch(politica!.value, /geolocation=\*/)
+})
