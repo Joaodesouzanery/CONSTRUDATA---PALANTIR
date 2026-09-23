@@ -49,7 +49,7 @@ export interface MeuCadastro {
   nome: string
   siteId: string | null
   /** A jornada contratual — é dela que sai o previsto do banco de horas. */
-  scheduleType?: string
+  scheduleType?: Worker['scheduleType']
   admissionDate?: string
   matricula?: string
 }
@@ -62,6 +62,22 @@ export interface ObraDoPonto {
   lng: number | null
   /** `raioPontoM` da obra, quando ela define o seu. `null` = usa o padrão da empresa. */
   raioM: number | null
+}
+
+/**
+ * Os parâmetros do ponto e os feriados, vindos da RPC `ponto_meu_contexto`.
+ *
+ * ⚠️ Existem porque `clt_settings` e `plan_holidays` **caíram na varredura restritiva** de
+ * `20260918160000` e devolvem VAZIO para o papel `colaborador`. Sem eles: o raio padrão da empresa
+ * não chega ao celular (a cerca cai sempre nos 5 km do código) e o banco de horas trata feriado
+ * como dia útil devedor — o saldo sai errado para menos, no número que o funcionário usa para
+ * conferir se está sendo pago direito.
+ */
+export interface ParametrosDoPonto {
+  raioPontoPadraoM?: number
+  toleranciaPontoMin?: number
+  maxWeeklyHours?: number
+  bancoHorasMeses?: number
 }
 
 /**
@@ -95,6 +111,10 @@ interface Estado {
   minhaObra: ObraDoPonto | null
   /** As obras da empresa, projetadas. Serve à conferência da cerca pelo gestor. */
   obrasDaEmpresa: ObraDoPonto[]
+  /** Os quatro parâmetros da empresa. Vazio = a RPC ainda não respondeu (ou não foi aplicada). */
+  parametros: ParametrosDoPonto
+  /** `yyyy-MM-dd` dos feriados dos últimos 13 meses. */
+  feriados: string[]
   motivoSemCadastro: MotivoSemCadastro | null
 
   pendingSync: PendingOp[]
@@ -158,6 +178,8 @@ export const usePontoStore = create<Estado>()(
         meuCadastro: null,
         minhaObra: null,
         obrasDaEmpresa: [],
+        parametros: {},
+        feriados: [],
         motivoSemCadastro: 'carregando',
         pendingSync: [],
         syncStatus: 'idle',
@@ -278,7 +300,7 @@ export const usePontoStore = create<Estado>()(
           }
 
           try {
-            const [{ data: eu, error: erroWorker }, { data: obras, error: erroObras }] = await Promise.all([
+            const [{ data: eu, error: erroWorker }, { data: obras, error: erroObras }, ctx] = await Promise.all([
               supabase.from('workers')
                 .select('id,name,payload')
                 .eq('organization_id', orgId)
@@ -292,8 +314,26 @@ export const usePontoStore = create<Estado>()(
                 .select('id,name,lat,lng,raioPontoM:payload->>raioPontoM')
                 .eq('organization_id', orgId)
                 .is('deleted_at', null),
+              // ⚠️ Os parâmetros e os feriados vêm por RPC, não por `.from()`: `clt_settings` e
+              // `plan_holidays` estão dentro da cerca restritiva do colaborador e devolvem vazio.
+              // A função entrega quatro números e uma lista de datas — nada do payload de imposto.
+              supabase.rpc('ponto_meu_contexto'),
             ])
             if (erroWorker || erroObras) { set({ motivoSemCadastro: 'erro' }); return }
+
+            // ⚠️ A RPC falhando NÃO derruba a batida: ela é de conforto (raio padrão e feriados),
+            // e a migração dela é de aplicação manual — num banco onde ainda não rodou, o erro é
+            // 42883 e o ponto tem de continuar funcionando com os padrões do código.
+            const bruto = (ctx.error ? null : ctx.data) as
+              { parametros?: Record<string, unknown>; feriados?: string[] } | null
+            const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+            const parametros: ParametrosDoPonto = {
+              raioPontoPadraoM:   num(bruto?.parametros?.raioPontoPadraoM),
+              toleranciaPontoMin: num(bruto?.parametros?.toleranciaPontoMin),
+              maxWeeklyHours:     num(bruto?.parametros?.maxWeeklyHours),
+              bancoHorasMeses:    num(bruto?.parametros?.bancoHorasMeses),
+            }
+            const feriados = Array.isArray(bruto?.feriados) ? bruto!.feriados.map(String) : []
 
             const lista: ObraDoPonto[] = (obras ?? []).map((o) => {
               const r = Number((o as { raioPontoM?: string | null }).raioPontoM)
@@ -307,7 +347,7 @@ export const usePontoStore = create<Estado>()(
             })
 
             if (!eu) {
-              set({ meuCadastro: null, minhaObra: null, obrasDaEmpresa: lista, motivoSemCadastro: 'sem-vinculo' })
+              set({ meuCadastro: null, minhaObra: null, obrasDaEmpresa: lista, parametros, feriados, motivoSemCadastro: 'sem-vinculo' })
               return
             }
 
@@ -324,6 +364,8 @@ export const usePontoStore = create<Estado>()(
               meuCadastro: cadastro,
               minhaObra: lista.find((o) => o.id === cadastro.siteId) ?? null,
               obrasDaEmpresa: lista,
+              parametros,
+              feriados,
               motivoSemCadastro: null,
             })
           } catch {
@@ -339,7 +381,8 @@ export const usePontoStore = create<Estado>()(
         // diferentes (trocar de empresa × recarregar a página sem sinal).
         clearData: () => set({
           registros: [], activeOrgId: null, syncError: null,
-          meuCadastro: null, minhaObra: null, obrasDaEmpresa: [], motivoSemCadastro: 'carregando',
+          meuCadastro: null, minhaObra: null, obrasDaEmpresa: [], parametros: {}, feriados: [],
+          motivoSemCadastro: 'carregando',
         }),
 
         flush: async () => serializarFlush(async () => {
@@ -416,6 +459,8 @@ export const usePontoStore = create<Estado>()(
           meuCadastro: s.meuCadastro,
           minhaObra: s.minhaObra,
           obrasDaEmpresa: s.obrasDaEmpresa,
+          parametros: s.parametros,
+          feriados: s.feriados,
         }
       },
     },

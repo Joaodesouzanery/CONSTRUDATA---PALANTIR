@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Clock, MapPin, AlertTriangle, Check, WifiOff, LogIn, LogOut, Coffee, Power, CloudOff } from 'lucide-react'
+import { Clock, MapPin, AlertTriangle, Check, WifiOff, LogIn, LogOut, Coffee, Power, CloudOff, CalendarDays, Scale } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth'
 import { useMaoDeObraStore } from '@/store/maoDeObraStore'
@@ -22,7 +22,8 @@ import { avaliarCerca, distanciaLegivel, TEXTO_DO_MOTIVO } from '@/lib/geo'
 import { cn, hojeLocalISO } from '@/lib/utils'
 import { useLocalizacao } from './useLocalizacao'
 import { jornadaAberta, proximaBatida, ROTULO_DA_BATIDA } from './batida'
-import { jornadasDoPeriodo } from './jornada'
+import { jornadasDoPeriodo, TEXTO_DA_PENDENCIA } from './jornada'
+import { saldoDoPeriodo, creditosAVencer, TEXTO_SEM_PREVISTO, MESES_DE_COMPENSACAO_PADRAO } from '@/features/mao-de-obra/utils/bancoDeHoras'
 import type { TipoDeBatida } from '@/types'
 
 const RAIO_PADRAO_M = 5000
@@ -43,19 +44,23 @@ export function PontoPage() {
   const cltSettings = useMaoDeObraStore((s) => s.cltSettings)
   const {
     registros, registrar, pendingSync, syncError, ensureTenantScope, flush, pull,
-    meuCadastro, minhaObra, motivoSemCadastro, puxarMeuContexto,
+    meuCadastro, minhaObra, parametros, feriados, motivoSemCadastro, puxarMeuContexto,
   } = usePontoStore(
     useShallow((s) => ({
       registros: s.registros, registrar: s.registrar, pendingSync: s.pendingSync,
       syncError: s.syncError,
       ensureTenantScope: s.ensureTenantScope, flush: s.flush, pull: s.pull,
       meuCadastro: s.meuCadastro, minhaObra: s.minhaObra,
+      parametros: s.parametros, feriados: s.feriados,
       motivoSemCadastro: s.motivoSemCadastro, puxarMeuContexto: s.puxarMeuContexto,
     })),
   )
   const orgId = useAuth((s) => s.profile?.organization_id)
   const signOut = useAuth((s) => s.signOut)
   const geo = useLocalizacao()
+  /** A aba aberta. "Bater" é o padrão: quem abre esta tela abre para bater. */
+  const [aba, setAba] = useState<'bater' | 'mes' | 'banco'>('bater')
+  const [mes, setMes] = useState(() => hojeLocalISO().slice(0, 7))
   const [justificativa, setJustificativa] = useState('')
   const [enviando, setEnviando] = useState(false)
 
@@ -91,7 +96,9 @@ export function PontoPage() {
    */
   const eu = meuCadastro
   const obra = minhaObra
-  const raioM = obra?.raioM ?? cltSettings.raioPontoPadraoM ?? RAIO_PADRAO_M
+  // ⚠️ A ordem: a obra manda, depois o padrão que a RPC trouxe, depois o do `maoDeObraStore` (que
+  // só existe para gerente — o colaborador não sincroniza aquele store), e só então a constante.
+  const raioM = obra?.raioM ?? parametros.raioPontoPadraoM ?? cltSettings.raioPontoPadraoM ?? RAIO_PADRAO_M
 
   const cerca = useMemo(
     () => avaliarCerca(
@@ -114,6 +121,70 @@ export function PontoPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [registros, eu, minuto],
   )
+  // ─── O meu mês e o meu banco de horas ──────────────────────────────────────
+  //
+  // ⚠️ MESMO motor do espelho do gestor (`jornadasDoPeriodo`, `saldoDoPeriodo`). Uma segunda conta
+  // aqui faria o funcionário e o gestor lerem números diferentes para a mesma jornada — e aí quem
+  // está certo vira discussão, que é exatamente o que um registro de ponto existe para evitar.
+  const limites = useMemo(() => {
+    const [ano, m] = mes.split('-').map(Number)
+    return { de: `${mes}-01`, ate: `${mes}-${String(new Date(ano, m, 0).getDate()).padStart(2, '0')}` }
+  }, [mes])
+
+  const minhasJornadas = useMemo(
+    () => (eu ? jornadasDoPeriodo(registros.filter((r) => r.workerId === eu.workerId), limites.de, limites.ate) : []),
+    [registros, eu, limites],
+  )
+
+  const settingsDoBanco = useMemo(() => ({
+    // A RPC primeiro; o store de mão de obra só existe para quem é gestor.
+    maxWeeklyHours: parametros.maxWeeklyHours ?? cltSettings.maxWeeklyHours,
+    toleranciaPontoMin: parametros.toleranciaPontoMin ?? cltSettings.toleranciaPontoMin,
+  }), [parametros, cltSettings])
+
+  const feriadosSet = useMemo(() => new Set(feriados), [feriados])
+
+  const saldo = useMemo(
+    () => (eu
+      ? saldoDoPeriodo(
+          { id: eu.workerId, scheduleType: eu.scheduleType, admissionDate: eu.admissionDate },
+          minhasJornadas, limites.de, limites.ate, settingsDoBanco, feriadosSet,
+        )
+      : null),
+    [eu, minhasJornadas, limites, settingsDoBanco, feriadosSet],
+  )
+
+  /**
+   * Os créditos perto de vencer — art. 59 §5º.
+   *
+   * ⚠️ Esta função existia, testada, e **nenhuma tela a chamava**: o aviso de que o crédito vence
+   * não existia em lugar nenhum do sistema. Passado o prazo a hora não compensada não evapora,
+   * vira hora extra a pagar — mas só se alguém souber a tempo.
+   */
+  const aVencer = useMemo(() => {
+    if (!eu) return []
+    const porMes = new Map<string, number>()
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(`${mes}-01T00:00:00`)
+      d.setMonth(d.getMonth() - i)
+      const comp = d.toISOString().slice(0, 7)
+      const [ano, m] = comp.split('-').map(Number)
+      const ate = `${comp}-${String(new Date(ano, m, 0).getDate()).padStart(2, '0')}`
+      const js = jornadasDoPeriodo(registros.filter((r) => r.workerId === eu.workerId), `${comp}-01`, ate)
+      if (js.length === 0) continue
+      const sp = saldoDoPeriodo(
+        { id: eu.workerId, scheduleType: eu.scheduleType, admissionDate: eu.admissionDate },
+        js, `${comp}-01`, ate, settingsDoBanco, feriadosSet,
+      )
+      porMes.set(comp, sp.saldoMin)
+    }
+    return creditosAVencer(
+      [...porMes].map(([competencia, saldoMin]) => ({ competencia, saldoMin })),
+      hojeLocalISO(),
+      parametros.bancoHorasMeses ?? cltSettings.bancoHorasMeses ?? MESES_DE_COMPENSACAO_PADRAO,
+    )
+  }, [eu, registros, mes, settingsDoBanco, feriadosSet, parametros, cltSettings])
+
   const proxima = proximaBatida(doDia)
   const IconeDoBotao = ICONE[proxima]
 
@@ -302,6 +373,38 @@ export function PontoPage() {
         </button>
       </div>
 
+      {/* ⚠️ As abas ficam no ALTO mas o conteúdo de "Bater" continua inteiro e primeiro: quem abre
+          esta tela abre para bater, e um passo a mais entre o polegar e o botão é um passo a mais
+          num aparelho no bolso do uniforme. */}
+      <div className="flex gap-1 rounded-xl border border-[#525252] bg-[#2c2c2c] p-1">
+        {([
+          ['bater', 'Bater', Clock],
+          ['mes', 'Meu mês', CalendarDays],
+          ['banco', 'Banco de horas', Scale],
+        ] as const).map(([id, rotulo, Icone]) => (
+          <button
+            key={id} type="button" onClick={() => setAba(id)}
+            className={cn(
+              'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[11px] font-medium transition-colors',
+              aba === id ? 'bg-[#f97316] text-white' : 'text-[#a3a3a3] hover:text-[#f5f5f5]',
+            )}
+          >
+            <Icone size={13} /> {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'mes' ? (
+        <MeuMes
+          mes={mes} setMes={setMes} jornadas={minhasJornadas}
+          semJanela={registros.length === 0}
+        />
+      ) : aba === 'banco' ? (
+        <MeuBanco mes={mes} setMes={setMes} saldo={saldo} aVencer={aVencer}
+                  mesesDeCompensacao={parametros.bancoHorasMeses ?? cltSettings.bancoHorasMeses ?? MESES_DE_COMPENSACAO_PADRAO} />
+      ) : (
+        <>
+
       <div className="text-center">
         <p className="text-4xl font-bold tabular-nums text-[#f5f5f5]">
           {agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -441,6 +544,9 @@ export function PontoPage() {
         </p>
       )}
 
+        </>
+      )}
+
       {/* ⚠️ O limite do offline, dito. Sem PWA o app não abre sem rede. */}
       <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">
         Deixe esta tela aberta se for trabalhar sem sinal: a batida é guardada no aparelho e enviada
@@ -454,6 +560,182 @@ function Moldura({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-4 p-4">
       {children}
+    </div>
+  )
+}
+
+// ─── Meu mês ──────────────────────────────────────────────────────────────────
+
+/**
+ * O histórico do próprio funcionário — "os horários que clicaram", nas palavras do cliente.
+ *
+ * ⚠️ É o MESMO motor do espelho do gestor (`jornadasDoPeriodo`). Uma segunda conta aqui faria os
+ * dois lerem números diferentes para a mesma jornada, e aí "quem está certo" vira discussão — que
+ * é exatamente o que um registro de ponto existe para evitar.
+ */
+function MeuMes({ mes, setMes, jornadas, semJanela }: {
+  mes: string
+  setMes: (v: string) => void
+  jornadas: ReturnType<typeof jornadasDoPeriodo>
+  semJanela: boolean
+}) {
+  const totalMin = jornadas.reduce((s, j) => s + j.minutosTrabalhados, 0)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <input
+        type="month" value={mes} onChange={(e) => setMes(e.target.value)} aria-label="Mês"
+        className="w-full rounded-xl border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+      />
+
+      {jornadas.length === 0 ? (
+        <p className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-3 py-6 text-center text-xs leading-5 text-[#a3a3a3]">
+          {semJanela
+            /* ⚠️ O aparelho guarda 100 dias. Um mês mais antigo que isso não existe aqui, e
+               mostrar "nenhuma batida" seria afirmar que a pessoa não trabalhou. */
+            ? 'Este aparelho ainda não tem batidas guardadas. Conecte-se para baixar o seu histórico.'
+            : 'Nenhuma batida registrada neste mês.'}
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-xl border border-[#525252] bg-[#2c2c2c]">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-[#525252] text-left text-[#a3a3a3]">
+                  <th className="px-2 py-1.5 font-medium">Dia</th>
+                  <th className="px-2 py-1.5 font-medium">Entrada</th>
+                  <th className="px-2 py-1.5 font-medium">Saída</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Interv.</th>
+                  <th className="px-2 py-1.5 text-right font-medium">Trab.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jornadas.map((j) => (
+                  <tr key={j.id} className="border-b border-[#3f3f3f] align-top">
+                    <td className="px-2 py-1.5 tabular-nums text-[#e5e5e5]">
+                      {j.data.slice(8, 10)}/{j.data.slice(5, 7)}
+                      {/* Cada batida da jornada, com o horário exato do toque. */}
+                      <span className="block text-[9px] text-[#6b6b6b]">
+                        {j.batidas.map((b) => hora(b.momentoDispositivo)).join(' · ')}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums text-[#d4d4d4]">{j.entrada ? hora(j.entrada.momentoDispositivo) : '—'}</td>
+                    <td className="px-2 py-1.5 tabular-nums text-[#d4d4d4]">{j.saida ? hora(j.saida.momentoDispositivo) : '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-[#a3a3a3]">{j.intervaloMin || '—'}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-[#f5f5f5]">
+                      {Math.floor(j.minutosTrabalhados / 60)}h{String(j.minutosTrabalhados % 60).padStart(2, '0')}
+                      {j.pendencias.length > 0 && (
+                        <span className="block text-[9px] font-normal text-[#fbbf24]">
+                          {j.pendencias.map((p) => TEXTO_DA_PENDENCIA[p]).join(' · ')}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-center text-[11px] text-[#a3a3a3]">
+            {jornadas.length} jornada(s) · <b className="text-[#f5f5f5]">
+              {Math.floor(totalMin / 60)}h{String(totalMin % 60).padStart(2, '0')}
+            </b> no mês
+          </p>
+        </>
+      )}
+      <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">
+        Encontrou algo errado? Avise o responsável — só ele corrige um registro de ponto, e a
+        marcação original nunca é apagada.
+      </p>
+    </div>
+  )
+}
+
+// ─── Banco de horas ───────────────────────────────────────────────────────────
+
+/**
+ * O saldo do mês e o crédito que está para vencer.
+ *
+ * ⚠️ **Isto é o que as SUAS BATIDAS mostram, não a folha.** Hora extra que a empresa paga é fechada
+ * no cálculo da folha, com adicional e regra de acordo coletivo; aqui é a diferença entre o
+ * trabalhado e o previsto pelo regime contratual. Dizer isso na tela evita a conversa mais cara que
+ * um banco de horas produz.
+ */
+function MeuBanco({ mes, setMes, saldo, aVencer, mesesDeCompensacao }: {
+  mes: string
+  setMes: (v: string) => void
+  saldo: ReturnType<typeof saldoDoPeriodo> | null
+  aVencer: ReturnType<typeof creditosAVencer>
+  mesesDeCompensacao: number
+}) {
+  const sinal = (min: number) => `${min >= 0 ? '+' : '−'}${Math.floor(Math.abs(min) / 60)}h${String(Math.abs(min) % 60).padStart(2, '0')}`
+
+  return (
+    <div className="flex flex-col gap-3">
+      <input
+        type="month" value={mes} onChange={(e) => setMes(e.target.value)} aria-label="Mês"
+        className="w-full rounded-xl border border-[#525252] bg-[#2c2c2c] px-3 py-2 text-sm text-[#f5f5f5] outline-none focus:border-[#f97316]/60"
+      />
+
+      {/* ⚠️ Diarista não tem banco, e dizer o motivo é melhor que mostrar zero. */}
+      {!saldo || saldo.semBanco ? (
+        <p className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-3 py-6 text-center text-xs leading-5 text-[#a3a3a3]">
+          {saldo?.semBanco ? TEXTO_SEM_PREVISTO[saldo.semBanco] : 'Sem dados para este mês.'}
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Cartao rotulo="Previsto" valor={`${Math.floor(saldo.previstoMin / 60)}h`} />
+            <Cartao rotulo="Trabalhado" valor={`${Math.floor(saldo.trabalhadoMin / 60)}h`} />
+            <Cartao
+              rotulo="Saldo" valor={sinal(saldo.saldoMin)}
+              tom={saldo.saldoMin >= 0 ? '#4ade80' : '#fca5a5'}
+            />
+          </div>
+
+          {saldo.diasIndefinidos > 0 && (
+            /* ⚠️ Dia com previsto desconhecido fica FORA da conta, e o número precisa dizer isso —
+               senão o saldo parece completo e não é. */
+            <p className="rounded-xl border border-[#525252] bg-[#333] px-3 py-2 text-[11px] leading-5 text-[#a3a3a3]">
+              {saldo.diasIndefinidos} dia(s) ficaram de fora da conta porque o sistema não sabe qual
+              era a jornada prevista.
+            </p>
+          )}
+
+          {aVencer.length > 0 && (
+            <div className="rounded-xl border border-[#eab308]/40 bg-[#eab308]/10 px-3 py-2.5 text-[11px] leading-5 text-[#fbbf24]">
+              <p className="flex items-center gap-1.5 font-semibold">
+                <AlertTriangle size={13} /> Crédito perto de vencer
+              </p>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {aVencer.map((c) => (
+                  <li key={c.competencia} className="flex justify-between tabular-nums">
+                    <span>{c.competencia.slice(5, 7)}/{c.competencia.slice(0, 4)}</span>
+                    <span>{sinal(c.minutos)} · até {c.venceEm.slice(8, 10)}/{c.venceEm.slice(5, 7)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[10px] leading-4">
+                Pelo art. 59 §5º da CLT o crédito deve ser compensado em {mesesDeCompensacao} meses.
+                Passado o prazo ele <b>não some</b> — vira hora extra a pagar.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
+      <p className="text-center text-[10px] leading-4 text-[#6b6b6b]">
+        Este é o saldo que as <b>suas batidas</b> mostram: trabalhado menos o previsto da sua
+        jornada. O que a empresa paga de hora extra é fechado na folha, com as regras do acordo.
+      </p>
+    </div>
+  )
+}
+
+function Cartao({ rotulo, valor, tom }: { rotulo: string; valor: string; tom?: string }) {
+  return (
+    <div className="rounded-xl border border-[#525252] bg-[#2c2c2c] px-2 py-2 text-center">
+      <p className="text-[10px] text-[#a3a3a3]">{rotulo}</p>
+      <p className="text-base font-bold tabular-nums" style={{ color: tom ?? '#f5f5f5' }}>{valor}</p>
     </div>
   )
 }

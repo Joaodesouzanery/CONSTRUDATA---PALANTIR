@@ -146,6 +146,28 @@ UPDATE do autor — sem a qual o reenvio de uma batida cujo ACK se perdeu devolv
 porque todo insert do `storeSync` é `upsert` —, e a coluna `divergencia_relogio_s`. Tudo com
 `if not exists` / `drop ... if exists`: reaplicar é seguro.
 
+### 🆕 23/09/2026 — `20260923120000_ponto_meu_contexto` (**depois** das três acima)
+
+⚠️ **Sem ela o ponto continua funcionando** — mas com dois números errados e silenciosos no celular
+do funcionário.
+
+A cerca de leitura do colaborador (`20260918160000`) varre toda tabela com RLS e devolve vazio,
+menos sete exceções. Duas tabelas que a tela do ponto precisa caíram na varredura:
+
+| tabela | o que se perde | efeito no celular |
+|---|---|---|
+| `clt_settings` | `raioPontoPadraoM`, `toleranciaPontoMin`, `maxWeeklyHours`, `bancoHorasMeses` | o raio padrão da empresa **não chega**: a cerca cai sempre nos 5 km do código, e baixar para 300 m num canteiro não tem efeito no aparelho de quem bate |
+| `plan_holidays` | os feriados | o banco de horas trata **7 de setembro como dia útil devedor** — o saldo sai errado para MENOS, no número que o funcionário usa para conferir se está sendo pago direito |
+
+**Por que uma RPC e não abrir as duas tabelas.** Tirar `clt_settings` da varredura devolveria o
+payload inteiro: tabelas de INSS e IRRF, RAT/FAP, percentuais de VA/VT e o teto de custo de RH. Nada
+disso é da conta de quem bate o ponto — e a cerca existe justamente para isso. A função devolve
+**quatro números e uma lista de datas**, é `security definer` com `search_path` fixo, não recebe
+parâmetro e lê sempre a organização de quem chamou.
+
+A migração termina com um `raise notice` conferindo que a função responde. Reaplicar é seguro
+(`create or replace`).
+
 ### `20260829120000_auditoria_generica` — quem criou, quem alterou, quem apagou
 
 Liga a auditoria em **toda tabela de negócio**: gatilho genérico gravando na `audit_log` (que já

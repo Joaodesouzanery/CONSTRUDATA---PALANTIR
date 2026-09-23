@@ -124,7 +124,9 @@ test('🔴 trocar de empresa LIMPA o cadastro; recarregar sem sinal o MANTÉM', 
 
 test('🔴 o raio efetivo é obra → empresa → 5 km, nessa ordem', async () => {
   const tela = await semComentario('./index.tsx')
-  assert.match(tela, /obra\?\.raioM \?\? cltSettings\.raioPontoPadraoM \?\? RAIO_PADRAO_M/,
+  // A ordem completa: obra → parâmetro que a RPC trouxe → store de mão de obra (só existe para
+  // gerente; o colaborador não o sincroniza) → a constante.
+  assert.match(tela, /obra\?\.raioM \?\? parametros\.raioPontoPadraoM \?\? cltSettings\.raioPontoPadraoM \?\? RAIO_PADRAO_M/,
     'a obra manda sobre o padrão da empresa, e o padrão sobre a constante — inverter faria o '
     + 'canteiro de 300 m voltar a aceitar batida a 5 km')
 })
@@ -160,4 +162,55 @@ test('🔴 a tela de Ajustes abre mesmo sem ninguém vinculado', async () => {
   assert.match(painel, /visao === 'parametros' \? <Parametros \/> : comPonto\.length === 0/,
     'é justamente onde se configura a cerca ANTES de o primeiro funcionário existir — o aviso de '
     + '"nenhum vínculo" bloqueava as quatro visões')
+})
+
+// ─── 🔴 O app do funcionário ──────────────────────────────────────────────────
+
+test('🔴 o histórico e o banco de horas usam O MESMO motor do espelho do gestor', async () => {
+  const tela = await semComentario('./index.tsx')
+  assert.match(tela, /jornadasDoPeriodo\(/, 'o mês do funcionário é a mesma conta do espelho')
+  assert.match(tela, /saldoDoPeriodo\(/)
+  // ⚠️ Uma segunda conta aqui faria funcionário e gestor lerem números diferentes para a MESMA
+  // jornada — e aí "quem está certo" vira discussão, que é o que o registro de ponto evita.
+  assert.doesNotMatch(tela, /minutosTrabalhados\s*=\s*|function\s+calcularSaldo/,
+    'nada de recalcular jornada dentro da tela')
+})
+
+test('🔴 `creditosAVencer` finalmente tem um chamador — o aviso do art. 59 §5º existia sem tela', async () => {
+  const tela = await semComentario('./index.tsx')
+  assert.match(tela, /creditosAVencer\(/,
+    'a função era testada e NENHUMA tela a chamava: o crédito vencia e virava hora extra a pagar '
+    + 'sem ninguém ser avisado')
+  assert.match(tela, /parametros\.bancoHorasMeses \?\? cltSettings\.bancoHorasMeses \?\? MESES_DE_COMPENSACAO_PADRAO/,
+    'o prazo vem da configuração antes da constante — acordo coletivo permite 12 meses')
+})
+
+// ─── 🔴 A RPC dos parâmetros e feriados ───────────────────────────────────────
+
+test('🔴 a RPC devolve SÓ os quatro parâmetros, nunca o payload de clt_settings', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const sql = await readFile(
+    new URL('../../../supabase/migrations/20260923120000_ponto_meu_contexto.sql', import.meta.url), 'utf8')
+
+  assert.match(sql, /security definer/, 'precisa enxergar por cima da policy restritiva')
+  assert.match(sql, /set search_path = public/,
+    'função security definer sem search_path fixo pode resolver um nome para objeto plantado pelo '
+    + 'chamador em outro schema')
+  assert.match(sql, /grant execute on function public\.ponto_meu_contexto\(\) to authenticated/)
+
+  // ⚠️ O payload de `clt_settings` tem tabela de INSS/IRRF, RAT/FAP e o teto de custo de RH.
+  // Devolvê-lo inteiro seria furar a cerca de `20260918160000` por outra porta.
+  assert.doesNotMatch(sql, /'parametros',\s*s\.payload\b/)
+  for (const campo of ['raioPontoPadraoM', 'toleranciaPontoMin', 'maxWeeklyHours', 'bancoHorasMeses']) {
+    assert.ok(sql.includes(`'${campo}'`), `${campo} precisa estar na RPC`)
+  }
+  assert.match(sql, /user_org\(\)/, 'a organização vem de quem chamou, nunca de parâmetro')
+})
+
+test('🔴 a RPC falhando NÃO impede de bater o ponto', async () => {
+  const store = await semComentario('../../store/pontoStore.ts')
+  assert.match(store, /ctx\.error \? null : ctx\.data/,
+    'a migração é de aplicação manual: num banco onde ela ainda não rodou, o erro é 42883 e o '
+    + 'ponto tem de continuar funcionando com os padrões do código')
+  assert.doesNotMatch(store, /if \(ctx\.error\) \{ set\(\{ motivoSemCadastro: 'erro' \}\); return \}/)
 })

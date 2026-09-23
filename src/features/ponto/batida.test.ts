@@ -261,7 +261,9 @@ test('🔴 colaborador NÃO pode gerir ponto nem escrever em nenhum outro módul
 
 test('🔴 a fila NÃO é zerada ao trocar de empresa — batida offline não pode morrer', async () => {
   const src = await fonte('../../store/pontoStore.ts')
-  const clear = src.match(/clearData:\s*\(\)\s*=>\s*set\(\{([^}]*)\}\)/)
+  // ⚠️ `[\s\S]*?` e não `[^}]*`: o corpo do clearData tem objeto aninhado (`parametros: {}`),
+  // e parar no primeiro `}` fazia o teste não achar a função e falhar por engano.
+  const clear = src.match(/clearData:\s*\(\)\s*=>\s*set\(\{([\s\S]*?)\n\s*\}\)/)
   assert.ok(clear, 'clearData precisa existir')
   assert.ok(!clear![1].includes('pendingSync'),
     'zerar pendingSync no clearData apagaria a batida feita sem rede antes de ela subir')
