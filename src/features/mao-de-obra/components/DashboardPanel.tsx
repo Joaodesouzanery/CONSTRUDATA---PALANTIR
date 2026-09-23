@@ -6,8 +6,13 @@ import { computeRup, resolveRupTarget } from '../utils/produtividade'
 import { dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import { ClipboardCheck } from 'lucide-react'
 import { quinzenaAtual, deslocarQuinzena, avaliacaoNaQuinzena } from '../utils/quinzena'
-import { postosDescobertos } from '@/features/mao-de-obra/utils/coberturaDePostos'
+import { calcShiftHours } from '../utils/cltEngine'
 import { FaixaDeCusto } from './FaixaDeCusto'
+import { OQueE } from '@/components/shared/OQueE'
+import { usePontoStore } from '@/store/pontoStore'
+import { usePlanejamentoStore } from '@/store/planejamentoStore'
+import { jornadasDoPeriodo } from '@/features/ponto/jornada'
+import { montarIndicadoresDeMaoDeObra, type TomDoIndicador } from '../utils/painel360'
 
 const RUP_SEM_COLOR = { verde: '#22c55e', amarelo: '#f59e0b', vermelho: '#ef4444' } as const
 
@@ -42,140 +47,104 @@ function RupMiniCard({ period }: { period: 'última semana' | 'último mês' | '
 
 // ─── Bar Chart — Planned HH vs Actual HH per day (last 7 days) ───────────────
 
-function HHBarChart({ timecards, period }: { timecards: import('@/types').TimecardEntry[]; period: string }) {
-  const days: Array<{ label: string; actual: number }> = []
-
-  const periodDays = period === 'última semana' ? 7 : period === 'último mês' ? 30 : 30
-  const startDate = (() => {
-    const d = new Date()
-    if (period === 'este mês') { d.setDate(1); return dataLocalISO(d) }
-    d.setDate(d.getDate() - (periodDays - 1))
-    return dataLocalISO(d)
-  })()
-
-  const displayDays = Math.min(periodDays, period === 'este mês' ? new Date().getDate() : periodDays)
-  for (let i = displayDays - 1; i >= 0; i--) {
-    const d = new Date()
-    if (period === 'este mês') {
-      d.setDate(new Date().getDate() - i)
-    } else {
+/**
+ * HH planejado × realizado, por dia.
+ *
+ * ⚠️ **O planejado era inventado.** A linha era literalmente
+ * `plannedPerDay = Math.round(maxActual * 1.15)   // mock`, e a barra azul tinha **sempre altura
+ * cheia** — ou seja, o gráfico mostrava o realizado contra ele mesmo mais 15%, e chamava isso de
+ * meta. Agora o planejado é a soma das horas dos TURNOS lançados no dia (`calcShiftHours`), e o dia
+ * sem escala lançada **não desenha barra de planejado**: diz que não há escala.
+ *
+ * ⚠️ O título dizia "(7 dias)" fixo mesmo com o período em 30.
+ */
+function HHBarChart({ timecards, shifts, period }: {
+  timecards: import('@/types').TimecardEntry[]
+  shifts: import('@/types').Shift[]
+  period: string
+}) {
+  const dias = useMemo(() => {
+    const total = period === 'este mês' ? new Date().getDate() : period === 'última semana' ? 7 : 30
+    const out: Array<{ label: string; realizado: number; planejado: number | null }> = []
+    for (let i = total - 1; i >= 0; i--) {
+      const d = new Date()
       d.setDate(d.getDate() - i)
+      const iso = dataLocalISO(d)
+      // ⚠️ Turno de folga/feriado/ausente não é planejado de trabalho. `type` diz o que o turno é;
+      // `status` diz o que aconteceu com ele.
+      const doDia = shifts.filter((sh) => sh.date === iso
+        && sh.type !== 'day_off' && sh.type !== 'holiday'
+        && sh.status !== 'absent')
+      out.push({
+        label: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
+        realizado: timecards.filter((tc) => tc.date === iso).reduce((sum, tc) => sum + tc.hoursWorked, 0),
+        // `null` = ninguém lançou escala nesse dia. Diferente de zero.
+        planejado: doDia.length > 0 ? doDia.reduce((sum, sh) => sum + calcShiftHours(sh), 0) : null,
+      })
     }
-    const iso = dataLocalISO(d)
-    const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
-    const actual = timecards
-      .filter((tc) => tc.date === iso)
-      .reduce((sum, tc) => sum + tc.hoursWorked, 0)
-    days.push({ label, actual })
-  }
-  void startDate // used for filtering above
+    return out
+  }, [timecards, shifts, period])
 
-  // Planned HH per day (target: 8h × active workers in the day — use max observed as reference)
-  const maxActual = Math.max(...days.map((d) => d.actual), 1)
-  const plannedPerDay = Math.round(maxActual * 1.15)   // mock: planned is ~15% above actual average
-
-  const chartH = 120
+  const teto = Math.max(...dias.map((d) => Math.max(d.realizado, d.planejado ?? 0)), 1)
+  const alturaDoGrafico = 120
+  const semEscala = dias.every((d) => d.planejado == null)
 
   return (
-    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
-      <p className="text-[#f5f5f5] text-sm font-semibold mb-4">HH Planejado vs Realizado (7 dias)</p>
-      <div className="flex items-end gap-2 h-[120px]">
-        {days.map((day, i) => {
-          const actualH  = Math.round((day.actual   / plannedPerDay) * chartH)
-          const plannedH = chartH   // always full height for planned
-
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className="relative w-full flex items-end justify-center gap-0.5" style={{ height: chartH }}>
-                {/* planned bar */}
+    <div className="rounded-xl border border-[#525252] bg-[#3d3d3d] p-4">
+      <p className="mb-1 text-sm font-semibold text-[#f5f5f5]">
+        HH planejado × realizado ({period})
+      </p>
+      {semEscala && (
+        <p className="mb-3 text-[11px] leading-4 text-[#a3a3a3]">
+          Nenhum turno lançado no período — sem escala não há planejado, e inventar um número aqui
+          seria comparar o realizado com ele mesmo. Lance a escala em <b>Escala e Postos</b>.
+        </p>
+      )}
+      <div className="flex h-[120px] items-end gap-2">
+        {dias.map((dia, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <div className="relative flex w-full items-end justify-center gap-0.5" style={{ height: alturaDoGrafico }}>
+              {dia.planejado != null && (
                 <div
-                  className="w-[45%] rounded-sm bg-[#3b82f6]/25 border border-[#3b82f6]/40"
-                  style={{ height: plannedH }}
-                  title={`Planejado: ${plannedPerDay}h`}
+                  className="w-[45%] rounded-sm border border-[#3b82f6]/40 bg-[#3b82f6]/25"
+                  style={{ height: Math.max(2, Math.round((dia.planejado / teto) * alturaDoGrafico)) }}
+                  title={`Planejado: ${dia.planejado.toFixed(0)}h`}
                 />
-                {/* actual bar */}
-                <div
-                  className="w-[45%] rounded-sm"
-                  style={{
-                    height: Math.max(4, actualH),
-                    backgroundColor: actualH >= plannedH * 0.85 ? '#22c55e' : '#f59e0b',
-                  }}
-                  title={`Realizado: ${day.actual}h`}
-                />
-              </div>
-              <span className="text-[#adadad] text-[11px] truncate w-full text-center">{day.label}</span>
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex gap-4 mt-3">
-        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#3b82f6]/40 inline-block" />
-          Planejado
-        </span>
-        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#22c55e] inline-block" />
-          Realizado ≥ 85%
-        </span>
-        <span className="flex items-center gap-1.5 text-[#adadad] text-xs">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#f59e0b] inline-block" />
-          Realizado {'<'} 85%
-        </span>
-      </div>
-    </div>
-  )
-}
-
-// ─── Physical Progress Summary ────────────────────────────────────────────────
-
-function PhysicalProgressSummary({ progress }: { progress: import('@/types').PhysicalProgress[] }) {
-  // Group by activityName, sum planned/reported
-  const map = new Map<string, { planned: number; reported: number; unit: string }>()
-  for (const p of progress) {
-    const ex = map.get(p.activityName)
-    if (ex) {
-      ex.planned  += p.plannedQty
-      ex.reported += p.reportedQty
-    } else {
-      map.set(p.activityName, { planned: p.plannedQty, reported: p.reportedQty, unit: p.unit })
-    }
-  }
-
-  const rows = Array.from(map.entries())
-    .map(([name, v]) => ({ name, ...v, pct: v.planned > 0 ? Math.round((v.reported / v.planned) * 100) : 0 }))
-    .sort((a, b) => a.pct - b.pct)   // worst first
-    .slice(0, 6)
-
-  return (
-    <div className="bg-[#3d3d3d] border border-[#525252] rounded-xl p-4">
-      <p className="text-[#f5f5f5] text-sm font-semibold mb-3">Progresso Físico por Atividade</p>
-      <div className="flex flex-col gap-2">
-        {rows.map((row) => (
-          <div key={row.name} className="flex flex-col gap-0.5">
-            <div className="flex justify-between">
-              <span className="text-[#f5f5f5] text-xs truncate max-w-[60%]">{row.name}</span>
-              <span
-                className="text-xs font-medium"
-                style={{ color: row.pct >= 90 ? '#22c55e' : row.pct >= 70 ? '#f59e0b' : '#ef4444' }}
-              >
-                {row.reported}/{row.planned} {row.unit} ({row.pct}%)
-              </span>
-            </div>
-            <div className="h-1.5 bg-[#525252] rounded-full overflow-hidden">
+              )}
               <div
-                className="h-full rounded-full transition-all"
+                className="w-[45%] rounded-sm"
                 style={{
-                  width: `${Math.min(100, row.pct)}%`,
-                  backgroundColor: row.pct >= 90 ? '#22c55e' : row.pct >= 70 ? '#f59e0b' : '#ef4444',
+                  height: Math.max(2, Math.round((dia.realizado / teto) * alturaDoGrafico)),
+                  backgroundColor: dia.planejado == null ? '#6b7280'
+                    : dia.realizado >= dia.planejado * 0.85 ? '#22c55e' : '#f59e0b',
                 }}
+                title={`Realizado: ${dia.realizado.toFixed(0)}h`}
               />
             </div>
+            <span className="w-full truncate text-center text-[11px] text-[#adadad]">{dia.label}</span>
           </div>
         ))}
       </div>
+      <div className="mt-3 flex flex-wrap gap-4">
+        <span className="flex items-center gap-1.5 text-xs text-[#adadad]">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#3b82f6]/40" /> Planejado (turnos lançados)
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-[#adadad]">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#22c55e]" /> Realizado ≥ 85%
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-[#adadad]">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#f59e0b]" /> Realizado {'<'} 85%
+        </span>
+      </div>
     </div>
   )
 }
+
+/* ⚠️ `PhysicalProgressSummary` foi REMOVIDO em 23/09/2026.
+   Ele lia `maoDeObraStore.progress`, e **nenhuma tela chama `addProgress`** — o campo nem está no
+   `partialize`, então nascia vazio e sumia a cada F5. Era um cartão que nunca acendeu.
+   E progresso físico não é indicador de mão de obra: o equivalente alimentado é a produção do RDO,
+   que já entra pelo RUP e por `produtividadePorServico`. */
 
 // ─── Cert Expiry Table ────────────────────────────────────────────────────────
 
@@ -239,89 +208,101 @@ function CertExpiryTable({ workers }: { workers: import('@/types').Worker[] }) {
 
 // ─── New HR KPI cards ─────────────────────────────────────────────────────────
 
-function HRKpiCards() {
-  const { workers, shifts, absences, workPosts, timecards } = useMaoDeObraStore(
-    useShallow((s) => ({
-      workers:   s.workers,
-      shifts:    s.shifts,
-      absences:  s.absences,
-      workPosts: s.workPosts,
-      timecards: s.timecards,
-    }))
-  )
+/**
+ * Os indicadores 360 do módulo.
+ *
+ * ⚠️ Substituiu `HRKpiCards`, que tinha seis cartões e **três números errados**: "Certificações OK"
+ * marcava 100% fixo para sempre (o corte da função era o próprio instante, a lista voltava vazia
+ * por construção), "HE esta semana" somava turnos de escala em vez da coleção de horas extras que
+ * a aba usa, e o "% presença" misturava pessoas com pessoas-dia.
+ *
+ * ⚠️ A conta mora em `utils/painel360.ts`, puro e testado. Aqui só há tela — é o que permite
+ * afirmar, por teste, que nenhum indicador devolve `0` quando o certo é "não sei".
+ */
+function Indicadores360({ de, ate }: { de: string; ate: string }) {
+  const dados = useMaoDeObraStore(useShallow((s) => ({
+    workers: s.workers, absences: s.absences, shifts: s.shifts, timecards: s.timecards,
+    assessments: s.assessments, horasExtras: s.horasExtras, workPosts: s.workPosts,
+    cltSettings: s.cltSettings,
+  })))
+  const registros = usePontoStore(useShallow((s) => s.registros))
+  const solicitacoes = usePontoStore(useShallow((s) => s.solicitacoes))
+  const holidays = usePlanejamentoStore(useShallow((s) => s.holidays))
+  // ⚠️ A jornada semanal decide o que é DIA ÚTIL no denominador da frequência — e ela mora no
+  // Planejamento, não nas configurações CLT. É a mesma fonte que o Gestão 360 usa.
+  const jornadaSemanal = usePlanejamentoStore((s) => s.scheduleConfig.workWeekMode)
+  const setTab = useMaoDeObraStore((s) => s.setActiveTab)
 
-  const kpis = useMemo(() => {
-    const today     = hojeLocalISO()
-    const weekStart = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return dataLocalISO(d) })()
+  const feriados = useMemo(() => new Set((holidays ?? []).map((h) => h.date)), [holidays])
+  const jornadas = useMemo(() => jornadasDoPeriodo(registros, de, ate), [registros, de, ate])
+  // ⚠️ Doze meses, só para o crédito a vencer: a conta do art. 59 §5º é FIFO sobre competências
+  // mensais, e calculá-la com o recorte da tela daria sempre zero.
+  const jornadasDoAno = useMemo(() => {
+    const d = new Date(`${ate}T00:00:00`)
+    d.setFullYear(d.getFullYear() - 1)
+    return jornadasDoPeriodo(registros, d.toISOString().slice(0, 10), ate)
+  }, [registros, ate])
 
-    const active = workers.filter((w) => w.status === 'active').length
-    const total  = workers.length
-
-    const faltasSemana = absences.filter(
-      (a) => a.date >= weekStart && a.date <= today && a.type !== 'vacation',
-    ).length
-    const attendancePct = total > 0 ? Math.round(((total - faltasSemana) / total) * 100) : 100
-
-    const heShifts = shifts.filter((s) => s.type === 'overtime' && s.date >= weekStart && s.date <= today)
-    const heHours  = heShifts.reduce((sum, s) => {
-      const [sh, sm] = s.startTime.split(':').map(Number)
-      const [eh, em] = s.endTime.split(':').map(Number)
-      let h = (eh * 60 + em - sh * 60 - sm) / 60
-      if (h < 0) h += 24
-      return sum + Math.max(0, h - s.breakMinutes / 60)
-    }, 0)
-
-    // Esta conta ignorava o CARGO: dizia "coberto" com qualquer pessoa da frente, enquanto a
-    // matriz da aba Postos, olhando os mesmos dados, dizia "descoberto". Agora é a mesma regra.
-    const postosDesc = postosDescobertos(workPosts, today, shifts, workers)
-
-    // Aderência HH: actual vs planned ratio this week
-    const weekTimecards = timecards?.filter((tc: import('@/types').TimecardEntry) => tc.date >= weekStart && tc.date <= today) ?? []
-    const actualHH = weekTimecards.reduce((s: number, tc: import('@/types').TimecardEntry) => s + tc.hoursWorked, 0)
-    const plannedHH = active * 5 * 8   // 5 work days × 8h
-    const adherencePct = plannedHH > 0 ? Math.round((actualHH / plannedHH) * 100) : 100
-
-    // Certificações OK: workers with no expired certs
-    const expiring = getCertExpiringSoon(workers, 0) // already expired
-    const certOkCount = total - new Set(expiring.map((e: { worker: { id: string } }) => e.worker.id)).size
-    const certOkPct = total > 0 ? Math.round((certOkCount / total) * 100) : 100
-
-    return [
-      { label: 'Total Colaboradores', value: `${active} / ${total}`, sub: 'ativos / total',    color: '#3b82f6' },
-      { label: 'Faltas esta Semana',  value: String(faltasSemana),   sub: `${attendancePct}% presença`, color: faltasSemana === 0 ? '#22c55e' : faltasSemana <= 3 ? '#f59e0b' : '#ef4444' },
-      { label: 'HE esta Semana',      value: `${heHours.toFixed(1)}h`, sub: `${heShifts.length} turno(s)`, color: heHours === 0 ? '#22c55e' : heHours <= 20 ? '#f59e0b' : '#ef4444' },
-      { label: 'Postos Descobertos',  value: String(postosDesc),     sub: 'hoje',              color: postosDesc === 0 ? '#22c55e' : '#ef4444' },
-      { label: 'Aderência HH',        value: `${adherencePct}%`,     sub: `${actualHH.toFixed(0)}h / ${plannedHH}h planej.`, color: adherencePct >= 85 ? '#22c55e' : '#f59e0b' },
-      { label: 'Certificações OK',    value: `${certOkPct}%`,        sub: `${certOkCount} / ${total} funcionários`, color: certOkPct >= 90 ? '#22c55e' : certOkPct >= 70 ? '#f59e0b' : '#ef4444' },
-    ]
-  }, [workers, shifts, absences, workPosts, timecards])
+  const indicadores = useMemo(() => montarIndicadoresDeMaoDeObra({
+    ...dados, jornadas, jornadasDoAno, solicitacoes, feriados,
+    // A jornada semanal da empresa decide o que é dia útil no denominador da frequência.
+    jornadaSemanal,
+    de, ate, hoje: hojeLocalISO(),
+  }), [dados, jornadas, jornadasDoAno, solicitacoes, feriados, jornadaSemanal, de, ate])
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-      {kpis.map((kpi) => (
-        <div key={kpi.label} className="bg-[#3d3d3d] border border-[#525252] rounded-xl px-4 py-3">
-          <p className="text-[#adadad] text-xs mb-1">{kpi.label}</p>
-          <p className="text-[#f5f5f5] text-xl font-bold leading-tight" style={{ color: kpi.color }}>
-            {kpi.value}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
+      {indicadores.map((ind) => (
+        <button
+          key={ind.id} type="button"
+          onClick={() => { if (ind.destino) setTab(ind.destino as Parameters<typeof setTab>[0]) }}
+          disabled={!ind.destino}
+          className="rounded-xl border border-[#525252] bg-[#3d3d3d] px-4 py-3 text-left transition-colors hover:border-[#f97316]/40 disabled:cursor-default"
+        >
+          <span className="mb-1 flex items-start gap-1.5">
+            <span className="text-xs leading-4 text-[#adadad]">{ind.titulo}</span>
+            <OQueE titulo={ind.titulo} explicacao={ind.explicacao} className="mt-0.5" />
+          </span>
+          <p className="text-xl font-bold leading-tight" style={{ color: COR_DO_TOM[ind.tom] }}>
+            {ind.valor}
           </p>
-          <p className="text-[#adadad] text-xs mt-0.5">{kpi.sub}</p>
-        </div>
+          {ind.detalhe && <p className="mt-0.5 text-xs leading-4 text-[#adadad]">{ind.detalhe}</p>}
+          {/* ⚠️ Sem base, o cartão DIZ o que falta. Um card cinza mudo ensina a pessoa a ignorá-lo —
+              é a regra que o PainelIndicadores já impunha. */}
+          {ind.tom === 'sem-dado' && ind.explicacao.oQueFalta && (
+            <p className="mt-1 text-[10px] leading-4 text-[#8a8a8a]">{ind.explicacao.oQueFalta}</p>
+          )}
+        </button>
       ))}
     </div>
   )
 }
 
+/** `sem-dado` é cinza e NUNCA verde: verde afirma que está tudo certo, e o sistema não sabe. */
+const COR_DO_TOM: Record<TomDoIndicador, string> = {
+  ok: '#22c55e', atencao: '#f59e0b', grave: '#ef4444', 'sem-dado': '#9a9a9a',
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function DashboardPanel() {
-  const { workers, timecards, progress } = useMaoDeObraStore(
-    useShallow((s) => ({ workers: s.workers, timecards: s.timecards, progress: s.progress }))
+  const { workers, timecards, shifts } = useMaoDeObraStore(
+    useShallow((s) => ({ workers: s.workers, timecards: s.timecards, shifts: s.shifts }))
   )
 
   const [period, setPeriod] = useState<'última semana' | 'último mês' | 'este mês'>('última semana')
   const [filterDept, setFilterDept] = useState('')
 
   const depts = useMemo(() => [...new Set(workers.map((w) => w.department).filter(Boolean))], [workers])
+
+  /** O início do período escolhido na barra — os cartões acompanham o seletor, como o resto. */
+  const inicioDoPeriodo = useMemo(() => {
+    const d = new Date()
+    if (period === 'este mês') d.setDate(1)
+    else if (period === 'última semana') d.setDate(d.getDate() - 6)
+    else d.setDate(d.getDate() - 29)
+    return dataLocalISO(d)
+  }, [period])
 
   const filteredWorkers = useMemo(
     () => filterDept ? workers.filter((w) => w.department === filterDept) : workers,
@@ -349,7 +330,7 @@ export function DashboardPanel() {
         </select>
       </div>
 
-      <HRKpiCards />
+      <Indicadores360 de={inicioDoPeriodo} ate={hojeLocalISO()} />
 
       {/* A faixa de dinheiro. Três abas inteiras do módulo — Custo Mensal, Folha de Pagamento e
           RH Financeiro — não tinham um pixel aqui; o Dashboard não mostrava um único valor em
@@ -359,11 +340,8 @@ export function DashboardPanel() {
 
       <AvaliacoesDaQuinzena />
       <RupMiniCard period={period} />
-      <HHBarChart timecards={timecards} period={period} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PhysicalProgressSummary progress={progress} />
-        <CertExpiryTable workers={filteredWorkers} />
-      </div>
+      <HHBarChart timecards={timecards} shifts={shifts} period={period} />
+      <CertExpiryTable workers={filteredWorkers} />
     </div>
   )
 }

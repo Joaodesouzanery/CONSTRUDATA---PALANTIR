@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { Users, Clock, ShieldCheck, AlertTriangle, MapPin, Upload } from 'lucide-react'
+import { Users, ShieldCheck, AlertTriangle, MapPin, Upload } from 'lucide-react'
 import { useMaoDeObraStore, type MaoDeObraTab } from '@/store/maoDeObraStore'
 import { cn, dataLocalISO, hojeLocalISO } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -65,15 +65,11 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
       (a) => a.date >= weekStart && a.date <= today && a.type !== 'vacation',
     ).length
 
-    // Overtime shifts this week — sum hours approximation
-    const heShifts = shifts.filter((s) => s.type === 'overtime' && s.date >= weekStart && s.date <= today)
-    const heHours  = heShifts.reduce((sum, s) => {
-      const [sh, sm] = s.startTime.split(':').map(Number)
-      const [eh, em] = s.endTime.split(':').map(Number)
-      let h = (eh * 60 + em - sh * 60 - sm) / 60
-      if (h < 0) h += 24
-      return sum + Math.max(0, h - s.breakMinutes / 60)
-    }, 0)
+    // ⚠️ O cartão "HE esta Semana" SAIU daqui em 23/09/2026, e não por desenho: ele somava
+    // `shifts.type === 'overtime'` — turno de escala marcado como extra —, e a aba Horas Extras
+    // trabalha com a coleção `horasExtras`, que é onde a HE é lançada, valorada e marcada como
+    // paga. Eram dois números diferentes com o mesmo nome, e este aparecia nas onze abas.
+    // O número certo está no Dashboard, em "Horas extras a pagar", com o valor em reais.
 
     // Mesma regra da aba Postos e do Dashboard — antes esta ignorava o cargo.
     const postosDesc = postosDescobertos(workPosts, today, shifts, workers)
@@ -92,12 +88,6 @@ export function MaoDeObraHeader({ activeTab, onTabChange }: Props) {
         value: String(faltasSemana),
         icon:  AlertTriangle,
         color: faltasSemana === 0 ? '#22c55e' : faltasSemana <= 3 ? '#f59e0b' : '#ef4444',
-      },
-      {
-        label: 'HE esta Semana',
-        value: `${heHours.toFixed(1)}h`,
-        icon:  Clock,
-        color: heHours === 0 ? '#22c55e' : heHours <= 20 ? '#f59e0b' : '#ef4444',
       },
       {
         label: 'Postos Descobertos',
